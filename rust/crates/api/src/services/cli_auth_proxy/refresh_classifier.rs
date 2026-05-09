@@ -88,7 +88,7 @@ mod tests {
         let resp = response_with(503, "upstream down");
         match classify_refresh_failure(resp).await {
             RefreshErrorKind::Transient(msg) => assert!(msg.contains("503")),
-            other => panic!("expected Transient, got {other:?}"),
+            _ => panic!("expected transient classification for server error"),
         }
     }
 
@@ -99,7 +99,7 @@ mod tests {
         let resp = response_with(400, "<html><body>bad gateway</body></html>");
         match classify_refresh_failure(resp).await {
             RefreshErrorKind::Transient(_) => {}
-            other => panic!("non-JSON 400 must be Transient, got {other:?}"),
+            _ => panic!("non-JSON 400 must be transient"),
         }
     }
 
@@ -114,7 +114,7 @@ mod tests {
         let resp = response_with(400, "");
         match classify_refresh_failure(resp).await {
             RefreshErrorKind::Transient(_) => {}
-            other => panic!("empty body must be Transient, got {other:?}"),
+            _ => panic!("empty body must be transient"),
         }
     }
 
@@ -127,7 +127,7 @@ mod tests {
         let resp = response_with(400, &huge_cjk);
         match classify_refresh_failure(resp).await {
             RefreshErrorKind::Transient(msg) => assert!(msg.contains("400")),
-            other => panic!("CJK body must be Transient, got {other:?}"),
+            _ => panic!("CJK body must be transient"),
         }
     }
 }

@@ -187,6 +187,8 @@ jobs:
       DATABASE_URL: postgres://agentforge@localhost:5432/agentforge_test
     steps:
       - uses: actions/checkout@v4
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Install Rust toolchain
         working-directory: rust
         run: |

@@ -74,6 +74,15 @@ pub fn decrypt_base64(key: &[u8; 32], b64: &str) -> Result<String, CryptoError> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aes_gcm::aead::AeadCore;
+
+    fn test_key() -> [u8; 32] {
+        Aes256Gcm::generate_key(&mut OsRng).into()
+    }
+
+    fn test_iv() -> [u8; 12] {
+        Aes256Gcm::generate_nonce(&mut OsRng).into()
+    }
 
     // Manual framing helper — we deliberately don't use `encrypt_base64` to
     // build decrypt-test inputs, so a bug in the production encrypter can't
@@ -94,8 +103,8 @@ mod tests {
 
     #[test]
     fn decode_key_hex_accepts_64_hex_chars() {
-        let hex_key = "88996bccb1bc22152853d8ef4175823c7e456172ef1f00c29c719a4b40be0657";
-        assert_eq!(decode_key_hex(hex_key).unwrap().len(), 32);
+        let hex_key = hex::encode(test_key());
+        assert_eq!(decode_key_hex(&hex_key).unwrap().len(), 32);
     }
 
     #[test]
@@ -105,22 +114,22 @@ mod tests {
 
     #[test]
     fn decrypt_roundtrips_legacy_layout() {
-        let key = [7u8; 32];
-        let iv = [3u8; 12];
+        let key = test_key();
+        let iv = test_iv();
         let b64 = encrypt_legacy_layout(&key, &iv, "hello-world");
         assert_eq!(decrypt_base64(&key, &b64).unwrap(), "hello-world");
     }
 
     #[test]
     fn decrypt_rejects_short_input() {
-        let key = [7u8; 32];
+        let key = test_key();
         let short = BASE64.encode([0u8; 10]);
         assert!(matches!(decrypt_base64(&key, &short).unwrap_err(), CryptoError::CiphertextTooShort));
     }
 
     #[test]
     fn encrypt_decrypt_roundtrip() {
-        let key = [42u8; 32];
+        let key = test_key();
         let plain = "{\"auth.json\":\"hello-world\"}";
         let cipher_b64 = encrypt_base64(&key, plain).unwrap();
         assert_eq!(decrypt_base64(&key, &cipher_b64).unwrap(), plain);
@@ -130,8 +139,8 @@ mod tests {
 
     #[test]
     fn decrypt_rejects_tampered_tag() {
-        let key = [7u8; 32];
-        let iv = [3u8; 12];
+        let key = test_key();
+        let iv = test_iv();
         let b64 = encrypt_legacy_layout(&key, &iv, "payload");
         let mut bytes = BASE64.decode(&b64).unwrap();
         bytes[IV_LEN] ^= 0xFF; // flip a bit in the tag

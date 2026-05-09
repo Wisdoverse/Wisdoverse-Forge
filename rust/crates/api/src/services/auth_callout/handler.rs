@@ -489,6 +489,10 @@ mod tests {
         }
     }
 
+    fn test_password() -> String {
+        format!("p-{}", Uuid::new_v4())
+    }
+
     // ---- Test fixtures --------------------------------------------------------
 
     /// Full set of fresh keys for one test, plus the derived signing-keys
@@ -601,9 +605,10 @@ mod tests {
         let lookup = FakeLookup::default();
 
         let agent_id = Uuid::new_v4();
-        lookup.insert(agent_id, "secret").await;
+        let password = test_password();
+        lookup.insert(agent_id, &password).await;
 
-        let req = build_request_jwt(&fx, &agent_id.to_string(), "secret", 4242);
+        let req = build_request_jwt(&fx, &agent_id.to_string(), &password, 4242);
 
         let resp = handle_auth_request(&lookup, &fx.signing_keys, &tracker, req.as_bytes(), None).await;
 
@@ -631,7 +636,7 @@ mod tests {
         let agent_id = Uuid::new_v4();
         // Lookup intentionally empty — the agent does not exist.
 
-        let req = build_request_jwt(&fx, &agent_id.to_string(), "any-password", 1);
+        let req = build_request_jwt(&fx, &agent_id.to_string(), &test_password(), 1);
 
         let t0 = Instant::now();
         let resp = handle_auth_request(&lookup, &fx.signing_keys, &tracker, req.as_bytes(), None).await;
@@ -658,9 +663,11 @@ mod tests {
         let lookup = FakeLookup::default();
 
         let agent_id = Uuid::new_v4();
-        lookup.insert(agent_id, "expected").await;
+        let expected = test_password();
+        let wrong = test_password();
+        lookup.insert(agent_id, &expected).await;
 
-        let req = build_request_jwt(&fx, &agent_id.to_string(), "wrong-password", 1);
+        let req = build_request_jwt(&fx, &agent_id.to_string(), &wrong, 1);
 
         let t0 = Instant::now();
         let resp = handle_auth_request(&lookup, &fx.signing_keys, &tracker, req.as_bytes(), None).await;
@@ -696,7 +703,7 @@ mod tests {
         let tracker = ConnectionTracker::new();
         let lookup = FakeLookup::default();
 
-        let req = build_request_jwt(&fx, "not-a-uuid", "any-password", 1);
+        let req = build_request_jwt(&fx, "not-a-uuid", &test_password(), 1);
 
         let resp = handle_auth_request(&lookup, &fx.signing_keys, &tracker, req.as_bytes(), None).await;
 
@@ -721,7 +728,7 @@ mod tests {
         // Build any plausible plaintext (doesn't matter what — the open
         // fails before we ever parse it).
         let agent_id = Uuid::new_v4();
-        let plaintext_jwt = build_request_jwt(&fx, &agent_id.to_string(), "pw", 1);
+        let plaintext_jwt = build_request_jwt(&fx, &agent_id.to_string(), &test_password(), 1);
 
         // Encrypt to a fresh, unrelated local xkey rather than the handler's.
         let wrong_recipient = XKey::new();
@@ -750,9 +757,11 @@ mod tests {
         let lookup = FakeLookup::default();
 
         let agent_id = Uuid::new_v4();
-        lookup.insert(agent_id, "expected-pw").await;
+        let expected = test_password();
+        let wrong = test_password();
+        lookup.insert(agent_id, &expected).await;
 
-        let plaintext_jwt = build_request_jwt(&fx, &agent_id.to_string(), "wrong-pw", 1);
+        let plaintext_jwt = build_request_jwt(&fx, &agent_id.to_string(), &wrong, 1);
         let server_xkey_seed = fx.server_xkey.seed().expect("server xkey seed");
         let handler_xkey_pub = local_xkey_pub(&fx.signing_keys.xkey_seed);
         let ciphertext = xkey::seal(&server_xkey_seed, &handler_xkey_pub, plaintext_jwt.as_bytes()).expect("seal OK");
@@ -784,11 +793,13 @@ mod tests {
 
         // Pre-seed agent B so password_mismatch has something to compare.
         let agent_b = Uuid::new_v4();
-        lookup.insert(agent_b, "expected-pw").await;
+        let expected = test_password();
+        let wrong = test_password();
+        lookup.insert(agent_b, &expected).await;
 
         let unknown_agent = Uuid::new_v4();
-        let req_unknown = build_request_jwt(&fx, &unknown_agent.to_string(), "any-pw", 1);
-        let req_mismatch = build_request_jwt(&fx, &agent_b.to_string(), "wrong-pw", 2);
+        let req_unknown = build_request_jwt(&fx, &unknown_agent.to_string(), &test_password(), 1);
+        let req_mismatch = build_request_jwt(&fx, &agent_b.to_string(), &wrong, 2);
 
         // 10 samples each.  With 50-150ms uniform jitter the means should
         // sit around 100ms and differ by at most ~50ms empirically.  We
@@ -831,7 +842,7 @@ mod tests {
         lookup.set_error_mode(true).await;
 
         let agent_id = Uuid::new_v4();
-        let req = build_request_jwt(&fx, &agent_id.to_string(), "any-pw", 1);
+        let req = build_request_jwt(&fx, &agent_id.to_string(), &test_password(), 1);
 
         let resp = handle_auth_request(&lookup, &fx.signing_keys, &tracker, req.as_bytes(), None).await;
 
