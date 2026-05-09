@@ -1,0 +1,37 @@
+# syntax=docker/dockerfile:1.23
+FROM rust:1.95.0-bookworm AS chef
+RUN apt-get update && apt-get install -y musl-tools protobuf-compiler clang mold && rm -rf /var/lib/apt/lists/*
+RUN cargo install cargo-chef cargo-auditable --locked
+RUN rustup set profile minimal && rustup target add x86_64-unknown-linux-musl
+WORKDIR /app
+ENV RUSTFLAGS="-C link-arg=-fuse-ld=mold" \
+    RUSTUP_SKIP_UPDATE_CHECK=1
+
+FROM chef AS planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef AS builder
+COPY --from=planner /app/recipe.json recipe.json
+# Vendored sqlx fork — see Dockerfile server stage for context.
+COPY third_party third_party
+RUN --mount=type=cache,id=agentforge-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=agentforge-cargo-git,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,id=agentforge-orchestrator-target,target=/app/target \
+    cargo chef cook --release --target x86_64-unknown-linux-musl --recipe-path recipe.json --bin agentforge-orchestrator
+COPY . .
+RUN --mount=type=cache,id=agentforge-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=agentforge-cargo-git,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,id=agentforge-orchestrator-target,target=/app/target \
+    cargo auditable build --release --target x86_64-unknown-linux-musl --bin agentforge-orchestrator \
+    && cp /app/target/x86_64-unknown-linux-musl/release/agentforge-orchestrator /usr/local/bin/agentforge-orchestrator
+
+FROM alpine:3.21 AS runtime
+RUN apk --no-cache add ca-certificates curl
+RUN addgroup -S agentforge && adduser -S agentforge -G agentforge
+COPY --from=builder /usr/local/bin/agentforge-orchestrator /usr/local/bin/agentforge-orchestrator
+USER agentforge
+EXPOSE 4010
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -sf http://localhost:4010/health || exit 1
+ENTRYPOINT ["/usr/local/bin/agentforge-orchestrator"]

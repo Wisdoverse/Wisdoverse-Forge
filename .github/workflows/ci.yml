@@ -1,0 +1,271 @@
+# =============================================================================
+# Wisdoverse Forge GitHub CI Pipeline
+#
+# Runs quality gates for GitHub PRs and pushes.
+# Structure: validate (parallel) → test → build, security (parallel with all)
+#
+# Enterprise patterns:
+#   - Concurrency groups to auto-cancel superseded runs
+#   - DAG via needs/job dependencies for maximum parallelism
+#   - npm cache via actions/setup-node
+#   - Security scans run with zero dependencies (immediate start)
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # IMPORTANT: Keep NODE_VERSION in sync with Dockerfile Node build args.
+  NODE_VERSION: '24'
+
+jobs:
+  # ===========================================================================
+  # Stage: validate (parallel, fast-fail quality gates)
+  # ===========================================================================
+
+  eslint:
+    name: ESLint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+
+  prettier:
+    name: Prettier
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run format:check
+
+  typecheck:
+    name: Typecheck (Client)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run typecheck
+
+  version-guard:
+    name: Version Guard
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Check version consistency
+        run: |
+          set -eo pipefail
+          PR_VERSION=$(node -p "require('./package.json').version")
+          git fetch origin ${{ github.base_ref }} --depth=1
+          TARGET_VERSION=$(git show "origin/${{ github.base_ref }}:package.json" \
+            | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
+
+          echo "PR: $PR_VERSION | Target: $TARGET_VERSION"
+          if [ "$PR_VERSION" != "$TARGET_VERSION" ]; then
+            VJ_VERSION=$(node -p "require('./public/version.json').latest" 2>/dev/null || echo "MISSING")
+            if [ "$VJ_VERSION" = "$PR_VERSION" ]; then
+              echo "OK: Version bump via 'npm version' detected (version.json in sync)."
+              exit 0
+            fi
+            echo "ERROR: package.json version changed ($TARGET_VERSION -> $PR_VERSION) but version.json is out of sync."
+            echo "Use 'npm version <patch|minor|major>' instead of editing package.json directly."
+            exit 1
+          fi
+
+  # ===========================================================================
+  # Stage: test (after validate)
+  # ===========================================================================
+
+  unit-test:
+    name: Unit Tests
+    needs: [eslint, prettier, typecheck]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test:unit -- --reporter=default --reporter=junit --outputFile=junit-report.xml
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-report
+          path: junit-report.xml
+          retention-days: 7
+
+  integration-test:
+    name: Integration Tests
+    needs: [unit-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test:integration -- --reporter=default --reporter=junit --outputFile=junit-integration.xml
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-integration-report
+          path: junit-integration.xml
+          retention-days: 7
+
+  coverage:
+    name: Coverage Report
+    needs: [unit-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test:coverage
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+  rust-test:
+    name: Rust Tests
+    needs: [eslint, prettier, typecheck]
+    runs-on: ubuntu-latest
+    # Postgres service for #[sqlx::test]. Each test auto-provisions a
+    # throwaway DB against DATABASE_URL.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: agentforge
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: agentforge_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agentforge"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://agentforge@localhost:5432/agentforge_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        working-directory: rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup component add clippy rustfmt --toolchain stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - name: Check Rust formatting
+        working-directory: rust
+        run: cargo fmt --all -- --check
+      - name: Run Rust clippy
+        working-directory: rust
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Run Rust tests
+        working-directory: rust
+        run: cargo test --workspace
+
+  # ===========================================================================
+  # Stage: security (no dependencies — runs in parallel with everything)
+  # ===========================================================================
+
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - name: Audit dependencies
+        run: |
+          RESULT=$(npm audit --json 2>/dev/null || echo '{}')
+          CRITICAL=$(echo "$RESULT" | node -p "try{JSON.parse(require('fs').readFileSync(0,'utf8')).metadata?.vulnerabilities?.critical||0}catch{0}")
+          HIGH=$(echo "$RESULT" | node -p "try{JSON.parse(require('fs').readFileSync(0,'utf8')).metadata?.vulnerabilities?.high||0}catch{0}")
+          echo "Vulnerabilities — critical: $CRITICAL, high: $HIGH"
+          if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+            echo "ERROR: Critical/high vulnerabilities found"
+            npm audit --audit-level=high 2>&1 || true
+            exit 1
+          fi
+          echo "No critical/high vulnerabilities found"
+
+  dangerous-patterns:
+    name: Dangerous Pattern Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan for dangerous patterns
+        run: node scripts/check-dangerous-patterns.mjs
+
+  secret-scan:
+    name: Secret Leak Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan for secrets
+        run: node scripts/check-secret-scan.mjs
+
+  # ===========================================================================
+  # Stage: build (after validate + test)
+  # ===========================================================================
+
+  build-client:
+    name: Build Client
+    needs: [eslint, prettier, typecheck, unit-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build:client
+      - uses: actions/upload-artifact@v4
+        with:
+          name: client-dist
+          path: dist/
+          retention-days: 7

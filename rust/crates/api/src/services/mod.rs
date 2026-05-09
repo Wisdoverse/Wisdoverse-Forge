@@ -1,0 +1,56 @@
+//! Business logic services — validation, state machines, and orchestration.
+
+pub mod admin;
+pub mod agent;
+pub mod agent_commands;
+pub mod agent_workspace;
+pub mod analytics;
+pub mod api_key;
+pub mod attachment;
+pub mod audit;
+pub mod auth_callout;
+pub mod billing;
+pub mod cli_auth_proxy;
+pub mod cli_credential;
+pub mod context;
+pub mod context_envelope;
+pub mod context_governance;
+pub mod context_preview;
+pub mod context_resolver;
+pub mod credential_writer;
+pub mod dev_environment;
+pub mod email;
+pub mod event;
+pub mod evidence_projection;
+pub mod favorite;
+pub mod feature_flag;
+pub mod git_credential;
+pub mod group;
+pub mod license;
+pub mod mcp_agent;
+pub mod memory;
+pub mod orchestration;
+pub mod organization;
+pub mod plugin;
+pub mod project;
+pub mod prompt;
+pub mod prompt_library;
+pub mod quota;
+pub mod resource_member;
+pub mod resource_permission;
+pub mod resource_profile;
+pub mod runtime_capability_registry;
+pub mod setting;
+pub mod skill;
+pub mod ssh_key;
+pub mod task_context;
+pub mod team;
+pub mod tile;
+pub mod turn;
+pub mod usage_analytics;
+pub mod user;
+pub mod voice;
+pub mod workspace;
+
+#[cfg(test)]
+mod tests;

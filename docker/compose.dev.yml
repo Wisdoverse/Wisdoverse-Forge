@@ -1,0 +1,37 @@
+# =============================================================================
+# Wisdoverse Forge - Development Override
+# =============================================================================
+#
+# Thin overlay for dev-specific settings (Rust app runtime, local DB/Redis).
+# Always used together with compose.yml + --profile dev:
+#
+#   docker compose -f docker/compose.yml -f docker/compose.dev.yml --profile dev up --build
+#   # Or: make dev
+#
+# =============================================================================
+
+services:
+  agentforge-rust:
+    ports:
+      - '${BIND_ADDRESS:-0.0.0.0}:${AGENTFORGE_PORT:-4003}:4003'
+
+    environment:
+      - NODE_ENV=development
+      - ENVIRONMENT=development
+      - LOG_LEVEL=debug
+      - DATABASE_URL=postgres://agentforge:${POSTGRES_PASSWORD:-devpassword}@db:5432/agentforge
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379
+
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Orchestrator dev dependencies
+  orchestrator:
+    depends_on:
+      orchestrator-db:
+        condition: service_healthy
+      temporal:
+        condition: service_started

@@ -1,0 +1,205 @@
+# syntax=docker/dockerfile:1.23
+# =============================================================================
+# Wisdoverse Forge Agent Base Image
+#
+# Stable foundation layer: system deps, Rust sidecar, Rust buildx proxy plugin,
+# Wisdoverse Forge platform CLI, git platform CLIs, agent user, hooks,
+# entrypoint. Container CLI tools are installed in the overlay image
+# (Dockerfile.agent).
+#
+# Build: docker build -f docker/Dockerfile.agent-base -t agentforge-agent-base:latest .
+# =============================================================================
+
+# Build Arguments (configurable at build time)
+ARG NODE_VERSION=24
+
+# Stage: Plan cargo-chef recipe (isolated from source to avoid stub-source
+# contamination). chef-cook regenerates stub crates and rebuilds dependency
+# artefacts; those stub source trees must not leak into the real build stage.
+FROM rust:1.95.0-bookworm AS planner
+WORKDIR /build
+ENV RUSTUP_SKIP_UPDATE_CHECK=1
+RUN rustup set profile minimal && rustup target add x86_64-unknown-linux-musl
+RUN cargo install cargo-chef --locked
+COPY rust/ ./
+RUN cargo chef prepare --recipe-path recipe.json
+
+# Stage: Build Rust runtime binaries from the workspace. Dependencies cached via
+# cargo-chef cook, then real source is copied fresh so the final `cargo build`
+# sees the actual crates (not chef's skeleton stubs). BuildKit cache mounts
+# keep the cargo registry + `target/` between builds — incremental rebuilds
+# drop from ~10 min to ~30 s when only app code changes.
+FROM rust:1.95.0-bookworm AS runtime-builder
+RUN apt-get update && apt-get install -y musl-tools protobuf-compiler clang mold && rm -rf /var/lib/apt/lists/*
+RUN cargo install cargo-chef --locked
+WORKDIR /build
+ENV RUSTFLAGS="-C link-arg=-fuse-ld=mold" \
+    RUSTUP_SKIP_UPDATE_CHECK=1
+RUN rustup set profile minimal && rustup target add x86_64-unknown-linux-musl
+COPY --from=planner /build/recipe.json ./recipe.json
+# cargo-chef cook needs patch manifests at cook time (sqlx-nomysql fork).
+COPY --from=planner /build/third_party third_party
+RUN --mount=type=cache,id=agentforge-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=agentforge-cargo-git,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,id=agentforge-agent-base-target,target=/build/target \
+    cargo chef cook --release --target x86_64-unknown-linux-musl --recipe-path recipe.json \
+      --bin agentforge-sidecar --bin docker-buildx --bin agent-context-helper --bin agentforge
+COPY rust/ ./
+RUN --mount=type=cache,id=agentforge-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=agentforge-cargo-git,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,id=agentforge-agent-base-target,target=/build/target \
+    cargo build --release --target x86_64-unknown-linux-musl \
+      --bin agentforge-sidecar --bin docker-buildx --bin agent-context-helper --bin agentforge \
+    && mkdir -p /out \
+    && cp /build/target/x86_64-unknown-linux-musl/release/agentforge-sidecar /out/ \
+    && cp /build/target/x86_64-unknown-linux-musl/release/docker-buildx /out/ \
+    && cp /build/target/x86_64-unknown-linux-musl/release/agent-context-helper /out/ \
+    && cp /build/target/x86_64-unknown-linux-musl/release/agentforge /out/
+
+# Stage: Agent base image
+FROM node:${NODE_VERSION}-slim
+
+LABEL org.opencontainers.image.title="Wisdoverse Forge Agent Base" \
+      org.opencontainers.image.description="Base layer for agent containers: system deps, sidecar, Forge CLI, and platform CLIs" \
+      org.opencontainers.image.vendor="Wisdoverse Forge"
+
+# Match host user uid/gid so credential mounts are readable
+ARG AGENT_UID=1011
+ARG AGENT_GID=1012
+
+# Install system deps (tini provides a proper PID 1 init process)
+# Python 3.11 (Bookworm LTS, supported until 2027-10) for agent tool use
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git git-lfs curl bash ca-certificates openssh-client tini \
+    python3 python3-pip python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+# Docker CLI (static binary, no daemon) + Compose v2 plugin for DevEnv support.
+# Agent containers proxy docker commands through the sidecar.
+# China mirrors: pass --build-arg DOCKER_MIRROR=https://mirrors.aliyun.com/docker-ce
+#
+# Supply chain integrity: all external binaries are verified against pinned sha256
+# checksums before installation (SLSA Level 2). Update checksums when bumping versions.
+ARG DOCKER_MIRROR=https://download.docker.com
+ARG DOCKER_CLI_VERSION=27.5.1
+RUN ARCH="$(dpkg --print-architecture)" \
+    && if [ "$ARCH" = "amd64" ]; then \
+         DOCKER_ARCH="x86_64"; \
+         DOCKER_SHA256="4f798b3ee1e0140eab5bf30b0edc4e84f4cdb53255a429dc3bbae9524845d640"; \
+       else \
+         DOCKER_ARCH="aarch64"; \
+         DOCKER_SHA256="e6b53725a73763ab3f988c73f8772eaed429754c1a579db5ff11f21990fd1817"; \
+       fi \
+    && curl -fsSL "${DOCKER_MIRROR}/linux/static/stable/${DOCKER_ARCH}/docker-${DOCKER_CLI_VERSION}.tgz" \
+       -o /tmp/docker.tgz \
+    && echo "${DOCKER_SHA256}  /tmp/docker.tgz" | sha256sum -c - \
+    && tar xz --strip-components=1 -C /usr/local/bin -f /tmp/docker.tgz docker/docker \
+    && chmod +x /usr/local/bin/docker \
+    && rm /tmp/docker.tgz
+
+# GitHub proxy for fetching releases (Compose, gh CLI).
+# China: pass --build-arg GITHUB_PROXY=https://ghfast.top/
+# The proxy URL is prepended to the full GitHub URL.
+ARG GITHUB_PROXY=
+
+ARG COMPOSE_VERSION=2.32.4
+RUN ARCH="$(dpkg --print-architecture)" \
+    && if [ "$ARCH" = "amd64" ]; then \
+         COMPOSE_ARCH="x86_64"; \
+         COMPOSE_SHA256="ed1917fb54db184192ea9d0717bcd59e3662ea79db48bff36d3475516c480a6b"; \
+       else \
+         COMPOSE_ARCH="aarch64"; \
+         COMPOSE_SHA256="0c4591cf3b1ed039adcd803dbbeddf757375fc08c11245b0154135f838495a2f"; \
+       fi \
+    && mkdir -p /usr/local/lib/docker/cli-plugins \
+    && curl -fsSL "${GITHUB_PROXY}https://github.com/docker/compose/releases/download/v${COMPOSE_VERSION}/docker-compose-linux-${COMPOSE_ARCH}" \
+       -o /usr/local/lib/docker/cli-plugins/docker-compose \
+    && echo "${COMPOSE_SHA256}  /usr/local/lib/docker/cli-plugins/docker-compose" | sha256sum -c - \
+    && chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+# Install Wisdoverse Forge buildx CLI plugin — intercepts `docker buildx build` calls
+# from Compose v2 and routes them through the sidecar Docker proxy.
+COPY --from=runtime-builder /out/docker-buildx /usr/local/lib/docker/cli-plugins/docker-buildx
+RUN chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
+
+# Install git platform CLIs (GitHub CLI + GitLab CLI)
+# gh: deb from GitHub releases (avoids cli.github.com apt repo, mirrorable via GITHUB_PROXY)
+# glab: deb from GitLab generic package registry. Keep this pinned so agent-base
+# builds do not depend on release-list ordering or hang on the release redirect.
+ARG GH_CLI_VERSION=2.87.3
+ARG GLAB_CLI_VERSION=1.93.0
+RUN ARCH="$(dpkg --print-architecture)" \
+    && if [ "$ARCH" = "amd64" ]; then \
+         GH_SHA256="7c6d3b5ac88c897fb3ac0c8a479f4fb8083bd05a758fb8d3275642a93d20570d"; \
+         GLAB_SHA256="e5df04d929fad92ed4cc6ba8762fe7325afaafe3cd861b7fef02f3b7e933a678"; \
+       else \
+         GH_SHA256="c50d6f35d582c708bf76e5030c053a8866aeee43fe5b460806649e1ea9147993"; \
+         GLAB_SHA256="91341e72f41aa19d005cf0a0cf97029810909c0bb6381072f86c1ee8d41b327a"; \
+       fi \
+    && curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 120 \
+       "${GITHUB_PROXY}https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_${ARCH}.deb" \
+       -o /tmp/gh.deb \
+    && echo "${GH_SHA256}  /tmp/gh.deb" | sha256sum -c - \
+    && dpkg -i /tmp/gh.deb && rm /tmp/gh.deb \
+    && curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 120 \
+       "https://gitlab.com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/${GLAB_CLI_VERSION}/glab_${GLAB_CLI_VERSION}_linux_${ARCH}.deb" \
+       -o /tmp/glab.deb \
+    && echo "${GLAB_SHA256}  /tmp/glab.deb" | sha256sum -c - \
+    && dpkg -i /tmp/glab.deb && rm /tmp/glab.deb
+
+# Create non-root user with matching host UID/GID for credential mount permissions.
+# Set AGENT_UID/AGENT_GID at build time to match the host user owning credential files.
+# --non-unique allows reusing a GID/UID that already exists in the base image.
+RUN groupadd --non-unique --gid "$AGENT_GID" agent \
+    && useradd --non-unique --uid "$AGENT_UID" --gid "$AGENT_GID" -m -s /bin/bash agent
+
+# Copy sidecar binary from builder stage
+COPY --from=runtime-builder /out/agentforge-sidecar /usr/local/bin/agentforge-sidecar
+COPY --from=runtime-builder /out/agent-context-helper /usr/local/bin/agent-context-helper
+COPY --from=runtime-builder /out/agentforge /usr/local/bin/agentforge
+
+# Setup Wisdoverse Forge event relay hook (sends events to sidecar via UDS)
+COPY hooks/agentforge-relay-hook.cjs /home/agent/.agentforge/hooks/agentforge-relay-hook.cjs
+COPY hooks/templates/ /home/agent/.agentforge/hooks/templates/
+RUN chown -R agent:agent /home/agent/.agentforge
+
+# Copy agent harness (CLAUDE.md behavioral guide + slash commands)
+COPY docker/agent-harness/CLAUDE.md /home/agent/.agentforge/harness/CLAUDE.md
+COPY docker/agent-harness/commands/ /home/agent/.agentforge/harness/commands/
+RUN chown -R agent:agent /home/agent/.agentforge
+
+# Pre-create CLI credential directories with agent ownership.
+# When Docker mounts an empty named volume over these paths, it copies the
+# directory permissions from the image — ensuring the agent user can write.
+RUN mkdir -p /home/agent/.claude /home/agent/.gemini /home/agent/.codex \
+    /home/agent/.config/opencode /home/agent/.config/glab-cli \
+    /home/agent/.local/share/opencode \
+    && chown -R agent:agent /home/agent/.claude /home/agent/.gemini /home/agent/.codex /home/agent/.config /home/agent/.local
+
+# Pre-create skills directories for mount targets
+RUN mkdir -p /home/agent/.agentforge/skills/global /home/agent/.agentforge/skills/project \
+    && chown -R agent:agent /home/agent/.agentforge
+
+# Setup workspace directory
+RUN mkdir -p /workspace && chown agent:agent /workspace
+
+COPY docker/scripts/agent-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=10s \
+    CMD kill -0 1 && (test ! -f /tmp/session.env || test -S /tmp/agentforge-relay.sock) || exit 1
+
+USER agent
+
+# User-local npm prefix so `npm install -g` works without root.
+# /usr/local/bin stays root-owned — agent cannot overwrite node, git, sidecar, etc.
+RUN mkdir -p /home/agent/.npm-global \
+    && npm config set prefix /home/agent/.npm-global
+ENV PATH="/home/agent/.npm-global/bin:${PATH}"
+
+WORKDIR /workspace
+
+# tini -g: proper PID 1 init that forwards signals to entire process group.
+# This ensures sidecar and CLI both receive SIGTERM on `docker stop`, allowing
+# the sidecar to flush its WAL buffer before exit.
+ENTRYPOINT ["tini", "-g", "--", "/entrypoint.sh"]

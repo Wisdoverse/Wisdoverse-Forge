@@ -1,0 +1,25 @@
+FROM alpine:3.21 AS runtime-base
+RUN apk --no-cache add ca-certificates curl
+RUN addgroup -S agentforge && adduser -S agentforge -G agentforge
+
+FROM runtime-base AS server-runtime
+COPY docker-artifacts/rust/agentforge-server /usr/local/bin/agentforge-server
+COPY rust/crates/db/migrations /opt/agentforge/migrations
+USER agentforge
+EXPOSE 4003
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -sf http://localhost:4003/health || exit 1
+ENTRYPOINT ["/usr/local/bin/agentforge-server"]
+
+FROM runtime-base AS sidecar-runtime
+COPY docker-artifacts/rust/agentforge-sidecar /usr/local/bin/agentforge-sidecar
+USER agentforge
+ENTRYPOINT ["/usr/local/bin/agentforge-sidecar"]
+
+FROM runtime-base AS orchestrator-runtime
+COPY docker-artifacts/rust/agentforge-orchestrator /usr/local/bin/agentforge-orchestrator
+USER agentforge
+EXPOSE 4010
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -sf http://localhost:4010/health || exit 1
+ENTRYPOINT ["/usr/local/bin/agentforge-orchestrator"]

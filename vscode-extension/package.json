@@ -1,0 +1,169 @@
+{
+  "name": "wisdoverse-forge-orchestrator",
+  "displayName": "Wisdoverse Forge R&D Orchestrator",
+  "description": "Task board, reviews, and real-time notifications for the Wisdoverse Forge R&D Orchestrator",
+  "version": "0.1.0",
+  "publisher": "wisdoverse",
+  "license": "LicenseRef-Wisdoverse-Forge-BSL-1.1",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "orchestrator",
+          "title": "Orchestrator",
+          "icon": "$(rocket)"
+        }
+      ]
+    },
+    "views": {
+      "orchestrator": [
+        {
+          "id": "orchestrator.taskBoard",
+          "name": "Task Board"
+        },
+        {
+          "id": "orchestrator.reviews",
+          "name": "Reviews"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "orchestrator.refreshTasks",
+        "title": "Orchestrator: Refresh Tasks",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "orchestrator.refreshReviews",
+        "title": "Orchestrator: Refresh Reviews",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "orchestrator.viewTask",
+        "title": "Orchestrator: View Task Details"
+      },
+      {
+        "command": "orchestrator.transitionTask",
+        "title": "Orchestrator: Transition Task State"
+      },
+      {
+        "command": "orchestrator.approveReview",
+        "title": "Orchestrator: Approve Review"
+      },
+      {
+        "command": "orchestrator.rejectReview",
+        "title": "Orchestrator: Reject Review"
+      },
+      {
+        "command": "orchestrator.listWorkflows",
+        "title": "Orchestrator: List Workflows"
+      },
+      {
+        "command": "orchestrator.showDashboard",
+        "title": "Orchestrator: Show Dashboard Metrics"
+      },
+      {
+        "command": "orchestrator.login",
+        "title": "Orchestrator: Sign In"
+      },
+      {
+        "command": "orchestrator.logout",
+        "title": "Orchestrator: Sign Out"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "orchestrator.refreshTasks",
+          "when": "view == orchestrator.taskBoard",
+          "group": "navigation"
+        },
+        {
+          "command": "orchestrator.refreshReviews",
+          "when": "view == orchestrator.reviews",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "orchestrator.viewTask",
+          "when": "view == orchestrator.taskBoard && viewItem == task"
+        },
+        {
+          "command": "orchestrator.transitionTask",
+          "when": "view == orchestrator.taskBoard && viewItem == task"
+        },
+        {
+          "command": "orchestrator.approveReview",
+          "when": "view == orchestrator.reviews && viewItem == review-pending"
+        },
+        {
+          "command": "orchestrator.rejectReview",
+          "when": "view == orchestrator.reviews && viewItem == review-pending"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Orchestrator",
+      "properties": {
+        "orchestrator.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:4003",
+          "description": "Base URL of the R&D Orchestrator API server"
+        },
+        "orchestrator.wsUrl": {
+          "type": "string",
+          "default": "ws://localhost:4003",
+          "description": "WebSocket URL of the R&D Orchestrator server"
+        },
+        "orchestrator.autoRefreshInterval": {
+          "type": "number",
+          "default": 30,
+          "minimum": 5,
+          "description": "Auto-refresh interval in seconds (minimum 5)"
+        },
+        "orchestrator.oidc.authority": {
+          "type": "string",
+          "default": "",
+          "description": "OIDC authority URL for authentication"
+        },
+        "orchestrator.oidc.clientId": {
+          "type": "string",
+          "default": "",
+          "description": "OIDC client ID"
+        },
+        "orchestrator.notifications.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable real-time WebSocket notifications"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "package": "npx @vscode/vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}

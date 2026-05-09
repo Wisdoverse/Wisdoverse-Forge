@@ -1,0 +1,38 @@
+{
+  "defaultAction": "SCMP_ACT_ALLOW",
+  "syscalls": [
+    {
+      "names": [
+        "mount",
+        "umount2",
+        "ptrace",
+        "reboot",
+        "kexec_load",
+        "kexec_file_load",
+        "swapon",
+        "swapoff",
+        "bpf",
+        "userfaultfd",
+        "keyctl",
+        "add_key",
+        "request_key",
+        "init_module",
+        "finit_module",
+        "delete_module",
+        "unshare",
+        "setns",
+        "pivot_root",
+        "ioperm",
+        "iopl",
+        "clock_settime",
+        "settimeofday",
+        "adjtimex",
+        "acct",
+        "personality",
+        "vhangup"
+      ],
+      "action": "SCMP_ACT_ERRNO",
+      "errnoRet": 1
+    }
+  ]
+}

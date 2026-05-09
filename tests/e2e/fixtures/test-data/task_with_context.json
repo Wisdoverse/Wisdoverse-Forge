@@ -1,0 +1,21 @@
+{
+  "id": "task-context-fixture",
+  "groupId": "grp-1",
+  "state": "working",
+  "method": "tasks/send",
+  "params": {
+    "task": "Reuse approved deployment context",
+    "message": ""
+  },
+  "assignedTo": "agent-context",
+  "assignedAgentName": "Codex",
+  "priority": "normal",
+  "progress": 25,
+  "createdAt": "2026-05-06T00:00:00.000Z",
+  "updatedAt": "2026-05-06T00:05:00.000Z",
+  "contextCounts": {
+    "appliedMemories": 2,
+    "appliedSkills": 1,
+    "total": 3
+  }
+}

@@ -1,0 +1,85 @@
+# Wisdoverse Forge Platform Alerting Rules
+# Load via Prometheus config: rule_files: ['alerts.yml']
+
+groups:
+  - name: agentforge_platform
+    rules:
+      - alert: PlatformMemoryHigh
+        expr: >
+          container_memory_usage_bytes{name="agentforge-platform"}
+          / container_spec_memory_limit_bytes{name="agentforge-platform"} > 0.80
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Platform service memory usage >80% for 2 minutes'
+          description: 'agentforge-platform at {{ $value | humanizePercentage }} memory. Consider increasing PLATFORM_MEMORY_LIMIT.'
+
+      - alert: PlatformCPUSaturated
+        expr: rate(container_cpu_usage_seconds_total{name="agentforge-platform"}[5m]) > 1.8
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Platform service CPU >90% of 2-core limit for 3 minutes'
+          description: 'CPU rate {{ $value }}. Consider increasing PLATFORM_CPU_LIMIT.'
+
+      - alert: NATSPublishFailureRate
+        expr: rate(platform_nats_publish_failures_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'NATS publish failures >6/min sustained for 2 minutes'
+          description: 'Failure rate {{ $value }}/s. Check NATS health and platform CPU.'
+
+      - alert: CliAuthProxyInvalidClientFailures
+        expr: >
+          sum by (cli_tool) (
+            increase(credential_refresh_errors_total{reason="invalid_client"}[10m])
+          ) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: cli-auth-proxy
+        annotations:
+          summary: 'CLI auth proxy OAuth app rejected for {{ $labels.cli_tool }}'
+          description: 'The OAuth provider rejected the configured client_id/client_secret. This is an operator-owned invalid_client failure, not a user credential problem.'
+          runbook: docs/runbooks/credential-sync.md#cli-auth-proxy-invalid-client
+
+      - alert: SessionAutoRestartFailures
+        expr: rate(platform_session_auto_restarts_total{result="failed"}[10m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Session auto-restart failures sustained for 5 minutes'
+          description: 'Failed restarts at {{ $value }}/s. Containers may be OOM-killed.'
+
+      - alert: SessionEvictionRate
+        expr: rate(platform_session_evictions_total[10m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Container eviction rate sustained for 5 minutes'
+          description: 'Eviction rate {{ $value }}/s. Check container resource limits.'
+
+      - alert: DevEnvBuildkitRecoveryFailures
+        expr: >
+          rate(platform_devenv_buildkit_recovery_total{result=~"cleanup_failed|retry_failed|skipped_unowned"}[10m]) > 0.02
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'DevEnv BuildKit recovery failures detected'
+          description: 'Recovery failure rate {{ $value }}/s. Check buildkit helper ownership, docker daemon state, and session resource pressure.'
+
+      - alert: ContainerMemoryPressure
+        expr: platform_container_memory_usage_ratio > 0.90
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Agent container {{ $labels.session_id }} memory >90% for 3 minutes'
+          description: 'At {{ $value | humanizePercentage }}. May be OOM-killed soon.'

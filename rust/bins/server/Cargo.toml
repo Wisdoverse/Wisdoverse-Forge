@@ -1,0 +1,32 @@
+[package]
+name = "agentforge-server"
+version = "0.1.0"
+edition.workspace = true
+license-file.workspace = true
+
+[[bin]]
+name = "agentforge-server"
+path = "src/main.rs"
+
+[dependencies]
+agentforge-core.workspace = true
+agentforge-db.workspace = true
+agentforge-api.workspace = true
+agentforge-auth.workspace = true
+agentforge-infra.workspace = true
+agentforge-llm.workspace = true
+agentforge-platform.workspace = true
+agentforge-jobs.workspace = true
+async-nats.workspace = true
+axum.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+sqlx.workspace = true
+metrics-exporter-prometheus.workspace = true
+secrecy.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+agentforge-api = { path = "../../crates/api", features = ["test-support"] }

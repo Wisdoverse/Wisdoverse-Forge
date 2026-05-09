@@ -1,0 +1,29 @@
+[package]
+name = "agentforge-core"
+version = "0.1.0"
+edition.workspace = true
+license-file.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+tracing.workspace = true
+metrics.workspace = true
+config.workspace = true
+validator.workspace = true
+axum = { workspace = true }
+sqlx.workspace = true
+hmac.workspace = true
+sha2.workspace = true
+hex.workspace = true
+aes-gcm.workspace = true
+base64.workspace = true
+secrecy.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
+temp-env = { workspace = true }

@@ -1,0 +1,144 @@
+syntax = "proto3";
+
+package platform;
+
+option go_package = "agentforge/platform/proto";
+
+import "common.proto";
+
+service DockerService {
+  rpc CreateContainer(CreateContainerRequest) returns (CreateContainerResponse);
+  rpc StartContainer(ContainerIdRequest) returns (Empty);
+  rpc StopContainer(StopContainerRequest) returns (Empty);
+  rpc RemoveContainer(RemoveContainerRequest) returns (Empty);
+  rpc ExecInContainer(ExecRequest) returns (ExecResponse);
+  rpc GetContainerLogs(LogsRequest) returns (stream LogChunk);
+  rpc InspectContainer(ContainerIdRequest) returns (ContainerInfo);
+  rpc ListContainers(ListContainersRequest) returns (ListContainersResponse);
+}
+
+message ContainerIdRequest {
+  string container_id = 1;
+}
+
+message CreateContainerRequest {
+  string image = 1;
+  string name = 2;
+  map<string, string> labels = 3;
+  map<string, string> env = 4;
+  repeated Mount mounts = 5;
+  ResourceLimits resources = 6;
+  NetworkConfig network = 7;
+  SecurityConfig security = 8;
+  string working_dir = 9;
+  repeated string cmd = 10;
+  string user = 11;
+  bool tty = 12;
+}
+
+message Mount {
+  string source = 1;
+  string target = 2;
+  bool read_only = 3;
+  string type = 4; // bind, volume, tmpfs
+}
+
+message ResourceLimits {
+  int64 memory_bytes = 1;
+  int64 memory_swap_bytes = 2;
+  int64 nano_cpus = 3;
+  int32 pids_limit = 4;
+  int64 storage_bytes = 5;
+}
+
+message NetworkConfig {
+  string network_name = 1;
+  repeated string dns = 2;
+  map<string, string> extra_hosts = 3;
+}
+
+message SecurityConfig {
+  repeated string cap_drop = 1;
+  repeated string cap_add = 2;
+  bool no_new_privileges = 3;
+  string seccomp_profile = 4;
+  bool read_only_rootfs = 5;
+}
+
+message CreateContainerResponse {
+  string container_id = 1;
+  repeated string warnings = 2;
+}
+
+message StopContainerRequest {
+  string container_id = 1;
+  int32 timeout_seconds = 2;
+}
+
+message RemoveContainerRequest {
+  string container_id = 1;
+  bool force = 2;
+  bool remove_volumes = 3;
+}
+
+message ExecRequest {
+  string container_id = 1;
+  repeated string cmd = 2;
+  string working_dir = 3;
+  map<string, string> env = 4;
+  bool tty = 5;
+}
+
+message ExecResponse {
+  int32 exit_code = 1;
+  bytes stdout = 2;
+  bytes stderr = 3;
+}
+
+message LogsRequest {
+  string container_id = 1;
+  bool follow = 2;
+  bool timestamps = 3;
+  string since = 4;
+  string until = 5;
+  int32 tail = 6;
+}
+
+message LogChunk {
+  enum Stream {
+    STDOUT = 0;
+    STDERR = 1;
+  }
+  Stream stream = 1;
+  bytes data = 2;
+  Timestamp timestamp = 3;
+}
+
+message ContainerInfo {
+  string id = 1;
+  string name = 2;
+  string image = 3;
+  string status = 4;
+  string state = 5;
+  Timestamp created = 6;
+  Timestamp started = 7;
+  map<string, string> labels = 8;
+  ResourceUsage resource_usage = 9;
+}
+
+message ResourceUsage {
+  double cpu_percent = 1;
+  int64 memory_bytes = 2;
+  int64 memory_limit = 3;
+  int64 network_rx_bytes = 4;
+  int64 network_tx_bytes = 5;
+}
+
+message ListContainersRequest {
+  map<string, string> label_filters = 1;
+  bool all = 2;
+}
+
+message ListContainersResponse {
+  repeated ContainerInfo containers = 1;
+}

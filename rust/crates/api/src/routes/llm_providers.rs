@@ -1,0 +1,525 @@
+//! LLM provider settings endpoints (nested under `/api/v1`).
+//!
+//! These routes expose the user-owned `user_llm_configs` table to the Settings
+//! UI without serializing stored API keys.
+
+use axum::extract::{Path, State};
+use axum::routing::get;
+use axum::{Json, Router};
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use sqlx::FromRow;
+use uuid::Uuid;
+
+use agentforge_auth::AuthUser;
+use agentforge_core::{AppResult, ErrorKind, crypto};
+
+use crate::health::AppState;
+
+const VALID_PROVIDERS: &[&str] =
+    &["anthropic", "openai", "google", "ollama", "groq", "deepseek", "xai", "openrouter", "together", "fireworks"];
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProviderModelInfo {
+    model: &'static str,
+    display_name: &'static str,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProviderInfo {
+    provider: &'static str,
+    display_name: &'static str,
+    models: Vec<ProviderModelInfo>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LlmProviderConfigResponse {
+    id: Uuid,
+    provider: String,
+    display_name: String,
+    model: String,
+    base_url: Option<String>,
+    api_key_prefix: Option<String>,
+    priority: i32,
+    is_enabled: bool,
+    is_default: bool,
+}
+
+#[derive(Debug, Clone, FromRow)]
+struct LlmProviderRow {
+    id: Uuid,
+    provider: String,
+    model: Option<String>,
+    display_name: Option<String>,
+    base_url: Option<String>,
+    api_key_prefix: Option<String>,
+    is_enabled: Option<bool>,
+    is_default: Option<bool>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateProviderRequest {
+    pub provider: String,
+    pub display_name: Option<String>,
+    pub model: String,
+    pub api_key: String,
+    pub base_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateProviderRequest {
+    pub display_name: Option<String>,
+    pub model: Option<String>,
+    pub api_key: Option<String>,
+    pub base_url: Option<String>,
+    pub is_enabled: Option<bool>,
+}
+
+fn provider_display_name(provider: &str) -> &'static str {
+    match provider {
+        "anthropic" => "Anthropic",
+        "openai" => "OpenAI",
+        "google" => "Google",
+        "ollama" => "Ollama",
+        "groq" => "Groq",
+        "deepseek" => "DeepSeek",
+        "xai" => "xAI",
+        "openrouter" => "OpenRouter",
+        "together" => "Together AI",
+        "fireworks" => "Fireworks AI",
+        _ => "Custom",
+    }
+}
+
+fn supported_provider_list() -> Vec<ProviderInfo> {
+    vec![
+        ProviderInfo {
+            provider: "anthropic",
+            display_name: "Anthropic",
+            models: vec![
+                ProviderModelInfo { model: "claude-sonnet-4-20250514", display_name: "Claude Sonnet 4" },
+                ProviderModelInfo { model: "claude-sonnet-4-6", display_name: "Claude Sonnet 4.6" },
+            ],
+        },
+        ProviderInfo {
+            provider: "openai",
+            display_name: "OpenAI",
+            models: vec![
+                ProviderModelInfo { model: "gpt-5.5", display_name: "GPT-5.5" },
+                ProviderModelInfo { model: "gpt-5.4", display_name: "GPT-5.4" },
+            ],
+        },
+        ProviderInfo {
+            provider: "google",
+            display_name: "Google",
+            models: vec![ProviderModelInfo { model: "gemini-2.5-pro", display_name: "Gemini 2.5 Pro" }],
+        },
+        ProviderInfo {
+            provider: "ollama",
+            display_name: "Ollama",
+            models: vec![ProviderModelInfo { model: "llama3", display_name: "Llama 3" }],
+        },
+        ProviderInfo {
+            provider: "groq",
+            display_name: "Groq",
+            models: vec![ProviderModelInfo { model: "llama-3.3-70b-versatile", display_name: "Llama 3.3 70B" }],
+        },
+        ProviderInfo {
+            provider: "deepseek",
+            display_name: "DeepSeek",
+            models: vec![ProviderModelInfo { model: "deepseek-chat", display_name: "DeepSeek Chat" }],
+        },
+        ProviderInfo {
+            provider: "xai",
+            display_name: "xAI",
+            models: vec![ProviderModelInfo { model: "grok-3-mini", display_name: "Grok 3 Mini" }],
+        },
+        ProviderInfo {
+            provider: "openrouter",
+            display_name: "OpenRouter",
+            models: vec![ProviderModelInfo { model: "openai/gpt-4o-mini", display_name: "OpenAI GPT-4o Mini" }],
+        },
+        ProviderInfo {
+            provider: "together",
+            display_name: "Together AI",
+            models: vec![ProviderModelInfo { model: "openai/gpt-oss-20b", display_name: "GPT OSS 20B" }],
+        },
+        ProviderInfo {
+            provider: "fireworks",
+            display_name: "Fireworks AI",
+            models: vec![ProviderModelInfo {
+                model: "accounts/fireworks/models/qwen3-30b-a3b",
+                display_name: "Qwen3 30B A3B",
+            }],
+        },
+    ]
+}
+
+fn clean_optional(value: Option<String>) -> Option<String> {
+    value.map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
+}
+
+fn validate_provider(provider: &str) -> AppResult<String> {
+    let provider = provider.trim().to_ascii_lowercase();
+    if !VALID_PROVIDERS.contains(&provider.as_str()) {
+        return Err(ErrorKind::Validation(format!("invalid provider '{provider}'")).into());
+    }
+    Ok(provider)
+}
+
+fn api_key_prefix(api_key: &str) -> String {
+    api_key.chars().take(8).collect()
+}
+
+fn response_from_row(row: LlmProviderRow, priority: i32) -> LlmProviderConfigResponse {
+    let provider = row.provider;
+    let display_name = row.display_name.unwrap_or_else(|| provider_display_name(provider.as_str()).to_string());
+
+    LlmProviderConfigResponse {
+        id: row.id,
+        provider,
+        display_name,
+        model: row.model.unwrap_or_default(),
+        base_url: row.base_url,
+        api_key_prefix: row.api_key_prefix,
+        priority,
+        is_enabled: row.is_enabled.unwrap_or(true),
+        is_default: row.is_default.unwrap_or(false),
+    }
+}
+
+async fn fetch_provider_row(state: &AppState, auth: &AuthUser, id: Uuid) -> AppResult<LlmProviderRow> {
+    sqlx::query_as::<_, LlmProviderRow>(
+        r#"SELECT id, provider, model, display_name, base_url, api_key_prefix, is_enabled, is_default
+           FROM user_llm_configs
+          WHERE id = $1 AND user_id = $2"#,
+    )
+    .bind(id)
+    .bind(auth.scope.user_id().as_uuid())
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or_else(|| ErrorKind::NotFound(format!("llm provider {id}")).into())
+}
+
+/// `GET /api/v1/llm-providers/supported` — static UI provider metadata.
+async fn get_supported_providers() -> Json<serde_json::Value> {
+    Json(json!({
+        "ok": true,
+        "providers": supported_provider_list(),
+    }))
+}
+
+/// `GET /api/v1/llm-providers` — list user provider configs.
+async fn list_providers(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
+    let rows = sqlx::query_as::<_, LlmProviderRow>(
+        r#"SELECT id, provider, model, display_name, base_url, api_key_prefix, is_enabled, is_default
+           FROM user_llm_configs
+          WHERE user_id = $1
+          ORDER BY COALESCE(is_default, false) DESC, updated_at DESC NULLS LAST, created_at DESC NULLS LAST"#,
+    )
+    .bind(auth.scope.user_id().as_uuid())
+    .fetch_all(&state.pool)
+    .await?;
+
+    let providers: Vec<_> = rows
+        .into_iter()
+        .enumerate()
+        .map(|(idx, row)| response_from_row(row, i32::try_from(idx + 1).unwrap_or(i32::MAX)))
+        .collect();
+
+    Ok(Json(json!({ "ok": true, "providers": providers })))
+}
+
+/// `POST /api/v1/llm-providers` — create a user provider config.
+async fn create_provider(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(req): Json<CreateProviderRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    let provider = validate_provider(&req.provider)?;
+    let model = req.model.trim();
+    if model.is_empty() {
+        return Err(ErrorKind::Validation("model is required".into()).into());
+    }
+
+    let api_key = req.api_key.trim();
+    if api_key.is_empty() {
+        return Err(ErrorKind::Validation("apiKey is required".into()).into());
+    }
+
+    let key = state.encryption_key.as_ref().ok_or_else(|| {
+        ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured - refusing to store plaintext API keys".into())
+    })?;
+    let encrypted_api_key = crypto::encrypt_base64(key, api_key)
+        .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encrypt llm provider api key failed: {err}")))?;
+
+    let exists = sqlx::query_scalar::<_, bool>(
+        r#"SELECT EXISTS (
+               SELECT 1
+                 FROM user_llm_configs
+                WHERE user_id = $1
+                  AND provider = $2
+                  AND model = $3
+           )"#,
+    )
+    .bind(auth.scope.user_id().as_uuid())
+    .bind(&provider)
+    .bind(model)
+    .fetch_one(&state.pool)
+    .await?;
+    if exists {
+        return Err(ErrorKind::Conflict("provider/model already exists".into()).into());
+    }
+
+    let should_be_default = sqlx::query_scalar::<_, bool>(
+        r#"SELECT NOT EXISTS (
+               SELECT 1
+                 FROM user_llm_configs
+                WHERE user_id = $1
+                  AND provider = $2
+                  AND COALESCE(is_default, false) = true
+           )"#,
+    )
+    .bind(auth.scope.user_id().as_uuid())
+    .bind(&provider)
+    .fetch_one(&state.pool)
+    .await?;
+
+    let display_name =
+        clean_optional(req.display_name).unwrap_or_else(|| provider_display_name(provider.as_str()).to_string());
+    let base_url = clean_optional(req.base_url);
+    let prefix = api_key_prefix(api_key);
+
+    let row = sqlx::query_as::<_, LlmProviderRow>(
+        r#"INSERT INTO user_llm_configs
+              (user_id, provider, model, display_name, base_url, api_key_prefix, encrypted_api_key, is_enabled, is_default, settings)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8, '{}'::jsonb)
+           RETURNING id, provider, model, display_name, base_url, api_key_prefix, is_enabled, is_default"#,
+    )
+    .bind(auth.scope.user_id().as_uuid())
+    .bind(provider)
+    .bind(model)
+    .bind(display_name)
+    .bind(base_url)
+    .bind(prefix)
+    .bind(encrypted_api_key)
+    .bind(should_be_default)
+    .fetch_one(&state.pool)
+    .await?;
+
+    Ok(Json(json!({ "ok": true, "provider": response_from_row(row, 1) })))
+}
+
+/// `PATCH /api/v1/llm-providers/{id}` — update non-secret metadata and optional API key.
+async fn update_provider(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+    Json(req): Json<UpdateProviderRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    let current = fetch_provider_row(&state, &auth, id).await?;
+    let model =
+        clean_optional(req.model).or(current.model).ok_or_else(|| ErrorKind::Validation("model is required".into()))?;
+    let display_name = clean_optional(req.display_name)
+        .or(current.display_name)
+        .unwrap_or_else(|| provider_display_name(current.provider.as_str()).to_string());
+    let base_url = clean_optional(req.base_url).or(current.base_url);
+    let is_enabled = req.is_enabled.unwrap_or(current.is_enabled.unwrap_or(true));
+
+    let encrypted_and_prefix = if let Some(api_key) =
+        req.api_key.as_deref().map(str::trim).filter(|value| !value.is_empty())
+    {
+        let key = state.encryption_key.as_ref().ok_or_else(|| {
+            ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured - refusing to store plaintext API keys".into())
+        })?;
+        let encrypted_api_key = crypto::encrypt_base64(key, api_key)
+            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encrypt llm provider api key failed: {err}")))?;
+        Some((encrypted_api_key, api_key_prefix(api_key)))
+    } else {
+        None
+    };
+
+    let row = if let Some((encrypted_api_key, prefix)) = encrypted_and_prefix {
+        sqlx::query_as::<_, LlmProviderRow>(
+            r#"UPDATE user_llm_configs
+                  SET model = $1,
+                      display_name = $2,
+                      base_url = $3,
+                      is_enabled = $4,
+                      encrypted_api_key = $5,
+                      api_key_prefix = $6,
+                      updated_at = now()
+                WHERE id = $7 AND user_id = $8
+            RETURNING id, provider, model, display_name, base_url, api_key_prefix, is_enabled, is_default"#,
+        )
+        .bind(model)
+        .bind(display_name)
+        .bind(base_url)
+        .bind(is_enabled)
+        .bind(encrypted_api_key)
+        .bind(prefix)
+        .bind(id)
+        .bind(auth.scope.user_id().as_uuid())
+        .fetch_one(&state.pool)
+        .await?
+    } else {
+        sqlx::query_as::<_, LlmProviderRow>(
+            r#"UPDATE user_llm_configs
+                  SET model = $1,
+                      display_name = $2,
+                      base_url = $3,
+                      is_enabled = $4,
+                      updated_at = now()
+                WHERE id = $5 AND user_id = $6
+            RETURNING id, provider, model, display_name, base_url, api_key_prefix, is_enabled, is_default"#,
+        )
+        .bind(model)
+        .bind(display_name)
+        .bind(base_url)
+        .bind(is_enabled)
+        .bind(id)
+        .bind(auth.scope.user_id().as_uuid())
+        .fetch_one(&state.pool)
+        .await?
+    };
+
+    Ok(Json(json!({ "ok": true, "provider": response_from_row(row, 1) })))
+}
+
+/// `DELETE /api/v1/llm-providers/{id}` — remove a user provider config.
+async fn delete_provider(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let result = sqlx::query("DELETE FROM user_llm_configs WHERE id = $1 AND user_id = $2")
+        .bind(id)
+        .bind(auth.scope.user_id().as_uuid())
+        .execute(&state.pool)
+        .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(ErrorKind::NotFound(format!("llm provider {id}")).into());
+    }
+
+    Ok(Json(json!({ "ok": true })))
+}
+
+/// `POST /api/v1/llm-providers/{id}/default` — mark provider as default for its provider key.
+async fn set_default_provider(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let current = fetch_provider_row(&state, &auth, id).await?;
+    let mut tx = state.pool.begin().await?;
+    sqlx::query(
+        r#"UPDATE user_llm_configs
+              SET is_default = false, updated_at = now()
+            WHERE user_id = $1 AND provider = $2"#,
+    )
+    .bind(auth.scope.user_id().as_uuid())
+    .bind(&current.provider)
+    .execute(&mut *tx)
+    .await?;
+
+    let row = sqlx::query_as::<_, LlmProviderRow>(
+        r#"UPDATE user_llm_configs
+              SET is_default = true, updated_at = now()
+            WHERE id = $1 AND user_id = $2
+        RETURNING id, provider, model, display_name, base_url, api_key_prefix, is_enabled, is_default"#,
+    )
+    .bind(id)
+    .bind(auth.scope.user_id().as_uuid())
+    .fetch_one(&mut *tx)
+    .await?;
+    tx.commit().await?;
+
+    Ok(Json(json!({ "ok": true, "provider": response_from_row(row, 1) })))
+}
+
+/// `POST /api/v1/llm-providers/{id}/test` — contract endpoint for UI test action.
+async fn test_provider(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let _ = fetch_provider_row(&state, &auth, id).await?;
+    Ok(Json(json!({
+        "ok": false,
+        "error": "Connection tests are not implemented for the Rust LLM gateway yet",
+    })))
+}
+
+/// Build LLM provider routes sub-router.
+pub fn llm_provider_routes() -> Router<AppState> {
+    Router::new()
+        .route("/llm-providers/supported", get(get_supported_providers))
+        .route("/llm-providers", get(list_providers).post(create_provider))
+        .route("/llm-providers/{id}", get(get_provider).patch(update_provider).delete(delete_provider))
+        .route("/llm-providers/{id}/default", axum::routing::post(set_default_provider))
+        .route("/llm-providers/{id}/test", axum::routing::post(test_provider))
+}
+
+/// `GET /api/v1/llm-providers/{id}` — read one provider config.
+async fn get_provider(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let row = fetch_provider_row(&state, &auth, id).await?;
+    Ok(Json(json!({ "ok": true, "provider": response_from_row(row, 1) })))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn create_request_uses_camel_case_contract() {
+        let req: CreateProviderRequest = serde_json::from_str(
+            r#"{"provider":"anthropic","displayName":"Claude","model":"claude-sonnet-4-20250514","apiKey":"sk-ant"}"#,
+        )
+        .unwrap();
+        assert_eq!(req.provider, "anthropic");
+        assert_eq!(req.display_name.as_deref(), Some("Claude"));
+    }
+
+    #[test]
+    fn invalid_provider_is_rejected() {
+        let err = validate_provider("bogus").unwrap_err();
+        assert!(matches!(err.kind, ErrorKind::Validation(_)));
+    }
+
+    #[test]
+    fn api_key_prefix_is_short_and_secret_safe() {
+        assert_eq!(api_key_prefix("sk-1234567890"), "sk-12345");
+    }
+
+    #[test]
+    fn supported_provider_shape_contains_all_frontend_keys() {
+        let providers = supported_provider_list();
+        let keys: Vec<_> = providers.iter().map(|provider| provider.provider).collect();
+        assert_eq!(
+            keys,
+            vec![
+                "anthropic",
+                "openai",
+                "google",
+                "ollama",
+                "groq",
+                "deepseek",
+                "xai",
+                "openrouter",
+                "together",
+                "fireworks",
+            ]
+        );
+        assert!(providers.iter().all(|provider| !provider.models.is_empty()));
+    }
+}

@@ -1,0 +1,36 @@
+# =============================================================================
+# Wisdoverse Forge Agent CLI Image (overlay)
+#
+# Thin layer on top of agentforge-agent-base that installs a single CLI tool.
+# This image is rebuilt automatically when a new CLI version is detected.
+#
+# Build: docker build -f docker/Dockerfile.agent \
+#          --build-arg CLI_TOOL=claude --build-arg CLI_VERSION=2.1.38 \
+#          -t agentforge-agent-claude:2.1.38 .
+# =============================================================================
+
+ARG BASE_IMAGE=agentforge-agent-base:latest
+FROM ${BASE_IMAGE}
+
+# CLI_TOOL: claude | opencode | codex | gemini
+ARG CLI_TOOL=claude
+# CLI_VERSION: pinned version for reproducible builds (e.g. "2.1.38")
+ARG CLI_VERSION=latest
+# China mirror: pass --build-arg NPM_REGISTRY=https://registry.npmmirror.com
+ARG NPM_REGISTRY=
+RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi
+
+# Install CLI tool with pinned version for immutable, reproducible images.
+# Version is set at build time by CI pipeline (npm view <pkg> version).
+RUN case "$CLI_TOOL" in \
+      claude)   npm install -g @anthropic-ai/claude-code@${CLI_VERSION} ;; \
+      opencode) npm install -g opencode-ai@${CLI_VERSION} ;; \
+      codex)    npm install -g @openai/codex@${CLI_VERSION} ;; \
+      gemini)   npm install -g @google/gemini-cli@${CLI_VERSION} ;; \
+      *)        echo "Unknown CLI_TOOL: $CLI_TOOL" && exit 1 ;; \
+    esac
+
+# Bake the CLI tool type and version into the image
+ENV AGENTFORGE_CLI_TOOL=$CLI_TOOL
+ENV AGENTFORGE_CLI_VERSION=$CLI_VERSION
+LABEL org.wisdoverse.cli-version=$CLI_VERSION

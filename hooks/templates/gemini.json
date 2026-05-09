@@ -1,0 +1,52 @@
+{
+  "hooks": {
+    "BeforeTool": [
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "__HOOK_CMD__", "timeout": 5000 }]
+      }
+    ],
+    "AfterTool": [
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "__HOOK_CMD__", "timeout": 5000 }]
+      }
+    ],
+    "AfterAgent": [
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "__HOOK_CMD__", "timeout": 5000 }]
+      }
+    ],
+    "BeforeAgent": [
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "__HOOK_CMD__", "timeout": 5000 }]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "__HOOK_CMD__", "timeout": 5000 }]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "__HOOK_CMD__", "timeout": 5000 }]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "__HOOK_CMD__", "timeout": 5000 }]
+      }
+    ],
+    "PreCompress": [
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "__HOOK_CMD__", "timeout": 5000 }]
+      }
+    ]
+  }
+}

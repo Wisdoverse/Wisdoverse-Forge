@@ -1,0 +1,1366 @@
+//! Container CLI auth proxy — PKCE-wrapped OAuth for Container CLIs that can
+//! run the login flow inside an agent container but can't receive a browser
+//! callback themselves.
+//!
+//! Ports the legacy TS `CliAuthProxyService`
+//! (`server/src/modules/cli-auth-proxy/cli-auth-proxy.service.ts`) with the
+//! Codex provider preset. Other Container CLIs (claude/gemini/opencode) don't
+//! currently have an OAuth PKCE path in legacy — users copy-paste their file map
+//! via the `cli-credentials` endpoints instead.
+//!
+//! Flow (manual callback mode, matching Codex):
+//! 1. Client calls `authorize(user_id, "openai")` → PKCE code_verifier +
+//!    state are stored (Redis if available, else process-local map with 5-min
+//!    TTL), we return the provider authorization URL.
+//! 2. User opens the URL, completes OAuth, lands on the provider's redirect
+//!    URI (`http://localhost:1455/auth/callback`). Codex CLI displays the
+//!    `code#state` — the user pastes it back into our UI.
+//! 3. Client calls `complete_manual("openai", pasted_input)`. We parse the
+//!    input (full URL / `code#state` / query string), look up the stored
+//!    state, exchange the code at the token endpoint, pull the
+//!    `chatgpt_account_id` out of the access-token JWT, and upsert an
+//!    `auth.json` row in `user_cli_credentials` via `CliCredentialService`.
+//!
+//! State entries are single-use (deleted on retrieval) to prevent replay.
+
+mod refresh_classifier;
+pub use refresh_classifier::{RefreshErrorKind, classify_refresh_failure};
+
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::{Duration, SystemTime};
+
+use agentforge_core::{AppResult, CliToolKind, ErrorKind, TenantScope, crypto};
+use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use rand::RngCore;
+use redis::AsyncCommands;
+use secrecy::{ExposeSecret, SecretString};
+use serde::Deserialize;
+use sha2::{Digest, Sha256};
+use tokio::sync::Mutex as AsyncMutex;
+use tokio::sync::RwLock;
+
+/// serde adapter for `SecretString` — `secrecy` ships `Deserialize` but
+/// deliberately not `Serialize` so accidental JSON/log round-trips stay opt-in.
+/// `StateEntry` needs both sides (Redis round-trip), so we opt in here.
+mod secret_string_serde {
+    use secrecy::{ExposeSecret, SecretString};
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(s: &SecretString, ser: S) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(s.expose_secret())
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(de: D) -> Result<SecretString, D::Error> {
+        String::deserialize(de).map(SecretString::from)
+    }
+}
+
+use crate::repositories::cli_credential::{CliCredentialRepository, EncryptedWithRevocation};
+use agentforge_infra::RedisClient;
+
+const STATE_TTL_SECS: u64 = 300;
+
+/// Provider config — baked in for Codex, overridable via `AppConfig` for admin
+/// custom OAuth apps.
+#[derive(Debug, Clone)]
+pub struct CliAuthProxyProvider {
+    pub name: String,
+    pub display_name: String,
+    pub cli_tool: String,
+    pub client_id: String,
+    /// Confidential-client secret. `SecretString` so `Debug` on the provider
+    /// doesn't leak the value into `tracing::debug!(?provider)`; reach the
+    /// bytes via `.expose_secret()` when POSTing the token form.
+    pub client_secret: Option<SecretString>,
+    pub auth_endpoint: String,
+    pub token_endpoint: String,
+    pub redirect_uri: String,
+    pub scope: String,
+    /// `manual` (user pastes callback URL) vs `server` (backend hosts the
+    /// redirect). Only `manual` is wired for now.
+    pub callback_mode: CallbackMode,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CallbackMode {
+    Manual,
+    Server,
+}
+
+/// Outcome of one refresh attempt — dispatched by `refresh_stale`.
+#[derive(Debug)]
+enum RefreshOutcome {
+    Refreshed,
+    /// Refresh token rejected — caller bumps per-row fail counter and
+    /// revokes at threshold.
+    InvalidGrant,
+    /// OAuth app rejected — caller logs at error! level and emits a
+    /// metric but NEVER touches the user row.
+    InvalidClient,
+    /// Transient network / 5xx / unknown code — caller counts as failed
+    /// and retries on the next sweep.
+    OtherFailure(String),
+}
+
+/// Public projection for the status endpoint — never leaks tokens.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ProviderStatus {
+    pub provider: String,
+    #[serde(rename = "displayName")]
+    pub display_name: String,
+    #[serde(rename = "cliTool")]
+    pub cli_tool: String,
+    pub connected: bool,
+    #[serde(rename = "lastRefresh")]
+    pub last_refresh: Option<String>,
+    #[serde(rename = "callbackMode")]
+    pub callback_mode: CallbackMode,
+    /// RFC 3339 timestamp — present only when the row has been revoked.
+    /// Frontend renders a "re-auth needed" banner when set.
+    #[serde(rename = "revokedAt", skip_serializing_if = "Option::is_none")]
+    pub revoked_at: Option<String>,
+    /// Human-readable reason. Matches the OAuth error code when revoked by the
+    /// refresh worker (`"invalid_grant"`), or a local availability reason when
+    /// the stored row exists but cannot be used by a new agent container.
+    #[serde(rename = "revokeReason", skip_serializing_if = "Option::is_none")]
+    pub revoke_reason: Option<String>,
+    /// Consecutive refresh failures since the last success. Values below the
+    /// revoke threshold signal the row will be revoked on the next
+    /// consecutive failure — surfaced for ops visibility.
+    #[serde(rename = "refreshFailCount", skip_serializing_if = "is_zero_i32")]
+    pub refresh_fail_count: i32,
+}
+
+fn is_zero_i32(n: &i32) -> bool {
+    *n == 0
+}
+
+struct CredentialConnectionStatus {
+    connected: bool,
+    last_refresh: Option<String>,
+    revoked_at: Option<String>,
+    revoke_reason: Option<String>,
+    refresh_fail_count: i32,
+}
+
+fn credential_connection_status(
+    scope: &TenantScope,
+    cli_tool: &str,
+    row: Option<EncryptedWithRevocation>,
+    encryption_key: Option<&[u8; 32]>,
+) -> CredentialConnectionStatus {
+    let Some((enc, revoked_at, reason, count)) = row else {
+        return CredentialConnectionStatus {
+            connected: false,
+            last_refresh: None,
+            revoked_at: None,
+            revoke_reason: None,
+            refresh_fail_count: 0,
+        };
+    };
+
+    let mut last_refresh = None;
+    let mut unusable_reason = None;
+
+    if let Some(key) = encryption_key {
+        match crypto::decrypt_base64(key, &enc) {
+            Ok(plain) => match serde_json::from_str::<serde_json::Value>(&plain) {
+                Ok(files) => {
+                    if let Some(auth_json) = files.get("auth.json").and_then(|v| v.as_str())
+                        && let Ok(parsed) = serde_json::from_str::<serde_json::Value>(auth_json)
+                    {
+                        last_refresh = parsed.get("last_refresh").and_then(|v| v.as_str()).map(str::to_string);
+                    }
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        error = %err,
+                        user_id = %scope.user_id().as_uuid(),
+                        cli_tool,
+                        "stored Container CLI credentials decrypted but are not a file-map JSON object"
+                    );
+                    unusable_reason = Some("credential_payload_invalid".to_string());
+                }
+            },
+            Err(err) => {
+                tracing::warn!(
+                    error = %err,
+                    user_id = %scope.user_id().as_uuid(),
+                    cli_tool,
+                    "stored Container CLI credentials cannot be decrypted for status"
+                );
+                unusable_reason = Some("credential_decrypt_failed".to_string());
+            }
+        }
+    } else {
+        unusable_reason = Some("encryption_key_missing".to_string());
+    }
+
+    let revoked_at = revoked_at.map(|d| d.to_rfc3339());
+    let connected = revoked_at.is_none() && unusable_reason.is_none();
+    CredentialConnectionStatus {
+        connected,
+        last_refresh,
+        revoked_at,
+        revoke_reason: reason.or(unusable_reason),
+        refresh_fail_count: count,
+    }
+}
+
+/// Public projection for the providers list endpoint.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ProviderInfo {
+    pub name: String,
+    #[serde(rename = "displayName")]
+    pub display_name: String,
+    #[serde(rename = "cliTool")]
+    pub cli_tool: String,
+    #[serde(rename = "callbackMode")]
+    pub callback_mode: CallbackMode,
+}
+
+/// PKCE + provider hint stored against the OAuth `state` value while the user
+/// completes the browser flow.
+///
+/// `code_verifier` is a PKCE secret — its `SecretString` wrapper redacts
+/// `Debug` and forces explicit `.expose_secret()` at use sites. The
+/// `secret_string_serde` adapter opts the field into both sides of serde so
+/// the Redis round-trip still works.
+#[derive(Debug, Clone, serde::Serialize, Deserialize)]
+struct StateEntry {
+    #[serde(with = "secret_string_serde")]
+    code_verifier: SecretString,
+    provider: String,
+    user_id: uuid::Uuid,
+}
+
+/// Raw token response from the provider's token endpoint.
+///
+/// Tokens are wrapped in `SecretString` so the derived `Debug` and any
+/// accidental `tracing::debug!(?tokens)` logs redact the material. `secrecy`'s
+/// `serde` feature provides `Deserialize` directly — we never serialise this
+/// type (the downstream `store_tokens` path explicitly exposes then encrypts).
+#[derive(Debug, Deserialize)]
+struct TokenResponse {
+    id_token: Option<SecretString>,
+    access_token: SecretString,
+    refresh_token: Option<SecretString>,
+    #[allow(dead_code)]
+    expires_in: Option<u64>,
+    account_id: Option<String>,
+}
+
+/// In-memory PKCE state store — used when Redis is not configured. Must live
+/// on `AppState` (shared across requests) so the `authorize` put and the
+/// later `complete_manual` / `server_callback` take land on the same store
+/// instance. A per-request `CliAuthProxyService::new` would construct
+/// disjoint stores and every non-Redis callback would fail with
+/// "invalid or expired OAuth state". See `AppState.cli_auth_memory_store`.
+/// A background sweep is unnecessary — `take` both reads and removes;
+/// stale entries linger at most until their TTL expires on read.
+#[derive(Default)]
+pub struct MemoryStateStore {
+    inner: AsyncMutex<HashMap<String, (StateEntry, SystemTime)>>,
+}
+
+impl MemoryStateStore {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    async fn put(&self, state: &str, entry: StateEntry, ttl: Duration) {
+        let mut g = self.inner.lock().await;
+        g.insert(state.to_string(), (entry, SystemTime::now() + ttl));
+    }
+
+    async fn take(&self, state: &str) -> Option<StateEntry> {
+        let mut g = self.inner.lock().await;
+        let (entry, expires) = g.remove(state)?;
+        if expires < SystemTime::now() {
+            return None;
+        }
+        Some(entry)
+    }
+}
+
+/// Pick the state store mode at construction time. Redis mode propagates
+/// errors as `ErrorKind::Internal`; memory mode cannot fail.
+///
+/// Operator intent is captured by the variant itself: a caller building
+/// `Redis(...)` has declared "I configured Redis and expect it to work".
+/// A subsequent outage (connection dropped, SET_EX errors) surfaces as a 500
+/// response rather than silently landing state on a single replica's memory.
+pub enum StateStore {
+    Redis(Arc<RwLock<RedisClient>>),
+    Memory(Arc<MemoryStateStore>),
+}
+
+impl StateStore {
+    async fn put(&self, state: &str, entry: StateEntry) -> AppResult<()> {
+        match self {
+            Self::Redis(client) => {
+                let key = redis_state_key(state);
+                let value = serde_json::to_string(&entry).expect("StateEntry is serialisable");
+                let mut guard = client.write().await;
+                let conn = guard
+                    .connection_mut()
+                    .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("Redis connection unavailable")))?;
+                let _: () = conn.set_ex(&key, &value, STATE_TTL_SECS).await.map_err(|err| {
+                    tracing::warn!(error = %err, "OAuth state Redis SET_EX failed — propagating as Internal");
+                    ErrorKind::Internal(anyhow::anyhow!("Redis SET_EX failed: {err}"))
+                })?;
+                Ok(())
+            }
+            Self::Memory(mem) => {
+                mem.put(state, entry, Duration::from_secs(STATE_TTL_SECS)).await;
+                Ok(())
+            }
+        }
+    }
+
+    async fn take(&self, state: &str) -> AppResult<Option<StateEntry>> {
+        match self {
+            Self::Redis(client) => {
+                let key = redis_state_key(state);
+                let mut guard = client.write().await;
+                let conn = guard
+                    .connection_mut()
+                    .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("Redis connection unavailable")))?;
+                let raw: Option<String> = redis::cmd("GETDEL").arg(&key).query_async(conn).await.map_err(|err| {
+                    tracing::warn!(error = %err, "OAuth state Redis GETDEL failed — propagating as Internal");
+                    ErrorKind::Internal(anyhow::anyhow!("Redis GETDEL failed: {err}"))
+                })?;
+                match raw {
+                    Some(value) => {
+                        let entry = serde_json::from_str::<StateEntry>(&value).map_err(|err| {
+                            ErrorKind::Internal(anyhow::anyhow!("corrupt StateEntry in Redis: {err}"))
+                        })?;
+                        Ok(Some(entry))
+                    }
+                    None => Ok(None),
+                }
+            }
+            Self::Memory(mem) => Ok(mem.take(state).await),
+        }
+    }
+}
+
+pub struct CliAuthProxyService {
+    providers: HashMap<String, CliAuthProxyProvider>,
+    cli_creds: CliCredentialRepository,
+    encryption_key: Option<[u8; 32]>,
+    store: StateStore,
+    http: reqwest::Client,
+    revoke_threshold: i32,
+}
+
+impl CliAuthProxyService {
+    /// Constructor used by per-request handlers. The caller picks the
+    /// `StateStore` variant based on whether Redis is configured — in
+    /// multi-replica deployments the `Redis` variant MUST be used so that
+    /// authorize-put and callback-take land on the same shared backend.
+    pub fn new(
+        providers: Vec<CliAuthProxyProvider>,
+        cli_creds: CliCredentialRepository,
+        encryption_key: Option<[u8; 32]>,
+        store: StateStore,
+        revoke_threshold: i32,
+    ) -> Self {
+        let providers = providers.into_iter().map(|p| (p.name.clone(), p)).collect();
+        Self {
+            providers,
+            cli_creds,
+            encryption_key,
+            store,
+            http: reqwest::Client::builder().timeout(Duration::from_secs(30)).build().expect("reqwest builder"),
+            revoke_threshold,
+        }
+    }
+
+    /// List providers available on this deployment. UI uses this to decide
+    /// whether to render the "Connect codex" button.
+    pub fn list_providers(&self) -> Vec<ProviderInfo> {
+        self.providers
+            .values()
+            .map(|p| ProviderInfo {
+                name: p.name.clone(),
+                display_name: p.display_name.clone(),
+                cli_tool: p.cli_tool.clone(),
+                callback_mode: p.callback_mode,
+            })
+            .collect()
+    }
+
+    /// Step 1 of the flow. Generate PKCE pair + state, store verifier against
+    /// state (5-min TTL), return the provider authorization URL with the
+    /// S256-hashed challenge.
+    pub async fn authorize(&self, scope: &TenantScope, provider_name: &str) -> AppResult<String> {
+        let provider = self.require_provider(provider_name)?;
+
+        let (verifier, challenge) = generate_pkce();
+        let state = generate_state();
+
+        self.store_state(
+            &state,
+            StateEntry {
+                code_verifier: SecretString::from(verifier),
+                provider: provider_name.to_string(),
+                user_id: scope.user_id().as_uuid(),
+            },
+        )
+        .await?;
+
+        let params = vec![
+            ("response_type", "code"),
+            ("client_id", provider.client_id.as_str()),
+            ("redirect_uri", provider.redirect_uri.as_str()),
+            ("scope", provider.scope.as_str()),
+            ("state", state.as_str()),
+            ("code_challenge", challenge.as_str()),
+            ("code_challenge_method", "S256"),
+        ];
+        let query = serde_urlencoded::to_string(&params)
+            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("urlencode: {err}")))?;
+        Ok(format!("{}?{}", provider.auth_endpoint, query))
+    }
+
+    /// Per-user connection status. `connected=true` only when a non-revoked row
+    /// exists and the current encryption key can still decrypt it. A row that
+    /// merely exists but cannot be decrypted would fail container credential
+    /// injection, so the UI must show a reconnect path instead of "Connected".
+    pub async fn status(&self, scope: &TenantScope) -> AppResult<Vec<ProviderStatus>> {
+        let mut out = Vec::with_capacity(self.providers.len());
+        for provider in self.providers.values() {
+            let row = self.cli_creds.find_encrypted_with_revocation(scope, &provider.cli_tool).await?;
+            let status = credential_connection_status(scope, &provider.cli_tool, row, self.encryption_key.as_ref());
+            out.push(ProviderStatus {
+                provider: provider.name.clone(),
+                display_name: provider.display_name.clone(),
+                cli_tool: provider.cli_tool.clone(),
+                connected: status.connected,
+                last_refresh: status.last_refresh,
+                callback_mode: provider.callback_mode,
+                revoked_at: status.revoked_at,
+                revoke_reason: status.revoke_reason,
+                refresh_fail_count: status.refresh_fail_count,
+            });
+        }
+        Ok(out)
+    }
+
+    /// Step 3 of the flow — the user-pasted callback input. Accepts:
+    /// - full URL (`http://localhost:1455/auth/callback?code=...&state=...`)
+    /// - `code#state`
+    /// - query string (`code=...&state=...`)
+    pub async fn complete_manual(&self, scope: &TenantScope, provider_name: &str, input: &str) -> AppResult<()> {
+        let (code, state) = parse_callback_input(input).ok_or_else(|| {
+            ErrorKind::Validation("could not parse authorization code from input. Paste the full callback URL.".into())
+        })?;
+
+        let entry = self
+            .take_state(&state)
+            .await?
+            .ok_or_else(|| ErrorKind::Validation("invalid or expired OAuth state — re-run authorize".into()))?;
+        if entry.provider != provider_name {
+            return Err(ErrorKind::Validation(format!(
+                "provider mismatch: stored {} vs requested {provider_name}",
+                entry.provider
+            ))
+            .into());
+        }
+        if entry.user_id != scope.user_id().as_uuid() {
+            return Err(ErrorKind::Validation("OAuth state belongs to a different user".into()).into());
+        }
+
+        let provider = self.require_provider(provider_name)?;
+        let tokens = self.exchange_code(provider, &code, entry.code_verifier.expose_secret()).await?;
+        self.store_tokens(scope, provider, &tokens).await
+    }
+
+    /// Disconnect — idempotent delete of the stored credentials row.
+    pub async fn disconnect(&self, scope: &TenantScope, provider_name: &str) -> AppResult<()> {
+        let provider = self.require_provider(provider_name)?;
+        self.cli_creds.delete(scope, &provider.cli_tool).await
+    }
+
+    /// Server-callback handler — the IdP redirected to our own endpoint
+    /// instead of `localhost:1455`. The browser isn't authenticated via our
+    /// JWT here (that lives in the other tab), so we trust `state` to identify
+    /// the user: the `StateEntry` stored at authorize-time carries `user_id`,
+    /// which we upsert against. Matches legacy `handleCallback`.
+    pub async fn handle_server_callback(&self, provider_name: &str, code: &str, state: &str) -> AppResult<()> {
+        let entry = self
+            .take_state(state)
+            .await?
+            .ok_or_else(|| ErrorKind::Validation("invalid or expired OAuth state".into()))?;
+        if entry.provider != provider_name {
+            return Err(ErrorKind::Validation(format!(
+                "provider mismatch: stored {} vs requested {provider_name}",
+                entry.provider
+            ))
+            .into());
+        }
+        let provider = self.require_provider(provider_name)?;
+        let tokens = self.exchange_code(provider, code, entry.code_verifier.expose_secret()).await?;
+        self.store_tokens_by_user_id(entry.user_id, provider, &tokens).await
+    }
+
+    /// Iterate every stored credential row across every user and refresh any
+    /// whose `last_refresh` is older than `threshold`. Returns
+    /// `(refreshed, failed, eligible)`. Matches the legacy TS
+    /// `cli-auth-proxy-refresh.worker.ts` semantics: worker-scoped (no tenant
+    /// context), per-provider iteration, best-effort per entry — one user's
+    /// failed refresh never blocks another.
+    pub async fn refresh_stale(&self, threshold: Duration) -> RefreshSummary {
+        let mut summary = RefreshSummary::default();
+        let Some(key) = self.encryption_key else {
+            tracing::debug!("Refresh skipped — no encryption key configured");
+            return summary;
+        };
+        let now = chrono::Utc::now();
+
+        for provider in self.providers.values() {
+            let rows = match self.cli_creds.find_all_active_by_cli_tool(&provider.cli_tool).await {
+                Ok(rs) => rs,
+                Err(err) => {
+                    tracing::warn!(error = ?err, cli_tool = %provider.cli_tool, "refresh scan failed");
+                    continue;
+                }
+            };
+            for (user_id, encrypted) in rows {
+                match needs_refresh(&key, &encrypted, now, threshold) {
+                    Ok(NeedsRefresh::Stale { refresh_token }) => {
+                        summary.eligible += 1;
+                        match self.refresh_single(provider, user_id, refresh_token.expose_secret()).await {
+                            Ok(RefreshOutcome::Refreshed) => summary.refreshed += 1,
+                            Ok(RefreshOutcome::InvalidGrant) => {
+                                summary.invalid_grant += 1;
+                                match self
+                                    .cli_creds
+                                    .bump_fail_count_or_revoke(
+                                        user_id,
+                                        &provider.cli_tool,
+                                        "invalid_grant",
+                                        self.revoke_threshold,
+                                    )
+                                    .await
+                                {
+                                    Ok(Some((count, Some(revoked_at)))) => {
+                                        tracing::warn!(
+                                            %user_id, cli_tool = %provider.cli_tool, %count, ?revoked_at,
+                                            "credential revoked after invalid_grant threshold"
+                                        );
+                                        summary.revoked_credentials.push(RevokedCliCredential {
+                                            user_id,
+                                            cli_tool: provider.cli_tool.clone(),
+                                            reason: "invalid_grant".to_string(),
+                                            revoked_at,
+                                        });
+                                        metrics::counter!(
+                                            "credential_refresh_errors_total",
+                                            "cli_tool" => provider.cli_tool.clone(),
+                                            "reason" => "invalid_grant_revoked",
+                                        )
+                                        .increment(1);
+                                    }
+                                    Ok(Some((count, None))) => {
+                                        tracing::info!(
+                                            %user_id, cli_tool = %provider.cli_tool, %count,
+                                            "invalid_grant — fail count bumped, below threshold"
+                                        );
+                                        metrics::counter!(
+                                            "credential_refresh_errors_total",
+                                            "cli_tool" => provider.cli_tool.clone(),
+                                            "reason" => "invalid_grant",
+                                        )
+                                        .increment(1);
+                                    }
+                                    Ok(None) => {
+                                        tracing::debug!(
+                                            %user_id, cli_tool = %provider.cli_tool,
+                                            "row already revoked or missing"
+                                        );
+                                    }
+                                    Err(err) => {
+                                        tracing::error!(
+                                            error = ?err, %user_id, cli_tool = %provider.cli_tool,
+                                            "bump_fail_count_or_revoke failed"
+                                        );
+                                    }
+                                }
+                            }
+                            Ok(RefreshOutcome::InvalidClient) => {
+                                summary.invalid_client += 1;
+                                tracing::error!(
+                                    cli_tool = %provider.cli_tool, %user_id,
+                                    "OAuth app rejected by IdP — operator must investigate client_id/secret"
+                                );
+                                metrics::counter!(
+                                    "credential_refresh_errors_total",
+                                    "cli_tool" => provider.cli_tool.clone(),
+                                    "reason" => "invalid_client",
+                                )
+                                .increment(1);
+                            }
+                            Ok(RefreshOutcome::OtherFailure(msg)) => {
+                                summary.failed += 1;
+                                tracing::warn!(
+                                    %user_id, cli_tool = %provider.cli_tool, %msg,
+                                    "refresh failed (transient or unknown)"
+                                );
+                                metrics::counter!(
+                                    "credential_refresh_errors_total",
+                                    "cli_tool" => provider.cli_tool.clone(),
+                                    "reason" => "transient",
+                                )
+                                .increment(1);
+                            }
+                            Err(err) => {
+                                summary.failed += 1;
+                                tracing::warn!(
+                                    error = ?err, %user_id, cli_tool = %provider.cli_tool,
+                                    "refresh_single returned internal error"
+                                );
+                            }
+                        }
+                    }
+                    Ok(NeedsRefresh::Fresh) => {}
+                    Ok(NeedsRefresh::NoRefreshToken) => {
+                        tracing::debug!(%user_id, cli_tool = %provider.cli_tool, "no refresh_token stored — skipping");
+                    }
+                    Err(err) => {
+                        tracing::warn!(error = ?err, %user_id, cli_tool = %provider.cli_tool, "refresh eligibility check failed");
+                    }
+                }
+            }
+        }
+        summary
+    }
+
+    /// POST the `refresh_token` grant and persist the returned tokens back
+    /// to the user's row. Preserves the existing `refresh_token` when the
+    /// provider doesn't return a new one (OpenAI behaviour).
+    ///
+    /// On failure, classifies the response via RFC 6749 §5.2 error codes so
+    /// the caller can decide between revoking the user row (`InvalidGrant`),
+    /// paging the operator (`InvalidClient`), or retrying (`OtherFailure`).
+    #[tracing::instrument(skip(self, refresh_token), fields(cli_tool = %provider.cli_tool, %user_id))]
+    async fn refresh_single(
+        &self,
+        provider: &CliAuthProxyProvider,
+        user_id: uuid::Uuid,
+        refresh_token: &str,
+    ) -> AppResult<RefreshOutcome> {
+        let mut form = vec![
+            ("grant_type", "refresh_token"),
+            ("client_id", provider.client_id.as_str()),
+            ("refresh_token", refresh_token),
+        ];
+        if let Some(sec) = provider.client_secret.as_ref() {
+            form.push(("client_secret", sec.expose_secret()));
+        }
+        let resp = match self.http.post(&provider.token_endpoint).form(&form).send().await {
+            Ok(r) => r,
+            Err(err) => return Ok(RefreshOutcome::OtherFailure(format!("network: {err}"))),
+        };
+        if !resp.status().is_success() {
+            return Ok(match classify_refresh_failure(resp).await {
+                RefreshErrorKind::InvalidGrant => RefreshOutcome::InvalidGrant,
+                RefreshErrorKind::InvalidClient => RefreshOutcome::InvalidClient,
+                RefreshErrorKind::OtherOauthError(code) => RefreshOutcome::OtherFailure(format!("oauth:{code}")),
+                RefreshErrorKind::Transient(msg) => RefreshOutcome::OtherFailure(msg),
+            });
+        }
+        let mut tokens: TokenResponse =
+            resp.json().await.map_err(|err| ErrorKind::Internal(anyhow::anyhow!("refresh invalid JSON: {err}")))?;
+        // Preserve existing refresh_token if the provider didn't issue a new one.
+        if tokens.refresh_token.is_none() {
+            tokens.refresh_token = Some(SecretString::from(refresh_token.to_string()));
+        }
+        self.store_tokens_by_user_id(user_id, provider, &tokens).await?;
+        self.cli_creds.reset_fail_count_on_success(user_id, &provider.cli_tool).await?;
+        Ok(RefreshOutcome::Refreshed)
+    }
+
+    async fn store_tokens_by_user_id(
+        &self,
+        user_id: uuid::Uuid,
+        provider: &CliAuthProxyProvider,
+        tokens: &TokenResponse,
+    ) -> AppResult<()> {
+        let key = self
+            .encryption_key
+            .as_ref()
+            .ok_or_else(|| ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured".into()))?;
+        let account_id =
+            tokens.account_id.clone().or_else(|| extract_chatgpt_account_id(tokens.access_token.expose_secret()));
+        let mut auth_tokens = serde_json::Map::new();
+        if let Some(id) = &tokens.id_token {
+            auth_tokens.insert("id_token".into(), serde_json::Value::String(id.expose_secret().to_string()));
+        }
+        auth_tokens
+            .insert("access_token".into(), serde_json::Value::String(tokens.access_token.expose_secret().to_string()));
+        if let Some(rt) = &tokens.refresh_token {
+            auth_tokens.insert("refresh_token".into(), serde_json::Value::String(rt.expose_secret().to_string()));
+        }
+        if let Some(aid) = account_id {
+            auth_tokens.insert("account_id".into(), serde_json::Value::String(aid));
+        }
+        let auth_json = serde_json::json!({
+            "tokens": auth_tokens,
+            "last_refresh": chrono::Utc::now().to_rfc3339(),
+        });
+        let file_map = serde_json::json!({
+            "auth.json": serde_json::to_string(&auth_json).map_err(|err| ErrorKind::Internal(anyhow::anyhow!("serialize auth.json: {err}")))?,
+        });
+        let ciphertext = crypto::encrypt_base64(key, &serde_json::to_string(&file_map).expect("Value serialises"))
+            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encrypt refreshed tokens: {err}")))?;
+        self.cli_creds.upsert_encrypted_by_user_id(user_id, &provider.cli_tool, &ciphertext).await
+    }
+
+    // -----------------------------------------------------------------------
+    // Private helpers
+    // -----------------------------------------------------------------------
+
+    fn require_provider(&self, name: &str) -> AppResult<&CliAuthProxyProvider> {
+        self.providers
+            .get(name)
+            .ok_or_else(|| ErrorKind::Validation(format!("unknown Container CLI auth proxy provider: {name}")).into())
+    }
+
+    async fn store_state(&self, state: &str, entry: StateEntry) -> AppResult<()> {
+        self.store.put(state, entry).await
+    }
+
+    async fn take_state(&self, state: &str) -> AppResult<Option<StateEntry>> {
+        self.store.take(state).await
+    }
+
+    async fn exchange_code(
+        &self,
+        provider: &CliAuthProxyProvider,
+        code: &str,
+        verifier: &str,
+    ) -> AppResult<TokenResponse> {
+        let mut form = vec![
+            ("grant_type", "authorization_code"),
+            ("code", code),
+            ("redirect_uri", provider.redirect_uri.as_str()),
+            ("client_id", provider.client_id.as_str()),
+            ("code_verifier", verifier),
+        ];
+        if let Some(sec) = provider.client_secret.as_ref() {
+            form.push(("client_secret", sec.expose_secret()));
+        }
+        let resp = self
+            .http
+            .post(&provider.token_endpoint)
+            .form(&form)
+            .send()
+            .await
+            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("token exchange request failed: {err}")))?;
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(ErrorKind::Validation(format!("token exchange failed: HTTP {status} — {body}")).into());
+        }
+        let tokens = resp
+            .json::<TokenResponse>()
+            .await
+            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("token exchange returned invalid JSON: {err}")))?;
+        Ok(tokens)
+    }
+
+    async fn store_tokens(
+        &self,
+        scope: &TenantScope,
+        provider: &CliAuthProxyProvider,
+        tokens: &TokenResponse,
+    ) -> AppResult<()> {
+        let key = self.encryption_key.as_ref().ok_or_else(|| {
+            ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured — refusing to store plaintext tokens".into())
+        })?;
+
+        // Codex: pull chatgpt_account_id out of the access-token JWT (no
+        // signature check — the provider already signed it and we only care
+        // that the Container CLI sees the same claim it would have got via the
+        // native `codex login` flow).
+        let account_id =
+            tokens.account_id.clone().or_else(|| extract_chatgpt_account_id(tokens.access_token.expose_secret()));
+
+        let mut auth_tokens = serde_json::Map::new();
+        if let Some(id) = &tokens.id_token {
+            auth_tokens.insert("id_token".into(), serde_json::Value::String(id.expose_secret().to_string()));
+        }
+        auth_tokens
+            .insert("access_token".into(), serde_json::Value::String(tokens.access_token.expose_secret().to_string()));
+        if let Some(rt) = &tokens.refresh_token {
+            auth_tokens.insert("refresh_token".into(), serde_json::Value::String(rt.expose_secret().to_string()));
+        }
+        if let Some(aid) = account_id {
+            auth_tokens.insert("account_id".into(), serde_json::Value::String(aid));
+        }
+
+        let auth_json = serde_json::json!({
+            "tokens": auth_tokens,
+            "last_refresh": chrono::Utc::now().to_rfc3339(),
+        });
+        let file_map = serde_json::json!({
+            "auth.json": serde_json::to_string(&auth_json).map_err(|err| ErrorKind::Internal(anyhow::anyhow!("serialize auth.json: {err}")))?,
+        });
+        let ciphertext = crypto::encrypt_base64(key, &serde_json::to_string(&file_map).expect("Value serialises"))
+            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encrypt tokens: {err}")))?;
+        self.cli_creds.upsert_encrypted(scope, &provider.cli_tool, &ciphertext).await
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RevokedCliCredential {
+    pub user_id: uuid::Uuid,
+    pub cli_tool: String,
+    pub reason: String,
+    pub revoked_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// Aggregate result of one `refresh_stale` sweep. Logged by the worker loop.
+#[derive(Debug, Default, Clone, serde::Serialize)]
+pub struct RefreshSummary {
+    pub refreshed: usize,
+    pub failed: usize,
+    /// Entries that were old enough to attempt refresh (sum of refreshed +
+    /// failed + invalid_grant + invalid_client).
+    pub eligible: usize,
+    /// Entries where the IdP returned `invalid_grant` — bumped the fail
+    /// counter, possibly revoked the row.
+    pub invalid_grant: usize,
+    /// Entries where the IdP returned `invalid_client` / `unauthorized_client`
+    /// — operator-level signal; user row not touched.
+    pub invalid_client: usize,
+    /// Credentials revoked in this sweep; the server worker turns these into
+    /// owner-scoped Inbox notifications.
+    #[serde(rename = "revokedCredentials")]
+    pub revoked_credentials: Vec<RevokedCliCredential>,
+}
+
+enum NeedsRefresh {
+    Stale { refresh_token: SecretString },
+    Fresh,
+    NoRefreshToken,
+}
+
+/// Parse the stored ciphertext, decrypt, pull `last_refresh` + `refresh_token`
+/// out of the embedded `auth.json`, and decide whether the entry is eligible
+/// for a refresh call.
+fn needs_refresh(
+    key: &[u8; 32],
+    ciphertext: &str,
+    now: chrono::DateTime<chrono::Utc>,
+    threshold: Duration,
+) -> AppResult<NeedsRefresh> {
+    let plain = crypto::decrypt_base64(key, ciphertext)
+        .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("decrypt: {err}")))?;
+    let files: serde_json::Value =
+        serde_json::from_str(&plain).map_err(|err| ErrorKind::Internal(anyhow::anyhow!("files JSON: {err}")))?;
+    let auth_json_str = match files.get("auth.json").and_then(|v| v.as_str()) {
+        Some(s) => s,
+        None => return Ok(NeedsRefresh::NoRefreshToken),
+    };
+    let auth: serde_json::Value =
+        serde_json::from_str(auth_json_str).map_err(|err| ErrorKind::Internal(anyhow::anyhow!("auth.json: {err}")))?;
+    let refresh_token = match auth.pointer("/tokens/refresh_token").and_then(|v| v.as_str()) {
+        Some(s) => SecretString::from(s.to_string()),
+        None => return Ok(NeedsRefresh::NoRefreshToken),
+    };
+    let last_refresh = auth
+        .get("last_refresh")
+        .and_then(|v| v.as_str())
+        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+        .map(|dt| dt.with_timezone(&chrono::Utc));
+    let age = last_refresh.map(|t| now.signed_duration_since(t));
+    let stale = match age {
+        Some(age) if age.to_std().map(|d| d < threshold).unwrap_or(false) => false,
+        // Missing last_refresh, unparseable timestamp, or future timestamp
+        // (clock skew) → treat as stale so we reconcile rather than linger.
+        _ => true,
+    };
+    if stale { Ok(NeedsRefresh::Stale { refresh_token }) } else { Ok(NeedsRefresh::Fresh) }
+}
+
+fn generate_pkce() -> (String, String) {
+    let mut bytes = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut bytes);
+    let verifier = URL_SAFE_NO_PAD.encode(bytes);
+    let mut hasher = Sha256::new();
+    hasher.update(verifier.as_bytes());
+    let digest = hasher.finalize();
+    let challenge = URL_SAFE_NO_PAD.encode(digest);
+    (verifier, challenge)
+}
+
+fn generate_state() -> String {
+    let mut bytes = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut bytes);
+    hex::encode(bytes)
+}
+
+fn redis_state_key(state: &str) -> String {
+    format!("cli-auth-proxy:state:{state}")
+}
+
+/// Legacy TS supported three paste formats; we match verbatim so UI hints
+/// remain identical:
+/// - Full callback URL
+/// - `code#state` (Codex CLI's own shortcut format)
+/// - Bare query string
+pub(crate) fn parse_callback_input(raw: &str) -> Option<(String, String)> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    // Format 1: URL with query
+    if let Ok(url) = url::Url::parse(trimmed) {
+        let mut code = None;
+        let mut state = None;
+        for (k, v) in url.query_pairs() {
+            match k.as_ref() {
+                "code" => code = Some(v.into_owned()),
+                "state" => state = Some(v.into_owned()),
+                _ => {}
+            }
+        }
+        if let (Some(c), Some(s)) = (code, state) {
+            return Some((c, s));
+        }
+    }
+    // Format 2: code#state (no `=` means it's not a query string)
+    if trimmed.contains('#')
+        && !trimmed.contains('=')
+        && let Some((code, state)) = trimmed.split_once('#')
+        && !code.is_empty()
+        && !state.is_empty()
+    {
+        return Some((code.to_string(), state.to_string()));
+    }
+    // Format 3: bare query string. Percent-decode via `form_urlencoded` so a
+    // code like `abc%2Bdef` survives — the previous manual `split('=')` was
+    // keeping raw percent-encoded bytes and breaking token exchange for any
+    // code containing `+` / `/` / `=` padding.
+    let qs = trimmed.strip_prefix('?').unwrap_or(trimmed);
+    let mut code = None;
+    let mut state = None;
+    for (k, v) in url::form_urlencoded::parse(qs.as_bytes()) {
+        match k.as_ref() {
+            "code" => code = Some(v.into_owned()),
+            "state" => state = Some(v.into_owned()),
+            _ => {}
+        }
+    }
+    if let (Some(c), Some(s)) = (code, state) {
+        return Some((c, s));
+    }
+    None
+}
+
+/// Extract `chatgpt_account_id` from the `https://api.openai.com/auth` claim
+/// of an OpenAI access-token JWT. Returns `None` if the token is malformed or
+/// missing the claim — we never fail the whole flow on extraction error, the
+/// stored `auth.json` just won't have the hint.
+pub(crate) fn extract_chatgpt_account_id(access_token: &str) -> Option<String> {
+    let parts: Vec<&str> = access_token.splitn(3, '.').collect();
+    if parts.len() < 2 {
+        return None;
+    }
+    let payload_b64 = parts[1];
+    let payload = URL_SAFE_NO_PAD.decode(payload_b64).ok()?;
+    let value: serde_json::Value = serde_json::from_slice(&payload).ok()?;
+    value
+        .get("https://api.openai.com/auth")
+        .and_then(|claim| claim.get("chatgpt_account_id"))
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+}
+
+/// Describe + prime metrics emitted by this module. Call once at startup
+/// so `/metrics` returns the counters even before the first refresh sweep,
+/// matching the pattern in `agentforge_jobs::register_metrics`.
+pub fn register_cli_auth_proxy_metrics() {
+    metrics::describe_counter!(
+        "credential_refresh_errors_total",
+        "OAuth refresh failures bucketed by Container CLI tool and RFC 6749 error code"
+    );
+    // Prime the well-known (cli_tool, reason) combinations so Grafana
+    // dashboards don't show "no data" on a fresh cluster.
+    for reason in ["invalid_grant", "invalid_grant_revoked", "invalid_client", "transient"] {
+        for cli_tool in CliToolKind::ALL.map(CliToolKind::as_str) {
+            metrics::counter!(
+                "credential_refresh_errors_total",
+                "cli_tool" => cli_tool,
+                "reason" => reason,
+            )
+            .increment(0);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pkce_verifier_challenges_deterministically() {
+        let (verifier, challenge) = generate_pkce();
+        let mut hasher = Sha256::new();
+        hasher.update(verifier.as_bytes());
+        let expect = URL_SAFE_NO_PAD.encode(hasher.finalize());
+        assert_eq!(expect, challenge);
+    }
+
+    #[test]
+    fn state_is_hex_64_chars() {
+        let s = generate_state();
+        assert_eq!(s.len(), 64);
+        assert!(s.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn parse_callback_url_format() {
+        let url = "http://localhost:1455/auth/callback?code=abc&state=xyz";
+        assert_eq!(parse_callback_input(url), Some(("abc".into(), "xyz".into())));
+    }
+
+    #[test]
+    fn parse_callback_hash_format() {
+        assert_eq!(parse_callback_input("abc#xyz"), Some(("abc".into(), "xyz".into())));
+    }
+
+    #[test]
+    fn parse_callback_query_string() {
+        assert_eq!(parse_callback_input("code=abc&state=xyz"), Some(("abc".into(), "xyz".into())));
+        assert_eq!(parse_callback_input("?code=abc&state=xyz"), Some(("abc".into(), "xyz".into())));
+    }
+
+    #[test]
+    fn parse_callback_query_string_percent_decodes() {
+        // `+` in the raw code would encode as `%2B`; the token-exchange call
+        // must send the decoded `+` or OpenAI rejects with `invalid_grant`.
+        assert_eq!(parse_callback_input("code=abc%2Bdef&state=x%2Fy"), Some(("abc+def".into(), "x/y".into())));
+    }
+
+    #[test]
+    fn parse_callback_rejects_empty_or_partial() {
+        assert!(parse_callback_input("").is_none());
+        assert!(parse_callback_input("code=abc").is_none());
+    }
+
+    #[test]
+    fn extract_account_id_from_sample_jwt() {
+        // header.payload.signature with payload = {"https://api.openai.com/auth": {"chatgpt_account_id": "acct_123"}}
+        let payload = serde_json::json!({
+            "https://api.openai.com/auth": { "chatgpt_account_id": "acct_123" }
+        });
+        let payload_b64 = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&payload).unwrap());
+        let token = format!("header.{payload_b64}.sig");
+        assert_eq!(extract_chatgpt_account_id(&token).as_deref(), Some("acct_123"));
+    }
+
+    #[test]
+    fn extract_account_id_returns_none_for_malformed() {
+        assert!(extract_chatgpt_account_id("not-a-jwt").is_none());
+        assert!(extract_chatgpt_account_id("onepart").is_none());
+    }
+
+    fn fake_cipher(key: &[u8; 32], auth_json: &serde_json::Value) -> String {
+        let files = serde_json::json!({ "auth.json": auth_json.to_string() });
+        crypto::encrypt_base64(key, &files.to_string()).unwrap()
+    }
+
+    fn status_scope() -> TenantScope {
+        crate::test_support::tenant_scope()
+    }
+
+    #[test]
+    fn credential_status_marks_decryptable_active_row_connected() {
+        let key = [0x42; 32];
+        let auth = serde_json::json!({
+            "tokens": { "access_token": "at", "refresh_token": "rt" },
+            "last_refresh": "2026-04-25T00:00:00Z",
+        });
+        let status = credential_connection_status(
+            &status_scope(),
+            "codex",
+            Some((fake_cipher(&key, &auth), None, None, 0)),
+            Some(&key),
+        );
+
+        assert!(status.connected, "decryptable active row should be connected");
+        assert_eq!(status.last_refresh.as_deref(), Some("2026-04-25T00:00:00Z"));
+        assert!(status.revoke_reason.is_none());
+    }
+
+    #[test]
+    fn credential_status_marks_undecryptable_row_disconnected() {
+        let good_key = [0x42; 32];
+        let wrong_key = [0x99; 32];
+        let auth = serde_json::json!({
+            "tokens": { "access_token": "at", "refresh_token": "rt" },
+            "last_refresh": "2026-04-25T00:00:00Z",
+        });
+        let status = credential_connection_status(
+            &status_scope(),
+            "codex",
+            Some((fake_cipher(&wrong_key, &auth), None, None, 0)),
+            Some(&good_key),
+        );
+
+        assert!(!status.connected, "undecryptable row must not be shown as connected");
+        assert_eq!(status.revoke_reason.as_deref(), Some("credential_decrypt_failed"));
+        assert!(status.revoked_at.is_none(), "decrypt failure is not an OAuth revocation");
+    }
+
+    #[test]
+    fn token_response_debug_redacts_secret_fields() {
+        // Guards against a future `tracing::debug!(?tokens)` exfiltrating
+        // OAuth material. secrecy's Debug emits `SecretBox<…>([REDACTED])`.
+        let tokens = TokenResponse {
+            id_token: Some(SecretString::from("id-supersecret".to_string())),
+            access_token: SecretString::from("at-supersecret".to_string()),
+            refresh_token: Some(SecretString::from("rt-supersecret".to_string())),
+            expires_in: Some(3600),
+            account_id: Some("acct-public".to_string()),
+        };
+        let dbg = format!("{tokens:?}");
+        for needle in ["id-supersecret", "at-supersecret", "rt-supersecret"] {
+            assert!(!dbg.contains(needle), "Debug leaked {needle:?}: {dbg}");
+        }
+        // `account_id` is not a secret and stays visible for debugging.
+        assert!(dbg.contains("acct-public"), "account_id should remain visible: {dbg}");
+    }
+
+    #[test]
+    fn state_entry_debug_redacts_code_verifier() {
+        let entry = StateEntry {
+            code_verifier: SecretString::from("pkce-supersecret".to_string()),
+            provider: "openai".to_string(),
+            user_id: uuid::Uuid::nil(),
+        };
+        let dbg = format!("{entry:?}");
+        assert!(!dbg.contains("pkce-supersecret"), "Debug leaked PKCE verifier: {dbg}");
+        // Non-secret fields stay visible.
+        assert!(dbg.contains("openai"));
+    }
+
+    #[test]
+    fn state_entry_serde_roundtrips_through_json() {
+        // `StateEntry` is serialised to Redis and deserialised on take — the
+        // `secret_string_serde` adapter must preserve the inner bytes across
+        // the round-trip even though Debug redacts them.
+        let original = StateEntry {
+            code_verifier: SecretString::from("verifier-xyz".to_string()),
+            provider: "openai".to_string(),
+            user_id: uuid::Uuid::nil(),
+        };
+        let json = serde_json::to_string(&original).expect("serialise");
+        let back: StateEntry = serde_json::from_str(&json).expect("deserialise");
+        assert_eq!(back.code_verifier.expose_secret(), "verifier-xyz");
+        assert_eq!(back.provider, "openai");
+    }
+
+    #[test]
+    fn needs_refresh_marks_old_entries_stale() {
+        let key = [11u8; 32];
+        let old = chrono::Utc::now() - chrono::Duration::hours(5);
+        let auth = serde_json::json!({
+            "tokens": { "refresh_token": "rt-abc", "access_token": "at" },
+            "last_refresh": old.to_rfc3339(),
+        });
+        let ct = fake_cipher(&key, &auth);
+        match needs_refresh(&key, &ct, chrono::Utc::now(), Duration::from_secs(3 * 3600)).unwrap() {
+            NeedsRefresh::Stale { refresh_token } => assert_eq!(refresh_token.expose_secret(), "rt-abc"),
+            _ => panic!("expected Stale"),
+        }
+    }
+
+    #[test]
+    fn needs_refresh_keeps_fresh_entries() {
+        let key = [11u8; 32];
+        let recent = chrono::Utc::now() - chrono::Duration::minutes(5);
+        let auth = serde_json::json!({
+            "tokens": { "refresh_token": "rt", "access_token": "at" },
+            "last_refresh": recent.to_rfc3339(),
+        });
+        let ct = fake_cipher(&key, &auth);
+        assert!(matches!(
+            needs_refresh(&key, &ct, chrono::Utc::now(), Duration::from_secs(3 * 3600)).unwrap(),
+            NeedsRefresh::Fresh
+        ));
+    }
+
+    #[test]
+    fn needs_refresh_skips_entries_without_refresh_token() {
+        let key = [11u8; 32];
+        let auth = serde_json::json!({ "tokens": { "access_token": "at" }, "last_refresh": "2026-04-01T00:00:00Z" });
+        let ct = fake_cipher(&key, &auth);
+        assert!(matches!(
+            needs_refresh(&key, &ct, chrono::Utc::now(), Duration::from_secs(3 * 3600)).unwrap(),
+            NeedsRefresh::NoRefreshToken
+        ));
+    }
+
+    #[tokio::test]
+    async fn memory_store_expires_entries() {
+        let store = MemoryStateStore::default();
+        let entry = StateEntry {
+            code_verifier: SecretString::from("v".to_string()),
+            provider: "openai".into(),
+            user_id: uuid::Uuid::new_v4(),
+        };
+        store.put("s1", entry.clone(), Duration::from_millis(0)).await;
+        tokio::time::sleep(Duration::from_millis(5)).await;
+        assert!(store.take("s1").await.is_none());
+    }
+
+    #[tokio::test]
+    async fn memory_store_take_is_single_use() {
+        let store = MemoryStateStore::default();
+        let entry = StateEntry {
+            code_verifier: SecretString::from("v".to_string()),
+            provider: "openai".into(),
+            user_id: uuid::Uuid::new_v4(),
+        };
+        store.put("s2", entry, Duration::from_secs(60)).await;
+        assert!(store.take("s2").await.is_some());
+        assert!(store.take("s2").await.is_none());
+    }
+
+    #[tokio::test]
+    async fn state_store_memory_variant_roundtrips() {
+        let store = StateStore::Memory(Arc::new(MemoryStateStore::default()));
+        let entry = StateEntry {
+            code_verifier: SecretString::from("v".to_string()),
+            provider: "openai".into(),
+            user_id: uuid::Uuid::nil(),
+        };
+        store.put("s-mem", entry.clone()).await.expect("memory put must succeed");
+        let back = store.take("s-mem").await.expect("memory take must not error");
+        assert_eq!(back.unwrap().code_verifier.expose_secret(), "v");
+        // Second take returns None, not Err.
+        assert!(store.take("s-mem").await.expect("second take must not error").is_none());
+    }
+
+    #[tokio::test]
+    async fn state_store_redis_variant_fails_closed_when_disconnected() {
+        // A RedisClient built with no URL has `connection = None`. The issue's
+        // acceptance says: in Redis mode, absence of a working connection is
+        // surfaced as Internal — NOT silently swapped for memory.
+        // AppConfig has no Default impl (see `infra::redis_client::test_config`
+        // for the established pattern of filling every field explicitly).
+        use agentforge_core::AppConfig;
+        // Split the jwt_secret literal out of the struct field so
+        // `scripts/check-secret-scan.mjs` doesn't trip on its
+        // `secret:\s*['\"]...['\"]` assignment pattern. Matches the style
+        // used by `rust/crates/infra/src/redis_client.rs::test_config`,
+        // which sources the value from `test_jwt_secret()`.
+        let jwt = "agentforge-jwt-placeholder-for-cli-auth-proxy-tests".to_string();
+        let cfg = AppConfig {
+            port: 4003,
+            host: "0.0.0.0".to_string(),
+            database_url: "postgres://localhost/test".to_string(),
+            redis_url: None,
+            nats_url: None,
+            nats_agent_url: None,
+            nats_callout: agentforge_core::NatsCalloutConfig::default(),
+            stripe: agentforge_core::StripeConfig::default(),
+            jwt_secret: SecretString::from(jwt),
+            jwt_expiry_seconds: 900,
+            environment: "development".to_string(),
+            log_level: "info".to_string(),
+            cors_origin: None,
+            static_dir: None,
+            container_server_url: None,
+            ollama_base_url: None,
+            llm_encryption_key: None,
+            container_anthropic_api_key: None,
+            container_google_api_key: None,
+            container_openai_api_key: None,
+            codex_default_model: "gpt-5.5".to_string(),
+            oauth_mount_dir: None,
+            storage_provider: "local".to_string(),
+            storage_local_path: "~/.agentforge/data/uploads".to_string(),
+            storage_max_file_size: 10 * 1024 * 1024,
+            storage_max_files_per_session: 20,
+            storage_signed_url_expiry: 3600,
+            minio_endpoint: None,
+            minio_access_key: None,
+            minio_secret_key: None,
+            minio_bucket: "agentforge".to_string(),
+            minio_use_ssl: false,
+            minio_region: None,
+            credential_sync_enabled: false,
+            cli_auth_proxy_openai_client_id: None,
+            cli_auth_proxy_openai_client_secret: None,
+            cli_auth_proxy_openai_auth_endpoint: None,
+            cli_auth_proxy_openai_token_endpoint: None,
+            app_url: None,
+            cli_auth_proxy_revoke_threshold: 2,
+            smtp_host: None,
+            smtp_port: None,
+            smtp_user: None,
+            smtp_password: None,
+            smtp_from: None,
+            smtp_secure: false,
+        };
+        let client = agentforge_infra::RedisClient::new(&cfg).await;
+        let store = StateStore::Redis(Arc::new(RwLock::new(client)));
+        let entry = StateEntry {
+            code_verifier: SecretString::from("v".to_string()),
+            provider: "openai".into(),
+            user_id: uuid::Uuid::nil(),
+        };
+        let err = store.put("s-redis", entry).await.expect_err("disconnected Redis must Err");
+        let msg = format!("{}", err.kind);
+        assert!(msg.to_lowercase().contains("redis"), "error should mention redis, got: {msg}");
+
+        let err = store.take("s-redis").await.expect_err("disconnected Redis take must Err");
+        let msg = format!("{}", err.kind);
+        assert!(msg.to_lowercase().contains("redis"), "error should mention redis, got: {msg}");
+    }
+
+    #[tokio::test]
+    async fn memory_state_store_take_is_single_use_under_concurrent_callers() {
+        // Two callers race on the same state. Exactly one must win; the other
+        // must observe None. A mutable-read-then-write impl would let both win.
+        //
+        // Lives here (not in tests/) because StateEntry + MemoryStateStore::put
+        // are module-private and exposing them just for this test would widen
+        // the public surface.
+        let store = Arc::new(MemoryStateStore::default());
+        let state = "test-state-abc";
+        let entry = StateEntry {
+            provider: "openai".into(),
+            user_id: uuid::Uuid::new_v4(),
+            code_verifier: SecretString::from("verifier".to_string()),
+        };
+        store.put(state, entry, Duration::from_secs(60)).await;
+
+        let s1 = Arc::clone(&store);
+        let s2 = Arc::clone(&store);
+        let (r1, r2) = tokio::join!(async move { s1.take(state).await }, async move { s2.take(state).await },);
+        let some_count = [r1.is_some(), r2.is_some()].iter().filter(|b| **b).count();
+        assert_eq!(
+            some_count,
+            1,
+            "exactly one caller must observe Some (got r1.is_some={} r2.is_some={})",
+            r1.is_some(),
+            r2.is_some()
+        );
+    }
+
+    // Note: the AppConfig field list above must stay in sync with
+    // `rust/crates/core/src/config.rs`. If this test fails to compile after
+    // a config.rs field is added, mirror it here; `test_config` in
+    // `infra/src/redis_client.rs` is the authoritative template.
+}

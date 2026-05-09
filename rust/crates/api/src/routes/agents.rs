@@ -1,0 +1,828 @@
+//! Agent CRUD endpoints (nested under `/api/v1`).
+//!
+//! - `GET    /api/v1/agents`                      — list agents (paginated)
+//! - `POST   /api/v1/agents`                      — create agent
+//! - `GET    /api/v1/agents/:id`                  — get agent by ID
+//! - `DELETE /api/v1/agents/:id`                  — delete agent
+//! - `PATCH  /api/v1/agents/:id/status`           — update agent status
+//! - `GET    /api/v1/agents/:id/messages`         — list chat history
+//! - `DELETE /api/v1/agents/:id/messages`         — wipe chat history
+//! - `POST   /api/v1/agents/:id/prompt/interrupt` — cancel in-flight SSE stream
+
+use std::sync::Arc;
+
+use axum::extract::{Path, Query, State};
+use axum::routing::{get, patch, post};
+use axum::{Json, Router};
+use futures::StreamExt;
+use serde::Deserialize;
+use uuid::Uuid;
+
+use agentforge_auth::AuthUser;
+use agentforge_core::{AgentId, AgentStatus, AppResult, ErrorKind};
+
+use crate::health::AppState;
+use crate::repositories::agent::{AgentRepository, CreateAgentParams};
+use crate::services::agent::AgentService;
+use crate::services::agent_commands::AgentCommandService;
+use crate::services::agent_workspace::{resolve_agent_workspace_paths, resolve_workspace_mount_scope};
+
+/// Query parameters for the list endpoint.
+#[derive(Deserialize)]
+pub struct ListQuery {
+    #[serde(default = "default_limit")]
+    pub limit: i64,
+    #[serde(default)]
+    pub offset: i64,
+}
+
+fn default_limit() -> i64 {
+    20
+}
+
+/// Request body for creating an agent.
+#[derive(Deserialize)]
+pub struct CreateAgentRequest {
+    pub name: Option<String>,
+    pub model: Option<String>,
+    pub provider: Option<String>,
+    /// `claude` / `codex` / `gemini` / `opencode` for Container CLI agents.
+    /// Omit for provider+prompt agents (no container shell).
+    #[serde(default, alias = "cliTool")]
+    pub cli_tool: Option<String>,
+    /// Requested working directory. For Container CLI agents this is resolved
+    /// server-side under the managed Wisdoverse Forge workspace root.
+    #[serde(default)]
+    pub cwd: Option<String>,
+    /// Workspace execution/access boundary. If omitted, it is inferred from
+    /// `project_id`, then from the tenant's default workspace.
+    #[serde(default, alias = "workspaceId")]
+    pub workspace_id: Option<Uuid>,
+    /// Primary project context for task routing and UI ownership. It does not
+    /// narrow the container filesystem mount by itself.
+    #[serde(default, alias = "projectId")]
+    pub project_id: Option<Uuid>,
+    /// System prompt for provider+prompt agents. `alias = "systemPrompt"` allows
+    /// both camelCase (frontend) and snake_case (API clients) to be accepted.
+    #[serde(default, alias = "systemPrompt")]
+    pub system_prompt: Option<String>,
+}
+
+/// Request body for updating agent fields (name, model, provider, system_prompt).
+#[derive(Deserialize)]
+pub struct UpdateAgentRequest {
+    pub name: Option<String>,
+    pub model: Option<String>,
+    pub provider: Option<String>,
+    /// System prompt for provider+prompt agents. `alias = "systemPrompt"` allows
+    /// both camelCase (frontend) and snake_case (API clients) to be accepted.
+    #[serde(default, alias = "systemPrompt")]
+    pub system_prompt: Option<String>,
+}
+
+/// Request body for updating agent status.
+#[derive(Deserialize)]
+pub struct UpdateStatusRequest {
+    pub status: AgentStatus,
+}
+
+/// Request body for sending a prompt to an agent.
+#[derive(Deserialize)]
+pub struct PromptRequest {
+    pub content: String,
+    #[serde(default)]
+    pub images: Option<Vec<String>>,
+}
+
+/// Validate the current Rust prompt path.
+///
+/// This path only supports plain-text prompts. Images are rejected rather than
+/// silently dropped so the route stays aligned with the command publisher.
+fn validate_prompt_request(req: &PromptRequest) -> AppResult<()> {
+    if req.content.trim().is_empty() {
+        return Err(ErrorKind::Validation("prompt content is required".into()).into());
+    }
+
+    if req.images.as_ref().is_some_and(|images| !images.is_empty()) {
+        return Err(ErrorKind::Validation("prompt images are not supported yet".into()).into());
+    }
+
+    Ok(())
+}
+
+/// Build a service instance from shared state.
+fn make_service(state: &AppState) -> AgentService {
+    AgentService::new(AgentRepository::new(state.pool.clone()))
+}
+
+async fn send_sidecar_prompt(state: &AppState, agent_id: Uuid, content: &str) -> AppResult<()> {
+    #[cfg(any(test, feature = "test-support"))]
+    if let Some(bus) = state.agent_command_bus.clone() {
+        let command_service = AgentCommandService::new(bus);
+        return command_service.send_prompt(&agent_id.to_string(), content).await;
+    }
+
+    let command_service = AgentCommandService::new(state.nats.clone());
+    command_service.send_prompt(&agent_id.to_string(), content).await
+}
+
+async fn send_sidecar_interrupt(state: &AppState, agent_id: Uuid) -> AppResult<()> {
+    #[cfg(any(test, feature = "test-support"))]
+    if let Some(bus) = state.agent_command_bus.clone() {
+        let command_service = AgentCommandService::new(bus);
+        return command_service.interrupt(&agent_id.to_string()).await;
+    }
+
+    let command_service = AgentCommandService::new(state.nats.clone());
+    command_service.interrupt(&agent_id.to_string()).await
+}
+
+/// `GET /api/v1/agents` — list agents for the authenticated tenant.
+///
+/// Response shape matches the frontend `AgentListResponse` contract:
+/// `{ ok: true, agents: AgentListItem[] }`. Each item includes `ownerUsername`,
+/// `ownerEmail`, and `projectName` so the UI can display the owner.
+async fn list_agents(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Query(query): Query<ListQuery>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let agents = service.list_with_owner(&auth.scope, query.limit, query.offset).await?;
+    Ok(Json(serde_json::json!({ "ok": true, "agents": agents })))
+}
+
+/// `GET /api/agents/:id` — get a single agent by ID.
+///
+/// Response shape: `{ ok: true, agent: AgentListItem }` including owner info.
+async fn get_agent(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let agent = service.get_with_owner(&auth.scope, AgentId::from(id)).await?;
+    Ok(Json(serde_json::json!({ "ok": true, "agent": agent })))
+}
+
+/// `POST /api/v1/agents` — create a new agent.
+///
+/// Returns the enriched `{ ok: true, agent: AgentListItem }` shape expected by
+/// the frontend `CreateAgentResponse` contract, so callers can read
+/// `response.agent.name` / `response.agent.ownerUsername` directly.
+async fn create_agent(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(req): Json<CreateAgentRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let cli_tool = req.cli_tool.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    let workspace_scope =
+        resolve_workspace_mount_scope(&state.pool, auth.scope.org_id().as_uuid(), req.workspace_id, req.project_id)
+            .await?;
+    let resolved_cwd = if cli_tool.is_some() {
+        let paths = resolve_agent_workspace_paths(
+            &crate::routes::containers::workspace_root_from_env(),
+            workspace_scope,
+            req.cwd.as_deref(),
+        )?;
+        Some(paths.container_cwd)
+    } else {
+        None
+    };
+    let agent = service
+        .create(
+            &auth.scope,
+            CreateAgentParams {
+                name: req.name.as_deref(),
+                model: req.model.as_deref(),
+                provider: req.provider.as_deref(),
+                cli_tool,
+                cwd: resolved_cwd.as_deref(),
+                workspace_id: Some(workspace_scope.workspace_id),
+                project_id: req.project_id,
+                system_prompt: req.system_prompt.as_deref(),
+            },
+        )
+        .await?;
+    // Re-fetch so the response includes owner + project names via the JOIN view.
+    let enriched = service.get_with_owner(&auth.scope, agent.id).await?;
+    Ok(Json(serde_json::json!({ "ok": true, "agent": enriched })))
+}
+
+/// `PATCH /api/v1/agents/:id/status` — update agent status with state machine validation.
+async fn update_agent_status(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+    Json(req): Json<UpdateStatusRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let agent = service.update_status(&auth.scope, AgentId::from(id), req.status).await?;
+    Ok(Json(serde_json::json!({ "ok": true, "data": agent })))
+}
+
+/// `DELETE /api/v1/agents/:id` — delete an agent.
+async fn delete_agent(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    service.delete(&auth.scope, AgentId::from(id)).await?;
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+/// `PATCH /api/v1/agents/:id` — update agent fields (name, model, provider).
+async fn update_agent(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+    Json(req): Json<UpdateAgentRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let agent = service
+        .update(
+            &auth.scope,
+            AgentId::from(id),
+            req.name.as_deref(),
+            req.model.as_deref(),
+            req.provider.as_deref(),
+            req.system_prompt.as_deref(),
+        )
+        .await?;
+    Ok(Json(serde_json::json!({ "ok": true, "data": agent })))
+}
+
+/// `POST /api/v1/agents/:id/prompt` — send a prompt to the agent.
+///
+/// Container CLI agents (cli_tool = Some) keep the existing NATS publish path.
+/// Provider+prompt agents (cli_tool = None) run an SSE stream via
+/// `PromptService` — see T11. The response Content-Type differs accordingly.
+async fn send_prompt(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+    Json(req): Json<PromptRequest>,
+) -> AppResult<axum::response::Response> {
+    use axum::response::IntoResponse;
+    use axum::response::sse::{Event, KeepAlive, Sse};
+
+    let service = make_service(&state);
+    let agent = service.get(&auth.scope, AgentId::from(id)).await?;
+
+    validate_prompt_request(&req)?;
+
+    // Container CLI agents keep the existing NATS publish path.
+    if agent.cli_tool.is_some() {
+        send_sidecar_prompt(&state, id, &req.content).await?;
+        return Ok(Json(serde_json::json!({ "ok": true, "status": "sent", "agent_id": id })).into_response());
+    }
+
+    // Provider+prompt agents: run the SSE loop.
+    let user_llm_repo =
+        Arc::new(crate::repositories::user_llm_config::UserLlmConfigRepository::new(state.pool.clone()));
+    let keys = Arc::new(crate::services::prompt::UserLlmConfigKeyResolver::new(user_llm_repo, state.encryption_key));
+    let prompt_service = crate::services::prompt::PromptService::new(
+        Arc::new(crate::repositories::message::MessageRepository::new(state.pool.clone())),
+        Arc::new(AgentRepository::new(state.pool.clone())),
+        state.llm_factory.clone(),
+        keys,
+    );
+    let model = agent.model.clone().ok_or_else(|| ErrorKind::Validation("agent has no model configured".into()))?;
+    let system_prompt = agent.system_prompt.clone();
+
+    // Build the stream FIRST. Any error from validation / build_history /
+    // key resolution / provider construction returns now, before we touch
+    // the inflight map, so an early failure never wedges the agent as busy.
+    let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
+    let agent_id_typed = AgentId::from(id);
+    let frame_stream =
+        prompt_service.stream(auth.scope.clone(), agent_id_typed, model, system_prompt, req.content, cancel_rx).await?;
+
+    // Register the in-flight sender AFTER the stream is built. Second
+    // concurrent send on the same agent → 409.
+    {
+        let mut map = state.inflight_prompts.lock().expect("inflight_prompts poisoned");
+        if map.contains_key(&agent_id_typed) {
+            return Err(ErrorKind::Conflict("agent_busy".into()).into());
+        }
+        map.insert(agent_id_typed, cancel_tx);
+    }
+
+    // Cleanup guard: removes the in-flight entry when the stream is dropped
+    // — normal completion, client disconnect, or server-initiated interrupt.
+    struct InflightGuard {
+        map: Arc<std::sync::Mutex<std::collections::HashMap<AgentId, tokio::sync::oneshot::Sender<()>>>>,
+        agent_id: AgentId,
+    }
+    impl Drop for InflightGuard {
+        fn drop(&mut self) {
+            if let Ok(mut m) = self.map.lock() {
+                m.remove(&self.agent_id);
+            }
+            // Poisoned mutex on drop: other handlers already treat this as
+            // their own failure path via expect(); silently skipping here is
+            // acceptable because cleanup-on-drop is best-effort.
+        }
+    }
+    let guard = Arc::new(InflightGuard { map: state.inflight_prompts.clone(), agent_id: agent_id_typed });
+
+    type SseBoxError = Box<dyn std::error::Error + Send + Sync>;
+    let sse_events = frame_stream.map(move |frame_result| {
+        let _hold = guard.clone();
+        let frame = frame_result.map_err(|e| -> SseBoxError { e.kind.to_string().into() })?;
+        let (event_name, data) = frame.split();
+        Ok::<_, SseBoxError>(Event::default().event(event_name).data(data.to_string()))
+    });
+
+    let sse = Sse::new(sse_events).keep_alive(KeepAlive::new().interval(std::time::Duration::from_secs(15)));
+    let mut resp = sse.into_response();
+    resp.headers_mut().insert("cache-control", "no-cache".parse().expect("static header value"));
+    resp.headers_mut().insert("x-accel-buffering", "no".parse().expect("static header value"));
+
+    Ok(resp)
+}
+
+/// `POST /api/v1/agents/:id/interrupt` — interrupt the agent.
+async fn interrupt_agent(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let _agent = service.get(&auth.scope, AgentId::from(id)).await?;
+
+    send_sidecar_interrupt(&state, id).await?;
+
+    Ok(Json(serde_json::json!({ "ok": true, "status": "interrupting" })))
+}
+
+/// Query parameters for the messages list endpoint.
+#[derive(Deserialize)]
+pub struct MessagesQuery {
+    #[serde(default = "default_messages_limit")]
+    pub limit: i64,
+    pub before: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+fn default_messages_limit() -> i64 {
+    50
+}
+
+/// `GET /api/v1/agents/:id/messages` — return chronological chat history.
+async fn list_messages(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+    Query(q): Query<MessagesQuery>,
+) -> AppResult<Json<serde_json::Value>> {
+    // Ownership check first — preserves the "no existence leak" 404 contract
+    // for cross-tenant / nonexistent ids. Without this, a cross-tenant agent
+    // id returns {ok:true, messages:[]} instead of 404.
+    let service = make_service(&state);
+    let _agent = service.get(&auth.scope, AgentId::from(id)).await?;
+
+    let repo = crate::repositories::message::MessageRepository::new(state.pool.clone());
+    let limit = q.limit.clamp(1, 200);
+    let mut msgs = repo.list(&auth.scope, AgentId::from(id), limit + 1, q.before).await?;
+    let has_more = msgs.len() as i64 > limit;
+    if has_more {
+        msgs.remove(0);
+    }
+    Ok(Json(serde_json::json!({ "ok": true, "messages": msgs, "hasMore": has_more })))
+}
+
+/// `DELETE /api/v1/agents/:id/messages` — wipe all chat history for the agent.
+async fn delete_messages(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let _agent = service.get(&auth.scope, AgentId::from(id)).await?;
+
+    let repo = crate::repositories::message::MessageRepository::new(state.pool.clone());
+    let deleted = repo.delete_all_by_agent(&auth.scope, AgentId::from(id)).await?;
+    Ok(Json(serde_json::json!({ "ok": true, "deleted": deleted })))
+}
+
+/// `POST /api/v1/agents/:id/prompt/interrupt` — cancel the in-flight LLM stream.
+///
+/// Tenant ownership check on the agent before touching the in-flight map —
+/// without this, an attacker who learned any streaming agent's UUID could
+/// cancel another tenant's active prompt (the map is keyed by bare AgentId).
+async fn interrupt_prompt(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let _agent = service.get(&auth.scope, AgentId::from(id)).await?;
+
+    let mut map = state.inflight_prompts.lock().expect("inflight_prompts poisoned");
+    if let Some(tx) = map.remove(&AgentId::from(id)) {
+        let _ = tx.send(());
+    }
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+/// `POST /api/v1/agents/:id/restart` — restart agent container.
+async fn restart_agent(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let docker = state.docker.as_ref().ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("Docker not available")))?;
+
+    let service = make_service(&state);
+    let agent = service.get(&auth.scope, AgentId::from(id)).await?;
+
+    let container_id =
+        agent.container_id.as_ref().ok_or_else(|| ErrorKind::Validation("agent has no container".into()))?;
+
+    docker
+        .stop_container(container_id, 10)
+        .await
+        .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("stop failed: {e}")))?;
+    docker
+        .start_container(container_id)
+        .await
+        .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("start failed: {e}")))?;
+
+    Ok(Json(serde_json::json!({ "ok": true, "status": "restarted" })))
+}
+
+/// `POST /api/v1/agents/:id/resume` — resume a stopped agent.
+async fn resume_agent(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let agent = service.get(&auth.scope, AgentId::from(id)).await?;
+
+    let container_id =
+        agent.container_id.as_ref().ok_or_else(|| ErrorKind::Validation("agent has no container to resume".into()))?;
+
+    if let Some(docker) = &state.docker {
+        docker
+            .start_container(container_id)
+            .await
+            .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("resume failed: {e}")))?;
+    }
+
+    service.update_status(&auth.scope, AgentId::from(id), AgentStatus::Idle).await?;
+
+    Ok(Json(serde_json::json!({ "ok": true, "status": "resumed" })))
+}
+
+/// Request body for adding a collaborator.
+#[derive(Deserialize)]
+pub struct AddCollaboratorRequest {
+    pub user_id: Uuid,
+    #[serde(default = "default_permission")]
+    pub permission: String,
+}
+
+fn default_permission() -> String {
+    "view".to_string()
+}
+
+/// Request body for updating a collaborator's permission.
+#[derive(Deserialize)]
+pub struct UpdateCollaboratorRequest {
+    pub permission: String,
+}
+
+/// Request body for checking/granting permission.
+#[derive(Deserialize)]
+pub struct PermissionRequest {
+    pub user_id: Uuid,
+    pub action: String,
+}
+
+/// `GET /api/v1/agents/:id/collaborators` — list collaborators for an agent.
+async fn list_collaborators(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let collabs = service.list_collaborators(&auth.scope, AgentId::from(id)).await?;
+    Ok(Json(serde_json::json!({ "ok": true, "data": collabs })))
+}
+
+/// `POST /api/v1/agents/:id/collaborators` — add a collaborator.
+async fn add_collaborator(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+    Json(req): Json<AddCollaboratorRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let collab = service.add_collaborator(&auth.scope, AgentId::from(id), req.user_id, &req.permission).await?;
+    Ok(Json(serde_json::json!({ "ok": true, "data": collab })))
+}
+
+/// `PATCH /api/v1/agents/:id/collaborators/:user_id` — update a collaborator's permission.
+async fn update_collaborator(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path((id, user_id)): Path<(Uuid, Uuid)>,
+    Json(req): Json<UpdateCollaboratorRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let collab = service.update_collaborator(&auth.scope, AgentId::from(id), user_id, &req.permission).await?;
+    Ok(Json(serde_json::json!({ "ok": true, "data": collab })))
+}
+
+/// `DELETE /api/v1/agents/:id/collaborators/:user_id` — remove a collaborator.
+async fn remove_collaborator(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path((id, user_id)): Path<(Uuid, Uuid)>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    service.remove_collaborator(&auth.scope, AgentId::from(id), user_id).await?;
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+/// `GET /api/v1/agents/:id/git` — get git status (stub).
+async fn get_git_status(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    // Verify agent exists and belongs to tenant
+    let _agent = service.get(&auth.scope, AgentId::from(id)).await?;
+
+    // Stub: return empty git status
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "data": {
+            "branch": null,
+            "ahead": 0,
+            "behind": 0,
+            "modified": [],
+            "untracked": []
+        }
+    })))
+}
+
+/// `POST /api/v1/agents/:id/permission` — check/grant permission.
+async fn check_permission(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+    Json(req): Json<PermissionRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let agent = service.get(&auth.scope, AgentId::from(id)).await?;
+
+    // Check if the user is the agent owner
+    let is_owner = agent.user_id.as_uuid() == req.user_id;
+
+    // Check if the user is a collaborator with sufficient permission
+    let collabs = service.list_collaborators(&auth.scope, AgentId::from(id)).await?;
+    let collab_permission = collabs.iter().find(|c| c.user_id.as_uuid() == req.user_id).map(|c| c.permission.as_str());
+
+    let has_permission = is_owner
+        || match req.action.as_str() {
+            "view" => collab_permission.is_some(),
+            "edit" => matches!(collab_permission, Some("edit" | "admin")),
+            "admin" => matches!(collab_permission, Some("admin")),
+            _ => false,
+        };
+
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "data": {
+            "has_permission": has_permission,
+            "is_owner": is_owner,
+            "permission": collab_permission,
+        }
+    })))
+}
+
+/// Build agent routes sub-router.
+pub fn agent_routes() -> Router<AppState> {
+    Router::new()
+        .route("/agents", get(list_agents).post(create_agent))
+        .route("/agents/{id}", get(get_agent).patch(update_agent).delete(delete_agent))
+        .route("/agents/{id}/status", patch(update_agent_status))
+        .route("/agents/{id}/prompt", post(send_prompt))
+        .route("/agents/{id}/prompt/interrupt", post(interrupt_prompt))
+        .route("/agents/{id}/messages", get(list_messages).delete(delete_messages))
+        .route("/agents/{id}/interrupt", post(interrupt_agent))
+        .route("/agents/{id}/restart", post(restart_agent))
+        .route("/agents/{id}/resume", post(resume_agent))
+        .route("/agents/{id}/collaborators", get(list_collaborators).post(add_collaborator))
+        .route("/agents/{id}/collaborators/{user_id}", patch(update_collaborator).delete(remove_collaborator))
+        .route("/agents/{id}/git", get(get_git_status))
+        .route("/agents/{id}/permission", post(check_permission))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn list_query_defaults() {
+        let query: ListQuery = serde_json::from_str("{}").unwrap();
+        assert_eq!(query.limit, 20);
+        assert_eq!(query.offset, 0);
+    }
+
+    #[test]
+    fn list_query_custom_values() {
+        let query: ListQuery = serde_json::from_str(r#"{"limit": 50, "offset": 10}"#).unwrap();
+        assert_eq!(query.limit, 50);
+        assert_eq!(query.offset, 10);
+    }
+
+    #[test]
+    fn create_request_all_optional() {
+        let req: CreateAgentRequest = serde_json::from_str("{}").unwrap();
+        assert!(req.name.is_none());
+        assert!(req.model.is_none());
+        assert!(req.provider.is_none());
+        assert!(req.cwd.is_none());
+        assert!(req.workspace_id.is_none());
+        assert!(req.project_id.is_none());
+    }
+
+    #[test]
+    fn create_request_with_values() {
+        let req: CreateAgentRequest = serde_json::from_str(
+            r#"{
+                "name": "test-agent",
+                "model": "claude-sonnet-4-20250514",
+                "provider": "anthropic",
+                "cwd": "~/projects",
+                "workspaceId": "650e8400-e29b-41d4-a716-446655440000",
+                "projectId": "550e8400-e29b-41d4-a716-446655440000"
+            }"#,
+        )
+        .unwrap();
+        assert_eq!(req.name.as_deref(), Some("test-agent"));
+        assert_eq!(req.model.as_deref(), Some("claude-sonnet-4-20250514"));
+        assert_eq!(req.provider.as_deref(), Some("anthropic"));
+        assert_eq!(req.cwd.as_deref(), Some("~/projects"));
+        assert_eq!(req.workspace_id, Some(Uuid::parse_str("650e8400-e29b-41d4-a716-446655440000").unwrap()));
+        assert_eq!(req.project_id, Some(Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap()));
+    }
+
+    #[test]
+    fn update_status_request_deserialization() {
+        let req: UpdateStatusRequest = serde_json::from_str(r#"{"status": "working"}"#).unwrap();
+        assert_eq!(req.status, AgentStatus::Working);
+
+        let req: UpdateStatusRequest = serde_json::from_str(r#"{"status": "idle"}"#).unwrap();
+        assert_eq!(req.status, AgentStatus::Idle);
+
+        let req: UpdateStatusRequest = serde_json::from_str(r#"{"status": "offline"}"#).unwrap();
+        assert_eq!(req.status, AgentStatus::Offline);
+    }
+
+    #[test]
+    fn update_status_request_invalid() {
+        let result = serde_json::from_str::<UpdateStatusRequest>(r#"{"status": "invalid"}"#);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn update_agent_request_deserialization() {
+        let req: UpdateAgentRequest = serde_json::from_str(
+            r#"{"name": "new-name", "model": "claude-sonnet-4-20250514", "provider": "anthropic"}"#,
+        )
+        .unwrap();
+        assert_eq!(req.name.as_deref(), Some("new-name"));
+        assert_eq!(req.model.as_deref(), Some("claude-sonnet-4-20250514"));
+        assert_eq!(req.provider.as_deref(), Some("anthropic"));
+    }
+
+    #[test]
+    fn update_agent_request_partial() {
+        let req: UpdateAgentRequest = serde_json::from_str(r#"{"name": "new-name"}"#).unwrap();
+        assert_eq!(req.name.as_deref(), Some("new-name"));
+        assert!(req.model.is_none());
+        assert!(req.provider.is_none());
+    }
+
+    #[test]
+    fn update_agent_request_empty() {
+        let req: UpdateAgentRequest = serde_json::from_str(r#"{}"#).unwrap();
+        assert!(req.name.is_none());
+        assert!(req.model.is_none());
+        assert!(req.provider.is_none());
+    }
+
+    #[test]
+    fn prompt_request_deserialization() {
+        let req: PromptRequest = serde_json::from_str(r#"{"content": "hello", "images": ["base64data"]}"#).unwrap();
+        assert_eq!(req.content, "hello");
+        assert_eq!(req.images.as_ref().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn prompt_request_content_only() {
+        let req: PromptRequest = serde_json::from_str(r#"{"content": "hello"}"#).unwrap();
+        assert_eq!(req.content, "hello");
+        assert!(req.images.is_none());
+    }
+
+    #[test]
+    fn prompt_request_with_images_is_rejected() {
+        let req: PromptRequest = serde_json::from_str(r#"{"content": "hello", "images": ["base64data"]}"#).unwrap();
+        let result = validate_prompt_request(&req);
+        assert!(matches!(result.unwrap_err().kind, ErrorKind::Validation(msg) if msg.contains("not supported")));
+    }
+
+    #[test]
+    fn prompt_request_empty_content_no_images_should_fail_validation() {
+        let req: PromptRequest = serde_json::from_str(r#"{"content": ""}"#).unwrap();
+        let result = validate_prompt_request(&req);
+        assert!(matches!(result.unwrap_err().kind, ErrorKind::Validation(msg) if msg.contains("required")));
+    }
+
+    #[test]
+    fn prompt_request_blank_content_is_rejected() {
+        let req: PromptRequest = serde_json::from_str(r#"{"content": "   "}"#).unwrap();
+        let result = validate_prompt_request(&req);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn add_collaborator_request_defaults() {
+        let req: AddCollaboratorRequest =
+            serde_json::from_str(r#"{"user_id": "00000000-0000-0000-0000-000000000001"}"#).unwrap();
+        assert_eq!(req.permission, "view"); // default
+    }
+
+    #[test]
+    fn add_collaborator_request_with_permission() {
+        let req: AddCollaboratorRequest =
+            serde_json::from_str(r#"{"user_id": "00000000-0000-0000-0000-000000000001", "permission": "edit"}"#)
+                .unwrap();
+        assert_eq!(req.permission, "edit");
+    }
+
+    #[test]
+    fn add_collaborator_missing_user_id_fails() {
+        let result = serde_json::from_str::<AddCollaboratorRequest>(r#"{"permission": "view"}"#);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn update_collaborator_request_deserialization() {
+        let req: UpdateCollaboratorRequest = serde_json::from_str(r#"{"permission": "admin"}"#).unwrap();
+        assert_eq!(req.permission, "admin");
+    }
+
+    #[test]
+    fn update_collaborator_missing_permission_fails() {
+        let result = serde_json::from_str::<UpdateCollaboratorRequest>(r#"{}"#);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn permission_request_deserialization() {
+        let req: PermissionRequest =
+            serde_json::from_str(r#"{"user_id": "00000000-0000-0000-0000-000000000001", "action": "edit"}"#).unwrap();
+        assert_eq!(req.action, "edit");
+    }
+
+    #[test]
+    fn permission_request_missing_fields_fails() {
+        let result =
+            serde_json::from_str::<PermissionRequest>(r#"{"user_id": "00000000-0000-0000-0000-000000000001"}"#);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn create_request_camel_case_system_prompt_alias() {
+        let req: CreateAgentRequest = serde_json::from_str(r#"{"systemPrompt": "you are helpful"}"#).unwrap();
+        assert_eq!(req.system_prompt.as_deref(), Some("you are helpful"));
+    }
+
+    #[test]
+    fn update_request_camel_case_system_prompt_alias() {
+        let req: UpdateAgentRequest = serde_json::from_str(r#"{"systemPrompt": "new prompt"}"#).unwrap();
+        assert_eq!(req.system_prompt.as_deref(), Some("new prompt"));
+    }
+
+    #[test]
+    fn messages_query_defaults() {
+        let q: MessagesQuery = serde_json::from_str("{}").unwrap();
+        assert_eq!(q.limit, 50);
+        assert!(q.before.is_none());
+    }
+
+    #[test]
+    fn messages_query_custom_limit() {
+        let q: MessagesQuery = serde_json::from_str(r#"{"limit": 100}"#).unwrap();
+        assert_eq!(q.limit, 100);
+    }
+}

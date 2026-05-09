@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package platform;
+
+option go_package = "agentforge/platform/proto";
+
+import "common.proto";
+
+service WebSocketService {
+  rpc BroadcastEvent(BroadcastEventRequest) returns (Empty);
+  rpc BroadcastAgentUpdate(BroadcastAgentRequest) returns (Empty);
+  rpc BroadcastTokens(BroadcastTokensRequest) returns (Empty);
+  rpc BroadcastAgents(BroadcastAgentsRequest) returns (Empty);
+  rpc BroadcastPermissionPrompt(BroadcastPermissionRequest) returns (Empty);
+  rpc GetConnectionCount(Empty) returns (ConnectionCountResponse);
+  rpc HasSubscribers(HasSubscribersRequest) returns (HasSubscribersResponse);
+  rpc DisconnectAgent(DisconnectAgentRequest) returns (Empty);
+}
+
+message BroadcastEventRequest {
+  string agent_id = 1;
+  string org_id = 2;
+  bytes event_json = 3; // ClaudeEvent serialized as JSON
+}
+
+message BroadcastAgentRequest {
+  string org_id = 1;
+  bytes agent_json = 2; // ManagedSession serialized as JSON
+}
+
+message BroadcastTokensRequest {
+  string agent_id = 1;
+  string org_id = 2;
+  bytes tokens_json = 3;
+}
+
+message BroadcastAgentsRequest {
+  string org_id = 1;
+  bytes agents_json = 2; // ManagedSession[] serialized as JSON
+}
+
+message BroadcastPermissionRequest {
+  string agent_id = 1;
+  string org_id = 2;
+  bytes prompt_json = 3;
+}
+
+message ConnectionCountResponse {
+  int32 total = 1;
+  map<string, int32> by_org = 2;
+}
+
+message HasSubscribersRequest {
+  string agent_id = 1;
+}
+
+message HasSubscribersResponse {
+  bool has_subscribers = 1;
+  int32 count = 2;
+}
+
+message DisconnectAgentRequest {
+  string agent_id = 1;
+}

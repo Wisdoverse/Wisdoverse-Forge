@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+
+# Claude Code local settings
+.claude/
+
+# Build output
+dist/
+docker-artifacts/
+
+# Data files (generated at runtime)
+data/
+
+# Environment files (contain secrets)
+.env
+.env.local
+.env.production
+.env.staging
+.env.test
+.env.*.local
+*.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# TypeScript cache
+*.tsbuildinfo
+*.png
+!public/og-image.png
+!public/multiclaude.png
+bin/agentforge
+scripts/test-*.sh
+e2e-*.mjs
+todo.txt
+.worktrees/
+dist-new/
+tests/e2e/test-results/
+tests/e2e/.auth/
+test-results/
+playwright-report/
+
+# Brainstorming artifacts
+.superpowers/
+cli/af
+
+# Local agent artifacts
+.claude.local.md
+.codex
+.playwright-mcp/
+coverage/
+.remember/

@@ -1,0 +1,129 @@
+syntax = "proto3";
+
+package platform;
+
+option go_package = "agentforge/platform/proto";
+
+import "common.proto";
+
+enum DevEnvHealth {
+  DEVENV_HEALTH_UNKNOWN = 0;
+  DEVENV_HEALTH_OK = 1;
+  DEVENV_HEALTH_DEGRADED = 2;
+  DEVENV_HEALTH_UNHEALTHY = 3;
+}
+
+service DevEnvService {
+  rpc GetProjectStatus(DevEnvStatusRequest) returns (DevEnvStatusResponse);
+  rpc ListContainers(DevEnvListRequest) returns (DevEnvListResponse);
+  rpc CleanupContainers(DevEnvCleanupRequest) returns (DevEnvCleanupResponse);
+  rpc GetQuotaUsage(DevEnvQuotaRequest) returns (DevEnvQuotaResponse);
+  rpc ExecStream(stream ExecStreamInput) returns (stream ExecStreamOutput);
+}
+
+message DevEnvStatusRequest {
+  string project_id = 1;
+}
+
+message DevEnvStatusResponse {
+  int32 active_containers = 1;
+  int32 container_limit = 2;
+  double cpu_used = 3;
+  double cpu_limit = 4;
+  int64 memory_used_mb = 5;
+  int64 memory_limit_mb = 6;
+  DevEnvHealth health = 7;
+}
+
+message DevEnvListRequest {
+  string project_id = 1;
+}
+
+message DevEnvContainer {
+  string id = 1;
+  string name = 2;
+  string image = 3;
+  string state = 4;
+  string agent_id = 5;
+  string lifecycle = 6;
+  Timestamp created_at = 7;
+  double cpu = 8;
+  int64 memory_mb = 9;
+  repeated DevEnvPort ports = 10;
+}
+
+message DevEnvPort {
+  uint32 container_port = 1;
+  uint32 host_port = 2;
+  string protocol = 3;
+}
+
+message DevEnvListResponse {
+  repeated DevEnvContainer containers = 1;
+}
+
+message DevEnvCleanupRequest {
+  string project_id = 1;
+  // optional; if empty, cleans all containers for the project
+  string agent_id = 2;
+}
+
+message DevEnvCleanupResponse {
+  int32 cleaned = 1;
+}
+
+message DevEnvQuotaRequest {
+  string project_id = 1;
+  string org_id = 2;
+}
+
+message DevEnvQuotaResponse {
+  DevEnvQuotaLevel project = 1;
+  DevEnvQuotaLevel org = 2;
+  double per_container_max_cpu = 3;
+  int64 per_container_max_mem_mb = 4;
+}
+
+message DevEnvQuotaLevel {
+  int32 containers_used = 1;
+  int32 containers_limit = 2;
+  double cpu_used = 3;
+  double cpu_limit = 4;
+  int64 memory_used_mb = 5;
+  int64 memory_limit_mb = 6;
+}
+
+message ExecStreamInput {
+  oneof payload {
+    DevEnvExecStart start = 1;
+    bytes stdin_data = 2;
+    DevEnvExecResize resize = 3;
+    // POSIX signal number (e.g. 9=SIGKILL, 15=SIGTERM)
+    int32 signal = 4;
+  }
+}
+
+message DevEnvExecStart {
+  string container_id = 1;
+  repeated string command = 2;
+  bool tty = 3;
+  uint32 cols = 4;
+  uint32 rows = 5;
+  string project_id = 6;
+  string org_id = 7;
+  string agent_id = 8;
+}
+
+message DevEnvExecResize {
+  uint32 cols = 1;
+  uint32 rows = 2;
+}
+
+message ExecStreamOutput {
+  oneof payload {
+    bytes stdout_data = 1;
+    bytes stderr_data = 2;
+    int32 exit_code = 3;
+    string error = 4;
+  }
+}

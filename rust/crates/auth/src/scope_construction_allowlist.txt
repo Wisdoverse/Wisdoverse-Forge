@@ -1,0 +1,2 @@
+rust/crates/core/src/tenant.rs # Defines TenantScope::new and tests constructor semantics.
+rust/crates/api/src/test_support.rs # Central test-only TenantScope construction helper.
