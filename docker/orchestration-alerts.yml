@@ -1,0 +1,104 @@
+groups:
+  - name: orchestration-production-reliability
+    rules:
+      - alert: OrchestrationAssignmentOutboxBacklog
+        expr: agentforge_orchestration_outbox_backlog > 0
+        for: 10m
+        labels:
+          severity: warning
+          component: orchestration
+        annotations:
+          summary: 'Orchestration assignment outbox is not draining'
+          description: 'Unpublished assignment outbox rows have remained for 10 minutes.'
+          runbook: docs/runbooks/orchestration.md#assignment-outbox-backlog
+
+      - alert: OrchestrationAssignmentOutboxStalled
+        expr: agentforge_orchestration_outbox_oldest_age_seconds > 300
+        for: 5m
+        labels:
+          severity: critical
+          component: orchestration
+        annotations:
+          summary: 'Oldest orchestration assignment has waited more than 5 minutes'
+          description: 'The outbox publisher, NATS JetStream, or backend DB commit path is likely stalled.'
+          runbook: docs/runbooks/orchestration.md#assignment-outbox-backlog
+
+      - alert: OrchestrationExpiredWorkingLeases
+        expr: agentforge_orchestration_expired_working_leases > 0
+        for: 2m
+        labels:
+          severity: critical
+          component: orchestration
+        annotations:
+          summary: 'Working orchestration tasks have expired leases'
+          description: 'At least one task is working past lease expiry and has not failed closed.'
+          runbook: docs/runbooks/orchestration.md#expired-working-leases
+
+      - alert: OrchestrationStaleParticipants
+        expr: agentforge_orchestration_stale_participants > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: orchestration
+        annotations:
+          summary: 'Orchestration participants missed heartbeat threshold'
+          description: 'A non-offline participant has not sent heartbeat within the configured stale threshold.'
+          runbook: docs/runbooks/orchestration.md#stale-participants
+
+      - alert: OrchestrationBusyParticipantWithoutWork
+        expr: agentforge_orchestration_busy_participants_without_work > 0
+        for: 5m
+        labels:
+          severity: critical
+          component: orchestration
+        annotations:
+          summary: 'Participant is busy without a matching working task'
+          description: 'The participant state machine diverged from task truth.'
+          runbook: docs/runbooks/orchestration.md#participant-task-divergence
+
+      - alert: OrchestrationWorkingTaskWithoutBusyParticipant
+        expr: agentforge_orchestration_working_tasks_without_busy_participant > 0
+        for: 5m
+        labels:
+          severity: critical
+          component: orchestration
+        annotations:
+          summary: 'Working task has no busy participant'
+          description: 'A task is in working state but its participant is missing or not busy.'
+          runbook: docs/runbooks/orchestration.md#participant-task-divergence
+
+      - alert: OrchestrationResultApplyLag
+        expr: >
+          histogram_quantile(0.95,
+            sum(rate(agentforge_orchestration_result_apply_seconds_bucket[5m])) by (le)
+          ) > 10
+        for: 10m
+        labels:
+          severity: critical
+          component: orchestration
+        annotations:
+          summary: 'Orchestration result apply latency P95 exceeds 10s'
+          description: 'Verified sidecar results are slow to apply to Postgres.'
+          runbook: docs/runbooks/orchestration.md#result-apply-lag
+
+      - alert: OrchestrationResultUnauthorizedSpike
+        expr: sum(rate(agentforge_orchestration_result_unauthorized_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: orchestration
+        annotations:
+          summary: 'Unauthorized orchestration result traffic increased'
+          description: 'Result envelopes are failing HMAC, subject, timestamp, or participant checks.'
+          runbook: docs/runbooks/orchestration.md#unauthorized-results
+
+      - alert: OrchestrationOutboxPublishErrors
+        expr: rate(agentforge_orchestration_outbox_publish_errors_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          component: orchestration
+        annotations:
+          summary: 'Orchestration outbox publisher is failing'
+          description: 'Assignment publish attempts failed before JetStream ack or DB published_at update.'
+          runbook: docs/runbooks/orchestration.md#assignment-outbox-backlog

@@ -1,0 +1,545 @@
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import {
+  Download,
+  EyeOff,
+  Fingerprint,
+  RefreshCw,
+  Search,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldQuestion,
+} from 'lucide-react'
+import { cn } from '@app/shared/lib/utils'
+import {
+  orchestrationApi,
+  type GovernanceAuditEntry,
+  type GovernanceAuditItemKind,
+  type GovernanceAuditQueryParams,
+  type GovernanceAuditResponse,
+  type GovernanceAuditScopeKind,
+  type GovernanceAuditTamperStatus,
+} from '@app/shared/api/orchestration'
+
+type ItemKindFilter = 'all' | GovernanceAuditItemKind
+type ScopeKindFilter = 'all' | GovernanceAuditScopeKind
+
+interface FilterState {
+  eventPrefix: string
+  eventType: string
+  itemKind: ItemKindFilter
+  scopeKind: ScopeKindFilter
+  scopeId: string
+  userId: string
+  from: string
+  to: string
+  redactSecrets: boolean
+  limit: number
+}
+
+const DEFAULT_FILTERS: FilterState = {
+  eventPrefix: 'governance.context.',
+  eventType: '',
+  itemKind: 'all',
+  scopeKind: 'all',
+  scopeId: '',
+  userId: '',
+  from: '',
+  to: '',
+  redactSecrets: true,
+  limit: 50,
+}
+
+const ITEM_KIND_OPTIONS: { value: ItemKindFilter; label: string }[] = [
+  { value: 'all', label: 'All items' },
+  { value: 'memory', label: 'Memory' },
+  { value: 'skill', label: 'Skill' },
+]
+
+const SCOPE_KIND_OPTIONS: { value: ScopeKindFilter; label: string }[] = [
+  { value: 'all', label: 'All scopes' },
+  { value: 'org', label: 'Org' },
+  { value: 'workspace', label: 'Workspace' },
+  { value: 'team', label: 'Team' },
+  { value: 'project', label: 'Project' },
+  { value: 'user', label: 'User' },
+]
+
+const INPUT_CLASS =
+  'h-9 w-full rounded-full border border-black/[0.08] bg-white px-3 text-ui-caption text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
+
+export function AuditLogView() {
+  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS)
+  const [data, setData] = useState<GovernanceAuditResponse | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [exportStatus, setExportStatus] = useState<string | null>(null)
+
+  const entries = data?.entries ?? []
+  const hiddenRawIds = useMemo(() => entries.filter((entry) => !entry.rawItemId).length, [entries])
+  const redactedRows = useMemo(
+    () => entries.filter((entry) => entry.detailsRedacted).length,
+    [entries]
+  )
+
+  const loadAudit = useCallback(async (nextFilters: FilterState) => {
+    setLoading(true)
+    setError(null)
+    setExportStatus(null)
+    try {
+      const response = await orchestrationApi.fetchGovernanceAudit(buildQuery(nextFilters))
+      setData(response)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load governance audit')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadAudit(DEFAULT_FILTERS)
+  }, [loadAudit])
+
+  function updateFilter<K extends keyof FilterState>(key: K, value: FilterState[K]) {
+    setFilters((current) => ({ ...current, [key]: value }))
+  }
+
+  function submitFilters(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    void loadAudit(filters)
+  }
+
+  async function exportAudit() {
+    setExporting(true)
+    setError(null)
+    setExportStatus(null)
+    try {
+      const response = await orchestrationApi.exportGovernanceAudit(buildQuery(filters))
+      const body = JSON.stringify(response, null, 2)
+      const blob = new Blob([body], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `context-governance-audit-${new Date().toISOString()}.json`
+      link.click()
+      URL.revokeObjectURL(url)
+      setData(response)
+      setExportStatus(`${response.entries.length} rows exported`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to export governance audit')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  return (
+    <div data-testid="governance-audit-view" className="flex h-full flex-col">
+      <form
+        onSubmit={submitFilters}
+        className="shrink-0 border-b border-black/[0.06] px-4 py-3 dark:border-white/[0.06] sm:px-6"
+      >
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_160px_160px_160px_auto]">
+          <Field label="Event prefix">
+            <input
+              data-testid="governance-audit-filter-event-prefix"
+              name="eventPrefix"
+              autoComplete="off"
+              value={filters.eventPrefix}
+              onChange={(event) => updateFilter('eventPrefix', event.target.value)}
+              className={INPUT_CLASS}
+            />
+          </Field>
+          <Field label="Event type">
+            <input
+              data-testid="governance-audit-filter-event-type"
+              name="eventType"
+              autoComplete="off"
+              value={filters.eventType}
+              onChange={(event) => updateFilter('eventType', event.target.value)}
+              placeholder="governance.context.feedback.recorded…"
+              className={INPUT_CLASS}
+            />
+          </Field>
+          <Field label="Item">
+            <select
+              data-testid="governance-audit-filter-item-kind"
+              value={filters.itemKind}
+              onChange={(event) => updateFilter('itemKind', event.target.value as ItemKindFilter)}
+              className={INPUT_CLASS}
+            >
+              {ITEM_KIND_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Scope">
+            <select
+              data-testid="governance-audit-filter-scope-kind"
+              value={filters.scopeKind}
+              onChange={(event) => updateFilter('scopeKind', event.target.value as ScopeKindFilter)}
+              className={INPUT_CLASS}
+            >
+              {SCOPE_KIND_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Limit">
+            <input
+              type="number"
+              name="limit"
+              min={1}
+              max={200}
+              value={filters.limit}
+              onChange={(event) => updateFilter('limit', Number(event.target.value))}
+              className={INPUT_CLASS}
+            />
+          </Field>
+          <div className="flex items-end gap-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex h-9 items-center gap-2 rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Search size={15} aria-hidden="true" />
+              Filter
+            </button>
+            <button
+              type="button"
+              data-testid="governance-audit-refresh"
+              onClick={() => void loadAudit(filters)}
+              disabled={loading}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-ui-button text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
+              title="Refresh"
+            >
+              <RefreshCw size={15} className={cn(loading && 'animate-spin')} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              data-testid="governance-audit-export"
+              onClick={() => void exportAudit()}
+              disabled={exporting}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-ui-button text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
+              title="Export"
+            >
+              <Download size={15} aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_180px_180px_auto]">
+          <Field label="Scope ID">
+            <input
+              value={filters.scopeId}
+              name="scopeId"
+              autoComplete="off"
+              onChange={(event) => updateFilter('scopeId', event.target.value)}
+              placeholder="UUID…"
+              className={INPUT_CLASS}
+            />
+          </Field>
+          <Field label="User ID">
+            <input
+              value={filters.userId}
+              name="userId"
+              autoComplete="off"
+              onChange={(event) => updateFilter('userId', event.target.value)}
+              placeholder="UUID…"
+              className={INPUT_CLASS}
+            />
+          </Field>
+          <Field label="From">
+            <input
+              type="datetime-local"
+              name="from"
+              value={filters.from}
+              onChange={(event) => updateFilter('from', event.target.value)}
+              className={INPUT_CLASS}
+            />
+          </Field>
+          <Field label="To">
+            <input
+              type="datetime-local"
+              name="to"
+              value={filters.to}
+              onChange={(event) => updateFilter('to', event.target.value)}
+              className={INPUT_CLASS}
+            />
+          </Field>
+          <label className="flex h-full min-h-14 items-end gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            <input
+              type="checkbox"
+              checked={filters.redactSecrets}
+              onChange={(event) => updateFilter('redactSecrets', event.target.checked)}
+              className="mb-2 h-4 w-4 rounded border-black/20 text-apple-blue focus:ring-apple-blue"
+            />
+            <span className="pb-2">Redact secrets</span>
+          </label>
+        </div>
+      </form>
+
+      <div className="flex-1 overflow-auto p-4 sm:p-6">
+        {error && (
+          <div className="mb-4 rounded-card border border-apple-red/20 bg-apple-red/10 px-4 py-2 text-ui-body text-apple-red">
+            {error}
+          </div>
+        )}
+        {exportStatus && (
+          <div className="mb-4 rounded-card border border-apple-blue/20 bg-apple-blue/10 px-4 py-2 text-ui-body text-apple-blue">
+            {exportStatus}
+          </div>
+        )}
+
+        <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Metric label="Rows" value={entries.length} />
+          <Metric label="Prefix" value={data?.query.eventPrefix ?? filters.eventPrefix} compact />
+          <Metric label="Hidden raw IDs" value={hiddenRawIds} />
+          <Metric label="Redacted rows" value={redactedRows} />
+        </div>
+
+        <div className="overflow-hidden rounded-card border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#2c2c2e]">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1120px] text-left text-ui-caption">
+              <thead className="border-b border-black/[0.06] bg-black/[0.025] text-ui-caption text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.03] dark:text-secondary-dark">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Time</th>
+                  <th className="px-4 py-3 font-semibold">Event</th>
+                  <th className="px-4 py-3 font-semibold">Subject</th>
+                  <th className="px-4 py-3 font-semibold">Scope</th>
+                  <th className="px-4 py-3 font-semibold">Actor</th>
+                  <th className="px-4 py-3 font-semibold">Integrity</th>
+                  <th className="px-4 py-3 font-semibold">Details</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-black/5 dark:divide-white/10">
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-12 text-center text-secondary-light">
+                      Loading audit events…
+                    </td>
+                  </tr>
+                ) : entries.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-12 text-center text-secondary-light">
+                      No governance audit events
+                    </td>
+                  </tr>
+                ) : (
+                  entries.map((entry) => <AuditRow key={entry.id} entry={entry} />)
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
+  return (
+    <tr
+      data-testid="governance-audit-row"
+      className="align-top hover:bg-black/[0.025] dark:hover:bg-white/[0.03]"
+    >
+      <td className="w-40 px-4 py-3 text-secondary-light dark:text-secondary-dark">
+        <span className="tabular-nums">{formatDate(entry.createdAt)}</span>
+      </td>
+      <td className="max-w-[260px] px-4 py-3">
+        <div className="truncate font-mono text-ui-caption" title={entry.eventType}>
+          {entry.eventType}
+        </div>
+        <div className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {entry.itemKind ?? 'unknown'} · {entry.resourceType}
+        </div>
+      </td>
+      <td className="w-72 px-4 py-3">
+        {entry.rawItemId ? (
+          <SubjectLine
+            testId="governance-audit-raw-item-id"
+            icon="visible"
+            value={entry.rawItemId}
+          />
+        ) : (
+          <SubjectLine
+            testId="governance-audit-subject-hash"
+            icon="hash"
+            value={entry.auditSubjectHash}
+          />
+        )}
+        {entry.detailsRedacted && (
+          <div
+            data-testid="governance-audit-redacted"
+            className="mt-2 inline-flex items-center gap-1 rounded-full bg-black/[0.04] px-2 py-0.5 text-ui-caption font-medium text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark"
+          >
+            <EyeOff size={12} aria-hidden="true" />
+            Redacted
+          </div>
+        )}
+      </td>
+      <td className="w-56 px-4 py-3">
+        <div className="font-medium">{entry.scopeKind ?? 'unknown'}</div>
+        <div className="mt-1 truncate font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {entry.scopeId ?? 'unknown'}
+        </div>
+      </td>
+      <td className="w-48 px-4 py-3">
+        <span className="block truncate font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {entry.actorUserId ?? 'system'}
+        </span>
+      </td>
+      <td className="w-44 px-4 py-3">
+        <TamperBadge status={entry.tamperStatus} />
+      </td>
+      <td className="min-w-[260px] px-4 py-3">
+        <pre className="max-h-32 overflow-auto rounded-card bg-black/[0.035] p-2 font-mono text-ui-caption leading-relaxed text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
+          {prettyDetails(entry.details)}
+        </pre>
+      </td>
+    </tr>
+  )
+}
+
+function SubjectLine({
+  testId,
+  icon,
+  value,
+}: {
+  testId: string
+  icon: 'visible' | 'hash'
+  value: string
+}) {
+  const Icon = icon === 'visible' ? ShieldCheck : Fingerprint
+  return (
+    <div data-testid={testId} className="flex min-w-0 items-center gap-2">
+      <Icon size={14} className="shrink-0 text-apple-blue" aria-hidden="true" />
+      <span className="truncate font-mono text-ui-caption" title={value}>
+        {shortId(value)}
+      </span>
+    </div>
+  )
+}
+
+function TamperBadge({ status }: { status: GovernanceAuditTamperStatus }) {
+  const config = {
+    valid: {
+      Icon: ShieldCheck,
+      className: 'bg-apple-blue/10 text-apple-blue',
+      label: 'Valid',
+    },
+    invalid: {
+      Icon: ShieldAlert,
+      className: 'bg-apple-red/10 text-apple-red',
+      label: 'Invalid',
+    },
+    not_configured: {
+      Icon: ShieldQuestion,
+      className:
+        'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
+      label: 'Not configured',
+    },
+  }[status]
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-ui-caption font-medium',
+        config.className
+      )}
+    >
+      <config.Icon size={13} aria-hidden="true" />
+      {config.label}
+    </span>
+  )
+}
+
+function Metric({
+  label,
+  value,
+  compact = false,
+}: {
+  label: string
+  value: string | number
+  compact?: boolean
+}) {
+  return (
+    <div className="rounded-card border border-black/[0.08] bg-white px-4 py-3 dark:border-white/[0.1] dark:bg-[#2c2c2e]">
+      <div className="text-ui-caption font-semibold text-secondary-light dark:text-secondary-dark">
+        {label}
+      </div>
+      <div
+        className={cn(
+          'mt-1 truncate font-semibold text-foreground-light dark:text-foreground-dark',
+          compact ? 'font-mono text-ui-body' : 'text-ui-metric tabular-nums'
+        )}
+        title={String(value)}
+      >
+        {value}
+      </div>
+    </div>
+  )
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="flex min-w-0 flex-col gap-1">
+      <span className="text-ui-caption font-semibold text-secondary-light dark:text-secondary-dark">
+        {label}
+      </span>
+      {children}
+    </label>
+  )
+}
+
+function buildQuery(filters: FilterState): GovernanceAuditQueryParams {
+  return {
+    eventPrefix: trimOrUndefined(filters.eventPrefix),
+    eventType: trimOrUndefined(filters.eventType),
+    itemKind: filters.itemKind === 'all' ? undefined : filters.itemKind,
+    scopeKind: filters.scopeKind === 'all' ? undefined : filters.scopeKind,
+    scopeId: trimOrUndefined(filters.scopeId),
+    userId: trimOrUndefined(filters.userId),
+    from: toIsoString(filters.from),
+    to: toIsoString(filters.to),
+    redactSecrets: filters.redactSecrets,
+    limit: Number.isFinite(filters.limit) ? filters.limit : DEFAULT_FILTERS.limit,
+    offset: 0,
+  }
+}
+
+function trimOrUndefined(value: string): string | undefined {
+  const trimmed = value.trim()
+  return trimmed ? trimmed : undefined
+}
+
+function toIsoString(value: string): string | undefined {
+  if (!value) return undefined
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
+}
+
+function formatDate(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+
+function shortId(value: string): string {
+  return value.length <= 22 ? value : `${value.slice(0, 10)}…${value.slice(-8)}`
+}
+
+function prettyDetails(value: unknown): string {
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
+}

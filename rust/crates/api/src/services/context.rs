@@ -1,0 +1,1208 @@
+//! Context approval queue service.
+
+use std::sync::Arc;
+
+use agentforge_core::{
+    AppResult, ErrorKind, ProjectId, ScopeKind, ScopedRead, ScopedWrite, ScopedWriteError, TeamId, TenantScope, UserId,
+    WorkspaceId,
+};
+use agentforge_db::entities::{ContextApproval, ContextCandidate, ContextFeedback, MemoryItem, Skill};
+use agentforge_infra::NatsClient;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
+use sqlx::PgPool;
+use uuid::Uuid;
+
+use crate::repositories::context_approval::{ContextApprovalRepository, CreateContextApprovalRecord};
+use crate::repositories::context_candidate::{
+    ContextCandidateListRow, ContextCandidateRepository, CreateContextCandidateRecord,
+};
+use crate::repositories::context_feedback::{ContextFeedbackRepository, CreateContextFeedbackRecord};
+use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository};
+use crate::repositories::skill::SkillRepository;
+use crate::repositories::skill_version::SkillVersionRepository;
+use crate::services::context_governance::{
+    ContextAuditEvent, ContextGovernanceService, ContextScopeKind, ScopeExpansionRequest, Sensitivity,
+};
+use crate::services::memory::MemoryScopeKind;
+
+const DEFAULT_LIMIT: i64 = 50;
+const MAX_LIMIT: i64 = 200;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContextCandidateKind {
+    Memory,
+    Skill,
+}
+
+impl ContextCandidateKind {
+    fn as_label(self) -> &'static str {
+        match self {
+            Self::Memory => "memory",
+            Self::Skill => "skill",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CreateContextCandidateInput {
+    pub source_run_id: Option<Uuid>,
+    pub target_skill_id: Option<Uuid>,
+    pub item_kind: ContextCandidateKind,
+    pub proposed_content: Value,
+}
+
+#[derive(Debug, Clone)]
+pub struct ApproveContextCandidateInput {
+    pub scope_kind: MemoryScopeKind,
+    pub scope_id: Option<Uuid>,
+    pub ttl_at: Option<DateTime<Utc>>,
+    pub sensitivity: Option<String>,
+    pub reason: Option<String>,
+    pub redacted: bool,
+    pub user_attested: bool,
+    pub confirm_expansion: bool,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ListContextCandidatesInput {
+    pub state: Option<String>,
+    pub item_kind: Option<String>,
+    pub scope_kind: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct RejectContextCandidateInput {
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ContextCandidateSummary {
+    pub id: Uuid,
+    pub workspace_id: WorkspaceId,
+    pub item_kind: String,
+    pub state: String,
+    pub owner_user_id: UserId,
+    pub source_run_id: Option<Uuid>,
+    pub target_skill_id: Option<agentforge_core::SkillId>,
+    pub proposed_scope_kind: String,
+    pub source_available: bool,
+    pub proposed_preview: Value,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ContextApprovalOutcome {
+    pub candidate: ContextCandidate,
+    pub approval: Option<ContextApproval>,
+    pub memory_item: Option<MemoryItem>,
+    pub skill: Option<Skill>,
+}
+
+#[derive(Deserialize)]
+struct MemoryCandidateContent {
+    title: String,
+    content: String,
+    #[serde(default)]
+    redacted: bool,
+    visibility: Option<String>,
+    confidence: Option<f64>,
+    source_task_id: Option<Uuid>,
+}
+
+struct PreparedMemoryContent {
+    title: String,
+    content: String,
+    content_redacted: bool,
+    sensitivity: String,
+    visibility: String,
+    confidence: Option<f64>,
+    source_task_id: Option<Uuid>,
+    classification_payload: Value,
+}
+
+pub struct ContextApprovalService {
+    candidates: ContextCandidateRepository,
+    memory: MemoryRepository,
+    nats: Option<Arc<NatsClient>>,
+}
+
+impl ContextApprovalService {
+    pub fn new(pool: PgPool, nats: Option<Arc<NatsClient>>) -> Self {
+        Self {
+            candidates: ContextCandidateRepository::new(pool.clone()),
+            memory: MemoryRepository::new(pool.clone()),
+            nats,
+        }
+    }
+
+    pub async fn create_candidate(
+        &self,
+        scope: &TenantScope,
+        input: CreateContextCandidateInput,
+    ) -> AppResult<ContextCandidate> {
+        let workspace_id = required_workspace(scope)?;
+        validate_candidate_content(&input.proposed_content)?;
+        if input.item_kind == ContextCandidateKind::Skill && input.target_skill_id.is_none() {
+            return Err(ErrorKind::Validation("skill context candidates require target_skill_id".into()).into());
+        }
+
+        let mut tx = self.candidates.pool().begin().await?;
+        let candidate = ContextCandidateRepository::create_in_tx(
+            &mut tx,
+            scope,
+            CreateContextCandidateRecord {
+                workspace_id,
+                source_run_id: input.source_run_id,
+                target_skill_id: input.target_skill_id,
+                item_kind: input.item_kind.as_label(),
+                proposed_content: &input.proposed_content,
+                owner_user_id: scope.user_id(),
+            },
+        )
+        .await?;
+        self.emit_candidate_audit(
+            &mut tx,
+            scope,
+            "governance.context.candidate.created",
+            json!({
+                "item_kind": candidate.item_kind,
+                "workspace_id": candidate.workspace_id,
+                "has_source_run": candidate.source_run_id.is_some(),
+                "has_target_skill": candidate.target_skill_id.is_some()
+            }),
+        )
+        .await?;
+        tx.commit().await?;
+        self.publish_candidate_event(scope, &candidate, "created", None).await;
+        Ok(candidate)
+    }
+
+    pub async fn list_pending(
+        &self,
+        scope: &TenantScope,
+        limit: Option<i64>,
+        offset: Option<i64>,
+    ) -> AppResult<Vec<ContextCandidateSummary>> {
+        self.list(
+            scope,
+            ListContextCandidatesInput { state: Some("pending".into()), limit, offset, ..Default::default() },
+        )
+        .await
+    }
+
+    pub async fn list(
+        &self,
+        scope: &TenantScope,
+        input: ListContextCandidatesInput,
+    ) -> AppResult<Vec<ContextCandidateSummary>> {
+        let proof = self.validated_read(scope).await?;
+        let state = normalize_candidate_state_filter(input.state.as_deref())?;
+        let item_kind = normalize_candidate_kind_filter(input.item_kind.as_deref())?;
+        let scope_kind = normalize_scope_kind_filter(input.scope_kind.as_deref())?;
+        let candidates = self
+            .candidates
+            .list_visible(
+                &proof,
+                state,
+                item_kind,
+                scope_kind,
+                normalize_limit(input.limit),
+                input.offset.unwrap_or(0).max(0),
+            )
+            .await?;
+        Ok(candidates.iter().map(candidate_summary).collect())
+    }
+
+    pub async fn approve(
+        &self,
+        scope: &TenantScope,
+        id: Uuid,
+        input: ApproveContextCandidateInput,
+    ) -> AppResult<ContextApprovalOutcome> {
+        validate_ttl(input.ttl_at)?;
+        let requested_sensitivity = input.sensitivity.as_deref().map(validate_sensitivity).transpose()?;
+        let approval_reason = normalize_reason(input.reason)?;
+        let proof = self.validated_read(scope).await?;
+        let workspace_id = required_workspace(scope)?;
+        let target = self.validated_write_scope(&proof, workspace_id, input.scope_kind, input.scope_id).await?;
+
+        let mut tx = self.candidates.pool().begin().await?;
+        let candidate = ContextCandidateRepository::lock_visible_for_update(&mut tx, &proof, id).await?;
+        ensure_pending(&candidate)?;
+
+        if !self.source_run_is_approvable(&mut tx, &proof, &candidate).await? {
+            let rejected = ContextCandidateRepository::update_state_in_tx(&mut tx, candidate.id, "rejected").await?;
+            self.emit_candidate_audit(
+                &mut tx,
+                scope,
+                "governance.context.candidate.auto_rejected",
+                json!({
+                    "item_kind": candidate.item_kind,
+                    "reason": "source_run_unavailable"
+                }),
+            )
+            .await?;
+            tx.commit().await?;
+            self.publish_candidate_event(scope, &rejected, "rejected", None).await;
+            return Err(ErrorKind::Unprocessable("context candidate source run is unavailable".into()).into());
+        }
+
+        let self_approval = candidate.owner_user_id == scope.user_id();
+        if self_approval && target.kind() != ScopeKind::User {
+            self.emit_candidate_audit(
+                &mut tx,
+                scope,
+                "governance.context.candidate.approval_rejected",
+                json!({
+                    "item_kind": candidate.item_kind,
+                    "reason": "self_approval_wider_scope",
+                    "scope_kind": target.kind().as_label()
+                }),
+            )
+            .await?;
+            tx.commit().await?;
+            return Err(ErrorKind::Forbidden.into());
+        }
+
+        match candidate.item_kind.as_str() {
+            "memory" => {
+                if let Err(rejection) = ContextGovernanceService::gate_scope_expansion(ScopeExpansionRequest {
+                    from_kind: ContextScopeKind::User,
+                    to_kind: ContextScopeKind::from_scope_kind(target.kind()),
+                    confirm_expansion: input.confirm_expansion,
+                }) {
+                    self.emit_candidate_audit(
+                        &mut tx,
+                        scope,
+                        "governance.context.candidate.scope_expansion_rejected",
+                        json!({
+                            "item_kind": candidate.item_kind,
+                            "from_scope_kind": rejection.from_kind.as_label(),
+                            "to_scope_kind": rejection.to_kind.as_label(),
+                            "reason": rejection.reason.as_label(),
+                            "confirm_expansion": input.confirm_expansion
+                        }),
+                    )
+                    .await?;
+                    tx.commit().await?;
+                    return Err(rejection.into_app_error());
+                }
+                let prepared = match self.prepare_memory_candidate(&candidate, requested_sensitivity, input.redacted) {
+                    Ok(prepared) => prepared,
+                    Err(err) => {
+                        self.emit_candidate_audit(
+                            &mut tx,
+                            scope,
+                            "governance.context.candidate.approval_rejected",
+                            json!({
+                                "item_kind": candidate.item_kind,
+                                "reason": "invalid_memory_candidate"
+                            }),
+                        )
+                        .await?;
+                        tx.commit().await?;
+                        return Err(err);
+                    }
+                };
+                if prepared.sensitivity == "secret_detected" && target.kind() != ScopeKind::User && !input.user_attested
+                {
+                    self.emit_candidate_audit(
+                        &mut tx,
+                        scope,
+                        "governance.context.candidate.approval_rejected",
+                        json!({
+                            "item_kind": candidate.item_kind,
+                            "reason": "user_attest_required",
+                            "scope_kind": target.kind().as_label(),
+                            "sensitivity": prepared.sensitivity
+                        }),
+                    )
+                    .await?;
+                    tx.commit().await?;
+                    return Err(ErrorKind::Unprocessable(
+                        "wider-scope secret memory approval requires user attestation".into(),
+                    )
+                    .into());
+                }
+
+                let approval = ContextApprovalRepository::create_in_tx(
+                    &mut tx,
+                    CreateContextApprovalRecord {
+                        candidate_id: candidate.id,
+                        approver_user_id: scope.user_id(),
+                        decision: "approved",
+                        scope_kind: Some(target.kind().as_label()),
+                        scope_id: Some(target.id()),
+                        ttl_at: input.ttl_at,
+                        sensitivity: Some(prepared.sensitivity.as_str()),
+                        reason: approval_reason.as_deref(),
+                        self_approval,
+                        user_attest_at: input.user_attested.then(Utc::now),
+                    },
+                )
+                .await?;
+                let provenance = approval_provenance(&candidate, scope);
+                let item = MemoryRepository::create_in_tx(
+                    &mut tx,
+                    &proof,
+                    CreateMemoryRecord {
+                        workspace_id: candidate.workspace_id,
+                        write_scope: &target,
+                        owner_user_id: candidate.owner_user_id.as_uuid(),
+                        source_task_id: prepared.source_task_id,
+                        source_run_id: candidate.source_run_id,
+                        title: &prepared.title,
+                        content: &prepared.content,
+                        content_redacted: prepared.content_redacted,
+                        visibility: &prepared.visibility,
+                        sensitivity: prepared.sensitivity.as_str(),
+                        provenance: &provenance,
+                        ttl_expires_at: input.ttl_at,
+                        confidence: prepared.confidence,
+                        state: "active",
+                    },
+                )
+                .await?;
+                let updated = ContextCandidateRepository::update_state_in_tx(&mut tx, candidate.id, "approved").await?;
+                self.emit_candidate_audit(
+                    &mut tx,
+                    scope,
+                    "governance.context.candidate.approved",
+                    json!({
+                        "item_kind": candidate.item_kind,
+                        "result_kind": "memory_item",
+                        "scope_kind": item.scope_kind,
+                        "sensitivity": item.sensitivity,
+                        "self_approval": approval.self_approval,
+                        "classification": prepared.classification_payload
+                    }),
+                )
+                .await?;
+                tx.commit().await?;
+                self.publish_candidate_event(scope, &updated, "approved", Some((&item.scope_kind, item.scope_id)))
+                    .await;
+                Ok(ContextApprovalOutcome {
+                    candidate: updated,
+                    approval: Some(approval),
+                    memory_item: Some(item),
+                    skill: None,
+                })
+            }
+            "skill" => {
+                let skill_id = candidate
+                    .target_skill_id
+                    .ok_or_else(|| ErrorKind::Validation("skill candidate missing target_skill_id".into()))?;
+                let current = SkillRepository::lock_org_skill_for_update(&mut tx, scope, skill_id.as_uuid()).await?;
+                if current.state != "candidate" {
+                    return Err(ErrorKind::Conflict(format!("skill {} is not a candidate", current.id)).into());
+                }
+                if current.revoked_at.is_some() {
+                    return Err(ErrorKind::Unprocessable(format!("skill {} is revoked", current.id)).into());
+                }
+                let from_kind = current
+                    .scope_kind
+                    .as_deref()
+                    .and_then(ContextScopeKind::from_label)
+                    .ok_or_else(|| ErrorKind::Validation("skill candidate has unsupported scope_kind".into()))?;
+                if let Err(rejection) = ContextGovernanceService::gate_scope_expansion(ScopeExpansionRequest {
+                    from_kind,
+                    to_kind: ContextScopeKind::from_scope_kind(target.kind()),
+                    confirm_expansion: input.confirm_expansion,
+                }) {
+                    self.emit_candidate_audit(
+                        &mut tx,
+                        scope,
+                        "governance.context.candidate.scope_expansion_rejected",
+                        json!({
+                            "item_kind": candidate.item_kind,
+                            "from_scope_kind": rejection.from_kind.as_label(),
+                            "to_scope_kind": rejection.to_kind.as_label(),
+                            "reason": rejection.reason.as_label(),
+                            "confirm_expansion": input.confirm_expansion
+                        }),
+                    )
+                    .await?;
+                    tx.commit().await?;
+                    return Err(rejection.into_app_error());
+                }
+                let classification = ContextGovernanceService::classify_sensitivity(&current.content);
+                if matches!(classification.sensitivity, Sensitivity::SecretDetected) {
+                    self.emit_candidate_audit(
+                        &mut tx,
+                        scope,
+                        "governance.context.candidate.approval_rejected",
+                        json!({
+                            "item_kind": candidate.item_kind,
+                            "reason": "secret_detected",
+                            "matched_patterns": classification.matched_patterns,
+                            "redacted_preview": classification.redacted_preview
+                        }),
+                    )
+                    .await?;
+                    tx.commit().await?;
+                    return Err(ErrorKind::Unprocessable(
+                        "secret detected in skill content; submit redacted content".into(),
+                    )
+                    .into());
+                }
+                let sensitivity = match requested_sensitivity {
+                    Some(value) => value,
+                    None => validate_sensitivity(&current.sensitivity)?,
+                };
+                let approval = ContextApprovalRepository::create_in_tx(
+                    &mut tx,
+                    CreateContextApprovalRecord {
+                        candidate_id: candidate.id,
+                        approver_user_id: scope.user_id(),
+                        decision: "approved",
+                        scope_kind: Some(target.kind().as_label()),
+                        scope_id: Some(target.id()),
+                        ttl_at: input.ttl_at,
+                        sensitivity: Some(sensitivity),
+                        reason: approval_reason.as_deref(),
+                        self_approval,
+                        user_attest_at: input.user_attested.then(Utc::now),
+                    },
+                )
+                .await?;
+                let prior_version =
+                    SkillVersionRepository::insert_snapshot_in_tx(&mut tx, &current, scope.user_id()).await?;
+                let skill = SkillRepository::promote_candidate_in_tx(
+                    &mut tx,
+                    current.id.as_uuid(),
+                    target.kind().as_label(),
+                    target.id(),
+                    input.ttl_at,
+                    sensitivity,
+                )
+                .await?;
+                let updated = ContextCandidateRepository::update_state_in_tx(&mut tx, candidate.id, "approved").await?;
+                self.emit_candidate_audit(
+                    &mut tx,
+                    scope,
+                    "governance.context.candidate.approved",
+                    json!({
+                        "item_kind": candidate.item_kind,
+                        "result_kind": "skill",
+                        "scope_kind": skill.scope_kind,
+                        "sensitivity": skill.sensitivity,
+                        "self_approval": approval.self_approval,
+                        "from_version": current.version,
+                        "resulting_version": skill.version,
+                        "skill_version_id": prior_version.id
+                    }),
+                )
+                .await?;
+                tx.commit().await?;
+                if let (Some(scope_kind), Some(scope_id)) = (skill.scope_kind.as_deref(), skill.scope_id) {
+                    self.publish_candidate_event(scope, &updated, "approved", Some((scope_kind, scope_id))).await;
+                }
+                Ok(ContextApprovalOutcome {
+                    candidate: updated,
+                    approval: Some(approval),
+                    memory_item: None,
+                    skill: Some(skill),
+                })
+            }
+            other => Err(ErrorKind::Validation(format!("unsupported candidate item kind `{other}`")).into()),
+        }
+    }
+
+    pub async fn reject(
+        &self,
+        scope: &TenantScope,
+        id: Uuid,
+        input: RejectContextCandidateInput,
+    ) -> AppResult<ContextApprovalOutcome> {
+        let proof = self.validated_read(scope).await?;
+        let mut tx = self.candidates.pool().begin().await?;
+        let candidate = ContextCandidateRepository::lock_visible_for_update(&mut tx, &proof, id).await?;
+        ensure_pending(&candidate)?;
+        let reason = normalize_reason(input.reason)?;
+        let approval = ContextApprovalRepository::create_in_tx(
+            &mut tx,
+            CreateContextApprovalRecord {
+                candidate_id: candidate.id,
+                approver_user_id: scope.user_id(),
+                decision: "rejected",
+                scope_kind: None,
+                scope_id: None,
+                ttl_at: None,
+                sensitivity: None,
+                reason: reason.as_deref(),
+                self_approval: candidate.owner_user_id == scope.user_id(),
+                user_attest_at: None,
+            },
+        )
+        .await?;
+        let updated = ContextCandidateRepository::update_state_in_tx(&mut tx, candidate.id, "rejected").await?;
+        self.emit_candidate_audit(
+            &mut tx,
+            scope,
+            "governance.context.candidate.rejected",
+            json!({
+                "item_kind": candidate.item_kind,
+                "reason": reason,
+                "self_approval": approval.self_approval
+            }),
+        )
+        .await?;
+        tx.commit().await?;
+        self.publish_candidate_event(scope, &updated, "rejected", None).await;
+        Ok(ContextApprovalOutcome { candidate: updated, approval: Some(approval), memory_item: None, skill: None })
+    }
+
+    async fn validated_read(&self, scope: &TenantScope) -> AppResult<ScopedRead> {
+        validated_context_read(self.candidates.pool(), scope).await
+    }
+
+    async fn validated_write_scope(
+        &self,
+        proof: &ScopedRead,
+        workspace_id: WorkspaceId,
+        scope_kind: MemoryScopeKind,
+        scope_id: Option<Uuid>,
+    ) -> AppResult<ScopedWrite> {
+        let scope_kind = scope_kind.as_scope_kind();
+        let scope_id = match scope_kind {
+            ScopeKind::User => scope_id.unwrap_or_else(|| proof.user_id().as_uuid()),
+            ScopeKind::Team | ScopeKind::Project => scope_id.ok_or_else(|| {
+                ErrorKind::Validation(format!("scope_id is required for {} context approval", scope_kind.as_label()))
+            })?,
+        };
+        let write = ScopedWrite::try_new(scope_kind, scope_id, proof.clone()).map_err(scoped_write_error)?;
+        if !self.memory.resource_belongs_to_scope(proof, scope_kind, scope_id, workspace_id).await? {
+            return Err(ErrorKind::Forbidden.into());
+        }
+        Ok(write)
+    }
+
+    async fn source_run_is_approvable(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        proof: &ScopedRead,
+        candidate: &ContextCandidate,
+    ) -> AppResult<bool> {
+        let Some(source_run_id) = candidate.source_run_id else {
+            return Ok(false);
+        };
+        let status = ContextCandidateRepository::source_run_status_in_tx(tx, proof, source_run_id).await?;
+        Ok(matches!(status.as_deref(), Some("completed")))
+    }
+
+    fn prepare_memory_candidate(
+        &self,
+        candidate: &ContextCandidate,
+        requested_sensitivity: Option<&str>,
+        redacted: bool,
+    ) -> AppResult<PreparedMemoryContent> {
+        let proposed: MemoryCandidateContent = serde_json::from_value(candidate.proposed_content.clone())
+            .map_err(|err| ErrorKind::Validation(format!("invalid memory candidate proposed_content: {err}")))?;
+        let title = validate_title(&proposed.title)?.to_string();
+        let content = proposed.content.trim();
+        if content.is_empty() {
+            return Err(ErrorKind::Validation("memory candidate content must not be empty".into()).into());
+        }
+        validate_confidence(proposed.confidence)?;
+        let visibility = validate_visibility(proposed.visibility.as_deref())?.to_string();
+        let classification = ContextGovernanceService::classify_sensitivity(content);
+        if matches!(classification.sensitivity, Sensitivity::SecretDetected) && !(redacted || proposed.redacted) {
+            return Err(ErrorKind::Unprocessable(
+                "secret detected in memory candidate content; approve with redaction".into(),
+            )
+            .into());
+        }
+
+        let content_redacted = matches!(classification.sensitivity, Sensitivity::SecretDetected);
+        let stored_content = if content_redacted {
+            classification.redacted_preview.clone().unwrap_or_else(|| "[REDACTED]".to_string())
+        } else {
+            content.to_string()
+        };
+        let sensitivity = if content_redacted {
+            "secret_detected"
+        } else {
+            requested_sensitivity.unwrap_or(sensitivity_label(classification.sensitivity))
+        }
+        .to_string();
+        Ok(PreparedMemoryContent {
+            title,
+            content: stored_content,
+            content_redacted,
+            sensitivity: sensitivity.clone(),
+            visibility,
+            confidence: proposed.confidence,
+            source_task_id: proposed.source_task_id,
+            classification_payload: json!({
+                "sensitivity": sensitivity,
+                "matched_patterns": classification.matched_patterns,
+                "redacted": content_redacted
+            }),
+        })
+    }
+
+    async fn emit_candidate_audit(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: &TenantScope,
+        action: &'static str,
+        payload: Value,
+    ) -> AppResult<()> {
+        ContextGovernanceService::emit_audit(
+            tx,
+            scope,
+            ContextAuditEvent {
+                action,
+                resource_type: "context_candidate",
+                resource_id: None,
+                payload,
+                ip_address: None,
+            },
+        )
+        .await?;
+        Ok(())
+    }
+
+    async fn publish_candidate_event(
+        &self,
+        scope: &TenantScope,
+        candidate: &ContextCandidate,
+        event: &'static str,
+        approved_scope: Option<(&str, Uuid)>,
+    ) {
+        let Some(nats) = &self.nats else {
+            return;
+        };
+        let (scope_kind, scope_id) = approved_scope.unwrap_or(("user", candidate.owner_user_id.as_uuid()));
+        let subject = scoped_context_candidate_subject(scope.org_id().as_uuid(), scope_kind, scope_id, event);
+        let payload = json!({
+            "type": format!("context_candidate.{event}"),
+            "candidateId": candidate.id,
+            "itemKind": candidate.item_kind,
+            "state": candidate.state,
+            "scopeKind": scope_kind,
+            "scopeId": scope_id,
+            "timestamp": Utc::now().to_rfc3339()
+        });
+        if let Err(err) = nats.publish_json(&subject, payload).await {
+            tracing::warn!(error = ?err, subject, "failed to publish context candidate broadcast");
+        }
+    }
+}
+
+const STALE_REVOKE_THRESHOLD: i64 = 3;
+const WRONG_REVOKE_THRESHOLD: i64 = 2;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContextItemKind {
+    Memory,
+    Skill,
+}
+
+impl ContextItemKind {
+    fn as_label(self) -> &'static str {
+        match self {
+            Self::Memory => "memory",
+            Self::Skill => "skill",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContextFeedbackLabel {
+    Useful,
+    Stale,
+    Wrong,
+    TooSensitive,
+    DoNotUseAgain,
+}
+
+impl ContextFeedbackLabel {
+    fn as_label(self) -> &'static str {
+        match self {
+            Self::Useful => "useful",
+            Self::Stale => "stale",
+            Self::Wrong => "wrong",
+            Self::TooSensitive => "too_sensitive",
+            Self::DoNotUseAgain => "do_not_use_again",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RecordContextFeedbackInput {
+    pub run_id: Uuid,
+    pub item_id: Uuid,
+    pub item_kind: ContextItemKind,
+    pub label: ContextFeedbackLabel,
+    pub note: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ContextFeedbackOutcome {
+    pub feedback: ContextFeedback,
+    pub item_state_changed: bool,
+}
+
+pub struct ContextFeedbackService {
+    feedback: ContextFeedbackRepository,
+}
+
+impl ContextFeedbackService {
+    pub fn new(pool: PgPool) -> Self {
+        Self { feedback: ContextFeedbackRepository::new(pool) }
+    }
+
+    pub async fn record(
+        &self,
+        scope: &TenantScope,
+        input: RecordContextFeedbackInput,
+    ) -> AppResult<ContextFeedbackOutcome> {
+        let workspace_id = required_workspace(scope)?;
+        let proof = validated_context_read(self.feedback.pool(), scope).await?;
+        let note = normalize_feedback_note(input.note)?;
+        let item_kind = input.item_kind.as_label();
+        let label = input.label.as_label();
+
+        let mut tx = self.feedback.pool().begin().await?;
+        let run_status =
+            ContextFeedbackRepository::run_status_in_scope_in_tx(&mut tx, &proof, workspace_id, input.run_id).await?;
+        if !matches!(run_status.as_str(), "completed" | "failed" | "canceled") {
+            return Err(ErrorKind::Unprocessable("context feedback requires a terminal run".into()).into());
+        }
+
+        let already_revoked = match input.item_kind {
+            ContextItemKind::Memory => {
+                let item = ContextFeedbackRepository::lock_memory_for_feedback_in_tx(
+                    &mut tx,
+                    &proof,
+                    workspace_id,
+                    input.item_id,
+                )
+                .await?;
+                item.revoked_at.is_some()
+            }
+            ContextItemKind::Skill => {
+                let item = ContextFeedbackRepository::lock_skill_for_feedback_in_tx(
+                    &mut tx,
+                    &proof,
+                    workspace_id,
+                    input.item_id,
+                )
+                .await?;
+                item.revoked_at.is_some()
+            }
+        };
+
+        let feedback = ContextFeedbackRepository::upsert_in_tx(
+            &mut tx,
+            &proof,
+            CreateContextFeedbackRecord {
+                workspace_id,
+                run_id: input.run_id,
+                item_id: input.item_id,
+                item_kind,
+                label,
+                note: note.as_deref(),
+            },
+        )
+        .await?;
+
+        let mut item_state_changed = false;
+        if !already_revoked {
+            item_state_changed = match input.item_kind {
+                ContextItemKind::Memory => {
+                    self.apply_memory_feedback(&mut tx, &proof, workspace_id, input.item_id, input.label).await?
+                }
+                ContextItemKind::Skill => {
+                    self.apply_skill_feedback(&mut tx, &proof, workspace_id, input.item_id, input.label).await?
+                }
+            };
+        }
+
+        ContextGovernanceService::emit_audit(
+            &mut tx,
+            scope,
+            ContextAuditEvent {
+                action: "governance.context.feedback.recorded",
+                resource_type: "context_feedback",
+                resource_id: Some(feedback.id),
+                payload: json!({
+                    "run_id": feedback.run_id,
+                    "item_id": feedback.item_id,
+                    "item_kind": feedback.item_kind,
+                    "label": feedback.label,
+                    "item_state_changed": item_state_changed
+                }),
+                ip_address: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+        Ok(ContextFeedbackOutcome { feedback, item_state_changed })
+    }
+
+    async fn apply_memory_feedback(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        proof: &ScopedRead,
+        workspace_id: WorkspaceId,
+        item_id: Uuid,
+        label: ContextFeedbackLabel,
+    ) -> AppResult<bool> {
+        match label {
+            ContextFeedbackLabel::Useful => {
+                ContextFeedbackRepository::mark_memory_useful_in_tx(tx, item_id).await?;
+                Ok(false)
+            }
+            ContextFeedbackLabel::Stale => {
+                ContextFeedbackRepository::mark_memory_stale_in_tx(tx, item_id).await?;
+                let stale_count =
+                    ContextFeedbackRepository::count_label_in_tx(tx, proof, workspace_id, item_id, "memory", "stale")
+                        .await?;
+                if stale_count >= STALE_REVOKE_THRESHOLD {
+                    Ok(ContextFeedbackRepository::revoke_memory_if_active_in_tx(tx, item_id).await?.is_some())
+                } else {
+                    Ok(false)
+                }
+            }
+            ContextFeedbackLabel::Wrong => {
+                let wrong_count =
+                    ContextFeedbackRepository::count_label_in_tx(tx, proof, workspace_id, item_id, "memory", "wrong")
+                        .await?;
+                if wrong_count >= WRONG_REVOKE_THRESHOLD {
+                    Ok(ContextFeedbackRepository::revoke_memory_if_active_in_tx(tx, item_id).await?.is_some())
+                } else {
+                    Ok(false)
+                }
+            }
+            ContextFeedbackLabel::TooSensitive => {
+                ContextFeedbackRepository::mark_memory_needs_review_in_tx(tx, item_id).await?;
+                Ok(true)
+            }
+            ContextFeedbackLabel::DoNotUseAgain => Ok(false),
+        }
+    }
+
+    async fn apply_skill_feedback(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        proof: &ScopedRead,
+        workspace_id: WorkspaceId,
+        item_id: Uuid,
+        label: ContextFeedbackLabel,
+    ) -> AppResult<bool> {
+        match label {
+            ContextFeedbackLabel::Wrong => {
+                let wrong_count =
+                    ContextFeedbackRepository::count_label_in_tx(tx, proof, workspace_id, item_id, "skill", "wrong")
+                        .await?;
+                if wrong_count >= WRONG_REVOKE_THRESHOLD {
+                    Ok(ContextFeedbackRepository::revoke_skill_if_active_in_tx(tx, item_id).await?.is_some())
+                } else {
+                    Ok(false)
+                }
+            }
+            ContextFeedbackLabel::Stale => {
+                let stale_count =
+                    ContextFeedbackRepository::count_label_in_tx(tx, proof, workspace_id, item_id, "skill", "stale")
+                        .await?;
+                if stale_count >= STALE_REVOKE_THRESHOLD {
+                    Ok(ContextFeedbackRepository::revoke_skill_if_active_in_tx(tx, item_id).await?.is_some())
+                } else {
+                    Ok(false)
+                }
+            }
+            ContextFeedbackLabel::Useful | ContextFeedbackLabel::TooSensitive | ContextFeedbackLabel::DoNotUseAgain => {
+                Ok(false)
+            }
+        }
+    }
+}
+
+pub fn scoped_context_candidate_subject(org_id: Uuid, scope_kind: &str, scope_id: Uuid, event: &str) -> String {
+    format!("broadcast.{org_id}.scope.{scope_kind}.{scope_id}.context_candidate.{event}")
+}
+
+fn candidate_summary(candidate: &ContextCandidateListRow) -> ContextCandidateSummary {
+    ContextCandidateSummary {
+        id: candidate.id,
+        workspace_id: candidate.workspace_id,
+        item_kind: candidate.item_kind.clone(),
+        state: candidate.state.clone(),
+        owner_user_id: candidate.owner_user_id,
+        source_run_id: candidate.source_run_id,
+        target_skill_id: candidate.target_skill_id,
+        proposed_scope_kind: candidate.proposed_scope_kind.clone(),
+        source_available: candidate.source_available,
+        proposed_preview: redacted_proposal_preview(&candidate.proposed_content),
+        created_at: candidate.created_at,
+        updated_at: candidate.updated_at,
+    }
+}
+
+fn redacted_proposal_preview(value: &Value) -> Value {
+    let Some(map) = value.as_object() else {
+        return json!({});
+    };
+    let mut out = serde_json::Map::new();
+    for key in ["title", "name", "description", "scope_kind", "visibility"] {
+        if let Some(value) = map.get(key)
+            && value.is_string()
+        {
+            out.insert(key.to_string(), value.clone());
+        }
+    }
+    if let Some(content) = map.get("content").and_then(Value::as_str) {
+        let classification = ContextGovernanceService::classify_sensitivity(content);
+        let preview = classification.redacted_preview.unwrap_or_else(|| content.chars().take(160).collect());
+        out.insert("content_preview".to_string(), json!(preview));
+    }
+    Value::Object(out)
+}
+
+fn normalize_limit(limit: Option<i64>) -> i64 {
+    limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT)
+}
+
+fn normalize_candidate_state_filter(value: Option<&str>) -> AppResult<Option<&str>> {
+    match value.unwrap_or("pending") {
+        "all" => Ok(None),
+        "pending" => Ok(Some("pending")),
+        "approved" => Ok(Some("approved")),
+        "rejected" => Ok(Some("rejected")),
+        "superseded" => Ok(Some("superseded")),
+        other => Err(ErrorKind::Validation(format!("unsupported context candidate state filter `{other}`")).into()),
+    }
+}
+
+fn normalize_candidate_kind_filter(value: Option<&str>) -> AppResult<Option<&str>> {
+    match value.unwrap_or("all") {
+        "all" => Ok(None),
+        "memory" => Ok(Some("memory")),
+        "skill" => Ok(Some("skill")),
+        other => Err(ErrorKind::Validation(format!("unsupported context candidate kind filter `{other}`")).into()),
+    }
+}
+
+fn normalize_scope_kind_filter(value: Option<&str>) -> AppResult<Option<&str>> {
+    match value.unwrap_or("all") {
+        "all" => Ok(None),
+        "user" => Ok(Some("user")),
+        "team" => Ok(Some("team")),
+        "project" => Ok(Some("project")),
+        other => Err(ErrorKind::Validation(format!("unsupported context candidate scope filter `{other}`")).into()),
+    }
+}
+
+fn ensure_pending(candidate: &ContextCandidate) -> AppResult<()> {
+    if candidate.state == "pending" {
+        Ok(())
+    } else {
+        Err(ErrorKind::Conflict(format!("context candidate {} is already {}", candidate.id, candidate.state)).into())
+    }
+}
+
+fn validate_candidate_content(value: &Value) -> AppResult<()> {
+    if value.as_object().is_some() {
+        Ok(())
+    } else {
+        Err(ErrorKind::Validation("proposed_content must be a JSON object".into()).into())
+    }
+}
+
+fn validate_title(title: &str) -> AppResult<&str> {
+    let title = title.trim();
+    if title.is_empty() || title.len() > 255 {
+        return Err(ErrorKind::Validation("memory title must be 1-255 characters".into()).into());
+    }
+    Ok(title)
+}
+
+fn validate_visibility(visibility: Option<&str>) -> AppResult<&str> {
+    match visibility.unwrap_or("shared") {
+        "private" => Ok("private"),
+        "shared" => Ok("shared"),
+        other => Err(ErrorKind::Validation(format!("unsupported memory visibility `{other}`")).into()),
+    }
+}
+
+fn validate_confidence(confidence: Option<f64>) -> AppResult<()> {
+    if let Some(value) = confidence
+        && !(0.0..=1.0).contains(&value)
+    {
+        return Err(ErrorKind::Validation("confidence must be between 0 and 1".into()).into());
+    }
+    Ok(())
+}
+
+fn validate_ttl(ttl_at: Option<DateTime<Utc>>) -> AppResult<()> {
+    if let Some(ttl) = ttl_at
+        && ttl <= Utc::now()
+    {
+        return Err(ErrorKind::Validation("ttl_at must be in the future".into()).into());
+    }
+    Ok(())
+}
+
+fn validate_sensitivity(value: &str) -> AppResult<&str> {
+    match value {
+        "public" | "internal" | "confidential" | "secret_detected" => Ok(value),
+        other => Err(ErrorKind::Validation(format!("unsupported context sensitivity `{other}`")).into()),
+    }
+}
+
+fn normalize_reason(reason: Option<String>) -> AppResult<Option<String>> {
+    let Some(reason) = reason else {
+        return Ok(None);
+    };
+    let reason = reason.trim().to_string();
+    if reason.len() > 500 {
+        return Err(ErrorKind::Validation("rejection reason must be at most 500 characters".into()).into());
+    }
+    Ok((!reason.is_empty()).then_some(reason))
+}
+
+fn normalize_feedback_note(note: Option<String>) -> AppResult<Option<String>> {
+    let Some(note) = note else {
+        return Ok(None);
+    };
+    let note = note.trim().to_string();
+    if note.len() > 4000 {
+        return Err(ErrorKind::Validation("feedback note must be at most 4000 characters".into()).into());
+    }
+    Ok((!note.is_empty()).then_some(note))
+}
+
+fn approval_provenance(candidate: &ContextCandidate, scope: &TenantScope) -> Value {
+    json!({
+        "source": "context_candidate",
+        "candidate_id": candidate.id,
+        "source_run_id": candidate.source_run_id,
+        "approved_by": scope.user_id(),
+        "approved_at": Utc::now()
+    })
+}
+
+fn required_workspace(scope: &TenantScope) -> AppResult<WorkspaceId> {
+    scope.workspace_id().ok_or_else(|| agentforge_core::AppError::from(ErrorKind::Forbidden))
+}
+
+async fn validated_context_read(pool: &PgPool, scope: &TenantScope) -> AppResult<ScopedRead> {
+    let Some(workspace_id) = scope.workspace_id() else {
+        return Ok(ScopedRead::from_validated_memberships(
+            scope.org_id(),
+            scope.user_id(),
+            std::iter::empty(),
+            std::iter::empty(),
+            std::iter::empty(),
+        ));
+    };
+
+    let workspace_exists = sqlx::query_scalar::<_, bool>(
+        r#"SELECT EXISTS (
+               SELECT 1 FROM workspaces
+                WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL
+           )"#,
+    )
+    .bind(workspace_id.as_uuid())
+    .bind(scope.org_id().as_uuid())
+    .fetch_one(pool)
+    .await?;
+    if !workspace_exists {
+        return Err(ErrorKind::NotFound(format!("workspace {workspace_id}")).into());
+    }
+
+    let team_ids = sqlx::query_scalar::<_, Uuid>(
+        r#"SELECT tm.team_id
+             FROM team_members tm
+             JOIN teams t ON t.id = tm.team_id
+            WHERE t.organization_id = $1
+              AND t.deleted_at IS NULL
+              AND tm.user_id = $2"#,
+    )
+    .bind(scope.org_id().as_uuid())
+    .bind(scope.user_id().as_uuid())
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(TeamId::from)
+    .collect::<Vec<_>>();
+
+    let project_ids = sqlx::query_scalar::<_, Uuid>(
+        r#"SELECT DISTINCT p.id
+             FROM projects p
+            WHERE p.organization_id = $1
+              AND p.workspace_id = $2
+              AND p.deleted_at IS NULL
+              AND (
+                  EXISTS (
+                      SELECT 1 FROM project_members pm
+                       WHERE pm.project_id = p.id AND pm.user_id = $3
+                  )
+                  OR EXISTS (
+                      SELECT 1 FROM team_members tm
+                       WHERE tm.team_id = p.team_id AND tm.user_id = $3
+                  )
+              )"#,
+    )
+    .bind(scope.org_id().as_uuid())
+    .bind(workspace_id.as_uuid())
+    .bind(scope.user_id().as_uuid())
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(ProjectId::from)
+    .collect::<Vec<_>>();
+
+    Ok(ScopedRead::from_validated_memberships(scope.org_id(), scope.user_id(), [workspace_id], team_ids, project_ids))
+}
+
+fn scoped_write_error(_err: ScopedWriteError) -> agentforge_core::AppError {
+    ErrorKind::Forbidden.into()
+}
+
+fn sensitivity_label(sensitivity: Sensitivity) -> &'static str {
+    match sensitivity {
+        Sensitivity::Public => "public",
+        Sensitivity::Internal => "internal",
+        Sensitivity::Confidential => "confidential",
+        Sensitivity::SecretDetected => "secret_detected",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scoped_context_candidate_subject_is_scope_keyed() {
+        let org_id = Uuid::parse_str("11111111-1111-4111-8111-111111111111").unwrap();
+        let scope_id = Uuid::parse_str("22222222-2222-4222-8222-222222222222").unwrap();
+
+        assert_eq!(
+            scoped_context_candidate_subject(org_id, "team", scope_id, "approved"),
+            "broadcast.11111111-1111-4111-8111-111111111111.scope.team.22222222-2222-4222-8222-222222222222.context_candidate.approved"
+        );
+    }
+
+    #[test]
+    fn proposal_preview_redacts_content() {
+        let preview = redacted_proposal_preview(&json!({
+            "title": "Token",
+            "content": "api_key=1234567890abcdef1234567890abcdef"
+        }));
+
+        assert_eq!(preview["title"], "Token");
+        assert!(!preview["content_preview"].as_str().unwrap().contains("1234567890abcdef1234567890abcdef"));
+    }
+}

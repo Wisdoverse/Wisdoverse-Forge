@@ -1,0 +1,33 @@
+[package]
+name = "agentforge-sidecar"
+version = "0.1.0"
+edition.workspace = true
+license-file.workspace = true
+
+[[bin]]
+name = "agentforge-sidecar"
+path = "src/main.rs"
+
+[dependencies]
+agentforge-core.workspace = true
+agentforge-infra.workspace = true
+async-nats.workspace = true
+config.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+futures.workspace = true
+hmac.workspace = true
+sha2.workspace = true
+hex.workspace = true
+uuid.workspace = true
+metrics.workspace = true
+notify = "6"
+
+[dev-dependencies]
+tokio = { workspace = true }
+tempfile = "3"

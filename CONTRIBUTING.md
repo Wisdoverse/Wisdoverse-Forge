@@ -1,0 +1,103 @@
+# Contributing to Wisdoverse Forge
+
+Wisdoverse Forge is Rust-first. New product and runtime work belongs in `rust/`, `src/`, `shared/`, `docker/`, and the active test suites. The agent-container buildx proxy and the entire runtime path are Rust-owned.
+
+## Prerequisites
+
+- Node.js 24+
+- Docker and Docker Compose v2
+- Make
+- Git
+- A local environment that can run PostgreSQL-, Redis-, NATS-, and Temporal-backed containers
+
+## Local Setup
+
+```bash
+git clone https://github.com/Wisdoverse/Wisdoverse-Forge.git wisdoverse-forge
+cd wisdoverse-forge
+npm install
+
+cp docker/.env.example docker/.env
+# Set POSTGRES_PASSWORD, REDIS_PASSWORD, JWT_SECRET, and NATS callout values.
+
+make setup
+make dev
+npm run dev
+```
+
+`make dev` brings up the backend stack. `npm run dev` starts the Vite frontend separately.
+
+## Supported Development Loops
+
+| Loop                 | Commands                                             | Use When                                                                         |
+| -------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Full platform        | `make setup`, `make dev`, `npm run dev`              | Daily development, orchestration work, workflow runtime, end-to-end verification |
+| API-only             | `npm run server`, `npm run dev`                      | Frontend or API work that does not require orchestrator or Temporal              |
+| Orchestrator-focused | `cd rust && cargo run --bin agentforge-orchestrator` | Focused orchestrator development against existing infrastructure                 |
+| Rust workspace only  | `cd rust && cargo test --workspace`                  | Pure backend iteration and contract work                                         |
+
+For workflow runtime work, use the full platform loop unless you have already provisioned a compatible Temporal and orchestrator database locally.
+
+## Repository Boundaries
+
+| Path                                           | Status | Notes                                                                      |
+| ---------------------------------------------- | ------ | -------------------------------------------------------------------------- |
+| `rust/`                                        | Active | Backend workspace                                                          |
+| `src/` and `shared/`                           | Active | Frontend and shared contracts                                              |
+| `docker/`                                      | Active | Compose, Dockerfiles, deployment helpers                                   |
+| `tests/unit`, `tests/integration`, `tests/e2e` | Active | Validation suites                                                          |
+| `hooks/`                                       | Active | Event relay hook (container → sidecar via UDS)                             |
+| `rust/bins/buildx-plugin/`                     | Active | Rust helper for intercepting `docker buildx build` inside agent containers |
+
+## Validation Expectations
+
+Run the union of the checks for every area you touched.
+
+| Change Scope                          | Minimum Validation                                                                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Documentation only                    | `git diff --check`                                                                                                              |
+| Frontend / shared / scripts           | `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm run test:unit`                                                |
+| Rust code                             | `cd rust && cargo fmt --all --check`, `cd rust && cargo clippy --workspace -- -D warnings`, `cd rust && cargo test --workspace` |
+| Proto or generated platform contracts | `npm run proto:gen`, `npm run proto:check`                                                                                      |
+
+If a change spans multiple areas, run the combined matrix before pushing.
+
+## Branches and Commits
+
+- Use descriptive branches such as `feat/rust-workflow-runtime`, `fix/orchestrator-health`, or `docs/runtime-guides`.
+- Follow Conventional Commits, for example `feat(orchestrator): start temporal worker in live mode`.
+- Keep commits reviewable. Separate functional changes, refactors, and documentation sweeps when possible.
+
+## Pull Request Standard
+
+Every PR should include:
+
+- a short summary of the user or operator impact,
+- the concrete validation commands that were run,
+- screenshots or API examples when UI or contract behavior changes,
+- migration, environment, or rollout notes when runtime behavior changes,
+- documentation updates for any changed API, runtime, deployment path, or contributor workflow.
+
+## Documentation Policy
+
+Documentation is English-first. Public docs, repository guides, examples, and
+operator-facing runbooks should use English as the source text. Add translated
+notes only as secondary material when they are necessary for a specific
+audience.
+
+Update docs in the same PR when you change:
+
+- default runtime ownership,
+- API or workflow contracts,
+- Compose profiles or deployment topology,
+- contributor setup or validation commands,
+- environment variables or operational runbooks.
+
+At minimum, runtime and deployment changes usually require updates to `README.md`, `docs/architecture/overview.md`, and the relevant guide under `docs/guides/`.
+
+## Security and Secrets
+
+- Never commit live credentials, tokens, or production hostnames.
+- Use placeholder values in examples.
+- Treat internal tokens such as `MCP_TOKEN` and `ORCHESTRATOR_INTERNAL_TOKEN` as secrets.
+- If a change affects auth, workspace isolation, or container boundaries, call that out explicitly in the PR.

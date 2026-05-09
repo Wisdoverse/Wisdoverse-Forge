@@ -1,0 +1,8 @@
+{
+  "src/**/*.{ts,tsx}": ["prettier --write"],
+  "shared/**/*.{ts,tsx}": ["eslint --fix", "prettier --write"],
+  "scripts/**/*.{ts,mjs,cjs}": ["eslint --fix", "prettier --write"],
+  "*.{js,jsx,mjs,cjs}": ["prettier --write"],
+  "*.{css,scss}": ["prettier --write"],
+  "*.{json,md,yml,yaml}": ["prettier --write"]
+}

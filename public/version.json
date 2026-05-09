@@ -1,0 +1,6 @@
+{
+  "latest": "0.1.15",
+  "minSupported": "0.1.0",
+  "releaseUrl": "",
+  "updateCommand": "npx agentforge@latest setup"
+}

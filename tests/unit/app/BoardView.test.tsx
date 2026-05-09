@@ -1,0 +1,160 @@
+import { describe, test, expect, afterEach, vi, beforeEach } from 'vitest'
+import { render, screen, cleanup, waitFor, act } from '@testing-library/react'
+import { BoardView } from '@app/features/board/BoardView'
+import { useBoardStore } from '@app/shared/model/board.store'
+import { useNavigationStore } from '@app/entities/navigation'
+
+const mockGetTasks = vi.fn().mockResolvedValue([])
+const mockCreateTask = vi.fn().mockResolvedValue({ ok: true, task: null })
+const mockUpdateTask = vi.fn().mockResolvedValue({ ok: true })
+
+vi.mock('@app/shared/api/orchestration', () => ({
+  taskResultArtifacts: (result: unknown) => (Array.isArray(result) ? result : []),
+  orchestrationApi: {
+    getTasks: (...args: unknown[]) => mockGetTasks(...args),
+    createTask: (...args: unknown[]) => mockCreateTask(...args),
+    updateTask: (...args: unknown[]) => mockUpdateTask(...args),
+  },
+}))
+
+beforeEach(() => {
+  mockGetTasks.mockClear().mockResolvedValue([])
+  mockCreateTask.mockClear()
+  mockUpdateTask.mockClear()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+  cleanup()
+  useBoardStore.getState().reset()
+  useNavigationStore.getState().reset()
+})
+
+describe('BoardView', () => {
+  test('shows no-group placeholder when no group is selected', () => {
+    render(<BoardView />)
+    expect(screen.getByTestId('board-no-group')).toBeDefined()
+    expect(screen.getByText(/pick a project to get started/i)).toBeDefined()
+  })
+
+  test('explains missing task group when a project is selected', () => {
+    useNavigationStore.setState({ selectedProjectId: 'p1' })
+
+    render(<BoardView />)
+
+    expect(screen.getByText(/no task group in this project yet/i)).toBeDefined()
+    expect(screen.getByText(/agents in a group can receive tasks from the board/i)).toBeDefined()
+  })
+
+  test('renders task lifecycle columns with correct headers', async () => {
+    useBoardStore.getState().setSelectedGroupId('test-group')
+    render(<BoardView />)
+    await waitFor(() => {
+      expect(screen.getByText('Backlog')).toBeDefined()
+    })
+    expect(screen.getByText('Queued')).toBeDefined()
+    expect(screen.getByText('Working')).toBeDefined()
+    expect(screen.getByText('Blocked')).toBeDefined()
+    expect(screen.getByText('Done')).toBeDefined()
+    expect(screen.getByText('Failed')).toBeDefined()
+    expect(screen.getByText('Canceled')).toBeDefined()
+  })
+
+  test('renders failed tasks outside the Done column', async () => {
+    mockGetTasks.mockResolvedValueOnce([
+      {
+        id: 'failed-task',
+        state: 'failed',
+        params: { task: 'Task failed with auth error', message: '' },
+        priority: 'normal',
+        progress: 0,
+        error: '401 Unauthorized',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ] as any)
+    useBoardStore.getState().setSelectedGroupId('test-group')
+    render(<BoardView />)
+    await waitFor(() => {
+      expect(screen.getByText('Task failed with auth error')).toBeDefined()
+    })
+    expect(screen.getByTestId('column-count-done').textContent).toBe('0')
+    expect(screen.getByTestId('column-count-failed').textContent).toBe('1')
+  })
+
+  test('renders task cards in correct columns', async () => {
+    const tasks = [
+      {
+        id: '1',
+        state: 'backlog',
+        params: { task: 'Task A', message: '' },
+        priority: 'normal',
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+      {
+        id: '2',
+        state: 'working',
+        params: { task: 'Task B', message: '' },
+        priority: 'high',
+        progress: 50,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+    ]
+    mockGetTasks.mockResolvedValueOnce(tasks)
+    useBoardStore.getState().setSelectedGroupId('test-group')
+    render(<BoardView />)
+    await waitFor(() => {
+      expect(screen.getByText('Task A')).toBeDefined()
+    })
+    expect(screen.getByText('Task B')).toBeDefined()
+  })
+
+  test('shows column task count', async () => {
+    const tasks = [
+      {
+        id: '1',
+        state: 'working',
+        params: { task: 'Task A', message: '' },
+        priority: 'normal',
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+      {
+        id: '2',
+        state: 'working',
+        params: { task: 'Task B', message: '' },
+        priority: 'normal',
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+    ]
+    mockGetTasks.mockResolvedValueOnce(tasks)
+    useBoardStore.getState().setSelectedGroupId('test-group')
+    render(<BoardView />)
+    await waitFor(() => {
+      expect(screen.getByTestId('column-count-working').textContent).toBe('2')
+    })
+  })
+
+  test('polls selected group as websocket fallback', async () => {
+    vi.useFakeTimers()
+    useBoardStore.getState().setSelectedGroupId('test-group')
+
+    render(<BoardView />)
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(mockGetTasks).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000)
+    })
+
+    expect(mockGetTasks).toHaveBeenCalledTimes(2)
+  })
+})

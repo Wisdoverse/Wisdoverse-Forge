@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package platform;
+
+option go_package = "agentforge/platform/proto";
+
+import "common.proto";
+
+service AgentService {
+  rpc GetAgentState(AgentIdRequest) returns (AgentState);
+  rpc UpdateAgentState(UpdateStateRequest) returns (AgentState);
+  rpc RunHealthCheck(Empty) returns (HealthCheckResult);
+  rpc GetGitStatus(AgentIdRequest) returns (GitStatus);
+  rpc PollAllGitStatus(Empty) returns (GitPollResponse);
+  rpc ListActiveAgents(ListActiveAgentsRequest) returns (ListActiveAgentsResponse);
+}
+
+message AgentIdRequest {
+  string agent_id = 1;
+}
+
+message AgentState {
+  string agent_id = 1;
+  string status = 2; // idle, working, waiting, attention, offline
+  string container_id = 3;
+  GitStatus git_status = 4;
+  TokenInfo tokens = 5;
+  Timestamp last_activity = 6;
+  Timestamp created_at = 7;
+}
+
+message UpdateStateRequest {
+  string agent_id = 1;
+  string status = 2;
+  string trigger = 3; // event type that triggered the update
+}
+
+message HealthCheckResult {
+  int32 checked = 1;
+  int32 healthy = 2;
+  int32 marked_offline = 3;
+  int32 marked_idle = 4;
+  repeated AgentHealthEntry entries = 5;
+}
+
+message AgentHealthEntry {
+  string agent_id = 1;
+  string container_id = 2;
+  bool container_alive = 3;
+  string previous_status = 4;
+  string new_status = 5;
+}
+
+message GitStatus {
+  string branch = 1;
+  bool has_changes = 2;
+  int32 ahead = 3;
+  int32 behind = 4;
+  repeated string modified_files = 5;
+  int32 staged_count = 6;
+  int32 unstaged_count = 7;
+  int32 untracked_count = 8;
+}
+
+message GitPollResponse {
+  int32 polled = 1;
+  int32 updated = 2;
+  int32 errors = 3;
+}
+
+message TokenInfo {
+  int64 current_conversation = 1;
+  int64 cumulative = 2;
+}
+
+message ListActiveAgentsRequest {
+  string org_id = 1;
+}
+
+message ListActiveAgentsResponse {
+  repeated AgentState agents = 1;
+}

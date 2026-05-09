@@ -1,0 +1,46 @@
+# Wisdoverse Forge Code Owners
+# These owners will be requested for review when someone opens a pull request.
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything in the repo
+*                           @agentforge/maintainers
+
+# Frontend
+/src/                       @agentforge/frontend
+/src/app/                   @agentforge/frontend
+/shared/                    @agentforge/frontend @agentforge/backend
+
+# Default Rust backend
+/rust/                      @agentforge/backend
+/rust/bins/                 @agentforge/backend
+/rust/crates/               @agentforge/backend
+/shared/generated/platform/ @agentforge/backend
+
+# Infrastructure
+/.github/                   @agentforge/devops
+/.github/workflows/         @agentforge/devops
+/docker/                    @agentforge/devops
+/Makefile                   @agentforge/devops
+/.env.example               @agentforge/devops
+
+# Documentation
+/docs/                      @agentforge/docs
+/*.md                       @agentforge/docs
+/CHANGELOG.md               @agentforge/maintainers
+
+# Security-sensitive files
+/rust/crates/auth/          @agentforge/security
+/rust/crates/api/src/middleware.rs @agentforge/security
+/rust/crates/api/src/mcp.rs @agentforge/security
+
+# Configuration files
+/package.json               @agentforge/maintainers
+/tsconfig.json              @agentforge/maintainers
+/tsconfig.eslint.json       @agentforge/maintainers
+/eslint.config.js           @agentforge/maintainers
+/.prettierrc.*              @agentforge/maintainers
+
+# Tests
+/tests/                     @agentforge/qa
+*.test.ts                   @agentforge/qa
+*.spec.ts                   @agentforge/qa

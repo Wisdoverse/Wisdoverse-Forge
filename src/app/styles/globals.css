@@ -1,0 +1,75 @@
+@import 'tailwindcss';
+
+@config "../../../tailwind.config.ts";
+
+@layer base {
+  :root {
+    --background: 245 245 247;
+    --foreground: 29 29 31;
+    --surface: 255 255 255;
+    --secondary: 122 122 122;
+    --border: 0 0 0 / 0.08;
+    --ring: 0 113 227;
+    --radius: 18px;
+    color-scheme: light;
+  }
+
+  .dark {
+    --background: 37 37 39;
+    --foreground: 255 255 255;
+    --surface: 42 42 44;
+    --secondary: 204 204 204;
+    --border: 255 255 255 / 0.1;
+    --ring: 41 151 255;
+    color-scheme: dark;
+  }
+
+  body {
+    font-family:
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      'SF Pro Display',
+      'SF Pro Text',
+      Inter,
+      'Helvetica Neue',
+      Arial,
+      sans-serif;
+    letter-spacing: 0;
+    color: rgb(var(--foreground));
+    background: rgb(var(--background));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Global focus-visible ring — never rely on the default browser outline alone.
+     Keyboard users need a reliable, branded focus indicator everywhere. */
+  :where(
+    button,
+    a,
+    [role='button'],
+    [role='tab'],
+    [role='menuitem'],
+    input,
+    select,
+    textarea,
+    [tabindex]:not([tabindex='-1'])
+  ):focus-visible {
+    outline: 2px solid rgb(var(--ring));
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  /* Respect reduced-motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

@@ -1,0 +1,54 @@
+# =============================================================================
+# Wisdoverse Forge Scheduled Security Scan
+#
+# Runs weekly to detect new vulnerabilities in dependencies.
+# =============================================================================
+
+name: Security
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Monday 06:00 UTC
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - name: Full audit report
+        run: npm audit --audit-level=moderate || true
+      - name: Fail on critical/high
+        run: |
+          RESULT=$(npm audit --json 2>/dev/null || echo '{}')
+          CRITICAL=$(echo "$RESULT" | node -p "try{JSON.parse(require('fs').readFileSync(0,'utf8')).metadata?.vulnerabilities?.critical||0}catch{0}")
+          HIGH=$(echo "$RESULT" | node -p "try{JSON.parse(require('fs').readFileSync(0,'utf8')).metadata?.vulnerabilities?.high||0}catch{0}")
+          echo "Vulnerabilities — critical: $CRITICAL, high: $HIGH"
+          if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+            exit 1
+          fi
+
+  dangerous-patterns:
+    name: Dangerous Pattern Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan for dangerous patterns
+        run: node scripts/check-dangerous-patterns.mjs
+
+  secret-scan:
+    name: Secret Leak Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan for secrets
+        run: node scripts/check-secret-scan.mjs

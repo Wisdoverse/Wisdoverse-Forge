@@ -1,0 +1,28 @@
+[package]
+name = "agentforge-llm"
+version = "0.1.0"
+edition.workspace = true
+license-file.workspace = true
+
+[features]
+# Enables `MockProvider` + `LlmProviderFactory::with_mock` for cross-crate
+# test code via `agentforge-llm = { features = ["test-support"] }` in the
+# consumer's `[dev-dependencies]`. No runtime deps; no-op in production.
+test-support = []
+
+[dependencies]
+agentforge-core.workspace = true
+reqwest.workspace = true
+async-stream.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+futures.workspace = true
+bytes = "1"
+percent-encoding = "2"
+
+[dev-dependencies]
+tokio.workspace = true
+wiremock = "0.6"

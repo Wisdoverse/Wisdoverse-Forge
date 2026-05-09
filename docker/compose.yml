@@ -1,0 +1,820 @@
+# =============================================================================
+# Wisdoverse Forge - Unified Docker Compose Configuration
+# =============================================================================
+#
+# Single source of truth for all deployment modes, using Docker Compose profiles.
+#
+# Usage:
+#   make dev               # Development (DB, Redis, hot-reload, debug)
+#   make dev-tools         # + Adminer, Redis Commander
+#   make prod              # Production self-contained (DB, Redis, Nginx)
+#   make prod-ext          # Production with external services
+#   make prod-backup       # Production + daily DB backups
+#   make dev-casdoor       # Development + Casdoor SSO
+#   make prod-casdoor      # Production + Casdoor SSO
+#
+# Or with docker compose directly:
+#   docker compose -f docker/compose.yml -f docker/compose.dev.yml --profile dev up --build
+#   docker compose -f docker/compose.yml -f docker/compose.prod.yml --profile prod up -d --build
+#   docker compose -f docker/compose.yml -f docker/compose.external.yml --profile external up -d --build
+#
+# Profiles:
+#   dev       - Local PostgreSQL + Redis for development
+#   prod      - Self-contained PostgreSQL + Redis + Nginx
+#   external  - No local DB/Redis (connect to external services via .env)
+#   tools     - Admin UIs (Adminer, Redis Commander)
+#   backup    - Daily pg_dump with 7-day retention
+#   storage   - MinIO object storage
+#   casdoor   - Casdoor OIDC identity provider
+#
+# =============================================================================
+
+services:
+  # Rust Backend (default runtime path)
+  # Single binary: 25MB image, 256M memory, handles all API + container mgmt
+  # ---------------------------------------------------------------------------
+  agentforge-rust:
+    build:
+      context: ../rust
+      dockerfile: Dockerfile
+    image: agentforge-rust-server:${VERSION:-latest}
+    container_name: agentforge-rust
+    hostname: agentforge
+    oom_score_adj: -200
+    restart: unless-stopped
+
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    group_add:
+      - '${DOCKER_GID:-998}'
+    read_only: true
+    tmpfs:
+      - /tmp
+
+    ports:
+      - '${BIND_ADDRESS:-127.0.0.1}:${AGENTFORGE_PORT:-4003}:4003'
+
+    environment:
+      # Core (Rust AppConfig fields)
+      - DATABASE_URL=${DATABASE_URL:-}
+      - JWT_SECRET=${JWT_SECRET:-}
+      - PORT=${AGENTFORGE_PORT:-4003}
+      - HOST=0.0.0.0
+      - ENVIRONMENT=${NODE_ENV:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - CORS_ORIGIN=${CORS_ORIGIN:-${APP_URL:-}}
+      # Optional services
+      - REDIS_URL=${REDIS_URL:-}
+      # Backend's NATS URL carries the unrestricted `backend` AGENTFORGE-
+      # account user. Agents connect via auth callout (issue #38 phase 2) —
+      # the Rust API's `build_agent_env` strips any user-info from
+      # NATS_AGENT_URL and interpolates per-container `(agent_uuid, password)`
+      # pairs at spawn time. NATS_AGENT_URL kept for backwards compatibility
+      # with single-tenant dev deployments that only set one NATS URL; its
+      # value is treated as a base URL (host:port only) after user-info strip.
+      - NATS_URL=${NATS_URL:-nats://backend:${NATS_BACKEND_PASSWORD:?NATS_BACKEND_PASSWORD required}@nats:4222}
+      - NATS_AGENT_URL=${NATS_AGENT_URL:-nats://nats:4222}
+      # Auth callout secrets (issue #38 phase 2). All five are required when
+      # NATS_URL is configured — `AppConfig::from_env` rejects partial
+      # configurations. See docs/runbooks/nats-auth.md for rotation.
+      - NATS_CALLOUT__AUTH_SERVICE_PASSWORD=${NATS_AUTH_SERVICE_PASSWORD:?NATS_AUTH_SERVICE_PASSWORD required}
+      - NATS_CALLOUT__ISSUER_SEED=${NATS_CALLOUT_ISSUER_SEED:?NATS_CALLOUT_ISSUER_SEED required}
+      - NATS_CALLOUT__ACCOUNT_SIGNING_KEY_SEED=${NATS_CALLOUT_ACCOUNT_SIGNING_KEY_SEED:?NATS_CALLOUT_ACCOUNT_SIGNING_KEY_SEED required}
+      - NATS_CALLOUT__XKEY_SEED=${NATS_CALLOUT_XKEY_SEED:?NATS_CALLOUT_XKEY_SEED required}
+      - NATS_CALLOUT__SERVER_NAME=${NATS_SERVER_NAME:-agentforge-primary}
+      # SYS-account password used by the callout worker to publish KICK
+      # on `$SYS.REQ.SERVER.<name>.KICK` — reuses NATS_SYS_PASSWORD which
+      # the `nats` service already receives. Single source of truth.
+      - NATS_CALLOUT__SYS_PASSWORD=${NATS_SYS_PASSWORD:?NATS_SYS_PASSWORD required}
+      # Note (issue #55 follow-up): the former NATS_CALLOUT__ACCOUNT_SIGNING_KEY_PUBLIC
+      # env var is gone. In server-config / non-operator mode NATS maps the
+      # minted user onto an account via `LookupAccount(aud)` where `aud` is
+      # the account NAME string — hardcoded to `"AGENTFORGE"` in
+      # `bins/server/src/main.rs` to match `docker/nats.conf`. An account
+      # public nkey would be rejected at CONNECT time.
+      - MCP_ENABLED=true
+      - MCP_TOKEN=${MCP_TOKEN:-orchestrator-internal-token}
+      - AGENTFORGE_WORKSPACE_ROOT=${AGENTFORGE_WORKSPACE_ROOT:-/data/agentforge/workspaces}
+      - CONTAINER_SERVER_URL=${CONTAINER_SERVER_URL:-http://agentforge:4003}
+      - CONTAINER_AGENT_IMAGE=${CONTAINER_AGENT_IMAGE:-agentforge-agent:latest}
+      - CONTAINER_IMAGE_CLAUDE=${CONTAINER_IMAGE_CLAUDE:-agentforge-agent:latest}
+      - CONTAINER_IMAGE_OPENCODE=${CONTAINER_IMAGE_OPENCODE:-}
+      - CONTAINER_IMAGE_CODEX=${CONTAINER_IMAGE_CODEX:-}
+      - CONTAINER_IMAGE_GEMINI=${CONTAINER_IMAGE_GEMINI:-}
+      - CONTAINER_ANTHROPIC_API_KEY=${CONTAINER_ANTHROPIC_API_KEY:-}
+      - CONTAINER_GOOGLE_API_KEY=${CONTAINER_GOOGLE_API_KEY:-}
+      - CONTAINER_OPENAI_API_KEY=${CONTAINER_OPENAI_API_KEY:-}
+      - CODEX_DEFAULT_MODEL=${CODEX_DEFAULT_MODEL:-gpt-5.5}
+      - LLM_ENCRYPTION_KEY=${LLM_ENCRYPTION_KEY:-}
+      - OAUTH_MOUNT_DIR=${OAUTH_MOUNT_DIR:-/tmp/agentforge/oauth-mounts}
+      - STORAGE_PROVIDER=${STORAGE_PROVIDER:-local}
+      - STORAGE_LOCAL_PATH=${STORAGE_LOCAL_PATH:-/var/lib/agentforge/uploads}
+      - STORAGE_MAX_FILE_SIZE=${STORAGE_MAX_FILE_SIZE:-10485760}
+      - STORAGE_MAX_FILES_PER_SESSION=${STORAGE_MAX_FILES_PER_SESSION:-20}
+      - STORAGE_SIGNED_URL_EXPIRY=${STORAGE_SIGNED_URL_EXPIRY:-3600}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-}
+      - MINIO_BUCKET=${MINIO_BUCKET:-agentforge}
+      - MINIO_USE_SSL=${MINIO_USE_SSL:-false}
+      - MINIO_REGION=${MINIO_REGION:-}
+      - APP_URL=${APP_URL:-}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM=${SMTP_FROM:-}
+      - SMTP_SECURE=${SMTP_SECURE:-false}
+      - CLI_AUTH_PROXY_OPENAI_CLIENT_ID=${CLI_AUTH_PROXY_OPENAI_CLIENT_ID:-}
+      - CLI_AUTH_PROXY_OPENAI_CLIENT_SECRET=${CLI_AUTH_PROXY_OPENAI_CLIENT_SECRET:-}
+      - CLI_AUTH_PROXY_OPENAI_AUTH_ENDPOINT=${CLI_AUTH_PROXY_OPENAI_AUTH_ENDPOINT:-}
+      - CLI_AUTH_PROXY_OPENAI_TOKEN_ENDPOINT=${CLI_AUTH_PROXY_OPENAI_TOKEN_ENDPOINT:-}
+      - CLI_AUTH_PROXY_REVOKE_THRESHOLD=${CLI_AUTH_PROXY_REVOKE_THRESHOLD:-2}
+      # Orchestration staged-rollout flags. Defaults keep the current durable
+      # path on; set individual flags to false for canary rollback or incident
+      # isolation without changing images.
+      - ORCHESTRATION_RESULT_CONSUMER_ENABLED=${ORCHESTRATION_RESULT_CONSUMER_ENABLED:-true}
+      - ORCHESTRATION_ASSIGNMENT_OUTBOX_PUBLISHER_ENABLED=${ORCHESTRATION_ASSIGNMENT_OUTBOX_PUBLISHER_ENABLED:-true}
+      - ORCHESTRATION_PARTICIPANT_LIVENESS_ENABLED=${ORCHESTRATION_PARTICIPANT_LIVENESS_ENABLED:-true}
+      - ORCHESTRATION_CONTROL_PLANE_METRICS_ENABLED=${ORCHESTRATION_CONTROL_PLANE_METRICS_ENABLED:-true}
+      - ORCHESTRATION_WS_PROJECTOR_ENABLED=${ORCHESTRATION_WS_PROJECTOR_ENABLED:-true}
+      # Governed context rollout flags. Defaults are intentionally off until
+      # release-gate signoff is attached.
+      - CONTEXT_GOVERNANCE_ENABLED=${CONTEXT_GOVERNANCE_ENABLED:-false}
+      - CONTEXT_PREVIEW_ENABLED=${CONTEXT_PREVIEW_ENABLED:-false}
+      - CONTEXT_INJECTION_ENABLED=${CONTEXT_INJECTION_ENABLED:-false}
+      - CONTEXT_ANALYTICS_ENABLED=${CONTEXT_ANALYTICS_ENABLED:-false}
+
+    healthcheck:
+      test: ['CMD', 'curl', '-sf', 'http://localhost:4003/health']
+      interval: ${HEALTHCHECK_INTERVAL:-30s}
+      timeout: ${HEALTHCHECK_TIMEOUT:-5s}
+      retries: ${HEALTHCHECK_RETRIES:-3}
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '${CPU_LIMIT:-2}'
+          memory: ${MEMORY_LIMIT:-256M}
+          pids: ${PIDS_LIMIT:-256}
+        reservations:
+          cpus: '0.25'
+          memory: 64M
+
+    logging:
+      driver: '${LOG_DRIVER:-json-file}'
+      options:
+        max-size: '${LOG_MAX_SIZE:-10m}'
+        max-file: '${LOG_MAX_FILE:-5}'
+
+    stop_grace_period: 30s
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # OAuth credential bind-mount staging area. Same path on host and in the
+      # backend container so paths written here are the same paths docker
+      # daemon will bind into spawned agent containers.
+      - ${OAUTH_MOUNT_DIR:-/tmp/agentforge/oauth-mounts}:${OAUTH_MOUNT_DIR:-/tmp/agentforge/oauth-mounts}
+      # Agent workspace root must also use the same host/container path:
+      # the backend prepares per-agent directories here, then asks the host
+      # docker daemon to bind them into agent containers at /workspace.
+      - ${AGENTFORGE_WORKSPACE_ROOT:-/data/agentforge/workspaces}:${AGENTFORGE_WORKSPACE_ROOT:-/data/agentforge/workspaces}
+      # Keep the Rust API root filesystem read-only while giving local
+      # attachment object storage a durable writable mount.
+      - agentforge-uploads:${STORAGE_LOCAL_PATH:-/var/lib/agentforge/uploads}
+
+    depends_on:
+      nats:
+        condition: service_healthy
+
+    networks:
+      - default
+      - agent-network
+
+    labels:
+      - 'com.wisdoverse.service=rust-app'
+      - 'com.wisdoverse.version=${VERSION:-latest}'
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database (profiles: dev, prod)
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:18-alpine
+    container_name: agentforge-db
+    restart: unless-stopped
+    profiles: [dev, prod]
+
+    ports:
+      - '${DB_EXPOSED_PORT:-5432}:5432'
+
+    environment:
+      POSTGRES_USER: agentforge
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+      POSTGRES_DB: agentforge
+      PGDATA: /var/lib/postgresql/data/pgdata
+
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U agentforge -d agentforge']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+    networks:
+      - default
+
+    labels:
+      - 'com.wisdoverse.service=database'
+
+  # ---------------------------------------------------------------------------
+  # Redis Cache (profiles: dev, prod)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:8-alpine
+    container_name: agentforge-redis
+    restart: unless-stopped
+    profiles: [dev, prod]
+
+    ports:
+      - '${REDIS_EXPOSED_PORT:-6379}:6379'
+
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+
+    volumes:
+      - redis-data:/data
+
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+    networks:
+      - default
+
+    labels:
+      - 'com.wisdoverse.service=cache'
+
+  # ---------------------------------------------------------------------------
+  # NATS JetStream Message Broker (profiles: dev, prod, external)
+  # ---------------------------------------------------------------------------
+  nats:
+    image: nats:2.12.7-alpine
+    container_name: agentforge-nats
+    hostname: nats
+    oom_score_adj: -999
+    restart: unless-stopped
+    profiles: [dev, prod, external]
+
+    command: ['-c', '/etc/nats/nats.conf']
+
+    ports:
+      - '${NATS_PORT:-4222}:4222'
+      - '${NATS_MONITOR_PORT:-8222}:8222'
+
+    environment:
+      # Issue #38 phase 2: the legacy `agent` user + `NATS_AGENT_PASSWORD`
+      # are removed. Every sidecar now authenticates through the Rust API
+      # callout service. `nats.conf` references these env vars via `$VAR`
+      # syntax and the NATS server expands them at config load.
+      - NATS_SERVER_NAME=${NATS_SERVER_NAME:-agentforge-primary}
+      - NATS_BACKEND_PASSWORD=${NATS_BACKEND_PASSWORD:?NATS_BACKEND_PASSWORD is required}
+      - NATS_AUTH_SERVICE_PASSWORD=${NATS_AUTH_SERVICE_PASSWORD:?NATS_AUTH_SERVICE_PASSWORD is required}
+      - NATS_SYS_PASSWORD=${NATS_SYS_PASSWORD:?NATS_SYS_PASSWORD is required}
+      # Public halves of the API's callout key material. Generate with
+      # `nk -gen account` / `nk -gen xkey` and pin in docker/.env. The
+      # matching private seeds (`NATS_CALLOUT__*_SEED`) live only on the
+      # API side — NATS never holds them. NATS_CALLOUT_ACCOUNT_SIGNING_KEY_PUBLIC
+      # was removed with issue #55 — see `docker/nats.conf` and the API
+      # service env block above for the rationale.
+      - NATS_CALLOUT_ISSUER_PUBLIC=${NATS_CALLOUT_ISSUER_PUBLIC:?NATS_CALLOUT_ISSUER_PUBLIC is required}
+      - NATS_CALLOUT_XKEY_PUBLIC=${NATS_CALLOUT_XKEY_PUBLIC:?NATS_CALLOUT_XKEY_PUBLIC is required}
+
+    read_only: true
+    tmpfs:
+      - /tmp
+
+    volumes:
+      - nats-data:/data
+      - ./nats.conf:/etc/nats/nats.conf:ro
+
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:8222/healthz']
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '${NATS_CPU_LIMIT:-1}'
+          memory: ${NATS_MEMORY_LIMIT:-768M}
+        reservations:
+          cpus: '0.25'
+          memory: 384M
+
+    # Must be on agent-network so sidecar inside agent containers can reach NATS.
+    # hostname: nats ensures DNS resolution works across both networks.
+    networks:
+      - default
+      - agent-network
+
+    labels:
+      - 'com.wisdoverse.service=nats'
+
+  # ---------------------------------------------------------------------------
+  # Nginx Reverse Proxy (profiles: prod)
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginx:1.29-alpine
+    container_name: agentforge-nginx
+    restart: unless-stopped
+    profiles: [prod]
+
+    ports:
+      - '${NGINX_HTTP_PORT:-80}:80'
+      - '${NGINX_HTTPS_PORT:-443}:443'
+
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - nginx-logs:/var/log/nginx
+
+    depends_on:
+      - agentforge
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    networks:
+      - default
+
+    labels:
+      - 'com.wisdoverse.service=proxy'
+
+  # ---------------------------------------------------------------------------
+  # Adminer — Database UI (profiles: tools)
+  # ---------------------------------------------------------------------------
+  adminer:
+    image: adminer:latest
+    container_name: agentforge-adminer
+    profiles: [tools]
+
+    ports:
+      - '${ADMINER_PORT:-8080}:8080'
+
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+
+    depends_on:
+      - db
+
+    networks:
+      - default
+
+  # ---------------------------------------------------------------------------
+  # Redis Commander — Redis UI (profiles: tools)
+  # ---------------------------------------------------------------------------
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: agentforge-redis-ui
+    profiles: [tools]
+
+    ports:
+      - '${REDIS_COMMANDER_PORT:-8081}:8081'
+
+    environment:
+      REDIS_HOSTS: local:redis:6379
+
+    depends_on:
+      - redis
+
+    networks:
+      - default
+
+  # ---------------------------------------------------------------------------
+  # Database Backup — Daily pg_dump (profiles: backup)
+  # ---------------------------------------------------------------------------
+  backup:
+    image: postgres:18-alpine
+    container_name: agentforge-backup
+    restart: unless-stopped
+    profiles: [backup]
+
+    environment:
+      POSTGRES_USER: agentforge
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+      POSTGRES_HOST: db
+      POSTGRES_DB: agentforge
+
+    volumes:
+      - ./backups:/backups
+
+    entrypoint: /bin/sh
+    command: >
+      -c "while true; do
+        pg_dump -h $$POSTGRES_HOST -U $$POSTGRES_USER -d $$POSTGRES_DB -F c -f /backups/agentforge_$$(date +%Y%m%d_%H%M%S).dump;
+        find /backups -name '*.dump' -mtime +7 -delete;
+        sleep 86400;
+      done"
+
+    networks:
+      - default
+
+    labels:
+      - 'com.wisdoverse.service=backup'
+
+  # ---------------------------------------------------------------------------
+  # OCI Registry — Private image storage for devcontainer builds (profiles: storage)
+  # ---------------------------------------------------------------------------
+  registry:
+    image: registry:3
+    container_name: agentforge-registry
+    restart: unless-stopped
+    profiles: [storage]
+
+    ports:
+      - '${REGISTRY_PORT:-5000}:5000'
+
+    environment:
+      REGISTRY_STORAGE_DELETE_ENABLED: 'true'
+      REGISTRY_HTTP_HEADERS_Access-Control-Allow-Origin: '["*"]'
+
+    volumes:
+      - registry-data:/var/lib/registry
+
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:5000/v2/']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+    networks:
+      - default
+
+    labels:
+      - 'com.wisdoverse.service=registry'
+
+  # ---------------------------------------------------------------------------
+  # MinIO Object Storage (profiles: storage)
+  # ---------------------------------------------------------------------------
+  minio:
+    image: minio/minio:latest
+    container_name: agentforge-minio
+    restart: unless-stopped
+    profiles: [storage]
+
+    command: server /data --console-address ":9001"
+
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-}
+
+    volumes:
+      - minio-data:/data
+
+    ports:
+      - '${MINIO_API_PORT:-9000}:9000'
+      - '${MINIO_CONSOLE_PORT:-9001}:9001'
+
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+    networks:
+      - default
+
+    labels:
+      - 'com.wisdoverse.service=storage'
+
+  # ---------------------------------------------------------------------------
+  # Casdoor Identity Provider (profile: casdoor)
+  # ---------------------------------------------------------------------------
+  casdoor-db:
+    image: postgres:18-alpine
+    container_name: agentforge-casdoor-db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: casdoor
+      POSTGRES_USER: casdoor
+      POSTGRES_PASSWORD: ${CASDOOR_DB_PASSWORD:-casdoor}
+
+    volumes:
+      - casdoor-db-data:/var/lib/postgresql/data
+
+    ports:
+      - '${CASDOOR_DB_PORT:-5433}:5432'
+
+    profiles: [casdoor]
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U casdoor']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+    networks:
+      - default
+
+    labels:
+      - 'com.wisdoverse.service=casdoor-db'
+
+  casdoor:
+    image: casbin/casdoor:latest
+    container_name: agentforge-casdoor
+    restart: unless-stopped
+
+    depends_on:
+      casdoor-db:
+        condition: service_healthy
+
+    ports:
+      - '${CASDOOR_PORT:-8000}:8000'
+
+    volumes:
+      - ./casdoor/app.conf:/conf/app.conf:ro
+      - ./casdoor/init_data.json:/init_data.json:ro
+
+    environment:
+      - RUNNING_IN_DOCKER=true
+
+    profiles: [casdoor]
+
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:8000/api/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+    networks:
+      - default
+
+    labels:
+      - 'com.wisdoverse.service=casdoor'
+
+  # ---------------------------------------------------------------------------
+  # Temporal Workflow Engine (profiles: dev, prod)
+  # ---------------------------------------------------------------------------
+  temporal:
+    image: temporalio/auto-setup:1.26
+    container_name: agentforge-temporal
+    hostname: temporal
+    restart: unless-stopped
+    profiles: [dev, prod]
+    entrypoint:
+      - /bin/sh
+      - -lc
+      - |
+        export BIND_ON_IP="$(getent hosts temporal-internal | awk 'NR==1 { print $1 }')"
+        export TEMPORAL_ADDRESS="${TEMPORAL_ADDRESS:-127.0.0.1:7233}"
+        export TEMPORAL_CLI_ADDRESS="${TEMPORAL_CLI_ADDRESS:-127.0.0.1:7233}"
+        exec /etc/temporal/entrypoint.sh autosetup
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-agentforge}
+      - POSTGRES_PWD=${POSTGRES_PASSWORD:-agentforge}
+      - POSTGRES_SEEDS=db
+      - TEMPORAL_ADDRESS=127.0.0.1:7233
+      - TEMPORAL_CLI_ADDRESS=127.0.0.1:7233
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+    ports:
+      - '${TEMPORAL_PORT:-7233}:7233'
+      - '${TEMPORAL_UI_PORT:-8233}:8233'
+    healthcheck:
+      test:
+        ['CMD', 'temporal', 'operator', 'cluster', 'health', '--address', 'temporal-internal:7233']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      default:
+        aliases:
+          - temporal-internal
+    labels:
+      - 'com.wisdoverse.service=temporal'
+
+  # Temporal for external profile (no depends_on db, uses external DB)
+  temporal-ext:
+    image: temporalio/auto-setup:1.26
+    container_name: agentforge-temporal
+    hostname: temporal
+    restart: unless-stopped
+    profiles: [external]
+    entrypoint:
+      - /bin/sh
+      - -lc
+      - |
+        export BIND_ON_IP="$(getent hosts temporal-internal | awk 'NR==1 { print $1 }')"
+        export TEMPORAL_ADDRESS="${TEMPORAL_ADDRESS:-127.0.0.1:7233}"
+        export TEMPORAL_CLI_ADDRESS="${TEMPORAL_CLI_ADDRESS:-127.0.0.1:7233}"
+        exec /etc/temporal/entrypoint.sh autosetup
+    environment:
+      - DB=postgres12
+      - DB_PORT=${DB_PORT:-5432}
+      - POSTGRES_USER=${DB_USER:-agentforge}
+      - POSTGRES_PWD=${DB_PASSWORD:-agentforge}
+      - POSTGRES_SEEDS=${DB_HOST:-db}
+      - TEMPORAL_ADDRESS=127.0.0.1:7233
+      - TEMPORAL_CLI_ADDRESS=127.0.0.1:7233
+    ports:
+      - '${TEMPORAL_PORT:-7233}:7233'
+      - '${TEMPORAL_UI_PORT:-8233}:8233'
+    healthcheck:
+      test:
+        ['CMD', 'temporal', 'operator', 'cluster', 'health', '--address', 'temporal-internal:7233']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - default
+    labels:
+      - 'com.wisdoverse.service=temporal'
+
+  # ---------------------------------------------------------------------------
+  # R&D Orchestrator — workflow execution + task management (profiles: dev, prod)
+  # ---------------------------------------------------------------------------
+  orchestrator:
+    build:
+      context: ../rust
+      dockerfile: Dockerfile.orchestrator
+    image: agentforge-orchestrator:${VERSION:-latest}
+    container_name: agentforge-orchestrator
+    hostname: orchestrator
+    restart: unless-stopped
+    profiles: [dev, prod, external]
+    ports:
+      - '${BIND_ADDRESS:-127.0.0.1}:${ORCHESTRATOR_PORT:-4010}:4010'
+
+    # Security
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+
+    environment:
+      - ORCHESTRATOR_PORT=4010
+      - ORCHESTRATOR_LOG_LEVEL=${LOG_LEVEL:-info}
+      - ORCHESTRATOR_DATABASE_URL=postgres://orchestrator:${ORCHESTRATOR_DB_PASSWORD:-orchestrator}@orchestrator-db:5432/orchestrator?sslmode=disable
+      - ORCHESTRATOR_OIDC_ISSUER=${OIDC_ISSUER:-http://casdoor:8000}
+      - ORCHESTRATOR_OIDC_CLIENT_ID=${OIDC_CLIENT_ID:-orchestrator}
+      - ORCHESTRATOR_MCP_ENDPOINT=http://agentforge-rust:${SERVER_PORT:-4003}/mcp
+      - ORCHESTRATOR_MCP_TOKEN=${MCP_TOKEN:-orchestrator-internal-token}
+      - ORCHESTRATOR_INTERNAL_TOKEN=${MCP_TOKEN:-orchestrator-internal-token}
+      - ORCHESTRATOR_REDIS_URL=redis://redis:6379/0
+      - ORCHESTRATOR_TEMPORAL_ENABLED=true
+      - ORCHESTRATOR_TEMPORAL_HOST=temporal-internal:7233
+      - ORCHESTRATOR_TEMPORAL_NAMESPACE=default
+    depends_on:
+      agentforge-rust:
+        condition: service_started
+    networks:
+      - default
+    healthcheck:
+      test: ['CMD', 'curl', '-sf', 'http://localhost:4010/health']
+      interval: ${HEALTHCHECK_INTERVAL:-30s}
+      timeout: ${HEALTHCHECK_TIMEOUT:-5s}
+      retries: ${HEALTHCHECK_RETRIES:-3}
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '${CPU_LIMIT:-2}'
+          memory: ${MEMORY_LIMIT:-256M}
+          pids: ${PIDS_LIMIT:-256}
+        reservations:
+          cpus: '0.25'
+          memory: 64M
+
+    logging:
+      driver: '${LOG_DRIVER:-json-file}'
+      options:
+        max-size: '${LOG_MAX_SIZE:-10m}'
+        max-file: '${LOG_MAX_FILE:-5}'
+
+    labels:
+      - 'com.wisdoverse.service=orchestrator'
+
+  orchestrator-db:
+    image: postgres:16-alpine
+    container_name: agentforge-orchestrator-db
+    hostname: orchestrator-db
+    restart: unless-stopped
+    profiles: [dev, prod]
+    environment:
+      POSTGRES_DB: orchestrator
+      POSTGRES_USER: orchestrator
+      POSTGRES_PASSWORD: ${ORCHESTRATOR_DB_PASSWORD:-orchestrator}
+    volumes:
+      - orchestrator-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U orchestrator']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - default
+    labels:
+      - 'com.wisdoverse.service=orchestrator-db'
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  default:
+    driver: bridge
+
+  # External network for agent containers (run 'make setup' to create)
+  agent-network:
+    name: ${CONTAINER_NETWORK:-agentforge-agents}
+    external: true
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  nats-data:
+    driver: local
+  nginx-logs:
+    driver: local
+  minio-data:
+    driver: local
+  registry-data:
+    driver: local
+  casdoor-db-data:
+    driver: local
+  orchestrator-pgdata:
+    driver: local
+  agentforge-uploads:
+    driver: local

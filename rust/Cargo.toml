@@ -1,0 +1,188 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/core",
+    "crates/db",
+    "crates/infra",
+    "crates/auth",
+    "crates/api",
+    "crates/platform",
+    "crates/jobs",
+    "crates/llm",
+    "crates/orchestrator",
+    "crates/cli",
+    "bins/server",
+    "bins/sidecar",
+    "bins/orchestrator",
+    "bins/cli",
+    "bins/buildx-plugin",
+    "bins/agent-context-helper",
+]
+
+[workspace.package]
+edition = "2024"
+license-file = "../LICENSE"
+repository = "https://github.com/Wisdoverse/Wisdoverse-Forge"
+
+[workspace.dependencies]
+# Web framework
+axum = { version = "0.8", features = ["ws", "multipart"] }
+tower = { version = "0.5", features = ["full"] }
+tower-http = { version = "0.6", features = ["cors", "trace", "catch-panic", "fs"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json"] }
+
+# Observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+metrics = "0.24"
+metrics-exporter-prometheus = { version = "0.18", default-features = false }
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# Common types
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# Authentication
+jsonwebtoken = "9"
+argon2 = "0.5"
+
+# Validation
+validator = { version = "0.19", features = ["derive"] }
+regex = "1"
+
+# HTTP client (rustls-tls = no OpenSSL dep, required for musl static builds)
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+lettre = { version = "0.11", default-features = false, features = ["builder", "hostname", "pool", "smtp-transport", "tokio1-rustls-tls"] }
+async-trait = "0.1"
+tonic = { version = "0.12", features = ["transport"] }
+prost = "0.13"
+tokio-stream = { version = "0.1", features = ["net"] }
+
+# Cryptography
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+aes-gcm = "0.10"
+
+# Base64
+base64 = "0.22"
+
+# Base32 — RFC 4648 NOPAD alphabet, used by NATS ed25519-nkey JWT signatures
+# (see nats-io/nkeys Go reference and docs.rs/data-encoding). Already transitive
+# via `nkeys`; hoisted to an explicit workspace dep so callers don't depend on
+# a private transitive.
+data-encoding = "2.9"
+
+# Secrets — wraps String/Vec<u8> so Debug/Display redact ("[REDACTED …]")
+# and accidental serialisation is opt-in (explicit .expose_secret() at use sites).
+secrecy = { version = "0.10", features = ["serde"] }
+
+# Random
+rand = "0.8"
+
+# Async streams
+futures = "0.3"
+futures-util = "0.3"
+async-stream = "0.3"
+url = "2"
+temporalio-client = "0.2.0"
+temporalio-sdk = "0.2.0"
+temporalio-macros = "0.2.0"
+temporalio-sdk-core = "0.2.0"
+temporalio-common = "0.2.0"
+
+# Docker
+bollard = "0.18"
+
+# Infrastructure
+redis = { version = "1", features = ["tokio-comp", "connection-manager"] }
+async-nats = "0.47"
+aws-credential-types = "1"
+aws-sdk-s3 = { version = "1.131.0", default-features = false, features = [
+    "default-https-client",
+    "http-1x",
+    "rt-tokio",
+] }
+
+# NATS primitives — nkeys >=0.4.5 avoids CVE-2023-46129 (all-zero-key bug fixed
+# upstream in 0.4.6 Go; Rust path was never affected, but pinning the floor
+# makes the class-of-bug non-reintroducible via dep resolution).
+# The `xkeys` feature gates the Curve25519 seal/open primitives used by the
+# NATS auth callout end-to-end encryption layer (issue #38 phase 2).
+nkeys = { version = ">=0.4.5", features = ["xkeys"] }
+
+# Configuration
+config = "0.15"
+
+# Testing
+temp-env = "0.3"
+tonic-build = "0.12"
+prost-build = "0.13"
+
+# Internal crates
+agentforge-core = { path = "crates/core" }
+agentforge-db = { path = "crates/db" }
+agentforge-infra = { path = "crates/infra" }
+agentforge-auth = { path = "crates/auth" }
+agentforge-api = { path = "crates/api" }
+agentforge-platform = { path = "crates/platform" }
+agentforge-jobs = { path = "crates/jobs" }
+agentforge-llm = { path = "crates/llm" }
+
+# CLI deps
+clap = { version = "4", features = ["derive", "env", "wrap_help"] }
+clap_complete = "4"
+serde_yaml = { package = "serde_norway", version = "0.9.42" }
+tabwriter = "1"
+dialoguer = { version = "0.12", default-features = false }
+is-terminal = "0.4"
+jaq-core = "1.5"
+jaq-std = "1.5"
+jaq-parse = "1.0"
+jaq-interpret = "1.5"
+opentelemetry = { version = "0.31", features = ["trace"] }
+opentelemetry_sdk = { version = "0.31", features = ["trace", "rt-tokio"] }
+opentelemetry-otlp = { version = "0.31", features = ["grpc-tonic", "trace"] }
+tracing-opentelemetry = "0.28"
+
+agentforge-cli = { path = "crates/cli" }
+tokio-util = { version = "0.7", features = ["rt"] }
+humantime = "2"
+
+[patch.crates-io]
+# Pin sqlx-macros-core to a vendored fork that drops the unused MySQL and
+# SQLite optional deps. See rust/third_party/sqlx-macros-core-nomysql/Cargo.toml
+# for the full justification and re-sync procedure.
+sqlx = { path = "third_party/sqlx-nomysql" }
+sqlx-macros-core = { path = "third_party/sqlx-macros-core-nomysql" }
+
+# -----------------------------------------------------------------------------
+# Release profile — tuned for CI throughput, not maximum runtime perf.
+# -----------------------------------------------------------------------------
+#
+# Big-tech baseline (Google / Meta / CloudFlare Rust builds):
+#   - `codegen-units = 16` keeps per-crate compile units parallelisable across
+#     cores. Cargo default is already 16 for `release`, but declaring it
+#     explicitly pins the behaviour against future toolchain changes.
+#   - `strip = "symbols"` drops the debug symbol table at link time. ~2-3×
+#     smaller binary, ~30-50% faster link on `mold`, zero runtime cost.
+#   - `lto` is intentionally left OFF here. Thin LTO would trim another
+#     5-10% off binary size and give a modest perf win, but at the cost of
+#     ~15% MORE CI time — we choose CI throughput over runtime perf for
+#     the standard release profile. A release-lto profile can be added in
+#     a follow-up if production ever needs the last few percent.
+[profile.release]
+codegen-units = 16
+strip = "symbols"

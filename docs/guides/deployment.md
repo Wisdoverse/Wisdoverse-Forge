@@ -1,0 +1,188 @@
+# Deployment Guide
+
+This guide describes the supported Docker Compose deployment models for the current Rust-first runtime.
+
+## Current Default Runtime
+
+The default backend deployment path contains these services:
+
+- `agentforge-rust` (`agentforge-server`) on `:4003`
+- `orchestrator` (`agentforge-orchestrator`) on `:4010`
+- `temporal` on `:7233` with UI on `:8233`
+- PostgreSQL, Redis, and NATS backing services
+
+Legacy `agentforge`, `platform-runtime`, `agentforge-mcp`, and `orchestrator-legacy` helper paths are not part of the default runtime.
+
+Frontend assets are built separately with Vite and served by your web tier or deployment automation. The backend images do not embed the frontend artifact by default.
+
+## Prerequisites
+
+- Docker and Docker Compose v2
+- Make
+- A populated `docker/.env`
+- For external mode, reachable external databases and networks
+
+## One-Time Setup
+
+```bash
+cp docker/.env.example docker/.env
+make setup
+```
+
+At minimum, configure these values in `docker/.env`:
+
+- `POSTGRES_PASSWORD`
+- `REDIS_PASSWORD`
+- `JWT_SECRET`
+- NATS callout variables listed in [NATS Auth Runbook](../runbooks/nats-auth.md)
+- `STORAGE_PROVIDER` and `STORAGE_LOCAL_PATH` when the defaults are not acceptable
+
+## Profiles
+
+| Profile    | Purpose                                                        |
+| ---------- | -------------------------------------------------------------- |
+| `dev`      | Local backend development stack                                |
+| `prod`     | Self-contained production stack with internal backing services |
+| `external` | Rust services attached to externally managed infrastructure    |
+| `tools`    | Adminer and Redis Commander                                    |
+| `backup`   | Scheduled PostgreSQL backup helper                             |
+| `storage`  | MinIO object storage                                           |
+| `casdoor`  | Casdoor identity provider integration                          |
+
+## Service Inventory
+
+| Service           | Default Port   | Role                               |
+| ----------------- | -------------- | ---------------------------------- |
+| `agentforge-rust` | `4003`         | Rust API and realtime gateway      |
+| `orchestrator`    | `4010`         | Rust orchestrator and workflow API |
+| `temporal`        | `7233`, `8233` | Workflow engine and UI             |
+| `db`              | `5432`         | Application PostgreSQL             |
+| `orchestrator-db` | internal       | Orchestrator PostgreSQL            |
+| `redis`           | `6379`         | Cache and coordination             |
+| `nats`            | `4222`, `8222` | Event transport                    |
+| `nginx`           | `80`, `443`    | Reverse proxy in `prod`            |
+
+## Development Deployment
+
+```bash
+make dev
+```
+
+This starts the backend platform for local development. Run the frontend separately:
+
+```bash
+npm run dev
+```
+
+Common companion commands:
+
+```bash
+make dev-d
+make dev-tools
+make dev-down
+make dev-logs
+```
+
+## Self-Contained Production
+
+```bash
+make prod
+```
+
+Optional variants:
+
+```bash
+make prod-backup
+make prod-storage
+make prod-casdoor
+make prod-down
+make prod-logs
+```
+
+This mode is intended for environments where PostgreSQL, Redis, Temporal, and Nginx are managed inside the Compose stack.
+
+For local attachment storage, Compose mounts the `agentforge-uploads` named
+volume at `${STORAGE_LOCAL_PATH:-/var/lib/agentforge/uploads}` inside the Rust
+API container. Keep that mount in place when hardening the service with a
+read-only root filesystem.
+
+If attachments should live in MinIO instead, set `STORAGE_PROVIDER=minio` plus
+`MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, and `MINIO_SECRET_KEY`, then start the
+storage profile:
+
+```bash
+make prod-storage
+```
+
+## External-Service Production
+
+```bash
+make prod-ext
+```
+
+Use this mode when PostgreSQL, Redis, or supporting network boundaries are managed outside the stack. In this profile, Compose still starts the Rust API, Rust orchestrator, Temporal, and NATS, but the application database, orchestrator database, and Redis can remain externally managed.
+
+Before startup, ensure:
+
+- `DATABASE_URL` points at the intended Wisdoverse Forge application database. This can be an existing legacy database; the current Rust migrations are written to run idempotently in place.
+- `ORCHESTRATOR_DATABASE_URL` points at the intended orchestrator database.
+- `REDIS_URL` points at the intended external Redis instance.
+- `EXTERNAL_NETWORK` is a Docker network shared with any external containers or gateways the stack must reach.
+- `STORAGE_PROVIDER=local` has a writable named volume at `STORAGE_LOCAL_PATH`, or `STORAGE_PROVIDER=minio` has valid MinIO/S3 credentials.
+
+Companion commands:
+
+```bash
+make prod-ext-down
+make prod-ext-logs
+```
+
+## Frontend Deployment
+
+Build the frontend artifact with:
+
+```bash
+npm run build
+```
+
+Publish `dist/` through your web tier. The repository also includes deployment helpers such as `docker/deploy-frontend.sh` for environments that copy static assets into a reverse-proxy web root.
+
+## Health Verification
+
+After deployment, verify:
+
+```bash
+curl http://localhost:4003/health
+curl http://localhost:4010/health
+```
+
+In environments that expose Temporal UI, also confirm `http://localhost:8233` is reachable.
+
+For the external profile, also verify internal workflow and event wiring:
+
+```bash
+docker exec agentforge-temporal temporal operator cluster health --address temporal-internal:7233
+docker exec agentforge-nats wget -qO- http://127.0.0.1:8222/connz?subs=1
+```
+
+`temporal-internal` should report `SERVING`, and `connz` should show at least one Rust client when the API has connected to NATS.
+
+## Migrations
+
+Use the Rust server migration entry point when needed:
+
+```bash
+npm run migrate
+```
+
+In containerized deployments, `make migrate` runs the migration command inside the Rust server container.
+
+## When to Update This Document
+
+Update this guide whenever you change:
+
+- Compose profiles or service inventory,
+- default ports or published endpoints,
+- runtime ownership between services,
+- frontend deployment expectations,
+- required environment variables for deployment.

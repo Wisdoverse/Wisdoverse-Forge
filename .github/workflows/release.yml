@@ -1,0 +1,476 @@
+# =============================================================================
+# Wisdoverse Forge Release Pipeline
+#
+# Triggers: push tag v*, workflow_dispatch
+# Flow: validate → quality gate (lint+test+security) → build → publish → release
+# =============================================================================
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.2.3)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Is this a prerelease?'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+env:
+  # IMPORTANT: Keep in sync with Dockerfile Node build args.
+  NODE_VERSION: '24'
+  REGISTRY: ghcr.io
+
+jobs:
+  # ===========================================================================
+  # Validate release version
+  # ===========================================================================
+
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+            PRERELEASE="${{ inputs.prerelease }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            if [[ "$VERSION" =~ (alpha|beta|rc|preview) ]]; then
+              PRERELEASE="true"
+            else
+              PRERELEASE="false"
+            fi
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "is_prerelease=$PRERELEASE" >> $GITHUB_OUTPUT
+          echo "## Release Version: $VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "Prerelease: $PRERELEASE" >> $GITHUB_STEP_SUMMARY
+      - name: Validate version format
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "Invalid version format: $VERSION"
+            exit 1
+          fi
+
+  # ===========================================================================
+  # Quality gate — full lint + test + security (mirrors CI pipeline)
+  # ===========================================================================
+
+  eslint:
+    name: ESLint
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+
+  prettier:
+    name: Prettier
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run format:check
+
+  typecheck:
+    name: Typecheck
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run typecheck
+
+  unit-test:
+    name: Unit Tests
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test -- --coverage
+  rust-test:
+    name: Rust Tests
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        working-directory: rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup component add clippy rustfmt --toolchain stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - name: Check Rust formatting
+        working-directory: rust
+        run: cargo fmt --all -- --check
+      - name: Run Rust clippy
+        working-directory: rust
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Run Rust tests
+        working-directory: rust
+        run: cargo test --workspace
+
+  dependency-audit:
+    name: Dependency Audit
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - name: Audit
+        run: |
+          RESULT=$(npm audit --json 2>/dev/null || echo '{}')
+          CRITICAL=$(echo "$RESULT" | node -p "try{JSON.parse(require('fs').readFileSync(0,'utf8')).metadata?.vulnerabilities?.critical||0}catch{0}")
+          HIGH=$(echo "$RESULT" | node -p "try{JSON.parse(require('fs').readFileSync(0,'utf8')).metadata?.vulnerabilities?.high||0}catch{0}")
+          echo "Vulnerabilities — critical: $CRITICAL, high: $HIGH"
+          if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+            npm audit --audit-level=high 2>&1 || true
+            exit 1
+          fi
+
+  # ===========================================================================
+  # Build (after quality gate)
+  # ===========================================================================
+
+  build:
+    name: Build
+    needs: [validate, eslint, prettier, typecheck, unit-test, rust-test, dependency-audit]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm version ${{ needs.validate.outputs.version }} --no-git-tag-version --allow-same-version
+      - run: npm run build
+      - run: npm pack
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: |
+            dist/
+            *.tgz
+          retention-days: 7
+
+  # ===========================================================================
+  # Publish
+  # ===========================================================================
+
+  publish-npm:
+    name: Publish to npm
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm version ${{ needs.validate.outputs.version }} --no-git-tag-version --allow-same-version
+      - run: npm run build
+      - name: Publish
+        run: |
+          if [ "${{ needs.validate.outputs.is_prerelease }}" == "true" ]; then
+            npm publish --tag next --access public
+          else
+            npm publish --access public
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        continue-on-error: true
+
+  publish-docker:
+    name: Publish Docker Images
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: image
+        name: Normalize image namespace
+        run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.validate.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.validate.outputs.version }}
+            type=semver,pattern={{major}},value=${{ needs.validate.outputs.version }}
+            type=raw,value=latest,enable=${{ needs.validate.outputs.is_prerelease == 'false' }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ needs.validate.outputs.version }}
+      - id: rust-server-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/rust-server
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.validate.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.validate.outputs.version }}
+            type=semver,pattern={{major}},value=${{ needs.validate.outputs.version }}
+            type=raw,value=latest,enable=${{ needs.validate.outputs.is_prerelease == 'false' }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: ./rust
+          file: ./rust/Dockerfile
+          push: true
+          tags: ${{ steps.rust-server-meta.outputs.tags }}
+          labels: ${{ steps.rust-server-meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - id: rust-sidecar-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/rust-sidecar
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.validate.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.validate.outputs.version }}
+            type=semver,pattern={{major}},value=${{ needs.validate.outputs.version }}
+            type=raw,value=latest,enable=${{ needs.validate.outputs.is_prerelease == 'false' }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: ./rust
+          file: ./rust/Dockerfile.sidecar
+          push: true
+          tags: ${{ steps.rust-sidecar-meta.outputs.tags }}
+          labels: ${{ steps.rust-sidecar-meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - id: rust-orchestrator-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/rust-orchestrator
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.validate.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.validate.outputs.version }}
+            type=semver,pattern={{major}},value=${{ needs.validate.outputs.version }}
+            type=raw,value=latest,enable=${{ needs.validate.outputs.is_prerelease == 'false' }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: ./rust
+          file: ./rust/Dockerfile.orchestrator
+          push: true
+          tags: ${{ steps.rust-orchestrator-meta.outputs.tags }}
+          labels: ${{ steps.rust-orchestrator-meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  publish-agent-base:
+    name: Publish Agent Base Image
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: image
+        name: Normalize image namespace
+        run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - id: tags
+        name: Build agent-base tag list
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/agent-base"
+          {
+            echo "tags<<EOF"
+            echo "$IMAGE:${{ needs.validate.outputs.version }}"
+            if [ "${{ needs.validate.outputs.is_prerelease }}" = "false" ]; then
+              echo "$IMAGE:latest"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile.agent-base
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          sbom: true
+          provenance: true
+          labels: |
+            org.opencontainers.image.version=${{ needs.validate.outputs.version }}
+          cache-from: type=gha,scope=agent-base
+          cache-to: type=gha,mode=max,scope=agent-base
+
+  publish-agent-images:
+    name: Publish Redistributable Agent CLI Images
+    needs: [validate, publish-agent-base]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Claude Code is not published in public GHCR images because its
+          # package license points to Anthropic terms rather than a standard
+          # open-source redistribution license. Operators can build it locally
+          # or publish it to a private registry if their terms permit it.
+          - tool: opencode
+            package: opencode-ai
+          - tool: codex
+            package: '@openai/codex'
+          - tool: gemini
+            package: '@google/gemini-cli'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: image
+        name: Normalize image namespace
+        run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - id: cli
+        name: Resolve CLI version
+        run: echo "version=$(npm view '${{ matrix.package }}' version)" >> "$GITHUB_OUTPUT"
+      - id: tags
+        name: Build agent image tag list
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/agent-${{ matrix.tool }}"
+          {
+            echo "tags<<EOF"
+            echo "$IMAGE:${{ steps.cli.outputs.version }}"
+            echo "$IMAGE:${{ needs.validate.outputs.version }}-${{ steps.cli.outputs.version }}"
+            if [ "${{ needs.validate.outputs.is_prerelease }}" = "false" ]; then
+              echo "$IMAGE:latest"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile.agent
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          sbom: true
+          provenance: true
+          labels: |
+            org.opencontainers.image.version=${{ needs.validate.outputs.version }}
+            org.wisdoverse.cli-version=${{ steps.cli.outputs.version }}
+          build-args: |
+            BASE_IMAGE=${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/agent-base:${{ needs.validate.outputs.version }}
+            CLI_TOOL=${{ matrix.tool }}
+            CLI_VERSION=${{ steps.cli.outputs.version }}
+          cache-from: type=gha,scope=agent-${{ matrix.tool }}
+          cache-to: type=gha,mode=max,scope=agent-${{ matrix.tool }}
+
+  # ===========================================================================
+  # GitHub Release
+  # ===========================================================================
+
+  github-release:
+    name: Create GitHub Release
+    needs: [validate, build, publish-npm, publish-docker, publish-agent-images]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+          path: release-artifacts/
+      - name: Generate changelog
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            echo "## Changes since $PREV_TAG" > RELEASE_NOTES.md
+            echo "" >> RELEASE_NOTES.md
+            git log $PREV_TAG..HEAD --pretty=format:"- %s (%h)" >> RELEASE_NOTES.md
+          else
+            echo "## Initial Release" > RELEASE_NOTES.md
+          fi
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.validate.outputs.version }}
+          name: Release v${{ needs.validate.outputs.version }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: ${{ needs.validate.outputs.is_prerelease == 'true' }}
+          generate_release_notes: true
+          files: |
+            release-artifacts/*.tgz
+
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: [validate, github-release]
+    if: always()
+    steps:
+      - name: Summary
+        run: |
+          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Version: ${{ needs.validate.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Prerelease: ${{ needs.validate.outputs.is_prerelease }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: ${{ needs.github-release.result }}" >> $GITHUB_STEP_SUMMARY

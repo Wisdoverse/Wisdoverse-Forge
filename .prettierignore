@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+coverage/
+
+# Generated files
+server/src/infrastructure/sidecar/generated/
+
+# Package files
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Config files that shouldn't be formatted
+*.min.js
+*.min.css
+
+# Binary/data files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.ico
+*.woff
+*.woff2
+*.ttf
+*.eot
+
+# Helm templates (Go template syntax breaks YAML parser)
+deploy/charts/*/templates/
+
+# Misc
+.git/
+.DS_Store

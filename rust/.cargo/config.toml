@@ -1,0 +1,11 @@
+# Linker configuration — default toolchain for local dev.
+#
+# CI images install `mold` and invoke it via `mold -run cargo …` (see
+# `.gitlab-ci.yml`), which transparently intercepts the linker without
+# forcing every local developer to install clang/mold. This file stays
+# minimal so `cargo build` on a vanilla workstation keeps working.
+#
+# For faster local builds, install mold + clang and uncomment:
+# [target.x86_64-unknown-linux-gnu]
+# linker = "clang"
+# rustflags = ["-C", "link-arg=-fuse-ld=mold"]

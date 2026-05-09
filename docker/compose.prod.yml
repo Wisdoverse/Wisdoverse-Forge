@@ -1,0 +1,28 @@
+# =============================================================================
+# Wisdoverse Forge - Production Override (Self-Contained DB + Redis)
+# =============================================================================
+#
+# Thin overlay that points the default Rust backend to the compose-internal db
+# and redis services started by the 'prod' profile. Not needed for 'external'
+# profile.
+#
+#   docker compose -f docker/compose.yml -f docker/compose.prod.yml --profile prod up -d --build
+#   # Or: make prod
+#
+# =============================================================================
+
+services:
+  agentforge-rust:
+    environment:
+      - DATABASE_URL=postgres://agentforge:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in production}@db:5432/agentforge
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required in production}@redis:6379
+
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  backup:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in production}

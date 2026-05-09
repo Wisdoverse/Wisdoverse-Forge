@@ -1,0 +1,48 @@
+[package]
+name = "agentforge-cli"
+version = "0.1.0"
+edition.workspace = true
+license-file.workspace = true
+build = "build.rs"
+
+[lib]
+name = "agentforge_cli"
+path = "src/lib.rs"
+
+[dependencies]
+clap.workspace = true
+clap_complete.workspace = true
+tokio.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+futures.workspace = true
+async-stream.workspace = true
+url.workspace = true
+base64.workspace = true
+rand.workspace = true
+chrono.workspace = true
+tabwriter.workspace = true
+dialoguer.workspace = true
+is-terminal.workspace = true
+jaq-core.workspace = true
+jaq-std.workspace = true
+jaq-parse.workspace = true
+jaq-interpret.workspace = true
+opentelemetry.workspace = true
+opentelemetry_sdk.workspace = true
+opentelemetry-otlp.workspace = true
+tracing-opentelemetry.workspace = true
+tokio-util.workspace = true
+humantime.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
+wiremock = "0.6"
+similar-asserts = "1"
+tokio = { workspace = true, features = ["test-util", "macros"] }
+temp-env.workspace = true

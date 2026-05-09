@@ -1,0 +1,240 @@
+//! Project CRUD endpoints (nested under `/api/v1`).
+//!
+//! - `GET    /api/v1/projects`      — list projects (paginated, optional workspace filter)
+//! - `POST   /api/v1/projects`      — create project
+//! - `GET    /api/v1/projects/{id}` — get project by ID
+//! - `PATCH  /api/v1/projects/{id}` — update project
+//! - `DELETE /api/v1/projects/{id}` — soft delete project
+
+use axum::extract::{Path, Query, State};
+use axum::routing::get;
+use axum::{Json, Router};
+use serde::Deserialize;
+use uuid::Uuid;
+
+use agentforge_auth::AuthUser;
+use agentforge_core::{AppResult, ProjectId, TeamId, WorkspaceId};
+
+use crate::health::AppState;
+use crate::repositories::group::GroupRepository;
+use crate::repositories::project::ProjectRepository;
+use crate::repositories::resource_permission::ResourcePermissionRepository;
+use crate::services::group::GroupService;
+use crate::services::project::ProjectService;
+use crate::services::resource_permission::ResourcePermissionService;
+
+/// Query parameters for the list endpoint.
+#[derive(Deserialize)]
+pub struct ListQuery {
+    pub workspace_id: Option<Uuid>,
+    #[serde(default = "default_limit")]
+    pub limit: i64,
+    #[serde(default)]
+    pub offset: i64,
+}
+
+fn default_limit() -> i64 {
+    20
+}
+
+/// Request body for creating a project.
+///
+/// `team_id` is optional because legacy callers predating P3 MR-B never sent
+/// it; when absent the repository defaults to the org's oldest surviving
+/// team, matching migration 026's backfill rule. New callers should send
+/// `team_id` explicitly — leaving it off an empty org will 400.
+#[derive(Deserialize)]
+pub struct CreateProjectRequest {
+    pub workspace_id: Uuid,
+    pub team_id: Option<Uuid>,
+    pub name: String,
+    pub repository_url: Option<String>,
+}
+
+/// Deserialize a field that distinguishes between absent, null, and present.
+/// - Absent -> `None` (field not in JSON)
+/// - `null` -> `Some(None)` (explicitly set to null)
+/// - `"value"` -> `Some(Some("value"))` (explicitly set to a value)
+fn deserialize_optional_field<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Ok(Some(Option::deserialize(deserializer)?))
+}
+
+/// Request body for updating a project.
+#[derive(Deserialize)]
+pub struct UpdateProjectRequest {
+    pub name: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_field")]
+    pub repository_url: Option<Option<String>>,
+}
+
+/// Build a service instance from shared state.
+fn make_service(state: &AppState) -> ProjectService {
+    ProjectService::new(ProjectRepository::new(state.pool.clone()))
+}
+
+fn make_permission_service(state: &AppState) -> ResourcePermissionService {
+    ResourcePermissionService::new(ResourcePermissionRepository::new(state.pool.clone()))
+}
+
+/// `GET /api/projects` — list projects for the authenticated tenant.
+async fn list_projects(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Query(query): Query<ListQuery>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let workspace_id = query.workspace_id.map(WorkspaceId::from);
+    let projects = service.list(&auth.scope, workspace_id, query.limit, query.offset).await?;
+    Ok(Json(serde_json::json!({ "ok": true, "data": projects })))
+}
+
+/// `GET /api/projects/{id}` — get a single project.
+async fn get_project(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let project = service.get(&auth.scope, ProjectId::from(id)).await?;
+    Ok(Json(serde_json::json!({ "ok": true, "data": project })))
+}
+
+/// `POST /api/projects` — create a new project.
+async fn create_project(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(req): Json<CreateProjectRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    let permission_service = make_permission_service(&state);
+    if let Some(team_id) = req.team_id {
+        permission_service.require_project_creator(&auth.scope, TeamId::from(team_id)).await?;
+    } else {
+        permission_service.require_org_manager(&auth.scope).await?;
+    }
+
+    let service = make_service(&state);
+    let project = service
+        .create(
+            &auth.scope,
+            WorkspaceId::from(req.workspace_id),
+            req.team_id.map(TeamId::from),
+            &req.name,
+            req.repository_url.as_deref(),
+        )
+        .await?;
+    let group_service = GroupService::new(GroupRepository::new(state.pool.clone()));
+    group_service.find_or_create_default_for_project(&auth.scope, ProjectId::from(project.id.as_uuid())).await?;
+    Ok(Json(serde_json::json!({ "ok": true, "data": project })))
+}
+
+/// `PATCH /api/projects/{id}` — update a project.
+async fn update_project(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+    Json(req): Json<UpdateProjectRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    let project_id = ProjectId::from(id);
+    make_permission_service(&state).require_project_manager(&auth.scope, project_id).await?;
+    let service = make_service(&state);
+    let repository_url = req.repository_url.map(|opt| opt.as_deref().map(|s| s.to_owned()));
+    // Convert Option<Option<String>> to Option<Option<&str>> for the service
+    let repo_url_ref = repository_url.as_ref().map(|opt| opt.as_deref());
+    let project = service.update(&auth.scope, project_id, req.name.as_deref(), repo_url_ref).await?;
+    Ok(Json(serde_json::json!({ "ok": true, "data": project })))
+}
+
+/// `DELETE /api/projects/{id}` — soft delete a project.
+async fn delete_project(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let project_id = ProjectId::from(id);
+    make_permission_service(&state).require_project_manager(&auth.scope, project_id).await?;
+    let service = make_service(&state);
+    service.delete(&auth.scope, project_id).await?;
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+/// Build project routes sub-router.
+pub fn project_routes() -> Router<AppState> {
+    Router::new()
+        .route("/projects", get(list_projects).post(create_project))
+        .route("/projects/{id}", get(get_project).patch(update_project).delete(delete_project))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn list_query_defaults() {
+        let query: ListQuery = serde_json::from_str("{}").unwrap();
+        assert_eq!(query.limit, 20);
+        assert_eq!(query.offset, 0);
+        assert!(query.workspace_id.is_none());
+    }
+
+    #[test]
+    fn list_query_with_workspace_filter() {
+        let query: ListQuery =
+            serde_json::from_str(r#"{"workspace_id": "550e8400-e29b-41d4-a716-446655440000", "limit": 50}"#).unwrap();
+        assert!(query.workspace_id.is_some());
+        assert_eq!(query.limit, 50);
+    }
+
+    #[test]
+    fn create_request_full() {
+        let req: CreateProjectRequest = serde_json::from_str(
+            r#"{
+                "workspace_id": "550e8400-e29b-41d4-a716-446655440000",
+                "name": "Wisdoverse Forge",
+                "repository_url": "https://github.com/Wisdoverse/Wisdoverse-Forge"
+            }"#,
+        )
+        .unwrap();
+        assert_eq!(req.name, "Wisdoverse Forge");
+        assert_eq!(req.repository_url.as_deref(), Some("https://github.com/Wisdoverse/Wisdoverse-Forge"));
+    }
+
+    #[test]
+    fn create_request_minimal() {
+        let req: CreateProjectRequest =
+            serde_json::from_str(r#"{"workspace_id": "550e8400-e29b-41d4-a716-446655440000", "name": "MyProject"}"#)
+                .unwrap();
+        assert_eq!(req.name, "MyProject");
+        assert!(req.repository_url.is_none());
+    }
+
+    #[test]
+    fn create_request_missing_name_fails() {
+        let result =
+            serde_json::from_str::<CreateProjectRequest>(r#"{"workspace_id": "550e8400-e29b-41d4-a716-446655440000"}"#);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn update_request_partial() {
+        let req: UpdateProjectRequest = serde_json::from_str(r#"{"name": "New Name"}"#).unwrap();
+        assert_eq!(req.name.as_deref(), Some("New Name"));
+        assert!(req.repository_url.is_none());
+    }
+
+    #[test]
+    fn update_request_empty() {
+        let req: UpdateProjectRequest = serde_json::from_str(r#"{}"#).unwrap();
+        assert!(req.name.is_none());
+        assert!(req.repository_url.is_none());
+    }
+
+    #[test]
+    fn update_request_clear_url() {
+        let req: UpdateProjectRequest = serde_json::from_str(r#"{"repository_url": null}"#).unwrap();
+        assert_eq!(req.repository_url, Some(None));
+    }
+}
