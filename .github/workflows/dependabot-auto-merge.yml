@@ -1,0 +1,61 @@
+# =============================================================================
+# Dependabot auto-merge for low-risk version bumps
+# =============================================================================
+# Auto-approves and enables squash-merge for Dependabot PRs whose update-type
+# is patch or minor. Major bumps stop here for manual review — they tend to
+# carry breaking changes (think `rand` 0.8→0.9, or aws-actions/configure-
+# aws-credentials 4→6) and deserve human eyes on the changelog.
+#
+# Branch protection still gates the merge: required CI checks must pass,
+# review approval is provided by the workflow itself, and squash-merge keeps
+# the main-branch history flat.
+#
+# Trigger fires on every Dependabot PR `opened`, `synchronize`, or
+# `reopened` event. Existing PRs from before this workflow lands are
+# unaffected — flip those once via `gh pr merge --auto` if you want them
+# absorbed retroactively.
+# =============================================================================
+
+name: Dependabot auto-merge
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.state == 'open'
+    runs-on: ubuntu-latest
+    steps:
+      - id: metadata
+        name: Resolve Dependabot update metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Approve patch / minor bumps
+        if: |
+          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        run: gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge for patch / minor bumps
+        if: |
+          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Major bumps stay manual
+        if: steps.metadata.outputs.update-type == 'version-update:semver-major'
+        run: |
+          echo "::notice::Major bump detected (${{ steps.metadata.outputs.dependency-names }}) — leaving for manual review."
