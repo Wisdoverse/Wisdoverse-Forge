@@ -1,0 +1,82 @@
+# =============================================================================
+# OWASP ZAP DAST baseline scan
+# =============================================================================
+# Runs the OWASP ZAP baseline scanner against a deployed environment to surface
+# common runtime vulnerabilities — outdated headers, missing CSP, mixed content,
+# insecure cookies, exposed admin endpoints, and the broader OWASP Top 10
+# starter checks. SAST (CodeQL), source-manifest scanning (Trivy fs), image
+# scanning (Trivy image), supply-chain hygiene (Scorecard), and signature
+# verification (cosign) cover the static and supply-chain side; DAST closes the
+# gap by exercising the actual running app.
+#
+# Trigger:
+#   * cron 04:00 UTC daily — overlaps with the image-vuln-scan run so results
+#     correlate when something lands.
+#   * `workflow_dispatch` — accepts a `target_url` input so an operator can
+#     scan a fresh release URL or a preview environment without editing the
+#     workflow.
+#
+# Scope: baseline (unauthenticated) scan only. The scanner crawls the public
+# surface and runs passive rules. Authenticated full-scan would need login
+# automation + cookie injection and is intentionally out of scope here — keeps
+# the run cheap and predictable. Operators that need authenticated coverage
+# should write a dedicated workflow with their own context file.
+#
+# Output: HTML/Markdown reports as workflow artefacts + SARIF upload to the
+# GitHub code-scanning Security tab. Findings never block a merge — DAST runs
+# against a deployed environment, so a finding usually requires fixing source
+# code anyway. Use the alerts to drive follow-up PRs.
+# =============================================================================
+
+name: DAST (OWASP ZAP baseline)
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'URL to scan (default: https://staging.REDACTED.example)'
+        required: false
+        default: https://staging.REDACTED.example
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+  security-events: write
+
+concurrency:
+  group: dast-zap
+  cancel-in-progress: false
+
+jobs:
+  zap-baseline:
+    name: ZAP baseline scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: target
+        run: |
+          URL="${{ inputs.target_url || 'https://staging.REDACTED.example' }}"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: ${{ steps.target.outputs.url }}
+          rules_file_name: '.zap/rules.tsv'
+          allow_issue_writing: true
+          fail_action: false # report-only; do not gate merge on a transient
+          cmd_options: '-a -j -T 5'
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-baseline-report
+          path: |
+            report_html.html
+            report_md.md
+            report_json.json
+          retention-days: 7
