@@ -2,45 +2,49 @@
 # These owners will be requested for review when someone opens a pull request.
 # See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
+# NOTE: References @Wisdoverse/* teams; create these in GitHub org settings
+#   (Wisdoverse → Teams → New team) or replace with individual @username for the
+#   review requests to actually fire. Without matching teams, GitHub silently
+#   skips auto-review-assignment for matched paths.
 # Default owners for everything in the repo
-*                           @agentforge/maintainers
+*                           @Wisdoverse/maintainers
 
 # Frontend
-/src/                       @agentforge/frontend
-/src/app/                   @agentforge/frontend
-/shared/                    @agentforge/frontend @agentforge/backend
+/src/                       @Wisdoverse/frontend
+/src/app/                   @Wisdoverse/frontend
+/shared/                    @Wisdoverse/frontend @Wisdoverse/backend
 
 # Default Rust backend
-/rust/                      @agentforge/backend
-/rust/bins/                 @agentforge/backend
-/rust/crates/               @agentforge/backend
-/shared/generated/platform/ @agentforge/backend
+/rust/                      @Wisdoverse/backend
+/rust/bins/                 @Wisdoverse/backend
+/rust/crates/               @Wisdoverse/backend
+/shared/generated/platform/ @Wisdoverse/backend
 
 # Infrastructure
-/.github/                   @agentforge/devops
-/.github/workflows/         @agentforge/devops
-/docker/                    @agentforge/devops
-/Makefile                   @agentforge/devops
-/.env.example               @agentforge/devops
+/.github/                   @Wisdoverse/devops
+/.github/workflows/         @Wisdoverse/devops
+/docker/                    @Wisdoverse/devops
+/Makefile                   @Wisdoverse/devops
+/.env.example               @Wisdoverse/devops
 
 # Documentation
-/docs/                      @agentforge/docs
-/*.md                       @agentforge/docs
-/CHANGELOG.md               @agentforge/maintainers
+/docs/                      @Wisdoverse/docs
+/*.md                       @Wisdoverse/docs
+/CHANGELOG.md               @Wisdoverse/maintainers
 
 # Security-sensitive files
-/rust/crates/auth/          @agentforge/security
-/rust/crates/api/src/middleware.rs @agentforge/security
-/rust/crates/api/src/mcp.rs @agentforge/security
+/rust/crates/auth/          @Wisdoverse/security
+/rust/crates/api/src/middleware.rs @Wisdoverse/security
+/rust/crates/api/src/mcp.rs @Wisdoverse/security
 
 # Configuration files
-/package.json               @agentforge/maintainers
-/tsconfig.json              @agentforge/maintainers
-/tsconfig.eslint.json       @agentforge/maintainers
-/eslint.config.js           @agentforge/maintainers
-/.prettierrc.*              @agentforge/maintainers
+/package.json               @Wisdoverse/maintainers
+/tsconfig.json              @Wisdoverse/maintainers
+/tsconfig.eslint.json       @Wisdoverse/maintainers
+/eslint.config.js           @Wisdoverse/maintainers
+/.prettierrc.*              @Wisdoverse/maintainers
 
 # Tests
-/tests/                     @agentforge/qa
-*.test.ts                   @agentforge/qa
-*.spec.ts                   @agentforge/qa
+/tests/                     @Wisdoverse/qa
+*.test.ts                   @Wisdoverse/qa
+*.spec.ts                   @Wisdoverse/qa

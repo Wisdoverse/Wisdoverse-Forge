@@ -43,6 +43,19 @@
 #   AGENTFORGE_PORT             Port for health probe (`localhost:$PORT`). Default: 4003.
 #   BUNDLE_REQUIRED_FILES       Newline- or space-separated bind-mount source files
 #                               under `docker/`. Default: "nats.conf seccomp/agentforge-agent.json".
+#   VERIFY_IMAGE_SIGNATURES     When `true`, runs `cosign verify` against every
+#                               pulled image (server, orchestrator, frontend, and
+#                               each agent overlay) before retagging it locally.
+#                               Requires `cosign` on PATH and the GHCR publish
+#                               workflow to attach SLSA provenance via
+#                               `provenance: true` (already the case in
+#                               `.github/workflows/publish-images.yml`).
+#                               Recommended for production. Default: false.
+#   COSIGN_CERT_IDENTITY_REGEX  Cert identity regex passed to cosign verify.
+#                               Default: matches the project's GHCR publish
+#                               workflow URL.
+#   COSIGN_OIDC_ISSUER          OIDC issuer URL for cosign verify.
+#                               Default: https://token.actions.githubusercontent.com
 #
 # Prerequisites assumed by this script (override or document in your fork):
 #   - Single host (no clustering); operator handles fail-over manually.
@@ -62,6 +75,46 @@ LOG_PREFIX="[deploy:$ENV]"
 
 log() { echo "$(date '+%H:%M:%S') $LOG_PREFIX $*"; }
 log_error() { echo "$(date '+%H:%M:%S') $LOG_PREFIX ERROR: $*" >&2; }
+
+# verify_image_signature <fully-qualified-image-ref>
+#   When VERIFY_IMAGE_SIGNATURES=true (recommended for production), validates
+#   the Sigstore/cosign keyless signature attached by the GHCR publish workflow
+#   (`provenance: true` on docker/build-push-action). Verification runs against
+#   the project's published certificate identity regex and OIDC issuer; the
+#   defaults match `.github/workflows/publish-images.yml`. Operators on a fork
+#   can override COSIGN_CERT_IDENTITY_REGEX / COSIGN_OIDC_ISSUER per deploy.
+#
+#   Skips silently when the flag is unset/false to preserve backwards-compat.
+#   Fails hard when the flag is true and either cosign is missing or the
+#   signature does not verify, because a missing signature on a production
+#   deploy is a deliberate decision rather than a graceful degradation.
+verify_image_signature() {
+  local image="$1"
+
+  case "${VERIFY_IMAGE_SIGNATURES:-false}" in
+    1 | true | yes | on) ;;
+    *) return 0 ;;
+  esac
+
+  if ! command -v cosign >/dev/null 2>&1; then
+    log_error "VERIFY_IMAGE_SIGNATURES=true but 'cosign' is not installed."
+    log_error "Install: https://docs.sigstore.dev/cosign/system_config/installation/"
+    return 1
+  fi
+
+  local cert_regex="${COSIGN_CERT_IDENTITY_REGEX:-https://github.com/Wisdoverse/Wisdoverse-Forge/.+}"
+  local oidc_issuer="${COSIGN_OIDC_ISSUER:-https://token.actions.githubusercontent.com}"
+
+  log "Verifying signature: $image"
+  if ! cosign verify "$image" \
+    --certificate-identity-regexp "$cert_regex" \
+    --certificate-oidc-issuer "$oidc_issuer" \
+    >/dev/null 2>&1; then
+    log_error "Signature verification failed for $image"
+    log_error "Run with VERIFY_IMAGE_SIGNATURES=false to bypass (not recommended)."
+    return 1
+  fi
+}
 
 load_compose_env() {
   local env_file="$1"
@@ -203,23 +256,25 @@ done
 if [ -n "$IMAGE_TAG" ] && [ -n "$REGISTRY_IMAGE" ]; then
   log "Pulling images from registry (tag: $IMAGE_TAG)..."
 
-  REMOTE_RUST_SERVER="$REGISTRY_IMAGE/server:$IMAGE_TAG"
-  log "Pulling $REMOTE_RUST_SERVER..."
-  if ! docker pull "$REMOTE_RUST_SERVER"; then
-    log_error "Failed to pull $REMOTE_RUST_SERVER"
+  REMOTE_SERVER="$REGISTRY_IMAGE/server:$IMAGE_TAG"
+  log "Pulling $REMOTE_SERVER..."
+  if ! docker pull "$REMOTE_SERVER"; then
+    log_error "Failed to pull $REMOTE_SERVER"
     exit 1
   fi
-  docker tag "$REMOTE_RUST_SERVER" "agentforge-server:$IMAGE_TAG"
-  docker tag "$REMOTE_RUST_SERVER" "agentforge-server:latest"
+  if ! verify_image_signature "$REMOTE_SERVER"; then exit 1; fi
+  docker tag "$REMOTE_SERVER" "agentforge-server:$IMAGE_TAG"
+  docker tag "$REMOTE_SERVER" "agentforge-server:latest"
 
-  REMOTE_RUST_ORCHESTRATOR="$REGISTRY_IMAGE/orchestrator:$IMAGE_TAG"
-  log "Pulling $REMOTE_RUST_ORCHESTRATOR..."
-  if ! docker pull "$REMOTE_RUST_ORCHESTRATOR"; then
-    log_error "Failed to pull $REMOTE_RUST_ORCHESTRATOR"
+  REMOTE_ORCHESTRATOR="$REGISTRY_IMAGE/orchestrator:$IMAGE_TAG"
+  log "Pulling $REMOTE_ORCHESTRATOR..."
+  if ! docker pull "$REMOTE_ORCHESTRATOR"; then
+    log_error "Failed to pull $REMOTE_ORCHESTRATOR"
     exit 1
   fi
-  docker tag "$REMOTE_RUST_ORCHESTRATOR" "agentforge-orchestrator:$IMAGE_TAG"
-  docker tag "$REMOTE_RUST_ORCHESTRATOR" "agentforge-orchestrator:latest"
+  if ! verify_image_signature "$REMOTE_ORCHESTRATOR"; then exit 1; fi
+  docker tag "$REMOTE_ORCHESTRATOR" "agentforge-orchestrator:$IMAGE_TAG"
+  docker tag "$REMOTE_ORCHESTRATOR" "agentforge-orchestrator:latest"
 
   REMOTE_FRONTEND="$REGISTRY_IMAGE:$IMAGE_TAG"
   log "Pulling $REMOTE_FRONTEND..."
@@ -227,6 +282,7 @@ if [ -n "$IMAGE_TAG" ] && [ -n "$REGISTRY_IMAGE" ]; then
     log_error "Failed to pull $REMOTE_FRONTEND"
     exit 1
   fi
+  if ! verify_image_signature "$REMOTE_FRONTEND"; then exit 1; fi
   docker tag "$REMOTE_FRONTEND" "agentforge-frontend:$IMAGE_TAG"
   docker tag "$REMOTE_FRONTEND" "agentforge-frontend:latest"
 
@@ -249,6 +305,9 @@ pull_agent_image() {
 
   for attempt in $(seq 1 "$AGENT_PULL_RETRIES"); do
     if docker pull "$remote_ref" 2>&1; then
+      if ! verify_image_signature "$remote_ref"; then
+        return 1
+      fi
       docker tag "$remote_ref" "agentforge-agent:$tool"
       docker tag "agentforge-agent:$tool" "agentforge-agent-$tool:latest" 2>/dev/null || true
 
