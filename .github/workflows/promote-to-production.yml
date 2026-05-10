@@ -1,0 +1,75 @@
+# =============================================================================
+# Promote staging → production with soak gate
+# =============================================================================
+# Manual workflow that gates production promotion behind a configurable
+# staging soak window. The soak script (`scripts/staging-soak.sh`, added in
+# PR #26) runs a health-probe loop against staging; this workflow wraps that
+# loop and exits 0 only when the window stays clean. Operators can then point
+# the existing `Release` workflow at the same tag with confidence the build
+# was actually exercised before going live.
+#
+# Default soak: 1h, 60s probe interval, 3-failure abort threshold. The full
+# 24h enterprise window is the script default and is more than this workflow
+# can realistically run in a single Action job (6h job timeout). For the long
+# window, deploy `scripts/staging-soak.sh` to a long-running runner / systemd
+# unit and have it call `gh workflow run release.yml` on success.
+#
+# Trigger: `workflow_dispatch` only. Production promotion is intentionally a
+# human-in-the-loop action — pick the tag, watch the soak, then dispatch the
+# release.
+# =============================================================================
+
+name: Promote to production
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'Health URL (default: https://coding.itoy.dev/api/health)'
+        required: false
+        default: https://coding.itoy.dev/api/health
+        type: string
+      duration_seconds:
+        description: 'Soak window in seconds (default: 3600 = 1h)'
+        required: false
+        default: '3600'
+        type: string
+      max_failures:
+        description: 'Cumulative failures before aborting (default: 3)'
+        required: false
+        default: '3'
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: promote-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  soak:
+    name: Staging soak
+    runs-on: ubuntu-latest
+    timeout-minutes: 350 # GitHub-hosted job ceiling
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run staging soak
+        env:
+          SOAK_TARGET_URL: ${{ inputs.target_url }}
+          SOAK_DURATION_SECONDS: ${{ inputs.duration_seconds }}
+          SOAK_MAX_FAILURES: ${{ inputs.max_failures }}
+          SOAK_INTERVAL_SECONDS: '60'
+        run: bash scripts/staging-soak.sh
+
+      - name: Summarise green soak
+        if: success()
+        run: |
+          echo "## ✅ Staging soak passed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- target: \`${{ inputs.target_url }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- window: ${{ inputs.duration_seconds }}s" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Promote with: \`gh workflow run release.yml -f version=<tag>\`" >> "$GITHUB_STEP_SUMMARY"
