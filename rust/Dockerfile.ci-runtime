@@ -1,4 +1,4 @@
-FROM alpine:3.21 AS runtime-base
+FROM alpine:3.23 AS runtime-base
 RUN apk --no-cache add ca-certificates curl
 RUN addgroup -S agentforge && adduser -S agentforge -G agentforge
 
