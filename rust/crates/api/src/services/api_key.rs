@@ -115,8 +115,8 @@ pub(crate) fn generate_api_key_parts() -> (String, String, String) {
 
 /// Generate a random API key: `af_` followed by 64 hex characters (32 random bytes).
 pub(crate) fn generate_api_key() -> String {
-    let mut rng = rand::thread_rng();
-    let bytes: [u8; 32] = rng.r#gen();
+    let mut rng = rand::rng();
+    let bytes: [u8; 32] = rng.random();
     format!("{}{}", KEY_PREFIX, hex::encode(bytes))
 }
 

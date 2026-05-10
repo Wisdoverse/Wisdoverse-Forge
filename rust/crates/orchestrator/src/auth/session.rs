@@ -131,6 +131,6 @@ impl SessionManager {
 
 fn generate_refresh_token() -> String {
     let mut bytes = [0_u8; 32];
-    rand::thread_rng().fill_bytes(&mut bytes);
+    rand::rng().fill_bytes(&mut bytes);
     hex::encode(bytes)
 }
