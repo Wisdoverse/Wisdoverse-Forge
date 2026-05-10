@@ -1,0 +1,61 @@
+# =============================================================================
+# Bundle-size regression gate
+# =============================================================================
+# Builds the frontend on the PR head and the merge base, then comments a
+# size-delta table on the PR. Hard-fails when the gzipped JS bundle on the
+# critical path grows by more than 5 % vs the base — that ratio is the SLO
+# we want to defend (a one-percentage-point gain on a 250 KB bundle hits
+# Time-to-Interactive measurably on slow links).
+#
+# Uses `preactjs/compressed-size-action` because it understands Vite-style
+# multi-chunk dist output, gzip-compares on a per-file basis, and writes a
+# single rolling sticky comment instead of spamming the PR thread.
+# =============================================================================
+
+name: Bundle size
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'src/**'
+      - 'tsconfig.json'
+      - 'vite.config.ts'
+      - 'tailwind.config.ts'
+      - 'index.html'
+      - '.github/workflows/bundle-size.yml'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: bundle-size-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  diff:
+    name: Compressed size diff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - uses: preactjs/compressed-size-action@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          # Build command runs once on the merge base and once on the PR head.
+          build-script: build:client
+          # Compare every JS, CSS, HTML asset under dist/.
+          pattern: 'dist/**/*.{js,css,html}'
+          # Ignore source-map files (separate concern; not user-facing).
+          exclude: 'dist/**/*.map'
+          # Hard-fail when any single file's gzipped size grows ≥ 5 %.
+          minimum-change-threshold: 100
+          # Display sizes in bytes (gzip).
+          compression: gzip
