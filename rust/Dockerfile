@@ -47,7 +47,7 @@ RUN --mount=type=cache,id=agentforge-cargo-registry,target=/usr/local/cargo/regi
     && cp /app/target/x86_64-unknown-linux-musl/release/agentforge-server /usr/local/bin/agentforge-server
 
 # Stage 4: Minimal alpine runtime (~8MB base, static binary = no libc required)
-FROM alpine:3.21 AS runtime
+FROM alpine:3.23 AS runtime
 RUN apk --no-cache add ca-certificates curl
 
 # Create non-root user

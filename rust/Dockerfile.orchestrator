@@ -26,7 +26,7 @@ RUN --mount=type=cache,id=agentforge-cargo-registry,target=/usr/local/cargo/regi
     cargo auditable build --release --target x86_64-unknown-linux-musl --bin agentforge-orchestrator \
     && cp /app/target/x86_64-unknown-linux-musl/release/agentforge-orchestrator /usr/local/bin/agentforge-orchestrator
 
-FROM alpine:3.21 AS runtime
+FROM alpine:3.23 AS runtime
 RUN apk --no-cache add ca-certificates curl
 RUN addgroup -S agentforge && adduser -S agentforge -G agentforge
 COPY --from=builder /usr/local/bin/agentforge-orchestrator /usr/local/bin/agentforge-orchestrator
