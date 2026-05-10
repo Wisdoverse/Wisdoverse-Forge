@@ -6,7 +6,7 @@ license-file.workspace = true
 
 [dependencies]
 agentforge-core.workspace = true
-jsonwebtoken = "9"
+jsonwebtoken.workspace = true
 argon2 = "0.5"
 bcrypt = "0.16"
 axum = { workspace = true }

@@ -33,10 +33,7 @@ pub enum ResponseKind {
 
 impl Client {
     pub fn new(opts: ClientOptions) -> anyhow::Result<Self> {
-        let mut builder = reqwest::Client::builder().timeout(opts.timeout);
-        if opts.insecure {
-            builder = builder.danger_accept_invalid_certs(true);
-        }
+        let builder = reqwest::Client::builder().timeout(opts.timeout);
         Ok(Self { inner: builder.build()?, opts })
     }
 
@@ -331,13 +328,8 @@ impl Client {
         // request timeout so a 30s `opts.timeout` doesn't kill the stream.
         // Matches `cli/internal/client/sse.go:consumeSSE` which uses
         // `&http.Client{Transport: c.http.Transport}` with no Timeout.
-        let client = {
-            let mut b = reqwest::Client::builder();
-            if self.opts.insecure {
-                b = b.danger_accept_invalid_certs(true);
-            }
-            b.build().map_err(|e| CliError::Other(format!("build sse client: {e}")))?
-        };
+        let client =
+            reqwest::Client::builder().build().map_err(|e| CliError::Other(format!("build sse client: {e}")))?;
 
         let stream = async_stream::stream! {
             let mut last_event_id = String::new();

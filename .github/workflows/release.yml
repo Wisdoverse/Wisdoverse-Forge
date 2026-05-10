@@ -133,6 +133,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Install Rust toolchain
         working-directory: rust
         run: |
@@ -391,8 +393,23 @@ jobs:
         name: Normalize image namespace
         run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
       - id: cli
-        name: Resolve CLI version
-        run: echo "version=$(npm view '${{ matrix.package }}' version)" >> "$GITHUB_OUTPUT"
+        name: Resolve and validate redistributable CLI package
+        env:
+          PACKAGE_NAME: ${{ matrix.package }}
+        run: |
+          set -euo pipefail
+          VERSION="$(npm view "$PACKAGE_NAME" version)"
+          LICENSE="$(npm view "$PACKAGE_NAME" license || true)"
+          case "$LICENSE" in
+            MIT|Apache-2.0|BSD-2-Clause|BSD-3-Clause|ISC|MPL-2.0|"MIT OR Apache-2.0"|"Apache-2.0 OR MIT")
+              ;;
+            *)
+              echo "::error::Package $PACKAGE_NAME has non-allowlisted license '$LICENSE'; refusing to publish public image"
+              exit 1
+              ;;
+          esac
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "license=$LICENSE" >> "$GITHUB_OUTPUT"
       - id: tags
         name: Build agent image tag list
         run: |
@@ -416,6 +433,7 @@ jobs:
           provenance: true
           labels: |
             org.opencontainers.image.version=${{ needs.validate.outputs.version }}
+            org.opencontainers.image.licenses=${{ steps.cli.outputs.license }}
             org.wisdoverse.cli-version=${{ steps.cli.outputs.version }}
           build-args: |
             BASE_IMAGE=${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/agent-base:${{ needs.validate.outputs.version }}

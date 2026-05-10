@@ -26,7 +26,7 @@ pub fn build_context(
         );
     }
     if flags.insecure {
-        let _ = writeln!(stderr, "WARNING: TLS certificate verification disabled. Connection is NOT secure.");
+        anyhow::bail!("--insecure is not supported; install a trusted CA certificate for the AgentForge endpoint");
     }
 
     let cfg = crate::config::load(&crate::config::default_path())?;
@@ -64,7 +64,7 @@ pub fn build_context(
         server,
         token,
         timeout,
-        insecure: flags.insecure,
+        insecure: false,
         verbose: flags.verbose,
         debug: flags.debug,
         trace: trace_enabled,
