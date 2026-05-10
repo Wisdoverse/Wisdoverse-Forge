@@ -22,7 +22,7 @@ describe('docker baseline policy', () => {
   it('flags missing hardening controls for core services', () => {
     const composeContent = `
 services:
-  agentforge-rust:
+  agentforge-server:
     image: example/app:latest
   orchestrator:
     image: example/orchestrator:latest
@@ -37,7 +37,7 @@ services:
     const errors = validateComposeBaseline(composeContent)
     expect(errors).toEqual(
       expect.arrayContaining([
-        expect.stringContaining('services.agentforge-rust'),
+        expect.stringContaining('services.agentforge-server'),
         expect.stringContaining('services.orchestrator'),
         expect.stringContaining('read_only: true'),
         expect.stringContaining('tmpfs'),
@@ -49,7 +49,7 @@ services:
   it('flags missing writable attachment storage for the read-only Rust API container', () => {
     const composeContent = `
 services:
-  agentforge-rust:
+  agentforge-server:
     image: example/app:latest
     read_only: true
     tmpfs:
@@ -92,9 +92,9 @@ services:
     const errors = validateComposeBaseline(composeContent)
     expect(errors).toEqual(
       expect.arrayContaining([
-        'services.agentforge-rust must pass STORAGE_PROVIDER into the container',
-        'services.agentforge-rust must set a container-safe STORAGE_LOCAL_PATH default',
-        'services.agentforge-rust must mount writable local attachment storage',
+        'services.agentforge-server must pass STORAGE_PROVIDER into the container',
+        'services.agentforge-server must set a container-safe STORAGE_LOCAL_PATH default',
+        'services.agentforge-server must mount writable local attachment storage',
         'volumes.agentforge-uploads must be declared',
       ])
     )
@@ -166,7 +166,7 @@ ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
 
   it('extracts service block when services are separated by blank lines', () => {
     const composeContent = `services:
-  agentforge-rust:
+  agentforge-server:
     image: example/app:latest
 
     security_opt:
@@ -184,7 +184,7 @@ ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
 
   it('extracts service block when terminated by top-level key', () => {
     const composeContent = `services:
-  agentforge-rust:
+  agentforge-server:
     image: example/app:latest
   orchestrator:
     image: example/orchestrator:latest
@@ -201,12 +201,12 @@ volumes:
     image: example/orchestrator:latest
 `
     const errors = validateComposeBaseline(composeContent)
-    expect(errors).toContainEqual('services.agentforge-rust block not found')
+    expect(errors).toContainEqual('services.agentforge-server block not found')
   })
 
   it('extracts last service when it ends at EOF', () => {
     const composeContent = `services:
-  agentforge-rust:
+  agentforge-server:
     image: example/app:latest
   orchestrator:
     image: example/orchestrator:latest`

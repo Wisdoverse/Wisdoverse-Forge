@@ -6,7 +6,7 @@
 # with that version pinned.
 #
 # Scope (intentionally narrow): only the redistributable CLI overlays.
-# `agent-base`, `rust-server`, `rust-orchestrator`, `rust-sidecar`, and the
+# `agent-base`, `server`, `orchestrator`, `sidecar`, and the
 # frontend image are rebuilt by `publish-images.yml` on every push to
 # `main` and on every `v*` tag. Claude is built locally by operators
 # (license precludes a public GHCR image).

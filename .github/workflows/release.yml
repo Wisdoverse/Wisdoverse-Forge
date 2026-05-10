@@ -265,10 +265,10 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             VERSION=${{ needs.validate.outputs.version }}
-      - id: rust-server-meta
+      - id: server-meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/rust-server
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/server
           tags: |
             type=semver,pattern={{version}},value=${{ needs.validate.outputs.version }}
             type=semver,pattern={{major}}.{{minor}},value=${{ needs.validate.outputs.version }}
@@ -279,14 +279,14 @@ jobs:
           context: ./rust
           file: ./rust/Dockerfile
           push: true
-          tags: ${{ steps.rust-server-meta.outputs.tags }}
-          labels: ${{ steps.rust-server-meta.outputs.labels }}
+          tags: ${{ steps.server-meta.outputs.tags }}
+          labels: ${{ steps.server-meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - id: rust-sidecar-meta
+      - id: sidecar-meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/rust-sidecar
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/sidecar
           tags: |
             type=semver,pattern={{version}},value=${{ needs.validate.outputs.version }}
             type=semver,pattern={{major}}.{{minor}},value=${{ needs.validate.outputs.version }}
@@ -297,14 +297,14 @@ jobs:
           context: ./rust
           file: ./rust/Dockerfile.sidecar
           push: true
-          tags: ${{ steps.rust-sidecar-meta.outputs.tags }}
-          labels: ${{ steps.rust-sidecar-meta.outputs.labels }}
+          tags: ${{ steps.sidecar-meta.outputs.tags }}
+          labels: ${{ steps.sidecar-meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - id: rust-orchestrator-meta
+      - id: orchestrator-meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/rust-orchestrator
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/orchestrator
           tags: |
             type=semver,pattern={{version}},value=${{ needs.validate.outputs.version }}
             type=semver,pattern={{major}}.{{minor}},value=${{ needs.validate.outputs.version }}
@@ -315,8 +315,8 @@ jobs:
           context: ./rust
           file: ./rust/Dockerfile.orchestrator
           push: true
-          tags: ${{ steps.rust-orchestrator-meta.outputs.tags }}
-          labels: ${{ steps.rust-orchestrator-meta.outputs.labels }}
+          tags: ${{ steps.orchestrator-meta.outputs.tags }}
+          labels: ${{ steps.orchestrator-meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

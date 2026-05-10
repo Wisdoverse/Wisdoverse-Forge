@@ -1,6 +1,6 @@
-const CORE_SERVICES = ['agentforge-rust', 'orchestrator']
+const CORE_SERVICES = ['agentforge-server', 'orchestrator']
 const HEALTH_ENDPOINTS = {
-  'agentforge-rust': '/health',
+  'agentforge-server': '/health',
   orchestrator: '/health',
 }
 
@@ -80,7 +80,7 @@ function validateServiceCommon(serviceName, block) {
 
 function validateAgentforgeRustStorage(composeContent, block) {
   const errors = []
-  const prefix = 'services.agentforge-rust'
+  const prefix = 'services.agentforge-server'
 
   if (!block.includes('STORAGE_PROVIDER=${STORAGE_PROVIDER:-local}')) {
     errors.push(`${prefix} must pass STORAGE_PROVIDER into the container`)
@@ -114,7 +114,7 @@ export function validateComposeBaseline(composeContent) {
     }
 
     errors.push(...validateServiceCommon(serviceName, block))
-    if (serviceName === 'agentforge-rust') {
+    if (serviceName === 'agentforge-server') {
       errors.push(...validateAgentforgeRustStorage(composeContent, block))
     }
 

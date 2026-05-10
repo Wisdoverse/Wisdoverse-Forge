@@ -233,7 +233,7 @@ show_status() {
   echo "  - View logs:     docker compose -p ${COMPOSE_PROJECT} logs -f"
   echo "  - Stop:          docker compose -p ${COMPOSE_PROJECT} down"
   echo "  - Restart:       docker compose -p ${COMPOSE_PROJECT} restart"
-  echo "  - Run migration: docker compose -p ${COMPOSE_PROJECT} exec agentforge-rust agentforge-server --migrate-only"
+  echo "  - Run migration: docker compose -p ${COMPOSE_PROJECT} exec agentforge-server agentforge-server --migrate-only"
 }
 
 # =============================================================================

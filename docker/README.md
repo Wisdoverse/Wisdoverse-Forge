@@ -65,7 +65,7 @@ for the public redistribution boundary.
 
 | Service                 | Role                                   |
 | ----------------------- | -------------------------------------- |
-| `agentforge-rust`       | Rust API and realtime gateway          |
+| `agentforge-server`     | Rust API and realtime gateway          |
 | `orchestrator`          | Rust orchestrator and workflow runtime |
 | `temporal`              | Workflow engine                        |
 | `db`, `orchestrator-db` | Persistence layers                     |

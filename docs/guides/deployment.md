@@ -6,7 +6,7 @@ This guide describes the supported Docker Compose deployment models for the curr
 
 The default backend deployment path contains these services:
 
-- `agentforge-rust` (`agentforge-server`) on `:4003`
+- `agentforge-server` (`agentforge-server`) on `:4003`
 - `orchestrator` (`agentforge-orchestrator`) on `:4010`
 - `temporal` on `:7233` with UI on `:8233`
 - PostgreSQL, Redis, and NATS backing services
@@ -51,16 +51,16 @@ At minimum, configure these values in `docker/.env`:
 
 ## Service Inventory
 
-| Service           | Default Port   | Role                               |
-| ----------------- | -------------- | ---------------------------------- |
-| `agentforge-rust` | `4003`         | Rust API and realtime gateway      |
-| `orchestrator`    | `4010`         | Rust orchestrator and workflow API |
-| `temporal`        | `7233`, `8233` | Workflow engine and UI             |
-| `db`              | `5432`         | Application PostgreSQL             |
-| `orchestrator-db` | internal       | Orchestrator PostgreSQL            |
-| `redis`           | `6379`         | Cache and coordination             |
-| `nats`            | `4222`, `8222` | Event transport                    |
-| `nginx`           | `80`, `443`    | Reverse proxy in `prod`            |
+| Service             | Default Port   | Role                               |
+| ------------------- | -------------- | ---------------------------------- |
+| `agentforge-server` | `4003`         | Rust API and realtime gateway      |
+| `orchestrator`      | `4010`         | Rust orchestrator and workflow API |
+| `temporal`          | `7233`, `8233` | Workflow engine and UI             |
+| `db`                | `5432`         | Application PostgreSQL             |
+| `orchestrator-db`   | internal       | Orchestrator PostgreSQL            |
+| `redis`             | `6379`         | Cache and coordination             |
+| `nats`              | `4222`, `8222` | Event transport                    |
+| `nginx`             | `80`, `443`    | Reverse proxy in `prod`            |
 
 ## Development Deployment
 

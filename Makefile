@@ -139,19 +139,19 @@ prod-ext-logs: ## View production external logs
 GHCR_IMAGE_TAG ?= $(or $(shell grep -m1 '^GHCR_IMAGE_TAG=' docker/.env 2>/dev/null | cut -d= -f2),main)
 
 .PHONY: pull-server-images
-pull-server-images: ## Pull rust-server / orchestrator / frontend from GHCR and re-tag for compose
+pull-server-images: ## Pull server / orchestrator / frontend from GHCR and re-tag for compose
 	@if [ -z "$(AGENT_REGISTRY)" ]; then \
 		echo "Error: AGENT_REGISTRY not set."; \
 		echo "Set it in docker/.env or pass via: make pull-server-images AGENT_REGISTRY=$(PUBLIC_AGENT_REGISTRY)"; \
 		exit 1; \
 	fi
 	@echo "Pulling server images from $(AGENT_REGISTRY) (tag: $(GHCR_IMAGE_TAG))..."
-	docker pull $(AGENT_REGISTRY)/rust-server:$(GHCR_IMAGE_TAG)
-	docker tag $(AGENT_REGISTRY)/rust-server:$(GHCR_IMAGE_TAG) agentforge-rust-server:$(GHCR_IMAGE_TAG)
-	docker tag $(AGENT_REGISTRY)/rust-server:$(GHCR_IMAGE_TAG) agentforge-rust-server:latest
-	docker pull $(AGENT_REGISTRY)/rust-orchestrator:$(GHCR_IMAGE_TAG)
-	docker tag $(AGENT_REGISTRY)/rust-orchestrator:$(GHCR_IMAGE_TAG) agentforge-orchestrator:$(GHCR_IMAGE_TAG)
-	docker tag $(AGENT_REGISTRY)/rust-orchestrator:$(GHCR_IMAGE_TAG) agentforge-orchestrator:latest
+	docker pull $(AGENT_REGISTRY)/server:$(GHCR_IMAGE_TAG)
+	docker tag $(AGENT_REGISTRY)/server:$(GHCR_IMAGE_TAG) agentforge-server:$(GHCR_IMAGE_TAG)
+	docker tag $(AGENT_REGISTRY)/server:$(GHCR_IMAGE_TAG) agentforge-server:latest
+	docker pull $(AGENT_REGISTRY)/orchestrator:$(GHCR_IMAGE_TAG)
+	docker tag $(AGENT_REGISTRY)/orchestrator:$(GHCR_IMAGE_TAG) agentforge-orchestrator:$(GHCR_IMAGE_TAG)
+	docker tag $(AGENT_REGISTRY)/orchestrator:$(GHCR_IMAGE_TAG) agentforge-orchestrator:latest
 	docker pull $(AGENT_REGISTRY):$(GHCR_IMAGE_TAG)
 	docker tag $(AGENT_REGISTRY):$(GHCR_IMAGE_TAG) agentforge-frontend:$(GHCR_IMAGE_TAG)
 	docker tag $(AGENT_REGISTRY):$(GHCR_IMAGE_TAG) agentforge-frontend:latest
@@ -172,7 +172,7 @@ build-claude: ensure-agent-base ## Build the Claude agent image locally (license
 
 .PHONY: rust-ext
 rust-ext: setup-external ## Start Rust backend with external services
-	$(COMPOSE) -f docker/compose.external.yml --profile rust --profile external up -d agentforge-rust nats --build
+	$(COMPOSE) -f docker/compose.external.yml --profile rust --profile external up -d agentforge-server nats --build
 
 .PHONY: rust-ext-down
 rust-ext-down: ## Stop Rust backend
@@ -180,7 +180,7 @@ rust-ext-down: ## Stop Rust backend
 
 .PHONY: rust-ext-logs
 rust-ext-logs: ## View Rust backend logs
-	docker logs -f agentforge-rust
+	docker logs -f agentforge-server
 
 # =============================================================================
 # Staging — your-staging-domain.com (external services)
@@ -212,7 +212,7 @@ deploy-production: ## Deploy to production via deploy script
 
 .PHONY: migrate
 migrate: ## Run database migrations
-	docker exec agentforge-rust agentforge-server --migrate-only
+	docker exec agentforge-server agentforge-server --migrate-only
 
 .PHONY: migrate-status
 migrate-status: ## Check migration status

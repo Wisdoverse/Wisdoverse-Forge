@@ -50,7 +50,7 @@ should set them in `docker/.env`.
 | `AGENTFORGE_NETWORKS`    | `agentforge-agents external-network`       | Space-separated docker networks created (idempotently) before bring-up.  |
 | `COMPOSE_FILES_OVERRIDE` | `-f compose.yml -f compose.external.yml`   | Override the compose file list.                                          |
 | `COMPOSE_PROFILE`        | `external`                                 | Compose profile passed via `--profile`.                                  |
-| `COMPOSE_SERVICE_NAME`   | `agentforge-rust`                          | Service name used for migrate-only and audit lookups.                    |
+| `COMPOSE_SERVICE_NAME`   | `agentforge-server`                        | Service name used for migrate-only and audit lookups.                    |
 | `FRONTEND_IMAGE`         | `agentforge-frontend:${IMAGE_TAG:-latest}` | Local docker image holding `/app/dist/`.                                 |
 | `FRONTEND_DEPLOY_MODE`   | `symlink`                                  | See [Frontend deploy modes](#frontend-deploy-modes).                     |
 | `WEBROOT_OWNER_UID`      | `1000`                                     | Owner UID for written files.                                             |
@@ -138,9 +138,9 @@ page.
 | Image                                                               | Built from                     | Notes                                                                     |
 | ------------------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------- |
 | `ghcr.io/wisdoverse/wisdoverse-forge`                               | `docker/Dockerfile`            | SPA frontend image (used by `scripts/deploy.sh` to extract `/app/dist/`). |
-| `ghcr.io/wisdoverse/wisdoverse-forge/rust-server`                   | `rust/Dockerfile`              | Main API binary.                                                          |
-| `ghcr.io/wisdoverse/wisdoverse-forge/rust-orchestrator`             | `rust/Dockerfile.orchestrator` | Temporal workflow runner.                                                 |
-| `ghcr.io/wisdoverse/wisdoverse-forge/rust-sidecar`                  | `rust/Dockerfile.sidecar`      | Per-agent container sidecar.                                              |
+| `ghcr.io/wisdoverse/wisdoverse-forge/server`                        | `rust/Dockerfile`              | Main API binary.                                                          |
+| `ghcr.io/wisdoverse/wisdoverse-forge/orchestrator`                  | `rust/Dockerfile.orchestrator` | Temporal workflow runner.                                                 |
+| `ghcr.io/wisdoverse/wisdoverse-forge/sidecar`                       | `rust/Dockerfile.sidecar`      | Per-agent container sidecar.                                              |
 | `ghcr.io/wisdoverse/wisdoverse-forge/agent-base`                    | `docker/Dockerfile.agent-base` | Shared base for agent containers.                                         |
 | `ghcr.io/wisdoverse/wisdoverse-forge/agent-{opencode,codex,gemini}` | `docker/Dockerfile.agent`      | Per-CLI overlay images.                                                   |
 

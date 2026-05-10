@@ -15,7 +15,7 @@ If you use the full local stack, also verify Temporal UI at `http://localhost:82
 ## Core Service Logs
 
 ```bash
-docker compose logs agentforge-rust
+docker compose logs agentforge-server
 docker compose logs orchestrator
 docker compose logs temporal
 docker compose logs db
@@ -78,7 +78,7 @@ In the external profile, also check:
 
 ```bash
 docker exec agentforge-temporal temporal operator cluster health --address temporal-internal:7233
-docker exec agentforge-rust getent hosts temporal-internal
+docker exec agentforge-server getent hosts temporal-internal
 ```
 
 If the first command does not return `SERVING`, or `temporal-internal` resolves to an unexpected address inside the Rust container, the issue is usually Compose network wiring rather than application code.
@@ -88,7 +88,7 @@ If the first command does not return `SERVING`, or `temporal-internal` resolves 
 Check the Rust API logs and Docker availability. The internal MCP bridge requires Docker access and a valid `MCP_TOKEN`.
 
 ```bash
-docker compose logs agentforge-rust
+docker compose logs agentforge-server
 docker info
 ```
 
@@ -98,7 +98,7 @@ Verify NATS and the backend consumers:
 
 ```bash
 docker compose logs nats
-docker compose logs agentforge-rust
+docker compose logs agentforge-server
 ```
 
 For the default callout-auth deployment, `NATS_URL` should use backend user
