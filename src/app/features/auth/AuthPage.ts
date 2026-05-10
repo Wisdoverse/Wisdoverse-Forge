@@ -585,13 +585,18 @@ export class AuthPage {
   private showVerificationPending(email: string): void {
     const container = this.container?.querySelector('.auth-form-container') || this.container
     if (!container) return
+    // Build the static markup with `innerHTML`, then inject the user-controlled
+    // `email` via `textContent` so a registration-supplied address that
+    // contains HTML (e.g. `<script>...</script>@example.com`) cannot break out
+    // of the placeholder. Closes the `js/xss-through-dom` finding CodeQL
+    // raised against the previous template-literal interpolation.
     container.innerHTML = `
       <div style="text-align: center; padding: 40px 20px;">
         <div style="font-size: 48px; margin-bottom: 16px;">📧</div>
         <h2 style="color: #818cf8; margin: 0 0 16px; font-size: 20px; font-weight: 600;">验证您的邮箱</h2>
         <p style="color: #94a3b8; margin: 0 0 24px; line-height: 1.6; font-size: 14px;">
           验证邮件已发送到<br/>
-          <strong style="color: #e2e8f0;">${email}</strong>
+          <strong id="verify-email-target" style="color: #e2e8f0;"></strong>
         </p>
         <p style="color: #64748b; font-size: 13px; margin: 0 0 24px;">
           请查看您的邮箱并点击验证链接完成注册。
@@ -605,6 +610,8 @@ export class AuthPage {
         <a href="#" id="back-to-login" style="color: #64748b; font-size: 13px; text-decoration: none; transition: color 0.2s;">返回登录</a>
       </div>
     `
+    const emailTarget = container.querySelector('#verify-email-target')
+    if (emailTarget) emailTarget.textContent = email
     // Add event listeners
     const resendBtn = container.querySelector('#resend-btn') as HTMLButtonElement
     resendBtn?.addEventListener('click', async () => {
