@@ -1,0 +1,156 @@
+# Single-Host Docker-Compose Deploy
+
+This document describes the deployment topology that `scripts/deploy.sh`
+implements: one Linux host, Docker Compose, an externally-managed PostgreSQL
+database, and an nginx reverse proxy in front of the SPA + Rust API.
+
+It is one valid topology. Operators running on Kubernetes, Nomad, hosted
+Docker, plain rsync, or a managed PaaS should write their own deploy
+entry-point and reuse the validators (`scripts/validate-deploy-nats-env.sh`,
+`scripts/check-production-env.sh`). See [Other topologies](#other-topologies)
+below.
+
+## When to use this script
+
+`scripts/deploy.sh` is the right tool when all of the following are true:
+
+- You run the stack on a single host (no clustering, no load-balanced N-of-M
+  rolling deploy).
+- You use Docker Compose with an external service profile.
+- You manage PostgreSQL outside the compose file (e.g. AWS RDS, a managed
+  Postgres, or another container stack on the same host).
+- nginx (or another HTTP server) serves the SPA from a file path on disk and
+  proxies the Rust API + WebSocket traffic to `localhost:${AGENTFORGE_PORT}`.
+- You accept manual rollback on health-check failure (the script exits 1 and
+  leaves the stack in its degraded state for the operator to inspect).
+
+If any of those does not hold, treat this script as a reference and adapt or
+replace it.
+
+## Runtime contract
+
+`scripts/deploy.sh` reads its configuration from environment variables. CI/CD
+pipelines should set the variables explicitly (in GitLab/GitHub project
+settings, Vault, or the deploy bundle). Operators running the script by hand
+should set them in `docker/.env`.
+
+### Required
+
+| Variable  | Notes                                                                                                                                                                                                 |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WEBROOT` | Absolute path nginx serves the SPA from. Required for production. Staging warns and falls back to `/opt/agentforge/www` for backwards compatibility; the fallback will be removed in a later release. |
+
+### Optional (with documented defaults)
+
+| Variable                 | Default                                    | Notes                                                                    |
+| ------------------------ | ------------------------------------------ | ------------------------------------------------------------------------ |
+| `AGENT_REGISTRY`         | _unset_                                    | Registry to pull agent images from. Unset = use local images only.       |
+| `AGENT_TOOLS`            | `claude opencode codex gemini`             | Space-separated agent CLI list.                                          |
+| `REQUIRED_AGENT_TOOL`    | `claude`                                   | Must be present after pull or deploy fails.                              |
+| `AGENTFORGE_NETWORKS`    | `agentforge-agents external-network`       | Space-separated docker networks created (idempotently) before bring-up.  |
+| `COMPOSE_FILES_OVERRIDE` | `-f compose.yml -f compose.external.yml`   | Override the compose file list.                                          |
+| `COMPOSE_PROFILE`        | `external`                                 | Compose profile passed via `--profile`.                                  |
+| `COMPOSE_SERVICE_NAME`   | `agentforge-rust`                          | Service name used for migrate-only and audit lookups.                    |
+| `FRONTEND_IMAGE`         | `agentforge-frontend:${IMAGE_TAG:-latest}` | Local docker image holding `/app/dist/`.                                 |
+| `FRONTEND_DEPLOY_MODE`   | `symlink`                                  | See [Frontend deploy modes](#frontend-deploy-modes).                     |
+| `WEBROOT_OWNER_UID`      | `1000`                                     | Owner UID for written files.                                             |
+| `WEBROOT_OWNER_GID`      | `1000`                                     | Owner GID for written files.                                             |
+| `KEEP_RELEASES`          | `5`                                        | How many release dirs to retain in symlink mode.                         |
+| `AGENT_PULL_RETRIES`     | `3`                                        | Retry attempts for agent pulls.                                          |
+| `AGENT_PULL_BACKOFF`     | `5`                                        | Seconds between retries.                                                 |
+| `HEALTH_PATH`            | `/api/health`                              | Health endpoint path.                                                    |
+| `HEALTH_RETRIES`         | `10`                                       | Curl retry count for health probe.                                       |
+| `HEALTH_BACKOFF`         | `3`                                        | Seconds between health retries.                                          |
+| `AGENTFORGE_PORT`        | `4003`                                     | Port for the health probe (`localhost:$PORT`).                           |
+| `BUNDLE_REQUIRED_FILES`  | `nats.conf seccomp/agentforge-agent.json`  | Bind-mount source files that must exist under `docker/` before bring-up. |
+
+## Frontend deploy modes
+
+`FRONTEND_DEPLOY_MODE` controls how the dist files reach `WEBROOT`.
+
+### `symlink` (default)
+
+1. Extract `/app/dist/` from `agentforge-frontend:${IMAGE_TAG:-latest}` into a
+   timestamped release directory next to `WEBROOT`
+   (`$(dirname "$WEBROOT")/releases/$RELEASE_TS`).
+2. Atomically swap `WEBROOT` to point at the new release via `ln -sfn` plus
+   `mv -T` (a single `rename(2)` syscall).
+3. Retain the most recent `KEEP_RELEASES` release directories.
+
+This mode requires nginx to follow symlinks. If your `nginx.conf` contains
+`disable_symlinks if_not_owner` (or similar), either remove it for `WEBROOT`
+or use `rsync` mode.
+
+### `rsync`
+
+1. Extract `/app/dist/` into a tempdir.
+2. `rsync -a --delete` the tempdir into the existing `WEBROOT` directory.
+3. `chown -R $WEBROOT_OWNER_UID:$WEBROOT_OWNER_GID $WEBROOT`.
+
+Use this mode when nginx refuses symlinks, or when `WEBROOT` is managed by a
+panel UI (e.g. 1Panel, Plesk, BT) that expects the path to remain a real
+directory it owns.
+
+The trade-off: `rsync` is **not atomic**. Browsers loading the SPA mid-deploy
+may see a few hundred milliseconds where index.html points at not-yet-copied
+asset hashes. For most internal staging deployments this is acceptable; for
+production, prefer `symlink` mode if the nginx config allows it.
+
+## nginx requirements
+
+See `examples/nginx/agentforge.conf` for an annotated reference config. The
+key requirements are:
+
+- `root` (or `alias`) points at `WEBROOT`.
+- For `symlink` mode: nginx must follow symlinks. Default behaviour follows
+  them; only set `disable_symlinks` deliberately.
+- WebSocket support: `proxy_pass http://127.0.0.1:${AGENTFORGE_PORT};` with
+  `Upgrade` / `Connection` headers and a long `proxy_read_timeout`.
+- API path proxy: `/api/` forwarded to `localhost:${AGENTFORGE_PORT}` with
+  forwarded-for headers.
+- SPA fallback: requests for unknown paths return `/index.html` so the React
+  router can handle client-side routing.
+- HTTPS termination: TLS certificates configured at the nginx layer (the Rust
+  API binds plain HTTP on `127.0.0.1`).
+
+## Migration note for legacy staging hosts
+
+Earlier versions of `scripts/deploy.sh` hard-coded `WEBROOT=/opt/agentforge/www`
+for staging. Hosts that have not yet set `WEBROOT` in `docker/.env` continue
+to deploy to that path with a warning logged on every run; production already
+fails fast.
+
+To migrate:
+
+1. Set `WEBROOT` in `docker/.env` on the staging host to the path nginx
+   actually serves the SPA from (use `nginx -T | grep root` to confirm).
+2. Re-run the deploy. The warning disappears.
+
+The fallback is scheduled for removal once all staging hosts are migrated.
+
+## Other topologies
+
+The deploy script intentionally targets one specific shape. For other
+topologies, the validators are reusable:
+
+- `scripts/validate-deploy-nats-env.sh` — verifies NATS rollout-flag
+  credentials are present when the matching feature flags are on. Safe to
+  call from any deploy entry-point that uses the same env-var names.
+- `scripts/check-production-env.sh` — verifies a production-grade environment
+  config. Safe to call before applying any production deployment.
+
+Suggested adapter strategies:
+
+- **Kubernetes**: render the same env vars into a Deployment/Job manifest;
+  let the cluster handle rolling restart and frontend serving (e.g. via an
+  ingress + a separate static-asset server like nginx-ingress + a CDN, or via
+  a `frontend-artifact` initContainer that populates an `emptyDir`).
+- **Hosted Docker (Render, Fly, Railway)**: build the frontend image, push to
+  the platform's registry, configure a static-asset bucket for the SPA, and
+  point health checks at `/api/health`.
+- **Plain rsync to a static host**: build dist locally (`npm run build`),
+  rsync to the host, restart the API service via systemd or a similar
+  supervisor.
+
+In each case, run the relevant validator before applying changes so missing
+env vars fail fast with a descriptive error.
