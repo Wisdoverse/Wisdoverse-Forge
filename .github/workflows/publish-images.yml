@@ -1,0 +1,308 @@
+# =============================================================================
+# Publish container images to GitHub Container Registry
+#
+# Triggers
+#   - Push to main:        publishes :main, :sha-<short>, :edge
+#   - Push tag v*:         publishes :<version>, :<major.minor>, :<major>, :latest
+#   - workflow_dispatch:   ad-hoc rebuild from any branch
+#
+# Images published (under ghcr.io/${{ github.repository }})
+#   - frontend (root namespace, e.g. ghcr.io/wisdoverse/wisdoverse-forge:main)
+#   - rust-server, rust-orchestrator, rust-sidecar
+#   - agent-base
+#   - agent-{opencode,codex,gemini}
+#
+# Claude Code is intentionally not published in public images because its
+# package license points to Anthropic terms rather than a standard
+# open-source redistribution license. Operators can build it locally with
+# `make build-agent-all` or push it to a private registry whose terms permit it.
+#
+# OSS operators consume these via scripts/deploy.sh:
+#   AGENT_REGISTRY=ghcr.io/wisdoverse/wisdoverse-forge bash scripts/deploy.sh staging main "ghcr.io/wisdoverse/wisdoverse-forge"
+# =============================================================================
+
+name: Publish Images
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to build (default: current branch)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  publish-frontend:
+    name: Publish frontend + Rust images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: image
+        run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      # ---- frontend ---------------------------------------------------------
+      - id: frontend-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,prefix=sha-,format=short
+            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          target: production
+          push: true
+          tags: ${{ steps.frontend-meta.outputs.tags }}
+          labels: ${{ steps.frontend-meta.outputs.labels }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      # ---- rust-server ------------------------------------------------------
+      - id: server-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/rust-server
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,prefix=sha-,format=short
+            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: ./rust
+          file: ./rust/Dockerfile
+          push: true
+          tags: ${{ steps.server-meta.outputs.tags }}
+          labels: ${{ steps.server-meta.outputs.labels }}
+          cache-from: type=gha,scope=rust-server
+          cache-to: type=gha,mode=max,scope=rust-server
+
+      # ---- rust-sidecar -----------------------------------------------------
+      - id: sidecar-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/rust-sidecar
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,prefix=sha-,format=short
+            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: ./rust
+          file: ./rust/Dockerfile.sidecar
+          push: true
+          tags: ${{ steps.sidecar-meta.outputs.tags }}
+          labels: ${{ steps.sidecar-meta.outputs.labels }}
+          cache-from: type=gha,scope=rust-sidecar
+          cache-to: type=gha,mode=max,scope=rust-sidecar
+
+      # ---- rust-orchestrator -----------------------------------------------
+      - id: orchestrator-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/rust-orchestrator
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,prefix=sha-,format=short
+            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: ./rust
+          file: ./rust/Dockerfile.orchestrator
+          push: true
+          tags: ${{ steps.orchestrator-meta.outputs.tags }}
+          labels: ${{ steps.orchestrator-meta.outputs.labels }}
+          cache-from: type=gha,scope=rust-orchestrator
+          cache-to: type=gha,mode=max,scope=rust-orchestrator
+
+  publish-agent-base:
+    name: Publish agent-base
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: image
+        run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/agent-base
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,prefix=sha-,format=short
+            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile.agent-base
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          sbom: true
+          provenance: true
+          cache-from: type=gha,scope=agent-base
+          cache-to: type=gha,mode=max,scope=agent-base
+
+  publish-agent-cli-images:
+    name: Publish agent-${{ matrix.tool }}
+    needs: publish-agent-base
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - tool: opencode
+            package: opencode-ai
+          - tool: codex
+            package: '@openai/codex'
+          - tool: gemini
+            package: '@google/gemini-cli'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: image
+        run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - id: cli
+        name: Resolve and validate redistributable CLI package
+        env:
+          PACKAGE_NAME: ${{ matrix.package }}
+        run: |
+          set -euo pipefail
+          VERSION="$(npm view "$PACKAGE_NAME" version)"
+          LICENSE="$(npm view "$PACKAGE_NAME" license || true)"
+          case "$LICENSE" in
+            MIT|Apache-2.0|BSD-2-Clause|BSD-3-Clause|ISC|MPL-2.0|"MIT OR Apache-2.0"|"Apache-2.0 OR MIT")
+              ;;
+            *)
+              echo "::error::Package $PACKAGE_NAME has non-allowlisted license '$LICENSE'; refusing to publish public image"
+              exit 1
+              ;;
+          esac
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "license=$LICENSE" >> "$GITHUB_OUTPUT"
+
+      # Combine the build's git ref (matching other images) with the upstream
+      # CLI version so operators can pin either. Compute the agent-base ref so
+      # the build-arg below can address the right tag without GHA expression
+      # gymnastics.
+      - id: refs
+        name: Resolve image refs
+        run: |
+          set -euo pipefail
+          IMAGE="${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/agent-${{ matrix.tool }}"
+          BASE_IMAGE="${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/agent-base"
+          SHA_SHORT="${GITHUB_SHA:0:7}"
+          REF="${GITHUB_REF#refs/heads/}"
+          REF="${REF#refs/tags/}"
+          {
+            echo "tags<<EOF"
+            echo "$IMAGE:${{ steps.cli.outputs.version }}"
+            echo "$IMAGE:sha-$SHA_SHORT"
+            if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+              echo "$IMAGE:main"
+              echo "$IMAGE:edge"
+              echo "BASE_TAG=main" >> /tmp/base_tag.env
+            fi
+            if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+              VERSION="${REF#v}"
+              echo "$IMAGE:$VERSION"
+              echo "$IMAGE:$VERSION-${{ steps.cli.outputs.version }}"
+              echo "$IMAGE:latest"
+              echo "BASE_TAG=$VERSION" >> /tmp/base_tag.env
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          # Fallback: workflow_dispatch or unrecognized ref → pin to sha
+          if [ ! -f /tmp/base_tag.env ]; then
+            echo "BASE_TAG=sha-$SHA_SHORT" > /tmp/base_tag.env
+          fi
+          cat /tmp/base_tag.env >> "$GITHUB_OUTPUT"
+          echo "base_image=$BASE_IMAGE" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile.agent
+          push: true
+          tags: ${{ steps.refs.outputs.tags }}
+          sbom: true
+          provenance: true
+          labels: |
+            org.opencontainers.image.licenses=${{ steps.cli.outputs.license }}
+            org.wisdoverse.cli-version=${{ steps.cli.outputs.version }}
+          build-args: |
+            BASE_IMAGE=${{ steps.refs.outputs.base_image }}:${{ steps.refs.outputs.BASE_TAG }}
+            CLI_TOOL=${{ matrix.tool }}
+            CLI_VERSION=${{ steps.cli.outputs.version }}
+          cache-from: type=gha,scope=agent-${{ matrix.tool }}
+          cache-to: type=gha,mode=max,scope=agent-${{ matrix.tool }}
