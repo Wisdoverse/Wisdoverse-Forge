@@ -18,9 +18,13 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Allow other workflows (release.yml) to reuse this pipeline instead of
+  # duplicating the validate/test/security/build job set.
+  workflow_call:
 
 permissions:
   contents: read
+  security-events: write
 
 concurrency:
   group: ci-${{ github.ref }}
