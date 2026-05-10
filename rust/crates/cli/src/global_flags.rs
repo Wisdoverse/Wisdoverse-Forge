@@ -33,7 +33,7 @@ pub struct GlobalFlags {
     #[arg(long, global = true)]
     pub jq: Option<String>,
 
-    /// Skip TLS certificate verification
+    /// Deprecated; rejected because TLS certificate verification is required
     #[arg(long, global = true)]
     pub insecure: bool,
 

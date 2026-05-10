@@ -70,70 +70,85 @@ fn is_sha256_hex(hash: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use uuid::Uuid;
+
+    fn test_password() -> String {
+        format!("p-{}", Uuid::new_v4())
+    }
 
     #[test]
     fn hash_and_verify_correct_password() {
-        let hash = hash_password("my-secure-password").unwrap();
-        assert!(verify_password("my-secure-password", &hash).unwrap());
+        let password = test_password();
+        let hash = hash_password(&password).unwrap();
+        assert!(verify_password(&password, &hash).unwrap());
     }
 
     #[test]
     fn wrong_password_returns_false() {
-        let hash = hash_password("correct-password").unwrap();
-        assert!(!verify_password("wrong-password", &hash).unwrap());
+        let correct = test_password();
+        let wrong = test_password();
+        let hash = hash_password(&correct).unwrap();
+        assert!(!verify_password(&wrong, &hash).unwrap());
     }
 
     #[test]
     fn hash_is_phc_format() {
-        let hash = hash_password("test").unwrap();
+        let password = test_password();
+        let hash = hash_password(&password).unwrap();
         // PHC string format starts with $argon2id$
         assert!(hash.starts_with("$argon2id$"), "hash was: {hash}");
     }
 
     #[test]
     fn different_calls_produce_different_hashes() {
-        let h1 = hash_password("same-password").unwrap();
-        let h2 = hash_password("same-password").unwrap();
+        let password = test_password();
+        let h1 = hash_password(&password).unwrap();
+        let h2 = hash_password(&password).unwrap();
         // Different salts → different hashes
         assert_ne!(h1, h2);
         // But both verify
-        assert!(verify_password("same-password", &h1).unwrap());
-        assert!(verify_password("same-password", &h2).unwrap());
+        assert!(verify_password(&password, &h1).unwrap());
+        assert!(verify_password(&password, &h2).unwrap());
     }
 
     #[test]
     fn malformed_hash_returns_error() {
-        let result = verify_password("password", "not-a-valid-hash");
+        let password = test_password();
+        let result = verify_password(&password, "not-a-valid-hash");
         assert!(result.is_err());
     }
 
     #[test]
     fn compat_verifies_argon2_without_upgrade() {
-        let hash = hash_password("compat-password").unwrap();
-        let result = verify_password_compat("compat-password", &hash);
+        let password = test_password();
+        let hash = hash_password(&password).unwrap();
+        let result = verify_password_compat(&password, &hash);
         assert!(result.valid);
         assert!(!result.needs_upgrade);
     }
 
     #[test]
     fn compat_verifies_bcrypt_with_upgrade_flag() {
-        let hash = bcrypt::hash("legacy-password", 12).unwrap();
-        let result = verify_password_compat("legacy-password", &hash);
+        let password = test_password();
+        let hash = bcrypt::hash(&password, 12).unwrap();
+        let result = verify_password_compat(&password, &hash);
         assert!(result.valid);
         assert!(result.needs_upgrade);
     }
 
     #[test]
     fn compat_verifies_sha256_hex_with_upgrade_flag() {
-        let hash = format!("{:x}", Sha256::digest(b"legacy-password"));
-        let result = verify_password_compat("legacy-password", &hash);
+        let password = test_password();
+        let hash = format!("{:x}", Sha256::digest(password.as_bytes()));
+        let result = verify_password_compat(&password, &hash);
         assert!(result.valid);
         assert!(result.needs_upgrade);
     }
 
     #[test]
     fn compat_rejects_unknown_hash_format() {
-        let result = verify_password_compat("password", "legacy:opaque");
+        let password = test_password();
+        let result = verify_password_compat(&password, "legacy:opaque");
         assert!(!result.valid);
         assert!(!result.needs_upgrade);
     }

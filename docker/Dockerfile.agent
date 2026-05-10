@@ -5,15 +5,17 @@
 # This image is rebuilt automatically when a new CLI version is detected.
 #
 # Build: docker build -f docker/Dockerfile.agent \
-#          --build-arg CLI_TOOL=claude --build-arg CLI_VERSION=2.1.38 \
-#          -t agentforge-agent-claude:2.1.38 .
+#          --build-arg CLI_TOOL=opencode --build-arg CLI_VERSION=1.14.41 \
+#          -t agentforge-agent-opencode:1.14.41 .
 # =============================================================================
 
 ARG BASE_IMAGE=agentforge-agent-base:latest
 FROM ${BASE_IMAGE}
 
-# CLI_TOOL: claude | opencode | codex | gemini
-ARG CLI_TOOL=claude
+# CLI_TOOL: opencode | codex | gemini.
+# claude remains available for private/operator builds when license terms allow it,
+# but public release workflows intentionally do not publish that overlay image.
+ARG CLI_TOOL=opencode
 # CLI_VERSION: pinned version for reproducible builds (e.g. "2.1.38")
 ARG CLI_VERSION=latest
 # China mirror: pass --build-arg NPM_REGISTRY=https://registry.npmmirror.com

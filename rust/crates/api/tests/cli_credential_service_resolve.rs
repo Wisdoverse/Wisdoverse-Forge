@@ -108,7 +108,7 @@ async fn tier_2_oauth_writes_mount_dir(pool: PgPool) {
     let root = tmp_mount_root("tier2-ok");
     let svc = service_with(pool.clone(), root.clone(), Some(TEST_KEY), Some("system-fallback"), None, None);
 
-    let file_map = serde_json::json!({ "auth.json": r#"{"tokens":{"access_token":"at","refresh_token":"rt"}}"# });
+    let file_map = serde_json::json!({ "state.json": r#"{"status":"connected"}"# });
     let ct = crypto::encrypt_base64(&TEST_KEY, &file_map.to_string()).unwrap();
     sqlx::query(
         "INSERT INTO user_cli_credentials (user_id, cli_tool, encrypted_credentials) VALUES ($1, 'claude', $2)",
@@ -124,8 +124,10 @@ async fn tier_2_oauth_writes_mount_dir(pool: PgPool) {
         inj.env.iter().find(|(k, _)| k == "AGENTFORGE_CREDENTIAL_SOURCE").map(|(_, v)| v.as_str()),
         Some("oauth-db-mount"),
     );
-    let mount = inj.oauth_mount_host_dir.expect("mount dir set");
-    assert!(mount.join("credentials").exists(), "credentials file written at {mount:?}");
+    let Some(mount) = inj.oauth_mount_host_dir else {
+        panic!("OAuth mount dir was not set");
+    };
+    assert!(mount.join("credentials").exists(), "credentials file was not written");
     // Tier 3 must not also activate — no ANTHROPIC_API_KEY from system key.
     assert!(inj.env.iter().all(|(k, _)| k != "ANTHROPIC_API_KEY"));
 }
@@ -171,7 +173,7 @@ async fn tier_3_empty_system_key_treated_as_absent(pool: PgPool) {
     let svc = service_with(pool.clone(), root, Some(TEST_KEY), Some(""), Some(""), Some(""));
 
     let inj = svc.resolve(&common::scope_for(user), "claude", "container-key-4").await.unwrap();
-    assert!(inj.env.is_empty(), "empty system key must produce empty injection, got {:?}", inj.env);
+    assert!(inj.env.is_empty(), "empty system key must produce empty injection");
     assert!(inj.oauth_mount_host_dir.is_none());
 }
 

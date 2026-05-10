@@ -15,6 +15,8 @@ use super::model::{CreateWorkflowRequest, NodeStatus, SignalRequest, Workflow, W
 use super::service::WorkflowService;
 use super::store::Store;
 
+const MAX_WORKFLOW_NODES: usize = 256;
+
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
         .route("/", axum::routing::get(list).post(create))
@@ -77,6 +79,9 @@ async fn create(State(state): State<AppState>, headers: HeaderMap, Json(req): Js
     let Some(name) = req.name.filter(|name| !name.trim().is_empty()) else {
         return error(StatusCode::BAD_REQUEST, "name is required");
     };
+    if req.nodes.len() > MAX_WORKFLOW_NODES {
+        return error(StatusCode::BAD_REQUEST, "workflow node count exceeds limit");
+    }
     if !req.nodes.is_empty()
         && let Err(err) = validate_dag(&req.nodes)
     {
@@ -95,7 +100,7 @@ async fn create(State(state): State<AppState>, headers: HeaderMap, Json(req): Js
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
     };
-    let mut nodes = Vec::with_capacity(req.nodes.len());
+    let mut nodes = Vec::new();
     for (index, node) in req.nodes.into_iter().enumerate() {
         let node_name = match node.name.filter(|name| !name.trim().is_empty()) {
             Some(name) => name,
