@@ -286,7 +286,7 @@ pub(crate) fn validate_password(password: &str) -> Result<(), &'static str> {
 
 fn generate_reset_token() -> String {
     let mut bytes = [0_u8; 32];
-    rand::rngs::OsRng.fill_bytes(&mut bytes);
+    rand::rng().fill_bytes(&mut bytes);
     URL_SAFE_NO_PAD.encode(bytes)
 }
 

@@ -892,7 +892,7 @@ fn needs_refresh(
 
 fn generate_pkce() -> (String, String) {
     let mut bytes = [0u8; 32];
-    rand::thread_rng().fill_bytes(&mut bytes);
+    rand::rng().fill_bytes(&mut bytes);
     let verifier = URL_SAFE_NO_PAD.encode(bytes);
     let mut hasher = Sha256::new();
     hasher.update(verifier.as_bytes());
@@ -903,7 +903,7 @@ fn generate_pkce() -> (String, String) {
 
 fn generate_state() -> String {
     let mut bytes = [0u8; 32];
-    rand::thread_rng().fill_bytes(&mut bytes);
+    rand::rng().fill_bytes(&mut bytes);
     hex::encode(bytes)
 }
 
