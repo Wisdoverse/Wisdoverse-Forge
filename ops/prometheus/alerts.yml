@@ -1,0 +1,154 @@
+# =============================================================================
+# Wisdoverse Forge — Prometheus alert rules (template)
+# =============================================================================
+# Drop-in alert rules covering the SLOs the platform should defend in
+# production. Import via your Prometheus / Alertmanager stack:
+#
+#   prometheus.yml
+#     rule_files:
+#       - /etc/prometheus/agentforge/alerts.yml
+#
+# Routes / receivers (PagerDuty, Slack, email) live in your Alertmanager
+# config — this file describes WHAT to alert on, not WHO to page. Adjust
+# severities and thresholds for your error budget; the values here mirror a
+# generic web-API SLO of 99.9% availability + 1s p95 latency.
+#
+# Metric names assume the Rust API exposes:
+#   * `http_requests_total{code, route, method}` — request counter
+#   * `http_request_duration_seconds_bucket{le, route, method}` — histogram
+#   * `agentforge_orchestration_lag_seconds` — orchestrator backlog age
+#   * `agentforge_nats_consumer_pending_messages` — NATS pending msgs
+#   * `process_resident_memory_bytes` — exporter standard
+#
+# Tweak the metric names / labels to match what `metrics::counter!` / `metrics
+# ::histogram!` calls actually emit in `rust/crates/api/src/services/`.
+# =============================================================================
+
+groups:
+  - name: agentforge.api.availability
+    rules:
+      - alert: APIHigh5xxRate
+        expr: |
+          (
+            sum by (route) (rate(http_requests_total{code=~"5.."}[5m]))
+            /
+            sum by (route) (rate(http_requests_total[5m]))
+          ) > 0.01
+        for: 5m
+        labels:
+          severity: page
+          slo: availability
+        annotations:
+          summary: '5xx rate >1% on {{ $labels.route }} for 5m'
+          runbook: 'docs/runbooks/api-5xx.md'
+
+      - alert: APIErrorBudgetBurn
+        # Multi-window burn-rate alert: 14.4× burn over 1h consumes a 30d
+        # budget in 5d. See SRE Workbook chapter 5.
+        expr: |
+          (
+            sum(rate(http_requests_total{code=~"5.."}[1h]))
+            /
+            sum(rate(http_requests_total[1h]))
+          ) > 0.014
+          and
+          (
+            sum(rate(http_requests_total{code=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) > 0.014
+        for: 2m
+        labels:
+          severity: page
+          slo: availability
+        annotations:
+          summary: 'Error budget burn 14.4× over 1h+5m windows'
+          runbook: 'docs/runbooks/error-budget-burn.md'
+
+  - name: agentforge.api.latency
+    rules:
+      - alert: APILatencyHighP95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, route) (rate(http_request_duration_seconds_bucket[5m]))
+          ) > 1
+        for: 10m
+        labels:
+          severity: page
+          slo: latency
+        annotations:
+          summary: 'p95 latency >1s on {{ $labels.route }} for 10m'
+
+      - alert: APILatencyHighP99
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (le, route) (rate(http_request_duration_seconds_bucket[5m]))
+          ) > 3
+        for: 10m
+        labels:
+          severity: ticket
+          slo: latency
+        annotations:
+          summary: 'p99 latency >3s on {{ $labels.route }} for 10m'
+
+  - name: agentforge.orchestration
+    rules:
+      - alert: OrchestrationLagHigh
+        expr: agentforge_orchestration_lag_seconds > 60
+        for: 5m
+        labels:
+          severity: page
+          slo: orchestration
+        annotations:
+          summary: 'Orchestrator backlog age >60s for 5m'
+          runbook: 'docs/runbooks/orchestration.md'
+
+      - alert: NATSPendingMessagesHigh
+        expr: agentforge_nats_consumer_pending_messages > 1000
+        for: 10m
+        labels:
+          severity: ticket
+          slo: orchestration
+        annotations:
+          summary: 'NATS consumer >1000 pending msgs for 10m'
+          runbook: 'docs/runbooks/nats-auth.md'
+
+  - name: agentforge.deploy
+    rules:
+      - alert: ContainerRestartLoop
+        # cAdvisor / kube-state metric. For raw docker, derive from the
+        # health-check exit code or container_start_time_seconds delta.
+        expr: |
+          increase(container_restart_count{name=~"agentforge-(server|orchestrator)"}[10m]) > 3
+        for: 0m
+        labels:
+          severity: page
+          slo: deploy
+        annotations:
+          summary: '{{ $labels.name }} restarted >3× in 10m'
+
+      - alert: HealthCheckFailing
+        expr: probe_success{job="blackbox", instance=~".*coding\\.itoy\\.dev.*"} == 0
+        for: 3m
+        labels:
+          severity: page
+          slo: deploy
+        annotations:
+          summary: 'Staging /api/health failing for 3m'
+
+  - name: agentforge.resource
+    rules:
+      - alert: APIMemoryHigh
+        expr: |
+          process_resident_memory_bytes{job="agentforge-server"}
+          /
+          on() group_left() (machine_memory_bytes)
+          > 0.8
+        for: 15m
+        labels:
+          severity: ticket
+          slo: resource
+        annotations:
+          summary: 'agentforge-server memory >80% for 15m'
