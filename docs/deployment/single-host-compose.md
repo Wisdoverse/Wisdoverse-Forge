@@ -181,6 +181,34 @@ Authentication: GHCR requires `docker login ghcr.io` with a personal access
 token that has `read:packages` scope, even for public images on some
 runners. Configure this once on each deploy host before running the script.
 
+## Observability + promotion gate
+
+`ops/prometheus/alerts.yml` ships drop-in alert rules covering the SLOs the
+platform should defend in production: 5xx rate >1% / 5m, multi-window error
+budget burn (14.4× over 1h+5m), p95 latency >1s / 10m, p99 >3s / 10m,
+orchestrator backlog age >60s, NATS pending messages >1000, container
+restart loop, staging health-check failure, and resident-memory >80%.
+Mount the file into Prometheus via `rule_files:` and let your existing
+Alertmanager routes wire severities (`page` / `ticket`) to PagerDuty,
+Slack, or email.
+
+`ops/grafana/dashboards/agentforge-overview.json` is the matching overview
+dashboard — request rate per route, 5xx rate, latency p50/p95/p99,
+orchestrator lag, NATS pending, server resident memory, and a
+container-restart stat panel. Import via Grafana → Dashboards → New →
+Import → upload JSON.
+
+`scripts/staging-soak.sh` runs a configurable health-probe loop and exits 0
+only when the soak window stays clean.
+`.github/workflows/promote-to-production.yml` wraps the script as a
+human-in-the-loop `workflow_dispatch` gate: pick a target URL and soak
+duration, the workflow probes for the configured window, prints a
+green-soak summary on success. Operators then dispatch the existing
+`Release` workflow with the same tag knowing the build was actually
+exercised before going live. For the full 24h enterprise window, run the
+script from a long-lived runner / systemd unit instead of a single GitHub
+Actions job (the GitHub-hosted runner ceiling is 6h per job).
+
 ## Other topologies
 
 The deploy script intentionally targets one specific shape. For other
