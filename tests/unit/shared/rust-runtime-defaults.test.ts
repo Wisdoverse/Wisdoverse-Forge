@@ -74,7 +74,7 @@ function assertOverlayDefaults(filePath: string, expectedDependsOn: string[]): v
   const compose = parseCompose(filePath)
   const services = compose.services ?? {}
 
-  expect(services).toHaveProperty('agentforge-rust')
+  expect(services).toHaveProperty('agentforge-server')
   expect(services).toHaveProperty('orchestrator')
   for (const legacyService of legacyServiceNames) {
     expect(services).not.toHaveProperty(legacyService)
@@ -120,22 +120,22 @@ function assertMcpEndpoint(filePath: string, expectedEndpoint: string): void {
 }
 
 describe('rust runtime defaults', () => {
-  it('routes the default orchestrator MCP bridge through agentforge-rust without any legacy runtime services', () => {
+  it('routes the default orchestrator MCP bridge through agentforge-server without any legacy runtime services', () => {
     const compose = parseCompose(baseComposePath)
     const services = compose.services ?? {}
     const orchestrator = services.orchestrator as { depends_on?: unknown; environment?: unknown }
-    const rustApi = services['agentforge-rust'] as { depends_on?: unknown; environment?: unknown }
+    const rustApi = services['agentforge-server'] as { depends_on?: unknown; environment?: unknown }
     const postgres = services.postgres as { volumes?: unknown }
 
-    expect(services).toHaveProperty('agentforge-rust')
+    expect(services).toHaveProperty('agentforge-server')
     for (const legacyService of legacyServiceNames) {
       expect(services).not.toHaveProperty(legacyService)
     }
     for (const helperService of helperServiceNames) {
       expect(services).not.toHaveProperty(helperService)
     }
-    assertMcpEndpoint(baseComposePath, 'ORCHESTRATOR_MCP_ENDPOINT=http://agentforge-rust:${SERVER_PORT:-4003}/mcp')
-    expectDependsOnService(orchestrator.depends_on, 'agentforge-rust')
+    assertMcpEndpoint(baseComposePath, 'ORCHESTRATOR_MCP_ENDPOINT=http://agentforge-server:${SERVER_PORT:-4003}/mcp')
+    expectDependsOnService(orchestrator.depends_on, 'agentforge-server')
     for (const legacyService of legacyServiceNames) {
       expectNotDependsOnService(orchestrator.depends_on, legacyService)
     }
@@ -150,21 +150,21 @@ describe('rust runtime defaults', () => {
     expect(postgresStrings).not.toContain('../server/src/migrations/init:/docker-entrypoint-initdb.d:ro')
   })
 
-  it('routes the dev overlay through agentforge-rust without any legacy runtime services', () => {
+  it('routes the dev overlay through agentforge-server without any legacy runtime services', () => {
     assertOverlayDefaults(devComposePath, ['orchestrator-db', 'temporal'])
   })
 
-  it('routes the external overlay through agentforge-rust without any legacy runtime services', () => {
+  it('routes the external overlay through agentforge-server without any legacy runtime services', () => {
     assertOverlayDefaults(externalComposePath, ['temporal-ext'])
-    assertMcpEndpoint(externalComposePath, 'ORCHESTRATOR_MCP_ENDPOINT=http://agentforge-rust:${SERVER_PORT:-4003}/mcp')
+    assertMcpEndpoint(externalComposePath, 'ORCHESTRATOR_MCP_ENDPOINT=http://agentforge-server:${SERVER_PORT:-4003}/mcp')
   })
 
-  it('routes the prod overlay through agentforge-rust without any legacy runtime services', () => {
+  it('routes the prod overlay through agentforge-server without any legacy runtime services', () => {
     const compose = parseCompose(prodComposePath)
     const services = compose.services ?? {}
-    const rustApi = services['agentforge-rust'] as { depends_on?: unknown; environment?: unknown }
+    const rustApi = services['agentforge-server'] as { depends_on?: unknown; environment?: unknown }
 
-    expect(services).toHaveProperty('agentforge-rust')
+    expect(services).toHaveProperty('agentforge-server')
     expect(services).toHaveProperty('backup')
     for (const legacyService of legacyServiceNames) {
       expect(services).not.toHaveProperty(legacyService)

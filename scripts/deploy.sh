@@ -24,7 +24,7 @@
 #                               Default: "agentforge-agents external-network".
 #   COMPOSE_FILES_OVERRIDE      Override `-f compose.yml -f compose.external.yml`.
 #   COMPOSE_PROFILE             Compose profile passed via `--profile`. Default: "external".
-#   COMPOSE_SERVICE_NAME        Service name for migrate/audit lookups. Default: "agentforge-rust".
+#   COMPOSE_SERVICE_NAME        Service name for migrate/audit lookups. Default: "agentforge-server".
 #   FRONTEND_IMAGE              Local docker image holding `/app/dist/`.
 #                               Default: "agentforge-frontend:${IMAGE_TAG:-latest}".
 #   FRONTEND_DEPLOY_MODE        "symlink" (default) or "rsync".
@@ -126,7 +126,7 @@ fi
 # ---------------------------------------------------------------------------
 COMPOSE_FILES="${COMPOSE_FILES_OVERRIDE:--f compose.yml -f compose.external.yml}"
 COMPOSE_PROFILE="${COMPOSE_PROFILE:-external}"
-COMPOSE_SERVICE_NAME="${COMPOSE_SERVICE_NAME:-agentforge-rust}"
+COMPOSE_SERVICE_NAME="${COMPOSE_SERVICE_NAME:-agentforge-server}"
 AGENT_TOOLS="${AGENT_TOOLS:-claude opencode codex gemini}"
 REQUIRED_AGENT_TOOL="${REQUIRED_AGENT_TOOL:-claude}"
 AGENTFORGE_NETWORKS="${AGENTFORGE_NETWORKS:-agentforge-agents external-network}"
@@ -203,16 +203,16 @@ done
 if [ -n "$IMAGE_TAG" ] && [ -n "$REGISTRY_IMAGE" ]; then
   log "Pulling images from registry (tag: $IMAGE_TAG)..."
 
-  REMOTE_RUST_SERVER="$REGISTRY_IMAGE/rust-server:$IMAGE_TAG"
+  REMOTE_RUST_SERVER="$REGISTRY_IMAGE/server:$IMAGE_TAG"
   log "Pulling $REMOTE_RUST_SERVER..."
   if ! docker pull "$REMOTE_RUST_SERVER"; then
     log_error "Failed to pull $REMOTE_RUST_SERVER"
     exit 1
   fi
-  docker tag "$REMOTE_RUST_SERVER" "agentforge-rust-server:$IMAGE_TAG"
-  docker tag "$REMOTE_RUST_SERVER" "agentforge-rust-server:latest"
+  docker tag "$REMOTE_RUST_SERVER" "agentforge-server:$IMAGE_TAG"
+  docker tag "$REMOTE_RUST_SERVER" "agentforge-server:latest"
 
-  REMOTE_RUST_ORCHESTRATOR="$REGISTRY_IMAGE/rust-orchestrator:$IMAGE_TAG"
+  REMOTE_RUST_ORCHESTRATOR="$REGISTRY_IMAGE/orchestrator:$IMAGE_TAG"
   log "Pulling $REMOTE_RUST_ORCHESTRATOR..."
   if ! docker pull "$REMOTE_RUST_ORCHESTRATOR"; then
     log_error "Failed to pull $REMOTE_RUST_ORCHESTRATOR"

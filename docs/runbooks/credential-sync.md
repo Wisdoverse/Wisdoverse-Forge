@@ -125,7 +125,7 @@ If a user reports their CLI credentials didn't persist:
 
 ```bash
 # Backend
-docker compose --env-file docker/.env -f docker/compose.yml --profile external up -d --force-recreate agentforge-rust
+docker compose --env-file docker/.env -f docker/compose.yml --profile external up -d --force-recreate agentforge-server
 # Set CREDENTIAL_SYNC_ENABLED=false in the backend environment before restart.
 # Agent containers started after this inherit the flag from API env.
 ```
