@@ -8,7 +8,7 @@
 #
 # Images published (under ghcr.io/${{ github.repository }})
 #   - frontend (root namespace, e.g. ghcr.io/wisdoverse/wisdoverse-forge:main)
-#   - rust-server, rust-orchestrator, rust-sidecar
+#   - server, orchestrator, sidecar
 #   - agent-base
 #   - agent-{opencode,codex,gemini}
 #
@@ -87,11 +87,11 @@ jobs:
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
-      # ---- rust-server ------------------------------------------------------
+      # ---- server ------------------------------------------------------
       - id: server-meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/rust-server
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/server
           tags: |
             type=ref,event=branch
             type=ref,event=tag
@@ -108,14 +108,14 @@ jobs:
           push: true
           tags: ${{ steps.server-meta.outputs.tags }}
           labels: ${{ steps.server-meta.outputs.labels }}
-          cache-from: type=gha,scope=rust-server
-          cache-to: type=gha,mode=max,scope=rust-server
+          cache-from: type=gha,scope=server
+          cache-to: type=gha,mode=max,scope=server
 
-      # ---- rust-sidecar -----------------------------------------------------
+      # ---- sidecar -----------------------------------------------------
       - id: sidecar-meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/rust-sidecar
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/sidecar
           tags: |
             type=ref,event=branch
             type=ref,event=tag
@@ -132,14 +132,14 @@ jobs:
           push: true
           tags: ${{ steps.sidecar-meta.outputs.tags }}
           labels: ${{ steps.sidecar-meta.outputs.labels }}
-          cache-from: type=gha,scope=rust-sidecar
-          cache-to: type=gha,mode=max,scope=rust-sidecar
+          cache-from: type=gha,scope=sidecar
+          cache-to: type=gha,mode=max,scope=sidecar
 
-      # ---- rust-orchestrator -----------------------------------------------
+      # ---- orchestrator -----------------------------------------------
       - id: orchestrator-meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/rust-orchestrator
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/orchestrator
           tags: |
             type=ref,event=branch
             type=ref,event=tag
@@ -156,8 +156,8 @@ jobs:
           push: true
           tags: ${{ steps.orchestrator-meta.outputs.tags }}
           labels: ${{ steps.orchestrator-meta.outputs.labels }}
-          cache-from: type=gha,scope=rust-orchestrator
-          cache-to: type=gha,mode=max,scope=rust-orchestrator
+          cache-from: type=gha,scope=orchestrator
+          cache-to: type=gha,mode=max,scope=orchestrator
 
   publish-agent-base:
     name: Publish agent-base

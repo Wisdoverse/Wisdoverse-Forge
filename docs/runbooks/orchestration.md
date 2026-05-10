@@ -25,7 +25,7 @@ Check server health and logs:
 
 ```bash
 curl -fsS http://127.0.0.1:4003/health
-docker compose -f docker/compose.yml --profile external logs --since=15m agentforge-rust \
+docker compose -f docker/compose.yml --profile external logs --since=15m agentforge-server \
   | rg 'orchestration|participant|outbox|lease|result'
 ```
 
@@ -220,7 +220,7 @@ Rollback order during an incident:
 After any flag change:
 
 ```bash
-docker compose --env-file docker/.env -f docker/compose.yml --profile external up -d --force-recreate agentforge-rust
+docker compose --env-file docker/.env -f docker/compose.yml --profile external up -d --force-recreate agentforge-server
 curl -fsS http://127.0.0.1:4003/health
 ```
 
@@ -360,7 +360,7 @@ Alert: `OrchestrationResultUnauthorizedSpike`
 Verify:
 
 ```bash
-docker compose -f docker/compose.yml --profile external logs --since=15m agentforge-rust \
+docker compose -f docker/compose.yml --profile external logs --since=15m agentforge-server \
   | rg 'orchestration result rejected|agent_unknown|signature_mismatch|timestamp_outside_window'
 ```
 
@@ -473,7 +473,7 @@ For local `prod-ext`, the default ports match the compose stack:
 ```bash
 DATABASE_URL="$(sed -n 's/^DATABASE_URL=//p' docker/.env | head -n 1)" \
 PSQL_DOCKER_NETWORK="$(sed -n 's/^EXTERNAL_NETWORK=//p' docker/.env | head -n 1)" \
-DOCKER_CONTAINER=agentforge-rust \
+DOCKER_CONTAINER=agentforge-server \
 SNAPSHOT_OUTPUT=/tmp/orchestration-gate-snapshot.md \
 scripts/release/orchestration_gate_snapshot.sh
 ```

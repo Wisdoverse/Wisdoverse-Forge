@@ -33,12 +33,12 @@ services:
   # Rust Backend (default runtime path)
   # Single binary: 25MB image, 256M memory, handles all API + container mgmt
   # ---------------------------------------------------------------------------
-  agentforge-rust:
+  agentforge-server:
     build:
       context: ../rust
       dockerfile: Dockerfile
-    image: agentforge-rust-server:${VERSION:-latest}
-    container_name: agentforge-rust
+    image: agentforge-server:${VERSION:-latest}
+    container_name: agentforge-server
     hostname: agentforge
     oom_score_adj: -200
     restart: unless-stopped
@@ -724,7 +724,7 @@ services:
       - ORCHESTRATOR_DATABASE_URL=postgres://orchestrator:${ORCHESTRATOR_DB_PASSWORD:-orchestrator}@orchestrator-db:5432/orchestrator?sslmode=disable
       - ORCHESTRATOR_OIDC_ISSUER=${OIDC_ISSUER:-http://casdoor:8000}
       - ORCHESTRATOR_OIDC_CLIENT_ID=${OIDC_CLIENT_ID:-orchestrator}
-      - ORCHESTRATOR_MCP_ENDPOINT=http://agentforge-rust:${SERVER_PORT:-4003}/mcp
+      - ORCHESTRATOR_MCP_ENDPOINT=http://agentforge-server:${SERVER_PORT:-4003}/mcp
       - ORCHESTRATOR_MCP_TOKEN=${MCP_TOKEN:-orchestrator-internal-token}
       - ORCHESTRATOR_INTERNAL_TOKEN=${MCP_TOKEN:-orchestrator-internal-token}
       - ORCHESTRATOR_REDIS_URL=redis://redis:6379/0
@@ -732,7 +732,7 @@ services:
       - ORCHESTRATOR_TEMPORAL_HOST=temporal-internal:7233
       - ORCHESTRATOR_TEMPORAL_NAMESPACE=default
     depends_on:
-      agentforge-rust:
+      agentforge-server:
         condition: service_started
     networks:
       - default

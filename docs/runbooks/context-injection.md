@@ -63,7 +63,7 @@ Applies to the governed context runtime path:
 
    ```bash
    docker compose -f docker/compose.yml -f docker/compose.external.yml \
-     --profile external logs --since=15m agentforge-rust \
+     --profile external logs --since=15m agentforge-server \
      | rg 'context|envelope|injection|adapter'
    ```
 

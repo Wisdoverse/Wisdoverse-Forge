@@ -11,7 +11,7 @@
 # =============================================================================
 
 services:
-  agentforge-rust:
+  agentforge-server:
     ports:
       - '${BIND_ADDRESS:-0.0.0.0}:${AGENTFORGE_PORT:-4003}:4003'
 

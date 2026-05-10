@@ -14,7 +14,7 @@
 # =============================================================================
 
 services:
-  agentforge-rust:
+  agentforge-server:
     networks:
       - default
       - external-network
@@ -26,7 +26,7 @@ services:
         condition: service_healthy
     environment:
       - ORCHESTRATOR_DATABASE_URL=${ORCHESTRATOR_DATABASE_URL:?set ORCHESTRATOR_DATABASE_URL}
-      - ORCHESTRATOR_MCP_ENDPOINT=http://agentforge-rust:${SERVER_PORT:-4003}/mcp
+      - ORCHESTRATOR_MCP_ENDPOINT=http://agentforge-server:${SERVER_PORT:-4003}/mcp
       - ORCHESTRATOR_TEMPORAL_HOST=temporal-internal:7233
       - ORCHESTRATOR_AUTH_MODE=internal-token
       - ORCHESTRATOR_INTERNAL_TOKEN=${MCP_TOKEN}
