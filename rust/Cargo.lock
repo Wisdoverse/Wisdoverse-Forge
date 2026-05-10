@@ -334,7 +334,7 @@ dependencies = [
  "agentforge-core",
  "bollard",
  "prost 0.13.5",
- "prost-build 0.13.5",
+ "prost-build 0.14.3",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
