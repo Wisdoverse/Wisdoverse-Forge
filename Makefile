@@ -120,6 +120,53 @@ prod-ext-logs: ## View production external logs
 	$(COMPOSE) -f docker/compose.external.yml --profile external logs -f
 
 # =============================================================================
+# Production from GHCR (no local build of Rust / frontend)
+# =============================================================================
+#
+# Pulls server images from GHCR and rebuilds only the Claude agent image
+# locally. Claude is intentionally not published in public GHCR because its
+# package license points to Anthropic terms rather than a standard
+# open-source redistribution license — operators must build it themselves
+# after accepting those terms (see docs/deployment/single-host-compose.md).
+#
+# GHCR_IMAGE_TAG follows the same scheme as scripts/deploy.sh:
+#   * Set to `main` to track the latest main-branch GHCR build (default).
+#   * Pin to `:0.2.0`, `:sha-abc1234`, `:edge`, etc. for reproducibility.
+#
+# Override the registry namespace via PUBLIC_AGENT_REGISTRY (defaults to
+# `ghcr.io/wisdoverse/wisdoverse-forge`) when forking the project.
+
+GHCR_IMAGE_TAG ?= $(or $(shell grep -m1 '^GHCR_IMAGE_TAG=' docker/.env 2>/dev/null | cut -d= -f2),main)
+
+.PHONY: pull-server-images
+pull-server-images: ## Pull rust-server / orchestrator / frontend from GHCR and re-tag for compose
+	@if [ -z "$(AGENT_REGISTRY)" ]; then \
+		echo "Error: AGENT_REGISTRY not set."; \
+		echo "Set it in docker/.env or pass via: make pull-server-images AGENT_REGISTRY=$(PUBLIC_AGENT_REGISTRY)"; \
+		exit 1; \
+	fi
+	@echo "Pulling server images from $(AGENT_REGISTRY) (tag: $(GHCR_IMAGE_TAG))..."
+	docker pull $(AGENT_REGISTRY)/rust-server:$(GHCR_IMAGE_TAG)
+	docker tag $(AGENT_REGISTRY)/rust-server:$(GHCR_IMAGE_TAG) agentforge-rust-server:$(GHCR_IMAGE_TAG)
+	docker tag $(AGENT_REGISTRY)/rust-server:$(GHCR_IMAGE_TAG) agentforge-rust-server:latest
+	docker pull $(AGENT_REGISTRY)/rust-orchestrator:$(GHCR_IMAGE_TAG)
+	docker tag $(AGENT_REGISTRY)/rust-orchestrator:$(GHCR_IMAGE_TAG) agentforge-orchestrator:$(GHCR_IMAGE_TAG)
+	docker tag $(AGENT_REGISTRY)/rust-orchestrator:$(GHCR_IMAGE_TAG) agentforge-orchestrator:latest
+	docker pull $(AGENT_REGISTRY):$(GHCR_IMAGE_TAG)
+	docker tag $(AGENT_REGISTRY):$(GHCR_IMAGE_TAG) agentforge-frontend:$(GHCR_IMAGE_TAG)
+	docker tag $(AGENT_REGISTRY):$(GHCR_IMAGE_TAG) agentforge-frontend:latest
+	@echo "Server images pulled and tagged for compose."
+
+.PHONY: prod-ext-pull
+prod-ext-pull: setup-external pull-server-images update-agent-base build-claude ## Production with external services using GHCR images (Claude built locally)
+	@echo "Bringing up the stack without --build (uses pulled images)..."
+	$(COMPOSE) -f docker/compose.external.yml --profile external up -d --remove-orphans
+
+.PHONY: build-claude
+build-claude: ensure-agent-base ## Build the Claude agent image locally (license requires self-build)
+	@$(MAKE) build-agent CLI_TOOL=claude
+
+# =============================================================================
 # Rust Backend (replaces TS+Go with single Rust binary)
 # =============================================================================
 
