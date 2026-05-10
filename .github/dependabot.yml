@@ -1,0 +1,200 @@
+# =============================================================================
+# Dependabot configuration
+# =============================================================================
+# Replaces the previous GitLab-side Renovate setup after the GitHub-as-source-
+# of-truth migration. Security updates are always on for every ecosystem
+# Dependabot supports — the entries below add scheduled version updates with
+# noise control: weekly cadence, per-ecosystem grouping, and PR caps so a busy
+# upstream week does not flood the queue.
+#
+# Schedule: Mondays 08:00 Asia/Shanghai (00:00 UTC). Picks the start of the
+# work week; review queue stays empty over the weekend.
+# =============================================================================
+
+version: 2
+
+updates:
+  # ---------------------------------------------------------------------------
+  # npm (root) — frontend + tooling
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+      time: '00:00'
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels: ['dependencies', 'npm']
+    commit-message:
+      prefix: 'chore(deps)'
+      prefix-development: 'chore(deps-dev)'
+      include: scope
+    groups:
+      # Bundle non-major bumps into one PR per group so reviewer load is bounded.
+      types-and-tooling:
+        applies-to: version-updates
+        patterns:
+          - '@types/*'
+          - 'eslint*'
+          - 'prettier*'
+          - 'vitest*'
+          - 'typescript'
+          - 'tsx'
+          - '@typescript-eslint/*'
+        update-types:
+          - minor
+          - patch
+      vite-and-react:
+        applies-to: version-updates
+        patterns:
+          - 'vite*'
+          - '@vitejs/*'
+          - 'react'
+          - 'react-dom'
+          - '@tanstack/*'
+        update-types:
+          - minor
+          - patch
+      tailwind-and-styles:
+        applies-to: version-updates
+        patterns:
+          - 'tailwindcss*'
+          - 'postcss*'
+          - 'autoprefixer'
+          - '@tailwindcss/*'
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Lock major bumps for the heavy frameworks behind manual review — they
+      # tend to ship with breaking changes that need release-note triage.
+      - dependency-name: 'react'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'react-dom'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'vite'
+        update-types: ['version-update:semver-major']
+
+  # ---------------------------------------------------------------------------
+  # cargo — Rust workspace
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: cargo
+    directory: '/rust'
+    schedule:
+      interval: weekly
+      day: monday
+      time: '00:00'
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels: ['dependencies', 'rust']
+    commit-message:
+      prefix: 'chore(deps)'
+      include: scope
+    groups:
+      tokio-stack:
+        applies-to: version-updates
+        patterns:
+          - 'tokio*'
+          - 'tower*'
+          - 'hyper*'
+          - 'axum*'
+          - 'tonic*'
+        update-types:
+          - minor
+          - patch
+      serde-and-data:
+        applies-to: version-updates
+        patterns:
+          - 'serde*'
+          - 'sqlx*'
+          - 'uuid'
+          - 'chrono'
+          - 'time'
+        update-types:
+          - minor
+          - patch
+      observability:
+        applies-to: version-updates
+        patterns:
+          - 'tracing*'
+          - 'metrics*'
+          - 'opentelemetry*'
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Major Rust runtime bumps gated on intentional upgrades.
+      - dependency-name: 'tokio'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'axum'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'sqlx'
+        update-types: ['version-update:semver-major']
+
+  # ---------------------------------------------------------------------------
+  # docker — Dockerfile FROM line bumps
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: docker
+    directory: '/docker'
+    schedule:
+      interval: weekly
+      day: monday
+      time: '00:00'
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    labels: ['dependencies', 'docker']
+    commit-message:
+      prefix: 'chore(deps)'
+      include: scope
+    groups:
+      base-images:
+        applies-to: version-updates
+        patterns:
+          - 'node'
+          - 'alpine'
+          - 'rust'
+
+  - package-ecosystem: docker
+    directory: '/rust'
+    schedule:
+      interval: weekly
+      day: monday
+      time: '00:00'
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    labels: ['dependencies', 'docker']
+    commit-message:
+      prefix: 'chore(deps)'
+      include: scope
+    groups:
+      base-images:
+        applies-to: version-updates
+        patterns:
+          - 'rust'
+          - 'alpine'
+          - 'debian'
+
+  # ---------------------------------------------------------------------------
+  # github-actions — workflow yaml uses-version bumps
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+      time: '00:00'
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    labels: ['dependencies', 'github-actions']
+    commit-message:
+      prefix: 'chore(ci)'
+      include: scope
+    groups:
+      actions:
+        applies-to: version-updates
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
