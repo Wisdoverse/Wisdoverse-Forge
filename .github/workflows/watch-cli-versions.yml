@@ -107,7 +107,7 @@ jobs:
           echo "license=$LICENSE" >> "$GITHUB_OUTPUT"
 
       - name: Install crane
-        uses: imjasonh/setup-crane@v0.4
+        uses: imjasonh/setup-crane@v0.5
 
       - id: drift
         name: Compare upstream vs published image label
