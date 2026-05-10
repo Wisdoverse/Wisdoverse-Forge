@@ -128,6 +128,59 @@ To migrate:
 
 The fallback is scheduled for removal once all staging hosts are migrated.
 
+## Image registry
+
+Container images are published to GitHub Container Registry on every push to
+`main` and on every `v*` tag. Authenticated pulls work for any GitHub account
+once the package visibility is set to public on the project's GHCR settings
+page.
+
+| Image                                                               | Built from                     | Notes                                                                     |
+| ------------------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------- |
+| `ghcr.io/wisdoverse/wisdoverse-forge`                               | `docker/Dockerfile`            | SPA frontend image (used by `scripts/deploy.sh` to extract `/app/dist/`). |
+| `ghcr.io/wisdoverse/wisdoverse-forge/rust-server`                   | `rust/Dockerfile`              | Main API binary.                                                          |
+| `ghcr.io/wisdoverse/wisdoverse-forge/rust-orchestrator`             | `rust/Dockerfile.orchestrator` | Temporal workflow runner.                                                 |
+| `ghcr.io/wisdoverse/wisdoverse-forge/rust-sidecar`                  | `rust/Dockerfile.sidecar`      | Per-agent container sidecar.                                              |
+| `ghcr.io/wisdoverse/wisdoverse-forge/agent-base`                    | `docker/Dockerfile.agent-base` | Shared base for agent containers.                                         |
+| `ghcr.io/wisdoverse/wisdoverse-forge/agent-{opencode,codex,gemini}` | `docker/Dockerfile.agent`      | Per-CLI overlay images.                                                   |
+
+The Claude CLI image is intentionally **not** published in public GHCR
+because the package license points to Anthropic terms rather than a
+standard open-source redistribution license. Operators can build it locally
+with `make build-agent-all` or push it to a private registry whose terms
+permit redistribution.
+
+### Tag scheme
+
+| Trigger             | Tags applied                                      |
+| ------------------- | ------------------------------------------------- |
+| Push to `main`      | `:main`, `:edge`, `:sha-<short>`                  |
+| Push tag `v0.2.0`   | `:0.2.0`, `:0.2`, `:0`, `:latest`, `:sha-<short>` |
+| `workflow_dispatch` | `:sha-<short>` only (use for ad-hoc rebuilds)     |
+
+### Pulling for `scripts/deploy.sh`
+
+Set the registry-image env vars to point at GHCR:
+
+```bash
+# In docker/.env or in your deploy environment:
+AGENT_REGISTRY=ghcr.io/wisdoverse/wisdoverse-forge
+```
+
+Then invoke the deploy with the desired tag:
+
+```bash
+# Pinned to a release tag
+bash scripts/deploy.sh staging 0.2.0 ghcr.io/wisdoverse/wisdoverse-forge
+
+# Tracking main (bleeding edge — use only for non-production environments)
+bash scripts/deploy.sh staging main ghcr.io/wisdoverse/wisdoverse-forge
+```
+
+Authentication: GHCR requires `docker login ghcr.io` with a personal access
+token that has `read:packages` scope, even for public images on some
+runners. Configure this once on each deploy host before running the script.
+
 ## Other topologies
 
 The deploy script intentionally targets one specific shape. For other
