@@ -1,7 +1,10 @@
 # =============================================================================
 # Wisdoverse Forge Scheduled Security Scan
 #
-# Runs weekly to detect new vulnerabilities in dependencies.
+# Weekly cron that catches new CVE intelligence against pinned dependencies
+# without requiring a code change. Source-change-only checks
+# (dangerous-patterns, secret-scan) are intentionally NOT duplicated here —
+# ci.yml already runs them on every push/PR.
 # =============================================================================
 
 name: Security
@@ -16,18 +19,17 @@ permissions:
 
 env:
   NODE_VERSION: '24'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   dependency-audit:
     name: Dependency Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: ./.github/actions/setup-node-cache
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
       - name: Full audit report
         run: npm audit --audit-level=moderate || true
       - name: Fail on critical/high
@@ -39,19 +41,3 @@ jobs:
           if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
             exit 1
           fi
-
-  dangerous-patterns:
-    name: Dangerous Pattern Scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Scan for dangerous patterns
-        run: node scripts/check-dangerous-patterns.mjs
-
-  secret-scan:
-    name: Secret Leak Scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Scan for secrets
-        run: node scripts/check-secret-scan.mjs

@@ -7,7 +7,7 @@
 # Enterprise patterns:
 #   - Concurrency groups to auto-cancel superseded runs
 #   - DAG via needs/job dependencies for maximum parallelism
-#   - npm cache via actions/setup-node
+#   - Shared setup via .github/actions/setup-node-cache composite
 #   - Security scans run with zero dependencies (immediate start)
 # =============================================================================
 
@@ -29,6 +29,7 @@ concurrency:
 env:
   # IMPORTANT: Keep NODE_VERSION in sync with Dockerfile Node build args.
   NODE_VERSION: '24'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   # ===========================================================================
@@ -39,36 +40,30 @@ jobs:
     name: ESLint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: ./.github/actions/setup-node-cache
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
       - run: npm run lint
 
   prettier:
     name: Prettier
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: ./.github/actions/setup-node-cache
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
       - run: npm run format:check
 
   typecheck:
     name: Typecheck (Client)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: ./.github/actions/setup-node-cache
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
       - run: npm run typecheck
 
   version-guard:
@@ -76,12 +71,13 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup-node-cache
         with:
           node-version: ${{ env.NODE_VERSION }}
+          install: 'false'
       - name: Check version consistency
         run: |
           set -eo pipefail
@@ -111,16 +107,14 @@ jobs:
     needs: [eslint, prettier, typecheck]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: ./.github/actions/setup-node-cache
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
       - run: npm run test:unit -- --reporter=default --reporter=junit --outputFile=junit-report.xml
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: junit-report
           path: junit-report.xml
@@ -131,16 +125,14 @@ jobs:
     needs: [unit-test]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: ./.github/actions/setup-node-cache
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
       - run: npm run test:integration -- --reporter=default --reporter=junit --outputFile=junit-integration.xml
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: junit-integration-report
           path: junit-integration.xml
@@ -151,16 +143,14 @@ jobs:
     needs: [unit-test]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: ./.github/actions/setup-node-cache
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
       - run: npm run test:coverage
       - name: Upload coverage
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-report
           path: coverage/
@@ -189,7 +179,7 @@ jobs:
     env:
       DATABASE_URL: postgres://agentforge@localhost:5432/agentforge_test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Install protobuf compiler
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Install Rust toolchain
@@ -197,7 +187,7 @@ jobs:
         run: |
           rustup toolchain install stable --profile minimal
           rustup component add clippy rustfmt --toolchain stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: rust
       - name: Check Rust formatting
@@ -218,12 +208,10 @@ jobs:
     name: Dependency Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: ./.github/actions/setup-node-cache
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
       - name: Audit dependencies
         run: |
           RESULT=$(npm audit --json 2>/dev/null || echo '{}')
@@ -241,7 +229,7 @@ jobs:
     name: Dangerous Pattern Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Scan for dangerous patterns
         run: node scripts/check-dangerous-patterns.mjs
 
@@ -249,7 +237,7 @@ jobs:
     name: Secret Leak Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Scan for secrets
         run: node scripts/check-secret-scan.mjs
 
@@ -262,14 +250,12 @@ jobs:
     needs: [eslint, prettier, typecheck, unit-test]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: ./.github/actions/setup-node-cache
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
       - run: npm run build:client
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: client-dist
           path: dist/
@@ -283,6 +269,10 @@ jobs:
   # HIGH-severity issues land in the dep graph; MEDIUM/LOW are surfaced as
   # warnings without blocking the merge.
   #
+  # Secret detection is intentionally disabled (`scanners: vuln`) — the
+  # dedicated `Secret Leak Scan` job (gitleaks) owns that surface and Trivy's
+  # secret scanner false-positives on redaction sentinels.
+  #
   # Image scans live separately on GHCR via build-time provenance/SBOM; this
   # job catches drift in source-managed manifests before publish.
   # ===========================================================================
@@ -294,9 +284,9 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Run Trivy in fs mode
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -308,7 +298,7 @@ jobs:
           output: trivy-results.sarif
       - name: Upload SARIF to code scanning
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@68bde559dea0fdcac2102bfdf6230c5f70eb485e # v4
         with:
           sarif_file: trivy-results.sarif
           category: trivy-fs
