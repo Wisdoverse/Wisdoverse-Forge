@@ -90,7 +90,7 @@ data-encoding = "2.9"
 secrecy = { version = "0.10", features = ["serde"] }
 
 # Random
-rand = "0.8"
+rand = "0.9"
 
 # Async streams
 futures = "0.3"
