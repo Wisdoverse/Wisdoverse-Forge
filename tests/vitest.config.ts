@@ -78,13 +78,19 @@ export default defineConfig({
         'shared/generated/platform/**',
       ],
       // Default root coverage tracks all active frontend/shared code.
-      // Keep the global baseline close to the current full-surface reality,
-      // and let scripts/check-critical-coverage.cjs enforce higher-signal paths.
+      // Thresholds sit a few points below the current full-surface reality
+      // (~41/40/48/41 stmts/branch/funcs/lines) so a regression on a busy
+      // code path fails fast without flagging incidental drift on a slow PR.
+      // scripts/check-critical-coverage.cjs enforces higher-signal paths
+      // (turn-builder, legacy API client) at 90/75 lines/branches.
+      // Operators raising the bar should bump this block plus the targets
+      // in `scripts/check-critical-coverage.cjs` together so the global
+      // floor and the per-path ceilings move in lockstep.
       thresholds: {
-        lines: 11,
-        branches: 9,
-        functions: 11,
-        statements: 11,
+        lines: 35,
+        branches: 30,
+        functions: 40,
+        statements: 35,
       },
       reporter: isCi ? ['text', 'cobertura'] : ['text', 'cobertura', 'html'],
       reportsDirectory: './coverage',
