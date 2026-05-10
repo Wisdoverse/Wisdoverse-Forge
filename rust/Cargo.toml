@@ -129,7 +129,7 @@ config = "0.15"
 # Testing
 temp-env = "0.3"
 tonic-build = "0.12"
-prost-build = "0.13"
+prost-build = "0.14"
 
 # Internal crates
 agentforge-core = { path = "crates/core" }
