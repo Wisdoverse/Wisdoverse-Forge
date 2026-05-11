@@ -50,7 +50,7 @@ async-stream.workspace = true
 test-support = ["agentforge-llm/test-support"]
 
 [dev-dependencies]
-bcrypt = "0.16"
+bcrypt = "0.19"
 http = "1"
 agentforge-llm = { workspace = true, features = ["test-support"] }
 agentforge-api = { path = ".", features = ["test-support"] }
