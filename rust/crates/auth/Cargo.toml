@@ -8,7 +8,7 @@ license-file.workspace = true
 agentforge-core.workspace = true
 jsonwebtoken.workspace = true
 argon2 = "0.5"
-bcrypt = "0.16"
+bcrypt = "0.19"
 axum = { workspace = true }
 chrono.workspace = true
 uuid.workspace = true
