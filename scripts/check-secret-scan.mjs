@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 const args = new Set(process.argv.slice(2))
-const scanRoots = ['.github', 'rust', 'shared', 'src', 'scripts', 'docker', 'index.html']
+const scanRoots = ['.github', 'rust', 'shared', 'src', 'scripts', 'docker', 'ops', 'index.html']
 const allowedExtensions = new Set([
   '.html',
   '.ts',
@@ -11,6 +11,7 @@ const allowedExtensions = new Set([
   '.mjs',
   '.cjs',
   '.rs',
+  '.sh',
   '.toml',
   '.json',
   '.yml',
@@ -37,6 +38,23 @@ const secretPatterns = [
   { kind: 'assignment', regex: /secret\s*[:=]\s*['"][^'"]{8,}['"]/ },
 ]
 
+// Internal hostnames must not appear in public-repo source — they leak into
+// GitHub Code Search and external crawlers. The blocklist itself can't be
+// hard-coded here (this file is also public) so it's injected via the
+// `INTERNAL_HOSTNAME_BLOCKLIST` env var. CI populates it from a repo secret;
+// locally it's a no-op unless the developer exports the same value. Format:
+// comma-separated bare hostnames or apex domains (e.g. `staging.example.com,internal.example.net`).
+const internalHostnamePatterns = (process.env.INTERNAL_HOSTNAME_BLOCKLIST || '')
+  .split(',')
+  .map((entry) => entry.trim())
+  .filter(Boolean)
+  .map((hostname) => ({
+    kind: 'internal-host',
+    regex: new RegExp(`\\b${hostname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i'),
+  }))
+
+const allPatterns = [...secretPatterns, ...internalHostnamePatterns]
+
 for (const file of trackedFiles) {
   if (shouldSkipFile(file)) {
     continue
@@ -47,14 +65,14 @@ for (const file of trackedFiles) {
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index]
-    for (const pattern of secretPatterns) {
+    for (const pattern of allPatterns) {
       if (!pattern.regex.test(line)) {
         continue
       }
       if (shouldIgnoreMatch(file, line, pattern.kind)) {
         continue
       }
-      findings.push(`${file}:${index + 1}:${line}`)
+      findings.push(`${file}:${index + 1}:[${pattern.kind}]`)
       break
     }
   }
@@ -147,7 +165,9 @@ function shouldSkipFile(file) {
     file.includes('.test.') ||
     file.endsWith('secret.yaml') ||
     file.endsWith('package-lock.json') ||
-    file.includes('.example')
+    file.includes('.example') ||
+    // Local-only env files are gitignored but may exist in dev checkouts.
+    /(^|\/)\.env(\.[^/]+)?$/.test(file)
   )
 }
 
@@ -158,6 +178,11 @@ function shouldIgnoreMatch(file, line, kind) {
 
   if (kind === 'assignment' && file.startsWith('src/app/shared/i18n/locales/')) {
     // Locale credential labels are UI copy, not secrets.
+    return true
+  }
+
+  if (kind === 'assignment' && /\$\{?[A-Z_]|\$\(/.test(line)) {
+    // Shell variable expansion / command substitution; the value is not a literal.
     return true
   }
 
