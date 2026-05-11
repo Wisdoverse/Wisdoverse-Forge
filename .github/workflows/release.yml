@@ -2,7 +2,11 @@
 # Wisdoverse Forge Release Pipeline
 #
 # Triggers: push tag v*, workflow_dispatch
-# Flow: validate → quality gate (lint+test+security) → build → publish → release
+# Flow: validate → quality-gate (calls ci.yml) → build → publish → release
+#
+# The quality gate is the standard CI pipeline invoked via `workflow_call`,
+# not a copy-paste of the same jobs. Single source of truth for lint/test/
+# security gates; tag releases run the same checks PRs do.
 # =============================================================================
 
 name: Release
@@ -74,107 +78,18 @@ jobs:
           fi
 
   # ===========================================================================
-  # Quality gate — full lint + test + security (mirrors CI pipeline)
+  # Quality gate — delegate to the standard CI pipeline (workflow_call).
+  # Replaces the previously-duplicated eslint / prettier / typecheck /
+  # unit-test / rust-test / dependency-audit jobs.
   # ===========================================================================
 
-  eslint:
-    name: ESLint
+  quality-gate:
+    name: Quality Gate
     needs: validate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run lint
-
-  prettier:
-    name: Prettier
-    needs: validate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run format:check
-
-  typecheck:
-    name: Typecheck
-    needs: validate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run typecheck
-
-  unit-test:
-    name: Unit Tests
-    needs: validate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run test -- --coverage
-  rust-test:
-    name: Rust Tests
-    needs: validate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - name: Install protobuf compiler
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
-      - name: Install Rust toolchain
-        working-directory: rust
-        run: |
-          rustup toolchain install stable --profile minimal
-          rustup component add clippy rustfmt --toolchain stable
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
-        with:
-          workspaces: rust
-      - name: Check Rust formatting
-        working-directory: rust
-        run: cargo fmt --all -- --check
-      - name: Run Rust clippy
-        working-directory: rust
-        run: cargo clippy --workspace --all-targets -- -D warnings
-      - name: Run Rust tests
-        working-directory: rust
-        run: cargo test --workspace
-
-  dependency-audit:
-    name: Dependency Audit
-    needs: validate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
-      - name: Audit
-        run: |
-          RESULT=$(npm audit --json 2>/dev/null || echo '{}')
-          CRITICAL=$(echo "$RESULT" | node -p "try{JSON.parse(require('fs').readFileSync(0,'utf8')).metadata?.vulnerabilities?.critical||0}catch{0}")
-          HIGH=$(echo "$RESULT" | node -p "try{JSON.parse(require('fs').readFileSync(0,'utf8')).metadata?.vulnerabilities?.high||0}catch{0}")
-          echo "Vulnerabilities — critical: $CRITICAL, high: $HIGH"
-          if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
-            npm audit --audit-level=high 2>&1 || true
-            exit 1
-          fi
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+      security-events: write
 
   # ===========================================================================
   # Build (after quality gate)
@@ -182,15 +97,13 @@ jobs:
 
   build:
     name: Build
-    needs: [validate, eslint, prettier, typecheck, unit-test, rust-test, dependency-audit]
+    needs: [validate, quality-gate]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: ./.github/actions/setup-node-cache
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
       - run: npm version ${{ needs.validate.outputs.version }} --no-git-tag-version --allow-same-version
       - run: npm run build
       - run: npm pack
