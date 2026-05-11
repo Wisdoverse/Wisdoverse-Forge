@@ -26,6 +26,14 @@
 # GitHub code-scanning Security tab. Findings never block a merge — DAST runs
 # against a deployed environment, so a finding usually requires fixing source
 # code anyway. Use the alerts to drive follow-up PRs.
+#
+# Privacy note: the scan target URL is read from the `DAST_TARGET_URL` repo
+# secret rather than hard-coded so internal/staging hostnames don't appear in
+# the public workflow YAML (which is indexed by GitHub Code Search and external
+# crawlers). `allow_issue_writing` is set to `false` for the same reason — the
+# ZAP action's default behaviour is to file a public issue with every scanned
+# URL in the body, which permanently leaks the target. Artefact + SARIF
+# downloads cover the same data without the indexing surface.
 # =============================================================================
 
 name: DAST (OWASP ZAP baseline)
@@ -36,14 +44,12 @@ on:
   workflow_dispatch:
     inputs:
       target_url:
-        description: 'URL to scan (default: https://staging.REDACTED.example)'
+        description: 'URL to scan (overrides the DAST_TARGET_URL repo secret)'
         required: false
-        default: https://staging.REDACTED.example
         type: string
 
 permissions:
   contents: read
-  issues: write
   security-events: write
 
 concurrency:
@@ -61,21 +67,36 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - id: target
+        env:
+          MANUAL_URL: ${{ inputs.target_url }}
+          SECRET_URL: ${{ secrets.DAST_TARGET_URL }}
         run: |
-          URL="${{ inputs.target_url || 'https://staging.REDACTED.example' }}"
-          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          URL="${MANUAL_URL:-$SECRET_URL}"
+          if [ -z "$URL" ]; then
+            echo "::warning::DAST_TARGET_URL secret is unset and no manual target was provided; skipping scan."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            # Mask the URL so it does not surface in subsequent step logs.
+            echo "::add-mask::$URL"
+            echo "url=$URL" >> "$GITHUB_OUTPUT"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: ZAP baseline scan
+        if: steps.target.outputs.skip != 'true'
         uses: zaproxy/action-baseline@7c4deb10e6261301961c86d65d54a516394f9aed # v0.14.0
         with:
           target: ${{ steps.target.outputs.url }}
           rules_file_name: '.zap/rules.tsv'
-          allow_issue_writing: true
+          # Do NOT file a GitHub issue with the report — the issue body
+          # includes every scanned URL and gets indexed by Code Search.
+          # Operators read the artefact / SARIF instead.
+          allow_issue_writing: false
           fail_action: false # report-only; do not gate merge on a transient
           cmd_options: '-a -j -T 5'
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: always()
+        if: always() && steps.target.outputs.skip != 'true'
         with:
           name: zap-baseline-report
           path: |

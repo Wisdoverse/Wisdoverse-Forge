@@ -25,9 +25,8 @@ on:
   workflow_dispatch:
     inputs:
       target_url:
-        description: 'Health URL (default: https://staging.REDACTED.example/api/health)'
+        description: 'Health URL to probe (overrides the SOAK_TARGET_URL repo secret if set)'
         required: false
-        default: https://staging.REDACTED.example/api/health
         type: string
       duration_seconds:
         description: 'Soak window in seconds (default: 3600 = 1h)'
@@ -59,9 +58,23 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
+      - name: Resolve soak target
+        id: resolve
+        env:
+          MANUAL_URL: ${{ inputs.target_url }}
+          SECRET_URL: ${{ secrets.SOAK_TARGET_URL }}
+        run: |
+          URL="${MANUAL_URL:-$SECRET_URL}"
+          if [ -z "$URL" ]; then
+            echo "::error::SOAK_TARGET_URL secret is unset and no manual target was provided."
+            exit 1
+          fi
+          echo "::add-mask::$URL"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
       - name: Run staging soak
         env:
-          SOAK_TARGET_URL: ${{ inputs.target_url }}
+          SOAK_TARGET_URL: ${{ steps.resolve.outputs.url }}
           SOAK_DURATION_SECONDS: ${{ inputs.duration_seconds }}
           SOAK_MAX_FAILURES: ${{ inputs.max_failures }}
           SOAK_INTERVAL_SECONDS: '60'
@@ -72,7 +85,6 @@ jobs:
         run: |
           echo "## ✅ Staging soak passed" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- target: \`${{ inputs.target_url }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- window: ${{ inputs.duration_seconds }}s" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Promote with: \`gh workflow run release.yml -f version=<tag>\`" >> "$GITHUB_STEP_SUMMARY"

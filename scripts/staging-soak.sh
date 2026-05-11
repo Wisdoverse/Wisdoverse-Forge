@@ -13,8 +13,8 @@
 # staging deploy timestamp and confirms the soak window has elapsed before
 # allowing promotion.
 #
-# Env (override with explicit values for shorter dev cycles):
-#   SOAK_TARGET_URL        Health endpoint (default: https://staging.REDACTED.example/api/health)
+# Env (required + overrides for shorter dev cycles):
+#   SOAK_TARGET_URL        Health endpoint (REQUIRED — no default, see CONTRIBUTING for staging URLs)
 #   SOAK_DURATION_SECONDS  Total window length (default: 86400 = 24h)
 #   SOAK_INTERVAL_SECONDS  Probe interval (default: 60)
 #   SOAK_MAX_FAILURES      Cumulative failures before aborting (default: 3)
@@ -27,7 +27,10 @@
 
 set -euo pipefail
 
-SOAK_TARGET_URL="${SOAK_TARGET_URL:-https://staging.REDACTED.example/api/health}"
+if [ -z "${SOAK_TARGET_URL:-}" ]; then
+  echo "ERROR: SOAK_TARGET_URL is required (no default — supply via env or the promote-to-production workflow)." >&2
+  exit 2
+fi
 SOAK_DURATION_SECONDS="${SOAK_DURATION_SECONDS:-86400}"
 SOAK_INTERVAL_SECONDS="${SOAK_INTERVAL_SECONDS:-60}"
 SOAK_MAX_FAILURES="${SOAK_MAX_FAILURES:-3}"
