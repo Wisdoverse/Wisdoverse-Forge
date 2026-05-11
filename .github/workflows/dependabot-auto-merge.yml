@@ -26,6 +26,9 @@ permissions:
   contents: write
   pull-requests: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   auto-merge:
     if: github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.state == 'open'
@@ -33,7 +36,7 @@ jobs:
     steps:
       - id: metadata
         name: Resolve Dependabot update metadata
-        uses: dependabot/fetch-metadata@v2
+        uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a # v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
