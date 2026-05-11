@@ -46,7 +46,7 @@ jobs:
           node-version: '24'
           cache: 'npm'
 
-      - uses: preactjs/compressed-size-action@v2
+      - uses: preactjs/compressed-size-action@v3
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           # Build command runs once on the merge base and once on the PR head.
