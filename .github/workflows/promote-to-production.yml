@@ -48,13 +48,16 @@ concurrency:
   group: promote-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   soak:
     name: Staging soak
     runs-on: ubuntu-latest
     timeout-minutes: 350 # GitHub-hosted job ceiling
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Run staging soak
         env:
