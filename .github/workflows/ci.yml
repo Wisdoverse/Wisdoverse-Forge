@@ -243,6 +243,11 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Scan for secrets
+        env:
+          # Internal hostname blocklist is injected from a repo secret so the
+          # values themselves never appear in the public repo. The script does
+          # nothing for this check when the env var is empty.
+          INTERNAL_HOSTNAME_BLOCKLIST: ${{ secrets.INTERNAL_HOSTNAME_BLOCKLIST }}
         run: node scripts/check-secret-scan.mjs
 
   # ===========================================================================
