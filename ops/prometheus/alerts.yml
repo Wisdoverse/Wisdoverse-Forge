@@ -130,7 +130,10 @@ groups:
           summary: '{{ $labels.name }} restarted >3× in 10m'
 
       - alert: HealthCheckFailing
-        expr: probe_success{job="blackbox", instance=~".*coding\\.itoy\\.dev.*"} == 0
+        # Match any blackbox probe target whose Prometheus job label is `staging-health`.
+        # The actual staging hostname lives in the Prometheus scrape config (not in this
+        # public file) so the URL doesn't leak via GitHub Code Search.
+        expr: probe_success{job="staging-health"} == 0
         for: 3m
         labels:
           severity: page
