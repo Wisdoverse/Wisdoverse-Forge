@@ -13,12 +13,12 @@ use temporalio_client::{
     Client, ClientOptions, Connection, ConnectionOptions, NamespacedClient, WorkflowCancelOptions,
     WorkflowExecutionInfo, WorkflowSignalOptions, WorkflowStartOptions,
 };
-use temporalio_common::WorkflowDefinition;
 use temporalio_common::data_converters::{
     GenericPayloadConverter, PayloadConverter, SerializationContext, SerializationContextData,
 };
 use temporalio_common::protos::temporal::api::common::v1::RetryPolicy;
 use temporalio_common::protos::temporal::api::common::v1::{Payload, Payloads};
+use temporalio_common::{HasWorkflowDefinition, WorkflowDefinition};
 use temporalio_sdk::workflows::{WorkflowError as TemporalWorkflowError, WorkflowImplementation, WorkflowImplementer};
 use temporalio_sdk::workflows::{join_all, select};
 use temporalio_sdk::{ActivityOptions, CancellableFuture, WorkflowContext, WorkflowResult, WorkflowTermination};
@@ -207,6 +207,10 @@ impl WorkflowDefinition for OrchestratorWorkflowRun {
     }
 }
 
+impl HasWorkflowDefinition for OrchestratorWorkflowRun {
+    type Run = Self;
+}
+
 impl WorkflowImplementer for OrchestratorWorkflow {
     fn register_all(defs: &mut temporalio_sdk::workflows::WorkflowDefinitions) {
         defs.register_workflow_run::<Self>();
@@ -247,7 +251,7 @@ impl WorkflowImplementation for OrchestratorWorkflow {
                         },
                         &(),
                     )
-                    .map_err(|err| WorkflowTermination::failed(anyhow!(err.to_string()))),
+                    .map_err(WorkflowTermination::from),
                 Err(err) => Err(err),
             }
         }
@@ -333,7 +337,7 @@ async fn run_orchestrator_workflow(
                 .iter()
                 .find_map(|(name, status)| (*status == NodeStatus::Failed).then_some(name.clone()))
                 .unwrap_or_else(|| "unknown".to_string());
-            return Err(WorkflowTermination::failed(anyhow!("workflow failed: node \"{}\" failed", failed_node)));
+            return Err(anyhow!("workflow failed: node \"{}\" failed", failed_node).into());
         }
     }
 
@@ -405,8 +409,8 @@ fn execute_node(
                     decision = signal_wait => decision?,
                     activity_result = review_activity => {
                         match activity_result {
-                            Ok(_) => return Err(WorkflowTermination::failed(anyhow!("human review activity completed without signal for node {}", node.id))),
-                            Err(err) => return Err(WorkflowTermination::failed(anyhow!("human review activity failed before signal for node {}: {}", node.id, err))),
+                            Ok(_) => return Err(anyhow!("human review activity completed without signal for node {}", node.id).into()),
+                            Err(err) => return Err(anyhow!("human review activity failed before signal for node {}: {}", node.id, err).into()),
                         }
                     }
                 };
@@ -438,7 +442,7 @@ async fn await_human_review_signal(
         workflow.waiting_review_nodes.insert(node_id_string.clone(), tx);
     });
 
-    rx.await.map_err(|_| WorkflowTermination::failed(anyhow!("human review waiter dropped for node {}", node_id)))
+    rx.await.map_err(|_| anyhow!("human review waiter dropped for node {}", node_id).into())
 }
 
 async fn finalize_workflow_status(
@@ -452,7 +456,7 @@ async fn finalize_workflow_status(
         finalize_activity_options(),
     )
     .await
-    .map_err(|err| WorkflowTermination::failed(anyhow!("finalize workflow status failed: {}", err)))
+    .map_err(|err| anyhow!("finalize workflow status failed: {}", err).into())
 }
 
 fn node_failure_status(_err: temporalio_sdk::ActivityExecutionError) -> NodeStatus {
@@ -460,31 +464,27 @@ fn node_failure_status(_err: temporalio_sdk::ActivityExecutionError) -> NodeStat
 }
 
 fn standard_activity_options() -> ActivityOptions {
-    ActivityOptions {
-        start_to_close_timeout: Some(Duration::from_secs(30 * 60)),
-        heartbeat_timeout: Some(Duration::from_secs(2 * 60)),
-        retry_policy: Some(RetryPolicy {
+    ActivityOptions::with_start_to_close_timeout(Duration::from_secs(30 * 60))
+        .heartbeat_timeout(Duration::from_secs(2 * 60))
+        .retry_policy(RetryPolicy {
             initial_interval: Duration::from_secs(5).try_into().ok(),
             backoff_coefficient: 2.0,
             maximum_interval: Duration::from_secs(2 * 60).try_into().ok(),
             maximum_attempts: 3,
             ..Default::default()
-        }),
-        ..Default::default()
-    }
+        })
+        .build()
 }
 
 fn human_review_activity_options() -> ActivityOptions {
-    ActivityOptions {
-        start_to_close_timeout: Some(Duration::from_secs(24 * 60 * 60)),
-        heartbeat_timeout: Some(Duration::from_secs(30)),
-        retry_policy: Some(RetryPolicy { maximum_attempts: 1, ..Default::default() }),
-        ..Default::default()
-    }
+    ActivityOptions::with_start_to_close_timeout(Duration::from_secs(24 * 60 * 60))
+        .heartbeat_timeout(Duration::from_secs(30))
+        .retry_policy(RetryPolicy { maximum_attempts: 1, ..Default::default() })
+        .build()
 }
 
 fn finalize_activity_options() -> ActivityOptions {
-    ActivityOptions { start_to_close_timeout: Some(Duration::from_secs(30)), ..Default::default() }
+    ActivityOptions::start_to_close_timeout(Duration::from_secs(30))
 }
 
 pub struct DynamicHumanReviewSignal {
