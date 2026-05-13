@@ -43,6 +43,7 @@
 #   AGENTFORGE_PORT             Port for health probe (`localhost:$PORT`). Default: 4003.
 #   BUNDLE_REQUIRED_FILES       Newline- or space-separated bind-mount source files
 #                               under `docker/`. Default: "nats.conf seccomp/agentforge-agent.json".
+#   COMPOSE_PROJECT_NAME        Compose project name. Default: "wisdoverse-forge".
 #   VERIFY_IMAGE_SIGNATURES     When `true`, runs `cosign verify` against every
 #                               pulled image (server, orchestrator, frontend, and
 #                               each agent overlay) before retagging it locally.
@@ -179,6 +180,7 @@ fi
 # ---------------------------------------------------------------------------
 COMPOSE_FILES="${COMPOSE_FILES_OVERRIDE:--f compose.yml -f compose.external.yml}"
 COMPOSE_PROFILE="${COMPOSE_PROFILE:-external}"
+COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-wisdoverse-forge}"
 COMPOSE_SERVICE_NAME="${COMPOSE_SERVICE_NAME:-agentforge-server}"
 AGENT_TOOLS="${AGENT_TOOLS:-claude opencode codex gemini}"
 REQUIRED_AGENT_TOOL="${REQUIRED_AGENT_TOOL:-claude}"
@@ -233,7 +235,7 @@ cd "$DEPLOY_DIR/docker"
 # Use `docker compose ps -q` to find the container by service name —
 # avoids hardcoding the container name (which carries a project prefix).
 log "Recording current image digest for audit..."
-CURRENT_CONTAINER=$(docker compose $COMPOSE_FILES ps -q "$COMPOSE_SERVICE_NAME" 2>/dev/null || echo "")
+CURRENT_CONTAINER=$(docker compose --project-name "$COMPOSE_PROJECT_NAME" $COMPOSE_FILES ps -q "$COMPOSE_SERVICE_NAME" 2>/dev/null || echo "")
 if [ -n "$CURRENT_CONTAINER" ]; then
   # shellcheck disable=SC2086
   CURRENT_IMAGE=$(docker inspect --format='{{.Config.Image}}' "$CURRENT_CONTAINER" 2>/dev/null || echo "unknown")
@@ -390,7 +392,7 @@ log "Pre-flight check passed: all bind mount source files present"
 # migrations against the external database.
 log "Running database migrations..."
 # shellcheck disable=SC2086
-docker compose $COMPOSE_FILES --profile "$COMPOSE_PROFILE" run --rm --no-deps "$COMPOSE_SERVICE_NAME" --migrate-only
+docker compose --project-name "$COMPOSE_PROJECT_NAME" $COMPOSE_FILES --profile "$COMPOSE_PROFILE" run --rm --no-deps "$COMPOSE_SERVICE_NAME" --migrate-only
 
 # ---------------------------------------------------------------------------
 # 5. Rolling restart with health check wait
@@ -399,10 +401,10 @@ docker compose $COMPOSE_FILES --profile "$COMPOSE_PROFILE" run --rm --no-deps "$
 # rollback is unsafe without paired schema rollback support.
 log "Starting services..."
 # shellcheck disable=SC2086
-if ! docker compose $COMPOSE_FILES --profile "$COMPOSE_PROFILE" up -d \
+if ! docker compose --project-name "$COMPOSE_PROJECT_NAME" $COMPOSE_FILES --profile "$COMPOSE_PROFILE" up -d \
   --remove-orphans --wait --wait-timeout 120; then
   log_error "Service startup failed! Manual intervention required."
-  log_error "Check logs: docker compose $COMPOSE_FILES logs --tail=50"
+  log_error "Check logs: docker compose --project-name $COMPOSE_PROJECT_NAME $COMPOSE_FILES logs --tail=50"
   exit 1
 fi
 
@@ -424,7 +426,23 @@ fi
 docker cp "$FRONTEND_CONTAINER":/app/public/. "$TMP_DIST/" 2>/dev/null || true
 
 if [ "$FRONTEND_DEPLOY_MODE" = "symlink" ]; then
-  RELEASE_DIR="$(dirname "$WEBROOT")/releases"
+  FRONTEND_SWAP_WEBROOT="$WEBROOT"
+  if [ -L "$WEBROOT" ]; then
+    WEBROOT_LINK_TARGET="$(readlink "$WEBROOT")"
+    case "$WEBROOT_LINK_TARGET" in
+      /*) FRONTEND_SWAP_WEBROOT="$WEBROOT_LINK_TARGET" ;;
+      *) FRONTEND_SWAP_WEBROOT="$(cd -P "$(dirname "$WEBROOT")" && pwd)/$WEBROOT_LINK_TARGET" ;;
+    esac
+
+    if [ ! -e "$FRONTEND_SWAP_WEBROOT" ] && [ ! -L "$FRONTEND_SWAP_WEBROOT" ]; then
+      log_error "WEBROOT symlink target does not exist: $WEBROOT -> $FRONTEND_SWAP_WEBROOT"
+      exit 1
+    fi
+
+    log "WEBROOT is a symlink; preserving alias $WEBROOT -> $FRONTEND_SWAP_WEBROOT"
+  fi
+
+  RELEASE_DIR="$(dirname "$FRONTEND_SWAP_WEBROOT")/releases"
   RELEASE_TS="$(date +%Y%m%d%H%M%S)"
   RELEASE_PATH="$RELEASE_DIR/$RELEASE_TS"
 
@@ -441,16 +459,16 @@ if [ "$FRONTEND_DEPLOY_MODE" = "symlink" ]; then
       chown -R $WEBROOT_OWNER_UID:$WEBROOT_OWNER_GID /releases/$RELEASE_TS
     "
 
-  # First-deploy migration: if WEBROOT is a real directory, back it up so the
-  # symlink swap below has somewhere to move the existing content.
-  if [ -d "$WEBROOT" ] && [ ! -L "$WEBROOT" ]; then
+  # First-deploy migration: if the swap target is a real directory, back it up
+  # so the symlink swap below has somewhere to move the existing content.
+  if [ -d "$FRONTEND_SWAP_WEBROOT" ] && [ ! -L "$FRONTEND_SWAP_WEBROOT" ]; then
     log "First symlink deploy: migrating existing directory to $RELEASE_DIR/pre-symlink-backup"
-    mv "$WEBROOT" "$RELEASE_DIR/pre-symlink-backup"
+    mv "$FRONTEND_SWAP_WEBROOT" "$RELEASE_DIR/pre-symlink-backup"
   fi
 
   # Atomic symlink swap — `ln -sfn` + `mv -T` is a single rename(2) syscall.
-  ln -sfn "$RELEASE_PATH" "${WEBROOT}.tmp"
-  mv -T "${WEBROOT}.tmp" "$WEBROOT"
+  ln -sfn "$RELEASE_PATH" "${FRONTEND_SWAP_WEBROOT}.tmp"
+  mv -T "${FRONTEND_SWAP_WEBROOT}.tmp" "$FRONTEND_SWAP_WEBROOT"
 
   log "Frontend deployed (release: $RELEASE_TS). File count: $(find "$RELEASE_PATH" -type f | wc -l)"
 
