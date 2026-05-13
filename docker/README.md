@@ -40,9 +40,10 @@ Registry under `ghcr.io/wisdoverse/wisdoverse-forge`.
 make update-agents
 ```
 
-That command pulls `agent-base` and the redistributable public CLI images
-(`agent-opencode`, `agent-codex`, and `agent-gemini`), then tags them locally
-for the Rust API. Public releases intentionally do not publish `agent-claude`
+That command pulls `agent-base` using `GHCR_IMAGE_TAG` (`main` by default) and
+the redistributable public CLI images (`agent-opencode`, `agent-codex`, and
+`agent-gemini`), then tags them locally for the Rust API. Public releases
+intentionally do not publish `agent-claude`
 because Claude Code is governed by Anthropic terms rather than a standard
 open-source redistribution license. To use Claude after accepting the vendor
 terms, or to test local runtime or sidecar changes, build the image locally:
