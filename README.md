@@ -81,7 +81,9 @@ Run `make beginner-audit` to verify the self-host bootstrap path without
 starting or modifying the main stack. Release validation can add
 `BEGINNER_AUDIT_FLAGS="--pull-images --local-smoke --live --provider"` with a
 real provider key and public `BASE_URL`; if the domain is behind a CDN, set
-`BEGINNER_ORIGIN_IP` to verify the source VPS directly.
+`BEGINNER_ORIGIN_IP` to verify the source VPS directly. After a provider has
+already been added and tested in Settings, set `BEGINNER_USE_EXISTING_PROVIDER=1`
+to verify the Provider + Prompt path without re-entering the key.
 
 Use `make quickstart-selfhost` when you intentionally want to build the server
 and frontend images from source on the host.

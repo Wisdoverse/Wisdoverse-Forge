@@ -70,6 +70,8 @@ Provider audit env:
   BEGINNER_MODEL            Model name accepted by that provider
   BEGINNER_API_KEY          Real provider API key
   BEGINNER_BASE_URL         Optional provider base URL
+  BEGINNER_USE_EXISTING_PROVIDER=1
+                            Use an already configured, verified provider instead of creating one
 
 Examples:
   scripts/audit-beginner-selfhost.sh
@@ -80,6 +82,8 @@ Examples:
   BASE_URL=https://forge.example.com E2E_EMAIL=dev@example.com E2E_PASSWORD=... \
     BEGINNER_PROVIDER=openrouter BEGINNER_MODEL=openai/gpt-4o-mini \
     BEGINNER_API_KEY=... scripts/audit-beginner-selfhost.sh --live --provider
+  BASE_URL=https://forge.example.com E2E_EMAIL=dev@example.com E2E_PASSWORD=... \
+    BEGINNER_USE_EXISTING_PROVIDER=1 scripts/audit-beginner-selfhost.sh --provider
 USAGE
 }
 
@@ -333,6 +337,7 @@ provider_audit() {
   local model="${BEGINNER_MODEL:-}"
   local api_key="${BEGINNER_API_KEY:-}"
   local base_url="${BEGINNER_BASE_URL:-}"
+  local use_existing="${BEGINNER_USE_EXISTING_PROVIDER:-0}"
   local tmp_dir register_body login_body token create_body provider_id created_provider=0 test_body list_body agent_body agent_id prompt_body
   local status test_ok stored_status content_chars
 
@@ -341,9 +346,11 @@ provider_audit() {
   require_env BASE_URL
   require_env E2E_EMAIL
   require_env E2E_PASSWORD
-  [ -n "$provider" ] || fail "BEGINNER_PROVIDER is required for --provider"
-  [ -n "$model" ] || fail "BEGINNER_MODEL is required for --provider"
-  [ -n "$api_key" ] || fail "BEGINNER_API_KEY is required for --provider"
+  if [ "$use_existing" != "1" ]; then
+    [ -n "$provider" ] || fail "BEGINNER_PROVIDER is required for --provider"
+    [ -n "$model" ] || fail "BEGINNER_MODEL is required for --provider"
+    [ -n "$api_key" ] || fail "BEGINNER_API_KEY is required for --provider"
+  fi
 
   tmp_dir="$AUDIT_TMP_DIR/provider"
   mkdir -p "$tmp_dir"
@@ -365,34 +372,57 @@ provider_audit() {
   token="$(jq -r '.tokens.accessToken // .access_token // empty' "$login_body")"
   [ -n "$token" ] || fail "login response did not include an access token"
 
-  create_body="$tmp_dir/provider-create.json"
-  local provider_payload
-  provider_payload="$(
-    jq -n \
-      --arg provider "$provider" \
-      --arg model "$model" \
-      --arg apiKey "$api_key" \
-      --arg displayName "Beginner Audit Provider" \
-      --arg baseUrl "$base_url" \
-      '{provider:$provider, displayName:$displayName, model:$model, apiKey:$apiKey}
-       + (if $baseUrl == "" then {} else {baseUrl:$baseUrl} end)'
-  )"
-  status="$(curl_json POST '/llm-providers' "$token" "$provider_payload" "$create_body")"
-  if [ "$status" = "200" ]; then
-    provider_id="$(jq -r '.provider.id // empty' "$create_body")"
-    created_provider=1
-  elif [ "$status" = "409" ]; then
+  if [ "$use_existing" = "1" ]; then
     list_body="$tmp_dir/provider-list-existing.json"
     status="$(curl_json GET '/llm-providers' "$token" '' "$list_body")"
-    [ "$status" = "200" ] || fail "provider list failed with HTTP $status after create conflict"
+    [ "$status" = "200" ] || fail "provider list failed with HTTP $status"
     provider_id="$(
       jq -r --arg provider "$provider" --arg model "$model" \
-        '.providers[] | select(.provider == $provider and .model == $model) | .id' \
+        '.providers[]
+         | select((.isEnabled // .is_enabled // true) == true)
+         | select((.lastTestStatus // .last_test_status // "") == "passed")
+         | select($provider == "" or .provider == $provider)
+         | select($model == "" or .model == $model)
+         | .id' \
         "$list_body" | head -n 1
     )"
-    [ -n "$provider_id" ] || fail "provider/model already exists but could not be found"
+    [ -n "$provider_id" ] || fail "no enabled provider with persisted passed test status was found"
+    provider="$(
+      jq -r --arg id "$provider_id" '.providers[] | select(.id == $id) | .provider' "$list_body"
+    )"
+    model="$(
+      jq -r --arg id "$provider_id" '.providers[] | select(.id == $id) | .model' "$list_body"
+    )"
   else
-    fail "provider create failed with HTTP $status"
+    create_body="$tmp_dir/provider-create.json"
+    local provider_payload
+    provider_payload="$(
+      jq -n \
+        --arg provider "$provider" \
+        --arg model "$model" \
+        --arg apiKey "$api_key" \
+        --arg displayName "Beginner Audit Provider" \
+        --arg baseUrl "$base_url" \
+        '{provider:$provider, displayName:$displayName, model:$model, apiKey:$apiKey}
+         + (if $baseUrl == "" then {} else {baseUrl:$baseUrl} end)'
+    )"
+    status="$(curl_json POST '/llm-providers' "$token" "$provider_payload" "$create_body")"
+    if [ "$status" = "200" ]; then
+      provider_id="$(jq -r '.provider.id // empty' "$create_body")"
+      created_provider=1
+    elif [ "$status" = "409" ]; then
+      list_body="$tmp_dir/provider-list-existing.json"
+      status="$(curl_json GET '/llm-providers' "$token" '' "$list_body")"
+      [ "$status" = "200" ] || fail "provider list failed with HTTP $status after create conflict"
+      provider_id="$(
+        jq -r --arg provider "$provider" --arg model "$model" \
+          '.providers[] | select(.provider == $provider and .model == $model) | .id' \
+          "$list_body" | head -n 1
+      )"
+      [ -n "$provider_id" ] || fail "provider/model already exists but could not be found"
+    else
+      fail "provider create failed with HTTP $status"
+    fi
   fi
   [ -n "$provider_id" ] || fail "missing provider id"
 
@@ -435,7 +465,7 @@ provider_audit() {
     curl_json DELETE "/llm-providers/$provider_id" "$token" '' "$tmp_dir/provider-delete.json" >/dev/null || true
   fi
 
-  pass "real provider key can test, persist status, create Provider+Prompt agent, and stream a reply"
+  pass "real provider config can test, persist status, create Provider+Prompt agent, and stream a reply"
 }
 
 main() {
