@@ -171,15 +171,35 @@ export interface StreamCursor {
   id: string
 }
 
+const cursorTextEncoder = new TextEncoder()
+const cursorTextDecoder = new TextDecoder()
+
+function encodeBase64Url(input: string): string {
+  const binary = Array.from(cursorTextEncoder.encode(input), (byte) =>
+    String.fromCharCode(byte)
+  ).join('')
+
+  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '')
+}
+
+function decodeBase64Url(encoded: string): string {
+  const base64 = encoded.replaceAll('-', '+').replaceAll('_', '/')
+  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=')
+  const binary = atob(padded)
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+
+  return cursorTextDecoder.decode(bytes)
+}
+
 /** Encode cursor to opaque string for Last-Event-ID */
 export function encodeCursor(cursor: StreamCursor): string {
-  return Buffer.from(`${cursor.ts}:${cursor.id}`).toString('base64url')
+  return encodeBase64Url(`${cursor.ts}:${cursor.id}`)
 }
 
 /** Decode opaque Last-Event-ID to cursor. Returns null if invalid. */
 export function decodeCursor(encoded: string): StreamCursor | null {
   try {
-    const decoded = Buffer.from(encoded, 'base64url').toString()
+    const decoded = decodeBase64Url(encoded)
     const colonIdx = decoded.indexOf(':')
     if (colonIdx === -1) return null
     const ts = Number(decoded.slice(0, colonIdx))

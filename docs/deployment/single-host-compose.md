@@ -50,6 +50,7 @@ should set them in `docker/.env`.
 | `AGENTFORGE_NETWORKS`    | `agentforge-agents external-network`       | Space-separated docker networks created (idempotently) before bring-up.  |
 | `COMPOSE_FILES_OVERRIDE` | `-f compose.yml -f compose.external.yml`   | Override the compose file list.                                          |
 | `COMPOSE_PROFILE`        | `external`                                 | Compose profile passed via `--profile`.                                  |
+| `COMPOSE_PROJECT_NAME`   | `wisdoverse-forge`                         | Compose project name shown by Docker and used as the container prefix.   |
 | `COMPOSE_SERVICE_NAME`   | `agentforge-server`                        | Service name used for migrate-only and audit lookups.                    |
 | `FRONTEND_IMAGE`         | `agentforge-frontend:${IMAGE_TAG:-latest}` | Local docker image holding `/app/dist/`.                                 |
 | `FRONTEND_DEPLOY_MODE`   | `symlink`                                  | See [Frontend deploy modes](#frontend-deploy-modes).                     |
@@ -71,10 +72,12 @@ should set them in `docker/.env`.
 ### `symlink` (default)
 
 1. Extract `/app/dist/` from `agentforge-frontend:${IMAGE_TAG:-latest}` into a
-   timestamped release directory next to `WEBROOT`
-   (`$(dirname "$WEBROOT")/releases/$RELEASE_TS`).
-2. Atomically swap `WEBROOT` to point at the new release via `ln -sfn` plus
-   `mv -T` (a single `rename(2)` syscall).
+   timestamped release directory next to the swap target
+   (`$(dirname "$target")/releases/$RELEASE_TS`).
+2. Atomically swap the target path to point at the new release via `ln -sfn`
+   plus `mv -T` (a single `rename(2)` syscall). If `WEBROOT` is itself a
+   symlink, the deploy preserves that alias and swaps the symlink's target
+   instead.
 3. Retain the most recent `KEEP_RELEASES` release directories.
 
 This mode requires nginx to follow symlinks. If your `nginx.conf` contains

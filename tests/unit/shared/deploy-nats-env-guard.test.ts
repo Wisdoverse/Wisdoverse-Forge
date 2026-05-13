@@ -27,4 +27,18 @@ describe('deploy NATS environment guard', () => {
     expect(validatorScript).toContain('NATS_AUTH_SERVICE_PASSWORD')
     expect(validatorScript).toContain('NATS_SYS_PASSWORD')
   })
+
+  it('uses a stable compose project name instead of the compose directory name', () => {
+    expect(deployScript).toContain(
+      'COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-wisdoverse-forge}"'
+    )
+    expect(deployScript).toContain('docker compose --project-name "$COMPOSE_PROJECT_NAME"')
+  })
+
+  it('preserves a host webroot alias when symlink mode targets an existing symlink', () => {
+    expect(deployScript).toContain('if [ -L "$WEBROOT" ]; then')
+    expect(deployScript).toContain('WEBROOT_LINK_TARGET="$(readlink "$WEBROOT")"')
+    expect(deployScript).toContain('FRONTEND_SWAP_WEBROOT="$WEBROOT_LINK_TARGET"')
+    expect(deployScript).toContain('mv -T "${FRONTEND_SWAP_WEBROOT}.tmp" "$FRONTEND_SWAP_WEBROOT"')
+  })
 })
