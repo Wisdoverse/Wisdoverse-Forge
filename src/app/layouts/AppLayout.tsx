@@ -19,6 +19,7 @@ interface AppLayoutProps {
 }
 
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
+  '/start': { title: 'Start', subtitle: 'First-run setup and launch checklist' },
   '/tasks': { title: 'Tasks', subtitle: 'Plan, assign, and track agent work' },
   '/inbox': { title: 'Inbox', subtitle: 'Notifications and updates' },
   '/context/audit': { title: 'Context audit', subtitle: 'Governance event review and export' },

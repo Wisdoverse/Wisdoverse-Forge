@@ -9,6 +9,7 @@ import {
   Bot,
   Zap,
   BarChart3,
+  BookOpenCheck,
   CreditCard,
   Settings,
   LogOut,
@@ -29,6 +30,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { id: 'start', Icon: BookOpenCheck, labelKey: 'nav.start', path: '/start' },
   { id: 'tasks', Icon: CheckSquare, labelKey: 'nav.tasks', path: '/tasks' },
   { id: 'inbox', Icon: Inbox, labelKey: 'nav.inbox', path: '/inbox' },
   { id: 'context', Icon: ClipboardCheck, labelKey: 'nav.context', path: '/context' },

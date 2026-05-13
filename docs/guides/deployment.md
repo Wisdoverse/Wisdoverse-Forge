@@ -7,13 +7,17 @@ This guide describes the supported Docker Compose deployment models for the curr
 The default backend deployment path contains these services:
 
 - `agentforge-server` (`agentforge-server`) on `:4003`
+- `agentforge-frontend` (`agentforge-frontend`) serving the built SPA inside the `prod` profile
 - `orchestrator` (`agentforge-orchestrator`) on `:4010`
 - `temporal` on `:7233` with UI on `:8233`
 - PostgreSQL, Redis, and NATS backing services
 
 Legacy `agentforge`, `platform-runtime`, `agentforge-mcp`, and `orchestrator-legacy` helper paths are not part of the default runtime.
 
-Frontend assets are built separately with Vite and served by your web tier or deployment automation. The backend images do not embed the frontend artifact by default.
+In the self-contained `prod` profile, Caddy terminates HTTPS and proxies
+browser routes and static assets to the `agentforge-frontend` artifact service.
+In the `external` profile,
+frontend assets are still deployed by your web tier or deployment automation.
 
 ## Prerequisites
 
@@ -23,6 +27,18 @@ Frontend assets are built separately with Vite and served by your web tier or de
 - For external mode, reachable external databases and networks
 
 ## One-Time Setup
+
+For a first local self-host trial, use the bootstrap target:
+
+```bash
+make bootstrap-local
+```
+
+It creates `docker/.env` when missing and fills the local secrets required by
+the default Compose stack.
+
+For production or shared environments, review and manage `docker/.env`
+explicitly:
 
 ```bash
 cp docker/.env.example docker/.env
@@ -51,16 +67,17 @@ At minimum, configure these values in `docker/.env`:
 
 ## Service Inventory
 
-| Service             | Default Port   | Role                               |
-| ------------------- | -------------- | ---------------------------------- |
-| `agentforge-server` | `4003`         | Rust API and realtime gateway      |
-| `orchestrator`      | `4010`         | Rust orchestrator and workflow API |
-| `temporal`          | `7233`, `8233` | Workflow engine and UI             |
-| `db`                | `5432`         | Application PostgreSQL             |
-| `orchestrator-db`   | internal       | Orchestrator PostgreSQL            |
-| `redis`             | `6379`         | Cache and coordination             |
-| `nats`              | `4222`, `8222` | Event transport                    |
-| `nginx`             | `80`, `443`    | Reverse proxy in `prod`            |
+| Service               | Default Port   | Role                                        |
+| --------------------- | -------------- | ------------------------------------------- |
+| `agentforge-server`   | `4003`         | Rust API and realtime gateway               |
+| `agentforge-frontend` | internal       | Built SPA artifact server in `prod`         |
+| `orchestrator`        | `4010`         | Rust orchestrator and workflow API          |
+| `temporal`            | `7233`, `8233` | Workflow engine and UI                      |
+| `db`                  | `5432`         | Application PostgreSQL                      |
+| `orchestrator-db`     | internal       | Orchestrator PostgreSQL                     |
+| `redis`               | `6379`         | Cache and coordination                      |
+| `nats`                | `4222`, `8222` | Event transport                             |
+| `caddy`               | `80`, `443`    | Reverse proxy and automatic HTTPS in `prod` |
 
 ## Development Deployment
 
@@ -85,8 +102,44 @@ make dev-logs
 
 ## Self-Contained Production
 
+For a public domain, point DNS at this host and pass the domain through
+`DOMAIN`:
+
 ```bash
+make quickstart-selfhost DOMAIN=forge.example.com
+```
+
+For a private localhost trial, omit `DOMAIN`:
+
+```bash
+make quickstart-selfhost
+```
+
+Caddy obtains and renews public HTTPS certificates automatically when DNS points
+to the host and ports `80` and `443` are reachable. Local/private trials use
+Caddy's internal local CA and may show a browser warning unless that CA is
+trusted on the client machine.
+
+If the host already uses `80` or `443`, pass alternate public ports. The
+bootstrap writes the matching `APP_URL` and `CORS_ORIGIN`:
+
+```bash
+make quickstart-selfhost DOMAIN=localhost HTTP_PORT=18080 HTTPS_PORT=18443
+```
+
+Open `https://localhost:18443` for that trial.
+
+This starts the Rust API, frontend artifact service, Caddy, PostgreSQL, Redis,
+NATS, Temporal, and the orchestrator, then checks the final Caddy HTTPS URL plus
+API readiness through the public ingress.
+
+To run the same flow step-by-step:
+
+```bash
+make bootstrap-selfhost DOMAIN=forge.example.com
+make selfhost-check DOMAIN=forge.example.com
 make prod
+make selfhost-health DOMAIN=forge.example.com
 ```
 
 Optional variants:
@@ -97,9 +150,11 @@ make prod-storage
 make prod-casdoor
 make prod-down
 make prod-logs
+make selfhost-health
 ```
 
-This mode is intended for environments where PostgreSQL, Redis, Temporal, and Nginx are managed inside the Compose stack.
+This mode is intended for environments where PostgreSQL, Redis, Temporal, and
+the HTTPS reverse proxy are managed inside the Compose stack.
 
 For local attachment storage, Compose mounts the `agentforge-uploads` named
 volume at `${STORAGE_LOCAL_PATH:-/var/lib/agentforge/uploads}` inside the Rust
@@ -139,7 +194,11 @@ make prod-ext-logs
 
 ## Frontend Deployment
 
-Build the frontend artifact with:
+For `make prod`, Compose builds and runs the `agentforge-frontend` artifact
+service automatically.
+
+For the `external` profile or a custom web tier, build the frontend artifact
+with:
 
 ```bash
 npm run build

@@ -7,20 +7,20 @@
 # Usage:
 #   make dev               # Development (DB, Redis, hot-reload, debug)
 #   make dev-tools         # + Adminer, Redis Commander
-#   make prod              # Production self-contained (DB, Redis, Nginx)
+#   make prod              # Production self-contained (DB, Redis, Caddy)
 #   make prod-ext          # Production with external services
 #   make prod-backup       # Production + daily DB backups
 #   make dev-casdoor       # Development + Casdoor SSO
 #   make prod-casdoor      # Production + Casdoor SSO
 #
 # Or with docker compose directly:
-#   docker compose -f docker/compose.yml -f docker/compose.dev.yml --profile dev up --build
-#   docker compose -f docker/compose.yml -f docker/compose.prod.yml --profile prod up -d --build
-#   docker compose -f docker/compose.yml -f docker/compose.external.yml --profile external up -d --build
+#   docker compose --env-file docker/.env -f docker/compose.yml -f docker/compose.dev.yml --profile dev up --build
+#   docker compose --env-file docker/.env -f docker/compose.yml -f docker/compose.prod.yml --profile prod up -d --build
+#   docker compose --env-file docker/.env -f docker/compose.yml -f docker/compose.external.yml --profile external up -d --build
 #
 # Profiles:
 #   dev       - Local PostgreSQL + Redis for development
-#   prod      - Self-contained PostgreSQL + Redis + Nginx
+#   prod      - Self-contained PostgreSQL + Redis + Caddy
 #   external  - No local DB/Redis (connect to external services via .env)
 #   tools     - Admin UIs (Adminer, Redis Commander)
 #   backup    - Daily pg_dump with 7-day retention
@@ -199,6 +199,56 @@ services:
       - 'com.wisdoverse.version=${VERSION:-latest}'
 
   # ---------------------------------------------------------------------------
+  # Frontend Artifact Server (profiles: prod)
+  # ---------------------------------------------------------------------------
+  agentforge-frontend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: production
+    image: agentforge-frontend:${VERSION:-latest}
+    container_name: agentforge-frontend
+    hostname: frontend
+    restart: unless-stopped
+    profiles: [prod]
+
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+
+    environment:
+      - AGENTFORGE_PORT=4003
+      - VERSION=${VERSION:-latest}
+
+    healthcheck:
+      test: ['CMD', 'curl', '-sf', 'http://localhost:4003/health/live']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+          pids: 128
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+    networks:
+      - default
+
+    labels:
+      - 'com.wisdoverse.service=frontend'
+      - 'com.wisdoverse.version=${VERSION:-latest}'
+
+  # ---------------------------------------------------------------------------
   # PostgreSQL Database (profiles: dev, prod)
   # ---------------------------------------------------------------------------
   db:
@@ -304,7 +354,7 @@ services:
       - NATS_AUTH_SERVICE_PASSWORD=${NATS_AUTH_SERVICE_PASSWORD:?NATS_AUTH_SERVICE_PASSWORD is required}
       - NATS_SYS_PASSWORD=${NATS_SYS_PASSWORD:?NATS_SYS_PASSWORD is required}
       # Public halves of the API's callout key material. Generate with
-      # `nk -gen account` / `nk -gen xkey` and pin in docker/.env. The
+      # `nk -gen account` / `nk -gen curve` and pin in docker/.env. The
       # matching private seeds (`NATS_CALLOUT__*_SEED`) live only on the
       # API side — NATS never holds them. NATS_CALLOUT_ACCOUNT_SIGNING_KEY_PUBLIC
       # was removed with issue #55 — see `docker/nats.conf` and the API
@@ -346,28 +396,38 @@ services:
       - 'com.wisdoverse.service=nats'
 
   # ---------------------------------------------------------------------------
-  # Nginx Reverse Proxy (profiles: prod)
+  # Caddy Reverse Proxy (profiles: prod)
   # ---------------------------------------------------------------------------
-  nginx:
-    image: nginx:1.29-alpine
-    container_name: agentforge-nginx
+  caddy:
+    image: caddy:2.10-alpine
+    container_name: agentforge-caddy
     restart: unless-stopped
     profiles: [prod]
 
     ports:
-      - '${NGINX_HTTP_PORT:-80}:80'
-      - '${NGINX_HTTPS_PORT:-443}:443'
+      - '${HTTP_PORT:-${NGINX_HTTP_PORT:-80}}:80'
+      - '${HTTPS_PORT:-${NGINX_HTTPS_PORT:-443}}:443'
 
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
-      - nginx-logs:/var/log/nginx
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+    environment:
+      - APP_HOST=${APP_HOST:-localhost}
 
     depends_on:
-      - agentforge
+      agentforge-server:
+        condition: service_healthy
+      agentforge-frontend:
+        condition: service_healthy
 
     healthcheck:
-      test: ['CMD-SHELL', 'curl -sf http://localhost/health || exit 1']
+      test:
+        [
+          'CMD-SHELL',
+          'caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1',
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -806,7 +866,9 @@ volumes:
     driver: local
   nats-data:
     driver: local
-  nginx-logs:
+  caddy-data:
+    driver: local
+  caddy-config:
     driver: local
   minio-data:
     driver: local

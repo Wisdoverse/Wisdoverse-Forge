@@ -26,6 +26,7 @@ export default defineConfig({
   testDir: './specs',
   testMatch: [
     'react-app-smoke.spec.ts',
+    'getting-started.spec.ts',
     'legacy-nav-golden.spec.ts',
     'auth-reset-password.spec.ts',
     'inbox-owner-notifications.spec.ts',

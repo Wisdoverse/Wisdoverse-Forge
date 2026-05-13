@@ -62,6 +62,7 @@ export const en = {
   // =========================================================================
   nav: {
     home: 'Home',
+    start: 'Start',
     dashboard: 'Dashboard',
     tasks: 'Tasks',
     inbox: 'Inbox',
@@ -76,6 +77,58 @@ export const en = {
     logout: 'Logout',
     profile: 'Profile',
     admin: 'Admin',
+  },
+
+  // =========================================================================
+  // Getting Started
+  // =========================================================================
+  gettingStarted: {
+    eyebrow: 'First run',
+    title: 'Make the first working path real',
+    description: 'Finish the minimum setup needed to create an agent and send work through it.',
+    progressCount: '{{complete}} of {{total}}',
+    currentProject: 'Current project',
+    noProject: 'No project selected',
+    projects: 'Projects',
+    steps: {
+      team: {
+        title: 'Team',
+        empty: 'Required before project access is useful.',
+        create: 'Create team',
+        review: 'Review teams',
+      },
+      project: {
+        title: 'Project',
+        empty: 'The workspace boundary agents will use.',
+        create: 'Create project',
+        review: 'Review projects',
+      },
+      provider: {
+        title: 'Provider',
+        empty: 'Add one model provider and API key.',
+        create: 'Add provider',
+        review: 'Review providers',
+      },
+      agent: {
+        title: 'Agent',
+        empty: 'Create a provider-backed or container agent.',
+        create: 'Create agent',
+        review: 'Open agents',
+      },
+      routing: {
+        title: 'Task routing',
+        emptyWithProject: 'Create a task group for this project.',
+        emptyWithoutProject: 'Select a project, then create a task group.',
+        create: 'Create task group',
+        review: 'Review routing',
+      },
+      history: {
+        title: 'Agent history',
+        empty: 'Create an agent first.',
+        ready: 'Ready to open chat and send a prompt.',
+        open: 'Open agent history',
+      },
+    },
   },
 
   // =========================================================================

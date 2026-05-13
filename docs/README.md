@@ -21,23 +21,23 @@ part of this documentation set.
 
 ## Current Operating Contract
 
-| Surface       | Current Contract                                                   |
-| ------------- | ------------------------------------------------------------------ |
-| Backend       | Rust workspace under `rust/`; active API binary listens on `:4003` |
-| Orchestration | Rust orchestrator listens on `:4010` and owns Temporal workflows   |
-| Browser app   | Vite/React app in `src/`; talks to Rust API over HTTP and `/ws`    |
-| Production    | `make prod-ext` is the standing external-service validation path   |
-| Health probes | API liveness is `/health`; deep readiness is `/api/health`         |
-| Attachments   | Metadata in PostgreSQL; bytes in local object storage or MinIO     |
+| Surface       | Current Contract                                                                                                     |
+| ------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Backend       | Rust workspace under `rust/`; active API binary listens on `:4003`                                                   |
+| Orchestration | Rust orchestrator listens on `:4010` and owns Temporal workflows                                                     |
+| Browser app   | Vite/React app in `src/`; `prod` serves it via `agentforge-frontend`                                                 |
+| Production    | `make prod-ext` is the external-service validation path; `make quickstart-selfhost` is the self-contained Caddy path |
+| Health probes | API liveness is `/health`; deep readiness is `/api/health`                                                           |
+| Attachments   | Metadata in PostgreSQL; bytes in local object storage or MinIO                                                       |
 
 ## Start Here
 
-| Audience                         | Entry Points                                                                                                                              |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Developers (new to the codebase) | [Getting Started](guides/getting-started.md), [Architecture Overview](architecture/overview.md), [Configuration](guides/configuration.md) |
-| Operators (deploy / run)         | [Deployment](guides/deployment.md), [Troubleshooting](guides/troubleshooting.md), [NATS Auth Runbook](runbooks/nats-auth.md)              |
-| Contributors                     | [Contributing](../CONTRIBUTING.md), [AGENTS.md](../AGENTS.md), [Architecture Overview](architecture/overview.md)                          |
-| API consumers                    | [OpenAPI spec](api/openapi.yaml), [Turn API](api/turn-api.md)                                                                             |
+| Audience                     | Entry Points                                                                                                                                                                       |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| First local run / developers | [Getting Started](guides/getting-started.md), [Architecture Overview](architecture/overview.md), [Configuration](guides/configuration.md)                                          |
+| Operators (deploy / run)     | [Deployment](guides/deployment.md), [Runtime Validation](runbooks/runtime-validation.md), [Troubleshooting](guides/troubleshooting.md), [NATS Auth Runbook](runbooks/nats-auth.md) |
+| Contributors                 | [Contributing](../CONTRIBUTING.md), [AGENTS.md](../AGENTS.md), [Architecture Overview](architecture/overview.md)                                                                   |
+| API consumers                | [OpenAPI spec](api/openapi.yaml), [Turn API](api/turn-api.md)                                                                                                                      |
 
 ## Documentation Map
 

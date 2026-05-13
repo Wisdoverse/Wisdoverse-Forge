@@ -26,6 +26,11 @@ export function createTestRouter(history: MemoryHistory) {
     path: '/tasks',
     component: placeholder('tasks'),
   })
+  const startRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/start',
+    component: placeholder('start'),
+  })
   const inboxRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: '/inbox',
@@ -54,6 +59,7 @@ export function createTestRouter(history: MemoryHistory) {
 
   const routeTree = rootRoute.addChildren([
     indexRoute,
+    startRoute,
     tasksRoute,
     inboxRoute,
     agentsRoute,

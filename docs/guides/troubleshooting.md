@@ -5,6 +5,7 @@ This guide covers common issues on the current Rust-first runtime path.
 ## Quick Health Checks
 
 ```bash
+make local-health
 curl http://localhost:4003/health
 curl http://localhost:4003/api/health
 curl http://localhost:4010/health
@@ -27,16 +28,17 @@ docker compose logs nats
 
 ### Backend stack will not start
 
-Check `docker/.env` first. Missing `POSTGRES_PASSWORD`, `REDIS_PASSWORD`,
-`JWT_SECRET`, or the NATS callout values listed in
-the [NATS Auth Runbook](../runbooks/nats-auth.md) will usually block startup.
+Check `docker/.env` first. For a local setup, rerun `make bootstrap-local`.
+Missing `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, or the NATS callout
+values listed in the [NATS Auth Runbook](../runbooks/nats-auth.md) will usually
+block startup.
 
 Then verify ports:
 
 ```bash
 lsof -i :4003
 lsof -i :4010
-lsof -i :5173
+lsof -i :4002
 lsof -i :7233
 ```
 

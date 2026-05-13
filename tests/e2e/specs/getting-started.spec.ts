@@ -1,0 +1,102 @@
+import { test, expect, type Page, type Route } from '../fixtures/app-fixtures'
+
+async function injectStartPreferences(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const payload = btoa(
+      JSON.stringify({
+        sub: 'user-1',
+        email: 'dev@example.com',
+        role: 'admin',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      })
+    )
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '')
+    localStorage.setItem('af:auth:access', `e2e.${payload}.signature`)
+    localStorage.setItem(
+      'af:auth:user',
+      JSON.stringify({ id: 'user-1', email: 'dev@example.com', name: 'Dev', role: 'admin' })
+    )
+    localStorage.setItem('af:nav:orgId', 'org-1')
+    localStorage.setItem('af:nav:projectId', 'proj-1')
+    localStorage.setItem('af:nav:expandedTeams', '["team-1"]')
+  })
+}
+
+async function mockProviders(page: Page, providers: object[]): Promise<void> {
+  await page.route('**/api/v1/llm-providers', (route: Route) => {
+    if (route.request().method() === 'GET') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, providers }),
+      })
+    }
+    return route.continue()
+  })
+  await page.route('**/api/v1/llm-providers/supported', (route: Route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ok: true,
+        providers: [
+          {
+            provider: 'openai',
+            displayName: 'OpenAI',
+            models: [{ model: 'gpt-5.5', displayName: 'GPT-5.5' }],
+          },
+        ],
+      }),
+    })
+  )
+}
+
+async function waitForAppReady(page: Page): Promise<void> {
+  await page.waitForLoadState('domcontentloaded')
+  await page.locator('#root > *').first().waitFor({ state: 'attached', timeout: 30000 })
+  await page.locator('[data-testid="sidebar"]').waitFor({ state: 'attached', timeout: 15000 })
+}
+
+test.describe('First-use Start checklist', () => {
+  test('shows the complete first-use path when basics are configured', async ({ page, baseURL }) => {
+    await injectStartPreferences(page)
+    await mockProviders(page, [
+      {
+        id: 'provider-1',
+        provider: 'openai',
+        displayName: 'OpenAI',
+        model: 'gpt-5.5',
+        priority: 0,
+        isEnabled: true,
+        isDefault: true,
+      },
+    ])
+
+    await page.goto(`${baseURL}/start`)
+    await waitForAppReady(page)
+
+    const startPage = page.locator('[data-testid="page-start"]')
+    await expect(startPage).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Make the first working path real' })).toBeVisible()
+    await expect(startPage.getByText('100%')).toBeVisible()
+    await expect(startPage.getByText('Engineering')).toBeVisible()
+    await expect(startPage.getByText('Wisdoverse Forge').first()).toBeVisible()
+    await expect(startPage.getByText('OpenAI').first()).toBeVisible()
+    await expect(startPage.getByText('OpenAI Planner')).toBeVisible()
+    await expect(startPage.getByRole('button', { name: /open agent history/i })).toBeVisible()
+  })
+
+  test('routes a missing provider step to provider settings', async ({ page, baseURL }) => {
+    await injectStartPreferences(page)
+    await mockProviders(page, [])
+
+    await page.goto(`${baseURL}/start`)
+    await waitForAppReady(page)
+
+    await page.getByRole('button', { name: /add provider/i }).click()
+    await page.waitForURL('**/settings/providers')
+    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+  })
+})

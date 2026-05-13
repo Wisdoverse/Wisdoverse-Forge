@@ -66,6 +66,7 @@ export interface TestConnectionResult {
   ok: boolean
   latencyMs?: number
   error?: string
+  responsePreview?: string
 }
 
 // API Key types (/api-keys endpoints)
@@ -191,6 +192,16 @@ function mapProviderInfo(value: unknown): ProviderInfo {
     provider,
     displayName: stringField(data, 'displayName', 'display_name') ?? provider,
     models,
+  }
+}
+
+function mapTestConnectionResult(value: unknown): TestConnectionResult {
+  const data = asRecord(value)
+  return {
+    ok: boolField(data, false, 'ok'),
+    latencyMs: numberField(data, 0, 'latencyMs', 'latency_ms') || undefined,
+    error: errorMessage(data),
+    responsePreview: stringField(data, 'responsePreview', 'response_preview'),
   }
 }
 
@@ -376,7 +387,7 @@ export function createSettingsAPI(
         )
       }
       const data = await response.json()
-      return data as TestConnectionResult
+      return mapTestConnectionResult(data)
     },
 
     async setDefaultProvider(id: string): Promise<void> {

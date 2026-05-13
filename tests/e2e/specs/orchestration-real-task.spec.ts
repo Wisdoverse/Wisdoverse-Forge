@@ -62,6 +62,11 @@ interface LoginResponse {
   }
 }
 
+interface SwitchContextResponse {
+  ok: boolean
+  accessToken: string
+}
+
 interface TaskSummary {
   id: string
   state: string
@@ -315,6 +320,18 @@ async function seedFixture(baseURL: string): Promise<TestFixture> {
       [groupId, body.user.id]
     )
     await db.query(
+      `INSERT INTO team_members (team_id, user_id, role)
+       VALUES ($1, $2, 'admin')
+       ON CONFLICT (team_id, user_id) DO UPDATE SET role = EXCLUDED.role`,
+      [teamId, body.user.id]
+    )
+    await db.query(
+      `INSERT INTO project_members (project_id, user_id, role)
+       VALUES ($1, $2, 'admin')
+       ON CONFLICT (project_id, user_id) DO UPDATE SET role = EXCLUDED.role`,
+      [projectId, body.user.id]
+    )
+    await db.query(
       `INSERT INTO agents
          (id, organization_id, workspace_id, project_id, user_id, name, status, model, provider, cli_tool,
           hmac_secret, nats_connect_password, cwd, runtime_id, last_activity_at)
@@ -354,11 +371,18 @@ async function seedFixture(baseURL: string): Promise<TestFixture> {
     throw error
   }
 
+  const scopedToken = await switchContextToken(api, body.tokens.accessToken, {
+    orgId: body.user.orgId,
+    workspaceId,
+    teamId,
+    projectId,
+  })
+
   return {
     api,
     db,
     email,
-    token: body.tokens.accessToken,
+    token: scopedToken,
     userId: body.user.id,
     orgId: body.user.orgId,
     workspaceId,
@@ -376,6 +400,22 @@ async function seedFixture(baseURL: string): Promise<TestFixture> {
     sidecarLogs: [],
     taskIds: [],
   }
+}
+
+async function switchContextToken(
+  api: APIRequestContext,
+  token: string,
+  context: { orgId: string; workspaceId: string; teamId: string; projectId: string }
+): Promise<string> {
+  const response = await api.post('/api/v1/auth/switch-context', {
+    headers: { Authorization: `Bearer ${token}` },
+    data: context,
+  })
+  const body = (await response.json()) as SwitchContextResponse
+  if (!body.ok || !body.accessToken) {
+    throw new Error(`switch-context did not return a scoped token: ${JSON.stringify(body)}`)
+  }
+  return body.accessToken
 }
 
 async function cleanupFixture(fixture?: TestFixture) {
@@ -766,7 +806,8 @@ async function stopSidecarContainer(containerName: string): Promise<void> {
 }
 
 async function seedNavigation(page: Page, fixture: TestFixture) {
-  await page.addInitScript(({ orgId, teamId, projectId }) => {
+  await page.addInitScript(({ orgId, teamId, projectId, token }) => {
+    localStorage.setItem('af:auth:access', token)
     localStorage.setItem('af:onboarding:completed', 'true')
     localStorage.setItem('af:nav:orgId', orgId)
     localStorage.setItem('af:nav:projectId', projectId)
@@ -844,9 +885,9 @@ test.describe('real orchestration task E2E', () => {
       await page.getByRole('button', { name: '+ Task' }).click()
       const dialog = page.getByRole('dialog', { name: 'New Task' })
       await expect(dialog).toBeVisible()
-      await dialog.getByPlaceholder('What needs to be done?').fill(title)
-      await dialog.getByPlaceholder('Additional details...').fill(details)
-      await dialog.locator('select[name="assignedTo"]').selectOption(fixture.agentId)
+      await dialog.getByLabel('Title').fill(title)
+      await dialog.getByLabel('Description').fill(details)
+      await dialog.getByLabel('Assign Agent').selectOption(fixture.agentId)
       await dialog.getByRole('button', { name: 'Create Task' }).click()
       await expect(dialog).toBeHidden()
 

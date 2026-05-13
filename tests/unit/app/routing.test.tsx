@@ -6,6 +6,12 @@ import { createTestRouter } from './test-helpers'
 afterEach(cleanup)
 
 describe('Routing', () => {
+  test('renders start page at /start', async () => {
+    const router = createTestRouter(createMemoryHistory({ initialEntries: ['/start'] }))
+    render(<RouterProvider router={router} />)
+    expect(await screen.findByTestId('page-start')).toBeDefined()
+  })
+
   test('renders tasks page at /tasks', async () => {
     const router = createTestRouter(createMemoryHistory({ initialEntries: ['/tasks'] }))
     render(<RouterProvider router={router} />)

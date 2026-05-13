@@ -16,6 +16,11 @@ revocable reuse.
 > Wisdoverse Forge is an engineering preview for trusted self-hosted environments. The
 > active backend is Rust-owned; legacy TypeScript server paths are not part of
 > the current runtime.
+>
+> The proofed runtime boundary is documented in
+> [Runtime Validation](docs/runbooks/runtime-validation.md). README-visible
+> capabilities outside that boundary remain preview work until the runbook lists
+> a validation path for them.
 
 ## Running Wisdoverse Forge
 
@@ -41,6 +46,35 @@ Start with [Getting Started](docs/guides/getting-started.md), then use the
 [Deployment Guide](docs/guides/deployment.md) for environment variables, Compose
 profiles, and production topology.
 
+For a clean local trial, the first commands are:
+
+```bash
+npm install
+make quickstart-local
+npm run dev
+```
+
+Then open `http://localhost:4002`, register the first account, and use the
+in-app Start page to add a provider and create an agent.
+
+For a single-host self-contained deployment, use the one-command path:
+
+```bash
+make quickstart-selfhost DOMAIN=forge.example.com
+```
+
+Use the default `DOMAIN=localhost` for a private trial. Public domains use
+automatic HTTPS through Caddy when DNS points at the host and ports `80`/`443`
+are reachable.
+
+If `80` or `443` is already occupied on the host, pass alternate public ports:
+
+```bash
+make quickstart-selfhost DOMAIN=localhost HTTP_PORT=18080 HTTPS_PORT=18443
+```
+
+Then open `https://localhost:18443`.
+
 ### Option 3. Work on this repository with an AI agent
 
 Start the agent with the repository contracts:
@@ -61,12 +95,26 @@ Start the agent with the repository contracts:
 - PostgreSQL, Redis, NATS, MinIO, and Docker runtime integrations
 - React/Vite/Three.js browser UI plus a Rust platform CLI
 
+## Current Preview Boundaries
+
+The validated `prod-ext` contract covers the Rust API, WebSocket/NATS realtime
+fanout, Rust orchestrator, Temporal workflow execution, PostgreSQL/Redis/NATS
+health, and a browser-to-sidecar orchestration task path with task evidence.
+
+The following surfaces are still preview placeholders and should not be
+represented as complete product capabilities:
+
+- Per-agent git status from `GET /api/v1/agents/:id/git`
+- Voice transcription through `POST /api/v1/voice/transcribe`
+
 ## Documentation
 
 - [SPEC.md](SPEC.md) - language-agnostic service contract
 - [docs/README.md](docs/README.md) - documentation map and truth hierarchy
 - [Architecture Overview](docs/architecture/overview.md) - runtime topology and
   data flow
+- [Runtime Validation](docs/runbooks/runtime-validation.md) - current proofed
+  runtime boundary and commands
 - [Getting Started](docs/guides/getting-started.md) - local setup path
 - [Contributing](CONTRIBUTING.md) - workflow, validation, and PR expectations
 

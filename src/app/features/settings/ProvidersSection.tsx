@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Activity } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
@@ -6,6 +7,7 @@ import type {
   LlmProvider,
   CreateProviderInput,
   ProviderInfo,
+  TestConnectionResult,
 } from '@app/shared/api/legacy/settingsApi'
 import { getSettingsApi } from '@app/shared/api/legacy'
 
@@ -116,6 +118,7 @@ interface ProviderCardProps {
   isEnabled: boolean
   isDefault: boolean
   apiKeyPrefix?: string
+  onTest: (id: string) => Promise<TestConnectionResult>
   onDelete: (id: string) => void
 }
 
@@ -126,9 +129,12 @@ function ProviderCard({
   isEnabled,
   isDefault,
   apiKeyPrefix,
+  onTest,
   onDelete,
 }: ProviderCardProps) {
   const [confirming, setConfirming] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
 
   function handleDelete() {
     if (!confirming) {
@@ -139,8 +145,32 @@ function ProviderCard({
     setConfirming(false)
   }
 
+  async function handleTest() {
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const result = await onTest(id)
+      setTestResult({
+        ok: result.ok,
+        message: result.ok ? 'Connection ready' : result.error || 'Connection failed',
+      })
+    } catch (err) {
+      setTestResult({
+        ok: false,
+        message: err instanceof Error ? err.message : 'Connection failed',
+      })
+    } finally {
+      setTesting(false)
+    }
+  }
+
   return (
-    <div className={cn('flex items-center justify-between gap-3 px-4 py-3', uiStyles.row)}>
+    <div
+      className={cn(
+        'flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between',
+        uiStyles.row
+      )}
+    >
       <div className="flex min-w-0 items-center gap-3">
         {/* Status dot */}
         <div
@@ -166,19 +196,42 @@ function ProviderCard({
               </span>
             )}
           </div>
+          {testResult && (
+            <div
+              className={cn(
+                'mt-1 text-ui-caption',
+                testResult.ok ? 'text-apple-green' : 'text-apple-red'
+              )}
+            >
+              {testResult.message}
+            </div>
+          )}
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={handleDelete}
-        className={cn(
-          'shrink-0',
-          confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton
-        )}
-      >
-        {confirming ? 'Confirm?' : 'Delete'}
-      </button>
+      <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto">
+        <button
+          type="button"
+          onClick={handleTest}
+          disabled={testing || !isEnabled}
+          className={uiStyles.secondaryButton}
+          aria-label={`Test ${displayName} connection`}
+          title="Test connection"
+        >
+          <Activity className="h-4 w-4" aria-hidden="true" />
+          <span>{testing ? 'Testing' : 'Test'}</span>
+        </button>
+        <button
+          type="button"
+          onClick={handleDelete}
+          className={cn(
+            'shrink-0',
+            confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton
+          )}
+        >
+          {confirming ? 'Confirm?' : 'Delete'}
+        </button>
+      </div>
     </div>
   )
 }
@@ -382,6 +435,10 @@ export function ProvidersSection() {
     await deleteProvider(id)
   }
 
+  async function handleTest(id: string) {
+    return getSettingsApi().testProvider(id)
+  }
+
   return (
     <div>
       {/* Section header */}
@@ -431,6 +488,7 @@ export function ProvidersSection() {
               isEnabled={provider.isEnabled}
               isDefault={provider.isDefault}
               apiKeyPrefix={provider.apiKeyPrefix}
+              onTest={handleTest}
               onDelete={handleDelete}
             />
           ))

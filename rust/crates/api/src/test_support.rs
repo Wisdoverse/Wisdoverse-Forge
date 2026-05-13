@@ -276,11 +276,12 @@ pub async fn seed_provider_agent(pool: &PgPool, provider: &str, model: &str) -> 
     let encrypted_api_key =
         crypto::encrypt_base64(&TEST_LLM_ENCRYPTION_KEY, "test-api-key").expect("encrypt test api key");
     sqlx::query(
-        "INSERT INTO user_llm_configs (user_id, provider, encrypted_api_key, is_default)
-         VALUES ($1, $2, $3, TRUE)",
+        "INSERT INTO user_llm_configs (user_id, provider, model, encrypted_api_key, is_default)
+         VALUES ($1, $2, $3, $4, TRUE)",
     )
     .bind(user_id)
     .bind(provider)
+    .bind(model)
     .bind(&encrypted_api_key)
     .execute(pool)
     .await

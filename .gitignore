@@ -19,6 +19,7 @@ data/
 .env.test
 .env.*.local
 *.env.local
+docker/ssl/*.pem
 
 # IDE
 .vscode/

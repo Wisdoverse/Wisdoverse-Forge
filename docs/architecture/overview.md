@@ -9,7 +9,7 @@ worker startup are owned by the Rust orchestrator in the default path.
 ## System Context
 
 ```text
-Browser (Vite in dev, static assets in prod)
+Browser (Vite in dev, frontend artifact service or static assets in prod)
       |
       | HTTP / WebSocket
       v
@@ -29,18 +29,18 @@ PostgreSQL / Redis / NATS / Docker runtime / agent images
 
 ## Service Inventory
 
-| Component               | Default Port                         | Responsibility                                                                         | Code                                                 |
-| ----------------------- | ------------------------------------ | -------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| Frontend app            | `5173` in dev                        | Browser UI and local Vite loop; production assets are built separately                 | `src/`                                               |
-| Rust API                | `4003`                               | User-facing REST API, WebSocket gateway, work state, internal MCP bridge, runtime APIs | `rust/bins/server`, `rust/crates/api`                |
-| Rust orchestrator       | `4010`                               | Tasks, reviews, teams, metrics, knowledge, workflow CRUD and live runtime              | `rust/bins/orchestrator`, `rust/crates/orchestrator` |
-| Temporal                | `7233`, `8233`                       | Durable workflow engine and operator UI                                                | Compose service                                      |
-| Application PostgreSQL  | `5432`                               | Persistent state for the Rust API domain                                               | `rust/crates/db`                                     |
-| Orchestrator PostgreSQL | `5432` internal / external by config | Persistent state for orchestrator entities and workflow metadata                       | `rust/crates/orchestrator` migrations                |
-| Redis                   | `6379`                               | Cache and coordination support where enabled                                           | `rust/crates/infra`                                  |
-| NATS                    | `4222`, `8222`                       | Event transport between runtimes and the API/jobs layer                                | `rust/crates/infra`, `rust/crates/jobs`              |
-| Docker runtime          | n/a                                  | Isolated agent runtime execution and image-based tool routing                          | `rust/crates/platform`                               |
-| Optional OpenSearch     | external                             | Knowledge search backend when enabled                                                  | Orchestrator config                                  |
+| Component               | Default Port                         | Responsibility                                                                            | Code                                                 |
+| ----------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Frontend app            | `4002` in dev                        | Browser UI and local Vite loop; `prod` serves the built SPA through `agentforge-frontend` | `src/`                                               |
+| Rust API                | `4003`                               | User-facing REST API, WebSocket gateway, work state, internal MCP bridge, runtime APIs    | `rust/bins/server`, `rust/crates/api`                |
+| Rust orchestrator       | `4010`                               | Tasks, reviews, teams, metrics, knowledge, workflow CRUD and live runtime                 | `rust/bins/orchestrator`, `rust/crates/orchestrator` |
+| Temporal                | `7233`, `8233`                       | Durable workflow engine and operator UI                                                   | Compose service                                      |
+| Application PostgreSQL  | `5432`                               | Persistent state for the Rust API domain                                                  | `rust/crates/db`                                     |
+| Orchestrator PostgreSQL | `5432` internal / external by config | Persistent state for orchestrator entities and workflow metadata                          | `rust/crates/orchestrator` migrations                |
+| Redis                   | `6379`                               | Cache and coordination support where enabled                                              | `rust/crates/infra`                                  |
+| NATS                    | `4222`, `8222`                       | Event transport between runtimes and the API/jobs layer                                   | `rust/crates/infra`, `rust/crates/jobs`              |
+| Docker runtime          | n/a                                  | Isolated agent runtime execution and image-based tool routing                             | `rust/crates/platform`                               |
+| Optional OpenSearch     | external                             | Knowledge search backend when enabled                                                     | Orchestrator config                                  |
 
 ## Core Flows
 
@@ -67,13 +67,17 @@ PostgreSQL / Redis / NATS / Docker runtime / agent images
 
 ## Deployment Topologies
 
-| Topology                    | Description                                                         | Typical Command Path                    |
-| --------------------------- | ------------------------------------------------------------------- | --------------------------------------- |
-| Local development           | Backend services in Docker Compose, frontend via Vite               | `make setup`, `make dev`, `npm run dev` |
-| Self-contained production   | Rust services plus internal PostgreSQL, Redis, Temporal, and Nginx  | `make prod`                             |
-| External-service production | Rust services attached to externally managed databases and networks | `make prod-ext`                         |
+| Topology                    | Description                                                                               | Typical Command Path                   |
+| --------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------- |
+| Local development           | Backend services in Docker Compose, frontend via Vite                                     | `make quickstart-local`, `npm run dev` |
+| Self-contained production   | Rust services, frontend artifact service, internal PostgreSQL, Redis, Temporal, and Caddy | `make quickstart-selfhost`             |
+| External-service production | Rust services attached to externally managed databases and networks                       | `make prod-ext`                        |
 
-The backend Compose stack does not provide the frontend dev server. In development, the UI is a separate Vite process. In production, frontend assets are built with Vite and served by the web tier.
+The backend Compose stack does not provide the frontend dev server. In
+development, the UI is a separate Vite process. In self-contained production,
+Caddy serves browser routes through the `agentforge-frontend` artifact service;
+external-service deployments may still publish `dist/` through their own web
+tier.
 
 ## Repository Boundaries
 
@@ -89,6 +93,8 @@ The backend Compose stack does not provide the frontend dev server. In developme
 The legacy TypeScript `server/` and `tests/legacy/` trees were removed after the Rust cutover (see git history for the full legacy state). The agent-container `docker buildx` proxy lives on the Rust path: `rust/bins/buildx-plugin/` builds the CLI plugin installed by the agent base image to route `docker buildx build` through the Docker proxy path.
 
 Runtime ownership is described here and enforced by the Rust workspace, Docker
-Compose files, and tests. If you change runtime ownership, compose defaults, or
-deployment topology, update this document and the relevant operational guides in
-the same PR.
+Compose files, and tests. The current proofed runtime boundary and command
+evidence are tracked in [Runtime Validation](../runbooks/runtime-validation.md).
+If you change runtime ownership, compose defaults, deployment topology, or a
+README-visible capability boundary, update this document and the relevant
+operational guides in the same PR.

@@ -20,11 +20,15 @@ This guide documents the primary configuration surfaces for the Rust-first runti
 
 ## Minimum Local Development Values
 
-For the recommended Compose path, set these in `docker/.env`:
+For the recommended Compose path, run `make bootstrap-local` to create and fill
+these values in `docker/.env`:
 
 - `POSTGRES_PASSWORD`
 - `REDIS_PASSWORD`
 - `JWT_SECRET`
+- `MCP_TOKEN`
+- `API_KEY_SALT`
+- `LLM_ENCRYPTION_KEY`
 - `NATS_BACKEND_PASSWORD`
 - `NATS_AUTH_SERVICE_PASSWORD`
 - `NATS_SYS_PASSWORD`
@@ -36,15 +40,14 @@ For the recommended Compose path, set these in `docker/.env`:
 
 Common optional values for local clarity:
 
-- `MCP_TOKEN`
 - `AGENTFORGE_PORT`
 - `BIND_ADDRESS`
 - `ORCHESTRATOR_PORT`
 
-Initial owner/admin creation is not controlled by an environment variable. For a
-fresh database, start the web app and complete the setup/register flow in the
-browser. The example environment files intentionally do not ship a default
-application administrator.
+Initial owner creation is not controlled by an environment variable. For a fresh
+database, start the web app and complete the setup/register flow in the browser.
+The example environment files intentionally do not ship a default application
+administrator.
 
 ## Rust API Variables
 
@@ -136,22 +139,24 @@ When `MCP_ENABLED=true`, Docker must be available to the Rust API service.
 
 ## Compose-Level Deployment Variables
 
-| Variable                     | Typical Use                                                      |
-| ---------------------------- | ---------------------------------------------------------------- |
-| `AGENTFORGE_PORT`            | Host port mapping for the Rust API                               |
-| `ORCHESTRATOR_PORT`          | Host port mapping for the Rust orchestrator                      |
-| `BIND_ADDRESS`               | Bind scope for published ports                                   |
-| `POSTGRES_PASSWORD`          | Internal PostgreSQL password for dev or prod profiles            |
-| `REDIS_PASSWORD`             | Internal Redis password for dev or prod profiles                 |
-| `NATS_BACKEND_PASSWORD`      | Backend NATS user password                                       |
-| `NATS_AUTH_SERVICE_PASSWORD` | NATS auth callout service password                               |
-| `NATS_SYS_PASSWORD`          | SYS-account password for monitoring and targeted KICK            |
-| `NATS_CALLOUT_*`             | Issuer, account-signing, and XKey material for NATS auth callout |
-| `MCP_TOKEN`                  | Shared token used by the Rust API and orchestrator               |
-| `EXTERNAL_NETWORK`           | External Docker network name for the `external` profile          |
-| `STORAGE_PROVIDER`           | Attachment object storage provider                               |
-| `STORAGE_LOCAL_PATH`         | Writable mount path for local attachment storage                 |
-| `MINIO_*`                    | MinIO/S3 settings when using the `storage` profile               |
+| Variable                     | Typical Use                                                                                                                  |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `AGENTFORGE_PORT`            | Host port mapping for the Rust API                                                                                           |
+| `ORCHESTRATOR_PORT`          | Host port mapping for the Rust orchestrator                                                                                  |
+| `BIND_ADDRESS`               | Bind scope for published ports                                                                                               |
+| `APP_HOST`                   | Public host served by Caddy in the self-contained `prod` profile                                                             |
+| `HTTP_PORT` / `HTTPS_PORT`   | Public Caddy port mappings for the `prod` profile; non-443 HTTPS ports are included in generated `APP_URL` and `CORS_ORIGIN` |
+| `POSTGRES_PASSWORD`          | Internal PostgreSQL password for dev or prod profiles                                                                        |
+| `REDIS_PASSWORD`             | Internal Redis password for dev or prod profiles                                                                             |
+| `NATS_BACKEND_PASSWORD`      | Backend NATS user password                                                                                                   |
+| `NATS_AUTH_SERVICE_PASSWORD` | NATS auth callout service password                                                                                           |
+| `NATS_SYS_PASSWORD`          | SYS-account password for monitoring and targeted KICK                                                                        |
+| `NATS_CALLOUT_*`             | Issuer, account-signing, and XKey material for NATS auth callout                                                             |
+| `MCP_TOKEN`                  | Shared token used by the Rust API and orchestrator                                                                           |
+| `EXTERNAL_NETWORK`           | External Docker network name for the `external` profile                                                                      |
+| `STORAGE_PROVIDER`           | Attachment object storage provider                                                                                           |
+| `STORAGE_LOCAL_PATH`         | Writable mount path for local attachment storage                                                                             |
+| `MINIO_*`                    | MinIO/S3 settings when using the `storage` profile                                                                           |
 
 ## Guidance
 

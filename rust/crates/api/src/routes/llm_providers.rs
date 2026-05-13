@@ -9,10 +9,12 @@ use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::FromRow;
+use std::time::Duration;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, ErrorKind, crypto};
+use agentforge_llm::{ChatMessage, ChatRequest, LlmError, LlmProviderBuildConfig};
 
 use crate::health::AppState;
 
@@ -58,6 +60,16 @@ struct LlmProviderRow {
     api_key_prefix: Option<String>,
     is_enabled: Option<bool>,
     is_default: Option<bool>,
+}
+
+#[derive(Debug, Clone, FromRow)]
+struct LlmProviderTestRow {
+    id: Uuid,
+    provider: String,
+    model: Option<String>,
+    base_url: Option<String>,
+    encrypted_api_key: String,
+    is_enabled: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -196,6 +208,19 @@ fn response_from_row(row: LlmProviderRow, priority: i32) -> LlmProviderConfigRes
 async fn fetch_provider_row(state: &AppState, auth: &AuthUser, id: Uuid) -> AppResult<LlmProviderRow> {
     sqlx::query_as::<_, LlmProviderRow>(
         r#"SELECT id, provider, model, display_name, base_url, api_key_prefix, is_enabled, is_default
+           FROM user_llm_configs
+          WHERE id = $1 AND user_id = $2"#,
+    )
+    .bind(id)
+    .bind(auth.scope.user_id().as_uuid())
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or_else(|| ErrorKind::NotFound(format!("llm provider {id}")).into())
+}
+
+async fn fetch_provider_test_row(state: &AppState, auth: &AuthUser, id: Uuid) -> AppResult<LlmProviderTestRow> {
+    sqlx::query_as::<_, LlmProviderTestRow>(
+        r#"SELECT id, provider, model, base_url, encrypted_api_key, is_enabled
            FROM user_llm_configs
           WHERE id = $1 AND user_id = $2"#,
     )
@@ -443,17 +468,109 @@ async fn set_default_provider(
     Ok(Json(json!({ "ok": true, "provider": response_from_row(row, 1) })))
 }
 
-/// `POST /api/v1/llm-providers/{id}/test` — contract endpoint for UI test action.
+fn llm_test_error_payload(error: &LlmError) -> serde_json::Value {
+    let (code, message, retryable) = match error {
+        LlmError::Api { status: 401, .. } | LlmError::Api { status: 403, .. } => {
+            ("unauthorized", "Provider rejected the API key.", false)
+        }
+        LlmError::Api { status: 429, .. } => ("rate_limited", "Provider rate limit reached.", true),
+        LlmError::Api { status: 400, .. } | LlmError::Api { status: 404, .. } => {
+            ("bad_request", "Provider rejected the model or request.", false)
+        }
+        LlmError::Api { status: 500..=599, .. } => ("provider_error", "Provider service is currently failing.", true),
+        LlmError::Http(_) => ("network", "Network error reaching provider.", true),
+        LlmError::Parse(_) => ("invalid_response", "Provider returned an unexpected response.", true),
+        LlmError::NotConfigured(_) => ("not_configured", "Provider is not configured for this deployment.", false),
+        LlmError::NotImplemented(_) => ("not_implemented", "Provider is not supported by this deployment.", false),
+        LlmError::Api { .. } => ("provider_error", "Provider rejected the connection test.", true),
+    };
+
+    json!({
+        "ok": false,
+        "error": {
+            "code": code,
+            "message": message,
+            "retryable": retryable,
+        },
+    })
+}
+
+/// `POST /api/v1/llm-providers/{id}/test` — send a tiny real request through the Rust LLM gateway.
 async fn test_provider(
     State(state): State<AppState>,
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let _ = fetch_provider_row(&state, &auth, id).await?;
-    Ok(Json(json!({
-        "ok": false,
-        "error": "Connection tests are not implemented for the Rust LLM gateway yet",
-    })))
+    let provider = fetch_provider_test_row(&state, &auth, id).await?;
+    if !provider.is_enabled.unwrap_or(true) {
+        return Ok(Json(json!({
+            "ok": false,
+            "error": {
+                "code": "disabled",
+                "message": "Provider is disabled.",
+                "retryable": false,
+            },
+        })));
+    }
+
+    let model = provider
+        .model
+        .as_deref()
+        .map(str::trim)
+        .filter(|model| !model.is_empty())
+        .ok_or_else(|| ErrorKind::Validation("model is required before testing a provider".into()))?
+        .to_string();
+
+    let api_key = if provider.provider == "ollama" {
+        String::new()
+    } else {
+        let key = state.encryption_key.as_ref().ok_or_else(|| {
+            ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured - cannot test stored API keys".into())
+        })?;
+        crypto::decrypt_base64(key, &provider.encrypted_api_key)
+            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("decrypt llm provider api key failed: {err}")))?
+    };
+
+    let provider_instance = match state.llm_factory.build_with_config(LlmProviderBuildConfig {
+        provider_key: provider.provider.clone(),
+        api_key,
+        base_url: provider.base_url.clone(),
+    }) {
+        Ok(instance) => instance,
+        Err(error) => return Ok(Json(llm_test_error_payload(&error))),
+    };
+
+    let request = ChatRequest {
+        model: model.clone(),
+        messages: vec![ChatMessage {
+            role: "user".to_string(),
+            content: "Reply with a short connection check acknowledgement.".to_string(),
+        }],
+        max_tokens: Some(16),
+        temperature: Some(0.0),
+    };
+
+    match tokio::time::timeout(Duration::from_secs(30), provider_instance.chat(request)).await {
+        Ok(Ok(response)) => Ok(Json(json!({
+            "ok": true,
+            "provider": {
+                "id": provider.id,
+                "provider": provider.provider,
+                "model": model,
+            },
+            "responsePreview": response.content.chars().take(120).collect::<String>(),
+            "usage": response.usage,
+        }))),
+        Ok(Err(error)) => Ok(Json(llm_test_error_payload(&error))),
+        Err(_) => Ok(Json(json!({
+            "ok": false,
+            "error": {
+                "code": "timeout",
+                "message": "Provider connection test timed out.",
+                "retryable": true,
+            },
+        }))),
+    }
 }
 
 /// Build LLM provider routes sub-router.
@@ -521,5 +638,48 @@ mod tests {
             ]
         );
         assert!(providers.iter().all(|provider| !provider.models.is_empty()));
+    }
+
+    #[test]
+    fn provider_test_error_payload_redacts_upstream_body() {
+        let payload =
+            llm_test_error_payload(&LlmError::Api { status: 401, message: "invalid key sk-secret-value".to_string() });
+
+        assert_eq!(payload["ok"], false);
+        assert_eq!(payload["error"]["code"], "unauthorized");
+        let message = payload["error"]["message"].as_str().unwrap();
+        assert!(!message.contains("sk-secret-value"));
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn provider_test_route_calls_llm_gateway(pool: sqlx::PgPool) {
+        use axum::body::{Body, to_bytes};
+        use axum::http::{Request, StatusCode, header};
+        use tower::ServiceExt;
+
+        let seed = crate::test_support::seed_provider_agent(&pool, "openai", "gpt-5.5").await;
+        let provider_id: Uuid =
+            sqlx::query_scalar("SELECT id FROM user_llm_configs WHERE user_id = $1 AND provider = 'openai' LIMIT 1")
+                .bind(seed.user_id.as_uuid())
+                .fetch_one(&pool)
+                .await
+                .expect("seeded provider id");
+        let app = crate::test_support::test_app_with_mock_provider(pool, "openai", "connection ok").await;
+
+        let request = Request::builder()
+            .method("POST")
+            .uri(format!("/api/v1/llm-providers/{provider_id}/test"))
+            .header(header::AUTHORIZATION, format!("Bearer {}", seed.jwt))
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 64 * 1024).await.unwrap()).unwrap();
+        assert_eq!(body["ok"], true);
+        assert_eq!(body["provider"]["provider"], "openai");
+        assert_eq!(body["provider"]["model"], "gpt-5.5");
+        assert_eq!(body["responsePreview"], "connection ok");
     }
 }

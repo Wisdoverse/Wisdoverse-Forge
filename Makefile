@@ -8,15 +8,19 @@
 # Usage:
 #   make setup        # One-time: create external Docker networks
 #   make dev          # Development with Rust backend
-#   make prod         # Production self-contained (DB, Redis, Nginx)
+#   make prod         # Production self-contained (DB, Redis, Caddy)
 #   make prod-ext     # Production with external services
 #
 # =============================================================================
 
 .DEFAULT_GOAL := help
 
-# Docker compose base command
-COMPOSE := docker compose -f docker/compose.yml
+# Docker compose base command. Bootstrap targets create docker/.env; Compose must
+# read that file explicitly because it otherwise only auto-loads .env from the
+# current working directory.
+COMPOSE_ENV_FILE ?= docker/.env
+COMPOSE := docker compose --env-file $(COMPOSE_ENV_FILE) -f docker/compose.yml
+SELFHOST_ENV := $(if $(HTTP_PORT),HTTP_PORT="$(HTTP_PORT)") $(if $(HTTPS_PORT),HTTPS_PORT="$(HTTPS_PORT)")
 
 # China mirror support: loads .env.local if present (create via: cp .env.example.cn .env.local)
 -include .env.local
@@ -36,6 +40,37 @@ OAUTH_MOUNT_GID ?= 101
 # =============================================================================
 # Setup (one-time)
 # =============================================================================
+
+.PHONY: bootstrap-local
+bootstrap-local: ## Prepare local docker/.env and prerequisite checks
+	@bash scripts/bootstrap-local.sh
+
+.PHONY: quickstart-local
+quickstart-local: ## Prepare local env, start backend stack, and wait for health
+	@bash scripts/bootstrap-local.sh --start
+	@bash scripts/check-local-runtime.sh --wait
+
+.PHONY: local-health
+local-health: ## Check local backend runtime health
+	@bash scripts/check-local-runtime.sh --wait
+
+.PHONY: bootstrap-selfhost
+bootstrap-selfhost: ## Prepare self-contained production profile
+	@$(SELFHOST_ENV) bash scripts/bootstrap-selfhost.sh $(if $(DOMAIN),--domain "$(DOMAIN)")
+
+.PHONY: selfhost-check
+selfhost-check: ## Validate self-contained production prerequisites
+	@$(SELFHOST_ENV) bash scripts/bootstrap-selfhost.sh --check $(if $(DOMAIN),--domain "$(DOMAIN)")
+
+.PHONY: selfhost-health
+selfhost-health: ## Check self-contained production public ingress health
+	@$(SELFHOST_ENV) bash scripts/check-selfhost-runtime.sh --wait $(if $(DOMAIN),--domain "$(DOMAIN)")
+
+.PHONY: quickstart-selfhost
+quickstart-selfhost: setup ## Prepare, start, and verify self-contained production
+	@$(SELFHOST_ENV) bash scripts/bootstrap-selfhost.sh $(if $(DOMAIN),--domain "$(DOMAIN)")
+	$(SELFHOST_ENV) $(COMPOSE) -f docker/compose.prod.yml --profile prod up -d --build
+	@$(SELFHOST_ENV) bash scripts/check-selfhost-runtime.sh --wait $(if $(DOMAIN),--domain "$(DOMAIN)")
 
 .PHONY: setup
 setup: ## Ensure external Docker networks exist
@@ -76,11 +111,11 @@ dev-logs: ## View development logs
 	$(COMPOSE) -f docker/compose.dev.yml --profile dev logs -f
 
 # =============================================================================
-# Production — Self-Contained (DB + Redis + Nginx)
+# Production — Self-Contained (DB + Redis + Caddy)
 # =============================================================================
 
 .PHONY: prod
-prod: setup ## Start production with full stack (DB, Redis, Nginx)
+prod: setup ## Start production with full stack (DB, Redis, Caddy)
 	$(COMPOSE) -f docker/compose.prod.yml --profile prod up -d --build
 
 .PHONY: prod-backup
@@ -491,5 +526,6 @@ help: ## Show this help
 	@echo "Examples:"
 	@echo "  make setup        One-time: create external networks"
 	@echo "  make dev          Start development environment with Rust backend"
-	@echo "  make prod         Start production with full stack"
+	@echo "  make quickstart-selfhost DOMAIN=forge.example.com"
+	@echo "                   Start and verify self-contained production"
 	@echo "  make prod-ext     Start production with external services"
