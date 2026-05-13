@@ -7,6 +7,7 @@ WAIT=0
 TIMEOUT_SECONDS=120
 DOMAIN=""
 INSECURE=0
+PUBLIC_INGRESS=0
 FAILURES=0
 CONTAINER_NAME_PREFIX="${CONTAINER_NAME_PREFIX:-agentforge}"
 TEMPORAL_CONTAINER="${TEMPORAL_CONTAINER:-${CONTAINER_NAME_PREFIX}-temporal}"
@@ -19,12 +20,15 @@ Usage:
   scripts/check-selfhost-runtime.sh
   scripts/check-selfhost-runtime.sh --wait
   scripts/check-selfhost-runtime.sh --domain forge.example.com
+  scripts/check-selfhost-runtime.sh --domain forge.example.com --public-ingress
   scripts/check-selfhost-runtime.sh --domain localhost --insecure
   HTTPS_PORT=18443 scripts/check-selfhost-runtime.sh --domain localhost --insecure
 
 Checks the public Caddy URL, API liveness, API readiness, and the internal
 Temporal container when it exists. Localhost uses --insecure automatically
 because Caddy's local CA is usually not trusted by the host browser or curl.
+Use --public-ingress on real public domains to verify default :80 redirects to
+HTTPS and default :443 presents a publicly trusted TLS certificate.
 USAGE
 }
 
@@ -92,6 +96,13 @@ public_url() {
   fi
 }
 
+is_local_domain() {
+  case "$1" in
+    localhost|127.0.0.1|::1|*.local) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --wait)
@@ -115,6 +126,9 @@ while [ "$#" -gt 0 ]; do
       ;;
     --insecure)
       INSECURE=1
+      ;;
+    --public-ingress)
+      PUBLIC_INGRESS=1
       ;;
     -h|--help)
       usage
@@ -206,6 +220,33 @@ run_probe_once() {
       docker inspect "$TEMPORAL_CONTAINER" >/dev/null 2>&1 || return 1
       docker exec "$TEMPORAL_CONTAINER" temporal operator cluster health --address temporal-internal:7233 >/dev/null 2>&1
       ;;
+    public-http-redirect)
+      if is_local_domain "$DOMAIN"; then
+        printf 'public ingress requires a public DNS name'
+        return 1
+      fi
+      local redirect
+      redirect="$(curl -sS --max-time 8 -o /dev/null -w '%{http_code} %{redirect_url}' "http://${DOMAIN}/" 2>&1)" || {
+        printf '%s' "$redirect"
+        return 1
+      }
+      case "$redirect" in
+        301\ https://"${DOMAIN}"/*|302\ https://"${DOMAIN}"/*|308\ https://"${DOMAIN}"/*) return 0 ;;
+      esac
+      printf '%s' "$redirect"
+      return 1
+      ;;
+    public-https-tls)
+      if is_local_domain "$DOMAIN"; then
+        printf 'public ingress requires a public DNS name'
+        return 1
+      fi
+      if [ "$INSECURE" -eq 1 ]; then
+        printf 'public ingress cannot be verified with --insecure'
+        return 1
+      fi
+      curl -fsSI --max-time 8 "https://${DOMAIN}/" >/dev/null
+      ;;
     *)
       return 1
       ;;
@@ -244,6 +285,11 @@ require_cmd curl
 log "Public URL: ${BASE_URL}"
 if [ "$INSECURE" -eq 1 ]; then
   log "TLS verification disabled for this check"
+fi
+
+if [ "$PUBLIC_INGRESS" -eq 1 ]; then
+  wait_for_probe public-http-redirect "Public HTTP :80 redirects to HTTPS"
+  wait_for_probe public-https-tls "Public HTTPS :443 has trusted TLS"
 fi
 
 wait_for_probe frontend "Frontend shell"
