@@ -399,7 +399,7 @@ impl AppConfig {
     /// though the current schema is flat.
     pub fn from_env() -> Result<Self, config::ConfigError> {
         let cfg: Self = config::Config::builder()
-            .add_source(config::Environment::default().separator("__"))
+            .add_source(config::Environment::default().separator("__").ignore_empty(true))
             .build()?
             .try_deserialize()?;
 
@@ -684,6 +684,34 @@ mod tests {
                 let err = result.unwrap_err().to_string();
                 assert!(err.contains("SMTP_HOST"), "error was: {err}");
                 assert!(err.contains("configured together"), "error was: {err}");
+            },
+        );
+    }
+
+    #[test]
+    fn empty_optional_environment_values_are_ignored() {
+        temp_env::with_vars(
+            [
+                ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
+                ("SMTP_HOST", Some("")),
+                ("SMTP_PORT", Some("")),
+                ("SMTP_USER", Some("")),
+                ("SMTP_PASSWORD", Some("")),
+                ("SMTP_FROM", Some("")),
+                ("SMTP_SECURE", Some("")),
+            ],
+            || {
+                let cfg = AppConfig::from_env();
+                assert!(cfg.is_ok(), "config load failed: {:?}", cfg.err());
+
+                let cfg = cfg.unwrap();
+                assert!(cfg.smtp_host.is_none());
+                assert!(cfg.smtp_port.is_none());
+                assert!(cfg.smtp_user.is_none());
+                assert!(cfg.smtp_password.is_none());
+                assert!(cfg.smtp_from.is_none());
+                assert!(!cfg.smtp_secure);
             },
         );
     }

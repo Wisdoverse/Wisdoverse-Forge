@@ -79,8 +79,8 @@ Then open `https://localhost:18443`.
 
 Run `make beginner-audit` to verify the self-host bootstrap path without
 starting or modifying the main stack. Release validation can add
-`BEGINNER_AUDIT_FLAGS="--pull-images --live --provider"` with a real provider
-key and public `BASE_URL`.
+`BEGINNER_AUDIT_FLAGS="--pull-images --local-smoke --live --provider"` with a
+real provider key and public `BASE_URL`.
 
 Use `make quickstart-selfhost` when you intentionally want to build the server
 and frontend images from source on the host.
