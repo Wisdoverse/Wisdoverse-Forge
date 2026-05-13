@@ -37,6 +37,9 @@ Run `make beginner-audit BEGINNER_AUDIT_FLAGS="--pull-images --local-smoke"`
 to verify the prebuilt-image path with an isolated localhost production stack.
 For CDN-backed domains, add `BEGINNER_ORIGIN_IP=<vps-ip>` to the `--live`
 audit so the source host is checked directly on `:80` and `:443`.
+After a provider is already configured and tested in Settings, add
+`BEGINNER_USE_EXISTING_PROVIDER=1` to the `--provider` audit to reuse it without
+re-entering the API key.
 
 ## Agent Images
 

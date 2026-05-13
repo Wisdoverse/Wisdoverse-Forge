@@ -160,11 +160,20 @@ BEGINNER_PROVIDER=openrouter \
 BEGINNER_MODEL=openai/gpt-4o-mini \
 BEGINNER_API_KEY=... \
 make beginner-audit DOMAIN=forge.example.com BEGINNER_AUDIT_FLAGS="--provider"
+
+BASE_URL=https://forge.example.com \
+E2E_EMAIL=dev@example.com \
+E2E_PASSWORD=... \
+BEGINNER_USE_EXISTING_PROVIDER=1 \
+make beginner-audit DOMAIN=forge.example.com BEGINNER_AUDIT_FLAGS="--provider"
 ```
 
 `BEGINNER_ORIGIN_IP` is optional. Use it when DNS points through a CDN but you
 also need to prove the source VPS answers on `:80` and `:443` with the
 production domain as Host/SNI.
+`BEGINNER_USE_EXISTING_PROVIDER=1` is useful after a user has already added and
+successfully tested a provider in Settings; it reuses that stored provider to
+verify the real Provider + Prompt path without re-entering the API key.
 
 Use `make quickstart-selfhost` instead when you intentionally want to build the
 server and frontend images from source on the host.
