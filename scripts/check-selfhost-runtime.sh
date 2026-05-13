@@ -8,6 +8,7 @@ TIMEOUT_SECONDS=120
 DOMAIN=""
 INSECURE=0
 PUBLIC_INGRESS=0
+ORIGIN_IP="${ORIGIN_IP:-${BEGINNER_ORIGIN_IP:-}}"
 FAILURES=0
 CONTAINER_NAME_PREFIX="${CONTAINER_NAME_PREFIX:-agentforge}"
 TEMPORAL_CONTAINER="${TEMPORAL_CONTAINER:-${CONTAINER_NAME_PREFIX}-temporal}"
@@ -21,6 +22,7 @@ Usage:
   scripts/check-selfhost-runtime.sh --wait
   scripts/check-selfhost-runtime.sh --domain forge.example.com
   scripts/check-selfhost-runtime.sh --domain forge.example.com --public-ingress
+  scripts/check-selfhost-runtime.sh --domain forge.example.com --public-ingress --origin-ip 203.0.113.10
   scripts/check-selfhost-runtime.sh --domain localhost --insecure
   HTTPS_PORT=18443 scripts/check-selfhost-runtime.sh --domain localhost --insecure
 
@@ -29,6 +31,8 @@ Temporal container when it exists. Localhost uses --insecure automatically
 because Caddy's local CA is usually not trusted by the host browser or curl.
 Use --public-ingress on real public domains to verify default :80 redirects to
 HTTPS and default :443 presents a publicly trusted TLS certificate.
+If the domain is behind a CDN, pass --origin-ip or ORIGIN_IP to check the VPS
+directly with the production Host/SNI.
 USAGE
 }
 
@@ -130,6 +134,14 @@ while [ "$#" -gt 0 ]; do
     --public-ingress)
       PUBLIC_INGRESS=1
       ;;
+    --origin-ip)
+      shift
+      [ "$#" -gt 0 ] || {
+        usage >&2
+        exit 2
+      }
+      ORIGIN_IP="$1"
+      ;;
     -h|--help)
       usage
       exit 0
@@ -226,7 +238,11 @@ run_probe_once() {
         return 1
       fi
       local redirect
-      redirect="$(curl -sS --max-time 8 -o /dev/null -w '%{http_code} %{redirect_url}' "http://${DOMAIN}/" 2>&1)" || {
+      local args=(-sS --max-time 8 -o /dev/null -w '%{http_code} %{redirect_url}')
+      if [ -n "$ORIGIN_IP" ]; then
+        args+=(--resolve "${DOMAIN}:80:${ORIGIN_IP}")
+      fi
+      redirect="$(curl "${args[@]}" "http://${DOMAIN}/" 2>&1)" || {
         printf '%s' "$redirect"
         return 1
       }
@@ -245,7 +261,11 @@ run_probe_once() {
         printf 'public ingress cannot be verified with --insecure'
         return 1
       fi
-      curl -fsSI --max-time 8 "https://${DOMAIN}/" >/dev/null
+      local args=(-fsSI --max-time 8)
+      if [ -n "$ORIGIN_IP" ]; then
+        args+=(--resolve "${DOMAIN}:443:${ORIGIN_IP}")
+      fi
+      curl "${args[@]}" "https://${DOMAIN}/" >/dev/null
       ;;
     *)
       return 1
@@ -283,6 +303,9 @@ wait_for_probe() {
 require_cmd curl
 
 log "Public URL: ${BASE_URL}"
+if [ -n "$ORIGIN_IP" ]; then
+  log "Origin IP override: ${ORIGIN_IP}"
+fi
 if [ "$INSECURE" -eq 1 ]; then
   log "TLS verification disabled for this check"
 fi

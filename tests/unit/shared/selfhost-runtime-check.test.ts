@@ -21,8 +21,16 @@ describe('self-host runtime check', () => {
     expect(runtimeCheckScript).toContain('https://${DOMAIN}/')
   })
 
+  it('can bypass CDN DNS and verify the origin VPS directly', () => {
+    expect(runtimeCheckScript).toContain('--origin-ip')
+    expect(runtimeCheckScript).toContain('BEGINNER_ORIGIN_IP')
+    expect(runtimeCheckScript).toContain('--resolve "${DOMAIN}:80:${ORIGIN_IP}"')
+    expect(runtimeCheckScript).toContain('--resolve "${DOMAIN}:443:${ORIGIN_IP}"')
+  })
+
   it('uses the strict public ingress check for beginner live audits', () => {
     expect(beginnerAuditScript).toContain('--public-ingress')
+    expect(beginnerAuditScript).toContain('BEGINNER_ORIGIN_IP')
     expect(beginnerAuditScript).toContain('trusted :443 TLS')
   })
 })

@@ -59,6 +59,9 @@ Optional checks:
   --local-smoke  Start an isolated localhost self-host stack, verify it, then stop it.
   --provider     Exercise a real provider key and Provider+Prompt agent.
 
+Live ingress env:
+  ORIGIN_IP / BEGINNER_ORIGIN_IP  Optional VPS origin IP for CDN-bypassing :80/:443 checks
+
 Provider audit env:
   BASE_URL                  Public app URL, e.g. https://forge.example.com
   E2E_EMAIL                 Login email
@@ -72,6 +75,8 @@ Examples:
   scripts/audit-beginner-selfhost.sh
   scripts/audit-beginner-selfhost.sh --pull-images
   scripts/audit-beginner-selfhost.sh --local-smoke
+  DOMAIN=forge.example.com BEGINNER_ORIGIN_IP=203.0.113.10 \
+    scripts/audit-beginner-selfhost.sh --live
   BASE_URL=https://forge.example.com E2E_EMAIL=dev@example.com E2E_PASSWORD=... \
     BEGINNER_PROVIDER=openrouter BEGINNER_MODEL=openai/gpt-4o-mini \
     BEGINNER_API_KEY=... scripts/audit-beginner-selfhost.sh --live --provider
