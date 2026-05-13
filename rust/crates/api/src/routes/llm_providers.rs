@@ -48,6 +48,10 @@ struct LlmProviderConfigResponse {
     priority: i32,
     is_enabled: bool,
     is_default: bool,
+    last_test_status: Option<String>,
+    last_test_error_code: Option<String>,
+    last_test_error_message: Option<String>,
+    last_tested_at: Option<String>,
 }
 
 #[derive(Debug, Clone, FromRow)]
@@ -60,6 +64,10 @@ struct LlmProviderRow {
     api_key_prefix: Option<String>,
     is_enabled: Option<bool>,
     is_default: Option<bool>,
+    last_test_status: Option<String>,
+    last_test_error_code: Option<String>,
+    last_test_error_message: Option<String>,
+    last_tested_at: Option<String>,
 }
 
 #[derive(Debug, Clone, FromRow)]
@@ -202,12 +210,27 @@ fn response_from_row(row: LlmProviderRow, priority: i32) -> LlmProviderConfigRes
         priority,
         is_enabled: row.is_enabled.unwrap_or(true),
         is_default: row.is_default.unwrap_or(false),
+        last_test_status: row.last_test_status,
+        last_test_error_code: row.last_test_error_code,
+        last_test_error_message: row.last_test_error_message,
+        last_tested_at: row.last_tested_at,
     }
 }
 
 async fn fetch_provider_row(state: &AppState, auth: &AuthUser, id: Uuid) -> AppResult<LlmProviderRow> {
     sqlx::query_as::<_, LlmProviderRow>(
-        r#"SELECT id, provider, model, display_name, base_url, api_key_prefix, is_enabled, is_default
+        r#"SELECT id,
+                  provider,
+                  model,
+                  display_name,
+                  base_url,
+                  api_key_prefix,
+                  is_enabled,
+                  is_default,
+                  settings -> 'connection_test' ->> 'status' AS last_test_status,
+                  settings -> 'connection_test' ->> 'error_code' AS last_test_error_code,
+                  settings -> 'connection_test' ->> 'error_message' AS last_test_error_message,
+                  settings -> 'connection_test' ->> 'tested_at' AS last_tested_at
            FROM user_llm_configs
           WHERE id = $1 AND user_id = $2"#,
     )
@@ -242,7 +265,18 @@ async fn get_supported_providers() -> Json<serde_json::Value> {
 /// `GET /api/v1/llm-providers` — list user provider configs.
 async fn list_providers(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
     let rows = sqlx::query_as::<_, LlmProviderRow>(
-        r#"SELECT id, provider, model, display_name, base_url, api_key_prefix, is_enabled, is_default
+        r#"SELECT id,
+                  provider,
+                  model,
+                  display_name,
+                  base_url,
+                  api_key_prefix,
+                  is_enabled,
+                  is_default,
+                  settings -> 'connection_test' ->> 'status' AS last_test_status,
+                  settings -> 'connection_test' ->> 'error_code' AS last_test_error_code,
+                  settings -> 'connection_test' ->> 'error_message' AS last_test_error_message,
+                  settings -> 'connection_test' ->> 'tested_at' AS last_tested_at
            FROM user_llm_configs
           WHERE user_id = $1
           ORDER BY COALESCE(is_default, false) DESC, updated_at DESC NULLS LAST, created_at DESC NULLS LAST"#,
@@ -324,7 +358,18 @@ async fn create_provider(
         r#"INSERT INTO user_llm_configs
               (user_id, provider, model, display_name, base_url, api_key_prefix, encrypted_api_key, is_enabled, is_default, settings)
            VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8, '{}'::jsonb)
-           RETURNING id, provider, model, display_name, base_url, api_key_prefix, is_enabled, is_default"#,
+           RETURNING id,
+                     provider,
+                     model,
+                     display_name,
+                     base_url,
+                     api_key_prefix,
+                     is_enabled,
+                     is_default,
+                     settings -> 'connection_test' ->> 'status' AS last_test_status,
+                     settings -> 'connection_test' ->> 'error_code' AS last_test_error_code,
+                     settings -> 'connection_test' ->> 'error_message' AS last_test_error_message,
+                     settings -> 'connection_test' ->> 'tested_at' AS last_tested_at"#,
     )
     .bind(auth.scope.user_id().as_uuid())
     .bind(provider)
@@ -378,9 +423,21 @@ async fn update_provider(
                       is_enabled = $4,
                       encrypted_api_key = $5,
                       api_key_prefix = $6,
+                      settings = COALESCE(settings, '{}'::jsonb) - 'connection_test',
                       updated_at = now()
                 WHERE id = $7 AND user_id = $8
-            RETURNING id, provider, model, display_name, base_url, api_key_prefix, is_enabled, is_default"#,
+            RETURNING id,
+                      provider,
+                      model,
+                      display_name,
+                      base_url,
+                      api_key_prefix,
+                      is_enabled,
+                      is_default,
+                      settings -> 'connection_test' ->> 'status' AS last_test_status,
+                      settings -> 'connection_test' ->> 'error_code' AS last_test_error_code,
+                      settings -> 'connection_test' ->> 'error_message' AS last_test_error_message,
+                      settings -> 'connection_test' ->> 'tested_at' AS last_tested_at"#,
         )
         .bind(model)
         .bind(display_name)
@@ -399,9 +456,21 @@ async fn update_provider(
                       display_name = $2,
                       base_url = $3,
                       is_enabled = $4,
+                      settings = COALESCE(settings, '{}'::jsonb) - 'connection_test',
                       updated_at = now()
                 WHERE id = $5 AND user_id = $6
-            RETURNING id, provider, model, display_name, base_url, api_key_prefix, is_enabled, is_default"#,
+            RETURNING id,
+                      provider,
+                      model,
+                      display_name,
+                      base_url,
+                      api_key_prefix,
+                      is_enabled,
+                      is_default,
+                      settings -> 'connection_test' ->> 'status' AS last_test_status,
+                      settings -> 'connection_test' ->> 'error_code' AS last_test_error_code,
+                      settings -> 'connection_test' ->> 'error_message' AS last_test_error_message,
+                      settings -> 'connection_test' ->> 'tested_at' AS last_tested_at"#,
         )
         .bind(model)
         .bind(display_name)
@@ -457,7 +526,18 @@ async fn set_default_provider(
         r#"UPDATE user_llm_configs
               SET is_default = true, updated_at = now()
             WHERE id = $1 AND user_id = $2
-        RETURNING id, provider, model, display_name, base_url, api_key_prefix, is_enabled, is_default"#,
+        RETURNING id,
+                  provider,
+                  model,
+                  display_name,
+                  base_url,
+                  api_key_prefix,
+                  is_enabled,
+                  is_default,
+                  settings -> 'connection_test' ->> 'status' AS last_test_status,
+                  settings -> 'connection_test' ->> 'error_code' AS last_test_error_code,
+                  settings -> 'connection_test' ->> 'error_message' AS last_test_error_message,
+                  settings -> 'connection_test' ->> 'tested_at' AS last_tested_at"#,
     )
     .bind(id)
     .bind(auth.scope.user_id().as_uuid())
@@ -469,6 +549,19 @@ async fn set_default_provider(
 }
 
 fn llm_test_error_payload(error: &LlmError) -> serde_json::Value {
+    let (code, message, retryable) = llm_test_error_parts(error);
+
+    json!({
+        "ok": false,
+        "error": {
+            "code": code,
+            "message": message,
+            "retryable": retryable,
+        },
+    })
+}
+
+fn llm_test_error_parts(error: &LlmError) -> (&'static str, &'static str, bool) {
     let (code, message, retryable) = match error {
         LlmError::Api { status: 401, .. } | LlmError::Api { status: 403, .. } => {
             ("unauthorized", "Provider rejected the API key.", false)
@@ -485,14 +578,41 @@ fn llm_test_error_payload(error: &LlmError) -> serde_json::Value {
         LlmError::Api { .. } => ("provider_error", "Provider rejected the connection test.", true),
     };
 
-    json!({
-        "ok": false,
-        "error": {
-            "code": code,
-            "message": message,
-            "retryable": retryable,
-        },
-    })
+    (code, message, retryable)
+}
+
+async fn record_provider_test_result(
+    state: &AppState,
+    auth: &AuthUser,
+    id: Uuid,
+    status: &str,
+    error_code: Option<&str>,
+    error_message: Option<&str>,
+) -> AppResult<()> {
+    sqlx::query(
+        r#"UPDATE user_llm_configs
+              SET settings = jsonb_set(
+                    COALESCE(settings, '{}'::jsonb),
+                    '{connection_test}',
+                    jsonb_build_object(
+                      'status', $3::text,
+                      'tested_at', to_jsonb(now()),
+                      'error_code', $4::text,
+                      'error_message', $5::text
+                    ),
+                    true
+                  ),
+                  updated_at = now()
+            WHERE id = $1 AND user_id = $2"#,
+    )
+    .bind(id)
+    .bind(auth.scope.user_id().as_uuid())
+    .bind(status)
+    .bind(error_code)
+    .bind(error_message)
+    .execute(&state.pool)
+    .await?;
+    Ok(())
 }
 
 /// `POST /api/v1/llm-providers/{id}/test` — send a tiny real request through the Rust LLM gateway.
@@ -503,6 +623,8 @@ async fn test_provider(
 ) -> AppResult<Json<serde_json::Value>> {
     let provider = fetch_provider_test_row(&state, &auth, id).await?;
     if !provider.is_enabled.unwrap_or(true) {
+        record_provider_test_result(&state, &auth, id, "failed", Some("disabled"), Some("Provider is disabled."))
+            .await?;
         return Ok(Json(json!({
             "ok": false,
             "error": {
@@ -537,7 +659,11 @@ async fn test_provider(
         base_url: provider.base_url.clone(),
     }) {
         Ok(instance) => instance,
-        Err(error) => return Ok(Json(llm_test_error_payload(&error))),
+        Err(error) => {
+            let (code, message, _) = llm_test_error_parts(&error);
+            record_provider_test_result(&state, &auth, id, "failed", Some(code), Some(message)).await?;
+            return Ok(Json(llm_test_error_payload(&error)));
+        }
     };
 
     let request = ChatRequest {
@@ -551,25 +677,43 @@ async fn test_provider(
     };
 
     match tokio::time::timeout(Duration::from_secs(30), provider_instance.chat(request)).await {
-        Ok(Ok(response)) => Ok(Json(json!({
-            "ok": true,
-            "provider": {
-                "id": provider.id,
-                "provider": provider.provider,
-                "model": model,
-            },
-            "responsePreview": response.content.chars().take(120).collect::<String>(),
-            "usage": response.usage,
-        }))),
-        Ok(Err(error)) => Ok(Json(llm_test_error_payload(&error))),
-        Err(_) => Ok(Json(json!({
-            "ok": false,
-            "error": {
-                "code": "timeout",
-                "message": "Provider connection test timed out.",
-                "retryable": true,
-            },
-        }))),
+        Ok(Ok(response)) => {
+            record_provider_test_result(&state, &auth, id, "passed", None, None).await?;
+            Ok(Json(json!({
+                "ok": true,
+                "provider": {
+                    "id": provider.id,
+                    "provider": provider.provider,
+                    "model": model,
+                },
+                "responsePreview": response.content.chars().take(120).collect::<String>(),
+                "usage": response.usage,
+            })))
+        }
+        Ok(Err(error)) => {
+            let (code, message, _) = llm_test_error_parts(&error);
+            record_provider_test_result(&state, &auth, id, "failed", Some(code), Some(message)).await?;
+            Ok(Json(llm_test_error_payload(&error)))
+        }
+        Err(_) => {
+            record_provider_test_result(
+                &state,
+                &auth,
+                id,
+                "failed",
+                Some("timeout"),
+                Some("Provider connection test timed out."),
+            )
+            .await?;
+            Ok(Json(json!({
+                "ok": false,
+                "error": {
+                    "code": "timeout",
+                    "message": "Provider connection test timed out.",
+                    "retryable": true,
+                },
+            })))
+        }
     }
 }
 
@@ -664,6 +808,7 @@ mod tests {
                 .fetch_one(&pool)
                 .await
                 .expect("seeded provider id");
+        let query_pool = pool.clone();
         let app = crate::test_support::test_app_with_mock_provider(pool, "openai", "connection ok").await;
 
         let request = Request::builder()
@@ -681,5 +826,16 @@ mod tests {
         assert_eq!(body["provider"]["provider"], "openai");
         assert_eq!(body["provider"]["model"], "gpt-5.5");
         assert_eq!(body["responsePreview"], "connection ok");
+
+        let status: Option<String> = sqlx::query_scalar(
+            "SELECT settings -> 'connection_test' ->> 'status'
+               FROM user_llm_configs
+              WHERE id = $1",
+        )
+        .bind(provider_id)
+        .fetch_one(&query_pool)
+        .await
+        .expect("stored provider test status");
+        assert_eq!(status.as_deref(), Some("passed"));
     }
 }

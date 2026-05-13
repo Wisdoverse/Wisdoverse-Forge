@@ -71,6 +71,7 @@ test.describe('First-use Start checklist', () => {
         priority: 0,
         isEnabled: true,
         isDefault: true,
+        lastTestStatus: 'passed',
       },
     ])
 

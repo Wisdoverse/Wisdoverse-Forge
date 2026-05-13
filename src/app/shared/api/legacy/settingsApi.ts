@@ -33,6 +33,10 @@ export interface LlmProviderConfig {
   priority: number
   isEnabled: boolean
   isDefault: boolean
+  lastTestStatus?: 'passed' | 'failed' | 'untested'
+  lastTestErrorCode?: string
+  lastTestErrorMessage?: string
+  lastTestedAt?: string
 }
 
 export interface ProviderInfo {
@@ -174,6 +178,12 @@ function mapProviderConfig(value: unknown, index = 0): LlmProviderConfig {
     priority: numberField(data, index + 1, 'priority'),
     isEnabled: boolField(data, true, 'isEnabled', 'is_enabled'),
     isDefault: boolField(data, false, 'isDefault', 'is_default'),
+    lastTestStatus: stringField(data, 'lastTestStatus', 'last_test_status') as
+      | LlmProviderConfig['lastTestStatus']
+      | undefined,
+    lastTestErrorCode: stringField(data, 'lastTestErrorCode', 'last_test_error_code'),
+    lastTestErrorMessage: stringField(data, 'lastTestErrorMessage', 'last_test_error_message'),
+    lastTestedAt: stringField(data, 'lastTestedAt', 'last_tested_at'),
   }
 }
 
