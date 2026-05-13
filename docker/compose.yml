@@ -695,7 +695,7 @@ services:
       - POSTGRES_SEEDS=db
       - TEMPORAL_ADDRESS=temporal-internal:7233
       - TEMPORAL_CLI_ADDRESS=temporal-internal:7233
-      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+      - DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/config/dynamicconfig/docker.yaml
     ports:
       - '${TEMPORAL_PORT:-7233}:7233'
       - '${TEMPORAL_UI_PORT:-8233}:8233'

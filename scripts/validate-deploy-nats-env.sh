@@ -40,6 +40,18 @@ require_var() {
   fi
 }
 
+validate_nats_password_config_safe() {
+  local var_name="$1"
+  local value="${!var_name:-}"
+  if [ -z "$value" ]; then
+    return 0
+  fi
+  if ! printf '%s' "$value" | grep -Eq '^[A-Za-z_][A-Za-z0-9_.@%+=:-]*$'; then
+    log_error "$var_name must start with a letter or underscore and use only URL-safe characters because docker/nats.conf expands it unquoted"
+    return 1
+  fi
+}
+
 # Skip validation entirely when no NATS-backed worker is enabled.
 if ! flag_enabled ORCHESTRATION_RESULT_CONSUMER_ENABLED \
   && ! flag_enabled ORCHESTRATION_ASSIGNMENT_OUTBOX_PUBLISHER_ENABLED \
@@ -59,6 +71,15 @@ for key in \
   NATS_CALLOUT_ISSUER_PUBLIC \
   NATS_CALLOUT_XKEY_PUBLIC; do
   if ! require_var "$key"; then
+    errors=$((errors + 1))
+  fi
+done
+
+for key in \
+  NATS_BACKEND_PASSWORD \
+  NATS_AUTH_SERVICE_PASSWORD \
+  NATS_SYS_PASSWORD; do
+  if ! validate_nats_password_config_safe "$key"; then
     errors=$((errors + 1))
   fi
 done

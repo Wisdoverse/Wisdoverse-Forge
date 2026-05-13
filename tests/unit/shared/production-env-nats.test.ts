@@ -66,4 +66,13 @@ describe('production NATS environment validation', () => {
     expect(result.status).toBe(1)
     expect(result.stderr).toContain('NATS_URL must use backend user credentials')
   })
+
+  it('rejects NATS passwords that can be parsed as numbers by nats.conf', () => {
+    const result = runCheck({
+      NATS_SYS_PASSWORD: '070e789ef6204e22ca730ed7e8a22f25f',
+    })
+
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain('NATS_SYS_PASSWORD must start with a letter')
+  })
 })
