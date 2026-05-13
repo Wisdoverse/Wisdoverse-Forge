@@ -624,8 +624,8 @@ services:
       - -lc
       - |
         export BIND_ON_IP="$(getent hosts temporal-internal | awk 'NR==1 { print $1 }')"
-        export TEMPORAL_ADDRESS="${TEMPORAL_ADDRESS:-127.0.0.1:7233}"
-        export TEMPORAL_CLI_ADDRESS="${TEMPORAL_CLI_ADDRESS:-127.0.0.1:7233}"
+        export TEMPORAL_ADDRESS="${TEMPORAL_ADDRESS:-temporal-internal:7233}"
+        export TEMPORAL_CLI_ADDRESS="${TEMPORAL_CLI_ADDRESS:-temporal-internal:7233}"
         exec /etc/temporal/entrypoint.sh autosetup
     environment:
       - DB=postgres12
@@ -633,8 +633,8 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-agentforge}
       - POSTGRES_PWD=${POSTGRES_PASSWORD:-agentforge}
       - POSTGRES_SEEDS=db
-      - TEMPORAL_ADDRESS=127.0.0.1:7233
-      - TEMPORAL_CLI_ADDRESS=127.0.0.1:7233
+      - TEMPORAL_ADDRESS=temporal-internal:7233
+      - TEMPORAL_CLI_ADDRESS=temporal-internal:7233
       - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
     ports:
       - '${TEMPORAL_PORT:-7233}:7233'
@@ -668,8 +668,8 @@ services:
       - -lc
       - |
         export BIND_ON_IP="$(getent hosts temporal-internal | awk 'NR==1 { print $1 }')"
-        export TEMPORAL_ADDRESS="${TEMPORAL_ADDRESS:-127.0.0.1:7233}"
-        export TEMPORAL_CLI_ADDRESS="${TEMPORAL_CLI_ADDRESS:-127.0.0.1:7233}"
+        export TEMPORAL_ADDRESS="${TEMPORAL_ADDRESS:-temporal-internal:7233}"
+        export TEMPORAL_CLI_ADDRESS="${TEMPORAL_CLI_ADDRESS:-temporal-internal:7233}"
         exec /etc/temporal/entrypoint.sh autosetup
     environment:
       - DB=postgres12
@@ -677,8 +677,8 @@ services:
       - POSTGRES_USER=${DB_USER:-agentforge}
       - POSTGRES_PWD=${DB_PASSWORD:-agentforge}
       - POSTGRES_SEEDS=${DB_HOST:-db}
-      - TEMPORAL_ADDRESS=127.0.0.1:7233
-      - TEMPORAL_CLI_ADDRESS=127.0.0.1:7233
+      - TEMPORAL_ADDRESS=temporal-internal:7233
+      - TEMPORAL_CLI_ADDRESS=temporal-internal:7233
     ports:
       - '${TEMPORAL_PORT:-7233}:7233'
       - '${TEMPORAL_UI_PORT:-8233}:8233'
