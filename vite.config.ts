@@ -6,9 +6,11 @@ import { DEFAULTS } from './shared/defaults'
 
 const clientPort = parseInt(process.env.AGENTFORGE_CLIENT_PORT ?? String(DEFAULTS.CLIENT_PORT), 10)
 const serverPort = parseInt(process.env.AGENTFORGE_PORT ?? String(DEFAULTS.SERVER_PORT), 10)
-const pkgVersion = (JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as {
-  version: string
-}).version
+const pkgVersion = (
+  JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as {
+    version: string
+  }
+).version
 
 export default defineConfig({
   plugins: [react()],
@@ -39,10 +41,18 @@ export default defineConfig({
     sourcemap: process.env.VITE_SOURCEMAP === 'true',
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-three': ['three'],
-          'vendor-xterm': ['@xterm/xterm', '@xterm/addon-fit'],
+        manualChunks(id) {
+          if (!id.includes('/node_modules/')) return undefined
+          if (id.includes('/node_modules/react/') || id.includes('/node_modules/react-dom/')) {
+            return 'vendor-react'
+          }
+          if (id.includes('/node_modules/three/')) {
+            return 'vendor-three'
+          }
+          if (id.includes('/node_modules/@xterm/')) {
+            return 'vendor-xterm'
+          }
+          return undefined
         },
       },
     },
