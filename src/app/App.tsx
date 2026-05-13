@@ -1,6 +1,7 @@
 import { createRouter, createRoute, redirect, RouterProvider } from '@tanstack/react-router'
 import { Route as rootRoute } from './routes/__root'
 import { Route as loginRoute } from './routes/login'
+import { Route as startRoute } from './routes/start'
 import { Route as tasksRoute } from './routes/tasks'
 import { Route as inboxRoute } from './routes/inbox'
 import { Route as contextRoute } from './routes/context'
@@ -23,6 +24,7 @@ const indexRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
+  startRoute,
   tasksRoute,
   inboxRoute,
   contextRoute,

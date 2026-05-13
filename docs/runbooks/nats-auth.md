@@ -75,8 +75,9 @@ NATS_CALLOUT_ISSUER_PUBLIC=$(nk -inkey /tmp/nats-issuer.seed -pubout)
 nk -gen account > /tmp/nats-sk.seed
 NATS_CALLOUT_ACCOUNT_SIGNING_KEY_SEED=$(cat /tmp/nats-sk.seed)
 
-# XKey (encrypts callout request/response transport)
-nk -gen xkey > /tmp/nats-xkey.seed
+# XKey (encrypts callout request/response transport). Current nk builds expose
+# this key type as "curve" or "x25519"; older examples may call it "xkey".
+nk -gen curve > /tmp/nats-xkey.seed
 NATS_CALLOUT_XKEY_SEED=$(cat /tmp/nats-xkey.seed)
 NATS_CALLOUT_XKEY_PUBLIC=$(nk -inkey /tmp/nats-xkey.seed -pubout)
 

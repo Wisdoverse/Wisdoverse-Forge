@@ -118,6 +118,7 @@ describe('AppLayout', () => {
     render(<MemoryRouter />)
     const navItems = screen.getAllByTestId(/^sidebar-nav-/)
     expect(navItems.length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByTestId('sidebar-nav-start')).toBeDefined()
   })
 
   test('top bar shows view toggles', () => {

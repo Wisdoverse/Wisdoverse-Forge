@@ -7,12 +7,28 @@ For the operator guide, see [docs/guides/deployment.md](../docs/guides/deploymen
 ## Quick Start
 
 ```bash
-cp docker/.env.example docker/.env
-make setup
-make dev
+npm install
+make quickstart-local
+npm run dev
 ```
 
-For local UI development, run `npm run dev` separately from the repository root.
+For local UI development, keep `npm run dev` running separately from the backend stack.
+
+For the self-contained production profile:
+
+```bash
+make quickstart-selfhost DOMAIN=forge.example.com
+```
+
+Use the default `DOMAIN=localhost` for a private trial. Public domains receive
+automatic HTTPS through the Caddy service in the `prod` profile.
+
+When the host already has a web server on `80` or `443`, use alternate public
+ports:
+
+```bash
+make quickstart-selfhost DOMAIN=localhost HTTP_PORT=18080 HTTPS_PORT=18443
+```
 
 ## Agent Images
 
@@ -66,16 +82,19 @@ for the public redistribution boundary.
 | Service                 | Role                                   |
 | ----------------------- | -------------------------------------- |
 | `agentforge-server`     | Rust API and realtime gateway          |
+| `agentforge-frontend`   | Built SPA artifact server in `prod`    |
 | `orchestrator`          | Rust orchestrator and workflow runtime |
 | `temporal`              | Workflow engine                        |
 | `db`, `orchestrator-db` | Persistence layers                     |
 | `redis`, `nats`         | Coordination and event transport       |
-| `nginx`                 | Reverse proxy in production            |
+| `caddy`                 | Reverse proxy and automatic HTTPS      |
 
 ## Notes
 
 - `make dev` starts the backend platform, not the Vite frontend.
-- Production frontend assets are built with `npm run build` and deployed separately.
+- `make prod` serves the built frontend through the `agentforge-frontend`
+  artifact service and Caddy. The `external` profile deploys frontend assets
+  separately through the configured web tier.
 - The agent base image installs a Rust-built `docker-buildx` proxy from `rust/bins/buildx-plugin/` to intercept `docker buildx build` inside agent containers.
 - The Alertmanager examples are wiring templates only. Keep webhook URLs, tokens,
   and contact-point secrets in the deployment secret store, then generate a

@@ -1,0 +1,30 @@
+# Wisdoverse Forge self-contained ingress.
+#
+# Public domains receive automatic HTTPS certificates from Caddy's ACME issuer.
+# Local/private trials use Caddy's internal CA and may show a browser warning
+# unless the local root CA is trusted on the client machine.
+
+{$APP_HOST:localhost} {
+	encode zstd gzip
+
+	header {
+		X-Frame-Options "SAMEORIGIN"
+		X-Content-Type-Options "nosniff"
+		X-XSS-Protection "1; mode=block"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' wss: ws:; frame-ancestors 'self';"
+		Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+	}
+
+	@websocket path /ws*
+	reverse_proxy @websocket agentforge:4003
+
+	@api path /api* /health*
+	reverse_proxy @api agentforge:4003
+
+	@assets path /assets*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	reverse_proxy frontend:4003
+}

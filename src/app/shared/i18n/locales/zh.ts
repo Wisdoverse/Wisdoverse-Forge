@@ -63,6 +63,7 @@ export const zh: TranslationKeys = {
   // =========================================================================
   nav: {
     home: '首页',
+    start: '开始',
     dashboard: '仪表板',
     tasks: '任务',
     inbox: '收件箱',
@@ -77,6 +78,58 @@ export const zh: TranslationKeys = {
     logout: '退出登录',
     profile: '个人资料',
     admin: '管理',
+  },
+
+  // =========================================================================
+  // 新手开始
+  // =========================================================================
+  gettingStarted: {
+    eyebrow: '首次使用',
+    title: '先跑通第一条可用路径',
+    description: '完成创建会话并发送任务所需的最小配置。',
+    progressCount: '{{complete}} / {{total}}',
+    currentProject: '当前项目',
+    noProject: '未选择项目',
+    projects: '项目',
+    steps: {
+      team: {
+        title: '团队',
+        empty: '先创建团队，项目权限才有归属。',
+        create: '创建团队',
+        review: '查看团队',
+      },
+      project: {
+        title: '项目',
+        empty: '会话会在这个工作区边界内运行。',
+        create: '创建项目',
+        review: '查看项目',
+      },
+      provider: {
+        title: '模型服务',
+        empty: '添加一个模型服务和 API Key。',
+        create: '添加服务',
+        review: '查看服务',
+      },
+      agent: {
+        title: '会话',
+        empty: '创建一个模型托管或容器会话。',
+        create: '创建会话',
+        review: '打开会话',
+      },
+      routing: {
+        title: '任务路由',
+        emptyWithProject: '为当前项目创建任务组。',
+        emptyWithoutProject: '先选择项目，再创建任务组。',
+        create: '创建任务组',
+        review: '查看路由',
+      },
+      history: {
+        title: '会话历史',
+        empty: '请先创建会话。',
+        ready: '可以打开聊天并发送提示词。',
+        open: '打开会话历史',
+      },
+    },
   },
 
   // =========================================================================
