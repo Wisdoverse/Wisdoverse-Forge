@@ -130,10 +130,12 @@ MinIO values and start the `storage` profile if MinIO is managed by this stack.
 Public releases publish pre-built `agent-base`, `agent-opencode`,
 `agent-codex`, and `agent-gemini` images to
 `ghcr.io/wisdoverse/wisdoverse-forge`. Run `make update-agents` to pull and tag
-them locally as `agentforge-agent:<tool>`. Public releases intentionally exclude
-`agent-claude`; build it locally with `make build-agent CLI_TOOL=claude` after
-accepting the vendor terms, or pull it from a private registry only when your
-third-party terms permit redistribution.
+them locally as `agentforge-agent:<tool>`. `agent-base` follows
+`GHCR_IMAGE_TAG` (`main` by default), while the redistributable CLI overlay
+images use `latest`. Public releases intentionally exclude `agent-claude`; build
+it locally with `make build-agent CLI_TOOL=claude` after accepting the vendor
+terms, or pull it from a private registry only when your third-party terms
+permit redistribution.
 
 When `MCP_ENABLED=true`, Docker must be available to the Rust API service.
 

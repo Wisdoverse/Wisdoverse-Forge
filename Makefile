@@ -331,13 +331,13 @@ PUBLIC_AGENT_TOOLS ?= opencode codex gemini
 AGENT_TOOLS ?= $(PUBLIC_AGENT_TOOLS)
 
 .PHONY: update-agent-base
-update-agent-base: ## Pull latest agent base image from registry
+update-agent-base: ## Pull agent base image from registry using GHCR_IMAGE_TAG
 	@if [ -z "$(AGENT_REGISTRY)" ]; then \
 		echo "Error: AGENT_REGISTRY not set."; \
 		exit 1; \
 	fi
-	docker pull $(AGENT_REGISTRY)/agent-base:latest
-	docker tag $(AGENT_REGISTRY)/agent-base:latest agentforge-agent-base:latest
+	docker pull $(AGENT_REGISTRY)/agent-base:$(GHCR_IMAGE_TAG)
+	docker tag $(AGENT_REGISTRY)/agent-base:$(GHCR_IMAGE_TAG) agentforge-agent-base:latest
 
 .PHONY: update-agents
 update-agents: update-agent-base ## Pull latest public agent images from registry
