@@ -21,14 +21,14 @@ part of this documentation set.
 
 ## Current Operating Contract
 
-| Surface       | Current Contract                                                                                                     |
-| ------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Backend       | Rust workspace under `rust/`; active API binary listens on `:4003`                                                   |
-| Orchestration | Rust orchestrator listens on `:4010` and owns Temporal workflows                                                     |
-| Browser app   | Vite/React app in `src/`; `prod` serves it via `agentforge-frontend`                                                 |
-| Production    | `make prod-ext` is the external-service validation path; `make quickstart-selfhost` is the self-contained Caddy path |
-| Health probes | API liveness is `/health`; deep readiness is `/api/health`                                                           |
-| Attachments   | Metadata in PostgreSQL; bytes in local object storage or MinIO                                                       |
+| Surface       | Current Contract                                                                                                          |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Backend       | Rust workspace under `rust/`; active API binary listens on `:4003`                                                        |
+| Orchestration | Rust orchestrator listens on `:4010` and owns Temporal workflows                                                          |
+| Browser app   | Vite/React app in `src/`; `prod` serves it via `agentforge-frontend`                                                      |
+| Production    | `make prod-ext` is the external-service validation path; `make quickstart-selfhost-pull` is the self-contained Caddy path |
+| Health probes | API liveness is `/health`; deep readiness is `/api/health`                                                                |
+| Attachments   | Metadata in PostgreSQL; bytes in local object storage or MinIO                                                            |
 
 ## Start Here
 

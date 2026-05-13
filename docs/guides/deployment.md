@@ -103,16 +103,17 @@ make dev-logs
 ## Self-Contained Production
 
 For a public domain, point DNS at this host and pass the domain through
-`DOMAIN`:
+`DOMAIN`. Use the prebuilt-image path for a first VPS because it avoids a local
+Rust/frontend build:
 
 ```bash
-make quickstart-selfhost DOMAIN=forge.example.com
+make quickstart-selfhost-pull DOMAIN=forge.example.com
 ```
 
 For a private localhost trial, omit `DOMAIN`:
 
 ```bash
-make quickstart-selfhost
+make quickstart-selfhost-pull
 ```
 
 Caddy obtains and renews public HTTPS certificates automatically when DNS points
@@ -124,7 +125,7 @@ If the host already uses `80` or `443`, pass alternate public ports. The
 bootstrap writes the matching `APP_URL` and `CORS_ORIGIN`:
 
 ```bash
-make quickstart-selfhost DOMAIN=localhost HTTP_PORT=18080 HTTPS_PORT=18443
+make quickstart-selfhost-pull DOMAIN=localhost HTTP_PORT=18080 HTTPS_PORT=18443
 ```
 
 Open `https://localhost:18443` for that trial.
@@ -133,12 +134,15 @@ This starts the Rust API, frontend artifact service, Caddy, PostgreSQL, Redis,
 NATS, Temporal, and the orchestrator, then checks the final Caddy HTTPS URL plus
 API readiness through the public ingress.
 
+Use `make quickstart-selfhost` instead when you intentionally want to build the
+server and frontend images from source on the host.
+
 To run the same flow step-by-step:
 
 ```bash
 make bootstrap-selfhost DOMAIN=forge.example.com
 make selfhost-check DOMAIN=forge.example.com
-make prod
+make prod-pull
 make selfhost-health DOMAIN=forge.example.com
 ```
 

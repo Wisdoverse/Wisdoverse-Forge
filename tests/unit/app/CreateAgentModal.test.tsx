@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { CreateAgentModal } from '@app/features/agents/CreateAgentModal'
 import { useAgentsStore } from '@app/shared/model/agents.store'
 import { useNavigationStore } from '@app/entities/navigation'
+import { useSettingsStore } from '@app/shared/model/settings.store'
 import { agentGroupApi } from '@app/entities/agent-group'
 
 vi.mock('@app/entities/agent-group', () => ({
@@ -23,6 +24,11 @@ afterEach(() => {
 
 beforeEach(() => {
   useAgentsStore.getState().reset()
+  useSettingsStore.setState({
+    providers: [],
+    providersLoading: false,
+    providersError: null,
+  })
   vi.mocked(agentGroupApi.getGroups).mockResolvedValue([])
   vi.mocked(agentGroupApi.createGroup).mockResolvedValue({
     id: 'group-new',
@@ -157,6 +163,43 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByLabelText(/working directory/i)).toBeNull()
     expect(screen.getByLabelText(/^provider$/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/^model$/i)).toBeInTheDocument()
+  })
+
+  test('defaults to Provider+Prompt when a verified provider exists', async () => {
+    const createAgent = vi.fn().mockResolvedValue(true)
+    useAgentsStore.setState({ createAgent } as never)
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-1',
+          provider: 'openai',
+          displayName: 'OpenAI',
+          model: 'gpt-5.5',
+          priority: 1,
+          isEnabled: true,
+          isDefault: true,
+          lastTestStatus: 'passed',
+        },
+      ],
+    })
+
+    render(<CreateAgentModal />)
+
+    expect(screen.getByRole('radio', { name: /provider \+ prompt/i })).toBeChecked()
+    expect(screen.queryByRole('combobox', { name: /container cli/i })).toBeNull()
+    expect(screen.getByLabelText(/^provider$/i)).toHaveValue('openai')
+    expect(screen.getByLabelText(/^model$/i)).toHaveValue('gpt-5.5')
+
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
+    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+
+    await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
+    expect(createAgent.mock.calls[0][0]).toMatchObject({
+      kind: 'provider',
+      name: 'Provider Worker',
+      provider: 'openai',
+      model: 'gpt-5.5',
+    })
   })
 
   test('switching provider seeds the matching default model', async () => {

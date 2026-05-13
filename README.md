@@ -57,10 +57,12 @@ npm run dev
 Then open `http://localhost:4002`, register the first account, and use the
 in-app Start page to add a provider and create an agent.
 
-For a single-host self-contained deployment, use the one-command path:
+For a single-host self-contained deployment, use the prebuilt-image path. This
+is the recommended first VPS path because it avoids compiling Rust and frontend
+assets on the server:
 
 ```bash
-make quickstart-selfhost DOMAIN=forge.example.com
+make quickstart-selfhost-pull DOMAIN=forge.example.com
 ```
 
 Use the default `DOMAIN=localhost` for a private trial. Public domains use
@@ -70,10 +72,13 @@ are reachable.
 If `80` or `443` is already occupied on the host, pass alternate public ports:
 
 ```bash
-make quickstart-selfhost DOMAIN=localhost HTTP_PORT=18080 HTTPS_PORT=18443
+make quickstart-selfhost-pull DOMAIN=localhost HTTP_PORT=18080 HTTPS_PORT=18443
 ```
 
 Then open `https://localhost:18443`.
+
+Use `make quickstart-selfhost` when you intentionally want to build the server
+and frontend images from source on the host.
 
 ### Option 3. Work on this repository with an AI agent
 

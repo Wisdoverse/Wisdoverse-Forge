@@ -1,9 +1,11 @@
 import { useForm } from 'react-hook-form'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { useAgentsStore } from '@app/shared/model/agents.store'
 import { useNavigationStore } from '@app/entities/navigation'
+import { useSettingsStore } from '@app/shared/model/settings.store'
+import type { LlmProviderConfig } from '@app/shared/api/legacy/settingsApi'
 import type { CliTool } from '@shared/types'
 
 type AgentKind = 'cli' | 'provider'
@@ -47,26 +49,43 @@ const PROVIDERS: { value: string; label: string; defaultModel: string }[] = [
 
 const DEFAULT_AGENT_CWD = '/workspace'
 
+function providerDefaultModel(provider: string): string {
+  return PROVIDERS.find((candidate) => candidate.value === provider)?.defaultModel ?? ''
+}
+
+function buildDefaultValues(provider: LlmProviderConfig | null): CreateAgentFormData {
+  const providerKey = provider?.provider ?? PROVIDERS[0].value
+  return {
+    name: '',
+    kind: provider ? 'provider' : 'cli',
+    cliTool: 'claude',
+    provider: providerKey,
+    model: provider?.model || providerDefaultModel(providerKey),
+    cwd: DEFAULT_AGENT_CWD,
+    groupId: '',
+    systemPrompt: '',
+  }
+}
+
 export function CreateAgentModal() {
   const { createModalOpen, setCreateModalOpen, createAgent, loading, error, setError } =
     useAgentsStore()
+  const providers = useSettingsStore((s) => s.providers)
   const selectedProjectId = useNavigationStore((s) => s.selectedProjectId)
   const projectsByTeam = useNavigationStore((s) => s.projects)
   const groups = useNavigationStore((s) => s.agentGroups)
   const createAgentGroup = useNavigationStore((s) => s.createAgentGroup)
   const [creatingGroup, setCreatingGroup] = useState(false)
+  const verifiedProvider = useMemo(
+    () =>
+      providers.find((provider) => provider.isEnabled && provider.lastTestStatus === 'passed') ??
+      null,
+    [providers]
+  )
+  const defaultValues = useMemo(() => buildDefaultValues(verifiedProvider), [verifiedProvider])
 
   const { register, handleSubmit, reset, watch, setValue } = useForm<CreateAgentFormData>({
-    defaultValues: {
-      name: '',
-      kind: 'cli',
-      cliTool: 'claude',
-      provider: PROVIDERS[0].value,
-      model: PROVIDERS[0].defaultModel,
-      cwd: DEFAULT_AGENT_CWD,
-      groupId: '',
-      systemPrompt: '',
-    },
+    defaultValues,
   })
   const kind = watch('kind')
   const provider = watch('provider')
@@ -94,25 +113,20 @@ export function CreateAgentModal() {
   useEffect(() => {
     if (!createModalOpen) return
 
-    reset({
-      name: '',
-      kind: 'cli',
-      cliTool: 'claude',
-      provider: PROVIDERS[0].value,
-      model: PROVIDERS[0].defaultModel,
-      cwd: DEFAULT_AGENT_CWD,
-      groupId: '',
-      systemPrompt: '',
-    })
+    reset(defaultValues)
     setError(null)
-  }, [createModalOpen, reset, setError])
+  }, [createModalOpen, defaultValues, reset, setError])
 
   // When the user switches provider, seed the model box with that provider's default
   // so the "OpenAI + claude-sonnet-4-6" mismatch doesn't happen by accident.
   useEffect(() => {
-    const match = PROVIDERS.find((p) => p.value === provider)
-    if (match) setValue('model', match.defaultModel)
-  }, [provider, setValue])
+    if (provider === verifiedProvider?.provider) {
+      setValue('model', verifiedProvider.model || providerDefaultModel(provider))
+      return
+    }
+    const defaultModel = providerDefaultModel(provider)
+    if (defaultModel) setValue('model', defaultModel)
+  }, [provider, setValue, verifiedProvider])
 
   if (!createModalOpen) return null
 

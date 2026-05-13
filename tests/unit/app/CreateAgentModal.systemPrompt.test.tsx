@@ -4,6 +4,7 @@ import { cleanup } from '@testing-library/react'
 import { CreateAgentModal } from '@app/features/agents/CreateAgentModal'
 import { useAgentsStore } from '@app/shared/model/agents.store'
 import { useNavigationStore } from '@app/entities/navigation'
+import { useSettingsStore } from '@app/shared/model/settings.store'
 
 vi.mock('@app/entities/agent-group', () => ({
   agentGroupApi: { getGroups: vi.fn().mockResolvedValue([]) },
@@ -16,6 +17,11 @@ beforeEach(() => {
     createModalOpen: true,
     loading: false,
     error: null,
+  })
+  useSettingsStore.setState({
+    providers: [],
+    providersLoading: false,
+    providersError: null,
   })
   useNavigationStore.setState({ selectedProjectId: null, projects: {} })
 })
