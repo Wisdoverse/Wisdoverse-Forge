@@ -33,6 +33,9 @@ make quickstart-selfhost-pull DOMAIN=localhost HTTP_PORT=18080 HTTPS_PORT=18443
 Use `make quickstart-selfhost` when you intentionally want to build the server
 and frontend images from source on the host.
 
+Run `make beginner-audit BEGINNER_AUDIT_FLAGS="--pull-images --local-smoke"`
+to verify the prebuilt-image path with an isolated localhost production stack.
+
 ## Agent Images
 
 Container CLI sessions use local image tags such as `agentforge-agent:codex`.

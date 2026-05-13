@@ -544,7 +544,7 @@ help: ## Show this help
 	@echo "  make dev          Start development environment with Rust backend"
 	@echo "  make quickstart-selfhost-pull DOMAIN=forge.example.com"
 	@echo "                   Start and verify self-contained production from GHCR images"
-	@echo "  make beginner-audit BEGINNER_AUDIT_FLAGS='--pull-images --live' DOMAIN=forge.example.com"
+	@echo "  make beginner-audit BEGINNER_AUDIT_FLAGS='--pull-images --local-smoke --live' DOMAIN=forge.example.com"
 	@echo "                   Audit the beginner self-host path"
 	@echo "  make quickstart-selfhost DOMAIN=forge.example.com"
 	@echo "                   Same flow, building server/frontend images locally"

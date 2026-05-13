@@ -144,8 +144,10 @@ When `MCP_ENABLED=true`, Docker must be available to the Rust API service.
 | Variable                     | Typical Use                                                                                                                  |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `AGENTFORGE_PORT`            | Host port mapping for the Rust API                                                                                           |
+| `AGENTFORGE_HOST_PORT`       | Optional host-only override for the Rust API published port; the container still listens on `4003`                           |
 | `ORCHESTRATOR_PORT`          | Host port mapping for the Rust orchestrator                                                                                  |
 | `BIND_ADDRESS`               | Bind scope for published ports                                                                                               |
+| `CONTAINER_NAME_PREFIX`      | Optional Compose container-name prefix for running an isolated second stack on the same host                                 |
 | `APP_HOST`                   | Public host served by Caddy in the self-contained `prod` profile                                                             |
 | `HTTP_PORT` / `HTTPS_PORT`   | Public Caddy port mappings for the `prod` profile; non-443 HTTPS ports are included in generated `APP_URL` and `CORS_ORIGIN` |
 | `POSTGRES_PASSWORD`          | Internal PostgreSQL password for dev or prod profiles                                                                        |

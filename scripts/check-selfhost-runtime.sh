@@ -8,6 +8,8 @@ TIMEOUT_SECONDS=120
 DOMAIN=""
 INSECURE=0
 FAILURES=0
+CONTAINER_NAME_PREFIX="${CONTAINER_NAME_PREFIX:-agentforge}"
+TEMPORAL_CONTAINER="${TEMPORAL_CONTAINER:-${CONTAINER_NAME_PREFIX}-temporal}"
 
 usage() {
   cat <<'USAGE'
@@ -201,8 +203,8 @@ run_probe_once() {
       ;;
     temporal)
       command -v docker >/dev/null 2>&1 || return 1
-      docker inspect agentforge-temporal >/dev/null 2>&1 || return 1
-      docker exec agentforge-temporal temporal operator cluster health --address temporal-internal:7233 >/dev/null 2>&1
+      docker inspect "$TEMPORAL_CONTAINER" >/dev/null 2>&1 || return 1
+      docker exec "$TEMPORAL_CONTAINER" temporal operator cluster health --address temporal-internal:7233 >/dev/null 2>&1
       ;;
     *)
       return 1

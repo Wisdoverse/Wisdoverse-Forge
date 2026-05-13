@@ -12,8 +12,29 @@ GHCR_IMAGE_TAG="${GHCR_IMAGE_TAG:-main}"
 PULL_IMAGES=0
 CHECK_LIVE=0
 CHECK_PROVIDER=0
+LOCAL_SMOKE=0
+LOCAL_SMOKE_CLEANUP=0
+LOCAL_SMOKE_PROJECT=""
+LOCAL_SMOKE_ENV_FILE=""
+LOCAL_SMOKE_OAUTH_DIR=""
+LOCAL_SMOKE_AGENT_NETWORK=""
+LOCAL_SMOKE_HTTP_PORT=""
+LOCAL_SMOKE_HTTPS_PORT=""
+LOCAL_SMOKE_AGENTFORGE_HOST_PORT=""
+LOCAL_SMOKE_DB_PORT=""
+LOCAL_SMOKE_REDIS_PORT=""
+LOCAL_SMOKE_NATS_PORT=""
+LOCAL_SMOKE_NATS_MONITOR_PORT=""
+LOCAL_SMOKE_TEMPORAL_PORT=""
+LOCAL_SMOKE_TEMPORAL_UI_PORT=""
+LOCAL_SMOKE_ORCHESTRATOR_PORT=""
 
 cleanup() {
+  if [ "$LOCAL_SMOKE_CLEANUP" -eq 1 ]; then
+    smoke_compose down -v --remove-orphans >/dev/null 2>&1 || true
+    docker network rm "$LOCAL_SMOKE_AGENT_NETWORK" >/dev/null 2>&1 || true
+  fi
+
   if [ "$KEEP_AUDIT_TMP" -eq 0 ]; then
     rm -rf "$AUDIT_TMP_DIR"
   fi
@@ -35,6 +56,7 @@ Default checks are non-destructive and do not require a running stack:
 Optional checks:
   --pull-images  Pull GHCR server/frontend/agent images.
   --live         Check the live public URL with scripts/check-selfhost-runtime.sh.
+  --local-smoke  Start an isolated localhost self-host stack, verify it, then stop it.
   --provider     Exercise a real provider key and Provider+Prompt agent.
 
 Provider audit env:
@@ -49,6 +71,7 @@ Provider audit env:
 Examples:
   scripts/audit-beginner-selfhost.sh
   scripts/audit-beginner-selfhost.sh --pull-images
+  scripts/audit-beginner-selfhost.sh --local-smoke
   BASE_URL=https://forge.example.com E2E_EMAIL=dev@example.com E2E_PASSWORD=... \
     BEGINNER_PROVIDER=openrouter BEGINNER_MODEL=openai/gpt-4o-mini \
     BEGINNER_API_KEY=... scripts/audit-beginner-selfhost.sh --live --provider
@@ -70,6 +93,10 @@ warn() {
 fail() {
   printf '[beginner-audit] FAIL: %s\n' "$*" >&2
   printf '[beginner-audit] diagnostics kept at %s\n' "$AUDIT_TMP_DIR" >&2
+  if [ "$LOCAL_SMOKE_CLEANUP" -eq 1 ]; then
+    printf '[beginner-audit] local smoke containers kept with prefix %s\n' "$LOCAL_SMOKE_PROJECT" >&2
+    LOCAL_SMOKE_CLEANUP=0
+  fi
   KEEP_AUDIT_TMP=1
   exit 1
 }
@@ -81,6 +108,9 @@ while [ "$#" -gt 0 ]; do
       ;;
     --live)
       CHECK_LIVE=1
+      ;;
+    --local-smoke)
+      LOCAL_SMOKE=1
       ;;
     --provider)
       CHECK_PROVIDER=1
@@ -137,6 +167,37 @@ curl_json() {
   )"
 
   printf '%s' "$status"
+}
+
+smoke_env() {
+  env \
+    COMPOSE_ENV_FILE="$LOCAL_SMOKE_ENV_FILE" \
+    COMPOSE_PROJECT_NAME="$LOCAL_SMOKE_PROJECT" \
+    CONTAINER_NAME_PREFIX="$LOCAL_SMOKE_PROJECT" \
+    CONTAINER_NETWORK="$LOCAL_SMOKE_AGENT_NETWORK" \
+    OAUTH_MOUNT_DIR="$LOCAL_SMOKE_OAUTH_DIR" \
+    HTTP_PORT="$LOCAL_SMOKE_HTTP_PORT" \
+    HTTPS_PORT="$LOCAL_SMOKE_HTTPS_PORT" \
+    AGENTFORGE_HOST_PORT="$LOCAL_SMOKE_AGENTFORGE_HOST_PORT" \
+    DB_EXPOSED_PORT="$LOCAL_SMOKE_DB_PORT" \
+    REDIS_EXPOSED_PORT="$LOCAL_SMOKE_REDIS_PORT" \
+    NATS_PORT="$LOCAL_SMOKE_NATS_PORT" \
+    NATS_MONITOR_PORT="$LOCAL_SMOKE_NATS_MONITOR_PORT" \
+    TEMPORAL_PORT="$LOCAL_SMOKE_TEMPORAL_PORT" \
+    TEMPORAL_UI_PORT="$LOCAL_SMOKE_TEMPORAL_UI_PORT" \
+    ORCHESTRATOR_PORT="$LOCAL_SMOKE_ORCHESTRATOR_PORT" \
+    AGENT_REGISTRY="$AGENT_REGISTRY" \
+    GHCR_IMAGE_TAG="$GHCR_IMAGE_TAG" \
+    "$@"
+}
+
+smoke_make() {
+  (cd "$ROOT_DIR" && smoke_env make "$@")
+}
+
+smoke_compose() {
+  (cd "$ROOT_DIR" && smoke_env docker compose --env-file "$LOCAL_SMOKE_ENV_FILE" \
+    -f docker/compose.yml -f docker/compose.prod.yml --profile prod "$@")
 }
 
 check_targets() {
@@ -208,6 +269,58 @@ check_live() {
   "$ROOT_DIR/scripts/check-selfhost-runtime.sh" --wait --domain "$DOMAIN" >"$live_out" ||
     fail "live self-host health failed; see $live_out"
   pass "live public ingress health is reachable"
+}
+
+local_smoke() {
+  local suffix bootstrap_out up_out health_out
+
+  require_cmd docker
+  suffix="$(date +%s)-$$"
+  LOCAL_SMOKE_PROJECT="beginner-audit-$suffix"
+  LOCAL_SMOKE_ENV_FILE="$AUDIT_TMP_DIR/local-smoke.env"
+  LOCAL_SMOKE_OAUTH_DIR="$AUDIT_TMP_DIR/oauth-mounts"
+  LOCAL_SMOKE_AGENT_NETWORK="$LOCAL_SMOKE_PROJECT-agents"
+  LOCAL_SMOKE_HTTP_PORT="${BEGINNER_SMOKE_HTTP_PORT:-18080}"
+  LOCAL_SMOKE_HTTPS_PORT="${BEGINNER_SMOKE_HTTPS_PORT:-18443}"
+  LOCAL_SMOKE_AGENTFORGE_HOST_PORT="${BEGINNER_SMOKE_AGENTFORGE_PORT:-14003}"
+  LOCAL_SMOKE_DB_PORT="${BEGINNER_SMOKE_DB_PORT:-15433}"
+  LOCAL_SMOKE_REDIS_PORT="${BEGINNER_SMOKE_REDIS_PORT:-16380}"
+  LOCAL_SMOKE_NATS_PORT="${BEGINNER_SMOKE_NATS_PORT:-14222}"
+  LOCAL_SMOKE_NATS_MONITOR_PORT="${BEGINNER_SMOKE_NATS_MONITOR_PORT:-18223}"
+  LOCAL_SMOKE_TEMPORAL_PORT="${BEGINNER_SMOKE_TEMPORAL_PORT:-17234}"
+  LOCAL_SMOKE_TEMPORAL_UI_PORT="${BEGINNER_SMOKE_TEMPORAL_UI_PORT:-18234}"
+  LOCAL_SMOKE_ORCHESTRATOR_PORT="${BEGINNER_SMOKE_ORCHESTRATOR_PORT:-14010}"
+
+  bootstrap_out="$AUDIT_TMP_DIR/local-smoke-bootstrap.out"
+  up_out="$AUDIT_TMP_DIR/local-smoke-up.out"
+  health_out="$AUDIT_TMP_DIR/local-smoke-health.out"
+
+  log "starting isolated localhost self-host smoke stack ($LOCAL_SMOKE_PROJECT)"
+  if ! smoke_env ENV_FILE="$LOCAL_SMOKE_ENV_FILE" "$ROOT_DIR/scripts/bootstrap-selfhost.sh" \
+    --domain localhost >"$bootstrap_out"; then
+    fail "local smoke bootstrap failed; see $bootstrap_out"
+  fi
+
+  LOCAL_SMOKE_CLEANUP=1
+  docker network create "$LOCAL_SMOKE_AGENT_NETWORK" >/dev/null
+  if ! smoke_make setup pull-server-images update-agents >"$up_out"; then
+    fail "local smoke image pull failed; see $up_out"
+  fi
+  if ! smoke_compose up -d --remove-orphans >>"$up_out"; then
+    fail "local smoke compose up failed; see $up_out"
+  fi
+
+  if ! smoke_env ENV_FILE="$LOCAL_SMOKE_ENV_FILE" \
+    BASE_URL="https://localhost:$LOCAL_SMOKE_HTTPS_PORT" \
+    "$ROOT_DIR/scripts/check-selfhost-runtime.sh" --wait --domain localhost --insecure >"$health_out"; then
+    fail "local smoke runtime health failed; see $health_out"
+  fi
+
+  smoke_compose down -v --remove-orphans >>"$up_out" || true
+  docker network rm "$LOCAL_SMOKE_AGENT_NETWORK" >>"$up_out" || true
+  LOCAL_SMOKE_CLEANUP=0
+
+  pass "isolated localhost self-host stack starts, passes public ingress health, and cleans up"
 }
 
 provider_audit() {
@@ -339,6 +452,12 @@ main() {
     check_live
   else
     warn "live public ingress not checked; pass --live on the deployed VPS"
+  fi
+
+  if [ "$LOCAL_SMOKE" -eq 1 ]; then
+    local_smoke
+  else
+    warn "isolated local self-host startup not checked; pass --local-smoke"
   fi
 
   if [ "$CHECK_PROVIDER" -eq 1 ]; then

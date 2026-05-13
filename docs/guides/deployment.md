@@ -144,10 +144,11 @@ make beginner-audit
 ```
 
 For release or VPS validation, include the optional checks that pull the public
-images, probe the live ingress, and exercise a real Provider + Prompt agent:
+images, start an isolated localhost production stack, probe the live ingress,
+and exercise a real Provider + Prompt agent:
 
 ```bash
-make beginner-audit DOMAIN=forge.example.com BEGINNER_AUDIT_FLAGS="--pull-images --live"
+make beginner-audit DOMAIN=forge.example.com BEGINNER_AUDIT_FLAGS="--pull-images --local-smoke --live"
 
 BASE_URL=https://forge.example.com \
 E2E_EMAIL=dev@example.com \
