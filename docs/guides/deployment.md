@@ -150,6 +150,9 @@ and exercise a real Provider + Prompt agent:
 ```bash
 make beginner-audit DOMAIN=forge.example.com BEGINNER_AUDIT_FLAGS="--pull-images --local-smoke --live"
 
+BEGINNER_ORIGIN_IP=203.0.113.10 \
+make beginner-audit DOMAIN=forge.example.com BEGINNER_AUDIT_FLAGS="--live"
+
 BASE_URL=https://forge.example.com \
 E2E_EMAIL=dev@example.com \
 E2E_PASSWORD=... \
@@ -158,6 +161,10 @@ BEGINNER_MODEL=openai/gpt-4o-mini \
 BEGINNER_API_KEY=... \
 make beginner-audit DOMAIN=forge.example.com BEGINNER_AUDIT_FLAGS="--provider"
 ```
+
+`BEGINNER_ORIGIN_IP` is optional. Use it when DNS points through a CDN but you
+also need to prove the source VPS answers on `:80` and `:443` with the
+production domain as Host/SNI.
 
 Use `make quickstart-selfhost` instead when you intentionally want to build the
 server and frontend images from source on the host.
