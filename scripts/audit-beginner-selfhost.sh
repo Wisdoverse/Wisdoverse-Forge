@@ -266,9 +266,9 @@ check_live() {
   live_out="$AUDIT_TMP_DIR/live-health.out"
 
   require_cmd curl
-  "$ROOT_DIR/scripts/check-selfhost-runtime.sh" --wait --domain "$DOMAIN" >"$live_out" ||
+  "$ROOT_DIR/scripts/check-selfhost-runtime.sh" --wait --domain "$DOMAIN" --public-ingress >"$live_out" ||
     fail "live self-host health failed; see $live_out"
-  pass "live public ingress health is reachable"
+  pass "live public ingress has :80 redirect, trusted :443 TLS, and app health"
 }
 
 local_smoke() {
