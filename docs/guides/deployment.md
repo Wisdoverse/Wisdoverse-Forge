@@ -134,6 +134,30 @@ This starts the Rust API, frontend artifact service, Caddy, PostgreSQL, Redis,
 NATS, Temporal, and the orchestrator, then checks the final Caddy HTTPS URL plus
 API readiness through the public ingress.
 
+Before treating a build as beginner-ready, run the self-host audit. The default
+audit is non-destructive: it verifies the beginner Make targets, fresh env
+bootstrap, generated production secrets, Compose config, Caddy config, and that
+the self-host bootstrap does not depend on the local Node/npm development path:
+
+```bash
+make beginner-audit
+```
+
+For release or VPS validation, include the optional checks that pull the public
+images, probe the live ingress, and exercise a real Provider + Prompt agent:
+
+```bash
+make beginner-audit DOMAIN=forge.example.com BEGINNER_AUDIT_FLAGS="--pull-images --live"
+
+BASE_URL=https://forge.example.com \
+E2E_EMAIL=dev@example.com \
+E2E_PASSWORD=... \
+BEGINNER_PROVIDER=openrouter \
+BEGINNER_MODEL=openai/gpt-4o-mini \
+BEGINNER_API_KEY=... \
+make beginner-audit DOMAIN=forge.example.com BEGINNER_AUDIT_FLAGS="--provider"
+```
+
 Use `make quickstart-selfhost` instead when you intentionally want to build the
 server and frontend images from source on the host.
 
