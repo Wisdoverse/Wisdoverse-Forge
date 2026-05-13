@@ -154,6 +154,18 @@ describe('rust runtime defaults', () => {
     assertOverlayDefaults(devComposePath, ['orchestrator-db', 'temporal'])
   })
 
+  it('uses the bundled Temporal dynamic config path', () => {
+    const compose = parseCompose(baseComposePath)
+    const services = compose.services ?? {}
+    const temporal = services.temporal as { environment?: unknown }
+    const strings = collectStrings(temporal.environment)
+
+    expect(strings).toContain(
+      'DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/config/dynamicconfig/docker.yaml'
+    )
+    expect(strings).not.toContain('DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml')
+  })
+
   it('routes the external overlay through agentforge-server without any legacy runtime services', () => {
     assertOverlayDefaults(externalComposePath, ['temporal-ext'])
     assertMcpEndpoint(externalComposePath, 'ORCHESTRATOR_MCP_ENDPOINT=http://agentforge-server:${SERVER_PORT:-4003}/mcp')

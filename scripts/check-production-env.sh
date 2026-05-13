@@ -188,6 +188,17 @@ validate_nats_url_contract() {
   esac
 }
 
+validate_nats_password_config_safe() {
+  var_name="$1"
+  value="$(get_var "$var_name")"
+  if [ -z "$value" ]; then
+    return
+  fi
+  if ! matches_regex "$value" '^[A-Za-z_][A-Za-z0-9_.@%+=:-]*$'; then
+    log_error "$var_name must start with a letter or underscore and use only URL-safe characters because docker/nats.conf expands it unquoted"
+  fi
+}
+
 validate_orchestration_flags() {
   validate_bool_flag ORCHESTRATION_RESULT_CONSUMER_ENABLED
   validate_bool_flag ORCHESTRATION_ASSIGNMENT_OUTBOX_PUBLISHER_ENABLED
@@ -207,6 +218,9 @@ validate_orchestration_flags() {
     require_var NATS_CALLOUT_XKEY_SEED
     require_var NATS_CALLOUT_ISSUER_PUBLIC
     require_var NATS_CALLOUT_XKEY_PUBLIC
+    validate_nats_password_config_safe NATS_BACKEND_PASSWORD
+    validate_nats_password_config_safe NATS_AUTH_SERVICE_PASSWORD
+    validate_nats_password_config_safe NATS_SYS_PASSWORD
     validate_nats_url_contract
   fi
 }

@@ -82,13 +82,17 @@ NATS_CALLOUT_XKEY_SEED=$(cat /tmp/nats-xkey.seed)
 NATS_CALLOUT_XKEY_PUBLIC=$(nk -inkey /tmp/nats-xkey.seed -pubout)
 
 # Passwords
-NATS_BACKEND_PASSWORD=$(openssl rand -hex 32)
-NATS_AUTH_SERVICE_PASSWORD=$(openssl rand -hex 32)
-NATS_SYS_PASSWORD=$(openssl rand -hex 32)
+NATS_BACKEND_PASSWORD=n$(openssl rand -hex 32)
+NATS_AUTH_SERVICE_PASSWORD=n$(openssl rand -hex 32)
+NATS_SYS_PASSWORD=n$(openssl rand -hex 32)
 
 # Server name (must match nats.conf)
 NATS_SERVER_NAME=agentforge-primary
 ```
+
+The `n` prefix is intentional: `docker/nats.conf` expands these values as
+unquoted NATS config variables, and values beginning with digits can be parsed
+as numbers instead of strings.
 
 Delete the `/tmp/*.seed` files after copying into the secret store; the seed is the private half and must never be committed.
 

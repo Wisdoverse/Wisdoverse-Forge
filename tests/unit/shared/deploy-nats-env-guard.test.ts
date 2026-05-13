@@ -26,6 +26,7 @@ describe('deploy NATS environment guard', () => {
     expect(validatorScript).toContain('NATS_BACKEND_PASSWORD')
     expect(validatorScript).toContain('NATS_AUTH_SERVICE_PASSWORD')
     expect(validatorScript).toContain('NATS_SYS_PASSWORD')
+    expect(validatorScript).toContain('docker/nats.conf expands it unquoted')
   })
 
   it('uses a stable compose project name instead of the compose directory name', () => {

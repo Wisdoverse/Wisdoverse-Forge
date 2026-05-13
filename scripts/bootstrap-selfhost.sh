@@ -84,6 +84,10 @@ random_hex() {
   od -An -N "$bytes" -tx1 /dev/urandom | tr -d ' \n'
 }
 
+random_nats_password() {
+  printf 'n%s' "$(random_hex "$1")"
+}
+
 random_base64() {
   local bytes="$1"
   if command -v openssl >/dev/null 2>&1; then
@@ -213,6 +217,43 @@ ensure_env_value() {
   UPDATED_VALUES="${UPDATED_VALUES}${key} "
 }
 
+nats_password_is_config_safe() {
+  printf '%s' "$1" | grep -Eq '^[A-Za-z_][A-Za-z0-9_.@%+=:-]*$'
+}
+
+ensure_generated_env_value() {
+  local key="$1"
+  local value="$2"
+  local current
+
+  current="$(env_value "$key")"
+  if [ -n "$current" ] && [ "$CREATED_ENV" -eq 0 ]; then
+    return 0
+  fi
+  if [ "$CHECK_ONLY" -eq 1 ] || [ "$WRITE_ALLOWED" -eq 0 ]; then
+    MISSING_VALUES="${MISSING_VALUES}${key} "
+    return 0
+  fi
+  set_env_value "$key" "$value"
+  UPDATED_VALUES="${UPDATED_VALUES}${key} "
+}
+
+ensure_nats_password_value() {
+  local key="$1"
+  local value="$2"
+  local current
+
+  current="$(env_value "$key")"
+  if [ -z "$current" ] || [ "$CREATED_ENV" -eq 1 ]; then
+    ensure_generated_env_value "$key" "$value"
+    return
+  fi
+  if nats_password_is_config_safe "$current"; then
+    return 0
+  fi
+  die "$key must start with a letter or underscore and use only URL-safe characters because docker/nats.conf expands it unquoted. Rotate it with a value like n\$(openssl rand -hex 32)."
+}
+
 generate_nats_material() {
   local nats_tmp
   nats_tmp="$(mktemp -d)"
@@ -340,6 +381,10 @@ fill_selfhost_env() {
 
   [ -f "$ENV_FILE" ] || return 0
 
+  if [ "$CREATED_ENV" -eq 1 ]; then
+    need_nats=1
+  fi
+
   for key in \
     NATS_CALLOUT_ISSUER_SEED \
     NATS_CALLOUT_ACCOUNT_SIGNING_KEY_SEED \
@@ -357,21 +402,21 @@ fill_selfhost_env() {
     generate_nats_material
   fi
 
-  ensure_env_value POSTGRES_PASSWORD "$(random_hex 24)"
-  ensure_env_value REDIS_PASSWORD "$(random_hex 24)"
-  ensure_env_value JWT_SECRET "$(random_base64 64)"
-  ensure_env_value MCP_TOKEN "$(random_hex 32)"
-  ensure_env_value API_KEY_SALT "$(random_base64 32)"
-  ensure_env_value LLM_ENCRYPTION_KEY "$(random_hex 32)"
-  ensure_env_value NATS_BACKEND_PASSWORD "$(random_hex 32)"
-  ensure_env_value NATS_AUTH_SERVICE_PASSWORD "$(random_hex 32)"
-  ensure_env_value NATS_SYS_PASSWORD "$(random_hex 32)"
+  ensure_generated_env_value POSTGRES_PASSWORD "$(random_hex 24)"
+  ensure_generated_env_value REDIS_PASSWORD "$(random_hex 24)"
+  ensure_generated_env_value JWT_SECRET "$(random_base64 64)"
+  ensure_generated_env_value MCP_TOKEN "$(random_hex 32)"
+  ensure_generated_env_value API_KEY_SALT "$(random_base64 32)"
+  ensure_generated_env_value LLM_ENCRYPTION_KEY "$(random_hex 32)"
+  ensure_nats_password_value NATS_BACKEND_PASSWORD "$(random_nats_password 32)"
+  ensure_nats_password_value NATS_AUTH_SERVICE_PASSWORD "$(random_nats_password 32)"
+  ensure_nats_password_value NATS_SYS_PASSWORD "$(random_nats_password 32)"
   ensure_env_value NATS_SERVER_NAME "agentforge-primary"
-  ensure_env_value NATS_CALLOUT_ISSUER_SEED "${NATS_ISSUER_SEED:-}"
-  ensure_env_value NATS_CALLOUT_ACCOUNT_SIGNING_KEY_SEED "${NATS_ACCOUNT_SIGNING_SEED:-}"
-  ensure_env_value NATS_CALLOUT_XKEY_SEED "${NATS_XKEY_SEED:-}"
-  ensure_env_value NATS_CALLOUT_ISSUER_PUBLIC "${NATS_ISSUER_PUBLIC:-}"
-  ensure_env_value NATS_CALLOUT_XKEY_PUBLIC "${NATS_XKEY_PUBLIC:-}"
+  ensure_generated_env_value NATS_CALLOUT_ISSUER_SEED "${NATS_ISSUER_SEED:-}"
+  ensure_generated_env_value NATS_CALLOUT_ACCOUNT_SIGNING_KEY_SEED "${NATS_ACCOUNT_SIGNING_SEED:-}"
+  ensure_generated_env_value NATS_CALLOUT_XKEY_SEED "${NATS_XKEY_SEED:-}"
+  ensure_generated_env_value NATS_CALLOUT_ISSUER_PUBLIC "${NATS_ISSUER_PUBLIC:-}"
+  ensure_generated_env_value NATS_CALLOUT_XKEY_PUBLIC "${NATS_XKEY_PUBLIC:-}"
 }
 
 require_cmd docker
