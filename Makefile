@@ -67,6 +67,10 @@ selfhost-check: ## Validate self-contained production prerequisites
 selfhost-health: ## Check self-contained production public ingress health
 	@$(SELFHOST_ENV) bash scripts/check-selfhost-runtime.sh --wait $(if $(DOMAIN),--domain "$(DOMAIN)")
 
+.PHONY: beginner-audit
+beginner-audit: ## Audit beginner self-host readiness
+	@$(SELFHOST_ENV) $(if $(DOMAIN),DOMAIN="$(DOMAIN)") bash scripts/audit-beginner-selfhost.sh $(BEGINNER_AUDIT_FLAGS)
+
 .PHONY: quickstart-selfhost
 quickstart-selfhost: setup ## Prepare, start, and verify self-contained production
 	@$(SELFHOST_ENV) bash scripts/bootstrap-selfhost.sh $(if $(DOMAIN),--domain "$(DOMAIN)")
@@ -540,6 +544,8 @@ help: ## Show this help
 	@echo "  make dev          Start development environment with Rust backend"
 	@echo "  make quickstart-selfhost-pull DOMAIN=forge.example.com"
 	@echo "                   Start and verify self-contained production from GHCR images"
+	@echo "  make beginner-audit BEGINNER_AUDIT_FLAGS='--pull-images --live' DOMAIN=forge.example.com"
+	@echo "                   Audit the beginner self-host path"
 	@echo "  make quickstart-selfhost DOMAIN=forge.example.com"
 	@echo "                   Same flow, building server/frontend images locally"
 	@echo "  make prod-pull    Start production full stack from GHCR images"

@@ -77,6 +77,11 @@ make quickstart-selfhost-pull DOMAIN=localhost HTTP_PORT=18080 HTTPS_PORT=18443
 
 Then open `https://localhost:18443`.
 
+Run `make beginner-audit` to verify the self-host bootstrap path without
+starting or modifying the main stack. Release validation can add
+`BEGINNER_AUDIT_FLAGS="--pull-images --live --provider"` with a real provider
+key and public `BASE_URL`.
+
 Use `make quickstart-selfhost` when you intentionally want to build the server
 and frontend images from source on the host.
 
