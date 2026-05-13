@@ -9,6 +9,7 @@
 #   make setup        # One-time: create external Docker networks
 #   make dev          # Development with Rust backend
 #   make prod         # Production self-contained (DB, Redis, Caddy)
+#   make prod-pull    # Production self-contained from GHCR images
 #   make prod-ext     # Production with external services
 #
 # =============================================================================
@@ -72,6 +73,13 @@ quickstart-selfhost: setup ## Prepare, start, and verify self-contained producti
 	$(SELFHOST_ENV) $(COMPOSE) -f docker/compose.prod.yml --profile prod up -d --build
 	@$(SELFHOST_ENV) bash scripts/check-selfhost-runtime.sh --wait $(if $(DOMAIN),--domain "$(DOMAIN)")
 
+.PHONY: quickstart-selfhost-pull
+quickstart-selfhost-pull: setup ## Prepare, pull GHCR images, start, and verify self-contained production
+	@$(SELFHOST_ENV) bash scripts/bootstrap-selfhost.sh $(if $(DOMAIN),--domain "$(DOMAIN)")
+	@$(MAKE) pull-server-images update-agents
+	$(SELFHOST_ENV) $(COMPOSE) -f docker/compose.prod.yml --profile prod up -d --remove-orphans
+	@$(SELFHOST_ENV) bash scripts/check-selfhost-runtime.sh --wait $(if $(DOMAIN),--domain "$(DOMAIN)")
+
 .PHONY: setup
 setup: ## Ensure external Docker networks exist
 	@docker network create agentforge-agents 2>/dev/null || true
@@ -117,6 +125,10 @@ dev-logs: ## View development logs
 .PHONY: prod
 prod: setup ## Start production with full stack (DB, Redis, Caddy)
 	$(COMPOSE) -f docker/compose.prod.yml --profile prod up -d --build
+
+.PHONY: prod-pull
+prod-pull: setup pull-server-images update-agents ## Start production with full stack using GHCR images
+	$(COMPOSE) -f docker/compose.prod.yml --profile prod up -d --remove-orphans
 
 .PHONY: prod-backup
 prod-backup: setup ## Start production with backup service
@@ -526,6 +538,9 @@ help: ## Show this help
 	@echo "Examples:"
 	@echo "  make setup        One-time: create external networks"
 	@echo "  make dev          Start development environment with Rust backend"
+	@echo "  make quickstart-selfhost-pull DOMAIN=forge.example.com"
+	@echo "                   Start and verify self-contained production from GHCR images"
 	@echo "  make quickstart-selfhost DOMAIN=forge.example.com"
-	@echo "                   Start and verify self-contained production"
+	@echo "                   Same flow, building server/frontend images locally"
+	@echo "  make prod-pull    Start production full stack from GHCR images"
 	@echo "  make prod-ext     Start production with external services"

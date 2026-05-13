@@ -70,7 +70,7 @@ PostgreSQL / Redis / NATS / Docker runtime / agent images
 | Topology                    | Description                                                                               | Typical Command Path                   |
 | --------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------- |
 | Local development           | Backend services in Docker Compose, frontend via Vite                                     | `make quickstart-local`, `npm run dev` |
-| Self-contained production   | Rust services, frontend artifact service, internal PostgreSQL, Redis, Temporal, and Caddy | `make quickstart-selfhost`             |
+| Self-contained production   | Rust services, frontend artifact service, internal PostgreSQL, Redis, Temporal, and Caddy | `make quickstart-selfhost-pull`        |
 | External-service production | Rust services attached to externally managed databases and networks                       | `make prod-ext`                        |
 
 The backend Compose stack does not provide the frontend dev server. In

@@ -17,7 +17,7 @@ For local UI development, keep `npm run dev` running separately from the backend
 For the self-contained production profile:
 
 ```bash
-make quickstart-selfhost DOMAIN=forge.example.com
+make quickstart-selfhost-pull DOMAIN=forge.example.com
 ```
 
 Use the default `DOMAIN=localhost` for a private trial. Public domains receive
@@ -27,8 +27,11 @@ When the host already has a web server on `80` or `443`, use alternate public
 ports:
 
 ```bash
-make quickstart-selfhost DOMAIN=localhost HTTP_PORT=18080 HTTPS_PORT=18443
+make quickstart-selfhost-pull DOMAIN=localhost HTTP_PORT=18080 HTTPS_PORT=18443
 ```
+
+Use `make quickstart-selfhost` when you intentionally want to build the server
+and frontend images from source on the host.
 
 ## Agent Images
 
