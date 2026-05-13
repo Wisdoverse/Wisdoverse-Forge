@@ -19,11 +19,11 @@ use uuid::Uuid;
 
 use agentforge_core::AgentStatus;
 
-const EVENTS_STREAM: &str = "EVENTS";
+pub const EVENTS_STREAM: &str = "EVENTS";
 // Reuse the legacy durable on the shared workqueue stream instead of trying
 // to create a second filtered consumer, which JetStream rejects.
 const EVENTS_DURABLE: &str = "event-processor";
-const EVENTS_FILTER: &str = "events.>";
+pub const EVENTS_FILTER: &str = "events.>";
 const FETCH_BATCH_SIZE: usize = 32;
 const FETCH_TIMEOUT_MS: u64 = 500;
 const ACK_WAIT_SECS: u64 = 30;

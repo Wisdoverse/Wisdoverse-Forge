@@ -47,8 +47,8 @@ pub use credential_consumer::{
 };
 pub use dependency_reconcile::{DEFAULT_INTERVAL as DEPENDENCY_RECONCILE_DEFAULT_INTERVAL, DependencyReconcileWorker};
 pub use event_consumer::{
-    AgentDirectory, AgentTarget, BroadcastBus, BroadcastEnvelope, BroadcastMessage, EventConsumer, EventStore,
-    EventStreamWorker, PersistedEvent, SignedEventEnvelope, SignedEventPayload,
+    AgentDirectory, AgentTarget, BroadcastBus, BroadcastEnvelope, BroadcastMessage, EVENTS_FILTER, EVENTS_STREAM,
+    EventConsumer, EventStore, EventStreamWorker, PersistedEvent, SignedEventEnvelope, SignedEventPayload,
 };
 pub use orchestration_metrics::{
     DEFAULT_CONTROL_PLANE_METRICS_INTERVAL, OrchestrationControlPlaneSnapshot, OrchestrationMetricsWorker,
