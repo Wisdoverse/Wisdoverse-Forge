@@ -82,6 +82,7 @@ describe('GettingStartedView', () => {
           model: 'gpt-5.4',
           isEnabled: true,
           isDefault: true,
+          lastTestStatus: 'passed',
         } as any,
       ],
     })
@@ -118,6 +119,68 @@ describe('GettingStartedView', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /add provider/i }))
 
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/providers' })
+  })
+
+  test('does not complete provider step until connection test has passed', async () => {
+    useNavigationStore.setState({
+      teams: [
+        {
+          id: 'team-1',
+          orgId: 'org-1',
+          name: 'Launch Team',
+          slug: 'launch-team',
+          visibility: 'open',
+          description: '',
+        },
+      ],
+      projects: {
+        'team-1': [
+          {
+            id: 'project-1',
+            teamId: 'team-1',
+            name: 'Launch Project',
+            slug: 'launch-project',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+      selectedProjectId: 'project-1',
+      agentGroups: [{ id: 'group-1', projectId: 'project-1', name: 'Default' }],
+    })
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-1',
+          provider: 'openai',
+          displayName: 'OpenAI',
+          model: 'gpt-5.4',
+          isEnabled: true,
+          isDefault: true,
+        } as any,
+      ],
+    })
+    useAgentsStore.setState({
+      agents: [
+        {
+          id: 'agent-1',
+          name: 'Starter Agent',
+          provider: 'openai',
+          model: 'gpt-5.4',
+          status: 'idle',
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+        },
+      ],
+    })
+
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText('Run Test on a provider before creating an agent.')).toBeDefined()
+    expect(screen.getByText('83%')).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /test provider/i }))
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/providers' })
   })
 })

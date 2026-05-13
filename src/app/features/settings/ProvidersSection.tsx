@@ -5,6 +5,7 @@ import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import type {
   LlmProvider,
+  LlmProviderConfig,
   CreateProviderInput,
   ProviderInfo,
   TestConnectionResult,
@@ -118,6 +119,8 @@ interface ProviderCardProps {
   isEnabled: boolean
   isDefault: boolean
   apiKeyPrefix?: string
+  lastTestStatus?: LlmProviderConfig['lastTestStatus']
+  lastTestErrorMessage?: string
   onTest: (id: string) => Promise<TestConnectionResult>
   onDelete: (id: string) => void
 }
@@ -129,12 +132,21 @@ function ProviderCard({
   isEnabled,
   isDefault,
   apiKeyPrefix,
+  lastTestStatus,
+  lastTestErrorMessage,
   onTest,
   onDelete,
 }: ProviderCardProps) {
   const [confirming, setConfirming] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
+  const persistedTestResult =
+    lastTestStatus === 'passed'
+      ? { ok: true, message: 'Connection ready' }
+      : lastTestStatus === 'failed'
+        ? { ok: false, message: lastTestErrorMessage || 'Connection failed' }
+        : null
+  const visibleTestResult = testResult ?? persistedTestResult
 
   function handleDelete() {
     if (!confirming) {
@@ -196,14 +208,14 @@ function ProviderCard({
               </span>
             )}
           </div>
-          {testResult && (
+          {visibleTestResult && (
             <div
               className={cn(
                 'mt-1 text-ui-caption',
-                testResult.ok ? 'text-apple-green' : 'text-apple-red'
+                visibleTestResult.ok ? 'text-apple-green' : 'text-apple-red'
               )}
             >
-              {testResult.message}
+              {visibleTestResult.message}
             </div>
           )}
         </div>
@@ -436,7 +448,9 @@ export function ProvidersSection() {
   }
 
   async function handleTest(id: string) {
-    return getSettingsApi().testProvider(id)
+    const result = await getSettingsApi().testProvider(id)
+    await loadProviders()
+    return result
   }
 
   return (
@@ -488,6 +502,8 @@ export function ProvidersSection() {
               isEnabled={provider.isEnabled}
               isDefault={provider.isDefault}
               apiKeyPrefix={provider.apiKeyPrefix}
+              lastTestStatus={provider.lastTestStatus}
+              lastTestErrorMessage={provider.lastTestErrorMessage}
               onTest={handleTest}
               onDelete={handleDelete}
             />

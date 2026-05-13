@@ -106,7 +106,9 @@ export const en = {
       provider: {
         title: 'Provider',
         empty: 'Add one model provider and API key.',
+        needsTest: 'Run Test on a provider before creating an agent.',
         create: 'Add provider',
+        test: 'Test provider',
         review: 'Review providers',
       },
       agent: {

@@ -107,7 +107,9 @@ export const zh: TranslationKeys = {
       provider: {
         title: '模型服务',
         empty: '添加一个模型服务和 API Key。',
+        needsTest: '请先点击测试，确认模型服务可以连接。',
         create: '添加服务',
+        test: '测试服务',
         review: '查看服务',
       },
       agent: {

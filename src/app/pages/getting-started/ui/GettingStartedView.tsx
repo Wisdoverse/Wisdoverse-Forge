@@ -55,6 +55,12 @@ export function GettingStartedView() {
     () => agents.find((agent) => !agent.cliTool) ?? agents[0] ?? null,
     [agents]
   )
+  const verifiedProvider = useMemo(
+    () =>
+      providers.find((provider) => provider.isEnabled && provider.lastTestStatus === 'passed') ??
+      null,
+    [providers]
+  )
 
   const steps = useMemo<SetupStep[]>(
     () => [
@@ -88,15 +94,17 @@ export function GettingStartedView() {
       {
         id: 'provider',
         title: t('gettingStarted.steps.provider.title'),
-        detail:
-          providers.length > 0
-            ? providers[0].displayName || providers[0].provider
+        detail: verifiedProvider
+          ? verifiedProvider.displayName || verifiedProvider.provider
+          : providers.length > 0
+            ? t('gettingStarted.steps.provider.needsTest')
             : t('gettingStarted.steps.provider.empty'),
-        complete: providers.length > 0,
+        complete: Boolean(verifiedProvider),
         path: '/settings/providers',
-        cta:
-          providers.length > 0
-            ? t('gettingStarted.steps.provider.review')
+        cta: verifiedProvider
+          ? t('gettingStarted.steps.provider.review')
+          : providers.length > 0
+            ? t('gettingStarted.steps.provider.test')
             : t('gettingStarted.steps.provider.create'),
         Icon: KeyRound,
       },
@@ -142,7 +150,17 @@ export function GettingStartedView() {
         Icon: MessageSquare,
       },
     ],
-    [agentGroups, agents, firstProviderAgent, projects, providers, selectedProject, t, teams]
+    [
+      agentGroups,
+      agents,
+      firstProviderAgent,
+      projects,
+      providers.length,
+      selectedProject,
+      t,
+      teams,
+      verifiedProvider,
+    ]
   )
 
   const completeCount = steps.filter((step) => step.complete).length
