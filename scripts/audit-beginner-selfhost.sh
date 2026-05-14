@@ -277,7 +277,11 @@ check_live() {
   require_cmd curl
   "$ROOT_DIR/scripts/check-selfhost-runtime.sh" --wait --domain "$DOMAIN" --public-ingress >"$live_out" ||
     fail "live self-host health failed; see $live_out"
-  pass "live public ingress has :80 redirect, trusted :443 TLS, and app health"
+  if [ -n "${BEGINNER_ORIGIN_IP:-${ORIGIN_IP:-}}" ]; then
+    pass "live origin ingress has :80 redirect, trusted :443 TLS, and app health"
+  else
+    pass "live public ingress has :80 redirect, trusted :443 TLS, and app health"
+  fi
 }
 
 local_smoke() {
