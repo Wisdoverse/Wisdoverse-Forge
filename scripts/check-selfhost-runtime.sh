@@ -183,7 +183,25 @@ if [ "$INSECURE" -eq 1 ]; then
 fi
 
 curl_body() {
-  curl "${CURL_ARGS[@]}" "$1"
+  local url="$1"
+  local args=("${CURL_ARGS[@]}")
+  local port
+
+  if [ -n "$ORIGIN_IP" ] && ! is_local_domain "$DOMAIN"; then
+    port="$(url_port "$url")"
+    case "$url" in
+      https://*)
+        [ -n "$port" ] || port=443
+        args+=(--resolve "${DOMAIN}:${port}:${ORIGIN_IP}")
+        ;;
+      http://*)
+        [ -n "$port" ] || port=80
+        args+=(--resolve "${DOMAIN}:${port}:${ORIGIN_IP}")
+        ;;
+    esac
+  fi
+
+  curl "${args[@]}" "$url"
 }
 
 record_pass() {
@@ -311,13 +329,24 @@ if [ "$INSECURE" -eq 1 ]; then
 fi
 
 if [ "$PUBLIC_INGRESS" -eq 1 ]; then
-  wait_for_probe public-http-redirect "Public HTTP :80 redirects to HTTPS"
-  wait_for_probe public-https-tls "Public HTTPS :443 has trusted TLS"
+  if [ -n "$ORIGIN_IP" ]; then
+    wait_for_probe public-http-redirect "Origin HTTP :80 redirects to HTTPS"
+    wait_for_probe public-https-tls "Origin HTTPS :443 has trusted TLS"
+  else
+    wait_for_probe public-http-redirect "Public HTTP :80 redirects to HTTPS"
+    wait_for_probe public-https-tls "Public HTTPS :443 has trusted TLS"
+  fi
 fi
 
-wait_for_probe frontend "Frontend shell"
-wait_for_probe api-liveness "Rust API /health through Caddy"
-wait_for_probe api-readiness "Rust API /api/health through Caddy"
+if [ -n "$ORIGIN_IP" ]; then
+  wait_for_probe frontend "Frontend shell through origin ingress"
+  wait_for_probe api-liveness "Rust API /health through origin ingress"
+  wait_for_probe api-readiness "Rust API /api/health through origin ingress"
+else
+  wait_for_probe frontend "Frontend shell"
+  wait_for_probe api-liveness "Rust API /health through configured ingress"
+  wait_for_probe api-readiness "Rust API /api/health through configured ingress"
+fi
 wait_for_probe temporal "Temporal cluster health"
 
 if [ "$FAILURES" -gt 0 ]; then
