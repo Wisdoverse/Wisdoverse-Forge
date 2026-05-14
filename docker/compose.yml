@@ -29,6 +29,8 @@
 #
 # =============================================================================
 
+name: ${COMPOSE_PROJECT_NAME:-wisdoverse-forge}
+
 services:
   # Rust Backend (default runtime path)
   # Single binary: 25MB image, 256M memory, handles all API + container mgmt

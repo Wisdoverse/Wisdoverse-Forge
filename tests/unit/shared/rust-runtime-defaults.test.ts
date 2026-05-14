@@ -13,8 +13,9 @@ const legacyReferencePatterns = ['http://agentforge:', 'platform:50052']
 const legacyServiceNames = ['agentforge', 'platform', 'orchestrator-legacy']
 const helperServiceNames = ['agentforge-mcp', 'platform-runtime']
 
-function parseCompose(filePath: string): { services?: Record<string, unknown> } {
+function parseCompose(filePath: string): { name?: string; services?: Record<string, unknown> } {
   const parsed = yaml.parse(fs.readFileSync(filePath, 'utf8')) as {
+    name?: string
     services?: Record<string, unknown>
   }
 
@@ -120,6 +121,12 @@ function assertMcpEndpoint(filePath: string, expectedEndpoint: string): void {
 }
 
 describe('rust runtime defaults', () => {
+  it('uses wisdoverse-forge as the default Compose project name', () => {
+    const compose = parseCompose(baseComposePath)
+
+    expect(compose.name).toBe('${COMPOSE_PROJECT_NAME:-wisdoverse-forge}')
+  })
+
   it('routes the default orchestrator MCP bridge through agentforge-server without any legacy runtime services', () => {
     const compose = parseCompose(baseComposePath)
     const services = compose.services ?? {}
