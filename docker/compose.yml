@@ -49,6 +49,8 @@ services:
       - ALL
     group_add:
       - '${DOCKER_GID:-998}'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     read_only: true
     tmpfs:
       - /tmp
@@ -108,6 +110,7 @@ services:
       - CONTAINER_OPENAI_API_KEY=${CONTAINER_OPENAI_API_KEY:-}
       - CODEX_DEFAULT_MODEL=${CODEX_DEFAULT_MODEL:-gpt-5.5}
       - LLM_ENCRYPTION_KEY=${LLM_ENCRYPTION_KEY:-}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}
       - OAUTH_MOUNT_DIR=${OAUTH_MOUNT_DIR:-/tmp/agentforge/oauth-mounts}
       - STORAGE_PROVIDER=${STORAGE_PROVIDER:-local}
       - STORAGE_LOCAL_PATH=${STORAGE_LOCAL_PATH:-/var/lib/agentforge/uploads}

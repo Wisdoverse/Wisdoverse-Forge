@@ -49,7 +49,7 @@ export interface CreateProviderInput {
   provider: LlmProvider
   displayName: string
   model: string
-  apiKey: string
+  apiKey?: string
   baseUrl?: string
 }
 

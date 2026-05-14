@@ -86,7 +86,7 @@ pub struct CreateProviderRequest {
     pub provider: String,
     pub display_name: Option<String>,
     pub model: String,
-    pub api_key: String,
+    pub api_key: Option<String>,
     pub base_url: Option<String>,
 }
 
@@ -194,6 +194,10 @@ fn validate_provider(provider: &str) -> AppResult<String> {
 
 fn api_key_prefix(api_key: &str) -> String {
     api_key.chars().take(8).collect()
+}
+
+fn provider_requires_api_key(provider: &str) -> bool {
+    provider != "ollama"
 }
 
 fn response_from_row(row: LlmProviderRow, priority: i32) -> LlmProviderConfigResponse {
@@ -306,16 +310,21 @@ async fn create_provider(
         return Err(ErrorKind::Validation("model is required".into()).into());
     }
 
-    let api_key = req.api_key.trim();
-    if api_key.is_empty() {
+    let api_key = req.api_key.as_deref().unwrap_or_default().trim();
+    if provider_requires_api_key(&provider) && api_key.is_empty() {
         return Err(ErrorKind::Validation("apiKey is required".into()).into());
     }
 
-    let key = state.encryption_key.as_ref().ok_or_else(|| {
-        ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured - refusing to store plaintext API keys".into())
-    })?;
-    let encrypted_api_key = crypto::encrypt_base64(key, api_key)
-        .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encrypt llm provider api key failed: {err}")))?;
+    let (encrypted_api_key, prefix) = if api_key.is_empty() {
+        (String::new(), None)
+    } else {
+        let key = state.encryption_key.as_ref().ok_or_else(|| {
+            ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured - refusing to store plaintext API keys".into())
+        })?;
+        let encrypted_api_key = crypto::encrypt_base64(key, api_key)
+            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encrypt llm provider api key failed: {err}")))?;
+        (encrypted_api_key, Some(api_key_prefix(api_key)))
+    };
 
     let exists = sqlx::query_scalar::<_, bool>(
         r#"SELECT EXISTS (
@@ -352,8 +361,6 @@ async fn create_provider(
     let display_name =
         clean_optional(req.display_name).unwrap_or_else(|| provider_display_name(provider.as_str()).to_string());
     let base_url = clean_optional(req.base_url);
-    let prefix = api_key_prefix(api_key);
-
     let row = sqlx::query_as::<_, LlmProviderRow>(
         r#"INSERT INTO user_llm_configs
               (user_id, provider, model, display_name, base_url, api_key_prefix, encrypted_api_key, is_enabled, is_default, settings)
@@ -763,6 +770,12 @@ mod tests {
     }
 
     #[test]
+    fn ollama_is_keyless_provider() {
+        assert!(!provider_requires_api_key("ollama"));
+        assert!(provider_requires_api_key("openai"));
+    }
+
+    #[test]
     fn supported_provider_shape_contains_all_frontend_keys() {
         let providers = supported_provider_list();
         let keys: Vec<_> = providers.iter().map(|provider| provider.provider).collect();
@@ -793,6 +806,44 @@ mod tests {
         assert_eq!(payload["error"]["code"], "unauthorized");
         let message = payload["error"]["message"].as_str().unwrap();
         assert!(!message.contains("sk-secret-value"));
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn create_ollama_provider_accepts_empty_api_key(pool: sqlx::PgPool) {
+        use axum::body::{Body, to_bytes};
+        use axum::http::{Request, StatusCode, header};
+        use tower::ServiceExt;
+
+        let seed = crate::test_support::seed_provider_agent(&pool, "openai", "gpt-5.5").await;
+        let app = crate::test_support::test_app_with_mock_provider(pool.clone(), "openai", "connection ok").await;
+
+        let request = Request::builder()
+            .method("POST")
+            .uri("/api/v1/llm-providers")
+            .header(header::AUTHORIZATION, format!("Bearer {}", seed.jwt))
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(
+                r#"{"provider":"ollama","displayName":"Local Ollama","model":"llama3","apiKey":"","baseUrl":"http://ollama:11434"}"#,
+            ))
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 64 * 1024).await.unwrap()).unwrap();
+        assert_eq!(body["ok"], true);
+        assert_eq!(body["provider"]["provider"], "ollama");
+        assert_eq!(body["provider"]["apiKeyPrefix"], serde_json::Value::Null);
+
+        let stored: (String, Option<String>) = sqlx::query_as(
+            "SELECT encrypted_api_key, api_key_prefix FROM user_llm_configs WHERE user_id = $1 AND provider = 'ollama'",
+        )
+        .bind(seed.user_id.as_uuid())
+        .fetch_one(&pool)
+        .await
+        .expect("stored ollama provider");
+        assert_eq!(stored.0, "");
+        assert_eq!(stored.1, None);
     }
 
     #[sqlx::test(migrations = "../db/migrations")]

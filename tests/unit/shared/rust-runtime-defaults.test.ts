@@ -134,7 +134,10 @@ describe('rust runtime defaults', () => {
     for (const helperService of helperServiceNames) {
       expect(services).not.toHaveProperty(helperService)
     }
-    assertMcpEndpoint(baseComposePath, 'ORCHESTRATOR_MCP_ENDPOINT=http://agentforge-server:${SERVER_PORT:-4003}/mcp')
+    assertMcpEndpoint(
+      baseComposePath,
+      'ORCHESTRATOR_MCP_ENDPOINT=http://agentforge-server:${SERVER_PORT:-4003}/mcp'
+    )
     expectDependsOnService(orchestrator.depends_on, 'agentforge-server')
     for (const legacyService of legacyServiceNames) {
       expectNotDependsOnService(orchestrator.depends_on, legacyService)
@@ -147,7 +150,9 @@ describe('rust runtime defaults', () => {
     const rustApiStrings = collectStrings(rustApi)
     const postgresStrings = collectStrings(postgres)
     expect(rustApiStrings).not.toContain('PLATFORM_GRPC_ADDRESS=platform-runtime:50052')
-    expect(postgresStrings).not.toContain('../server/src/migrations/init:/docker-entrypoint-initdb.d:ro')
+    expect(postgresStrings).not.toContain(
+      '../server/src/migrations/init:/docker-entrypoint-initdb.d:ro'
+    )
   })
 
   it('routes the dev overlay through agentforge-server without any legacy runtime services', () => {
@@ -163,12 +168,30 @@ describe('rust runtime defaults', () => {
     expect(strings).toContain(
       'DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/config/dynamicconfig/docker.yaml'
     )
-    expect(strings).not.toContain('DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml')
+    expect(strings).not.toContain(
+      'DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml'
+    )
+  })
+
+  it('exposes a host-reachable Ollama endpoint to the Rust API', () => {
+    const compose = parseCompose(baseComposePath)
+    const services = compose.services ?? {}
+    const rustApi = services['agentforge-server'] as {
+      environment?: unknown
+      extra_hosts?: unknown
+    }
+    const strings = collectStrings(rustApi.environment)
+
+    expect(strings).toContain('OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}')
+    expect(collectStrings(rustApi.extra_hosts)).toContain('host.docker.internal:host-gateway')
   })
 
   it('routes the external overlay through agentforge-server without any legacy runtime services', () => {
     assertOverlayDefaults(externalComposePath, ['temporal-ext'])
-    assertMcpEndpoint(externalComposePath, 'ORCHESTRATOR_MCP_ENDPOINT=http://agentforge-server:${SERVER_PORT:-4003}/mcp')
+    assertMcpEndpoint(
+      externalComposePath,
+      'ORCHESTRATOR_MCP_ENDPOINT=http://agentforge-server:${SERVER_PORT:-4003}/mcp'
+    )
   })
 
   it('routes the prod overlay through agentforge-server without any legacy runtime services', () => {

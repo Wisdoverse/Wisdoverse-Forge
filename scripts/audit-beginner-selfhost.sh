@@ -66,9 +66,9 @@ Provider audit env:
   BASE_URL                  Public app URL, e.g. https://forge.example.com
   E2E_EMAIL                 Login email
   E2E_PASSWORD              Login password
-  BEGINNER_PROVIDER         Provider key, e.g. openai or openrouter
+  BEGINNER_PROVIDER         Provider key, e.g. openai, openrouter, or ollama
   BEGINNER_MODEL            Model name accepted by that provider
-  BEGINNER_API_KEY          Real provider API key
+  BEGINNER_API_KEY          Real provider API key; not required for ollama
   BEGINNER_BASE_URL         Optional provider base URL
   BEGINNER_USE_EXISTING_PROVIDER=1
                             Use an already configured, verified provider instead of creating one
@@ -353,6 +353,11 @@ provider_audit() {
   if [ "$use_existing" != "1" ]; then
     [ -n "$provider" ] || fail "BEGINNER_PROVIDER is required for --provider"
     [ -n "$model" ] || fail "BEGINNER_MODEL is required for --provider"
+  fi
+  if [ -n "$provider" ]; then
+    provider="$(printf '%s' "$provider" | tr '[:upper:]' '[:lower:]')"
+  fi
+  if [ "$use_existing" != "1" ] && [ "$provider" != "ollama" ]; then
     [ -n "$api_key" ] || fail "BEGINNER_API_KEY is required for --provider"
   fi
 

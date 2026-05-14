@@ -107,6 +107,10 @@ function baseUrlPlaceholder(provider: LlmProvider): string {
   }
 }
 
+function providerNeedsApiKey(provider: LlmProvider): boolean {
+  return provider !== 'ollama'
+}
+
 // ============================================================================
 // Provider Card
 // ============================================================================
@@ -271,6 +275,8 @@ function AddProviderFormPanel({
     supportedProviders.length > 0 ? supportedProviders : FALLBACK_SUPPORTED_PROVIDERS
   const selectedProvider = providerOptions.find((p) => p.provider === form.provider)
   const models = selectedProvider?.models ?? []
+  const needsApiKey = providerNeedsApiKey(form.provider)
+  const canSubmit = Boolean(form.model.trim() && (!needsApiKey || form.apiKey.trim()))
 
   function handleProviderChange(provider: LlmProvider) {
     const info = providerOptions.find((p) => p.provider === provider)
@@ -284,12 +290,12 @@ function AddProviderFormPanel({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.apiKey.trim() || !form.model.trim()) return
+    if (!canSubmit) return
     await onSave({
       provider: form.provider,
       displayName: form.displayName || selectedProvider?.displayName || form.provider,
       model: form.model,
-      apiKey: form.apiKey,
+      apiKey: form.apiKey.trim() || undefined,
       baseUrl: form.baseUrl || undefined,
     })
   }
@@ -360,14 +366,14 @@ function AddProviderFormPanel({
         {/* API Key */}
         <div>
           <label className={uiStyles.label}>
-            API Key <span className="text-red-500">*</span>
+            API Key {needsApiKey && <span className="text-red-500">*</span>}
           </label>
           <input
             type="password"
             value={form.apiKey}
             onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
-            placeholder="sk-..."
-            required
+            placeholder={needsApiKey ? 'sk-...' : 'not required'}
+            required={needsApiKey}
             className={uiStyles.input}
           />
         </div>
@@ -394,11 +400,7 @@ function AddProviderFormPanel({
         >
           Cancel
         </button>
-        <button
-          type="submit"
-          disabled={saving || !form.apiKey.trim() || !form.model.trim()}
-          className={uiStyles.primaryButton}
-        >
+        <button type="submit" disabled={saving || !canSubmit} className={uiStyles.primaryButton}>
           {saving ? 'Saving...' : 'Save Provider'}
         </button>
       </div>

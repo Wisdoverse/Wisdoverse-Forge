@@ -84,6 +84,8 @@ real provider key and public `BASE_URL`; if the domain is behind a CDN, set
 `BEGINNER_ORIGIN_IP` to verify the source VPS directly. After a provider has
 already been added and tested in Settings, set `BEGINNER_USE_EXISTING_PROVIDER=1`
 to verify the Provider + Prompt path without re-entering the key.
+For a keyless local-model path, run Ollama separately, set `OLLAMA_BASE_URL`
+in `docker/.env`, then add the `ollama` provider in Settings without an API key.
 
 Use `make quickstart-selfhost` when you intentionally want to build the server
 and frontend images from source on the host.
