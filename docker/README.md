@@ -40,6 +40,9 @@ audit so the source host is checked directly on `:80` and `:443`.
 After a provider is already configured and tested in Settings, add
 `BEGINNER_USE_EXISTING_PROVIDER=1` to the `--provider` audit to reuse it without
 re-entering the API key.
+For local keyless inference, run Ollama on the host or another reachable
+machine, set `OLLAMA_BASE_URL` in `docker/.env`, then add the `ollama` provider
+without an API key.
 
 ## Agent Images
 

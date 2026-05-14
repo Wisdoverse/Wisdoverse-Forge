@@ -174,6 +174,10 @@ production domain as Host/SNI.
 `BEGINNER_USE_EXISTING_PROVIDER=1` is useful after a user has already added and
 successfully tested a provider in Settings; it reuses that stored provider to
 verify the real Provider + Prompt path without re-entering the API key.
+For local keyless inference, run Ollama separately, set `OLLAMA_BASE_URL` to a
+URL reachable from the `agentforge-server` container, add the `ollama` provider
+in Settings without an API key, then test it there before running the existing
+provider audit.
 
 Use `make quickstart-selfhost` instead when you intentionally want to build the
 server and frontend images from source on the host.

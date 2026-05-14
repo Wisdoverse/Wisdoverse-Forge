@@ -16,7 +16,10 @@ describe('beginner self-host audit', () => {
     expect(auditScript).toContain('/agents/$agent_id/prompt')
   })
 
-  it('still requires an explicit key when not reusing an existing provider', () => {
+  it('still requires an explicit key for cloud providers when not reusing an existing provider', () => {
+    expect(auditScript).toContain('not required for ollama')
+    expect(auditScript).toContain("tr '[:upper:]' '[:lower:]'")
+    expect(auditScript).toContain('[ "$provider" != "ollama" ]')
     expect(auditScript).toContain('BEGINNER_API_KEY is required for --provider')
     expect(auditScript).toContain('BEGINNER_PROVIDER is required for --provider')
     expect(auditScript).toContain('BEGINNER_MODEL is required for --provider')

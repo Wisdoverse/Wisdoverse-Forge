@@ -96,6 +96,8 @@ work.
 2. Open Settings -> Projects and create a project under that team.
 3. Open Settings -> Providers, choose Add Provider, select your LLM provider,
    enter a model and API key, save, then use Test to verify the key.
+   For Ollama, configure `OLLAMA_BASE_URL` on the backend and leave API Key
+   empty.
 4. Select the project in the sidebar.
 5. Open Agents -> New Agent, choose Provider + Prompt, select the provider and
    model, then create the agent.
