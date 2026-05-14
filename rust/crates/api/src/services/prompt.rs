@@ -18,6 +18,11 @@ fn estimate_tokens(text: &str) -> usize {
     text.chars().count() / 4 + 1
 }
 
+fn output_token_budget(model: &str) -> u32 {
+    let limit = model_context_limit(model);
+    ((limit / 4).clamp(256, 4_096)) as u32
+}
+
 /// Build the ordered message history to send to the LLM, bounded by the
 /// model's context window. Drops oldest messages until the budget fits.
 ///
@@ -28,7 +33,7 @@ fn estimate_tokens(text: &str) -> usize {
 /// incoherent conversation to the model.
 pub fn build_history(all_msgs: &[AgentMessage], system_prompt: &str, model: &str) -> AppResult<Vec<ChatMessage>> {
     let limit = model_context_limit(model);
-    let reserve_output: usize = 4_096;
+    let reserve_output = output_token_budget(model) as usize;
     let raw = ((limit as f32) * 0.8) as usize;
     let budget = raw.saturating_sub(reserve_output);
     if budget == 0 {
@@ -97,7 +102,7 @@ mod build_history_tests {
 
     #[test]
     fn old_messages_over_budget_are_dropped() {
-        // llama3.2 → limit 8192, budget = 6553 - 4096 = 2457 tokens ≈ 9828 chars.
+        // llama3.2 → limit 8192, budget = 6553 - 2048 = 4505 tokens ≈ 18020 chars.
         let huge = "x".repeat(20_000);
         let h = vec![msg("user", &huge), msg("user", "short tail")];
         let r = build_history(&h, "", "llama3.2").unwrap();
@@ -106,17 +111,23 @@ mod build_history_tests {
     }
 
     #[test]
-    fn unknown_model_fallback_4k_returns_validation_error() {
-        // 4_096 * 0.8 = 3276 < 4096 → saturating_sub yields 0 → clean error.
+    fn unknown_model_fallback_4k_keeps_short_history() {
         let h = vec![msg("user", "hi")];
-        let r = build_history(&h, "", "mystery-model");
-        let err = r.unwrap_err();
-        assert!(format!("{}", err.kind).contains("context window too small"));
+        let r = build_history(&h, "", "mystery-model").unwrap();
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].content, "hi");
+    }
+
+    #[test]
+    fn output_budget_scales_down_for_small_or_unknown_models() {
+        assert_eq!(output_token_budget("mystery-model"), 1_024);
+        assert_eq!(output_token_budget("llama3.2"), 2_048);
+        assert_eq!(output_token_budget("claude-sonnet-4-6"), 4_096);
     }
 
     #[test]
     fn system_prompt_over_budget_returns_error() {
-        let sys = "y".repeat(12_000);
+        let sys = "y".repeat(20_000);
         let h = vec![msg("user", "hi")];
         let r = build_history(&h, &sys, "llama3.2");
         assert!(format!("{}", r.unwrap_err().kind).contains("system_prompt alone"));
@@ -324,7 +335,7 @@ impl PromptService {
                 v.extend(history);
                 v
             },
-            max_tokens: Some(4_096),
+            max_tokens: Some(output_token_budget(&model)),
             temperature: None,
         };
 
