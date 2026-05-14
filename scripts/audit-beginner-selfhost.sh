@@ -343,7 +343,7 @@ provider_audit() {
   local base_url="${BEGINNER_BASE_URL:-}"
   local use_existing="${BEGINNER_USE_EXISTING_PROVIDER:-0}"
   local tmp_dir register_body login_body token create_body provider_id created_provider=0 test_body list_body agent_body agent_id prompt_body
-  local status test_ok stored_status content_chars
+  local status test_ok stored_status text_chunks
 
   require_cmd curl
   require_cmd jq
@@ -466,8 +466,9 @@ provider_audit() {
     --data '{"content":"Reply with one short sentence confirming Wisdoverse Forge is ready."}')"
   [ "$status" = "200" ] || fail "provider prompt failed with HTTP $status"
   grep -q 'message_stop' "$prompt_body" || fail "provider prompt stream did not complete"
-  content_chars="$(grep -ao '"content"' "$prompt_body" | wc -l | tr -d ' ')"
-  [ "${content_chars:-0}" -gt 0 ] || fail "provider prompt stream did not contain assistant content"
+  grep -q 'event: delta' "$prompt_body" || fail "provider prompt stream did not include a delta event"
+  text_chunks="$(awk 'BEGIN { count = 0 } /"text"/ { count++ } END { print count }' "$prompt_body")"
+  [ "${text_chunks:-0}" -gt 0 ] || fail "provider prompt stream did not contain assistant text"
 
   curl_json DELETE "/agents/$agent_id" "$token" '' "$tmp_dir/agent-delete.json" >/dev/null || true
   if [ "$created_provider" -eq 1 ]; then

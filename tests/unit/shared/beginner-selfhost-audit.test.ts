@@ -14,6 +14,8 @@ describe('beginner self-host audit', () => {
     expect(auditScript).toContain('no enabled provider with persisted passed test status was found')
     expect(auditScript).toContain('"/llm-providers/$provider_id/test"')
     expect(auditScript).toContain('/agents/$agent_id/prompt')
+    expect(auditScript).toContain('event: delta')
+    expect(auditScript).toContain('provider prompt stream did not contain assistant text')
   })
 
   it('still requires an explicit key for cloud providers when not reusing an existing provider', () => {
