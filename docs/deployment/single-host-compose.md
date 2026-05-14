@@ -50,7 +50,7 @@ should set them in `docker/.env`.
 | `AGENTFORGE_NETWORKS`    | `agentforge-agents external-network`       | Space-separated docker networks created (idempotently) before bring-up.  |
 | `COMPOSE_FILES_OVERRIDE` | `-f compose.yml -f compose.external.yml`   | Override the compose file list.                                          |
 | `COMPOSE_PROFILE`        | `external`                                 | Compose profile passed via `--profile`.                                  |
-| `COMPOSE_PROJECT_NAME`   | `wisdoverse-forge`                         | Compose project name shown by Docker and used as the container prefix.   |
+| `COMPOSE_PROJECT_NAME`   | `wisdoverse-forge`                         | Compose project name shown by Docker.                                    |
 | `COMPOSE_SERVICE_NAME`   | `agentforge-server`                        | Service name used for migrate-only and audit lookups.                    |
 | `FRONTEND_IMAGE`         | `agentforge-frontend:${IMAGE_TAG:-latest}` | Local docker image holding `/app/dist/`.                                 |
 | `FRONTEND_DEPLOY_MODE`   | `symlink`                                  | See [Frontend deploy modes](#frontend-deploy-modes).                     |
