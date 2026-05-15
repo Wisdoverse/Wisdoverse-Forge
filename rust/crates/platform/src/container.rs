@@ -29,6 +29,14 @@ pub enum PlatformError {
     Internal(String),
 }
 
+impl PlatformError {
+    /// True when Docker reported that the referenced container no longer exists.
+    pub fn is_not_found(&self) -> bool {
+        matches!(self, Self::NotFound(_))
+            || matches!(self, Self::Docker(bollard::errors::Error::DockerResponseServerError { status_code: 404, .. }))
+    }
+}
+
 impl DockerClient {
     /// Create a container after validating the security policy.
     ///
@@ -144,5 +152,20 @@ impl DockerClient {
             status: state,
             created_at: info.created,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn platform_not_found_error_is_classified() {
+        assert!(PlatformError::NotFound("missing-container".into()).is_not_found());
+    }
+
+    #[test]
+    fn platform_internal_error_is_not_classified_as_not_found() {
+        assert!(!PlatformError::Internal("docker socket unavailable".into()).is_not_found());
     }
 }

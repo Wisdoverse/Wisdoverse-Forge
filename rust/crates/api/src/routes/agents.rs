@@ -20,6 +20,7 @@ use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
 use agentforge_core::{AgentId, AgentStatus, AppResult, ErrorKind};
+use agentforge_platform::ContainerState;
 
 use crate::health::AppState;
 use crate::repositories::agent::{AgentRepository, CreateAgentParams};
@@ -113,6 +114,31 @@ fn validate_prompt_request(req: &PromptRequest) -> AppResult<()> {
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> AgentService {
     AgentService::new(AgentRepository::new(state.pool.clone()))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RestartPlan {
+    StopThenStart,
+    StartOnly,
+}
+
+fn restart_plan_for_container_state(state: ContainerState) -> RestartPlan {
+    match state {
+        ContainerState::Running => RestartPlan::StopThenStart,
+        ContainerState::Created
+        | ContainerState::Paused
+        | ContainerState::Stopped
+        | ContainerState::Dead
+        | ContainerState::Unknown => RestartPlan::StartOnly,
+    }
+}
+
+fn docker_unavailable() -> ErrorKind {
+    ErrorKind::Unavailable("Docker runtime is not available".into())
+}
+
+fn docker_lifecycle_unavailable(action: &str, err: impl std::fmt::Display) -> ErrorKind {
+    ErrorKind::Unavailable(format!("failed to {action} agent container: {err}"))
 }
 
 async fn send_sidecar_prompt(state: &AppState, agent_id: Uuid, content: &str) -> AppResult<()> {
@@ -433,22 +459,51 @@ async fn restart_agent(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let docker = state.docker.as_ref().ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("Docker not available")))?;
+    let docker = state.docker.as_ref().ok_or_else(docker_unavailable)?;
 
     let service = make_service(&state);
     let agent = service.get(&auth.scope, AgentId::from(id)).await?;
 
+    if agent.cli_tool.is_none() {
+        return Err(ErrorKind::Validation("agent is not container-backed".into()).into());
+    }
+
     let container_id =
         agent.container_id.as_ref().ok_or_else(|| ErrorKind::Validation("agent has no container".into()))?;
 
-    docker
-        .stop_container(container_id, 10)
-        .await
-        .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("stop failed: {e}")))?;
-    docker
-        .start_container(container_id)
-        .await
-        .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("start failed: {e}")))?;
+    let container_info = match docker.inspect_container(container_id).await {
+        Ok(info) => info,
+        Err(err) if err.is_not_found() => {
+            tracing::warn!(
+                error = %err,
+                agent_id = %id,
+                container_id = %container_id,
+                "agent restart found a stale container reference"
+            );
+            let repo = AgentRepository::new(state.pool.clone());
+            repo.clear_container(&auth.scope, AgentId::from(id)).await?;
+            return Err(
+                ErrorKind::Validation("agent container is no longer available; start the agent again".into()).into()
+            );
+        }
+        Err(err) => return Err(docker_lifecycle_unavailable("inspect", err).into()),
+    };
+
+    match restart_plan_for_container_state(container_info.status) {
+        RestartPlan::StopThenStart => {
+            docker.stop_container(container_id, 10).await.map_err(|e| docker_lifecycle_unavailable("stop", e))?;
+            docker.start_container(container_id).await.map_err(|e| docker_lifecycle_unavailable("start", e))?;
+        }
+        RestartPlan::StartOnly => {
+            tracing::info!(
+                agent_id = %id,
+                container_id = %container_id,
+                status = ?container_info.status,
+                "agent restart found a non-running container; starting it directly"
+            );
+            docker.start_container(container_id).await.map_err(|e| docker_lifecycle_unavailable("start", e))?;
+        }
+    }
 
     Ok(Json(serde_json::json!({ "ok": true, "status": "restarted" })))
 }
@@ -811,6 +866,24 @@ mod tests {
     fn update_request_camel_case_system_prompt_alias() {
         let req: UpdateAgentRequest = serde_json::from_str(r#"{"systemPrompt": "new prompt"}"#).unwrap();
         assert_eq!(req.system_prompt.as_deref(), Some("new prompt"));
+    }
+
+    #[test]
+    fn restart_plan_stops_then_starts_running_containers() {
+        assert_eq!(restart_plan_for_container_state(ContainerState::Running), RestartPlan::StopThenStart);
+    }
+
+    #[test]
+    fn restart_plan_starts_non_running_containers_directly() {
+        for state in [
+            ContainerState::Created,
+            ContainerState::Paused,
+            ContainerState::Stopped,
+            ContainerState::Dead,
+            ContainerState::Unknown,
+        ] {
+            assert_eq!(restart_plan_for_container_state(state), RestartPlan::StartOnly);
+        }
     }
 
     #[test]
