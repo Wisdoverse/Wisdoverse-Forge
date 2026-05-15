@@ -17,7 +17,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const canStartContainer = Boolean(agent.cliTool && !agent.containerId)
-  const canRestartContainer = Boolean(agent.containerId)
+  const canRestartContainer = Boolean(agent.cliTool && agent.containerId)
 
   async function handleSendPrompt() {
     if (!prompt.trim() || sending) return
