@@ -45,6 +45,8 @@ const PROVIDERS: { value: string; label: string; defaultModel: string }[] = [
     label: 'Fireworks AI',
     defaultModel: 'accounts/fireworks/models/qwen3-30b-a3b',
   },
+  { value: 'litellm', label: 'LiteLLM Gateway', defaultModel: 'gpt-4o-mini' },
+  { value: 'openai_compatible', label: 'OpenAI-Compatible', defaultModel: '' },
 ]
 
 const DEFAULT_AGENT_CWD = '/workspace'

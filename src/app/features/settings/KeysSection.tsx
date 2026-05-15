@@ -101,7 +101,7 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="mb-1 text-ui-caption font-semibold">
-            API key created — copy it now, it won&apos;t be shown again
+            Platform API key created — copy it now, it won&apos;t be shown again
           </p>
           <code className="break-all font-mono text-ui-caption">{keyValue}</code>
         </div>
@@ -147,7 +147,7 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
         type="text"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="Key name (e.g. CI/CD pipeline)"
+        placeholder="Key name (e.g. CI/CD pipeline or integration)"
         autoFocus
         className={cn(uiStyles.input, 'min-w-0 flex-1')}
       />
@@ -208,8 +208,10 @@ export function KeysSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>API Keys</h2>
-          <p className={uiStyles.sectionDescription}>Manage API keys for programmatic access</p>
+          <h2 className={uiStyles.sectionTitle}>Platform API Keys</h2>
+          <p className={uiStyles.sectionDescription}>
+            Create tokens for scripts, CI jobs, and external integrations that call Forge APIs
+          </p>
         </div>
         {!showForm && (
           <button
@@ -218,7 +220,7 @@ export function KeysSection() {
             className={uiStyles.primaryButton}
           >
             <span>+</span>
-            <span>Create Key</span>
+            <span>Create Platform Key</span>
           </button>
         )}
       </div>
@@ -245,10 +247,10 @@ export function KeysSection() {
         ) : apiKeys.length === 0 ? (
           <div className="px-4 py-6 text-center">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No API keys yet
+              No platform API keys yet
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Create a key to enable programmatic access
+              Create a platform key only when scripts or integrations need Forge API access
             </p>
           </div>
         ) : (

@@ -42,6 +42,10 @@ export interface LlmProviderConfig {
 export interface ProviderInfo {
   provider: LlmProvider
   displayName: string
+  defaultModel?: string
+  defaultBaseUrl?: string
+  requiresApiKey: boolean
+  allowCustomModels: boolean
   models: { model: string; displayName: string }[]
 }
 
@@ -201,6 +205,10 @@ function mapProviderInfo(value: unknown): ProviderInfo {
   return {
     provider,
     displayName: stringField(data, 'displayName', 'display_name') ?? provider,
+    defaultModel: stringField(data, 'defaultModel', 'default_model'),
+    defaultBaseUrl: stringField(data, 'defaultBaseUrl', 'default_base_url'),
+    requiresApiKey: boolField(data, true, 'requiresApiKey', 'requires_api_key'),
+    allowCustomModels: boolField(data, true, 'allowCustomModels', 'allow_custom_models'),
     models,
   }
 }
