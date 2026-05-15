@@ -36,51 +36,87 @@ const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
   {
     provider: 'anthropic',
     displayName: 'Anthropic',
+    defaultModel: 'claude-sonnet-4-20250514',
+    requiresApiKey: true,
+    allowCustomModels: true,
     models: [{ model: 'claude-sonnet-4-20250514', displayName: 'Claude Sonnet 4' }],
   },
   {
     provider: 'openai',
     displayName: 'OpenAI',
+    defaultModel: 'gpt-5.4',
+    requiresApiKey: true,
+    allowCustomModels: true,
     models: [{ model: 'gpt-5.4', displayName: 'GPT-5.4' }],
   },
   {
     provider: 'google',
     displayName: 'Google',
+    defaultModel: 'gemini-2.5-pro',
+    requiresApiKey: true,
+    allowCustomModels: true,
     models: [{ model: 'gemini-2.5-pro', displayName: 'Gemini 2.5 Pro' }],
   },
   {
     provider: 'ollama',
     displayName: 'Ollama',
+    defaultModel: 'llama3',
+    requiresApiKey: false,
+    allowCustomModels: true,
     models: [{ model: 'llama3', displayName: 'Llama 3' }],
   },
   {
     provider: 'groq',
     displayName: 'Groq',
+    defaultModel: 'llama-3.3-70b-versatile',
+    defaultBaseUrl: 'https://api.groq.com/openai',
+    requiresApiKey: true,
+    allowCustomModels: true,
     models: [{ model: 'llama-3.3-70b-versatile', displayName: 'Llama 3.3 70B' }],
   },
   {
     provider: 'deepseek',
     displayName: 'DeepSeek',
+    defaultModel: 'deepseek-chat',
+    defaultBaseUrl: 'https://api.deepseek.com',
+    requiresApiKey: true,
+    allowCustomModels: true,
     models: [{ model: 'deepseek-chat', displayName: 'DeepSeek Chat' }],
   },
   {
     provider: 'xai',
     displayName: 'xAI',
+    defaultModel: 'grok-3-mini',
+    defaultBaseUrl: 'https://api.x.ai',
+    requiresApiKey: true,
+    allowCustomModels: true,
     models: [{ model: 'grok-3-mini', displayName: 'Grok 3 Mini' }],
   },
   {
     provider: 'openrouter',
     displayName: 'OpenRouter',
+    defaultModel: 'openai/gpt-4o-mini',
+    defaultBaseUrl: 'https://openrouter.ai/api',
+    requiresApiKey: true,
+    allowCustomModels: true,
     models: [{ model: 'openai/gpt-4o-mini', displayName: 'OpenAI GPT-4o Mini' }],
   },
   {
     provider: 'together',
     displayName: 'Together AI',
+    defaultModel: 'openai/gpt-oss-20b',
+    defaultBaseUrl: 'https://api.together.xyz',
+    requiresApiKey: true,
+    allowCustomModels: true,
     models: [{ model: 'openai/gpt-oss-20b', displayName: 'GPT OSS 20B' }],
   },
   {
     provider: 'fireworks',
     displayName: 'Fireworks AI',
+    defaultModel: 'accounts/fireworks/models/qwen3-30b-a3b',
+    defaultBaseUrl: 'https://api.fireworks.ai/inference',
+    requiresApiKey: true,
+    allowCustomModels: true,
     models: [
       {
         model: 'accounts/fireworks/models/qwen3-30b-a3b',
@@ -88,9 +124,26 @@ const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
       },
     ],
   },
+  {
+    provider: 'litellm',
+    displayName: 'LiteLLM Gateway',
+    defaultModel: 'gpt-4o-mini',
+    defaultBaseUrl: 'http://litellm:4000',
+    requiresApiKey: true,
+    allowCustomModels: true,
+    models: [{ model: 'gpt-4o-mini', displayName: 'Gateway alias: gpt-4o-mini' }],
+  },
+  {
+    provider: 'openai_compatible',
+    displayName: 'OpenAI-Compatible',
+    requiresApiKey: true,
+    allowCustomModels: true,
+    models: [],
+  },
 ]
 
-function baseUrlPlaceholder(provider: LlmProvider): string {
+function baseUrlPlaceholder(provider: LlmProvider, info?: ProviderInfo): string {
+  if (info?.defaultBaseUrl) return info.defaultBaseUrl
   switch (provider) {
     case 'ollama':
       return 'http://localhost:11434'
@@ -102,13 +155,19 @@ function baseUrlPlaceholder(provider: LlmProvider): string {
       return 'https://api.together.xyz'
     case 'fireworks':
       return 'https://api.fireworks.ai/inference'
+    case 'openai_compatible':
+      return 'https://api.example.com'
     default:
       return 'https://api.example.com'
   }
 }
 
-function providerNeedsApiKey(provider: LlmProvider): boolean {
-  return provider !== 'ollama'
+function providerNeedsApiKey(provider: LlmProvider, info?: ProviderInfo): boolean {
+  return info?.requiresApiKey ?? provider !== 'ollama'
+}
+
+function providerNeedsBaseUrl(provider: LlmProvider, info?: ProviderInfo): boolean {
+  return provider === 'openai_compatible' && !info?.defaultBaseUrl
 }
 
 // ============================================================================
@@ -275,8 +334,14 @@ function AddProviderFormPanel({
     supportedProviders.length > 0 ? supportedProviders : FALLBACK_SUPPORTED_PROVIDERS
   const selectedProvider = providerOptions.find((p) => p.provider === form.provider)
   const models = selectedProvider?.models ?? []
-  const needsApiKey = providerNeedsApiKey(form.provider)
-  const canSubmit = Boolean(form.model.trim() && (!needsApiKey || form.apiKey.trim()))
+  const needsApiKey = providerNeedsApiKey(form.provider, selectedProvider)
+  const needsBaseUrl = providerNeedsBaseUrl(form.provider, selectedProvider)
+  const modelListId = `provider-models-${form.provider}`
+  const canSubmit = Boolean(
+    form.model.trim() &&
+    (!needsApiKey || form.apiKey.trim()) &&
+    (!needsBaseUrl || form.baseUrl.trim())
+  )
 
   function handleProviderChange(provider: LlmProvider) {
     const info = providerOptions.find((p) => p.provider === provider)
@@ -284,7 +349,7 @@ function AddProviderFormPanel({
       ...DEFAULT_FORM,
       provider,
       displayName: info?.displayName ?? '',
-      model: info?.models[0]?.model ?? '',
+      model: info?.defaultModel ?? info?.models[0]?.model ?? '',
     })
   }
 
@@ -328,7 +393,27 @@ function AddProviderFormPanel({
         {/* Model */}
         <div>
           <label className={uiStyles.label}>Model</label>
-          {models.length > 0 ? (
+          {(selectedProvider?.allowCustomModels ?? true) ? (
+            <>
+              <input
+                type="text"
+                value={form.model}
+                onChange={(e) => setForm({ ...form, model: e.target.value })}
+                placeholder={selectedProvider?.defaultModel ?? 'e.g. llama3'}
+                list={models.length > 0 ? modelListId : undefined}
+                className={uiStyles.input}
+              />
+              {models.length > 0 && (
+                <datalist id={modelListId}>
+                  {models.map((m) => (
+                    <option key={m.model} value={m.model}>
+                      {m.displayName}
+                    </option>
+                  ))}
+                </datalist>
+              )}
+            </>
+          ) : models.length > 0 ? (
             <select
               value={form.model}
               onChange={(e) => setForm({ ...form, model: e.target.value })}
@@ -380,12 +465,15 @@ function AddProviderFormPanel({
 
         {/* Base URL (optional) */}
         <div className="sm:col-span-2">
-          <label className={uiStyles.label}>Base URL</label>
+          <label className={uiStyles.label}>
+            Base URL {needsBaseUrl && <span className="text-red-500">*</span>}
+          </label>
           <input
             type="url"
             value={form.baseUrl}
             onChange={(e) => setForm({ ...form, baseUrl: e.target.value })}
-            placeholder={baseUrlPlaceholder(form.provider)}
+            placeholder={baseUrlPlaceholder(form.provider, selectedProvider)}
+            required={needsBaseUrl}
             className={uiStyles.input}
           />
         </div>

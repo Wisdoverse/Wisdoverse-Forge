@@ -147,7 +147,7 @@ ARG AGENT_GID=1012
 # Python 3.11 (Bookworm LTS, supported until 2027-10) for agent tool use
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git git-lfs curl bash ca-certificates openssh-client tini \
-    python3 python3-pip python3-venv \
+    python3 python3-pip python3-venv libnghttp2-14 \
     && rm -rf /var/lib/apt/lists/*
 
 # Docker CLI (static binary, no daemon) + Compose v2 plugin for DevEnv support.
@@ -157,14 +157,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Supply chain integrity: all external binaries are verified against pinned sha256
 # checksums before installation (SLSA Level 2). Update checksums when bumping versions.
 ARG DOCKER_MIRROR=https://download.docker.com
-ARG DOCKER_CLI_VERSION=27.5.1
+ARG DOCKER_CLI_VERSION=29.5.0
 RUN ARCH="$(dpkg --print-architecture)" \
     && if [ "$ARCH" = "amd64" ]; then \
          DOCKER_ARCH="x86_64"; \
-         DOCKER_SHA256="4f798b3ee1e0140eab5bf30b0edc4e84f4cdb53255a429dc3bbae9524845d640"; \
+         DOCKER_SHA256="ec7f44cd54edf68a06f0da8b507b9e0aa82b64347c4a5a6becde2e4dc6cb212c"; \
        else \
          DOCKER_ARCH="aarch64"; \
-         DOCKER_SHA256="e6b53725a73763ab3f988c73f8772eaed429754c1a579db5ff11f21990fd1817"; \
+         DOCKER_SHA256="f31f502498577652cc36ce797bf90fdc6eb72c0520b1d780a38aa980f3a56396"; \
        fi \
     && curl -fsSL "${DOCKER_MIRROR}/linux/static/stable/${DOCKER_ARCH}/docker-${DOCKER_CLI_VERSION}.tgz" \
        -o /tmp/docker.tgz \
@@ -190,14 +190,14 @@ RUN chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
 # gh: deb from GitHub releases (avoids cli.github.com apt repo, mirrorable via GITHUB_PROXY)
 # glab: deb from GitLab generic package registry. Keep this pinned so agent-base
 # builds do not depend on release-list ordering or hang on the release redirect.
-ARG GH_CLI_VERSION=2.87.3
+ARG GH_CLI_VERSION=2.92.0
 ARG GLAB_CLI_VERSION=1.93.0
 RUN ARCH="$(dpkg --print-architecture)" \
     && if [ "$ARCH" = "amd64" ]; then \
-         GH_SHA256="7c6d3b5ac88c897fb3ac0c8a479f4fb8083bd05a758fb8d3275642a93d20570d"; \
+         GH_SHA256="8f8212b1a9cec261a8839e0893168f50d3fc70f095da257feef4229234cefdf8"; \
          GLAB_SHA256="e5df04d929fad92ed4cc6ba8762fe7325afaafe3cd861b7fef02f3b7e933a678"; \
        else \
-         GH_SHA256="c50d6f35d582c708bf76e5030c053a8866aeee43fe5b460806649e1ea9147993"; \
+         GH_SHA256="34d620b7c884774ed86236541535170889fda0b99aafbdab8b69c7d458b5ca6b"; \
          GLAB_SHA256="91341e72f41aa19d005cf0a0cf97029810909c0bb6381072f86c1ee8d41b327a"; \
        fi \
     && curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 120 \

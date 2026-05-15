@@ -23,8 +23,8 @@ on:
     types: [opened, reopened, synchronize]
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+  pull-requests: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
@@ -33,6 +33,9 @@ jobs:
   auto-merge:
     if: github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.state == 'open'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - id: metadata
         name: Resolve Dependabot update metadata

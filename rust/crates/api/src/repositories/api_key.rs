@@ -10,6 +10,11 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+const LIST_ACTIVE_API_KEYS_SQL: &str = r#"SELECT * FROM api_keys
+               WHERE organization_id = $1 AND user_id = $2 AND revoked_at IS NULL
+               ORDER BY created_at DESC
+               LIMIT $3 OFFSET $4"#;
+
 /// Database access layer for API keys.
 pub struct ApiKeyRepository {
     pool: PgPool,
@@ -49,18 +54,13 @@ impl ApiKeyRepository {
 
     /// List API keys for the tenant org (paginated).
     pub async fn list(&self, scope: &TenantScope, limit: i64, offset: i64) -> AppResult<Vec<ApiKey>> {
-        let keys = sqlx::query_as::<_, ApiKey>(
-            r#"SELECT * FROM api_keys
-               WHERE organization_id = $1 AND user_id = $2
-               ORDER BY created_at DESC
-               LIMIT $3 OFFSET $4"#,
-        )
-        .bind(scope.org_id().as_uuid())
-        .bind(scope.user_id().as_uuid())
-        .bind(limit)
-        .bind(offset)
-        .fetch_all(&self.pool)
-        .await?;
+        let keys = sqlx::query_as::<_, ApiKey>(LIST_ACTIVE_API_KEYS_SQL)
+            .bind(scope.org_id().as_uuid())
+            .bind(scope.user_id().as_uuid())
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await?;
         Ok(keys)
     }
 
@@ -95,5 +95,18 @@ impl ApiKeyRepository {
     pub async fn update_last_used(&self, id: Uuid) -> AppResult<()> {
         sqlx::query("UPDATE api_keys SET last_used_at = NOW() WHERE id = $1").bind(id).execute(&self.pool).await?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn list_query_excludes_revoked_keys() {
+        assert!(
+            LIST_ACTIVE_API_KEYS_SQL.contains("revoked_at IS NULL"),
+            "platform API key list must not return keys after revoke"
+        );
     }
 }

@@ -27,7 +27,7 @@ interface SectionItem {
 
 const SECTIONS: SectionItem[] = [
   { id: 'providers', label: 'Providers', group: 'AI' },
-  { id: 'keys', label: 'API Keys', group: 'AI' },
+  { id: 'keys', label: 'Platform API Keys', group: 'Developer' },
   { id: 'git-credentials', label: 'Git Credentials', group: 'Developer' },
   { id: 'ssh-keys', label: 'SSH Keys', group: 'Developer' },
   { id: 'resources', label: 'Resources', group: 'Developer' },

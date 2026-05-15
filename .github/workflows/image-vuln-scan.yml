@@ -30,9 +30,6 @@ on:
 
 permissions:
   contents: read
-  packages: read
-  security-events: write
-  id-token: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
@@ -42,6 +39,10 @@ jobs:
   scan:
     name: Scan ${{ matrix.image }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
     strategy:
       fail-fast: false
       matrix:
@@ -55,6 +56,8 @@ jobs:
           - /agent-codex
           - /agent-gemini
     steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
       - id: image
         run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
 
@@ -77,12 +80,13 @@ jobs:
           severity: CRITICAL,HIGH,MEDIUM
           exit-code: '0' # report-only here; gate is the SARIF + summary below
           ignore-unfixed: true
+          trivyignores: .trivyignore.yaml
           format: sarif
           output: trivy-image.sarif
         continue-on-error: true
 
       - name: Upload SARIF to code scanning
-        if: always()
+        if: always() && hashFiles('trivy-image.sarif') != ''
         uses: github/codeql-action/upload-sarif@68bde559dea0fdcac2102bfdf6230c5f70eb485e # v4
         with:
           sarif_file: trivy-image.sarif
@@ -95,4 +99,5 @@ jobs:
           severity: CRITICAL
           exit-code: '1'
           ignore-unfixed: true
+          trivyignores: .trivyignore.yaml
           format: table
