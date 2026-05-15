@@ -28,9 +28,7 @@ on:
         type: boolean
 
 permissions:
-  contents: write
-  packages: write
-  id-token: write
+  contents: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
@@ -87,9 +85,8 @@ jobs:
     name: Quality Gate
     needs: validate
     uses: ./.github/workflows/ci.yml
-    permissions:
-      contents: read
-      security-events: write
+    with:
+      upload_sarif: false
 
   # ===========================================================================
   # Build (after quality gate)
@@ -148,6 +145,10 @@ jobs:
     name: Publish Docker Images
     needs: [validate, build]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
@@ -238,6 +239,10 @@ jobs:
     name: Publish Agent Base Image
     needs: [validate, build]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
@@ -278,6 +283,10 @@ jobs:
     name: Publish Redistributable Agent CLI Images
     needs: [validate, publish-agent-base]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -364,6 +373,8 @@ jobs:
     name: Create GitHub Release
     needs: [validate, build, publish-npm, publish-docker, publish-agent-images]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
