@@ -9,6 +9,7 @@ pub mod gateway;
 pub mod gemini;
 pub mod openai;
 pub mod provider;
+pub mod registry;
 pub mod sse_framer;
 
 #[cfg(any(test, feature = "test-support"))]
@@ -23,6 +24,9 @@ pub use gemini::GeminiProvider;
 pub use openai::OpenAiProvider;
 pub use provider::{
     ChatMessage, ChatRequest, ChatResponse, LlmError, LlmProvider, LlmStream, StreamDelta, Usage, model_context_limit,
+};
+pub use registry::{
+    ProviderModel, ProviderSpec, ProviderTransport, normalize_provider_key, provider_spec, supported_provider_specs,
 };
 
 use std::sync::Arc;
@@ -79,48 +83,37 @@ impl LlmProviderFactory {
         {
             return Ok(Arc::new(MockProvider::new(name, reply)));
         }
-        match config.provider_key.as_str() {
-            "anthropic" => Ok(Arc::new(anthropic::AnthropicProvider::new(config.api_key, config.base_url))),
-            "openai" => Ok(Arc::new(openai::OpenAiProvider::new(config.api_key, config.base_url))),
-            "google" => Ok(Arc::new(match config.base_url {
+        let provider_key = registry::normalize_provider_key(&config.provider_key);
+        let spec = registry::provider_spec(&provider_key)
+            .ok_or_else(|| LlmError::NotConfigured(format!("provider '{provider_key}' not supported")))?;
+
+        match spec.transport {
+            registry::ProviderTransport::Anthropic => {
+                Ok(Arc::new(anthropic::AnthropicProvider::new(config.api_key, config.base_url)))
+            }
+            registry::ProviderTransport::OpenAi => {
+                Ok(Arc::new(openai::OpenAiProvider::new(config.api_key, config.base_url)))
+            }
+            registry::ProviderTransport::Gemini => Ok(Arc::new(match config.base_url {
                 Some(base_url) => gemini::GeminiProvider::with_base_url(config.api_key, base_url),
                 None => gemini::GeminiProvider::new(config.api_key),
             })),
-            "ollama" => {
+            registry::ProviderTransport::Ollama => {
                 let url = config.base_url.or_else(|| self.ollama_base_url.clone()).ok_or_else(|| {
                     LlmError::NotConfigured("OLLAMA_BASE_URL env var required for ollama provider".into())
                 })?;
                 Ok(Arc::new(openai::OpenAiProvider::ollama(url)))
             }
-            provider if is_openai_compatible_provider(provider) => {
-                let base_url = config
-                    .base_url
-                    .or_else(|| default_openai_compatible_base_url(provider).map(str::to_string))
-                    .ok_or_else(|| {
+            registry::ProviderTransport::OpenAiCompatible => {
+                let base_url =
+                    config.base_url.or_else(|| spec.default_base_url.map(str::to_string)).ok_or_else(|| {
                         LlmError::NotConfigured(format!(
-                            "provider '{provider}' requires a base_url compatible with OpenAI Chat Completions"
+                            "provider '{provider_key}' requires a base_url compatible with OpenAI Chat Completions"
                         ))
                     })?;
-                Ok(Arc::new(openai::OpenAiProvider::compatible(provider, config.api_key, base_url)))
+                Ok(Arc::new(openai::OpenAiProvider::compatible(spec.key, config.api_key, base_url)))
             }
-            other => Err(LlmError::NotConfigured(format!("provider '{other}' not supported"))),
         }
-    }
-}
-
-fn is_openai_compatible_provider(provider: &str) -> bool {
-    matches!(provider, "groq" | "deepseek" | "xai" | "openrouter" | "together" | "fireworks")
-}
-
-fn default_openai_compatible_base_url(provider: &str) -> Option<&'static str> {
-    match provider {
-        "groq" => Some("https://api.groq.com/openai"),
-        "deepseek" => Some("https://api.deepseek.com"),
-        "xai" => Some("https://api.x.ai"),
-        "openrouter" => Some("https://openrouter.ai/api"),
-        "together" => Some("https://api.together.xyz"),
-        "fireworks" => Some("https://api.fireworks.ai/inference"),
-        _ => None,
     }
 }
 
@@ -366,6 +359,26 @@ mod tests {
     }
 
     #[test]
+    fn factory_builds_litellm_as_openai_compatible_provider() {
+        let f = LlmProviderFactory::new(None);
+        let p = f.build("litellm", "sk-gateway".into()).unwrap();
+        assert_eq!(p.name(), "litellm");
+    }
+
+    #[test]
+    fn factory_accepts_openai_compatible_alias_with_custom_base_url() {
+        let f = LlmProviderFactory::new(None);
+        let p = f
+            .build_with_config(LlmProviderBuildConfig {
+                provider_key: "openai-compatible".into(),
+                api_key: "sk-compatible".into(),
+                base_url: Some("https://models.example.test".into()),
+            })
+            .unwrap();
+        assert_eq!(p.name(), "openai_compatible");
+    }
+
+    #[test]
     fn factory_builds_openai_compatible_provider_with_custom_base_url() {
         let f = LlmProviderFactory::new(None);
         let p = f
@@ -384,6 +397,14 @@ mod tests {
         let err = f.build("ollama", String::new()).err().expect("expected Err");
         assert!(matches!(err, LlmError::NotConfigured(_)));
         assert!(format!("{err}").contains("OLLAMA_BASE_URL"));
+    }
+
+    #[test]
+    fn factory_openai_compatible_without_base_url_errors() {
+        let f = LlmProviderFactory::new(None);
+        let err = f.build("openai_compatible", "k".into()).err().expect("expected Err");
+        assert!(matches!(err, LlmError::NotConfigured(_)));
+        assert!(format!("{err}").contains("base_url"));
     }
 
     #[test]
