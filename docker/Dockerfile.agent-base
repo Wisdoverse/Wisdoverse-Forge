@@ -12,6 +12,8 @@
 
 # Build Arguments (configurable at build time)
 ARG NODE_VERSION=24
+ARG COMPOSE_GO_VERSION=1.26.3
+ARG COMPOSE_VERSION=5.1.3
 
 # Stage: Plan cargo-chef recipe (isolated from source to avoid stub-source
 # contamination). chef-cook regenerates stub crates and rebuilds dependency
@@ -55,6 +57,80 @@ RUN --mount=type=cache,id=agentforge-cargo-registry,target=/usr/local/cargo/regi
     && cp /build/target/x86_64-unknown-linux-musl/release/docker-buildx /out/ \
     && cp /build/target/x86_64-unknown-linux-musl/release/agent-context-helper /out/ \
     && cp /build/target/x86_64-unknown-linux-musl/release/agentforge /out/
+
+# Stage: Build Docker Compose from source with a patched Go stdlib and patched
+# module graph. The upstream release binary can lag Go security rebuilds, and
+# Compose only needs docker/docker's frozen namesgenerator package, not the
+# vulnerable Docker daemon module body.
+FROM golang:${COMPOSE_GO_VERSION}-bookworm AS compose-builder
+ARG COMPOSE_GO_VERSION
+ARG COMPOSE_VERSION
+ARG COMPOSE_COMMIT=977a4310f9f6d89d4b176fee01a5b7c109c1816a
+ARG COMPOSE_SOURCE_SHA256=01a3d4c2cd44105c29dce266cb6e021381c8ed959219eb05922f958c63ea27db
+ARG COMPOSE_DOCKER_MODULE_VERSION=29.3.1
+ARG COMPOSE_IN_TOTO_VERSION=0.11.0
+ARG COMPOSE_OTEL_VERSION=1.43.0
+ARG GITHUB_PROXY=
+WORKDIR /compose
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL "${GITHUB_PROXY}https://github.com/docker/compose/archive/${COMPOSE_COMMIT}.tar.gz" \
+       -o /tmp/compose.tar.gz \
+    && echo "${COMPOSE_SOURCE_SHA256}  /tmp/compose.tar.gz" | sha256sum -c - \
+    && tar -xzf /tmp/compose.tar.gz -C /compose --strip-components=1 \
+    && rm /tmp/compose.tar.gz \
+    && test "$(sed -n 's/^module //p' go.mod | head -n 1)" = "github.com/docker/compose/v5" \
+    && mkdir -p third_party/docker-compat/pkg/namesgenerator \
+    && printf '%s\n' \
+       'module github.com/docker/docker' \
+       '' \
+       'go 1.26' \
+       > third_party/docker-compat/go.mod \
+    && printf '%s\n' \
+       'package namesgenerator' \
+       '' \
+       'import (' \
+       '	"math/rand"' \
+       '	"strconv"' \
+       ')' \
+       '' \
+       'var left = []string{"steady", "bright", "calm", "nimble"}' \
+       'var right = []string{"forge", "builder", "sidecar", "runner"}' \
+       '' \
+       '// GetRandomName preserves the frozen Docker namesgenerator API needed by Buildx.' \
+       'func GetRandomName(retry int) string {' \
+       '	name := left[rand.Intn(len(left))] + "_" + right[rand.Intn(len(right))]' \
+       '	if retry > 0 {' \
+       '		name += strconv.Itoa(rand.Intn(10))' \
+       '	}' \
+       '	return name' \
+       '}' \
+       > third_party/docker-compat/pkg/namesgenerator/names-generator.go \
+    && go mod edit -require="github.com/docker/docker@v${COMPOSE_DOCKER_MODULE_VERSION}+incompatible" \
+    && go mod edit -replace="github.com/docker/docker=./third_party/docker-compat" \
+    && go get \
+       "github.com/in-toto/in-toto-golang@v${COMPOSE_IN_TOTO_VERSION}" \
+       "go.opentelemetry.io/otel@v${COMPOSE_OTEL_VERSION}" \
+       "go.opentelemetry.io/otel/sdk@v${COMPOSE_OTEL_VERSION}" \
+       "go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp@v${COMPOSE_OTEL_VERSION}" \
+       "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp@v${COMPOSE_OTEL_VERSION}" \
+    && go mod tidy \
+    && test "$(go list -m all | awk '$1 == "github.com/docker/docker" && $3 == "=>" && $4 == "./third_party/docker-compat" { print $2 }')" = "v${COMPOSE_DOCKER_MODULE_VERSION}+incompatible" \
+    && test "$(go list -m all | awk '$1 == "github.com/in-toto/in-toto-golang" { print $2 }')" = "v${COMPOSE_IN_TOTO_VERSION}" \
+    && test "$(go list -m all | awk '$1 == "go.opentelemetry.io/otel" { print $2 }')" = "v${COMPOSE_OTEL_VERSION}" \
+    && test "$(go list -m all | awk '$1 == "go.opentelemetry.io/otel/sdk" { print $2 }')" = "v${COMPOSE_OTEL_VERSION}" \
+    && test "$(go list -m all | awk '$1 == "go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp" { print $2 }')" = "v${COMPOSE_OTEL_VERSION}" \
+    && test "$(go list -m all | awk '$1 == "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp" { print $2 }')" = "v${COMPOSE_OTEL_VERSION}" \
+    && GO111MODULE=on CGO_ENABLED=0 go build \
+       -trimpath \
+       -tags "" \
+       -ldflags "-w -X github.com/docker/compose/v5/internal.Version=v${COMPOSE_VERSION}" \
+       -o /out/docker-compose \
+       ./cmd \
+    && /out/docker-compose version \
+    && go version -m /out/docker-compose | tee /out/docker-compose.buildinfo \
+    && grep -q "go${COMPOSE_GO_VERSION}" /out/docker-compose.buildinfo
 
 # Stage: Agent base image
 FROM node:${NODE_VERSION}-slim
@@ -102,20 +178,8 @@ RUN ARCH="$(dpkg --print-architecture)" \
 # The proxy URL is prepended to the full GitHub URL.
 ARG GITHUB_PROXY=
 
-ARG COMPOSE_VERSION=5.1.3
-RUN ARCH="$(dpkg --print-architecture)" \
-    && if [ "$ARCH" = "amd64" ]; then \
-         COMPOSE_ARCH="x86_64"; \
-         COMPOSE_SHA256="a0298760c9772d2c06888fc8703a487c94c3c3b0134adeef830742a2fc7647b4"; \
-       else \
-         COMPOSE_ARCH="aarch64"; \
-         COMPOSE_SHA256="e8105a3e687ea7e0b0f81abe4bf9269c8a2801fb72c2b498b5ff2472bc54145f"; \
-       fi \
-    && mkdir -p /usr/local/lib/docker/cli-plugins \
-    && curl -fsSL "${GITHUB_PROXY}https://github.com/docker/compose/releases/download/v${COMPOSE_VERSION}/docker-compose-linux-${COMPOSE_ARCH}" \
-       -o /usr/local/lib/docker/cli-plugins/docker-compose \
-    && echo "${COMPOSE_SHA256}  /usr/local/lib/docker/cli-plugins/docker-compose" | sha256sum -c - \
-    && chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+COPY --from=compose-builder /out/docker-compose /usr/local/lib/docker/cli-plugins/docker-compose
+RUN chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
 # Install Wisdoverse Forge buildx CLI plugin — intercepts `docker buildx build` calls
 # from Compose v2 and routes them through the sidecar Docker proxy.
