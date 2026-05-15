@@ -38,8 +38,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
-  id-token: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
@@ -49,6 +47,10 @@ jobs:
   publish-frontend:
     name: Publish frontend + Rust images
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -163,6 +165,10 @@ jobs:
   publish-agent-base:
     name: Publish agent-base
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -206,6 +212,10 @@ jobs:
     name: Publish agent-${{ matrix.tool }}
     needs: publish-agent-base
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     strategy:
       fail-fast: false
       matrix:

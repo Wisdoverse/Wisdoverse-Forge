@@ -41,7 +41,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
 
 concurrency:
   group: promote-${{ github.ref }}

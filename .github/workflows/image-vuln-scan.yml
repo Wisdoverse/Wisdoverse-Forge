@@ -30,9 +30,6 @@ on:
 
 permissions:
   contents: read
-  packages: read
-  security-events: write
-  id-token: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
@@ -42,6 +39,10 @@ jobs:
   scan:
     name: Scan ${{ matrix.image }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
     strategy:
       fail-fast: false
       matrix:
@@ -77,6 +78,7 @@ jobs:
           severity: CRITICAL,HIGH,MEDIUM
           exit-code: '0' # report-only here; gate is the SARIF + summary below
           ignore-unfixed: true
+          trivyignores: .trivyignore.yaml
           format: sarif
           output: trivy-image.sarif
         continue-on-error: true
@@ -95,4 +97,5 @@ jobs:
           severity: CRITICAL
           exit-code: '1'
           ignore-unfixed: true
+          trivyignores: .trivyignore.yaml
           format: table
