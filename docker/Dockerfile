@@ -28,7 +28,7 @@ LABEL org.opencontainers.image.title="Wisdoverse Forge Frontend" \
       org.opencontainers.image.licenses="LicenseRef-Wisdoverse-Forge-BSL-1.1"
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends tini curl git \
+    && apt-get install -y --no-install-recommends tini curl git libnghttp2-14 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
