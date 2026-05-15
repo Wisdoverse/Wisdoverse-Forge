@@ -114,6 +114,8 @@ export type LlmProviderKey =
   | 'openrouter'
   | 'together'
   | 'fireworks'
+  | 'litellm'
+  | 'openai_compatible'
 
 /** Maps CLI tool to its primary LLM provider */
 export const CLI_TOOL_PROVIDER_MAP: Record<CliTool, LlmProviderKey> = {

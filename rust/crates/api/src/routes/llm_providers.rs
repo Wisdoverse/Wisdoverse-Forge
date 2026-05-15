@@ -14,12 +14,12 @@ use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, ErrorKind, crypto};
-use agentforge_llm::{ChatMessage, ChatRequest, LlmError, LlmProviderBuildConfig};
+use agentforge_llm::{
+    ChatMessage, ChatRequest, LlmError, LlmProviderBuildConfig, normalize_provider_key, provider_spec,
+    supported_provider_specs,
+};
 
 use crate::health::AppState;
-
-const VALID_PROVIDERS: &[&str] =
-    &["anthropic", "openai", "google", "ollama", "groq", "deepseek", "xai", "openrouter", "together", "fireworks"];
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -33,6 +33,10 @@ struct ProviderModelInfo {
 struct ProviderInfo {
     provider: &'static str,
     display_name: &'static str,
+    default_model: Option<&'static str>,
+    default_base_url: Option<&'static str>,
+    requires_api_key: bool,
+    allow_custom_models: bool,
     models: Vec<ProviderModelInfo>,
 }
 
@@ -101,83 +105,26 @@ pub struct UpdateProviderRequest {
 }
 
 fn provider_display_name(provider: &str) -> &'static str {
-    match provider {
-        "anthropic" => "Anthropic",
-        "openai" => "OpenAI",
-        "google" => "Google",
-        "ollama" => "Ollama",
-        "groq" => "Groq",
-        "deepseek" => "DeepSeek",
-        "xai" => "xAI",
-        "openrouter" => "OpenRouter",
-        "together" => "Together AI",
-        "fireworks" => "Fireworks AI",
-        _ => "Custom",
-    }
+    provider_spec(provider).map(|spec| spec.display_name).unwrap_or("Custom")
 }
 
 fn supported_provider_list() -> Vec<ProviderInfo> {
-    vec![
-        ProviderInfo {
-            provider: "anthropic",
-            display_name: "Anthropic",
-            models: vec![
-                ProviderModelInfo { model: "claude-sonnet-4-20250514", display_name: "Claude Sonnet 4" },
-                ProviderModelInfo { model: "claude-sonnet-4-6", display_name: "Claude Sonnet 4.6" },
-            ],
-        },
-        ProviderInfo {
-            provider: "openai",
-            display_name: "OpenAI",
-            models: vec![
-                ProviderModelInfo { model: "gpt-5.5", display_name: "GPT-5.5" },
-                ProviderModelInfo { model: "gpt-5.4", display_name: "GPT-5.4" },
-            ],
-        },
-        ProviderInfo {
-            provider: "google",
-            display_name: "Google",
-            models: vec![ProviderModelInfo { model: "gemini-2.5-pro", display_name: "Gemini 2.5 Pro" }],
-        },
-        ProviderInfo {
-            provider: "ollama",
-            display_name: "Ollama",
-            models: vec![ProviderModelInfo { model: "llama3", display_name: "Llama 3" }],
-        },
-        ProviderInfo {
-            provider: "groq",
-            display_name: "Groq",
-            models: vec![ProviderModelInfo { model: "llama-3.3-70b-versatile", display_name: "Llama 3.3 70B" }],
-        },
-        ProviderInfo {
-            provider: "deepseek",
-            display_name: "DeepSeek",
-            models: vec![ProviderModelInfo { model: "deepseek-chat", display_name: "DeepSeek Chat" }],
-        },
-        ProviderInfo {
-            provider: "xai",
-            display_name: "xAI",
-            models: vec![ProviderModelInfo { model: "grok-3-mini", display_name: "Grok 3 Mini" }],
-        },
-        ProviderInfo {
-            provider: "openrouter",
-            display_name: "OpenRouter",
-            models: vec![ProviderModelInfo { model: "openai/gpt-4o-mini", display_name: "OpenAI GPT-4o Mini" }],
-        },
-        ProviderInfo {
-            provider: "together",
-            display_name: "Together AI",
-            models: vec![ProviderModelInfo { model: "openai/gpt-oss-20b", display_name: "GPT OSS 20B" }],
-        },
-        ProviderInfo {
-            provider: "fireworks",
-            display_name: "Fireworks AI",
-            models: vec![ProviderModelInfo {
-                model: "accounts/fireworks/models/qwen3-30b-a3b",
-                display_name: "Qwen3 30B A3B",
-            }],
-        },
-    ]
+    supported_provider_specs()
+        .iter()
+        .map(|spec| ProviderInfo {
+            provider: spec.key,
+            display_name: spec.display_name,
+            default_model: spec.default_model,
+            default_base_url: spec.default_base_url,
+            requires_api_key: spec.requires_api_key,
+            allow_custom_models: spec.allow_custom_models,
+            models: spec
+                .models
+                .iter()
+                .map(|model| ProviderModelInfo { model: model.model, display_name: model.display_name })
+                .collect(),
+        })
+        .collect()
 }
 
 fn clean_optional(value: Option<String>) -> Option<String> {
@@ -185,8 +132,8 @@ fn clean_optional(value: Option<String>) -> Option<String> {
 }
 
 fn validate_provider(provider: &str) -> AppResult<String> {
-    let provider = provider.trim().to_ascii_lowercase();
-    if !VALID_PROVIDERS.contains(&provider.as_str()) {
+    let provider = normalize_provider_key(provider);
+    if provider_spec(&provider).is_none() {
         return Err(ErrorKind::Validation(format!("invalid provider '{provider}'")).into());
     }
     Ok(provider)
@@ -197,7 +144,13 @@ fn api_key_prefix(api_key: &str) -> String {
 }
 
 fn provider_requires_api_key(provider: &str) -> bool {
-    provider != "ollama"
+    provider_spec(provider).map(|spec| spec.requires_api_key).unwrap_or(true)
+}
+
+fn provider_requires_base_url(provider: &str) -> bool {
+    provider_spec(provider)
+        .map(|spec| spec.key == "openai_compatible" && spec.default_base_url.is_none())
+        .unwrap_or(false)
 }
 
 fn response_from_row(row: LlmProviderRow, priority: i32) -> LlmProviderConfigResponse {
@@ -314,6 +267,10 @@ async fn create_provider(
     if provider_requires_api_key(&provider) && api_key.is_empty() {
         return Err(ErrorKind::Validation("apiKey is required".into()).into());
     }
+    let base_url = clean_optional(req.base_url);
+    if provider_requires_base_url(&provider) && base_url.is_none() {
+        return Err(ErrorKind::Validation("baseUrl is required for this provider".into()).into());
+    }
 
     let (encrypted_api_key, prefix) = if api_key.is_empty() {
         (String::new(), None)
@@ -360,7 +317,6 @@ async fn create_provider(
 
     let display_name =
         clean_optional(req.display_name).unwrap_or_else(|| provider_display_name(provider.as_str()).to_string());
-    let base_url = clean_optional(req.base_url);
     let row = sqlx::query_as::<_, LlmProviderRow>(
         r#"INSERT INTO user_llm_configs
               (user_id, provider, model, display_name, base_url, api_key_prefix, encrypted_api_key, is_enabled, is_default, settings)
@@ -406,6 +362,9 @@ async fn update_provider(
         .or(current.display_name)
         .unwrap_or_else(|| provider_display_name(current.provider.as_str()).to_string());
     let base_url = clean_optional(req.base_url).or(current.base_url);
+    if provider_requires_base_url(&current.provider) && base_url.is_none() {
+        return Err(ErrorKind::Validation("baseUrl is required for this provider".into()).into());
+    }
     let is_enabled = req.is_enabled.unwrap_or(current.is_enabled.unwrap_or(true));
 
     let encrypted_and_prefix = if let Some(api_key) =
@@ -765,6 +724,12 @@ mod tests {
     }
 
     #[test]
+    fn provider_aliases_are_normalized() {
+        assert_eq!(validate_provider("Lite_LLM").unwrap(), "litellm");
+        assert_eq!(validate_provider("openai-compatible").unwrap(), "openai_compatible");
+    }
+
+    #[test]
     fn api_key_prefix_is_short_and_secret_safe() {
         assert_eq!(api_key_prefix("sk-1234567890"), "sk-12345");
     }
@@ -773,6 +738,13 @@ mod tests {
     fn ollama_is_keyless_provider() {
         assert!(!provider_requires_api_key("ollama"));
         assert!(provider_requires_api_key("openai"));
+        assert!(provider_requires_api_key("litellm"));
+    }
+
+    #[test]
+    fn generic_openai_compatible_requires_explicit_base_url() {
+        assert!(!provider_requires_base_url("litellm"));
+        assert!(provider_requires_base_url("openai_compatible"));
     }
 
     #[test]
@@ -792,9 +764,23 @@ mod tests {
                 "openrouter",
                 "together",
                 "fireworks",
+                "litellm",
+                "openai_compatible",
             ]
         );
-        assert!(providers.iter().all(|provider| !provider.models.is_empty()));
+        assert!(providers.iter().all(|provider| provider.allow_custom_models || !provider.models.is_empty()));
+
+        let litellm =
+            providers.iter().find(|provider| provider.provider == "litellm").expect("litellm supported provider");
+        assert_eq!(litellm.default_base_url, Some("http://litellm:4000"));
+        assert_eq!(litellm.default_model, Some("gpt-4o-mini"));
+
+        let custom = providers
+            .iter()
+            .find(|provider| provider.provider == "openai_compatible")
+            .expect("generic OpenAI-compatible provider");
+        assert_eq!(custom.default_base_url, None);
+        assert_eq!(custom.default_model, None);
     }
 
     #[test]

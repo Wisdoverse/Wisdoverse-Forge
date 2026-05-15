@@ -35,6 +35,19 @@ impl PlatformError {
         matches!(self, Self::NotFound(_))
             || matches!(self, Self::Docker(bollard::errors::Error::DockerResponseServerError { status_code: 404, .. }))
     }
+
+    /// True when Docker rejected container creation because the requested image
+    /// is not installed on this host.
+    pub fn is_missing_image(&self) -> bool {
+        matches!(
+            self,
+            Self::Docker(bollard::errors::Error::DockerResponseServerError {
+                status_code: 404,
+                message,
+                ..
+            }) if message.contains("No such image")
+        )
+    }
 }
 
 impl DockerClient {
@@ -167,5 +180,14 @@ mod tests {
     #[test]
     fn platform_internal_error_is_not_classified_as_not_found() {
         assert!(!PlatformError::Internal("docker socket unavailable".into()).is_not_found());
+    }
+
+    #[test]
+    fn platform_missing_image_error_is_classified() {
+        let err = PlatformError::Docker(bollard::errors::Error::DockerResponseServerError {
+            status_code: 404,
+            message: "No such image: agentforge-agent:codex".into(),
+        });
+        assert!(err.is_missing_image());
     }
 }

@@ -218,7 +218,7 @@ pub async fn start_agent(
     }
 
     let config = ContainerConfig {
-        image,
+        image: image.clone(),
         name: Some(container_name),
         working_dir: Some(container_working_dir),
         env,
@@ -243,7 +243,17 @@ pub async fn start_agent(
     let container_id = docker
         .create_container(config)
         .await
-        .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("Failed to create container: {e}")))?;
+        .map_err(|e| {
+            if e.is_missing_image() {
+                ErrorKind::Validation(format!(
+                    "agent image '{image}' is not installed on this host; run `make update-agents AGENT_TOOLS={}` or `make build-agent CLI_TOOL={}` before starting this agent",
+                    agent.cli_tool.as_deref().unwrap_or("claude"),
+                    agent.cli_tool.as_deref().unwrap_or("claude")
+                ))
+            } else {
+                ErrorKind::Internal(anyhow::anyhow!("Failed to create container: {e}"))
+            }
+        })?;
 
     // Persist before starting: the sidecar connects to NATS immediately on
     // boot, and auth callout reads this DB row to validate the per-agent
