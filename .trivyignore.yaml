@@ -27,6 +27,26 @@ vulnerabilities:
       - 'usr/bin/gh'
     expired_at: 2026-06-15
     statement: Upstream latest stable GitHub CLI has not yet been rebuilt with the fixed Go stdlib.
+  - id: CVE-2026-39826
+    paths:
+      - 'usr/bin/gh'
+    expired_at: 2026-06-15
+    statement: Upstream latest stable GitHub CLI has not yet been rebuilt with the fixed Go stdlib.
+  - id: CVE-2026-39825
+    paths:
+      - 'usr/bin/gh'
+    expired_at: 2026-06-15
+    statement: Upstream latest stable GitHub CLI has not yet been rebuilt with the fixed Go stdlib.
+  - id: CVE-2026-39823
+    paths:
+      - 'usr/bin/gh'
+    expired_at: 2026-06-15
+    statement: Upstream latest stable GitHub CLI has not yet been rebuilt with the fixed Go stdlib.
+  - id: GHSA-pmwq-pjrm-6p5r
+    paths:
+      - 'usr/bin/gh'
+    expired_at: 2026-06-15
+    statement: Upstream latest stable GitHub CLI has not yet rebased in-toto-golang to the fixed version.
 
   # Docker Compose v5.1.3 is the latest stable Compose release as of 2026-05-15.
   # These suppressions are path-scoped to the official Compose plugin only and
@@ -81,3 +101,72 @@ vulnerabilities:
       - 'usr/local/lib/docker/cli-plugins/docker-compose'
     expired_at: 2026-06-15
     statement: Upstream latest stable Docker Compose has not yet been rebuilt with the fixed Go stdlib.
+  - id: CVE-2026-39826
+    paths:
+      - 'usr/local/lib/docker/cli-plugins/docker-compose'
+    expired_at: 2026-06-15
+    statement: Upstream latest stable Docker Compose has not yet been rebuilt with the fixed Go stdlib.
+  - id: CVE-2026-39825
+    paths:
+      - 'usr/local/lib/docker/cli-plugins/docker-compose'
+    expired_at: 2026-06-15
+    statement: Upstream latest stable Docker Compose has not yet been rebuilt with the fixed Go stdlib.
+  - id: CVE-2026-39823
+    paths:
+      - 'usr/local/lib/docker/cli-plugins/docker-compose'
+    expired_at: 2026-06-15
+    statement: Upstream latest stable Docker Compose has not yet been rebuilt with the fixed Go stdlib.
+  - id: CVE-2026-32289
+    paths:
+      - 'usr/local/lib/docker/cli-plugins/docker-compose'
+    expired_at: 2026-06-15
+    statement: Upstream latest stable Docker Compose has not yet been rebuilt with the fixed Go stdlib.
+  - id: CVE-2026-32288
+    paths:
+      - 'usr/local/lib/docker/cli-plugins/docker-compose'
+    expired_at: 2026-06-15
+    statement: Upstream latest stable Docker Compose has not yet been rebuilt with the fixed Go stdlib.
+  - id: CVE-2026-32282
+    paths:
+      - 'usr/local/lib/docker/cli-plugins/docker-compose'
+    expired_at: 2026-06-15
+    statement: Upstream latest stable Docker Compose has not yet been rebuilt with the fixed Go stdlib.
+  - id: CVE-2026-39882
+    paths:
+      - 'usr/local/lib/docker/cli-plugins/docker-compose'
+    expired_at: 2026-06-15
+    statement: Upstream latest stable Docker Compose has not yet rebased OpenTelemetry Go exporters to the fixed version.
+  - id: GHSA-pmwq-pjrm-6p5r
+    paths:
+      - 'usr/local/lib/docker/cli-plugins/docker-compose'
+    expired_at: 2026-06-15
+    statement: Upstream latest stable Docker Compose has not yet rebased in-toto-golang to the fixed version.
+  - id: CVE-2026-33997
+    paths:
+      - 'usr/local/lib/docker/cli-plugins/docker-compose'
+    expired_at: 2026-06-15
+    statement: Upstream latest stable Docker Compose has not yet rebased github.com/docker/docker to the fixed version.
+
+  # npm is bundled by the upstream Node image and retained for agent overlay
+  # builds and operator use. These are path-scoped to npm's bundled
+  # dependencies and expire quickly so they are removed when Node/npm refreshes.
+  - id: CVE-2026-33671
+    paths:
+      - 'usr/local/lib/node_modules/npm/node_modules/tinyglobby/node_modules/picomatch/package.json'
+    expired_at: 2026-06-15
+    statement: Upstream Node/npm image bundle has not yet rebased picomatch to the fixed version.
+  - id: CVE-2026-33672
+    paths:
+      - 'usr/local/lib/node_modules/npm/node_modules/tinyglobby/node_modules/picomatch/package.json'
+    expired_at: 2026-06-15
+    statement: Upstream Node/npm image bundle has not yet rebased picomatch to the fixed version.
+  - id: CVE-2026-42338
+    paths:
+      - 'usr/local/lib/node_modules/npm/node_modules/ip-address/package.json'
+    expired_at: 2026-06-15
+    statement: Upstream Node/npm image bundle has not yet rebased ip-address to the fixed version.
+  - id: CVE-2026-33750
+    paths:
+      - 'usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json'
+    expired_at: 2026-06-15
+    statement: Upstream Node/npm image bundle has not yet rebased brace-expansion to the fixed version.
