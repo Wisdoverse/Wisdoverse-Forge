@@ -313,7 +313,9 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
         get().updateAgentStatus(id, 'idle')
         return true
       } else {
-        set({ error: extractApiError(result, 'Failed to restart agent') })
+        const message = extractApiError(result, 'Failed to restart agent')
+        await get().loadAgents()
+        set({ error: message })
         return false
       }
     } catch (err) {
