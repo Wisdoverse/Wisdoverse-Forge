@@ -6,3 +6,4 @@
 pub(crate) mod agent;
 pub(crate) mod credential;
 pub(crate) mod orchestration;
+pub(crate) mod resource;
