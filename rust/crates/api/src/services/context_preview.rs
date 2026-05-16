@@ -10,9 +10,11 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
+use crate::domain::context_resolver::{
+    ContextItemKind, ContextSelection, DegradationReason, ResolvedContext, ResolvedItemRef, apply_context_selection,
+};
 use crate::repositories::context_preview::{ContextPreviewRepository, CreateContextPreviewRecord};
 use crate::repositories::orchestration::{OrchestrationTaskRepository, ParticipantRepository};
-use crate::services::context_resolver::{ContextSelection, ResolvedContext, ResolvedItemRef, apply_context_selection};
 use crate::services::orchestration::OrchestrationService;
 
 const PREVIEW_TTL_MINUTES: i64 = 15;
@@ -219,8 +221,8 @@ fn preview_item(item: &ResolvedItemRef, selected: bool, pinned: bool) -> Context
     ContextPreviewItem {
         id: item.id,
         item_kind: match item.kind {
-            crate::services::context_resolver::ContextItemKind::Memory => "memory",
-            crate::services::context_resolver::ContextItemKind::Skill => "skill",
+            ContextItemKind::Memory => ContextItemKind::Memory.label(),
+            ContextItemKind::Skill => ContextItemKind::Skill.label(),
         }
         .to_string(),
         title: item.title.clone(),
@@ -269,11 +271,6 @@ fn preview_hash(task_draft_hash: &str, agent_id: AgentId, resolved: &ResolvedCon
         .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("serialize context preview hash: {err}")).into())
 }
 
-fn reason_label(reason: &crate::services::context_resolver::DegradationReason) -> &'static str {
-    match reason {
-        crate::services::context_resolver::DegradationReason::BudgetTruncated => "budget_truncated",
-        crate::services::context_resolver::DegradationReason::RuntimeCapabilityFallback => {
-            "runtime_capability_fallback"
-        }
-    }
+fn reason_label(reason: &DegradationReason) -> &'static str {
+    reason.label()
 }
