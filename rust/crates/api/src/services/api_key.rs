@@ -7,13 +7,8 @@ use rand::Rng;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
+use crate::domain::credential::{ApiKeyFormat, ApiKeyName, ApiKeyScopePolicy, CredentialListPage};
 use crate::repositories::api_key::ApiKeyRepository;
-
-/// The prefix for all generated API keys.
-const KEY_PREFIX: &str = "af_";
-
-/// Valid scopes for API keys.
-const VALID_SCOPES: &[&str] = &["read", "write", "admin"];
 
 /// Result of creating an API key — includes the plaintext key (shown once).
 #[derive(Debug, serde::Serialize)]
@@ -41,31 +36,22 @@ impl ApiKeyService {
         scopes: &[String],
         expires_at: Option<DateTime<Utc>>,
     ) -> AppResult<CreateApiKeyResult> {
-        // Validate name
-        if let Err(msg) = validate_key_name(name) {
-            return Err(ErrorKind::Validation(msg.into()).into());
-        }
-        let name = name.trim();
-
-        // Validate scopes
-        if let Err(msg) = validate_scopes(scopes) {
-            return Err(ErrorKind::Validation(msg).into());
-        }
+        let name = ApiKeyName::parse(name)?;
+        ApiKeyScopePolicy::validate(scopes)?;
 
         // Generate random key: af_ + 64 hex chars (32 random bytes)
         let (plaintext_key, key_hash, _prefix) = generate_api_key_parts();
         let key_prefix = &plaintext_key[..11]; // "af_" + first 8 hex chars
 
-        let key = self.repo.create(scope, name, &key_hash, key_prefix, scopes, expires_at).await?;
+        let key = self.repo.create(scope, name.value(), &key_hash, key_prefix, scopes, expires_at).await?;
 
         Ok(CreateApiKeyResult { key, plaintext_key })
     }
 
     /// List API keys (paginated, no plaintext).
     pub async fn list_keys(&self, scope: &TenantScope, limit: i64, offset: i64) -> AppResult<Vec<ApiKey>> {
-        let limit = limit.clamp(1, 100);
-        let offset = offset.max(0);
-        self.repo.list(scope, limit, offset).await
+        let page = CredentialListPage::new(limit, offset);
+        self.repo.list(scope, page.limit(), page.offset()).await
     }
 
     /// Revoke an API key by ID.
@@ -76,7 +62,7 @@ impl ApiKeyService {
     /// Validate a raw API key: hash, lookup, check revocation and expiry.
     pub async fn validate_key(&self, raw_key: &str) -> AppResult<ApiKey> {
         // Basic format check
-        if validate_key_format(raw_key).is_err() {
+        if ApiKeyFormat::validate(raw_key).is_err() {
             return Err(ErrorKind::Unauthorized.into());
         }
 
@@ -117,7 +103,7 @@ pub(crate) fn generate_api_key_parts() -> (String, String, String) {
 pub(crate) fn generate_api_key() -> String {
     let mut rng = rand::rng();
     let bytes: [u8; 32] = rng.random();
-    format!("{}{}", KEY_PREFIX, hex::encode(bytes))
+    format!("{}{}", ApiKeyFormat::PREFIX, hex::encode(bytes))
 }
 
 /// SHA-256 hash an API key and return the hex digest.
@@ -125,38 +111,4 @@ pub(crate) fn hash_key(key: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(key.as_bytes());
     hex::encode(hasher.finalize())
-}
-
-/// Validate API key format: must start with "af_" and be exactly 67 chars.
-pub(crate) fn validate_key_format(key: &str) -> Result<(), &'static str> {
-    if !key.starts_with(KEY_PREFIX) {
-        return Err("key must start with 'af_'");
-    }
-    if key.len() != 67 {
-        return Err("key must be exactly 67 characters");
-    }
-    // Verify hex portion
-    if hex::decode(&key[3..]).is_err() {
-        return Err("key must contain valid hex characters after prefix");
-    }
-    Ok(())
-}
-
-/// Validate that all scopes are in the allowed set.
-pub(crate) fn validate_scopes(scopes: &[String]) -> Result<(), String> {
-    for s in scopes {
-        if !VALID_SCOPES.contains(&s.as_str()) {
-            return Err(format!("invalid scope '{}', valid: {:?}", s, VALID_SCOPES));
-        }
-    }
-    Ok(())
-}
-
-/// Validate API key name: must be 1-255 characters after trimming.
-pub(crate) fn validate_key_name(name: &str) -> Result<(), &'static str> {
-    let name = name.trim();
-    if name.is_empty() || name.len() > 255 {
-        return Err("name must be 1-255 characters");
-    }
-    Ok(())
 }
