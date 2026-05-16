@@ -9,18 +9,16 @@ use futures::{StreamExt, stream::BoxStream};
 use std::sync::Arc;
 use tokio::sync::oneshot;
 
+use crate::domain::prompt::{PromptContent, PromptContextPolicy, PromptHistoryMessage};
 use crate::repositories::agent::AgentRepository;
 use crate::repositories::message::MessageRepository;
 
-/// Conservative character→token estimator. OpenAI-specific models can override
-/// via `tiktoken-rs` in a later follow-up; this is the baseline for all providers.
-fn estimate_tokens(text: &str) -> usize {
-    text.chars().count() / 4 + 1
+fn prompt_context_policy(model: &str) -> PromptContextPolicy {
+    PromptContextPolicy::new(model, model_context_limit(model))
 }
 
 fn output_token_budget(model: &str) -> u32 {
-    let limit = model_context_limit(model);
-    ((limit / 4).clamp(256, 4_096)) as u32
+    prompt_context_policy(model).output_token_budget()
 }
 
 /// Build the ordered message history to send to the LLM, bounded by the
@@ -32,35 +30,14 @@ fn output_token_budget(model: &str) -> u32 {
 /// individually fit — the alternative (skip-and-keep) would present an
 /// incoherent conversation to the model.
 pub fn build_history(all_msgs: &[AgentMessage], system_prompt: &str, model: &str) -> AppResult<Vec<ChatMessage>> {
-    let limit = model_context_limit(model);
-    let reserve_output = output_token_budget(model) as usize;
-    let raw = ((limit as f32) * 0.8) as usize;
-    let budget = raw.saturating_sub(reserve_output);
-    if budget == 0 {
-        return Err(ErrorKind::Validation(format!(
-            "model '{model}' context window too small for reserved output budget"
-        ))
-        .into());
-    }
-    let sys_tokens = estimate_tokens(system_prompt);
-    if sys_tokens >= budget {
-        return Err(ErrorKind::Validation("system_prompt alone exceeds context budget".into()).into());
-    }
-    let mut used = sys_tokens;
-    let mut kept: Vec<&AgentMessage> = Vec::new();
-    for m in all_msgs.iter().rev() {
-        let t = estimate_tokens(&m.content);
-        if used + t > budget {
-            break;
-        }
-        used += t;
-        kept.push(m);
-    }
-    kept.reverse();
-    if kept.is_empty() {
-        return Err(ErrorKind::Validation("message exceeds context budget; clear chat to continue".into()).into());
-    }
-    Ok(kept.iter().map(|m| ChatMessage { role: m.role.clone(), content: m.content.clone() }).collect())
+    let policy = prompt_context_policy(model);
+    let history: Vec<_> =
+        all_msgs.iter().map(|message| PromptHistoryMessage::new(&message.role, &message.content)).collect();
+    Ok(policy
+        .select_history(&history, system_prompt)?
+        .into_iter()
+        .map(|message| ChatMessage { role: message.role().to_string(), content: message.content().to_string() })
+        .collect())
 }
 
 #[cfg(test)]
@@ -315,10 +292,7 @@ impl PromptService {
         content: String,
         mut cancel_rx: oneshot::Receiver<()>,
     ) -> AppResult<BoxStream<'static, AppResult<SseFrame>>> {
-        let content = content.trim().to_string();
-        if content.is_empty() {
-            return Err(ErrorKind::Validation("prompt content is required".into()).into());
-        }
+        let content = PromptContent::parse(&content)?.value().to_string();
         self.messages.insert(&scope, agent_id, "user", &content, None, None, None, None).await?;
 
         let all = self.messages.list(&scope, agent_id, 1_000, None).await?;

@@ -14,6 +14,7 @@ pub(crate) mod license;
 pub(crate) mod memory;
 pub(crate) mod observability;
 pub(crate) mod orchestration;
+pub(crate) mod prompt;
 pub(crate) mod prompt_library;
 pub(crate) mod resource;
 pub(crate) mod skill;
