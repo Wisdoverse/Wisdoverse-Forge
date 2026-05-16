@@ -46,6 +46,54 @@ impl AnalyticsListPage {
     }
 }
 
+/// Context usage analytics query bounds.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct ContextUsageQueryBounds {
+    limit: i64,
+    min_applied: i64,
+    stale_after_days: i64,
+    min_success_rate: f64,
+    negative_rate: f64,
+}
+
+impl ContextUsageQueryBounds {
+    pub(crate) fn normalize(
+        limit: i64,
+        min_applied: i64,
+        stale_after_days: i64,
+        min_success_rate: f64,
+        negative_rate: f64,
+    ) -> Self {
+        Self {
+            limit: limit.clamp(1, 50),
+            min_applied: min_applied.clamp(1, 10_000),
+            stale_after_days: stale_after_days.clamp(1, 365),
+            min_success_rate: min_success_rate.clamp(0.0, 1.0),
+            negative_rate: negative_rate.clamp(0.0, 1.0),
+        }
+    }
+
+    pub(crate) fn limit(self) -> i64 {
+        self.limit
+    }
+
+    pub(crate) fn min_applied(self) -> i64 {
+        self.min_applied
+    }
+
+    pub(crate) fn stale_after_days(self) -> i64 {
+        self.stale_after_days
+    }
+
+    pub(crate) fn min_success_rate(self) -> f64 {
+        self.min_success_rate
+    }
+
+    pub(crate) fn negative_rate(self) -> f64 {
+        self.negative_rate
+    }
+}
+
 /// Audit-log list pagination.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AuditListPage {
@@ -148,6 +196,39 @@ mod tests {
         assert_eq!(AnalyticsListPage::new(Some(5000), Some(0)).limit(), 1000);
         assert_eq!(AnalyticsListPage::new(Some(-1), Some(-10)).limit(), -1);
         assert_eq!(AnalyticsListPage::new(Some(10), Some(-10)).offset(), 0);
+    }
+
+    #[test]
+    fn context_usage_query_bounds_clamp_low_values() {
+        let query = ContextUsageQueryBounds::normalize(0, 0, 0, -0.1, -5.0);
+
+        assert_eq!(query.limit(), 1);
+        assert_eq!(query.min_applied(), 1);
+        assert_eq!(query.stale_after_days(), 1);
+        assert_eq!(query.min_success_rate(), 0.0);
+        assert_eq!(query.negative_rate(), 0.0);
+    }
+
+    #[test]
+    fn context_usage_query_bounds_clamp_high_values() {
+        let query = ContextUsageQueryBounds::normalize(500, 20_000, 500, 2.0, 5.0);
+
+        assert_eq!(query.limit(), 50);
+        assert_eq!(query.min_applied(), 10_000);
+        assert_eq!(query.stale_after_days(), 365);
+        assert_eq!(query.min_success_rate(), 1.0);
+        assert_eq!(query.negative_rate(), 1.0);
+    }
+
+    #[test]
+    fn context_usage_query_bounds_preserve_valid_values() {
+        let query = ContextUsageQueryBounds::normalize(25, 500, 90, 0.7, 0.3);
+
+        assert_eq!(query.limit(), 25);
+        assert_eq!(query.min_applied(), 500);
+        assert_eq!(query.stale_after_days(), 90);
+        assert_eq!(query.min_success_rate(), 0.7);
+        assert_eq!(query.negative_rate(), 0.3);
     }
 
     #[test]

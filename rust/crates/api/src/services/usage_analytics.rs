@@ -8,6 +8,8 @@ use serde::Serialize;
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
+use crate::domain::observability::ContextUsageQueryBounds;
+
 const REFRESH_LOCK_CLASS: i32 = 72;
 const REFRESH_LOCK_ID: i32 = 5101;
 const STALE_AFTER_HOURS: i64 = 24;
@@ -40,12 +42,20 @@ impl Default for ContextUsageQuery {
 
 impl ContextUsageQuery {
     pub fn normalized(self) -> Self {
+        let query = ContextUsageQueryBounds::normalize(
+            self.limit,
+            self.min_applied,
+            self.stale_after_days,
+            self.min_success_rate,
+            self.negative_rate,
+        );
+
         Self {
-            limit: self.limit.clamp(1, 50),
-            min_applied: self.min_applied.clamp(1, 10_000),
-            stale_after_days: self.stale_after_days.clamp(1, 365),
-            min_success_rate: self.min_success_rate.clamp(0.0, 1.0),
-            negative_rate: self.negative_rate.clamp(0.0, 1.0),
+            limit: query.limit(),
+            min_applied: query.min_applied(),
+            stale_after_days: query.stale_after_days(),
+            min_success_rate: query.min_success_rate(),
+            negative_rate: query.negative_rate(),
         }
     }
 }
