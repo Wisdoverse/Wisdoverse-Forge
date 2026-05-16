@@ -7,6 +7,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
+use crate::domain::skill::{
+    SkillJsonObjectPolicy, SkillName, SkillRestoreVersionPolicy, SkillSensitivity, SkillStateTransitionPolicy,
+    SkillTtlPolicy,
+};
 use crate::repositories::resource_permission::ResourcePermissionRepository;
 use crate::repositories::skill::{CreateSkillRecord, SkillRepository, UpdateSkillRecord};
 use crate::repositories::skill_version::SkillVersionRepository;
@@ -130,15 +134,16 @@ impl SkillService {
     /// Create a new governed skill.
     pub async fn create(&self, scope: &TenantScope, input: CreateSkillInput) -> AppResult<Skill> {
         let workspace_id = required_workspace(scope)?;
-        let name = validate_name(&input.name)?;
+        let name = SkillName::parse(&input.name)?.value();
         let content = self.prepare_content_or_audit_rejection(scope, "create", None, &input.content).await?;
         let target_scope_id = self.validated_write_scope(scope, workspace_id, input.scope_kind, input.scope_id).await?;
         let state = self.validated_create_state(scope, input.scope_kind, target_scope_id, input.state).await?;
-        validate_ttl(input.ttl_expires_at)?;
-        let requested_sensitivity = input.sensitivity.as_deref().map(validate_sensitivity).transpose()?;
+        SkillTtlPolicy::validate(input.ttl_expires_at, Utc::now())?;
+        let requested_sensitivity =
+            input.sensitivity.as_deref().map(SkillSensitivity::parse).transpose()?.map(SkillSensitivity::as_str);
         let sensitivity = requested_sensitivity.unwrap_or(content.sensitivity);
         let provenance = input.provenance.unwrap_or_else(|| json!({}));
-        validate_json_object("provenance", &provenance)?;
+        SkillJsonObjectPolicy::validate("provenance", &provenance)?;
         let required_inputs = input.required_inputs.unwrap_or_else(|| json!([]));
         let tools = input.tools.unwrap_or_else(|| json!([]));
         let examples = input.examples.unwrap_or_else(|| json!([]));
@@ -192,7 +197,7 @@ impl SkillService {
     /// Update a skill and append the prior state to `skill_versions`.
     pub async fn update(&self, scope: &TenantScope, id: Uuid, input: UpdateSkillInput) -> AppResult<Skill> {
         if let Some(name) = input.name.as_deref() {
-            validate_name(name)?;
+            SkillName::parse(name)?;
         }
         let prepared = match input.content.as_deref() {
             Some(content) => Some(self.prepare_content_or_audit_rejection(scope, "update", Some(id), content).await?),
@@ -206,7 +211,7 @@ impl SkillService {
             return Err(ErrorKind::Conflict(format!("skill {id} is revoked")).into());
         }
         self.require_owner_or_manager(scope, &current).await?;
-        let (enabled, state) = next_enabled_state(&current, input.enabled)?;
+        let state_change = SkillStateTransitionPolicy::next(&current.state, input.enabled)?;
         let prior_version = SkillVersionRepository::insert_snapshot_in_tx(&mut tx, &current, scope.user_id()).await?;
         let skill = SkillRepository::update_in_tx(
             &mut tx,
@@ -216,8 +221,8 @@ impl SkillService {
                 description: input.description.as_deref(),
                 trigger_pattern: input.trigger_pattern.as_deref(),
                 content: prepared.as_ref().map(|value| value.content.as_str()),
-                enabled,
-                state,
+                enabled: state_change.enabled(),
+                state: state_change.state(),
                 sensitivity: prepared.as_ref().map(|value| value.sensitivity),
             },
         )
@@ -291,12 +296,7 @@ impl SkillService {
         id: Uuid,
         input: RestoreSkillVersionInput,
     ) -> AppResult<Skill> {
-        if input.version < 1 {
-            return Err(ErrorKind::Validation("version must be >= 1".into()).into());
-        }
-        if matches!(input.expected_current_version, Some(version) if version < 1) {
-            return Err(ErrorKind::Validation("expected_current_version must be >= 1".into()).into());
-        }
+        SkillRestoreVersionPolicy::validate(input.version, input.expected_current_version)?;
 
         self.reject_outside_boundary_mutation(scope, id, "restore_version").await?;
         let mut tx = self.repo.pool().begin().await?;
@@ -697,49 +697,6 @@ fn skill_event_payload(skill: &Skill, extra: Value) -> Value {
     payload
 }
 
-fn validate_name(name: &str) -> AppResult<&str> {
-    let name = name.trim();
-    if name.is_empty() || name.len() > 255 {
-        return Err(ErrorKind::Validation("skill name must be 1-255 characters".into()).into());
-    }
-    Ok(name)
-}
-
-fn validate_ttl(ttl_expires_at: Option<DateTime<Utc>>) -> AppResult<()> {
-    if let Some(ttl) = ttl_expires_at
-        && ttl <= Utc::now()
-    {
-        return Err(ErrorKind::Validation("ttl_expires_at must be in the future".into()).into());
-    }
-    Ok(())
-}
-
-fn validate_sensitivity(value: &str) -> AppResult<&str> {
-    match value {
-        "public" | "internal" | "confidential" | "secret_detected" => Ok(value),
-        other => Err(ErrorKind::Validation(format!("unsupported skill sensitivity `{other}`")).into()),
-    }
-}
-
-fn validate_json_object(name: &str, value: &Value) -> AppResult<()> {
-    if value.as_object().is_some() {
-        Ok(())
-    } else {
-        Err(ErrorKind::Validation(format!("{name} must be a JSON object")).into())
-    }
-}
-
-fn next_enabled_state(current: &Skill, enabled: Option<bool>) -> AppResult<(Option<bool>, Option<&'static str>)> {
-    match enabled {
-        Some(true) if current.state == "candidate" => {
-            Err(ErrorKind::Unprocessable("candidate skill promotion requires approval queue".into()).into())
-        }
-        Some(true) => Ok((Some(true), Some("active"))),
-        Some(false) => Ok((Some(false), Some("deprecated"))),
-        None => Ok((None, None)),
-    }
-}
-
 fn sensitivity_label(sensitivity: Sensitivity) -> &'static str {
     match sensitivity {
         Sensitivity::Public => "public",
@@ -758,44 +715,5 @@ mod tests {
         assert_eq!(SkillState::Candidate.as_label(), "candidate");
         assert_eq!(SkillState::Active.as_label(), "active");
         assert_eq!(SkillState::Deprecated.as_label(), "deprecated");
-    }
-
-    #[test]
-    fn candidate_promotion_requires_approval() {
-        let skill = Skill {
-            id: agentforge_core::SkillId::new(),
-            organization_id: Some(agentforge_core::OrgId::new()),
-            workspace_id: Some(agentforge_core::WorkspaceId::new()),
-            scope_kind: Some("team".to_string()),
-            scope_id: Some(Uuid::new_v4()),
-            name: "candidate".to_string(),
-            description: None,
-            trigger_pattern: None,
-            content: "content".to_string(),
-            enabled: false,
-            state: "candidate".to_string(),
-            version: 1,
-            owner_user_id: None,
-            ttl_expires_at: None,
-            sensitivity: "internal".to_string(),
-            provenance: json!({}),
-            negative_trigger: None,
-            required_inputs: json!([]),
-            tools: json!([]),
-            examples: json!([]),
-            success_evidence: json!([]),
-            revoked_at: None,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-        };
-
-        let err = next_enabled_state(&skill, Some(true)).unwrap_err();
-        assert!(matches!(err.kind, ErrorKind::Unprocessable(_)));
-    }
-
-    #[test]
-    fn valid_skill_name_accepted() {
-        assert_eq!(validate_name("my-skill").unwrap(), "my-skill");
-        assert!(validate_name("").is_err());
     }
 }

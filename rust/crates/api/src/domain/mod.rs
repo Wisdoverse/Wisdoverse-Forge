@@ -14,5 +14,6 @@ pub(crate) mod observability;
 pub(crate) mod orchestration;
 pub(crate) mod prompt_library;
 pub(crate) mod resource;
+pub(crate) mod skill;
 pub(crate) mod user;
 pub(crate) mod voice;
