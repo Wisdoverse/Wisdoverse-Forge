@@ -151,6 +151,56 @@ impl TaskPatchPolicy {
     }
 }
 
+/// Provider quota/rate-limit failure classifier.
+pub(crate) struct QuotaBlockPolicy;
+
+impl QuotaBlockPolicy {
+    pub(crate) fn metadata(error: &serde_json::Value) -> Option<serde_json::Value> {
+        let code = json_string(error, "code").or_else(|| json_nested_string(error, "error", "code"));
+        let status = json_i64(error, "status").or_else(|| json_nested_i64(error, "error", "status"));
+        let message = json_string(error, "message").or_else(|| json_nested_string(error, "error", "message"));
+
+        let code_lc = code.as_deref().map(str::to_ascii_lowercase);
+        let message_lc = message.as_deref().map(str::to_ascii_lowercase);
+        let quota_like = matches!(
+            code_lc.as_deref(),
+            Some(
+                "quota_exceeded"
+                    | "insufficient_quota"
+                    | "rate_limited"
+                    | "rate_limit_exceeded"
+                    | "billing_hard_limit_reached"
+            )
+        ) || status == Some(429)
+            || message_lc.as_deref().is_some_and(|m| {
+                m.contains("quota")
+                    || m.contains("rate limit")
+                    || m.contains("rate_limit")
+                    || m.contains("billing limit")
+            });
+
+        if !quota_like {
+            return None;
+        }
+
+        let used = json_i64(error, "used")
+            .or_else(|| json_nested_i64(error, "quota", "used"))
+            .or_else(|| json_nested_i64(error, "error", "used"))
+            .unwrap_or(0);
+        let limit = json_i64(error, "limit")
+            .or_else(|| json_nested_i64(error, "quota", "limit"))
+            .or_else(|| json_nested_i64(error, "error", "limit"))
+            .unwrap_or(0);
+        Some(json!({
+            "code": code.unwrap_or_else(|| "quota_exceeded".to_string()),
+            "status": status,
+            "used": used,
+            "limit": limit,
+            "provider": json_string(error, "provider").or_else(|| json_nested_string(error, "error", "provider")),
+        }))
+    }
+}
+
 /// Blocked-task policy and blocked-card hint rendering.
 pub(crate) struct BlockedTaskPolicy;
 
@@ -266,6 +316,22 @@ fn value_has_non_empty_field(value: &serde_json::Value, name: &str) -> bool {
     })
 }
 
+fn json_string(value: &serde_json::Value, key: &str) -> Option<String> {
+    value.get(key).and_then(|v| v.as_str()).map(str::to_string)
+}
+
+fn json_nested_string(value: &serde_json::Value, parent: &str, key: &str) -> Option<String> {
+    value.get(parent).and_then(|v| json_string(v, key))
+}
+
+fn json_i64(value: &serde_json::Value, key: &str) -> Option<i64> {
+    value.get(key).and_then(|v| v.as_i64())
+}
+
+fn json_nested_i64(value: &serde_json::Value, parent: &str, key: &str) -> Option<i64> {
+    value.get(parent).and_then(|v| json_i64(v, key))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -302,5 +368,30 @@ mod tests {
             BlockedTaskPolicy::missing_required_inputs(Some(&params)),
             vec!["api_key".to_string(), "model".to_string(), "region".to_string()]
         );
+    }
+
+    #[test]
+    fn quota_block_policy_detects_nested_rate_limit_errors() {
+        let metadata = QuotaBlockPolicy::metadata(&json!({
+            "error": {
+                "code": "rate_limit_exceeded",
+                "status": 429,
+                "used": 99,
+                "limit": 100,
+                "provider": "openai"
+            }
+        }))
+        .expect("quota metadata");
+
+        assert_eq!(metadata["code"], "rate_limit_exceeded");
+        assert_eq!(metadata["status"], 429);
+        assert_eq!(metadata["used"], 99);
+        assert_eq!(metadata["limit"], 100);
+        assert_eq!(metadata["provider"], "openai");
+    }
+
+    #[test]
+    fn quota_block_policy_ignores_non_quota_errors() {
+        assert!(QuotaBlockPolicy::metadata(&json!({"message": "tool failed"})).is_none());
     }
 }

@@ -20,8 +20,8 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::domain::orchestration::{
-    BlockedTaskPolicy, ParticipantName, ParticipantStatusPolicy, TaskListPage, TaskPatchPolicy, TaskPriority,
-    TaskStatusPolicy, TaskTitle,
+    BlockedTaskPolicy, ParticipantName, ParticipantStatusPolicy, QuotaBlockPolicy, TaskListPage, TaskPatchPolicy,
+    TaskPriority, TaskStatusPolicy, TaskTitle,
 };
 use crate::repositories::orchestration::{
     CreateTaskRow, OrchestrationTaskRepository, OrchestrationTaskStats, ParticipantRepository, UpdateTaskRow,
@@ -760,7 +760,7 @@ impl OrchestrationService {
             );
         }
 
-        if let Some(metadata) = quota_block_metadata(&error) {
+        if let Some(metadata) = QuotaBlockPolicy::metadata(&error) {
             let mut tx = self
                 .task_repo
                 .pool()
@@ -1197,62 +1197,4 @@ fn assignment_from_task(
 
 fn can_enter_dispatch(task: &OrchestrationTask) -> bool {
     BlockedTaskPolicy::can_enter_dispatch(&task.status, task.blocked_reason.as_deref())
-}
-
-fn quota_block_metadata(error: &serde_json::Value) -> Option<serde_json::Value> {
-    let code = json_string(error, "code").or_else(|| json_nested_string(error, "error", "code"));
-    let status = json_i64(error, "status").or_else(|| json_nested_i64(error, "error", "status"));
-    let message = json_string(error, "message").or_else(|| json_nested_string(error, "error", "message"));
-
-    let code_lc = code.as_deref().map(str::to_ascii_lowercase);
-    let message_lc = message.as_deref().map(str::to_ascii_lowercase);
-    let quota_like = matches!(
-        code_lc.as_deref(),
-        Some(
-            "quota_exceeded"
-                | "insufficient_quota"
-                | "rate_limited"
-                | "rate_limit_exceeded"
-                | "billing_hard_limit_reached"
-        )
-    ) || status == Some(429)
-        || message_lc.as_deref().is_some_and(|m| {
-            m.contains("quota") || m.contains("rate limit") || m.contains("rate_limit") || m.contains("billing limit")
-        });
-
-    if !quota_like {
-        return None;
-    }
-
-    let used = json_i64(error, "used")
-        .or_else(|| json_nested_i64(error, "quota", "used"))
-        .or_else(|| json_nested_i64(error, "error", "used"))
-        .unwrap_or(0);
-    let limit = json_i64(error, "limit")
-        .or_else(|| json_nested_i64(error, "quota", "limit"))
-        .or_else(|| json_nested_i64(error, "error", "limit"))
-        .unwrap_or(0);
-    Some(json!({
-        "code": code.unwrap_or_else(|| "quota_exceeded".to_string()),
-        "status": status,
-        "used": used,
-        "limit": limit,
-        "provider": json_string(error, "provider").or_else(|| json_nested_string(error, "error", "provider")),
-    }))
-}
-
-fn json_string(value: &serde_json::Value, key: &str) -> Option<String> {
-    value.get(key).and_then(|v| v.as_str()).map(str::to_string)
-}
-
-fn json_nested_string(value: &serde_json::Value, parent: &str, key: &str) -> Option<String> {
-    value.get(parent).and_then(|v| json_string(v, key))
-}
-
-fn json_i64(value: &serde_json::Value, key: &str) -> Option<i64> {
-    value.get(key).and_then(|v| v.as_i64())
-}
-
-fn json_nested_i64(value: &serde_json::Value, parent: &str, key: &str) -> Option<i64> {
-    value.get(parent).and_then(|v| json_i64(v, key))
 }
