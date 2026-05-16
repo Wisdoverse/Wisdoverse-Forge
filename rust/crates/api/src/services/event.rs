@@ -2,10 +2,11 @@
 
 use chrono::{DateTime, Utc};
 
-use agentforge_core::{AgentId, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AgentId, AppResult, TenantScope};
 use agentforge_db::entities::Event;
 use serde_json::Value;
 
+use crate::domain::observability::{EventListPage, EventReplayPage, EventType};
 use crate::repositories::event::EventRepository;
 
 /// Business logic layer for event operations.
@@ -27,10 +28,8 @@ impl EventService {
         payload: Value,
         session_id: Option<&str>,
     ) -> AppResult<Event> {
-        if event_type.is_empty() {
-            return Err(ErrorKind::Validation("event_type must not be empty".into()).into());
-        }
-        self.repo.insert(scope, agent_id, event_type, payload, session_id).await
+        let event_type = EventType::parse(event_type)?;
+        self.repo.insert(scope, agent_id, event_type.value(), payload, session_id).await
     }
 
     /// List events for an agent with pagination. Limit is capped at 100.
@@ -41,9 +40,8 @@ impl EventService {
         limit: i64,
         offset: i64,
     ) -> AppResult<Vec<Event>> {
-        let limit = limit.clamp(1, 100);
-        let offset = offset.max(0);
-        self.repo.list_by_agent(scope, agent_id, limit, offset).await
+        let page = EventListPage::new(limit, offset);
+        self.repo.list_by_agent(scope, agent_id, page.limit(), page.offset()).await
     }
 
     /// Replay events for an agent since a timestamp. Limit is capped at 2000 (MAX_EVENTS).
@@ -54,8 +52,8 @@ impl EventService {
         since: Option<DateTime<Utc>>,
         limit: i64,
     ) -> AppResult<Vec<Event>> {
-        let limit = limit.clamp(1, 2000); // MAX_EVENTS per shared/defaults.ts
-        self.repo.replay(scope, agent_id, since, limit).await
+        let page = EventReplayPage::new(limit);
+        self.repo.replay(scope, agent_id, since, page.limit()).await
     }
 
     /// Cursor-based replay. Returns `(events, has_more)` where `events` has at
@@ -71,53 +69,46 @@ impl EventService {
         after_id: uuid::Uuid,
         limit: i64,
     ) -> AppResult<(Vec<Event>, bool)> {
-        let limit = limit.clamp(1, 2000);
-        let fetch_limit = limit + 1;
-        let mut events = self.repo.replay_cursor(scope, agent_id, after_ts, after_id, fetch_limit).await?;
-        let has_more = events.len() as i64 > limit;
+        let page = EventReplayPage::new(limit);
+        let mut events = self.repo.replay_cursor(scope, agent_id, after_ts, after_id, page.fetch_limit()).await?;
+        let has_more = page.has_more(&events);
         if has_more {
-            events.truncate(limit as usize);
+            events.truncate(page.limit() as usize);
         }
         Ok((events, has_more))
     }
 
     /// List events for org with pagination. Limit is capped at 100.
     pub async fn list_by_org(&self, scope: &TenantScope, limit: i64, offset: i64) -> AppResult<Vec<Event>> {
-        let limit = limit.clamp(1, 100);
-        let offset = offset.max(0);
-        self.repo.list_by_org(scope, limit, offset).await
+        let page = EventListPage::new(limit, offset);
+        self.repo.list_by_org(scope, page.limit(), page.offset()).await
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::domain::observability::{EventListPage, EventType};
+
     #[test]
     fn limit_clamping() {
-        assert_eq!(0_i64.clamp(1, 100), 1);
-        assert_eq!(1_i64.clamp(1, 100), 1);
-        assert_eq!(50_i64.clamp(1, 100), 50);
-        assert_eq!(100_i64.clamp(1, 100), 100);
-        assert_eq!(200_i64.clamp(1, 100), 100);
-        assert_eq!((-5_i64).clamp(1, 100), 1);
+        assert_eq!(EventListPage::new(0, 0).limit(), 1);
+        assert_eq!(EventListPage::new(1, 0).limit(), 1);
+        assert_eq!(EventListPage::new(50, 0).limit(), 50);
+        assert_eq!(EventListPage::new(100, 0).limit(), 100);
+        assert_eq!(EventListPage::new(200, 0).limit(), 100);
+        assert_eq!(EventListPage::new(-5, 0).limit(), 1);
     }
 
     #[test]
     fn offset_floor() {
-        let negative_offset = -10_i64;
-        let zero_offset = 0_i64;
-        let positive_offset = 50_i64;
-        assert_eq!(negative_offset.max(0), 0);
-        assert_eq!(zero_offset.max(0), 0);
-        assert_eq!(positive_offset.max(0), 50);
+        assert_eq!(EventListPage::new(10, -10).offset(), 0);
+        assert_eq!(EventListPage::new(10, 0).offset(), 0);
+        assert_eq!(EventListPage::new(10, 50).offset(), 50);
     }
 
     #[test]
     fn empty_event_type_rejected() {
-        // The validation is inline in ingest(), so we verify the logic here.
-        let event_type = "";
-        assert!(event_type.is_empty());
-
-        let event_type = "pre_tool_use";
-        assert!(!event_type.is_empty());
+        assert!(EventType::parse("").is_err());
+        assert!(EventType::parse("pre_tool_use").is_ok());
     }
 }
