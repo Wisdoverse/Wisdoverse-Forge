@@ -10,6 +10,7 @@ pub(crate) mod attachment;
 pub(crate) mod billing;
 pub(crate) mod configuration;
 pub(crate) mod context;
+pub(crate) mod context_envelope;
 pub(crate) mod context_governance;
 pub mod context_resolver;
 pub(crate) mod credential;

@@ -4,13 +4,15 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use agentforge_core::context_envelope::{
-    CONTEXT_ENVELOPE_VERSION_V1, ContextEnvelope, ContextEnvelopeCapability, ContextEnvelopeItem,
-    ContextEnvelopeItemKind, ContextEnvelopeSource, SUPPORTED_CONTEXT_ENVELOPE_VERSIONS,
+    CONTEXT_ENVELOPE_VERSION_V1, ContextEnvelope, ContextEnvelopeItem, ContextEnvelopeItemKind, ContextEnvelopeSource,
 };
-use agentforge_core::{AgentId, AppResult, ErrorKind, RuntimeCapability, ScopedRead};
+use agentforge_core::{AgentId, AppResult, ErrorKind, ScopedRead};
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
+use crate::domain::context_envelope::{
+    ContextEnvelopeCapabilityPolicy, ContextEnvelopeMemoryContentPolicy, ContextEnvelopeVersionPolicy,
+};
 use crate::domain::context_resolver::{ContextItemKind as ResolvedContextItemKind, DegradationReason, ResolvedContext};
 use crate::services::context_resolver::{ContextResolverService, ResolveContextInput};
 
@@ -44,7 +46,7 @@ impl ContextEnvelopeService {
     }
 
     pub async fn build(&self, proof: &ScopedRead, input: ContextEnvelopeInput) -> AppResult<ContextEnvelope> {
-        ensure_v1_supported(&input.supported_versions)?;
+        ContextEnvelopeVersionPolicy::ensure_v1_supported(&input.supported_versions)?;
         self.verify_run(proof, &input).await?;
         let resolved = self
             .resolver
@@ -67,11 +69,12 @@ impl ContextEnvelopeService {
             .iter()
             .filter_map(|item| match item.kind {
                 ResolvedContextItemKind::Memory => memory.get(&item.id).map(|row| {
-                    let content = if row.content_redacted || row.content_encrypted {
-                        format!("[redacted: {}]", row.sensitivity)
-                    } else {
-                        row.content.clone()
-                    };
+                    let content = ContextEnvelopeMemoryContentPolicy::visible_content(
+                        &row.content,
+                        row.content_redacted,
+                        row.content_encrypted,
+                        &row.sensitivity,
+                    );
                     ContextEnvelopeItem {
                         id: row.id,
                         kind: ContextEnvelopeItemKind::Memory,
@@ -95,7 +98,7 @@ impl ContextEnvelopeService {
             run_id,
             task_id,
             agent_id: agent_id.as_uuid(),
-            capability: capability_snapshot(&resolved.capability),
+            capability: ContextEnvelopeCapabilityPolicy::snapshot(&resolved.capability),
             applied,
             skills_mount: Vec::new(),
             degradation: resolved.degradation.iter().map(degradation_label).map(str::to_string).collect(),
@@ -170,32 +173,6 @@ impl ContextEnvelopeService {
         .await?;
 
         Ok(rows.into_iter().map(|row| (row.id, row)).collect())
-    }
-}
-
-fn ensure_v1_supported(supported_versions: &[String]) -> AppResult<()> {
-    if supported_versions.iter().any(|version| version == CONTEXT_ENVELOPE_VERSION_V1) {
-        return Ok(());
-    }
-    Err(ErrorKind::Validation(format!(
-        "unsupported context envelope version; supported versions: {}",
-        SUPPORTED_CONTEXT_ENVELOPE_VERSIONS.join(", ")
-    ))
-    .into())
-}
-
-fn capability_snapshot(capability: &RuntimeCapability) -> ContextEnvelopeCapability {
-    ContextEnvelopeCapability {
-        cli_tool: capability
-            .cli_tool
-            .map(|cli_tool| cli_tool.as_str().to_string())
-            .or_else(|| capability.provider_name.clone())
-            .unwrap_or_else(|| "provider".to_string()),
-        runtime_kind: capability.runtime_kind.as_str().to_string(),
-        max_context_tokens: capability.max_context_tokens,
-        supports_skills_mount: capability.supports_skills_mount,
-        supports_hooks: capability.supports_hooks,
-        supports_subagents: capability.supports_subagents,
     }
 }
 
