@@ -1,9 +1,7 @@
-use crate::repositories::orchestration::{PARTICIPANT_COUNT_SQL, UNBLOCK_CHILDREN_SQL};
-use crate::services::orchestration::{
-    blocked_hint, can_complete_or_fail, can_dispatch, is_business_patch_transition, is_valid_blocked_reason,
-    is_valid_participant_status, is_valid_task_status, needs_dependency_block, patch_touches_assignment,
-    validate_participant_name, validate_title,
+use crate::domain::orchestration::{
+    BlockedTaskPolicy, ParticipantName, ParticipantStatusPolicy, TaskPatchPolicy, TaskStatusPolicy, TaskTitle,
 };
+use crate::repositories::orchestration::{PARTICIPANT_COUNT_SQL, UNBLOCK_CHILDREN_SQL};
 use agentforge_core::AgentId;
 use serde_json::json;
 use uuid::Uuid;
@@ -16,19 +14,19 @@ use uuid::Uuid;
 fn test_valid_task_statuses() {
     let valid = ["backlog", "queued", "working", "blocked", "completed", "failed", "canceled"];
     for s in valid {
-        assert!(is_valid_task_status(s), "should be valid: {s}");
+        assert!(TaskStatusPolicy::is_valid(s), "should be valid: {s}");
     }
 }
 
 #[test]
 fn test_invalid_task_statuses() {
     // Legacy status names should now be rejected — they were migrated to queued/working.
-    assert!(!is_valid_task_status("pending"));
-    assert!(!is_valid_task_status("running"));
-    assert!(!is_valid_task_status("unknown"));
-    assert!(!is_valid_task_status(""));
-    assert!(!is_valid_task_status("BACKLOG"));
-    assert!(!is_valid_task_status("cancelled")); // only one L is valid
+    assert!(!TaskStatusPolicy::is_valid("pending"));
+    assert!(!TaskStatusPolicy::is_valid("running"));
+    assert!(!TaskStatusPolicy::is_valid("unknown"));
+    assert!(!TaskStatusPolicy::is_valid(""));
+    assert!(!TaskStatusPolicy::is_valid("BACKLOG"));
+    assert!(!TaskStatusPolicy::is_valid("cancelled")); // only one L is valid
 }
 
 // ---------------------------------------------------------------------------
@@ -39,17 +37,17 @@ fn test_invalid_task_statuses() {
 fn test_valid_participant_statuses() {
     let valid = ["available", "busy", "offline"];
     for s in valid {
-        assert!(is_valid_participant_status(s), "should be valid: {s}");
+        assert!(ParticipantStatusPolicy::is_valid(s), "should be valid: {s}");
     }
 }
 
 #[test]
 fn test_invalid_participant_statuses() {
-    assert!(!is_valid_participant_status("invalid"));
-    assert!(!is_valid_participant_status(""));
-    assert!(!is_valid_participant_status("AVAILABLE"));
-    assert!(!is_valid_participant_status("online"));
-    assert!(!is_valid_participant_status("idle"));
+    assert!(!ParticipantStatusPolicy::is_valid("invalid"));
+    assert!(!ParticipantStatusPolicy::is_valid(""));
+    assert!(!ParticipantStatusPolicy::is_valid("AVAILABLE"));
+    assert!(!ParticipantStatusPolicy::is_valid("online"));
+    assert!(!ParticipantStatusPolicy::is_valid("idle"));
 }
 
 // ---------------------------------------------------------------------------
@@ -58,19 +56,19 @@ fn test_invalid_participant_statuses() {
 
 #[test]
 fn test_title_valid() {
-    assert!(validate_title("Valid Task Title").is_ok());
-    assert!(validate_title("a").is_ok());
-    assert!(validate_title(&"x".repeat(500)).is_ok());
+    assert!(TaskTitle::validate("Valid Task Title").is_ok());
+    assert!(TaskTitle::validate("a").is_ok());
+    assert!(TaskTitle::validate(&"x".repeat(500)).is_ok());
 }
 
 #[test]
 fn test_title_empty() {
-    assert!(validate_title("").is_err());
+    assert!(TaskTitle::validate("").is_err());
 }
 
 #[test]
 fn test_title_too_long() {
-    assert!(validate_title(&"x".repeat(501)).is_err());
+    assert!(TaskTitle::validate(&"x".repeat(501)).is_err());
 }
 
 // ---------------------------------------------------------------------------
@@ -79,19 +77,19 @@ fn test_title_too_long() {
 
 #[test]
 fn test_participant_name_valid() {
-    assert!(validate_participant_name("worker-1").is_ok());
-    assert!(validate_participant_name("a").is_ok());
-    assert!(validate_participant_name(&"x".repeat(255)).is_ok());
+    assert!(ParticipantName::validate("worker-1").is_ok());
+    assert!(ParticipantName::validate("a").is_ok());
+    assert!(ParticipantName::validate(&"x".repeat(255)).is_ok());
 }
 
 #[test]
 fn test_participant_name_empty() {
-    assert!(validate_participant_name("").is_err());
+    assert!(ParticipantName::validate("").is_err());
 }
 
 #[test]
 fn test_participant_name_too_long() {
-    assert!(validate_participant_name(&"x".repeat(256)).is_err());
+    assert!(ParticipantName::validate(&"x".repeat(256)).is_err());
 }
 
 // ---------------------------------------------------------------------------
@@ -102,24 +100,24 @@ fn test_participant_name_too_long() {
 fn test_can_dispatch_kanban_states() {
     // Auto-dispatcher claims tasks only after explicit promotion into the
     // runnable lanes. `backlog` is the draft lane and must not auto-start.
-    assert!(!can_dispatch("backlog"));
-    assert!(can_dispatch("queued"));
-    assert!(can_dispatch("blocked"));
-    assert!(!can_dispatch("working"));
-    assert!(!can_dispatch("completed"));
-    assert!(!can_dispatch("failed"));
-    assert!(!can_dispatch("canceled"));
+    assert!(!TaskStatusPolicy::can_dispatch("backlog"));
+    assert!(TaskStatusPolicy::can_dispatch("queued"));
+    assert!(TaskStatusPolicy::can_dispatch("blocked"));
+    assert!(!TaskStatusPolicy::can_dispatch("working"));
+    assert!(!TaskStatusPolicy::can_dispatch("completed"));
+    assert!(!TaskStatusPolicy::can_dispatch("failed"));
+    assert!(!TaskStatusPolicy::can_dispatch("canceled"));
 }
 
 #[test]
 fn test_can_complete_or_fail_only_working() {
-    assert!(can_complete_or_fail("working"));
-    assert!(!can_complete_or_fail("backlog"));
-    assert!(!can_complete_or_fail("queued"));
-    assert!(!can_complete_or_fail("blocked"));
-    assert!(!can_complete_or_fail("completed"));
-    assert!(!can_complete_or_fail("failed"));
-    assert!(!can_complete_or_fail("canceled"));
+    assert!(TaskStatusPolicy::can_complete_or_fail("working"));
+    assert!(!TaskStatusPolicy::can_complete_or_fail("backlog"));
+    assert!(!TaskStatusPolicy::can_complete_or_fail("queued"));
+    assert!(!TaskStatusPolicy::can_complete_or_fail("blocked"));
+    assert!(!TaskStatusPolicy::can_complete_or_fail("completed"));
+    assert!(!TaskStatusPolicy::can_complete_or_fail("failed"));
+    assert!(!TaskStatusPolicy::can_complete_or_fail("canceled"));
 }
 
 #[test]
@@ -129,25 +127,25 @@ fn test_patch_business_transitions_are_not_raw_column_updates() {
     let unassign = Some(None);
     let assign = Some(Some(agent_id));
 
-    assert!(is_business_patch_transition(Some("working"), &no_assignment));
-    assert!(is_business_patch_transition(Some("completed"), &no_assignment));
-    assert!(is_business_patch_transition(Some("failed"), &no_assignment));
-    assert!(is_business_patch_transition(Some("canceled"), &no_assignment));
-    assert!(is_business_patch_transition(None, &assign));
+    assert!(TaskPatchPolicy::is_business_transition(Some("working"), &no_assignment));
+    assert!(TaskPatchPolicy::is_business_transition(Some("completed"), &no_assignment));
+    assert!(TaskPatchPolicy::is_business_transition(Some("failed"), &no_assignment));
+    assert!(TaskPatchPolicy::is_business_transition(Some("canceled"), &no_assignment));
+    assert!(TaskPatchPolicy::is_business_transition(None, &assign));
 
-    assert!(!is_business_patch_transition(Some("queued"), &no_assignment));
-    assert!(!is_business_patch_transition(Some("backlog"), &no_assignment));
-    assert!(!is_business_patch_transition(Some("blocked"), &no_assignment));
-    assert!(!is_business_patch_transition(None, &unassign));
+    assert!(!TaskPatchPolicy::is_business_transition(Some("queued"), &no_assignment));
+    assert!(!TaskPatchPolicy::is_business_transition(Some("backlog"), &no_assignment));
+    assert!(!TaskPatchPolicy::is_business_transition(Some("blocked"), &no_assignment));
+    assert!(!TaskPatchPolicy::is_business_transition(None, &unassign));
 }
 
 #[test]
 fn test_patch_touches_assignment_for_assign_and_unassign() {
     let agent_id = AgentId::from(Uuid::nil());
 
-    assert!(patch_touches_assignment(&Some(Some(agent_id))));
-    assert!(patch_touches_assignment(&Some(None)));
-    assert!(!patch_touches_assignment(&None));
+    assert!(TaskPatchPolicy::touches_assignment(&Some(Some(agent_id))));
+    assert!(TaskPatchPolicy::touches_assignment(&Some(None)));
+    assert!(!TaskPatchPolicy::touches_assignment(&None));
 }
 
 // ---------------------------------------------------------------------------
@@ -157,16 +155,16 @@ fn test_patch_touches_assignment_for_assign_and_unassign() {
 #[test]
 fn test_blocked_reason_validation() {
     for reason in ["waiting_agent", "waiting_dependency", "waiting_input", "waiting_approval", "quota_exceeded"] {
-        assert!(is_valid_blocked_reason(reason), "should be valid: {reason}");
+        assert!(BlockedTaskPolicy::is_valid_reason(reason), "should be valid: {reason}");
     }
-    assert!(!is_valid_blocked_reason("unknown"));
-    assert!(!is_valid_blocked_reason(""));
+    assert!(!BlockedTaskPolicy::is_valid_reason("unknown"));
+    assert!(!BlockedTaskPolicy::is_valid_reason(""));
 }
 
 #[test]
 fn test_blocked_hint_waiting_agent_with_busy() {
     let meta = json!({ "available": 0, "busy": 2, "offline": 1 });
-    let hint = blocked_hint("waiting_agent", Some(&meta));
+    let hint = BlockedTaskPolicy::hint("waiting_agent", Some(&meta));
     assert!(hint.contains("2"), "should mention busy count: {hint}");
     assert!(hint.contains("1"), "should mention offline count: {hint}");
 }
@@ -174,21 +172,21 @@ fn test_blocked_hint_waiting_agent_with_busy() {
 #[test]
 fn test_blocked_hint_waiting_agent_no_participants() {
     let meta = json!({ "available": 0, "busy": 0, "offline": 0 });
-    let hint = blocked_hint("waiting_agent", Some(&meta));
+    let hint = BlockedTaskPolicy::hint("waiting_agent", Some(&meta));
     assert!(hint.contains("没有"), "should call out missing participants: {hint}");
 }
 
 #[test]
 fn test_blocked_hint_waiting_dependency() {
     let meta = json!({ "pending": 3 });
-    let hint = blocked_hint("waiting_dependency", Some(&meta));
+    let hint = BlockedTaskPolicy::hint("waiting_dependency", Some(&meta));
     assert!(hint.contains("3"), "should mention pending count: {hint}");
 }
 
 #[test]
 fn test_blocked_hint_waiting_input_with_fields() {
     let meta = json!({ "missing": ["api_key", "model"] });
-    let hint = blocked_hint("waiting_input", Some(&meta));
+    let hint = BlockedTaskPolicy::hint("waiting_input", Some(&meta));
     assert!(hint.contains("api_key"), "should list missing fields: {hint}");
     assert!(hint.contains("model"), "should list missing fields: {hint}");
 }
@@ -196,13 +194,13 @@ fn test_blocked_hint_waiting_input_with_fields() {
 #[test]
 fn test_blocked_hint_quota_exceeded() {
     let meta = json!({ "used": 1000, "limit": 800 });
-    let hint = blocked_hint("quota_exceeded", Some(&meta));
+    let hint = BlockedTaskPolicy::hint("quota_exceeded", Some(&meta));
     assert!(hint.contains("1000") && hint.contains("800"), "should show usage/limit: {hint}");
 }
 
 #[test]
 fn test_blocked_hint_unknown_reason_falls_back() {
-    let hint = blocked_hint("mystery", None);
+    let hint = BlockedTaskPolicy::hint("mystery", None);
     assert!(hint.contains("mystery"), "unknown reason should echo: {hint}");
 }
 
@@ -213,20 +211,20 @@ fn test_blocked_hint_unknown_reason_falls_back() {
 #[test]
 fn test_needs_dependency_block_no_parent() {
     // Tasks without a parent are always free to schedule.
-    assert!(!needs_dependency_block(None));
+    assert!(!BlockedTaskPolicy::needs_dependency_block(None));
 }
 
 #[test]
 fn test_needs_dependency_block_completed_parent() {
     // A parent that already completed means the child can run immediately.
-    assert!(!needs_dependency_block(Some("completed")));
+    assert!(!BlockedTaskPolicy::needs_dependency_block(Some("completed")));
 }
 
 #[test]
 fn test_needs_dependency_block_unfinished_parent() {
     // Every non-terminal-success parent status gates the child.
     for s in ["backlog", "queued", "working", "blocked"] {
-        assert!(needs_dependency_block(Some(s)), "should block on parent status {s}");
+        assert!(BlockedTaskPolicy::needs_dependency_block(Some(s)), "should block on parent status {s}");
     }
 }
 
@@ -234,8 +232,8 @@ fn test_needs_dependency_block_unfinished_parent() {
 fn test_needs_dependency_block_failed_parent_keeps_child_blocked() {
     // Failed/canceled parents: child stays blocked until a human decides to
     // promote or cancel — don't silently auto-run subtasks of a failed flow.
-    assert!(needs_dependency_block(Some("failed")));
-    assert!(needs_dependency_block(Some("canceled")));
+    assert!(BlockedTaskPolicy::needs_dependency_block(Some("failed")));
+    assert!(BlockedTaskPolicy::needs_dependency_block(Some("canceled")));
 }
 
 // ---------------------------------------------------------------------------
