@@ -1,9 +1,10 @@
 //! Group service — business logic and validation for groups.
 
-use agentforge_core::{AppResult, ErrorKind, GroupId, ProjectId, TenantScope};
+use agentforge_core::{AppResult, GroupId, ProjectId, TenantScope};
 use agentforge_db::entities::{Group, GroupMember};
 use uuid::Uuid;
 
+use crate::domain::resource::{GroupMemberRole, ResourceListPage, ResourceName};
 use crate::repositories::group::GroupRepository;
 
 /// Business logic layer for group operations.
@@ -18,9 +19,8 @@ impl GroupService {
 
     /// List groups with pagination. Limit is capped at 100.
     pub async fn list(&self, scope: &TenantScope, limit: i64, offset: i64) -> AppResult<Vec<Group>> {
-        let limit = limit.clamp(1, 100);
-        let offset = offset.max(0);
-        self.repo.list(scope, limit, offset).await
+        let page = ResourceListPage::new(limit, offset);
+        self.repo.list(scope, page.limit(), page.offset()).await
     }
 
     /// Get a single group by ID.
@@ -36,8 +36,8 @@ impl GroupService {
         description: Option<&str>,
         project_id: Option<ProjectId>,
     ) -> AppResult<Group> {
-        Self::validate_name(name)?;
-        self.repo.create(scope, name, description, project_id).await
+        let name = ResourceName::parse(name)?;
+        self.repo.create(scope, name.value(), description, project_id).await
     }
 
     /// Return the project default group, creating it when the project has none.
@@ -57,9 +57,7 @@ impl GroupService {
         name: Option<&str>,
         description: Option<&str>,
     ) -> AppResult<Group> {
-        if let Some(n) = name {
-            Self::validate_name(n)?;
-        }
+        let name = name.map(ResourceName::parse).transpose()?.map(ResourceName::value);
         self.repo.update(scope, id, name, description).await
     }
 
@@ -81,74 +79,56 @@ impl GroupService {
         user_id: Uuid,
         role: &str,
     ) -> AppResult<GroupMember> {
-        Self::validate_role(role)?;
-        self.repo.add_member(scope, group_id, user_id, role).await
+        let role = GroupMemberRole::parse(role)?;
+        self.repo.add_member(scope, group_id, user_id, role.as_str()).await
     }
 
     /// Remove a member from a group.
     pub async fn remove_member(&self, scope: &TenantScope, group_id: GroupId, user_id: Uuid) -> AppResult<()> {
         self.repo.remove_member(scope, group_id, user_id).await
     }
-
-    /// Validate group name: 1-255 characters.
-    fn validate_name(name: &str) -> AppResult<()> {
-        if name.is_empty() || name.len() > 255 {
-            return Err(ErrorKind::Validation("name must be between 1 and 255 characters".into()).into());
-        }
-        Ok(())
-    }
-
-    /// Validate member role: must be "member" or "admin".
-    fn validate_role(role: &str) -> AppResult<()> {
-        match role {
-            "member" | "admin" => Ok(()),
-            _ => Err(ErrorKind::Validation("role must be 'member' or 'admin'".into()).into()),
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::domain::resource::{GroupMemberRole, ResourceListPage, ResourceName};
 
     #[test]
     fn valid_names() {
-        assert!(GroupService::validate_name("A").is_ok());
-        assert!(GroupService::validate_name("Backend Team").is_ok());
-        assert!(GroupService::validate_name(&"a".repeat(255)).is_ok());
+        assert!(ResourceName::parse("A").is_ok());
+        assert!(ResourceName::parse("Backend Team").is_ok());
+        assert!(ResourceName::parse(&"a".repeat(255)).is_ok());
     }
 
     #[test]
     fn invalid_names() {
-        assert!(GroupService::validate_name("").is_err());
-        assert!(GroupService::validate_name(&"a".repeat(256)).is_err());
+        assert!(ResourceName::parse("").is_err());
+        assert!(ResourceName::parse(&"a".repeat(256)).is_err());
     }
 
     #[test]
     fn valid_roles() {
-        assert!(GroupService::validate_role("member").is_ok());
-        assert!(GroupService::validate_role("admin").is_ok());
+        assert!(GroupMemberRole::parse("member").is_ok());
+        assert!(GroupMemberRole::parse("admin").is_ok());
     }
 
     #[test]
     fn invalid_roles() {
-        assert!(GroupService::validate_role("").is_err());
-        assert!(GroupService::validate_role("owner").is_err());
-        assert!(GroupService::validate_role("superadmin").is_err());
+        assert!(GroupMemberRole::parse("").is_err());
+        assert!(GroupMemberRole::parse("owner").is_err());
+        assert!(GroupMemberRole::parse("superadmin").is_err());
     }
 
     #[test]
     fn limit_clamping() {
-        assert_eq!(0_i64.clamp(1, 100), 1);
-        assert_eq!(200_i64.clamp(1, 100), 100);
-        assert_eq!(50_i64.clamp(1, 100), 50);
+        assert_eq!(ResourceListPage::new(0, 0).limit(), 1);
+        assert_eq!(ResourceListPage::new(200, 0).limit(), 100);
+        assert_eq!(ResourceListPage::new(50, 0).limit(), 50);
     }
 
     #[test]
     fn offset_floor() {
-        let negative_offset = -10_i64;
-        let positive_offset = 50_i64;
-        assert_eq!(negative_offset.max(0), 0);
-        assert_eq!(positive_offset.max(0), 50);
+        assert_eq!(ResourceListPage::new(10, -10).offset(), 0);
+        assert_eq!(ResourceListPage::new(10, 50).offset(), 50);
     }
 }

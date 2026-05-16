@@ -1,8 +1,9 @@
 //! Project service — business logic and validation.
 
-use agentforge_core::{AppResult, ErrorKind, ProjectId, TeamId, TenantScope, WorkspaceId};
+use agentforge_core::{AppResult, ProjectId, TeamId, TenantScope, WorkspaceId};
 use agentforge_db::entities::Project;
 
+use crate::domain::resource::{ProjectRepositoryUrl, ResourceListPage, ResourceName};
 use crate::repositories::project::ProjectRepository;
 
 /// Business logic layer for project operations.
@@ -23,9 +24,8 @@ impl ProjectService {
         limit: i64,
         offset: i64,
     ) -> AppResult<Vec<Project>> {
-        let limit = limit.clamp(1, 100);
-        let offset = offset.max(0);
-        self.repo.list(scope, workspace_id, limit, offset).await
+        let page = ResourceListPage::new(limit, offset);
+        self.repo.list(scope, workspace_id, page.limit(), page.offset()).await
     }
 
     /// Get a single project by ID.
@@ -43,11 +43,11 @@ impl ProjectService {
         name: &str,
         repository_url: Option<&str>,
     ) -> AppResult<Project> {
-        Self::validate_name(name)?;
+        let name = ResourceName::parse(name)?;
         if let Some(url) = repository_url {
-            Self::validate_url(url)?;
+            ProjectRepositoryUrl::parse(url)?;
         }
-        self.repo.create(scope, workspace_id, team_id, name, repository_url).await
+        self.repo.create(scope, workspace_id, team_id, name.value(), repository_url).await
     }
 
     /// Update a project.
@@ -58,11 +58,9 @@ impl ProjectService {
         name: Option<&str>,
         repository_url: Option<Option<&str>>,
     ) -> AppResult<Project> {
-        if let Some(name) = name {
-            Self::validate_name(name)?;
-        }
+        let name = name.map(ResourceName::parse).transpose()?.map(ResourceName::value);
         if let Some(Some(url)) = repository_url {
-            Self::validate_url(url)?;
+            ProjectRepositoryUrl::parse(url)?;
         }
         self.repo.update(scope, id, name, repository_url).await
     }
@@ -71,75 +69,49 @@ impl ProjectService {
     pub async fn delete(&self, scope: &TenantScope, id: ProjectId) -> AppResult<()> {
         self.repo.delete(scope, id).await
     }
-
-    /// Validate project name: 1-255 characters.
-    fn validate_name(name: &str) -> AppResult<()> {
-        if name.is_empty() || name.len() > 255 {
-            return Err(ErrorKind::Validation("name must be between 1 and 255 characters".into()).into());
-        }
-        Ok(())
-    }
-
-    /// Validate repository URL format (basic check).
-    fn validate_url(url: &str) -> AppResult<()> {
-        if url.is_empty() {
-            return Err(ErrorKind::Validation("repository URL must not be empty".into()).into());
-        }
-        if !url.starts_with("https://") && !url.starts_with("http://") && !url.starts_with("git@") {
-            return Err(
-                ErrorKind::Validation("repository URL must start with https://, http://, or git@".into()).into()
-            );
-        }
-        if url.len() > 2048 {
-            return Err(ErrorKind::Validation("repository URL must be 2048 characters or less".into()).into());
-        }
-        Ok(())
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::domain::resource::{ProjectRepositoryUrl, ResourceListPage, ResourceName};
 
     #[test]
     fn valid_names() {
-        assert!(ProjectService::validate_name("A").is_ok());
-        assert!(ProjectService::validate_name("My Project").is_ok());
-        assert!(ProjectService::validate_name(&"a".repeat(255)).is_ok());
+        assert!(ResourceName::parse("A").is_ok());
+        assert!(ResourceName::parse("My Project").is_ok());
+        assert!(ResourceName::parse(&"a".repeat(255)).is_ok());
     }
 
     #[test]
     fn invalid_names() {
-        assert!(ProjectService::validate_name("").is_err());
-        assert!(ProjectService::validate_name(&"a".repeat(256)).is_err());
+        assert!(ResourceName::parse("").is_err());
+        assert!(ResourceName::parse(&"a".repeat(256)).is_err());
     }
 
     #[test]
     fn valid_urls() {
-        assert!(ProjectService::validate_url("https://github.com/org/repo").is_ok());
-        assert!(ProjectService::validate_url("http://gitlab.com/org/repo").is_ok());
-        assert!(ProjectService::validate_url("git@github.com:org/repo.git").is_ok());
+        assert!(ProjectRepositoryUrl::parse("https://github.com/org/repo").is_ok());
+        assert!(ProjectRepositoryUrl::parse("http://gitlab.com/org/repo").is_ok());
+        assert!(ProjectRepositoryUrl::parse("git@github.com:org/repo.git").is_ok());
     }
 
     #[test]
     fn invalid_urls() {
-        assert!(ProjectService::validate_url("").is_err());
-        assert!(ProjectService::validate_url("ftp://example.com/repo").is_err());
-        assert!(ProjectService::validate_url("not-a-url").is_err());
-        assert!(ProjectService::validate_url(&format!("https://{}", "a".repeat(2048))).is_err());
+        assert!(ProjectRepositoryUrl::parse("").is_err());
+        assert!(ProjectRepositoryUrl::parse("ftp://example.com/repo").is_err());
+        assert!(ProjectRepositoryUrl::parse("not-a-url").is_err());
+        assert!(ProjectRepositoryUrl::parse(&format!("https://{}", "a".repeat(2048))).is_err());
     }
 
     #[test]
     fn limit_clamping() {
-        assert_eq!(0_i64.clamp(1, 100), 1);
-        assert_eq!(200_i64.clamp(1, 100), 100);
+        assert_eq!(ResourceListPage::new(0, 0).limit(), 1);
+        assert_eq!(ResourceListPage::new(200, 0).limit(), 100);
     }
 
     #[test]
     fn offset_floor() {
-        let negative_offset = -10_i64;
-        let positive_offset = 50_i64;
-        assert_eq!(negative_offset.max(0), 0);
-        assert_eq!(positive_offset.max(0), 50);
+        assert_eq!(ResourceListPage::new(10, -10).offset(), 0);
+        assert_eq!(ResourceListPage::new(10, 50).offset(), 50);
     }
 }

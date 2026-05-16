@@ -1,8 +1,9 @@
 //! Feature flag service — validation and management.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::FeatureFlag;
 
+use crate::domain::resource::FeatureFlagName;
 use crate::repositories::feature_flag::FeatureFlagRepository;
 
 /// Business logic layer for feature flag operations.
@@ -33,28 +34,22 @@ impl FeatureFlagService {
         enabled: bool,
         metadata: Option<&serde_json::Value>,
     ) -> AppResult<FeatureFlag> {
-        let name = name.trim();
-        if name.is_empty() || name.len() > 255 {
-            return Err(ErrorKind::Validation("name must be 1-255 characters".into()).into());
-        }
+        let name = FeatureFlagName::parse(name)?;
         let default_metadata = serde_json::json!({});
         let metadata = metadata.unwrap_or(&default_metadata);
-        self.repo.upsert(scope.org_id(), name, enabled, metadata).await
+        self.repo.upsert(scope.org_id(), name.value(), enabled, metadata).await
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::domain::resource::FeatureFlagName;
+
     #[test]
     fn feature_flag_name_validation() {
-        let valid = "dark-mode".trim();
-        assert!(!valid.is_empty() && valid.len() <= 255);
-
-        let empty = "".trim();
-        assert!(empty.is_empty());
-
-        let too_long = "x".repeat(256);
-        assert!(too_long.len() > 255);
+        assert_eq!(FeatureFlagName::parse(" dark-mode ").unwrap().value(), "dark-mode");
+        assert!(FeatureFlagName::parse("").is_err());
+        assert!(FeatureFlagName::parse(&"x".repeat(256)).is_err());
     }
 
     #[test]
