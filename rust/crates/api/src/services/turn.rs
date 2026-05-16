@@ -2,21 +2,19 @@
 
 use std::collections::HashSet;
 
-use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::{SecondsFormat, Utc};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::Value;
 
-use agentforge_core::{AgentId, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AgentId, AppResult, TenantScope};
 use agentforge_db::entities::Event;
 
+use crate::domain::turn::{TurnCursor, TurnListPage};
 use crate::repositories::event::EventRepository;
 
 const MAX_INPUT_PREVIEW: usize = 200;
 const MAX_OUTPUT_PREVIEW: usize = 500;
 const INTERRUPTED_AFTER_MS: i64 = 120_000;
-const DEFAULT_TURN_LIMIT: i64 = 50;
-const MAX_TURN_LIMIT: i64 = 100;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -97,12 +95,6 @@ pub struct TurnPage {
     pub last_event: Option<LastEventCursor>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct TurnCursor {
-    started_at: i64,
-    id: String,
-}
-
 #[derive(Debug)]
 pub struct BuildTurnsResult {
     pub turns: Vec<Turn>,
@@ -133,8 +125,8 @@ impl TurnService {
         cursor: Option<&str>,
         limit: i64,
     ) -> AppResult<TurnPage> {
-        let limit = limit.clamp(1, MAX_TURN_LIMIT) as usize;
-        let cursor = cursor.map(decode_cursor).transpose()?;
+        let page = TurnListPage::new(limit);
+        let cursor = cursor.map(TurnCursor::decode).transpose()?;
         let events = self.repo.list_by_agent_chronological(scope, agent_id).await?;
         let last_event = events.last().map(|event| LastEventCursor {
             timestamp: event.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
@@ -144,21 +136,27 @@ impl TurnService {
         let built = build_turns(&events, Utc::now().timestamp_millis());
         let total_turn_count = built.turns.len();
         let eligible_turns: Vec<Turn> = match cursor {
-            Some(cursor) => built.turns.into_iter().filter(|turn| turn_is_before_cursor(turn, &cursor)).collect(),
+            Some(cursor) => {
+                built.turns.into_iter().filter(|turn| cursor.is_turn_before(turn.started_at, &turn.id)).collect()
+            }
             None => built.turns,
         };
 
-        let page_start = eligible_turns.len().saturating_sub(limit);
+        let page_start = page.start_index(eligible_turns.len());
         let turns = eligible_turns[page_start..].to_vec();
-        let has_more = page_start > 0;
-        let cursor = if has_more { turns.first().map(encode_cursor).transpose()? } else { None };
+        let has_more = page.has_more(eligible_turns.len());
+        let cursor = if has_more {
+            turns.first().map(|turn| TurnCursor::new(turn.started_at, turn.id.clone()).encode()).transpose()?
+        } else {
+            None
+        };
 
         Ok(TurnPage { turns, cursor, has_more, total_turn_count, last_event })
     }
 }
 
 pub fn default_turn_limit() -> i64 {
-    DEFAULT_TURN_LIMIT
+    TurnListPage::DEFAULT_LIMIT
 }
 
 pub fn build_turns(events: &[Event], now_ms: i64) -> BuildTurnsResult {
@@ -529,23 +527,6 @@ fn extract_step_metadata(tool: &str, input: &Value) -> Option<StepMetadata> {
     }
 }
 
-fn turn_is_before_cursor(turn: &Turn, cursor: &TurnCursor) -> bool {
-    turn.started_at < cursor.started_at || (turn.started_at == cursor.started_at && turn.id < cursor.id)
-}
-
-fn encode_cursor(turn: &Turn) -> AppResult<String> {
-    let cursor = TurnCursor { started_at: turn.started_at, id: turn.id.clone() };
-    let bytes =
-        serde_json::to_vec(&cursor).map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encode turn cursor: {err}")))?;
-    Ok(URL_SAFE_NO_PAD.encode(bytes))
-}
-
-fn decode_cursor(raw: &str) -> AppResult<TurnCursor> {
-    let bytes = URL_SAFE_NO_PAD.decode(raw).map_err(|_| ErrorKind::Validation("invalid turn cursor".to_string()))?;
-    serde_json::from_slice::<TurnCursor>(&bytes)
-        .map_err(|_| ErrorKind::Validation("invalid turn cursor".to_string()).into())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -610,24 +591,5 @@ mod tests {
         assert_eq!(result.turns[1].steps[0].tool_name, "Read");
         assert_eq!(result.turns[1].steps[0].status, "complete");
         assert_eq!(result.turns[1].steps[0].metadata.as_ref().unwrap().file_path.as_deref(), Some("/tmp/a.rs"));
-    }
-
-    #[test]
-    fn cursor_round_trips() {
-        let turn = create_turn(TurnSeed {
-            id: "turn-1".to_string(),
-            session_id: "s".to_string(),
-            sequence: 1,
-            turn_type: "user",
-            status: "complete",
-            started_at: 123,
-            cli_tool: None,
-        });
-
-        let raw = encode_cursor(&turn).unwrap();
-        let decoded = decode_cursor(&raw).unwrap();
-
-        assert_eq!(decoded.started_at, 123);
-        assert_eq!(decoded.id, "turn-1");
     }
 }
