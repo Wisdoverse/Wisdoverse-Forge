@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
-use agentforge_core::{AgentStatus, AppResult, ErrorKind};
+use agentforge_core::{AgentStatus, AppResult};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
+use crate::domain::agent::McpAgentPrompt;
 use crate::domain::credential::ContainerCliCredentialPolicy;
 use crate::services::agent_workspace::{WorkspaceMountScope, resolve_agent_workspace_paths};
 
@@ -174,10 +175,8 @@ where
     }
 
     pub async fn send_prompt(&self, agent_id: Uuid, prompt: &str) -> AppResult<()> {
-        if prompt.trim().is_empty() {
-            return Err(ErrorKind::Validation("prompt is required".into()).into());
-        }
-        self.runtime.send_prompt(agent_id, prompt).await
+        let prompt = McpAgentPrompt::parse(prompt)?;
+        self.runtime.send_prompt(agent_id, prompt.content()).await
     }
 
     pub async fn destroy_session(&self, agent_id: Uuid) -> AppResult<()> {

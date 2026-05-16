@@ -194,6 +194,25 @@ impl<'a> PlainTextAgentPrompt<'a> {
     }
 }
 
+/// Prompt sent through the internal MCP Agent tool bridge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct McpAgentPrompt<'a> {
+    content: &'a str,
+}
+
+impl<'a> McpAgentPrompt<'a> {
+    pub(crate) fn parse(content: &'a str) -> AppResult<Self> {
+        if content.trim().is_empty() {
+            return Err(ErrorKind::Validation("prompt is required".into()).into());
+        }
+        Ok(Self { content })
+    }
+
+    pub(crate) fn content(self) -> &'a str {
+        self.content
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -239,5 +258,11 @@ mod tests {
         assert!(PlainTextAgentPrompt::new("hello", None).is_ok());
         assert!(PlainTextAgentPrompt::new("   ", None).is_err());
         assert!(PlainTextAgentPrompt::new("hello", Some(&["base64".to_string()])).is_err());
+    }
+
+    #[test]
+    fn mcp_agent_prompt_requires_content_without_rewriting_value() {
+        assert_eq!(McpAgentPrompt::parse(" ship it ").unwrap().content(), " ship it ");
+        assert!(McpAgentPrompt::parse("   ").is_err());
     }
 }
