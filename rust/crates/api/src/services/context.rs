@@ -14,6 +14,12 @@ use serde_json::{Value, json};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::domain::context::{
+    context_candidate_subject, ensure_pending_candidate, normalize_candidate_kind_filter,
+    normalize_candidate_state_filter, normalize_context_candidate_limit, normalize_feedback_note, normalize_reason,
+    normalize_scope_kind_filter, redacted_proposal_preview, sensitivity_label, validate_candidate_content,
+    validate_confidence, validate_context_sensitivity, validate_memory_title, validate_memory_visibility, validate_ttl,
+};
 use crate::repositories::context_approval::{ContextApprovalRepository, CreateContextApprovalRecord};
 use crate::repositories::context_candidate::{
     ContextCandidateListRow, ContextCandidateRepository, CreateContextCandidateRecord,
@@ -26,9 +32,6 @@ use crate::services::context_governance::{
     ContextAuditEvent, ContextGovernanceService, ContextScopeKind, ScopeExpansionRequest, Sensitivity,
 };
 use crate::services::memory::MemoryScopeKind;
-
-const DEFAULT_LIMIT: i64 = 50;
-const MAX_LIMIT: i64 = 200;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -212,7 +215,7 @@ impl ContextApprovalService {
                 state,
                 item_kind,
                 scope_kind,
-                normalize_limit(input.limit),
+                normalize_context_candidate_limit(input.limit),
                 input.offset.unwrap_or(0).max(0),
             )
             .await?;
@@ -226,7 +229,7 @@ impl ContextApprovalService {
         input: ApproveContextCandidateInput,
     ) -> AppResult<ContextApprovalOutcome> {
         validate_ttl(input.ttl_at)?;
-        let requested_sensitivity = input.sensitivity.as_deref().map(validate_sensitivity).transpose()?;
+        let requested_sensitivity = input.sensitivity.as_deref().map(validate_context_sensitivity).transpose()?;
         let approval_reason = normalize_reason(input.reason)?;
         let proof = self.validated_read(scope).await?;
         let workspace_id = required_workspace(scope)?;
@@ -234,7 +237,7 @@ impl ContextApprovalService {
 
         let mut tx = self.candidates.pool().begin().await?;
         let candidate = ContextCandidateRepository::lock_visible_for_update(&mut tx, &proof, id).await?;
-        ensure_pending(&candidate)?;
+        ensure_pending_candidate(candidate.id, &candidate.state)?;
 
         if !self.source_run_is_approvable(&mut tx, &proof, &candidate).await? {
             let rejected = ContextCandidateRepository::update_state_in_tx(&mut tx, candidate.id, "rejected").await?;
@@ -453,7 +456,7 @@ impl ContextApprovalService {
                 }
                 let sensitivity = match requested_sensitivity {
                     Some(value) => value,
-                    None => validate_sensitivity(&current.sensitivity)?,
+                    None => validate_context_sensitivity(&current.sensitivity)?,
                 };
                 let approval = ContextApprovalRepository::create_in_tx(
                     &mut tx,
@@ -523,7 +526,7 @@ impl ContextApprovalService {
         let proof = self.validated_read(scope).await?;
         let mut tx = self.candidates.pool().begin().await?;
         let candidate = ContextCandidateRepository::lock_visible_for_update(&mut tx, &proof, id).await?;
-        ensure_pending(&candidate)?;
+        ensure_pending_candidate(candidate.id, &candidate.state)?;
         let reason = normalize_reason(input.reason)?;
         let approval = ContextApprovalRepository::create_in_tx(
             &mut tx,
@@ -604,13 +607,13 @@ impl ContextApprovalService {
     ) -> AppResult<PreparedMemoryContent> {
         let proposed: MemoryCandidateContent = serde_json::from_value(candidate.proposed_content.clone())
             .map_err(|err| ErrorKind::Validation(format!("invalid memory candidate proposed_content: {err}")))?;
-        let title = validate_title(&proposed.title)?.to_string();
+        let title = validate_memory_title(&proposed.title)?.to_string();
         let content = proposed.content.trim();
         if content.is_empty() {
             return Err(ErrorKind::Validation("memory candidate content must not be empty".into()).into());
         }
         validate_confidence(proposed.confidence)?;
-        let visibility = validate_visibility(proposed.visibility.as_deref())?.to_string();
+        let visibility = validate_memory_visibility(proposed.visibility.as_deref())?.to_string();
         let classification = ContextGovernanceService::classify_sensitivity(content);
         if matches!(classification.sensitivity, Sensitivity::SecretDetected) && !(redacted || proposed.redacted) {
             return Err(ErrorKind::Unprocessable(
@@ -680,7 +683,7 @@ impl ContextApprovalService {
             return;
         };
         let (scope_kind, scope_id) = approved_scope.unwrap_or(("user", candidate.owner_user_id.as_uuid()));
-        let subject = scoped_context_candidate_subject(scope.org_id().as_uuid(), scope_kind, scope_id, event);
+        let subject = context_candidate_subject(scope.org_id().as_uuid(), scope_kind, scope_id, event);
         let payload = json!({
             "type": format!("context_candidate.{event}"),
             "candidateId": candidate.id,
@@ -929,10 +932,6 @@ impl ContextFeedbackService {
     }
 }
 
-pub fn scoped_context_candidate_subject(org_id: Uuid, scope_kind: &str, scope_id: Uuid, event: &str) -> String {
-    format!("broadcast.{org_id}.scope.{scope_kind}.{scope_id}.context_candidate.{event}")
-}
-
 fn candidate_summary(candidate: &ContextCandidateListRow) -> ContextCandidateSummary {
     ContextCandidateSummary {
         id: candidate.id,
@@ -948,139 +947,6 @@ fn candidate_summary(candidate: &ContextCandidateListRow) -> ContextCandidateSum
         created_at: candidate.created_at,
         updated_at: candidate.updated_at,
     }
-}
-
-fn redacted_proposal_preview(value: &Value) -> Value {
-    let Some(map) = value.as_object() else {
-        return json!({});
-    };
-    let mut out = serde_json::Map::new();
-    for key in ["title", "name", "description", "scope_kind", "visibility"] {
-        if let Some(value) = map.get(key)
-            && value.is_string()
-        {
-            out.insert(key.to_string(), value.clone());
-        }
-    }
-    if let Some(content) = map.get("content").and_then(Value::as_str) {
-        let classification = ContextGovernanceService::classify_sensitivity(content);
-        let preview = classification.redacted_preview.unwrap_or_else(|| content.chars().take(160).collect());
-        out.insert("content_preview".to_string(), json!(preview));
-    }
-    Value::Object(out)
-}
-
-fn normalize_limit(limit: Option<i64>) -> i64 {
-    limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT)
-}
-
-fn normalize_candidate_state_filter(value: Option<&str>) -> AppResult<Option<&str>> {
-    match value.unwrap_or("pending") {
-        "all" => Ok(None),
-        "pending" => Ok(Some("pending")),
-        "approved" => Ok(Some("approved")),
-        "rejected" => Ok(Some("rejected")),
-        "superseded" => Ok(Some("superseded")),
-        other => Err(ErrorKind::Validation(format!("unsupported context candidate state filter `{other}`")).into()),
-    }
-}
-
-fn normalize_candidate_kind_filter(value: Option<&str>) -> AppResult<Option<&str>> {
-    match value.unwrap_or("all") {
-        "all" => Ok(None),
-        "memory" => Ok(Some("memory")),
-        "skill" => Ok(Some("skill")),
-        other => Err(ErrorKind::Validation(format!("unsupported context candidate kind filter `{other}`")).into()),
-    }
-}
-
-fn normalize_scope_kind_filter(value: Option<&str>) -> AppResult<Option<&str>> {
-    match value.unwrap_or("all") {
-        "all" => Ok(None),
-        "user" => Ok(Some("user")),
-        "team" => Ok(Some("team")),
-        "project" => Ok(Some("project")),
-        other => Err(ErrorKind::Validation(format!("unsupported context candidate scope filter `{other}`")).into()),
-    }
-}
-
-fn ensure_pending(candidate: &ContextCandidate) -> AppResult<()> {
-    if candidate.state == "pending" {
-        Ok(())
-    } else {
-        Err(ErrorKind::Conflict(format!("context candidate {} is already {}", candidate.id, candidate.state)).into())
-    }
-}
-
-fn validate_candidate_content(value: &Value) -> AppResult<()> {
-    if value.as_object().is_some() {
-        Ok(())
-    } else {
-        Err(ErrorKind::Validation("proposed_content must be a JSON object".into()).into())
-    }
-}
-
-fn validate_title(title: &str) -> AppResult<&str> {
-    let title = title.trim();
-    if title.is_empty() || title.len() > 255 {
-        return Err(ErrorKind::Validation("memory title must be 1-255 characters".into()).into());
-    }
-    Ok(title)
-}
-
-fn validate_visibility(visibility: Option<&str>) -> AppResult<&str> {
-    match visibility.unwrap_or("shared") {
-        "private" => Ok("private"),
-        "shared" => Ok("shared"),
-        other => Err(ErrorKind::Validation(format!("unsupported memory visibility `{other}`")).into()),
-    }
-}
-
-fn validate_confidence(confidence: Option<f64>) -> AppResult<()> {
-    if let Some(value) = confidence
-        && !(0.0..=1.0).contains(&value)
-    {
-        return Err(ErrorKind::Validation("confidence must be between 0 and 1".into()).into());
-    }
-    Ok(())
-}
-
-fn validate_ttl(ttl_at: Option<DateTime<Utc>>) -> AppResult<()> {
-    if let Some(ttl) = ttl_at
-        && ttl <= Utc::now()
-    {
-        return Err(ErrorKind::Validation("ttl_at must be in the future".into()).into());
-    }
-    Ok(())
-}
-
-fn validate_sensitivity(value: &str) -> AppResult<&str> {
-    match value {
-        "public" | "internal" | "confidential" | "secret_detected" => Ok(value),
-        other => Err(ErrorKind::Validation(format!("unsupported context sensitivity `{other}`")).into()),
-    }
-}
-
-fn normalize_reason(reason: Option<String>) -> AppResult<Option<String>> {
-    let Some(reason) = reason else {
-        return Ok(None);
-    };
-    let reason = reason.trim().to_string();
-    if reason.len() > 500 {
-        return Err(ErrorKind::Validation("rejection reason must be at most 500 characters".into()).into());
-    }
-    Ok((!reason.is_empty()).then_some(reason))
-}
-
-fn normalize_feedback_note(note: Option<String>) -> AppResult<Option<String>> {
-    let Some(note) = note else {
-        return Ok(None);
-    };
-    let note = note.trim().to_string();
-    if note.len() > 4000 {
-        return Err(ErrorKind::Validation("feedback note must be at most 4000 characters".into()).into());
-    }
-    Ok((!note.is_empty()).then_some(note))
 }
 
 fn approval_provenance(candidate: &ContextCandidate, scope: &TenantScope) -> Value {
@@ -1169,40 +1035,4 @@ async fn validated_context_read(pool: &PgPool, scope: &TenantScope) -> AppResult
 
 fn scoped_write_error(_err: ScopedWriteError) -> agentforge_core::AppError {
     ErrorKind::Forbidden.into()
-}
-
-fn sensitivity_label(sensitivity: Sensitivity) -> &'static str {
-    match sensitivity {
-        Sensitivity::Public => "public",
-        Sensitivity::Internal => "internal",
-        Sensitivity::Confidential => "confidential",
-        Sensitivity::SecretDetected => "secret_detected",
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn scoped_context_candidate_subject_is_scope_keyed() {
-        let org_id = Uuid::parse_str("11111111-1111-4111-8111-111111111111").unwrap();
-        let scope_id = Uuid::parse_str("22222222-2222-4222-8222-222222222222").unwrap();
-
-        assert_eq!(
-            scoped_context_candidate_subject(org_id, "team", scope_id, "approved"),
-            "broadcast.11111111-1111-4111-8111-111111111111.scope.team.22222222-2222-4222-8222-222222222222.context_candidate.approved"
-        );
-    }
-
-    #[test]
-    fn proposal_preview_redacts_content() {
-        let preview = redacted_proposal_preview(&json!({
-            "title": "Token",
-            "content": "api_key=1234567890abcdef1234567890abcdef"
-        }));
-
-        assert_eq!(preview["title"], "Token");
-        assert!(!preview["content_preview"].as_str().unwrap().contains("1234567890abcdef1234567890abcdef"));
-    }
 }

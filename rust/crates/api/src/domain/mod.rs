@@ -9,6 +9,7 @@ pub(crate) mod agent_workspace;
 pub(crate) mod attachment;
 pub(crate) mod billing;
 pub(crate) mod configuration;
+pub(crate) mod context;
 pub(crate) mod context_governance;
 pub(crate) mod credential;
 pub(crate) mod dev_environment;
