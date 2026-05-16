@@ -14,22 +14,15 @@
 
 use std::path::{Path, PathBuf};
 
-use agentforge_core::{AppError, AppResult, CliToolKind, ErrorKind, TenantScope, crypto};
+use agentforge_core::{AppResult, ErrorKind, TenantScope, crypto};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use secrecy::{ExposeSecret, SecretString};
 use tokio::fs;
 
+use crate::domain::credential::{ContainerCliCredentialPolicy, OauthMountContainerKey};
 use crate::repositories::cli_credential::{CliCredentialRepository, CliCredentialStatus};
 use crate::repositories::user_llm_config::UserLlmConfigRepository;
-
-/// Normalise + validate a user-supplied Container CLI tool string. Returns the
-/// canonical slug or a 400-style validation error — surfaced by the controller.
-pub fn validate_cli_tool(raw: &str) -> AppResult<&'static str> {
-    CliToolKind::parse_legacy(raw)
-        .map(|tool| tool.as_str())
-        .map_err(|err| AppError::from(ErrorKind::Validation(err.to_string())))
-}
 
 /// Outcome of credential resolution for a single container spawn.
 ///
@@ -44,17 +37,6 @@ pub struct CredentialInjection {
     /// Optional OAuth mount: host dir containing a single `credentials` file,
     /// bind-mounted read-only at `/run/secrets/oauth-credentials/`.
     pub oauth_mount_host_dir: Option<PathBuf>,
-}
-
-/// Container CLI tool → provider + env-var mapping. Mirrors the shared TS
-/// constants in `shared/types/tools.ts` so both stacks agree on which env var a
-/// Container CLI looks for when falling back to raw API keys.
-fn tool_provider_env(cli_tool: &str) -> Option<(&'static str, &'static str)> {
-    match CliToolKind::parse_legacy(cli_tool).ok()? {
-        CliToolKind::Claude | CliToolKind::Opencode => Some(("anthropic", "ANTHROPIC_API_KEY")),
-        CliToolKind::Gemini => Some(("google", "GEMINI_API_KEY")),
-        CliToolKind::Codex => Some(("openai", "OPENAI_API_KEY")),
-    }
 }
 
 pub struct CliCredentialService {
@@ -94,7 +76,7 @@ impl CliCredentialService {
                 "LLM_ENCRYPTION_KEY is not configured — refusing to store plaintext credentials".to_string(),
             )
         })?;
-        let tool = validate_cli_tool(cli_tool)?;
+        let tool = ContainerCliCredentialPolicy::canonical_tool(cli_tool)?;
         let map = files.as_object().ok_or_else(|| {
             ErrorKind::Validation("`files` must be a JSON object mapping filename → contents".to_string())
         })?;
@@ -146,7 +128,7 @@ impl CliCredentialService {
                 "LLM_ENCRYPTION_KEY is not configured — refusing to store plaintext credentials".to_string(),
             )
         })?;
-        let tool = validate_cli_tool(cli_tool)?;
+        let tool = ContainerCliCredentialPolicy::canonical_tool(cli_tool)?;
         let ciphertext = crypto::encrypt_base64(key, plaintext_json)
             .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("failed to encrypt credentials: {err}")))?;
         self.cli_creds.upsert_encrypted_by_user_id(user_id, tool, &ciphertext).await
@@ -154,7 +136,7 @@ impl CliCredentialService {
 
     /// Remove the stored blob. Idempotent — no error if nothing was stored.
     pub async fn remove(&self, scope: &TenantScope, cli_tool: &str) -> AppResult<()> {
-        let tool = validate_cli_tool(cli_tool)?;
+        let tool = ContainerCliCredentialPolicy::canonical_tool(cli_tool)?;
         self.cli_creds.delete(scope, tool).await
     }
 
@@ -167,7 +149,7 @@ impl CliCredentialService {
         cli_tool: &str,
         container_key: &str,
     ) -> AppResult<CredentialInjection> {
-        let Some((provider, env_var)) = tool_provider_env(cli_tool) else {
+        let Some((provider, env_var)) = ContainerCliCredentialPolicy::provider_env(cli_tool) else {
             // Unknown Container CLI — pre-worker-bridge hello-world tools land here.
             return Ok(CredentialInjection::default());
         };
@@ -232,11 +214,11 @@ impl CliCredentialService {
         // deserialises as `Some("")` rather than `None`; treat empty strings as
         // "not configured" so we don't inject a blank env var + spurious
         // `AGENTFORGE_CREDENTIAL_SOURCE=system` label.
-        let system_key = match CliToolKind::parse_legacy(cli_tool).ok() {
-            Some(CliToolKind::Claude | CliToolKind::Opencode) => self.system_anthropic.as_ref(),
-            Some(CliToolKind::Gemini) => self.system_google.as_ref(),
-            Some(CliToolKind::Codex) => self.system_openai.as_ref(),
-            None => None,
+        let system_key = match ContainerCliCredentialPolicy::provider_for_tool(cli_tool) {
+            "anthropic" => self.system_anthropic.as_ref(),
+            "google" => self.system_google.as_ref(),
+            "openai" => self.system_openai.as_ref(),
+            _ => None,
         }
         .map(|s| s.expose_secret())
         .filter(|s| !s.is_empty());
@@ -255,17 +237,8 @@ impl CliCredentialService {
     /// wrote it to `credentials`; the entrypoint (`agent-entrypoint.sh`)
     /// expects exactly that shape, so we preserve it.
     async fn write_oauth_mount(&self, container_key: &str, plaintext: &[u8]) -> std::io::Result<PathBuf> {
-        // Path-traversal guard on the caller-provided key so we can't escape
-        // the mount root. Any `/`, `\`, or leading dot would be a bug in the
-        // caller (container names are agentforge-generated UUIDs).
-        if container_key.is_empty()
-            || container_key.contains('/')
-            || container_key.contains('\\')
-            || container_key == ".."
-            || container_key == "."
-        {
-            return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "invalid container_key"));
-        }
+        let container_key = OauthMountContainerKey::parse(container_key)
+            .map_err(|msg| std::io::Error::new(std::io::ErrorKind::InvalidInput, msg))?;
         // Host-side isolation is enforced at `oauth_mount_root` (mode 0700)
         // so other host users can't even `cd` into the tree to reach any
         // container's credentials. Inside the (backend-only) root, per-
@@ -284,7 +257,7 @@ impl CliCredentialService {
         fs::create_dir_all(&self.oauth_mount_root).await?;
         set_mode(&self.oauth_mount_root, 0o700).await.ok();
 
-        let mount_dir = self.oauth_mount_root.join(container_key);
+        let mount_dir = self.oauth_mount_root.join(container_key.value());
         fs::create_dir_all(&mount_dir).await?;
         set_mode(&mount_dir, 0o755).await.ok();
 
@@ -299,15 +272,9 @@ impl CliCredentialService {
     /// no error if the dir doesn't exist. Called by `stop_agent` so secrets
     /// don't linger on disk after the container is torn down.
     pub async fn cleanup_oauth_mount(&self, container_key: &str) -> std::io::Result<()> {
-        if container_key.is_empty()
-            || container_key.contains('/')
-            || container_key.contains('\\')
-            || container_key == ".."
-            || container_key == "."
-        {
-            return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "invalid container_key"));
-        }
-        let mount_dir = self.oauth_mount_root.join(container_key);
+        let container_key = OauthMountContainerKey::parse(container_key)
+            .map_err(|msg| std::io::Error::new(std::io::ErrorKind::InvalidInput, msg))?;
+        let mount_dir = self.oauth_mount_root.join(container_key.value());
         match fs::remove_dir_all(&mount_dir).await {
             Ok(()) => Ok(()),
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
@@ -336,8 +303,8 @@ mod tests {
 
     #[test]
     fn unknown_cli_tool_has_no_provider() {
-        assert!(tool_provider_env("vim").is_none());
-        assert!(tool_provider_env("").is_none());
+        assert!(ContainerCliCredentialPolicy::provider_env("vim").is_none());
+        assert!(ContainerCliCredentialPolicy::provider_env("").is_none());
     }
 
     #[tokio::test]
@@ -367,17 +334,17 @@ mod tests {
 
     #[test]
     fn validate_cli_tool_rejects_unknown() {
-        assert!(validate_cli_tool("vim").is_err());
-        assert!(validate_cli_tool("").is_err());
-        assert!(validate_cli_tool(" claude ").is_ok(), "trims + lowercases");
-        assert!(validate_cli_tool("CLAUDE").is_ok());
+        assert!(ContainerCliCredentialPolicy::canonical_tool("vim").is_err());
+        assert!(ContainerCliCredentialPolicy::canonical_tool("").is_err());
+        assert!(ContainerCliCredentialPolicy::canonical_tool(" claude ").is_ok(), "trims + lowercases");
+        assert!(ContainerCliCredentialPolicy::canonical_tool("CLAUDE").is_ok());
     }
 
     #[test]
     fn cli_tool_mapping_matches_shared_constants() {
-        assert_eq!(tool_provider_env("claude"), Some(("anthropic", "ANTHROPIC_API_KEY")));
-        assert_eq!(tool_provider_env("opencode"), Some(("anthropic", "ANTHROPIC_API_KEY")));
-        assert_eq!(tool_provider_env("gemini"), Some(("google", "GEMINI_API_KEY")));
-        assert_eq!(tool_provider_env("codex"), Some(("openai", "OPENAI_API_KEY")));
+        assert_eq!(ContainerCliCredentialPolicy::provider_env("claude"), Some(("anthropic", "ANTHROPIC_API_KEY")));
+        assert_eq!(ContainerCliCredentialPolicy::provider_env("opencode"), Some(("anthropic", "ANTHROPIC_API_KEY")));
+        assert_eq!(ContainerCliCredentialPolicy::provider_env("gemini"), Some(("google", "GEMINI_API_KEY")));
+        assert_eq!(ContainerCliCredentialPolicy::provider_env("codex"), Some(("openai", "OPENAI_API_KEY")));
     }
 }
