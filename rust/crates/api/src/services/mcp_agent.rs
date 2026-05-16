@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
-use agentforge_core::{AgentStatus, AppError, AppResult, CliToolKind, ErrorKind};
+use agentforge_core::{AgentStatus, AppResult, ErrorKind};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
+use crate::domain::credential::ContainerCliCredentialPolicy;
 use crate::services::agent_workspace::{WorkspaceMountScope, resolve_agent_workspace_paths};
 
 #[derive(Debug, Clone)]
@@ -121,7 +122,7 @@ where
     R: McpAgentRuntime,
 {
     pub async fn create_session(&self, request: CreateSessionRequest) -> AppResult<CreateSessionResult> {
-        let cli_tool = normalize_cli_tool(&request.cli_tool)?;
+        let cli_tool = ContainerCliCredentialPolicy::canonical_tool(&request.cli_tool)?.to_string();
         let context = self.store.resolve_project_context(request.project_id, request.org_id, request.user_id).await?;
 
         let agent_id = Uuid::now_v7();
@@ -160,7 +161,7 @@ where
             status: AgentStatus::Idle,
             container_id: Some(created.container_id.clone()),
             model: Some(image),
-            provider: Some(provider_for_tool(&cli_tool).to_string()),
+            provider: Some(ContainerCliCredentialPolicy::provider_for_tool(&cli_tool).to_string()),
             updated_at: None,
         };
 
@@ -200,34 +201,11 @@ where
         if cli_tool == "gemini" {
             env.insert("GEMINI_CLI_NO_RELAUNCH".to_string(), "true".to_string());
         }
-        if let Some(name) = api_key_env_for_tool(cli_tool)
+        if let Some(name) = ContainerCliCredentialPolicy::api_key_env_for_tool(cli_tool)
             && let Some(value) = self.config.system_api_keys.get(name)
         {
             env.insert(name.to_string(), value.clone());
         }
         env
-    }
-}
-
-fn normalize_cli_tool(cli_tool: &str) -> AppResult<String> {
-    CliToolKind::parse_legacy(cli_tool)
-        .map(|tool| tool.as_str().to_string())
-        .map_err(|err| AppError::from(ErrorKind::Validation(err.to_string())))
-}
-
-fn provider_for_tool(cli_tool: &str) -> &'static str {
-    match CliToolKind::parse_legacy(cli_tool).ok() {
-        Some(CliToolKind::Claude | CliToolKind::Opencode) => "anthropic",
-        Some(CliToolKind::Codex) => "openai",
-        Some(CliToolKind::Gemini) => "google",
-        None => "unknown",
-    }
-}
-
-fn api_key_env_for_tool(cli_tool: &str) -> Option<&'static str> {
-    match CliToolKind::parse_legacy(cli_tool).ok()? {
-        CliToolKind::Claude | CliToolKind::Opencode => Some("ANTHROPIC_API_KEY"),
-        CliToolKind::Codex => Some("OPENAI_API_KEY"),
-        CliToolKind::Gemini => Some("GEMINI_API_KEY"),
     }
 }

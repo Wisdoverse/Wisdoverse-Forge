@@ -1,6 +1,5 @@
-use crate::services::api_key::{
-    generate_api_key, generate_api_key_parts, hash_key, validate_key_format, validate_key_name, validate_scopes,
-};
+use crate::domain::credential::{ApiKeyFormat, ApiKeyName, ApiKeyScopePolicy};
+use crate::services::api_key::{generate_api_key, generate_api_key_parts, hash_key};
 
 // ---------------------------------------------------------------------------
 // Key generation
@@ -69,42 +68,42 @@ fn test_different_keys_different_hashes() {
 #[test]
 fn test_validate_key_format_valid() {
     let key = format!("af_{}", "a".repeat(64));
-    assert!(validate_key_format(&key).is_ok());
+    assert!(ApiKeyFormat::validate(&key).is_ok());
 }
 
 #[test]
 fn test_validate_key_format_generated() {
     let key = generate_api_key();
-    assert!(validate_key_format(&key).is_ok());
+    assert!(ApiKeyFormat::validate(&key).is_ok());
 }
 
 #[test]
 fn test_validate_key_format_bad_prefix() {
     let key = format!("bad_{}", "a".repeat(64));
-    assert!(validate_key_format(&key).is_err());
+    assert!(ApiKeyFormat::validate(&key).is_err());
 }
 
 #[test]
 fn test_validate_key_format_too_short() {
-    assert!(validate_key_format("af_short").is_err());
+    assert!(ApiKeyFormat::validate("af_short").is_err());
 }
 
 #[test]
 fn test_validate_key_format_empty() {
-    assert!(validate_key_format("").is_err());
+    assert!(ApiKeyFormat::validate("").is_err());
 }
 
 #[test]
 fn test_validate_key_format_too_long() {
     let key = format!("af_{}", "a".repeat(65));
-    assert!(validate_key_format(&key).is_err());
+    assert!(ApiKeyFormat::validate(&key).is_err());
 }
 
 #[test]
 fn test_validate_key_format_invalid_hex() {
     // 'g' is not a valid hex character
     let key = format!("af_{}", "g".repeat(64));
-    assert!(validate_key_format(&key).is_err());
+    assert!(ApiKeyFormat::validate(&key).is_err());
 }
 
 // ---------------------------------------------------------------------------
@@ -113,26 +112,26 @@ fn test_validate_key_format_invalid_hex() {
 
 #[test]
 fn test_validate_scopes_valid() {
-    assert!(validate_scopes(&["read".into(), "write".into()]).is_ok());
-    assert!(validate_scopes(&["admin".into()]).is_ok());
-    assert!(validate_scopes(&["read".into(), "write".into(), "admin".into()]).is_ok());
+    assert!(ApiKeyScopePolicy::validate(&["read".into(), "write".into()]).is_ok());
+    assert!(ApiKeyScopePolicy::validate(&["admin".into()]).is_ok());
+    assert!(ApiKeyScopePolicy::validate(&["read".into(), "write".into(), "admin".into()]).is_ok());
 }
 
 #[test]
 fn test_validate_scopes_empty_is_ok() {
-    assert!(validate_scopes(&[]).is_ok());
+    assert!(ApiKeyScopePolicy::validate(&[]).is_ok());
 }
 
 #[test]
 fn test_validate_scopes_invalid() {
-    assert!(validate_scopes(&["invalid_scope".into()]).is_err());
-    assert!(validate_scopes(&["delete".into()]).is_err());
-    assert!(validate_scopes(&["READ".into()]).is_err()); // case-sensitive
+    assert!(ApiKeyScopePolicy::validate(&["invalid_scope".into()]).is_err());
+    assert!(ApiKeyScopePolicy::validate(&["delete".into()]).is_err());
+    assert!(ApiKeyScopePolicy::validate(&["READ".into()]).is_err()); // case-sensitive
 }
 
 #[test]
 fn test_validate_scopes_mixed_valid_invalid() {
-    assert!(validate_scopes(&["read".into(), "invalid".into()]).is_err());
+    assert!(ApiKeyScopePolicy::validate(&["read".into(), "invalid".into()]).is_err());
 }
 
 // ---------------------------------------------------------------------------
@@ -141,27 +140,27 @@ fn test_validate_scopes_mixed_valid_invalid() {
 
 #[test]
 fn test_validate_key_name_valid() {
-    assert!(validate_key_name("My API Key").is_ok());
-    assert!(validate_key_name("a").is_ok());
-    assert!(validate_key_name(&"x".repeat(255)).is_ok());
+    assert!(ApiKeyName::parse("My API Key").is_ok());
+    assert!(ApiKeyName::parse("a").is_ok());
+    assert!(ApiKeyName::parse(&"x".repeat(255)).is_ok());
 }
 
 #[test]
 fn test_validate_key_name_empty() {
-    assert!(validate_key_name("").is_err());
+    assert!(ApiKeyName::parse("").is_err());
 }
 
 #[test]
 fn test_validate_key_name_whitespace_only() {
-    assert!(validate_key_name("   ").is_err()); // trims to empty
+    assert!(ApiKeyName::parse("   ").is_err()); // trims to empty
 }
 
 #[test]
 fn test_validate_key_name_too_long() {
-    assert!(validate_key_name(&"x".repeat(256)).is_err());
+    assert!(ApiKeyName::parse(&"x".repeat(256)).is_err());
 }
 
 #[test]
 fn test_validate_key_name_trims_whitespace() {
-    assert!(validate_key_name("  valid  ").is_ok()); // trimmed length is 5
+    assert!(ApiKeyName::parse("  valid  ").is_ok()); // trimmed length is 5
 }
