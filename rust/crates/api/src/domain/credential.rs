@@ -5,11 +5,14 @@
 //! filesystem mount materialization.
 
 use agentforge_core::{AppResult, CliToolKind, ErrorKind};
+use url::Url;
 
 const API_KEY_PREFIX: &str = "af_";
 const VALID_API_KEY_SCOPES: &[&str] = &["read", "write", "admin"];
 const VALID_SSH_KEY_PREFIXES: &[&str] =
     &["ssh-ed25519", "ssh-rsa", "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521"];
+const VALID_GIT_PROVIDERS: &[&str] = &["github", "gitlab", "bitbucket", "custom"];
+const VALID_GIT_CREDENTIAL_TYPES: &[&str] = &["token", "ssh", "oauth"];
 
 /// Validated pagination request for credential lists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -242,6 +245,78 @@ impl<'a> OauthMountContainerKey<'a> {
     }
 }
 
+/// Validated Git credential write request.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct GitCredentialDraft<'a> {
+    name: &'a str,
+    provider: &'a str,
+    credential_type: &'a str,
+}
+
+impl<'a> GitCredentialDraft<'a> {
+    pub(crate) fn parse(name: &'a str, provider: &'a str, credential_type: &'a str) -> AppResult<Self> {
+        let name = name.trim();
+        if name.is_empty() || name.len() > 255 {
+            return Err(ErrorKind::Validation("name must be 1-255 characters".into()).into());
+        }
+
+        if !VALID_GIT_PROVIDERS.contains(&provider) {
+            return Err(ErrorKind::Validation(format!(
+                "invalid provider '{}', valid: {:?}",
+                provider, VALID_GIT_PROVIDERS
+            ))
+            .into());
+        }
+
+        if !VALID_GIT_CREDENTIAL_TYPES.contains(&credential_type) {
+            return Err(ErrorKind::Validation(format!(
+                "invalid credential_type '{}', valid: {:?}",
+                credential_type, VALID_GIT_CREDENTIAL_TYPES
+            ))
+            .into());
+        }
+
+        Ok(Self { name, provider, credential_type })
+    }
+
+    pub(crate) fn name(self) -> &'a str {
+        self.name
+    }
+
+    pub(crate) fn provider(self) -> &'a str {
+        self.provider
+    }
+
+    pub(crate) fn credential_type(self) -> &'a str {
+        self.credential_type
+    }
+}
+
+/// Git remote host normalization policy for CLI credential injection.
+pub(crate) struct GitRemoteHost;
+
+impl GitRemoteHost {
+    pub(crate) fn normalize(value: Option<&str>, default_host: &str) -> String {
+        let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) else {
+            return default_host.to_string();
+        };
+        if let Ok(url) = Url::parse(value)
+            && let Some(host) = url.host_str()
+        {
+            return host.to_ascii_lowercase();
+        }
+
+        let value = value.trim_start_matches("ssh://").trim_start_matches("git+ssh://").trim_end_matches('/').trim();
+        let without_user = value.rsplit_once('@').map_or(value, |(_, host)| host);
+        without_user
+            .split([':', '/'])
+            .next()
+            .filter(|host| !host.is_empty())
+            .unwrap_or(default_host)
+            .to_ascii_lowercase()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -324,5 +399,40 @@ mod tests {
         assert!(OauthMountContainerKey::parse(".").is_err());
         assert!(OauthMountContainerKey::parse("a/b").is_err());
         assert!(OauthMountContainerKey::parse("a\\b").is_err());
+    }
+
+    #[test]
+    fn git_credential_draft_trims_name_and_validates_enums() {
+        let draft = GitCredentialDraft::parse("  GitHub  ", "github", "token").unwrap();
+        assert_eq!(draft.name(), "GitHub");
+        assert_eq!(draft.provider(), "github");
+        assert_eq!(draft.credential_type(), "token");
+
+        assert!(GitCredentialDraft::parse("", "github", "token").is_err());
+        assert!(GitCredentialDraft::parse(&"a".repeat(256), "github", "token").is_err());
+        assert!(GitCredentialDraft::parse("GitHub", "azure", "token").is_err());
+        assert!(GitCredentialDraft::parse("GitHub", "github", "password").is_err());
+    }
+
+    #[test]
+    fn git_credential_draft_accepts_existing_provider_and_type_sets() {
+        for provider in ["github", "gitlab", "bitbucket", "custom"] {
+            assert!(GitCredentialDraft::parse("name", provider, "token").is_ok());
+        }
+        for credential_type in ["token", "ssh", "oauth"] {
+            assert!(GitCredentialDraft::parse("name", "github", credential_type).is_ok());
+        }
+    }
+
+    #[test]
+    fn git_remote_host_accepts_common_git_url_shapes() {
+        assert_eq!(GitRemoteHost::normalize(None, "github.com"), "github.com");
+        assert_eq!(GitRemoteHost::normalize(Some("github.com/Wisdoverse/repo"), "github.com"), "github.com");
+        assert_eq!(GitRemoteHost::normalize(Some("git@github.com:Wisdoverse/repo.git"), "github.com"), "github.com");
+        assert_eq!(GitRemoteHost::normalize(Some("https://GitHub.com/Wisdoverse/repo"), "github.com"), "github.com");
+        assert_eq!(
+            GitRemoteHost::normalize(Some("git+ssh://git@gitlab.internal.example/group/repo"), "gitlab.com"),
+            "gitlab.internal.example"
+        );
     }
 }
