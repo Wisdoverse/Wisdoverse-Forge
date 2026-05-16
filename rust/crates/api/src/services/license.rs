@@ -1,9 +1,10 @@
 //! License service — validation and activation.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::License;
 use uuid::Uuid;
 
+use crate::domain::license::{LicenseKey, LicenseValidityPolicy};
 use crate::repositories::license::LicenseRepository;
 
 /// Business logic layer for license operations.
@@ -28,13 +29,10 @@ impl LicenseService {
 
     /// Validate a license key — check if it exists and is active.
     pub async fn validate(&self, license_key: &str) -> AppResult<serde_json::Value> {
-        let license_key = license_key.trim();
-        if license_key.is_empty() {
-            return Err(ErrorKind::Validation("license_key must not be empty".into()).into());
-        }
-        match self.repo.find_by_key(license_key).await? {
+        let license_key = LicenseKey::parse(license_key)?;
+        match self.repo.find_by_key(license_key.value()).await? {
             Some(license) => {
-                let valid = license.is_active && license.valid_until.is_none_or(|until| until > chrono::Utc::now());
+                let valid = LicenseValidityPolicy::is_valid(license.is_active, license.valid_until, chrono::Utc::now());
                 Ok(serde_json::json!({
                     "valid": valid,
                     "plan_name": license.plan_name,
@@ -50,31 +48,7 @@ impl LicenseService {
 
     /// Activate a license for the org.
     pub async fn activate(&self, scope: &TenantScope, license_key: &str) -> AppResult<License> {
-        let license_key = license_key.trim();
-        if license_key.is_empty() {
-            return Err(ErrorKind::Validation("license_key must not be empty".into()).into());
-        }
-        self.repo.activate(scope, license_key).await
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn empty_license_key_rejected() {
-        let key = "".trim();
-        assert!(key.is_empty());
-    }
-
-    #[test]
-    fn whitespace_only_key_rejected() {
-        let key = "   ".trim();
-        assert!(key.is_empty());
-    }
-
-    #[test]
-    fn valid_license_key_accepted() {
-        let key = "LIC-ABC-123".trim();
-        assert!(!key.is_empty());
+        let license_key = LicenseKey::parse(license_key)?;
+        self.repo.activate(scope, license_key.value()).await
     }
 }

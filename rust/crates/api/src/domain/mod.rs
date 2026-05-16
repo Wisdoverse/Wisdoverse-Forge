@@ -8,6 +8,7 @@ pub(crate) mod agent;
 pub(crate) mod attachment;
 pub(crate) mod configuration;
 pub(crate) mod credential;
+pub(crate) mod license;
 pub(crate) mod observability;
 pub(crate) mod orchestration;
 pub(crate) mod prompt_library;
