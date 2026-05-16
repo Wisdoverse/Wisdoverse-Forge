@@ -1,4 +1,5 @@
-use crate::services::user::{LoginResult, validate_email, validate_password};
+use crate::domain::user::{UserEmail, UserPassword};
+use crate::services::user::LoginResult;
 
 // ---------------------------------------------------------------------------
 // Email validation
@@ -6,32 +7,32 @@ use crate::services::user::{LoginResult, validate_email, validate_password};
 
 #[test]
 fn test_email_valid() {
-    assert!(validate_email("user@example.com").is_ok());
-    assert!(validate_email("dev@example.com").is_ok());
-    assert!(validate_email("x@y.z").is_ok()); // minimal valid (5 chars with @)
+    assert!(UserEmail::parse("user@example.com").is_ok());
+    assert!(UserEmail::parse("dev@example.com").is_ok());
+    assert!(UserEmail::parse("x@y.z").is_ok()); // minimal valid (5 chars with @)
 }
 
 #[test]
 fn test_email_missing_at() {
-    assert!(validate_email("invalidemail.com").is_err());
-    assert!(validate_email("noemail").is_err());
+    assert!(UserEmail::parse("invalidemail.com").is_err());
+    assert!(UserEmail::parse("noemail").is_err());
 }
 
 #[test]
 fn test_email_too_short() {
-    assert!(validate_email("a@b").is_err()); // 3 chars
-    assert!(validate_email("a@bc").is_err()); // 4 chars
+    assert!(UserEmail::parse("a@b").is_err()); // 3 chars
+    assert!(UserEmail::parse("a@bc").is_err()); // 4 chars
 }
 
 #[test]
 fn test_email_empty() {
-    assert!(validate_email("").is_err());
+    assert!(UserEmail::parse("").is_err());
 }
 
 #[test]
 fn test_email_long_is_ok() {
     let long_email = format!("{}@example.com", "a".repeat(200));
-    assert!(validate_email(&long_email).is_ok());
+    assert!(UserEmail::parse(&long_email).is_ok());
 }
 
 // ---------------------------------------------------------------------------
@@ -40,27 +41,27 @@ fn test_email_long_is_ok() {
 
 #[test]
 fn test_password_exactly_8() {
-    assert!(validate_password("12345678").is_ok());
+    assert!(UserPassword::parse("12345678").is_ok());
 }
 
 #[test]
 fn test_password_7_chars() {
-    assert!(validate_password("1234567").is_err());
+    assert!(UserPassword::parse("1234567").is_err());
 }
 
 #[test]
 fn test_password_empty() {
-    assert!(validate_password("").is_err());
+    assert!(UserPassword::parse("").is_err());
 }
 
 #[test]
 fn test_password_long_is_ok() {
-    assert!(validate_password(&"x".repeat(1000)).is_ok());
+    assert!(UserPassword::parse(&"x".repeat(1000)).is_ok());
 }
 
 #[test]
 fn test_password_single_char() {
-    assert!(validate_password("a").is_err());
+    assert!(UserPassword::parse("a").is_err());
 }
 
 // ---------------------------------------------------------------------------

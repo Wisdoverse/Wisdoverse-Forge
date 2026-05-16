@@ -1,0 +1,245 @@
+//! User domain rules.
+//!
+//! This module owns account validation, authentication lifetimes, password
+//! reset token policy, and user-list pagination that are independent of
+//! repositories, JWT issuance, and email delivery.
+
+use agentforge_core::{AppResult, ErrorKind};
+use base64::Engine;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use rand::RngCore;
+use sha2::{Digest, Sha256};
+
+pub(crate) const PASSWORD_RESET_TTL_MINUTES: i64 = 60;
+
+const REFRESH_EXPIRY_SECONDS: u64 = 7 * 24 * 60 * 60;
+const REMEMBER_ME_REFRESH_EXPIRY_SECONDS: u64 = 30 * 24 * 60 * 60;
+
+/// Refresh-token lifetime policy.
+pub(crate) struct RefreshSessionPolicy;
+
+impl RefreshSessionPolicy {
+    pub(crate) fn refresh_expiry_seconds(remember_me: bool) -> u64 {
+        if remember_me { REMEMBER_ME_REFRESH_EXPIRY_SECONDS } else { REFRESH_EXPIRY_SECONDS }
+    }
+}
+
+/// Validated pagination request for user lists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct UserListPage {
+    limit: i64,
+    offset: i64,
+}
+
+impl UserListPage {
+    pub(crate) fn new(limit: i64, offset: i64) -> Self {
+        Self { limit: limit.clamp(1, 100), offset: offset.max(0) }
+    }
+
+    pub(crate) fn limit(self) -> i64 {
+        self.limit
+    }
+
+    pub(crate) fn offset(self) -> i64 {
+        self.offset
+    }
+}
+
+/// Account email policy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct UserEmail<'a> {
+    value: &'a str,
+}
+
+impl<'a> UserEmail<'a> {
+    pub(crate) fn parse(value: &'a str) -> AppResult<Self> {
+        if !value.contains('@') || value.len() < 5 {
+            return Err(ErrorKind::Validation("invalid email format".into()).into());
+        }
+        Ok(Self { value })
+    }
+
+    pub(crate) fn value(self) -> &'a str {
+        self.value
+    }
+}
+
+/// Password policy for local accounts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct UserPassword<'a> {
+    value: &'a str,
+}
+
+impl<'a> UserPassword<'a> {
+    pub(crate) fn parse(value: &'a str) -> AppResult<Self> {
+        if value.len() < 8 {
+            return Err(ErrorKind::Validation("password must be at least 8 characters".into()).into());
+        }
+        Ok(Self { value })
+    }
+
+    pub(crate) fn value(self) -> &'a str {
+        self.value
+    }
+}
+
+/// Password-reset lookup email. Invalid addresses are intentionally rejected
+/// without an error so callers cannot enumerate users.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PasswordResetRequestEmail {
+    value: String,
+}
+
+impl PasswordResetRequestEmail {
+    pub(crate) fn normalize(value: &str) -> Option<Self> {
+        let value = value.trim().to_ascii_lowercase();
+        UserEmail::parse(&value).ok()?;
+        Some(Self { value })
+    }
+
+    pub(crate) fn value(&self) -> &str {
+        &self.value
+    }
+}
+
+/// Raw password-reset token from a client.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PasswordResetToken<'a> {
+    value: &'a str,
+}
+
+impl<'a> PasswordResetToken<'a> {
+    pub(crate) fn parse(value: &'a str) -> AppResult<Self> {
+        let value = value.trim();
+        if value.len() < 32 {
+            return Err(ErrorKind::Validation("invalid or expired reset token".into()).into());
+        }
+        Ok(Self { value })
+    }
+
+    pub(crate) fn hash(self) -> String {
+        hash_reset_token(self.value)
+    }
+}
+
+/// Generated password-reset token pair.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct GeneratedPasswordResetToken {
+    value: String,
+}
+
+impl GeneratedPasswordResetToken {
+    pub(crate) fn generate() -> Self {
+        let mut bytes = [0_u8; 32];
+        rand::rng().fill_bytes(&mut bytes);
+        Self { value: URL_SAFE_NO_PAD.encode(bytes) }
+    }
+
+    pub(crate) fn value(&self) -> &str {
+        &self.value
+    }
+
+    pub(crate) fn hash(&self) -> String {
+        hash_reset_token(&self.value)
+    }
+}
+
+pub(crate) fn derive_username(display_name: Option<&str>, email: &str) -> String {
+    display_name
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| email.split('@').next().unwrap_or("user").to_string())
+}
+
+pub(crate) fn password_reset_email_body(reset_url: &str) -> String {
+    format!(
+        "Reset your Wisdoverse Forge password by opening this link:\n\n{reset_url}\n\nThis link expires in {PASSWORD_RESET_TTL_MINUTES} minutes. If you did not request a password reset, ignore this email."
+    )
+}
+
+pub(crate) fn email_domain_for_log(email: &str) -> String {
+    email.split('@').nth(1).unwrap_or("unknown").to_ascii_lowercase()
+}
+
+fn hash_reset_token(token: &str) -> String {
+    hex::encode(Sha256::digest(token.as_bytes()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn user_list_page_clamps_bounds() {
+        assert_eq!(UserListPage::new(0, -10).limit(), 1);
+        assert_eq!(UserListPage::new(200, 50).limit(), 100);
+        assert_eq!(UserListPage::new(50, -10).offset(), 0);
+        assert_eq!(UserListPage::new(50, 10).offset(), 10);
+    }
+
+    #[test]
+    fn user_email_keeps_existing_basic_policy() {
+        assert_eq!(UserEmail::parse("dev@example.com").unwrap().value(), "dev@example.com");
+        assert!(UserEmail::parse("a@b.c").is_ok());
+        assert!(UserEmail::parse("abcd").is_err());
+        assert!(UserEmail::parse("dev.example.com").is_err());
+    }
+
+    #[test]
+    fn user_password_requires_minimum_length() {
+        assert_eq!(UserPassword::parse("12345678").unwrap().value(), "12345678");
+        assert!(UserPassword::parse("1234567").is_err());
+    }
+
+    #[test]
+    fn password_reset_email_normalizes_without_enumeration_error() {
+        let email = PasswordResetRequestEmail::normalize(" Dev@Example.COM ").unwrap();
+        assert_eq!(email.value(), "dev@example.com");
+        assert!(PasswordResetRequestEmail::normalize("invalid").is_none());
+    }
+
+    #[test]
+    fn password_reset_token_hash_is_stable_and_does_not_expose_raw_token() {
+        let token = PasswordResetToken::parse("abcdefghijklmnopqrstuvwxyz123456").unwrap();
+        let hash = token.hash();
+        assert_eq!(hash.len(), 64);
+        assert_ne!(hash, "abcdefghijklmnopqrstuvwxyz123456");
+        assert_eq!(hash, token.hash());
+        assert!(PasswordResetToken::parse("short").is_err());
+    }
+
+    #[test]
+    fn generated_password_reset_token_has_hashable_secret() {
+        let token = GeneratedPasswordResetToken::generate();
+        assert!(token.value().len() >= 32);
+        assert_eq!(token.hash().len(), 64);
+        assert_ne!(token.hash(), token.value());
+    }
+
+    #[test]
+    fn reset_email_body_contains_link_and_expiry() {
+        let body = password_reset_email_body("https://forge.example.com/?reset_token=abc");
+        assert!(body.contains("https://forge.example.com/?reset_token=abc"));
+        assert!(body.contains("60 minutes"));
+    }
+
+    #[test]
+    fn username_prefers_display_name_then_email_local_part() {
+        assert_eq!(derive_username(Some(" Dev User "), "dev@example.com"), "Dev User");
+        assert_eq!(derive_username(Some(" "), "dev@example.com"), "dev");
+        assert_eq!(derive_username(None, "dev@example.com"), "dev");
+    }
+
+    #[test]
+    fn email_domain_for_log_lowercases_domain() {
+        assert_eq!(email_domain_for_log("dev@Example.COM"), "example.com");
+        assert_eq!(email_domain_for_log("invalid"), "unknown");
+    }
+
+    #[test]
+    fn refresh_session_policy_preserves_existing_lifetimes() {
+        assert_eq!(RefreshSessionPolicy::refresh_expiry_seconds(false), 7 * 24 * 60 * 60);
+        assert_eq!(RefreshSessionPolicy::refresh_expiry_seconds(true), 30 * 24 * 60 * 60);
+    }
+}
