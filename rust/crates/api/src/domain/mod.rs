@@ -5,6 +5,7 @@
 
 pub(crate) mod admin;
 pub(crate) mod agent;
+pub(crate) mod agent_workspace;
 pub(crate) mod attachment;
 pub(crate) mod billing;
 pub(crate) mod configuration;
