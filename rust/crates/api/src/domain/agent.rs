@@ -1,0 +1,243 @@
+//! Agent domain rules.
+//!
+//! This module owns the Agent bounded-context policies that are independent of
+//! HTTP handlers, SQL repositories, Docker clients, and message buses.
+
+use agentforge_core::{AgentStatus, AppResult, CliToolKind, ErrorKind};
+
+/// Validated pagination request for agent lists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct AgentListPage {
+    limit: i64,
+    offset: i64,
+}
+
+impl AgentListPage {
+    pub(crate) fn new(limit: i64, offset: i64) -> Self {
+        Self { limit: limit.clamp(1, 100), offset: offset.max(0) }
+    }
+
+    pub(crate) fn limit(self) -> i64 {
+        self.limit
+    }
+
+    pub(crate) fn offset(self) -> i64 {
+        self.offset
+    }
+}
+
+/// Agent display name value object.
+pub(crate) struct AgentName;
+
+impl AgentName {
+    pub(crate) fn validate(name: Option<&str>) -> AppResult<()> {
+        if let Some(name) = name
+            && name.len() > 255
+        {
+            return Err(ErrorKind::Validation("name must be 255 characters or less".into()).into());
+        }
+        Ok(())
+    }
+}
+
+/// Canonical Container CLI selection.
+pub(crate) struct AgentCliToolSelection;
+
+impl AgentCliToolSelection {
+    pub(crate) fn normalize(raw: Option<&str>) -> AppResult<Option<&'static str>> {
+        raw.map(|tool| {
+            CliToolKind::parse_legacy(tool)
+                .map(CliToolKind::as_str)
+                .map_err(|err| ErrorKind::Validation(err.to_string()).into())
+        })
+        .transpose()
+    }
+}
+
+/// Agent lifecycle policy.
+pub(crate) struct AgentLifecycle;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AgentStatusTransition {
+    Noop,
+    Change(AgentStatus),
+}
+
+impl AgentLifecycle {
+    pub(crate) fn transition(from: AgentStatus, to: AgentStatus) -> AppResult<AgentStatusTransition> {
+        if from == to {
+            return Ok(AgentStatusTransition::Noop);
+        }
+
+        if Self::is_valid_transition(from, to) {
+            return Ok(AgentStatusTransition::Change(to));
+        }
+
+        Err(ErrorKind::Validation(format!("invalid status transition: {from:?} -> {to:?}")).into())
+    }
+
+    pub(crate) fn is_valid_transition(from: AgentStatus, to: AgentStatus) -> bool {
+        matches!(
+            (from, to),
+            (AgentStatus::Idle, AgentStatus::Working)
+                | (AgentStatus::Idle, AgentStatus::Offline)
+                | (AgentStatus::Working, AgentStatus::Idle)
+                | (AgentStatus::Working, AgentStatus::Offline)
+                | (AgentStatus::Offline, AgentStatus::Idle)
+                | (AgentStatus::Offline, AgentStatus::Working)
+        )
+    }
+}
+
+/// Collaborator permission inside the Agent bounded context.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AgentCollaboratorPermission {
+    View,
+    Edit,
+    Admin,
+}
+
+impl AgentCollaboratorPermission {
+    pub(crate) fn parse(permission: &str) -> AppResult<Self> {
+        match permission {
+            "view" => Ok(Self::View),
+            "edit" => Ok(Self::Edit),
+            "admin" => Ok(Self::Admin),
+            _ => Err(ErrorKind::Validation("permission must be 'view', 'edit', or 'admin'".into()).into()),
+        }
+    }
+
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::View => "view",
+            Self::Edit => "edit",
+            Self::Admin => "admin",
+        }
+    }
+
+    fn allows(self, action: AgentPermissionAction) -> bool {
+        match action {
+            AgentPermissionAction::View => true,
+            AgentPermissionAction::Edit => matches!(self, Self::Edit | Self::Admin),
+            AgentPermissionAction::Admin => matches!(self, Self::Admin),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AgentPermissionAction {
+    View,
+    Edit,
+    Admin,
+}
+
+impl AgentPermissionAction {
+    fn parse(action: &str) -> Option<Self> {
+        match action {
+            "view" => Some(Self::View),
+            "edit" => Some(Self::Edit),
+            "admin" => Some(Self::Admin),
+            _ => None,
+        }
+    }
+}
+
+/// Agent ownership and collaborator access policy.
+pub(crate) struct AgentAccessPolicy;
+
+impl AgentAccessPolicy {
+    pub(crate) fn has_permission(is_owner: bool, collaborator_permission: Option<&str>, action: &str) -> bool {
+        if is_owner {
+            return true;
+        }
+
+        let Some(action) = AgentPermissionAction::parse(action) else {
+            return false;
+        };
+
+        collaborator_permission
+            .and_then(|permission| AgentCollaboratorPermission::parse(permission).ok())
+            .is_some_and(|permission| permission.allows(action))
+    }
+}
+
+/// Command subject used by the sidecar command bus.
+pub(crate) struct AgentCommandSubject;
+
+impl AgentCommandSubject {
+    pub(crate) fn for_agent_id(agent_id: &str) -> String {
+        format!("sidecar.{agent_id}.cmd")
+    }
+}
+
+/// Plain-text prompt currently supported by the Rust Agent path.
+#[derive(Debug)]
+pub(crate) struct PlainTextAgentPrompt<'a> {
+    content: &'a str,
+}
+
+impl<'a> PlainTextAgentPrompt<'a> {
+    pub(crate) fn new(content: &'a str, images: Option<&[String]>) -> AppResult<Self> {
+        if content.trim().is_empty() {
+            return Err(ErrorKind::Validation("prompt content is required".into()).into());
+        }
+
+        if images.is_some_and(|images| !images.is_empty()) {
+            return Err(ErrorKind::Validation("prompt images are not supported yet".into()).into());
+        }
+
+        Ok(Self { content })
+    }
+
+    pub(crate) fn content(&self) -> &'a str {
+        self.content
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn status_transition_plans_noops_and_changes() {
+        assert_eq!(
+            AgentLifecycle::transition(AgentStatus::Idle, AgentStatus::Idle).unwrap(),
+            AgentStatusTransition::Noop
+        );
+        assert_eq!(
+            AgentLifecycle::transition(AgentStatus::Idle, AgentStatus::Working).unwrap(),
+            AgentStatusTransition::Change(AgentStatus::Working)
+        );
+    }
+
+    #[test]
+    fn access_policy_allows_owner_for_known_and_unknown_actions() {
+        assert!(AgentAccessPolicy::has_permission(true, None, "view"));
+        assert!(AgentAccessPolicy::has_permission(true, None, "unknown"));
+    }
+
+    #[test]
+    fn access_policy_maps_collaborator_permissions() {
+        assert!(AgentAccessPolicy::has_permission(false, Some("view"), "view"));
+        assert!(!AgentAccessPolicy::has_permission(false, Some("view"), "edit"));
+        assert!(AgentAccessPolicy::has_permission(false, Some("edit"), "edit"));
+        assert!(!AgentAccessPolicy::has_permission(false, Some("edit"), "admin"));
+        assert!(AgentAccessPolicy::has_permission(false, Some("admin"), "admin"));
+        assert!(!AgentAccessPolicy::has_permission(false, Some("owner"), "view"));
+        assert!(!AgentAccessPolicy::has_permission(false, Some("admin"), "unknown"));
+    }
+
+    #[test]
+    fn cli_tool_selection_canonicalizes_supported_tools() {
+        assert_eq!(AgentCliToolSelection::normalize(Some(" Codex ")).unwrap(), Some("codex"));
+        assert_eq!(AgentCliToolSelection::normalize(None).unwrap(), None);
+        assert!(AgentCliToolSelection::normalize(Some("unknown")).is_err());
+    }
+
+    #[test]
+    fn plain_text_prompt_rejects_unsupported_shapes() {
+        assert!(PlainTextAgentPrompt::new("hello", None).is_ok());
+        assert!(PlainTextAgentPrompt::new("   ", None).is_err());
+        assert!(PlainTextAgentPrompt::new("hello", Some(&["base64".to_string()])).is_err());
+    }
+}

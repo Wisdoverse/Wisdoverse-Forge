@@ -7,6 +7,7 @@
 //! User- and operator-facing terminology in route/service/repository docs must
 //! follow `docs/architecture/glossary.md` in the repository root.
 
+pub mod domain;
 pub mod gateway;
 pub mod health;
 pub mod mcp;

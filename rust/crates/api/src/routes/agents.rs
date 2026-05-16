@@ -22,6 +22,7 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AgentId, AgentStatus, AppResult, ErrorKind};
 use agentforge_platform::ContainerState;
 
+use crate::domain::agent::{AgentAccessPolicy, PlainTextAgentPrompt};
 use crate::health::AppState;
 use crate::repositories::agent::{AgentRepository, CreateAgentParams};
 use crate::services::agent::AgentService;
@@ -99,16 +100,8 @@ pub struct PromptRequest {
 ///
 /// This path only supports plain-text prompts. Images are rejected rather than
 /// silently dropped so the route stays aligned with the command publisher.
-fn validate_prompt_request(req: &PromptRequest) -> AppResult<()> {
-    if req.content.trim().is_empty() {
-        return Err(ErrorKind::Validation("prompt content is required".into()).into());
-    }
-
-    if req.images.as_ref().is_some_and(|images| !images.is_empty()) {
-        return Err(ErrorKind::Validation("prompt images are not supported yet".into()).into());
-    }
-
-    Ok(())
+fn validate_prompt_request(req: &PromptRequest) -> AppResult<PlainTextAgentPrompt<'_>> {
+    PlainTextAgentPrompt::new(&req.content, req.images.as_deref())
 }
 
 /// Build a service instance from shared state.
@@ -297,11 +290,11 @@ async fn send_prompt(
     let service = make_service(&state);
     let agent = service.get(&auth.scope, AgentId::from(id)).await?;
 
-    validate_prompt_request(&req)?;
+    let prompt = validate_prompt_request(&req)?;
 
     // Container CLI agents keep the existing NATS publish path.
     if agent.cli_tool.is_some() {
-        send_sidecar_prompt(&state, id, &req.content).await?;
+        send_sidecar_prompt(&state, id, prompt.content()).await?;
         return Ok(Json(serde_json::json!({ "ok": true, "status": "sent", "agent_id": id })).into_response());
     }
 
@@ -323,8 +316,9 @@ async fn send_prompt(
     // the inflight map, so an early failure never wedges the agent as busy.
     let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
     let agent_id_typed = AgentId::from(id);
-    let frame_stream =
-        prompt_service.stream(auth.scope.clone(), agent_id_typed, model, system_prompt, req.content, cancel_rx).await?;
+    let frame_stream = prompt_service
+        .stream(auth.scope.clone(), agent_id_typed, model, system_prompt, prompt.content().to_owned(), cancel_rx)
+        .await?;
 
     // Register the in-flight sender AFTER the stream is built. Second
     // concurrent send on the same agent → 409.
@@ -636,20 +630,10 @@ async fn check_permission(
     let service = make_service(&state);
     let agent = service.get(&auth.scope, AgentId::from(id)).await?;
 
-    // Check if the user is the agent owner
     let is_owner = agent.user_id.as_uuid() == req.user_id;
-
-    // Check if the user is a collaborator with sufficient permission
     let collabs = service.list_collaborators(&auth.scope, AgentId::from(id)).await?;
     let collab_permission = collabs.iter().find(|c| c.user_id.as_uuid() == req.user_id).map(|c| c.permission.as_str());
-
-    let has_permission = is_owner
-        || match req.action.as_str() {
-            "view" => collab_permission.is_some(),
-            "edit" => matches!(collab_permission, Some("edit" | "admin")),
-            "admin" => matches!(collab_permission, Some("admin")),
-            _ => false,
-        };
+    let has_permission = AgentAccessPolicy::has_permission(is_owner, collab_permission, &req.action);
 
     Ok(Json(serde_json::json!({
         "ok": true,
