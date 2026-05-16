@@ -292,6 +292,23 @@ impl<'a> GitCredentialDraft<'a> {
     }
 }
 
+/// Decrypted Git token policy for CLI credential injection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct GitCredentialToken<'a> {
+    value: &'a str,
+}
+
+impl<'a> GitCredentialToken<'a> {
+    pub(crate) fn parse(value: &'a str) -> Option<Self> {
+        let value = value.trim();
+        (!value.is_empty()).then_some(Self { value })
+    }
+
+    pub(crate) fn value(self) -> &'a str {
+        self.value
+    }
+}
+
 /// Git remote host normalization policy for CLI credential injection.
 pub(crate) struct GitRemoteHost;
 
@@ -422,6 +439,12 @@ mod tests {
         for credential_type in ["token", "ssh", "oauth"] {
             assert!(GitCredentialDraft::parse("name", "github", credential_type).is_ok());
         }
+    }
+
+    #[test]
+    fn git_credential_token_trims_and_rejects_empty_values() {
+        assert_eq!(GitCredentialToken::parse("  ghp-secret  ").map(GitCredentialToken::value), Some("ghp-secret"));
+        assert_eq!(GitCredentialToken::parse("  "), None);
     }
 
     #[test]

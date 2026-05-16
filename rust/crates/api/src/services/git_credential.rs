@@ -4,7 +4,7 @@ use agentforge_core::{AppResult, ErrorKind, TenantScope, crypto};
 use agentforge_db::entities::GitCredential;
 use uuid::Uuid;
 
-use crate::domain::credential::{GitCredentialDraft, GitRemoteHost};
+use crate::domain::credential::{CredentialListPage, GitCredentialDraft, GitCredentialToken, GitRemoteHost};
 use crate::repositories::git_credential::GitCredentialRepository;
 
 /// Business logic layer for git credential operations.
@@ -77,9 +77,8 @@ impl GitCredentialService {
 
     /// List git credentials (paginated).
     pub async fn list(&self, scope: &TenantScope, limit: i64, offset: i64) -> AppResult<Vec<GitCredential>> {
-        let limit = limit.clamp(1, 100);
-        let offset = offset.max(0);
-        self.repo.list(scope, limit, offset).await
+        let page = CredentialListPage::new(limit, offset);
+        self.repo.list(scope, page.limit(), page.offset()).await
     }
 
     /// Resolve saved GitHub/GitLab tokens into env vars consumed by `gh` and `glab`.
@@ -142,8 +141,7 @@ fn decrypt_git_token(key: &[u8; 32], cred: &GitCredential) -> AppResult<Option<S
             cred.provider
         ))
     })?;
-    let token = token.trim().to_string();
-    Ok((!token.is_empty()).then_some(token))
+    Ok(GitCredentialToken::parse(&token).map(|token| token.value().to_string()))
 }
 
 fn append_github_cli_env(env: &mut Vec<(String, String)>, remote_url: Option<&str>, token: String) {
@@ -220,11 +218,8 @@ mod tests {
         assert!(env.contains(&("GITLAB_HOST".into(), "gitlab.internal.example".into())));
     }
 
-    #[test]
-    fn decrypt_git_token_roundtrips_saved_ciphertext() {
-        let key = [9u8; 32];
-        let ciphertext = crypto::encrypt_base64(&key, "ghp-secret").unwrap();
-        let cred = GitCredential {
+    fn credential_with_ciphertext(ciphertext: String) -> GitCredential {
+        GitCredential {
             id: Uuid::now_v7(),
             organization_id: agentforge_core::OrgId::new(),
             user_id: agentforge_core::UserId::new(),
@@ -236,8 +231,25 @@ mod tests {
             remote_url: Some("github.com".into()),
             created_at: Utc::now(),
             updated_at: Utc::now(),
-        };
+        }
+    }
+
+    #[test]
+    fn decrypt_git_token_roundtrips_saved_ciphertext() {
+        let key = [9u8; 32];
+        let ciphertext = crypto::encrypt_base64(&key, "ghp-secret").unwrap();
+        let cred = credential_with_ciphertext(ciphertext);
 
         assert_eq!(decrypt_git_token(&key, &cred).unwrap().as_deref(), Some("ghp-secret"));
+    }
+
+    #[test]
+    fn decrypt_git_token_trims_and_ignores_blank_tokens() {
+        let key = [9u8; 32];
+        let padded = credential_with_ciphertext(crypto::encrypt_base64(&key, "  ghp-secret  ").unwrap());
+        let blank = credential_with_ciphertext(crypto::encrypt_base64(&key, "   ").unwrap());
+
+        assert_eq!(decrypt_git_token(&key, &padded).unwrap().as_deref(), Some("ghp-secret"));
+        assert_eq!(decrypt_git_token(&key, &blank).unwrap(), None);
     }
 }
