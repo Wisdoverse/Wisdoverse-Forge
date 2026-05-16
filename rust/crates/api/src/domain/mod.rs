@@ -11,6 +11,7 @@ pub(crate) mod billing;
 pub(crate) mod configuration;
 pub(crate) mod context_governance;
 pub(crate) mod credential;
+pub(crate) mod dev_environment;
 pub(crate) mod license;
 pub(crate) mod memory;
 pub(crate) mod observability;
