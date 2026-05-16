@@ -1,6 +1,6 @@
 //! Dev environment service — lifecycle management.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use agentforge_core::{AppError, AppResult, ErrorKind, TenantScope};
@@ -8,21 +8,14 @@ use agentforge_db::entities::DevEnvironment;
 use agentforge_platform::DockerClient;
 use agentforge_platform::types::{ContainerConfig, ContainerState, Mount, ResourceLimits};
 use async_trait::async_trait;
-use serde::Deserialize;
 use uuid::Uuid;
 
+use crate::domain::dev_environment::{
+    DEFAULT_STOP_TIMEOUT_SECONDS, DevEnvironmentLifecyclePolicy, DevEnvironmentName, DevEnvironmentRuntimeSpec,
+    DevEnvironmentRuntimeState, DevEnvironmentStatusUpdate, ERROR_STATUS, RUNNING_STATUS, STARTING_STATUS,
+    STOPPED_STATUS, StopPlan,
+};
 use crate::repositories::dev_environment::DevEnvironmentRepository;
-
-/// Maximum name length.
-const MAX_NAME_LEN: usize = 100;
-/// Valid status values.
-#[cfg(test)]
-const VALID_STATUSES: &[&str] = &["stopped", "starting", "running", "error"];
-const STARTING_STATUS: &str = "starting";
-const RUNNING_STATUS: &str = "running";
-const STOPPED_STATUS: &str = "stopped";
-const ERROR_STATUS: &str = "error";
-const DEFAULT_STOP_TIMEOUT_SECONDS: i64 = 30;
 
 /// Storage operations used by the dev environment service.
 #[async_trait]
@@ -176,24 +169,14 @@ where
         project_id: Option<Uuid>,
         config: &serde_json::Value,
     ) -> AppResult<DevEnvironment> {
-        if name.is_empty() || name.len() > MAX_NAME_LEN {
-            return Err(ErrorKind::Validation(format!("name must be 1-{MAX_NAME_LEN} characters")).into());
-        }
-        self.repo.create(scope, name, project_id, config).await
+        let name = DevEnvironmentName::parse(name)?;
+        self.repo.create(scope, name.value(), project_id, config).await
     }
 
     /// Start a dev environment by provisioning and starting its container.
     pub async fn start(&self, scope: &TenantScope, id: Uuid) -> AppResult<DevEnvironment> {
         let env = self.repo.get(scope, id).await?;
-        if env.status == RUNNING_STATUS || env.status == STARTING_STATUS {
-            return Err(ErrorKind::Validation(format!("environment is already {}", env.status)).into());
-        }
-        if let Some(existing_container_id) = env.container_id.as_deref() {
-            return Err(ErrorKind::Validation(format!(
-                "environment already has container {existing_container_id}; stop it before starting"
-            ))
-            .into());
-        }
+        DevEnvironmentLifecyclePolicy::ensure_can_start(&env.status, env.container_id.as_deref())?;
 
         let runtime = self.runtime.as_ref().ok_or_else(docker_unavailable)?;
         let config = build_container_config(scope, &env)?;
@@ -220,11 +203,10 @@ where
     /// Stop and remove a dev environment container, then clear its container ID.
     pub async fn stop(&self, scope: &TenantScope, id: Uuid) -> AppResult<DevEnvironment> {
         let env = self.repo.get(scope, id).await?;
-        if env.status == STOPPED_STATUS && env.container_id.is_none() {
-            return Err(ErrorKind::Validation("environment is already stopped".into()).into());
-        }
 
-        let Some(container_id) = env.container_id.as_deref() else {
+        let StopPlan::StopContainer(container_id) =
+            DevEnvironmentLifecyclePolicy::stop_plan(&env.status, env.container_id.as_deref())?
+        else {
             return self.repo.update_status(scope, id, STOPPED_STATUS, None).await;
         };
 
@@ -244,9 +226,7 @@ where
     /// Delete a dev environment.
     pub async fn delete(&self, scope: &TenantScope, id: Uuid) -> AppResult<()> {
         let env = self.repo.get(scope, id).await?;
-        if env.status == RUNNING_STATUS || env.status == STARTING_STATUS {
-            return Err(ErrorKind::Validation("stop the environment before deleting".into()).into());
-        }
+        DevEnvironmentLifecyclePolicy::ensure_can_delete(&env.status)?;
         self.repo.delete(scope, id).await
     }
 
@@ -271,50 +251,17 @@ where
             }
         };
 
-        match state {
-            ContainerState::Running if env.status != RUNNING_STATUS => {
+        let runtime_state = runtime_state_from_container(state);
+        match DevEnvironmentLifecyclePolicy::reconcile_runtime_status(&env.status, runtime_state) {
+            Some(DevEnvironmentStatusUpdate::Running) => {
                 self.repo.update_status(scope, env.id.as_uuid(), RUNNING_STATUS, Some(container_id)).await
             }
-            ContainerState::Stopped | ContainerState::Dead => {
+            Some(DevEnvironmentStatusUpdate::Stopped) => {
                 self.repo.update_status(scope, env.id.as_uuid(), STOPPED_STATUS, None).await
             }
-            _ => Ok(env),
+            None => Ok(env),
         }
     }
-}
-
-#[derive(Deserialize)]
-struct DevEnvironmentContainerConfig {
-    image: Option<String>,
-    #[serde(default)]
-    env: Option<EnvConfig>,
-    #[serde(default)]
-    mounts: Vec<MountConfig>,
-    network: Option<String>,
-    resources: Option<ResourceConfig>,
-}
-
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum EnvConfig {
-    Map(BTreeMap<String, String>),
-    List(Vec<String>),
-}
-
-#[derive(Deserialize)]
-struct MountConfig {
-    source: String,
-    target: String,
-    #[serde(default)]
-    read_only: bool,
-}
-
-#[derive(Default, Deserialize)]
-struct ResourceConfig {
-    cpu_quota: Option<i64>,
-    memory_bytes: Option<i64>,
-    memory_swap_bytes: Option<i64>,
-    pids_limit: Option<i64>,
 }
 
 fn docker_unavailable() -> AppError {
@@ -322,26 +269,19 @@ fn docker_unavailable() -> AppError {
 }
 
 fn build_container_config(scope: &TenantScope, env: &DevEnvironment) -> AppResult<ContainerConfig> {
-    let raw: DevEnvironmentContainerConfig = serde_json::from_value(env.config.clone())
-        .map_err(|err| ErrorKind::Validation(format!("invalid dev environment config: {err}")))?;
-    let image = raw
-        .image
-        .map(|image| image.trim().to_string())
-        .filter(|image| !image.is_empty())
-        .ok_or_else(|| ErrorKind::Validation("config.image is required to start a dev environment".into()))?;
-
-    let mut container_env = raw.env.map(env_config_to_vec).transpose()?.unwrap_or_default();
+    let spec = DevEnvironmentRuntimeSpec::parse(&env.config)?;
+    let mut container_env = spec.env;
     container_env.push(format!("AGENTFORGE_DEV_ENVIRONMENT_ID={}", env.id));
     container_env.push(format!("AGENTFORGE_ORG_ID={}", scope.org_id()));
 
-    let mounts = raw
+    let mounts = spec
         .mounts
         .into_iter()
         .map(|mount| Mount { source: mount.source, target: mount.target, read_only: mount.read_only })
         .collect();
 
     Ok(ContainerConfig {
-        image,
+        image: spec.image,
         name: Some(format!("agentforge-devenv-{}", env.id)),
         working_dir: None,
         env: container_env,
@@ -350,8 +290,8 @@ fn build_container_config(scope: &TenantScope, env: &DevEnvironment) -> AppResul
             ("agentforge.org_id".to_string(), scope.org_id().to_string()),
             ("agentforge.created_by".to_string(), env.created_by.to_string()),
         ]),
-        resources: raw.resources.map(ResourceConfig::into_limits).unwrap_or_default(),
-        network: raw.network,
+        resources: resource_limits_from_spec(spec.resources),
+        network: spec.network,
         mounts,
         privileged: false,
         host_pid: false,
@@ -363,47 +303,22 @@ fn build_container_config(scope: &TenantScope, env: &DevEnvironment) -> AppResul
     })
 }
 
-fn env_config_to_vec(config: EnvConfig) -> AppResult<Vec<String>> {
-    match config {
-        EnvConfig::Map(values) => values
-            .into_iter()
-            .map(|(key, value)| {
-                validate_env_key(&key)?;
-                Ok(format!("{key}={value}"))
-            })
-            .collect(),
-        EnvConfig::List(values) => {
-            for entry in &values {
-                let key = entry.split_once('=').map(|(key, _)| key).unwrap_or(entry);
-                validate_env_key(key)?;
-                if !entry.contains('=') {
-                    return Err(ErrorKind::Validation(format!(
-                        "environment entry `{entry}` must use KEY=VALUE format"
-                    ))
-                    .into());
-                }
-            }
-            Ok(values)
-        }
+fn runtime_state_from_container(state: ContainerState) -> DevEnvironmentRuntimeState {
+    match state {
+        ContainerState::Running => DevEnvironmentRuntimeState::Running,
+        ContainerState::Stopped => DevEnvironmentRuntimeState::Stopped,
+        ContainerState::Dead => DevEnvironmentRuntimeState::Dead,
+        ContainerState::Created | ContainerState::Paused | ContainerState::Unknown => DevEnvironmentRuntimeState::Other,
     }
 }
 
-fn validate_env_key(key: &str) -> AppResult<()> {
-    if key.is_empty() || key.contains('=') {
-        return Err(ErrorKind::Validation(format!("invalid environment variable name `{key}`")).into());
-    }
-    Ok(())
-}
-
-impl ResourceConfig {
-    fn into_limits(self) -> ResourceLimits {
-        let defaults = ResourceLimits::default();
-        ResourceLimits {
-            cpu_quota: self.cpu_quota.or(defaults.cpu_quota),
-            memory_bytes: self.memory_bytes.or(defaults.memory_bytes),
-            memory_swap_bytes: self.memory_swap_bytes.or(defaults.memory_swap_bytes),
-            pids_limit: self.pids_limit.or(defaults.pids_limit),
-        }
+fn resource_limits_from_spec(spec: crate::domain::dev_environment::DevEnvironmentResourceSpec) -> ResourceLimits {
+    let defaults = ResourceLimits::default();
+    ResourceLimits {
+        cpu_quota: spec.cpu_quota.or(defaults.cpu_quota),
+        memory_bytes: spec.memory_bytes.or(defaults.memory_bytes),
+        memory_swap_bytes: spec.memory_swap_bytes.or(defaults.memory_swap_bytes),
+        pids_limit: spec.pids_limit.or(defaults.pids_limit),
     }
 }
 
@@ -587,18 +502,6 @@ mod tests {
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }
-    }
-
-    #[test]
-    fn valid_statuses() {
-        for s in VALID_STATUSES {
-            assert!(["stopped", "starting", "running", "error"].contains(s));
-        }
-    }
-
-    #[test]
-    fn name_length_limit() {
-        assert_eq!(MAX_NAME_LEN, 100);
     }
 
     #[test]
