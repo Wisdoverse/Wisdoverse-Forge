@@ -6,6 +6,7 @@
 pub(crate) mod admin;
 pub(crate) mod agent;
 pub(crate) mod attachment;
+pub(crate) mod billing;
 pub(crate) mod configuration;
 pub(crate) mod credential;
 pub(crate) mod license;
