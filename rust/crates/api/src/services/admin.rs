@@ -4,6 +4,7 @@ use agentforge_core::{AppError, AppResult, ErrorKind, TenantScope};
 use agentforge_db::entities::{ImpersonationLog, Organization, User};
 use uuid::Uuid;
 
+use crate::domain::admin::{AdminImpersonationPolicy, AdminListPage, AdminRolePolicy};
 use crate::repositories::admin::{AdminAgentEventRow, AdminAgentFilters, AdminAgentRow, AdminRepository, AdminStats};
 
 /// Business logic layer for admin operations.
@@ -18,16 +19,14 @@ impl AdminService {
 
     /// List all users (admin only). Limit capped at 100.
     pub async fn list_all_users(&self, limit: i64, offset: i64) -> AppResult<Vec<User>> {
-        let limit = limit.clamp(1, 100);
-        let offset = offset.max(0);
-        self.repo.list_all_users(limit, offset).await
+        let page = AdminListPage::new(limit, offset);
+        self.repo.list_all_users(page.limit(), page.offset()).await
     }
 
     /// List all organizations (admin only). Limit capped at 100.
     pub async fn list_all_organizations(&self, limit: i64, offset: i64) -> AppResult<Vec<Organization>> {
-        let limit = limit.clamp(1, 100);
-        let offset = offset.max(0);
-        self.repo.list_all_organizations(limit, offset).await
+        let page = AdminListPage::new(limit, offset);
+        self.repo.list_all_organizations(page.limit(), page.offset()).await
     }
 
     /// Start impersonation of a target user.
@@ -37,10 +36,7 @@ impl AdminService {
         target_user_id: Uuid,
         reason: Option<&str>,
     ) -> AppResult<ImpersonationLog> {
-        // Cannot impersonate yourself
-        if scope.user_id().as_uuid() == target_user_id {
-            return Err(ErrorKind::Validation("cannot impersonate yourself".into()).into());
-        }
+        AdminImpersonationPolicy::ensure_not_self(scope.user_id().as_uuid(), target_user_id)?;
         self.repo.start_impersonation(scope, target_user_id, reason).await
     }
 
@@ -56,9 +52,8 @@ impl AdminService {
         limit: i64,
         offset: i64,
     ) -> AppResult<Vec<ImpersonationLog>> {
-        let limit = limit.clamp(1, 100);
-        let offset = offset.max(0);
-        self.repo.list_impersonation_log(scope, limit, offset).await
+        let page = AdminListPage::new(limit, offset);
+        self.repo.list_impersonation_log(scope, page.limit(), page.offset()).await
     }
 
     /// Get system-wide statistics.
@@ -69,8 +64,9 @@ impl AdminService {
     /// List agents across every organization for the admin dashboard. Applies
     /// the same limit clamping as other admin list endpoints.
     pub async fn list_agents(&self, mut filters: AdminAgentFilters) -> AppResult<(Vec<AdminAgentRow>, i64)> {
-        filters.limit = filters.limit.clamp(1, 100);
-        filters.offset = filters.offset.max(0);
+        let page = AdminListPage::new(filters.limit, filters.offset);
+        filters.limit = page.limit();
+        filters.offset = page.offset();
         self.repo.list_agents(&filters).await
     }
 
@@ -106,10 +102,7 @@ impl AdminService {
 
     /// Check if the user has admin privileges. Returns an error if not.
     pub fn require_admin(auth_role: &str) -> AppResult<()> {
-        match auth_role {
-            "owner" | "admin" => Ok(()),
-            _ => Err(ErrorKind::Forbidden.into()),
-        }
+        AdminRolePolicy::require_admin(auth_role)
     }
 }
 
@@ -165,11 +158,5 @@ mod tests {
     #[test]
     fn admin_role_check_empty_rejected() {
         assert!(AdminService::require_admin("").is_err());
-    }
-
-    #[test]
-    fn limit_clamping() {
-        assert_eq!(0_i64.clamp(1, 100), 1);
-        assert_eq!(200_i64.clamp(1, 100), 100);
     }
 }
