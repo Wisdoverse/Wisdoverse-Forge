@@ -11,3 +11,4 @@ pub(crate) mod observability;
 pub(crate) mod orchestration;
 pub(crate) mod resource;
 pub(crate) mod user;
+pub(crate) mod voice;
