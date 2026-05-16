@@ -5,13 +5,14 @@ use std::sync::Arc;
 use agentforge_auth::JwtManager;
 use agentforge_core::{AppResult, ErrorKind, TenantScope, UserId};
 use agentforge_db::entities::User;
-use base64::Engine;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use chrono::{Duration, Utc};
-use rand::RngCore;
 use serde::Serialize;
-use sha2::{Digest, Sha256};
 
+use crate::domain::user::{
+    GeneratedPasswordResetToken, PASSWORD_RESET_TTL_MINUTES, PasswordResetRequestEmail, PasswordResetToken,
+    RefreshSessionPolicy, UserEmail, UserListPage, UserPassword, derive_username, email_domain_for_log,
+    password_reset_email_body,
+};
 use crate::repositories::user::{OrgUserSearchResult, UserRepository};
 use crate::services::email::{EmailMessage, EmailSender};
 
@@ -20,10 +21,6 @@ pub struct UserService {
     repo: UserRepository,
     jwt: Arc<JwtManager>,
 }
-
-const REFRESH_EXPIRY_SECONDS: u64 = 7 * 24 * 60 * 60;
-const REMEMBER_ME_REFRESH_EXPIRY_SECONDS: u64 = 30 * 24 * 60 * 60;
-const PASSWORD_RESET_TTL_MINUTES: i64 = 60;
 
 /// Frontend-compatible authenticated user payload.
 #[derive(Debug, Clone, Serialize)]
@@ -107,19 +104,13 @@ impl UserService {
 
     /// Register a new user account.
     pub async fn register(&self, email: &str, password: &str, display_name: Option<&str>) -> AppResult<LoginResult> {
-        // Validate email format (basic check)
-        if validate_email(email).is_err() {
-            return Err(ErrorKind::Validation("invalid email format".into()).into());
-        }
-        // Validate password length
-        if validate_password(password).is_err() {
-            return Err(ErrorKind::Validation("password must be at least 8 characters".into()).into());
-        }
+        let email = UserEmail::parse(email)?;
+        let password = UserPassword::parse(password)?;
 
-        let hash = agentforge_auth::password::hash_password(password)
+        let hash = agentforge_auth::password::hash_password(password.value())
             .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("password hashing failed: {e}")))?;
 
-        let user = self.repo.create(email, &hash, display_name).await?;
+        let user = self.repo.create(email.value(), &hash, display_name).await?;
         let (org_id, role) = self
             .repo
             .find_default_org(user.id)
@@ -150,21 +141,20 @@ impl UserService {
             .filter(|value| !value.is_empty())
             .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("APP_URL is required for password reset links")))?;
 
-        let email = email.trim().to_ascii_lowercase();
-        if validate_email(&email).is_err() {
-            return Ok(());
-        }
-
-        let Some(user) = self.repo.find_by_email(&email).await? else {
+        let Some(email) = PasswordResetRequestEmail::normalize(email) else {
             return Ok(());
         };
 
-        let token = generate_reset_token();
-        let token_hash = hash_reset_token(&token);
+        let Some(user) = self.repo.find_by_email(email.value()).await? else {
+            return Ok(());
+        };
+
+        let token = GeneratedPasswordResetToken::generate();
+        let token_hash = token.hash();
         let expires_at = Utc::now() + Duration::minutes(PASSWORD_RESET_TTL_MINUTES);
         self.repo.store_password_reset_token(user.id, &token_hash, expires_at).await?;
 
-        let reset_url = format!("{}/login?reset_token={token}", app_url.trim_end_matches('/'));
+        let reset_url = format!("{}/login?reset_token={}", app_url.trim_end_matches('/'), token.value());
         let message = EmailMessage {
             to: user.email.clone(),
             subject: "Reset your Wisdoverse Forge password".to_string(),
@@ -186,16 +176,11 @@ impl UserService {
 
     /// Consume a password reset token and set a new password.
     pub async fn reset_password(&self, token: &str, new_password: &str) -> AppResult<()> {
-        if validate_password(new_password).is_err() {
-            return Err(ErrorKind::Validation("password must be at least 8 characters".into()).into());
-        }
-        let token = token.trim();
-        if token.len() < 32 {
-            return Err(ErrorKind::Validation("invalid or expired reset token".into()).into());
-        }
-        let hash = agentforge_auth::password::hash_password(new_password)
+        let new_password = UserPassword::parse(new_password)?;
+        let token = PasswordResetToken::parse(token)?;
+        let hash = agentforge_auth::password::hash_password(new_password.value())
             .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("password hashing failed: {e}")))?;
-        let token_hash = hash_reset_token(token);
+        let token_hash = token.hash();
         let updated = self.repo.reset_password_with_token(&token_hash, &hash).await?;
         if !updated {
             return Err(ErrorKind::Validation("invalid or expired reset token".into()).into());
@@ -215,9 +200,8 @@ impl UserService {
 
     /// List users in the org (admin, paginated).
     pub async fn list(&self, scope: &TenantScope, limit: i64, offset: i64) -> AppResult<Vec<User>> {
-        let limit = limit.clamp(1, 100);
-        let offset = offset.max(0);
-        self.repo.list_by_org(scope, limit, offset).await
+        let page = UserListPage::new(limit, offset);
+        self.repo.list_by_org(scope, page.limit(), page.offset()).await
     }
 
     pub async fn search_org_members(
@@ -237,7 +221,7 @@ impl UserService {
         access_token: String,
         remember_me: bool,
     ) -> AppResult<LoginResult> {
-        let refresh_expires_in = if remember_me { REMEMBER_ME_REFRESH_EXPIRY_SECONDS } else { REFRESH_EXPIRY_SECONDS };
+        let refresh_expires_in = RefreshSessionPolicy::refresh_expiry_seconds(remember_me);
         let refresh_token = self
             .jwt
             .create_token_with_expiry(user.id.as_uuid(), org_id, role, refresh_expires_in)
@@ -247,7 +231,7 @@ impl UserService {
             user: AuthenticatedUser {
                 id: user.id.as_uuid().to_string(),
                 email: user.email.clone(),
-                username: derive_username(user),
+                username: derive_username(user.display_name.as_deref(), &user.email),
                 org_id: Some(org_id.to_string()),
                 role: Some(role.to_string()),
             },
@@ -256,71 +240,5 @@ impl UserService {
             refresh_token,
             refresh_expires_in,
         })
-    }
-}
-
-fn derive_username(user: &User) -> String {
-    user.display_name
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-        .unwrap_or_else(|| user.email.split('@').next().unwrap_or("user").to_string())
-}
-
-/// Validate email format (basic check: must contain '@' and be at least 5 chars).
-pub(crate) fn validate_email(email: &str) -> Result<(), &'static str> {
-    if !email.contains('@') || email.len() < 5 {
-        return Err("invalid email format");
-    }
-    Ok(())
-}
-
-/// Validate password length (must be at least 8 characters).
-pub(crate) fn validate_password(password: &str) -> Result<(), &'static str> {
-    if password.len() < 8 {
-        return Err("password must be at least 8 characters");
-    }
-    Ok(())
-}
-
-fn generate_reset_token() -> String {
-    let mut bytes = [0_u8; 32];
-    rand::rng().fill_bytes(&mut bytes);
-    URL_SAFE_NO_PAD.encode(bytes)
-}
-
-fn hash_reset_token(token: &str) -> String {
-    hex::encode(Sha256::digest(token.as_bytes()))
-}
-
-fn password_reset_email_body(reset_url: &str) -> String {
-    format!(
-        "Reset your Wisdoverse Forge password by opening this link:\n\n{reset_url}\n\nThis link expires in {PASSWORD_RESET_TTL_MINUTES} minutes. If you did not request a password reset, ignore this email."
-    )
-}
-
-fn email_domain_for_log(email: &str) -> String {
-    email.split('@').nth(1).unwrap_or("unknown").to_ascii_lowercase()
-}
-
-#[cfg(test)]
-mod password_reset_tests {
-    use super::*;
-
-    #[test]
-    fn reset_token_hash_is_stable_and_does_not_expose_raw_token() {
-        let token = "raw-token-value";
-        let hash = hash_reset_token(token);
-        assert_eq!(hash.len(), 64);
-        assert_ne!(hash, token);
-        assert_eq!(hash, hash_reset_token(token));
-    }
-
-    #[test]
-    fn reset_email_body_contains_link_and_expiry() {
-        let body = password_reset_email_body("https://forge.example.com/?reset_token=abc");
-        assert!(body.contains("https://forge.example.com/?reset_token=abc"));
-        assert!(body.contains("60 minutes"));
     }
 }
