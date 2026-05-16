@@ -1,13 +1,11 @@
 //! Voice service — provider management and status.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::VoiceProvider;
 use uuid::Uuid;
 
+use crate::domain::voice::{VoiceProviderDraft, VoiceProviderType};
 use crate::repositories::voice::VoiceRepository;
-
-/// Valid voice provider types.
-const VALID_PROVIDER_TYPES: &[&str] = &["openai", "deepgram", "elevenlabs", "custom"];
 
 /// Business logic layer for voice operations.
 pub struct VoiceService {
@@ -43,16 +41,8 @@ impl VoiceService {
         provider_type: &str,
         config: &serde_json::Value,
     ) -> AppResult<VoiceProvider> {
-        let name = name.trim();
-        if name.is_empty() || name.len() > 255 {
-            return Err(ErrorKind::Validation("name must be 1-255 characters".into()).into());
-        }
-        if !VALID_PROVIDER_TYPES.contains(&provider_type) {
-            return Err(
-                ErrorKind::Validation(format!("provider_type must be one of: {:?}", VALID_PROVIDER_TYPES)).into()
-            );
-        }
-        self.repo.create(scope, name, provider_type, config).await
+        let draft = VoiceProviderDraft::parse(name, provider_type)?;
+        self.repo.create(scope, draft.name(), draft.provider_type(), config).await
     }
 
     /// Update a voice provider.
@@ -64,13 +54,7 @@ impl VoiceService {
         provider_type: Option<&str>,
         config: Option<&serde_json::Value>,
     ) -> AppResult<VoiceProvider> {
-        if let Some(pt) = provider_type
-            && !VALID_PROVIDER_TYPES.contains(&pt)
-        {
-            return Err(
-                ErrorKind::Validation(format!("provider_type must be one of: {:?}", VALID_PROVIDER_TYPES)).into()
-            );
-        }
+        let provider_type = provider_type.map(VoiceProviderType::parse).transpose()?.map(VoiceProviderType::value);
         self.repo.update(scope, id, name, provider_type, config).await
     }
 
@@ -82,24 +66,5 @@ impl VoiceService {
     /// Set a provider as default.
     pub async fn set_default(&self, scope: &TenantScope, id: Uuid) -> AppResult<VoiceProvider> {
         self.repo.set_default(scope, id).await
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn valid_provider_types() {
-        assert!(VALID_PROVIDER_TYPES.contains(&"openai"));
-        assert!(VALID_PROVIDER_TYPES.contains(&"deepgram"));
-        assert!(VALID_PROVIDER_TYPES.contains(&"elevenlabs"));
-        assert!(VALID_PROVIDER_TYPES.contains(&"custom"));
-    }
-
-    #[test]
-    fn invalid_provider_type_rejected() {
-        assert!(!VALID_PROVIDER_TYPES.contains(&"azure"));
-        assert!(!VALID_PROVIDER_TYPES.contains(&""));
     }
 }
