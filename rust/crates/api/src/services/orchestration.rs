@@ -19,6 +19,7 @@ use serde::Serialize;
 use serde_json::json;
 use uuid::Uuid;
 
+use crate::domain::context_resolver::{ContextTaskSnapshot, ResolvedContext};
 use crate::domain::orchestration::{
     BlockedTaskPolicy, ParticipantName, ParticipantStatusPolicy, QuotaBlockPolicy, TaskListPage, TaskPatchPolicy,
     TaskPriority, TaskStatusPolicy, TaskTitle,
@@ -29,7 +30,7 @@ use crate::repositories::orchestration::{
 use crate::repositories::run_context_injection::{ContextInjectionCounts, RunContextInjectionRepository};
 use crate::repositories::task_run::TaskRunRepository;
 use crate::services::context_envelope::ContextEnvelopeService;
-use crate::services::context_resolver::{ContextResolverService, ContextTaskSnapshot, ResolvedContext};
+use crate::services::context_resolver::ContextResolverService;
 
 /// JSON shape returned to the UI. Mirrors `TaskSummary` in `src/app/api/orchestration.ts`.
 #[derive(Debug, Clone, Serialize)]
@@ -1108,7 +1109,12 @@ impl OrchestrationService {
         let Some(resolver) = &self.context_resolver else {
             return Ok(None);
         };
-        let snapshot = ContextTaskSnapshot::from_task(task);
+        let snapshot = ContextTaskSnapshot {
+            task_id: task.id,
+            title: task.title.clone(),
+            description: task.description.clone(),
+            params: task.params.clone(),
+        };
         resolver.resolve_for_task_snapshot(&scope.scoped_read(), snapshot, participant.agent_id).await.map(Some)
     }
 

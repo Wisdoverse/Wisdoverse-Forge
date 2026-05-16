@@ -11,10 +11,8 @@ use agentforge_core::{AgentId, AppResult, ErrorKind, RuntimeCapability, ScopedRe
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
-use crate::services::context_resolver::{
-    ContextItemKind as ResolvedContextItemKind, ContextResolverService, DegradationReason, ResolveContextInput,
-    ResolvedContext,
-};
+use crate::domain::context_resolver::{ContextItemKind as ResolvedContextItemKind, DegradationReason, ResolvedContext};
+use crate::services::context_resolver::{ContextResolverService, ResolveContextInput};
 
 #[derive(Debug, Clone)]
 pub struct ContextEnvelopeInput {
@@ -202,8 +200,5 @@ fn capability_snapshot(capability: &RuntimeCapability) -> ContextEnvelopeCapabil
 }
 
 fn degradation_label(reason: &DegradationReason) -> &'static str {
-    match reason {
-        DegradationReason::BudgetTruncated => "budget_truncated",
-        DegradationReason::RuntimeCapabilityFallback => "runtime_capability_fallback",
-    }
+    reason.label()
 }
