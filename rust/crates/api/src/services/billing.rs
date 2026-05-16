@@ -8,16 +8,16 @@ use agentforge_core::{AppResult, ErrorKind, TenantScope};
 use agentforge_db::entities::{BillingPlan, Invoice, Subscription};
 use uuid::Uuid;
 
+use crate::domain::billing::{
+    BillingCycle, BillingRedirectUrlPolicy, CheckoutCouponPolicy, InvoiceListPage, PaymentMethodId,
+    SubscriptionStatusPolicy,
+};
 use crate::repositories::billing::BillingRepository;
 pub use stripe::{
     BillingGateway, CheckoutSession, CheckoutSessionInput, DirectSubscriptionInput, DisabledBillingGateway,
     PortalSession, StripeInvoiceSnapshot, StripeSubscriptionSnapshot, billing_gateway_from_config,
 };
 use stripe::{parse_invoice_object, parse_subscription_object, stripe_event};
-
-/// Valid subscription statuses.
-const VALID_STATUSES: &[&str] =
-    &["active", "past_due", "canceled", "trialing", "unpaid", "incomplete", "incomplete_expired", "paused"];
 
 /// Business logic layer for billing operations.
 pub struct BillingService {
@@ -55,15 +55,10 @@ impl BillingService {
         coupon_code: Option<&str>,
     ) -> AppResult<CheckoutSession> {
         self.ensure_gateway_configured()?;
-        validate_billing_cycle(billing_cycle)?;
-        validate_redirect_url(success_url, "success_url")?;
-        validate_redirect_url(cancel_url, "cancel_url")?;
-        if coupon_code.map(|value| !value.trim().is_empty()).unwrap_or(false) {
-            return Err(ErrorKind::Validation(
-                "pre-applied coupon codes are not supported; enable promotion codes in Stripe Checkout".to_string(),
-            )
-            .into());
-        }
+        BillingCycle::parse(billing_cycle)?;
+        BillingRedirectUrlPolicy::validate(success_url, "success_url")?;
+        BillingRedirectUrlPolicy::validate(cancel_url, "cancel_url")?;
+        CheckoutCouponPolicy::ensure_not_pre_applied(coupon_code)?;
 
         let plan = self.repo.find_plan_by_id(plan_id).await?;
         let price_id = stripe_price_id(&plan)?;
@@ -105,10 +100,7 @@ impl BillingService {
         self.ensure_gateway_configured()?;
         let plan = self.repo.find_plan_by_id(plan_id).await?;
         let price_id = stripe_price_id(&plan)?;
-        let payment_method_id = payment_method_id
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .ok_or_else(|| ErrorKind::Validation("payment_method_id is required for direct subscribe".to_string()))?;
+        let payment_method_id = PaymentMethodId::parse(payment_method_id)?;
 
         if let Some(existing) = self.repo.get_subscription(scope).await? {
             return Err(ErrorKind::Conflict(format!(
@@ -127,7 +119,7 @@ impl BillingService {
                 user_email,
                 plan_id,
                 price_id,
-                payment_method_id: payment_method_id.to_string(),
+                payment_method_id: payment_method_id.value().to_string(),
             })
             .await?;
 
@@ -147,7 +139,7 @@ impl BillingService {
         })?;
 
         let snapshot = self.gateway.cancel_subscription(stripe_subscription_id, immediately).await?;
-        validate_subscription_status(&snapshot.status)?;
+        SubscriptionStatusPolicy::validate(&snapshot.status)?;
         self.repo
             .update_subscription_from_stripe(
                 scope,
@@ -174,7 +166,7 @@ impl BillingService {
         })?;
 
         let snapshot = self.gateway.resume_subscription(stripe_subscription_id).await?;
-        validate_subscription_status(&snapshot.status)?;
+        SubscriptionStatusPolicy::validate(&snapshot.status)?;
         self.repo
             .update_subscription_from_stripe(
                 scope,
@@ -191,7 +183,7 @@ impl BillingService {
     /// Create a Stripe customer portal session for the current organization.
     pub async fn create_portal_session(&self, scope: &TenantScope, return_url: &str) -> AppResult<PortalSession> {
         self.ensure_gateway_configured()?;
-        validate_redirect_url(return_url, "return_url")?;
+        BillingRedirectUrlPolicy::validate(return_url, "return_url")?;
         let sub = self
             .repo
             .get_subscription(scope)
@@ -207,9 +199,8 @@ impl BillingService {
 
     /// List invoices for the organization (paginated).
     pub async fn list_invoices(&self, scope: &TenantScope, limit: i64, offset: i64) -> AppResult<Vec<Invoice>> {
-        let limit = limit.clamp(1, 100);
-        let offset = offset.max(0);
-        self.repo.list_invoices(scope, limit, offset).await
+        let page = InvoiceListPage::new(limit, offset);
+        self.repo.list_invoices(scope, page.limit(), page.offset()).await
     }
 
     /// Check if the organization is within its plan's agent limit.
@@ -263,7 +254,7 @@ impl BillingService {
         fallback_org_id: Option<Uuid>,
         fallback_plan_id: Option<Uuid>,
     ) -> AppResult<Subscription> {
-        validate_subscription_status(&snapshot.status)?;
+        SubscriptionStatusPolicy::validate(&snapshot.status)?;
 
         let existing = self.repo.get_subscription_by_stripe_id(&snapshot.id).await?;
         let org_id = match metadata_uuid(&snapshot.metadata, "org_id").or(fallback_org_id) {
@@ -375,69 +366,6 @@ fn stripe_price_id(plan: &BillingPlan) -> AppResult<String> {
         })
 }
 
-fn validate_billing_cycle(value: &str) -> AppResult<()> {
-    match value {
-        "monthly" | "yearly" => Ok(()),
-        other => Err(ErrorKind::Validation(format!("invalid billing_cycle '{other}'")).into()),
-    }
-}
-
-fn validate_redirect_url(value: &str, field: &str) -> AppResult<()> {
-    let parsed = url::Url::parse(value)
-        .map_err(|err| ErrorKind::Validation(format!("{field} must be an absolute URL: {err}")))?;
-    match parsed.scheme() {
-        "http" | "https" => Ok(()),
-        scheme => Err(ErrorKind::Validation(format!("{field} must use http or https, got '{scheme}'")).into()),
-    }
-}
-
 fn metadata_uuid(metadata: &std::collections::BTreeMap<String, String>, key: &str) -> Option<Uuid> {
     metadata.get(key).and_then(|value| Uuid::parse_str(value).ok())
-}
-
-/// Validate that a status string is a recognized subscription status.
-pub fn validate_subscription_status(status: &str) -> AppResult<()> {
-    if VALID_STATUSES.contains(&status) {
-        Ok(())
-    } else {
-        Err(ErrorKind::Validation(format!(
-            "invalid subscription status '{}', expected one of: {:?}",
-            status, VALID_STATUSES
-        ))
-        .into())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn valid_subscription_statuses() {
-        assert!(validate_subscription_status("active").is_ok());
-        assert!(validate_subscription_status("past_due").is_ok());
-        assert!(validate_subscription_status("canceled").is_ok());
-        assert!(validate_subscription_status("trialing").is_ok());
-    }
-
-    #[test]
-    fn invalid_subscription_status() {
-        assert!(validate_subscription_status("expired").is_err());
-        assert!(validate_subscription_status("").is_err());
-        assert!(validate_subscription_status("ACTIVE").is_err());
-    }
-
-    #[test]
-    fn valid_statuses_list_is_complete() {
-        // Ensure the constant matches what we document
-        assert_eq!(VALID_STATUSES.len(), 8);
-        assert!(VALID_STATUSES.contains(&"active"));
-        assert!(VALID_STATUSES.contains(&"past_due"));
-        assert!(VALID_STATUSES.contains(&"canceled"));
-        assert!(VALID_STATUSES.contains(&"trialing"));
-        assert!(VALID_STATUSES.contains(&"unpaid"));
-        assert!(VALID_STATUSES.contains(&"incomplete"));
-        assert!(VALID_STATUSES.contains(&"incomplete_expired"));
-        assert!(VALID_STATUSES.contains(&"paused"));
-    }
 }
