@@ -19,6 +19,10 @@ use serde::Serialize;
 use serde_json::json;
 use uuid::Uuid;
 
+use crate::domain::orchestration::{
+    BlockedTaskPolicy, ParticipantName, ParticipantStatusPolicy, TaskListPage, TaskPatchPolicy, TaskPriority,
+    TaskStatusPolicy, TaskTitle,
+};
 use crate::repositories::orchestration::{
     CreateTaskRow, OrchestrationTaskRepository, OrchestrationTaskStats, ParticipantRepository, UpdateTaskRow,
 };
@@ -26,22 +30,6 @@ use crate::repositories::run_context_injection::{ContextInjectionCounts, RunCont
 use crate::repositories::task_run::TaskRunRepository;
 use crate::services::context_envelope::ContextEnvelopeService;
 use crate::services::context_resolver::{ContextResolverService, ContextTaskSnapshot, ResolvedContext};
-
-/// Valid kanban task statuses.
-const VALID_TASK_STATUSES: &[&str] = &["backlog", "queued", "working", "blocked", "completed", "failed", "canceled"];
-
-/// Statuses the kanban exposes as "drop targets" for state transitions.
-const KANBAN_DROP_STATUSES: &[&str] = &["backlog", "queued", "working", "blocked", "completed"];
-
-/// Valid priority levels.
-const VALID_PRIORITIES: &[&str] = &["low", "normal", "high", "urgent"];
-
-/// Valid participant statuses.
-const VALID_PARTICIPANT_STATUSES: &[&str] = &["available", "busy", "offline"];
-
-/// Valid blocked reasons. Each maps to a UI hint via [`blocked_hint`].
-const VALID_BLOCKED_REASONS: &[&str] =
-    &["waiting_agent", "waiting_dependency", "waiting_input", "waiting_approval", "quota_exceeded"];
 
 /// JSON shape returned to the UI. Mirrors `TaskSummary` in `src/app/api/orchestration.ts`.
 #[derive(Debug, Clone, Serialize)]
@@ -172,20 +160,15 @@ impl OrchestrationService {
         parent_task_id: Option<Uuid>,
         requires_approval: bool,
     ) -> AppResult<OrchestrationTask> {
-        if let Err(msg) = validate_title(title) {
-            return Err(ErrorKind::Validation(msg.into()).into());
-        }
-        let priority = priority.unwrap_or("normal");
-        if !VALID_PRIORITIES.contains(&priority) {
-            return Err(ErrorKind::Validation(format!("invalid priority: {priority}")).into());
-        }
+        TaskTitle::validate(title)?;
+        let priority = TaskPriority::validate(priority.unwrap_or("normal"))?;
         if requires_approval && assigned_to.is_some() {
             return Err(ErrorKind::Validation(
                 "requiresApproval tasks cannot be assigned before approval; approve then dispatch".into(),
             )
             .into());
         }
-        let missing_inputs = missing_required_inputs(params.as_ref());
+        let missing_inputs = BlockedTaskPolicy::missing_required_inputs(params.as_ref());
         // Parent status gates child creation on waiting_dependency. Only a genuine
         // `NotFound` is remapped to a validation error; infrastructure errors
         // (pool/IO/decode) propagate unchanged so operators see the real failure.
@@ -222,20 +205,25 @@ impl OrchestrationService {
         // parent all start in `blocked` with a concrete reason. Dependency
         // blocks transition to `queued` when the parent completes; approval
         // blocks transition through the explicit approve endpoint.
-        let (initial_status, assigned_agent) =
-            if !missing_inputs.is_empty() || requires_approval || needs_dependency_block(parent_status.as_deref()) {
-                ("blocked", None)
-            } else {
-                ("backlog", None)
-            };
+        let (initial_status, assigned_agent) = if !missing_inputs.is_empty()
+            || requires_approval
+            || BlockedTaskPolicy::needs_dependency_block(parent_status.as_deref())
+        {
+            ("blocked", None)
+        } else {
+            ("backlog", None)
+        };
 
         // The initial block stamps reason + metadata inside the same INSERT as
         // the status so a partial write can never leave `status='blocked'` with
         // a NULL `blocked_reason` — that combination would leak past
         // `next_dispatchable`. Dependency metadata `{pending: 1}` reflects the
         // single-parent schema; multi-upstream blocking needs a dependency table.
-        let (initial_blocked_reason, initial_blocked_metadata) =
-            initial_blocked_state(&missing_inputs, requires_approval, needs_dependency_block(parent_status.as_deref()));
+        let (initial_blocked_reason, initial_blocked_metadata) = BlockedTaskPolicy::initial_state(
+            &missing_inputs,
+            requires_approval,
+            BlockedTaskPolicy::needs_dependency_block(parent_status.as_deref()),
+        );
 
         let task = self
             .task_repo
@@ -270,18 +258,11 @@ impl OrchestrationService {
         limit: i64,
         offset: i64,
     ) -> AppResult<Vec<OrchestrationTask>> {
-        if let Some(s) = status
-            && !is_valid_task_status(s)
-        {
-            return Err(ErrorKind::Validation(format!(
-                "invalid task status: {s}. Valid: {}",
-                VALID_TASK_STATUSES.join(", ")
-            ))
-            .into());
+        if let Some(s) = status {
+            TaskStatusPolicy::validate_filter(s)?;
         }
-        let limit = limit.clamp(1, 100);
-        let offset = offset.max(0);
-        self.task_repo.list(scope, status, agent_id, limit, offset).await
+        let page = TaskListPage::new(limit, offset);
+        self.task_repo.list(scope, status, agent_id, page.limit(), page.offset()).await
     }
 
     /// List tasks for a specific group (org + group scoped).
@@ -291,14 +272,8 @@ impl OrchestrationService {
         group_id: Uuid,
         status: Option<&str>,
     ) -> AppResult<Vec<OrchestrationTask>> {
-        if let Some(s) = status
-            && !is_valid_task_status(s)
-        {
-            return Err(ErrorKind::Validation(format!(
-                "invalid task status: {s}. Valid: {}",
-                VALID_TASK_STATUSES.join(", ")
-            ))
-            .into());
+        if let Some(s) = status {
+            TaskStatusPolicy::validate_filter(s)?;
         }
         self.task_repo.list_by_group(scope, group_id, status).await
     }
@@ -324,17 +299,11 @@ impl OrchestrationService {
         progress: Option<i16>,
         assigned_to: Option<Option<AgentId>>,
     ) -> AppResult<OrchestrationTask> {
-        if let Some(ref s) = state
-            && !KANBAN_DROP_STATUSES.contains(&s.as_str())
-            && s != "canceled"
-            && s != "failed"
-        {
-            return Err(ErrorKind::Validation(format!("invalid state: {s}")).into());
+        if let Some(ref s) = state {
+            TaskStatusPolicy::validate_patch_state(s)?;
         }
-        if let Some(ref p) = priority
-            && !VALID_PRIORITIES.contains(&p.as_str())
-        {
-            return Err(ErrorKind::Validation(format!("invalid priority: {p}")).into());
+        if let Some(ref p) = priority {
+            TaskPriority::validate(p)?;
         }
         if let Some(p) = progress
             && !(0..=100).contains(&p)
@@ -343,8 +312,8 @@ impl OrchestrationService {
         }
 
         let transition_state = state.as_deref();
-        let touches_assignment = patch_touches_assignment(&assigned_to);
-        let business_transition = is_business_patch_transition(transition_state, &assigned_to);
+        let touches_assignment = TaskPatchPolicy::touches_assignment(&assigned_to);
+        let business_transition = TaskPatchPolicy::is_business_transition(transition_state, &assigned_to);
         let current_for_guard = if state.is_some() || touches_assignment {
             Some(self.task_repo.find_by_id(scope, id).await?)
         } else {
@@ -352,7 +321,7 @@ impl OrchestrationService {
         };
         if let Some(current) = current_for_guard.as_ref()
             && current.status == "blocked"
-            && !blocked_reason_allows_dispatch(current.blocked_reason.as_deref())
+            && !BlockedTaskPolicy::reason_allows_dispatch(current.blocked_reason.as_deref())
             && !matches!(transition_state, Some("canceled"))
         {
             return Err(ErrorKind::Validation(format!(
@@ -715,7 +684,7 @@ impl OrchestrationService {
     ) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, task_id).await?;
 
-        if !can_complete_or_fail(&task.status) {
+        if !TaskStatusPolicy::can_complete_or_fail(&task.status) {
             return Err(ErrorKind::Validation(format!(
                 "can only complete working tasks, current status: {}",
                 task.status
@@ -785,7 +754,7 @@ impl OrchestrationService {
     ) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, task_id).await?;
 
-        if !can_complete_or_fail(&task.status) {
+        if !TaskStatusPolicy::can_complete_or_fail(&task.status) {
             return Err(
                 ErrorKind::Validation(format!("can only fail working tasks, current status: {}", task.status)).into()
             );
@@ -858,11 +827,12 @@ impl OrchestrationService {
         } else {
             None
         };
-        let (next_status, next_reason, next_metadata) = if needs_dependency_block(parent_status.as_deref()) {
-            ("blocked", Some("waiting_dependency"), Some(json!({ "pending": 1 })))
-        } else {
-            ("queued", None, None)
-        };
+        let (next_status, next_reason, next_metadata) =
+            if BlockedTaskPolicy::needs_dependency_block(parent_status.as_deref()) {
+                ("blocked", Some("waiting_dependency"), Some(json!({ "pending": 1 })))
+            } else {
+                ("queued", None, None)
+            };
         let approved = self
             .task_repo
             .approve_waiting_task(scope, task_id, scope.user_id(), next_status, next_reason, next_metadata)
@@ -881,9 +851,7 @@ impl OrchestrationService {
         name: &str,
         capabilities: &[String],
     ) -> AppResult<Participant> {
-        if let Err(msg) = validate_participant_name(name) {
-            return Err(ErrorKind::Validation(msg.into()).into());
-        }
+        ParticipantName::validate(name)?;
         let participant = self.participant_repo.register(scope, agent_id, name, capabilities).await?;
         if let Err(err) = self.sweep_dispatchable(scope).await {
             tracing::error!(error = ?err, agent_id = %agent_id, "Post-registration sweep failed");
@@ -892,14 +860,8 @@ impl OrchestrationService {
     }
 
     pub async fn list_participants(&self, scope: &TenantScope, status: Option<&str>) -> AppResult<Vec<Participant>> {
-        if let Some(s) = status
-            && !is_valid_participant_status(s)
-        {
-            return Err(ErrorKind::Validation(format!(
-                "invalid participant status: {s}. Valid: {}",
-                VALID_PARTICIPANT_STATUSES.join(", ")
-            ))
-            .into());
+        if let Some(s) = status {
+            ParticipantStatusPolicy::validate_filter(s)?;
         }
         self.participant_repo.list(scope, status).await
     }
@@ -925,9 +887,10 @@ impl OrchestrationService {
     /// Resolves the assigned agent's display name in a separate batch helper for lists.
     pub fn to_summary_with_name(task: OrchestrationTask, agent_name: Option<String>) -> TaskSummary {
         let blocked_hint = match task.status.as_str() {
-            "blocked" => {
-                task.blocked_reason.as_deref().map(|reason| blocked_hint(reason, task.blocked_metadata.as_ref()))
-            }
+            "blocked" => task
+                .blocked_reason
+                .as_deref()
+                .map(|reason| BlockedTaskPolicy::hint(reason, task.blocked_metadata.as_ref())),
             _ => None,
         };
 
@@ -1232,51 +1195,8 @@ fn assignment_from_task(
     })
 }
 
-fn initial_blocked_state(
-    missing_inputs: &[String],
-    requires_approval: bool,
-    dependency_blocked: bool,
-) -> (Option<&'static str>, Option<serde_json::Value>) {
-    if !missing_inputs.is_empty() {
-        return (Some("waiting_input"), Some(json!({ "missing": missing_inputs })));
-    }
-    if requires_approval {
-        return (Some("waiting_approval"), Some(json!({ "approver": "管理员" })));
-    }
-    if dependency_blocked {
-        return (Some("waiting_dependency"), Some(json!({ "pending": 1 })));
-    }
-    (None, None)
-}
-
-fn missing_required_inputs(params: Option<&serde_json::Value>) -> Vec<String> {
-    let Some(params) = params else {
-        return Vec::new();
-    };
-    let required = params
-        .get("requiredInputs")
-        .or_else(|| params.get("required_inputs"))
-        .and_then(|v| v.as_array())
-        .map(|fields| fields.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
-        .unwrap_or_default();
-
-    required.into_iter().filter(|name| !input_value_present(params, name)).map(str::to_string).collect()
-}
-
-fn input_value_present(params: &serde_json::Value, name: &str) -> bool {
-    ["inputs", "env", "apiKeys", "api_keys"]
-        .iter()
-        .filter_map(|key| params.get(*key))
-        .any(|container| value_has_non_empty_field(container, name))
-        || value_has_non_empty_field(params, name)
-}
-
-fn value_has_non_empty_field(value: &serde_json::Value, name: &str) -> bool {
-    value.get(name).is_some_and(|v| match v {
-        serde_json::Value::String(s) => !s.trim().is_empty(),
-        serde_json::Value::Null => false,
-        _ => true,
-    })
+fn can_enter_dispatch(task: &OrchestrationTask) -> bool {
+    BlockedTaskPolicy::can_enter_dispatch(&task.status, task.blocked_reason.as_deref())
 }
 
 fn quota_block_metadata(error: &serde_json::Value) -> Option<serde_json::Value> {
@@ -1335,114 +1255,4 @@ fn json_i64(value: &serde_json::Value, key: &str) -> Option<i64> {
 
 fn json_nested_i64(value: &serde_json::Value, parent: &str, key: &str) -> Option<i64> {
     value.get(parent).and_then(|v| json_i64(v, key))
-}
-
-/// Render a human-readable hint describing what the task is waiting on.
-/// Returned to the UI so the kanban can show "还差 X" on blocked cards.
-pub fn blocked_hint(reason: &str, metadata: Option<&serde_json::Value>) -> String {
-    match reason {
-        "waiting_agent" => {
-            let busy = metadata.and_then(|m| m.get("busy")).and_then(|v| v.as_i64()).unwrap_or(0);
-            let offline = metadata.and_then(|m| m.get("offline")).and_then(|v| v.as_i64()).unwrap_or(0);
-            if busy + offline == 0 {
-                "等待 agent：当前组织内没有注册的 participant".into()
-            } else {
-                format!("等待空闲 agent（{busy} 个忙碌, {offline} 个离线）")
-            }
-        }
-        "waiting_dependency" => {
-            let pending = metadata.and_then(|m| m.get("pending")).and_then(|v| v.as_i64()).unwrap_or(0);
-            format!("等待 {pending} 个上游任务完成")
-        }
-        "waiting_input" => {
-            let fields = metadata
-                .and_then(|m| m.get("missing"))
-                .and_then(|v| v.as_array())
-                .map(|a| a.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>().join(", "))
-                .unwrap_or_default();
-            if fields.is_empty() { "等待补充输入".into() } else { format!("缺少输入: {fields}") }
-        }
-        "waiting_approval" => {
-            let approver = metadata.and_then(|m| m.get("approver")).and_then(|v| v.as_str()).unwrap_or("管理员");
-            format!("等待 {approver} 审批")
-        }
-        "quota_exceeded" => {
-            let used = metadata.and_then(|m| m.get("used")).and_then(|v| v.as_i64()).unwrap_or(0);
-            let limit = metadata.and_then(|m| m.get("limit")).and_then(|v| v.as_i64()).unwrap_or(0);
-            format!("配额超限（{used}/{limit}）")
-        }
-        other => format!("阻塞: {other}"),
-    }
-}
-
-/// Check if a task status string is valid.
-pub(crate) fn is_valid_task_status(status: &str) -> bool {
-    VALID_TASK_STATUSES.contains(&status)
-}
-
-/// Check if a participant status string is valid.
-pub(crate) fn is_valid_participant_status(status: &str) -> bool {
-    VALID_PARTICIPANT_STATUSES.contains(&status)
-}
-
-/// Check if a blocked reason is one we know how to render.
-pub fn is_valid_blocked_reason(reason: &str) -> bool {
-    VALID_BLOCKED_REASONS.contains(&reason)
-}
-
-/// Validate a task title: must be 1-500 characters.
-pub(crate) fn validate_title(title: &str) -> Result<(), &'static str> {
-    if title.is_empty() || title.len() > 500 {
-        return Err("title must be between 1 and 500 characters");
-    }
-    Ok(())
-}
-
-/// Validate a participant name: must be 1-255 characters.
-pub(crate) fn validate_participant_name(name: &str) -> Result<(), &'static str> {
-    if name.is_empty() || name.len() > 255 {
-        return Err("name must be between 1 and 255 characters");
-    }
-    Ok(())
-}
-
-/// Tasks dispatchable by the auto-pickup loop. `blocked` is included because
-/// `waiting_agent` blocks should auto-clear when an agent comes online.
-/// `backlog` is intentionally excluded: it is the draft lane and must be
-/// explicitly promoted before the dispatcher can claim it.
-pub(crate) fn can_dispatch(status: &str) -> bool {
-    matches!(status, "queued" | "blocked")
-}
-
-fn can_enter_dispatch(task: &OrchestrationTask) -> bool {
-    can_dispatch(&task.status) && blocked_reason_allows_dispatch(task.blocked_reason.as_deref())
-}
-
-fn blocked_reason_allows_dispatch(reason: Option<&str>) -> bool {
-    matches!(reason, None | Some("waiting_agent"))
-}
-
-/// Child tasks with an unfinished parent start in `blocked/waiting_dependency`.
-/// `None` (no parent) and a completed parent both mean "free to schedule".
-/// `failed` / `canceled` parents are intentionally treated as unfinished: a
-/// child whose parent didn't complete cleanly needs explicit operator action,
-/// not silent auto-start — so we keep it blocked until promotion.
-pub(crate) fn needs_dependency_block(parent_status: Option<&str>) -> bool {
-    match parent_status {
-        None | Some("completed") => false,
-        Some(_) => true,
-    }
-}
-
-/// Check if a task can be completed or failed (must be working).
-pub(crate) fn can_complete_or_fail(status: &str) -> bool {
-    status == "working"
-}
-
-pub(crate) fn patch_touches_assignment(assigned_to: &Option<Option<AgentId>>) -> bool {
-    assigned_to.is_some()
-}
-
-pub(crate) fn is_business_patch_transition(state: Option<&str>, assigned_to: &Option<Option<AgentId>>) -> bool {
-    matches!(state, Some("working" | "completed" | "failed" | "canceled")) || matches!(assigned_to, Some(Some(_)))
 }
