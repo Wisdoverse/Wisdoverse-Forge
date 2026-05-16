@@ -1,9 +1,10 @@
 //! Plugin service — validation and management.
 
-use agentforge_core::{AgentId, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AgentId, AppResult, TenantScope};
 use agentforge_db::entities::Plugin;
 use uuid::Uuid;
 
+use crate::domain::configuration::{PluginName, PluginVersion};
 use crate::repositories::plugin::{AgentPluginRow, PluginRepository};
 
 /// Business logic layer for plugin operations.
@@ -35,14 +36,11 @@ impl PluginService {
         description: Option<&str>,
         config: Option<&serde_json::Value>,
     ) -> AppResult<Plugin> {
-        let name = name.trim();
-        if name.is_empty() || name.len() > 255 {
-            return Err(ErrorKind::Validation("plugin name must be 1-255 characters".into()).into());
-        }
-        let version = version.unwrap_or("0.1.0");
+        let name = PluginName::parse(name)?;
+        let version = PluginVersion::from_optional(version);
         let default_config = serde_json::json!({});
         let config = config.unwrap_or(&default_config);
-        self.repo.create(scope, name, version, description, config).await
+        self.repo.create(scope, name.value(), version.value(), description, config).await
     }
 
     /// Update a plugin's config/enabled state.
@@ -81,26 +79,5 @@ impl PluginService {
     /// Remove the per-agent override (revert to plugin default).
     pub async fn remove_for_agent(&self, scope: &TenantScope, agent_id: AgentId, plugin_id: Uuid) -> AppResult<()> {
         self.repo.remove_for_agent(scope, agent_id, plugin_id).await
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn empty_plugin_name_rejected() {
-        let name = "".trim();
-        assert!(name.is_empty());
-    }
-
-    #[test]
-    fn long_plugin_name_rejected() {
-        let name = "a".repeat(256);
-        assert!(name.len() > 255);
-    }
-
-    #[test]
-    fn valid_plugin_name_accepted() {
-        let name = "my-plugin".trim();
-        assert!(!name.is_empty() && name.len() <= 255);
     }
 }
