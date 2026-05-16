@@ -4,6 +4,7 @@ use agentforge_core::{AppResult, OrgId, TenantScope, UserId};
 use agentforge_db::entities::AuditLogEntry;
 use uuid::Uuid;
 
+use crate::domain::observability::AuditListPage;
 use crate::repositories::audit::AuditRepository;
 
 /// Business logic layer for audit log operations.
@@ -25,9 +26,8 @@ impl AuditService {
         limit: i64,
         offset: i64,
     ) -> AppResult<Vec<AuditLogEntry>> {
-        let limit = limit.clamp(1, 100);
-        let offset = offset.max(0);
-        self.repo.list(scope.org_id(), action, resource_type, limit, offset).await
+        let page = AuditListPage::new(limit, offset);
+        self.repo.list(scope.org_id(), action, resource_type, page.limit(), page.offset()).await
     }
 
     /// Log an action to the audit trail — callable from other modules.
@@ -47,29 +47,18 @@ impl AuditService {
 
 #[cfg(test)]
 mod tests {
+    use crate::domain::observability::AuditListPage;
+
     #[test]
     fn audit_limit_clamping() {
-        let limit: i64 = 500;
-        let clamped = limit.clamp(1, 100);
-        assert_eq!(clamped, 100);
-
-        let limit: i64 = 0;
-        let clamped = limit.clamp(1, 100);
-        assert_eq!(clamped, 1);
-
-        let limit: i64 = 50;
-        let clamped = limit.clamp(1, 100);
-        assert_eq!(clamped, 50);
+        assert_eq!(AuditListPage::new(500, 0).limit(), 100);
+        assert_eq!(AuditListPage::new(0, 0).limit(), 1);
+        assert_eq!(AuditListPage::new(50, 0).limit(), 50);
     }
 
     #[test]
     fn audit_offset_clamping() {
-        let offset: i64 = -5;
-        let clamped = offset.max(0);
-        assert_eq!(clamped, 0);
-
-        let offset: i64 = 10;
-        let clamped = offset.max(0);
-        assert_eq!(clamped, 10);
+        assert_eq!(AuditListPage::new(10, -5).offset(), 0);
+        assert_eq!(AuditListPage::new(10, 10).offset(), 10);
     }
 }
