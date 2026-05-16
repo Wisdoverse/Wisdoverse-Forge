@@ -3,6 +3,7 @@
 use agentforge_core::{AppResult, ErrorKind, ProjectId, TeamId, TenantScope};
 use uuid::Uuid;
 
+use crate::domain::resource::{ResourceMemberRole, ResourceOrganizationPolicy};
 use crate::repositories::resource_member::{ResourceMember, ResourceMemberRepository};
 use crate::repositories::resource_permission::ResourcePermissionRepository;
 use crate::services::resource_permission::ResourcePermissionService;
@@ -23,7 +24,7 @@ impl ResourceMemberService {
         org_id: Uuid,
         team_id: TeamId,
     ) -> AppResult<Vec<ResourceMember>> {
-        ensure_current_org(scope, org_id)?;
+        ResourceOrganizationPolicy::ensure_current_org(scope, org_id)?;
         self.permissions.require_team_manager(scope, team_id).await?;
         self.repo.list_team_members(scope, org_id, team_id).await
     }
@@ -36,10 +37,10 @@ impl ResourceMemberService {
         user_id: Uuid,
         role: Option<&str>,
     ) -> AppResult<ResourceMember> {
-        ensure_current_org(scope, org_id)?;
+        ResourceOrganizationPolicy::ensure_current_org(scope, org_id)?;
         self.permissions.require_team_manager(scope, team_id).await?;
-        let role = normalize_member_role(role)?;
-        self.repo.add_team_member(scope, org_id, team_id, user_id, &role).await
+        let role = ResourceMemberRole::normalize(role)?;
+        self.repo.add_team_member(scope, org_id, team_id, user_id, role.as_str()).await
     }
 
     pub async fn add_team_member_by_email(
@@ -66,10 +67,10 @@ impl ResourceMemberService {
         user_id: Uuid,
         role: &str,
     ) -> AppResult<ResourceMember> {
-        ensure_current_org(scope, org_id)?;
+        ResourceOrganizationPolicy::ensure_current_org(scope, org_id)?;
         self.permissions.require_team_manager(scope, team_id).await?;
-        let role = normalize_member_role(Some(role))?;
-        self.repo.update_team_member(scope, org_id, team_id, user_id, &role).await
+        let role = ResourceMemberRole::normalize(Some(role))?;
+        self.repo.update_team_member(scope, org_id, team_id, user_id, role.as_str()).await
     }
 
     pub async fn remove_team_member(
@@ -79,7 +80,7 @@ impl ResourceMemberService {
         team_id: TeamId,
         user_id: Uuid,
     ) -> AppResult<()> {
-        ensure_current_org(scope, org_id)?;
+        ResourceOrganizationPolicy::ensure_current_org(scope, org_id)?;
         self.permissions.require_team_manager(scope, team_id).await?;
         self.repo.remove_team_member(scope, org_id, team_id, user_id).await
     }
@@ -101,8 +102,8 @@ impl ResourceMemberService {
         role: Option<&str>,
     ) -> AppResult<ResourceMember> {
         self.permissions.require_project_manager(scope, project_id).await?;
-        let role = normalize_member_role(role)?;
-        self.repo.add_project_member(scope, project_id, user_id, &role).await
+        let role = ResourceMemberRole::normalize(role)?;
+        self.repo.add_project_member(scope, project_id, user_id, role.as_str()).await
     }
 
     pub async fn add_project_member_by_email(
@@ -128,8 +129,8 @@ impl ResourceMemberService {
         role: &str,
     ) -> AppResult<ResourceMember> {
         self.permissions.require_project_manager(scope, project_id).await?;
-        let role = normalize_member_role(Some(role))?;
-        self.repo.update_project_member(scope, project_id, user_id, &role).await
+        let role = ResourceMemberRole::normalize(Some(role))?;
+        self.repo.update_project_member(scope, project_id, user_id, role.as_str()).await
     }
 
     pub async fn remove_project_member(
@@ -143,36 +144,18 @@ impl ResourceMemberService {
     }
 }
 
-fn ensure_current_org(scope: &TenantScope, org_id: Uuid) -> AppResult<()> {
-    if scope.org_id().as_uuid() == org_id {
-        return Ok(());
-    }
-    Err(ErrorKind::Forbidden.into())
-}
-
-fn normalize_member_role(role: Option<&str>) -> AppResult<String> {
-    let normalized = role.unwrap_or("member").trim().to_ascii_lowercase();
-    match normalized.as_str() {
-        "owner" | "admin" | "maintainer" | "member" => Ok(normalized),
-        // Compatibility with older DOM modals that used editor/viewer labels.
-        "editor" => Ok("maintainer".to_string()),
-        "viewer" => Ok("member".to_string()),
-        _ => Err(ErrorKind::Validation("role must be owner, admin, maintainer, or member".into()).into()),
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::normalize_member_role;
+    use crate::domain::resource::ResourceMemberRole;
 
     #[test]
     fn normalizes_legacy_member_roles() {
-        assert_eq!(normalize_member_role(Some("editor")).unwrap(), "maintainer");
-        assert_eq!(normalize_member_role(Some("viewer")).unwrap(), "member");
+        assert_eq!(ResourceMemberRole::normalize(Some("editor")).unwrap().as_str(), "maintainer");
+        assert_eq!(ResourceMemberRole::normalize(Some("viewer")).unwrap().as_str(), "member");
     }
 
     #[test]
     fn rejects_unknown_member_roles() {
-        assert!(normalize_member_role(Some("root")).is_err());
+        assert!(ResourceMemberRole::normalize(Some("root")).is_err());
     }
 }

@@ -1,8 +1,9 @@
 //! Settings service — validation and management.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::Setting;
 
+use crate::domain::resource::SettingKey;
 use crate::repositories::setting::SettingRepository;
 
 /// Business logic layer for settings operations.
@@ -22,11 +23,8 @@ impl SettingService {
 
     /// Upsert a setting by key.
     pub async fn upsert(&self, scope: &TenantScope, key: &str, value: &serde_json::Value) -> AppResult<Setting> {
-        let key = key.trim();
-        if key.is_empty() || key.len() > 255 {
-            return Err(ErrorKind::Validation("key must be 1-255 characters".into()).into());
-        }
-        self.repo.upsert(scope, key, value).await
+        let key = SettingKey::parse(key)?;
+        self.repo.upsert(scope, key.value(), value).await
     }
 
     /// Delete a setting by key.
@@ -37,22 +35,20 @@ impl SettingService {
 
 #[cfg(test)]
 mod tests {
+    use crate::domain::resource::SettingKey;
+
     #[test]
     fn validate_empty_key_rejected() {
-        // We test the validation logic directly without DB
-        let key = "".trim();
-        assert!(key.is_empty());
+        assert!(SettingKey::parse("").is_err());
     }
 
     #[test]
     fn validate_long_key_rejected() {
-        let key = "a".repeat(256);
-        assert!(key.len() > 255);
+        assert!(SettingKey::parse(&"a".repeat(256)).is_err());
     }
 
     #[test]
     fn validate_valid_key_accepted() {
-        let key = "theme.color".trim();
-        assert!(!key.is_empty() && key.len() <= 255);
+        assert_eq!(SettingKey::parse(" theme.color ").unwrap().value(), "theme.color");
     }
 }
