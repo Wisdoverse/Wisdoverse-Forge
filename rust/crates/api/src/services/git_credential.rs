@@ -2,16 +2,10 @@
 
 use agentforge_core::{AppResult, ErrorKind, TenantScope, crypto};
 use agentforge_db::entities::GitCredential;
-use url::Url;
 use uuid::Uuid;
 
+use crate::domain::credential::{GitCredentialDraft, GitRemoteHost};
 use crate::repositories::git_credential::GitCredentialRepository;
-
-/// Valid git providers.
-const VALID_PROVIDERS: &[&str] = &["github", "gitlab", "bitbucket", "custom"];
-
-/// Valid credential types.
-const VALID_CREDENTIAL_TYPES: &[&str] = &["token", "ssh", "oauth"];
 
 /// Business logic layer for git credential operations.
 pub struct GitCredentialService {
@@ -40,9 +34,19 @@ impl GitCredentialService {
         token_encrypted: Option<&[u8]>,
         token_nonce: Option<&[u8]>,
     ) -> AppResult<GitCredential> {
-        let name = validate_git_credential(name, provider, credential_type)?;
+        let credential = GitCredentialDraft::parse(name, provider, credential_type)?;
 
-        self.repo.create(scope, name, provider, credential_type, remote_url, token_encrypted, token_nonce).await
+        self.repo
+            .create(
+                scope,
+                credential.name(),
+                credential.provider(),
+                credential.credential_type(),
+                remote_url,
+                token_encrypted,
+                token_nonce,
+            )
+            .await
     }
 
     /// Upsert a git credential by provider after validation.
@@ -56,10 +60,18 @@ impl GitCredentialService {
         token_encrypted: Option<&[u8]>,
         token_nonce: Option<&[u8]>,
     ) -> AppResult<GitCredential> {
-        let name = validate_git_credential(name, provider, credential_type)?;
+        let credential = GitCredentialDraft::parse(name, provider, credential_type)?;
 
         self.repo
-            .upsert_for_provider(scope, name, provider, credential_type, remote_url, token_encrypted, token_nonce)
+            .upsert_for_provider(
+                scope,
+                credential.name(),
+                credential.provider(),
+                credential.credential_type(),
+                remote_url,
+                token_encrypted,
+                token_nonce,
+            )
             .await
     }
 
@@ -111,29 +123,6 @@ impl GitCredentialService {
     }
 }
 
-fn validate_git_credential<'a>(name: &'a str, provider: &str, credential_type: &str) -> AppResult<&'a str> {
-    let name = name.trim();
-    if name.is_empty() || name.len() > 255 {
-        return Err(ErrorKind::Validation("name must be 1-255 characters".into()).into());
-    }
-
-    if !VALID_PROVIDERS.contains(&provider) {
-        return Err(
-            ErrorKind::Validation(format!("invalid provider '{}', valid: {:?}", provider, VALID_PROVIDERS)).into()
-        );
-    }
-
-    if !VALID_CREDENTIAL_TYPES.contains(&credential_type) {
-        return Err(ErrorKind::Validation(format!(
-            "invalid credential_type '{}', valid: {:?}",
-            credential_type, VALID_CREDENTIAL_TYPES
-        ))
-        .into());
-    }
-
-    Ok(name)
-}
-
 fn decrypt_git_token(key: &[u8; 32], cred: &GitCredential) -> AppResult<Option<String>> {
     let Some(ciphertext) = cred.token_encrypted.as_deref() else {
         return Ok(None);
@@ -158,7 +147,7 @@ fn decrypt_git_token(key: &[u8; 32], cred: &GitCredential) -> AppResult<Option<S
 }
 
 fn append_github_cli_env(env: &mut Vec<(String, String)>, remote_url: Option<&str>, token: String) {
-    let host = normalize_git_host(remote_url, "github.com");
+    let host = GitRemoteHost::normalize(remote_url, "github.com");
     let is_github_dotcom = host == "github.com";
     if !is_github_dotcom {
         env.push(("GH_HOST".into(), host.clone()));
@@ -175,22 +164,7 @@ fn append_github_cli_env(env: &mut Vec<(String, String)>, remote_url: Option<&st
 
 fn append_gitlab_cli_env(env: &mut Vec<(String, String)>, remote_url: Option<&str>, token: String) {
     env.push(("GITLAB_TOKEN".into(), token));
-    env.push(("GITLAB_HOST".into(), normalize_git_host(remote_url, "gitlab.com")));
-}
-
-fn normalize_git_host(value: Option<&str>, default_host: &str) -> String {
-    let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) else {
-        return default_host.to_string();
-    };
-    if let Ok(url) = Url::parse(value)
-        && let Some(host) = url.host_str()
-    {
-        return host.to_ascii_lowercase();
-    }
-
-    let value = value.trim_start_matches("ssh://").trim_start_matches("git+ssh://").trim_end_matches('/').trim();
-    let without_user = value.rsplit_once('@').map_or(value, |(_, host)| host);
-    without_user.split([':', '/']).next().filter(|host| !host.is_empty()).unwrap_or(default_host).to_ascii_lowercase()
+    env.push(("GITLAB_HOST".into(), GitRemoteHost::normalize(remote_url, "gitlab.com")));
 }
 
 #[cfg(test)]
@@ -198,23 +172,6 @@ mod tests {
     use super::*;
     use chrono::Utc;
     use uuid::Uuid;
-
-    #[test]
-    fn valid_providers() {
-        assert!(VALID_PROVIDERS.contains(&"github"));
-        assert!(VALID_PROVIDERS.contains(&"gitlab"));
-        assert!(VALID_PROVIDERS.contains(&"bitbucket"));
-        assert!(VALID_PROVIDERS.contains(&"custom"));
-        assert!(!VALID_PROVIDERS.contains(&"azure"));
-    }
-
-    #[test]
-    fn valid_credential_types() {
-        assert!(VALID_CREDENTIAL_TYPES.contains(&"token"));
-        assert!(VALID_CREDENTIAL_TYPES.contains(&"ssh"));
-        assert!(VALID_CREDENTIAL_TYPES.contains(&"oauth"));
-        assert!(!VALID_CREDENTIAL_TYPES.contains(&"password"));
-    }
 
     #[test]
     fn github_dotcom_env_uses_standard_token_aliases() {
@@ -261,14 +218,6 @@ mod tests {
 
         assert!(env.contains(&("GITLAB_TOKEN".into(), "gitlab-token-placeholder".into())));
         assert!(env.contains(&("GITLAB_HOST".into(), "gitlab.internal.example".into())));
-    }
-
-    #[test]
-    fn normalize_git_host_accepts_common_git_url_shapes() {
-        assert_eq!(normalize_git_host(None, "github.com"), "github.com");
-        assert_eq!(normalize_git_host(Some("github.com/Wisdoverse/repo"), "github.com"), "github.com");
-        assert_eq!(normalize_git_host(Some("git@github.com:Wisdoverse/repo.git"), "github.com"), "github.com");
-        assert_eq!(normalize_git_host(Some("https://GitHub.com/Wisdoverse/repo"), "github.com"), "github.com");
     }
 
     #[test]
