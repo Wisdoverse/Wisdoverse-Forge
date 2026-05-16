@@ -11,14 +11,12 @@ use serde_json::{Value, json};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::domain::memory::{MemoryConfidencePolicy, MemoryListPage, MemoryTitle, MemoryTtlPolicy, MemoryVisibility};
 use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository, UpdateMemoryRecord};
 use crate::repositories::resource_permission::ResourcePermissionRepository;
 use crate::services::context_governance::{
     ContextAuditEvent, ContextGovernanceService, ContextScopeKind, ScopeExpansionRequest, Sensitivity,
 };
-
-const DEFAULT_LIMIT: i64 = 50;
-const MAX_LIMIT: i64 = 200;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -113,7 +111,8 @@ impl MemoryService {
         offset: Option<i64>,
     ) -> AppResult<Vec<MemoryItem>> {
         let proof = self.validated_read(scope).await?;
-        self.repo.list_visible(&proof, normalize_limit(limit), offset.unwrap_or(0).max(0)).await
+        let page = MemoryListPage::new(limit, offset);
+        self.repo.list_visible(&proof, page.limit(), page.offset()).await
     }
 
     pub async fn get(&self, scope: &TenantScope, id: MemoryItemId) -> AppResult<MemoryItem> {
@@ -150,11 +149,10 @@ impl MemoryService {
         let proof = self.validated_read(scope).await?;
         let workspace_id = required_workspace(scope)?;
         let target = self.validated_write_scope(&proof, workspace_id, input.scope_kind, input.scope_id).await?;
-        let title = input.title.trim().to_string();
-        validate_title(&title)?;
-        let visibility = validate_visibility(input.visibility.as_deref())?;
-        validate_ttl(input.ttl_expires_at)?;
-        validate_confidence(input.confidence)?;
+        let title = MemoryTitle::parse(&input.title)?.value().to_string();
+        let visibility = MemoryVisibility::parse(input.visibility.as_deref())?.as_str();
+        MemoryTtlPolicy::validate(input.ttl_expires_at, Utc::now())?;
+        MemoryConfidencePolicy::validate(input.confidence)?;
 
         let prepared = self.prepare_content_or_audit_rejection(scope, "create", &input.content, input.redacted).await?;
         let provenance = input.provenance.unwrap_or_else(|| json!({}));
@@ -206,13 +204,13 @@ impl MemoryService {
     ) -> AppResult<MemoryItem> {
         let proof = self.validated_read(scope).await?;
         if let Some(title) = input.title.as_deref() {
-            validate_title(title)?;
+            MemoryTitle::parse(title)?;
         }
         let visibility = match input.visibility.as_deref() {
-            Some(value) => Some(validate_visibility(Some(value))?),
+            Some(value) => Some(MemoryVisibility::parse(Some(value))?.as_str()),
             None => None,
         };
-        validate_confidence(input.confidence)?;
+        MemoryConfidencePolicy::validate(input.confidence)?;
 
         let prepared = match input.content.as_deref() {
             Some(content) => {
@@ -283,7 +281,7 @@ impl MemoryService {
         ttl_expires_at: Option<DateTime<Utc>>,
     ) -> AppResult<MemoryItem> {
         let proof = self.validated_read(scope).await?;
-        validate_ttl(ttl_expires_at)?;
+        MemoryTtlPolicy::validate(ttl_expires_at, Utc::now())?;
         let mut tx = self.repo.pool().begin().await?;
         let current = MemoryRepository::lock_visible_for_update(&mut tx, &proof, id).await?;
         self.require_owner_or_manager(scope, &current).await?;
@@ -553,44 +551,6 @@ impl MemoryService {
         .await?;
         Ok(())
     }
-}
-
-fn normalize_limit(limit: Option<i64>) -> i64 {
-    limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT)
-}
-
-fn validate_title(title: &str) -> AppResult<&str> {
-    let title = title.trim();
-    if title.is_empty() || title.len() > 255 {
-        return Err(ErrorKind::Validation("memory title must be 1-255 characters".into()).into());
-    }
-    Ok(title)
-}
-
-fn validate_visibility(visibility: Option<&str>) -> AppResult<&str> {
-    match visibility.unwrap_or("shared") {
-        "private" => Ok("private"),
-        "shared" => Ok("shared"),
-        other => Err(ErrorKind::Validation(format!("unsupported memory visibility `{other}`")).into()),
-    }
-}
-
-fn validate_ttl(ttl_expires_at: Option<DateTime<Utc>>) -> AppResult<()> {
-    if let Some(ttl) = ttl_expires_at
-        && ttl <= Utc::now()
-    {
-        return Err(ErrorKind::Validation("ttl_expires_at must be in the future".into()).into());
-    }
-    Ok(())
-}
-
-fn validate_confidence(confidence: Option<f64>) -> AppResult<()> {
-    if let Some(value) = confidence
-        && !(0.0..=1.0).contains(&value)
-    {
-        return Err(ErrorKind::Validation("confidence must be between 0 and 1".into()).into());
-    }
-    Ok(())
 }
 
 fn required_workspace(scope: &TenantScope) -> AppResult<WorkspaceId> {
