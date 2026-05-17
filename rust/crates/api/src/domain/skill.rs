@@ -473,6 +473,17 @@ impl SkillBoundaryMutationPolicy {
     }
 }
 
+pub(crate) struct SkillBoundaryAccessPolicy;
+
+impl SkillBoundaryAccessPolicy {
+    pub(crate) fn ensure_allowed(exists_outside_request_boundary: bool) -> AppResult<()> {
+        if exists_outside_request_boundary {
+            return Err(ErrorKind::Forbidden.into());
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SkillMutationManagerCheck {
     Org,
@@ -731,6 +742,12 @@ mod tests {
         assert_eq!(payload["reason"], "outside_request_boundary");
         assert_eq!(payload["workspace_id"], workspace_id.as_uuid().to_string());
         assert!(matches!(rejection.into_app_error().kind, ErrorKind::Forbidden));
+    }
+
+    #[test]
+    fn skill_boundary_access_policy_rejects_outside_boundary_reads() {
+        assert!(SkillBoundaryAccessPolicy::ensure_allowed(false).is_ok());
+        assert!(matches!(SkillBoundaryAccessPolicy::ensure_allowed(true).unwrap_err().kind, ErrorKind::Forbidden));
     }
 
     #[test]
