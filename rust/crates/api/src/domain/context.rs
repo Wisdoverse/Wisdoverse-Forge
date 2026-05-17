@@ -1,6 +1,6 @@
 //! Context candidate and feedback input policies.
 
-use agentforge_core::{AppError, AppResult, ErrorKind, ScopeKind, SkillId};
+use agentforge_core::{AppError, AppResult, ErrorKind, ScopeKind, SkillId, WorkspaceId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -99,6 +99,32 @@ impl ContextFeedbackPolicy {
                 false
             }
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ContextCandidateCreatedAudit {
+    workspace_id: WorkspaceId,
+    has_source_run: bool,
+    has_target_skill: bool,
+}
+
+impl ContextCandidateCreatedAudit {
+    pub(crate) fn new(workspace_id: WorkspaceId, has_source_run: bool, has_target_skill: bool) -> Self {
+        Self { workspace_id, has_source_run, has_target_skill }
+    }
+
+    pub(crate) fn audit_action(self) -> &'static str {
+        "governance.context.candidate.created"
+    }
+
+    pub(crate) fn audit_payload(self, item_kind: &str) -> Value {
+        json!({
+            "item_kind": item_kind,
+            "workspace_id": self.workspace_id,
+            "has_source_run": self.has_source_run,
+            "has_target_skill": self.has_target_skill
+        })
     }
 }
 
@@ -826,6 +852,19 @@ mod tests {
         assert_eq!(payload["item_kind"], "memory");
         assert_eq!(payload["reason"], "not useful");
         assert_eq!(payload["self_approval"], true);
+    }
+
+    #[test]
+    fn created_audit_owns_action_and_payload() {
+        let workspace_id = WorkspaceId::from(Uuid::parse_str("88888888-8888-4888-8888-888888888888").unwrap());
+        let audit = ContextCandidateCreatedAudit::new(workspace_id, true, false);
+        let payload = audit.audit_payload("memory");
+
+        assert_eq!(audit.audit_action(), "governance.context.candidate.created");
+        assert_eq!(payload["item_kind"], "memory");
+        assert_eq!(payload["workspace_id"], workspace_id.to_string());
+        assert_eq!(payload["has_source_run"], true);
+        assert_eq!(payload["has_target_skill"], false);
     }
 
     #[test]

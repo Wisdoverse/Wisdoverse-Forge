@@ -15,11 +15,11 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::context::{
-    ContextCandidateApprovalAudit, ContextCandidateKind, ContextCandidateManualRejectionAudit, ContextCandidatePolicy,
-    ContextFeedbackLabel, ContextFeedbackPolicy, ContextItemKind, context_candidate_subject, ensure_pending_candidate,
-    normalize_candidate_kind_filter, normalize_candidate_state_filter, normalize_context_candidate_limit,
-    normalize_feedback_note, normalize_reason, normalize_scope_kind_filter, redacted_proposal_preview,
-    validate_context_sensitivity, validate_ttl,
+    ContextCandidateApprovalAudit, ContextCandidateCreatedAudit, ContextCandidateKind,
+    ContextCandidateManualRejectionAudit, ContextCandidatePolicy, ContextFeedbackLabel, ContextFeedbackPolicy,
+    ContextItemKind, context_candidate_subject, ensure_pending_candidate, normalize_candidate_kind_filter,
+    normalize_candidate_state_filter, normalize_context_candidate_limit, normalize_feedback_note, normalize_reason,
+    normalize_scope_kind_filter, redacted_proposal_preview, validate_context_sensitivity, validate_ttl,
 };
 use crate::domain::context_governance::ContextAuditEvent;
 use crate::domain::memory::MemoryScopeKind;
@@ -128,18 +128,13 @@ impl ContextApprovalService {
             },
         )
         .await?;
-        self.emit_candidate_audit(
-            &mut tx,
-            scope,
-            "governance.context.candidate.created",
-            json!({
-                "item_kind": candidate.item_kind,
-                "workspace_id": candidate.workspace_id,
-                "has_source_run": candidate.source_run_id.is_some(),
-                "has_target_skill": candidate.target_skill_id.is_some()
-            }),
-        )
-        .await?;
+        let audit = ContextCandidateCreatedAudit::new(
+            candidate.workspace_id,
+            candidate.source_run_id.is_some(),
+            candidate.target_skill_id.is_some(),
+        );
+        self.emit_candidate_audit(&mut tx, scope, audit.audit_action(), audit.audit_payload(&candidate.item_kind))
+            .await?;
         tx.commit().await?;
         self.publish_candidate_event(scope, &candidate, "created", None).await;
         Ok(candidate)
