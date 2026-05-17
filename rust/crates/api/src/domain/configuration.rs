@@ -4,14 +4,20 @@
 //! operator-managed configuration surfaces such as quotas, resource profiles,
 //! dashboard tiles, and plugin catalog entries.
 
-use agentforge_core::{AppResult, ErrorKind};
+use agentforge_core::{AppResult, CliToolKind, ErrorKind};
 use uuid::Uuid;
 
 const VALID_QUOTA_RESOURCE_TYPES: &[&str] = &["agents", "storage", "events"];
 const VALID_TILE_TYPES: &[&str] = &["agent", "feed", "chart", "custom"];
+const VALID_RUNTIME_BACKENDS: &[&str] = &["container", "api"];
+const VALID_GATEWAY_ROUTING_STRATEGIES: &[&str] = &["specified", "cost", "latency", "failover"];
 const MAX_RESOURCE_PROFILE_NAME_LEN: usize = 100;
 const MAX_PLUGIN_NAME_LEN: usize = 255;
 const DEFAULT_PLUGIN_VERSION: &str = "0.1.0";
+const DEFAULT_RUNTIME_BACKEND: &str = "container";
+const DEFAULT_GATEWAY_ROUTING_STRATEGY: &str = "specified";
+const DEFAULT_CIRCUIT_BREAKER_THRESHOLD: u32 = 5;
+const DEFAULT_CIRCUIT_BREAKER_RESET_MS: u32 = 30_000;
 
 /// Quota resource type tracked by the platform.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,6 +39,78 @@ impl<'a> QuotaResourceType<'a> {
 
     pub(crate) fn value(self) -> &'a str {
         self.value
+    }
+}
+
+/// Platform runtime settings policy.
+pub(crate) struct RuntimeSettingsPolicy;
+
+impl RuntimeSettingsPolicy {
+    pub(crate) fn default_runtime() -> &'static str {
+        DEFAULT_RUNTIME_BACKEND
+    }
+
+    pub(crate) fn default_cli_tool() -> &'static str {
+        CliToolKind::Claude.as_str()
+    }
+
+    pub(crate) fn available_runtimes() -> Vec<String> {
+        VALID_RUNTIME_BACKENDS.iter().map(|runtime| (*runtime).to_string()).collect()
+    }
+
+    pub(crate) fn available_cli_tools() -> Vec<String> {
+        CliToolKind::ALL.iter().map(|tool| tool.as_str().to_string()).collect()
+    }
+
+    pub(crate) fn canonical_runtime(value: &str) -> AppResult<&'static str> {
+        VALID_RUNTIME_BACKENDS
+            .iter()
+            .copied()
+            .find(|runtime| *runtime == value)
+            .ok_or_else(|| ErrorKind::Validation(format!("invalid defaultRuntime '{value}'")).into())
+    }
+
+    pub(crate) fn canonical_cli_tool(value: &str) -> AppResult<&'static str> {
+        CliToolKind::parse_legacy(value)
+            .map(CliToolKind::as_str)
+            .map_err(|err| ErrorKind::Validation(format!("invalid defaultCliTool '{value}': {err}")).into())
+    }
+
+    pub(crate) fn runtime_from_stored(value: &str) -> Option<&'static str> {
+        Self::canonical_runtime(value).ok()
+    }
+
+    pub(crate) fn cli_tool_from_stored(value: &str) -> Option<&'static str> {
+        Self::canonical_cli_tool(value).ok()
+    }
+}
+
+/// LLM gateway settings policy.
+pub(crate) struct GatewaySettingsPolicy;
+
+impl GatewaySettingsPolicy {
+    pub(crate) fn default_routing_strategy() -> &'static str {
+        DEFAULT_GATEWAY_ROUTING_STRATEGY
+    }
+
+    pub(crate) fn default_circuit_breaker_threshold() -> u32 {
+        DEFAULT_CIRCUIT_BREAKER_THRESHOLD
+    }
+
+    pub(crate) fn default_circuit_breaker_reset_ms() -> u32 {
+        DEFAULT_CIRCUIT_BREAKER_RESET_MS
+    }
+
+    pub(crate) fn canonical_routing_strategy(value: &str) -> AppResult<&'static str> {
+        VALID_GATEWAY_ROUTING_STRATEGIES
+            .iter()
+            .copied()
+            .find(|strategy| *strategy == value)
+            .ok_or_else(|| ErrorKind::Validation(format!("invalid routingStrategy '{value}'")).into())
+    }
+
+    pub(crate) fn routing_strategy_from_stored(value: &str) -> Option<&'static str> {
+        Self::canonical_routing_strategy(value).ok()
     }
 }
 
@@ -201,6 +279,40 @@ mod tests {
     fn quota_resource_type_rejects_unknown_resources() {
         assert!(QuotaResourceType::parse("cpu").is_err());
         assert!(QuotaResourceType::parse("").is_err());
+    }
+
+    #[test]
+    fn runtime_settings_policy_exposes_defaults_and_available_values() {
+        assert_eq!(RuntimeSettingsPolicy::default_runtime(), "container");
+        assert_eq!(RuntimeSettingsPolicy::default_cli_tool(), "claude");
+        assert_eq!(RuntimeSettingsPolicy::available_runtimes(), vec!["container".to_string(), "api".to_string()]);
+        assert_eq!(
+            RuntimeSettingsPolicy::available_cli_tools(),
+            vec!["claude".to_string(), "codex".to_string(), "gemini".to_string(), "opencode".to_string()]
+        );
+    }
+
+    #[test]
+    fn runtime_settings_policy_validates_runtime_and_cli_tool() {
+        assert_eq!(RuntimeSettingsPolicy::canonical_runtime("api").unwrap(), "api");
+        assert_eq!(RuntimeSettingsPolicy::canonical_cli_tool(" CODEX ").unwrap(), "codex");
+        assert!(RuntimeSettingsPolicy::canonical_runtime("desktop").is_err());
+        assert!(RuntimeSettingsPolicy::canonical_cli_tool("unknown").is_err());
+        assert_eq!(RuntimeSettingsPolicy::runtime_from_stored("container"), Some("container"));
+        assert_eq!(RuntimeSettingsPolicy::runtime_from_stored("desktop"), None);
+        assert_eq!(RuntimeSettingsPolicy::cli_tool_from_stored("Gemini"), Some("gemini"));
+        assert_eq!(RuntimeSettingsPolicy::cli_tool_from_stored("unknown"), None);
+    }
+
+    #[test]
+    fn gateway_settings_policy_exposes_defaults_and_validates_strategy() {
+        assert_eq!(GatewaySettingsPolicy::default_routing_strategy(), "specified");
+        assert_eq!(GatewaySettingsPolicy::default_circuit_breaker_threshold(), 5);
+        assert_eq!(GatewaySettingsPolicy::default_circuit_breaker_reset_ms(), 30_000);
+        assert_eq!(GatewaySettingsPolicy::canonical_routing_strategy("latency").unwrap(), "latency");
+        assert_eq!(GatewaySettingsPolicy::routing_strategy_from_stored("failover"), Some("failover"));
+        assert_eq!(GatewaySettingsPolicy::routing_strategy_from_stored("random"), None);
+        assert!(GatewaySettingsPolicy::canonical_routing_strategy("random").is_err());
     }
 
     #[test]
