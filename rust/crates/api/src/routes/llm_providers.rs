@@ -15,10 +15,10 @@ use uuid::Uuid;
 use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, ErrorKind, crypto};
 use agentforge_llm::{
-    ChatMessage, ChatRequest, LlmError, LlmProviderBuildConfig, normalize_provider_key, provider_spec,
-    supported_provider_specs,
+    ChatMessage, ChatRequest, LlmError, LlmProviderBuildConfig, provider_spec, supported_provider_specs,
 };
 
+use crate::domain::credential::LlmProviderPolicy;
 use crate::health::AppState;
 
 #[derive(Debug, Clone, Serialize)]
@@ -131,28 +131,6 @@ fn clean_optional(value: Option<String>) -> Option<String> {
     value.map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
 }
 
-fn validate_provider(provider: &str) -> AppResult<String> {
-    let provider = normalize_provider_key(provider);
-    if provider_spec(&provider).is_none() {
-        return Err(ErrorKind::Validation(format!("invalid provider '{provider}'")).into());
-    }
-    Ok(provider)
-}
-
-fn api_key_prefix(api_key: &str) -> String {
-    api_key.chars().take(8).collect()
-}
-
-fn provider_requires_api_key(provider: &str) -> bool {
-    provider_spec(provider).map(|spec| spec.requires_api_key).unwrap_or(true)
-}
-
-fn provider_requires_base_url(provider: &str) -> bool {
-    provider_spec(provider)
-        .map(|spec| spec.key == "openai_compatible" && spec.default_base_url.is_none())
-        .unwrap_or(false)
-}
-
 fn response_from_row(row: LlmProviderRow, priority: i32) -> LlmProviderConfigResponse {
     let provider = row.provider;
     let display_name = row.display_name.unwrap_or_else(|| provider_display_name(provider.as_str()).to_string());
@@ -257,18 +235,18 @@ async fn create_provider(
     auth: AuthUser,
     Json(req): Json<CreateProviderRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let provider = validate_provider(&req.provider)?;
+    let provider = LlmProviderPolicy::normalize_supported_provider(&req.provider)?;
     let model = req.model.trim();
     if model.is_empty() {
         return Err(ErrorKind::Validation("model is required".into()).into());
     }
 
     let api_key = req.api_key.as_deref().unwrap_or_default().trim();
-    if provider_requires_api_key(&provider) && api_key.is_empty() {
+    if LlmProviderPolicy::requires_api_key(&provider) && api_key.is_empty() {
         return Err(ErrorKind::Validation("apiKey is required".into()).into());
     }
     let base_url = clean_optional(req.base_url);
-    if provider_requires_base_url(&provider) && base_url.is_none() {
+    if LlmProviderPolicy::requires_base_url(&provider) && base_url.is_none() {
         return Err(ErrorKind::Validation("baseUrl is required for this provider".into()).into());
     }
 
@@ -280,7 +258,7 @@ async fn create_provider(
         })?;
         let encrypted_api_key = crypto::encrypt_base64(key, api_key)
             .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encrypt llm provider api key failed: {err}")))?;
-        (encrypted_api_key, Some(api_key_prefix(api_key)))
+        (encrypted_api_key, Some(LlmProviderPolicy::api_key_prefix(api_key)))
     };
 
     let exists = sqlx::query_scalar::<_, bool>(
@@ -362,7 +340,7 @@ async fn update_provider(
         .or(current.display_name)
         .unwrap_or_else(|| provider_display_name(current.provider.as_str()).to_string());
     let base_url = clean_optional(req.base_url).or(current.base_url);
-    if provider_requires_base_url(&current.provider) && base_url.is_none() {
+    if LlmProviderPolicy::requires_base_url(&current.provider) && base_url.is_none() {
         return Err(ErrorKind::Validation("baseUrl is required for this provider".into()).into());
     }
     let is_enabled = req.is_enabled.unwrap_or(current.is_enabled.unwrap_or(true));
@@ -375,7 +353,7 @@ async fn update_provider(
         })?;
         let encrypted_api_key = crypto::encrypt_base64(key, api_key)
             .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encrypt llm provider api key failed: {err}")))?;
-        Some((encrypted_api_key, api_key_prefix(api_key)))
+        Some((encrypted_api_key, LlmProviderPolicy::api_key_prefix(api_key)))
     } else {
         None
     };
@@ -715,36 +693,6 @@ mod tests {
         .unwrap();
         assert_eq!(req.provider, "anthropic");
         assert_eq!(req.display_name.as_deref(), Some("Claude"));
-    }
-
-    #[test]
-    fn invalid_provider_is_rejected() {
-        let err = validate_provider("bogus").unwrap_err();
-        assert!(matches!(err.kind, ErrorKind::Validation(_)));
-    }
-
-    #[test]
-    fn provider_aliases_are_normalized() {
-        assert_eq!(validate_provider("Lite_LLM").unwrap(), "litellm");
-        assert_eq!(validate_provider("openai-compatible").unwrap(), "openai_compatible");
-    }
-
-    #[test]
-    fn api_key_prefix_is_short_and_secret_safe() {
-        assert_eq!(api_key_prefix("sk-1234567890"), "sk-12345");
-    }
-
-    #[test]
-    fn ollama_is_keyless_provider() {
-        assert!(!provider_requires_api_key("ollama"));
-        assert!(provider_requires_api_key("openai"));
-        assert!(provider_requires_api_key("litellm"));
-    }
-
-    #[test]
-    fn generic_openai_compatible_requires_explicit_base_url() {
-        assert!(!provider_requires_base_url("litellm"));
-        assert!(provider_requires_base_url("openai_compatible"));
     }
 
     #[test]
