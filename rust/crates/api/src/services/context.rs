@@ -268,7 +268,7 @@ impl ContextApprovalService {
                         return Err(err);
                     }
                 };
-                if let Err(err) = ContextCandidatePolicy::ensure_wider_secret_memory_attestation(
+                if let Err(rejection) = ContextCandidatePolicy::ensure_wider_secret_memory_attestation(
                     &prepared.sensitivity,
                     target.kind(),
                     input.user_attested,
@@ -276,17 +276,12 @@ impl ContextApprovalService {
                     self.emit_candidate_audit(
                         &mut tx,
                         scope,
-                        "governance.context.candidate.approval_rejected",
-                        json!({
-                            "item_kind": candidate.item_kind,
-                            "reason": "user_attest_required",
-                            "scope_kind": target.kind().as_label(),
-                            "sensitivity": prepared.sensitivity
-                        }),
+                        rejection.audit_action(),
+                        rejection.audit_payload(&candidate.item_kind),
                     )
                     .await?;
                     tx.commit().await?;
-                    return Err(err);
+                    return Err(rejection.into_app_error());
                 }
 
                 let approval = ContextApprovalRepository::create_in_tx(
