@@ -9,8 +9,9 @@ use agentforge_db::entities::{BillingPlan, Invoice, Subscription};
 use uuid::Uuid;
 
 use crate::domain::billing::{
-    BillingCycle, BillingPlanPolicy, BillingRedirectUrlPolicy, BillingUsageLimitPolicy, CheckoutCouponPolicy,
-    InvoiceListPage, PaymentMethodId, SubscriptionLifecyclePolicy, SubscriptionStatusPolicy,
+    BillingCycle, BillingPlanPolicy, BillingRedirectUrlPolicy, BillingUsageLimitPolicy,
+    BillingWebhookReconciliationPolicy, CheckoutCouponPolicy, InvoiceListPage, PaymentMethodId,
+    SubscriptionLifecyclePolicy, SubscriptionOrgResolution, SubscriptionPlanResolution, SubscriptionStatusPolicy,
 };
 use crate::repositories::billing::BillingRepository;
 pub use stripe::{
@@ -242,41 +243,38 @@ impl BillingService {
         SubscriptionStatusPolicy::validate(&snapshot.status)?;
 
         let existing = self.repo.get_subscription_by_stripe_id(&snapshot.id).await?;
-        let org_id = match metadata_uuid(&snapshot.metadata, "org_id").or(fallback_org_id) {
-            Some(org_id) => org_id,
-            None => match &existing {
-                Some(sub) => sub.organization_id.as_uuid(),
-                None => {
-                    tracing::warn!(
-                        stripe_subscription_id = %snapshot.id,
-                        "Stripe subscription webhook missing org_id metadata; cannot reconcile"
-                    );
-                    return Err(ErrorKind::Validation(
-                        "Stripe subscription event is missing Wisdoverse Forge org_id metadata".to_string(),
-                    )
-                    .into());
-                }
-            },
+        let org_id = match BillingWebhookReconciliationPolicy::resolve_org_id(
+            &snapshot.metadata,
+            fallback_org_id,
+            existing.as_ref().map(|sub| sub.organization_id.as_uuid()),
+        ) {
+            SubscriptionOrgResolution::Resolved(org_id) => org_id,
+            SubscriptionOrgResolution::MissingMetadata => {
+                tracing::warn!(
+                    stripe_subscription_id = %snapshot.id,
+                    "Stripe subscription webhook missing org_id metadata; cannot reconcile"
+                );
+                return Err(BillingWebhookReconciliationPolicy::missing_org_metadata_error().into());
+            }
         };
 
-        let plan_id = match metadata_uuid(&snapshot.metadata, "plan_id").or(fallback_plan_id) {
-            Some(plan_id) => plan_id,
-            None => match snapshot.price_id.as_deref() {
-                Some(price_id) => self.repo.find_plan_by_stripe_price_id(price_id).await?.id,
-                None => match &existing {
-                    Some(sub) => sub.plan_id,
-                    None => {
-                        tracing::warn!(
-                            stripe_subscription_id = %snapshot.id,
-                            "Stripe subscription webhook missing plan metadata and price; cannot reconcile"
-                        );
-                        return Err(ErrorKind::Validation(
-                            "Stripe subscription event is missing Wisdoverse Forge plan metadata".to_string(),
-                        )
-                        .into());
-                    }
-                },
-            },
+        let plan_id = match BillingWebhookReconciliationPolicy::resolve_plan_id(
+            &snapshot.metadata,
+            fallback_plan_id,
+            snapshot.price_id.as_deref(),
+            existing.as_ref().map(|sub| sub.plan_id),
+        ) {
+            SubscriptionPlanResolution::Resolved(plan_id) => plan_id,
+            SubscriptionPlanResolution::LookupByStripePrice(price_id) => {
+                self.repo.find_plan_by_stripe_price_id(price_id).await?.id
+            }
+            SubscriptionPlanResolution::MissingMetadata => {
+                tracing::warn!(
+                    stripe_subscription_id = %snapshot.id,
+                    "Stripe subscription webhook missing plan metadata and price; cannot reconcile"
+                );
+                return Err(BillingWebhookReconciliationPolicy::missing_plan_metadata_error().into());
+            }
         };
 
         self.repo
@@ -338,8 +336,4 @@ fn billing_not_configured() -> ErrorKind {
         "Stripe billing is not configured; refusing to change local subscription state without Stripe confirmation"
             .to_string(),
     )
-}
-
-fn metadata_uuid(metadata: &std::collections::BTreeMap<String, String>, key: &str) -> Option<Uuid> {
-    metadata.get(key).and_then(|value| Uuid::parse_str(value).ok())
 }

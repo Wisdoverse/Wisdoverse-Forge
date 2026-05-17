@@ -3,6 +3,8 @@
 //! This module owns pure billing request and lifecycle policies that are
 //! independent of repositories, Stripe clients, and HTTP route DTOs.
 
+use std::collections::BTreeMap;
+
 use agentforge_core::{AppResult, ErrorKind};
 use uuid::Uuid;
 
@@ -105,6 +107,69 @@ impl BillingUsageLimitPolicy {
     pub(crate) fn is_within_agent_limit(current_count: i64, max_agents: i64) -> bool {
         current_count < max_agents
     }
+}
+
+/// Subscription webhook organization reconciliation decision.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SubscriptionOrgResolution {
+    Resolved(Uuid),
+    MissingMetadata,
+}
+
+/// Subscription webhook plan reconciliation decision.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SubscriptionPlanResolution<'a> {
+    Resolved(Uuid),
+    LookupByStripePrice(&'a str),
+    MissingMetadata,
+}
+
+/// Stripe webhook reconciliation policy for subscription snapshots.
+pub(crate) struct BillingWebhookReconciliationPolicy;
+
+impl BillingWebhookReconciliationPolicy {
+    pub(crate) fn resolve_org_id(
+        metadata: &BTreeMap<String, String>,
+        fallback_org_id: Option<Uuid>,
+        existing_org_id: Option<Uuid>,
+    ) -> SubscriptionOrgResolution {
+        metadata_uuid(metadata, "org_id")
+            .or(fallback_org_id)
+            .or(existing_org_id)
+            .map(SubscriptionOrgResolution::Resolved)
+            .unwrap_or(SubscriptionOrgResolution::MissingMetadata)
+    }
+
+    pub(crate) fn resolve_plan_id<'a>(
+        metadata: &BTreeMap<String, String>,
+        fallback_plan_id: Option<Uuid>,
+        price_id: Option<&'a str>,
+        existing_plan_id: Option<Uuid>,
+    ) -> SubscriptionPlanResolution<'a> {
+        if let Some(plan_id) = metadata_uuid(metadata, "plan_id").or(fallback_plan_id) {
+            return SubscriptionPlanResolution::Resolved(plan_id);
+        }
+
+        if let Some(price_id) = price_id {
+            return SubscriptionPlanResolution::LookupByStripePrice(price_id);
+        }
+
+        existing_plan_id
+            .map(SubscriptionPlanResolution::Resolved)
+            .unwrap_or(SubscriptionPlanResolution::MissingMetadata)
+    }
+
+    pub(crate) fn missing_org_metadata_error() -> ErrorKind {
+        ErrorKind::Validation("Stripe subscription event is missing Wisdoverse Forge org_id metadata".to_string())
+    }
+
+    pub(crate) fn missing_plan_metadata_error() -> ErrorKind {
+        ErrorKind::Validation("Stripe subscription event is missing Wisdoverse Forge plan metadata".to_string())
+    }
+}
+
+fn metadata_uuid(metadata: &BTreeMap<String, String>, key: &str) -> Option<Uuid> {
+    metadata.get(key).and_then(|value| Uuid::parse_str(value).ok())
 }
 
 /// Direct subscription PaymentMethod policy.
@@ -223,6 +288,81 @@ mod tests {
         assert!(BillingUsageLimitPolicy::is_within_agent_limit(0, 1));
         assert!(!BillingUsageLimitPolicy::is_within_agent_limit(1, 1));
         assert!(!BillingUsageLimitPolicy::is_within_agent_limit(2, 2));
+    }
+
+    #[test]
+    fn webhook_reconciliation_resolves_subscription_org() {
+        let metadata_org_id = Uuid::parse_str("11111111-1111-4111-8111-111111111111").unwrap();
+        let fallback_org_id = Uuid::parse_str("22222222-2222-4222-8222-222222222222").unwrap();
+        let existing_org_id = Uuid::parse_str("33333333-3333-4333-8333-333333333333").unwrap();
+        let mut metadata = BTreeMap::new();
+        metadata.insert("org_id".to_string(), metadata_org_id.to_string());
+
+        assert_eq!(
+            BillingWebhookReconciliationPolicy::resolve_org_id(&metadata, Some(fallback_org_id), Some(existing_org_id),),
+            SubscriptionOrgResolution::Resolved(metadata_org_id)
+        );
+
+        metadata.clear();
+        assert_eq!(
+            BillingWebhookReconciliationPolicy::resolve_org_id(&metadata, Some(fallback_org_id), Some(existing_org_id),),
+            SubscriptionOrgResolution::Resolved(fallback_org_id)
+        );
+        assert_eq!(
+            BillingWebhookReconciliationPolicy::resolve_org_id(&metadata, None, Some(existing_org_id)),
+            SubscriptionOrgResolution::Resolved(existing_org_id)
+        );
+        assert_eq!(
+            BillingWebhookReconciliationPolicy::resolve_org_id(&metadata, None, None),
+            SubscriptionOrgResolution::MissingMetadata
+        );
+    }
+
+    #[test]
+    fn webhook_reconciliation_resolves_subscription_plan() {
+        let metadata_plan_id = Uuid::parse_str("11111111-1111-4111-8111-111111111111").unwrap();
+        let fallback_plan_id = Uuid::parse_str("22222222-2222-4222-8222-222222222222").unwrap();
+        let existing_plan_id = Uuid::parse_str("33333333-3333-4333-8333-333333333333").unwrap();
+        let mut metadata = BTreeMap::new();
+        metadata.insert("plan_id".to_string(), metadata_plan_id.to_string());
+
+        assert_eq!(
+            BillingWebhookReconciliationPolicy::resolve_plan_id(
+                &metadata,
+                Some(fallback_plan_id),
+                Some("price_123"),
+                Some(existing_plan_id),
+            ),
+            SubscriptionPlanResolution::Resolved(metadata_plan_id)
+        );
+
+        metadata.clear();
+        assert_eq!(
+            BillingWebhookReconciliationPolicy::resolve_plan_id(
+                &metadata,
+                Some(fallback_plan_id),
+                Some("price_123"),
+                Some(existing_plan_id),
+            ),
+            SubscriptionPlanResolution::Resolved(fallback_plan_id)
+        );
+        assert_eq!(
+            BillingWebhookReconciliationPolicy::resolve_plan_id(
+                &metadata,
+                None,
+                Some("price_123"),
+                Some(existing_plan_id),
+            ),
+            SubscriptionPlanResolution::LookupByStripePrice("price_123")
+        );
+        assert_eq!(
+            BillingWebhookReconciliationPolicy::resolve_plan_id(&metadata, None, None, Some(existing_plan_id)),
+            SubscriptionPlanResolution::Resolved(existing_plan_id)
+        );
+        assert_eq!(
+            BillingWebhookReconciliationPolicy::resolve_plan_id(&metadata, None, None, None),
+            SubscriptionPlanResolution::MissingMetadata
+        );
     }
 
     #[test]
