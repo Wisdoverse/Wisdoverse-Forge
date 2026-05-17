@@ -18,6 +18,26 @@ pub struct WorkspaceMountScope {
     pub workspace_id: Uuid,
 }
 
+impl WorkspaceMountScope {
+    pub fn for_workspace(org_id: Uuid, workspace_id: Uuid) -> Self {
+        Self { org_id, workspace_id }
+    }
+
+    pub fn for_project(
+        org_id: Uuid,
+        requested_workspace_id: Option<Uuid>,
+        project_workspace_id: Uuid,
+    ) -> AppResult<Self> {
+        if let Some(requested_workspace_id) = requested_workspace_id
+            && requested_workspace_id != project_workspace_id
+        {
+            return Err(ErrorKind::Validation("primary project must belong to the selected workspace".into()).into());
+        }
+
+        Ok(Self { org_id, workspace_id: project_workspace_id })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AgentWorkspacePaths {
     pub host_projects_root: PathBuf,
@@ -168,6 +188,34 @@ mod tests {
             "/data/agentforge/workspaces/orgs/aaaaaaaa-1111-2222-3333-444444444444/workspaces/bbbbbbbb-1111-2222-3333-444444444444/projects"
         );
         assert_eq!(paths.container_cwd, "/workspace");
+    }
+
+    #[test]
+    fn workspace_mount_scope_accepts_project_without_requested_workspace() {
+        let org_id = Uuid::new_v4();
+        let workspace_id = Uuid::new_v4();
+        let scope = WorkspaceMountScope::for_project(org_id, None, workspace_id).unwrap();
+
+        assert_eq!(scope, WorkspaceMountScope::for_workspace(org_id, workspace_id));
+    }
+
+    #[test]
+    fn workspace_mount_scope_accepts_project_in_requested_workspace() {
+        let org_id = Uuid::new_v4();
+        let workspace_id = Uuid::new_v4();
+
+        let scope = WorkspaceMountScope::for_project(org_id, Some(workspace_id), workspace_id).unwrap();
+
+        assert_eq!(scope, WorkspaceMountScope::for_workspace(org_id, workspace_id));
+    }
+
+    #[test]
+    fn workspace_mount_scope_rejects_project_outside_requested_workspace() {
+        let err = WorkspaceMountScope::for_project(Uuid::new_v4(), Some(Uuid::new_v4()), Uuid::new_v4()).unwrap_err();
+
+        assert!(
+            matches!(err.kind, ErrorKind::Validation(message) if message == "primary project must belong to the selected workspace")
+        );
     }
 
     #[test]

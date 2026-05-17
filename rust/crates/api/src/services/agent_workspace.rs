@@ -29,22 +29,16 @@ pub async fn resolve_workspace_mount_scope(
         .await?
         .ok_or_else(|| ErrorKind::NotFound(format!("project {project_id}")))?;
 
-        if let Some(requested_workspace_id) = workspace_id
-            && requested_workspace_id != row.1
-        {
-            return Err(ErrorKind::Validation("primary project must belong to the selected workspace".into()).into());
-        }
-
-        return Ok(WorkspaceMountScope { org_id: row.0, workspace_id: row.1 });
+        return WorkspaceMountScope::for_project(row.0, workspace_id, row.1);
     }
 
     if let Some(workspace_id) = workspace_id {
         ensure_workspace_belongs_to_org(pool, org_id, workspace_id).await?;
-        return Ok(WorkspaceMountScope { org_id, workspace_id });
+        return Ok(WorkspaceMountScope::for_workspace(org_id, workspace_id));
     }
 
     let workspace_id = default_workspace_for_org(pool, org_id).await?;
-    Ok(WorkspaceMountScope { org_id, workspace_id })
+    Ok(WorkspaceMountScope::for_workspace(org_id, workspace_id))
 }
 
 pub async fn ensure_workspace_belongs_to_org(pool: &PgPool, org_id: Uuid, workspace_id: Uuid) -> AppResult<()> {
