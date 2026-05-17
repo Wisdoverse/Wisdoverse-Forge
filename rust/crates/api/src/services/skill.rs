@@ -3,13 +3,13 @@
 use agentforge_core::{AppResult, ErrorKind, ProjectId, ScopedRead, TeamId, TenantScope, WorkspaceId};
 use agentforge_db::entities::{Skill, SkillVersion};
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
 use crate::domain::skill::{
-    PreparedSkillContent, SkillContentDecision, SkillContentPolicy, SkillJsonObjectPolicy, SkillName,
-    SkillRestoreVersionPolicy, SkillSensitivity, SkillStateTransitionPolicy, SkillTtlPolicy,
+    PreparedSkillContent, SkillContentDecision, SkillContentPolicy, SkillCreateStatePolicy, SkillJsonObjectPolicy,
+    SkillName, SkillRestoreVersionPolicy, SkillScopeKind, SkillScopeTargetPolicy, SkillSensitivity, SkillState,
+    SkillStateTransitionPolicy, SkillTtlPolicy,
 };
 use crate::repositories::resource_permission::ResourcePermissionRepository;
 use crate::repositories::skill::{CreateSkillRecord, SkillRepository, UpdateSkillRecord};
@@ -17,54 +17,6 @@ use crate::repositories::skill_version::SkillVersionRepository;
 use crate::services::context_governance::{
     ContextAuditEvent, ContextGovernanceService, ContextScopeKind, ScopeExpansionRequest, Sensitivity,
 };
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SkillScopeKind {
-    Org,
-    User,
-    Team,
-    Project,
-}
-
-impl SkillScopeKind {
-    pub fn from_label(value: &str) -> Option<Self> {
-        match value {
-            "org" => Some(Self::Org),
-            "user" => Some(Self::User),
-            "team" => Some(Self::Team),
-            "project" => Some(Self::Project),
-            _ => None,
-        }
-    }
-
-    pub fn as_label(self) -> &'static str {
-        match self {
-            Self::Org => "org",
-            Self::User => "user",
-            Self::Team => "team",
-            Self::Project => "project",
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SkillState {
-    Candidate,
-    Active,
-    Deprecated,
-}
-
-impl SkillState {
-    pub fn as_label(self) -> &'static str {
-        match self {
-            Self::Candidate => "candidate",
-            Self::Active => "active",
-            Self::Deprecated => "deprecated",
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct CreateSkillInput {
@@ -492,17 +444,12 @@ impl SkillService {
         scope_kind: SkillScopeKind,
         scope_id: Option<Uuid>,
     ) -> AppResult<Uuid> {
-        let scope_id = match scope_kind {
-            SkillScopeKind::Org => scope_id.unwrap_or_else(|| scope.org_id().as_uuid()),
-            SkillScopeKind::User => scope_id.unwrap_or_else(|| scope.user_id().as_uuid()),
-            SkillScopeKind::Team | SkillScopeKind::Project => scope_id.ok_or_else(|| {
-                ErrorKind::Validation(format!("scope_id is required for {} skill", scope_kind.as_label()))
-            })?,
-        };
-        if !self.repo.resource_belongs_to_scope(scope, workspace_id, scope_kind.as_label(), scope_id).await? {
+        let target_scope_id =
+            SkillScopeTargetPolicy::resolve(scope_kind, scope_id, scope.org_id().as_uuid(), scope.user_id().as_uuid())?;
+        if !self.repo.resource_belongs_to_scope(scope, workspace_id, scope_kind.as_label(), target_scope_id).await? {
             return Err(ErrorKind::Forbidden.into());
         }
-        Ok(scope_id)
+        Ok(target_scope_id)
     }
 
     async fn validated_create_state(
@@ -512,11 +459,9 @@ impl SkillService {
         scope_id: Uuid,
         state: Option<SkillState>,
     ) -> AppResult<SkillState> {
-        let state = state.unwrap_or(SkillState::Active);
-        if state == SkillState::Active && !self.can_publish_active(scope, scope_kind, scope_id).await? {
-            return Err(ErrorKind::Forbidden.into());
-        }
-        Ok(state)
+        let wants_active = state.unwrap_or(SkillState::Active) == SkillState::Active;
+        let can_publish_active = !wants_active || self.can_publish_active(scope, scope_kind, scope_id).await?;
+        SkillCreateStatePolicy::resolve(state, can_publish_active)
     }
 
     async fn can_publish_active(
@@ -671,16 +616,4 @@ fn skill_event_payload(skill: &Skill, extra: Value) -> Value {
     }
 
     payload
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn skill_state_labels_are_stable() {
-        assert_eq!(SkillState::Candidate.as_label(), "candidate");
-        assert_eq!(SkillState::Active.as_label(), "active");
-        assert_eq!(SkillState::Deprecated.as_label(), "deprecated");
-    }
 }
