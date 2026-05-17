@@ -17,7 +17,7 @@ use uuid::Uuid;
 use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, ErrorKind};
 
-use crate::domain::context_governance::{ContextGovernancePolicy, Sensitivity};
+use crate::domain::context_governance::{ContextGovernancePolicy, GovernanceAuditQueryPolicy};
 use crate::health::{AppState, ContextFeature, ensure_context_feature_enabled};
 use crate::repositories::audit::AuditRepository;
 use crate::repositories::governance_audit::{
@@ -177,24 +177,14 @@ async fn load_projection(
 }
 
 fn validate_query(query: &GovernanceAuditQueryParams) -> AppResult<()> {
-    if matches!(query.event_prefix.as_deref(), Some(prefix) if !prefix.starts_with(GOVERNANCE_CONTEXT_AUDIT_PREFIX)) {
-        return Err(ErrorKind::Validation("event_prefix must stay under governance.context.".into()).into());
-    }
-    if matches!(query.event_type.as_deref(), Some(event_type) if !event_type.starts_with(GOVERNANCE_CONTEXT_AUDIT_PREFIX))
-    {
-        return Err(ErrorKind::Validation("event_type must start with governance.context.".into()).into());
-    }
-    if matches!(query.item_kind.as_deref(), Some(item_kind) if !matches!(item_kind, "memory" | "skill")) {
-        return Err(ErrorKind::Validation("item_kind must be memory or skill".into()).into());
-    }
-    if matches!(query.scope_kind.as_deref(), Some(scope_kind) if !matches!(scope_kind, "org" | "user" | "workspace" | "team" | "project"))
-    {
-        return Err(ErrorKind::Validation("unsupported scope_kind".into()).into());
-    }
-    if matches!((query.from, query.to), (Some(from), Some(to)) if from >= to) {
-        return Err(ErrorKind::Validation("from must be earlier than to".into()).into());
-    }
-    Ok(())
+    ContextGovernancePolicy::validate_audit_query(GovernanceAuditQueryPolicy {
+        event_prefix: query.event_prefix.as_deref(),
+        event_type: query.event_type.as_deref(),
+        item_kind: query.item_kind.as_deref(),
+        scope_kind: query.scope_kind.as_deref(),
+        from: query.from,
+        to: query.to,
+    })
 }
 
 fn project_row(row: GovernanceAuditRow, key: &[u8], redact: bool) -> GovernanceAuditEntry {
@@ -204,7 +194,8 @@ fn project_row(row: GovernanceAuditRow, key: &[u8], redact: bool) -> GovernanceA
     let audit_subject_hash = hmac_hex(key, &format!("{hash_subject}|{scope_kind}|{scope_id}"));
     let raw_item_id = row.subject_item_id.filter(|_| row.visible_by_scope);
     let tamper_status = tamper_status(&row, key);
-    let (details, details_redacted) = if redact { redact_value(row.details) } else { (row.details, false) };
+    let (details, details_redacted) =
+        if redact { ContextGovernancePolicy::redact_audit_details(row.details) } else { (row.details, false) };
 
     GovernanceAuditEntry {
         id: row.id,
@@ -273,65 +264,6 @@ fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
     left.iter().zip(right.iter()).fold(0_u8, |acc, (a, b)| acc | (a ^ b)) == 0
 }
 
-fn redact_value(value: Value) -> (Value, bool) {
-    match value {
-        Value::Object(map) => {
-            let mut redacted = false;
-            let mut out = serde_json::Map::with_capacity(map.len());
-            for (key, value) in map {
-                if secret_key_name(&key) {
-                    out.insert(key, Value::String("[REDACTED]".to_string()));
-                    redacted = true;
-                    continue;
-                }
-                let (value, nested) = redact_value(value);
-                redacted |= nested;
-                out.insert(key, value);
-            }
-            (Value::Object(out), redacted)
-        }
-        Value::Array(items) => {
-            let mut redacted = false;
-            let items = items
-                .into_iter()
-                .map(|item| {
-                    let (item, nested) = redact_value(item);
-                    redacted |= nested;
-                    item
-                })
-                .collect();
-            (Value::Array(items), redacted)
-        }
-        Value::String(raw) => {
-            if matches!(ContextGovernancePolicy::classify_sensitivity(&raw).sensitivity, Sensitivity::SecretDetected) {
-                (Value::String("[REDACTED]".to_string()), true)
-            } else {
-                (Value::String(raw), false)
-            }
-        }
-        other => (other, false),
-    }
-}
-
-fn secret_key_name(key: &str) -> bool {
-    let normalized = key.to_ascii_lowercase().replace(['-', ' '], "_");
-    matches!(
-        normalized.as_str(),
-        "secret"
-            | "secrets"
-            | "token"
-            | "access_token"
-            | "refresh_token"
-            | "api_key"
-            | "apikey"
-            | "password"
-            | "private_key"
-            | "credential"
-            | "credentials"
-            | "hmac_key"
-    )
-}
-
 fn is_admin_role(role: &str) -> bool {
     matches!(role, "owner" | "admin")
 }
@@ -360,7 +292,7 @@ mod tests {
 
     #[test]
     fn redacts_secret_bearing_details() {
-        let (value, redacted) = redact_value(json!({
+        let (value, redacted) = ContextGovernancePolicy::redact_audit_details(json!({
             "classification": {
                 "token": "github-token-placeholder"
             },
