@@ -21,8 +21,9 @@ use uuid::Uuid;
 
 use crate::domain::context_resolver::{ContextTaskSnapshot, ResolvedContext};
 use crate::domain::orchestration::{
-    BlockedTaskPolicy, ParticipantName, ParticipantStatusPolicy, QuotaBlockPolicy, TaskListPage, TaskPatchPolicy,
-    TaskPriority, TaskStatusPolicy, TaskTitle,
+    BlockedTaskPolicy, ParticipantAvailabilityAction, ParticipantAvailabilityPolicy, ParticipantName,
+    ParticipantStatusPolicy, QuotaBlockPolicy, TaskListPage, TaskPatchPolicy, TaskPriority, TaskStatusPolicy,
+    TaskTitle,
 };
 use crate::repositories::orchestration::{
     CreateTaskRow, OrchestrationTaskRepository, OrchestrationTaskStats, ParticipantRepository, UpdateTaskRow,
@@ -612,13 +613,11 @@ impl OrchestrationService {
         }
 
         let participant = self.participant_repo.find_by_agent_id(scope, agent_id).await?;
-        if participant.status != "available" {
-            return Err(ErrorKind::Validation(format!(
-                "participant {} is {} — pick an available agent or leave unassigned",
-                participant.name, participant.status
-            ))
-            .into());
-        }
+        ParticipantAvailabilityPolicy::ensure_available(
+            &participant.name,
+            &participant.status,
+            ParticipantAvailabilityAction::AssignTask,
+        )?;
 
         self.assign_to_participant_with_resolved_context(scope, &task, &participant, Some(resolved_context)).await
     }
@@ -640,13 +639,11 @@ impl OrchestrationService {
         }
 
         let participant = self.participant_repo.find_by_agent_id(scope, agent_id).await?;
-        if participant.status != "available" {
-            return Err(ErrorKind::Validation(format!(
-                "participant {} is {} — pick an available agent or leave unassigned",
-                participant.name, participant.status
-            ))
-            .into());
-        }
+        ParticipantAvailabilityPolicy::ensure_available(
+            &participant.name,
+            &participant.status,
+            ParticipantAvailabilityAction::AssignTask,
+        )?;
 
         self.assign_to_participant(scope, &task, &participant).await
     }
@@ -999,13 +996,13 @@ impl OrchestrationService {
             .await
             .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("begin create assigned task tx: {err}")))?;
         let participant = ParticipantRepository::find_by_agent_id_in_tx(&mut tx, scope, agent_id).await?;
-        if participant.status != "available" {
+        if let Err(err) = ParticipantAvailabilityPolicy::ensure_available(
+            &participant.name,
+            &participant.status,
+            ParticipantAvailabilityAction::AssignTask,
+        ) {
             let _ = tx.rollback().await;
-            return Err(ErrorKind::Validation(format!(
-                "participant {} is {} — pick an available agent or leave unassigned",
-                participant.name, participant.status
-            ))
-            .into());
+            return Err(err);
         }
 
         ParticipantRepository::update_status_in_tx(&mut tx, scope, agent_id, "busy").await?;
