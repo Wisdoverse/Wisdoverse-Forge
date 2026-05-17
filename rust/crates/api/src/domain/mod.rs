@@ -22,6 +22,7 @@ pub(crate) mod orchestration;
 pub(crate) mod prompt;
 pub(crate) mod prompt_library;
 pub(crate) mod resource;
+pub(crate) mod runtime_capability;
 pub(crate) mod skill;
 pub(crate) mod turn;
 pub(crate) mod user;
