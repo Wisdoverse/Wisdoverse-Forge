@@ -8,8 +8,8 @@ use uuid::Uuid;
 
 use crate::domain::context_governance::ContextAuditEvent;
 use crate::domain::skill::{
-    PreparedSkillContent, SkillBoundaryMutationPolicy, SkillContentDecision, SkillContentPolicy,
-    SkillCreateStatePolicy, SkillJsonObjectPolicy, SkillMutationAccess, SkillMutationAccessPolicy,
+    PreparedSkillContent, SkillBoundaryAccessPolicy, SkillBoundaryMutationPolicy, SkillContentDecision,
+    SkillContentPolicy, SkillCreateStatePolicy, SkillJsonObjectPolicy, SkillMutationAccess, SkillMutationAccessPolicy,
     SkillMutationManagerCheck, SkillMutationPolicy, SkillName, SkillRestoreVersionPlan, SkillRestoreVersionPolicy,
     SkillRestoreVersionRequest, SkillScopeKind, SkillScopeTargetPolicy, SkillSensitivity, SkillState,
     SkillStateTransitionPolicy, SkillTtlPolicy,
@@ -476,10 +476,8 @@ impl SkillService {
     }
 
     async fn reject_outside_boundary_version_access(&self, scope: &TenantScope, id: Uuid) -> AppResult<()> {
-        if self.repo.exists_outside_request_boundary(scope, id).await? {
-            return Err(ErrorKind::Forbidden.into());
-        }
-        Ok(())
+        let exists_outside_request_boundary = self.repo.exists_outside_request_boundary(scope, id).await?;
+        SkillBoundaryAccessPolicy::ensure_allowed(exists_outside_request_boundary)
     }
 
     async fn prepare_content_or_audit_rejection(
