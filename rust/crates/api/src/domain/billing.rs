@@ -124,6 +124,30 @@ pub(crate) enum SubscriptionPlanResolution<'a> {
     MissingMetadata,
 }
 
+/// Stripe invoice subscription lookup source.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum InvoiceSubscriptionLookup<'a> {
+    StripeSubscriptionId(&'a str),
+    StripeCustomerId(&'a str),
+}
+
+/// Ordered lookup plan for correlating a Stripe invoice to a local subscription.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct InvoiceSubscriptionLookupPlan<'a> {
+    primary: Option<InvoiceSubscriptionLookup<'a>>,
+    fallback: Option<InvoiceSubscriptionLookup<'a>>,
+}
+
+impl<'a> InvoiceSubscriptionLookupPlan<'a> {
+    pub(crate) fn primary(self) -> Option<InvoiceSubscriptionLookup<'a>> {
+        self.primary
+    }
+
+    pub(crate) fn fallback(self) -> Option<InvoiceSubscriptionLookup<'a>> {
+        self.fallback
+    }
+}
+
 /// Stripe webhook reconciliation policy for subscription snapshots.
 pub(crate) struct BillingWebhookReconciliationPolicy;
 
@@ -165,6 +189,20 @@ impl BillingWebhookReconciliationPolicy {
 
     pub(crate) fn missing_plan_metadata_error() -> ErrorKind {
         ErrorKind::Validation("Stripe subscription event is missing Wisdoverse Forge plan metadata".to_string())
+    }
+
+    pub(crate) fn invoice_subscription_lookup_plan<'a>(
+        subscription_id: Option<&'a str>,
+        customer_id: Option<&'a str>,
+    ) -> InvoiceSubscriptionLookupPlan<'a> {
+        InvoiceSubscriptionLookupPlan {
+            primary: subscription_id.map(InvoiceSubscriptionLookup::StripeSubscriptionId),
+            fallback: customer_id.map(InvoiceSubscriptionLookup::StripeCustomerId),
+        }
+    }
+
+    pub(crate) fn missing_invoice_subscription_error() -> ErrorKind {
+        ErrorKind::Validation("Stripe invoice event does not match a Wisdoverse Forge subscription".to_string())
     }
 }
 
@@ -363,6 +401,22 @@ mod tests {
             BillingWebhookReconciliationPolicy::resolve_plan_id(&metadata, None, None, None),
             SubscriptionPlanResolution::MissingMetadata
         );
+    }
+
+    #[test]
+    fn webhook_reconciliation_builds_invoice_subscription_lookup_plan() {
+        let plan =
+            BillingWebhookReconciliationPolicy::invoice_subscription_lookup_plan(Some(" sub_123 "), Some(" cus_123 "));
+        assert_eq!(plan.primary(), Some(InvoiceSubscriptionLookup::StripeSubscriptionId(" sub_123 ")));
+        assert_eq!(plan.fallback(), Some(InvoiceSubscriptionLookup::StripeCustomerId(" cus_123 ")));
+
+        let customer_only = BillingWebhookReconciliationPolicy::invoice_subscription_lookup_plan(None, Some("cus_123"));
+        assert_eq!(customer_only.primary(), None);
+        assert_eq!(customer_only.fallback(), Some(InvoiceSubscriptionLookup::StripeCustomerId("cus_123")));
+
+        let empty = BillingWebhookReconciliationPolicy::invoice_subscription_lookup_plan(None, None);
+        assert_eq!(empty.primary(), None);
+        assert_eq!(empty.fallback(), None);
     }
 
     #[test]
