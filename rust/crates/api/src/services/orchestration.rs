@@ -747,11 +747,7 @@ impl OrchestrationService {
             None
         };
         let (next_status, next_reason, next_metadata) =
-            if BlockedTaskPolicy::needs_dependency_block(parent_status.as_deref()) {
-                ("blocked", Some("waiting_dependency"), Some(json!({ "pending": 1 })))
-            } else {
-                ("queued", None, None)
-            };
+            BlockedTaskPolicy::approval_release_state(parent_status.as_deref());
         let approved = self
             .task_repo
             .approve_waiting_task(scope, task_id, scope.user_id(), next_status, next_reason, next_metadata)

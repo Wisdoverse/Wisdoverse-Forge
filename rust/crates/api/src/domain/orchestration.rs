@@ -473,6 +473,15 @@ impl BlockedTaskPolicy {
         (None, None)
     }
 
+    pub(crate) fn approval_release_state(
+        parent_status: Option<&str>,
+    ) -> (&'static str, Option<&'static str>, Option<serde_json::Value>) {
+        if Self::needs_dependency_block(parent_status) {
+            return ("blocked", Some("waiting_dependency"), Some(json!({ "pending": 1 })));
+        }
+        ("queued", None, None)
+    }
+
     pub(crate) fn missing_required_inputs(params: Option<&serde_json::Value>) -> Vec<String> {
         let Some(params) = params else {
             return Vec::new();
@@ -637,6 +646,17 @@ mod tests {
 
         let error = BlockedTaskPolicy::no_available_participants_error();
         assert!(matches!(error, ErrorKind::Validation(message) if message == "no available participants for dispatch"));
+    }
+
+    #[test]
+    fn blocked_task_policy_releases_approval_to_queue_or_dependency_block() {
+        assert_eq!(BlockedTaskPolicy::approval_release_state(None), ("queued", None, None));
+        assert_eq!(BlockedTaskPolicy::approval_release_state(Some("completed")), ("queued", None, None));
+
+        let blocked = BlockedTaskPolicy::approval_release_state(Some("working"));
+        assert_eq!(blocked.0, "blocked");
+        assert_eq!(blocked.1, Some("waiting_dependency"));
+        assert_eq!(blocked.2.as_ref().and_then(|m| m.get("pending")).and_then(|v| v.as_i64()), Some(1));
     }
 
     #[test]
