@@ -8,8 +8,8 @@ use serde_json::{Value, json};
 use uuid::Uuid;
 
 use crate::domain::skill::{
-    SkillJsonObjectPolicy, SkillName, SkillRestoreVersionPolicy, SkillSensitivity, SkillStateTransitionPolicy,
-    SkillTtlPolicy,
+    PreparedSkillContent, SkillContentDecision, SkillContentPolicy, SkillJsonObjectPolicy, SkillName,
+    SkillRestoreVersionPolicy, SkillSensitivity, SkillStateTransitionPolicy, SkillTtlPolicy,
 };
 use crate::repositories::resource_permission::ResourcePermissionRepository;
 use crate::repositories::skill::{CreateSkillRecord, SkillRepository, UpdateSkillRecord};
@@ -99,12 +99,6 @@ pub struct RestoreSkillVersionInput {
     pub version: i32,
     pub expected_current_version: Option<i32>,
     pub confirm_expansion: bool,
-}
-
-struct PreparedContent {
-    content: String,
-    sensitivity: &'static str,
-    audit_payload: Value,
 }
 
 /// Business logic layer for skill operations.
@@ -618,42 +612,24 @@ impl SkillService {
         operation: &'static str,
         resource_id: Option<Uuid>,
         content: &str,
-    ) -> AppResult<PreparedContent> {
-        let content = content.trim();
-        if content.is_empty() {
-            return Err(ErrorKind::Validation("skill content must not be empty".into()).into());
+    ) -> AppResult<PreparedSkillContent> {
+        match SkillContentPolicy::prepare(content)? {
+            SkillContentDecision::Prepared(prepared) => Ok(prepared),
+            SkillContentDecision::Rejected(rejection) => {
+                let payload = rejection.audit_payload(operation, resource_id);
+                let mut tx = self.repo.pool().begin().await?;
+                self.emit_skill_audit(
+                    &mut tx,
+                    scope,
+                    "governance.context.skill.mutation_rejected",
+                    resource_id,
+                    payload,
+                )
+                .await?;
+                tx.commit().await?;
+                Err(rejection.into_app_error())
+            }
         }
-        let classification = ContextGovernanceService::classify_sensitivity(content);
-        if matches!(classification.sensitivity, Sensitivity::SecretDetected) {
-            let mut tx = self.repo.pool().begin().await?;
-            self.emit_skill_audit(
-                &mut tx,
-                scope,
-                "governance.context.skill.mutation_rejected",
-                resource_id,
-                json!({
-                    "operation": operation,
-                    "skill_id": resource_id,
-                    "reason": "secret_detected",
-                    "matched_patterns": classification.matched_patterns,
-                    "redacted_preview": classification.redacted_preview
-                }),
-            )
-            .await?;
-            tx.commit().await?;
-            return Err(
-                ErrorKind::Unprocessable("secret detected in skill content; submit redacted content".into()).into()
-            );
-        }
-
-        Ok(PreparedContent {
-            content: content.to_string(),
-            sensitivity: sensitivity_label(classification.sensitivity),
-            audit_payload: json!({
-                "sensitivity": sensitivity_label(classification.sensitivity),
-                "matched_patterns": classification.matched_patterns
-            }),
-        })
     }
 
     async fn emit_skill_audit(
@@ -695,15 +671,6 @@ fn skill_event_payload(skill: &Skill, extra: Value) -> Value {
     }
 
     payload
-}
-
-fn sensitivity_label(sensitivity: Sensitivity) -> &'static str {
-    match sensitivity {
-        Sensitivity::Public => "public",
-        Sensitivity::Internal => "internal",
-        Sensitivity::Confidential => "confidential",
-        Sensitivity::SecretDetected => "secret_detected",
-    }
 }
 
 #[cfg(test)]
