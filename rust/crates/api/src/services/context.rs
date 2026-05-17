@@ -15,10 +15,10 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::context::{
-    ContextCandidateKind, ContextCandidatePolicy, ContextFeedbackLabel, ContextItemKind, context_candidate_subject,
-    ensure_pending_candidate, normalize_candidate_kind_filter, normalize_candidate_state_filter,
-    normalize_context_candidate_limit, normalize_feedback_note, normalize_reason, normalize_scope_kind_filter,
-    redacted_proposal_preview, validate_context_sensitivity, validate_ttl,
+    ContextCandidateKind, ContextCandidatePolicy, ContextFeedbackLabel, ContextFeedbackPolicy, ContextItemKind,
+    context_candidate_subject, ensure_pending_candidate, normalize_candidate_kind_filter,
+    normalize_candidate_state_filter, normalize_context_candidate_limit, normalize_feedback_note, normalize_reason,
+    normalize_scope_kind_filter, redacted_proposal_preview, validate_context_sensitivity, validate_ttl,
 };
 use crate::domain::context_governance::{
     ContextAuditEvent, ContextGovernancePolicy, ContextScopeKind, ScopeExpansionRequest, Sensitivity,
@@ -601,9 +601,6 @@ impl ContextApprovalService {
     }
 }
 
-const STALE_REVOKE_THRESHOLD: i64 = 3;
-const WRONG_REVOKE_THRESHOLD: i64 = 2;
-
 #[derive(Debug, Clone)]
 pub struct RecordContextFeedbackInput {
     pub run_id: Uuid,
@@ -642,9 +639,7 @@ impl ContextFeedbackService {
         let mut tx = self.feedback.pool().begin().await?;
         let run_status =
             ContextFeedbackRepository::run_status_in_scope_in_tx(&mut tx, &proof, workspace_id, input.run_id).await?;
-        if !matches!(run_status.as_str(), "completed" | "failed" | "canceled") {
-            return Err(ErrorKind::Unprocessable("context feedback requires a terminal run".into()).into());
-        }
+        ContextFeedbackPolicy::ensure_run_terminal(&run_status)?;
 
         let already_revoked = match input.item_kind {
             ContextItemKind::Memory => {
@@ -736,7 +731,7 @@ impl ContextFeedbackService {
                 let stale_count =
                     ContextFeedbackRepository::count_label_in_tx(tx, proof, workspace_id, item_id, "memory", "stale")
                         .await?;
-                if stale_count >= STALE_REVOKE_THRESHOLD {
+                if ContextFeedbackPolicy::should_revoke_after_label(label, stale_count) {
                     Ok(ContextFeedbackRepository::revoke_memory_if_active_in_tx(tx, item_id).await?.is_some())
                 } else {
                     Ok(false)
@@ -746,7 +741,7 @@ impl ContextFeedbackService {
                 let wrong_count =
                     ContextFeedbackRepository::count_label_in_tx(tx, proof, workspace_id, item_id, "memory", "wrong")
                         .await?;
-                if wrong_count >= WRONG_REVOKE_THRESHOLD {
+                if ContextFeedbackPolicy::should_revoke_after_label(label, wrong_count) {
                     Ok(ContextFeedbackRepository::revoke_memory_if_active_in_tx(tx, item_id).await?.is_some())
                 } else {
                     Ok(false)
@@ -773,7 +768,7 @@ impl ContextFeedbackService {
                 let wrong_count =
                     ContextFeedbackRepository::count_label_in_tx(tx, proof, workspace_id, item_id, "skill", "wrong")
                         .await?;
-                if wrong_count >= WRONG_REVOKE_THRESHOLD {
+                if ContextFeedbackPolicy::should_revoke_after_label(label, wrong_count) {
                     Ok(ContextFeedbackRepository::revoke_skill_if_active_in_tx(tx, item_id).await?.is_some())
                 } else {
                     Ok(false)
@@ -783,7 +778,7 @@ impl ContextFeedbackService {
                 let stale_count =
                     ContextFeedbackRepository::count_label_in_tx(tx, proof, workspace_id, item_id, "skill", "stale")
                         .await?;
-                if stale_count >= STALE_REVOKE_THRESHOLD {
+                if ContextFeedbackPolicy::should_revoke_after_label(label, stale_count) {
                     Ok(ContextFeedbackRepository::revoke_skill_if_active_in_tx(tx, item_id).await?.is_some())
                 } else {
                     Ok(false)

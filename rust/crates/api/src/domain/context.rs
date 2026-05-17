@@ -74,6 +74,31 @@ impl ContextFeedbackLabel {
     }
 }
 
+const STALE_REVOKE_THRESHOLD: i64 = 3;
+const WRONG_REVOKE_THRESHOLD: i64 = 2;
+
+pub(crate) struct ContextFeedbackPolicy;
+
+impl ContextFeedbackPolicy {
+    pub(crate) fn ensure_run_terminal(status: &str) -> AppResult<()> {
+        if matches!(status, "completed" | "failed" | "canceled") {
+            Ok(())
+        } else {
+            Err(ErrorKind::Unprocessable("context feedback requires a terminal run".into()).into())
+        }
+    }
+
+    pub(crate) fn should_revoke_after_label(label: ContextFeedbackLabel, matching_feedback_count: i64) -> bool {
+        match label {
+            ContextFeedbackLabel::Stale => matching_feedback_count >= STALE_REVOKE_THRESHOLD,
+            ContextFeedbackLabel::Wrong => matching_feedback_count >= WRONG_REVOKE_THRESHOLD,
+            ContextFeedbackLabel::Useful | ContextFeedbackLabel::TooSensitive | ContextFeedbackLabel::DoNotUseAgain => {
+                false
+            }
+        }
+    }
+}
+
 pub(crate) fn context_candidate_subject(org_id: Uuid, scope_kind: &str, scope_id: Uuid, event: &str) -> String {
     format!("broadcast.{org_id}.scope.{scope_kind}.{scope_id}.context_candidate.{event}")
 }
@@ -383,6 +408,20 @@ mod tests {
         assert_eq!(ContextFeedbackLabel::Wrong.as_label(), "wrong");
         assert_eq!(ContextFeedbackLabel::TooSensitive.as_label(), "too_sensitive");
         assert_eq!(ContextFeedbackLabel::DoNotUseAgain.as_label(), "do_not_use_again");
+    }
+
+    #[test]
+    fn context_feedback_policy_requires_terminal_runs_and_applies_revoke_thresholds() {
+        assert!(ContextFeedbackPolicy::ensure_run_terminal("completed").is_ok());
+        assert!(ContextFeedbackPolicy::ensure_run_terminal("failed").is_ok());
+        assert!(ContextFeedbackPolicy::ensure_run_terminal("canceled").is_ok());
+        assert!(ContextFeedbackPolicy::ensure_run_terminal("running").is_err());
+
+        assert!(!ContextFeedbackPolicy::should_revoke_after_label(ContextFeedbackLabel::Stale, 2));
+        assert!(ContextFeedbackPolicy::should_revoke_after_label(ContextFeedbackLabel::Stale, 3));
+        assert!(!ContextFeedbackPolicy::should_revoke_after_label(ContextFeedbackLabel::Wrong, 1));
+        assert!(ContextFeedbackPolicy::should_revoke_after_label(ContextFeedbackLabel::Wrong, 2));
+        assert!(!ContextFeedbackPolicy::should_revoke_after_label(ContextFeedbackLabel::Useful, 99));
     }
 
     #[test]
