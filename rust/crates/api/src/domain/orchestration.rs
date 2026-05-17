@@ -6,6 +6,7 @@
 
 use agentforge_core::{AgentId, AppResult, ErrorKind};
 use serde_json::json;
+use uuid::Uuid;
 
 const VALID_TASK_STATUSES: &[&str] = &["backlog", "queued", "working", "blocked", "completed", "failed", "canceled"];
 const KANBAN_DROP_STATUSES: &[&str] = &["backlog", "queued", "working", "blocked", "completed"];
@@ -148,6 +149,21 @@ impl TaskPatchPolicy {
 
     pub(crate) fn is_business_transition(state: Option<&str>, assigned_to: &Option<Option<AgentId>>) -> bool {
         matches!(state, Some("working" | "completed" | "failed" | "canceled")) || matches!(assigned_to, Some(Some(_)))
+    }
+}
+
+/// Assignment field semantics for task PATCH requests.
+pub(crate) struct TaskAssignmentPatchPolicy;
+
+impl TaskAssignmentPatchPolicy {
+    pub(crate) fn parse(raw: Option<&str>) -> AppResult<Option<Option<AgentId>>> {
+        match raw {
+            None => Ok(None),
+            Some("") => Ok(Some(None)),
+            Some(value) => Uuid::parse_str(value).map(|id| Some(Some(AgentId::from(id)))).map_err(|_| {
+                ErrorKind::Validation(format!("assignedTo must be a UUID or empty string, got: {value}")).into()
+            }),
+        }
     }
 }
 
@@ -393,5 +409,20 @@ mod tests {
     #[test]
     fn quota_block_policy_ignores_non_quota_errors() {
         assert!(QuotaBlockPolicy::metadata(&json!({"message": "tool failed"})).is_none());
+    }
+
+    #[test]
+    fn assignment_patch_policy_handles_absent_unassign_and_uuid() {
+        assert!(matches!(TaskAssignmentPatchPolicy::parse(None), Ok(None)));
+        assert!(matches!(TaskAssignmentPatchPolicy::parse(Some("")).unwrap(), Some(None)));
+        assert!(matches!(
+            TaskAssignmentPatchPolicy::parse(Some("00000000-0000-0000-0000-000000000001")).unwrap(),
+            Some(Some(_))
+        ));
+    }
+
+    #[test]
+    fn assignment_patch_policy_rejects_invalid_uuid() {
+        assert!(TaskAssignmentPatchPolicy::parse(Some("not-a-uuid")).is_err());
     }
 }
