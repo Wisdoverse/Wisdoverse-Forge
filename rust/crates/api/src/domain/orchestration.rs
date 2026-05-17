@@ -64,6 +64,24 @@ impl TaskPriority {
     }
 }
 
+/// Task creation invariants.
+pub(crate) struct TaskCreationPolicy;
+
+impl TaskCreationPolicy {
+    pub(crate) fn ensure_approval_task_is_unassigned(
+        requires_approval: bool,
+        assigned_to: Option<AgentId>,
+    ) -> AppResult<()> {
+        if requires_approval && assigned_to.is_some() {
+            return Err(ErrorKind::Validation(
+                "requiresApproval tasks cannot be assigned before approval; approve then dispatch".into(),
+            )
+            .into());
+        }
+        Ok(())
+    }
+}
+
 /// Task status policy.
 pub(crate) struct TaskStatusPolicy;
 
@@ -104,6 +122,51 @@ impl TaskStatusPolicy {
 
     pub(crate) fn can_complete_or_fail(status: &str) -> bool {
         status == "working"
+    }
+}
+
+/// Terminal and approval lifecycle guards for orchestration tasks.
+pub(crate) struct TaskLifecyclePolicy;
+
+impl TaskLifecyclePolicy {
+    pub(crate) fn ensure_can_complete(status: &str) -> AppResult<()> {
+        Self::ensure_working_action(status, "complete")
+    }
+
+    pub(crate) fn ensure_can_fail(status: &str) -> AppResult<()> {
+        Self::ensure_working_action(status, "fail")
+    }
+
+    pub(crate) fn ensure_can_retry(
+        status: &str,
+        blocked_reason: Option<&str>,
+        requires_approval: bool,
+    ) -> AppResult<()> {
+        if status == "blocked" && blocked_reason == Some("waiting_approval") && requires_approval {
+            return Err(ErrorKind::Validation("approve or cancel approval-blocked tasks before retry".into()).into());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn ensure_can_approve(
+        status: &str,
+        blocked_reason: Option<&str>,
+        requires_approval: bool,
+    ) -> AppResult<()> {
+        if status != "blocked" || blocked_reason != Some("waiting_approval") {
+            return Err(ErrorKind::Validation("task is not waiting for approval".into()).into());
+        }
+        if !requires_approval {
+            return Err(ErrorKind::Validation("task approval has already been consumed".into()).into());
+        }
+        Ok(())
+    }
+
+    fn ensure_working_action(status: &str, action: &str) -> AppResult<()> {
+        if TaskStatusPolicy::can_complete_or_fail(status) {
+            return Ok(());
+        }
+        Err(ErrorKind::Validation(format!("can only {action} working tasks, current status: {status}")).into())
     }
 }
 
@@ -486,6 +549,13 @@ fn json_nested_i64(value: &serde_json::Value, parent: &str, key: &str) -> Option
 mod tests {
     use super::*;
 
+    fn validation_message(result: AppResult<()>) -> String {
+        match result.unwrap_err().kind {
+            ErrorKind::Validation(message) => message,
+            other => panic!("expected validation error, got {other:?}"),
+        }
+    }
+
     #[test]
     fn list_page_clamps_limit_and_offset() {
         assert_eq!(TaskListPage::new(0, -1).limit(), 1);
@@ -621,6 +691,50 @@ mod tests {
         };
 
         assert!(error.contains("participant Codex is busy"));
+    }
+
+    #[test]
+    fn task_creation_policy_rejects_preassigned_approval_tasks() {
+        assert!(TaskCreationPolicy::ensure_approval_task_is_unassigned(false, Some(AgentId::new())).is_ok());
+        assert!(TaskCreationPolicy::ensure_approval_task_is_unassigned(true, None).is_ok());
+
+        let error =
+            validation_message(TaskCreationPolicy::ensure_approval_task_is_unassigned(true, Some(AgentId::new())));
+        assert!(error.contains("cannot be assigned before approval"));
+    }
+
+    #[test]
+    fn task_lifecycle_policy_guards_complete_and_fail() {
+        assert!(TaskLifecyclePolicy::ensure_can_complete("working").is_ok());
+        assert!(TaskLifecyclePolicy::ensure_can_fail("working").is_ok());
+
+        let complete_error = validation_message(TaskLifecyclePolicy::ensure_can_complete("queued"));
+        let fail_error = validation_message(TaskLifecyclePolicy::ensure_can_fail("completed"));
+
+        assert_eq!(complete_error, "can only complete working tasks, current status: queued");
+        assert_eq!(fail_error, "can only fail working tasks, current status: completed");
+    }
+
+    #[test]
+    fn task_lifecycle_policy_rejects_retrying_pending_approval() {
+        assert!(TaskLifecyclePolicy::ensure_can_retry("failed", None, false).is_ok());
+        assert!(TaskLifecyclePolicy::ensure_can_retry("blocked", Some("waiting_approval"), false).is_ok());
+
+        let error =
+            validation_message(TaskLifecyclePolicy::ensure_can_retry("blocked", Some("waiting_approval"), true));
+        assert!(error.contains("approve or cancel approval-blocked tasks"));
+    }
+
+    #[test]
+    fn task_lifecycle_policy_guards_approval_state() {
+        assert!(TaskLifecyclePolicy::ensure_can_approve("blocked", Some("waiting_approval"), true).is_ok());
+
+        let wrong_state = validation_message(TaskLifecyclePolicy::ensure_can_approve("queued", None, true));
+        let consumed =
+            validation_message(TaskLifecyclePolicy::ensure_can_approve("blocked", Some("waiting_approval"), false));
+
+        assert_eq!(wrong_state, "task is not waiting for approval");
+        assert_eq!(consumed, "task approval has already been consumed");
     }
 
     #[test]

@@ -22,8 +22,8 @@ use uuid::Uuid;
 use crate::domain::context_resolver::{ContextTaskSnapshot, ResolvedContext};
 use crate::domain::orchestration::{
     BlockedTaskPolicy, ParticipantAvailabilityAction, ParticipantAvailabilityPolicy, ParticipantName,
-    ParticipantStatusPolicy, QuotaBlockPolicy, TaskListPage, TaskPatchAction, TaskPatchPolicy, TaskPriority,
-    TaskStatusPolicy, TaskTitle,
+    ParticipantStatusPolicy, QuotaBlockPolicy, TaskCreationPolicy, TaskLifecyclePolicy, TaskListPage, TaskPatchAction,
+    TaskPatchPolicy, TaskPriority, TaskStatusPolicy, TaskTitle,
 };
 use crate::repositories::orchestration::{
     CreateTaskRow, OrchestrationTaskRepository, OrchestrationTaskStats, ParticipantRepository, UpdateTaskRow,
@@ -164,12 +164,7 @@ impl OrchestrationService {
     ) -> AppResult<OrchestrationTask> {
         TaskTitle::validate(title)?;
         let priority = TaskPriority::validate(priority.unwrap_or("normal"))?;
-        if requires_approval && assigned_to.is_some() {
-            return Err(ErrorKind::Validation(
-                "requiresApproval tasks cannot be assigned before approval; approve then dispatch".into(),
-            )
-            .into());
-        }
+        TaskCreationPolicy::ensure_approval_task_is_unassigned(requires_approval, assigned_to)?;
         let missing_inputs = BlockedTaskPolicy::missing_required_inputs(params.as_ref());
         // Parent status gates child creation on waiting_dependency. Only a genuine
         // `NotFound` is remapped to a validation error; infrastructure errors
@@ -406,12 +401,7 @@ impl OrchestrationService {
     /// Retry a terminal task: reset to backlog and re-attempt dispatch.
     pub async fn retry_task(&self, scope: &TenantScope, id: Uuid) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, id).await?;
-        if task.status == "blocked"
-            && task.blocked_reason.as_deref() == Some("waiting_approval")
-            && task.requires_approval
-        {
-            return Err(ErrorKind::Validation("approve or cancel approval-blocked tasks before retry".into()).into());
-        }
+        TaskLifecyclePolicy::ensure_can_retry(&task.status, task.blocked_reason.as_deref(), task.requires_approval)?;
         let reset = self.task_repo.retry(scope, id).await?;
         self.try_auto_dispatch(scope, reset).await
     }
@@ -632,13 +622,7 @@ impl OrchestrationService {
     ) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, task_id).await?;
 
-        if !TaskStatusPolicy::can_complete_or_fail(&task.status) {
-            return Err(ErrorKind::Validation(format!(
-                "can only complete working tasks, current status: {}",
-                task.status
-            ))
-            .into());
-        }
+        TaskLifecyclePolicy::ensure_can_complete(&task.status)?;
 
         // Issue #37: parent completion + waiting_dependency unblock must commit
         // atomically. If unblock fails after set_result has been committed,
@@ -702,11 +686,7 @@ impl OrchestrationService {
     ) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, task_id).await?;
 
-        if !TaskStatusPolicy::can_complete_or_fail(&task.status) {
-            return Err(
-                ErrorKind::Validation(format!("can only fail working tasks, current status: {}", task.status)).into()
-            );
-        }
+        TaskLifecyclePolicy::ensure_can_fail(&task.status)?;
 
         if let Some(metadata) = QuotaBlockPolicy::metadata(&error) {
             let mut tx = self
@@ -763,12 +743,7 @@ impl OrchestrationService {
     /// unfinished parent. Queued tasks immediately re-enter auto-dispatch.
     pub async fn approve_task(&self, scope: &TenantScope, task_id: Uuid) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, task_id).await?;
-        if task.status != "blocked" || task.blocked_reason.as_deref() != Some("waiting_approval") {
-            return Err(ErrorKind::Validation("task is not waiting for approval".into()).into());
-        }
-        if !task.requires_approval {
-            return Err(ErrorKind::Validation("task approval has already been consumed".into()).into());
-        }
+        TaskLifecyclePolicy::ensure_can_approve(&task.status, task.blocked_reason.as_deref(), task.requires_approval)?;
 
         let parent_status = if let Some(parent_id) = task.parent_task_id {
             Some(self.task_repo.find_by_id(scope, parent_id).await?.status)
