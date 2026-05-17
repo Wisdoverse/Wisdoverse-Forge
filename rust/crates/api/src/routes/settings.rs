@@ -14,22 +14,15 @@ use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 
 use agentforge_auth::AuthUser;
-use agentforge_core::{AppResult, CliToolKind, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, ErrorKind, TenantScope};
 
+use crate::domain::configuration::{GatewaySettingsPolicy, RuntimeSettingsPolicy};
 use crate::health::AppState;
 use crate::repositories::setting::SettingRepository;
 use crate::services::setting::SettingService;
 
 const RUNTIME_KEY: &str = "runtime";
 const GATEWAY_KEY: &str = "gateway";
-
-const DEFAULT_RUNTIME: &str = "container";
-const DEFAULT_CLI_TOOL: &str = CliToolKind::Claude.as_str();
-const AVAILABLE_RUNTIMES: [&str; 2] = ["container", "api"];
-
-const DEFAULT_ROUTING_STRATEGY: &str = "specified";
-const DEFAULT_CIRCUIT_BREAKER_THRESHOLD: u32 = 5;
-const DEFAULT_CIRCUIT_BREAKER_RESET_MS: u32 = 30_000;
 
 /// Request body for upserting a setting.
 #[derive(Deserialize)]
@@ -76,18 +69,18 @@ fn make_service(state: &AppState) -> SettingService {
 
 fn runtime_defaults() -> RuntimeSettings {
     RuntimeSettings {
-        default_runtime: DEFAULT_RUNTIME.to_string(),
-        available_runtimes: AVAILABLE_RUNTIMES.iter().map(|runtime| (*runtime).to_string()).collect(),
-        default_cli_tool: DEFAULT_CLI_TOOL.to_string(),
-        available_cli_tools: CliToolKind::ALL.iter().map(|tool| tool.as_str().to_string()).collect(),
+        default_runtime: RuntimeSettingsPolicy::default_runtime().to_string(),
+        available_runtimes: RuntimeSettingsPolicy::available_runtimes(),
+        default_cli_tool: RuntimeSettingsPolicy::default_cli_tool().to_string(),
+        available_cli_tools: RuntimeSettingsPolicy::available_cli_tools(),
     }
 }
 
 fn gateway_defaults() -> GatewaySettings {
     GatewaySettings {
-        routing_strategy: DEFAULT_ROUTING_STRATEGY.to_string(),
-        circuit_breaker_threshold: DEFAULT_CIRCUIT_BREAKER_THRESHOLD,
-        circuit_breaker_reset_ms: DEFAULT_CIRCUIT_BREAKER_RESET_MS,
+        routing_strategy: GatewaySettingsPolicy::default_routing_strategy().to_string(),
+        circuit_breaker_threshold: GatewaySettingsPolicy::default_circuit_breaker_threshold(),
+        circuit_breaker_reset_ms: GatewaySettingsPolicy::default_circuit_breaker_reset_ms(),
     }
 }
 
@@ -101,14 +94,14 @@ fn runtime_from_settings(scope: &TenantScope, settings: &[agentforge_db::entitie
 
     if let Some(value) = value {
         if let Some(default_runtime) = value.get("defaultRuntime").and_then(serde_json::Value::as_str)
-            && AVAILABLE_RUNTIMES.contains(&default_runtime)
+            && let Some(default_runtime) = RuntimeSettingsPolicy::runtime_from_stored(default_runtime)
         {
             defaults.default_runtime = default_runtime.to_string();
         }
         if let Some(default_cli_tool) = value.get("defaultCliTool").and_then(serde_json::Value::as_str)
-            && let Ok(default_cli_tool) = CliToolKind::parse_legacy(default_cli_tool)
+            && let Some(default_cli_tool) = RuntimeSettingsPolicy::cli_tool_from_stored(default_cli_tool)
         {
-            defaults.default_cli_tool = default_cli_tool.as_str().to_string();
+            defaults.default_cli_tool = default_cli_tool.to_string();
         }
     }
 
@@ -138,7 +131,7 @@ fn gateway_from_settings(scope: &TenantScope, settings: &[agentforge_db::entitie
 
     if let Some(value) = value {
         if let Some(routing_strategy) = value.get("routingStrategy").and_then(serde_json::Value::as_str)
-            && ["specified", "cost", "latency", "failover"].contains(&routing_strategy)
+            && let Some(routing_strategy) = GatewaySettingsPolicy::routing_strategy_from_stored(routing_strategy)
         {
             defaults.routing_strategy = routing_strategy.to_string();
         }
@@ -195,20 +188,11 @@ async fn update_runtime_settings(
     let mut runtime = current;
 
     if let Some(default_runtime) = req.default_runtime {
-        if !AVAILABLE_RUNTIMES.contains(&default_runtime.as_str()) {
-            return Err(ErrorKind::Validation(format!("invalid defaultRuntime '{default_runtime}'")).into());
-        }
-        runtime.default_runtime = default_runtime;
+        runtime.default_runtime = RuntimeSettingsPolicy::canonical_runtime(&default_runtime)?.to_string();
     }
 
     if let Some(default_cli_tool) = req.default_cli_tool {
-        let tool = match CliToolKind::parse_legacy(&default_cli_tool) {
-            Ok(tool) => tool,
-            Err(err) => {
-                return Err(ErrorKind::Validation(format!("invalid defaultCliTool '{default_cli_tool}': {err}")).into());
-            }
-        };
-        runtime.default_cli_tool = tool.as_str().to_string();
+        runtime.default_cli_tool = RuntimeSettingsPolicy::canonical_cli_tool(&default_cli_tool)?.to_string();
     }
 
     let value = serde_json::to_value(&runtime).map_err(|err| ErrorKind::Internal(err.into()))?;
@@ -235,10 +219,7 @@ async fn update_gateway_settings(
     let mut gateway = current;
 
     if let Some(routing_strategy) = req.routing_strategy {
-        if !["specified", "cost", "latency", "failover"].contains(&routing_strategy.as_str()) {
-            return Err(ErrorKind::Validation(format!("invalid routingStrategy '{routing_strategy}'")).into());
-        }
-        gateway.routing_strategy = routing_strategy;
+        gateway.routing_strategy = GatewaySettingsPolicy::canonical_routing_strategy(&routing_strategy)?.to_string();
     }
     if let Some(threshold) = req.circuit_breaker_threshold {
         gateway.circuit_breaker_threshold = threshold;
@@ -310,7 +291,7 @@ mod tests {
     fn runtime_update_rejects_unknown_runtime() {
         let req: UpdateRuntimeSettingsRequest = serde_json::from_str(r#"{"defaultRuntime": "legacy"}"#).unwrap();
         assert_eq!(req.default_runtime.as_deref(), Some("legacy"));
-        assert!(!AVAILABLE_RUNTIMES.contains(&req.default_runtime.unwrap().as_str()));
+        assert!(RuntimeSettingsPolicy::canonical_runtime(req.default_runtime.as_deref().unwrap()).is_err());
     }
 
     #[test]
