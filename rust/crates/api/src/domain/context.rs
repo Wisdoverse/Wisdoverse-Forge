@@ -6,7 +6,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-use crate::domain::context_governance::{ContextGovernancePolicy, ContextScopeKind, SecretPattern, Sensitivity};
+use crate::domain::context_governance::{
+    ContextGovernancePolicy, ContextScopeKind, ScopeExpansionRejection, ScopeExpansionRequest, SecretPattern,
+    Sensitivity,
+};
 use crate::domain::memory::MemoryScopeKind;
 
 const DEFAULT_LIMIT: i64 = 50;
@@ -255,6 +258,33 @@ impl ContextSelfApprovalRejection {
     }
 }
 
+/// A context candidate approval blocked by an unconfirmed scope expansion.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ContextCandidateScopeExpansionRejection {
+    rejection: ScopeExpansionRejection,
+    confirm_expansion: bool,
+}
+
+impl ContextCandidateScopeExpansionRejection {
+    pub(crate) fn audit_action(&self) -> &'static str {
+        "governance.context.candidate.scope_expansion_rejected"
+    }
+
+    pub(crate) fn audit_payload(&self, item_kind: &str) -> Value {
+        json!({
+            "item_kind": item_kind,
+            "from_scope_kind": self.rejection.from_kind.as_label(),
+            "to_scope_kind": self.rejection.to_kind.as_label(),
+            "reason": self.rejection.reason.as_label(),
+            "confirm_expansion": self.confirm_expansion
+        })
+    }
+
+    pub(crate) fn into_app_error(self) -> AppError {
+        self.rejection.into_app_error()
+    }
+}
+
 pub(crate) struct ContextCandidatePolicy;
 
 impl ContextCandidatePolicy {
@@ -293,6 +323,27 @@ impl ContextCandidatePolicy {
             return Err(ContextSelfApprovalRejection { target_scope_kind });
         }
         Ok(())
+    }
+
+    pub(crate) fn ensure_memory_scope_expansion(
+        target_scope_kind: ScopeKind,
+        confirm_expansion: bool,
+    ) -> Result<(), ContextCandidateScopeExpansionRejection> {
+        Self::ensure_scope_expansion(ContextScopeKind::User, target_scope_kind, confirm_expansion)
+    }
+
+    pub(crate) fn ensure_scope_expansion(
+        from_kind: ContextScopeKind,
+        target_scope_kind: ScopeKind,
+        confirm_expansion: bool,
+    ) -> Result<(), ContextCandidateScopeExpansionRejection> {
+        ContextGovernancePolicy::gate_scope_expansion(ScopeExpansionRequest {
+            from_kind,
+            to_kind: ContextScopeKind::from_scope_kind(target_scope_kind),
+            confirm_expansion,
+        })
+        .map(|_| ())
+        .map_err(|rejection| ContextCandidateScopeExpansionRejection { rejection, confirm_expansion })
     }
 
     pub(crate) fn prepare_memory_candidate(
@@ -673,6 +724,23 @@ mod tests {
         assert_eq!(payload["reason"], "self_approval_wider_scope");
         assert_eq!(payload["scope_kind"], "project");
         assert!(matches!(rejection.into_app_error().kind, ErrorKind::Forbidden));
+    }
+
+    #[test]
+    fn candidate_scope_expansion_policy_emits_auditable_rejection() {
+        assert!(ContextCandidatePolicy::ensure_memory_scope_expansion(ScopeKind::Team, true).is_ok());
+
+        let rejection = ContextCandidatePolicy::ensure_memory_scope_expansion(ScopeKind::Project, false)
+            .expect_err("unconfirmed memory expansion should reject");
+        let payload = rejection.audit_payload("memory");
+
+        assert_eq!(rejection.audit_action(), "governance.context.candidate.scope_expansion_rejected");
+        assert_eq!(payload["item_kind"], "memory");
+        assert_eq!(payload["from_scope_kind"], "user");
+        assert_eq!(payload["to_scope_kind"], "project");
+        assert_eq!(payload["reason"], "confirmation_required");
+        assert_eq!(payload["confirm_expansion"], false);
+        assert!(matches!(rejection.into_app_error().kind, ErrorKind::Unprocessable(_)));
     }
 
     #[test]
