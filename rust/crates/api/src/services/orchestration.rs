@@ -451,14 +451,7 @@ impl OrchestrationService {
     pub async fn dispatch_task(&self, scope: &TenantScope, task_id: Uuid) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, task_id).await?;
 
-        if !can_enter_dispatch(&task) {
-            return Err(ErrorKind::Validation(format!(
-                "can only dispatch queued or waiting-agent tasks, current status: {}, blocked reason: {}",
-                task.status,
-                task.blocked_reason.as_deref().unwrap_or("none")
-            ))
-            .into());
-        }
+        BlockedTaskPolicy::ensure_can_enter_dispatch(&task.status, task.blocked_reason.as_deref())?;
 
         let participant =
             self.participant_repo.find_available(scope).await?.ok_or_else(|| -> agentforge_core::AppError {
@@ -472,7 +465,7 @@ impl OrchestrationService {
     /// available the task is marked `blocked/waiting_agent` with metadata that
     /// powers the "还差 X 个 agent" hint. Returns the updated task either way.
     async fn try_auto_dispatch(&self, scope: &TenantScope, task: OrchestrationTask) -> AppResult<OrchestrationTask> {
-        if !can_enter_dispatch(&task) {
+        if !BlockedTaskPolicy::can_enter_dispatch(&task.status, task.blocked_reason.as_deref()) {
             return Ok(task);
         }
         match self.participant_repo.find_available(scope).await? {
@@ -603,14 +596,7 @@ impl OrchestrationService {
         resolved_context: ResolvedContext,
     ) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, task_id).await?;
-        if !can_enter_dispatch(&task) {
-            return Err(ErrorKind::Validation(format!(
-                "can only dispatch queued or waiting-agent tasks, current status: {}, blocked reason: {}",
-                task.status,
-                task.blocked_reason.as_deref().unwrap_or("none")
-            ))
-            .into());
-        }
+        BlockedTaskPolicy::ensure_can_enter_dispatch(&task.status, task.blocked_reason.as_deref())?;
 
         let participant = self.participant_repo.find_by_agent_id(scope, agent_id).await?;
         ParticipantAvailabilityPolicy::ensure_available(
@@ -629,14 +615,7 @@ impl OrchestrationService {
         agent_id: AgentId,
     ) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, task_id).await?;
-        if !can_enter_dispatch(&task) {
-            return Err(ErrorKind::Validation(format!(
-                "can only dispatch queued or waiting-agent tasks, current status: {}, blocked reason: {}",
-                task.status,
-                task.blocked_reason.as_deref().unwrap_or("none")
-            ))
-            .into());
-        }
+        BlockedTaskPolicy::ensure_can_enter_dispatch(&task.status, task.blocked_reason.as_deref())?;
 
         let participant = self.participant_repo.find_by_agent_id(scope, agent_id).await?;
         ParticipantAvailabilityPolicy::ensure_available(
@@ -1196,8 +1175,4 @@ fn assignment_from_task(
         priority: task.priority.clone(),
         context_envelope,
     })
-}
-
-fn can_enter_dispatch(task: &OrchestrationTask) -> bool {
-    BlockedTaskPolicy::can_enter_dispatch(&task.status, task.blocked_reason.as_deref())
 }
