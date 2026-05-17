@@ -9,8 +9,8 @@ use agentforge_db::entities::{BillingPlan, Invoice, Subscription};
 use uuid::Uuid;
 
 use crate::domain::billing::{
-    BillingCycle, BillingRedirectUrlPolicy, CheckoutCouponPolicy, InvoiceListPage, PaymentMethodId,
-    SubscriptionStatusPolicy,
+    BillingCycle, BillingPlanPolicy, BillingRedirectUrlPolicy, BillingUsageLimitPolicy, CheckoutCouponPolicy,
+    InvoiceListPage, PaymentMethodId, SubscriptionLifecyclePolicy, SubscriptionStatusPolicy,
 };
 use crate::repositories::billing::BillingRepository;
 pub use stripe::{
@@ -61,15 +61,10 @@ impl BillingService {
         CheckoutCouponPolicy::ensure_not_pre_applied(coupon_code)?;
 
         let plan = self.repo.find_plan_by_id(plan_id).await?;
-        let price_id = stripe_price_id(&plan)?;
+        let price_id = BillingPlanPolicy::require_stripe_price_id(&plan.name, plan.stripe_price_id.as_deref())?;
 
-        if let Some(existing) = self.repo.get_subscription(scope).await? {
-            return Err(ErrorKind::Conflict(format!(
-                "organization already has an active subscription: {}",
-                existing.id
-            ))
-            .into());
-        }
+        let existing_subscription_id = self.repo.get_subscription(scope).await?.map(|subscription| subscription.id);
+        SubscriptionLifecyclePolicy::ensure_no_active_subscription(existing_subscription_id)?;
 
         let user_email = self.repo.get_user_email(scope).await?;
         self.gateway
@@ -99,16 +94,11 @@ impl BillingService {
     ) -> AppResult<Subscription> {
         self.ensure_gateway_configured()?;
         let plan = self.repo.find_plan_by_id(plan_id).await?;
-        let price_id = stripe_price_id(&plan)?;
+        let price_id = BillingPlanPolicy::require_stripe_price_id(&plan.name, plan.stripe_price_id.as_deref())?;
         let payment_method_id = PaymentMethodId::parse(payment_method_id)?;
 
-        if let Some(existing) = self.repo.get_subscription(scope).await? {
-            return Err(ErrorKind::Conflict(format!(
-                "organization already has an active subscription: {}",
-                existing.id
-            ))
-            .into());
-        }
+        let existing_subscription_id = self.repo.get_subscription(scope).await?.map(|subscription| subscription.id);
+        SubscriptionLifecyclePolicy::ensure_no_active_subscription(existing_subscription_id)?;
 
         let user_email = self.repo.get_user_email(scope).await?;
         let snapshot = self
@@ -134,9 +124,8 @@ impl BillingService {
             .get_subscription(scope)
             .await?
             .ok_or_else(|| ErrorKind::NotFound("no active subscription".to_string()))?;
-        let stripe_subscription_id = sub.stripe_subscription_id.as_deref().ok_or_else(|| {
-            ErrorKind::Unavailable("active subscription is missing Stripe subscription ID".to_string())
-        })?;
+        let stripe_subscription_id =
+            SubscriptionLifecyclePolicy::require_stripe_subscription_id(sub.stripe_subscription_id.as_deref())?;
 
         let snapshot = self.gateway.cancel_subscription(stripe_subscription_id, immediately).await?;
         SubscriptionStatusPolicy::validate(&snapshot.status)?;
@@ -161,9 +150,8 @@ impl BillingService {
             .get_subscription(scope)
             .await?
             .ok_or_else(|| ErrorKind::NotFound("no active subscription".to_string()))?;
-        let stripe_subscription_id = sub.stripe_subscription_id.as_deref().ok_or_else(|| {
-            ErrorKind::Unavailable("active subscription is missing Stripe subscription ID".to_string())
-        })?;
+        let stripe_subscription_id =
+            SubscriptionLifecyclePolicy::require_stripe_subscription_id(sub.stripe_subscription_id.as_deref())?;
 
         let snapshot = self.gateway.resume_subscription(stripe_subscription_id).await?;
         SubscriptionStatusPolicy::validate(&snapshot.status)?;
@@ -189,10 +177,7 @@ impl BillingService {
             .get_subscription(scope)
             .await?
             .ok_or_else(|| ErrorKind::NotFound("no active subscription".to_string()))?;
-        let customer_id = sub
-            .stripe_customer_id
-            .as_deref()
-            .ok_or_else(|| ErrorKind::Unavailable("active subscription is missing Stripe customer ID".to_string()))?;
+        let customer_id = SubscriptionLifecyclePolicy::require_stripe_customer_id(sub.stripe_customer_id.as_deref())?;
 
         self.gateway.create_portal_session(customer_id, return_url).await
     }
@@ -215,10 +200,10 @@ impl BillingService {
             }
             None => {
                 tracing::info!(org_id = %scope.org_id(), "No active subscription, applying default agent limit of 1");
-                1
+                BillingUsageLimitPolicy::default_agent_limit()
             }
         };
-        Ok(current_count < max)
+        Ok(BillingUsageLimitPolicy::is_within_agent_limit(current_count, max))
     }
 
     /// Verify and apply a Stripe webhook event.
@@ -353,17 +338,6 @@ fn billing_not_configured() -> ErrorKind {
         "Stripe billing is not configured; refusing to change local subscription state without Stripe confirmation"
             .to_string(),
     )
-}
-
-fn stripe_price_id(plan: &BillingPlan) -> AppResult<String> {
-    plan.stripe_price_id
-        .as_ref()
-        .map(|value| value.trim())
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
-        .ok_or_else(|| {
-            ErrorKind::Validation(format!("billing plan '{}' is not mapped to a Stripe price", plan.name)).into()
-        })
 }
 
 fn metadata_uuid(metadata: &std::collections::BTreeMap<String, String>, key: &str) -> Option<Uuid> {
