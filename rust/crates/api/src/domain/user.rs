@@ -9,6 +9,7 @@ use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use rand::RngCore;
 use sha2::{Digest, Sha256};
+use uuid::Uuid;
 
 pub(crate) const PASSWORD_RESET_TTL_MINUTES: i64 = 60;
 
@@ -21,6 +22,43 @@ pub(crate) struct RefreshSessionPolicy;
 impl RefreshSessionPolicy {
     pub(crate) fn refresh_expiry_seconds(remember_me: bool) -> u64 {
         if remember_me { REMEMBER_ME_REFRESH_EXPIRY_SECONDS } else { REFRESH_EXPIRY_SECONDS }
+    }
+}
+
+/// Validated context axes for an auth context switch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SwitchContextAxes {
+    workspace_id: Option<Uuid>,
+    team_id: Option<Uuid>,
+    project_id: Option<Uuid>,
+}
+
+impl SwitchContextAxes {
+    pub(crate) fn new(workspace_id: Option<Uuid>, team_id: Option<Uuid>, project_id: Option<Uuid>) -> AppResult<Self> {
+        if project_id.is_some() && workspace_id.is_none() {
+            return Err(ErrorKind::Validation("workspaceId is required when projectId is selected".into()).into());
+        }
+
+        Ok(Self { workspace_id, team_id, project_id })
+    }
+
+    pub(crate) fn workspace_id(&self) -> Option<Uuid> {
+        self.workspace_id
+    }
+
+    pub(crate) fn team_id(&self) -> Option<Uuid> {
+        self.team_id
+    }
+
+    pub(crate) fn project_id(&self) -> Option<Uuid> {
+        self.project_id
+    }
+
+    pub(crate) fn project_workspace_pair(&self) -> Option<(Uuid, Uuid)> {
+        match (self.project_id, self.workspace_id) {
+            (Some(project_id), Some(workspace_id)) => Some((project_id, workspace_id)),
+            _ => None,
+        }
     }
 }
 
@@ -176,6 +214,41 @@ mod tests {
         assert_eq!(UserListPage::new(200, 50).limit(), 100);
         assert_eq!(UserListPage::new(50, -10).offset(), 0);
         assert_eq!(UserListPage::new(50, 10).offset(), 10);
+    }
+
+    #[test]
+    fn switch_context_axes_allow_workspace_team_and_project_selection() {
+        let workspace_id = Uuid::new_v4();
+        let team_id = Uuid::new_v4();
+        let project_id = Uuid::new_v4();
+
+        let axes = SwitchContextAxes::new(Some(workspace_id), Some(team_id), Some(project_id)).unwrap();
+
+        assert_eq!(axes.workspace_id(), Some(workspace_id));
+        assert_eq!(axes.team_id(), Some(team_id));
+        assert_eq!(axes.project_id(), Some(project_id));
+        assert_eq!(axes.project_workspace_pair(), Some((project_id, workspace_id)));
+    }
+
+    #[test]
+    fn switch_context_axes_require_workspace_for_project_selection() {
+        let err = SwitchContextAxes::new(None, None, Some(Uuid::new_v4())).unwrap_err();
+
+        assert!(
+            matches!(err.kind, ErrorKind::Validation(message) if message == "workspaceId is required when projectId is selected")
+        );
+    }
+
+    #[test]
+    fn switch_context_axes_allow_org_only_and_workspace_only_selection() {
+        let workspace_id = Uuid::new_v4();
+
+        let org_only = SwitchContextAxes::new(None, None, None).unwrap();
+        let workspace_only = SwitchContextAxes::new(Some(workspace_id), None, None).unwrap();
+
+        assert_eq!(org_only.project_workspace_pair(), None);
+        assert_eq!(workspace_only.workspace_id(), Some(workspace_id));
+        assert_eq!(workspace_only.project_workspace_pair(), None);
     }
 
     #[test]
