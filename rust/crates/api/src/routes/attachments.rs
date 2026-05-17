@@ -17,6 +17,7 @@ use uuid::Uuid;
 use agentforge_auth::AuthUser;
 use agentforge_core::{AgentId, AppResult, ErrorKind};
 
+use crate::domain::attachment::AttachmentAgentScope;
 use crate::health::AppState;
 use crate::repositories::attachment::AttachmentRepository;
 use crate::services::attachment::AttachmentService;
@@ -144,7 +145,7 @@ async fn parse_upload(mut multipart: Multipart) -> AppResult<ParsedUpload> {
             }
             "agent_id" => {
                 let value = field.text().await.map_err(multipart_error)?;
-                agent_id = Some(parse_agent_id(&value)?);
+                agent_id = Some(AttachmentAgentScope::parse(&value)?);
             }
             other => {
                 return Err(ErrorKind::Validation(format!("unsupported multipart field '{other}'")).into());
@@ -159,12 +160,6 @@ async fn parse_upload(mut multipart: Multipart) -> AppResult<ParsedUpload> {
     let content_type = content_type_override.or(file_content_type).unwrap_or_else(|| DEFAULT_CONTENT_TYPE.to_string());
 
     Ok(ParsedUpload { filename, content_type, agent_id, bytes })
-}
-
-fn parse_agent_id(value: &str) -> AppResult<AgentId> {
-    let trimmed = value.trim();
-    let id = Uuid::parse_str(trimmed).map_err(|_| ErrorKind::Validation("agent_id must be a UUID".to_string()))?;
-    Ok(AgentId::from(id))
 }
 
 fn multipart_error(err: axum::extract::multipart::MultipartError) -> agentforge_core::AppError {
@@ -217,8 +212,8 @@ mod tests {
 
     #[test]
     fn parse_agent_id_rejects_non_uuid() {
-        assert!(parse_agent_id("550e8400-e29b-41d4-a716-446655440000").is_ok());
-        assert!(parse_agent_id("not-a-uuid").is_err());
+        assert!(AttachmentAgentScope::parse("550e8400-e29b-41d4-a716-446655440000").is_ok());
+        assert!(AttachmentAgentScope::parse("not-a-uuid").is_err());
     }
 
     #[test]
