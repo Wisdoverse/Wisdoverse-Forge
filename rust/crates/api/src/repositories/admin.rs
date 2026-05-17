@@ -7,6 +7,8 @@ use serde::Serialize;
 use sqlx::{FromRow, PgPool, QueryBuilder};
 use uuid::Uuid;
 
+use crate::domain::admin::{AdminAgentSort, SortOrder};
+
 /// Filter parameters for the admin agent list query.
 #[derive(Debug, Default, Clone)]
 pub struct AdminAgentFilters {
@@ -18,47 +20,6 @@ pub struct AdminAgentFilters {
     pub sort_order: SortOrder,
     pub limit: i64,
     pub offset: i64,
-}
-
-/// Columns the admin agent list can be sorted by.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum AdminAgentSort {
-    Name,
-    Status,
-    #[default]
-    LastActivity,
-    CreatedAt,
-    OwnerUsername,
-}
-
-impl AdminAgentSort {
-    /// Map the sort enum to a SQL column reference used in the enriched query.
-    fn sql_column(self) -> &'static str {
-        match self {
-            AdminAgentSort::Name => "a.name",
-            AdminAgentSort::Status => "a.status",
-            AdminAgentSort::LastActivity => "last_activity",
-            AdminAgentSort::CreatedAt => "a.created_at",
-            AdminAgentSort::OwnerUsername => "u.display_name",
-        }
-    }
-}
-
-/// Sort direction for list queries.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum SortOrder {
-    Asc,
-    #[default]
-    Desc,
-}
-
-impl SortOrder {
-    fn sql_keyword(self) -> &'static str {
-        match self {
-            SortOrder::Asc => "ASC",
-            SortOrder::Desc => "DESC",
-        }
-    }
 }
 
 /// Row shape for the admin agent list endpoint. Joins in owner/project info and
@@ -129,6 +90,24 @@ LEFT JOIN LATERAL (
     FROM events
     WHERE agent_id = a.id
 ) ev ON true"#;
+
+/// Map the domain sort enum to a SQL column reference used in the enriched query.
+fn admin_agent_sort_sql_column(sort: AdminAgentSort) -> &'static str {
+    match sort {
+        AdminAgentSort::Name => "a.name",
+        AdminAgentSort::Status => "a.status",
+        AdminAgentSort::LastActivity => "last_activity",
+        AdminAgentSort::CreatedAt => "a.created_at",
+        AdminAgentSort::OwnerUsername => "u.display_name",
+    }
+}
+
+fn sort_order_sql_keyword(order: SortOrder) -> &'static str {
+    match order {
+        SortOrder::Asc => "ASC",
+        SortOrder::Desc => "DESC",
+    }
+}
 
 /// Database access layer for admin operations.
 /// Note: some queries are NOT tenant-scoped — admin can see all orgs/users.
@@ -236,11 +215,11 @@ impl AdminRepository {
         let mut builder: QueryBuilder<sqlx::Postgres> = QueryBuilder::new(ADMIN_AGENT_SELECT);
         Self::push_where_clause(&mut builder, filters);
 
-        // Safe: sql_column()/sql_keyword() return compile-time string literals.
+        // Safe: the sort helpers return compile-time string literals.
         builder.push(format!(
             "\nORDER BY {} {} NULLS LAST\nLIMIT ",
-            filters.sort_by.sql_column(),
-            filters.sort_order.sql_keyword()
+            admin_agent_sort_sql_column(filters.sort_by),
+            sort_order_sql_keyword(filters.sort_order)
         ));
         builder.push_bind(filters.limit);
         builder.push(" OFFSET ");
