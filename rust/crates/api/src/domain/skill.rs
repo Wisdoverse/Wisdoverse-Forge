@@ -3,9 +3,12 @@
 //! This module owns pure skill input, lifecycle, and version policies that are
 //! independent of repositories, authorization, and audit emission.
 
-use agentforge_core::{AppResult, ErrorKind};
+use agentforge_core::{AppError, AppResult, ErrorKind};
 use chrono::{DateTime, Utc};
-use serde_json::Value;
+use serde_json::{Value, json};
+use uuid::Uuid;
+
+use crate::domain::context_governance::{ContextGovernancePolicy, SecretPattern, Sensitivity};
 
 /// Validated skill name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,6 +54,15 @@ pub(crate) enum SkillSensitivity {
 }
 
 impl SkillSensitivity {
+    pub(crate) fn from_sensitivity(value: Sensitivity) -> Self {
+        match value {
+            Sensitivity::Public => Self::Public,
+            Sensitivity::Internal => Self::Internal,
+            Sensitivity::Confidential => Self::Confidential,
+            Sensitivity::SecretDetected => Self::SecretDetected,
+        }
+    }
+
     pub(crate) fn parse(value: &str) -> AppResult<Self> {
         match value {
             "public" => Ok(Self::Public),
@@ -68,6 +80,72 @@ impl SkillSensitivity {
             Self::Confidential => "confidential",
             Self::SecretDetected => "secret_detected",
         }
+    }
+}
+
+/// Prepared skill content ready for persistence and audit emission.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PreparedSkillContent {
+    pub(crate) content: String,
+    pub(crate) sensitivity: &'static str,
+    pub(crate) audit_payload: Value,
+}
+
+/// A skill content mutation that must be audited before returning an application error.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SkillContentRejection {
+    matched_patterns: Vec<SecretPattern>,
+    redacted_preview: Option<String>,
+}
+
+impl SkillContentRejection {
+    pub(crate) fn audit_payload(&self, operation: &'static str, skill_id: Option<Uuid>) -> Value {
+        json!({
+            "operation": operation,
+            "skill_id": skill_id,
+            "reason": "secret_detected",
+            "matched_patterns": self.matched_patterns,
+            "redacted_preview": self.redacted_preview
+        })
+    }
+
+    pub(crate) fn into_app_error(self) -> AppError {
+        ErrorKind::Unprocessable("secret detected in skill content; submit redacted content".into()).into()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SkillContentDecision {
+    Prepared(PreparedSkillContent),
+    Rejected(SkillContentRejection),
+}
+
+pub(crate) struct SkillContentPolicy;
+
+impl SkillContentPolicy {
+    pub(crate) fn prepare(content: &str) -> AppResult<SkillContentDecision> {
+        let content = content.trim();
+        if content.is_empty() {
+            return Err(ErrorKind::Validation("skill content must not be empty".into()).into());
+        }
+
+        let classification = ContextGovernancePolicy::classify_sensitivity(content);
+        if matches!(classification.sensitivity, Sensitivity::SecretDetected) {
+            return Ok(SkillContentDecision::Rejected(SkillContentRejection {
+                matched_patterns: classification.matched_patterns,
+                redacted_preview: classification.redacted_preview,
+            }));
+        }
+
+        let sensitivity = SkillSensitivity::from_sensitivity(classification.sensitivity).as_str();
+        Ok(SkillContentDecision::Prepared(PreparedSkillContent {
+            content: content.to_string(),
+            sensitivity,
+            audit_payload: json!({
+                "sensitivity": sensitivity,
+                "matched_patterns": classification.matched_patterns
+            }),
+        }))
     }
 }
 
@@ -163,6 +241,7 @@ mod tests {
         assert_eq!(SkillSensitivity::parse("internal").unwrap().as_str(), "internal");
         assert_eq!(SkillSensitivity::parse("confidential").unwrap().as_str(), "confidential");
         assert_eq!(SkillSensitivity::parse("secret_detected").unwrap().as_str(), "secret_detected");
+        assert_eq!(SkillSensitivity::from_sensitivity(Sensitivity::Internal).as_str(), "internal");
         assert!(SkillSensitivity::parse("private").is_err());
     }
 
@@ -199,5 +278,51 @@ mod tests {
     #[test]
     fn skill_state_transition_rejects_direct_candidate_promotion() {
         assert!(SkillStateTransitionPolicy::next("candidate", Some(true)).is_err());
+    }
+
+    fn synthetic_assigned_secret() -> String {
+        let key = ["api", "_", "key"].concat();
+        let value = ["12345678", "90abcdef", "12345678", "90abcdef"].concat();
+        format!("{key}={value}")
+    }
+
+    fn synthetic_secret_fragment() -> String {
+        ["12345678", "90abcdef"].concat()
+    }
+
+    #[test]
+    fn skill_content_policy_rejects_empty_content() {
+        assert!(SkillContentPolicy::prepare("  ").is_err());
+    }
+
+    #[test]
+    fn skill_content_policy_requests_auditable_secret_rejection() {
+        let secret = synthetic_assigned_secret();
+        let secret_fragment = synthetic_secret_fragment();
+        let skill_id = Uuid::now_v7();
+
+        let decision = SkillContentPolicy::prepare(&secret).expect("classification should succeed");
+
+        let SkillContentDecision::Rejected(rejection) = decision else {
+            panic!("secret should require auditable rejection");
+        };
+        let payload = rejection.audit_payload("create", Some(skill_id));
+        assert_eq!(payload["operation"], "create");
+        assert_eq!(payload["skill_id"], skill_id.to_string());
+        assert_eq!(payload["reason"], "secret_detected");
+        assert!(payload["matched_patterns"].as_array().is_some_and(|items| !items.is_empty()));
+        assert!(!payload["redacted_preview"].as_str().unwrap_or_default().contains(&secret_fragment));
+    }
+
+    #[test]
+    fn skill_content_policy_prepares_clean_content() {
+        let decision = SkillContentPolicy::prepare("  use cargo test  ").expect("classification should succeed");
+
+        let SkillContentDecision::Prepared(prepared) = decision else {
+            panic!("clean content should prepare");
+        };
+        assert_eq!(prepared.content, "use cargo test");
+        assert_eq!(prepared.sensitivity, "internal");
+        assert_eq!(prepared.audit_payload["sensitivity"], "internal");
     }
 }
