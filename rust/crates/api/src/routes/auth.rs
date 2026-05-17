@@ -17,6 +17,7 @@ use uuid::Uuid;
 use agentforge_auth::AuthUser;
 use agentforge_core::{AppError, AppResult, ErrorKind};
 
+use crate::domain::user::SwitchContextAxes;
 use crate::health::AppState;
 use crate::repositories::user::UserRepository;
 use crate::services::user::{AuthenticatedUser, LoginResult, UserService};
@@ -282,15 +283,12 @@ pub async fn switch_context(
         }
     };
 
-    if let Err(err) = validate_switch_context_axes(
-        &state.pool,
-        auth.scope.user_id().as_uuid(),
-        req.org_id,
-        req.workspace_id,
-        req.team_id,
-        req.project_id,
-    )
-    .await
+    let axes = match SwitchContextAxes::new(req.workspace_id, req.team_id, req.project_id) {
+        Ok(axes) => axes,
+        Err(err) => return auth_error_response(err, None),
+    };
+
+    if let Err(err) = validate_switch_context_axes(&state.pool, auth.scope.user_id().as_uuid(), req.org_id, &axes).await
     {
         return auth_error_response(err, None);
     }
@@ -299,9 +297,9 @@ pub async fn switch_context(
         auth.scope.user_id().as_uuid(),
         req.org_id,
         &role,
-        req.workspace_id,
-        req.team_id,
-        req.project_id,
+        axes.workspace_id(),
+        axes.team_id(),
+        axes.project_id(),
     ) {
         Ok(token) => token,
         Err(err) => {
@@ -316,9 +314,9 @@ pub async fn switch_context(
         auth.scope.user_id().as_uuid(),
         req.org_id,
         &role,
-        req.workspace_id,
-        req.team_id,
-        req.project_id,
+        axes.workspace_id(),
+        axes.team_id(),
+        axes.project_id(),
         SWITCH_CONTEXT_REFRESH_EXPIRY_SECONDS,
     ) {
         Ok(token) => token,
@@ -347,11 +345,9 @@ async fn validate_switch_context_axes(
     pool: &PgPool,
     user_id: Uuid,
     org_id: Uuid,
-    workspace_id: Option<Uuid>,
-    team_id: Option<Uuid>,
-    project_id: Option<Uuid>,
+    axes: &SwitchContextAxes,
 ) -> AppResult<()> {
-    if let Some(workspace_id) = workspace_id {
+    if let Some(workspace_id) = axes.workspace_id() {
         let workspace_exists = query_scalar::<_, bool>(
             r#"SELECT EXISTS (
                    SELECT 1 FROM workspaces
@@ -367,7 +363,7 @@ async fn validate_switch_context_axes(
         }
     }
 
-    if let Some(team_id) = team_id {
+    if let Some(team_id) = axes.team_id() {
         let can_read_team = query_scalar::<_, bool>(
             r#"SELECT EXISTS (
                    SELECT 1
@@ -389,10 +385,7 @@ async fn validate_switch_context_axes(
         }
     }
 
-    if let Some(project_id) = project_id {
-        let Some(workspace_id) = workspace_id else {
-            return Err(ErrorKind::Validation("workspaceId is required when projectId is selected".into()).into());
-        };
+    if let Some((project_id, workspace_id)) = axes.project_workspace_pair() {
         let can_read_project = query_scalar::<_, bool>(
             r#"SELECT EXISTS (
                    SELECT 1
