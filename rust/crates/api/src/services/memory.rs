@@ -11,13 +11,12 @@ use serde_json::{Value, json};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::context_governance::{
-    ContextAuditEvent, ContextGovernancePolicy, ContextScopeKind, ScopeExpansionRequest,
-};
+use crate::domain::context_governance::ContextAuditEvent;
 use crate::domain::memory::{
     MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryListPage, MemoryMutationAccess,
-    MemoryMutationAccessPolicy, MemoryMutationManagerCheck, MemoryReclassificationPolicy, MemoryScopeKind,
-    MemoryScopeTargetPolicy, MemoryTitle, MemoryTtlPolicy, MemoryVisibility, PreparedMemoryContent,
+    MemoryMutationAccessPolicy, MemoryMutationManagerCheck, MemoryReclassificationPlan, MemoryReclassificationPolicy,
+    MemoryReclassificationRequest, MemoryScopeKind, MemoryScopeTargetPolicy, MemoryTitle, MemoryTtlPolicy,
+    MemoryVisibility, PreparedMemoryContent,
 };
 use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository, UpdateMemoryRecord};
 use crate::repositories::resource_permission::ResourcePermissionRepository;
@@ -283,44 +282,29 @@ impl MemoryService {
         let mut tx = self.repo.pool().begin().await?;
         let current = MemoryRepository::lock_visible_for_update(&mut tx, &proof, id).await?;
         self.require_owner_or_manager(scope, &current).await?;
-        let from_kind = MemoryReclassificationPolicy::resolve_current_scope_kind(&current.scope_kind)?;
-        let to_kind = ContextScopeKind::from_scope_kind(target.kind());
-        if let Err(rejection) = ContextGovernancePolicy::gate_scope_expansion(ScopeExpansionRequest {
-            from_kind,
-            to_kind,
+
+        let decision = match MemoryReclassificationPolicy::plan(MemoryReclassificationRequest {
+            current_scope_kind: &current.scope_kind,
+            target_scope_kind: target.kind(),
+            sensitivity: &current.sensitivity,
+            content_redacted: current.content_redacted,
+            confirm_sensitive: input.confirm_sensitive,
             confirm_expansion: input.confirm_expansion,
-        }) {
-            self.emit_memory_audit(
-                &mut tx,
-                scope,
-                "governance.context.memory.scope_expansion_rejected",
-                json!({
-                    "from_scope_kind": rejection.from_kind.as_label(),
-                    "to_scope_kind": rejection.to_kind.as_label(),
-                    "reason": rejection.reason.as_label(),
-                    "confirm_expansion": input.confirm_expansion
-                }),
-            )
-            .await?;
-            tx.commit().await?;
-            return Err(rejection.into_app_error());
-        }
-        MemoryReclassificationPolicy::ensure_sensitive_scope_change_allowed(
-            &current.sensitivity,
-            current.content_redacted,
-            input.confirm_sensitive,
-        )?;
+        })? {
+            MemoryReclassificationPlan::Approved(decision) => decision,
+            MemoryReclassificationPlan::Rejected(rejection) => {
+                self.emit_memory_audit(&mut tx, scope, rejection.audit_action(), rejection.audit_payload()).await?;
+                tx.commit().await?;
+                return Err(rejection.into_app_error());
+            }
+        };
+
         let item = MemoryRepository::reclassify_scope_in_tx(&mut tx, id, &target).await?;
         self.emit_memory_audit(
             &mut tx,
             scope,
             "governance.context.memory.reclassified",
-            json!({
-                "from_scope_kind": current.scope_kind,
-                "to_scope_kind": item.scope_kind,
-                "sensitivity": item.sensitivity,
-                "content_redacted": item.content_redacted
-            }),
+            decision.audit_payload(&item.sensitivity, item.content_redacted),
         )
         .await?;
         tx.commit().await?;
