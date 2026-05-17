@@ -17,9 +17,10 @@ use uuid::Uuid;
 use crate::domain::context::{
     ContextCandidateApprovalAudit, ContextCandidateCreatedAudit, ContextCandidateKind,
     ContextCandidateManualRejectionAudit, ContextCandidatePolicy, ContextFeedbackLabel, ContextFeedbackPolicy,
-    ContextItemKind, context_candidate_subject, ensure_pending_candidate, normalize_candidate_kind_filter,
-    normalize_candidate_state_filter, normalize_context_candidate_limit, normalize_feedback_note, normalize_reason,
-    normalize_scope_kind_filter, redacted_proposal_preview, validate_context_sensitivity, validate_ttl,
+    ContextFeedbackRecordedAudit, ContextItemKind, context_candidate_subject, ensure_pending_candidate,
+    normalize_candidate_kind_filter, normalize_candidate_state_filter, normalize_context_candidate_limit,
+    normalize_feedback_note, normalize_reason, normalize_scope_kind_filter, redacted_proposal_preview,
+    validate_context_sensitivity, validate_ttl,
 };
 use crate::domain::context_governance::ContextAuditEvent;
 use crate::domain::memory::MemoryScopeKind;
@@ -628,20 +629,21 @@ impl ContextFeedbackService {
             };
         }
 
+        let audit = ContextFeedbackRecordedAudit::new(
+            feedback.run_id,
+            feedback.item_id,
+            feedback.item_kind.as_str(),
+            feedback.label.as_str(),
+            item_state_changed,
+        );
         ContextGovernanceService::emit_audit(
             &mut tx,
             scope,
             ContextAuditEvent {
-                action: "governance.context.feedback.recorded",
-                resource_type: "context_feedback",
+                action: audit.audit_action(),
+                resource_type: audit.audit_resource_type(),
                 resource_id: Some(feedback.id),
-                payload: json!({
-                    "run_id": feedback.run_id,
-                    "item_id": feedback.item_id,
-                    "item_kind": feedback.item_kind,
-                    "label": feedback.label,
-                    "item_state_changed": item_state_changed
-                }),
+                payload: audit.audit_payload(),
                 ip_address: None,
             },
         )
