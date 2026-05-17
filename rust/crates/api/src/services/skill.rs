@@ -6,13 +6,11 @@ use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-use crate::domain::context_governance::{
-    ContextAuditEvent, ContextGovernancePolicy, ScopeExpansionRequest, Sensitivity,
-};
+use crate::domain::context_governance::ContextAuditEvent;
 use crate::domain::skill::{
     PreparedSkillContent, SkillContentDecision, SkillContentPolicy, SkillCreateStatePolicy, SkillJsonObjectPolicy,
-    SkillMutationPolicy, SkillName, SkillRestoreVersionPolicy, SkillScopeKind, SkillScopeTargetPolicy,
-    SkillSensitivity, SkillState, SkillStateTransitionPolicy, SkillTtlPolicy,
+    SkillMutationPolicy, SkillName, SkillRestoreVersionPlan, SkillRestoreVersionPolicy, SkillRestoreVersionRequest,
+    SkillScopeKind, SkillScopeTargetPolicy, SkillSensitivity, SkillState, SkillStateTransitionPolicy, SkillTtlPolicy,
 };
 use crate::repositories::resource_permission::ResourcePermissionRepository;
 use crate::repositories::skill::{CreateSkillRecord, SkillRepository, UpdateSkillRecord};
@@ -263,56 +261,22 @@ impl SkillService {
             snapshot.workspace_id,
         )?;
         SkillRestoreVersionPolicy::ensure_snapshot_restorable(id, input.version, &snapshot.state)?;
-        let from_kind = SkillRestoreVersionPolicy::resolve_current_scope_kind(current.scope_kind.as_deref())?;
-        let to_kind = SkillRestoreVersionPolicy::resolve_snapshot_scope_kind(snapshot.scope_kind.as_deref())?;
-        if let Err(rejection) = ContextGovernancePolicy::gate_scope_expansion(ScopeExpansionRequest {
-            from_kind,
-            to_kind,
+        match SkillRestoreVersionPolicy::plan_restore(SkillRestoreVersionRequest {
+            skill_id: id,
+            target_version: input.version,
+            current_scope_kind: current.scope_kind.as_deref(),
+            snapshot_scope_kind: snapshot.scope_kind.as_deref(),
+            snapshot_sensitivity: &snapshot.sensitivity,
+            snapshot_content: &snapshot.content,
             confirm_expansion: input.confirm_expansion,
-        }) {
-            self.emit_skill_audit(
-                &mut tx,
-                scope,
-                "governance.context.skill.mutation_rejected",
-                Some(id),
-                json!({
-                    "operation": "restore_version",
-                    "skill_id": id,
-                    "target_version": input.version,
-                    "reason": rejection.reason.as_label(),
-                    "from_scope_kind": rejection.from_kind.as_label(),
-                    "to_scope_kind": rejection.to_kind.as_label(),
-                    "confirm_expansion": input.confirm_expansion
-                }),
-            )
-            .await?;
-            tx.commit().await?;
-            return Err(rejection.into_app_error());
-        }
-
-        let classification = ContextGovernancePolicy::classify_sensitivity(&snapshot.content);
-        if snapshot.sensitivity == "secret_detected"
-            || matches!(classification.sensitivity, Sensitivity::SecretDetected)
-        {
-            self.emit_skill_audit(
-                &mut tx,
-                scope,
-                "governance.context.skill.mutation_rejected",
-                Some(id),
-                json!({
-                    "operation": "restore_version",
-                    "skill_id": id,
-                    "target_version": input.version,
-                    "reason": "secret_detected",
-                    "matched_patterns": classification.matched_patterns,
-                    "redacted_preview": classification.redacted_preview
-                }),
-            )
-            .await?;
-            tx.commit().await?;
-            return Err(
-                ErrorKind::Unprocessable("secret detected in skill content; submit redacted content".into()).into()
-            );
+        })? {
+            SkillRestoreVersionPlan::Approved => {}
+            SkillRestoreVersionPlan::Rejected(rejection) => {
+                self.emit_skill_audit(&mut tx, scope, rejection.audit_action(), Some(id), rejection.audit_payload())
+                    .await?;
+                tx.commit().await?;
+                return Err(rejection.into_app_error());
+            }
         }
 
         let pre_restore_version =

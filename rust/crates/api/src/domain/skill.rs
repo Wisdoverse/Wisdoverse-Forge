@@ -9,7 +9,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-use crate::domain::context_governance::{ContextGovernancePolicy, ContextScopeKind, SecretPattern, Sensitivity};
+use crate::domain::context_governance::{
+    ContextGovernancePolicy, ContextScopeKind, ScopeExpansionRejection, ScopeExpansionRequest, SecretPattern,
+    Sensitivity,
+};
 
 /// Validated skill name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -249,6 +252,76 @@ impl SkillJsonObjectPolicy {
 /// Restore-version request policy.
 pub(crate) struct SkillRestoreVersionPolicy;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SkillRestoreVersionRequest<'a> {
+    pub(crate) skill_id: Uuid,
+    pub(crate) target_version: i32,
+    pub(crate) current_scope_kind: Option<&'a str>,
+    pub(crate) snapshot_scope_kind: Option<&'a str>,
+    pub(crate) snapshot_sensitivity: &'a str,
+    pub(crate) snapshot_content: &'a str,
+    pub(crate) confirm_expansion: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SkillRestoreVersionPlan {
+    Approved,
+    Rejected(SkillRestoreVersionRejection),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SkillRestoreVersionRejection {
+    ScopeExpansion {
+        skill_id: Uuid,
+        target_version: i32,
+        rejection: ScopeExpansionRejection,
+        confirm_expansion: bool,
+    },
+    SecretDetected {
+        skill_id: Uuid,
+        target_version: i32,
+        matched_patterns: Vec<SecretPattern>,
+        redacted_preview: Option<String>,
+    },
+}
+
+impl SkillRestoreVersionRejection {
+    pub(crate) fn audit_action(&self) -> &'static str {
+        "governance.context.skill.mutation_rejected"
+    }
+
+    pub(crate) fn audit_payload(&self) -> Value {
+        match self {
+            Self::ScopeExpansion { skill_id, target_version, rejection, confirm_expansion } => json!({
+                "operation": "restore_version",
+                "skill_id": skill_id,
+                "target_version": target_version,
+                "reason": rejection.reason.as_label(),
+                "from_scope_kind": rejection.from_kind.as_label(),
+                "to_scope_kind": rejection.to_kind.as_label(),
+                "confirm_expansion": confirm_expansion
+            }),
+            Self::SecretDetected { skill_id, target_version, matched_patterns, redacted_preview } => json!({
+                "operation": "restore_version",
+                "skill_id": skill_id,
+                "target_version": target_version,
+                "reason": "secret_detected",
+                "matched_patterns": matched_patterns,
+                "redacted_preview": redacted_preview
+            }),
+        }
+    }
+
+    pub(crate) fn into_app_error(self) -> AppError {
+        match self {
+            Self::ScopeExpansion { rejection, .. } => rejection.into_app_error(),
+            Self::SecretDetected { .. } => {
+                ErrorKind::Unprocessable("secret detected in skill content; submit redacted content".into()).into()
+            }
+        }
+    }
+}
+
 impl SkillRestoreVersionPolicy {
     pub(crate) fn validate(version: i32, expected_current_version: Option<i32>) -> AppResult<()> {
         if version < 1 {
@@ -320,6 +393,37 @@ impl SkillRestoreVersionPolicy {
         scope_kind
             .and_then(ContextScopeKind::from_label)
             .ok_or_else(|| ErrorKind::Validation("skill snapshot has unsupported scope_kind".into()).into())
+    }
+
+    pub(crate) fn plan_restore(request: SkillRestoreVersionRequest<'_>) -> AppResult<SkillRestoreVersionPlan> {
+        let from_kind = Self::resolve_current_scope_kind(request.current_scope_kind)?;
+        let to_kind = Self::resolve_snapshot_scope_kind(request.snapshot_scope_kind)?;
+        if let Err(rejection) = ContextGovernancePolicy::gate_scope_expansion(ScopeExpansionRequest {
+            from_kind,
+            to_kind,
+            confirm_expansion: request.confirm_expansion,
+        }) {
+            return Ok(SkillRestoreVersionPlan::Rejected(SkillRestoreVersionRejection::ScopeExpansion {
+                skill_id: request.skill_id,
+                target_version: request.target_version,
+                rejection,
+                confirm_expansion: request.confirm_expansion,
+            }));
+        }
+
+        let classification = ContextGovernancePolicy::classify_sensitivity(request.snapshot_content);
+        if request.snapshot_sensitivity == "secret_detected"
+            || matches!(classification.sensitivity, Sensitivity::SecretDetected)
+        {
+            return Ok(SkillRestoreVersionPlan::Rejected(SkillRestoreVersionRejection::SecretDetected {
+                skill_id: request.skill_id,
+                target_version: request.target_version,
+                matched_patterns: classification.matched_patterns,
+                redacted_preview: classification.redacted_preview,
+            }));
+        }
+
+        Ok(SkillRestoreVersionPlan::Approved)
     }
 }
 
@@ -515,6 +619,66 @@ mod tests {
             ContextScopeKind::Project
         );
         assert!(SkillRestoreVersionPolicy::resolve_snapshot_scope_kind(None).is_err());
+    }
+
+    #[test]
+    fn skill_restore_policy_plans_scope_and_secret_rejections() {
+        let skill_id = Uuid::parse_str("66666666-6666-4666-8666-666666666666").unwrap();
+
+        assert!(matches!(
+            SkillRestoreVersionPolicy::plan_restore(SkillRestoreVersionRequest {
+                skill_id,
+                target_version: 2,
+                current_scope_kind: Some("user"),
+                snapshot_scope_kind: Some("team"),
+                snapshot_sensitivity: "internal",
+                snapshot_content: "restore clean guidance",
+                confirm_expansion: true,
+            })
+            .expect("scope labels should be valid"),
+            SkillRestoreVersionPlan::Approved
+        ));
+
+        let plan = SkillRestoreVersionPolicy::plan_restore(SkillRestoreVersionRequest {
+            skill_id,
+            target_version: 2,
+            current_scope_kind: Some("user"),
+            snapshot_scope_kind: Some("project"),
+            snapshot_sensitivity: "internal",
+            snapshot_content: "restore clean guidance",
+            confirm_expansion: false,
+        })
+        .expect("scope labels should be valid");
+        let SkillRestoreVersionPlan::Rejected(rejection) = plan else {
+            panic!("unconfirmed restore expansion should be rejected");
+        };
+        assert_eq!(rejection.audit_action(), "governance.context.skill.mutation_rejected");
+        let payload = rejection.audit_payload();
+        assert_eq!(payload["operation"], "restore_version");
+        assert_eq!(payload["skill_id"], skill_id.to_string());
+        assert_eq!(payload["target_version"], 2);
+        assert_eq!(payload["reason"], "confirmation_required");
+
+        let secret = synthetic_assigned_secret();
+        let secret_fragment = synthetic_secret_fragment();
+        let plan = SkillRestoreVersionPolicy::plan_restore(SkillRestoreVersionRequest {
+            skill_id,
+            target_version: 3,
+            current_scope_kind: Some("team"),
+            snapshot_scope_kind: Some("team"),
+            snapshot_sensitivity: "internal",
+            snapshot_content: &secret,
+            confirm_expansion: false,
+        })
+        .expect("scope labels should be valid");
+        let SkillRestoreVersionPlan::Rejected(rejection) = plan else {
+            panic!("secret snapshot should be rejected");
+        };
+        let payload = rejection.audit_payload();
+        assert_eq!(payload["reason"], "secret_detected");
+        assert!(payload["matched_patterns"].as_array().is_some_and(|items| !items.is_empty()));
+        assert!(!payload["redacted_preview"].as_str().unwrap_or_default().contains(&secret_fragment));
+        assert!(matches!(rejection.into_app_error().kind, ErrorKind::Unprocessable(_)));
     }
 
     #[test]
