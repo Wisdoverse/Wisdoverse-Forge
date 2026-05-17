@@ -139,6 +139,42 @@ impl ParticipantStatusPolicy {
     }
 }
 
+/// User intent that requires an available participant.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ParticipantAvailabilityAction {
+    AssignTask,
+    PreviewContext,
+}
+
+impl ParticipantAvailabilityAction {
+    fn guidance(self) -> &'static str {
+        match self {
+            Self::AssignTask => "pick an available agent or leave unassigned",
+            Self::PreviewContext => "preview an available agent",
+        }
+    }
+}
+
+/// Participant availability policy shared by task assignment and context preview.
+pub(crate) struct ParticipantAvailabilityPolicy;
+
+impl ParticipantAvailabilityPolicy {
+    pub(crate) fn ensure_available(
+        participant_name: &str,
+        participant_status: &str,
+        action: ParticipantAvailabilityAction,
+    ) -> AppResult<()> {
+        if participant_status == "available" {
+            return Ok(());
+        }
+        Err(ErrorKind::Validation(format!(
+            "participant {participant_name} is {participant_status} — {}",
+            action.guidance()
+        ))
+        .into())
+    }
+}
+
 /// PATCH semantics for kanban task updates.
 pub(crate) struct TaskPatchPolicy;
 
@@ -409,6 +445,64 @@ mod tests {
     #[test]
     fn quota_block_policy_ignores_non_quota_errors() {
         assert!(QuotaBlockPolicy::metadata(&json!({"message": "tool failed"})).is_none());
+    }
+
+    #[test]
+    fn participant_availability_policy_accepts_available_participant() {
+        assert!(
+            ParticipantAvailabilityPolicy::ensure_available(
+                "Codex",
+                "available",
+                ParticipantAvailabilityAction::AssignTask
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn participant_availability_policy_renders_action_specific_guidance() {
+        let assign_error = match &ParticipantAvailabilityPolicy::ensure_available(
+            "Codex",
+            "busy",
+            ParticipantAvailabilityAction::AssignTask,
+        )
+        .unwrap_err()
+        .kind
+        {
+            ErrorKind::Validation(message) => message.clone(),
+            other => panic!("expected validation error, got {other:?}"),
+        };
+        let preview_error = match &ParticipantAvailabilityPolicy::ensure_available(
+            "Codex",
+            "offline",
+            ParticipantAvailabilityAction::PreviewContext,
+        )
+        .unwrap_err()
+        .kind
+        {
+            ErrorKind::Validation(message) => message.clone(),
+            other => panic!("expected validation error, got {other:?}"),
+        };
+
+        assert!(assign_error.contains("pick an available agent or leave unassigned"));
+        assert!(preview_error.contains("preview an available agent"));
+    }
+
+    #[test]
+    fn participant_availability_policy_includes_participant_context() {
+        let error = match &ParticipantAvailabilityPolicy::ensure_available(
+            "Codex",
+            "busy",
+            ParticipantAvailabilityAction::AssignTask,
+        )
+        .unwrap_err()
+        .kind
+        {
+            ErrorKind::Validation(message) => message.clone(),
+            other => panic!("expected validation error, got {other:?}"),
+        };
+
+        assert!(error.contains("participant Codex is busy"));
     }
 
     #[test]

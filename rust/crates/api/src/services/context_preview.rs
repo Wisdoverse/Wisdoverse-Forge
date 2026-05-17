@@ -13,6 +13,7 @@ use uuid::Uuid;
 use crate::domain::context_resolver::{
     ContextItemKind, ContextSelection, DegradationReason, ResolvedContext, ResolvedItemRef, apply_context_selection,
 };
+use crate::domain::orchestration::{ParticipantAvailabilityAction, ParticipantAvailabilityPolicy};
 use crate::repositories::context_preview::{ContextPreviewRepository, CreateContextPreviewRecord};
 use crate::repositories::orchestration::{OrchestrationTaskRepository, ParticipantRepository};
 use crate::services::orchestration::OrchestrationService;
@@ -91,13 +92,11 @@ impl ContextPreviewService {
         let task = self.tasks.find_by_id(scope, input.task_id).await?;
         let workspace_id = scope.workspace_id().ok_or_else(|| ErrorKind::Forbidden)?;
         let participant = self.participants.find_by_agent_id(scope, input.agent_id).await?;
-        if participant.status != "available" {
-            return Err(ErrorKind::Validation(format!(
-                "participant {} is {} — preview an available agent",
-                participant.name, participant.status
-            ))
-            .into());
-        }
+        ParticipantAvailabilityPolicy::ensure_available(
+            &participant.name,
+            &participant.status,
+            ParticipantAvailabilityAction::PreviewContext,
+        )?;
 
         let resolved = self
             .resolver
