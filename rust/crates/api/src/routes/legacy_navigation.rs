@@ -30,6 +30,7 @@ use uuid::Uuid;
 use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, ErrorKind, OrgId, ProjectId, TeamId};
 
+use crate::domain::resource::NavigationResourcePolicy;
 use crate::health::AppState;
 use crate::repositories::group::GroupRepository;
 use crate::repositories::organization::OrganizationRepository;
@@ -37,7 +38,6 @@ use crate::repositories::resource_permission::ResourcePermissionRepository;
 use crate::services::group::GroupService;
 use crate::services::organization::OrganizationService;
 use crate::services::resource_permission::ResourcePermissionService;
-use crate::util::slug::slugify;
 
 #[derive(Debug, Serialize, FromRow)]
 #[serde(rename_all = "camelCase")]
@@ -127,23 +127,6 @@ fn make_permission_service(state: &AppState) -> ResourcePermissionService {
     ResourcePermissionService::new(ResourcePermissionRepository::new(state.pool.clone()))
 }
 
-fn optional_non_empty(value: Option<String>, field: &str) -> AppResult<Option<String>> {
-    match value {
-        Some(value) => {
-            let trimmed = value.trim();
-            if trimmed.is_empty() {
-                return Err(ErrorKind::Validation(format!("{field} must not be empty")).into());
-            }
-            Ok(Some(trimmed.to_string()))
-        }
-        None => Ok(None),
-    }
-}
-
-fn optional_text(value: Option<String>) -> Option<String> {
-    value.map(|value| value.trim().to_string())
-}
-
 async fn list_orgs(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
     // Three-tier sort mirroring `UserRepository::find_default_org`:
     //   1. Canonical org whose `email_domain` matches the user's email domain.
@@ -218,12 +201,9 @@ async fn create_team(
     Path(org_id): Path<Uuid>,
     Json(req): Json<LegacyTeamCreateRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    if req.name.trim().is_empty() {
-        return Err(ErrorKind::Validation("team name is required".into()).into());
-    }
+    let draft = NavigationResourcePolicy::team_create_draft(req.name, req.slug, req.visibility, req.description)?;
     make_permission_service(&state).require_org_manager(&auth.scope).await?;
 
-    let slug = req.slug.filter(|value| !value.trim().is_empty()).unwrap_or_else(|| slugify(&req.name));
     let team = sqlx::query_as::<_, LegacyTeam>(
         r#"INSERT INTO public.teams (organization_id, name, slug, visibility, description)
            SELECT o.id, $4, $5, COALESCE($6::text, 'private'), COALESCE($7::text, '')
@@ -248,10 +228,10 @@ async fn create_team(
     .bind(org_id)
     .bind(auth.scope.org_id().as_uuid())
     .bind(auth.scope.user_id().as_uuid())
-    .bind(req.name.trim())
-    .bind(slug)
-    .bind(req.visibility)
-    .bind(req.description)
+    .bind(draft.name)
+    .bind(draft.slug)
+    .bind(draft.visibility)
+    .bind(draft.description)
     .fetch_optional(&state.pool)
     .await?;
     let Some(team) = team else {
@@ -267,10 +247,7 @@ async fn update_team(
     Path((org_id, team_id)): Path<(Uuid, Uuid)>,
     Json(req): Json<LegacyTeamUpdateRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let name = optional_non_empty(req.name, "team name")?;
-    let slug = optional_non_empty(req.slug, "team slug")?;
-    let visibility = optional_non_empty(req.visibility, "team visibility")?;
-    let description = optional_text(req.description);
+    let draft = NavigationResourcePolicy::team_update_draft(req.name, req.slug, req.visibility, req.description)?;
     make_permission_service(&state).require_team_manager(&auth.scope, TeamId::from(team_id)).await?;
 
     let team = sqlx::query_as::<_, LegacyTeam>(
@@ -302,10 +279,10 @@ async fn update_team(
     .bind(org_id)
     .bind(auth.scope.org_id().as_uuid())
     .bind(auth.scope.user_id().as_uuid())
-    .bind(name)
-    .bind(slug)
-    .bind(visibility)
-    .bind(description)
+    .bind(draft.name)
+    .bind(draft.slug)
+    .bind(draft.visibility)
+    .bind(draft.description)
     .fetch_optional(&state.pool)
     .await?;
     let Some(team) = team else {
@@ -363,9 +340,7 @@ async fn create_project(
     Path(team_id): Path<Uuid>,
     Json(req): Json<LegacyProjectCreateRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    if req.name.trim().is_empty() {
-        return Err(ErrorKind::Validation("project name is required".into()).into());
-    }
+    let draft = NavigationResourcePolicy::project_create_draft(req.name, req.slug, req.color, req.description)?;
 
     let org_id: Option<Uuid> = sqlx::query_scalar(
         r#"SELECT t.organization_id
@@ -388,7 +363,6 @@ async fn create_project(
     make_permission_service(&state).require_project_creator(&auth.scope, TeamId::from(team_id)).await?;
 
     let workspace_id = default_workspace_for_org(&state.pool, org_id).await?;
-    let slug = req.slug.filter(|value| !value.trim().is_empty()).unwrap_or_else(|| slugify(&req.name));
     let project = sqlx::query_as::<_, LegacyProject>(
         r#"INSERT INTO public.projects (
                organization_id,
@@ -414,10 +388,10 @@ async fn create_project(
     .bind(org_id)
     .bind(workspace_id)
     .bind(team_id)
-    .bind(req.name.trim())
-    .bind(slug)
-    .bind(req.color)
-    .bind(req.description)
+    .bind(draft.name)
+    .bind(draft.slug)
+    .bind(draft.color)
+    .bind(draft.description)
     .fetch_one(&state.pool)
     .await?;
 
@@ -433,10 +407,7 @@ async fn update_project(
     Path((team_id, project_id)): Path<(Uuid, Uuid)>,
     Json(req): Json<LegacyProjectUpdateRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let name = optional_non_empty(req.name, "project name")?;
-    let slug = optional_non_empty(req.slug, "project slug")?;
-    let color = optional_non_empty(req.color, "project color")?;
-    let description = optional_text(req.description);
+    let draft = NavigationResourcePolicy::project_update_draft(req.name, req.slug, req.color, req.description)?;
     make_permission_service(&state).require_project_manager(&auth.scope, ProjectId::from(project_id)).await?;
 
     let project = sqlx::query_as::<_, LegacyProject>(
@@ -471,10 +442,10 @@ async fn update_project(
     .bind(team_id)
     .bind(auth.scope.org_id().as_uuid())
     .bind(auth.scope.user_id().as_uuid())
-    .bind(name)
-    .bind(slug)
-    .bind(color)
-    .bind(description)
+    .bind(draft.name)
+    .bind(draft.slug)
+    .bind(draft.color)
+    .bind(draft.description)
     .fetch_optional(&state.pool)
     .await?;
     let Some(project) = project else {
