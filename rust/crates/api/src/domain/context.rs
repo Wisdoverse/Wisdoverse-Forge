@@ -234,6 +234,10 @@ pub(crate) struct ContextSkillContentRejection {
 }
 
 impl ContextSkillContentRejection {
+    pub(crate) fn audit_action(&self) -> &'static str {
+        "governance.context.candidate.approval_rejected"
+    }
+
     pub(crate) fn audit_payload(&self, item_kind: &str) -> Value {
         json!({
             "item_kind": item_kind,
@@ -253,6 +257,10 @@ impl ContextSkillContentRejection {
 pub(crate) struct ContextSourceRunRejection;
 
 impl ContextSourceRunRejection {
+    pub(crate) fn audit_action(self) -> &'static str {
+        "governance.context.candidate.auto_rejected"
+    }
+
     pub(crate) fn audit_payload(self, item_kind: &str) -> Value {
         json!({
             "item_kind": item_kind,
@@ -272,6 +280,10 @@ pub(crate) struct ContextSelfApprovalRejection {
 }
 
 impl ContextSelfApprovalRejection {
+    pub(crate) fn audit_action(self) -> &'static str {
+        "governance.context.candidate.approval_rejected"
+    }
+
     pub(crate) fn audit_payload(self, item_kind: &str) -> Value {
         json!({
             "item_kind": item_kind,
@@ -736,6 +748,7 @@ mod tests {
         let rejection = ContextCandidatePolicy::ensure_skill_content_approvable(&fake_secret).unwrap_err();
         let payload = rejection.audit_payload("skill");
 
+        assert_eq!(rejection.audit_action(), "governance.context.candidate.approval_rejected");
         assert_eq!(payload["item_kind"], "skill");
         assert_eq!(payload["reason"], "secret_detected");
         assert!(!payload["matched_patterns"].as_array().unwrap().is_empty());
@@ -754,6 +767,7 @@ mod tests {
                 .expect_err("non-completed source run should reject");
             let payload = rejection.audit_payload("memory");
 
+            assert_eq!(rejection.audit_action(), "governance.context.candidate.auto_rejected");
             assert_eq!(payload["item_kind"], "memory");
             assert_eq!(payload["reason"], "source_run_unavailable");
             assert!(matches!(rejection.into_app_error().kind, ErrorKind::Unprocessable(_)));
@@ -781,6 +795,7 @@ mod tests {
             .expect_err("self-approval into project scope should reject");
         let payload = rejection.audit_payload("memory");
 
+        assert_eq!(rejection.audit_action(), "governance.context.candidate.approval_rejected");
         assert_eq!(payload["item_kind"], "memory");
         assert_eq!(payload["reason"], "self_approval_wider_scope");
         assert_eq!(payload["scope_kind"], "project");
