@@ -3,11 +3,43 @@
 //! This module owns pure memory item input, pagination, and retention policies
 //! that are independent of repositories, HTTP route DTOs, and audit emission.
 
-use agentforge_core::{AppResult, ErrorKind};
+use agentforge_core::{AppError, AppResult, ErrorKind, ScopeKind};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
+
+use crate::domain::context_governance::{ContextGovernancePolicy, SecretPattern, Sensitivity};
 
 const DEFAULT_LIMIT: i64 = 50;
 const MAX_LIMIT: i64 = 200;
+
+/// Supported memory item scope kinds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MemoryScopeKind {
+    User,
+    Team,
+    Project,
+}
+
+impl MemoryScopeKind {
+    pub fn from_label(value: &str) -> Option<Self> {
+        match value {
+            "user" => Some(Self::User),
+            "team" => Some(Self::Team),
+            "project" => Some(Self::Project),
+            _ => None,
+        }
+    }
+
+    pub fn as_scope_kind(self) -> ScopeKind {
+        match self {
+            Self::User => ScopeKind::User,
+            Self::Team => ScopeKind::Team,
+            Self::Project => ScopeKind::Project,
+        }
+    }
+}
 
 /// Memory list pagination policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -102,6 +134,90 @@ impl MemoryConfidencePolicy {
     }
 }
 
+/// Prepared memory content ready for persistence and audit emission.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PreparedMemoryContent {
+    pub(crate) content: String,
+    pub(crate) content_redacted: bool,
+    pub(crate) sensitivity: &'static str,
+    pub(crate) audit_payload: Value,
+}
+
+/// A content mutation that must be audited before returning an application error.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct MemoryContentRejection {
+    matched_patterns: Vec<SecretPattern>,
+    redacted_preview: Option<String>,
+}
+
+impl MemoryContentRejection {
+    pub(crate) fn audit_payload(&self, operation: &str) -> Value {
+        json!({
+            "operation": operation,
+            "reason": "secret_detected",
+            "matched_patterns": self.matched_patterns,
+            "redacted_preview": self.redacted_preview
+        })
+    }
+
+    pub(crate) fn into_app_error(self) -> AppError {
+        ErrorKind::Unprocessable("secret detected in memory content; submit redacted content".into()).into()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum MemoryContentDecision {
+    Prepared(PreparedMemoryContent),
+    Rejected(MemoryContentRejection),
+}
+
+pub(crate) struct MemoryContentPolicy;
+
+impl MemoryContentPolicy {
+    pub(crate) fn prepare(content: &str, redacted: bool) -> AppResult<MemoryContentDecision> {
+        let content = content.trim();
+        if content.is_empty() {
+            return Err(ErrorKind::Validation("memory content must not be empty".into()).into());
+        }
+
+        let classification = ContextGovernancePolicy::classify_sensitivity(content);
+        if matches!(classification.sensitivity, Sensitivity::SecretDetected) && !redacted {
+            return Ok(MemoryContentDecision::Rejected(MemoryContentRejection {
+                matched_patterns: classification.matched_patterns,
+                redacted_preview: classification.redacted_preview,
+            }));
+        }
+
+        let content_redacted = matches!(classification.sensitivity, Sensitivity::SecretDetected);
+        let stored_content = if content_redacted {
+            classification.redacted_preview.clone().unwrap_or_else(|| "[REDACTED]".to_string())
+        } else {
+            content.to_string()
+        };
+        let sensitivity = sensitivity_label(classification.sensitivity);
+
+        Ok(MemoryContentDecision::Prepared(PreparedMemoryContent {
+            content: stored_content,
+            content_redacted,
+            sensitivity,
+            audit_payload: json!({
+                "sensitivity": sensitivity,
+                "matched_patterns": classification.matched_patterns,
+                "redacted": content_redacted
+            }),
+        }))
+    }
+}
+
+fn sensitivity_label(sensitivity: Sensitivity) -> &'static str {
+    match sensitivity {
+        Sensitivity::Public => "public",
+        Sensitivity::Internal => "internal",
+        Sensitivity::Confidential => "confidential",
+        Sensitivity::SecretDetected => "secret_detected",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -114,6 +230,14 @@ mod tests {
         assert_eq!(MemoryListPage::new(Some(500), Some(10)).limit(), 200);
         assert_eq!(MemoryListPage::new(Some(20), Some(-10)).offset(), 0);
         assert_eq!(MemoryListPage::new(Some(20), Some(10)).offset(), 10);
+    }
+
+    #[test]
+    fn memory_scope_kind_maps_protocol_labels_to_core_scope_kind() {
+        assert_eq!(MemoryScopeKind::from_label("user").unwrap().as_scope_kind(), ScopeKind::User);
+        assert_eq!(MemoryScopeKind::from_label("team").unwrap().as_scope_kind(), ScopeKind::Team);
+        assert_eq!(MemoryScopeKind::from_label("project").unwrap().as_scope_kind(), ScopeKind::Project);
+        assert_eq!(MemoryScopeKind::from_label("org"), None);
     }
 
     #[test]
@@ -149,5 +273,67 @@ mod tests {
         assert!(MemoryConfidencePolicy::validate(Some(1.0)).is_ok());
         assert!(MemoryConfidencePolicy::validate(Some(-0.1)).is_err());
         assert!(MemoryConfidencePolicy::validate(Some(1.1)).is_err());
+    }
+
+    fn synthetic_assigned_secret() -> String {
+        let key = ["api", "_", "key"].concat();
+        let value = ["12345678", "90abcdef", "12345678", "90abcdef"].concat();
+        format!("{key}={value}")
+    }
+
+    fn synthetic_secret_fragment() -> String {
+        ["12345678", "90abcdef"].concat()
+    }
+
+    #[test]
+    fn memory_content_policy_rejects_empty_content() {
+        assert!(MemoryContentPolicy::prepare("   ", false).is_err());
+    }
+
+    #[test]
+    fn memory_content_policy_requests_auditable_secret_rejection() {
+        let secret = synthetic_assigned_secret();
+        let secret_fragment = synthetic_secret_fragment();
+
+        let decision = MemoryContentPolicy::prepare(&secret, false).expect("classification should succeed");
+
+        let MemoryContentDecision::Rejected(rejection) = decision else {
+            panic!("secret should require auditable rejection");
+        };
+        let payload = rejection.audit_payload("create");
+        assert_eq!(payload["operation"], "create");
+        assert_eq!(payload["reason"], "secret_detected");
+        assert!(payload["matched_patterns"].as_array().is_some_and(|items| !items.is_empty()));
+        assert!(!payload["redacted_preview"].as_str().unwrap_or_default().contains(&secret_fragment));
+    }
+
+    #[test]
+    fn memory_content_policy_redacts_confirmed_secret_for_storage() {
+        let secret = synthetic_assigned_secret();
+        let secret_fragment = synthetic_secret_fragment();
+
+        let decision = MemoryContentPolicy::prepare(&secret, true).expect("classification should succeed");
+
+        let MemoryContentDecision::Prepared(prepared) = decision else {
+            panic!("confirmed redaction should prepare content");
+        };
+        assert!(prepared.content_redacted);
+        assert_eq!(prepared.sensitivity, "secret_detected");
+        assert!(!prepared.content.contains(&secret_fragment));
+        assert_eq!(prepared.audit_payload["redacted"], true);
+    }
+
+    #[test]
+    fn memory_content_policy_keeps_clean_content_visible() {
+        let decision =
+            MemoryContentPolicy::prepare("  deployment note  ", true).expect("classification should succeed");
+
+        let MemoryContentDecision::Prepared(prepared) = decision else {
+            panic!("clean content should prepare");
+        };
+        assert_eq!(prepared.content, "deployment note");
+        assert!(!prepared.content_redacted);
+        assert_eq!(prepared.sensitivity, "internal");
+        assert_eq!(prepared.audit_payload["redacted"], false);
     }
 }
