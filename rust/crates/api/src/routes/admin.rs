@@ -19,12 +19,11 @@ use serde_json::json;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
-use agentforge_core::{AgentStatus, AppResult, ErrorKind};
+use agentforge_core::{AppResult, ErrorKind};
 
+use crate::domain::admin::{AdminAgentFilterPolicy, AdminAgentFilterQuery};
 use crate::health::AppState;
-use crate::repositories::admin::{
-    AdminAgentEventRow, AdminAgentFilters, AdminAgentRow, AdminAgentSort, AdminRepository, SortOrder,
-};
+use crate::repositories::admin::{AdminAgentEventRow, AdminAgentFilters, AdminAgentRow, AdminRepository};
 use crate::services::admin::AdminService;
 
 /// Query parameters for paginated admin endpoints.
@@ -149,18 +148,6 @@ pub struct AdminAgentsQuery {
     pub sort_order: Option<String>,
 }
 
-/// Parse a status string into the Rust `AgentStatus` enum. Returns `None` for
-/// values the DB enum does not support (`waiting`, `attention`) so those
-/// filters are silently ignored rather than 400-ing.
-fn parse_status_filter(raw: Option<&str>) -> Option<AgentStatus> {
-    match raw?.to_ascii_lowercase().as_str() {
-        "working" => Some(AgentStatus::Working),
-        "idle" => Some(AgentStatus::Idle),
-        "offline" => Some(AgentStatus::Offline),
-        _ => None,
-    }
-}
-
 fn default_page() -> i64 {
     1
 }
@@ -175,43 +162,39 @@ pub struct BulkDeleteRequest {
     pub ids: Vec<Uuid>,
 }
 
-/// Translate the frontend's sort-column string into the repository sort enum.
-/// Unknown / unsupported columns (e.g. `tokens`, `cwd` — not yet stored in the
-/// Rust schema) fall back to `LastActivity` so the API never 400s on a label.
-fn parse_sort_by(raw: Option<&str>) -> AdminAgentSort {
-    match raw.unwrap_or("") {
-        "name" => AdminAgentSort::Name,
-        "status" => AdminAgentSort::Status,
-        "createdAt" => AdminAgentSort::CreatedAt,
-        "ownerUsername" => AdminAgentSort::OwnerUsername,
-        _ => AdminAgentSort::LastActivity,
-    }
-}
-
-/// Case-insensitive sort-order parsing with a `desc` default.
-fn parse_sort_order(raw: Option<&str>) -> SortOrder {
-    match raw.unwrap_or("").to_ascii_lowercase().as_str() {
-        "asc" => SortOrder::Asc,
-        _ => SortOrder::Desc,
-    }
-}
-
 /// Build the `AdminAgentFilters` struct passed down to the repository.
 fn filters_from_query(query: &AdminAgentsQuery) -> AdminAgentFilters {
-    let page = query.page.max(1);
-    let limit = query.limit.clamp(1, 100);
-    let offset = (page - 1) * limit;
+    let decision = AdminAgentFilterPolicy::from_query(AdminAgentFilterQuery {
+        search: query.search.as_deref(),
+        status: query.status.as_deref(),
+        page: query.page,
+        limit: query.limit,
+        sort_by: query.sort_by.as_deref(),
+        sort_order: query.sort_order.as_deref(),
+    });
 
     AdminAgentFilters {
-        search: query.search.clone().filter(|s| !s.trim().is_empty()),
-        status: parse_status_filter(query.status.as_deref()),
+        search: decision.search,
+        status: decision.status,
         user_id: query.user_id,
         project_id: query.project_id,
-        sort_by: parse_sort_by(query.sort_by.as_deref()),
-        sort_order: parse_sort_order(query.sort_order.as_deref()),
-        limit,
-        offset,
+        sort_by: decision.sort_by,
+        sort_order: decision.sort_order,
+        limit: decision.limit,
+        offset: decision.offset,
     }
+}
+
+fn page_from_query(query: &AdminAgentsQuery) -> i64 {
+    AdminAgentFilterPolicy::from_query(AdminAgentFilterQuery {
+        search: query.search.as_deref(),
+        status: query.status.as_deref(),
+        page: query.page,
+        limit: query.limit,
+        sort_by: query.sort_by.as_deref(),
+        sort_order: query.sort_order.as_deref(),
+    })
+    .page
 }
 
 /// Shape a DB row into the JSON object the frontend `AdminAgent` interface
@@ -260,7 +243,7 @@ async fn list_admin_agents(
     let service = make_service(&state);
 
     let filters = filters_from_query(&query);
-    let page = query.page.max(1);
+    let page = page_from_query(&query);
     let limit = filters.limit;
     let (rows, total) = service.list_agents(filters).await?;
 
@@ -373,6 +356,8 @@ pub fn admin_routes() -> Router<AppState> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::admin::{AdminAgentSort, SortOrder};
+    use agentforge_core::AgentStatus;
 
     #[test]
     fn list_query_defaults() {
@@ -457,53 +442,6 @@ mod tests {
         assert_eq!(query.limit, 50);
         assert_eq!(query.sort_by.as_deref(), Some("lastActivity"));
         assert_eq!(query.sort_order.as_deref(), Some("asc"));
-    }
-
-    #[test]
-    fn parse_status_filter_accepts_valid_values() {
-        assert_eq!(parse_status_filter(Some("working")), Some(AgentStatus::Working));
-        assert_eq!(parse_status_filter(Some("idle")), Some(AgentStatus::Idle));
-        assert_eq!(parse_status_filter(Some("offline")), Some(AgentStatus::Offline));
-        assert_eq!(parse_status_filter(Some("WORKING")), Some(AgentStatus::Working));
-    }
-
-    #[test]
-    fn parse_status_filter_drops_unsupported_values() {
-        // `waiting` / `attention` exist in the frontend enum but not in the
-        // Rust `agent_status` DB type yet — they should silently drop instead
-        // of rejecting the whole query.
-        assert_eq!(parse_status_filter(Some("waiting")), None);
-        assert_eq!(parse_status_filter(Some("attention")), None);
-        assert_eq!(parse_status_filter(Some("bogus")), None);
-        assert_eq!(parse_status_filter(None), None);
-    }
-
-    #[test]
-    fn parse_sort_by_maps_known_columns() {
-        assert_eq!(parse_sort_by(Some("name")), AdminAgentSort::Name);
-        assert_eq!(parse_sort_by(Some("status")), AdminAgentSort::Status);
-        assert_eq!(parse_sort_by(Some("createdAt")), AdminAgentSort::CreatedAt);
-        assert_eq!(parse_sort_by(Some("ownerUsername")), AdminAgentSort::OwnerUsername);
-        assert_eq!(parse_sort_by(Some("lastActivity")), AdminAgentSort::LastActivity);
-    }
-
-    #[test]
-    fn parse_sort_by_falls_back_to_last_activity() {
-        // `tokens` and `cwd` are not real columns in the Rust schema yet.
-        assert_eq!(parse_sort_by(Some("tokens")), AdminAgentSort::LastActivity);
-        assert_eq!(parse_sort_by(Some("cwd")), AdminAgentSort::LastActivity);
-        assert_eq!(parse_sort_by(Some("bogus")), AdminAgentSort::LastActivity);
-        assert_eq!(parse_sort_by(None), AdminAgentSort::LastActivity);
-    }
-
-    #[test]
-    fn parse_sort_order_handles_case_and_default() {
-        assert_eq!(parse_sort_order(Some("asc")), SortOrder::Asc);
-        assert_eq!(parse_sort_order(Some("ASC")), SortOrder::Asc);
-        assert_eq!(parse_sort_order(Some("desc")), SortOrder::Desc);
-        assert_eq!(parse_sort_order(Some("DESC")), SortOrder::Desc);
-        assert_eq!(parse_sort_order(None), SortOrder::Desc);
-        assert_eq!(parse_sort_order(Some("nope")), SortOrder::Desc);
     }
 
     #[test]
