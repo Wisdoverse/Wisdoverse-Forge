@@ -4,6 +4,8 @@
 //! audit logs, and runtime event streams.
 
 use agentforge_core::{AppResult, ErrorKind};
+use chrono::{DateTime, Utc};
+use uuid::Uuid;
 
 /// Analytics event name policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -179,6 +181,56 @@ impl EventReplayPage {
     }
 }
 
+/// Event replay cursor normalization.
+///
+/// `after_ts` accepts either Unix milliseconds or RFC3339 because the browser
+/// and container-watch paths have both emitted cursor timestamps. Empty or
+/// malformed values fall back to epoch/nil so reconnect catch-up never turns a
+/// client-side cursor glitch into a server error.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EventReplayCursor {
+    after_ts: DateTime<Utc>,
+    after_id: Uuid,
+}
+
+impl EventReplayCursor {
+    pub(crate) fn from_query(after_ts: Option<&str>, after_id: Option<&str>) -> Self {
+        Self {
+            after_ts: after_ts.and_then(parse_after_ts).unwrap_or_else(epoch_cursor_ts),
+            after_id: after_id.map(parse_after_id).unwrap_or_else(Uuid::nil),
+        }
+    }
+
+    pub(crate) fn after_ts(self) -> DateTime<Utc> {
+        self.after_ts
+    }
+
+    pub(crate) fn after_id(self) -> Uuid {
+        self.after_id
+    }
+}
+
+fn epoch_cursor_ts() -> DateTime<Utc> {
+    DateTime::<Utc>::from_timestamp(0, 0).expect("epoch is valid")
+}
+
+fn parse_after_ts(raw: &str) -> Option<DateTime<Utc>> {
+    if raw.is_empty() {
+        return None;
+    }
+    if let Ok(ms) = raw.parse::<i64>() {
+        return DateTime::from_timestamp_millis(ms);
+    }
+    DateTime::parse_from_rfc3339(raw).ok().map(|dt| dt.with_timezone(&Utc))
+}
+
+fn parse_after_id(raw: &str) -> Uuid {
+    if raw.is_empty() {
+        return Uuid::nil();
+    }
+    Uuid::parse_str(raw).unwrap_or_else(|_| Uuid::nil())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -261,5 +313,42 @@ mod tests {
         assert_eq!(page.fetch_limit(), 2001);
         assert!(EventReplayPage::new(2).has_more(&[1, 2, 3]));
         assert!(!EventReplayPage::new(3).has_more(&[1, 2, 3]));
+    }
+
+    #[test]
+    fn event_replay_cursor_accepts_rfc3339_after_ts() {
+        let cursor =
+            EventReplayCursor::from_query(Some("2026-04-22T10:00:00Z"), Some("550e8400-e29b-41d4-a716-446655440000"));
+
+        assert_eq!(cursor.after_ts().to_rfc3339(), "2026-04-22T10:00:00+00:00");
+        assert_eq!(cursor.after_id().to_string(), "550e8400-e29b-41d4-a716-446655440000");
+    }
+
+    #[test]
+    fn event_replay_cursor_accepts_unix_millis_after_ts() {
+        let cursor = EventReplayCursor::from_query(Some("1745316000000"), None);
+
+        assert_eq!(cursor.after_ts().timestamp_millis(), 1_745_316_000_000);
+    }
+
+    #[test]
+    fn event_replay_cursor_empty_after_ts_uses_epoch() {
+        let cursor = EventReplayCursor::from_query(Some(""), None);
+
+        assert_eq!(cursor.after_ts().timestamp(), 0);
+    }
+
+    #[test]
+    fn event_replay_cursor_empty_after_id_becomes_nil_uuid() {
+        let cursor = EventReplayCursor::from_query(None, Some(""));
+
+        assert_eq!(cursor.after_id(), Uuid::nil());
+    }
+
+    #[test]
+    fn event_replay_cursor_malformed_after_id_becomes_nil_uuid() {
+        let cursor = EventReplayCursor::from_query(None, Some("not-a-uuid"));
+
+        assert_eq!(cursor.after_id(), Uuid::nil());
     }
 }

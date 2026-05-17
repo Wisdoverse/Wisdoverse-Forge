@@ -15,6 +15,7 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AgentId, AppResult};
 use agentforge_db::entities::Event;
 
+use crate::domain::observability::EventReplayCursor;
 use crate::health::AppState;
 use crate::repositories::event::EventRepository;
 use crate::services::event::EventService;
@@ -87,23 +88,6 @@ pub struct CursorReplayQuery {
     pub after_id: Option<String>,
     #[serde(default = "default_limit")]
     pub limit: i64,
-}
-
-fn parse_after_ts(raw: &str) -> Option<chrono::DateTime<chrono::Utc>> {
-    if raw.is_empty() {
-        return None;
-    }
-    if let Ok(ms) = raw.parse::<i64>() {
-        return chrono::DateTime::from_timestamp_millis(ms);
-    }
-    chrono::DateTime::parse_from_rfc3339(raw).ok().map(|dt| dt.with_timezone(&chrono::Utc))
-}
-
-fn parse_after_id(raw: &str) -> Uuid {
-    if raw.is_empty() {
-        return Uuid::nil();
-    }
-    Uuid::parse_str(raw).unwrap_or_else(|_| Uuid::nil())
 }
 
 fn default_limit() -> i64 {
@@ -204,15 +188,11 @@ async fn replay_agent_events(
     Query(query): Query<CursorReplayQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
-    let after_ts = query
-        .after_ts
-        .as_deref()
-        .and_then(parse_after_ts)
-        .unwrap_or_else(|| chrono::DateTime::<chrono::Utc>::from_timestamp(0, 0).expect("epoch is valid"));
-    let after_id = query.after_id.as_deref().map(parse_after_id).unwrap_or_else(Uuid::nil);
+    let cursor = EventReplayCursor::from_query(query.after_ts.as_deref(), query.after_id.as_deref());
 
-    let (events, has_more) =
-        service.replay_cursor(&auth.scope, AgentId::from(id), after_ts, after_id, query.limit).await?;
+    let (events, has_more) = service
+        .replay_cursor(&auth.scope, AgentId::from(id), cursor.after_ts(), cursor.after_id(), query.limit)
+        .await?;
     let shaped: Vec<Value> = events.iter().map(event_to_claude_event_json).collect();
     Ok(Json(json!({ "ok": true, "events": shaped, "hasMore": has_more })))
 }
@@ -468,7 +448,10 @@ mod tests {
         .unwrap();
         assert_eq!(q.after_ts.as_deref(), Some("2026-04-22T10:00:00Z"));
         assert_eq!(q.limit, 20);
-        assert!(parse_after_ts(q.after_ts.as_deref().unwrap()).is_some());
+        assert_eq!(
+            EventReplayCursor::from_query(q.after_ts.as_deref(), q.after_id.as_deref()).after_ts().to_rfc3339(),
+            "2026-04-22T10:00:00+00:00"
+        );
     }
 
     #[test]
@@ -476,20 +459,21 @@ mod tests {
         // Container CLI watch path and some frontend paths send Unix ms as a
         // stringified integer — both encodings must parse to the same instant.
         let ms = "1745316000000";
-        let parsed = parse_after_ts(ms).expect("unix ms must parse");
-        assert_eq!(parsed.timestamp_millis(), 1_745_316_000_000);
+        let cursor = EventReplayCursor::from_query(Some(ms), None);
+        assert_eq!(cursor.after_ts().timestamp_millis(), 1_745_316_000_000);
     }
 
     #[test]
-    fn cursor_replay_query_empty_after_ts_is_none() {
-        assert!(parse_after_ts("").is_none());
+    fn cursor_replay_query_empty_after_ts_uses_epoch_cursor() {
+        let cursor = EventReplayCursor::from_query(Some(""), None);
+        assert_eq!(cursor.after_ts().timestamp(), 0);
     }
 
     #[test]
     fn cursor_replay_empty_after_id_becomes_nil_uuid() {
         // Cold catch-up: first call after hydrate sends after_id="" so the
         // (ts, id) tuple compare is anchored below every real UUID.
-        assert_eq!(parse_after_id(""), Uuid::nil());
+        assert_eq!(EventReplayCursor::from_query(None, Some("")).after_id(), Uuid::nil());
     }
 
     #[test]
@@ -497,7 +481,7 @@ mod tests {
         // Garbage input must not 500 — we coerce to nil rather than bubble a
         // parse error, which is safer than leaking SQL to the client on a
         // path we control.
-        assert_eq!(parse_after_id("not-a-uuid"), Uuid::nil());
+        assert_eq!(EventReplayCursor::from_query(None, Some("not-a-uuid")).after_id(), Uuid::nil());
     }
 
     #[test]
