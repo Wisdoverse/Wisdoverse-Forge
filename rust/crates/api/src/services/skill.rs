@@ -492,16 +492,10 @@ impl SkillService {
         match SkillContentPolicy::prepare(content)? {
             SkillContentDecision::Prepared(prepared) => Ok(prepared),
             SkillContentDecision::Rejected(rejection) => {
+                let action = rejection.audit_action();
                 let payload = rejection.audit_payload(operation, resource_id);
                 let mut tx = self.repo.pool().begin().await?;
-                self.emit_skill_audit(
-                    &mut tx,
-                    scope,
-                    "governance.context.skill.mutation_rejected",
-                    resource_id,
-                    payload,
-                )
-                .await?;
+                self.emit_skill_audit(&mut tx, scope, action, resource_id, payload).await?;
                 tx.commit().await?;
                 Err(rejection.into_app_error())
             }
