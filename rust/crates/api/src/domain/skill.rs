@@ -429,6 +429,52 @@ impl SkillRestoreVersionPolicy {
 
 pub(crate) struct SkillMutationPolicy;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SkillMutationManagerCheck {
+    Org,
+    Team(Uuid),
+    Project(Uuid),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SkillMutationAccess {
+    Allowed,
+    RequiresManager(SkillMutationManagerCheck),
+    Forbidden,
+}
+
+pub(crate) struct SkillMutationAccessPolicy;
+
+impl SkillMutationAccessPolicy {
+    pub(crate) fn plan(
+        owner_user_id: Option<Uuid>,
+        actor_user_id: Uuid,
+        scope_kind: Option<&str>,
+        scope_id: Option<Uuid>,
+    ) -> SkillMutationAccess {
+        if owner_user_id == Some(actor_user_id) {
+            return SkillMutationAccess::Allowed;
+        }
+
+        match scope_kind.and_then(SkillScopeKind::from_label) {
+            Some(SkillScopeKind::Org) => SkillMutationAccess::RequiresManager(SkillMutationManagerCheck::Org),
+            Some(SkillScopeKind::Team) => match scope_id {
+                Some(scope_id) => SkillMutationAccess::RequiresManager(SkillMutationManagerCheck::Team(scope_id)),
+                None => SkillMutationAccess::Forbidden,
+            },
+            Some(SkillScopeKind::Project) => match scope_id {
+                Some(scope_id) => SkillMutationAccess::RequiresManager(SkillMutationManagerCheck::Project(scope_id)),
+                None => SkillMutationAccess::Forbidden,
+            },
+            Some(SkillScopeKind::User) | None => SkillMutationAccess::Forbidden,
+        }
+    }
+
+    pub(crate) fn ensure_manager_authorized(can_manage: bool) -> AppResult<()> {
+        if can_manage { Ok(()) } else { Err(ErrorKind::Forbidden.into()) }
+    }
+}
+
 impl SkillMutationPolicy {
     pub(crate) fn ensure_updateable(skill_id: Uuid, state: &str) -> AppResult<()> {
         if state == "revoked" {
@@ -577,6 +623,51 @@ mod tests {
         assert!(SkillMutationPolicy::ensure_updateable(skill_id, "revoked").is_err());
         assert!(SkillMutationPolicy::ensure_revokeable(skill_id, "deprecated").is_ok());
         assert!(SkillMutationPolicy::ensure_revokeable(skill_id, "revoked").is_err());
+    }
+
+    #[test]
+    fn skill_mutation_access_policy_prefers_owner_then_manager_scope() {
+        let owner = Uuid::parse_str("11111111-1111-4111-8111-111111111111").unwrap();
+        let actor = Uuid::parse_str("22222222-2222-4222-8222-222222222222").unwrap();
+        let scope_id = Uuid::parse_str("33333333-3333-4333-8333-333333333333").unwrap();
+
+        assert_eq!(
+            SkillMutationAccessPolicy::plan(Some(owner), owner, Some("user"), Some(owner)),
+            SkillMutationAccess::Allowed
+        );
+        assert_eq!(
+            SkillMutationAccessPolicy::plan(Some(owner), actor, Some("org"), None),
+            SkillMutationAccess::RequiresManager(SkillMutationManagerCheck::Org)
+        );
+        assert_eq!(
+            SkillMutationAccessPolicy::plan(Some(owner), actor, Some("team"), Some(scope_id)),
+            SkillMutationAccess::RequiresManager(SkillMutationManagerCheck::Team(scope_id))
+        );
+        assert_eq!(
+            SkillMutationAccessPolicy::plan(Some(owner), actor, Some("project"), Some(scope_id)),
+            SkillMutationAccess::RequiresManager(SkillMutationManagerCheck::Project(scope_id))
+        );
+        assert_eq!(
+            SkillMutationAccessPolicy::plan(Some(owner), actor, Some("team"), None),
+            SkillMutationAccess::Forbidden
+        );
+        assert_eq!(
+            SkillMutationAccessPolicy::plan(Some(owner), actor, Some("user"), Some(owner)),
+            SkillMutationAccess::Forbidden
+        );
+        assert_eq!(
+            SkillMutationAccessPolicy::plan(None, actor, Some("workspace"), Some(scope_id)),
+            SkillMutationAccess::Forbidden
+        );
+    }
+
+    #[test]
+    fn skill_mutation_access_policy_maps_manager_checks_to_forbidden() {
+        assert!(SkillMutationAccessPolicy::ensure_manager_authorized(true).is_ok());
+        assert!(matches!(
+            SkillMutationAccessPolicy::ensure_manager_authorized(false).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
     }
 
     #[test]

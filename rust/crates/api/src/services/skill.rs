@@ -9,8 +9,9 @@ use uuid::Uuid;
 use crate::domain::context_governance::ContextAuditEvent;
 use crate::domain::skill::{
     PreparedSkillContent, SkillContentDecision, SkillContentPolicy, SkillCreateStatePolicy, SkillJsonObjectPolicy,
-    SkillMutationPolicy, SkillName, SkillRestoreVersionPlan, SkillRestoreVersionPolicy, SkillRestoreVersionRequest,
-    SkillScopeKind, SkillScopeTargetPolicy, SkillSensitivity, SkillState, SkillStateTransitionPolicy, SkillTtlPolicy,
+    SkillMutationAccess, SkillMutationAccessPolicy, SkillMutationManagerCheck, SkillMutationPolicy, SkillName,
+    SkillRestoreVersionPlan, SkillRestoreVersionPolicy, SkillRestoreVersionRequest, SkillScopeKind,
+    SkillScopeTargetPolicy, SkillSensitivity, SkillState, SkillStateTransitionPolicy, SkillTtlPolicy,
 };
 use crate::repositories::resource_permission::ResourcePermissionRepository;
 use crate::repositories::skill::{CreateSkillRecord, SkillRepository, UpdateSkillRecord};
@@ -421,32 +422,27 @@ impl SkillService {
     }
 
     async fn require_owner_or_manager(&self, scope: &TenantScope, skill: &Skill) -> AppResult<()> {
-        if skill.owner_user_id == Some(scope.user_id()) {
-            return Ok(());
+        match SkillMutationAccessPolicy::plan(
+            skill.owner_user_id.map(|owner| owner.as_uuid()),
+            scope.user_id().as_uuid(),
+            skill.scope_kind.as_deref(),
+            skill.scope_id,
+        ) {
+            SkillMutationAccess::Allowed => Ok(()),
+            SkillMutationAccess::RequiresManager(SkillMutationManagerCheck::Org) => {
+                let can_manage = self.permissions.can_manage_org(scope).await?;
+                SkillMutationAccessPolicy::ensure_manager_authorized(can_manage)
+            }
+            SkillMutationAccess::RequiresManager(SkillMutationManagerCheck::Team(team_id)) => {
+                let can_manage = self.permissions.can_manage_team(scope, TeamId::from(team_id)).await?;
+                SkillMutationAccessPolicy::ensure_manager_authorized(can_manage)
+            }
+            SkillMutationAccess::RequiresManager(SkillMutationManagerCheck::Project(project_id)) => {
+                let can_manage = self.permissions.can_manage_project(scope, ProjectId::from(project_id)).await?;
+                SkillMutationAccessPolicy::ensure_manager_authorized(can_manage)
+            }
+            SkillMutationAccess::Forbidden => Err(ErrorKind::Forbidden.into()),
         }
-        match skill.scope_kind.as_deref().and_then(SkillScopeKind::from_label) {
-            Some(SkillScopeKind::Org) => {
-                if self.permissions.can_manage_org(scope).await? {
-                    return Ok(());
-                }
-            }
-            Some(SkillScopeKind::Team) => {
-                if let Some(scope_id) = skill.scope_id
-                    && self.permissions.can_manage_team(scope, TeamId::from(scope_id)).await?
-                {
-                    return Ok(());
-                }
-            }
-            Some(SkillScopeKind::Project) => {
-                if let Some(scope_id) = skill.scope_id
-                    && self.permissions.can_manage_project(scope, ProjectId::from(scope_id)).await?
-                {
-                    return Ok(());
-                }
-            }
-            Some(SkillScopeKind::User) | None => {}
-        }
-        Err(ErrorKind::Forbidden.into())
     }
 
     async fn lock_mutable_skill(
