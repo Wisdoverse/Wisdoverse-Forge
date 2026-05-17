@@ -1,12 +1,13 @@
 //! Context candidate and feedback input policies.
 
-use agentforge_core::{AppResult, ErrorKind};
+use agentforge_core::{AppResult, ErrorKind, ScopeKind, SkillId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-use crate::domain::context_governance::{ContextGovernancePolicy, Sensitivity};
+use crate::domain::context_governance::{ContextGovernancePolicy, ContextScopeKind, Sensitivity};
+use crate::domain::memory::MemoryScopeKind;
 
 const DEFAULT_LIMIT: i64 = 50;
 const MAX_LIMIT: i64 = 200;
@@ -23,6 +24,14 @@ impl ContextCandidateKind {
         match self {
             Self::Memory => "memory",
             Self::Skill => "skill",
+        }
+    }
+
+    pub(crate) fn from_label(value: &str) -> AppResult<Self> {
+        match value {
+            "memory" => Ok(Self::Memory),
+            "skill" => Ok(Self::Skill),
+            other => Err(ErrorKind::Validation(format!("unsupported candidate item kind `{other}`")).into()),
         }
     }
 }
@@ -136,6 +145,134 @@ pub(crate) fn validate_candidate_content(value: &Value) -> AppResult<()> {
         Ok(())
     } else {
         Err(ErrorKind::Validation("proposed_content must be a JSON object".into()).into())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct MemoryCandidateContent {
+    title: String,
+    content: String,
+    #[serde(default)]
+    redacted: bool,
+    visibility: Option<String>,
+    confidence: Option<f64>,
+    source_task_id: Option<Uuid>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct PreparedMemoryCandidate {
+    pub(crate) title: String,
+    pub(crate) content: String,
+    pub(crate) content_redacted: bool,
+    pub(crate) sensitivity: String,
+    pub(crate) visibility: String,
+    pub(crate) confidence: Option<f64>,
+    pub(crate) source_task_id: Option<Uuid>,
+    pub(crate) classification_payload: Value,
+}
+
+pub(crate) struct ContextCandidatePolicy;
+
+impl ContextCandidatePolicy {
+    pub(crate) fn validate_create(
+        item_kind: ContextCandidateKind,
+        target_skill_id: Option<Uuid>,
+        proposed_content: &Value,
+    ) -> AppResult<()> {
+        validate_candidate_content(proposed_content)?;
+        if item_kind == ContextCandidateKind::Skill && target_skill_id.is_none() {
+            return Err(ErrorKind::Validation("skill context candidates require target_skill_id".into()).into());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn resolve_approval_scope(
+        scope_kind: MemoryScopeKind,
+        scope_id: Option<Uuid>,
+        user_id: Uuid,
+    ) -> AppResult<(ScopeKind, Uuid)> {
+        let scope_kind = scope_kind.as_scope_kind();
+        let scope_id = match scope_kind {
+            ScopeKind::User => scope_id.unwrap_or(user_id),
+            ScopeKind::Team | ScopeKind::Project => scope_id.ok_or_else(|| {
+                ErrorKind::Validation(format!("scope_id is required for {} context approval", scope_kind.as_label()))
+            })?,
+        };
+        Ok((scope_kind, scope_id))
+    }
+
+    pub(crate) fn prepare_memory_candidate(
+        proposed_content: &Value,
+        requested_sensitivity: Option<&str>,
+        redacted: bool,
+    ) -> AppResult<PreparedMemoryCandidate> {
+        let proposed: MemoryCandidateContent = serde_json::from_value(proposed_content.clone())
+            .map_err(|err| ErrorKind::Validation(format!("invalid memory candidate proposed_content: {err}")))?;
+        let title = validate_memory_title(&proposed.title)?.to_string();
+        let content = proposed.content.trim();
+        if content.is_empty() {
+            return Err(ErrorKind::Validation("memory candidate content must not be empty".into()).into());
+        }
+        validate_confidence(proposed.confidence)?;
+        let visibility = validate_memory_visibility(proposed.visibility.as_deref())?.to_string();
+        let classification = ContextGovernancePolicy::classify_sensitivity(content);
+        if matches!(classification.sensitivity, Sensitivity::SecretDetected) && !(redacted || proposed.redacted) {
+            return Err(ErrorKind::Unprocessable(
+                "secret detected in memory candidate content; approve with redaction".into(),
+            )
+            .into());
+        }
+
+        let content_redacted = matches!(classification.sensitivity, Sensitivity::SecretDetected);
+        let stored_content = if content_redacted {
+            classification.redacted_preview.clone().unwrap_or_else(|| "[REDACTED]".to_string())
+        } else {
+            content.to_string()
+        };
+        let sensitivity = if content_redacted {
+            "secret_detected"
+        } else {
+            requested_sensitivity.unwrap_or(sensitivity_label(classification.sensitivity))
+        }
+        .to_string();
+        Ok(PreparedMemoryCandidate {
+            title,
+            content: stored_content,
+            content_redacted,
+            sensitivity: sensitivity.clone(),
+            visibility,
+            confidence: proposed.confidence,
+            source_task_id: proposed.source_task_id,
+            classification_payload: json!({
+                "sensitivity": sensitivity,
+                "matched_patterns": classification.matched_patterns,
+                "redacted": content_redacted
+            }),
+        })
+    }
+
+    pub(crate) fn ensure_wider_secret_memory_attestation(
+        sensitivity: &str,
+        target_scope_kind: ScopeKind,
+        user_attested: bool,
+    ) -> AppResult<()> {
+        if sensitivity == "secret_detected" && target_scope_kind != ScopeKind::User && !user_attested {
+            return Err(ErrorKind::Unprocessable(
+                "wider-scope secret memory approval requires user attestation".into(),
+            )
+            .into());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn require_skill_target_id(target_skill_id: Option<SkillId>) -> AppResult<SkillId> {
+        target_skill_id.ok_or_else(|| ErrorKind::Validation("skill candidate missing target_skill_id".into()).into())
+    }
+
+    pub(crate) fn resolve_skill_candidate_scope_kind(scope_kind: Option<&str>) -> AppResult<ContextScopeKind> {
+        scope_kind
+            .and_then(ContextScopeKind::from_label)
+            .ok_or_else(|| ErrorKind::Validation("skill candidate has unsupported scope_kind".into()).into())
     }
 }
 
@@ -315,5 +452,68 @@ mod tests {
     fn candidate_content_must_be_object() {
         assert!(validate_candidate_content(&json!({"title": "x"})).is_ok());
         assert!(validate_candidate_content(&json!("x")).is_err());
+    }
+
+    #[test]
+    fn candidate_create_policy_requires_skill_target_id() {
+        assert!(
+            ContextCandidatePolicy::validate_create(ContextCandidateKind::Memory, None, &json!({"title": "x"})).is_ok()
+        );
+        assert!(
+            ContextCandidatePolicy::validate_create(ContextCandidateKind::Skill, None, &json!({"title": "x"})).is_err()
+        );
+        assert!(ContextCandidateKind::from_label("unknown").is_err());
+        assert!(ContextCandidatePolicy::require_skill_target_id(None).is_err());
+        assert!(ContextCandidatePolicy::resolve_skill_candidate_scope_kind(Some("user")).is_ok());
+        assert!(ContextCandidatePolicy::resolve_skill_candidate_scope_kind(None).is_err());
+    }
+
+    #[test]
+    fn candidate_approval_scope_policy_defaults_user_and_requires_group_scope_id() {
+        let user_id = Uuid::parse_str("44444444-4444-4444-8444-444444444444").unwrap();
+        assert_eq!(
+            ContextCandidatePolicy::resolve_approval_scope(MemoryScopeKind::User, None, user_id).unwrap(),
+            (ScopeKind::User, user_id)
+        );
+        assert!(ContextCandidatePolicy::resolve_approval_scope(MemoryScopeKind::Team, None, user_id).is_err());
+    }
+
+    #[test]
+    fn memory_candidate_policy_prepares_secret_redaction_and_attestation() {
+        let prepared = ContextCandidatePolicy::prepare_memory_candidate(
+            &json!({
+                "title": "  Token  ",
+                "content": "api_key=1234567890abcdef1234567890abcdef",
+                "redacted": true,
+                "visibility": "private",
+                "confidence": 0.75
+            }),
+            None,
+            false,
+        )
+        .unwrap();
+
+        assert_eq!(prepared.title, "Token");
+        assert_eq!(prepared.sensitivity, "secret_detected");
+        assert!(prepared.content_redacted);
+        assert_eq!(prepared.visibility, "private");
+        assert_eq!(prepared.confidence, Some(0.75));
+        assert!(!prepared.content.contains("1234567890abcdef1234567890abcdef"));
+        assert!(
+            ContextCandidatePolicy::ensure_wider_secret_memory_attestation(
+                &prepared.sensitivity,
+                ScopeKind::Team,
+                false
+            )
+            .is_err()
+        );
+        assert!(
+            ContextCandidatePolicy::ensure_wider_secret_memory_attestation(
+                &prepared.sensitivity,
+                ScopeKind::Team,
+                true
+            )
+            .is_ok()
+        );
     }
 }

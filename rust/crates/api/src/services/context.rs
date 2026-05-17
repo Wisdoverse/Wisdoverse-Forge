@@ -9,17 +9,16 @@ use agentforge_core::{
 use agentforge_db::entities::{ContextApproval, ContextCandidate, ContextFeedback, MemoryItem, Skill};
 use agentforge_infra::NatsClient;
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::{Value, json};
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::context::{
-    ContextCandidateKind, ContextFeedbackLabel, ContextItemKind, context_candidate_subject, ensure_pending_candidate,
-    normalize_candidate_kind_filter, normalize_candidate_state_filter, normalize_context_candidate_limit,
-    normalize_feedback_note, normalize_reason, normalize_scope_kind_filter, redacted_proposal_preview,
-    sensitivity_label, validate_candidate_content, validate_confidence, validate_context_sensitivity,
-    validate_memory_title, validate_memory_visibility, validate_ttl,
+    ContextCandidateKind, ContextCandidatePolicy, ContextFeedbackLabel, ContextItemKind, context_candidate_subject,
+    ensure_pending_candidate, normalize_candidate_kind_filter, normalize_candidate_state_filter,
+    normalize_context_candidate_limit, normalize_feedback_note, normalize_reason, normalize_scope_kind_filter,
+    redacted_proposal_preview, validate_context_sensitivity, validate_ttl,
 };
 use crate::domain::context_governance::{
     ContextAuditEvent, ContextGovernancePolicy, ContextScopeKind, ScopeExpansionRequest, Sensitivity,
@@ -93,28 +92,6 @@ pub struct ContextApprovalOutcome {
     pub skill: Option<Skill>,
 }
 
-#[derive(Deserialize)]
-struct MemoryCandidateContent {
-    title: String,
-    content: String,
-    #[serde(default)]
-    redacted: bool,
-    visibility: Option<String>,
-    confidence: Option<f64>,
-    source_task_id: Option<Uuid>,
-}
-
-struct PreparedMemoryContent {
-    title: String,
-    content: String,
-    content_redacted: bool,
-    sensitivity: String,
-    visibility: String,
-    confidence: Option<f64>,
-    source_task_id: Option<Uuid>,
-    classification_payload: Value,
-}
-
 pub struct ContextApprovalService {
     candidates: ContextCandidateRepository,
     memory: MemoryRepository,
@@ -136,10 +113,7 @@ impl ContextApprovalService {
         input: CreateContextCandidateInput,
     ) -> AppResult<ContextCandidate> {
         let workspace_id = required_workspace(scope)?;
-        validate_candidate_content(&input.proposed_content)?;
-        if input.item_kind == ContextCandidateKind::Skill && input.target_skill_id.is_none() {
-            return Err(ErrorKind::Validation("skill context candidates require target_skill_id".into()).into());
-        }
+        ContextCandidatePolicy::validate_create(input.item_kind, input.target_skill_id, &input.proposed_content)?;
 
         let mut tx = self.candidates.pool().begin().await?;
         let candidate = ContextCandidateRepository::create_in_tx(
@@ -259,8 +233,8 @@ impl ContextApprovalService {
             return Err(ErrorKind::Forbidden.into());
         }
 
-        match candidate.item_kind.as_str() {
-            "memory" => {
+        match ContextCandidateKind::from_label(candidate.item_kind.as_str())? {
+            ContextCandidateKind::Memory => {
                 if let Err(rejection) = ContextGovernancePolicy::gate_scope_expansion(ScopeExpansionRequest {
                     from_kind: ContextScopeKind::User,
                     to_kind: ContextScopeKind::from_scope_kind(target.kind()),
@@ -282,7 +256,11 @@ impl ContextApprovalService {
                     tx.commit().await?;
                     return Err(rejection.into_app_error());
                 }
-                let prepared = match self.prepare_memory_candidate(&candidate, requested_sensitivity, input.redacted) {
+                let prepared = match ContextCandidatePolicy::prepare_memory_candidate(
+                    &candidate.proposed_content,
+                    requested_sensitivity,
+                    input.redacted,
+                ) {
                     Ok(prepared) => prepared,
                     Err(err) => {
                         self.emit_candidate_audit(
@@ -299,8 +277,11 @@ impl ContextApprovalService {
                         return Err(err);
                     }
                 };
-                if prepared.sensitivity == "secret_detected" && target.kind() != ScopeKind::User && !input.user_attested
-                {
+                if let Err(err) = ContextCandidatePolicy::ensure_wider_secret_memory_attestation(
+                    &prepared.sensitivity,
+                    target.kind(),
+                    input.user_attested,
+                ) {
                     self.emit_candidate_audit(
                         &mut tx,
                         scope,
@@ -314,10 +295,7 @@ impl ContextApprovalService {
                     )
                     .await?;
                     tx.commit().await?;
-                    return Err(ErrorKind::Unprocessable(
-                        "wider-scope secret memory approval requires user attestation".into(),
-                    )
-                    .into());
+                    return Err(err);
                 }
 
                 let approval = ContextApprovalRepository::create_in_tx(
@@ -383,10 +361,8 @@ impl ContextApprovalService {
                     skill: None,
                 })
             }
-            "skill" => {
-                let skill_id = candidate
-                    .target_skill_id
-                    .ok_or_else(|| ErrorKind::Validation("skill candidate missing target_skill_id".into()))?;
+            ContextCandidateKind::Skill => {
+                let skill_id = ContextCandidatePolicy::require_skill_target_id(candidate.target_skill_id)?;
                 let current = SkillRepository::lock_org_skill_for_update(&mut tx, scope, skill_id.as_uuid()).await?;
                 if current.state != "candidate" {
                     return Err(ErrorKind::Conflict(format!("skill {} is not a candidate", current.id)).into());
@@ -394,11 +370,8 @@ impl ContextApprovalService {
                 if current.revoked_at.is_some() {
                     return Err(ErrorKind::Unprocessable(format!("skill {} is revoked", current.id)).into());
                 }
-                let from_kind = current
-                    .scope_kind
-                    .as_deref()
-                    .and_then(ContextScopeKind::from_label)
-                    .ok_or_else(|| ErrorKind::Validation("skill candidate has unsupported scope_kind".into()))?;
+                let from_kind =
+                    ContextCandidatePolicy::resolve_skill_candidate_scope_kind(current.scope_kind.as_deref())?;
                 if let Err(rejection) = ContextGovernancePolicy::gate_scope_expansion(ScopeExpansionRequest {
                     from_kind,
                     to_kind: ContextScopeKind::from_scope_kind(target.kind()),
@@ -499,7 +472,6 @@ impl ContextApprovalService {
                     skill: Some(skill),
                 })
             }
-            other => Err(ErrorKind::Validation(format!("unsupported candidate item kind `{other}`")).into()),
         }
     }
 
@@ -558,13 +530,8 @@ impl ContextApprovalService {
         scope_kind: MemoryScopeKind,
         scope_id: Option<Uuid>,
     ) -> AppResult<ScopedWrite> {
-        let scope_kind = scope_kind.as_scope_kind();
-        let scope_id = match scope_kind {
-            ScopeKind::User => scope_id.unwrap_or_else(|| proof.user_id().as_uuid()),
-            ScopeKind::Team | ScopeKind::Project => scope_id.ok_or_else(|| {
-                ErrorKind::Validation(format!("scope_id is required for {} context approval", scope_kind.as_label()))
-            })?,
-        };
+        let (scope_kind, scope_id) =
+            ContextCandidatePolicy::resolve_approval_scope(scope_kind, scope_id, proof.user_id().as_uuid())?;
         let write = ScopedWrite::try_new(scope_kind, scope_id, proof.clone()).map_err(scoped_write_error)?;
         if !self.memory.resource_belongs_to_scope(proof, scope_kind, scope_id, workspace_id).await? {
             return Err(ErrorKind::Forbidden.into());
@@ -583,57 +550,6 @@ impl ContextApprovalService {
         };
         let status = ContextCandidateRepository::source_run_status_in_tx(tx, proof, source_run_id).await?;
         Ok(matches!(status.as_deref(), Some("completed")))
-    }
-
-    fn prepare_memory_candidate(
-        &self,
-        candidate: &ContextCandidate,
-        requested_sensitivity: Option<&str>,
-        redacted: bool,
-    ) -> AppResult<PreparedMemoryContent> {
-        let proposed: MemoryCandidateContent = serde_json::from_value(candidate.proposed_content.clone())
-            .map_err(|err| ErrorKind::Validation(format!("invalid memory candidate proposed_content: {err}")))?;
-        let title = validate_memory_title(&proposed.title)?.to_string();
-        let content = proposed.content.trim();
-        if content.is_empty() {
-            return Err(ErrorKind::Validation("memory candidate content must not be empty".into()).into());
-        }
-        validate_confidence(proposed.confidence)?;
-        let visibility = validate_memory_visibility(proposed.visibility.as_deref())?.to_string();
-        let classification = ContextGovernancePolicy::classify_sensitivity(content);
-        if matches!(classification.sensitivity, Sensitivity::SecretDetected) && !(redacted || proposed.redacted) {
-            return Err(ErrorKind::Unprocessable(
-                "secret detected in memory candidate content; approve with redaction".into(),
-            )
-            .into());
-        }
-
-        let content_redacted = matches!(classification.sensitivity, Sensitivity::SecretDetected);
-        let stored_content = if content_redacted {
-            classification.redacted_preview.clone().unwrap_or_else(|| "[REDACTED]".to_string())
-        } else {
-            content.to_string()
-        };
-        let sensitivity = if content_redacted {
-            "secret_detected"
-        } else {
-            requested_sensitivity.unwrap_or(sensitivity_label(classification.sensitivity))
-        }
-        .to_string();
-        Ok(PreparedMemoryContent {
-            title,
-            content: stored_content,
-            content_redacted,
-            sensitivity: sensitivity.clone(),
-            visibility,
-            confidence: proposed.confidence,
-            source_task_id: proposed.source_task_id,
-            classification_payload: json!({
-                "sensitivity": sensitivity,
-                "matched_patterns": classification.matched_patterns,
-                "redacted": content_redacted
-            }),
-        })
     }
 
     async fn emit_candidate_audit(
