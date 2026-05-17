@@ -4,6 +4,7 @@
 //! repositories, object storage clients, HTTP route DTOs, and persistence details.
 
 use agentforge_core::{AgentId, AppResult, ErrorKind};
+use uuid::Uuid;
 
 const MAX_FILENAME_LEN: usize = 255;
 const MAX_CONTENT_TYPE_LEN: usize = 255;
@@ -104,6 +105,17 @@ impl AttachmentCountPolicy {
     }
 }
 
+/// Agent association supplied on attachment upload.
+pub(crate) struct AttachmentAgentScope;
+
+impl AttachmentAgentScope {
+    pub(crate) fn parse(value: &str) -> AppResult<AgentId> {
+        let trimmed = value.trim();
+        let id = Uuid::parse_str(trimmed).map_err(|_| ErrorKind::Validation("agent_id must be a UUID".to_string()))?;
+        Ok(AgentId::from(id))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -148,5 +160,17 @@ mod tests {
         let agent_id = AgentId::new();
         assert!(AttachmentCountPolicy::ensure_agent_file_slot(agent_id, 9, 10).is_ok());
         assert!(AttachmentCountPolicy::ensure_agent_file_slot(agent_id, 10, 10).is_err());
+    }
+
+    #[test]
+    fn attachment_agent_scope_trims_and_parses_uuid() {
+        let parsed = AttachmentAgentScope::parse(" 550e8400-e29b-41d4-a716-446655440000 ").unwrap();
+
+        assert_eq!(parsed.as_uuid().to_string(), "550e8400-e29b-41d4-a716-446655440000");
+    }
+
+    #[test]
+    fn attachment_agent_scope_rejects_non_uuid() {
+        assert!(AttachmentAgentScope::parse("not-a-uuid").is_err());
     }
 }
