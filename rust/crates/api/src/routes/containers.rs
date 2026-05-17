@@ -16,6 +16,7 @@ use agentforge_db::entities::Agent;
 use agentforge_platform::{ContainerConfig, ContainerState, Mount};
 use secrecy::{ExposeSecret, SecretString};
 
+use crate::domain::agent::AgentContainerImagePolicy;
 use crate::health::AppState;
 use crate::repositories::agent::AgentRepository;
 use crate::repositories::cli_credential::CliCredentialRepository;
@@ -100,9 +101,10 @@ pub async fn start_agent(
     // already looks like an explicit `agentforge-agent:<tool>` image string —
     // refuses everything else so we never try to pull `claude-sonnet-4-6:latest`
     // (the bug pre-fix here used `model` directly).
-    let image = resolve_agent_image(agent.cli_tool.as_deref(), agent.model.as_deref()).map_err(|msg| {
+    let image = AgentContainerImagePolicy::resolve(agent.cli_tool.as_deref(), agent.model.as_deref()).map_err(|err| {
         ErrorKind::Validation(format!(
-            "{msg} — set cli_tool to one of: claude, codex, gemini, opencode (this agent has cli_tool={:?}, model={:?})",
+            "{} — set cli_tool to one of: claude, codex, gemini, opencode (this agent has cli_tool={:?}, model={:?})",
+            err.message(),
             agent.cli_tool, agent.model
         ))
     })?;
@@ -519,31 +521,9 @@ fn creds_dir_for_cli_tool(cli_tool: &str) -> Option<&'static str> {
     }
 }
 
-/// Map `cli_tool` to the `agentforge-agent:<tool>` docker image.
-/// Accepts a direct `agentforge-agent:<tool>` string in `model` for
-/// backwards-compat with agents created before migration 012 backfilled cli_tool.
-fn resolve_agent_image(cli_tool: Option<&str>, model: Option<&str>) -> Result<String, String> {
-    if let Some(tool) = cli_tool {
-        let tool = CliToolKind::parse_legacy(tool).map_err(|err| err.to_string())?;
-        return Ok(format!("agentforge-agent:{}", tool.as_str()));
-    }
-    if let Some(m) = model {
-        let trimmed = m.trim();
-        if let Some(suffix) = trimmed.strip_prefix("agentforge-agent:")
-            && CliToolKind::parse_legacy(suffix).is_ok()
-        {
-            return Ok(trimmed.to_string());
-        }
-    }
-    Err("agent has no cli_tool — provider+prompt agents have no container shell".to_string())
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{
-        AgentEnvInput, build_agent_env, creds_dir_for_cli_tool, pick_nats_base_url, resolve_agent_image,
-        strip_nats_url_user_info,
-    };
+    use super::{AgentEnvInput, build_agent_env, creds_dir_for_cli_tool, pick_nats_base_url, strip_nats_url_user_info};
     use serde_json::json;
     use uuid::Uuid;
 
@@ -725,36 +705,6 @@ mod tests {
         });
         assert!(env.contains(&"CLI_TOOL=codex".to_string()));
         assert!(env.contains(&"AGENTFORGE_CLI_MODEL=gpt-5.5".to_string()));
-    }
-
-    #[test]
-    fn resolve_image_uses_cli_tool() {
-        assert_eq!(resolve_agent_image(Some("claude"), None).unwrap(), "agentforge-agent:claude");
-        assert_eq!(resolve_agent_image(Some("CODEX"), None).unwrap(), "agentforge-agent:codex");
-    }
-
-    #[test]
-    fn resolve_image_rejects_unknown_cli_tool() {
-        assert!(resolve_agent_image(Some("vim"), None).is_err());
-    }
-
-    #[test]
-    fn resolve_image_falls_back_to_legacy_model_string() {
-        assert_eq!(resolve_agent_image(None, Some("agentforge-agent:claude")).unwrap(), "agentforge-agent:claude");
-    }
-
-    #[test]
-    fn resolve_image_rejects_raw_model_name() {
-        // The original bug: `model = "claude-sonnet-4-6"` was being used as a
-        // docker image name. Must error now instead of triggering a registry pull.
-        let err = resolve_agent_image(None, Some("claude-sonnet-4-6")).unwrap_err();
-        assert!(err.contains("no cli_tool"), "got: {err}");
-    }
-
-    #[test]
-    fn resolve_image_rejects_no_metadata() {
-        let err = resolve_agent_image(None, None).unwrap_err();
-        assert!(err.contains("no cli_tool"), "got: {err}");
     }
 
     #[test]
