@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::domain::agent::McpAgentPrompt;
+use crate::domain::agent::{McpAgentPrompt, McpAgentRuntimePolicy};
 use crate::domain::credential::ContainerCliCredentialPolicy;
 use crate::services::agent_workspace::{WorkspaceMountScope, resolve_agent_workspace_paths};
 
@@ -131,14 +131,15 @@ where
             .name
             .filter(|value| !value.trim().is_empty())
             .unwrap_or_else(|| format!("Agent {}", &agent_id.to_string()[..8]));
-        let image = self.resolve_image(&cli_tool);
+        let image =
+            McpAgentRuntimePolicy::image_for_tool(&cli_tool, &self.config.default_image, &self.config.tool_images);
         let workspace_paths = resolve_agent_workspace_paths(
             &self.config.workspace_root,
             WorkspaceMountScope { org_id: context.org_id, workspace_id: context.workspace_id },
             None,
         )?;
         let cwd = workspace_paths.host_projects_root.to_string_lossy().into_owned();
-        let env = self.system_env_for_tool(&cli_tool);
+        let env = McpAgentRuntimePolicy::system_env_for_tool(&cli_tool, &self.config.system_api_keys);
 
         let runtime = McpAgentRuntimeCreate {
             agent_id,
@@ -186,25 +187,5 @@ where
 
     pub async fn session_status(&self, agent_id: Uuid) -> AppResult<SessionStatus> {
         self.runtime.session_status(agent_id).await
-    }
-
-    fn resolve_image(&self, cli_tool: &str) -> String {
-        self.config.tool_images.get(cli_tool).cloned().unwrap_or_else(|| self.config.default_image.clone())
-    }
-
-    fn system_env_for_tool(&self, cli_tool: &str) -> HashMap<String, String> {
-        let mut env = HashMap::from([
-            ("AGENTFORGE_CLI_TOOL".to_string(), cli_tool.to_string()),
-            ("AGENTFORGE_GIT_LFS_SKIP".to_string(), "true".to_string()),
-        ]);
-        if cli_tool == "gemini" {
-            env.insert("GEMINI_CLI_NO_RELAUNCH".to_string(), "true".to_string());
-        }
-        if let Some(name) = ContainerCliCredentialPolicy::api_key_env_for_tool(cli_tool)
-            && let Some(value) = self.config.system_api_keys.get(name)
-        {
-            env.insert(name.to_string(), value.clone());
-        }
-        env
     }
 }

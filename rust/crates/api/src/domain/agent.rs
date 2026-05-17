@@ -3,7 +3,11 @@
 //! This module owns the Agent bounded-context policies that are independent of
 //! HTTP handlers, SQL repositories, Docker clients, and message buses.
 
+use std::collections::HashMap;
+
 use agentforge_core::{AgentStatus, AppResult, CliToolKind, ErrorKind};
+
+use crate::domain::credential::ContainerCliCredentialPolicy;
 
 /// Validated pagination request for agent lists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -213,6 +217,34 @@ impl<'a> McpAgentPrompt<'a> {
     }
 }
 
+/// Container runtime defaults for MCP-backed agents.
+pub(crate) struct McpAgentRuntimePolicy;
+
+impl McpAgentRuntimePolicy {
+    pub(crate) fn image_for_tool(cli_tool: &str, default_image: &str, tool_images: &HashMap<String, String>) -> String {
+        tool_images.get(cli_tool).cloned().unwrap_or_else(|| default_image.to_string())
+    }
+
+    pub(crate) fn system_env_for_tool(
+        cli_tool: &str,
+        system_api_keys: &HashMap<String, String>,
+    ) -> HashMap<String, String> {
+        let mut env = HashMap::from([
+            ("AGENTFORGE_CLI_TOOL".to_string(), cli_tool.to_string()),
+            ("AGENTFORGE_GIT_LFS_SKIP".to_string(), "true".to_string()),
+        ]);
+        if cli_tool == "gemini" {
+            env.insert("GEMINI_CLI_NO_RELAUNCH".to_string(), "true".to_string());
+        }
+        if let Some(name) = ContainerCliCredentialPolicy::api_key_env_for_tool(cli_tool)
+            && let Some(value) = system_api_keys.get(name)
+        {
+            env.insert(name.to_string(), value.clone());
+        }
+        env
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -264,5 +296,39 @@ mod tests {
     fn mcp_agent_prompt_requires_content_without_rewriting_value() {
         assert_eq!(McpAgentPrompt::parse(" ship it ").unwrap().content(), " ship it ");
         assert!(McpAgentPrompt::parse("   ").is_err());
+    }
+
+    #[test]
+    fn mcp_agent_runtime_policy_selects_tool_image_or_default() {
+        let tool_images = HashMap::from([("codex".to_string(), "agentforge/codex:latest".to_string())]);
+
+        assert_eq!(
+            McpAgentRuntimePolicy::image_for_tool("codex", "agentforge/default:latest", &tool_images),
+            "agentforge/codex:latest"
+        );
+        assert_eq!(
+            McpAgentRuntimePolicy::image_for_tool("claude", "agentforge/default:latest", &tool_images),
+            "agentforge/default:latest"
+        );
+    }
+
+    #[test]
+    fn mcp_agent_runtime_policy_builds_cli_env() {
+        let env = McpAgentRuntimePolicy::system_env_for_tool("gemini", &HashMap::new());
+
+        assert_eq!(env.get("AGENTFORGE_CLI_TOOL").map(String::as_str), Some("gemini"));
+        assert_eq!(env.get("AGENTFORGE_GIT_LFS_SKIP").map(String::as_str), Some("true"));
+        assert_eq!(env.get("GEMINI_CLI_NO_RELAUNCH").map(String::as_str), Some("true"));
+    }
+
+    #[test]
+    fn mcp_agent_runtime_policy_injects_matching_system_api_key_only() {
+        let env = McpAgentRuntimePolicy::system_env_for_tool(
+            "codex",
+            &HashMap::from([("OPENAI_API_KEY".to_string(), "sk-test".to_string())]),
+        );
+
+        assert_eq!(env.get("OPENAI_API_KEY").map(String::as_str), Some("sk-test"));
+        assert!(!env.contains_key("ANTHROPIC_API_KEY"));
     }
 }
