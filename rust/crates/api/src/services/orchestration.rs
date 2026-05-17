@@ -416,7 +416,7 @@ impl OrchestrationService {
 
         let participant =
             self.participant_repo.find_available(scope).await?.ok_or_else(|| -> agentforge_core::AppError {
-                ErrorKind::Validation("no available participants for dispatch".into()).into()
+                BlockedTaskPolicy::no_available_participants_error().into()
             })?;
 
         self.assign_to_participant(scope, &task, &participant).await
@@ -433,13 +433,9 @@ impl OrchestrationService {
             Some(participant) => self.assign_to_participant(scope, &task, &participant).await,
             None => {
                 let (available, busy, offline) = self.participant_repo.count_by_status(scope).await?;
-                let metadata = json!({
-                    "available": available,
-                    "busy": busy,
-                    "offline": offline,
-                });
+                let metadata = BlockedTaskPolicy::waiting_agent_metadata(available, busy, offline);
                 tracing::info!(task_id = %task.id, busy, offline, "No available participant — task blocked on waiting_agent");
-                self.task_repo.mark_blocked(scope, task.id, "waiting_agent", metadata).await
+                self.task_repo.mark_blocked(scope, task.id, BlockedTaskPolicy::waiting_agent_reason(), metadata).await
             }
         }
     }
