@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use std::sync::OnceLock;
 
 use agentforge_core::{AppError, AppResult, ErrorKind, ScopeKind};
+use chrono::{DateTime, Utc};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -157,6 +158,16 @@ pub struct ContextAuditEvent<'a> {
     pub ip_address: Option<&'a str>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct GovernanceAuditQueryPolicy<'a> {
+    pub event_prefix: Option<&'a str>,
+    pub event_type: Option<&'a str>,
+    pub item_kind: Option<&'a str>,
+    pub scope_kind: Option<&'a str>,
+    pub from: Option<DateTime<Utc>>,
+    pub to: Option<DateTime<Utc>>,
+}
+
 pub(crate) struct ContextGovernancePolicy;
 
 impl ContextGovernancePolicy {
@@ -239,6 +250,66 @@ impl ContextGovernancePolicy {
             return Err(ErrorKind::Validation("governance audit resource_type must not be empty".into()).into());
         }
         validate_audit_details(&event.payload)
+    }
+
+    pub(crate) fn validate_audit_query(query: GovernanceAuditQueryPolicy<'_>) -> AppResult<()> {
+        if matches!(query.event_prefix, Some(prefix) if !prefix.starts_with(GOVERNANCE_CONTEXT_ACTION_PREFIX)) {
+            return Err(ErrorKind::Validation("event_prefix must stay under governance.context.".into()).into());
+        }
+        if matches!(query.event_type, Some(event_type) if !event_type.starts_with(GOVERNANCE_CONTEXT_ACTION_PREFIX)) {
+            return Err(ErrorKind::Validation("event_type must start with governance.context.".into()).into());
+        }
+        if matches!(query.item_kind, Some(item_kind) if !matches!(item_kind, "memory" | "skill")) {
+            return Err(ErrorKind::Validation("item_kind must be memory or skill".into()).into());
+        }
+        if matches!(query.scope_kind, Some(scope_kind) if !matches!(scope_kind, "org" | "user" | "workspace" | "team" | "project"))
+        {
+            return Err(ErrorKind::Validation("unsupported scope_kind".into()).into());
+        }
+        if matches!((query.from, query.to), (Some(from), Some(to)) if from >= to) {
+            return Err(ErrorKind::Validation("from must be earlier than to".into()).into());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn redact_audit_details(value: Value) -> (Value, bool) {
+        match value {
+            Value::Object(map) => {
+                let mut redacted = false;
+                let mut out = serde_json::Map::with_capacity(map.len());
+                for (key, value) in map {
+                    if is_export_secret_key(&key) {
+                        out.insert(key, Value::String(REDACTED_MARKER.to_string()));
+                        redacted = true;
+                        continue;
+                    }
+                    let (value, nested) = Self::redact_audit_details(value);
+                    redacted |= nested;
+                    out.insert(key, value);
+                }
+                (Value::Object(out), redacted)
+            }
+            Value::Array(items) => {
+                let mut redacted = false;
+                let items = items
+                    .into_iter()
+                    .map(|item| {
+                        let (item, nested) = Self::redact_audit_details(item);
+                        redacted |= nested;
+                        item
+                    })
+                    .collect();
+                (Value::Array(items), redacted)
+            }
+            Value::String(raw) => {
+                if matches!(Self::classify_sensitivity(&raw).sensitivity, Sensitivity::SecretDetected) {
+                    (Value::String(REDACTED_MARKER.to_string()), true)
+                } else {
+                    (Value::String(raw), false)
+                }
+            }
+            other => (other, false),
+        }
     }
 }
 
@@ -380,6 +451,25 @@ fn is_secret_bearing_key(key: &str) -> bool {
     )
 }
 
+fn is_export_secret_key(key: &str) -> bool {
+    let normalized = key.to_ascii_lowercase().replace(['-', ' '], "_");
+    matches!(
+        normalized.as_str(),
+        "secret"
+            | "secrets"
+            | "token"
+            | "access_token"
+            | "refresh_token"
+            | "api_key"
+            | "apikey"
+            | "password"
+            | "private_key"
+            | "credential"
+            | "credentials"
+            | "hmac_key"
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -492,5 +582,33 @@ mod tests {
         }));
 
         assert!(ContextGovernancePolicy::validate_audit_event(&event).is_ok());
+    }
+
+    #[test]
+    fn audit_query_rejects_non_governance_prefix() {
+        let query = GovernanceAuditQueryPolicy {
+            event_prefix: Some("system."),
+            event_type: None,
+            item_kind: None,
+            scope_kind: None,
+            from: None,
+            to: None,
+        };
+
+        assert!(ContextGovernancePolicy::validate_audit_query(query).is_err());
+    }
+
+    #[test]
+    fn audit_export_redacts_secret_bearing_details() {
+        let (value, redacted) = ContextGovernancePolicy::redact_audit_details(serde_json::json!({
+            "classification": {
+                "token": "github-token-placeholder"
+            },
+            "safe": "internal"
+        }));
+
+        assert!(redacted);
+        assert_eq!(value["classification"]["token"], REDACTED_MARKER);
+        assert_eq!(value["safe"], "internal");
     }
 }
