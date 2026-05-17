@@ -72,6 +72,13 @@ impl TaskPriority {
 /// Task creation invariants.
 pub(crate) struct TaskCreationPolicy;
 
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct TaskCreationInitialState {
+    pub(crate) initial_status: &'static str,
+    pub(crate) initial_blocked_reason: Option<&'static str>,
+    pub(crate) initial_blocked_metadata: Option<serde_json::Value>,
+}
+
 impl TaskCreationPolicy {
     pub(crate) fn ensure_approval_task_is_unassigned(
         requires_approval: bool,
@@ -84,6 +91,21 @@ impl TaskCreationPolicy {
             .into());
         }
         Ok(())
+    }
+
+    /// Unassigned tasks land in `backlog` unless missing declared inputs,
+    /// human approval, or an unfinished parent requires an initial block.
+    pub(crate) fn initial_unassigned_state(
+        missing_inputs: &[String],
+        requires_approval: bool,
+        parent_status: Option<&str>,
+    ) -> TaskCreationInitialState {
+        let dependency_blocked = BlockedTaskPolicy::needs_dependency_block(parent_status);
+        let (initial_blocked_reason, initial_blocked_metadata) =
+            BlockedTaskPolicy::initial_state(missing_inputs, requires_approval, dependency_blocked);
+        let initial_status = if initial_blocked_reason.is_some() { "blocked" } else { "backlog" };
+
+        TaskCreationInitialState { initial_status, initial_blocked_reason, initial_blocked_metadata }
     }
 }
 
@@ -689,6 +711,43 @@ mod tests {
         assert_eq!(TaskListPage::new(101, 50).limit(), 100);
         assert_eq!(TaskListPage::new(20, -1).offset(), 0);
         assert_eq!(TaskListPage::new(20, 50).offset(), 50);
+    }
+
+    #[test]
+    fn task_creation_initial_state_keeps_ready_unassigned_tasks_in_backlog() {
+        let state = TaskCreationPolicy::initial_unassigned_state(&[], false, None);
+
+        assert_eq!(state.initial_status, "backlog");
+        assert_eq!(state.initial_blocked_reason, None);
+        assert_eq!(state.initial_blocked_metadata, None);
+    }
+
+    #[test]
+    fn task_creation_initial_state_blocks_missing_inputs_first() {
+        let missing_inputs = vec!["api_key".to_string(), "region".to_string()];
+        let state = TaskCreationPolicy::initial_unassigned_state(&missing_inputs, true, Some("working"));
+
+        assert_eq!(state.initial_status, "blocked");
+        assert_eq!(state.initial_blocked_reason, Some("waiting_input"));
+        assert_eq!(state.initial_blocked_metadata, Some(json!({ "missing": ["api_key", "region"] })));
+    }
+
+    #[test]
+    fn task_creation_initial_state_blocks_approval_before_dependency() {
+        let state = TaskCreationPolicy::initial_unassigned_state(&[], true, Some("working"));
+
+        assert_eq!(state.initial_status, "blocked");
+        assert_eq!(state.initial_blocked_reason, Some("waiting_approval"));
+        assert_eq!(state.initial_blocked_metadata, Some(json!({ "approver": "管理员" })));
+    }
+
+    #[test]
+    fn task_creation_initial_state_blocks_unfinished_parent() {
+        let state = TaskCreationPolicy::initial_unassigned_state(&[], false, Some("working"));
+
+        assert_eq!(state.initial_status, "blocked");
+        assert_eq!(state.initial_blocked_reason, Some("waiting_dependency"));
+        assert_eq!(state.initial_blocked_metadata, Some(json!({ "pending": 1 })));
     }
 
     #[test]
