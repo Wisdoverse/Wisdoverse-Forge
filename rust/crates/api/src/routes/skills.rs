@@ -17,11 +17,10 @@ use uuid::Uuid;
 use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
+use crate::domain::skill::{SkillScopeKind, SkillState};
 use crate::health::AppState;
 use crate::repositories::skill::SkillRepository;
-use crate::services::skill::{
-    CreateSkillInput, RestoreSkillVersionInput, SkillScopeKind, SkillService, SkillState, UpdateSkillInput,
-};
+use crate::services::skill::{CreateSkillInput, RestoreSkillVersionInput, SkillService, UpdateSkillInput};
 
 /// Request body for creating a skill.
 #[derive(Deserialize)]
