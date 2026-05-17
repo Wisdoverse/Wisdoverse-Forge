@@ -102,6 +102,45 @@ impl ContextFeedbackPolicy {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ContextFeedbackRecordedAudit {
+    run_id: Uuid,
+    item_id: Uuid,
+    item_kind: String,
+    label: String,
+    item_state_changed: bool,
+}
+
+impl ContextFeedbackRecordedAudit {
+    pub(crate) fn new(
+        run_id: Uuid,
+        item_id: Uuid,
+        item_kind: impl Into<String>,
+        label: impl Into<String>,
+        item_state_changed: bool,
+    ) -> Self {
+        Self { run_id, item_id, item_kind: item_kind.into(), label: label.into(), item_state_changed }
+    }
+
+    pub(crate) fn audit_action(&self) -> &'static str {
+        "governance.context.feedback.recorded"
+    }
+
+    pub(crate) fn audit_resource_type(&self) -> &'static str {
+        "context_feedback"
+    }
+
+    pub(crate) fn audit_payload(&self) -> Value {
+        json!({
+            "run_id": self.run_id,
+            "item_id": self.item_id,
+            "item_kind": self.item_kind,
+            "label": self.label,
+            "item_state_changed": self.item_state_changed
+        })
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ContextCandidateCreatedAudit {
     workspace_id: WorkspaceId,
@@ -778,6 +817,22 @@ mod tests {
         assert!(!ContextFeedbackPolicy::should_revoke_after_label(ContextFeedbackLabel::Wrong, 1));
         assert!(ContextFeedbackPolicy::should_revoke_after_label(ContextFeedbackLabel::Wrong, 2));
         assert!(!ContextFeedbackPolicy::should_revoke_after_label(ContextFeedbackLabel::Useful, 99));
+    }
+
+    #[test]
+    fn feedback_recorded_audit_owns_action_resource_type_and_payload() {
+        let run_id = Uuid::parse_str("99999999-9999-4999-8999-999999999999").unwrap();
+        let item_id = Uuid::parse_str("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa").unwrap();
+        let audit = ContextFeedbackRecordedAudit::new(run_id, item_id, "memory", "stale", true);
+        let payload = audit.audit_payload();
+
+        assert_eq!(audit.audit_action(), "governance.context.feedback.recorded");
+        assert_eq!(audit.audit_resource_type(), "context_feedback");
+        assert_eq!(payload["run_id"], run_id.to_string());
+        assert_eq!(payload["item_id"], item_id.to_string());
+        assert_eq!(payload["item_kind"], "memory");
+        assert_eq!(payload["label"], "stale");
+        assert_eq!(payload["item_state_changed"], true);
     }
 
     #[test]
