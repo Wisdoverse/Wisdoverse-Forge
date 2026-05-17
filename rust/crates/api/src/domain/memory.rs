@@ -84,6 +84,48 @@ impl MemoryReclassificationPolicy {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MemoryMutationManagerCheck {
+    Team(Uuid),
+    Project(Uuid),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MemoryMutationAccess {
+    Allowed,
+    RequiresManager(MemoryMutationManagerCheck),
+    Forbidden,
+}
+
+pub(crate) struct MemoryMutationAccessPolicy;
+
+impl MemoryMutationAccessPolicy {
+    pub(crate) fn plan(
+        owner_user_id: Uuid,
+        actor_user_id: Uuid,
+        scope_kind: &str,
+        scope_id: Uuid,
+    ) -> MemoryMutationAccess {
+        if owner_user_id == actor_user_id {
+            return MemoryMutationAccess::Allowed;
+        }
+
+        match MemoryScopeKind::from_label(scope_kind) {
+            Some(MemoryScopeKind::Team) => {
+                MemoryMutationAccess::RequiresManager(MemoryMutationManagerCheck::Team(scope_id))
+            }
+            Some(MemoryScopeKind::Project) => {
+                MemoryMutationAccess::RequiresManager(MemoryMutationManagerCheck::Project(scope_id))
+            }
+            Some(MemoryScopeKind::User) | None => MemoryMutationAccess::Forbidden,
+        }
+    }
+
+    pub(crate) fn ensure_manager_authorized(can_manage: bool) -> AppResult<()> {
+        if can_manage { Ok(()) } else { Err(ErrorKind::Forbidden.into()) }
+    }
+}
+
 /// Memory list pagination policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct MemoryListPage {
@@ -307,6 +349,37 @@ mod tests {
         assert!(
             MemoryReclassificationPolicy::ensure_sensitive_scope_change_allowed("secret_detected", true, false).is_ok()
         );
+    }
+
+    #[test]
+    fn memory_mutation_access_policy_prefers_owner_then_manager_scope() {
+        let owner = Uuid::parse_str("11111111-1111-4111-8111-111111111111").unwrap();
+        let actor = Uuid::parse_str("22222222-2222-4222-8222-222222222222").unwrap();
+        let scope_id = Uuid::parse_str("33333333-3333-4333-8333-333333333333").unwrap();
+
+        assert_eq!(MemoryMutationAccessPolicy::plan(owner, owner, "user", owner), MemoryMutationAccess::Allowed);
+        assert_eq!(
+            MemoryMutationAccessPolicy::plan(owner, actor, "team", scope_id),
+            MemoryMutationAccess::RequiresManager(MemoryMutationManagerCheck::Team(scope_id))
+        );
+        assert_eq!(
+            MemoryMutationAccessPolicy::plan(owner, actor, "project", scope_id),
+            MemoryMutationAccess::RequiresManager(MemoryMutationManagerCheck::Project(scope_id))
+        );
+        assert_eq!(MemoryMutationAccessPolicy::plan(owner, actor, "user", owner), MemoryMutationAccess::Forbidden);
+        assert_eq!(
+            MemoryMutationAccessPolicy::plan(owner, actor, "workspace", scope_id),
+            MemoryMutationAccess::Forbidden
+        );
+    }
+
+    #[test]
+    fn memory_mutation_access_policy_maps_manager_checks_to_forbidden() {
+        assert!(MemoryMutationAccessPolicy::ensure_manager_authorized(true).is_ok());
+        assert!(matches!(
+            MemoryMutationAccessPolicy::ensure_manager_authorized(false).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
     }
 
     #[test]

@@ -15,8 +15,9 @@ use crate::domain::context_governance::{
     ContextAuditEvent, ContextGovernancePolicy, ContextScopeKind, ScopeExpansionRequest,
 };
 use crate::domain::memory::{
-    MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryListPage, MemoryReclassificationPolicy,
-    MemoryScopeKind, MemoryScopeTargetPolicy, MemoryTitle, MemoryTtlPolicy, MemoryVisibility, PreparedMemoryContent,
+    MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryListPage, MemoryMutationAccess,
+    MemoryMutationAccessPolicy, MemoryMutationManagerCheck, MemoryReclassificationPolicy, MemoryScopeKind,
+    MemoryScopeTargetPolicy, MemoryTitle, MemoryTtlPolicy, MemoryVisibility, PreparedMemoryContent,
 };
 use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository, UpdateMemoryRecord};
 use crate::repositories::resource_permission::ResourcePermissionRepository;
@@ -418,23 +419,23 @@ impl MemoryService {
     }
 
     async fn require_owner_or_manager(&self, scope: &TenantScope, item: &MemoryItem) -> AppResult<()> {
-        if item.owner_user_id == scope.user_id() {
-            return Ok(());
-        }
-        match MemoryScopeKind::from_label(&item.scope_kind) {
-            Some(MemoryScopeKind::Team) => {
-                if self.permissions.can_manage_team(scope, TeamId::from(item.scope_id)).await? {
-                    return Ok(());
-                }
+        match MemoryMutationAccessPolicy::plan(
+            item.owner_user_id.as_uuid(),
+            scope.user_id().as_uuid(),
+            &item.scope_kind,
+            item.scope_id,
+        ) {
+            MemoryMutationAccess::Allowed => Ok(()),
+            MemoryMutationAccess::RequiresManager(MemoryMutationManagerCheck::Team(team_id)) => {
+                let can_manage = self.permissions.can_manage_team(scope, TeamId::from(team_id)).await?;
+                MemoryMutationAccessPolicy::ensure_manager_authorized(can_manage)
             }
-            Some(MemoryScopeKind::Project) => {
-                if self.permissions.can_manage_project(scope, ProjectId::from(item.scope_id)).await? {
-                    return Ok(());
-                }
+            MemoryMutationAccess::RequiresManager(MemoryMutationManagerCheck::Project(project_id)) => {
+                let can_manage = self.permissions.can_manage_project(scope, ProjectId::from(project_id)).await?;
+                MemoryMutationAccessPolicy::ensure_manager_authorized(can_manage)
             }
-            Some(MemoryScopeKind::User) | None => {}
+            MemoryMutationAccess::Forbidden => Err(ErrorKind::Forbidden.into()),
         }
-        Err(ErrorKind::Forbidden.into())
     }
 
     async fn prepare_content_or_audit_rejection(
