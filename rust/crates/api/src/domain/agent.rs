@@ -58,6 +58,47 @@ impl AgentCliToolSelection {
     }
 }
 
+/// Canonical docker image selection for container-backed agents.
+pub(crate) struct AgentContainerImagePolicy;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum AgentContainerImageRejection {
+    UnsupportedCliTool(String),
+    MissingContainerShell,
+}
+
+impl AgentContainerImageRejection {
+    pub(crate) fn message(&self) -> String {
+        match self {
+            Self::UnsupportedCliTool(message) => message.clone(),
+            Self::MissingContainerShell => {
+                "agent has no cli_tool — provider+prompt agents have no container shell".to_string()
+            }
+        }
+    }
+}
+
+impl AgentContainerImagePolicy {
+    pub(crate) fn resolve(cli_tool: Option<&str>, model: Option<&str>) -> Result<String, AgentContainerImageRejection> {
+        if let Some(tool) = cli_tool {
+            let tool = CliToolKind::parse_legacy(tool)
+                .map_err(|err| AgentContainerImageRejection::UnsupportedCliTool(err.to_string()))?;
+            return Ok(format!("agentforge-agent:{}", tool.as_str()));
+        }
+
+        if let Some(model) = model {
+            let trimmed = model.trim();
+            if let Some(suffix) = trimmed.strip_prefix("agentforge-agent:")
+                && CliToolKind::parse_legacy(suffix).is_ok()
+            {
+                return Ok(trimmed.to_string());
+            }
+        }
+
+        Err(AgentContainerImageRejection::MissingContainerShell)
+    }
+}
+
 /// Agent lifecycle policy.
 pub(crate) struct AgentLifecycle;
 
@@ -283,6 +324,40 @@ mod tests {
         assert_eq!(AgentCliToolSelection::normalize(Some(" Codex ")).unwrap(), Some("codex"));
         assert_eq!(AgentCliToolSelection::normalize(None).unwrap(), None);
         assert!(AgentCliToolSelection::normalize(Some("unknown")).is_err());
+    }
+
+    #[test]
+    fn container_image_policy_uses_cli_tool() {
+        assert_eq!(AgentContainerImagePolicy::resolve(Some("claude"), None).unwrap(), "agentforge-agent:claude");
+        assert_eq!(AgentContainerImagePolicy::resolve(Some("CODEX"), None).unwrap(), "agentforge-agent:codex");
+    }
+
+    #[test]
+    fn container_image_policy_rejects_unknown_cli_tool() {
+        assert!(matches!(
+            AgentContainerImagePolicy::resolve(Some("vim"), None),
+            Err(AgentContainerImageRejection::UnsupportedCliTool(_))
+        ));
+    }
+
+    #[test]
+    fn container_image_policy_accepts_legacy_agent_image_model() {
+        assert_eq!(
+            AgentContainerImagePolicy::resolve(None, Some("agentforge-agent:claude")).unwrap(),
+            "agentforge-agent:claude"
+        );
+    }
+
+    #[test]
+    fn container_image_policy_rejects_raw_model_or_missing_metadata() {
+        assert!(matches!(
+            AgentContainerImagePolicy::resolve(None, Some("claude-sonnet-4-6")),
+            Err(AgentContainerImageRejection::MissingContainerShell)
+        ));
+        assert!(matches!(
+            AgentContainerImagePolicy::resolve(None, None),
+            Err(AgentContainerImageRejection::MissingContainerShell)
+        ));
     }
 
     #[test]
