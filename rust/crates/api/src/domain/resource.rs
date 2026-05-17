@@ -7,6 +7,8 @@
 use agentforge_core::{AppResult, ErrorKind, TenantScope};
 use uuid::Uuid;
 
+use crate::util::slug::slugify;
+
 const VALID_FAVORITE_TARGET_TYPES: &[&str] = &["agent", "project", "workspace"];
 
 /// Validated pagination request for tenant resource lists.
@@ -164,6 +166,131 @@ impl ResourceOrganizationPolicy {
     }
 }
 
+/// Frontend navigation create/update policy for team and project drafts.
+pub(crate) struct NavigationResourcePolicy;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct NavigationTeamCreateDraft {
+    pub(crate) name: String,
+    pub(crate) slug: String,
+    pub(crate) visibility: Option<String>,
+    pub(crate) description: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct NavigationTeamUpdateDraft {
+    pub(crate) name: Option<String>,
+    pub(crate) slug: Option<String>,
+    pub(crate) visibility: Option<String>,
+    pub(crate) description: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct NavigationProjectCreateDraft {
+    pub(crate) name: String,
+    pub(crate) slug: String,
+    pub(crate) color: Option<String>,
+    pub(crate) description: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct NavigationProjectUpdateDraft {
+    pub(crate) name: Option<String>,
+    pub(crate) slug: Option<String>,
+    pub(crate) color: Option<String>,
+    pub(crate) description: Option<String>,
+}
+
+impl NavigationResourcePolicy {
+    pub(crate) fn team_create_draft(
+        name: String,
+        slug: Option<String>,
+        visibility: Option<String>,
+        description: Option<String>,
+    ) -> AppResult<NavigationTeamCreateDraft> {
+        let draft = create_resource_draft(name, slug, "team name is required")?;
+        Ok(NavigationTeamCreateDraft { name: draft.name, slug: draft.slug, visibility, description })
+    }
+
+    pub(crate) fn team_update_draft(
+        name: Option<String>,
+        slug: Option<String>,
+        visibility: Option<String>,
+        description: Option<String>,
+    ) -> AppResult<NavigationTeamUpdateDraft> {
+        Ok(NavigationTeamUpdateDraft {
+            name: optional_non_empty(name, "team name")?,
+            slug: optional_non_empty(slug, "team slug")?,
+            visibility: optional_non_empty(visibility, "team visibility")?,
+            description: optional_text(description),
+        })
+    }
+
+    pub(crate) fn project_create_draft(
+        name: String,
+        slug: Option<String>,
+        color: Option<String>,
+        description: Option<String>,
+    ) -> AppResult<NavigationProjectCreateDraft> {
+        let draft = create_resource_draft(name, slug, "project name is required")?;
+        Ok(NavigationProjectCreateDraft { name: draft.name, slug: draft.slug, color, description })
+    }
+
+    pub(crate) fn project_update_draft(
+        name: Option<String>,
+        slug: Option<String>,
+        color: Option<String>,
+        description: Option<String>,
+    ) -> AppResult<NavigationProjectUpdateDraft> {
+        Ok(NavigationProjectUpdateDraft {
+            name: optional_non_empty(name, "project name")?,
+            slug: optional_non_empty(slug, "project slug")?,
+            color: optional_non_empty(color, "project color")?,
+            description: optional_text(description),
+        })
+    }
+}
+
+struct CreateResourceDraft {
+    name: String,
+    slug: String,
+}
+
+fn create_resource_draft(
+    name: String,
+    slug: Option<String>,
+    name_required_message: &str,
+) -> AppResult<CreateResourceDraft> {
+    let trimmed_name = required_text(&name, name_required_message)?;
+    let slug = slug.filter(|value| !value.trim().is_empty()).unwrap_or_else(|| slugify(&name));
+    Ok(CreateResourceDraft { name: trimmed_name, slug })
+}
+
+fn required_text(value: &str, message: &str) -> AppResult<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(ErrorKind::Validation(message.into()).into());
+    }
+    Ok(trimmed.to_string())
+}
+
+fn optional_non_empty(value: Option<String>, field: &str) -> AppResult<Option<String>> {
+    match value {
+        Some(value) => {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                return Err(ErrorKind::Validation(format!("{field} must not be empty")).into());
+            }
+            Ok(Some(trimmed.to_string()))
+        }
+        None => Ok(None),
+    }
+}
+
+fn optional_text(value: Option<String>) -> Option<String> {
+    value.map(|value| value.trim().to_string())
+}
+
 /// Favorite target type policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct FavoriteTargetType<'a> {
@@ -288,6 +415,61 @@ mod tests {
         assert_eq!(ResourceMemberRole::normalize(Some("editor")).unwrap().as_str(), "maintainer");
         assert_eq!(ResourceMemberRole::normalize(Some("viewer")).unwrap().as_str(), "member");
         assert!(ResourceMemberRole::normalize(Some("root")).is_err());
+    }
+
+    #[test]
+    fn navigation_team_create_draft_trims_name_and_defaults_slug() {
+        let draft = NavigationResourcePolicy::team_create_draft(
+            " Engineering Team ".into(),
+            None,
+            None,
+            Some(" ships ".into()),
+        )
+        .unwrap();
+
+        assert_eq!(draft.name, "Engineering Team");
+        assert_eq!(draft.slug, "engineering-team");
+        assert_eq!(draft.description.as_deref(), Some(" ships "));
+    }
+
+    #[test]
+    fn navigation_team_update_draft_trims_patch_fields_and_allows_empty_description() {
+        let draft = NavigationResourcePolicy::team_update_draft(
+            Some(" Platform ".into()),
+            Some(" platform ".into()),
+            Some(" private ".into()),
+            Some("   ".into()),
+        )
+        .unwrap();
+
+        assert_eq!(draft.name.as_deref(), Some("Platform"));
+        assert_eq!(draft.slug.as_deref(), Some("platform"));
+        assert_eq!(draft.visibility.as_deref(), Some("private"));
+        assert_eq!(draft.description.as_deref(), Some(""));
+    }
+
+    #[test]
+    fn navigation_project_create_draft_preserves_create_optional_contract() {
+        let draft = NavigationResourcePolicy::project_create_draft(
+            " Forge ".into(),
+            Some(" custom-slug ".into()),
+            Some(" #007AFF ".into()),
+            Some(" Control plane ".into()),
+        )
+        .unwrap();
+
+        assert_eq!(draft.name, "Forge");
+        assert_eq!(draft.slug, " custom-slug ");
+        assert_eq!(draft.color.as_deref(), Some(" #007AFF "));
+        assert_eq!(draft.description.as_deref(), Some(" Control plane "));
+    }
+
+    #[test]
+    fn navigation_resource_drafts_reject_required_empty_fields() {
+        assert!(NavigationResourcePolicy::team_create_draft(" ".into(), None, None, None).is_err());
+        assert!(NavigationResourcePolicy::project_create_draft(" ".into(), None, None, None).is_err());
+        assert!(NavigationResourcePolicy::team_update_draft(Some(" ".into()), None, None, None).is_err());
+        assert!(NavigationResourcePolicy::project_update_draft(None, None, Some(" ".into()), None).is_err());
     }
 
     #[test]
