@@ -285,6 +285,32 @@ impl ContextCandidateScopeExpansionRejection {
     }
 }
 
+/// A wider-scope secret memory approval missing explicit user attestation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ContextSecretMemoryAttestationRejection {
+    target_scope_kind: ScopeKind,
+    sensitivity: String,
+}
+
+impl ContextSecretMemoryAttestationRejection {
+    pub(crate) fn audit_action(&self) -> &'static str {
+        "governance.context.candidate.approval_rejected"
+    }
+
+    pub(crate) fn audit_payload(&self, item_kind: &str) -> Value {
+        json!({
+            "item_kind": item_kind,
+            "reason": "user_attest_required",
+            "scope_kind": self.target_scope_kind.as_label(),
+            "sensitivity": self.sensitivity
+        })
+    }
+
+    pub(crate) fn into_app_error(self) -> AppError {
+        ErrorKind::Unprocessable("wider-scope secret memory approval requires user attestation".into()).into()
+    }
+}
+
 pub(crate) struct ContextCandidatePolicy;
 
 impl ContextCandidatePolicy {
@@ -400,12 +426,12 @@ impl ContextCandidatePolicy {
         sensitivity: &str,
         target_scope_kind: ScopeKind,
         user_attested: bool,
-    ) -> AppResult<()> {
+    ) -> Result<(), ContextSecretMemoryAttestationRejection> {
         if sensitivity == "secret_detected" && target_scope_kind != ScopeKind::User && !user_attested {
-            return Err(ErrorKind::Unprocessable(
-                "wider-scope secret memory approval requires user attestation".into(),
-            )
-            .into());
+            return Err(ContextSecretMemoryAttestationRejection {
+                target_scope_kind,
+                sensitivity: sensitivity.to_string(),
+            });
         }
         Ok(())
     }
@@ -772,6 +798,19 @@ mod tests {
             )
             .is_err()
         );
+        let rejection = ContextCandidatePolicy::ensure_wider_secret_memory_attestation(
+            &prepared.sensitivity,
+            ScopeKind::Team,
+            false,
+        )
+        .expect_err("team-scoped secret memory requires attestation");
+        let payload = rejection.audit_payload("memory");
+        assert_eq!(rejection.audit_action(), "governance.context.candidate.approval_rejected");
+        assert_eq!(payload["item_kind"], "memory");
+        assert_eq!(payload["reason"], "user_attest_required");
+        assert_eq!(payload["scope_kind"], "team");
+        assert_eq!(payload["sensitivity"], "secret_detected");
+        assert!(matches!(rejection.into_app_error().kind, ErrorKind::Unprocessable(_)));
         assert!(
             ContextCandidatePolicy::ensure_wider_secret_memory_attestation(
                 &prepared.sensitivity,
