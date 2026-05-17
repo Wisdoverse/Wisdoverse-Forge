@@ -9,7 +9,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-use crate::domain::context_governance::{ContextGovernancePolicy, ContextScopeKind, SecretPattern, Sensitivity};
+use crate::domain::context_governance::{
+    ContextGovernancePolicy, ContextScopeKind, ScopeExpansionRejection, ScopeExpansionRequest, SecretPattern,
+    Sensitivity,
+};
 
 const DEFAULT_LIMIT: i64 = 50;
 const MAX_LIMIT: i64 = 200;
@@ -63,24 +66,109 @@ impl MemoryScopeTargetPolicy {
 
 pub(crate) struct MemoryReclassificationPolicy;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct MemoryReclassificationRequest<'a> {
+    pub(crate) current_scope_kind: &'a str,
+    pub(crate) target_scope_kind: ScopeKind,
+    pub(crate) sensitivity: &'a str,
+    pub(crate) content_redacted: bool,
+    pub(crate) confirm_sensitive: bool,
+    pub(crate) confirm_expansion: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct MemoryReclassificationDecision {
+    from_kind: ContextScopeKind,
+    to_kind: ContextScopeKind,
+}
+
+impl MemoryReclassificationDecision {
+    pub(crate) fn audit_payload(self, sensitivity: &str, content_redacted: bool) -> Value {
+        json!({
+            "from_scope_kind": self.from_kind.as_label(),
+            "to_scope_kind": self.to_kind.as_label(),
+            "sensitivity": sensitivity,
+            "content_redacted": content_redacted
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MemoryReclassificationRejection {
+    ScopeExpansion { rejection: ScopeExpansionRejection, confirm_expansion: bool },
+    SensitiveScopeChange { confirm_sensitive: bool },
+}
+
+impl MemoryReclassificationRejection {
+    pub(crate) fn audit_action(self) -> &'static str {
+        match self {
+            Self::ScopeExpansion { .. } => "governance.context.memory.scope_expansion_rejected",
+            Self::SensitiveScopeChange { .. } => "governance.context.memory.sensitive_scope_change_rejected",
+        }
+    }
+
+    pub(crate) fn audit_payload(self) -> Value {
+        match self {
+            Self::ScopeExpansion { rejection, confirm_expansion } => json!({
+                "from_scope_kind": rejection.from_kind.as_label(),
+                "to_scope_kind": rejection.to_kind.as_label(),
+                "reason": rejection.reason.as_label(),
+                "confirm_expansion": confirm_expansion
+            }),
+            Self::SensitiveScopeChange { confirm_sensitive } => json!({
+                "reason": "secret_detected",
+                "sensitivity": "secret_detected",
+                "content_redacted": false,
+                "confirm_sensitive": confirm_sensitive
+            }),
+        }
+    }
+
+    pub(crate) fn into_app_error(self) -> AppError {
+        match self {
+            Self::ScopeExpansion { rejection, .. } => rejection.into_app_error(),
+            Self::SensitiveScopeChange { .. } => ErrorKind::Unprocessable(
+                "secret-detected memory requires explicit redaction before scope change".into(),
+            )
+            .into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MemoryReclassificationPlan {
+    Approved(MemoryReclassificationDecision),
+    Rejected(MemoryReclassificationRejection),
+}
+
 impl MemoryReclassificationPolicy {
     pub(crate) fn resolve_current_scope_kind(scope_kind: &str) -> AppResult<ContextScopeKind> {
         ContextScopeKind::from_label(scope_kind)
             .ok_or_else(|| ErrorKind::Validation(format!("unsupported memory scope kind `{scope_kind}`")).into())
     }
 
-    pub(crate) fn ensure_sensitive_scope_change_allowed(
-        sensitivity: &str,
-        content_redacted: bool,
-        confirm_sensitive: bool,
-    ) -> AppResult<()> {
-        if sensitivity == "secret_detected" && !content_redacted && !confirm_sensitive {
-            return Err(ErrorKind::Unprocessable(
-                "secret-detected memory requires explicit redaction before scope change".into(),
-            )
-            .into());
+    pub(crate) fn plan(request: MemoryReclassificationRequest<'_>) -> AppResult<MemoryReclassificationPlan> {
+        let from_kind = Self::resolve_current_scope_kind(request.current_scope_kind)?;
+        let to_kind = ContextScopeKind::from_scope_kind(request.target_scope_kind);
+
+        if let Err(rejection) = ContextGovernancePolicy::gate_scope_expansion(ScopeExpansionRequest {
+            from_kind,
+            to_kind,
+            confirm_expansion: request.confirm_expansion,
+        }) {
+            return Ok(MemoryReclassificationPlan::Rejected(MemoryReclassificationRejection::ScopeExpansion {
+                rejection,
+                confirm_expansion: request.confirm_expansion,
+            }));
         }
-        Ok(())
+
+        if request.sensitivity == "secret_detected" && !request.content_redacted && !request.confirm_sensitive {
+            return Ok(MemoryReclassificationPlan::Rejected(MemoryReclassificationRejection::SensitiveScopeChange {
+                confirm_sensitive: request.confirm_sensitive,
+            }));
+        }
+
+        Ok(MemoryReclassificationPlan::Approved(MemoryReclassificationDecision { from_kind, to_kind }))
     }
 }
 
@@ -336,19 +424,80 @@ mod tests {
     }
 
     #[test]
-    fn memory_reclassification_policy_validates_scope_and_sensitive_confirmation() {
+    fn memory_reclassification_policy_plans_reclassification_and_rejections() {
         assert_eq!(MemoryReclassificationPolicy::resolve_current_scope_kind("team").unwrap(), ContextScopeKind::Team);
         assert!(MemoryReclassificationPolicy::resolve_current_scope_kind("workspace").is_err());
-        assert!(
-            MemoryReclassificationPolicy::ensure_sensitive_scope_change_allowed("secret_detected", false, false,)
-                .is_err()
-        );
-        assert!(
-            MemoryReclassificationPolicy::ensure_sensitive_scope_change_allowed("secret_detected", false, true).is_ok()
-        );
-        assert!(
-            MemoryReclassificationPolicy::ensure_sensitive_scope_change_allowed("secret_detected", true, false).is_ok()
-        );
+
+        let plan = MemoryReclassificationPolicy::plan(MemoryReclassificationRequest {
+            current_scope_kind: "user",
+            target_scope_kind: ScopeKind::Team,
+            sensitivity: "internal",
+            content_redacted: false,
+            confirm_sensitive: false,
+            confirm_expansion: true,
+        })
+        .expect("scope labels should be valid");
+        let MemoryReclassificationPlan::Approved(decision) = plan else {
+            panic!("confirmed expansion should be approved");
+        };
+        let payload = decision.audit_payload("internal", false);
+        assert_eq!(payload["from_scope_kind"], "user");
+        assert_eq!(payload["to_scope_kind"], "team");
+
+        let plan = MemoryReclassificationPolicy::plan(MemoryReclassificationRequest {
+            current_scope_kind: "user",
+            target_scope_kind: ScopeKind::Project,
+            sensitivity: "internal",
+            content_redacted: false,
+            confirm_sensitive: false,
+            confirm_expansion: false,
+        })
+        .expect("scope labels should be valid");
+        let MemoryReclassificationPlan::Rejected(rejection) = plan else {
+            panic!("unconfirmed expansion should be rejected");
+        };
+        assert_eq!(rejection.audit_action(), "governance.context.memory.scope_expansion_rejected");
+        assert_eq!(rejection.audit_payload()["reason"], "confirmation_required");
+
+        let plan = MemoryReclassificationPolicy::plan(MemoryReclassificationRequest {
+            current_scope_kind: "user",
+            target_scope_kind: ScopeKind::Team,
+            sensitivity: "secret_detected",
+            content_redacted: false,
+            confirm_sensitive: false,
+            confirm_expansion: true,
+        })
+        .expect("scope labels should be valid");
+        let MemoryReclassificationPlan::Rejected(rejection) = plan else {
+            panic!("unredacted sensitive scope change should be rejected");
+        };
+        assert_eq!(rejection.audit_action(), "governance.context.memory.sensitive_scope_change_rejected");
+        assert!(matches!(rejection.into_app_error().kind, ErrorKind::Unprocessable(_)));
+
+        assert!(matches!(
+            MemoryReclassificationPolicy::plan(MemoryReclassificationRequest {
+                current_scope_kind: "user",
+                target_scope_kind: ScopeKind::Team,
+                sensitivity: "secret_detected",
+                content_redacted: false,
+                confirm_sensitive: true,
+                confirm_expansion: true,
+            })
+            .expect("scope labels should be valid"),
+            MemoryReclassificationPlan::Approved(_)
+        ));
+        assert!(matches!(
+            MemoryReclassificationPolicy::plan(MemoryReclassificationRequest {
+                current_scope_kind: "user",
+                target_scope_kind: ScopeKind::Team,
+                sensitivity: "secret_detected",
+                content_redacted: true,
+                confirm_sensitive: false,
+                confirm_expansion: true,
+            })
+            .expect("scope labels should be valid"),
+            MemoryReclassificationPlan::Approved(_)
+        ));
     }
 
     #[test]
