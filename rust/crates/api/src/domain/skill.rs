@@ -186,6 +186,10 @@ pub(crate) struct SkillContentRejection {
 }
 
 impl SkillContentRejection {
+    pub(crate) fn audit_action(&self) -> &'static str {
+        "governance.context.skill.mutation_rejected"
+    }
+
     pub(crate) fn audit_payload(&self, operation: &'static str, skill_id: Option<Uuid>) -> Value {
         json!({
             "operation": operation,
@@ -877,6 +881,7 @@ mod tests {
         let SkillContentDecision::Rejected(rejection) = decision else {
             panic!("secret should require auditable rejection");
         };
+        assert_eq!(rejection.audit_action(), "governance.context.skill.mutation_rejected");
         let payload = rejection.audit_payload("create", Some(skill_id));
         assert_eq!(payload["operation"], "create");
         assert_eq!(payload["skill_id"], skill_id.to_string());
