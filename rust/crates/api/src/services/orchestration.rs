@@ -16,7 +16,6 @@ use agentforge_db::entities::{OrchestrationTask, Participant, TaskRun};
 use agentforge_db::inbox_notifications::{TaskOwnerNotificationKind, upsert_task_owner_lifecycle_notification_in_tx};
 use agentforge_jobs::insert_assignment_outbox_in_tx;
 use serde::Serialize;
-use serde_json::json;
 use uuid::Uuid;
 
 use crate::domain::context_resolver::{ContextTaskSnapshot, ResolvedContext};
@@ -301,19 +300,10 @@ impl OrchestrationService {
             }
             TaskPatchAction::Dispatch => return self.dispatch_task(scope, id).await,
             TaskPatchAction::Complete => {
-                return self.complete_task(scope, id, json!({ "manual": true, "source": "kanban_patch" })).await;
+                return self.complete_task(scope, id, TaskPatchPolicy::manual_complete_result()).await;
             }
             TaskPatchAction::Fail => {
-                return self
-                    .fail_task(
-                        scope,
-                        id,
-                        json!({
-                            "message": "manual failure via task patch",
-                            "source": "kanban_patch"
-                        }),
-                    )
-                    .await;
+                return self.fail_task(scope, id, TaskPatchPolicy::manual_failure_error()).await;
             }
             TaskPatchAction::Cancel => return self.cancel_task(scope, id).await,
             TaskPatchAction::Unassign => {
@@ -343,9 +333,7 @@ impl OrchestrationService {
             )
             .await?;
 
-        // Moving back into the dispatchable lane → re-run the auto-dispatcher
-        // so an idle agent picks the task up immediately.
-        if matches!(next_state.as_deref(), Some("queued") | Some("backlog")) && updated.assigned_agent_id.is_none() {
+        if TaskPatchPolicy::should_auto_dispatch_after_patch(next_state.as_deref(), updated.assigned_agent_id) {
             return self.try_auto_dispatch(scope, updated).await;
         }
         Ok(updated)

@@ -460,6 +460,24 @@ impl TaskPatchPolicy {
         }
         Ok(())
     }
+
+    pub(crate) fn manual_complete_result() -> serde_json::Value {
+        json!({ "manual": true, "source": "kanban_patch" })
+    }
+
+    pub(crate) fn manual_failure_error() -> serde_json::Value {
+        json!({
+            "message": "manual failure via task patch",
+            "source": "kanban_patch"
+        })
+    }
+
+    pub(crate) fn should_auto_dispatch_after_patch(
+        next_state: Option<&str>,
+        assigned_agent_id: Option<AgentId>,
+    ) -> bool {
+        matches!(next_state, Some("queued") | Some("backlog")) && assigned_agent_id.is_none()
+    }
 }
 
 /// Assignment field semantics for task PATCH requests.
@@ -1138,6 +1156,29 @@ mod tests {
 
         assert!(blocked_error.contains("task is blocked on waiting_input"));
         assert!(unassign_error.contains("cannot unassign a working task"));
+    }
+
+    #[test]
+    fn task_patch_policy_builds_manual_terminal_payloads() {
+        assert_eq!(TaskPatchPolicy::manual_complete_result(), json!({ "manual": true, "source": "kanban_patch" }));
+        assert_eq!(
+            TaskPatchPolicy::manual_failure_error(),
+            json!({
+                "message": "manual failure via task patch",
+                "source": "kanban_patch"
+            })
+        );
+    }
+
+    #[test]
+    fn task_patch_policy_auto_dispatches_only_unassigned_dispatchable_lanes() {
+        let agent_id = AgentId::from(Uuid::nil());
+
+        assert!(TaskPatchPolicy::should_auto_dispatch_after_patch(Some("queued"), None));
+        assert!(TaskPatchPolicy::should_auto_dispatch_after_patch(Some("backlog"), None));
+        assert!(!TaskPatchPolicy::should_auto_dispatch_after_patch(Some("queued"), Some(agent_id)));
+        assert!(!TaskPatchPolicy::should_auto_dispatch_after_patch(Some("working"), None));
+        assert!(!TaskPatchPolicy::should_auto_dispatch_after_patch(None, None));
     }
 
     #[test]
