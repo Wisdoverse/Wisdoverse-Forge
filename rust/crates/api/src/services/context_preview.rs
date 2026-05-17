@@ -10,6 +10,7 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
+use crate::domain::context_preview::{CONTEXT_PREVIEW_TTL_MINUTES, ContextPreviewFreshnessPolicy};
 use crate::domain::context_resolver::{
     ContextItemKind, ContextSelection, DegradationReason, ResolvedContext, ResolvedItemRef, apply_context_selection,
 };
@@ -17,8 +18,6 @@ use crate::domain::orchestration::{ParticipantAvailabilityAction, ParticipantAva
 use crate::repositories::context_preview::{ContextPreviewRepository, CreateContextPreviewRecord};
 use crate::repositories::orchestration::{OrchestrationTaskRepository, ParticipantRepository};
 use crate::services::orchestration::OrchestrationService;
-
-const PREVIEW_TTL_MINUTES: i64 = 15;
 
 #[derive(Debug, Clone)]
 pub struct CreateContextPreviewInput {
@@ -108,7 +107,7 @@ impl ContextPreviewService {
         let task_draft_hash = task_draft_hash(&task);
         let preview_hash = preview_hash(&task_draft_hash, input.agent_id, &resolved)?;
         let selected_items = selected_items_payload(&resolved)?;
-        let expires_at = Utc::now() + Duration::minutes(PREVIEW_TTL_MINUTES);
+        let expires_at = Utc::now() + Duration::minutes(CONTEXT_PREVIEW_TTL_MINUTES);
         let preview = self
             .previews
             .create(
@@ -135,16 +134,13 @@ impl ContextPreviewService {
         input: &PublishWithContextInput,
     ) -> AppResult<ValidatedContextPreview> {
         let preview = self.previews.find_live_for_publish(scope, input.context_preview_id, task_id).await?;
-        if preview.preview_hash != input.preview_hash {
-            return Err(ErrorKind::Conflict("preview_stale".into()).into());
-        }
+        ContextPreviewFreshnessPolicy::ensure_request_hash_matches(&preview.preview_hash, &input.preview_hash)?;
         let task = self.tasks.find_by_id(scope, task_id).await?;
-        if scope.workspace_id().map(|workspace_id| workspace_id.as_uuid()) != Some(preview.workspace_id.as_uuid()) {
-            return Err(ErrorKind::Conflict("preview_stale".into()).into());
-        }
-        if task_draft_hash(&task) != preview.task_draft_hash {
-            return Err(ErrorKind::Conflict("preview_stale".into()).into());
-        }
+        ContextPreviewFreshnessPolicy::ensure_workspace_matches(
+            scope.workspace_id().map(|workspace_id| workspace_id.as_uuid()),
+            preview.workspace_id.as_uuid(),
+        )?;
+        ContextPreviewFreshnessPolicy::ensure_task_draft_matches(&task_draft_hash(&task), &preview.task_draft_hash)?;
 
         let agent_id = AgentId::from(preview.agent_id.as_uuid());
         let resolved = self
@@ -152,9 +148,7 @@ impl ContextPreviewService {
             .resolve(&scope.scoped_read(), crate::services::context_resolver::ResolveContextInput { task_id, agent_id })
             .await?;
         let current_hash = preview_hash(&preview.task_draft_hash, agent_id, &resolved)?;
-        if current_hash != preview.preview_hash {
-            return Err(ErrorKind::Conflict("preview_stale".into()).into());
-        }
+        ContextPreviewFreshnessPolicy::ensure_resolved_context_matches(&current_hash, &preview.preview_hash)?;
 
         let selected = apply_context_selection(
             resolved,
