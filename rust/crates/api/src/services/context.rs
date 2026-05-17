@@ -199,21 +199,26 @@ impl ContextApprovalService {
         let candidate = ContextCandidateRepository::lock_visible_for_update(&mut tx, &proof, id).await?;
         ensure_pending_candidate(candidate.id, &candidate.state)?;
 
-        if !self.source_run_is_approvable(&mut tx, &proof, &candidate).await? {
+        let source_run_status = match candidate.source_run_id {
+            Some(source_run_id) => {
+                ContextCandidateRepository::source_run_status_in_tx(&mut tx, &proof, source_run_id).await?
+            }
+            None => None,
+        };
+        if let Err(rejection) =
+            ContextCandidatePolicy::ensure_source_run_approvable(candidate.source_run_id, source_run_status.as_deref())
+        {
             let rejected = ContextCandidateRepository::update_state_in_tx(&mut tx, candidate.id, "rejected").await?;
             self.emit_candidate_audit(
                 &mut tx,
                 scope,
                 "governance.context.candidate.auto_rejected",
-                json!({
-                    "item_kind": candidate.item_kind,
-                    "reason": "source_run_unavailable"
-                }),
+                rejection.audit_payload(&candidate.item_kind),
             )
             .await?;
             tx.commit().await?;
             self.publish_candidate_event(scope, &rejected, "rejected", None).await;
-            return Err(ErrorKind::Unprocessable("context candidate source run is unavailable".into()).into());
+            return Err(rejection.into_app_error());
         }
 
         let self_approval = candidate.owner_user_id == scope.user_id();
@@ -527,19 +532,6 @@ impl ContextApprovalService {
             return Err(ErrorKind::Forbidden.into());
         }
         Ok(write)
-    }
-
-    async fn source_run_is_approvable(
-        &self,
-        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-        proof: &ScopedRead,
-        candidate: &ContextCandidate,
-    ) -> AppResult<bool> {
-        let Some(source_run_id) = candidate.source_run_id else {
-            return Ok(false);
-        };
-        let status = ContextCandidateRepository::source_run_status_in_tx(tx, proof, source_run_id).await?;
-        Ok(matches!(status.as_deref(), Some("completed")))
     }
 
     async fn emit_candidate_audit(
