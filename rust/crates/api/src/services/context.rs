@@ -21,7 +21,7 @@ use crate::domain::context::{
     normalize_scope_kind_filter, redacted_proposal_preview, validate_context_sensitivity, validate_ttl,
 };
 use crate::domain::context_governance::{
-    ContextAuditEvent, ContextGovernancePolicy, ContextScopeKind, ScopeExpansionRequest, Sensitivity,
+    ContextAuditEvent, ContextGovernancePolicy, ContextScopeKind, ScopeExpansionRequest,
 };
 use crate::domain::memory::MemoryScopeKind;
 use crate::repositories::context_approval::{ContextApprovalRepository, CreateContextApprovalRecord};
@@ -392,25 +392,16 @@ impl ContextApprovalService {
                     tx.commit().await?;
                     return Err(rejection.into_app_error());
                 }
-                let classification = ContextGovernancePolicy::classify_sensitivity(&current.content);
-                if matches!(classification.sensitivity, Sensitivity::SecretDetected) {
+                if let Err(rejection) = ContextCandidatePolicy::ensure_skill_content_approvable(&current.content) {
                     self.emit_candidate_audit(
                         &mut tx,
                         scope,
                         "governance.context.candidate.approval_rejected",
-                        json!({
-                            "item_kind": candidate.item_kind,
-                            "reason": "secret_detected",
-                            "matched_patterns": classification.matched_patterns,
-                            "redacted_preview": classification.redacted_preview
-                        }),
+                        rejection.audit_payload(&candidate.item_kind),
                     )
                     .await?;
                     tx.commit().await?;
-                    return Err(ErrorKind::Unprocessable(
-                        "secret detected in skill content; submit redacted content".into(),
-                    )
-                    .into());
+                    return Err(rejection.into_app_error());
                 }
                 let sensitivity = match requested_sensitivity {
                     Some(value) => value,

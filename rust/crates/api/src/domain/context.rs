@@ -1,12 +1,12 @@
 //! Context candidate and feedback input policies.
 
-use agentforge_core::{AppResult, ErrorKind, ScopeKind, SkillId};
+use agentforge_core::{AppError, AppResult, ErrorKind, ScopeKind, SkillId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-use crate::domain::context_governance::{ContextGovernancePolicy, ContextScopeKind, Sensitivity};
+use crate::domain::context_governance::{ContextGovernancePolicy, ContextScopeKind, SecretPattern, Sensitivity};
 use crate::domain::memory::MemoryScopeKind;
 
 const DEFAULT_LIMIT: i64 = 50;
@@ -196,6 +196,28 @@ pub(crate) struct PreparedMemoryCandidate {
     pub(crate) classification_payload: Value,
 }
 
+/// A skill-backed context candidate that must be audited before returning an application error.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ContextSkillContentRejection {
+    matched_patterns: Vec<SecretPattern>,
+    redacted_preview: Option<String>,
+}
+
+impl ContextSkillContentRejection {
+    pub(crate) fn audit_payload(&self, item_kind: &str) -> Value {
+        json!({
+            "item_kind": item_kind,
+            "reason": "secret_detected",
+            "matched_patterns": self.matched_patterns,
+            "redacted_preview": self.redacted_preview
+        })
+    }
+
+    pub(crate) fn into_app_error(self) -> AppError {
+        ErrorKind::Unprocessable("secret detected in skill content; submit redacted content".into()).into()
+    }
+}
+
 pub(crate) struct ContextCandidatePolicy;
 
 impl ContextCandidatePolicy {
@@ -300,6 +322,17 @@ impl ContextCandidatePolicy {
         }
         if is_revoked {
             return Err(ErrorKind::Unprocessable(format!("skill {skill_id} is revoked")).into());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn ensure_skill_content_approvable(content: &str) -> Result<(), ContextSkillContentRejection> {
+        let classification = ContextGovernancePolicy::classify_sensitivity(content);
+        if matches!(classification.sensitivity, Sensitivity::SecretDetected) {
+            return Err(ContextSkillContentRejection {
+                matched_patterns: classification.matched_patterns,
+                redacted_preview: classification.redacted_preview,
+            });
         }
         Ok(())
     }
@@ -524,6 +557,21 @@ mod tests {
         assert!(ContextCandidatePolicy::ensure_skill_candidate_approvable(skill_id, "candidate", false).is_ok());
         assert!(ContextCandidatePolicy::ensure_skill_candidate_approvable(skill_id, "active", false).is_err());
         assert!(ContextCandidatePolicy::ensure_skill_candidate_approvable(skill_id, "candidate", true).is_err());
+    }
+
+    #[test]
+    fn skill_candidate_content_policy_rejects_secret_content_with_audit_payload() {
+        let fake_value = "not-a-real-secret-value";
+        let fake_secret = format!("{}{}", "api_key=", fake_value);
+        let rejection = ContextCandidatePolicy::ensure_skill_content_approvable(&fake_secret).unwrap_err();
+        let payload = rejection.audit_payload("skill");
+
+        assert_eq!(payload["item_kind"], "skill");
+        assert_eq!(payload["reason"], "secret_detected");
+        assert!(!payload["matched_patterns"].as_array().unwrap().is_empty());
+        assert!(!payload["redacted_preview"].as_str().unwrap().contains(fake_value));
+        assert!(matches!(rejection.into_app_error().kind, ErrorKind::Unprocessable(_)));
+        assert!(ContextCandidatePolicy::ensure_skill_content_approvable("use cargo test").is_ok());
     }
 
     #[test]
