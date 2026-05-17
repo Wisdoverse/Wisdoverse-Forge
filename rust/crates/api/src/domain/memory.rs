@@ -324,6 +324,10 @@ pub(crate) struct MemoryContentRejection {
 }
 
 impl MemoryContentRejection {
+    pub(crate) fn audit_action(&self) -> &'static str {
+        "governance.context.memory.rejected"
+    }
+
     pub(crate) fn audit_payload(&self, operation: &str) -> Value {
         json!({
             "operation": operation,
@@ -591,6 +595,7 @@ mod tests {
         let MemoryContentDecision::Rejected(rejection) = decision else {
             panic!("secret should require auditable rejection");
         };
+        assert_eq!(rejection.audit_action(), "governance.context.memory.rejected");
         let payload = rejection.audit_payload("create");
         assert_eq!(payload["operation"], "create");
         assert_eq!(payload["reason"], "secret_detected");
