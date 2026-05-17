@@ -218,6 +218,23 @@ impl ContextSkillContentRejection {
     }
 }
 
+/// A context candidate whose source run no longer supports approval.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ContextSourceRunRejection;
+
+impl ContextSourceRunRejection {
+    pub(crate) fn audit_payload(self, item_kind: &str) -> Value {
+        json!({
+            "item_kind": item_kind,
+            "reason": "source_run_unavailable"
+        })
+    }
+
+    pub(crate) fn into_app_error(self) -> AppError {
+        ErrorKind::Unprocessable("context candidate source run is unavailable".into()).into()
+    }
+}
+
 pub(crate) struct ContextCandidatePolicy;
 
 impl ContextCandidatePolicy {
@@ -335,6 +352,17 @@ impl ContextCandidatePolicy {
             });
         }
         Ok(())
+    }
+
+    pub(crate) fn ensure_source_run_approvable(
+        source_run_id: Option<Uuid>,
+        source_run_status: Option<&str>,
+    ) -> Result<(), ContextSourceRunRejection> {
+        if source_run_id.is_some() && matches!(source_run_status, Some("completed")) {
+            Ok(())
+        } else {
+            Err(ContextSourceRunRejection)
+        }
     }
 
     pub(crate) fn resolve_skill_candidate_scope_kind(scope_kind: Option<&str>) -> AppResult<ContextScopeKind> {
@@ -572,6 +600,24 @@ mod tests {
         assert!(!payload["redacted_preview"].as_str().unwrap().contains(fake_value));
         assert!(matches!(rejection.into_app_error().kind, ErrorKind::Unprocessable(_)));
         assert!(ContextCandidatePolicy::ensure_skill_content_approvable("use cargo test").is_ok());
+    }
+
+    #[test]
+    fn source_run_policy_requires_completed_source_run() {
+        let source_run_id = Uuid::parse_str("66666666-6666-4666-8666-666666666666").unwrap();
+
+        assert!(ContextCandidatePolicy::ensure_source_run_approvable(Some(source_run_id), Some("completed")).is_ok());
+        for status in [None, Some("running"), Some("failed"), Some("canceled")] {
+            let rejection = ContextCandidatePolicy::ensure_source_run_approvable(Some(source_run_id), status)
+                .expect_err("non-completed source run should reject");
+            let payload = rejection.audit_payload("memory");
+
+            assert_eq!(payload["item_kind"], "memory");
+            assert_eq!(payload["reason"], "source_run_unavailable");
+            assert!(matches!(rejection.into_app_error().kind, ErrorKind::Unprocessable(_)));
+        }
+
+        assert!(ContextCandidatePolicy::ensure_source_run_approvable(None, Some("completed")).is_err());
     }
 
     #[test]
