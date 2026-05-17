@@ -20,10 +20,10 @@ use uuid::Uuid;
 
 use crate::domain::context_resolver::{ContextTaskSnapshot, ResolvedContext};
 use crate::domain::orchestration::{
-    BlockedTaskPolicy, ParticipantAvailabilityAction, ParticipantAvailabilityPolicy, ParticipantName,
-    ParticipantStatusPolicy, QuotaBlockPolicy, TaskAssignmentPolicy, TaskAssignmentSnapshot, TaskCreationPolicy,
-    TaskInstruction, TaskLifecyclePolicy, TaskListPage, TaskPatchAction, TaskPatchPolicy, TaskPriority,
-    TaskRunCapabilityProfile, TaskStatusPolicy, TaskTitle,
+    BlockedTaskPolicy, DispatchSweepDecision, DispatchSweepPolicy, ParticipantAvailabilityAction,
+    ParticipantAvailabilityPolicy, ParticipantName, ParticipantStatusPolicy, QuotaBlockPolicy, TaskAssignmentPolicy,
+    TaskAssignmentSnapshot, TaskCreationPolicy, TaskInstruction, TaskLifecyclePolicy, TaskListPage, TaskPatchAction,
+    TaskPatchPolicy, TaskPriority, TaskRunCapabilityProfile, TaskStatusPolicy, TaskTitle,
 };
 use crate::repositories::orchestration::{
     CreateTaskRow, OrchestrationTaskRepository, OrchestrationTaskStats, ParticipantRepository, UpdateTaskRow,
@@ -562,8 +562,10 @@ impl OrchestrationService {
                 break;
             };
             match self.try_auto_dispatch(scope, task).await {
-                Ok(t) if t.status == "working" => claimed += 1,
-                Ok(_) => break, // Marked blocked again — stop sweeping
+                Ok(t) => match DispatchSweepPolicy::after_dispatch_attempt(&t.status) {
+                    DispatchSweepDecision::ClaimedTask => claimed += 1,
+                    DispatchSweepDecision::Stop => break,
+                },
                 Err(err) => {
                     tracing::error!(error = ?err, "Auto-dispatch sweep aborted");
                     break;
@@ -716,7 +718,7 @@ impl OrchestrationService {
             .task_repo
             .approve_waiting_task(scope, task_id, scope.user_id(), next_status, next_reason, next_metadata)
             .await?;
-        if approved.status == "queued" {
+        if BlockedTaskPolicy::should_auto_dispatch_after_approval(&approved.status) {
             return self.try_auto_dispatch(scope, approved).await;
         }
         Ok(approved)
@@ -750,7 +752,7 @@ impl OrchestrationService {
     /// blocked-on-agent tasks.
     pub async fn participant_heartbeat(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<Participant> {
         let participant = self.participant_repo.heartbeat(scope, agent_id).await?;
-        if participant.status == "available"
+        if ParticipantStatusPolicy::should_sweep_after_heartbeat(&participant.status)
             && let Err(err) = self.sweep_dispatchable(scope).await
         {
             tracing::error!(error = ?err, agent_id = %agent_id, "Post-heartbeat sweep failed");
