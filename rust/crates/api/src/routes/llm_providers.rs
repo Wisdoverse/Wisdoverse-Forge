@@ -14,9 +14,7 @@ use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, ErrorKind, crypto};
-use agentforge_llm::{
-    ChatMessage, ChatRequest, LlmError, LlmProviderBuildConfig, provider_spec, supported_provider_specs,
-};
+use agentforge_llm::{ChatMessage, ChatRequest, LlmError, LlmProviderBuildConfig, supported_provider_specs};
 
 use crate::domain::credential::LlmProviderPolicy;
 use crate::health::AppState;
@@ -105,7 +103,7 @@ pub struct UpdateProviderRequest {
 }
 
 fn provider_display_name(provider: &str) -> &'static str {
-    provider_spec(provider).map(|spec| spec.display_name).unwrap_or("Custom")
+    LlmProviderPolicy::display_name(provider)
 }
 
 fn supported_provider_list() -> Vec<ProviderInfo> {
@@ -125,10 +123,6 @@ fn supported_provider_list() -> Vec<ProviderInfo> {
                 .collect(),
         })
         .collect()
-}
-
-fn clean_optional(value: Option<String>) -> Option<String> {
-    value.map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
 }
 
 fn response_from_row(row: LlmProviderRow, priority: i32) -> LlmProviderConfigResponse {
@@ -235,30 +229,17 @@ async fn create_provider(
     auth: AuthUser,
     Json(req): Json<CreateProviderRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let provider = LlmProviderPolicy::normalize_supported_provider(&req.provider)?;
-    let model = req.model.trim();
-    if model.is_empty() {
-        return Err(ErrorKind::Validation("model is required".into()).into());
-    }
+    let draft = LlmProviderPolicy::create_draft(req.provider, req.model, req.display_name, req.api_key, req.base_url)?;
 
-    let api_key = req.api_key.as_deref().unwrap_or_default().trim();
-    if LlmProviderPolicy::requires_api_key(&provider) && api_key.is_empty() {
-        return Err(ErrorKind::Validation("apiKey is required".into()).into());
-    }
-    let base_url = clean_optional(req.base_url);
-    if LlmProviderPolicy::requires_base_url(&provider) && base_url.is_none() {
-        return Err(ErrorKind::Validation("baseUrl is required for this provider".into()).into());
-    }
-
-    let (encrypted_api_key, prefix) = if api_key.is_empty() {
-        (String::new(), None)
-    } else {
+    let (encrypted_api_key, prefix) = if let Some(api_key) = draft.api_key.as_deref() {
         let key = state.encryption_key.as_ref().ok_or_else(|| {
             ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured - refusing to store plaintext API keys".into())
         })?;
         let encrypted_api_key = crypto::encrypt_base64(key, api_key)
             .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encrypt llm provider api key failed: {err}")))?;
         (encrypted_api_key, Some(LlmProviderPolicy::api_key_prefix(api_key)))
+    } else {
+        (String::new(), None)
     };
 
     let exists = sqlx::query_scalar::<_, bool>(
@@ -271,8 +252,8 @@ async fn create_provider(
            )"#,
     )
     .bind(auth.scope.user_id().as_uuid())
-    .bind(&provider)
-    .bind(model)
+    .bind(&draft.provider)
+    .bind(&draft.model)
     .fetch_one(&state.pool)
     .await?;
     if exists {
@@ -289,12 +270,10 @@ async fn create_provider(
            )"#,
     )
     .bind(auth.scope.user_id().as_uuid())
-    .bind(&provider)
+    .bind(&draft.provider)
     .fetch_one(&state.pool)
     .await?;
 
-    let display_name =
-        clean_optional(req.display_name).unwrap_or_else(|| provider_display_name(provider.as_str()).to_string());
     let row = sqlx::query_as::<_, LlmProviderRow>(
         r#"INSERT INTO user_llm_configs
               (user_id, provider, model, display_name, base_url, api_key_prefix, encrypted_api_key, is_enabled, is_default, settings)
@@ -313,10 +292,10 @@ async fn create_provider(
                      settings -> 'connection_test' ->> 'tested_at' AS last_tested_at"#,
     )
     .bind(auth.scope.user_id().as_uuid())
-    .bind(provider)
-    .bind(model)
-    .bind(display_name)
-    .bind(base_url)
+    .bind(draft.provider)
+    .bind(draft.model)
+    .bind(draft.display_name)
+    .bind(draft.base_url)
     .bind(prefix)
     .bind(encrypted_api_key)
     .bind(should_be_default)
@@ -334,20 +313,21 @@ async fn update_provider(
     Json(req): Json<UpdateProviderRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let current = fetch_provider_row(&state, &auth, id).await?;
-    let model =
-        clean_optional(req.model).or(current.model).ok_or_else(|| ErrorKind::Validation("model is required".into()))?;
-    let display_name = clean_optional(req.display_name)
-        .or(current.display_name)
-        .unwrap_or_else(|| provider_display_name(current.provider.as_str()).to_string());
-    let base_url = clean_optional(req.base_url).or(current.base_url);
-    if LlmProviderPolicy::requires_base_url(&current.provider) && base_url.is_none() {
-        return Err(ErrorKind::Validation("baseUrl is required for this provider".into()).into());
-    }
-    let is_enabled = req.is_enabled.unwrap_or(current.is_enabled.unwrap_or(true));
+    let provider = current.provider.clone();
+    let draft = LlmProviderPolicy::update_draft(
+        &provider,
+        current.model,
+        current.display_name,
+        current.base_url,
+        current.is_enabled,
+        req.model,
+        req.display_name,
+        req.api_key,
+        req.base_url,
+        req.is_enabled,
+    )?;
 
-    let encrypted_and_prefix = if let Some(api_key) =
-        req.api_key.as_deref().map(str::trim).filter(|value| !value.is_empty())
-    {
+    let encrypted_and_prefix = if let Some(api_key) = draft.api_key.as_deref() {
         let key = state.encryption_key.as_ref().ok_or_else(|| {
             ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured - refusing to store plaintext API keys".into())
         })?;
@@ -383,10 +363,10 @@ async fn update_provider(
                       settings -> 'connection_test' ->> 'error_message' AS last_test_error_message,
                       settings -> 'connection_test' ->> 'tested_at' AS last_tested_at"#,
         )
-        .bind(model)
-        .bind(display_name)
-        .bind(base_url)
-        .bind(is_enabled)
+        .bind(draft.model)
+        .bind(draft.display_name)
+        .bind(draft.base_url)
+        .bind(draft.is_enabled)
         .bind(encrypted_api_key)
         .bind(prefix)
         .bind(id)
@@ -416,10 +396,10 @@ async fn update_provider(
                       settings -> 'connection_test' ->> 'error_message' AS last_test_error_message,
                       settings -> 'connection_test' ->> 'tested_at' AS last_tested_at"#,
         )
-        .bind(model)
-        .bind(display_name)
-        .bind(base_url)
-        .bind(is_enabled)
+        .bind(draft.model)
+        .bind(draft.display_name)
+        .bind(draft.base_url)
+        .bind(draft.is_enabled)
         .bind(id)
         .bind(auth.scope.user_id().as_uuid())
         .fetch_one(&state.pool)
