@@ -407,12 +407,16 @@ impl QuotaBlockPolicy {
 pub(crate) struct BlockedTaskPolicy;
 
 impl BlockedTaskPolicy {
+    pub(crate) fn waiting_agent_reason() -> &'static str {
+        "waiting_agent"
+    }
+
     pub(crate) fn is_valid_reason(reason: &str) -> bool {
         VALID_BLOCKED_REASONS.contains(&reason)
     }
 
     pub(crate) fn reason_allows_dispatch(reason: Option<&str>) -> bool {
-        matches!(reason, None | Some("waiting_agent"))
+        reason.is_none() || reason == Some(Self::waiting_agent_reason())
     }
 
     pub(crate) fn can_enter_dispatch(status: &str, blocked_reason: Option<&str>) -> bool {
@@ -428,6 +432,18 @@ impl BlockedTaskPolicy {
             blocked_reason.unwrap_or("none")
         ))
         .into())
+    }
+
+    pub(crate) fn no_available_participants_error() -> ErrorKind {
+        ErrorKind::Validation("no available participants for dispatch".into())
+    }
+
+    pub(crate) fn waiting_agent_metadata(available: i64, busy: i64, offline: i64) -> serde_json::Value {
+        json!({
+            "available": available,
+            "busy": busy,
+            "offline": offline,
+        })
     }
 
     /// Child tasks with an unfinished parent start in
@@ -608,6 +624,19 @@ mod tests {
 
         assert!(error.contains("current status: blocked"));
         assert!(error.contains("blocked reason: waiting_input"));
+    }
+
+    #[test]
+    fn blocked_task_policy_builds_waiting_agent_block() {
+        let metadata = BlockedTaskPolicy::waiting_agent_metadata(0, 2, 1);
+
+        assert_eq!(BlockedTaskPolicy::waiting_agent_reason(), "waiting_agent");
+        assert_eq!(metadata["available"], 0);
+        assert_eq!(metadata["busy"], 2);
+        assert_eq!(metadata["offline"], 1);
+
+        let error = BlockedTaskPolicy::no_available_participants_error();
+        assert!(matches!(error, ErrorKind::Validation(message) if message == "no available participants for dispatch"));
     }
 
     #[test]
