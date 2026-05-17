@@ -2,6 +2,7 @@
 
 use agentforge_core::{AppResult, ErrorKind};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
@@ -9,6 +10,60 @@ use crate::domain::context_governance::{ContextGovernancePolicy, Sensitivity};
 
 const DEFAULT_LIMIT: i64 = 50;
 const MAX_LIMIT: i64 = 200;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContextCandidateKind {
+    Memory,
+    Skill,
+}
+
+impl ContextCandidateKind {
+    pub(crate) fn as_label(self) -> &'static str {
+        match self {
+            Self::Memory => "memory",
+            Self::Skill => "skill",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContextItemKind {
+    Memory,
+    Skill,
+}
+
+impl ContextItemKind {
+    pub(crate) fn as_label(self) -> &'static str {
+        match self {
+            Self::Memory => "memory",
+            Self::Skill => "skill",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContextFeedbackLabel {
+    Useful,
+    Stale,
+    Wrong,
+    TooSensitive,
+    DoNotUseAgain,
+}
+
+impl ContextFeedbackLabel {
+    pub(crate) fn as_label(self) -> &'static str {
+        match self {
+            Self::Useful => "useful",
+            Self::Stale => "stale",
+            Self::Wrong => "wrong",
+            Self::TooSensitive => "too_sensitive",
+            Self::DoNotUseAgain => "do_not_use_again",
+        }
+    }
+}
 
 pub(crate) fn context_candidate_subject(org_id: Uuid, scope_kind: &str, scope_id: Uuid, event: &str) -> String {
     format!("broadcast.{org_id}.scope.{scope_kind}.{scope_id}.context_candidate.{event}")
@@ -170,6 +225,27 @@ mod tests {
             context_candidate_subject(org_id, "team", scope_id, "approved"),
             "broadcast.11111111-1111-4111-8111-111111111111.scope.team.22222222-2222-4222-8222-222222222222.context_candidate.approved"
         );
+    }
+
+    #[test]
+    fn context_candidate_kind_labels_are_stable() {
+        assert_eq!(ContextCandidateKind::Memory.as_label(), "memory");
+        assert_eq!(ContextCandidateKind::Skill.as_label(), "skill");
+    }
+
+    #[test]
+    fn context_item_kind_labels_are_stable() {
+        assert_eq!(ContextItemKind::Memory.as_label(), "memory");
+        assert_eq!(ContextItemKind::Skill.as_label(), "skill");
+    }
+
+    #[test]
+    fn context_feedback_labels_are_stable() {
+        assert_eq!(ContextFeedbackLabel::Useful.as_label(), "useful");
+        assert_eq!(ContextFeedbackLabel::Stale.as_label(), "stale");
+        assert_eq!(ContextFeedbackLabel::Wrong.as_label(), "wrong");
+        assert_eq!(ContextFeedbackLabel::TooSensitive.as_label(), "too_sensitive");
+        assert_eq!(ContextFeedbackLabel::DoNotUseAgain.as_label(), "do_not_use_again");
     }
 
     #[test]
