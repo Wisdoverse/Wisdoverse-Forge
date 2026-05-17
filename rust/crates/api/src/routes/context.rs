@@ -11,6 +11,7 @@ use uuid::Uuid;
 use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
+use crate::domain::memory::MemoryScopeKind;
 use crate::health::{AppState, ContextFeature, ensure_context_feature_enabled};
 use crate::services::context::{
     ApproveContextCandidateInput, ContextApprovalService, ContextFeedbackLabel, ContextFeedbackService,
@@ -18,7 +19,6 @@ use crate::services::context::{
 };
 use crate::services::context_envelope::{ContextEnvelopeInput, ContextEnvelopeService};
 use crate::services::context_preview::{ContextPreviewService, CreateContextPreviewInput};
-use crate::services::memory::MemoryScopeKind;
 
 #[derive(Debug, Deserialize)]
 struct ListCandidatesQuery {
