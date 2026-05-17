@@ -307,6 +307,31 @@ impl MemoryConfidencePolicy {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct MemoryContentReadAudit {
+    scope_kind: String,
+    sensitivity: String,
+    content_redacted: bool,
+}
+
+impl MemoryContentReadAudit {
+    pub(crate) fn new(scope_kind: impl Into<String>, sensitivity: impl Into<String>, content_redacted: bool) -> Self {
+        Self { scope_kind: scope_kind.into(), sensitivity: sensitivity.into(), content_redacted }
+    }
+
+    pub(crate) fn audit_action(&self) -> &'static str {
+        "governance.context.memory.content_read"
+    }
+
+    pub(crate) fn audit_payload(&self) -> Value {
+        json!({
+            "scope_kind": self.scope_kind,
+            "sensitivity": self.sensitivity,
+            "content_redacted": self.content_redacted
+        })
+    }
+}
+
 /// Prepared memory content ready for persistence and audit emission.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PreparedMemoryContent {
@@ -568,6 +593,17 @@ mod tests {
         assert!(MemoryConfidencePolicy::validate(Some(1.0)).is_ok());
         assert!(MemoryConfidencePolicy::validate(Some(-0.1)).is_err());
         assert!(MemoryConfidencePolicy::validate(Some(1.1)).is_err());
+    }
+
+    #[test]
+    fn memory_content_read_audit_owns_action_and_payload() {
+        let audit = MemoryContentReadAudit::new("team", "confidential", true);
+        let payload = audit.audit_payload();
+
+        assert_eq!(audit.audit_action(), "governance.context.memory.content_read");
+        assert_eq!(payload["scope_kind"], "team");
+        assert_eq!(payload["sensitivity"], "confidential");
+        assert_eq!(payload["content_redacted"], true);
     }
 
     fn synthetic_assigned_secret() -> String {
