@@ -67,9 +67,6 @@ impl CliCredentialService {
     /// Rejects calls when no encryption key is configured — we refuse to store
     /// plaintext credentials, which would be worse than refusing the upload.
     ///
-    /// `files` must be a JSON object whose values are all strings (the file
-    /// contents). `serde_json::to_string` itself happily serialises numbers /
-    /// arrays / nulls, so the shape check is explicit here.
     pub async fn upload(&self, scope: &TenantScope, cli_tool: &str, files: &serde_json::Value) -> AppResult<()> {
         let key = self.encryption_key.as_ref().ok_or_else(|| {
             ErrorKind::Validation(
@@ -77,28 +74,7 @@ impl CliCredentialService {
             )
         })?;
         let tool = ContainerCliCredentialPolicy::canonical_tool(cli_tool)?;
-        let map = files.as_object().ok_or_else(|| {
-            ErrorKind::Validation("`files` must be a JSON object mapping filename → contents".to_string())
-        })?;
-        if map.is_empty() {
-            return Err(ErrorKind::Validation("`files` must not be empty".to_string()).into());
-        }
-        for (name, value) in map {
-            if !value.is_string() {
-                return Err(ErrorKind::Validation(format!(
-                    "`files.{name}` must be a string; got {}",
-                    match value {
-                        serde_json::Value::Number(_) => "number",
-                        serde_json::Value::Bool(_) => "bool",
-                        serde_json::Value::Null => "null",
-                        serde_json::Value::Array(_) => "array",
-                        serde_json::Value::Object(_) => "object",
-                        serde_json::Value::String(_) => unreachable!(),
-                    }
-                ))
-                .into());
-            }
-        }
+        ContainerCliCredentialPolicy::validate_oauth_file_map(files)?;
         let plaintext = serde_json::to_string(files)
             .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("serialize files: {err}")))?;
         let ciphertext = crypto::encrypt_base64(key, &plaintext)
