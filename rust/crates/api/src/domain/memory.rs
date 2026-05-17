@@ -7,8 +7,9 @@ use agentforge_core::{AppError, AppResult, ErrorKind, ScopeKind};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use uuid::Uuid;
 
-use crate::domain::context_governance::{ContextGovernancePolicy, SecretPattern, Sensitivity};
+use crate::domain::context_governance::{ContextGovernancePolicy, ContextScopeKind, SecretPattern, Sensitivity};
 
 const DEFAULT_LIMIT: i64 = 50;
 const MAX_LIMIT: i64 = 200;
@@ -38,6 +39,48 @@ impl MemoryScopeKind {
             Self::Team => ScopeKind::Team,
             Self::Project => ScopeKind::Project,
         }
+    }
+}
+
+pub(crate) struct MemoryScopeTargetPolicy;
+
+impl MemoryScopeTargetPolicy {
+    pub(crate) fn resolve(
+        scope_kind: MemoryScopeKind,
+        scope_id: Option<Uuid>,
+        user_id: Uuid,
+    ) -> AppResult<(ScopeKind, Uuid)> {
+        let scope_kind = scope_kind.as_scope_kind();
+        let scope_id = match scope_kind {
+            ScopeKind::User => scope_id.unwrap_or(user_id),
+            ScopeKind::Team | ScopeKind::Project => scope_id.ok_or_else(|| {
+                ErrorKind::Validation(format!("scope_id is required for {} memory", scope_kind.as_label()))
+            })?,
+        };
+        Ok((scope_kind, scope_id))
+    }
+}
+
+pub(crate) struct MemoryReclassificationPolicy;
+
+impl MemoryReclassificationPolicy {
+    pub(crate) fn resolve_current_scope_kind(scope_kind: &str) -> AppResult<ContextScopeKind> {
+        ContextScopeKind::from_label(scope_kind)
+            .ok_or_else(|| ErrorKind::Validation(format!("unsupported memory scope kind `{scope_kind}`")).into())
+    }
+
+    pub(crate) fn ensure_sensitive_scope_change_allowed(
+        sensitivity: &str,
+        content_redacted: bool,
+        confirm_sensitive: bool,
+    ) -> AppResult<()> {
+        if sensitivity == "secret_detected" && !content_redacted && !confirm_sensitive {
+            return Err(ErrorKind::Unprocessable(
+                "secret-detected memory requires explicit redaction before scope change".into(),
+            )
+            .into());
+        }
+        Ok(())
     }
 }
 
@@ -238,6 +281,32 @@ mod tests {
         assert_eq!(MemoryScopeKind::from_label("team").unwrap().as_scope_kind(), ScopeKind::Team);
         assert_eq!(MemoryScopeKind::from_label("project").unwrap().as_scope_kind(), ScopeKind::Project);
         assert_eq!(MemoryScopeKind::from_label("org"), None);
+    }
+
+    #[test]
+    fn memory_scope_target_policy_defaults_user_and_requires_group_scope_id() {
+        let user_id = Uuid::parse_str("44444444-4444-4444-8444-444444444444").unwrap();
+        assert_eq!(
+            MemoryScopeTargetPolicy::resolve(MemoryScopeKind::User, None, user_id).unwrap(),
+            (ScopeKind::User, user_id)
+        );
+        assert!(MemoryScopeTargetPolicy::resolve(MemoryScopeKind::Project, None, user_id).is_err());
+    }
+
+    #[test]
+    fn memory_reclassification_policy_validates_scope_and_sensitive_confirmation() {
+        assert_eq!(MemoryReclassificationPolicy::resolve_current_scope_kind("team").unwrap(), ContextScopeKind::Team);
+        assert!(MemoryReclassificationPolicy::resolve_current_scope_kind("workspace").is_err());
+        assert!(
+            MemoryReclassificationPolicy::ensure_sensitive_scope_change_allowed("secret_detected", false, false,)
+                .is_err()
+        );
+        assert!(
+            MemoryReclassificationPolicy::ensure_sensitive_scope_change_allowed("secret_detected", false, true).is_ok()
+        );
+        assert!(
+            MemoryReclassificationPolicy::ensure_sensitive_scope_change_allowed("secret_detected", true, false).is_ok()
+        );
     }
 
     #[test]

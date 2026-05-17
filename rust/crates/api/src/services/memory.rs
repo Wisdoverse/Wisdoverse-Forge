@@ -1,8 +1,8 @@
 //! Governed memory item service.
 
 use agentforge_core::{
-    AppResult, ErrorKind, MemoryItemId, ProjectId, ScopeKind, ScopedRead, ScopedWrite, ScopedWriteError, TeamId,
-    TenantScope, WorkspaceId,
+    AppResult, ErrorKind, MemoryItemId, ProjectId, ScopedRead, ScopedWrite, ScopedWriteError, TeamId, TenantScope,
+    WorkspaceId,
 };
 use agentforge_db::entities::MemoryItem;
 use chrono::{DateTime, Utc};
@@ -15,8 +15,8 @@ use crate::domain::context_governance::{
     ContextAuditEvent, ContextGovernancePolicy, ContextScopeKind, ScopeExpansionRequest,
 };
 use crate::domain::memory::{
-    MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryListPage, MemoryScopeKind, MemoryTitle,
-    MemoryTtlPolicy, MemoryVisibility, PreparedMemoryContent,
+    MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryListPage, MemoryReclassificationPolicy,
+    MemoryScopeKind, MemoryScopeTargetPolicy, MemoryTitle, MemoryTtlPolicy, MemoryVisibility, PreparedMemoryContent,
 };
 use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository, UpdateMemoryRecord};
 use crate::repositories::resource_permission::ResourcePermissionRepository;
@@ -282,8 +282,7 @@ impl MemoryService {
         let mut tx = self.repo.pool().begin().await?;
         let current = MemoryRepository::lock_visible_for_update(&mut tx, &proof, id).await?;
         self.require_owner_or_manager(scope, &current).await?;
-        let from_kind = ContextScopeKind::from_label(&current.scope_kind)
-            .ok_or_else(|| ErrorKind::Validation(format!("unsupported memory scope kind `{}`", current.scope_kind)))?;
+        let from_kind = MemoryReclassificationPolicy::resolve_current_scope_kind(&current.scope_kind)?;
         let to_kind = ContextScopeKind::from_scope_kind(target.kind());
         if let Err(rejection) = ContextGovernancePolicy::gate_scope_expansion(ScopeExpansionRequest {
             from_kind,
@@ -305,12 +304,11 @@ impl MemoryService {
             tx.commit().await?;
             return Err(rejection.into_app_error());
         }
-        if current.sensitivity == "secret_detected" && !current.content_redacted && !input.confirm_sensitive {
-            return Err(ErrorKind::Unprocessable(
-                "secret-detected memory requires explicit redaction before scope change".into(),
-            )
-            .into());
-        }
+        MemoryReclassificationPolicy::ensure_sensitive_scope_change_allowed(
+            &current.sensitivity,
+            current.content_redacted,
+            input.confirm_sensitive,
+        )?;
         let item = MemoryRepository::reclassify_scope_in_tx(&mut tx, id, &target).await?;
         self.emit_memory_audit(
             &mut tx,
@@ -411,13 +409,7 @@ impl MemoryService {
         scope_kind: MemoryScopeKind,
         scope_id: Option<Uuid>,
     ) -> AppResult<ScopedWrite> {
-        let scope_kind = scope_kind.as_scope_kind();
-        let scope_id = match scope_kind {
-            ScopeKind::User => scope_id.unwrap_or_else(|| proof.user_id().as_uuid()),
-            ScopeKind::Team | ScopeKind::Project => scope_id.ok_or_else(|| {
-                ErrorKind::Validation(format!("scope_id is required for {} memory", scope_kind.as_label()))
-            })?,
-        };
+        let (scope_kind, scope_id) = MemoryScopeTargetPolicy::resolve(scope_kind, scope_id, proof.user_id().as_uuid())?;
         let write = ScopedWrite::try_new(scope_kind, scope_id, proof.clone()).map_err(scoped_write_error)?;
         if !self.repo.resource_belongs_to_scope(proof, scope_kind, scope_id, workspace_id).await? {
             return Err(ErrorKind::Forbidden.into());
