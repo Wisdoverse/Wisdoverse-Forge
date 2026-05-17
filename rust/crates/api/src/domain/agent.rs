@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 
 use agentforge_core::{AgentStatus, AppResult, CliToolKind, ErrorKind};
+use uuid::Uuid;
 
 use crate::domain::credential::ContainerCliCredentialPolicy;
 
@@ -96,6 +97,108 @@ impl AgentContainerImagePolicy {
         }
 
         Err(AgentContainerImageRejection::MissingContainerShell)
+    }
+}
+
+/// Environment input for a spawned agent container.
+pub(crate) struct AgentContainerEnvInput<'a> {
+    pub(crate) agent_id: Uuid,
+    pub(crate) org_id: Uuid,
+    pub(crate) cli_tool: Option<&'a str>,
+    pub(crate) cli_model: Option<&'a str>,
+    pub(crate) codex_default_model: Option<&'a str>,
+    pub(crate) nats_base_url: Option<&'a str>,
+    pub(crate) nats_connect_password: &'a str,
+    pub(crate) container_server_url: Option<&'a str>,
+    pub(crate) workspace_host_path: Option<&'a str>,
+    pub(crate) hmac_secret: &'a str,
+    pub(crate) context_injection_enabled: bool,
+}
+
+/// Agent container environment policy.
+///
+/// The sidecar worker bridge only starts when the spawned container receives
+/// the expected identity, HMAC, and NATS env vars. Shared NATS credentials from
+/// deployment config are stripped before interpolation so the container only
+/// receives its own per-agent connect identity.
+pub(crate) struct AgentContainerEnvPolicy;
+
+impl AgentContainerEnvPolicy {
+    /// Pick the NATS base URL (scheme + host + port, without user-info) for
+    /// per-agent credential interpolation.
+    pub(crate) fn pick_nats_base_url(agent_url: Option<&str>, backend_url: Option<&str>) -> Option<String> {
+        let source = agent_url.or(backend_url)?;
+        Self::strip_nats_url_user_info(source)
+    }
+
+    /// Strip any `user:password@` user-info segment from a `nats://...` URL.
+    pub(crate) fn strip_nats_url_user_info(url: &str) -> Option<String> {
+        let (scheme, rest) = url.split_once("://")?;
+        let host_part = match rest.rsplit_once('@') {
+            Some((_user_info, host)) => host,
+            None => rest,
+        };
+        Some(format!("{scheme}://{host_part}"))
+    }
+
+    pub(crate) fn build(input: AgentContainerEnvInput<'_>) -> Vec<String> {
+        let mut env = vec![
+            format!("AGENT_ID={}", input.agent_id),
+            format!("ORG_ID={}", input.org_id),
+            format!("HMAC_SECRET={}", input.hmac_secret),
+            format!("AGENTFORGE_CONTEXT_INJECTION_ENABLED={}", input.context_injection_enabled),
+        ];
+        if let Some(base) = input.nats_base_url
+            && let Some((scheme, host)) = base.split_once("://")
+        {
+            let url = format!("{scheme}://{}:{}@{host}", input.agent_id, input.nats_connect_password);
+            env.push(format!("AGENTFORGE_NATS_URL={url}"));
+            env.push(format!("NATS_URL={url}"));
+        }
+        if let Some(url) = input.container_server_url {
+            env.push(format!("AGENTFORGE_SERVER_URL={url}"));
+        }
+        if let Some(path) = input.workspace_host_path {
+            env.push(format!("AGENTFORGE_WORKSPACE_HOST_PATH={path}"));
+        }
+        if let Some(tool) = input.cli_tool.and_then(|tool| CliToolKind::parse_legacy(tool).ok()) {
+            env.push(format!("CLI_TOOL={}", tool.as_str()));
+        }
+        if let Some(model) = Self::cli_model_env_value(input.cli_tool, input.cli_model, input.codex_default_model) {
+            env.push(format!("AGENTFORGE_CLI_MODEL={model}"));
+        }
+        env
+    }
+
+    /// CREDS_DIR per Container CLI matches the canonical paths in
+    /// `docker/scripts/agent-entrypoint.sh`.
+    pub(crate) fn creds_dir_for_cli_tool(cli_tool: &str) -> Option<&'static str> {
+        match CliToolKind::parse_legacy(cli_tool).ok()? {
+            CliToolKind::Claude => Some("/home/agent/.claude"),
+            CliToolKind::Gemini => Some("/home/agent/.gemini"),
+            CliToolKind::Opencode => Some("/home/agent/.local/share/opencode"),
+            CliToolKind::Codex => Some("/home/agent/.codex"),
+        }
+    }
+
+    fn cli_model_env_value(
+        cli_tool: Option<&str>,
+        model: Option<&str>,
+        codex_default_model: Option<&str>,
+    ) -> Option<String> {
+        let tool = cli_tool.and_then(|tool| CliToolKind::parse_legacy(tool).ok())?;
+        let explicit = model
+            .map(str::trim)
+            .filter(|model| !model.is_empty())
+            .filter(|model| !model.starts_with("agentforge-agent:"))
+            .filter(|model| CliToolKind::parse_legacy(model).is_err());
+        if let Some(model) = explicit {
+            return Some(model.to_string());
+        }
+        if tool == CliToolKind::Codex {
+            return codex_default_model.map(str::trim).filter(|model| !model.is_empty()).map(str::to_string);
+        }
+        None
     }
 }
 
@@ -358,6 +461,188 @@ mod tests {
             AgentContainerImagePolicy::resolve(None, None),
             Err(AgentContainerImageRejection::MissingContainerShell)
         ));
+    }
+
+    #[test]
+    fn agent_container_env_strips_user_info_from_nats_url() {
+        assert_eq!(
+            AgentContainerEnvPolicy::strip_nats_url_user_info("nats://backend:pw@nats:4222").unwrap(),
+            "nats://nats:4222"
+        );
+        assert_eq!(AgentContainerEnvPolicy::strip_nats_url_user_info("nats://nats:4222").unwrap(), "nats://nats:4222");
+        assert_eq!(AgentContainerEnvPolicy::strip_nats_url_user_info("not-a-url"), None);
+    }
+
+    #[test]
+    fn agent_container_env_picks_agent_nats_url_before_backend_url() {
+        let agent = Some("nats://agent:pw1@nats:4222");
+        let backend = Some("nats://backend:pw2@nats:4222");
+
+        assert_eq!(AgentContainerEnvPolicy::pick_nats_base_url(agent, backend).unwrap(), "nats://nats:4222");
+        assert_eq!(
+            AgentContainerEnvPolicy::pick_nats_base_url(None, Some("nats://backend:pw@nats:4222")).unwrap(),
+            "nats://nats:4222"
+        );
+        assert_eq!(AgentContainerEnvPolicy::pick_nats_base_url(None, None), None);
+    }
+
+    #[test]
+    fn agent_container_env_includes_identity_and_hmac_only_without_nats() {
+        let agent = Uuid::new_v4();
+        let org = Uuid::new_v4();
+        let nats_credential = ["pw", "-ignored"].concat();
+        let hmac_value = ["secret", "-xyz"].concat();
+        let env = AgentContainerEnvPolicy::build(AgentContainerEnvInput {
+            agent_id: agent,
+            org_id: org,
+            cli_tool: Some("claude"),
+            cli_model: None,
+            codex_default_model: None,
+            nats_base_url: None,
+            nats_connect_password: &nats_credential,
+            container_server_url: None,
+            workspace_host_path: None,
+            hmac_secret: &hmac_value,
+            context_injection_enabled: false,
+        });
+
+        assert!(env.contains(&format!("AGENT_ID={agent}")));
+        assert!(env.contains(&format!("ORG_ID={org}")));
+        assert!(env.contains(&format!("HMAC_SECRET={hmac_value}")));
+        assert!(env.contains(&"AGENTFORGE_CONTEXT_INJECTION_ENABLED=false".to_string()));
+        assert!(env.contains(&"CLI_TOOL=claude".to_string()));
+        assert!(!env.iter().any(|v| v.starts_with("AGENTFORGE_NATS_URL=")));
+        assert!(!env.iter().any(|v| v.starts_with("NATS_URL=")));
+        assert!(!env.iter().any(|v| v.starts_with("AGENTFORGE_SERVER_URL=")));
+    }
+
+    #[test]
+    fn agent_container_env_injects_per_agent_nats_url() {
+        let agent = Uuid::parse_str("11111111-2222-3333-4444-555555555555").unwrap();
+        let nats_credential = ["pw", "-abc", "-123"].concat();
+        let env = AgentContainerEnvPolicy::build(AgentContainerEnvInput {
+            agent_id: agent,
+            org_id: Uuid::new_v4(),
+            cli_tool: Some("codex"),
+            cli_model: Some("gpt-5.4-mini"),
+            codex_default_model: Some("gpt-5.5"),
+            nats_base_url: Some("nats://nats:4222"),
+            nats_connect_password: &nats_credential,
+            container_server_url: Some("http://agentforge:4003"),
+            workspace_host_path: Some("/data/agentforge/workspaces/orgs/o/workspaces/w/projects"),
+            hmac_secret: "hmac",
+            context_injection_enabled: true,
+        });
+        let expected = format!("nats://11111111-2222-3333-4444-555555555555:{nats_credential}@nats:4222");
+
+        assert!(env.contains(&format!("AGENTFORGE_NATS_URL={expected}")), "missing AGENTFORGE_NATS_URL in {env:?}");
+        assert!(env.contains(&format!("NATS_URL={expected}")), "missing NATS_URL in {env:?}");
+        assert!(env.contains(&"AGENTFORGE_SERVER_URL=http://agentforge:4003".to_string()));
+        assert!(env.contains(
+            &"AGENTFORGE_WORKSPACE_HOST_PATH=/data/agentforge/workspaces/orgs/o/workspaces/w/projects".to_string()
+        ));
+        assert!(env.contains(&"AGENTFORGE_CONTEXT_INJECTION_ENABLED=true".to_string()));
+        assert!(env.contains(&"CLI_TOOL=codex".to_string()));
+        assert!(env.contains(&"AGENTFORGE_CLI_MODEL=gpt-5.4-mini".to_string()));
+    }
+
+    #[test]
+    fn agent_container_env_nats_url_never_leaks_shared_credentials() {
+        let shared_url = ["nats://backend:", "super-secret", "@nats:4222"].concat();
+        let base = AgentContainerEnvPolicy::pick_nats_base_url(None, Some(&shared_url));
+        let nats_credential = ["per-agent", "-pw"].concat();
+        let env = AgentContainerEnvPolicy::build(AgentContainerEnvInput {
+            agent_id: Uuid::new_v4(),
+            org_id: Uuid::new_v4(),
+            cli_tool: Some("claude"),
+            cli_model: None,
+            codex_default_model: Some("gpt-5.5"),
+            nats_base_url: base.as_deref(),
+            nats_connect_password: &nats_credential,
+            container_server_url: None,
+            workspace_host_path: None,
+            hmac_secret: "hmac",
+            context_injection_enabled: false,
+        });
+
+        for entry in &env {
+            assert!(!entry.contains("backend:super-secret"), "leaked shared backend creds in env entry {entry}");
+            assert!(!entry.contains("super-secret@"), "leaked shared backend creds in env entry {entry}");
+        }
+    }
+
+    #[test]
+    fn agent_container_env_skips_unknown_cli_tool() {
+        let nats_credential = "pw".to_string();
+        let env = AgentContainerEnvPolicy::build(AgentContainerEnvInput {
+            agent_id: Uuid::new_v4(),
+            org_id: Uuid::new_v4(),
+            cli_tool: None,
+            cli_model: Some("gpt-5.4-mini"),
+            codex_default_model: Some("gpt-5.5"),
+            nats_base_url: None,
+            nats_connect_password: &nats_credential,
+            container_server_url: None,
+            workspace_host_path: None,
+            hmac_secret: "hmac",
+            context_injection_enabled: false,
+        });
+
+        assert!(!env.iter().any(|v| v.starts_with("CLI_TOOL=")));
+        assert!(!env.iter().any(|v| v.starts_with("AGENTFORGE_CLI_MODEL=")));
+    }
+
+    #[test]
+    fn agent_container_env_uses_codex_default_for_legacy_image_model_values() {
+        let nats_credential = "pw".to_string();
+        let env = AgentContainerEnvPolicy::build(AgentContainerEnvInput {
+            agent_id: Uuid::new_v4(),
+            org_id: Uuid::new_v4(),
+            cli_tool: Some("codex"),
+            cli_model: Some("agentforge-agent:codex"),
+            codex_default_model: Some("gpt-5.5"),
+            nats_base_url: None,
+            nats_connect_password: &nats_credential,
+            container_server_url: None,
+            workspace_host_path: None,
+            hmac_secret: "hmac",
+            context_injection_enabled: false,
+        });
+
+        assert!(env.contains(&"AGENTFORGE_CLI_MODEL=gpt-5.5".to_string()));
+    }
+
+    #[test]
+    fn agent_container_env_canonicalizes_legacy_cli_tool_values() {
+        let nats_credential = "pw".to_string();
+        let env = AgentContainerEnvPolicy::build(AgentContainerEnvInput {
+            agent_id: Uuid::new_v4(),
+            org_id: Uuid::new_v4(),
+            cli_tool: Some(" CODEX "),
+            cli_model: None,
+            codex_default_model: Some("gpt-5.5"),
+            nats_base_url: None,
+            nats_connect_password: &nats_credential,
+            container_server_url: None,
+            workspace_host_path: None,
+            hmac_secret: "hmac",
+            context_injection_enabled: false,
+        });
+
+        assert!(env.contains(&"CLI_TOOL=codex".to_string()));
+        assert!(env.contains(&"AGENTFORGE_CLI_MODEL=gpt-5.5".to_string()));
+    }
+
+    #[test]
+    fn agent_container_env_creds_dir_matches_entrypoint_paths() {
+        assert_eq!(AgentContainerEnvPolicy::creds_dir_for_cli_tool("claude"), Some("/home/agent/.claude"));
+        assert_eq!(AgentContainerEnvPolicy::creds_dir_for_cli_tool("gemini"), Some("/home/agent/.gemini"));
+        assert_eq!(
+            AgentContainerEnvPolicy::creds_dir_for_cli_tool("opencode"),
+            Some("/home/agent/.local/share/opencode")
+        );
+        assert_eq!(AgentContainerEnvPolicy::creds_dir_for_cli_tool("codex"), Some("/home/agent/.codex"));
+        assert_eq!(AgentContainerEnvPolicy::creds_dir_for_cli_tool("unknown"), None);
     }
 
     #[test]
