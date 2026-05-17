@@ -102,6 +102,30 @@ impl ContextFeedbackPolicy {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ContextCandidateManualRejectionAudit {
+    reason: Option<String>,
+    self_approval: bool,
+}
+
+impl ContextCandidateManualRejectionAudit {
+    pub(crate) fn new(reason: Option<String>, self_approval: bool) -> Self {
+        Self { reason, self_approval }
+    }
+
+    pub(crate) fn audit_action(&self) -> &'static str {
+        "governance.context.candidate.rejected"
+    }
+
+    pub(crate) fn audit_payload(&self, item_kind: &str) -> Value {
+        json!({
+            "item_kind": item_kind,
+            "reason": self.reason,
+            "self_approval": self.self_approval
+        })
+    }
+}
+
 pub(crate) fn context_candidate_subject(org_id: Uuid, scope_kind: &str, scope_id: Uuid, event: &str) -> String {
     format!("broadcast.{org_id}.scope.{scope_kind}.{scope_id}.context_candidate.{event}")
 }
@@ -710,6 +734,17 @@ mod tests {
         assert_eq!(normalize_feedback_note(Some("  useful  ".to_string())).unwrap().as_deref(), Some("useful"));
         assert_eq!(normalize_feedback_note(Some("   ".to_string())).unwrap(), None);
         assert!(normalize_feedback_note(Some("x".repeat(4001))).is_err());
+    }
+
+    #[test]
+    fn manual_rejection_audit_owns_action_and_payload() {
+        let audit = ContextCandidateManualRejectionAudit::new(Some("not useful".to_string()), true);
+        let payload = audit.audit_payload("memory");
+
+        assert_eq!(audit.audit_action(), "governance.context.candidate.rejected");
+        assert_eq!(payload["item_kind"], "memory");
+        assert_eq!(payload["reason"], "not useful");
+        assert_eq!(payload["self_approval"], true);
     }
 
     #[test]
