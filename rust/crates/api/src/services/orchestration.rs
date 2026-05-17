@@ -195,33 +195,8 @@ impl OrchestrationService {
                 .await;
         }
 
-        // Unassigned tasks land in `backlog` — a draft state that requires an
-        // explicit promotion (drag to "Queued" / pick assignee) before dispatch.
-        // This matches the kanban's mental model: backlog = "not ready to run yet".
-        //
-        // Exceptions: missing declared inputs, human approval, or an unfinished
-        // parent all start in `blocked` with a concrete reason. Dependency
-        // blocks transition to `queued` when the parent completes; approval
-        // blocks transition through the explicit approve endpoint.
-        let (initial_status, assigned_agent) = if !missing_inputs.is_empty()
-            || requires_approval
-            || BlockedTaskPolicy::needs_dependency_block(parent_status.as_deref())
-        {
-            ("blocked", None)
-        } else {
-            ("backlog", None)
-        };
-
-        // The initial block stamps reason + metadata inside the same INSERT as
-        // the status so a partial write can never leave `status='blocked'` with
-        // a NULL `blocked_reason` — that combination would leak past
-        // `next_dispatchable`. Dependency metadata `{pending: 1}` reflects the
-        // single-parent schema; multi-upstream blocking needs a dependency table.
-        let (initial_blocked_reason, initial_blocked_metadata) = BlockedTaskPolicy::initial_state(
-            &missing_inputs,
-            requires_approval,
-            BlockedTaskPolicy::needs_dependency_block(parent_status.as_deref()),
-        );
+        let initial_state =
+            TaskCreationPolicy::initial_unassigned_state(&missing_inputs, requires_approval, parent_status.as_deref());
 
         let task = self
             .task_repo
@@ -233,11 +208,11 @@ impl OrchestrationService {
                     description,
                     priority,
                     params: params.as_ref(),
-                    assigned_agent_id: assigned_agent,
+                    assigned_agent_id: None,
                     parent_task_id,
-                    initial_status,
-                    initial_blocked_reason,
-                    initial_blocked_metadata,
+                    initial_status: initial_state.initial_status,
+                    initial_blocked_reason: initial_state.initial_blocked_reason,
+                    initial_blocked_metadata: initial_state.initial_blocked_metadata,
                     requires_approval,
                 },
             )
