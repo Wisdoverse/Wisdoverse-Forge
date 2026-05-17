@@ -235,6 +235,26 @@ impl ContextSourceRunRejection {
     }
 }
 
+/// A candidate owner attempted to approve their own proposal into a wider scope.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ContextSelfApprovalRejection {
+    target_scope_kind: ScopeKind,
+}
+
+impl ContextSelfApprovalRejection {
+    pub(crate) fn audit_payload(self, item_kind: &str) -> Value {
+        json!({
+            "item_kind": item_kind,
+            "reason": "self_approval_wider_scope",
+            "scope_kind": self.target_scope_kind.as_label()
+        })
+    }
+
+    pub(crate) fn into_app_error(self) -> AppError {
+        ErrorKind::Forbidden.into()
+    }
+}
+
 pub(crate) struct ContextCandidatePolicy;
 
 impl ContextCandidatePolicy {
@@ -263,6 +283,16 @@ impl ContextCandidatePolicy {
             })?,
         };
         Ok((scope_kind, scope_id))
+    }
+
+    pub(crate) fn ensure_self_approval_scope(
+        self_approval: bool,
+        target_scope_kind: ScopeKind,
+    ) -> Result<(), ContextSelfApprovalRejection> {
+        if self_approval && target_scope_kind != ScopeKind::User {
+            return Err(ContextSelfApprovalRejection { target_scope_kind });
+        }
+        Ok(())
     }
 
     pub(crate) fn prepare_memory_candidate(
@@ -628,6 +658,21 @@ mod tests {
             (ScopeKind::User, user_id)
         );
         assert!(ContextCandidatePolicy::resolve_approval_scope(MemoryScopeKind::Team, None, user_id).is_err());
+    }
+
+    #[test]
+    fn candidate_approval_policy_rejects_self_approval_to_wider_scope() {
+        assert!(ContextCandidatePolicy::ensure_self_approval_scope(false, ScopeKind::Team).is_ok());
+        assert!(ContextCandidatePolicy::ensure_self_approval_scope(true, ScopeKind::User).is_ok());
+
+        let rejection = ContextCandidatePolicy::ensure_self_approval_scope(true, ScopeKind::Project)
+            .expect_err("self-approval into project scope should reject");
+        let payload = rejection.audit_payload("memory");
+
+        assert_eq!(payload["item_kind"], "memory");
+        assert_eq!(payload["reason"], "self_approval_wider_scope");
+        assert_eq!(payload["scope_kind"], "project");
+        assert!(matches!(rejection.into_app_error().kind, ErrorKind::Forbidden));
     }
 
     #[test]
