@@ -10,7 +10,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use agentforge_core::context_envelope::ContextEnvelope;
-use agentforge_core::orchestration_protocol::{DEFAULT_ASSIGNMENT_LEASE_SECS, TaskAssignment};
+use agentforge_core::orchestration_protocol::DEFAULT_ASSIGNMENT_LEASE_SECS;
 use agentforge_core::{AgentId, AppResult, ErrorKind, TenantScope};
 use agentforge_db::entities::{OrchestrationTask, Participant, TaskRun};
 use agentforge_db::inbox_notifications::{TaskOwnerNotificationKind, upsert_task_owner_lifecycle_notification_in_tx};
@@ -22,8 +22,9 @@ use uuid::Uuid;
 use crate::domain::context_resolver::{ContextTaskSnapshot, ResolvedContext};
 use crate::domain::orchestration::{
     BlockedTaskPolicy, ParticipantAvailabilityAction, ParticipantAvailabilityPolicy, ParticipantName,
-    ParticipantStatusPolicy, QuotaBlockPolicy, TaskCreationPolicy, TaskLifecyclePolicy, TaskListPage, TaskPatchAction,
-    TaskPatchPolicy, TaskPriority, TaskStatusPolicy, TaskTitle,
+    ParticipantStatusPolicy, QuotaBlockPolicy, TaskAssignmentPolicy, TaskAssignmentSnapshot, TaskCreationPolicy,
+    TaskInstruction, TaskLifecyclePolicy, TaskListPage, TaskPatchAction, TaskPatchPolicy, TaskPriority,
+    TaskRunCapabilityProfile, TaskStatusPolicy, TaskTitle,
 };
 use crate::repositories::orchestration::{
     CreateTaskRow, OrchestrationTaskRepository, OrchestrationTaskStats, ParticipantRepository, UpdateTaskRow,
@@ -504,7 +505,7 @@ impl OrchestrationService {
                 scope,
                 &task,
                 &idempotency_key,
-                capability_profile_from_participant(participant, resolved_context.as_ref()),
+                TaskRunCapabilityProfile::from_assignment(&participant.capabilities, resolved_context.as_ref()),
             )
             .await
         {
@@ -535,7 +536,7 @@ impl OrchestrationService {
                 }
             }
         }
-        let assignment = assignment_from_task(&task, context_envelope)?;
+        let assignment = TaskAssignmentPolicy::build(task_assignment_snapshot(&task), context_envelope)?;
         if let Err(err) = insert_assignment_outbox_in_tx(&mut tx, scope.org_id().as_uuid(), task.id, &assignment).await
         {
             let _ = tx.rollback().await;
@@ -809,17 +810,9 @@ impl OrchestrationService {
             _ => None,
         };
 
-        let params = task
-            .params
-            .as_ref()
-            .map(|p| TaskParams {
-                task: p.get("task").and_then(|v| v.as_str()).unwrap_or(&task.title).to_string(),
-                message: p.get("message").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            })
-            .unwrap_or_else(|| TaskParams {
-                task: task.title.clone(),
-                message: task.description.clone().unwrap_or_default(),
-            });
+        let (task_text, message) =
+            TaskInstruction::from_params(&task.title, task.description.as_deref(), task.params.as_ref()).into_parts();
+        let params = TaskParams { task: task_text, message };
 
         let error = task
             .error
@@ -968,7 +961,7 @@ impl OrchestrationService {
                 scope,
                 &task,
                 &idempotency_key,
-                capability_profile_from_participant(&participant, resolved_context.as_ref()),
+                TaskRunCapabilityProfile::from_assignment(&participant.capabilities, resolved_context.as_ref()),
             )
             .await
         {
@@ -999,7 +992,7 @@ impl OrchestrationService {
                 }
             }
         }
-        let assignment = assignment_from_task(&task, context_envelope)?;
+        let assignment = TaskAssignmentPolicy::build(task_assignment_snapshot(&task), context_envelope)?;
         if let Err(err) = insert_assignment_outbox_in_tx(&mut tx, scope.org_id().as_uuid(), task.id, &assignment).await
         {
             let _ = tx.rollback().await;
@@ -1056,61 +1049,16 @@ impl OrchestrationService {
     }
 }
 
-fn capability_profile_from_participant(
-    participant: &Participant,
-    resolved_context: Option<&ResolvedContext>,
-) -> serde_json::Value {
-    match resolved_context {
-        Some(resolved_context) => json!({
-            "participant_capabilities": participant.capabilities,
-            "runtime_capability": resolved_context.capability,
-            "context_resolution": {
-                "envelope_version": resolved_context.envelope_version,
-                "applied": resolved_context.applied,
-                "suggested": resolved_context.suggested,
-                "degradation": resolved_context.degradation,
-            }
-        }),
-        None => json!({
-            "capabilities": participant.capabilities,
-        }),
-    }
-}
-
-fn assignment_from_task(
-    task: &OrchestrationTask,
-    context_envelope: Option<ContextEnvelope>,
-) -> AppResult<TaskAssignment> {
-    let agent_id = task
-        .assigned_agent_id
-        .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("task {} missing assigned_agent_id", task.id)))?;
-    let delivery_id = task
-        .last_assignment_id
-        .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("task {} missing last_assignment_id", task.id)))?;
-    let lease_expires_at = task
-        .lease_expires_at
-        .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("task {} missing lease_expires_at", task.id)))?;
-    let (task_text, message) = task
-        .params
-        .as_ref()
-        .map(|p| {
-            (
-                p.get("task").and_then(|v| v.as_str()).unwrap_or(&task.title).to_string(),
-                p.get("message").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            )
-        })
-        .unwrap_or_else(|| (task.title.clone(), task.description.clone().unwrap_or_default()));
-
-    Ok(TaskAssignment {
-        delivery_id: Some(delivery_id),
-        attempt: Some(task.attempt),
-        lease_expires_at: Some(lease_expires_at),
+fn task_assignment_snapshot(task: &OrchestrationTask) -> TaskAssignmentSnapshot<'_> {
+    TaskAssignmentSnapshot {
         task_id: task.id,
-        agent_id: agent_id.as_uuid(),
-        title: task.title.clone(),
-        task: task_text,
-        message,
-        priority: task.priority.clone(),
-        context_envelope,
-    })
+        assigned_agent_id: task.assigned_agent_id,
+        last_assignment_id: task.last_assignment_id,
+        lease_expires_at: task.lease_expires_at,
+        attempt: task.attempt,
+        title: &task.title,
+        description: task.description.as_deref(),
+        params: task.params.as_ref(),
+        priority: &task.priority,
+    }
 }

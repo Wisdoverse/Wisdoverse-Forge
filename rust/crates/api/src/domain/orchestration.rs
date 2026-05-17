@@ -4,9 +4,14 @@
 //! that are independent of SQL repositories, transactions, context injection,
 //! and outbox delivery.
 
+use agentforge_core::context_envelope::ContextEnvelope;
+use agentforge_core::orchestration_protocol::TaskAssignment;
 use agentforge_core::{AgentId, AppResult, ErrorKind};
+use chrono::{DateTime, Utc};
 use serde_json::json;
 use uuid::Uuid;
+
+use crate::domain::context_resolver::ResolvedContext;
 
 const VALID_TASK_STATUSES: &[&str] = &["backlog", "queued", "working", "blocked", "completed", "failed", "canceled"];
 const KANBAN_DROP_STATUSES: &[&str] = &["backlog", "queued", "working", "blocked", "completed"];
@@ -79,6 +84,103 @@ impl TaskCreationPolicy {
             .into());
         }
         Ok(())
+    }
+}
+
+/// User-facing task instruction carried by summary responses and assignment
+/// delivery. Structured params win, with legacy title/description fallback.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TaskInstruction {
+    task: String,
+    message: String,
+}
+
+impl TaskInstruction {
+    pub(crate) fn from_params(title: &str, description: Option<&str>, params: Option<&serde_json::Value>) -> Self {
+        params
+            .map(|p| Self {
+                task: p.get("task").and_then(|v| v.as_str()).unwrap_or(title).to_string(),
+                message: p.get("message").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            })
+            .unwrap_or_else(|| Self { task: title.to_string(), message: description.unwrap_or_default().to_string() })
+    }
+
+    pub(crate) fn into_parts(self) -> (String, String) {
+        (self.task, self.message)
+    }
+}
+
+/// Capability profile recorded on each task run.
+pub(crate) struct TaskRunCapabilityProfile;
+
+impl TaskRunCapabilityProfile {
+    pub(crate) fn from_assignment(
+        participant_capabilities: &[String],
+        resolved_context: Option<&ResolvedContext>,
+    ) -> serde_json::Value {
+        match resolved_context {
+            Some(resolved_context) => json!({
+                "participant_capabilities": participant_capabilities,
+                "runtime_capability": resolved_context.capability,
+                "context_resolution": {
+                    "envelope_version": resolved_context.envelope_version,
+                    "applied": resolved_context.applied,
+                    "suggested": resolved_context.suggested,
+                    "degradation": resolved_context.degradation,
+                }
+            }),
+            None => json!({
+                "capabilities": participant_capabilities,
+            }),
+        }
+    }
+}
+
+/// Minimal task snapshot needed to build the worker assignment protocol.
+pub(crate) struct TaskAssignmentSnapshot<'a> {
+    pub(crate) task_id: Uuid,
+    pub(crate) assigned_agent_id: Option<AgentId>,
+    pub(crate) last_assignment_id: Option<Uuid>,
+    pub(crate) lease_expires_at: Option<DateTime<Utc>>,
+    pub(crate) attempt: i32,
+    pub(crate) title: &'a str,
+    pub(crate) description: Option<&'a str>,
+    pub(crate) params: Option<&'a serde_json::Value>,
+    pub(crate) priority: &'a str,
+}
+
+/// Assignment delivery protocol policy.
+pub(crate) struct TaskAssignmentPolicy;
+
+impl TaskAssignmentPolicy {
+    pub(crate) fn build(
+        snapshot: TaskAssignmentSnapshot<'_>,
+        context_envelope: Option<ContextEnvelope>,
+    ) -> AppResult<TaskAssignment> {
+        let agent_id = snapshot.assigned_agent_id.ok_or_else(|| {
+            ErrorKind::Internal(anyhow::anyhow!("task {} missing assigned_agent_id", snapshot.task_id))
+        })?;
+        let delivery_id = snapshot.last_assignment_id.ok_or_else(|| {
+            ErrorKind::Internal(anyhow::anyhow!("task {} missing last_assignment_id", snapshot.task_id))
+        })?;
+        let lease_expires_at = snapshot.lease_expires_at.ok_or_else(|| {
+            ErrorKind::Internal(anyhow::anyhow!("task {} missing lease_expires_at", snapshot.task_id))
+        })?;
+        let instruction = TaskInstruction::from_params(snapshot.title, snapshot.description, snapshot.params);
+        let (task, message) = instruction.into_parts();
+
+        Ok(TaskAssignment {
+            delivery_id: Some(delivery_id),
+            attempt: Some(snapshot.attempt),
+            lease_expires_at: Some(lease_expires_at),
+            task_id: snapshot.task_id,
+            agent_id: agent_id.as_uuid(),
+            title: snapshot.title.to_string(),
+            task,
+            message,
+            priority: snapshot.priority.to_string(),
+            context_envelope,
+        })
     }
 }
 
@@ -587,6 +689,118 @@ mod tests {
         assert_eq!(TaskListPage::new(101, 50).limit(), 100);
         assert_eq!(TaskListPage::new(20, -1).offset(), 0);
         assert_eq!(TaskListPage::new(20, 50).offset(), 50);
+    }
+
+    #[test]
+    fn task_instruction_prefers_structured_params() {
+        let instruction = TaskInstruction::from_params(
+            "Fallback title",
+            Some("Fallback description"),
+            Some(&json!({ "task": "Run the analysis", "message": "Use the deep model" })),
+        );
+
+        assert_eq!(instruction.into_parts(), ("Run the analysis".to_string(), "Use the deep model".to_string()));
+    }
+
+    #[test]
+    fn task_instruction_uses_legacy_fallback_without_params() {
+        let instruction = TaskInstruction::from_params("Fallback title", Some("Fallback description"), None);
+
+        assert_eq!(instruction.into_parts(), ("Fallback title".to_string(), "Fallback description".to_string()));
+    }
+
+    #[test]
+    fn task_instruction_keeps_empty_structured_message_when_params_exist() {
+        let instruction =
+            TaskInstruction::from_params("Fallback title", Some("Fallback description"), Some(&json!({})));
+
+        assert_eq!(instruction.into_parts(), ("Fallback title".to_string(), String::new()));
+    }
+
+    #[test]
+    fn task_run_capability_profile_records_plain_participant_capabilities_without_context() {
+        let capabilities = vec!["coding".to_string(), "research".to_string()];
+
+        assert_eq!(
+            TaskRunCapabilityProfile::from_assignment(&capabilities, None),
+            json!({ "capabilities": ["coding", "research"] })
+        );
+    }
+
+    #[test]
+    fn task_run_capability_profile_records_context_resolution_when_available() {
+        let capabilities = vec!["coding".to_string()];
+        let resolved_context = ResolvedContext {
+            applied: Vec::new(),
+            suggested: Vec::new(),
+            capability: agentforge_core::RuntimeCapability::api_default("openai"),
+            degradation: Vec::new(),
+            envelope_version: "2026-05-17".to_string(),
+        };
+
+        let profile = TaskRunCapabilityProfile::from_assignment(&capabilities, Some(&resolved_context));
+
+        assert_eq!(profile["participant_capabilities"], json!(["coding"]));
+        assert_eq!(profile["runtime_capability"]["provider_name"], "openai");
+        assert_eq!(profile["context_resolution"]["envelope_version"], "2026-05-17");
+    }
+
+    #[test]
+    fn task_assignment_policy_builds_delivery_protocol_from_snapshot() {
+        let agent_id = AgentId::from(Uuid::parse_str("11111111-1111-1111-1111-111111111111").unwrap());
+        let task_id = Uuid::parse_str("22222222-2222-2222-2222-222222222222").unwrap();
+        let delivery_id = Uuid::parse_str("33333333-3333-3333-3333-333333333333").unwrap();
+        let lease_expires_at = Utc::now();
+        let assignment = TaskAssignmentPolicy::build(
+            TaskAssignmentSnapshot {
+                task_id,
+                assigned_agent_id: Some(agent_id),
+                last_assignment_id: Some(delivery_id),
+                lease_expires_at: Some(lease_expires_at),
+                attempt: 3,
+                title: "Fallback title",
+                description: Some("Fallback description"),
+                params: Some(&json!({ "task": "Execute", "message": "Use context" })),
+                priority: "high",
+            },
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(assignment.delivery_id, Some(delivery_id));
+        assert_eq!(assignment.attempt, Some(3));
+        assert_eq!(assignment.lease_expires_at, Some(lease_expires_at));
+        assert_eq!(assignment.task_id, task_id);
+        assert_eq!(assignment.agent_id, agent_id.as_uuid());
+        assert_eq!(assignment.title, "Fallback title");
+        assert_eq!(assignment.task, "Execute");
+        assert_eq!(assignment.message, "Use context");
+        assert_eq!(assignment.priority, "high");
+    }
+
+    #[test]
+    fn task_assignment_policy_rejects_incomplete_claim_snapshots() {
+        let task_id = Uuid::parse_str("22222222-2222-2222-2222-222222222222").unwrap();
+        let err = TaskAssignmentPolicy::build(
+            TaskAssignmentSnapshot {
+                task_id,
+                assigned_agent_id: None,
+                last_assignment_id: Some(Uuid::nil()),
+                lease_expires_at: Some(Utc::now()),
+                attempt: 1,
+                title: "Task",
+                description: None,
+                params: None,
+                priority: "normal",
+            },
+            None,
+        )
+        .unwrap_err();
+
+        match err.kind {
+            ErrorKind::Internal(message) => assert!(message.to_string().contains("missing assigned_agent_id")),
+            other => panic!("expected internal error, got {other:?}"),
+        }
     }
 
     #[test]
