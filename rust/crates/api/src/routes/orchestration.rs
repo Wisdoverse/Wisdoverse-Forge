@@ -32,6 +32,7 @@ use uuid::Uuid;
 use agentforge_auth::AuthUser;
 use agentforge_core::{AgentId, AppResult};
 
+use crate::domain::orchestration::TaskAssignmentPatchPolicy;
 use crate::health::{AppState, ContextFeature, ensure_context_feature_enabled};
 use crate::repositories::context_preview::ContextPreviewRepository;
 use crate::repositories::orchestration::{OrchestrationTaskRepository, ParticipantRepository};
@@ -206,16 +207,6 @@ fn make_context_preview_service(state: &AppState) -> ContextPreviewService {
     )
 }
 
-fn parse_optional_agent_id(raw: Option<&str>) -> Result<Option<Option<AgentId>>, String> {
-    match raw {
-        None => Ok(None),
-        Some("") => Ok(Some(None)),
-        Some(s) => Uuid::parse_str(s)
-            .map(|u| Some(Some(AgentId::from(u))))
-            .map_err(|_| format!("assignedTo must be a UUID or empty string, got: {s}")),
-    }
-}
-
 fn extract_params(req: &CreateTaskRequest) -> (String, Option<String>, Option<serde_json::Value>) {
     // Title can come from the top-level field or, for legacy A2A clients, from `params.task`.
     let title = req.title.clone().or_else(|| req.params.as_ref().and_then(|p| p.task.clone())).unwrap_or_default();
@@ -350,8 +341,7 @@ async fn patch_task(
     Json(req): Json<UpdateTaskRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
-    let assigned_to = parse_optional_agent_id(req.assigned_to.as_deref())
-        .map_err(|msg| -> agentforge_core::AppError { agentforge_core::ErrorKind::Validation(msg).into() })?;
+    let assigned_to = TaskAssignmentPatchPolicy::parse(req.assigned_to.as_deref())?;
     let task = service.update_task(&auth.scope, id, req.state, req.priority, req.progress, assigned_to).await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
     broadcast_task_update(&state, &auth, "task.updated", &summary).await;
@@ -602,15 +592,15 @@ mod tests {
     #[test]
     fn parse_assigned_to_handles_unassign_and_uuid() {
         // missing field → leave assignment unchanged
-        assert!(matches!(parse_optional_agent_id(None), Ok(None)));
+        assert!(matches!(TaskAssignmentPatchPolicy::parse(None), Ok(None)));
         // empty string → explicit unassign
-        let unassign = parse_optional_agent_id(Some("")).unwrap();
+        let unassign = TaskAssignmentPatchPolicy::parse(Some("")).unwrap();
         assert!(matches!(unassign, Some(None)));
         // valid uuid → assign
-        let id = parse_optional_agent_id(Some("00000000-0000-0000-0000-000000000001")).unwrap();
+        let id = TaskAssignmentPatchPolicy::parse(Some("00000000-0000-0000-0000-000000000001")).unwrap();
         assert!(matches!(id, Some(Some(_))));
         // garbage → 400
-        assert!(parse_optional_agent_id(Some("not-a-uuid")).is_err());
+        assert!(TaskAssignmentPatchPolicy::parse(Some("not-a-uuid")).is_err());
     }
 
     #[test]
