@@ -364,12 +364,11 @@ impl ContextApprovalService {
             ContextCandidateKind::Skill => {
                 let skill_id = ContextCandidatePolicy::require_skill_target_id(candidate.target_skill_id)?;
                 let current = SkillRepository::lock_org_skill_for_update(&mut tx, scope, skill_id.as_uuid()).await?;
-                if current.state != "candidate" {
-                    return Err(ErrorKind::Conflict(format!("skill {} is not a candidate", current.id)).into());
-                }
-                if current.revoked_at.is_some() {
-                    return Err(ErrorKind::Unprocessable(format!("skill {} is revoked", current.id)).into());
-                }
+                ContextCandidatePolicy::ensure_skill_candidate_approvable(
+                    current.id,
+                    &current.state,
+                    current.revoked_at.is_some(),
+                )?;
                 let from_kind =
                     ContextCandidatePolicy::resolve_skill_candidate_scope_kind(current.scope_kind.as_deref())?;
                 if let Err(rejection) = ContextGovernancePolicy::gate_scope_expansion(ScopeExpansionRequest {
