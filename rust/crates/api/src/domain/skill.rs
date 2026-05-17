@@ -5,6 +5,7 @@
 
 use agentforge_core::{AppError, AppResult, ErrorKind};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
@@ -27,6 +28,89 @@ impl<'a> SkillName<'a> {
 
     pub(crate) fn value(self) -> &'a str {
         self.value
+    }
+}
+
+/// Supported skill visibility scopes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SkillScopeKind {
+    Org,
+    User,
+    Team,
+    Project,
+}
+
+impl SkillScopeKind {
+    pub(crate) fn from_label(value: &str) -> Option<Self> {
+        match value {
+            "org" => Some(Self::Org),
+            "user" => Some(Self::User),
+            "team" => Some(Self::Team),
+            "project" => Some(Self::Project),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn as_label(self) -> &'static str {
+        match self {
+            Self::Org => "org",
+            Self::User => "user",
+            Self::Team => "team",
+            Self::Project => "project",
+        }
+    }
+}
+
+/// Supported skill lifecycle states for create requests.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SkillState {
+    Candidate,
+    Active,
+    Deprecated,
+}
+
+impl SkillState {
+    pub(crate) fn as_label(self) -> &'static str {
+        match self {
+            Self::Candidate => "candidate",
+            Self::Active => "active",
+            Self::Deprecated => "deprecated",
+        }
+    }
+}
+
+/// Resolves the target scope id for a skill write request.
+pub(crate) struct SkillScopeTargetPolicy;
+
+impl SkillScopeTargetPolicy {
+    pub(crate) fn resolve(
+        scope_kind: SkillScopeKind,
+        scope_id: Option<Uuid>,
+        org_id: Uuid,
+        user_id: Uuid,
+    ) -> AppResult<Uuid> {
+        match scope_kind {
+            SkillScopeKind::Org => Ok(scope_id.unwrap_or(org_id)),
+            SkillScopeKind::User => Ok(scope_id.unwrap_or(user_id)),
+            SkillScopeKind::Team | SkillScopeKind::Project => scope_id.ok_or_else(|| {
+                ErrorKind::Validation(format!("scope_id is required for {} skill", scope_kind.as_label())).into()
+            }),
+        }
+    }
+}
+
+/// Resolves create-state defaults and active-publish authorization outcome.
+pub(crate) struct SkillCreateStatePolicy;
+
+impl SkillCreateStatePolicy {
+    pub(crate) fn resolve(state: Option<SkillState>, can_publish_active: bool) -> AppResult<SkillState> {
+        let state = state.unwrap_or(SkillState::Active);
+        if state == SkillState::Active && !can_publish_active {
+            return Err(ErrorKind::Forbidden.into());
+        }
+        Ok(state)
     }
 }
 
@@ -233,6 +317,48 @@ mod tests {
         assert!(SkillTtlPolicy::validate(Some(now + Duration::seconds(1)), now).is_ok());
         assert!(SkillTtlPolicy::validate(Some(now), now).is_err());
         assert!(SkillTtlPolicy::validate(Some(now - Duration::seconds(1)), now).is_err());
+    }
+
+    #[test]
+    fn skill_scope_kind_labels_are_stable() {
+        assert_eq!(SkillScopeKind::from_label("org"), Some(SkillScopeKind::Org));
+        assert_eq!(SkillScopeKind::from_label("user"), Some(SkillScopeKind::User));
+        assert_eq!(SkillScopeKind::from_label("team"), Some(SkillScopeKind::Team));
+        assert_eq!(SkillScopeKind::from_label("project"), Some(SkillScopeKind::Project));
+        assert_eq!(SkillScopeKind::from_label("workspace"), None);
+        assert_eq!(SkillScopeKind::Org.as_label(), "org");
+        assert_eq!(SkillScopeKind::User.as_label(), "user");
+        assert_eq!(SkillScopeKind::Team.as_label(), "team");
+        assert_eq!(SkillScopeKind::Project.as_label(), "project");
+    }
+
+    #[test]
+    fn skill_state_labels_are_stable() {
+        assert_eq!(SkillState::Candidate.as_label(), "candidate");
+        assert_eq!(SkillState::Active.as_label(), "active");
+        assert_eq!(SkillState::Deprecated.as_label(), "deprecated");
+    }
+
+    #[test]
+    fn skill_scope_target_policy_defaults_personal_scopes_and_requires_group_scope_id() {
+        let org_id = Uuid::now_v7();
+        let user_id = Uuid::now_v7();
+        let team_id = Uuid::now_v7();
+
+        assert_eq!(SkillScopeTargetPolicy::resolve(SkillScopeKind::Org, None, org_id, user_id).unwrap(), org_id);
+        assert_eq!(SkillScopeTargetPolicy::resolve(SkillScopeKind::User, None, org_id, user_id).unwrap(), user_id);
+        assert_eq!(
+            SkillScopeTargetPolicy::resolve(SkillScopeKind::Team, Some(team_id), org_id, user_id).unwrap(),
+            team_id
+        );
+        assert!(SkillScopeTargetPolicy::resolve(SkillScopeKind::Project, None, org_id, user_id).is_err());
+    }
+
+    #[test]
+    fn skill_create_state_policy_defaults_to_active_and_requires_publish_rights() {
+        assert_eq!(SkillCreateStatePolicy::resolve(None, true).unwrap(), SkillState::Active);
+        assert_eq!(SkillCreateStatePolicy::resolve(Some(SkillState::Candidate), false).unwrap(), SkillState::Candidate);
+        assert!(SkillCreateStatePolicy::resolve(Some(SkillState::Active), false).is_err());
     }
 
     #[test]
