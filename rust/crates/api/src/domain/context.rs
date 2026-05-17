@@ -199,6 +199,33 @@ pub(crate) struct PreparedMemoryCandidate {
     pub(crate) classification_payload: Value,
 }
 
+/// A memory-backed context candidate whose proposed content cannot be approved.
+#[derive(Debug)]
+pub(crate) struct ContextInvalidMemoryCandidateRejection {
+    error: AppError,
+}
+
+impl ContextInvalidMemoryCandidateRejection {
+    fn from_error(error: AppError) -> Self {
+        Self { error }
+    }
+
+    pub(crate) fn audit_action(&self) -> &'static str {
+        "governance.context.candidate.approval_rejected"
+    }
+
+    pub(crate) fn audit_payload(&self, item_kind: &str) -> Value {
+        json!({
+            "item_kind": item_kind,
+            "reason": "invalid_memory_candidate"
+        })
+    }
+
+    pub(crate) fn into_app_error(self) -> AppError {
+        self.error
+    }
+}
+
 /// A skill-backed context candidate that must be audited before returning an application error.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ContextSkillContentRejection {
@@ -376,22 +403,30 @@ impl ContextCandidatePolicy {
         proposed_content: &Value,
         requested_sensitivity: Option<&str>,
         redacted: bool,
-    ) -> AppResult<PreparedMemoryCandidate> {
+    ) -> Result<PreparedMemoryCandidate, ContextInvalidMemoryCandidateRejection> {
         let proposed: MemoryCandidateContent = serde_json::from_value(proposed_content.clone())
-            .map_err(|err| ErrorKind::Validation(format!("invalid memory candidate proposed_content: {err}")))?;
-        let title = validate_memory_title(&proposed.title)?.to_string();
+            .map_err(|err| ErrorKind::Validation(format!("invalid memory candidate proposed_content: {err}")))
+            .map_err(AppError::from)
+            .map_err(ContextInvalidMemoryCandidateRejection::from_error)?;
+        let title = validate_memory_title(&proposed.title)
+            .map_err(ContextInvalidMemoryCandidateRejection::from_error)?
+            .to_string();
         let content = proposed.content.trim();
         if content.is_empty() {
-            return Err(ErrorKind::Validation("memory candidate content must not be empty".into()).into());
+            return Err(ContextInvalidMemoryCandidateRejection::from_error(
+                ErrorKind::Validation("memory candidate content must not be empty".into()).into(),
+            ));
         }
-        validate_confidence(proposed.confidence)?;
-        let visibility = validate_memory_visibility(proposed.visibility.as_deref())?.to_string();
+        validate_confidence(proposed.confidence).map_err(ContextInvalidMemoryCandidateRejection::from_error)?;
+        let visibility = validate_memory_visibility(proposed.visibility.as_deref())
+            .map_err(ContextInvalidMemoryCandidateRejection::from_error)?
+            .to_string();
         let classification = ContextGovernancePolicy::classify_sensitivity(content);
         if matches!(classification.sensitivity, Sensitivity::SecretDetected) && !(redacted || proposed.redacted) {
-            return Err(ErrorKind::Unprocessable(
-                "secret detected in memory candidate content; approve with redaction".into(),
-            )
-            .into());
+            return Err(ContextInvalidMemoryCandidateRejection::from_error(
+                ErrorKind::Unprocessable("secret detected in memory candidate content; approve with redaction".into())
+                    .into(),
+            ));
         }
 
         let content_redacted = matches!(classification.sensitivity, Sensitivity::SecretDetected);
@@ -819,5 +854,24 @@ mod tests {
             )
             .is_ok()
         );
+    }
+
+    #[test]
+    fn memory_candidate_policy_returns_auditable_invalid_rejection() {
+        let rejection = ContextCandidatePolicy::prepare_memory_candidate(
+            &json!({
+                "title": "Token",
+                "content": "   "
+            }),
+            None,
+            false,
+        )
+        .expect_err("empty candidate memory content should be rejected");
+        let payload = rejection.audit_payload("memory");
+
+        assert_eq!(rejection.audit_action(), "governance.context.candidate.approval_rejected");
+        assert_eq!(payload["item_kind"], "memory");
+        assert_eq!(payload["reason"], "invalid_memory_candidate");
+        assert!(matches!(rejection.into_app_error().kind, ErrorKind::Validation(_)));
     }
 }

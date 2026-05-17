@@ -257,15 +257,12 @@ impl ContextApprovalService {
                         self.emit_candidate_audit(
                             &mut tx,
                             scope,
-                            "governance.context.candidate.approval_rejected",
-                            json!({
-                                "item_kind": candidate.item_kind,
-                                "reason": "invalid_memory_candidate"
-                            }),
+                            err.audit_action(),
+                            err.audit_payload(&candidate.item_kind),
                         )
                         .await?;
                         tx.commit().await?;
-                        return Err(err);
+                        return Err(err.into_app_error());
                     }
                 };
                 if let Err(rejection) = ContextCandidatePolicy::ensure_wider_secret_memory_attestation(
