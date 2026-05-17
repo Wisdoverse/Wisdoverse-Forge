@@ -11,15 +11,16 @@ use serde_json::{Value, json};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::domain::context_governance::{
+    ContextAuditEvent, ContextGovernancePolicy, ContextScopeKind, ScopeExpansionRequest,
+};
 use crate::domain::memory::{
     MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryListPage, MemoryScopeKind, MemoryTitle,
     MemoryTtlPolicy, MemoryVisibility, PreparedMemoryContent,
 };
 use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository, UpdateMemoryRecord};
 use crate::repositories::resource_permission::ResourcePermissionRepository;
-use crate::services::context_governance::{
-    ContextAuditEvent, ContextGovernanceService, ContextScopeKind, ScopeExpansionRequest,
-};
+use crate::services::context_governance::ContextGovernanceService;
 
 #[derive(Debug, Clone)]
 pub struct CreateMemoryInput {
@@ -284,7 +285,7 @@ impl MemoryService {
         let from_kind = ContextScopeKind::from_label(&current.scope_kind)
             .ok_or_else(|| ErrorKind::Validation(format!("unsupported memory scope kind `{}`", current.scope_kind)))?;
         let to_kind = ContextScopeKind::from_scope_kind(target.kind());
-        if let Err(rejection) = ContextGovernanceService::gate_scope_expansion(ScopeExpansionRequest {
+        if let Err(rejection) = ContextGovernancePolicy::gate_scope_expansion(ScopeExpansionRequest {
             from_kind,
             to_kind,
             confirm_expansion: input.confirm_expansion,

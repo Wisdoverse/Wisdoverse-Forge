@@ -21,6 +21,9 @@ use crate::domain::context::{
     sensitivity_label, validate_candidate_content, validate_confidence, validate_context_sensitivity,
     validate_memory_title, validate_memory_visibility, validate_ttl,
 };
+use crate::domain::context_governance::{
+    ContextAuditEvent, ContextGovernancePolicy, ContextScopeKind, ScopeExpansionRequest, Sensitivity,
+};
 use crate::domain::memory::MemoryScopeKind;
 use crate::repositories::context_approval::{ContextApprovalRepository, CreateContextApprovalRecord};
 use crate::repositories::context_candidate::{
@@ -30,9 +33,7 @@ use crate::repositories::context_feedback::{ContextFeedbackRepository, CreateCon
 use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository};
 use crate::repositories::skill::SkillRepository;
 use crate::repositories::skill_version::SkillVersionRepository;
-use crate::services::context_governance::{
-    ContextAuditEvent, ContextGovernanceService, ContextScopeKind, ScopeExpansionRequest, Sensitivity,
-};
+use crate::services::context_governance::ContextGovernanceService;
 
 #[derive(Debug, Clone)]
 pub struct CreateContextCandidateInput {
@@ -260,7 +261,7 @@ impl ContextApprovalService {
 
         match candidate.item_kind.as_str() {
             "memory" => {
-                if let Err(rejection) = ContextGovernanceService::gate_scope_expansion(ScopeExpansionRequest {
+                if let Err(rejection) = ContextGovernancePolicy::gate_scope_expansion(ScopeExpansionRequest {
                     from_kind: ContextScopeKind::User,
                     to_kind: ContextScopeKind::from_scope_kind(target.kind()),
                     confirm_expansion: input.confirm_expansion,
@@ -398,7 +399,7 @@ impl ContextApprovalService {
                     .as_deref()
                     .and_then(ContextScopeKind::from_label)
                     .ok_or_else(|| ErrorKind::Validation("skill candidate has unsupported scope_kind".into()))?;
-                if let Err(rejection) = ContextGovernanceService::gate_scope_expansion(ScopeExpansionRequest {
+                if let Err(rejection) = ContextGovernancePolicy::gate_scope_expansion(ScopeExpansionRequest {
                     from_kind,
                     to_kind: ContextScopeKind::from_scope_kind(target.kind()),
                     confirm_expansion: input.confirm_expansion,
@@ -419,7 +420,7 @@ impl ContextApprovalService {
                     tx.commit().await?;
                     return Err(rejection.into_app_error());
                 }
-                let classification = ContextGovernanceService::classify_sensitivity(&current.content);
+                let classification = ContextGovernancePolicy::classify_sensitivity(&current.content);
                 if matches!(classification.sensitivity, Sensitivity::SecretDetected) {
                     self.emit_candidate_audit(
                         &mut tx,
@@ -599,7 +600,7 @@ impl ContextApprovalService {
         }
         validate_confidence(proposed.confidence)?;
         let visibility = validate_memory_visibility(proposed.visibility.as_deref())?.to_string();
-        let classification = ContextGovernanceService::classify_sensitivity(content);
+        let classification = ContextGovernancePolicy::classify_sensitivity(content);
         if matches!(classification.sensitivity, Sensitivity::SecretDetected) && !(redacted || proposed.redacted) {
             return Err(ErrorKind::Unprocessable(
                 "secret detected in memory candidate content; approve with redaction".into(),
