@@ -225,6 +225,25 @@ impl ContainerCliCredentialPolicy {
         Some((Self::provider_for_tool(cli_tool), Self::api_key_env_for_tool(cli_tool)?))
             .filter(|(provider, _)| *provider != "unknown")
     }
+
+    pub(crate) fn validate_oauth_file_map(files: &serde_json::Value) -> AppResult<()> {
+        let map = files.as_object().ok_or_else(|| {
+            ErrorKind::Validation("`files` must be a JSON object mapping filename → contents".to_string())
+        })?;
+        if map.is_empty() {
+            return Err(ErrorKind::Validation("`files` must not be empty".to_string()).into());
+        }
+        for (name, value) in map {
+            if !value.is_string() {
+                return Err(ErrorKind::Validation(format!(
+                    "`files.{name}` must be a string; got {}",
+                    json_value_kind(value)
+                ))
+                .into());
+            }
+        }
+        Ok(())
+    }
 }
 
 /// User-owned LLM provider configuration policy.
@@ -332,6 +351,17 @@ fn clean_optional(value: Option<String>) -> Option<String> {
 
 fn clean_required(value: String, message: &str) -> AppResult<String> {
     clean_optional(Some(value)).ok_or_else(|| ErrorKind::Validation(message.into()).into())
+}
+
+fn json_value_kind(value: &serde_json::Value) -> &'static str {
+    match value {
+        serde_json::Value::Number(_) => "number",
+        serde_json::Value::Bool(_) => "bool",
+        serde_json::Value::Null => "null",
+        serde_json::Value::Array(_) => "array",
+        serde_json::Value::Object(_) => "object",
+        serde_json::Value::String(_) => "string",
+    }
 }
 
 /// Host-side OAuth mount directory key.
@@ -514,6 +544,29 @@ mod tests {
         assert_eq!(ContainerCliCredentialPolicy::provider_env("gemini"), Some(("google", "GEMINI_API_KEY")));
         assert_eq!(ContainerCliCredentialPolicy::provider_env("opencode"), Some(("anthropic", "ANTHROPIC_API_KEY")));
         assert_eq!(ContainerCliCredentialPolicy::provider_env("vim"), None);
+    }
+
+    #[test]
+    fn cli_credential_policy_validates_oauth_file_map_shape() {
+        assert!(
+            ContainerCliCredentialPolicy::validate_oauth_file_map(&serde_json::json!({
+                "auth.json": "{}",
+                "credentials": "token"
+            }))
+            .is_ok()
+        );
+
+        let non_object =
+            ContainerCliCredentialPolicy::validate_oauth_file_map(&serde_json::json!(["token"])).unwrap_err();
+        let empty = ContainerCliCredentialPolicy::validate_oauth_file_map(&serde_json::json!({})).unwrap_err();
+        let typed = ContainerCliCredentialPolicy::validate_oauth_file_map(&serde_json::json!({
+            "auth.json": 123
+        }))
+        .unwrap_err();
+
+        assert!(matches!(non_object.kind, ErrorKind::Validation(message) if message.contains("JSON object mapping")));
+        assert!(matches!(empty.kind, ErrorKind::Validation(message) if message.contains("must not be empty")));
+        assert!(matches!(typed.kind, ErrorKind::Validation(message) if message.contains("got number")));
     }
 
     #[test]
