@@ -15,8 +15,8 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::context::{
-    ContextCandidateKind, ContextCandidateManualRejectionAudit, ContextCandidatePolicy, ContextFeedbackLabel,
-    ContextFeedbackPolicy, ContextItemKind, context_candidate_subject, ensure_pending_candidate,
+    ContextCandidateApprovalAudit, ContextCandidateKind, ContextCandidateManualRejectionAudit, ContextCandidatePolicy,
+    ContextFeedbackLabel, ContextFeedbackPolicy, ContextItemKind, context_candidate_subject, ensure_pending_candidate,
     normalize_candidate_kind_filter, normalize_candidate_state_filter, normalize_context_candidate_limit,
     normalize_feedback_note, normalize_reason, normalize_scope_kind_filter, redacted_proposal_preview,
     validate_context_sensitivity, validate_ttl,
@@ -321,18 +321,17 @@ impl ContextApprovalService {
                 )
                 .await?;
                 let updated = ContextCandidateRepository::update_state_in_tx(&mut tx, candidate.id, "approved").await?;
+                let audit = ContextCandidateApprovalAudit::memory(
+                    item.scope_kind.as_str(),
+                    item.sensitivity.as_str(),
+                    approval.self_approval,
+                    prepared.classification_payload,
+                );
                 self.emit_candidate_audit(
                     &mut tx,
                     scope,
-                    "governance.context.candidate.approved",
-                    json!({
-                        "item_kind": candidate.item_kind,
-                        "result_kind": "memory_item",
-                        "scope_kind": item.scope_kind,
-                        "sensitivity": item.sensitivity,
-                        "self_approval": approval.self_approval,
-                        "classification": prepared.classification_payload
-                    }),
+                    audit.audit_action(),
+                    audit.audit_payload(&candidate.item_kind),
                 )
                 .await?;
                 tx.commit().await?;
@@ -411,20 +410,19 @@ impl ContextApprovalService {
                 )
                 .await?;
                 let updated = ContextCandidateRepository::update_state_in_tx(&mut tx, candidate.id, "approved").await?;
+                let audit = ContextCandidateApprovalAudit::skill(
+                    skill.scope_kind.clone(),
+                    skill.sensitivity.as_str(),
+                    approval.self_approval,
+                    current.version,
+                    skill.version,
+                    prior_version.id,
+                );
                 self.emit_candidate_audit(
                     &mut tx,
                     scope,
-                    "governance.context.candidate.approved",
-                    json!({
-                        "item_kind": candidate.item_kind,
-                        "result_kind": "skill",
-                        "scope_kind": skill.scope_kind,
-                        "sensitivity": skill.sensitivity,
-                        "self_approval": approval.self_approval,
-                        "from_version": current.version,
-                        "resulting_version": skill.version,
-                        "skill_version_id": prior_version.id
-                    }),
+                    audit.audit_action(),
+                    audit.audit_payload(&candidate.item_kind),
                 )
                 .await?;
                 tx.commit().await?;

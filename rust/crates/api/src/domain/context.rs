@@ -126,6 +126,87 @@ impl ContextCandidateManualRejectionAudit {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum ContextCandidateApprovalAudit {
+    Memory {
+        scope_kind: String,
+        sensitivity: String,
+        self_approval: bool,
+        classification: Value,
+    },
+    Skill {
+        scope_kind: Option<String>,
+        sensitivity: String,
+        self_approval: bool,
+        from_version: i32,
+        resulting_version: i32,
+        skill_version_id: Uuid,
+    },
+}
+
+impl ContextCandidateApprovalAudit {
+    pub(crate) fn memory(
+        scope_kind: impl Into<String>,
+        sensitivity: impl Into<String>,
+        self_approval: bool,
+        classification: Value,
+    ) -> Self {
+        Self::Memory { scope_kind: scope_kind.into(), sensitivity: sensitivity.into(), self_approval, classification }
+    }
+
+    pub(crate) fn skill(
+        scope_kind: Option<String>,
+        sensitivity: impl Into<String>,
+        self_approval: bool,
+        from_version: i32,
+        resulting_version: i32,
+        skill_version_id: Uuid,
+    ) -> Self {
+        Self::Skill {
+            scope_kind,
+            sensitivity: sensitivity.into(),
+            self_approval,
+            from_version,
+            resulting_version,
+            skill_version_id,
+        }
+    }
+
+    pub(crate) fn audit_action(&self) -> &'static str {
+        "governance.context.candidate.approved"
+    }
+
+    pub(crate) fn audit_payload(&self, item_kind: &str) -> Value {
+        match self {
+            Self::Memory { scope_kind, sensitivity, self_approval, classification } => json!({
+                "item_kind": item_kind,
+                "result_kind": "memory_item",
+                "scope_kind": scope_kind,
+                "sensitivity": sensitivity,
+                "self_approval": self_approval,
+                "classification": classification
+            }),
+            Self::Skill {
+                scope_kind,
+                sensitivity,
+                self_approval,
+                from_version,
+                resulting_version,
+                skill_version_id,
+            } => json!({
+                "item_kind": item_kind,
+                "result_kind": "skill",
+                "scope_kind": scope_kind,
+                "sensitivity": sensitivity,
+                "self_approval": self_approval,
+                "from_version": from_version,
+                "resulting_version": resulting_version,
+                "skill_version_id": skill_version_id
+            }),
+        }
+    }
+}
+
 pub(crate) fn context_candidate_subject(org_id: Uuid, scope_kind: &str, scope_id: Uuid, event: &str) -> String {
     format!("broadcast.{org_id}.scope.{scope_kind}.{scope_id}.context_candidate.{event}")
 }
@@ -745,6 +826,47 @@ mod tests {
         assert_eq!(payload["item_kind"], "memory");
         assert_eq!(payload["reason"], "not useful");
         assert_eq!(payload["self_approval"], true);
+    }
+
+    #[test]
+    fn memory_approval_audit_owns_action_and_payload() {
+        let audit = ContextCandidateApprovalAudit::memory(
+            "team",
+            "secret_detected",
+            false,
+            json!({
+                "sensitivity": "secret_detected",
+                "redacted": true
+            }),
+        );
+        let payload = audit.audit_payload("memory");
+
+        assert_eq!(audit.audit_action(), "governance.context.candidate.approved");
+        assert_eq!(payload["item_kind"], "memory");
+        assert_eq!(payload["result_kind"], "memory_item");
+        assert_eq!(payload["scope_kind"], "team");
+        assert_eq!(payload["sensitivity"], "secret_detected");
+        assert_eq!(payload["self_approval"], false);
+        assert_eq!(payload["classification"]["sensitivity"], "secret_detected");
+        assert_eq!(payload["classification"]["redacted"], true);
+    }
+
+    #[test]
+    fn skill_approval_audit_owns_action_and_payload() {
+        let skill_version_id = Uuid::parse_str("77777777-7777-4777-8777-777777777777").unwrap();
+        let audit =
+            ContextCandidateApprovalAudit::skill(Some("project".to_string()), "internal", true, 2, 3, skill_version_id);
+        let payload = audit.audit_payload("skill");
+
+        assert_eq!(audit.audit_action(), "governance.context.candidate.approved");
+        assert_eq!(payload["item_kind"], "skill");
+        assert_eq!(payload["result_kind"], "skill");
+        assert_eq!(payload["scope_kind"], "project");
+        assert_eq!(payload["sensitivity"], "internal");
+        assert_eq!(payload["self_approval"], true);
+        assert_eq!(payload["from_version"], 2);
+        assert_eq!(payload["resulting_version"], 3);
+        assert_eq!(payload["skill_version_id"], skill_version_id.to_string());
     }
 
     #[test]
