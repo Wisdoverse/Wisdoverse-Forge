@@ -20,9 +20,7 @@ use crate::domain::context::{
     normalize_candidate_state_filter, normalize_context_candidate_limit, normalize_feedback_note, normalize_reason,
     normalize_scope_kind_filter, redacted_proposal_preview, validate_context_sensitivity, validate_ttl,
 };
-use crate::domain::context_governance::{
-    ContextAuditEvent, ContextGovernancePolicy, ContextScopeKind, ScopeExpansionRequest,
-};
+use crate::domain::context_governance::ContextAuditEvent;
 use crate::domain::memory::MemoryScopeKind;
 use crate::repositories::context_approval::{ContextApprovalRepository, CreateContextApprovalRecord};
 use crate::repositories::context_candidate::{
@@ -236,22 +234,14 @@ impl ContextApprovalService {
 
         match ContextCandidateKind::from_label(candidate.item_kind.as_str())? {
             ContextCandidateKind::Memory => {
-                if let Err(rejection) = ContextGovernancePolicy::gate_scope_expansion(ScopeExpansionRequest {
-                    from_kind: ContextScopeKind::User,
-                    to_kind: ContextScopeKind::from_scope_kind(target.kind()),
-                    confirm_expansion: input.confirm_expansion,
-                }) {
+                if let Err(rejection) =
+                    ContextCandidatePolicy::ensure_memory_scope_expansion(target.kind(), input.confirm_expansion)
+                {
                     self.emit_candidate_audit(
                         &mut tx,
                         scope,
-                        "governance.context.candidate.scope_expansion_rejected",
-                        json!({
-                            "item_kind": candidate.item_kind,
-                            "from_scope_kind": rejection.from_kind.as_label(),
-                            "to_scope_kind": rejection.to_kind.as_label(),
-                            "reason": rejection.reason.as_label(),
-                            "confirm_expansion": input.confirm_expansion
-                        }),
+                        rejection.audit_action(),
+                        rejection.audit_payload(&candidate.item_kind),
                     )
                     .await?;
                     tx.commit().await?;
@@ -372,22 +362,14 @@ impl ContextApprovalService {
                 )?;
                 let from_kind =
                     ContextCandidatePolicy::resolve_skill_candidate_scope_kind(current.scope_kind.as_deref())?;
-                if let Err(rejection) = ContextGovernancePolicy::gate_scope_expansion(ScopeExpansionRequest {
-                    from_kind,
-                    to_kind: ContextScopeKind::from_scope_kind(target.kind()),
-                    confirm_expansion: input.confirm_expansion,
-                }) {
+                if let Err(rejection) =
+                    ContextCandidatePolicy::ensure_scope_expansion(from_kind, target.kind(), input.confirm_expansion)
+                {
                     self.emit_candidate_audit(
                         &mut tx,
                         scope,
-                        "governance.context.candidate.scope_expansion_rejected",
-                        json!({
-                            "item_kind": candidate.item_kind,
-                            "from_scope_kind": rejection.from_kind.as_label(),
-                            "to_scope_kind": rejection.to_kind.as_label(),
-                            "reason": rejection.reason.as_label(),
-                            "confirm_expansion": input.confirm_expansion
-                        }),
+                        rejection.audit_action(),
+                        rejection.audit_payload(&candidate.item_kind),
                     )
                     .await?;
                     tx.commit().await?;
