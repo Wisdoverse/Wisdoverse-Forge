@@ -4,6 +4,7 @@
 //! independent of repositories, Stripe clients, and HTTP route DTOs.
 
 use agentforge_core::{AppResult, ErrorKind};
+use uuid::Uuid;
 
 /// Valid subscription statuses.
 const VALID_STATUSES: &[&str] =
@@ -52,6 +53,57 @@ impl CheckoutCouponPolicy {
             .into());
         }
         Ok(())
+    }
+}
+
+/// Billing plan Stripe mapping policy.
+pub(crate) struct BillingPlanPolicy;
+
+impl BillingPlanPolicy {
+    pub(crate) fn require_stripe_price_id(plan_name: &str, stripe_price_id: Option<&str>) -> AppResult<String> {
+        stripe_price_id.map(str::trim).filter(|value| !value.is_empty()).map(str::to_string).ok_or_else(|| {
+            ErrorKind::Validation(format!("billing plan '{plan_name}' is not mapped to a Stripe price")).into()
+        })
+    }
+}
+
+/// Subscription lifecycle policy.
+pub(crate) struct SubscriptionLifecyclePolicy;
+
+impl SubscriptionLifecyclePolicy {
+    pub(crate) fn ensure_no_active_subscription(existing_subscription_id: Option<Uuid>) -> AppResult<()> {
+        if let Some(subscription_id) = existing_subscription_id {
+            return Err(ErrorKind::Conflict(format!(
+                "organization already has an active subscription: {subscription_id}"
+            ))
+            .into());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn require_stripe_subscription_id(value: Option<&str>) -> AppResult<&str> {
+        value.map(str::trim).filter(|value| !value.is_empty()).ok_or_else(|| {
+            ErrorKind::Unavailable("active subscription is missing Stripe subscription ID".to_string()).into()
+        })
+    }
+
+    pub(crate) fn require_stripe_customer_id(value: Option<&str>) -> AppResult<&str> {
+        value.map(str::trim).filter(|value| !value.is_empty()).ok_or_else(|| {
+            ErrorKind::Unavailable("active subscription is missing Stripe customer ID".to_string()).into()
+        })
+    }
+}
+
+/// Billing usage limit policy.
+pub(crate) struct BillingUsageLimitPolicy;
+
+impl BillingUsageLimitPolicy {
+    pub(crate) fn default_agent_limit() -> i64 {
+        1
+    }
+
+    pub(crate) fn is_within_agent_limit(current_count: i64, max_agents: i64) -> bool {
+        current_count < max_agents
     }
 }
 
@@ -142,6 +194,35 @@ mod tests {
         assert!(CheckoutCouponPolicy::ensure_not_pre_applied(None).is_ok());
         assert!(CheckoutCouponPolicy::ensure_not_pre_applied(Some("   ")).is_ok());
         assert!(CheckoutCouponPolicy::ensure_not_pre_applied(Some("PROMO")).is_err());
+    }
+
+    #[test]
+    fn billing_plan_policy_requires_mapped_stripe_price() {
+        assert_eq!(BillingPlanPolicy::require_stripe_price_id("Team", Some(" price_123 ")).unwrap(), "price_123");
+        assert!(BillingPlanPolicy::require_stripe_price_id("Team", None).is_err());
+        assert!(BillingPlanPolicy::require_stripe_price_id("Team", Some("   ")).is_err());
+    }
+
+    #[test]
+    fn subscription_lifecycle_policy_requires_single_active_subscription_and_stripe_ids() {
+        let subscription_id = Uuid::parse_str("11111111-1111-4111-8111-111111111111").unwrap();
+
+        assert!(SubscriptionLifecyclePolicy::ensure_no_active_subscription(None).is_ok());
+        assert!(SubscriptionLifecyclePolicy::ensure_no_active_subscription(Some(subscription_id)).is_err());
+        assert_eq!(SubscriptionLifecyclePolicy::require_stripe_subscription_id(Some(" sub_123 ")).unwrap(), "sub_123");
+        assert_eq!(SubscriptionLifecyclePolicy::require_stripe_customer_id(Some(" cus_123 ")).unwrap(), "cus_123");
+        assert!(SubscriptionLifecyclePolicy::require_stripe_subscription_id(None).is_err());
+        assert!(SubscriptionLifecyclePolicy::require_stripe_subscription_id(Some("")).is_err());
+        assert!(SubscriptionLifecyclePolicy::require_stripe_customer_id(None).is_err());
+        assert!(SubscriptionLifecyclePolicy::require_stripe_customer_id(Some("   ")).is_err());
+    }
+
+    #[test]
+    fn billing_usage_limit_policy_uses_strict_agent_limit() {
+        assert_eq!(BillingUsageLimitPolicy::default_agent_limit(), 1);
+        assert!(BillingUsageLimitPolicy::is_within_agent_limit(0, 1));
+        assert!(!BillingUsageLimitPolicy::is_within_agent_limit(1, 1));
+        assert!(!BillingUsageLimitPolicy::is_within_agent_limit(2, 2));
     }
 
     #[test]
