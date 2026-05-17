@@ -324,6 +324,25 @@ impl ParticipantStatusPolicy {
     pub(crate) fn is_valid(status: &str) -> bool {
         VALID_PARTICIPANT_STATUSES.contains(&status)
     }
+
+    pub(crate) fn should_sweep_after_heartbeat(status: &str) -> bool {
+        status == "available"
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DispatchSweepDecision {
+    ClaimedTask,
+    Stop,
+}
+
+/// Follow-up policy for the best-effort auto-dispatch sweep.
+pub(crate) struct DispatchSweepPolicy;
+
+impl DispatchSweepPolicy {
+    pub(crate) fn after_dispatch_attempt(status: &str) -> DispatchSweepDecision {
+        if status == "working" { DispatchSweepDecision::ClaimedTask } else { DispatchSweepDecision::Stop }
+    }
 }
 
 /// User intent that requires an available participant.
@@ -622,6 +641,10 @@ impl BlockedTaskPolicy {
             return ("blocked", Some("waiting_dependency"), Some(json!({ "pending": 1 })));
         }
         ("queued", None, None)
+    }
+
+    pub(crate) fn should_auto_dispatch_after_approval(status: &str) -> bool {
+        status == "queued"
     }
 
     pub(crate) fn missing_required_inputs(params: Option<&serde_json::Value>) -> Vec<String> {
@@ -1031,6 +1054,20 @@ mod tests {
         };
 
         assert!(error.contains("participant Codex is busy"));
+    }
+
+    #[test]
+    fn participant_status_policy_sweeps_only_available_heartbeats() {
+        assert!(ParticipantStatusPolicy::should_sweep_after_heartbeat("available"));
+        assert!(!ParticipantStatusPolicy::should_sweep_after_heartbeat("busy"));
+        assert!(!ParticipantStatusPolicy::should_sweep_after_heartbeat("offline"));
+    }
+
+    #[test]
+    fn dispatch_sweep_policy_claims_working_tasks_and_stops_other_outcomes() {
+        assert_eq!(DispatchSweepPolicy::after_dispatch_attempt("working"), DispatchSweepDecision::ClaimedTask);
+        assert_eq!(DispatchSweepPolicy::after_dispatch_attempt("blocked"), DispatchSweepDecision::Stop);
+        assert_eq!(DispatchSweepPolicy::after_dispatch_attempt("queued"), DispatchSweepDecision::Stop);
     }
 
     #[test]
