@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use agentforge_core::{
-    AppResult, ErrorKind, ProjectId, ScopeKind, ScopedRead, ScopedWrite, ScopedWriteError, TeamId, TenantScope, UserId,
+    AppResult, ErrorKind, ProjectId, ScopedRead, ScopedWrite, ScopedWriteError, TeamId, TenantScope, UserId,
     WorkspaceId,
 };
 use agentforge_db::entities::{ContextApproval, ContextCandidate, ContextFeedback, MemoryItem, Skill};
@@ -222,20 +222,16 @@ impl ContextApprovalService {
         }
 
         let self_approval = candidate.owner_user_id == scope.user_id();
-        if self_approval && target.kind() != ScopeKind::User {
+        if let Err(rejection) = ContextCandidatePolicy::ensure_self_approval_scope(self_approval, target.kind()) {
             self.emit_candidate_audit(
                 &mut tx,
                 scope,
                 "governance.context.candidate.approval_rejected",
-                json!({
-                    "item_kind": candidate.item_kind,
-                    "reason": "self_approval_wider_scope",
-                    "scope_kind": target.kind().as_label()
-                }),
+                rejection.audit_payload(&candidate.item_kind),
             )
             .await?;
             tx.commit().await?;
-            return Err(ErrorKind::Forbidden.into());
+            return Err(rejection.into_app_error());
         }
 
         match ContextCandidateKind::from_label(candidate.item_kind.as_str())? {
