@@ -210,7 +210,7 @@ impl ContextApprovalService {
             self.emit_candidate_audit(
                 &mut tx,
                 scope,
-                "governance.context.candidate.auto_rejected",
+                rejection.audit_action(),
                 rejection.audit_payload(&candidate.item_kind),
             )
             .await?;
@@ -224,7 +224,7 @@ impl ContextApprovalService {
             self.emit_candidate_audit(
                 &mut tx,
                 scope,
-                "governance.context.candidate.approval_rejected",
+                rejection.audit_action(),
                 rejection.audit_payload(&candidate.item_kind),
             )
             .await?;
@@ -371,7 +371,7 @@ impl ContextApprovalService {
                     self.emit_candidate_audit(
                         &mut tx,
                         scope,
-                        "governance.context.candidate.approval_rejected",
+                        rejection.audit_action(),
                         rejection.audit_payload(&candidate.item_kind),
                     )
                     .await?;
