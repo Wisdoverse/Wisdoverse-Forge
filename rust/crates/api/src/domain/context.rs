@@ -294,6 +294,16 @@ impl ContextCandidatePolicy {
         target_skill_id.ok_or_else(|| ErrorKind::Validation("skill candidate missing target_skill_id".into()).into())
     }
 
+    pub(crate) fn ensure_skill_candidate_approvable(skill_id: SkillId, state: &str, is_revoked: bool) -> AppResult<()> {
+        if state != "candidate" {
+            return Err(ErrorKind::Conflict(format!("skill {skill_id} is not a candidate")).into());
+        }
+        if is_revoked {
+            return Err(ErrorKind::Unprocessable(format!("skill {skill_id} is revoked")).into());
+        }
+        Ok(())
+    }
+
     pub(crate) fn resolve_skill_candidate_scope_kind(scope_kind: Option<&str>) -> AppResult<ContextScopeKind> {
         scope_kind
             .and_then(ContextScopeKind::from_label)
@@ -505,6 +515,15 @@ mod tests {
         assert!(ContextCandidatePolicy::require_skill_target_id(None).is_err());
         assert!(ContextCandidatePolicy::resolve_skill_candidate_scope_kind(Some("user")).is_ok());
         assert!(ContextCandidatePolicy::resolve_skill_candidate_scope_kind(None).is_err());
+    }
+
+    #[test]
+    fn skill_candidate_approval_policy_requires_candidate_and_active_target() {
+        let skill_id = SkillId::from(Uuid::parse_str("55555555-5555-4555-8555-555555555555").unwrap());
+
+        assert!(ContextCandidatePolicy::ensure_skill_candidate_approvable(skill_id, "candidate", false).is_ok());
+        assert!(ContextCandidatePolicy::ensure_skill_candidate_approvable(skill_id, "active", false).is_err());
+        assert!(ContextCandidatePolicy::ensure_skill_candidate_approvable(skill_id, "candidate", true).is_err());
     }
 
     #[test]
