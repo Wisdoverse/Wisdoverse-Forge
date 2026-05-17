@@ -230,6 +230,24 @@ impl ContainerCliCredentialPolicy {
 /// User-owned LLM provider configuration policy.
 pub(crate) struct LlmProviderPolicy;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct LlmProviderCreateDraft {
+    pub(crate) provider: String,
+    pub(crate) display_name: String,
+    pub(crate) model: String,
+    pub(crate) api_key: Option<String>,
+    pub(crate) base_url: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct LlmProviderUpdateDraft {
+    pub(crate) display_name: String,
+    pub(crate) model: String,
+    pub(crate) api_key: Option<String>,
+    pub(crate) base_url: Option<String>,
+    pub(crate) is_enabled: bool,
+}
+
 impl LlmProviderPolicy {
     pub(crate) fn normalize_supported_provider(provider: &str) -> AppResult<String> {
         let provider = normalize_provider_key(provider);
@@ -252,6 +270,68 @@ impl LlmProviderPolicy {
     pub(crate) fn api_key_prefix(api_key: &str) -> String {
         api_key.chars().take(8).collect()
     }
+
+    pub(crate) fn display_name(provider: &str) -> &'static str {
+        provider_spec(provider).map(|spec| spec.display_name).unwrap_or("Custom")
+    }
+
+    pub(crate) fn create_draft(
+        provider: String,
+        model: String,
+        display_name: Option<String>,
+        api_key: Option<String>,
+        base_url: Option<String>,
+    ) -> AppResult<LlmProviderCreateDraft> {
+        let provider = Self::normalize_supported_provider(&provider)?;
+        let model = clean_required(model, "model is required")?;
+        let api_key = clean_optional(api_key);
+        if Self::requires_api_key(&provider) && api_key.is_none() {
+            return Err(ErrorKind::Validation("apiKey is required".into()).into());
+        }
+        let base_url = clean_optional(base_url);
+        if Self::requires_base_url(&provider) && base_url.is_none() {
+            return Err(ErrorKind::Validation("baseUrl is required for this provider".into()).into());
+        }
+        let display_name = clean_optional(display_name).unwrap_or_else(|| Self::display_name(&provider).to_string());
+
+        Ok(LlmProviderCreateDraft { provider, display_name, model, api_key, base_url })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn update_draft(
+        provider: &str,
+        current_model: Option<String>,
+        current_display_name: Option<String>,
+        current_base_url: Option<String>,
+        current_is_enabled: Option<bool>,
+        model: Option<String>,
+        display_name: Option<String>,
+        api_key: Option<String>,
+        base_url: Option<String>,
+        is_enabled: Option<bool>,
+    ) -> AppResult<LlmProviderUpdateDraft> {
+        let model =
+            clean_optional(model).or(current_model).ok_or_else(|| ErrorKind::Validation("model is required".into()))?;
+        let display_name = clean_optional(display_name)
+            .or(current_display_name)
+            .unwrap_or_else(|| Self::display_name(provider).to_string());
+        let api_key = clean_optional(api_key);
+        let base_url = clean_optional(base_url).or(current_base_url);
+        if Self::requires_base_url(provider) && base_url.is_none() {
+            return Err(ErrorKind::Validation("baseUrl is required for this provider".into()).into());
+        }
+        let is_enabled = is_enabled.unwrap_or(current_is_enabled.unwrap_or(true));
+
+        Ok(LlmProviderUpdateDraft { display_name, model, api_key, base_url, is_enabled })
+    }
+}
+
+fn clean_optional(value: Option<String>) -> Option<String> {
+    value.map(|value| value.trim().to_string()).filter(|value| !value.is_empty())
+}
+
+fn clean_required(value: String, message: &str) -> AppResult<String> {
+    clean_optional(Some(value)).ok_or_else(|| ErrorKind::Validation(message.into()).into())
 }
 
 /// Host-side OAuth mount directory key.
@@ -460,6 +540,105 @@ mod tests {
     #[test]
     fn llm_provider_policy_api_key_prefix_is_short_and_secret_safe() {
         assert_eq!(LlmProviderPolicy::api_key_prefix("sk-1234567890"), "sk-12345");
+    }
+
+    #[test]
+    fn llm_provider_create_draft_trims_and_defaults_display_name() {
+        let draft = LlmProviderPolicy::create_draft(
+            " OpenAI ".to_string(),
+            " gpt-5.5 ".to_string(),
+            Some(" ".to_string()),
+            Some(" sk-secret ".to_string()),
+            Some(" ".to_string()),
+        )
+        .unwrap();
+
+        assert_eq!(draft.provider, "openai");
+        assert_eq!(draft.model, "gpt-5.5");
+        assert_eq!(draft.display_name, "OpenAI");
+        assert_eq!(draft.api_key.as_deref(), Some("sk-secret"));
+        assert_eq!(draft.base_url, None);
+    }
+
+    #[test]
+    fn llm_provider_create_draft_preserves_keyless_provider_contract() {
+        let draft = LlmProviderPolicy::create_draft(
+            "ollama".to_string(),
+            " llama3 ".to_string(),
+            None,
+            Some(" ".to_string()),
+            Some(" http://ollama:11434 ".to_string()),
+        )
+        .unwrap();
+
+        assert_eq!(draft.provider, "ollama");
+        assert_eq!(draft.api_key, None);
+        assert_eq!(draft.base_url.as_deref(), Some("http://ollama:11434"));
+    }
+
+    #[test]
+    fn llm_provider_create_draft_rejects_missing_required_fields() {
+        assert!(
+            LlmProviderPolicy::create_draft("openai".to_string(), " ".to_string(), None, Some("sk".to_string()), None)
+                .is_err()
+        );
+        assert!(
+            LlmProviderPolicy::create_draft("openai".to_string(), "gpt-5.5".to_string(), None, None, None).is_err()
+        );
+        assert!(
+            LlmProviderPolicy::create_draft(
+                "openai_compatible".to_string(),
+                "custom".to_string(),
+                None,
+                Some("sk".to_string()),
+                None,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn llm_provider_update_draft_merges_patch_with_current_values() {
+        let draft = LlmProviderPolicy::update_draft(
+            "openai",
+            Some("gpt-4o".to_string()),
+            Some("OpenAI primary".to_string()),
+            None,
+            Some(false),
+            Some(" gpt-5.5 ".to_string()),
+            Some(" ".to_string()),
+            Some(" sk-new ".to_string()),
+            Some(" ".to_string()),
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(draft.model, "gpt-5.5");
+        assert_eq!(draft.display_name, "OpenAI primary");
+        assert_eq!(draft.api_key.as_deref(), Some("sk-new"));
+        assert_eq!(draft.base_url, None);
+        assert!(!draft.is_enabled);
+    }
+
+    #[test]
+    fn llm_provider_update_draft_rejects_base_url_required_provider_without_url() {
+        let err = LlmProviderPolicy::update_draft(
+            "openai_compatible",
+            Some("custom".to_string()),
+            None,
+            None,
+            Some(true),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap_err();
+
+        assert!(
+            matches!(err.kind, ErrorKind::Validation(message) if message == "baseUrl is required for this provider")
+        );
     }
 
     #[test]
