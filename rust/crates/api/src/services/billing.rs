@@ -10,8 +10,9 @@ use uuid::Uuid;
 
 use crate::domain::billing::{
     BillingCycle, BillingPlanPolicy, BillingRedirectUrlPolicy, BillingUsageLimitPolicy,
-    BillingWebhookReconciliationPolicy, CheckoutCouponPolicy, InvoiceListPage, PaymentMethodId,
-    SubscriptionLifecyclePolicy, SubscriptionOrgResolution, SubscriptionPlanResolution, SubscriptionStatusPolicy,
+    BillingWebhookReconciliationPolicy, CheckoutCouponPolicy, InvoiceListPage, InvoiceSubscriptionLookup,
+    PaymentMethodId, SubscriptionLifecyclePolicy, SubscriptionOrgResolution, SubscriptionPlanResolution,
+    SubscriptionStatusPolicy,
 };
 use crate::repositories::billing::BillingRepository;
 pub use stripe::{
@@ -293,14 +294,18 @@ impl BillingService {
     }
 
     async fn persist_invoice_snapshot(&self, snapshot: StripeInvoiceSnapshot) -> AppResult<Invoice> {
-        let mut subscription = match snapshot.subscription_id.as_deref() {
-            Some(subscription_id) => self.repo.get_subscription_by_stripe_id(subscription_id).await?,
+        let lookup_plan = BillingWebhookReconciliationPolicy::invoice_subscription_lookup_plan(
+            snapshot.subscription_id.as_deref(),
+            snapshot.customer_id.as_deref(),
+        );
+        let mut subscription = match lookup_plan.primary() {
+            Some(lookup) => self.lookup_invoice_subscription(lookup).await?,
             None => None,
         };
         if subscription.is_none()
-            && let Some(customer_id) = snapshot.customer_id.as_deref()
+            && let Some(lookup) = lookup_plan.fallback()
         {
-            subscription = self.repo.get_subscription_by_stripe_customer_id(customer_id).await?;
+            subscription = self.lookup_invoice_subscription(lookup).await?;
         }
 
         let Some(subscription) = subscription else {
@@ -310,10 +315,7 @@ impl BillingService {
                 stripe_customer_id = ?snapshot.customer_id,
                 "Stripe invoice webhook could not be correlated to a local subscription"
             );
-            return Err(ErrorKind::Validation(
-                "Stripe invoice event does not match a Wisdoverse Forge subscription".to_string(),
-            )
-            .into());
+            return Err(BillingWebhookReconciliationPolicy::missing_invoice_subscription_error().into());
         };
 
         self.repo
@@ -328,6 +330,20 @@ impl BillingService {
                 snapshot.created_at,
             )
             .await
+    }
+
+    async fn lookup_invoice_subscription(
+        &self,
+        lookup: InvoiceSubscriptionLookup<'_>,
+    ) -> AppResult<Option<Subscription>> {
+        match lookup {
+            InvoiceSubscriptionLookup::StripeSubscriptionId(subscription_id) => {
+                self.repo.get_subscription_by_stripe_id(subscription_id).await
+            }
+            InvoiceSubscriptionLookup::StripeCustomerId(customer_id) => {
+                self.repo.get_subscription_by_stripe_customer_id(customer_id).await
+            }
+        }
     }
 }
 
