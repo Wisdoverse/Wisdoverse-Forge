@@ -15,10 +15,11 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::context::{
-    ContextCandidateKind, ContextCandidatePolicy, ContextFeedbackLabel, ContextFeedbackPolicy, ContextItemKind,
-    context_candidate_subject, ensure_pending_candidate, normalize_candidate_kind_filter,
-    normalize_candidate_state_filter, normalize_context_candidate_limit, normalize_feedback_note, normalize_reason,
-    normalize_scope_kind_filter, redacted_proposal_preview, validate_context_sensitivity, validate_ttl,
+    ContextCandidateKind, ContextCandidateManualRejectionAudit, ContextCandidatePolicy, ContextFeedbackLabel,
+    ContextFeedbackPolicy, ContextItemKind, context_candidate_subject, ensure_pending_candidate,
+    normalize_candidate_kind_filter, normalize_candidate_state_filter, normalize_context_candidate_limit,
+    normalize_feedback_note, normalize_reason, normalize_scope_kind_filter, redacted_proposal_preview,
+    validate_context_sensitivity, validate_ttl,
 };
 use crate::domain::context_governance::ContextAuditEvent;
 use crate::domain::memory::MemoryScopeKind;
@@ -468,17 +469,9 @@ impl ContextApprovalService {
         )
         .await?;
         let updated = ContextCandidateRepository::update_state_in_tx(&mut tx, candidate.id, "rejected").await?;
-        self.emit_candidate_audit(
-            &mut tx,
-            scope,
-            "governance.context.candidate.rejected",
-            json!({
-                "item_kind": candidate.item_kind,
-                "reason": reason,
-                "self_approval": approval.self_approval
-            }),
-        )
-        .await?;
+        let audit = ContextCandidateManualRejectionAudit::new(reason, approval.self_approval);
+        self.emit_candidate_audit(&mut tx, scope, audit.audit_action(), audit.audit_payload(&candidate.item_kind))
+            .await?;
         tx.commit().await?;
         self.publish_candidate_event(scope, &updated, "rejected", None).await;
         Ok(ContextApprovalOutcome { candidate: updated, approval: Some(approval), memory_item: None, skill: None })
