@@ -13,10 +13,10 @@ use uuid::Uuid;
 
 use crate::domain::context_governance::ContextAuditEvent;
 use crate::domain::memory::{
-    MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryListPage, MemoryMutationAccess,
-    MemoryMutationAccessPolicy, MemoryMutationManagerCheck, MemoryReclassificationPlan, MemoryReclassificationPolicy,
-    MemoryReclassificationRequest, MemoryScopeKind, MemoryScopeTargetPolicy, MemoryTitle, MemoryTtlPolicy,
-    MemoryVisibility, PreparedMemoryContent,
+    MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryContentReadAudit, MemoryListPage,
+    MemoryMutationAccess, MemoryMutationAccessPolicy, MemoryMutationManagerCheck, MemoryReclassificationPlan,
+    MemoryReclassificationPolicy, MemoryReclassificationRequest, MemoryScopeKind, MemoryScopeTargetPolicy, MemoryTitle,
+    MemoryTtlPolicy, MemoryVisibility, PreparedMemoryContent,
 };
 use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository, UpdateMemoryRecord};
 use crate::repositories::resource_permission::ResourcePermissionRepository;
@@ -94,17 +94,9 @@ impl MemoryService {
         let proof = self.validated_read(scope).await?;
         let mut tx = self.repo.pool().begin().await?;
         let item = MemoryRepository::lock_visible_for_update(&mut tx, &proof, id).await?;
-        self.emit_memory_audit(
-            &mut tx,
-            scope,
-            "governance.context.memory.content_read",
-            json!({
-                "scope_kind": item.scope_kind,
-                "sensitivity": item.sensitivity,
-                "content_redacted": item.content_redacted
-            }),
-        )
-        .await?;
+        let audit =
+            MemoryContentReadAudit::new(item.scope_kind.as_str(), item.sensitivity.as_str(), item.content_redacted);
+        self.emit_memory_audit(&mut tx, scope, audit.audit_action(), audit.audit_payload()).await?;
         tx.commit().await?;
 
         Ok(MemoryContent {
