@@ -22,8 +22,8 @@ use uuid::Uuid;
 use crate::domain::context_resolver::{ContextTaskSnapshot, ResolvedContext};
 use crate::domain::orchestration::{
     BlockedTaskPolicy, ParticipantAvailabilityAction, ParticipantAvailabilityPolicy, ParticipantName,
-    ParticipantStatusPolicy, QuotaBlockPolicy, TaskListPage, TaskPatchPolicy, TaskPriority, TaskStatusPolicy,
-    TaskTitle,
+    ParticipantStatusPolicy, QuotaBlockPolicy, TaskListPage, TaskPatchAction, TaskPatchPolicy, TaskPriority,
+    TaskStatusPolicy, TaskTitle,
 };
 use crate::repositories::orchestration::{
     CreateTaskRow, OrchestrationTaskRepository, OrchestrationTaskStats, ParticipantRepository, UpdateTaskRow,
@@ -307,56 +307,32 @@ impl OrchestrationService {
         if let Some(ref p) = priority {
             TaskPriority::validate(p)?;
         }
-        if let Some(p) = progress
-            && !(0..=100).contains(&p)
-        {
-            return Err(ErrorKind::Validation("progress must be 0-100".into()).into());
-        }
+        TaskPatchPolicy::validate_progress(progress)?;
 
         let transition_state = state.as_deref();
-        let touches_assignment = TaskPatchPolicy::touches_assignment(&assigned_to);
-        let business_transition = TaskPatchPolicy::is_business_transition(transition_state, &assigned_to);
-        let current_for_guard = if state.is_some() || touches_assignment {
+        let current_for_guard = if TaskPatchPolicy::requires_current_task(transition_state, &assigned_to) {
             Some(self.task_repo.find_by_id(scope, id).await?)
         } else {
             None
         };
-        if let Some(current) = current_for_guard.as_ref()
-            && current.status == "blocked"
-            && !BlockedTaskPolicy::reason_allows_dispatch(current.blocked_reason.as_deref())
-            && !matches!(transition_state, Some("canceled"))
-        {
-            return Err(ErrorKind::Validation(format!(
-                "task is blocked on {}; use its unblock path before dispatching",
-                current.blocked_reason.as_deref().unwrap_or("unknown")
-            ))
-            .into());
+        if let Some(current) = current_for_guard.as_ref() {
+            TaskPatchPolicy::ensure_current_allows_transition(
+                &current.status,
+                current.blocked_reason.as_deref(),
+                transition_state,
+            )?;
         }
-        if business_transition && (priority.is_some() || progress.is_some()) {
-            return Err(ErrorKind::Validation(
-                "state/assignment transitions must not be combined with priority/progress edits".into(),
-            )
-            .into());
-        }
-        if touches_assignment && !matches!(transition_state, None | Some("working")) {
-            return Err(ErrorKind::Validation(
-                "assignedTo changes must use dispatch semantics; combine only with state=working or omit state".into(),
-            )
-            .into());
-        }
+        let patch_action = TaskPatchPolicy::plan(transition_state, priority.as_deref(), progress, &assigned_to)?;
 
-        match (transition_state, assigned_to) {
-            (Some("working"), Some(Some(agent_id))) | (None, Some(Some(agent_id))) => {
+        match patch_action {
+            TaskPatchAction::AssignToParticipant(agent_id) => {
                 return self.assign_existing_task_to_participant(scope, id, agent_id).await;
             }
-            (Some("working"), Some(None)) => {
-                return Err(ErrorKind::Validation("cannot unassign while dispatching to working".into()).into());
-            }
-            (Some("working"), None) => return self.dispatch_task(scope, id).await,
-            (Some("completed"), None) => {
+            TaskPatchAction::Dispatch => return self.dispatch_task(scope, id).await,
+            TaskPatchAction::Complete => {
                 return self.complete_task(scope, id, json!({ "manual": true, "source": "kanban_patch" })).await;
             }
-            (Some("failed"), None) => {
+            TaskPatchAction::Fail => {
                 return self
                     .fail_task(
                         scope,
@@ -368,20 +344,15 @@ impl OrchestrationService {
                     )
                     .await;
             }
-            (Some("canceled"), None) => return self.cancel_task(scope, id).await,
-            (None, Some(None)) => {
+            TaskPatchAction::Cancel => return self.cancel_task(scope, id).await,
+            TaskPatchAction::Unassign => {
                 let current = match current_for_guard.as_ref() {
                     Some(task) => task,
                     None => unreachable!("assignment guard should have loaded current task"),
                 };
-                if current.status == "working" {
-                    return Err(ErrorKind::Validation(
-                        "cannot unassign a working task; cancel, complete, or fail it first".into(),
-                    )
-                    .into());
-                }
+                TaskPatchPolicy::ensure_can_unassign(&current.status)?;
             }
-            _ => {}
+            TaskPatchAction::Patch => {}
         }
 
         let next_state = state.clone();

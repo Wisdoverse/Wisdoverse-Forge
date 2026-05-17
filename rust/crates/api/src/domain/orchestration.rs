@@ -176,6 +176,17 @@ impl ParticipantAvailabilityPolicy {
 }
 
 /// PATCH semantics for kanban task updates.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TaskPatchAction {
+    AssignToParticipant(AgentId),
+    Dispatch,
+    Complete,
+    Fail,
+    Cancel,
+    Unassign,
+    Patch,
+}
+
 pub(crate) struct TaskPatchPolicy;
 
 impl TaskPatchPolicy {
@@ -185,6 +196,82 @@ impl TaskPatchPolicy {
 
     pub(crate) fn is_business_transition(state: Option<&str>, assigned_to: &Option<Option<AgentId>>) -> bool {
         matches!(state, Some("working" | "completed" | "failed" | "canceled")) || matches!(assigned_to, Some(Some(_)))
+    }
+
+    pub(crate) fn requires_current_task(state: Option<&str>, assigned_to: &Option<Option<AgentId>>) -> bool {
+        state.is_some() || Self::touches_assignment(assigned_to)
+    }
+
+    pub(crate) fn validate_progress(progress: Option<i16>) -> AppResult<()> {
+        if let Some(progress) = progress
+            && !(0..=100).contains(&progress)
+        {
+            return Err(ErrorKind::Validation("progress must be 0-100".into()).into());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn ensure_current_allows_transition(
+        current_status: &str,
+        current_blocked_reason: Option<&str>,
+        transition_state: Option<&str>,
+    ) -> AppResult<()> {
+        if current_status == "blocked"
+            && !BlockedTaskPolicy::reason_allows_dispatch(current_blocked_reason)
+            && !matches!(transition_state, Some("canceled"))
+        {
+            return Err(ErrorKind::Validation(format!(
+                "task is blocked on {}; use its unblock path before dispatching",
+                current_blocked_reason.unwrap_or("unknown")
+            ))
+            .into());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn plan(
+        state: Option<&str>,
+        priority: Option<&str>,
+        progress: Option<i16>,
+        assigned_to: &Option<Option<AgentId>>,
+    ) -> AppResult<TaskPatchAction> {
+        if Self::is_business_transition(state, assigned_to) && (priority.is_some() || progress.is_some()) {
+            return Err(ErrorKind::Validation(
+                "state/assignment transitions must not be combined with priority/progress edits".into(),
+            )
+            .into());
+        }
+        if Self::touches_assignment(assigned_to) && !matches!(state, None | Some("working")) {
+            return Err(ErrorKind::Validation(
+                "assignedTo changes must use dispatch semantics; combine only with state=working or omit state".into(),
+            )
+            .into());
+        }
+
+        match (state, *assigned_to) {
+            (Some("working"), Some(Some(agent_id))) | (None, Some(Some(agent_id))) => {
+                Ok(TaskPatchAction::AssignToParticipant(agent_id))
+            }
+            (Some("working"), Some(None)) => {
+                Err(ErrorKind::Validation("cannot unassign while dispatching to working".into()).into())
+            }
+            (Some("working"), None) => Ok(TaskPatchAction::Dispatch),
+            (Some("completed"), None) => Ok(TaskPatchAction::Complete),
+            (Some("failed"), None) => Ok(TaskPatchAction::Fail),
+            (Some("canceled"), None) => Ok(TaskPatchAction::Cancel),
+            (None, Some(None)) => Ok(TaskPatchAction::Unassign),
+            _ => Ok(TaskPatchAction::Patch),
+        }
+    }
+
+    pub(crate) fn ensure_can_unassign(current_status: &str) -> AppResult<()> {
+        if current_status == "working" {
+            return Err(ErrorKind::Validation(
+                "cannot unassign a working task; cancel, complete, or fail it first".into(),
+            )
+            .into());
+        }
+        Ok(())
     }
 }
 
@@ -534,6 +621,87 @@ mod tests {
         };
 
         assert!(error.contains("participant Codex is busy"));
+    }
+
+    #[test]
+    fn task_patch_policy_validates_progress_range() {
+        assert!(TaskPatchPolicy::validate_progress(Some(0)).is_ok());
+        assert!(TaskPatchPolicy::validate_progress(Some(100)).is_ok());
+
+        let error = match &TaskPatchPolicy::validate_progress(Some(101)).unwrap_err().kind {
+            ErrorKind::Validation(message) => message.clone(),
+            other => panic!("expected validation error, got {other:?}"),
+        };
+        assert_eq!(error, "progress must be 0-100");
+    }
+
+    #[test]
+    fn task_patch_policy_plans_transition_actions() {
+        let agent_id = AgentId::new();
+        assert_eq!(
+            TaskPatchPolicy::plan(Some("working"), None, None, &Some(Some(agent_id))).unwrap(),
+            TaskPatchAction::AssignToParticipant(agent_id)
+        );
+        assert_eq!(TaskPatchPolicy::plan(Some("working"), None, None, &None).unwrap(), TaskPatchAction::Dispatch);
+        assert_eq!(TaskPatchPolicy::plan(Some("completed"), None, None, &None).unwrap(), TaskPatchAction::Complete);
+        assert_eq!(TaskPatchPolicy::plan(Some("failed"), None, None, &None).unwrap(), TaskPatchAction::Fail);
+        assert_eq!(TaskPatchPolicy::plan(Some("canceled"), None, None, &None).unwrap(), TaskPatchAction::Cancel);
+        assert_eq!(TaskPatchPolicy::plan(None, None, None, &Some(None)).unwrap(), TaskPatchAction::Unassign);
+        assert_eq!(
+            TaskPatchPolicy::plan(Some("queued"), Some("high"), Some(50), &None).unwrap(),
+            TaskPatchAction::Patch
+        );
+    }
+
+    #[test]
+    fn task_patch_policy_rejects_incoherent_patch_shapes() {
+        let mixed_error = match &TaskPatchPolicy::plan(Some("completed"), Some("high"), None, &None).unwrap_err().kind {
+            ErrorKind::Validation(message) => message.clone(),
+            other => panic!("expected validation error, got {other:?}"),
+        };
+        let assignment_scope_error =
+            match &TaskPatchPolicy::plan(Some("queued"), None, None, &Some(None)).unwrap_err().kind {
+                ErrorKind::Validation(message) => message.clone(),
+                other => panic!("expected validation error, got {other:?}"),
+            };
+        let working_unassign_error =
+            match &TaskPatchPolicy::plan(Some("working"), None, None, &Some(None)).unwrap_err().kind {
+                ErrorKind::Validation(message) => message.clone(),
+                other => panic!("expected validation error, got {other:?}"),
+            };
+
+        assert!(mixed_error.contains("must not be combined"));
+        assert!(assignment_scope_error.contains("dispatch semantics"));
+        assert!(working_unassign_error.contains("cannot unassign while dispatching"));
+    }
+
+    #[test]
+    fn task_patch_policy_guards_blocked_transitions_and_unassign() {
+        assert!(
+            TaskPatchPolicy::ensure_current_allows_transition("blocked", Some("waiting_agent"), Some("working"))
+                .is_ok()
+        );
+        assert!(
+            TaskPatchPolicy::ensure_current_allows_transition("blocked", Some("waiting_input"), Some("canceled"))
+                .is_ok()
+        );
+        assert!(TaskPatchPolicy::ensure_can_unassign("queued").is_ok());
+
+        let blocked_error =
+            match &TaskPatchPolicy::ensure_current_allows_transition("blocked", Some("waiting_input"), Some("working"))
+                .unwrap_err()
+                .kind
+            {
+                ErrorKind::Validation(message) => message.clone(),
+                other => panic!("expected validation error, got {other:?}"),
+            };
+        let unassign_error = match &TaskPatchPolicy::ensure_can_unassign("working").unwrap_err().kind {
+            ErrorKind::Validation(message) => message.clone(),
+            other => panic!("expected validation error, got {other:?}"),
+        };
+
+        assert!(blocked_error.contains("task is blocked on waiting_input"));
+        assert!(unassign_error.contains("cannot unassign a working task"));
     }
 
     #[test]
