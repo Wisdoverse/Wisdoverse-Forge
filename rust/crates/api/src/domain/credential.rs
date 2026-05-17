@@ -1,10 +1,11 @@
 //! Credential domain rules.
 //!
-//! This module owns API key, SSH key, and Container CLI credential policies
-//! that are independent of repositories, encryption, HTTP handlers, and
-//! filesystem mount materialization.
+//! This module owns API key, SSH key, Container CLI, and LLM provider
+//! credential policies that are independent of repositories, encryption, HTTP
+//! handlers, and filesystem mount materialization.
 
 use agentforge_core::{AppResult, CliToolKind, ErrorKind};
+use agentforge_llm::{normalize_provider_key, provider_spec};
 use url::Url;
 
 const API_KEY_PREFIX: &str = "af_";
@@ -226,6 +227,33 @@ impl ContainerCliCredentialPolicy {
     }
 }
 
+/// User-owned LLM provider configuration policy.
+pub(crate) struct LlmProviderPolicy;
+
+impl LlmProviderPolicy {
+    pub(crate) fn normalize_supported_provider(provider: &str) -> AppResult<String> {
+        let provider = normalize_provider_key(provider);
+        if provider_spec(&provider).is_none() {
+            return Err(ErrorKind::Validation(format!("invalid provider '{provider}'")).into());
+        }
+        Ok(provider)
+    }
+
+    pub(crate) fn requires_api_key(provider: &str) -> bool {
+        provider_spec(provider).map(|spec| spec.requires_api_key).unwrap_or(true)
+    }
+
+    pub(crate) fn requires_base_url(provider: &str) -> bool {
+        provider_spec(provider)
+            .map(|spec| spec.key == "openai_compatible" && spec.default_base_url.is_none())
+            .unwrap_or(false)
+    }
+
+    pub(crate) fn api_key_prefix(api_key: &str) -> String {
+        api_key.chars().take(8).collect()
+    }
+}
+
 /// Host-side OAuth mount directory key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct OauthMountContainerKey<'a> {
@@ -406,6 +434,32 @@ mod tests {
         assert_eq!(ContainerCliCredentialPolicy::provider_env("gemini"), Some(("google", "GEMINI_API_KEY")));
         assert_eq!(ContainerCliCredentialPolicy::provider_env("opencode"), Some(("anthropic", "ANTHROPIC_API_KEY")));
         assert_eq!(ContainerCliCredentialPolicy::provider_env("vim"), None);
+    }
+
+    #[test]
+    fn llm_provider_policy_rejects_unknown_provider() {
+        let err = LlmProviderPolicy::normalize_supported_provider("bogus").unwrap_err();
+        assert!(matches!(err.kind, ErrorKind::Validation(_)));
+    }
+
+    #[test]
+    fn llm_provider_policy_normalizes_aliases() {
+        assert_eq!(LlmProviderPolicy::normalize_supported_provider("Lite_LLM").unwrap(), "litellm");
+        assert_eq!(LlmProviderPolicy::normalize_supported_provider("openai-compatible").unwrap(), "openai_compatible");
+    }
+
+    #[test]
+    fn llm_provider_policy_reports_keyless_and_base_url_requirements() {
+        assert!(!LlmProviderPolicy::requires_api_key("ollama"));
+        assert!(LlmProviderPolicy::requires_api_key("openai"));
+        assert!(LlmProviderPolicy::requires_api_key("litellm"));
+        assert!(!LlmProviderPolicy::requires_base_url("litellm"));
+        assert!(LlmProviderPolicy::requires_base_url("openai_compatible"));
+    }
+
+    #[test]
+    fn llm_provider_policy_api_key_prefix_is_short_and_secret_safe() {
+        assert_eq!(LlmProviderPolicy::api_key_prefix("sk-1234567890"), "sk-12345");
     }
 
     #[test]
