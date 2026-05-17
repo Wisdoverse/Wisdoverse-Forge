@@ -6,44 +6,20 @@ use agentforge_core::{
 };
 use agentforge_db::entities::MemoryItem;
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::{Value, json};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::memory::{MemoryConfidencePolicy, MemoryListPage, MemoryTitle, MemoryTtlPolicy, MemoryVisibility};
+use crate::domain::memory::{
+    MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryListPage, MemoryScopeKind, MemoryTitle,
+    MemoryTtlPolicy, MemoryVisibility, PreparedMemoryContent,
+};
 use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository, UpdateMemoryRecord};
 use crate::repositories::resource_permission::ResourcePermissionRepository;
 use crate::services::context_governance::{
-    ContextAuditEvent, ContextGovernanceService, ContextScopeKind, ScopeExpansionRequest, Sensitivity,
+    ContextAuditEvent, ContextGovernanceService, ContextScopeKind, ScopeExpansionRequest,
 };
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MemoryScopeKind {
-    User,
-    Team,
-    Project,
-}
-
-impl MemoryScopeKind {
-    pub fn from_label(value: &str) -> Option<Self> {
-        match value {
-            "user" => Some(Self::User),
-            "team" => Some(Self::Team),
-            "project" => Some(Self::Project),
-            _ => None,
-        }
-    }
-
-    pub fn as_scope_kind(self) -> ScopeKind {
-        match self {
-            Self::User => ScopeKind::User,
-            Self::Team => ScopeKind::Team,
-            Self::Project => ScopeKind::Project,
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct CreateMemoryInput {
@@ -85,13 +61,6 @@ pub struct MemoryContent {
     pub content: String,
     pub content_redacted: bool,
     pub sensitivity: String,
-}
-
-struct PreparedContent {
-    content: String,
-    content_redacted: bool,
-    sensitivity: &'static str,
-    audit_payload: Value,
 }
 
 pub struct MemoryService {
@@ -481,51 +450,17 @@ impl MemoryService {
         operation: &str,
         content: &str,
         redacted: bool,
-    ) -> AppResult<PreparedContent> {
-        let content = content.trim();
-        if content.is_empty() {
-            return Err(ErrorKind::Validation("memory content must not be empty".into()).into());
+    ) -> AppResult<PreparedMemoryContent> {
+        match MemoryContentPolicy::prepare(content, redacted)? {
+            MemoryContentDecision::Prepared(prepared) => Ok(prepared),
+            MemoryContentDecision::Rejected(rejection) => {
+                let payload = rejection.audit_payload(operation);
+                let mut tx = self.repo.pool().begin().await?;
+                self.emit_memory_audit(&mut tx, scope, "governance.context.memory.rejected", payload).await?;
+                tx.commit().await?;
+                Err(rejection.into_app_error())
+            }
         }
-        let classification = ContextGovernanceService::classify_sensitivity(content);
-        let matched_patterns = classification.matched_patterns.clone();
-        let redacted_preview = classification.redacted_preview.clone();
-        if matches!(classification.sensitivity, Sensitivity::SecretDetected) && !redacted {
-            let mut tx = self.repo.pool().begin().await?;
-            self.emit_memory_audit(
-                &mut tx,
-                scope,
-                "governance.context.memory.rejected",
-                json!({
-                    "operation": operation,
-                    "reason": "secret_detected",
-                    "matched_patterns": matched_patterns,
-                    "redacted_preview": redacted_preview
-                }),
-            )
-            .await?;
-            tx.commit().await?;
-            return Err(
-                ErrorKind::Unprocessable("secret detected in memory content; submit redacted content".into()).into()
-            );
-        }
-
-        let content_redacted = matches!(classification.sensitivity, Sensitivity::SecretDetected);
-        let stored_content = if content_redacted {
-            redacted_preview.clone().unwrap_or_else(|| "[REDACTED]".to_string())
-        } else {
-            content.to_string()
-        };
-        let sensitivity = sensitivity_label(classification.sensitivity);
-        Ok(PreparedContent {
-            content: stored_content,
-            content_redacted,
-            sensitivity,
-            audit_payload: json!({
-                "sensitivity": sensitivity,
-                "matched_patterns": matched_patterns,
-                "redacted": content_redacted
-            }),
-        })
     }
 
     async fn emit_memory_audit(
@@ -559,13 +494,4 @@ fn required_workspace(scope: &TenantScope) -> AppResult<WorkspaceId> {
 
 fn scoped_write_error(_err: ScopedWriteError) -> agentforge_core::AppError {
     ErrorKind::Forbidden.into()
-}
-
-fn sensitivity_label(sensitivity: Sensitivity) -> &'static str {
-    match sensitivity {
-        Sensitivity::Public => "public",
-        Sensitivity::Internal => "internal",
-        Sensitivity::Confidential => "confidential",
-        Sensitivity::SecretDetected => "secret_detected",
-    }
 }

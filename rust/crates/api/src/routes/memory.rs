@@ -11,10 +11,9 @@ use uuid::Uuid;
 use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, MemoryItemId};
 
+use crate::domain::memory::MemoryScopeKind;
 use crate::health::AppState;
-use crate::services::memory::{
-    CreateMemoryInput, MemoryScopeKind, MemoryService, ReclassifyScopeInput, UpdateMemoryInput,
-};
+use crate::services::memory::{CreateMemoryInput, MemoryService, ReclassifyScopeInput, UpdateMemoryInput};
 
 #[derive(Debug, Deserialize)]
 struct ListMemoryQuery {

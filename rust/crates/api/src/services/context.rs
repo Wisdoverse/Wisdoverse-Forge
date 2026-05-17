@@ -20,6 +20,7 @@ use crate::domain::context::{
     normalize_scope_kind_filter, redacted_proposal_preview, sensitivity_label, validate_candidate_content,
     validate_confidence, validate_context_sensitivity, validate_memory_title, validate_memory_visibility, validate_ttl,
 };
+use crate::domain::memory::MemoryScopeKind;
 use crate::repositories::context_approval::{ContextApprovalRepository, CreateContextApprovalRecord};
 use crate::repositories::context_candidate::{
     ContextCandidateListRow, ContextCandidateRepository, CreateContextCandidateRecord,
@@ -31,7 +32,6 @@ use crate::repositories::skill_version::SkillVersionRepository;
 use crate::services::context_governance::{
     ContextAuditEvent, ContextGovernanceService, ContextScopeKind, ScopeExpansionRequest, Sensitivity,
 };
-use crate::services::memory::MemoryScopeKind;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
