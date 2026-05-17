@@ -17,13 +17,13 @@ use uuid::Uuid;
 use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, ErrorKind};
 
+use crate::domain::context_governance::{ContextGovernancePolicy, Sensitivity};
 use crate::health::{AppState, ContextFeature, ensure_context_feature_enabled};
 use crate::repositories::audit::AuditRepository;
 use crate::repositories::governance_audit::{
     GOVERNANCE_CONTEXT_AUDIT_PREFIX, GovernanceAuditFilter, GovernanceAuditRepository, GovernanceAuditRow,
     normalize_limit,
 };
-use crate::services::context_governance::{ContextGovernanceService, Sensitivity};
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -303,7 +303,7 @@ fn redact_value(value: Value) -> (Value, bool) {
             (Value::Array(items), redacted)
         }
         Value::String(raw) => {
-            if matches!(ContextGovernanceService::classify_sensitivity(&raw).sensitivity, Sensitivity::SecretDetected) {
+            if matches!(ContextGovernancePolicy::classify_sensitivity(&raw).sensitivity, Sensitivity::SecretDetected) {
                 (Value::String("[REDACTED]".to_string()), true)
             } else {
                 (Value::String(raw), false)

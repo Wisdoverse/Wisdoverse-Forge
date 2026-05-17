@@ -7,10 +7,10 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
 
+use crate::domain::context_governance::ContextGovernancePolicy;
 use crate::repositories::orchestration::OrchestrationTaskRepository;
 use crate::repositories::task_context::{AppliedContextRow, TaskContextRepository};
 use crate::repositories::task_run::RunEvidenceRow;
-use crate::services::context_governance::ContextGovernanceService;
 
 const CONTENT_PREVIEW_CHARS: usize = 280;
 
@@ -311,7 +311,7 @@ fn redacted_proposal_preview(value: &Value) -> Value {
         }
     }
     if let Some(content) = map.get("content").and_then(Value::as_str) {
-        let classification = ContextGovernanceService::classify_sensitivity(content);
+        let classification = ContextGovernancePolicy::classify_sensitivity(content);
         let preview = classification.redacted_preview.unwrap_or_else(|| content.chars().take(160).collect());
         out.insert("content_preview".to_string(), json!(preview));
     }

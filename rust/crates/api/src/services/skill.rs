@@ -6,6 +6,9 @@ use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
+use crate::domain::context_governance::{
+    ContextAuditEvent, ContextGovernancePolicy, ContextScopeKind, ScopeExpansionRequest, Sensitivity,
+};
 use crate::domain::skill::{
     PreparedSkillContent, SkillContentDecision, SkillContentPolicy, SkillCreateStatePolicy, SkillJsonObjectPolicy,
     SkillName, SkillRestoreVersionPolicy, SkillScopeKind, SkillScopeTargetPolicy, SkillSensitivity, SkillState,
@@ -14,9 +17,7 @@ use crate::domain::skill::{
 use crate::repositories::resource_permission::ResourcePermissionRepository;
 use crate::repositories::skill::{CreateSkillRecord, SkillRepository, UpdateSkillRecord};
 use crate::repositories::skill_version::SkillVersionRepository;
-use crate::services::context_governance::{
-    ContextAuditEvent, ContextGovernanceService, ContextScopeKind, ScopeExpansionRequest, Sensitivity,
-};
+use crate::services::context_governance::ContextGovernanceService;
 
 #[derive(Debug, Clone)]
 pub struct CreateSkillInput {
@@ -287,7 +288,7 @@ impl SkillService {
             .as_deref()
             .and_then(ContextScopeKind::from_label)
             .ok_or_else(|| ErrorKind::Validation("skill snapshot has unsupported scope_kind".into()))?;
-        if let Err(rejection) = ContextGovernanceService::gate_scope_expansion(ScopeExpansionRequest {
+        if let Err(rejection) = ContextGovernancePolicy::gate_scope_expansion(ScopeExpansionRequest {
             from_kind,
             to_kind,
             confirm_expansion: input.confirm_expansion,
@@ -312,7 +313,7 @@ impl SkillService {
             return Err(rejection.into_app_error());
         }
 
-        let classification = ContextGovernanceService::classify_sensitivity(&snapshot.content);
+        let classification = ContextGovernancePolicy::classify_sensitivity(&snapshot.content);
         if snapshot.sensitivity == "secret_detected"
             || matches!(classification.sensitivity, Sensitivity::SecretDetected)
         {
