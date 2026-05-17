@@ -8,10 +8,11 @@ use uuid::Uuid;
 
 use crate::domain::context_governance::ContextAuditEvent;
 use crate::domain::skill::{
-    PreparedSkillContent, SkillContentDecision, SkillContentPolicy, SkillCreateStatePolicy, SkillJsonObjectPolicy,
-    SkillMutationAccess, SkillMutationAccessPolicy, SkillMutationManagerCheck, SkillMutationPolicy, SkillName,
-    SkillRestoreVersionPlan, SkillRestoreVersionPolicy, SkillRestoreVersionRequest, SkillScopeKind,
-    SkillScopeTargetPolicy, SkillSensitivity, SkillState, SkillStateTransitionPolicy, SkillTtlPolicy,
+    PreparedSkillContent, SkillBoundaryMutationPolicy, SkillContentDecision, SkillContentPolicy,
+    SkillCreateStatePolicy, SkillJsonObjectPolicy, SkillMutationAccess, SkillMutationAccessPolicy,
+    SkillMutationManagerCheck, SkillMutationPolicy, SkillName, SkillRestoreVersionPlan, SkillRestoreVersionPolicy,
+    SkillRestoreVersionRequest, SkillScopeKind, SkillScopeTargetPolicy, SkillSensitivity, SkillState,
+    SkillStateTransitionPolicy, SkillTtlPolicy,
 };
 use crate::repositories::resource_permission::ResourcePermissionRepository;
 use crate::repositories::skill::{CreateSkillRecord, SkillRepository, UpdateSkillRecord};
@@ -461,23 +462,15 @@ impl SkillService {
         id: Uuid,
         operation: &'static str,
     ) -> AppResult<()> {
-        if self.repo.exists_outside_request_boundary(scope, id).await? {
+        let exists_outside_request_boundary = self.repo.exists_outside_request_boundary(scope, id).await?;
+        if let Some(rejection) =
+            SkillBoundaryMutationPolicy::plan(exists_outside_request_boundary, operation, id, scope.workspace_id())
+        {
             let mut tx = self.repo.pool().begin().await?;
-            self.emit_skill_audit(
-                &mut tx,
-                scope,
-                "governance.context.skill.mutation_rejected",
-                Some(id),
-                json!({
-                    "operation": operation,
-                    "attempted_skill_id": id,
-                    "reason": "outside_request_boundary",
-                    "workspace_id": scope.workspace_id()
-                }),
-            )
-            .await?;
+            self.emit_skill_audit(&mut tx, scope, rejection.audit_action(), Some(id), rejection.audit_payload())
+                .await?;
             tx.commit().await?;
-            return Err(ErrorKind::Forbidden.into());
+            return Err(rejection.into_app_error());
         }
         Ok(())
     }
