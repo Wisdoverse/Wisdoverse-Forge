@@ -15,10 +15,11 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::context::{
-    context_candidate_subject, ensure_pending_candidate, normalize_candidate_kind_filter,
-    normalize_candidate_state_filter, normalize_context_candidate_limit, normalize_feedback_note, normalize_reason,
-    normalize_scope_kind_filter, redacted_proposal_preview, sensitivity_label, validate_candidate_content,
-    validate_confidence, validate_context_sensitivity, validate_memory_title, validate_memory_visibility, validate_ttl,
+    ContextCandidateKind, ContextFeedbackLabel, ContextItemKind, context_candidate_subject, ensure_pending_candidate,
+    normalize_candidate_kind_filter, normalize_candidate_state_filter, normalize_context_candidate_limit,
+    normalize_feedback_note, normalize_reason, normalize_scope_kind_filter, redacted_proposal_preview,
+    sensitivity_label, validate_candidate_content, validate_confidence, validate_context_sensitivity,
+    validate_memory_title, validate_memory_visibility, validate_ttl,
 };
 use crate::domain::memory::MemoryScopeKind;
 use crate::repositories::context_approval::{ContextApprovalRepository, CreateContextApprovalRecord};
@@ -32,22 +33,6 @@ use crate::repositories::skill_version::SkillVersionRepository;
 use crate::services::context_governance::{
     ContextAuditEvent, ContextGovernanceService, ContextScopeKind, ScopeExpansionRequest, Sensitivity,
 };
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ContextCandidateKind {
-    Memory,
-    Skill,
-}
-
-impl ContextCandidateKind {
-    fn as_label(self) -> &'static str {
-        match self {
-            Self::Memory => "memory",
-            Self::Skill => "skill",
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct CreateContextCandidateInput {
@@ -701,44 +686,6 @@ impl ContextApprovalService {
 
 const STALE_REVOKE_THRESHOLD: i64 = 3;
 const WRONG_REVOKE_THRESHOLD: i64 = 2;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ContextItemKind {
-    Memory,
-    Skill,
-}
-
-impl ContextItemKind {
-    fn as_label(self) -> &'static str {
-        match self {
-            Self::Memory => "memory",
-            Self::Skill => "skill",
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ContextFeedbackLabel {
-    Useful,
-    Stale,
-    Wrong,
-    TooSensitive,
-    DoNotUseAgain,
-}
-
-impl ContextFeedbackLabel {
-    fn as_label(self) -> &'static str {
-        match self {
-            Self::Useful => "useful",
-            Self::Stale => "stale",
-            Self::Wrong => "wrong",
-            Self::TooSensitive => "too_sensitive",
-            Self::DoNotUseAgain => "do_not_use_again",
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct RecordContextFeedbackInput {
