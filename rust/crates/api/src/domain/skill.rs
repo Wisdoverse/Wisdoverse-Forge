@@ -3,13 +3,13 @@
 //! This module owns pure skill input, lifecycle, and version policies that are
 //! independent of repositories, authorization, and audit emission.
 
-use agentforge_core::{AppError, AppResult, ErrorKind};
+use agentforge_core::{AppError, AppResult, ErrorKind, OrgId, WorkspaceId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-use crate::domain::context_governance::{ContextGovernancePolicy, SecretPattern, Sensitivity};
+use crate::domain::context_governance::{ContextGovernancePolicy, ContextScopeKind, SecretPattern, Sensitivity};
 
 /// Validated skill name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -259,6 +259,86 @@ impl SkillRestoreVersionPolicy {
         }
         Ok(())
     }
+
+    pub(crate) fn ensure_current_restorable(skill_id: Uuid, state: &str) -> AppResult<()> {
+        if state == "revoked" {
+            return Err(ErrorKind::Unprocessable(format!("skill {skill_id} is revoked and cannot be restored")).into());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn ensure_expected_current_version(
+        skill_id: Uuid,
+        current_version: i32,
+        expected_current_version: Option<i32>,
+    ) -> AppResult<()> {
+        if let Some(expected) = expected_current_version
+            && current_version != expected
+        {
+            return Err(ErrorKind::Conflict(format!(
+                "skill {skill_id} current version is {current_version}; expected {expected}"
+            ))
+            .into());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn ensure_snapshot_boundary(
+        skill_id: Uuid,
+        version: i32,
+        current_org_id: Option<OrgId>,
+        current_workspace_id: Option<WorkspaceId>,
+        snapshot_org_id: Option<OrgId>,
+        snapshot_workspace_id: Option<WorkspaceId>,
+    ) -> AppResult<()> {
+        if snapshot_org_id != current_org_id || snapshot_workspace_id != current_workspace_id {
+            return Err(ErrorKind::Conflict(format!(
+                "skill {skill_id} version {version} belongs to a different workspace boundary"
+            ))
+            .into());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn ensure_snapshot_restorable(skill_id: Uuid, version: i32, snapshot_state: &str) -> AppResult<()> {
+        if snapshot_state == "revoked" {
+            return Err(ErrorKind::Unprocessable(format!(
+                "skill {skill_id} version {version} is revoked and cannot be restored"
+            ))
+            .into());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn resolve_current_scope_kind(scope_kind: Option<&str>) -> AppResult<ContextScopeKind> {
+        scope_kind
+            .and_then(ContextScopeKind::from_label)
+            .ok_or_else(|| ErrorKind::Validation("current skill has unsupported scope_kind".into()).into())
+    }
+
+    pub(crate) fn resolve_snapshot_scope_kind(scope_kind: Option<&str>) -> AppResult<ContextScopeKind> {
+        scope_kind
+            .and_then(ContextScopeKind::from_label)
+            .ok_or_else(|| ErrorKind::Validation("skill snapshot has unsupported scope_kind".into()).into())
+    }
+}
+
+pub(crate) struct SkillMutationPolicy;
+
+impl SkillMutationPolicy {
+    pub(crate) fn ensure_updateable(skill_id: Uuid, state: &str) -> AppResult<()> {
+        if state == "revoked" {
+            return Err(ErrorKind::Conflict(format!("skill {skill_id} is revoked")).into());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn ensure_revokeable(skill_id: Uuid, state: &str) -> AppResult<()> {
+        if state == "revoked" {
+            return Err(ErrorKind::Conflict(format!("skill {skill_id} is already revoked")).into());
+        }
+        Ok(())
+    }
 }
 
 /// Skill enabled/state update result.
@@ -384,6 +464,57 @@ mod tests {
         assert!(SkillRestoreVersionPolicy::validate(1, Some(1)).is_ok());
         assert!(SkillRestoreVersionPolicy::validate(0, None).is_err());
         assert!(SkillRestoreVersionPolicy::validate(1, Some(0)).is_err());
+    }
+
+    #[test]
+    fn skill_mutation_policy_rejects_revoked_updates_and_revoke_replays() {
+        let skill_id = Uuid::parse_str("55555555-5555-4555-8555-555555555555").unwrap();
+        assert!(SkillMutationPolicy::ensure_updateable(skill_id, "active").is_ok());
+        assert!(SkillMutationPolicy::ensure_updateable(skill_id, "revoked").is_err());
+        assert!(SkillMutationPolicy::ensure_revokeable(skill_id, "deprecated").is_ok());
+        assert!(SkillMutationPolicy::ensure_revokeable(skill_id, "revoked").is_err());
+    }
+
+    #[test]
+    fn skill_restore_policy_validates_current_snapshot_and_scope_rules() {
+        let skill_id = Uuid::parse_str("66666666-6666-4666-8666-666666666666").unwrap();
+        let org_id = OrgId::from(Uuid::parse_str("77777777-7777-4777-8777-777777777777").unwrap());
+        let other_org_id = OrgId::from(Uuid::parse_str("88888888-8888-4888-8888-888888888888").unwrap());
+        let workspace_id = WorkspaceId::from(Uuid::parse_str("99999999-9999-4999-8999-999999999999").unwrap());
+
+        assert!(SkillRestoreVersionPolicy::ensure_current_restorable(skill_id, "active").is_ok());
+        assert!(SkillRestoreVersionPolicy::ensure_current_restorable(skill_id, "revoked").is_err());
+        assert!(SkillRestoreVersionPolicy::ensure_expected_current_version(skill_id, 3, Some(3)).is_ok());
+        assert!(SkillRestoreVersionPolicy::ensure_expected_current_version(skill_id, 3, Some(2)).is_err());
+        assert!(
+            SkillRestoreVersionPolicy::ensure_snapshot_boundary(
+                skill_id,
+                2,
+                Some(org_id),
+                Some(workspace_id),
+                Some(org_id),
+                Some(workspace_id),
+            )
+            .is_ok()
+        );
+        assert!(
+            SkillRestoreVersionPolicy::ensure_snapshot_boundary(
+                skill_id,
+                2,
+                Some(org_id),
+                Some(workspace_id),
+                Some(other_org_id),
+                Some(workspace_id),
+            )
+            .is_err()
+        );
+        assert!(SkillRestoreVersionPolicy::ensure_snapshot_restorable(skill_id, 2, "active").is_ok());
+        assert!(SkillRestoreVersionPolicy::ensure_snapshot_restorable(skill_id, 2, "revoked").is_err());
+        assert_eq!(
+            SkillRestoreVersionPolicy::resolve_current_scope_kind(Some("project")).unwrap(),
+            ContextScopeKind::Project
+        );
+        assert!(SkillRestoreVersionPolicy::resolve_snapshot_scope_kind(None).is_err());
     }
 
     #[test]

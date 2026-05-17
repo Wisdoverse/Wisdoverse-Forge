@@ -7,12 +7,12 @@ use serde_json::{Value, json};
 use uuid::Uuid;
 
 use crate::domain::context_governance::{
-    ContextAuditEvent, ContextGovernancePolicy, ContextScopeKind, ScopeExpansionRequest, Sensitivity,
+    ContextAuditEvent, ContextGovernancePolicy, ScopeExpansionRequest, Sensitivity,
 };
 use crate::domain::skill::{
     PreparedSkillContent, SkillContentDecision, SkillContentPolicy, SkillCreateStatePolicy, SkillJsonObjectPolicy,
-    SkillName, SkillRestoreVersionPolicy, SkillScopeKind, SkillScopeTargetPolicy, SkillSensitivity, SkillState,
-    SkillStateTransitionPolicy, SkillTtlPolicy,
+    SkillMutationPolicy, SkillName, SkillRestoreVersionPolicy, SkillScopeKind, SkillScopeTargetPolicy,
+    SkillSensitivity, SkillState, SkillStateTransitionPolicy, SkillTtlPolicy,
 };
 use crate::repositories::resource_permission::ResourcePermissionRepository;
 use crate::repositories::skill::{CreateSkillRecord, SkillRepository, UpdateSkillRecord};
@@ -154,9 +154,7 @@ impl SkillService {
         self.reject_outside_boundary_mutation(scope, id, "update").await?;
         let mut tx = self.repo.pool().begin().await?;
         let current = self.lock_mutable_skill(&mut tx, scope, id, "update").await?;
-        if current.state == "revoked" {
-            return Err(ErrorKind::Conflict(format!("skill {id} is revoked")).into());
-        }
+        SkillMutationPolicy::ensure_updateable(id, &current.state)?;
         self.require_owner_or_manager(scope, &current).await?;
         let state_change = SkillStateTransitionPolicy::next(&current.state, input.enabled)?;
         let prior_version = SkillVersionRepository::insert_snapshot_in_tx(&mut tx, &current, scope.user_id()).await?;
@@ -200,9 +198,7 @@ impl SkillService {
         self.reject_outside_boundary_mutation(scope, id, "revoke").await?;
         let mut tx = self.repo.pool().begin().await?;
         let current = self.lock_mutable_skill(&mut tx, scope, id, "revoke").await?;
-        if current.state == "revoked" {
-            return Err(ErrorKind::Conflict(format!("skill {id} is already revoked")).into());
-        }
+        SkillMutationPolicy::ensure_revokeable(id, &current.state)?;
         self.require_owner_or_manager(scope, &current).await?;
         let prior_version = SkillVersionRepository::insert_snapshot_in_tx(&mut tx, &current, scope.user_id()).await?;
         let skill = SkillRepository::revoke_in_tx(&mut tx, id).await?;
@@ -248,46 +244,27 @@ impl SkillService {
         self.reject_outside_boundary_mutation(scope, id, "restore_version").await?;
         let mut tx = self.repo.pool().begin().await?;
         let current = self.lock_mutable_skill(&mut tx, scope, id, "restore_version").await?;
-        if current.state == "revoked" {
-            return Err(ErrorKind::Unprocessable(format!("skill {id} is revoked and cannot be restored")).into());
-        }
-        if let Some(expected) = input.expected_current_version
-            && current.version != expected
-        {
-            return Err(ErrorKind::Conflict(format!(
-                "skill {id} current version is {}; expected {expected}",
-                current.version
-            ))
-            .into());
-        }
+        SkillRestoreVersionPolicy::ensure_current_restorable(id, &current.state)?;
+        SkillRestoreVersionPolicy::ensure_expected_current_version(
+            id,
+            current.version,
+            input.expected_current_version,
+        )?;
         self.require_owner_or_manager(scope, &current).await?;
 
         let (_target_row, snapshot) =
             SkillVersionRepository::snapshot_for_version_in_tx(&mut tx, current.id, input.version).await?;
-        if snapshot.organization_id != current.organization_id || snapshot.workspace_id != current.workspace_id {
-            return Err(ErrorKind::Conflict(format!(
-                "skill {id} version {} belongs to a different workspace boundary",
-                input.version
-            ))
-            .into());
-        }
-        if snapshot.state == "revoked" {
-            return Err(ErrorKind::Unprocessable(format!(
-                "skill {id} version {} is revoked and cannot be restored",
-                input.version
-            ))
-            .into());
-        }
-        let from_kind = current
-            .scope_kind
-            .as_deref()
-            .and_then(ContextScopeKind::from_label)
-            .ok_or_else(|| ErrorKind::Validation("current skill has unsupported scope_kind".into()))?;
-        let to_kind = snapshot
-            .scope_kind
-            .as_deref()
-            .and_then(ContextScopeKind::from_label)
-            .ok_or_else(|| ErrorKind::Validation("skill snapshot has unsupported scope_kind".into()))?;
+        SkillRestoreVersionPolicy::ensure_snapshot_boundary(
+            id,
+            input.version,
+            current.organization_id,
+            current.workspace_id,
+            snapshot.organization_id,
+            snapshot.workspace_id,
+        )?;
+        SkillRestoreVersionPolicy::ensure_snapshot_restorable(id, input.version, &snapshot.state)?;
+        let from_kind = SkillRestoreVersionPolicy::resolve_current_scope_kind(current.scope_kind.as_deref())?;
+        let to_kind = SkillRestoreVersionPolicy::resolve_snapshot_scope_kind(snapshot.scope_kind.as_deref())?;
         if let Err(rejection) = ContextGovernancePolicy::gate_scope_expansion(ScopeExpansionRequest {
             from_kind,
             to_kind,
