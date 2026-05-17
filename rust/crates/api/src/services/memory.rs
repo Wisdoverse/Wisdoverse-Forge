@@ -432,9 +432,10 @@ impl MemoryService {
         match MemoryContentPolicy::prepare(content, redacted)? {
             MemoryContentDecision::Prepared(prepared) => Ok(prepared),
             MemoryContentDecision::Rejected(rejection) => {
+                let action = rejection.audit_action();
                 let payload = rejection.audit_payload(operation);
                 let mut tx = self.repo.pool().begin().await?;
-                self.emit_memory_audit(&mut tx, scope, "governance.context.memory.rejected", payload).await?;
+                self.emit_memory_audit(&mut tx, scope, action, payload).await?;
                 tx.commit().await?;
                 Err(rejection.into_app_error())
             }
