@@ -429,6 +429,46 @@ impl SkillRestoreVersionPolicy {
 
 pub(crate) struct SkillMutationPolicy;
 
+/// A skill write blocked because the skill exists outside the request boundary.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SkillBoundaryMutationRejection {
+    operation: &'static str,
+    skill_id: Uuid,
+    workspace_id: Option<WorkspaceId>,
+}
+
+impl SkillBoundaryMutationRejection {
+    pub(crate) fn audit_action(&self) -> &'static str {
+        "governance.context.skill.mutation_rejected"
+    }
+
+    pub(crate) fn audit_payload(&self) -> Value {
+        json!({
+            "operation": self.operation,
+            "attempted_skill_id": self.skill_id,
+            "reason": "outside_request_boundary",
+            "workspace_id": self.workspace_id
+        })
+    }
+
+    pub(crate) fn into_app_error(self) -> AppError {
+        ErrorKind::Forbidden.into()
+    }
+}
+
+pub(crate) struct SkillBoundaryMutationPolicy;
+
+impl SkillBoundaryMutationPolicy {
+    pub(crate) fn plan(
+        exists_outside_request_boundary: bool,
+        operation: &'static str,
+        skill_id: Uuid,
+        workspace_id: Option<WorkspaceId>,
+    ) -> Option<SkillBoundaryMutationRejection> {
+        exists_outside_request_boundary.then_some(SkillBoundaryMutationRejection { operation, skill_id, workspace_id })
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SkillMutationManagerCheck {
     Org,
@@ -668,6 +708,25 @@ mod tests {
             SkillMutationAccessPolicy::ensure_manager_authorized(false).unwrap_err().kind,
             ErrorKind::Forbidden
         ));
+    }
+
+    #[test]
+    fn skill_boundary_mutation_policy_plans_auditable_forbidden_rejection() {
+        let skill_id = Uuid::parse_str("44444444-4444-4444-8444-444444444444").unwrap();
+        let workspace_id = WorkspaceId::from(Uuid::parse_str("99999999-9999-4999-8999-999999999999").unwrap());
+
+        assert!(SkillBoundaryMutationPolicy::plan(false, "update", skill_id, Some(workspace_id)).is_none());
+
+        let rejection = SkillBoundaryMutationPolicy::plan(true, "restore_version", skill_id, Some(workspace_id))
+            .expect("outside-boundary writes should be rejected");
+
+        assert_eq!(rejection.audit_action(), "governance.context.skill.mutation_rejected");
+        let payload = rejection.audit_payload();
+        assert_eq!(payload["operation"], "restore_version");
+        assert_eq!(payload["attempted_skill_id"], skill_id.to_string());
+        assert_eq!(payload["reason"], "outside_request_boundary");
+        assert_eq!(payload["workspace_id"], workspace_id.as_uuid().to_string());
+        assert!(matches!(rejection.into_app_error().kind, ErrorKind::Forbidden));
     }
 
     #[test]
