@@ -269,6 +269,17 @@ impl BlockedTaskPolicy {
         TaskStatusPolicy::can_dispatch(status) && Self::reason_allows_dispatch(blocked_reason)
     }
 
+    pub(crate) fn ensure_can_enter_dispatch(status: &str, blocked_reason: Option<&str>) -> AppResult<()> {
+        if Self::can_enter_dispatch(status, blocked_reason) {
+            return Ok(());
+        }
+        Err(ErrorKind::Validation(format!(
+            "can only dispatch queued or waiting-agent tasks, current status: {status}, blocked reason: {}",
+            blocked_reason.unwrap_or("none")
+        ))
+        .into())
+    }
+
     /// Child tasks with an unfinished parent start in
     /// `blocked/waiting_dependency`. `failed` and `canceled` parents are also
     /// kept blocked until an operator explicitly decides what to do.
@@ -420,6 +431,26 @@ mod tests {
             BlockedTaskPolicy::missing_required_inputs(Some(&params)),
             vec!["api_key".to_string(), "model".to_string(), "region".to_string()]
         );
+    }
+
+    #[test]
+    fn blocked_task_policy_allows_dispatch_for_queued_or_waiting_agent_only() {
+        assert!(BlockedTaskPolicy::ensure_can_enter_dispatch("queued", None).is_ok());
+        assert!(BlockedTaskPolicy::ensure_can_enter_dispatch("blocked", Some("waiting_agent")).is_ok());
+        assert!(BlockedTaskPolicy::ensure_can_enter_dispatch("blocked", Some("waiting_input")).is_err());
+        assert!(BlockedTaskPolicy::ensure_can_enter_dispatch("completed", None).is_err());
+    }
+
+    #[test]
+    fn blocked_task_policy_dispatch_error_includes_current_state() {
+        let error =
+            match &BlockedTaskPolicy::ensure_can_enter_dispatch("blocked", Some("waiting_input")).unwrap_err().kind {
+                ErrorKind::Validation(message) => message.clone(),
+                other => panic!("expected validation error, got {other:?}"),
+            };
+
+        assert!(error.contains("current status: blocked"));
+        assert!(error.contains("blocked reason: waiting_input"));
     }
 
     #[test]
