@@ -5,11 +5,13 @@
 //! the user previewed.
 
 use agentforge_core::{AgentId, AppResult, ErrorKind};
+use chrono::{DateTime, Utc};
+use serde::Serialize;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use super::context_resolver::ResolvedContext;
+use super::context_resolver::{ResolvedContext, ResolvedItemRef};
 
 pub(crate) const CONTEXT_PREVIEW_TTL_MINUTES: i64 = 15;
 
@@ -93,6 +95,40 @@ fn stale_preview_error() -> ErrorKind {
     ErrorKind::Conflict("preview_stale".into())
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextPreviewItem {
+    pub id: Uuid,
+    pub item_kind: String,
+    pub title: String,
+    pub selected: bool,
+    pub pinned: bool,
+    pub scope_kind: Option<String>,
+    pub scope_id: Option<Uuid>,
+    pub sensitivity: Option<String>,
+    pub estimated_tokens: u32,
+    pub last_used_at: Option<DateTime<Utc>>,
+    pub last_verified_at: Option<DateTime<Utc>>,
+    pub why: String,
+}
+
+pub(crate) fn context_preview_item(item: &ResolvedItemRef, selected: bool, pinned: bool) -> ContextPreviewItem {
+    ContextPreviewItem {
+        id: item.id,
+        item_kind: item.kind.label().to_string(),
+        title: item.title.clone(),
+        selected,
+        pinned,
+        scope_kind: item.scope_kind.clone(),
+        scope_id: item.scope_id,
+        sensitivity: item.sensitivity.clone(),
+        estimated_tokens: item.estimated_tokens,
+        last_used_at: item.last_used_at,
+        last_verified_at: item.last_verified_at,
+        why: item.why.clone(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use agentforge_core::{CliToolKind, RuntimeCapability, RuntimeKind};
@@ -161,6 +197,43 @@ mod tests {
         assert_eq!(draft.hash().len(), 64);
         assert_eq!(draft.hash(), draft.hash());
         assert_ne!(draft.hash(), changed.hash());
+    }
+
+    #[test]
+    fn context_preview_item_projects_resolved_item_with_selection_flags() {
+        use crate::domain::context_resolver::{ContextItemKind, ResolvedItemRef};
+
+        let id = Uuid::from_u128(0x44444444444444448444444444444444);
+        let scope_id = Uuid::from_u128(0x55555555555555558555555555555555);
+        let item = ResolvedItemRef {
+            id,
+            kind: ContextItemKind::Skill,
+            title: "Review skill".to_string(),
+            scope_kind: Some("project".to_string()),
+            scope_id: Some(scope_id),
+            sensitivity: Some("internal".to_string()),
+            estimated_tokens: 42,
+            last_used_at: None,
+            last_verified_at: None,
+            why: "matched".to_string(),
+        };
+
+        let selected = context_preview_item(&item, true, false);
+        let suggested = context_preview_item(&item, false, true);
+
+        assert_eq!(selected.id, id);
+        assert_eq!(selected.item_kind, "skill");
+        assert_eq!(selected.title, "Review skill");
+        assert!(selected.selected);
+        assert!(!selected.pinned);
+        assert_eq!(selected.scope_kind.as_deref(), Some("project"));
+        assert_eq!(selected.scope_id, Some(scope_id));
+        assert_eq!(selected.sensitivity.as_deref(), Some("internal"));
+        assert_eq!(selected.estimated_tokens, 42);
+        assert_eq!(selected.why, "matched");
+
+        assert!(!suggested.selected);
+        assert!(suggested.pinned);
     }
 
     #[test]
