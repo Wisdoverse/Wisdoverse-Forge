@@ -414,6 +414,29 @@ impl MemoryUpdatedAudit {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct MemoryRevokedAudit {
+    scope_kind: String,
+    sensitivity: String,
+}
+
+impl MemoryRevokedAudit {
+    pub(crate) fn new(scope_kind: impl Into<String>, sensitivity: impl Into<String>) -> Self {
+        Self { scope_kind: scope_kind.into(), sensitivity: sensitivity.into() }
+    }
+
+    pub(crate) fn audit_action(&self) -> &'static str {
+        "governance.context.memory.revoked"
+    }
+
+    pub(crate) fn audit_payload(&self) -> Value {
+        json!({
+            "scope_kind": self.scope_kind,
+            "sensitivity": self.sensitivity
+        })
+    }
+}
+
 /// Prepared memory content ready for persistence and audit emission.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PreparedMemoryContent {
@@ -722,6 +745,16 @@ mod tests {
         assert_eq!(payload["sensitivity"], "internal");
         assert_eq!(payload["content_changed"], true);
         assert_eq!(payload["content_redacted"], false);
+    }
+
+    #[test]
+    fn memory_revoked_audit_owns_action_and_payload() {
+        let audit = MemoryRevokedAudit::new("user", "confidential");
+        let payload = audit.audit_payload();
+
+        assert_eq!(audit.audit_action(), "governance.context.memory.revoked");
+        assert_eq!(payload["scope_kind"], "user");
+        assert_eq!(payload["sensitivity"], "confidential");
     }
 
     fn synthetic_assigned_secret() -> String {
