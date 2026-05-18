@@ -926,6 +926,24 @@ pub(crate) fn context_content_preview(value: &str, limit: usize) -> (String, boo
     (preview, truncated)
 }
 
+/// JSON projection of the upstream source attribution embedded in an applied
+/// context snapshot. Serialized into the task detail Context tab response.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppliedContextSource {
+    pub source_type: String,
+    pub source_id: Option<Uuid>,
+    pub title: Option<String>,
+}
+
+pub(crate) fn applied_context_source(value: &Value) -> Option<AppliedContextSource> {
+    let source = value.get("source")?.as_object()?;
+    let source_type = source.get("source_type")?.as_str()?.to_string();
+    let source_id = source.get("source_id").and_then(Value::as_str).and_then(|value| Uuid::parse_str(value).ok());
+    let title = source.get("title").and_then(Value::as_str).map(str::to_string);
+    Some(AppliedContextSource { source_type, source_id, title })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1394,5 +1412,46 @@ mod tests {
 
         assert_eq!(preview, "中文测...");
         assert!(truncated);
+    }
+
+    #[test]
+    fn applied_context_source_returns_none_when_source_envelope_missing() {
+        assert!(applied_context_source(&json!({"title": "no envelope"})).is_none());
+        assert!(applied_context_source(&json!({"source": "not an object"})).is_none());
+        assert!(applied_context_source(&json!({"source": {}})).is_none());
+    }
+
+    #[test]
+    fn applied_context_source_parses_optional_id_and_title_from_snapshot() {
+        let source_uuid = "00000000-0000-0000-0000-000000000abc";
+        let snapshot = json!({
+            "source": {
+                "source_type": "memory",
+                "source_id": source_uuid,
+                "title": "Origin item",
+            },
+        });
+
+        let parsed = applied_context_source(&snapshot).expect("parsed source");
+
+        assert_eq!(parsed.source_type, "memory");
+        assert_eq!(parsed.source_id, Some(Uuid::parse_str(source_uuid).unwrap()));
+        assert_eq!(parsed.title.as_deref(), Some("Origin item"));
+    }
+
+    #[test]
+    fn applied_context_source_drops_invalid_uuid_and_missing_title() {
+        let snapshot = json!({
+            "source": {
+                "source_type": "skill",
+                "source_id": "not-a-uuid",
+            },
+        });
+
+        let parsed = applied_context_source(&snapshot).expect("parsed source");
+
+        assert_eq!(parsed.source_type, "skill");
+        assert!(parsed.source_id.is_none());
+        assert!(parsed.title.is_none());
     }
 }
