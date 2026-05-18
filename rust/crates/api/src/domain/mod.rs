@@ -27,5 +27,6 @@ pub(crate) mod runtime_capability;
 pub(crate) mod skill;
 pub(crate) mod task_context;
 pub(crate) mod turn;
+pub(crate) mod usage_analytics;
 pub(crate) mod user;
 pub(crate) mod voice;
