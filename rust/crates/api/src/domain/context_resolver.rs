@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use agentforge_core::{RuntimeCapability, ScopedRead};
+use agentforge_core::{AgentId, RuntimeCapability, ScopedRead};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -226,6 +226,10 @@ pub(crate) fn scope_hash(proof: &ScopedRead) -> String {
     hex::encode(Sha256::digest(material.to_string().as_bytes()))
 }
 
+pub(crate) fn context_resolver_cache_key(task_id: Uuid, agent_id: AgentId, proof: &ScopedRead) -> String {
+    format!("context_resolver:{task_id}:{}:{}", agent_id.as_uuid(), scope_hash(proof))
+}
+
 fn memory_why(confidence: Option<f64>, last_verified_at: Option<DateTime<Utc>>) -> String {
     match (confidence, last_verified_at) {
         (Some(confidence), Some(last_verified_at)) => {
@@ -239,6 +243,8 @@ fn memory_why(confidence: Option<f64>, last_verified_at: Option<DateTime<Utc>>) 
 
 #[cfg(test)]
 mod tests {
+    use agentforge_core::{OrgId, ProjectId, TeamId, UserId, WorkspaceId};
+
     use super::*;
 
     fn capability() -> RuntimeCapability {
@@ -351,5 +357,28 @@ mod tests {
     fn degradation_reason_labels_are_protocol_stable() {
         assert_eq!(DegradationReason::BudgetTruncated.label(), "budget_truncated");
         assert_eq!(DegradationReason::RuntimeCapabilityFallback.label(), "runtime_capability_fallback");
+    }
+
+    #[test]
+    fn cache_key_owns_task_agent_and_scope_contract() {
+        let task_id = Uuid::from_u128(0x11111111111141118111111111111111);
+        let agent_id = AgentId::from(Uuid::from_u128(0x22222222222242228222222222222222));
+        let org_id = OrgId::from(Uuid::from_u128(0x33333333333343338333333333333333));
+        let user_id = UserId::from(Uuid::from_u128(0x44444444444444448444444444444444));
+        let workspace_id = WorkspaceId::from(Uuid::from_u128(0x55555555555545558555555555555555));
+        let read = ScopedRead::from_validated_memberships(
+            org_id,
+            user_id,
+            [workspace_id],
+            [TeamId::from(Uuid::from_u128(0x66666666666646668666666666666666))],
+            [ProjectId::from(Uuid::from_u128(0x77777777777747778777777777777777))],
+        );
+        let other_read = ScopedRead::from_validated_memberships(org_id, user_id, [workspace_id], [], []);
+
+        let key = context_resolver_cache_key(task_id, agent_id, &read);
+
+        assert!(key.starts_with(&format!("context_resolver:{task_id}:{}:", agent_id.as_uuid())));
+        assert_eq!(key, context_resolver_cache_key(task_id, agent_id, &read));
+        assert_ne!(key, context_resolver_cache_key(task_id, agent_id, &other_read));
     }
 }

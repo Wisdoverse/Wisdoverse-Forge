@@ -16,7 +16,9 @@ pub use crate::domain::context_resolver::{
     ContextItemKind, ContextSelection, ContextTaskSnapshot, DegradationReason, ResolvedContext, ResolvedItemRef,
     SelectedContext, apply_context_selection,
 };
-use crate::domain::context_resolver::{MemoryCandidate, apply_budget, push_degradation, scope_hash, task_search_text};
+use crate::domain::context_resolver::{
+    MemoryCandidate, apply_budget, context_resolver_cache_key, push_degradation, task_search_text,
+};
 use crate::services::runtime_capability_registry::RuntimeCapabilityRegistryService;
 
 const ENVELOPE_VERSION: &str = "v1";
@@ -116,7 +118,7 @@ impl ContextResolverService {
         snapshot: ContextTaskSnapshot,
         agent_id: AgentId,
     ) -> AppResult<ResolvedContext> {
-        let cache_key = memo_key(snapshot.task_id, agent_id, proof);
+        let cache_key = context_resolver_cache_key(snapshot.task_id, agent_id, proof);
         if let Some(cached) = self.memo_get(&cache_key).await {
             return Ok(cached);
         }
@@ -396,10 +398,6 @@ impl ContextResolverService {
             metrics::counter!("context_resolver_memo_redis_error_total", "op" => "set").increment(1);
         }
     }
-}
-
-fn memo_key(task_id: Uuid, agent_id: AgentId, proof: &ScopedRead) -> String {
-    format!("context_resolver:{task_id}:{}:{}", agent_id.as_uuid(), scope_hash(proof))
 }
 
 fn workspace_ids(proof: &ScopedRead) -> Vec<Uuid> {
