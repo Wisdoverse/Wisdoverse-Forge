@@ -16,7 +16,7 @@ use crate::domain::memory::{
     MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryContentReadAudit, MemoryCreatedAudit,
     MemoryListPage, MemoryMutationAccess, MemoryMutationAccessPolicy, MemoryMutationManagerCheck,
     MemoryReclassificationPlan, MemoryReclassificationPolicy, MemoryReclassificationRequest, MemoryScopeKind,
-    MemoryScopeTargetPolicy, MemoryTitle, MemoryTtlPolicy, MemoryVisibility, PreparedMemoryContent,
+    MemoryScopeTargetPolicy, MemoryTitle, MemoryTtlPolicy, MemoryUpdatedAudit, MemoryVisibility, PreparedMemoryContent,
 };
 use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository, UpdateMemoryRecord};
 use crate::repositories::resource_permission::ResourcePermissionRepository;
@@ -194,19 +194,14 @@ impl MemoryService {
             },
         )
         .await?;
-        self.emit_memory_audit(
-            &mut tx,
-            scope,
-            "governance.context.memory.updated",
-            json!({
-                "scope_kind": item.scope_kind,
-                "visibility": item.visibility,
-                "sensitivity": item.sensitivity,
-                "content_changed": prepared.is_some(),
-                "content_redacted": item.content_redacted
-            }),
-        )
-        .await?;
+        let audit = MemoryUpdatedAudit::new(
+            item.scope_kind.as_str(),
+            item.visibility.as_str(),
+            item.sensitivity.as_str(),
+            prepared.is_some(),
+            item.content_redacted,
+        );
+        self.emit_memory_audit(&mut tx, scope, audit.audit_action(), audit.audit_payload()).await?;
         tx.commit().await?;
         Ok(item)
     }
