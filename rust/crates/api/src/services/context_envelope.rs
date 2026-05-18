@@ -3,17 +3,16 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use agentforge_core::context_envelope::{
-    CONTEXT_ENVELOPE_VERSION_V1, ContextEnvelope, ContextEnvelopeItem, ContextEnvelopeItemKind, ContextEnvelopeSource,
-};
+use agentforge_core::context_envelope::{CONTEXT_ENVELOPE_VERSION_V1, ContextEnvelope};
 use agentforge_core::{AgentId, AppResult, ErrorKind, ScopedRead};
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
 use crate::domain::context_envelope::{
-    ContextEnvelopeCapabilityPolicy, ContextEnvelopeMemoryContentPolicy, ContextEnvelopeVersionPolicy,
+    ContextEnvelopeCapabilityPolicy, ContextEnvelopeDegradationPolicy, ContextEnvelopeMemoryItem,
+    ContextEnvelopeVersionPolicy,
 };
-use crate::domain::context_resolver::{ContextItemKind as ResolvedContextItemKind, DegradationReason, ResolvedContext};
+use crate::domain::context_resolver::{ContextItemKind as ResolvedContextItemKind, ResolvedContext};
 use crate::services::context_resolver::{ContextResolverService, ResolveContextInput};
 
 #[derive(Debug, Clone)]
@@ -38,6 +37,19 @@ struct MemoryContentRow {
     content_redacted: bool,
     content_encrypted: bool,
     sensitivity: String,
+}
+
+impl MemoryContentRow {
+    fn envelope_item(&self) -> ContextEnvelopeMemoryItem<'_> {
+        ContextEnvelopeMemoryItem {
+            id: self.id,
+            title: &self.title,
+            content: &self.content,
+            content_redacted: self.content_redacted,
+            content_encrypted: self.content_encrypted,
+            sensitivity: &self.sensitivity,
+        }
+    }
 }
 
 impl ContextEnvelopeService {
@@ -68,27 +80,9 @@ impl ContextEnvelopeService {
             .applied
             .iter()
             .filter_map(|item| match item.kind {
-                ResolvedContextItemKind::Memory => memory.get(&item.id).map(|row| {
-                    let content = ContextEnvelopeMemoryContentPolicy::visible_content(
-                        &row.content,
-                        row.content_redacted,
-                        row.content_encrypted,
-                        &row.sensitivity,
-                    );
-                    ContextEnvelopeItem {
-                        id: row.id,
-                        kind: ContextEnvelopeItemKind::Memory,
-                        title: row.title.clone(),
-                        content,
-                        content_ref: format!("memory_items/{}", row.id),
-                        sensitivity: row.sensitivity.clone(),
-                        source: ContextEnvelopeSource {
-                            source_type: "memory_item".to_string(),
-                            source_id: Some(row.id),
-                            title: Some(row.title.clone()),
-                        },
-                    }
-                }),
+                ResolvedContextItemKind::Memory => {
+                    memory.get(&item.id).map(|row| row.envelope_item().to_envelope_item())
+                }
                 ResolvedContextItemKind::Skill => None,
             })
             .collect();
@@ -101,7 +95,7 @@ impl ContextEnvelopeService {
             capability: ContextEnvelopeCapabilityPolicy::snapshot(&resolved.capability),
             applied,
             skills_mount: Vec::new(),
-            degradation: resolved.degradation.iter().map(degradation_label).map(str::to_string).collect(),
+            degradation: ContextEnvelopeDegradationPolicy::labels(&resolved.degradation),
         })
     }
 
@@ -174,8 +168,4 @@ impl ContextEnvelopeService {
 
         Ok(rows.into_iter().map(|row| (row.id, row)).collect())
     }
-}
-
-fn degradation_label(reason: &DegradationReason) -> &'static str {
-    reason.label()
 }
