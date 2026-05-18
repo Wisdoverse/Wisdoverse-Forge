@@ -6,8 +6,8 @@ use agentforge_auth::JwtManager;
 use agentforge_core::{AppResult, ErrorKind, TenantScope, UserId};
 use agentforge_db::entities::User;
 use chrono::{Duration, Utc};
-use serde::Serialize;
 
+pub use crate::domain::user::{AuthenticatedUser, LoginResult};
 use crate::domain::user::{
     GeneratedPasswordResetToken, PASSWORD_RESET_TTL_MINUTES, PasswordResetRequestEmail, PasswordResetToken,
     RefreshSessionPolicy, UserEmail, UserListPage, UserPassword, derive_username, email_domain_for_log,
@@ -20,28 +20,6 @@ use crate::services::email::{EmailMessage, EmailSender};
 pub struct UserService {
     repo: UserRepository,
     jwt: Arc<JwtManager>,
-}
-
-/// Frontend-compatible authenticated user payload.
-#[derive(Debug, Clone, Serialize)]
-pub struct AuthenticatedUser {
-    pub id: String,
-    pub email: String,
-    pub username: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub org_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub role: Option<String>,
-}
-
-/// Successful auth result containing the public user and token pair.
-#[derive(Debug, Clone, Serialize)]
-pub struct LoginResult {
-    pub user: AuthenticatedUser,
-    pub access_token: String,
-    pub expires_in: u64,
-    pub refresh_token: String,
-    pub refresh_expires_in: u64,
 }
 
 impl UserService {
