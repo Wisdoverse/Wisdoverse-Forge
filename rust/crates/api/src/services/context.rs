@@ -5,22 +5,22 @@ use std::sync::Arc;
 use agentforge_core::{
     AppResult, ErrorKind, ProjectId, ScopedRead, ScopedWrite, ScopedWriteError, TeamId, TenantScope, WorkspaceId,
 };
-use agentforge_db::entities::{ContextApproval, ContextCandidate, ContextFeedback, MemoryItem, Skill};
+use agentforge_db::entities::ContextCandidate;
 use agentforge_infra::NatsClient;
 use chrono::{DateTime, Utc};
-use serde::Serialize;
 use serde_json::Value;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+pub use crate::domain::context::{ContextApprovalOutcome, ContextCandidateSummary, ContextFeedbackOutcome};
 use crate::domain::context::{
     ContextApprovalProvenance, ContextCandidateApprovalAudit, ContextCandidateBroadcast,
     ContextCandidateBroadcastEvent, ContextCandidateCreatedAudit, ContextCandidateKind,
-    ContextCandidateManualRejectionAudit, ContextCandidatePolicy, ContextCandidateRecord, ContextCandidateSummary,
-    ContextFeedbackLabel, ContextFeedbackPolicy, ContextFeedbackRecordedAudit, ContextItemKind,
-    context_candidate_audit_event, context_candidate_summary, ensure_pending_candidate,
-    normalize_candidate_kind_filter, normalize_candidate_state_filter, normalize_context_candidate_limit,
-    normalize_feedback_note, normalize_reason, normalize_scope_kind_filter, validate_context_sensitivity, validate_ttl,
+    ContextCandidateManualRejectionAudit, ContextCandidatePolicy, ContextCandidateRecord, ContextFeedbackLabel,
+    ContextFeedbackPolicy, ContextFeedbackRecordedAudit, ContextItemKind, context_candidate_audit_event,
+    context_candidate_summary, ensure_pending_candidate, normalize_candidate_kind_filter,
+    normalize_candidate_state_filter, normalize_context_candidate_limit, normalize_feedback_note, normalize_reason,
+    normalize_scope_kind_filter, validate_context_sensitivity, validate_ttl,
 };
 use crate::domain::memory::MemoryScopeKind;
 use crate::repositories::context_approval::{ContextApprovalRepository, CreateContextApprovalRecord};
@@ -65,14 +65,6 @@ pub struct ListContextCandidatesInput {
 #[derive(Debug, Clone, Default)]
 pub struct RejectContextCandidateInput {
     pub reason: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct ContextApprovalOutcome {
-    pub candidate: ContextCandidate,
-    pub approval: Option<ContextApproval>,
-    pub memory_item: Option<MemoryItem>,
-    pub skill: Option<Skill>,
 }
 
 pub struct ContextApprovalService {
@@ -532,12 +524,6 @@ pub struct RecordContextFeedbackInput {
     pub item_kind: ContextItemKind,
     pub label: ContextFeedbackLabel,
     pub note: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct ContextFeedbackOutcome {
-    pub feedback: ContextFeedback,
-    pub item_state_changed: bool,
 }
 
 pub struct ContextFeedbackService {
