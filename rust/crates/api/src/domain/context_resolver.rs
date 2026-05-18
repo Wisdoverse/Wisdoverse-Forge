@@ -97,6 +97,15 @@ pub(crate) struct MemoryCandidate {
     pub(crate) confidence: Option<f64>,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct SkillSuggestionCandidate {
+    pub(crate) id: Uuid,
+    pub(crate) name: String,
+    pub(crate) scope_kind: Option<String>,
+    pub(crate) scope_id: Option<Uuid>,
+    pub(crate) sensitivity: String,
+}
+
 pub fn apply_context_selection(resolved: ResolvedContext, selection: &ContextSelection) -> SelectedContext {
     let ResolvedContext {
         applied: default_applied,
@@ -186,6 +195,21 @@ pub(crate) fn apply_budget(
     }
 
     (applied, suggested, truncated)
+}
+
+pub(crate) fn skill_suggestion_item(candidate: SkillSuggestionCandidate) -> ResolvedItemRef {
+    ResolvedItemRef {
+        id: candidate.id,
+        kind: ContextItemKind::Skill,
+        title: candidate.name,
+        scope_kind: candidate.scope_kind,
+        scope_id: candidate.scope_id,
+        sensitivity: Some(candidate.sensitivity),
+        estimated_tokens: 0,
+        last_used_at: None,
+        last_verified_at: None,
+        why: "Skill trigger matched the task text.".to_string(),
+    }
 }
 
 pub(crate) fn task_search_text(snapshot: &ContextTaskSnapshot) -> String {
@@ -318,6 +342,31 @@ mod tests {
         assert_eq!(applied.iter().map(|item| item.id).collect::<Vec<_>>(), vec![first]);
         assert_eq!(suggested.iter().map(|item| item.id).collect::<Vec<_>>(), vec![second]);
         assert!(applied[0].why.contains("confidence 0.80"));
+    }
+
+    #[test]
+    fn skill_suggestion_item_owns_protocol_projection() {
+        let skill_id = Uuid::now_v7();
+        let scope_id = Uuid::now_v7();
+
+        let item = skill_suggestion_item(SkillSuggestionCandidate {
+            id: skill_id,
+            name: "Review readiness".to_string(),
+            scope_kind: Some("project".to_string()),
+            scope_id: Some(scope_id),
+            sensitivity: "internal".to_string(),
+        });
+
+        assert_eq!(item.id, skill_id);
+        assert_eq!(item.kind, ContextItemKind::Skill);
+        assert_eq!(item.title, "Review readiness");
+        assert_eq!(item.scope_kind.as_deref(), Some("project"));
+        assert_eq!(item.scope_id, Some(scope_id));
+        assert_eq!(item.sensitivity.as_deref(), Some("internal"));
+        assert_eq!(item.estimated_tokens, 0);
+        assert!(item.last_used_at.is_none());
+        assert!(item.last_verified_at.is_none());
+        assert_eq!(item.why, "Skill trigger matched the task text.");
     }
 
     #[test]
