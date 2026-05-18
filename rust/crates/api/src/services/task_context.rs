@@ -7,7 +7,9 @@ use serde::Serialize;
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::domain::context::{context_content_preview, redacted_proposal_preview};
+use crate::domain::context::{
+    AppliedContextSource, applied_context_source, context_content_preview, redacted_proposal_preview,
+};
 use crate::repositories::orchestration::OrchestrationTaskRepository;
 use crate::repositories::task_context::{AppliedContextRow, TaskContextRepository};
 use crate::repositories::task_run::RunEvidenceRow;
@@ -65,14 +67,6 @@ pub struct AppliedContextItem {
     pub capability_profile: Value,
     pub degradation_reason: Option<String>,
     pub feedback: Option<AppliedContextFeedback>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AppliedContextSource {
-    pub source_type: String,
-    pub source_id: Option<Uuid>,
-    pub title: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -185,7 +179,7 @@ impl From<AppliedContextRow> for AppliedContextItem {
         let content = string_field(&row.applied_snapshot, "content").unwrap_or_default();
         let (content_preview, content_truncated) = context_content_preview(&content, CONTENT_PREVIEW_CHARS);
         let snapshot_sensitivity = string_field(&row.applied_snapshot, "sensitivity");
-        let source = source_field(&row.applied_snapshot);
+        let source = applied_context_source(&row.applied_snapshot);
         let content_ref = string_field(&row.applied_snapshot, "content_ref");
         let revoked = row.revoked_at.is_some() || row.item_state.as_deref() == Some("revoked");
 
@@ -272,12 +266,4 @@ impl From<RunEvidenceRow> for TaskContextEvidence {
 
 fn string_field(value: &Value, key: &str) -> Option<String> {
     value.get(key).and_then(Value::as_str).map(str::to_string)
-}
-
-fn source_field(value: &Value) -> Option<AppliedContextSource> {
-    let source = value.get("source")?.as_object()?;
-    let source_type = source.get("source_type")?.as_str()?.to_string();
-    let source_id = source.get("source_id").and_then(Value::as_str).and_then(|value| Uuid::parse_str(value).ok());
-    let title = source.get("title").and_then(Value::as_str).map(str::to_string);
-    Some(AppliedContextSource { source_type, source_id, title })
 }
