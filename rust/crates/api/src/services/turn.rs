@@ -1,31 +1,12 @@
 //! Turn projection service and cursor pagination for the chat read path.
 
 use chrono::{SecondsFormat, Utc};
-use serde::Serialize;
 
 use agentforge_core::{AgentId, AppResult, TenantScope};
-use agentforge_db::entities::Event;
 
-use crate::domain::turn::{Turn, TurnCursor, TurnListPage, TurnProjectionEvent, build_turns};
+pub use crate::domain::turn::{LastEventCursor, TurnPage};
+use crate::domain::turn::{Turn, TurnCursor, TurnListPage, TurnProjectionEvent, build_turns, turn_projection_event};
 use crate::repositories::event::EventRepository;
-
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct LastEventCursor {
-    pub timestamp: String,
-    pub id: String,
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct TurnPage {
-    pub turns: Vec<Turn>,
-    pub cursor: Option<String>,
-    pub has_more: bool,
-    pub total_turn_count: usize,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_event: Option<LastEventCursor>,
-}
 
 pub struct TurnService {
     repo: EventRepository,
@@ -83,14 +64,4 @@ impl TurnService {
 
 pub fn default_turn_limit() -> i64 {
     TurnListPage::DEFAULT_LIMIT
-}
-
-fn turn_projection_event(event: &Event) -> TurnProjectionEvent {
-    TurnProjectionEvent {
-        id: event.id.as_uuid(),
-        event_type: event.event_type.clone(),
-        payload: event.payload.clone(),
-        session_id: event.session_id.clone(),
-        created_at_ms: event.created_at.timestamp_millis(),
-    }
 }

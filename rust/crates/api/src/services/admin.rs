@@ -4,6 +4,7 @@ use agentforge_core::{AppError, AppResult, ErrorKind, TenantScope};
 use agentforge_db::entities::{ImpersonationLog, Organization, User};
 use uuid::Uuid;
 
+pub use crate::domain::admin::BulkDeleteResult;
 use crate::domain::admin::{AdminImpersonationPolicy, AdminListPage, AdminRolePolicy};
 use crate::repositories::admin::{AdminAgentEventRow, AdminAgentFilters, AdminAgentRow, AdminRepository, AdminStats};
 
@@ -104,15 +105,6 @@ impl AdminService {
     pub fn require_admin(auth_role: &str) -> AppResult<()> {
         AdminRolePolicy::require_admin(auth_role)
     }
-}
-
-/// Per-ID outcome from a bulk-delete call, serialised in admin API responses.
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct BulkDeleteResult {
-    pub id: Uuid,
-    pub ok: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
 }
 
 /// Turn an `AppError` into a safe, client-facing message for bulk delete.

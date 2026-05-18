@@ -3,25 +3,24 @@
 use std::sync::Arc;
 
 use agentforge_core::{
-    AppResult, ErrorKind, ProjectId, ScopedRead, ScopedWrite, ScopedWriteError, TeamId, TenantScope, UserId,
-    WorkspaceId,
+    AppResult, ErrorKind, ProjectId, ScopedRead, ScopedWrite, ScopedWriteError, TeamId, TenantScope, WorkspaceId,
 };
-use agentforge_db::entities::{ContextApproval, ContextCandidate, ContextFeedback, MemoryItem, Skill};
+use agentforge_db::entities::ContextCandidate;
 use agentforge_infra::NatsClient;
 use chrono::{DateTime, Utc};
-use serde::Serialize;
 use serde_json::Value;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+pub use crate::domain::context::{ContextApprovalOutcome, ContextCandidateSummary, ContextFeedbackOutcome};
 use crate::domain::context::{
     ContextApprovalProvenance, ContextCandidateApprovalAudit, ContextCandidateBroadcast,
     ContextCandidateBroadcastEvent, ContextCandidateCreatedAudit, ContextCandidateKind,
-    ContextCandidateManualRejectionAudit, ContextCandidatePolicy, ContextFeedbackLabel, ContextFeedbackPolicy,
-    ContextFeedbackRecordedAudit, ContextItemKind, context_candidate_audit_event, ensure_pending_candidate,
-    normalize_candidate_kind_filter, normalize_candidate_state_filter, normalize_context_candidate_limit,
-    normalize_feedback_note, normalize_reason, normalize_scope_kind_filter, redacted_proposal_preview,
-    validate_context_sensitivity, validate_ttl,
+    ContextCandidateManualRejectionAudit, ContextCandidatePolicy, ContextCandidateRecord, ContextFeedbackLabel,
+    ContextFeedbackPolicy, ContextFeedbackRecordedAudit, ContextItemKind, context_candidate_audit_event,
+    context_candidate_summary, ensure_pending_candidate, normalize_candidate_kind_filter,
+    normalize_candidate_state_filter, normalize_context_candidate_limit, normalize_feedback_note, normalize_reason,
+    normalize_scope_kind_filter, validate_context_sensitivity, validate_ttl,
 };
 use crate::domain::memory::MemoryScopeKind;
 use crate::repositories::context_approval::{ContextApprovalRepository, CreateContextApprovalRecord};
@@ -66,30 +65,6 @@ pub struct ListContextCandidatesInput {
 #[derive(Debug, Clone, Default)]
 pub struct RejectContextCandidateInput {
     pub reason: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct ContextCandidateSummary {
-    pub id: Uuid,
-    pub workspace_id: WorkspaceId,
-    pub item_kind: String,
-    pub state: String,
-    pub owner_user_id: UserId,
-    pub source_run_id: Option<Uuid>,
-    pub target_skill_id: Option<agentforge_core::SkillId>,
-    pub proposed_scope_kind: String,
-    pub source_available: bool,
-    pub proposed_preview: Value,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct ContextApprovalOutcome {
-    pub candidate: ContextCandidate,
-    pub approval: Option<ContextApproval>,
-    pub memory_item: Option<MemoryItem>,
-    pub skill: Option<Skill>,
 }
 
 pub struct ContextApprovalService {
@@ -174,7 +149,7 @@ impl ContextApprovalService {
                 input.offset.unwrap_or(0).max(0),
             )
             .await?;
-        Ok(candidates.iter().map(candidate_summary).collect())
+        Ok(candidates.into_iter().map(ContextCandidateRecord::from).map(context_candidate_summary).collect())
     }
 
     pub async fn approve(
@@ -551,12 +526,6 @@ pub struct RecordContextFeedbackInput {
     pub note: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct ContextFeedbackOutcome {
-    pub feedback: ContextFeedback,
-    pub item_state_changed: bool,
-}
-
 pub struct ContextFeedbackService {
     feedback: ContextFeedbackRepository,
 }
@@ -722,20 +691,22 @@ impl ContextFeedbackService {
     }
 }
 
-fn candidate_summary(candidate: &ContextCandidateListRow) -> ContextCandidateSummary {
-    ContextCandidateSummary {
-        id: candidate.id,
-        workspace_id: candidate.workspace_id,
-        item_kind: candidate.item_kind.clone(),
-        state: candidate.state.clone(),
-        owner_user_id: candidate.owner_user_id,
-        source_run_id: candidate.source_run_id,
-        target_skill_id: candidate.target_skill_id,
-        proposed_scope_kind: candidate.proposed_scope_kind.clone(),
-        source_available: candidate.source_available,
-        proposed_preview: redacted_proposal_preview(&candidate.proposed_content),
-        created_at: candidate.created_at,
-        updated_at: candidate.updated_at,
+impl From<ContextCandidateListRow> for ContextCandidateRecord {
+    fn from(row: ContextCandidateListRow) -> Self {
+        Self {
+            id: row.id,
+            workspace_id: row.workspace_id,
+            item_kind: row.item_kind,
+            state: row.state,
+            owner_user_id: row.owner_user_id,
+            source_run_id: row.source_run_id,
+            target_skill_id: row.target_skill_id,
+            proposed_scope_kind: row.proposed_scope_kind,
+            source_available: row.source_available,
+            proposed_content: row.proposed_content,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        }
     }
 }
 

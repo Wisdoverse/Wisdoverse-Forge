@@ -5,7 +5,7 @@
 //! reasons so future changes cannot regress them into display-only states.
 
 use agentforge_api::repositories::orchestration::{OrchestrationTaskRepository, ParticipantRepository};
-use agentforge_api::services::orchestration::OrchestrationService;
+use agentforge_api::services::orchestration::{OrchestrationService, task_summary};
 use agentforge_api::test_support::tenant_scope_for_ids;
 use agentforge_core::{AgentId, TenantScope, UserId};
 use serde_json::json;
@@ -122,7 +122,7 @@ async fn create_task_blocks_on_missing_required_inputs(pool: PgPool) {
     assert_eq!(task.status, "blocked");
     assert_eq!(task.blocked_reason.as_deref(), Some("waiting_input"));
     assert_eq!(task.blocked_metadata.as_ref().unwrap()["missing"][0], "ANTHROPIC_API_KEY");
-    let summary = OrchestrationService::to_summary_with_name(task, None);
+    let summary = task_summary(task, None);
     assert!(summary.blocked_hint.unwrap().contains("ANTHROPIC_API_KEY"));
 }
 

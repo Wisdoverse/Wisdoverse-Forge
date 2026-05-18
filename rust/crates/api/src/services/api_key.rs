@@ -7,16 +7,9 @@ use rand::Rng;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
+pub use crate::domain::credential::CreateApiKeyResult;
 use crate::domain::credential::{ApiKeyFormat, ApiKeyName, ApiKeyScopePolicy, CredentialListPage};
 use crate::repositories::api_key::ApiKeyRepository;
-
-/// Result of creating an API key — includes the plaintext key (shown once).
-#[derive(Debug, serde::Serialize)]
-pub struct CreateApiKeyResult {
-    pub key: ApiKey,
-    /// The plaintext API key — only returned at creation time.
-    pub plaintext_key: String,
-}
 
 /// Business logic layer for API key operations.
 pub struct ApiKeyService {

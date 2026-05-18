@@ -9,7 +9,9 @@ use futures::{StreamExt, stream::BoxStream};
 use std::sync::Arc;
 use tokio::sync::oneshot;
 
-use crate::domain::prompt::{PromptContent, PromptContextPolicy, PromptHistoryMessage};
+use crate::domain::prompt::{
+    PromptContent, PromptContextPolicy, PromptHistoryMessage, SseFrame, sse_error_for_llm_error,
+};
 use crate::repositories::agent::AgentRepository;
 use crate::repositories::message::MessageRepository;
 
@@ -171,83 +173,6 @@ impl KeyResolver for UserLlmConfigKeyResolver {
 }
 
 // ---------------------------------------------------------------------------
-// SseFrame
-// ---------------------------------------------------------------------------
-
-/// Server-sent SSE frame for the chat stream. Serialized to
-/// `event: <name>\ndata: <json>` by the route handler.
-#[derive(Debug, Clone, serde::Serialize)]
-#[serde(tag = "event", content = "data")]
-pub enum SseFrame {
-    #[serde(rename = "message_start")]
-    MessageStart { message_id: uuid::Uuid, model: String },
-    #[serde(rename = "delta")]
-    Delta { text: String },
-    #[serde(rename = "message_stop")]
-    MessageStop { tokens_in: u32, tokens_out: u32, finish_reason: String },
-    #[serde(rename = "error")]
-    Error { code: String, message: String, retryable: bool },
-}
-
-impl SseFrame {
-    /// Split into `(event_name, data_payload)` for SSE transport.
-    /// This is compiler-enforced coverage of all variants — if a new variant
-    /// is added without updating this match, the match becomes non-exhaustive
-    /// and the build fails. The `#[serde(tag, content)]` attribute is an
-    /// implementation detail of direct JSON serialization and should not
-    /// influence the SSE transport layer.
-    pub fn split(&self) -> (&'static str, serde_json::Value) {
-        match self {
-            SseFrame::MessageStart { message_id, model } => {
-                ("message_start", serde_json::json!({ "message_id": message_id, "model": model }))
-            }
-            SseFrame::Delta { text } => ("delta", serde_json::json!({ "text": text })),
-            SseFrame::MessageStop { tokens_in, tokens_out, finish_reason } => (
-                "message_stop",
-                serde_json::json!({
-                    "tokens_in": tokens_in,
-                    "tokens_out": tokens_out,
-                    "finish_reason": finish_reason,
-                }),
-            ),
-            SseFrame::Error { code, message, retryable } => {
-                ("error", serde_json::json!({ "code": code, "message": message, "retryable": retryable }))
-            }
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// SSE error mapping
-// ---------------------------------------------------------------------------
-
-/// Map an `LlmError` to a client-safe SSE error frame tuple `(code, message, retryable)`.
-///
-/// Upstream response bodies (from `LlmError::Api.message`) are NOT echoed to the client —
-/// they may contain snippets of the request (user content, model name, organization).
-/// Instead, we emit a stable machine-readable `code` and a generic human message.
-/// The full error is logged server-side via `tracing::error!` for operator debugging.
-fn sse_error_from(err: &agentforge_llm::LlmError) -> (&'static str, &'static str, bool) {
-    use agentforge_llm::LlmError;
-    match err {
-        LlmError::Api { status: 401, .. } | LlmError::Api { status: 403, .. } => {
-            ("unauthorized", "provider rejected the API key — check LLM settings", false)
-        }
-        LlmError::Api { status: 429, .. } => ("rate_limited", "provider rate limit reached — try again shortly", true),
-        LlmError::Api { status: 400, .. } | LlmError::Api { status: 404, .. } => {
-            ("bad_request", "provider rejected the request — check model name", false)
-        }
-        LlmError::Api { status: 500..=599, .. } => ("provider_error", "provider server error — try again", true),
-        LlmError::Http(_) => ("network", "network error reaching provider — try again", true),
-        LlmError::NotConfigured(_) => ("not_configured", "provider not configured — check LLM settings", false),
-        LlmError::NotImplemented(_) => ("not_implemented", "provider feature not available", false),
-        LlmError::Parse(_) | LlmError::Api { .. } => {
-            ("provider_error", "provider returned an unexpected response", true)
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
 // PromptService
 // ---------------------------------------------------------------------------
 
@@ -372,7 +297,7 @@ impl PromptService {
                         Some(Err(e)) => {
                             errored = true;
                             finish_reason = "error".into();
-                            let (code, message, retryable) = sse_error_from(&e);
+                            let (code, message, retryable) = sse_error_for_llm_error(&e);
                             tracing::error!(
                                 error = %e,
                                 agent_id = %agent_id,
