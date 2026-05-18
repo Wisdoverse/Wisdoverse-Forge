@@ -222,6 +222,66 @@ impl SkillCreatedAudit {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SkillUpdatedAudit {
+    skill_id: SkillId,
+    workspace_id: Option<WorkspaceId>,
+    scope_kind: Option<String>,
+    scope_id: Option<Uuid>,
+    state: String,
+    version: i32,
+    content_changed: bool,
+    from_version: i32,
+    resulting_version: i32,
+    skill_version_id: Uuid,
+    classification: Option<Value>,
+}
+
+impl SkillUpdatedAudit {
+    pub(crate) fn new(
+        identity: SkillAuditIdentity,
+        content_changed: bool,
+        from_version: i32,
+        resulting_version: i32,
+        skill_version_id: Uuid,
+        classification: Option<Value>,
+    ) -> Self {
+        Self {
+            skill_id: identity.skill_id,
+            workspace_id: identity.workspace_id,
+            scope_kind: identity.scope_kind,
+            scope_id: identity.scope_id,
+            state: identity.state,
+            version: identity.version,
+            content_changed,
+            from_version,
+            resulting_version,
+            skill_version_id,
+            classification,
+        }
+    }
+
+    pub(crate) fn audit_action(&self) -> &'static str {
+        "governance.context.skill.updated"
+    }
+
+    pub(crate) fn audit_payload(&self) -> Value {
+        json!({
+            "skill_id": self.skill_id,
+            "workspace_id": self.workspace_id,
+            "scope_kind": self.scope_kind,
+            "scope_id": self.scope_id,
+            "state": self.state,
+            "version": self.version,
+            "content_changed": self.content_changed,
+            "from_version": self.from_version,
+            "resulting_version": self.resulting_version,
+            "skill_version_id": self.skill_version_id,
+            "classification": self.classification
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SkillAuditIdentity {
     skill_id: SkillId,
@@ -748,6 +808,48 @@ mod tests {
         assert_eq!(payload["state"], "active");
         assert_eq!(payload["version"], 1);
         assert_eq!(payload["sensitivity"], "internal");
+        assert_eq!(payload["classification"], classification);
+    }
+
+    #[test]
+    fn skill_updated_audit_builds_stable_action_and_payload() {
+        let skill_id = SkillId::from(Uuid::parse_str("11111111-1111-4111-8111-111111111111").unwrap());
+        let workspace_id = WorkspaceId::from(Uuid::parse_str("22222222-2222-4222-8222-222222222222").unwrap());
+        let scope_id = Uuid::parse_str("33333333-3333-4333-8333-333333333333").unwrap();
+        let skill_version_id = Uuid::parse_str("44444444-4444-4444-8444-444444444444").unwrap();
+        let classification = json!({
+            "sensitivity": "internal",
+            "matched_patterns": []
+        });
+
+        let audit = SkillUpdatedAudit::new(
+            SkillAuditIdentity::new(
+                skill_id,
+                Some(workspace_id),
+                Some("project".into()),
+                Some(scope_id),
+                "deprecated",
+                4,
+            ),
+            true,
+            3,
+            4,
+            skill_version_id,
+            Some(classification.clone()),
+        );
+
+        assert_eq!(audit.audit_action(), "governance.context.skill.updated");
+        let payload = audit.audit_payload();
+        assert_eq!(payload["skill_id"], skill_id.as_uuid().to_string());
+        assert_eq!(payload["workspace_id"], workspace_id.as_uuid().to_string());
+        assert_eq!(payload["scope_kind"], "project");
+        assert_eq!(payload["scope_id"], scope_id.to_string());
+        assert_eq!(payload["state"], "deprecated");
+        assert_eq!(payload["version"], 4);
+        assert_eq!(payload["content_changed"], true);
+        assert_eq!(payload["from_version"], 3);
+        assert_eq!(payload["resulting_version"], 4);
+        assert_eq!(payload["skill_version_id"], skill_version_id.to_string());
         assert_eq!(payload["classification"], classification);
     }
 
