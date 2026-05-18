@@ -10,11 +10,10 @@ use serde_json::{Value, json};
 use uuid::Uuid;
 
 use crate::domain::context_preview::{
-    CONTEXT_PREVIEW_TTL_MINUTES, ContextPreviewFreshnessPolicy, ContextPreviewTaskDraft, context_preview_hash,
+    CONTEXT_PREVIEW_TTL_MINUTES, ContextPreviewFreshnessPolicy, ContextPreviewItem, ContextPreviewTaskDraft,
+    context_preview_hash, context_preview_item,
 };
-use crate::domain::context_resolver::{
-    ContextItemKind, ContextSelection, DegradationReason, ResolvedContext, ResolvedItemRef, apply_context_selection,
-};
+use crate::domain::context_resolver::{ContextSelection, DegradationReason, ResolvedContext, apply_context_selection};
 use crate::domain::orchestration::{ParticipantAvailabilityAction, ParticipantAvailabilityPolicy};
 use crate::repositories::context_preview::{ContextPreviewRepository, CreateContextPreviewRecord};
 use crate::repositories::orchestration::{OrchestrationTaskRepository, ParticipantRepository};
@@ -48,23 +47,6 @@ pub struct ContextPreviewResponse {
     pub suggested_items: Vec<ContextPreviewItem>,
     pub previously_pinned: Vec<ContextPreviewItem>,
     pub warnings: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ContextPreviewItem {
-    pub id: Uuid,
-    pub item_kind: String,
-    pub title: String,
-    pub selected: bool,
-    pub pinned: bool,
-    pub scope_kind: Option<String>,
-    pub scope_id: Option<Uuid>,
-    pub sensitivity: Option<String>,
-    pub estimated_tokens: u32,
-    pub last_used_at: Option<DateTime<Utc>>,
-    pub last_verified_at: Option<DateTime<Utc>>,
-    pub why: String,
 }
 
 pub struct ContextPreviewService {
@@ -194,8 +176,8 @@ fn response_from_preview(
 ) -> ContextPreviewResponse {
     let capability = serde_json::to_value(&resolved.capability).unwrap_or_else(|_| json!({}));
     let degradation = resolved.degradation.iter().map(|reason| reason_label(reason).to_string()).collect();
-    let items = resolved.applied.iter().map(|item| preview_item(item, true, false)).collect();
-    let suggested_items = resolved.suggested.iter().map(|item| preview_item(item, false, false)).collect();
+    let items = resolved.applied.iter().map(|item| context_preview_item(item, true, false)).collect();
+    let suggested_items = resolved.suggested.iter().map(|item| context_preview_item(item, false, false)).collect();
     ContextPreviewResponse {
         context_preview_id: preview.id,
         preview_hash: preview.preview_hash.clone(),
@@ -208,27 +190,6 @@ fn response_from_preview(
         suggested_items,
         previously_pinned: Vec::new(),
         warnings,
-    }
-}
-
-fn preview_item(item: &ResolvedItemRef, selected: bool, pinned: bool) -> ContextPreviewItem {
-    ContextPreviewItem {
-        id: item.id,
-        item_kind: match item.kind {
-            ContextItemKind::Memory => ContextItemKind::Memory.label(),
-            ContextItemKind::Skill => ContextItemKind::Skill.label(),
-        }
-        .to_string(),
-        title: item.title.clone(),
-        selected,
-        pinned,
-        scope_kind: item.scope_kind.clone(),
-        scope_id: item.scope_id,
-        sensitivity: item.sensitivity.clone(),
-        estimated_tokens: item.estimated_tokens,
-        last_used_at: item.last_used_at,
-        last_verified_at: item.last_verified_at,
-        why: item.why.clone(),
     }
 }
 
