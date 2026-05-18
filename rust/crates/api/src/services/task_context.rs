@@ -4,10 +4,10 @@ use agentforge_core::{AppResult, ErrorKind, TenantScope, UserId};
 use agentforge_db::entities::{ContextCandidate, TaskRun};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 use uuid::Uuid;
 
-use crate::domain::context_governance::ContextGovernancePolicy;
+use crate::domain::context::redacted_proposal_preview;
 use crate::repositories::orchestration::OrchestrationTaskRepository;
 use crate::repositories::task_context::{AppliedContextRow, TaskContextRepository};
 use crate::repositories::task_run::RunEvidenceRow;
@@ -296,24 +296,4 @@ fn preview_text(value: &str, limit: usize) -> (String, bool) {
         preview.push_str("...");
     }
     (preview, truncated)
-}
-
-fn redacted_proposal_preview(value: &Value) -> Value {
-    let Some(map) = value.as_object() else {
-        return json!({});
-    };
-    let mut out = serde_json::Map::new();
-    for key in ["title", "name", "description", "scope_kind", "visibility"] {
-        if let Some(value) = map.get(key)
-            && value.is_string()
-        {
-            out.insert(key.to_string(), value.clone());
-        }
-    }
-    if let Some(content) = map.get("content").and_then(Value::as_str) {
-        let classification = ContextGovernancePolicy::classify_sensitivity(content);
-        let preview = classification.redacted_preview.unwrap_or_else(|| content.chars().take(160).collect());
-        out.insert("content_preview".to_string(), json!(preview));
-    }
-    Value::Object(out)
 }
