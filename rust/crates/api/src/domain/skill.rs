@@ -10,12 +10,20 @@ use serde_json::{Value, json};
 use uuid::Uuid;
 
 use crate::domain::context_governance::{
-    ContextGovernancePolicy, ContextScopeKind, ScopeExpansionRejection, ScopeExpansionRequest, SecretPattern,
-    Sensitivity,
+    ContextAuditEvent, ContextGovernancePolicy, ContextScopeKind, ScopeExpansionRejection, ScopeExpansionRequest,
+    SecretPattern, Sensitivity,
 };
 
 pub(crate) fn skill_audit_resource_type() -> &'static str {
     "skill"
+}
+
+pub(crate) fn skill_audit_event(
+    action: &'static str,
+    resource_id: Option<Uuid>,
+    payload: Value,
+) -> ContextAuditEvent<'static> {
+    ContextAuditEvent { action, resource_type: skill_audit_resource_type(), resource_id, payload, ip_address: None }
 }
 
 /// Validated skill name.
@@ -922,6 +930,13 @@ mod tests {
         assert_eq!(payload["version"], 1);
         assert_eq!(payload["sensitivity"], "internal");
         assert_eq!(payload["classification"], classification);
+
+        let event = skill_audit_event(audit.audit_action(), Some(skill_id.as_uuid()), payload);
+        assert_eq!(event.action, "governance.context.skill.created");
+        assert_eq!(event.resource_type, "skill");
+        assert_eq!(event.resource_id, Some(skill_id.as_uuid()));
+        assert_eq!(event.payload["skill_id"], skill_id.as_uuid().to_string());
+        assert_eq!(event.ip_address, None);
     }
 
     #[test]
