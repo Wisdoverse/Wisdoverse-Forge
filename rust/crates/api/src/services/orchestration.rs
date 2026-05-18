@@ -22,8 +22,8 @@ use crate::domain::context_resolver::{ContextTaskSnapshot, ResolvedContext};
 use crate::domain::orchestration::{
     BlockedTaskPolicy, DispatchSweepDecision, DispatchSweepPolicy, ParticipantAvailabilityAction,
     ParticipantAvailabilityPolicy, ParticipantName, ParticipantStatusPolicy, QuotaBlockPolicy, TaskAssignmentPolicy,
-    TaskAssignmentSnapshot, TaskCreationPolicy, TaskInstruction, TaskLifecyclePolicy, TaskListPage, TaskPatchAction,
-    TaskPatchPolicy, TaskPriority, TaskRunCapabilityProfile, TaskStatusPolicy, TaskTitle,
+    TaskCreationPolicy, TaskInstruction, TaskLifecyclePolicy, TaskListPage, TaskPatchAction, TaskPatchPolicy,
+    TaskPriority, TaskRunCapabilityProfile, TaskStatusPolicy, TaskTitle, task_assignment_snapshot,
 };
 use crate::repositories::orchestration::{
     CreateTaskRow, OrchestrationTaskRepository, OrchestrationTaskStats, ParticipantRepository, UpdateTaskRow,
@@ -1011,19 +1011,5 @@ impl OrchestrationService {
             .build_from_resolved(&scope.scoped_read(), task.id, run.id, agent_id, resolved_context)
             .await
             .map(Some)
-    }
-}
-
-fn task_assignment_snapshot(task: &OrchestrationTask) -> TaskAssignmentSnapshot<'_> {
-    TaskAssignmentSnapshot {
-        task_id: task.id,
-        assigned_agent_id: task.assigned_agent_id,
-        last_assignment_id: task.last_assignment_id,
-        lease_expires_at: task.lease_expires_at,
-        attempt: task.attempt,
-        title: &task.title,
-        description: task.description.as_deref(),
-        params: task.params.as_ref(),
-        priority: &task.priority,
     }
 }
