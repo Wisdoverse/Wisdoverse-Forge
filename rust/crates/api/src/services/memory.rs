@@ -15,8 +15,9 @@ use crate::domain::context_governance::ContextAuditEvent;
 use crate::domain::memory::{
     MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryContentReadAudit, MemoryCreatedAudit,
     MemoryListPage, MemoryMutationAccess, MemoryMutationAccessPolicy, MemoryMutationManagerCheck,
-    MemoryReclassificationPlan, MemoryReclassificationPolicy, MemoryReclassificationRequest, MemoryScopeKind,
-    MemoryScopeTargetPolicy, MemoryTitle, MemoryTtlPolicy, MemoryUpdatedAudit, MemoryVisibility, PreparedMemoryContent,
+    MemoryReclassificationPlan, MemoryReclassificationPolicy, MemoryReclassificationRequest, MemoryRevokedAudit,
+    MemoryScopeKind, MemoryScopeTargetPolicy, MemoryTitle, MemoryTtlPolicy, MemoryUpdatedAudit, MemoryVisibility,
+    PreparedMemoryContent,
 };
 use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository, UpdateMemoryRecord};
 use crate::repositories::resource_permission::ResourcePermissionRepository;
@@ -212,16 +213,8 @@ impl MemoryService {
         let current = MemoryRepository::lock_visible_for_update(&mut tx, &proof, id).await?;
         self.require_owner_or_manager(scope, &current).await?;
         let item = MemoryRepository::revoke_in_tx(&mut tx, id).await?;
-        self.emit_memory_audit(
-            &mut tx,
-            scope,
-            "governance.context.memory.revoked",
-            json!({
-                "scope_kind": item.scope_kind,
-                "sensitivity": item.sensitivity
-            }),
-        )
-        .await?;
+        let audit = MemoryRevokedAudit::new(item.scope_kind.as_str(), item.sensitivity.as_str());
+        self.emit_memory_audit(&mut tx, scope, audit.audit_action(), audit.audit_payload()).await?;
         tx.commit().await?;
         Ok(item)
     }
