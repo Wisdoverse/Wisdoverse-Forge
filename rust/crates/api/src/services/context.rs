@@ -10,17 +10,18 @@ use agentforge_db::entities::{ContextApproval, ContextCandidate, ContextFeedback
 use agentforge_infra::NatsClient;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::context::{
-    ContextApprovalProvenance, ContextCandidateApprovalAudit, ContextCandidateCreatedAudit, ContextCandidateKind,
+    ContextApprovalProvenance, ContextCandidateApprovalAudit, ContextCandidateBroadcast,
+    ContextCandidateBroadcastEvent, ContextCandidateCreatedAudit, ContextCandidateKind,
     ContextCandidateManualRejectionAudit, ContextCandidatePolicy, ContextFeedbackLabel, ContextFeedbackPolicy,
-    ContextFeedbackRecordedAudit, ContextItemKind, context_candidate_audit_resource_type, context_candidate_subject,
-    ensure_pending_candidate, normalize_candidate_kind_filter, normalize_candidate_state_filter,
-    normalize_context_candidate_limit, normalize_feedback_note, normalize_reason, normalize_scope_kind_filter,
-    redacted_proposal_preview, validate_context_sensitivity, validate_ttl,
+    ContextFeedbackRecordedAudit, ContextItemKind, context_candidate_audit_resource_type, ensure_pending_candidate,
+    normalize_candidate_kind_filter, normalize_candidate_state_filter, normalize_context_candidate_limit,
+    normalize_feedback_note, normalize_reason, normalize_scope_kind_filter, redacted_proposal_preview,
+    validate_context_sensitivity, validate_ttl,
 };
 use crate::domain::context_governance::ContextAuditEvent;
 use crate::domain::memory::MemoryScopeKind;
@@ -137,7 +138,7 @@ impl ContextApprovalService {
         self.emit_candidate_audit(&mut tx, scope, audit.audit_action(), audit.audit_payload(&candidate.item_kind))
             .await?;
         tx.commit().await?;
-        self.publish_candidate_event(scope, &candidate, "created", None).await;
+        self.publish_candidate_event(scope, &candidate, ContextCandidateBroadcastEvent::Created, None).await;
         Ok(candidate)
     }
 
@@ -212,7 +213,7 @@ impl ContextApprovalService {
             )
             .await?;
             tx.commit().await?;
-            self.publish_candidate_event(scope, &rejected, "rejected", None).await;
+            self.publish_candidate_event(scope, &rejected, ContextCandidateBroadcastEvent::Rejected, None).await;
             return Err(rejection.into_app_error());
         }
 
@@ -333,8 +334,13 @@ impl ContextApprovalService {
                 )
                 .await?;
                 tx.commit().await?;
-                self.publish_candidate_event(scope, &updated, "approved", Some((&item.scope_kind, item.scope_id)))
-                    .await;
+                self.publish_candidate_event(
+                    scope,
+                    &updated,
+                    ContextCandidateBroadcastEvent::Approved,
+                    Some((&item.scope_kind, item.scope_id)),
+                )
+                .await;
                 Ok(ContextApprovalOutcome {
                     candidate: updated,
                     approval: Some(approval),
@@ -425,7 +431,13 @@ impl ContextApprovalService {
                 .await?;
                 tx.commit().await?;
                 if let (Some(scope_kind), Some(scope_id)) = (skill.scope_kind.as_deref(), skill.scope_id) {
-                    self.publish_candidate_event(scope, &updated, "approved", Some((scope_kind, scope_id))).await;
+                    self.publish_candidate_event(
+                        scope,
+                        &updated,
+                        ContextCandidateBroadcastEvent::Approved,
+                        Some((scope_kind, scope_id)),
+                    )
+                    .await;
                 }
                 Ok(ContextApprovalOutcome {
                     candidate: updated,
@@ -469,7 +481,7 @@ impl ContextApprovalService {
         self.emit_candidate_audit(&mut tx, scope, audit.audit_action(), audit.audit_payload(&candidate.item_kind))
             .await?;
         tx.commit().await?;
-        self.publish_candidate_event(scope, &updated, "rejected", None).await;
+        self.publish_candidate_event(scope, &updated, ContextCandidateBroadcastEvent::Rejected, None).await;
         Ok(ContextApprovalOutcome { candidate: updated, approval: Some(approval), memory_item: None, skill: None })
     }
 
@@ -519,23 +531,23 @@ impl ContextApprovalService {
         &self,
         scope: &TenantScope,
         candidate: &ContextCandidate,
-        event: &'static str,
+        event: ContextCandidateBroadcastEvent,
         approved_scope: Option<(&str, Uuid)>,
     ) {
         let Some(nats) = &self.nats else {
             return;
         };
         let (scope_kind, scope_id) = approved_scope.unwrap_or(("user", candidate.owner_user_id.as_uuid()));
-        let subject = context_candidate_subject(scope.org_id().as_uuid(), scope_kind, scope_id, event);
-        let payload = json!({
-            "type": format!("context_candidate.{event}"),
-            "candidateId": candidate.id,
-            "itemKind": candidate.item_kind,
-            "state": candidate.state,
-            "scopeKind": scope_kind,
-            "scopeId": scope_id,
-            "timestamp": Utc::now().to_rfc3339()
-        });
+        let broadcast = ContextCandidateBroadcast::new(
+            event,
+            candidate.id,
+            candidate.item_kind.as_str(),
+            candidate.state.as_str(),
+            scope_kind,
+            scope_id,
+        );
+        let subject = broadcast.subject(scope.org_id().as_uuid());
+        let payload = broadcast.payload();
         if let Err(err) = nats.publish_json(&subject, payload).await {
             tracing::warn!(error = ?err, subject, "failed to publish context candidate broadcast");
         }
