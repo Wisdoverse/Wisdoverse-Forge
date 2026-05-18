@@ -26,7 +26,7 @@ sha2.workspace = true
 hex.workspace = true
 uuid.workspace = true
 metrics.workspace = true
-notify = "6"
+notify = "8"
 
 [dev-dependencies]
 tokio = { workspace = true }
