@@ -276,6 +276,10 @@ pub(crate) fn context_candidate_subject(org_id: Uuid, scope_kind: &str, scope_id
     format!("broadcast.{org_id}.scope.{scope_kind}.{scope_id}.context_candidate.{event}")
 }
 
+pub(crate) fn context_candidate_audit_resource_type() -> &'static str {
+    "context_candidate"
+}
+
 pub(crate) fn redacted_proposal_preview(value: &Value) -> Value {
     let Some(map) = value.as_object() else {
         return json!({});
@@ -915,6 +919,7 @@ mod tests {
         let audit = ContextCandidateCreatedAudit::new(workspace_id, true, false);
         let payload = audit.audit_payload("memory");
 
+        assert_eq!(context_candidate_audit_resource_type(), "context_candidate");
         assert_eq!(audit.audit_action(), "governance.context.candidate.created");
         assert_eq!(payload["item_kind"], "memory");
         assert_eq!(payload["workspace_id"], workspace_id.to_string());
