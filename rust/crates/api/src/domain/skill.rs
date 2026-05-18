@@ -3,7 +3,7 @@
 //! This module owns pure skill input, lifecycle, and version policies that are
 //! independent of repositories, authorization, and audit emission.
 
-use agentforge_core::{AppError, AppResult, ErrorKind, OrgId, WorkspaceId};
+use agentforge_core::{AppError, AppResult, ErrorKind, OrgId, SkillId, WorkspaceId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -176,6 +176,73 @@ pub(crate) struct PreparedSkillContent {
     pub(crate) content: String,
     pub(crate) sensitivity: &'static str,
     pub(crate) audit_payload: Value,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SkillCreatedAudit {
+    skill_id: SkillId,
+    workspace_id: Option<WorkspaceId>,
+    scope_kind: Option<String>,
+    scope_id: Option<Uuid>,
+    state: String,
+    version: i32,
+    sensitivity: String,
+    classification: Value,
+}
+
+impl SkillCreatedAudit {
+    pub(crate) fn new(identity: SkillAuditIdentity, sensitivity: impl Into<String>, classification: Value) -> Self {
+        Self {
+            skill_id: identity.skill_id,
+            workspace_id: identity.workspace_id,
+            scope_kind: identity.scope_kind,
+            scope_id: identity.scope_id,
+            state: identity.state,
+            version: identity.version,
+            sensitivity: sensitivity.into(),
+            classification,
+        }
+    }
+
+    pub(crate) fn audit_action(&self) -> &'static str {
+        "governance.context.skill.created"
+    }
+
+    pub(crate) fn audit_payload(&self) -> Value {
+        json!({
+            "skill_id": self.skill_id,
+            "workspace_id": self.workspace_id,
+            "scope_kind": self.scope_kind,
+            "scope_id": self.scope_id,
+            "state": self.state,
+            "version": self.version,
+            "sensitivity": self.sensitivity,
+            "classification": self.classification
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SkillAuditIdentity {
+    skill_id: SkillId,
+    workspace_id: Option<WorkspaceId>,
+    scope_kind: Option<String>,
+    scope_id: Option<Uuid>,
+    state: String,
+    version: i32,
+}
+
+impl SkillAuditIdentity {
+    pub(crate) fn new(
+        skill_id: SkillId,
+        workspace_id: Option<WorkspaceId>,
+        scope_kind: Option<String>,
+        scope_id: Option<Uuid>,
+        state: impl Into<String>,
+        version: i32,
+    ) -> Self {
+        Self { skill_id, workspace_id, scope_kind, scope_id, state: state.into(), version }
+    }
 }
 
 /// A skill content mutation that must be audited before returning an application error.
@@ -654,6 +721,34 @@ mod tests {
         assert_eq!(SkillSensitivity::parse("secret_detected").unwrap().as_str(), "secret_detected");
         assert_eq!(SkillSensitivity::from_sensitivity(Sensitivity::Internal).as_str(), "internal");
         assert!(SkillSensitivity::parse("private").is_err());
+    }
+
+    #[test]
+    fn skill_created_audit_builds_stable_action_and_payload() {
+        let skill_id = SkillId::from(Uuid::parse_str("11111111-1111-4111-8111-111111111111").unwrap());
+        let workspace_id = WorkspaceId::from(Uuid::parse_str("22222222-2222-4222-8222-222222222222").unwrap());
+        let scope_id = Uuid::parse_str("33333333-3333-4333-8333-333333333333").unwrap();
+        let classification = json!({
+            "sensitivity": "internal",
+            "matched_patterns": []
+        });
+
+        let audit = SkillCreatedAudit::new(
+            SkillAuditIdentity::new(skill_id, Some(workspace_id), Some("project".into()), Some(scope_id), "active", 1),
+            "internal",
+            classification.clone(),
+        );
+
+        assert_eq!(audit.audit_action(), "governance.context.skill.created");
+        let payload = audit.audit_payload();
+        assert_eq!(payload["skill_id"], skill_id.as_uuid().to_string());
+        assert_eq!(payload["workspace_id"], workspace_id.as_uuid().to_string());
+        assert_eq!(payload["scope_kind"], "project");
+        assert_eq!(payload["scope_id"], scope_id.to_string());
+        assert_eq!(payload["state"], "active");
+        assert_eq!(payload["version"], 1);
+        assert_eq!(payload["sensitivity"], "internal");
+        assert_eq!(payload["classification"], classification);
     }
 
     #[test]
