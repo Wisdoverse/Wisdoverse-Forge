@@ -7,6 +7,7 @@
 use agentforge_core::context_envelope::ContextEnvelope;
 use agentforge_core::orchestration_protocol::TaskAssignment;
 use agentforge_core::{AgentId, AppResult, ErrorKind};
+use agentforge_db::entities::OrchestrationTask;
 use chrono::{DateTime, Utc};
 use serde_json::json;
 use uuid::Uuid;
@@ -169,6 +170,20 @@ pub(crate) struct TaskAssignmentSnapshot<'a> {
     pub(crate) description: Option<&'a str>,
     pub(crate) params: Option<&'a serde_json::Value>,
     pub(crate) priority: &'a str,
+}
+
+pub(crate) fn task_assignment_snapshot(task: &OrchestrationTask) -> TaskAssignmentSnapshot<'_> {
+    TaskAssignmentSnapshot {
+        task_id: task.id,
+        assigned_agent_id: task.assigned_agent_id,
+        last_assignment_id: task.last_assignment_id,
+        lease_expires_at: task.lease_expires_at,
+        attempt: task.attempt,
+        title: &task.title,
+        description: task.description.as_deref(),
+        params: task.params.as_ref(),
+        priority: &task.priority,
+    }
 }
 
 /// Assignment delivery protocol policy.
@@ -843,6 +858,61 @@ mod tests {
         assert_eq!(profile["participant_capabilities"], json!(["coding"]));
         assert_eq!(profile["runtime_capability"]["provider_name"], "openai");
         assert_eq!(profile["context_resolution"]["envelope_version"], "2026-05-17");
+    }
+
+    #[test]
+    fn task_assignment_snapshot_borrows_orchestration_task_fields() {
+        use agentforge_core::{OrgId, UserId};
+
+        let task_id = Uuid::parse_str("44444444-4444-4444-4444-444444444444").unwrap();
+        let agent_id = AgentId::from(Uuid::parse_str("55555555-5555-5555-5555-555555555555").unwrap());
+        let delivery_id = Uuid::parse_str("66666666-6666-6666-6666-666666666666").unwrap();
+        let lease_expires_at = Utc::now();
+        let params = json!({ "task": "Execute", "message": "Use context" });
+        let now = Utc::now();
+        let task = OrchestrationTask {
+            id: task_id,
+            organization_id: OrgId::new(),
+            group_id: None,
+            title: "Snapshot title".to_string(),
+            description: Some("Snapshot description".to_string()),
+            status: "queued".to_string(),
+            priority: "high".to_string(),
+            progress: 0,
+            params: Some(params.clone()),
+            created_by: UserId::new(),
+            assigned_agent_id: Some(agent_id),
+            parent_task_id: None,
+            result: None,
+            error: None,
+            blocked_reason: None,
+            blocked_metadata: None,
+            requires_approval: false,
+            approved_at: None,
+            approved_by: None,
+            attempt: 2,
+            lease_expires_at: Some(lease_expires_at),
+            failure_code: None,
+            retryable: true,
+            last_assignment_id: Some(delivery_id),
+            started_at: None,
+            completed_at: None,
+            canceled_at: None,
+            created_at: now,
+            updated_at: now,
+        };
+
+        let snapshot = task_assignment_snapshot(&task);
+
+        assert_eq!(snapshot.task_id, task_id);
+        assert_eq!(snapshot.assigned_agent_id, Some(agent_id));
+        assert_eq!(snapshot.last_assignment_id, Some(delivery_id));
+        assert_eq!(snapshot.lease_expires_at, Some(lease_expires_at));
+        assert_eq!(snapshot.attempt, 2);
+        assert_eq!(snapshot.title, "Snapshot title");
+        assert_eq!(snapshot.description, Some("Snapshot description"));
+        assert_eq!(snapshot.params, Some(&params));
+        assert_eq!(snapshot.priority, "high");
     }
 
     #[test]
