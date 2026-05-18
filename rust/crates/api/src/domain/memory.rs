@@ -10,8 +10,8 @@ use serde_json::{Value, json};
 use uuid::Uuid;
 
 use crate::domain::context_governance::{
-    ContextGovernancePolicy, ContextScopeKind, ScopeExpansionRejection, ScopeExpansionRequest, SecretPattern,
-    Sensitivity,
+    ContextAuditEvent, ContextGovernancePolicy, ContextScopeKind, ScopeExpansionRejection, ScopeExpansionRequest,
+    SecretPattern, Sensitivity,
 };
 
 const DEFAULT_LIMIT: i64 = 50;
@@ -19,6 +19,18 @@ const MAX_LIMIT: i64 = 200;
 
 pub(crate) fn memory_audit_resource_type() -> &'static str {
     "memory_item"
+}
+
+pub(crate) fn memory_audit_event(action: &'static str, payload: Value) -> ContextAuditEvent<'static> {
+    ContextAuditEvent {
+        action,
+        resource_type: memory_audit_resource_type(),
+        // The current audit route is org-wide. Avoid writing raw memory item IDs
+        // until scope-aware audit projection lands.
+        resource_id: None,
+        payload,
+        ip_address: None,
+    }
 }
 
 /// Supported memory item scope kinds.
@@ -766,6 +778,13 @@ mod tests {
         assert_eq!(payload["scope_kind"], "team");
         assert_eq!(payload["sensitivity"], "confidential");
         assert_eq!(payload["content_redacted"], true);
+
+        let event = memory_audit_event(audit.audit_action(), payload);
+        assert_eq!(event.action, "governance.context.memory.content_read");
+        assert_eq!(event.resource_type, "memory_item");
+        assert_eq!(event.resource_id, None);
+        assert_eq!(event.payload["scope_kind"], "team");
+        assert_eq!(event.ip_address, None);
     }
 
     #[test]

@@ -6,14 +6,13 @@ use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-use crate::domain::context_governance::ContextAuditEvent;
 use crate::domain::skill::{
     PreparedSkillContent, SkillAuditIdentity, SkillBoundaryAccessPolicy, SkillBoundaryMutationPolicy,
     SkillContentDecision, SkillContentPolicy, SkillCreateStatePolicy, SkillCreatedAudit, SkillJsonObjectPolicy,
     SkillMutationAccess, SkillMutationAccessPolicy, SkillMutationManagerCheck, SkillMutationPolicy, SkillName,
     SkillRestoreVersionPlan, SkillRestoreVersionPolicy, SkillRestoreVersionRequest, SkillRestoredAudit,
     SkillRevokedAudit, SkillScopeKind, SkillScopeTargetPolicy, SkillSensitivity, SkillState,
-    SkillStateTransitionPolicy, SkillTtlPolicy, SkillUpdatedAudit, skill_audit_resource_type,
+    SkillStateTransitionPolicy, SkillTtlPolicy, SkillUpdatedAudit, skill_audit_event,
 };
 use crate::repositories::resource_permission::ResourcePermissionRepository;
 use crate::repositories::skill::{CreateSkillRecord, SkillRepository, UpdateSkillRecord};
@@ -533,18 +532,7 @@ impl SkillService {
         resource_id: Option<Uuid>,
         payload: Value,
     ) -> AppResult<()> {
-        ContextGovernanceService::emit_audit(
-            tx,
-            scope,
-            ContextAuditEvent {
-                action,
-                resource_type: skill_audit_resource_type(),
-                resource_id,
-                payload,
-                ip_address: None,
-            },
-        )
-        .await?;
+        ContextGovernanceService::emit_audit(tx, scope, skill_audit_event(action, resource_id, payload)).await?;
         Ok(())
     }
 }
