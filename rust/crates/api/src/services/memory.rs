@@ -16,8 +16,8 @@ use crate::domain::memory::{
     MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryContentReadAudit, MemoryCreatedAudit,
     MemoryListPage, MemoryMutationAccess, MemoryMutationAccessPolicy, MemoryMutationManagerCheck,
     MemoryReclassificationPlan, MemoryReclassificationPolicy, MemoryReclassificationRequest, MemoryRevokedAudit,
-    MemoryScopeKind, MemoryScopeTargetPolicy, MemoryTitle, MemoryTtlPolicy, MemoryUpdatedAudit, MemoryVisibility,
-    PreparedMemoryContent,
+    MemoryScopeKind, MemoryScopeTargetPolicy, MemoryTitle, MemoryTtlExtendedAudit, MemoryTtlPolicy, MemoryUpdatedAudit,
+    MemoryVisibility, PreparedMemoryContent,
 };
 use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository, UpdateMemoryRecord};
 use crate::repositories::resource_permission::ResourcePermissionRepository;
@@ -231,16 +231,8 @@ impl MemoryService {
         let current = MemoryRepository::lock_visible_for_update(&mut tx, &proof, id).await?;
         self.require_owner_or_manager(scope, &current).await?;
         let item = MemoryRepository::extend_ttl_in_tx(&mut tx, id, ttl_expires_at).await?;
-        self.emit_memory_audit(
-            &mut tx,
-            scope,
-            "governance.context.memory.ttl_extended",
-            json!({
-                "scope_kind": item.scope_kind,
-                "ttl_expires_at": item.ttl_expires_at
-            }),
-        )
-        .await?;
+        let audit = MemoryTtlExtendedAudit::new(item.scope_kind.as_str(), item.ttl_expires_at);
+        self.emit_memory_audit(&mut tx, scope, audit.audit_action(), audit.audit_payload()).await?;
         tx.commit().await?;
         Ok(item)
     }
