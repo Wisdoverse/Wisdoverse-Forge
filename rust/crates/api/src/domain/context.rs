@@ -910,6 +910,22 @@ pub(crate) fn sensitivity_label(sensitivity: Sensitivity) -> &'static str {
     }
 }
 
+pub(crate) fn context_content_preview(value: &str, limit: usize) -> (String, bool) {
+    let mut preview = String::new();
+    let mut truncated = false;
+    for (idx, ch) in value.chars().enumerate() {
+        if idx >= limit {
+            truncated = true;
+            break;
+        }
+        preview.push(ch);
+    }
+    if truncated {
+        preview.push_str("...");
+    }
+    (preview, truncated)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1354,5 +1370,29 @@ mod tests {
         assert_eq!(payload["item_kind"], "memory");
         assert_eq!(payload["reason"], "invalid_memory_candidate");
         assert!(matches!(rejection.into_app_error().kind, ErrorKind::Validation(_)));
+    }
+
+    #[test]
+    fn context_content_preview_truncates_at_char_limit_and_appends_ellipsis() {
+        let (preview, truncated) = context_content_preview("hello world", 5);
+
+        assert_eq!(preview, "hello...");
+        assert!(truncated);
+    }
+
+    #[test]
+    fn context_content_preview_returns_input_unchanged_when_within_limit() {
+        let (preview, truncated) = context_content_preview("hello", 5);
+
+        assert_eq!(preview, "hello");
+        assert!(!truncated);
+    }
+
+    #[test]
+    fn context_content_preview_counts_unicode_scalars_not_bytes() {
+        let (preview, truncated) = context_content_preview("中文测试abc", 3);
+
+        assert_eq!(preview, "中文测...");
+        assert!(truncated);
     }
 }

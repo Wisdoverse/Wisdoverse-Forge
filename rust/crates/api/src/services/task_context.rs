@@ -7,7 +7,7 @@ use serde::Serialize;
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::domain::context::redacted_proposal_preview;
+use crate::domain::context::{context_content_preview, redacted_proposal_preview};
 use crate::repositories::orchestration::OrchestrationTaskRepository;
 use crate::repositories::task_context::{AppliedContextRow, TaskContextRepository};
 use crate::repositories::task_run::RunEvidenceRow;
@@ -183,7 +183,7 @@ impl From<AppliedContextRow> for AppliedContextItem {
         let title =
             string_field(&row.applied_snapshot, "title").unwrap_or_else(|| format!("{} context", row.item_kind));
         let content = string_field(&row.applied_snapshot, "content").unwrap_or_default();
-        let (content_preview, content_truncated) = preview_text(&content, CONTENT_PREVIEW_CHARS);
+        let (content_preview, content_truncated) = context_content_preview(&content, CONTENT_PREVIEW_CHARS);
         let snapshot_sensitivity = string_field(&row.applied_snapshot, "sensitivity");
         let source = source_field(&row.applied_snapshot);
         let content_ref = string_field(&row.applied_snapshot, "content_ref");
@@ -280,20 +280,4 @@ fn source_field(value: &Value) -> Option<AppliedContextSource> {
     let source_id = source.get("source_id").and_then(Value::as_str).and_then(|value| Uuid::parse_str(value).ok());
     let title = source.get("title").and_then(Value::as_str).map(str::to_string);
     Some(AppliedContextSource { source_type, source_id, title })
-}
-
-fn preview_text(value: &str, limit: usize) -> (String, bool) {
-    let mut preview = String::new();
-    let mut truncated = false;
-    for (idx, ch) in value.chars().enumerate() {
-        if idx >= limit {
-            truncated = true;
-            break;
-        }
-        preview.push(ch);
-    }
-    if truncated {
-        preview.push_str("...");
-    }
-    (preview, truncated)
 }
