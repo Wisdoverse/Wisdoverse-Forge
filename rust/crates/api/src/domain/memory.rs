@@ -437,6 +437,29 @@ impl MemoryRevokedAudit {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct MemoryTtlExtendedAudit {
+    scope_kind: String,
+    ttl_expires_at: Option<DateTime<Utc>>,
+}
+
+impl MemoryTtlExtendedAudit {
+    pub(crate) fn new(scope_kind: impl Into<String>, ttl_expires_at: Option<DateTime<Utc>>) -> Self {
+        Self { scope_kind: scope_kind.into(), ttl_expires_at }
+    }
+
+    pub(crate) fn audit_action(&self) -> &'static str {
+        "governance.context.memory.ttl_extended"
+    }
+
+    pub(crate) fn audit_payload(&self) -> Value {
+        json!({
+            "scope_kind": self.scope_kind,
+            "ttl_expires_at": self.ttl_expires_at
+        })
+    }
+}
+
 /// Prepared memory content ready for persistence and audit emission.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PreparedMemoryContent {
@@ -755,6 +778,26 @@ mod tests {
         assert_eq!(audit.audit_action(), "governance.context.memory.revoked");
         assert_eq!(payload["scope_kind"], "user");
         assert_eq!(payload["sensitivity"], "confidential");
+    }
+
+    #[test]
+    fn memory_ttl_extended_audit_owns_action_and_payload() {
+        let ttl = Utc::now() + Duration::days(7);
+        let audit = MemoryTtlExtendedAudit::new("project", Some(ttl));
+        let payload = audit.audit_payload();
+
+        assert_eq!(audit.audit_action(), "governance.context.memory.ttl_extended");
+        assert_eq!(payload["scope_kind"], "project");
+        assert_eq!(payload["ttl_expires_at"], serde_json::to_value(ttl).unwrap());
+    }
+
+    #[test]
+    fn memory_ttl_extended_audit_allows_clearing_ttl() {
+        let audit = MemoryTtlExtendedAudit::new("team", None);
+        let payload = audit.audit_payload();
+
+        assert_eq!(payload["scope_kind"], "team");
+        assert!(payload["ttl_expires_at"].is_null());
     }
 
     fn synthetic_assigned_secret() -> String {
