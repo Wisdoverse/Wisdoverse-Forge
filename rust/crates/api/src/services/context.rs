@@ -18,12 +18,11 @@ use crate::domain::context::{
     ContextApprovalProvenance, ContextCandidateApprovalAudit, ContextCandidateBroadcast,
     ContextCandidateBroadcastEvent, ContextCandidateCreatedAudit, ContextCandidateKind,
     ContextCandidateManualRejectionAudit, ContextCandidatePolicy, ContextFeedbackLabel, ContextFeedbackPolicy,
-    ContextFeedbackRecordedAudit, ContextItemKind, context_candidate_audit_resource_type, ensure_pending_candidate,
+    ContextFeedbackRecordedAudit, ContextItemKind, context_candidate_audit_event, ensure_pending_candidate,
     normalize_candidate_kind_filter, normalize_candidate_state_filter, normalize_context_candidate_limit,
     normalize_feedback_note, normalize_reason, normalize_scope_kind_filter, redacted_proposal_preview,
     validate_context_sensitivity, validate_ttl,
 };
-use crate::domain::context_governance::ContextAuditEvent;
 use crate::domain::memory::MemoryScopeKind;
 use crate::repositories::context_approval::{ContextApprovalRepository, CreateContextApprovalRecord};
 use crate::repositories::context_candidate::{
@@ -512,18 +511,7 @@ impl ContextApprovalService {
         action: &'static str,
         payload: Value,
     ) -> AppResult<()> {
-        ContextGovernanceService::emit_audit(
-            tx,
-            scope,
-            ContextAuditEvent {
-                action,
-                resource_type: context_candidate_audit_resource_type(),
-                resource_id: None,
-                payload,
-                ip_address: None,
-            },
-        )
-        .await?;
+        ContextGovernanceService::emit_audit(tx, scope, context_candidate_audit_event(action, payload)).await?;
         Ok(())
     }
 
@@ -650,18 +638,7 @@ impl ContextFeedbackService {
             feedback.label.as_str(),
             item_state_changed,
         );
-        ContextGovernanceService::emit_audit(
-            &mut tx,
-            scope,
-            ContextAuditEvent {
-                action: audit.audit_action(),
-                resource_type: audit.audit_resource_type(),
-                resource_id: Some(feedback.id),
-                payload: audit.audit_payload(),
-                ip_address: None,
-            },
-        )
-        .await?;
+        ContextGovernanceService::emit_audit(&mut tx, scope, audit.audit_event(feedback.id)).await?;
 
         tx.commit().await?;
         Ok(ContextFeedbackOutcome { feedback, item_state_changed })

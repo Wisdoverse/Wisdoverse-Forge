@@ -7,8 +7,8 @@ use serde_json::{Value, json};
 use uuid::Uuid;
 
 use crate::domain::context_governance::{
-    ContextGovernancePolicy, ContextScopeKind, ScopeExpansionRejection, ScopeExpansionRequest, SecretPattern,
-    Sensitivity,
+    ContextAuditEvent, ContextGovernancePolicy, ContextScopeKind, ScopeExpansionRejection, ScopeExpansionRequest,
+    SecretPattern, Sensitivity,
 };
 use crate::domain::memory::MemoryScopeKind;
 
@@ -257,6 +257,16 @@ impl ContextFeedbackRecordedAudit {
             "item_state_changed": self.item_state_changed
         })
     }
+
+    pub(crate) fn audit_event(&self, resource_id: Uuid) -> ContextAuditEvent<'static> {
+        ContextAuditEvent {
+            action: self.audit_action(),
+            resource_type: self.audit_resource_type(),
+            resource_id: Some(resource_id),
+            payload: self.audit_payload(),
+            ip_address: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -396,6 +406,16 @@ pub(crate) fn context_candidate_subject(org_id: Uuid, scope_kind: &str, scope_id
 
 pub(crate) fn context_candidate_audit_resource_type() -> &'static str {
     "context_candidate"
+}
+
+pub(crate) fn context_candidate_audit_event(action: &'static str, payload: Value) -> ContextAuditEvent<'static> {
+    ContextAuditEvent {
+        action,
+        resource_type: context_candidate_audit_resource_type(),
+        resource_id: None,
+        payload,
+        ip_address: None,
+    }
 }
 
 pub(crate) fn redacted_proposal_preview(value: &Value) -> Value {
@@ -1003,8 +1023,10 @@ mod tests {
     fn feedback_recorded_audit_owns_action_resource_type_and_payload() {
         let run_id = Uuid::parse_str("99999999-9999-4999-8999-999999999999").unwrap();
         let item_id = Uuid::parse_str("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa").unwrap();
+        let feedback_id = Uuid::parse_str("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb").unwrap();
         let audit = ContextFeedbackRecordedAudit::new(run_id, item_id, "memory", "stale", true);
         let payload = audit.audit_payload();
+        let event = audit.audit_event(feedback_id);
 
         assert_eq!(audit.audit_action(), "governance.context.feedback.recorded");
         assert_eq!(audit.audit_resource_type(), "context_feedback");
@@ -1013,6 +1035,11 @@ mod tests {
         assert_eq!(payload["item_kind"], "memory");
         assert_eq!(payload["label"], "stale");
         assert_eq!(payload["item_state_changed"], true);
+        assert_eq!(event.action, "governance.context.feedback.recorded");
+        assert_eq!(event.resource_type, "context_feedback");
+        assert_eq!(event.resource_id, Some(feedback_id));
+        assert_eq!(event.payload["item_state_changed"], true);
+        assert_eq!(event.ip_address, None);
     }
 
     #[test]
@@ -1101,6 +1128,13 @@ mod tests {
         assert_eq!(payload["workspace_id"], workspace_id.to_string());
         assert_eq!(payload["has_source_run"], true);
         assert_eq!(payload["has_target_skill"], false);
+
+        let event = context_candidate_audit_event(audit.audit_action(), payload);
+        assert_eq!(event.action, "governance.context.candidate.created");
+        assert_eq!(event.resource_type, "context_candidate");
+        assert_eq!(event.resource_id, None);
+        assert_eq!(event.payload["item_kind"], "memory");
+        assert_eq!(event.ip_address, None);
     }
 
     #[test]
