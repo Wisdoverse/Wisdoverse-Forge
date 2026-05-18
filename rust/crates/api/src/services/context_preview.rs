@@ -7,10 +7,11 @@ use agentforge_db::entities::{ContextPreview, OrchestrationTask};
 use chrono::{DateTime, Duration, Utc};
 use serde::Serialize;
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use crate::domain::context_preview::{CONTEXT_PREVIEW_TTL_MINUTES, ContextPreviewFreshnessPolicy};
+use crate::domain::context_preview::{
+    CONTEXT_PREVIEW_TTL_MINUTES, ContextPreviewFreshnessPolicy, ContextPreviewTaskDraft, context_preview_hash,
+};
 use crate::domain::context_resolver::{
     ContextItemKind, ContextSelection, DegradationReason, ResolvedContext, ResolvedItemRef, apply_context_selection,
 };
@@ -104,8 +105,8 @@ impl ContextPreviewService {
                 crate::services::context_resolver::ResolveContextInput { task_id: task.id, agent_id: input.agent_id },
             )
             .await?;
-        let task_draft_hash = task_draft_hash(&task);
-        let preview_hash = preview_hash(&task_draft_hash, input.agent_id, &resolved)?;
+        let task_draft_hash = task_draft(&task).hash();
+        let preview_hash = context_preview_hash(&task_draft_hash, input.agent_id, &resolved)?;
         let selected_items = selected_items_payload(&resolved)?;
         let expires_at = Utc::now() + Duration::minutes(CONTEXT_PREVIEW_TTL_MINUTES);
         let preview = self
@@ -140,14 +141,14 @@ impl ContextPreviewService {
             scope.workspace_id().map(|workspace_id| workspace_id.as_uuid()),
             preview.workspace_id.as_uuid(),
         )?;
-        ContextPreviewFreshnessPolicy::ensure_task_draft_matches(&task_draft_hash(&task), &preview.task_draft_hash)?;
+        ContextPreviewFreshnessPolicy::ensure_task_draft_matches(&task_draft(&task).hash(), &preview.task_draft_hash)?;
 
         let agent_id = AgentId::from(preview.agent_id.as_uuid());
         let resolved = self
             .resolver
             .resolve(&scope.scoped_read(), crate::services::context_resolver::ResolveContextInput { task_id, agent_id })
             .await?;
-        let current_hash = preview_hash(&preview.task_draft_hash, agent_id, &resolved)?;
+        let current_hash = context_preview_hash(&preview.task_draft_hash, agent_id, &resolved)?;
         ContextPreviewFreshnessPolicy::ensure_resolved_context_matches(&current_hash, &preview.preview_hash)?;
 
         let selected = apply_context_selection(
@@ -236,32 +237,16 @@ fn selected_items_payload(resolved: &ResolvedContext) -> AppResult<Value> {
         .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("serialize context preview selected items: {err}")).into())
 }
 
-fn task_draft_hash(task: &OrchestrationTask) -> String {
-    let material = json!({
-        "task_id": task.id,
-        "title": task.title,
-        "description": task.description,
-        "params": task.params,
-        "priority": task.priority,
-        "group_id": task.group_id,
-        "parent_task_id": task.parent_task_id,
-    });
-    hex::encode(Sha256::digest(material.to_string().as_bytes()))
-}
-
-fn preview_hash(task_draft_hash: &str, agent_id: AgentId, resolved: &ResolvedContext) -> AppResult<String> {
-    let material = json!({
-        "task_draft_hash": task_draft_hash,
-        "agent_id": agent_id.as_uuid(),
-        "applied": resolved.applied,
-        "suggested": resolved.suggested,
-        "capability": resolved.capability,
-        "degradation": resolved.degradation,
-        "envelope_version": resolved.envelope_version,
-    });
-    serde_json::to_vec(&material)
-        .map(|bytes| hex::encode(Sha256::digest(&bytes)))
-        .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("serialize context preview hash: {err}")).into())
+fn task_draft(task: &OrchestrationTask) -> ContextPreviewTaskDraft<'_> {
+    ContextPreviewTaskDraft {
+        task_id: task.id,
+        title: &task.title,
+        description: task.description.as_deref(),
+        params: task.params.as_ref(),
+        priority: &task.priority,
+        group_id: task.group_id,
+        parent_task_id: task.parent_task_id,
+    }
 }
 
 fn reason_label(reason: &DegradationReason) -> &'static str {
