@@ -1,6 +1,6 @@
 //! Context candidate and feedback input policies.
 
-use agentforge_core::{AppError, AppResult, ErrorKind, ScopeKind, SkillId, WorkspaceId};
+use agentforge_core::{AppError, AppResult, ErrorKind, ScopeKind, SkillId, UserId, WorkspaceId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -52,6 +52,39 @@ impl ContextItemKind {
             Self::Memory => "memory",
             Self::Skill => "skill",
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ContextApprovalProvenance {
+    candidate_id: Uuid,
+    source_run_id: Option<Uuid>,
+    approved_by: UserId,
+    approved_at: DateTime<Utc>,
+}
+
+impl ContextApprovalProvenance {
+    pub(crate) fn for_approval(candidate_id: Uuid, source_run_id: Option<Uuid>, approved_by: UserId) -> Self {
+        Self::new(candidate_id, source_run_id, approved_by, Utc::now())
+    }
+
+    pub(crate) fn new(
+        candidate_id: Uuid,
+        source_run_id: Option<Uuid>,
+        approved_by: UserId,
+        approved_at: DateTime<Utc>,
+    ) -> Self {
+        Self { candidate_id, source_run_id, approved_by, approved_at }
+    }
+
+    pub(crate) fn into_json(self) -> Value {
+        json!({
+            "source": "context_candidate",
+            "candidate_id": self.candidate_id,
+            "source_run_id": self.source_run_id,
+            "approved_by": self.approved_by,
+            "approved_at": self.approved_at
+        })
     }
 }
 
@@ -798,6 +831,23 @@ mod tests {
     fn context_item_kind_labels_are_stable() {
         assert_eq!(ContextItemKind::Memory.as_label(), "memory");
         assert_eq!(ContextItemKind::Skill.as_label(), "skill");
+    }
+
+    #[test]
+    fn approval_provenance_owns_source_contract() {
+        let candidate_id = Uuid::parse_str("11111111-1111-4111-8111-111111111111").unwrap();
+        let source_run_id = Uuid::parse_str("22222222-2222-4222-8222-222222222222").unwrap();
+        let approved_by = UserId::from(Uuid::parse_str("33333333-3333-4333-8333-333333333333").unwrap());
+        let approved_at = DateTime::parse_from_rfc3339("2026-05-18T03:00:00Z").unwrap().with_timezone(&Utc);
+
+        let payload =
+            ContextApprovalProvenance::new(candidate_id, Some(source_run_id), approved_by, approved_at).into_json();
+
+        assert_eq!(payload["source"], "context_candidate");
+        assert_eq!(payload["candidate_id"], json!(candidate_id));
+        assert_eq!(payload["source_run_id"], json!(source_run_id));
+        assert_eq!(payload["approved_by"], json!(approved_by));
+        assert_eq!(payload["approved_at"], json!(approved_at));
     }
 
     #[test]

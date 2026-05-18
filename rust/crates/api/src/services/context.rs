@@ -15,7 +15,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::context::{
-    ContextCandidateApprovalAudit, ContextCandidateCreatedAudit, ContextCandidateKind,
+    ContextApprovalProvenance, ContextCandidateApprovalAudit, ContextCandidateCreatedAudit, ContextCandidateKind,
     ContextCandidateManualRejectionAudit, ContextCandidatePolicy, ContextFeedbackLabel, ContextFeedbackPolicy,
     ContextFeedbackRecordedAudit, ContextItemKind, context_candidate_audit_resource_type, context_candidate_subject,
     ensure_pending_candidate, normalize_candidate_kind_filter, normalize_candidate_state_filter,
@@ -294,7 +294,9 @@ impl ContextApprovalService {
                     },
                 )
                 .await?;
-                let provenance = approval_provenance(&candidate, scope);
+                let provenance =
+                    ContextApprovalProvenance::for_approval(candidate.id, candidate.source_run_id, scope.user_id())
+                        .into_json();
                 let item = MemoryRepository::create_in_tx(
                     &mut tx,
                     &proof,
@@ -746,16 +748,6 @@ fn candidate_summary(candidate: &ContextCandidateListRow) -> ContextCandidateSum
         created_at: candidate.created_at,
         updated_at: candidate.updated_at,
     }
-}
-
-fn approval_provenance(candidate: &ContextCandidate, scope: &TenantScope) -> Value {
-    json!({
-        "source": "context_candidate",
-        "candidate_id": candidate.id,
-        "source_run_id": candidate.source_run_id,
-        "approved_by": scope.user_id(),
-        "approved_at": Utc::now()
-    })
 }
 
 fn required_workspace(scope: &TenantScope) -> AppResult<WorkspaceId> {
