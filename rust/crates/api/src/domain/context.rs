@@ -88,6 +88,91 @@ impl ContextApprovalProvenance {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ContextCandidateBroadcastEvent {
+    Created,
+    Approved,
+    Rejected,
+}
+
+impl ContextCandidateBroadcastEvent {
+    pub(crate) fn as_label(self) -> &'static str {
+        match self {
+            Self::Created => "created",
+            Self::Approved => "approved",
+            Self::Rejected => "rejected",
+        }
+    }
+
+    pub(crate) fn event_type(self) -> &'static str {
+        match self {
+            Self::Created => "context_candidate.created",
+            Self::Approved => "context_candidate.approved",
+            Self::Rejected => "context_candidate.rejected",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ContextCandidateBroadcast {
+    event: ContextCandidateBroadcastEvent,
+    candidate_id: Uuid,
+    item_kind: String,
+    state: String,
+    scope_kind: String,
+    scope_id: Uuid,
+    timestamp: DateTime<Utc>,
+}
+
+impl ContextCandidateBroadcast {
+    pub(crate) fn new(
+        event: ContextCandidateBroadcastEvent,
+        candidate_id: Uuid,
+        item_kind: impl Into<String>,
+        state: impl Into<String>,
+        scope_kind: impl Into<String>,
+        scope_id: Uuid,
+    ) -> Self {
+        Self::new_at(event, candidate_id, item_kind, state, scope_kind, scope_id, Utc::now())
+    }
+
+    pub(crate) fn new_at(
+        event: ContextCandidateBroadcastEvent,
+        candidate_id: Uuid,
+        item_kind: impl Into<String>,
+        state: impl Into<String>,
+        scope_kind: impl Into<String>,
+        scope_id: Uuid,
+        timestamp: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            event,
+            candidate_id,
+            item_kind: item_kind.into(),
+            state: state.into(),
+            scope_kind: scope_kind.into(),
+            scope_id,
+            timestamp,
+        }
+    }
+
+    pub(crate) fn subject(&self, org_id: Uuid) -> String {
+        context_candidate_subject(org_id, self.scope_kind.as_str(), self.scope_id, self.event.as_label())
+    }
+
+    pub(crate) fn payload(&self) -> Value {
+        json!({
+            "type": self.event.event_type(),
+            "candidateId": self.candidate_id,
+            "itemKind": self.item_kind,
+            "state": self.state,
+            "scopeKind": self.scope_kind,
+            "scopeId": self.scope_id,
+            "timestamp": self.timestamp.to_rfc3339()
+        })
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ContextFeedbackLabel {
@@ -819,6 +904,47 @@ mod tests {
             context_candidate_subject(org_id, "team", scope_id, "approved"),
             "broadcast.11111111-1111-4111-8111-111111111111.scope.team.22222222-2222-4222-8222-222222222222.context_candidate.approved"
         );
+    }
+
+    #[test]
+    fn candidate_broadcast_owns_subject_and_payload_contract() {
+        let org_id = Uuid::parse_str("11111111-1111-4111-8111-111111111111").unwrap();
+        let candidate_id = Uuid::parse_str("22222222-2222-4222-8222-222222222222").unwrap();
+        let scope_id = Uuid::parse_str("33333333-3333-4333-8333-333333333333").unwrap();
+        let timestamp = DateTime::parse_from_rfc3339("2026-05-18T04:00:00Z").unwrap().with_timezone(&Utc);
+        let broadcast = ContextCandidateBroadcast::new_at(
+            ContextCandidateBroadcastEvent::Approved,
+            candidate_id,
+            "memory",
+            "approved",
+            "team",
+            scope_id,
+            timestamp,
+        );
+
+        assert_eq!(
+            broadcast.subject(org_id),
+            "broadcast.11111111-1111-4111-8111-111111111111.scope.team.33333333-3333-4333-8333-333333333333.context_candidate.approved"
+        );
+
+        let payload = broadcast.payload();
+        assert_eq!(payload["type"], "context_candidate.approved");
+        assert_eq!(payload["candidateId"], json!(candidate_id));
+        assert_eq!(payload["itemKind"], "memory");
+        assert_eq!(payload["state"], "approved");
+        assert_eq!(payload["scopeKind"], "team");
+        assert_eq!(payload["scopeId"], json!(scope_id));
+        assert_eq!(payload["timestamp"], "2026-05-18T04:00:00+00:00");
+    }
+
+    #[test]
+    fn candidate_broadcast_event_labels_are_stable() {
+        assert_eq!(ContextCandidateBroadcastEvent::Created.as_label(), "created");
+        assert_eq!(ContextCandidateBroadcastEvent::Created.event_type(), "context_candidate.created");
+        assert_eq!(ContextCandidateBroadcastEvent::Approved.as_label(), "approved");
+        assert_eq!(ContextCandidateBroadcastEvent::Approved.event_type(), "context_candidate.approved");
+        assert_eq!(ContextCandidateBroadcastEvent::Rejected.as_label(), "rejected");
+        assert_eq!(ContextCandidateBroadcastEvent::Rejected.event_type(), "context_candidate.rejected");
     }
 
     #[test]
