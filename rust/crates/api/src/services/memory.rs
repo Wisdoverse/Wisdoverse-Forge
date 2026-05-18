@@ -15,9 +15,9 @@ use crate::domain::context_governance::ContextAuditEvent;
 use crate::domain::memory::{
     MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryContentReadAudit, MemoryCreatedAudit,
     MemoryListPage, MemoryMutationAccess, MemoryMutationAccessPolicy, MemoryMutationManagerCheck,
-    MemoryReclassificationPlan, MemoryReclassificationPolicy, MemoryReclassificationRequest, MemoryRevokedAudit,
-    MemoryScopeKind, MemoryScopeTargetPolicy, MemoryTitle, MemoryTtlExtendedAudit, MemoryTtlPolicy, MemoryUpdatedAudit,
-    MemoryVisibility, PreparedMemoryContent,
+    MemoryReclassificationPlan, MemoryReclassificationPolicy, MemoryReclassificationRequest, MemoryReclassifiedAudit,
+    MemoryRevokedAudit, MemoryScopeKind, MemoryScopeTargetPolicy, MemoryTitle, MemoryTtlExtendedAudit, MemoryTtlPolicy,
+    MemoryUpdatedAudit, MemoryVisibility, PreparedMemoryContent,
 };
 use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository, UpdateMemoryRecord};
 use crate::repositories::resource_permission::ResourcePermissionRepository;
@@ -267,13 +267,8 @@ impl MemoryService {
         };
 
         let item = MemoryRepository::reclassify_scope_in_tx(&mut tx, id, &target).await?;
-        self.emit_memory_audit(
-            &mut tx,
-            scope,
-            "governance.context.memory.reclassified",
-            decision.audit_payload(&item.sensitivity, item.content_redacted),
-        )
-        .await?;
+        let audit = MemoryReclassifiedAudit::from_decision(decision, item.sensitivity.as_str(), item.content_redacted);
+        self.emit_memory_audit(&mut tx, scope, audit.audit_action(), audit.audit_payload()).await?;
         tx.commit().await?;
         Ok(item)
     }
