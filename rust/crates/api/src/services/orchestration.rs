@@ -15,7 +15,6 @@ use agentforge_core::{AgentId, AppResult, ErrorKind, TenantScope};
 use agentforge_db::entities::{OrchestrationTask, Participant, TaskRun};
 use agentforge_db::inbox_notifications::{TaskOwnerNotificationKind, upsert_task_owner_lifecycle_notification_in_tx};
 use agentforge_jobs::insert_assignment_outbox_in_tx;
-use serde::Serialize;
 use uuid::Uuid;
 
 use crate::domain::context_resolver::{ContextTaskSnapshot, ResolvedContext};
@@ -25,7 +24,7 @@ use crate::domain::orchestration::{
     TaskCreationPolicy, TaskLifecyclePolicy, TaskListPage, TaskPatchAction, TaskPatchPolicy, TaskPriority,
     TaskRunCapabilityProfile, TaskStatusPolicy, TaskTitle, task_assignment_snapshot,
 };
-pub use crate::domain::orchestration::{TaskContextCounts, TaskSummary, task_summary};
+pub use crate::domain::orchestration::{TaskContextCounts, TaskStatsResponse, TaskSummary, task_summary};
 use crate::repositories::orchestration::{
     CreateTaskRow, OrchestrationTaskRepository, OrchestrationTaskStats, ParticipantRepository, UpdateTaskRow,
 };
@@ -38,13 +37,6 @@ impl From<ContextInjectionCounts> for TaskContextCounts {
     fn from(counts: ContextInjectionCounts) -> Self {
         TaskContextCounts::new(counts.applied_memories, counts.applied_skills)
     }
-}
-
-/// Kanban-state count snapshot returned by the stats endpoint.
-#[derive(Debug, Clone, Serialize)]
-pub struct TaskStatsResponse {
-    #[serde(rename = "byState")]
-    pub by_state: HashMap<String, i64>,
 }
 
 impl From<OrchestrationTaskStats> for TaskStatsResponse {
