@@ -17,7 +17,7 @@ use crate::domain::memory::{
     MemoryListPage, MemoryMutationAccess, MemoryMutationAccessPolicy, MemoryMutationManagerCheck,
     MemoryReclassificationPlan, MemoryReclassificationPolicy, MemoryReclassificationRequest, MemoryReclassifiedAudit,
     MemoryRevokedAudit, MemoryScopeKind, MemoryScopeTargetPolicy, MemoryTitle, MemoryTtlExtendedAudit, MemoryTtlPolicy,
-    MemoryUpdatedAudit, MemoryVisibility, PreparedMemoryContent,
+    MemoryUpdatedAudit, MemoryVisibility, PreparedMemoryContent, memory_audit_resource_type,
 };
 use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository, UpdateMemoryRecord};
 use crate::repositories::resource_permission::ResourcePermissionRepository;
@@ -416,7 +416,7 @@ impl MemoryService {
             scope,
             ContextAuditEvent {
                 action,
-                resource_type: "memory_item",
+                resource_type: memory_audit_resource_type(),
                 // The current audit route is org-wide. Avoid writing raw memory
                 // item IDs until scope-aware audit projection lands.
                 resource_id: None,

@@ -13,7 +13,7 @@ use crate::domain::skill::{
     SkillMutationAccess, SkillMutationAccessPolicy, SkillMutationManagerCheck, SkillMutationPolicy, SkillName,
     SkillRestoreVersionPlan, SkillRestoreVersionPolicy, SkillRestoreVersionRequest, SkillRestoredAudit,
     SkillRevokedAudit, SkillScopeKind, SkillScopeTargetPolicy, SkillSensitivity, SkillState,
-    SkillStateTransitionPolicy, SkillTtlPolicy, SkillUpdatedAudit,
+    SkillStateTransitionPolicy, SkillTtlPolicy, SkillUpdatedAudit, skill_audit_resource_type,
 };
 use crate::repositories::resource_permission::ResourcePermissionRepository;
 use crate::repositories::skill::{CreateSkillRecord, SkillRepository, UpdateSkillRecord};
@@ -536,7 +536,13 @@ impl SkillService {
         ContextGovernanceService::emit_audit(
             tx,
             scope,
-            ContextAuditEvent { action, resource_type: "skill", resource_id, payload, ip_address: None },
+            ContextAuditEvent {
+                action,
+                resource_type: skill_audit_resource_type(),
+                resource_id,
+                payload,
+                ip_address: None,
+            },
         )
         .await?;
         Ok(())
