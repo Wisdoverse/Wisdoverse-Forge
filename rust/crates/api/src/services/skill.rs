@@ -11,9 +11,9 @@ use crate::domain::skill::{
     PreparedSkillContent, SkillAuditIdentity, SkillBoundaryAccessPolicy, SkillBoundaryMutationPolicy,
     SkillContentDecision, SkillContentPolicy, SkillCreateStatePolicy, SkillCreatedAudit, SkillJsonObjectPolicy,
     SkillMutationAccess, SkillMutationAccessPolicy, SkillMutationManagerCheck, SkillMutationPolicy, SkillName,
-    SkillRestoreVersionPlan, SkillRestoreVersionPolicy, SkillRestoreVersionRequest, SkillRevokedAudit, SkillScopeKind,
-    SkillScopeTargetPolicy, SkillSensitivity, SkillState, SkillStateTransitionPolicy, SkillTtlPolicy,
-    SkillUpdatedAudit,
+    SkillRestoreVersionPlan, SkillRestoreVersionPolicy, SkillRestoreVersionRequest, SkillRestoredAudit,
+    SkillRevokedAudit, SkillScopeKind, SkillScopeTargetPolicy, SkillSensitivity, SkillState,
+    SkillStateTransitionPolicy, SkillTtlPolicy, SkillUpdatedAudit,
 };
 use crate::repositories::resource_permission::ResourcePermissionRepository;
 use crate::repositories::skill::{CreateSkillRecord, SkillRepository, UpdateSkillRecord};
@@ -304,20 +304,26 @@ impl SkillService {
             SkillVersionRepository::insert_snapshot_in_tx(&mut tx, &current, scope.user_id()).await?;
         let resulting_version = current.version + 1;
         let skill = SkillRepository::restore_from_snapshot_in_tx(&mut tx, id, &snapshot, resulting_version).await?;
+        let restored_audit = SkillRestoredAudit::new(
+            SkillAuditIdentity::new(
+                skill.id,
+                skill.workspace_id,
+                skill.scope_kind.clone(),
+                skill.scope_id,
+                skill.state.clone(),
+                skill.version,
+            ),
+            input.version,
+            current.version,
+            skill.version,
+            pre_restore_version.id,
+        );
         self.emit_skill_audit(
             &mut tx,
             scope,
-            "governance.context.skill.restored",
+            restored_audit.audit_action(),
             Some(skill.id.as_uuid()),
-            skill_event_payload(
-                &skill,
-                json!({
-                    "target_version": input.version,
-                    "from_version": current.version,
-                    "resulting_version": skill.version,
-                    "skill_version_id": pre_restore_version.id
-                }),
-            ),
+            restored_audit.audit_payload(),
         )
         .await?;
         tx.commit().await?;
@@ -539,23 +545,4 @@ impl SkillService {
 
 fn required_workspace(scope: &TenantScope) -> AppResult<WorkspaceId> {
     scope.workspace_id().ok_or_else(|| agentforge_core::AppError::from(ErrorKind::Forbidden))
-}
-
-fn skill_event_payload(skill: &Skill, extra: Value) -> Value {
-    let mut payload = json!({
-        "skill_id": skill.id,
-        "workspace_id": skill.workspace_id,
-        "scope_kind": skill.scope_kind,
-        "scope_id": skill.scope_id,
-        "state": skill.state,
-        "version": skill.version
-    });
-
-    if let (Some(base), Some(extra)) = (payload.as_object_mut(), extra.as_object()) {
-        for (key, value) in extra {
-            base.insert(key.clone(), value.clone());
-        }
-    }
-
-    payload
 }
