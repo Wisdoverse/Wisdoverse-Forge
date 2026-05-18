@@ -13,10 +13,10 @@ use uuid::Uuid;
 
 use crate::domain::context_governance::ContextAuditEvent;
 use crate::domain::memory::{
-    MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryContentReadAudit, MemoryListPage,
-    MemoryMutationAccess, MemoryMutationAccessPolicy, MemoryMutationManagerCheck, MemoryReclassificationPlan,
-    MemoryReclassificationPolicy, MemoryReclassificationRequest, MemoryScopeKind, MemoryScopeTargetPolicy, MemoryTitle,
-    MemoryTtlPolicy, MemoryVisibility, PreparedMemoryContent,
+    MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryContentReadAudit, MemoryCreatedAudit,
+    MemoryListPage, MemoryMutationAccess, MemoryMutationAccessPolicy, MemoryMutationManagerCheck,
+    MemoryReclassificationPlan, MemoryReclassificationPolicy, MemoryReclassificationRequest, MemoryScopeKind,
+    MemoryScopeTargetPolicy, MemoryTitle, MemoryTtlPolicy, MemoryVisibility, PreparedMemoryContent,
 };
 use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository, UpdateMemoryRecord};
 use crate::repositories::resource_permission::ResourcePermissionRepository;
@@ -141,19 +141,14 @@ impl MemoryService {
             },
         )
         .await?;
-        self.emit_memory_audit(
-            &mut tx,
-            scope,
-            "governance.context.memory.created",
-            json!({
-                "scope_kind": item.scope_kind,
-                "visibility": item.visibility,
-                "sensitivity": item.sensitivity,
-                "content_redacted": item.content_redacted,
-                "classification": prepared.audit_payload
-            }),
-        )
-        .await?;
+        let audit = MemoryCreatedAudit::new(
+            item.scope_kind.as_str(),
+            item.visibility.as_str(),
+            item.sensitivity.as_str(),
+            item.content_redacted,
+            prepared.audit_payload,
+        );
+        self.emit_memory_audit(&mut tx, scope, audit.audit_action(), audit.audit_payload()).await?;
         tx.commit().await?;
         Ok(item)
     }

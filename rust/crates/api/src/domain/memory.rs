@@ -332,6 +332,47 @@ impl MemoryContentReadAudit {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct MemoryCreatedAudit {
+    scope_kind: String,
+    visibility: String,
+    sensitivity: String,
+    content_redacted: bool,
+    classification: Value,
+}
+
+impl MemoryCreatedAudit {
+    pub(crate) fn new(
+        scope_kind: impl Into<String>,
+        visibility: impl Into<String>,
+        sensitivity: impl Into<String>,
+        content_redacted: bool,
+        classification: Value,
+    ) -> Self {
+        Self {
+            scope_kind: scope_kind.into(),
+            visibility: visibility.into(),
+            sensitivity: sensitivity.into(),
+            content_redacted,
+            classification,
+        }
+    }
+
+    pub(crate) fn audit_action(&self) -> &'static str {
+        "governance.context.memory.created"
+    }
+
+    pub(crate) fn audit_payload(&self) -> Value {
+        json!({
+            "scope_kind": self.scope_kind,
+            "visibility": self.visibility,
+            "sensitivity": self.sensitivity,
+            "content_redacted": self.content_redacted,
+            "classification": self.classification
+        })
+    }
+}
+
 /// Prepared memory content ready for persistence and audit emission.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PreparedMemoryContent {
@@ -604,6 +645,29 @@ mod tests {
         assert_eq!(payload["scope_kind"], "team");
         assert_eq!(payload["sensitivity"], "confidential");
         assert_eq!(payload["content_redacted"], true);
+    }
+
+    #[test]
+    fn memory_created_audit_owns_action_and_payload() {
+        let audit = MemoryCreatedAudit::new(
+            "project",
+            "shared",
+            "secret_detected",
+            true,
+            json!({
+                "sensitivity": "secret_detected",
+                "redacted": true
+            }),
+        );
+        let payload = audit.audit_payload();
+
+        assert_eq!(audit.audit_action(), "governance.context.memory.created");
+        assert_eq!(payload["scope_kind"], "project");
+        assert_eq!(payload["visibility"], "shared");
+        assert_eq!(payload["sensitivity"], "secret_detected");
+        assert_eq!(payload["content_redacted"], true);
+        assert_eq!(payload["classification"]["sensitivity"], "secret_detected");
+        assert_eq!(payload["classification"]["redacted"], true);
     }
 
     fn synthetic_assigned_secret() -> String {
