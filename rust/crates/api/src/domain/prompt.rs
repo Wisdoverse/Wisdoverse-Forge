@@ -118,6 +118,49 @@ impl PromptContextPolicy {
     }
 }
 
+/// Server-sent SSE frame for the chat stream. Serialized to
+/// `event: <name>\ndata: <json>` by the route handler.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(tag = "event", content = "data")]
+pub enum SseFrame {
+    #[serde(rename = "message_start")]
+    MessageStart { message_id: uuid::Uuid, model: String },
+    #[serde(rename = "delta")]
+    Delta { text: String },
+    #[serde(rename = "message_stop")]
+    MessageStop { tokens_in: u32, tokens_out: u32, finish_reason: String },
+    #[serde(rename = "error")]
+    Error { code: String, message: String, retryable: bool },
+}
+
+impl SseFrame {
+    /// Split into `(event_name, data_payload)` for SSE transport.
+    /// This is compiler-enforced coverage of all variants — if a new variant
+    /// is added without updating this match, the match becomes non-exhaustive
+    /// and the build fails. The `#[serde(tag, content)]` attribute is an
+    /// implementation detail of direct JSON serialization and should not
+    /// influence the SSE transport layer.
+    pub fn split(&self) -> (&'static str, serde_json::Value) {
+        match self {
+            SseFrame::MessageStart { message_id, model } => {
+                ("message_start", serde_json::json!({ "message_id": message_id, "model": model }))
+            }
+            SseFrame::Delta { text } => ("delta", serde_json::json!({ "text": text })),
+            SseFrame::MessageStop { tokens_in, tokens_out, finish_reason } => (
+                "message_stop",
+                serde_json::json!({
+                    "tokens_in": tokens_in,
+                    "tokens_out": tokens_out,
+                    "finish_reason": finish_reason,
+                }),
+            ),
+            SseFrame::Error { code, message, retryable } => {
+                ("error", serde_json::json!({ "code": code, "message": message, "retryable": retryable }))
+            }
+        }
+    }
+}
+
 /// Maps an `LlmError` to the client-safe SSE error frame triple
 /// `(code, message, retryable)`. Upstream provider response bodies are never
 /// echoed because they may contain snippets of the original request (user
@@ -210,6 +253,35 @@ mod tests {
         let err = policy.select_history(&history, &sys).unwrap_err();
 
         assert!(format!("{}", err.kind).contains("system_prompt alone"));
+    }
+
+    #[test]
+    fn sse_frame_split_returns_protocol_event_name_and_payload_for_each_variant() {
+        let message_id = uuid::Uuid::from_u128(0xBBBB_BBBB_BBBB_BBBB_BBBB_BBBB_BBBB_BBBB);
+
+        let (event, data) = SseFrame::MessageStart { message_id, model: "claude-sonnet-4-6".to_string() }.split();
+        assert_eq!(event, "message_start");
+        assert_eq!(data["message_id"], serde_json::json!(message_id));
+        assert_eq!(data["model"], "claude-sonnet-4-6");
+
+        let (event, data) = SseFrame::Delta { text: "hi".to_string() }.split();
+        assert_eq!(event, "delta");
+        assert_eq!(data["text"], "hi");
+
+        let (event, data) =
+            SseFrame::MessageStop { tokens_in: 12, tokens_out: 34, finish_reason: "stop".to_string() }.split();
+        assert_eq!(event, "message_stop");
+        assert_eq!(data["tokens_in"], 12);
+        assert_eq!(data["tokens_out"], 34);
+        assert_eq!(data["finish_reason"], "stop");
+
+        let (event, data) =
+            SseFrame::Error { code: "rate_limited".to_string(), message: "slow down".to_string(), retryable: true }
+                .split();
+        assert_eq!(event, "error");
+        assert_eq!(data["code"], "rate_limited");
+        assert_eq!(data["message"], "slow down");
+        assert_eq!(data["retryable"], true);
     }
 
     #[test]
