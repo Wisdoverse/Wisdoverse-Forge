@@ -17,6 +17,10 @@ use crate::domain::context_governance::{
 const DEFAULT_LIMIT: i64 = 50;
 const MAX_LIMIT: i64 = 200;
 
+pub(crate) fn memory_audit_resource_type() -> &'static str {
+    "memory_item"
+}
+
 /// Supported memory item scope kinds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -757,6 +761,7 @@ mod tests {
         let audit = MemoryContentReadAudit::new("team", "confidential", true);
         let payload = audit.audit_payload();
 
+        assert_eq!(memory_audit_resource_type(), "memory_item");
         assert_eq!(audit.audit_action(), "governance.context.memory.content_read");
         assert_eq!(payload["scope_kind"], "team");
         assert_eq!(payload["sensitivity"], "confidential");

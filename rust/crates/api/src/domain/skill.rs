@@ -14,6 +14,10 @@ use crate::domain::context_governance::{
     Sensitivity,
 };
 
+pub(crate) fn skill_audit_resource_type() -> &'static str {
+    "skill"
+}
+
 /// Validated skill name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SkillName<'a> {
@@ -908,6 +912,7 @@ mod tests {
         );
 
         assert_eq!(audit.audit_action(), "governance.context.skill.created");
+        assert_eq!(skill_audit_resource_type(), "skill");
         let payload = audit.audit_payload();
         assert_eq!(payload["skill_id"], skill_id.as_uuid().to_string());
         assert_eq!(payload["workspace_id"], workspace_id.as_uuid().to_string());
