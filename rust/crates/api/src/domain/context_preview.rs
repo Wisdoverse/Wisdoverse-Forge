@@ -11,6 +11,8 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
+use agentforge_db::entities::ContextPreview;
+
 use super::context_resolver::{ResolvedContext, ResolvedItemRef};
 
 pub(crate) const CONTEXT_PREVIEW_TTL_MINUTES: i64 = 15;
@@ -112,6 +114,46 @@ pub struct ContextPreviewItem {
     pub why: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextPreviewResponse {
+    pub context_preview_id: Uuid,
+    pub preview_hash: String,
+    pub task_id: Uuid,
+    pub agent_id: Uuid,
+    pub expires_at: DateTime<Utc>,
+    pub capability: Value,
+    pub degradation: Vec<String>,
+    pub items: Vec<ContextPreviewItem>,
+    pub suggested_items: Vec<ContextPreviewItem>,
+    pub previously_pinned: Vec<ContextPreviewItem>,
+    pub warnings: Vec<String>,
+}
+
+pub(crate) fn context_preview_response(
+    preview: &ContextPreview,
+    resolved: ResolvedContext,
+    warnings: Vec<String>,
+) -> ContextPreviewResponse {
+    let capability = serde_json::to_value(&resolved.capability).unwrap_or_else(|_| json!({}));
+    let degradation = resolved.degradation.iter().map(|reason| reason.label().to_string()).collect();
+    let items = resolved.applied.iter().map(|item| context_preview_item(item, true, false)).collect();
+    let suggested_items = resolved.suggested.iter().map(|item| context_preview_item(item, false, false)).collect();
+    ContextPreviewResponse {
+        context_preview_id: preview.id,
+        preview_hash: preview.preview_hash.clone(),
+        task_id: preview.task_id,
+        agent_id: preview.agent_id.as_uuid(),
+        expires_at: preview.expires_at,
+        capability,
+        degradation,
+        items,
+        suggested_items,
+        previously_pinned: Vec::new(),
+        warnings,
+    }
+}
+
 pub(crate) fn context_preview_item(item: &ResolvedItemRef, selected: bool, pinned: bool) -> ContextPreviewItem {
     ContextPreviewItem {
         id: item.id,
@@ -197,6 +239,83 @@ mod tests {
         assert_eq!(draft.hash().len(), 64);
         assert_eq!(draft.hash(), draft.hash());
         assert_ne!(draft.hash(), changed.hash());
+    }
+
+    #[test]
+    fn context_preview_response_serializes_resolved_context_with_degradation_labels() {
+        use agentforge_core::{CliToolKind, OrgId, RuntimeCapability, RuntimeKind, UserId, WorkspaceId};
+        use chrono::TimeZone;
+
+        use crate::domain::context_resolver::{ContextItemKind, DegradationReason, ResolvedItemRef};
+
+        let preview_id = Uuid::from_u128(0x66666666666666668666666666666666);
+        let task_id = Uuid::from_u128(0x77777777777777778777777777777777);
+        let agent_uuid = Uuid::from_u128(0x88888888888888888888888888888888);
+        let expires_at = chrono::Utc.timestamp_millis_opt(1_700_000_900_000).unwrap();
+        let created_at = chrono::Utc.timestamp_millis_opt(1_700_000_000_000).unwrap();
+
+        let preview = ContextPreview {
+            id: preview_id,
+            organization_id: OrgId::new(),
+            workspace_id: WorkspaceId::new(),
+            task_id,
+            agent_id: AgentId::from(agent_uuid),
+            created_by_user_id: UserId::new(),
+            task_draft_hash: "draft".to_string(),
+            preview_hash: "preview-hash".to_string(),
+            selected_items: json!([]),
+            removed_item_ids: Vec::new(),
+            pinned_item_ids: Vec::new(),
+            expires_at,
+            created_at,
+        };
+        let applied = ResolvedItemRef {
+            id: Uuid::from_u128(0x99999999999999999999999999999999),
+            kind: ContextItemKind::Memory,
+            title: "Applied".to_string(),
+            scope_kind: None,
+            scope_id: None,
+            sensitivity: None,
+            estimated_tokens: 5,
+            last_used_at: None,
+            last_verified_at: None,
+            why: "matched".to_string(),
+        };
+        let suggested = ResolvedItemRef {
+            id: Uuid::from_u128(0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA),
+            kind: ContextItemKind::Skill,
+            title: "Suggested".to_string(),
+            scope_kind: None,
+            scope_id: None,
+            sensitivity: None,
+            estimated_tokens: 3,
+            last_used_at: None,
+            last_verified_at: None,
+            why: "matched".to_string(),
+        };
+        let resolved = ResolvedContext {
+            applied: vec![applied],
+            suggested: vec![suggested],
+            capability: RuntimeCapability::for_cli_tool(CliToolKind::Codex, RuntimeKind::Container),
+            degradation: vec![DegradationReason::BudgetTruncated, DegradationReason::RuntimeCapabilityFallback],
+            envelope_version: "v1".to_string(),
+        };
+
+        let response = context_preview_response(&preview, resolved, vec!["resolver fallback".to_string()]);
+
+        assert_eq!(response.context_preview_id, preview_id);
+        assert_eq!(response.preview_hash, "preview-hash");
+        assert_eq!(response.task_id, task_id);
+        assert_eq!(response.agent_id, agent_uuid);
+        assert_eq!(response.expires_at, expires_at);
+        assert_eq!(response.degradation, vec!["budget_truncated", "runtime_capability_fallback"]);
+        assert_eq!(response.items.len(), 1);
+        assert!(response.items[0].selected);
+        assert!(!response.items[0].pinned);
+        assert_eq!(response.suggested_items.len(), 1);
+        assert!(!response.suggested_items[0].selected);
+        assert!(response.previously_pinned.is_empty());
+        assert_eq!(response.warnings, vec!["resolver fallback"]);
     }
 
     #[test]
