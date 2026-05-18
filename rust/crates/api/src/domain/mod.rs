@@ -16,6 +16,7 @@ pub(crate) mod context_preview;
 pub mod context_resolver;
 pub(crate) mod credential;
 pub(crate) mod dev_environment;
+pub(crate) mod evidence_projection;
 pub(crate) mod license;
 pub(crate) mod memory;
 pub(crate) mod observability;
