@@ -13,6 +13,7 @@ use crate::domain::skill::{
     SkillMutationAccess, SkillMutationAccessPolicy, SkillMutationManagerCheck, SkillMutationPolicy, SkillName,
     SkillRestoreVersionPlan, SkillRestoreVersionPolicy, SkillRestoreVersionRequest, SkillScopeKind,
     SkillScopeTargetPolicy, SkillSensitivity, SkillState, SkillStateTransitionPolicy, SkillTtlPolicy,
+    SkillUpdatedAudit,
 };
 use crate::repositories::resource_permission::ResourcePermissionRepository;
 use crate::repositories::skill::{CreateSkillRecord, SkillRepository, UpdateSkillRecord};
@@ -178,21 +179,27 @@ impl SkillService {
             },
         )
         .await?;
+        let updated_audit = SkillUpdatedAudit::new(
+            SkillAuditIdentity::new(
+                skill.id,
+                skill.workspace_id,
+                skill.scope_kind.clone(),
+                skill.scope_id,
+                skill.state.clone(),
+                skill.version,
+            ),
+            prepared.is_some(),
+            current.version,
+            skill.version,
+            prior_version.id,
+            prepared.as_ref().map(|value| value.audit_payload.clone()),
+        );
         self.emit_skill_audit(
             &mut tx,
             scope,
-            "governance.context.skill.updated",
+            updated_audit.audit_action(),
             Some(skill.id.as_uuid()),
-            skill_event_payload(
-                &skill,
-                json!({
-                    "content_changed": prepared.is_some(),
-                    "from_version": current.version,
-                    "resulting_version": skill.version,
-                    "skill_version_id": prior_version.id,
-                    "classification": prepared.as_ref().map(|value| value.audit_payload.clone())
-                }),
-            ),
+            updated_audit.audit_payload(),
         )
         .await?;
         tx.commit().await?;
