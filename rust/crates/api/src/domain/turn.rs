@@ -16,6 +16,24 @@ const MAX_INPUT_PREVIEW: usize = 200;
 const MAX_OUTPUT_PREVIEW: usize = 500;
 const INTERRUPTED_AFTER_MS: i64 = 120_000;
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LastEventCursor {
+    pub timestamp: String,
+    pub id: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TurnPage {
+    pub turns: Vec<Turn>,
+    pub cursor: Option<String>,
+    pub has_more: bool,
+    pub total_turn_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_event: Option<LastEventCursor>,
+}
+
 /// Validated page size for turn read-model pagination.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TurnListPage {
