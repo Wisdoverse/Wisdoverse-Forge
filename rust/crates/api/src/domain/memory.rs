@@ -3,7 +3,7 @@
 //! This module owns pure memory item input, pagination, and retention policies
 //! that are independent of repositories, HTTP route DTOs, and audit emission.
 
-use agentforge_core::{AppError, AppResult, ErrorKind, ScopeKind};
+use agentforge_core::{AppError, AppResult, ErrorKind, MemoryItemId, ScopeKind};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -16,6 +16,14 @@ use crate::domain::context_governance::{
 
 const DEFAULT_LIMIT: i64 = 50;
 const MAX_LIMIT: i64 = 200;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MemoryContent {
+    pub id: MemoryItemId,
+    pub content: String,
+    pub content_redacted: bool,
+    pub sensitivity: String,
+}
 
 pub(crate) fn memory_audit_resource_type() -> &'static str {
     "memory_item"
