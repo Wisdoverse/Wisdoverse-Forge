@@ -1,9 +1,13 @@
 //! Domain policies for runtime-neutral context envelopes.
 
 use agentforge_core::context_envelope::{
-    CONTEXT_ENVELOPE_VERSION_V1, ContextEnvelopeCapability, SUPPORTED_CONTEXT_ENVELOPE_VERSIONS,
+    CONTEXT_ENVELOPE_VERSION_V1, ContextEnvelopeCapability, ContextEnvelopeItem, ContextEnvelopeItemKind,
+    ContextEnvelopeSource, SUPPORTED_CONTEXT_ENVELOPE_VERSIONS,
 };
 use agentforge_core::{AppResult, ErrorKind, RuntimeCapability};
+use uuid::Uuid;
+
+use super::context_resolver::DegradationReason;
 
 pub(crate) struct ContextEnvelopeVersionPolicy;
 
@@ -52,6 +56,46 @@ impl ContextEnvelopeMemoryContentPolicy {
     }
 }
 
+pub(crate) struct ContextEnvelopeMemoryItem<'a> {
+    pub(crate) id: Uuid,
+    pub(crate) title: &'a str,
+    pub(crate) content: &'a str,
+    pub(crate) content_redacted: bool,
+    pub(crate) content_encrypted: bool,
+    pub(crate) sensitivity: &'a str,
+}
+
+impl ContextEnvelopeMemoryItem<'_> {
+    pub(crate) fn to_envelope_item(&self) -> ContextEnvelopeItem {
+        ContextEnvelopeItem {
+            id: self.id,
+            kind: ContextEnvelopeItemKind::Memory,
+            title: self.title.to_string(),
+            content: ContextEnvelopeMemoryContentPolicy::visible_content(
+                self.content,
+                self.content_redacted,
+                self.content_encrypted,
+                self.sensitivity,
+            ),
+            content_ref: format!("memory_items/{}", self.id),
+            sensitivity: self.sensitivity.to_string(),
+            source: ContextEnvelopeSource {
+                source_type: "memory_item".to_string(),
+                source_id: Some(self.id),
+                title: Some(self.title.to_string()),
+            },
+        }
+    }
+}
+
+pub(crate) struct ContextEnvelopeDegradationPolicy;
+
+impl ContextEnvelopeDegradationPolicy {
+    pub(crate) fn labels(reasons: &[DegradationReason]) -> Vec<String> {
+        reasons.iter().map(DegradationReason::label).map(str::to_string).collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -89,5 +133,40 @@ mod tests {
             "[redacted: internal]"
         );
         assert_eq!(ContextEnvelopeMemoryContentPolicy::visible_content("plain", false, false, "internal"), "plain");
+    }
+
+    #[test]
+    fn memory_item_owns_envelope_contract() {
+        let id = Uuid::from_u128(0x11111111111141118111111111111111);
+        let item = ContextEnvelopeMemoryItem {
+            id,
+            title: "Project notes",
+            content: "secret",
+            content_redacted: true,
+            content_encrypted: false,
+            sensitivity: "restricted",
+        }
+        .to_envelope_item();
+
+        assert_eq!(item.id, id);
+        assert_eq!(item.kind, ContextEnvelopeItemKind::Memory);
+        assert_eq!(item.title, "Project notes");
+        assert_eq!(item.content, "[redacted: restricted]");
+        assert_eq!(item.content_ref, format!("memory_items/{id}"));
+        assert_eq!(item.sensitivity, "restricted");
+        assert_eq!(item.source.source_type, "memory_item");
+        assert_eq!(item.source.source_id, Some(id));
+        assert_eq!(item.source.title.as_deref(), Some("Project notes"));
+    }
+
+    #[test]
+    fn degradation_policy_owns_protocol_labels() {
+        assert_eq!(
+            ContextEnvelopeDegradationPolicy::labels(&[
+                DegradationReason::BudgetTruncated,
+                DegradationReason::RuntimeCapabilityFallback,
+            ]),
+            vec!["budget_truncated".to_string(), "runtime_capability_fallback".to_string()]
+        );
     }
 }
