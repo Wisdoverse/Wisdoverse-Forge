@@ -11,7 +11,7 @@ use crate::domain::skill::{
     PreparedSkillContent, SkillAuditIdentity, SkillBoundaryAccessPolicy, SkillBoundaryMutationPolicy,
     SkillContentDecision, SkillContentPolicy, SkillCreateStatePolicy, SkillCreatedAudit, SkillJsonObjectPolicy,
     SkillMutationAccess, SkillMutationAccessPolicy, SkillMutationManagerCheck, SkillMutationPolicy, SkillName,
-    SkillRestoreVersionPlan, SkillRestoreVersionPolicy, SkillRestoreVersionRequest, SkillScopeKind,
+    SkillRestoreVersionPlan, SkillRestoreVersionPolicy, SkillRestoreVersionRequest, SkillRevokedAudit, SkillScopeKind,
     SkillScopeTargetPolicy, SkillSensitivity, SkillState, SkillStateTransitionPolicy, SkillTtlPolicy,
     SkillUpdatedAudit,
 };
@@ -215,19 +215,25 @@ impl SkillService {
         self.require_owner_or_manager(scope, &current).await?;
         let prior_version = SkillVersionRepository::insert_snapshot_in_tx(&mut tx, &current, scope.user_id()).await?;
         let skill = SkillRepository::revoke_in_tx(&mut tx, id).await?;
+        let revoked_audit = SkillRevokedAudit::new(
+            SkillAuditIdentity::new(
+                skill.id,
+                skill.workspace_id,
+                skill.scope_kind.clone(),
+                skill.scope_id,
+                skill.state.clone(),
+                skill.version,
+            ),
+            current.version,
+            skill.version,
+            prior_version.id,
+        );
         self.emit_skill_audit(
             &mut tx,
             scope,
-            "governance.context.skill.revoked",
+            revoked_audit.audit_action(),
             Some(skill.id.as_uuid()),
-            skill_event_payload(
-                &skill,
-                json!({
-                    "from_version": current.version,
-                    "resulting_version": skill.version,
-                    "skill_version_id": prior_version.id
-                }),
-            ),
+            revoked_audit.audit_payload(),
         )
         .await?;
         tx.commit().await?;
