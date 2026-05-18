@@ -6,11 +6,11 @@ use agentforge_core::{
 };
 use agentforge_db::entities::MemoryItem;
 use chrono::{DateTime, Utc};
-use serde::Serialize;
 use serde_json::{Value, json};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+pub use crate::domain::memory::MemoryContent;
 use crate::domain::memory::{
     MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryContentReadAudit, MemoryCreatedAudit,
     MemoryListPage, MemoryMutationAccess, MemoryMutationAccessPolicy, MemoryMutationManagerCheck,
@@ -54,14 +54,6 @@ pub struct ReclassifyScopeInput {
     pub scope_id: Option<Uuid>,
     pub confirm_sensitive: bool,
     pub confirm_expansion: bool,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct MemoryContent {
-    pub id: MemoryItemId,
-    pub content: String,
-    pub content_redacted: bool,
-    pub sensitivity: String,
 }
 
 pub struct MemoryService {

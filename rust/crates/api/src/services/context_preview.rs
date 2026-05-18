@@ -4,17 +4,15 @@ use std::sync::Arc;
 
 use agentforge_core::{AgentId, AppResult, ErrorKind, TenantScope};
 use agentforge_db::entities::{ContextPreview, OrchestrationTask};
-use chrono::{DateTime, Duration, Utc};
-use serde::Serialize;
-use serde_json::{Value, json};
+use chrono::{Duration, Utc};
+use serde_json::Value;
 use uuid::Uuid;
 
 use crate::domain::context_preview::{
-    CONTEXT_PREVIEW_TTL_MINUTES, ContextPreviewFreshnessPolicy, ContextPreviewTaskDraft, context_preview_hash,
+    CONTEXT_PREVIEW_TTL_MINUTES, ContextPreviewFreshnessPolicy, ContextPreviewResponse, ContextPreviewTaskDraft,
+    context_preview_hash, context_preview_response,
 };
-use crate::domain::context_resolver::{
-    ContextItemKind, ContextSelection, DegradationReason, ResolvedContext, ResolvedItemRef, apply_context_selection,
-};
+use crate::domain::context_resolver::{ContextSelection, ResolvedContext, apply_context_selection};
 use crate::domain::orchestration::{ParticipantAvailabilityAction, ParticipantAvailabilityPolicy};
 use crate::repositories::context_preview::{ContextPreviewRepository, CreateContextPreviewRecord};
 use crate::repositories::orchestration::{OrchestrationTaskRepository, ParticipantRepository};
@@ -32,39 +30,6 @@ pub struct PublishWithContextInput {
     pub preview_hash: String,
     pub pinned_item_ids: Vec<Uuid>,
     pub removed_item_ids: Vec<Uuid>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ContextPreviewResponse {
-    pub context_preview_id: Uuid,
-    pub preview_hash: String,
-    pub task_id: Uuid,
-    pub agent_id: Uuid,
-    pub expires_at: DateTime<Utc>,
-    pub capability: Value,
-    pub degradation: Vec<String>,
-    pub items: Vec<ContextPreviewItem>,
-    pub suggested_items: Vec<ContextPreviewItem>,
-    pub previously_pinned: Vec<ContextPreviewItem>,
-    pub warnings: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ContextPreviewItem {
-    pub id: Uuid,
-    pub item_kind: String,
-    pub title: String,
-    pub selected: bool,
-    pub pinned: bool,
-    pub scope_kind: Option<String>,
-    pub scope_id: Option<Uuid>,
-    pub sensitivity: Option<String>,
-    pub estimated_tokens: u32,
-    pub last_used_at: Option<DateTime<Utc>>,
-    pub last_verified_at: Option<DateTime<Utc>>,
-    pub why: String,
 }
 
 pub struct ContextPreviewService {
@@ -125,7 +90,7 @@ impl ContextPreviewService {
             )
             .await?;
 
-        Ok(response_from_preview(&preview, resolved, Vec::new()))
+        Ok(context_preview_response(&preview, resolved, Vec::new()))
     }
 
     pub async fn validate_publish(
@@ -187,51 +152,6 @@ pub struct ValidatedContextPreview {
     pub warnings: Vec<String>,
 }
 
-fn response_from_preview(
-    preview: &ContextPreview,
-    resolved: ResolvedContext,
-    warnings: Vec<String>,
-) -> ContextPreviewResponse {
-    let capability = serde_json::to_value(&resolved.capability).unwrap_or_else(|_| json!({}));
-    let degradation = resolved.degradation.iter().map(|reason| reason_label(reason).to_string()).collect();
-    let items = resolved.applied.iter().map(|item| preview_item(item, true, false)).collect();
-    let suggested_items = resolved.suggested.iter().map(|item| preview_item(item, false, false)).collect();
-    ContextPreviewResponse {
-        context_preview_id: preview.id,
-        preview_hash: preview.preview_hash.clone(),
-        task_id: preview.task_id,
-        agent_id: preview.agent_id.as_uuid(),
-        expires_at: preview.expires_at,
-        capability,
-        degradation,
-        items,
-        suggested_items,
-        previously_pinned: Vec::new(),
-        warnings,
-    }
-}
-
-fn preview_item(item: &ResolvedItemRef, selected: bool, pinned: bool) -> ContextPreviewItem {
-    ContextPreviewItem {
-        id: item.id,
-        item_kind: match item.kind {
-            ContextItemKind::Memory => ContextItemKind::Memory.label(),
-            ContextItemKind::Skill => ContextItemKind::Skill.label(),
-        }
-        .to_string(),
-        title: item.title.clone(),
-        selected,
-        pinned,
-        scope_kind: item.scope_kind.clone(),
-        scope_id: item.scope_id,
-        sensitivity: item.sensitivity.clone(),
-        estimated_tokens: item.estimated_tokens,
-        last_used_at: item.last_used_at,
-        last_verified_at: item.last_verified_at,
-        why: item.why.clone(),
-    }
-}
-
 fn selected_items_payload(resolved: &ResolvedContext) -> AppResult<Value> {
     serde_json::to_value(&resolved.applied)
         .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("serialize context preview selected items: {err}")).into())
@@ -247,8 +167,4 @@ fn task_draft(task: &OrchestrationTask) -> ContextPreviewTaskDraft<'_> {
         group_id: task.group_id,
         parent_task_id: task.parent_task_id,
     }
-}
-
-fn reason_label(reason: &DegradationReason) -> &'static str {
-    reason.label()
 }

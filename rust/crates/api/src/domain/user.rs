@@ -8,8 +8,31 @@ use agentforge_core::{AppResult, ErrorKind};
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use rand::RngCore;
+use serde::Serialize;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
+
+/// Frontend-compatible authenticated user payload.
+#[derive(Debug, Clone, Serialize)]
+pub struct AuthenticatedUser {
+    pub id: String,
+    pub email: String,
+    pub username: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub org_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub role: Option<String>,
+}
+
+/// Successful auth result containing the public user and token pair.
+#[derive(Debug, Clone, Serialize)]
+pub struct LoginResult {
+    pub user: AuthenticatedUser,
+    pub access_token: String,
+    pub expires_in: u64,
+    pub refresh_token: String,
+    pub refresh_expires_in: u64,
+}
 
 pub(crate) const PASSWORD_RESET_TTL_MINUTES: i64 = 60;
 

@@ -15,16 +15,16 @@ use agentforge_core::{AgentId, AppResult, ErrorKind, TenantScope};
 use agentforge_db::entities::{OrchestrationTask, Participant, TaskRun};
 use agentforge_db::inbox_notifications::{TaskOwnerNotificationKind, upsert_task_owner_lifecycle_notification_in_tx};
 use agentforge_jobs::insert_assignment_outbox_in_tx;
-use serde::Serialize;
 use uuid::Uuid;
 
 use crate::domain::context_resolver::{ContextTaskSnapshot, ResolvedContext};
 use crate::domain::orchestration::{
     BlockedTaskPolicy, DispatchSweepDecision, DispatchSweepPolicy, ParticipantAvailabilityAction,
     ParticipantAvailabilityPolicy, ParticipantName, ParticipantStatusPolicy, QuotaBlockPolicy, TaskAssignmentPolicy,
-    TaskAssignmentSnapshot, TaskCreationPolicy, TaskInstruction, TaskLifecyclePolicy, TaskListPage, TaskPatchAction,
-    TaskPatchPolicy, TaskPriority, TaskRunCapabilityProfile, TaskStatusPolicy, TaskTitle,
+    TaskCreationPolicy, TaskLifecyclePolicy, TaskListPage, TaskPatchAction, TaskPatchPolicy, TaskPriority,
+    TaskRunCapabilityProfile, TaskStatusPolicy, TaskTitle, task_assignment_snapshot,
 };
+pub use crate::domain::orchestration::{TaskContextCounts, TaskStatsResponse, TaskSummary, task_summary};
 use crate::repositories::orchestration::{
     CreateTaskRow, OrchestrationTaskRepository, OrchestrationTaskStats, ParticipantRepository, UpdateTaskRow,
 };
@@ -33,74 +33,10 @@ use crate::repositories::task_run::TaskRunRepository;
 use crate::services::context_envelope::ContextEnvelopeService;
 use crate::services::context_resolver::ContextResolverService;
 
-/// JSON shape returned to the UI. Mirrors `TaskSummary` in `src/app/api/orchestration.ts`.
-#[derive(Debug, Clone, Serialize)]
-pub struct TaskSummary {
-    pub id: Uuid,
-    #[serde(rename = "groupId")]
-    pub group_id: Option<Uuid>,
-    pub state: String,
-    pub method: String,
-    pub params: TaskParams,
-    pub priority: String,
-    pub progress: i16,
-    #[serde(rename = "createdBy")]
-    pub created_by: Uuid,
-    #[serde(rename = "assignedTo", skip_serializing_if = "Option::is_none")]
-    pub assigned_to: Option<Uuid>,
-    #[serde(rename = "assignedAgentName", skip_serializing_if = "Option::is_none")]
-    pub assigned_agent_name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub result: Option<serde_json::Value>,
-    #[serde(rename = "blockedReason", skip_serializing_if = "Option::is_none")]
-    pub blocked_reason: Option<String>,
-    #[serde(rename = "blockedHint", skip_serializing_if = "Option::is_none")]
-    pub blocked_hint: Option<String>,
-    #[serde(rename = "blockedMetadata", skip_serializing_if = "Option::is_none")]
-    pub blocked_metadata: Option<serde_json::Value>,
-    #[serde(rename = "createdAt")]
-    pub created_at: String,
-    #[serde(rename = "updatedAt")]
-    pub updated_at: String,
-    #[serde(rename = "completedAt", skip_serializing_if = "Option::is_none")]
-    pub completed_at: Option<String>,
-    #[serde(rename = "contextCounts")]
-    pub context_counts: TaskContextCounts,
-}
-
-#[derive(Debug, Clone, Copy, Default, Serialize)]
-pub struct TaskContextCounts {
-    #[serde(rename = "appliedMemories")]
-    pub applied_memories: i64,
-    #[serde(rename = "appliedSkills")]
-    pub applied_skills: i64,
-    pub total: i64,
-}
-
 impl From<ContextInjectionCounts> for TaskContextCounts {
     fn from(counts: ContextInjectionCounts) -> Self {
-        Self {
-            applied_memories: counts.applied_memories,
-            applied_skills: counts.applied_skills,
-            total: counts.applied_memories + counts.applied_skills,
-        }
+        TaskContextCounts::new(counts.applied_memories, counts.applied_skills)
     }
-}
-
-/// `params.task` + `params.message` shape the legacy/A2A clients send.
-#[derive(Debug, Clone, Serialize)]
-pub struct TaskParams {
-    pub task: String,
-    pub message: String,
-}
-
-/// Kanban-state count snapshot returned by the stats endpoint.
-#[derive(Debug, Clone, Serialize)]
-pub struct TaskStatsResponse {
-    #[serde(rename = "byState")]
-    pub by_state: HashMap<String, i64>,
 }
 
 impl From<OrchestrationTaskStats> for TaskStatsResponse {
@@ -764,51 +700,6 @@ impl OrchestrationService {
         self.participant_repo.unregister(scope, agent_id).await
     }
 
-    /// Convert a single task entity into the JSON-friendly summary the UI consumes.
-    /// Resolves the assigned agent's display name in a separate batch helper for lists.
-    pub fn to_summary_with_name(task: OrchestrationTask, agent_name: Option<String>) -> TaskSummary {
-        let blocked_hint = match task.status.as_str() {
-            "blocked" => task
-                .blocked_reason
-                .as_deref()
-                .map(|reason| BlockedTaskPolicy::hint(reason, task.blocked_metadata.as_ref())),
-            _ => None,
-        };
-
-        let (task_text, message) =
-            TaskInstruction::from_params(&task.title, task.description.as_deref(), task.params.as_ref()).into_parts();
-        let params = TaskParams { task: task_text, message };
-
-        let error = task
-            .error
-            .as_ref()
-            .map(|e| e.get("message").and_then(|v| v.as_str()).map(|s| s.to_string()).unwrap_or_else(|| e.to_string()));
-
-        let is_completed = task.status == "completed";
-
-        TaskSummary {
-            id: task.id,
-            group_id: task.group_id,
-            state: task.status,
-            method: "tasks/send".into(),
-            params,
-            priority: task.priority,
-            progress: task.progress,
-            created_by: task.created_by.as_uuid(),
-            assigned_to: task.assigned_agent_id.map(|a| a.as_uuid()),
-            assigned_agent_name: agent_name,
-            error,
-            result: task.result,
-            blocked_reason: task.blocked_reason,
-            blocked_hint,
-            blocked_metadata: task.blocked_metadata,
-            created_at: task.created_at.to_rfc3339(),
-            updated_at: task.updated_at.to_rfc3339(),
-            completed_at: if is_completed { task.completed_at.map(|t| t.to_rfc3339()) } else { None },
-            context_counts: TaskContextCounts::default(),
-        }
-    }
-
     /// Resolve agent display names for a batch of tasks in a single query.
     pub async fn summarize_tasks(
         &self,
@@ -824,7 +715,7 @@ impl OrchestrationService {
             .into_iter()
             .map(|t| {
                 let name = t.assigned_agent_id.and_then(|a| names.get(&a.as_uuid()).cloned());
-                let mut summary = Self::to_summary_with_name(t, name);
+                let mut summary = task_summary(t, name);
                 if let Some(counts) = context_counts.remove(&summary.id) {
                     summary.context_counts = counts.into();
                 }
@@ -841,7 +732,7 @@ impl OrchestrationService {
         } else {
             None
         };
-        let mut summary = Self::to_summary_with_name(task, name);
+        let mut summary = task_summary(task, name);
         if let Some(counts) = RunContextInjectionRepository::new(self.task_repo.pool().clone())
             .count_by_tasks(scope, &[summary.id])
             .await?
@@ -1011,19 +902,5 @@ impl OrchestrationService {
             .build_from_resolved(&scope.scoped_read(), task.id, run.id, agent_id, resolved_context)
             .await
             .map(Some)
-    }
-}
-
-fn task_assignment_snapshot(task: &OrchestrationTask) -> TaskAssignmentSnapshot<'_> {
-    TaskAssignmentSnapshot {
-        task_id: task.id,
-        assigned_agent_id: task.assigned_agent_id,
-        last_assignment_id: task.last_assignment_id,
-        lease_expires_at: task.lease_expires_at,
-        attempt: task.attempt,
-        title: &task.title,
-        description: task.description.as_deref(),
-        params: task.params.as_ref(),
-        priority: &task.priority,
     }
 }

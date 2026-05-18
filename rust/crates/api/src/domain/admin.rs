@@ -4,7 +4,17 @@
 //! repositories and HTTP route DTOs.
 
 use agentforge_core::{AgentStatus, AppResult, ErrorKind};
+use serde::Serialize;
 use uuid::Uuid;
+
+/// Per-ID outcome from a bulk-delete call, serialised in admin API responses.
+#[derive(Debug, Clone, Serialize)]
+pub struct BulkDeleteResult {
+    pub id: Uuid,
+    pub ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
 
 /// Validated pagination request for admin list endpoints.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
