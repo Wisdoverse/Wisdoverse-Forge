@@ -17,10 +17,10 @@ use uuid::Uuid;
 use crate::domain::context::{
     ContextCandidateApprovalAudit, ContextCandidateCreatedAudit, ContextCandidateKind,
     ContextCandidateManualRejectionAudit, ContextCandidatePolicy, ContextFeedbackLabel, ContextFeedbackPolicy,
-    ContextFeedbackRecordedAudit, ContextItemKind, context_candidate_subject, ensure_pending_candidate,
-    normalize_candidate_kind_filter, normalize_candidate_state_filter, normalize_context_candidate_limit,
-    normalize_feedback_note, normalize_reason, normalize_scope_kind_filter, redacted_proposal_preview,
-    validate_context_sensitivity, validate_ttl,
+    ContextFeedbackRecordedAudit, ContextItemKind, context_candidate_audit_resource_type, context_candidate_subject,
+    ensure_pending_candidate, normalize_candidate_kind_filter, normalize_candidate_state_filter,
+    normalize_context_candidate_limit, normalize_feedback_note, normalize_reason, normalize_scope_kind_filter,
+    redacted_proposal_preview, validate_context_sensitivity, validate_ttl,
 };
 use crate::domain::context_governance::ContextAuditEvent;
 use crate::domain::memory::MemoryScopeKind;
@@ -503,7 +503,7 @@ impl ContextApprovalService {
             scope,
             ContextAuditEvent {
                 action,
-                resource_type: "context_candidate",
+                resource_type: context_candidate_audit_resource_type(),
                 resource_id: None,
                 payload,
                 ip_address: None,
