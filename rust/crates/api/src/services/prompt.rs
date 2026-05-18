@@ -9,7 +9,9 @@ use futures::{StreamExt, stream::BoxStream};
 use std::sync::Arc;
 use tokio::sync::oneshot;
 
-use crate::domain::prompt::{PromptContent, PromptContextPolicy, PromptHistoryMessage, sse_error_for_llm_error};
+use crate::domain::prompt::{
+    PromptContent, PromptContextPolicy, PromptHistoryMessage, SseFrame, sse_error_for_llm_error,
+};
 use crate::repositories::agent::AgentRepository;
 use crate::repositories::message::MessageRepository;
 
@@ -167,53 +169,6 @@ impl KeyResolver for UserLlmConfigKeyResolver {
         let api_key = agentforge_core::crypto::decrypt_base64(&key, &secret.encrypted_api_key)
             .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("decrypt api_key failed: {e}")))?;
         Ok(LlmProviderCredential { api_key, base_url: secret.base_url })
-    }
-}
-
-// ---------------------------------------------------------------------------
-// SseFrame
-// ---------------------------------------------------------------------------
-
-/// Server-sent SSE frame for the chat stream. Serialized to
-/// `event: <name>\ndata: <json>` by the route handler.
-#[derive(Debug, Clone, serde::Serialize)]
-#[serde(tag = "event", content = "data")]
-pub enum SseFrame {
-    #[serde(rename = "message_start")]
-    MessageStart { message_id: uuid::Uuid, model: String },
-    #[serde(rename = "delta")]
-    Delta { text: String },
-    #[serde(rename = "message_stop")]
-    MessageStop { tokens_in: u32, tokens_out: u32, finish_reason: String },
-    #[serde(rename = "error")]
-    Error { code: String, message: String, retryable: bool },
-}
-
-impl SseFrame {
-    /// Split into `(event_name, data_payload)` for SSE transport.
-    /// This is compiler-enforced coverage of all variants — if a new variant
-    /// is added without updating this match, the match becomes non-exhaustive
-    /// and the build fails. The `#[serde(tag, content)]` attribute is an
-    /// implementation detail of direct JSON serialization and should not
-    /// influence the SSE transport layer.
-    pub fn split(&self) -> (&'static str, serde_json::Value) {
-        match self {
-            SseFrame::MessageStart { message_id, model } => {
-                ("message_start", serde_json::json!({ "message_id": message_id, "model": model }))
-            }
-            SseFrame::Delta { text } => ("delta", serde_json::json!({ "text": text })),
-            SseFrame::MessageStop { tokens_in, tokens_out, finish_reason } => (
-                "message_stop",
-                serde_json::json!({
-                    "tokens_in": tokens_in,
-                    "tokens_out": tokens_out,
-                    "finish_reason": finish_reason,
-                }),
-            ),
-            SseFrame::Error { code, message, retryable } => {
-                ("error", serde_json::json!({ "code": code, "message": message, "retryable": retryable }))
-            }
-        }
     }
 }
 
