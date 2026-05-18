@@ -82,13 +82,38 @@ pub(crate) struct MemoryReclassificationDecision {
     to_kind: ContextScopeKind,
 }
 
-impl MemoryReclassificationDecision {
-    pub(crate) fn audit_payload(self, sensitivity: &str, content_redacted: bool) -> Value {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct MemoryReclassifiedAudit {
+    from_kind: ContextScopeKind,
+    to_kind: ContextScopeKind,
+    sensitivity: String,
+    content_redacted: bool,
+}
+
+impl MemoryReclassifiedAudit {
+    pub(crate) fn from_decision(
+        decision: MemoryReclassificationDecision,
+        sensitivity: impl Into<String>,
+        content_redacted: bool,
+    ) -> Self {
+        Self {
+            from_kind: decision.from_kind,
+            to_kind: decision.to_kind,
+            sensitivity: sensitivity.into(),
+            content_redacted,
+        }
+    }
+
+    pub(crate) fn audit_action(&self) -> &'static str {
+        "governance.context.memory.reclassified"
+    }
+
+    pub(crate) fn audit_payload(&self) -> Value {
         json!({
             "from_scope_kind": self.from_kind.as_label(),
             "to_scope_kind": self.to_kind.as_label(),
-            "sensitivity": sensitivity,
-            "content_redacted": content_redacted
+            "sensitivity": self.sensitivity,
+            "content_redacted": self.content_redacted
         })
     }
 }
@@ -597,9 +622,13 @@ mod tests {
         let MemoryReclassificationPlan::Approved(decision) = plan else {
             panic!("confirmed expansion should be approved");
         };
-        let payload = decision.audit_payload("internal", false);
+        let audit = MemoryReclassifiedAudit::from_decision(decision, "internal", false);
+        assert_eq!(audit.audit_action(), "governance.context.memory.reclassified");
+        let payload = audit.audit_payload();
         assert_eq!(payload["from_scope_kind"], "user");
         assert_eq!(payload["to_scope_kind"], "team");
+        assert_eq!(payload["sensitivity"], "internal");
+        assert_eq!(payload["content_redacted"], false);
 
         let plan = MemoryReclassificationPolicy::plan(MemoryReclassificationRequest {
             current_scope_kind: "user",
