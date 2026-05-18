@@ -118,6 +118,31 @@ impl PromptContextPolicy {
     }
 }
 
+/// Maps an `LlmError` to the client-safe SSE error frame triple
+/// `(code, message, retryable)`. Upstream provider response bodies are never
+/// echoed because they may contain snippets of the original request (user
+/// content, model name, organization id). The triple is consumed by the
+/// `SseFrame::Error` constructor in the prompt service.
+pub(crate) fn sse_error_for_llm_error(err: &agentforge_llm::LlmError) -> (&'static str, &'static str, bool) {
+    use agentforge_llm::LlmError;
+    match err {
+        LlmError::Api { status: 401, .. } | LlmError::Api { status: 403, .. } => {
+            ("unauthorized", "provider rejected the API key — check LLM settings", false)
+        }
+        LlmError::Api { status: 429, .. } => ("rate_limited", "provider rate limit reached — try again shortly", true),
+        LlmError::Api { status: 400, .. } | LlmError::Api { status: 404, .. } => {
+            ("bad_request", "provider rejected the request — check model name", false)
+        }
+        LlmError::Api { status: 500..=599, .. } => ("provider_error", "provider server error — try again", true),
+        LlmError::Http(_) => ("network", "network error reaching provider — try again", true),
+        LlmError::NotConfigured(_) => ("not_configured", "provider not configured — check LLM settings", false),
+        LlmError::NotImplemented(_) => ("not_implemented", "provider feature not available", false),
+        LlmError::Parse(_) | LlmError::Api { .. } => {
+            ("provider_error", "provider returned an unexpected response", true)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -185,6 +210,52 @@ mod tests {
         let err = policy.select_history(&history, &sys).unwrap_err();
 
         assert!(format!("{}", err.kind).contains("system_prompt alone"));
+    }
+
+    #[test]
+    fn sse_error_for_llm_error_redacts_provider_message_per_status() {
+        use agentforge_llm::LlmError;
+
+        assert_eq!(
+            sse_error_for_llm_error(&LlmError::Api { status: 401, message: "secret model leak".to_string() }),
+            ("unauthorized", "provider rejected the API key — check LLM settings", false),
+        );
+        assert_eq!(
+            sse_error_for_llm_error(&LlmError::Api { status: 403, message: "secret org id".to_string() }),
+            ("unauthorized", "provider rejected the API key — check LLM settings", false),
+        );
+        assert_eq!(
+            sse_error_for_llm_error(&LlmError::Api { status: 429, message: "slow down".to_string() }),
+            ("rate_limited", "provider rate limit reached — try again shortly", true),
+        );
+        assert_eq!(
+            sse_error_for_llm_error(&LlmError::Api { status: 400, message: "bad model".to_string() }),
+            ("bad_request", "provider rejected the request — check model name", false),
+        );
+        assert_eq!(
+            sse_error_for_llm_error(&LlmError::Api { status: 404, message: "no such model".to_string() }),
+            ("bad_request", "provider rejected the request — check model name", false),
+        );
+        assert_eq!(
+            sse_error_for_llm_error(&LlmError::Api { status: 502, message: "upstream down".to_string() }),
+            ("provider_error", "provider server error — try again", true),
+        );
+        assert_eq!(
+            sse_error_for_llm_error(&LlmError::Api { status: 418, message: "teapot".to_string() }),
+            ("provider_error", "provider returned an unexpected response", true),
+        );
+        assert_eq!(
+            sse_error_for_llm_error(&LlmError::NotConfigured("missing key".to_string())),
+            ("not_configured", "provider not configured — check LLM settings", false),
+        );
+        assert_eq!(
+            sse_error_for_llm_error(&LlmError::NotImplemented("streaming".to_string())),
+            ("not_implemented", "provider feature not available", false),
+        );
+        assert_eq!(
+            sse_error_for_llm_error(&LlmError::Parse("truncated json".to_string())),
+            ("provider_error", "provider returned an unexpected response", true),
+        );
     }
 
     #[test]
