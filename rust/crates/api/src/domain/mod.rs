@@ -8,6 +8,7 @@ pub(crate) mod agent;
 pub(crate) mod agent_workspace;
 pub(crate) mod attachment;
 pub(crate) mod billing;
+pub(crate) mod cli_auth_proxy;
 pub(crate) mod configuration;
 pub(crate) mod context;
 pub(crate) mod context_envelope;
