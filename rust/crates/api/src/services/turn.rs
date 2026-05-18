@@ -4,9 +4,8 @@ use chrono::{SecondsFormat, Utc};
 use serde::Serialize;
 
 use agentforge_core::{AgentId, AppResult, TenantScope};
-use agentforge_db::entities::Event;
 
-use crate::domain::turn::{Turn, TurnCursor, TurnListPage, TurnProjectionEvent, build_turns};
+use crate::domain::turn::{Turn, TurnCursor, TurnListPage, TurnProjectionEvent, build_turns, turn_projection_event};
 use crate::repositories::event::EventRepository;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -83,14 +82,4 @@ impl TurnService {
 
 pub fn default_turn_limit() -> i64 {
     TurnListPage::DEFAULT_LIMIT
-}
-
-fn turn_projection_event(event: &Event) -> TurnProjectionEvent {
-    TurnProjectionEvent {
-        id: event.id.as_uuid(),
-        event_type: event.event_type.clone(),
-        payload: event.payload.clone(),
-        session_id: event.session_id.clone(),
-        created_at_ms: event.created_at.timestamp_millis(),
-    }
 }
