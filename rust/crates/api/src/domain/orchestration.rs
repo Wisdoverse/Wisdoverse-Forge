@@ -4,6 +4,8 @@
 //! that are independent of SQL repositories, transactions, context injection,
 //! and outbox delivery.
 
+use std::collections::HashMap;
+
 use agentforge_core::context_envelope::ContextEnvelope;
 use agentforge_core::orchestration_protocol::TaskAssignment;
 use agentforge_core::{AgentId, AppResult, ErrorKind};
@@ -230,6 +232,13 @@ impl TaskContextCounts {
 pub struct TaskParams {
     pub task: String,
     pub message: String,
+}
+
+/// Kanban-state count snapshot returned by the stats endpoint.
+#[derive(Debug, Clone, Serialize)]
+pub struct TaskStatsResponse {
+    #[serde(rename = "byState")]
+    pub by_state: HashMap<String, i64>,
 }
 
 pub fn task_summary(task: OrchestrationTask, agent_name: Option<String>) -> TaskSummary {
