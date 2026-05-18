@@ -11,13 +11,12 @@ use serde_json::{Value, json};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::context_governance::ContextAuditEvent;
 use crate::domain::memory::{
     MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryContentReadAudit, MemoryCreatedAudit,
     MemoryListPage, MemoryMutationAccess, MemoryMutationAccessPolicy, MemoryMutationManagerCheck,
     MemoryReclassificationPlan, MemoryReclassificationPolicy, MemoryReclassificationRequest, MemoryReclassifiedAudit,
     MemoryRevokedAudit, MemoryScopeKind, MemoryScopeTargetPolicy, MemoryTitle, MemoryTtlExtendedAudit, MemoryTtlPolicy,
-    MemoryUpdatedAudit, MemoryVisibility, PreparedMemoryContent, memory_audit_resource_type,
+    MemoryUpdatedAudit, MemoryVisibility, PreparedMemoryContent, memory_audit_event,
 };
 use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository, UpdateMemoryRecord};
 use crate::repositories::resource_permission::ResourcePermissionRepository;
@@ -411,20 +410,7 @@ impl MemoryService {
         action: &'static str,
         payload: Value,
     ) -> AppResult<()> {
-        ContextGovernanceService::emit_audit(
-            tx,
-            scope,
-            ContextAuditEvent {
-                action,
-                resource_type: memory_audit_resource_type(),
-                // The current audit route is org-wide. Avoid writing raw memory
-                // item IDs until scope-aware audit projection lands.
-                resource_id: None,
-                payload,
-                ip_address: None,
-            },
-        )
-        .await?;
+        ContextGovernanceService::emit_audit(tx, scope, memory_audit_event(action, payload)).await?;
         Ok(())
     }
 }
