@@ -1,121 +1,21 @@
 //! Task detail Context tab read model.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope, UserId};
+use agentforge_core::{AppResult, ErrorKind, TenantScope};
 use agentforge_db::entities::{ContextCandidate, TaskRun};
-use chrono::{DateTime, Utc};
-use serde::Serialize;
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::domain::context::{
-    AppliedContextSource, applied_context_source, context_content_preview, redacted_proposal_preview,
+use crate::domain::context::{applied_context_source, context_content_preview, redacted_proposal_preview};
+use crate::domain::task_context::task_context_provenance;
+pub use crate::domain::task_context::{
+    AppliedContextFeedback, AppliedContextItem, TaskContextCandidate, TaskContextEvidence, TaskContextProvenance,
+    TaskContextResponse, TaskContextRun,
 };
 use crate::repositories::orchestration::OrchestrationTaskRepository;
 use crate::repositories::task_context::{AppliedContextRow, TaskContextRepository};
 use crate::repositories::task_run::RunEvidenceRow;
 
 const CONTENT_PREVIEW_CHARS: usize = 280;
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TaskContextResponse {
-    pub task_id: Uuid,
-    pub runs: Vec<TaskContextRun>,
-    pub applied_items: Vec<AppliedContextItem>,
-    pub suggested_memory_updates: Vec<TaskContextCandidate>,
-    pub skill_candidates: Vec<TaskContextCandidate>,
-    pub evidence: Vec<TaskContextEvidence>,
-    pub provenance: Vec<TaskContextProvenance>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TaskContextRun {
-    pub id: Uuid,
-    pub status: String,
-    pub agent_id: Uuid,
-    pub started_at: DateTime<Utc>,
-    pub finished_at: Option<DateTime<Utc>>,
-    pub capability_profile: Value,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AppliedContextItem {
-    pub injection_id: Uuid,
-    pub run_id: Uuid,
-    pub item_id: Uuid,
-    pub item_kind: String,
-    pub position: i32,
-    pub title: String,
-    pub content_preview: String,
-    pub content_truncated: bool,
-    pub content_ref: Option<String>,
-    pub scope_kind: Option<String>,
-    pub scope_id: Option<Uuid>,
-    pub sensitivity: Option<String>,
-    pub state: Option<String>,
-    pub revoked: bool,
-    pub source_task_id: Option<Uuid>,
-    pub source_run_id: Option<Uuid>,
-    pub source: Option<AppliedContextSource>,
-    pub last_used_at: Option<DateTime<Utc>>,
-    pub last_verified_at: Option<DateTime<Utc>>,
-    pub applied_at: DateTime<Utc>,
-    pub adapter: String,
-    pub envelope_version: String,
-    pub capability_profile: Value,
-    pub degradation_reason: Option<String>,
-    pub feedback: Option<AppliedContextFeedback>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AppliedContextFeedback {
-    pub label: String,
-    pub note: Option<String>,
-    pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TaskContextCandidate {
-    pub id: Uuid,
-    pub item_kind: String,
-    pub state: String,
-    pub owner_user_id: UserId,
-    pub source_run_id: Option<Uuid>,
-    pub target_skill_id: Option<agentforge_core::SkillId>,
-    pub proposed_preview: Value,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TaskContextEvidence {
-    pub run_id: Option<Uuid>,
-    pub source_type: String,
-    pub source_id: Uuid,
-    pub agent_id: Option<Uuid>,
-    pub payload: Value,
-    pub created_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TaskContextProvenance {
-    pub run_id: Uuid,
-    pub item_id: Uuid,
-    pub item_kind: String,
-    pub title: String,
-    pub source: Option<AppliedContextSource>,
-    pub adapter: String,
-    pub envelope_version: String,
-    pub applied_at: DateTime<Utc>,
-    pub state: Option<String>,
-    pub revoked: bool,
-}
 
 pub struct TaskContextService {
     task_repo: OrchestrationTaskRepository,
@@ -140,7 +40,7 @@ impl TaskContextService {
 
         let runs = runs.into_iter().map(TaskContextRun::from).collect();
         let applied_items: Vec<AppliedContextItem> = applied_rows.into_iter().map(AppliedContextItem::from).collect();
-        let provenance = applied_items.iter().map(TaskContextProvenance::from).collect();
+        let provenance = applied_items.iter().map(task_context_provenance).collect();
         let candidates: Vec<TaskContextCandidate> = candidates.into_iter().map(TaskContextCandidate::from).collect();
         let suggested_memory_updates =
             candidates.iter().filter(|candidate| candidate.item_kind == "memory").cloned().collect();
@@ -214,23 +114,6 @@ impl From<AppliedContextRow> for AppliedContextItem {
                 }
                 _ => None,
             },
-        }
-    }
-}
-
-impl From<&AppliedContextItem> for TaskContextProvenance {
-    fn from(item: &AppliedContextItem) -> Self {
-        Self {
-            run_id: item.run_id,
-            item_id: item.item_id,
-            item_kind: item.item_kind.clone(),
-            title: item.title.clone(),
-            source: item.source.clone(),
-            adapter: item.adapter.clone(),
-            envelope_version: item.envelope_version.clone(),
-            applied_at: item.applied_at,
-            state: item.state.clone(),
-            revoked: item.revoked,
         }
     }
 }
