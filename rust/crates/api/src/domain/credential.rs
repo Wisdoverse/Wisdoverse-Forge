@@ -5,8 +5,18 @@
 //! handlers, and filesystem mount materialization.
 
 use agentforge_core::{AppResult, CliToolKind, ErrorKind};
+use agentforge_db::entities::ApiKey;
 use agentforge_llm::{normalize_provider_key, provider_spec};
+use serde::Serialize;
 use url::Url;
+
+/// Result of creating an API key — includes the plaintext key (shown once).
+#[derive(Debug, Serialize)]
+pub struct CreateApiKeyResult {
+    pub key: ApiKey,
+    /// The plaintext API key — only returned at creation time.
+    pub plaintext_key: String,
+}
 
 const API_KEY_PREFIX: &str = "af_";
 const VALID_API_KEY_SCOPES: &[&str] = &["read", "write", "admin"];
