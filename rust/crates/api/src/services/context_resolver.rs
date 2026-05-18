@@ -17,7 +17,8 @@ pub use crate::domain::context_resolver::{
     SelectedContext, apply_context_selection,
 };
 use crate::domain::context_resolver::{
-    MemoryCandidate, apply_budget, context_resolver_cache_key, push_degradation, task_search_text,
+    MemoryCandidate, SkillSuggestionCandidate, apply_budget, context_resolver_cache_key, push_degradation,
+    skill_suggestion_item, task_search_text,
 };
 use crate::services::runtime_capability_registry::RuntimeCapabilityRegistryService;
 
@@ -95,6 +96,18 @@ struct SkillCandidateRow {
     scope_kind: Option<String>,
     scope_id: Option<Uuid>,
     sensitivity: String,
+}
+
+impl From<SkillCandidateRow> for SkillSuggestionCandidate {
+    fn from(row: SkillCandidateRow) -> Self {
+        Self {
+            id: row.id,
+            name: row.name,
+            scope_kind: row.scope_kind,
+            scope_id: row.scope_id,
+            sensitivity: row.sensitivity,
+        }
+    }
 }
 
 impl ContextResolverService {
@@ -333,21 +346,7 @@ impl ContextResolverService {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows
-            .into_iter()
-            .map(|row| ResolvedItemRef {
-                id: row.id,
-                kind: ContextItemKind::Skill,
-                title: row.name,
-                scope_kind: row.scope_kind,
-                scope_id: row.scope_id,
-                sensitivity: Some(row.sensitivity),
-                estimated_tokens: 0,
-                last_used_at: None,
-                last_verified_at: None,
-                why: "Skill trigger matched the task text.".to_string(),
-            })
-            .collect())
+        Ok(rows.into_iter().map(Into::into).map(skill_suggestion_item).collect())
     }
 
     async fn memo_get(&self, key: &str) -> Option<ResolvedContext> {
