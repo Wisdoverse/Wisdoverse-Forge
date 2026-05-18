@@ -1,6 +1,7 @@
 //! Context candidate and feedback input policies.
 
 use agentforge_core::{AppError, AppResult, ErrorKind, ScopeKind, SkillId, UserId, WorkspaceId};
+use agentforge_db::entities::{ContextApproval, ContextCandidate, ContextFeedback, MemoryItem, Skill};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -908,6 +909,20 @@ pub(crate) fn sensitivity_label(sensitivity: Sensitivity) -> &'static str {
         Sensitivity::Confidential => "confidential",
         Sensitivity::SecretDetected => "secret_detected",
     }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ContextApprovalOutcome {
+    pub candidate: ContextCandidate,
+    pub approval: Option<ContextApproval>,
+    pub memory_item: Option<MemoryItem>,
+    pub skill: Option<Skill>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ContextFeedbackOutcome {
+    pub feedback: ContextFeedback,
+    pub item_state_changed: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
