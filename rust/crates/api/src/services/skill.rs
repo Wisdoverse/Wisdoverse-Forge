@@ -8,11 +8,11 @@ use uuid::Uuid;
 
 use crate::domain::context_governance::ContextAuditEvent;
 use crate::domain::skill::{
-    PreparedSkillContent, SkillBoundaryAccessPolicy, SkillBoundaryMutationPolicy, SkillContentDecision,
-    SkillContentPolicy, SkillCreateStatePolicy, SkillJsonObjectPolicy, SkillMutationAccess, SkillMutationAccessPolicy,
-    SkillMutationManagerCheck, SkillMutationPolicy, SkillName, SkillRestoreVersionPlan, SkillRestoreVersionPolicy,
-    SkillRestoreVersionRequest, SkillScopeKind, SkillScopeTargetPolicy, SkillSensitivity, SkillState,
-    SkillStateTransitionPolicy, SkillTtlPolicy,
+    PreparedSkillContent, SkillAuditIdentity, SkillBoundaryAccessPolicy, SkillBoundaryMutationPolicy,
+    SkillContentDecision, SkillContentPolicy, SkillCreateStatePolicy, SkillCreatedAudit, SkillJsonObjectPolicy,
+    SkillMutationAccess, SkillMutationAccessPolicy, SkillMutationManagerCheck, SkillMutationPolicy, SkillName,
+    SkillRestoreVersionPlan, SkillRestoreVersionPolicy, SkillRestoreVersionRequest, SkillScopeKind,
+    SkillScopeTargetPolicy, SkillSensitivity, SkillState, SkillStateTransitionPolicy, SkillTtlPolicy,
 };
 use crate::repositories::resource_permission::ResourcePermissionRepository;
 use crate::repositories::skill::{CreateSkillRecord, SkillRepository, UpdateSkillRecord};
@@ -123,18 +123,24 @@ impl SkillService {
             },
         )
         .await?;
+        let created_audit = SkillCreatedAudit::new(
+            SkillAuditIdentity::new(
+                skill.id,
+                skill.workspace_id,
+                skill.scope_kind.clone(),
+                skill.scope_id,
+                skill.state.clone(),
+                skill.version,
+            ),
+            skill.sensitivity.as_str(),
+            content.audit_payload,
+        );
         self.emit_skill_audit(
             &mut tx,
             scope,
-            "governance.context.skill.created",
+            created_audit.audit_action(),
             Some(skill.id.as_uuid()),
-            skill_event_payload(
-                &skill,
-                json!({
-                    "sensitivity": skill.sensitivity,
-                    "classification": content.audit_payload
-                }),
-            ),
+            created_audit.audit_payload(),
         )
         .await?;
         tx.commit().await?;
