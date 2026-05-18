@@ -25,6 +25,7 @@ pub(crate) mod prompt_library;
 pub(crate) mod resource;
 pub(crate) mod runtime_capability;
 pub(crate) mod skill;
+pub(crate) mod task_context;
 pub(crate) mod turn;
 pub(crate) mod user;
 pub(crate) mod voice;
