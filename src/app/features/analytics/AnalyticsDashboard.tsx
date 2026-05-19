@@ -43,7 +43,7 @@ export function AnalyticsDashboard() {
 
   useEffect(() => {
     void load()
-  }, [load, dateRange])
+  }, [load, dateRange, contextAnalyticsEnabled])
 
   const activityBars = hourlyToBars(hourly)
   const toolBars = toolsToBars(tools)

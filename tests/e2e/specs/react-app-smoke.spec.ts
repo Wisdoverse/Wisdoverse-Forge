@@ -337,21 +337,21 @@ test.describe('React App Smoke Tests', () => {
     })
 
     test('"+ Add task" button opens inline input', async ({ page }) => {
-      const addBtn = page.getByText('+ Add task').first()
+      const addBtn = page.getByText('+ Add Task').first()
       await expect(addBtn).toBeVisible({ timeout: 10000 })
       await addBtn.click()
 
-      const input = page.locator('input[placeholder="Task title..."]').first()
+      const input = page.locator('input[placeholder="Task title…"]').first()
       await expect(input).toBeVisible()
       await expect(input).toBeFocused()
       await screenshot(page, '13-quickcreate-input')
     })
 
     test('Escape closes quick create without submitting', async ({ page }) => {
-      const addBtn = page.getByText('+ Add task').first()
+      const addBtn = page.getByText('+ Add Task').first()
       await addBtn.click()
 
-      const input = page.locator('input[placeholder="Task title..."]').first()
+      const input = page.locator('input[placeholder="Task title…"]').first()
       await input.fill('Should not be created')
       await page.keyboard.press('Escape')
 
@@ -544,7 +544,7 @@ test.describe('React App Smoke Tests', () => {
       // and User (Account, Teams, Projects) groupings.
       await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible({ timeout: 5000 })
       await expect(page.getByRole('button', { name: 'Providers', exact: true })).toBeVisible()
-      await expect(page.getByRole('button', { name: 'API Keys', exact: true })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Platform API Keys', exact: true })).toBeVisible()
       await expect(page.getByRole('button', { name: 'Account', exact: true })).toBeVisible()
       await screenshot(page, '21-settings-page')
     })
@@ -1019,10 +1019,10 @@ test.describe('React App Smoke Tests', () => {
         .locator('[data-testid="column-count-backlog"]')
         .waitFor({ state: 'attached', timeout: 10000 })
 
-      const addBtn = page.getByText('+ Add task').first()
+      const addBtn = page.getByText('+ Add Task').first()
       await addBtn.click()
 
-      const input = page.locator('input[placeholder="Task title..."]').first()
+      const input = page.locator('input[placeholder="Task title…"]').first()
       await input.fill('New task via Enter')
       await page.keyboard.press('Enter')
 
