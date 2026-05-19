@@ -175,7 +175,17 @@ provider API.
   public infrastructure, such as `/health`.
 - Tenant-scoped repository methods must accept `&TenantScope` and constrain
   queries by organization. Do not construct tenant scope outside auth middleware.
-- Keep the route -> service -> repository split in `rust/crates/api/src/`.
+- Keep the route -> service -> domain -> repository split in `rust/crates/api/src/`.
+  `domain/` owns `Serialize`-derived response/projection types, pure business
+  policies, audit-event constructors, and protocol projections that are
+  independent of SQLx rows. Services own repository I/O, transactions, and
+  `From<RepositoryRow>` adapters; routes consume domain types through services
+  via `pub use` re-exports.
+- Repositories are grouped by DDD aggregate where multiple tables form one root
+  (`repositories/agent/`, `context_candidate/`, `credential/`, `identity/`,
+  `orchestration/`, `resource/`, `skill/`, `user/`). Single-table repos stay
+  flat. New tables that belong to an existing aggregate should be added as
+  submodules and re-exported from the aggregate's `mod.rs`.
 - Keep API responses in the `{ ok: true/false, ...data }` style where that
   surface already uses it.
 - Rust error handling follows the 3-layer pattern: domain errors with
@@ -255,9 +265,12 @@ provider API.
 
 ## Common Change Recipes
 
-- Add backend API module: create repository, service, and route modules in
+- Add backend API module: create repository, service, route, and (where the
+  surface owns a serializable response shape) domain modules in
   `rust/crates/api/src/`; register `mod.rs` entries; mount the route in the
-  router; add auth/tenant tests.
+  router; add auth/tenant tests. Place the response type in `domain/<topic>`
+  and have the service import + `pub use` re-export it so routes consume the
+  domain type through the service path.
 - Add DB field or table: add a SQL migration, update DB entity structs, adjust
   repository queries, and cover tenant boundaries.
 - Add CLI-facing protocol type: update Rust/TS shared contracts, regenerate
