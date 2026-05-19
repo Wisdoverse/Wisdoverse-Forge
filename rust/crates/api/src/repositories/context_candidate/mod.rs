@@ -1,4 +1,10 @@
-//! Context candidate repository for approval queue state.
+//! Context candidate aggregate — approval queue state, approvals, and feedback.
+
+pub mod approval;
+pub mod feedback;
+
+pub use approval::{ContextApprovalRepository, CreateContextApprovalRecord};
+pub use feedback::{ContextFeedbackRepository, CreateContextFeedbackRecord};
 
 use agentforge_core::{AppResult, ErrorKind, OrgId, ScopedRead, SkillId, TenantScope, UserId, WorkspaceId};
 use agentforge_db::entities::ContextCandidate;
