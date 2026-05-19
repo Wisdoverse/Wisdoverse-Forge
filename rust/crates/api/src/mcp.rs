@@ -581,6 +581,9 @@ impl DockerMcpRuntimeBackend for LiveDockerMcpRuntimeBackend {
         let response = self
             .docker
             .inner()
+            // bollard 0.21 makes `platform` a plain `String`. The Docker
+            // Engine API treats an empty `?platform=` query parameter as
+            // unspecified, matching the pre-bump `platform: None` semantics.
             .create_container(
                 Some(CreateContainerOptions { name: Some(request.name), platform: String::new() }),
                 config,

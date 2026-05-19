@@ -25,6 +25,9 @@ pub enum PlatformError {
     #[error("Pool exhausted")]
     PoolExhausted,
 
+    #[error("Invalid stop timeout {0}s: must fit in i32 (Docker engine API range)")]
+    InvalidTimeout(i64),
+
     #[error("Internal error: {0}")]
     Internal(String),
 }
@@ -102,6 +105,10 @@ impl DockerClient {
             ..Default::default()
         };
 
+        // bollard 0.21 makes `platform` a plain `String` (was `Option<&str>`).
+        // The Docker Engine API treats an empty `?platform=` query parameter as
+        // unspecified — same semantics as the previous `None`. We keep it
+        // unset until/unless `ContainerConfig` carries an explicit platform.
         let options =
             config.name.as_ref().map(|n| CreateContainerOptions { name: Some(n.clone()), platform: String::new() });
 
@@ -124,9 +131,16 @@ impl DockerClient {
     }
 
     /// Stop a running container with a timeout in seconds.
+    ///
+    /// Returns `PlatformError::InvalidTimeout` if `timeout_secs` does not fit
+    /// in `i32`. The Docker Engine API encodes the stop timeout as a signed
+    /// 32-bit integer, so an `as i32` truncation cast would silently turn a
+    /// large grace period into a negative value and trigger an immediate
+    /// SIGKILL — exactly the opposite of a graceful shutdown.
     pub async fn stop_container(&self, id: &str, timeout_secs: i64) -> Result<(), PlatformError> {
+        let timeout_i32 = i32::try_from(timeout_secs).map_err(|_| PlatformError::InvalidTimeout(timeout_secs))?;
         self.inner()
-            .stop_container(id, Some(StopContainerOptions { t: Some(timeout_secs as i32), signal: None }))
+            .stop_container(id, Some(StopContainerOptions { t: Some(timeout_i32), signal: None }))
             .await
             .map_err(PlatformError::Docker)?;
 
@@ -190,5 +204,13 @@ mod tests {
             message: "No such image: agentforge-agent:codex".into(),
         });
         assert!(err.is_missing_image());
+    }
+
+    #[test]
+    fn invalid_stop_timeout_renders_a_typed_error() {
+        let err = PlatformError::InvalidTimeout(i64::MAX);
+        let rendered = err.to_string();
+        assert!(rendered.contains("Invalid stop timeout"));
+        assert!(rendered.contains(&i64::MAX.to_string()));
     }
 }
