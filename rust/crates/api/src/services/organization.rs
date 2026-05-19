@@ -4,7 +4,7 @@ use agentforge_core::{AppResult, OrgId, TenantScope};
 use agentforge_db::entities::Organization;
 
 use crate::domain::resource::{OrganizationSlug, ResourceName};
-use crate::repositories::organization::OrganizationRepository;
+use crate::repositories::identity::organization::OrganizationRepository;
 
 /// Business logic layer for organization operations.
 pub struct OrganizationService {

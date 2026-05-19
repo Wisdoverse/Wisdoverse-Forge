@@ -21,7 +21,7 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, GroupId, ProjectId};
 
 use crate::health::AppState;
-use crate::repositories::group::GroupRepository;
+use crate::repositories::identity::group::GroupRepository;
 use crate::services::group::GroupService;
 
 /// Query parameters for the list endpoint.

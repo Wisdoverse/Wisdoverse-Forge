@@ -5,7 +5,7 @@ use agentforge_db::entities::{Group, GroupMember};
 use uuid::Uuid;
 
 use crate::domain::resource::{GroupMemberRole, ResourceListPage, ResourceName};
-use crate::repositories::group::GroupRepository;
+use crate::repositories::identity::group::GroupRepository;
 
 /// Business logic layer for group operations.
 pub struct GroupService {
