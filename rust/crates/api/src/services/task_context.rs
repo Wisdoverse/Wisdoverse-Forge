@@ -12,8 +12,8 @@ pub use crate::domain::task_context::{
     TaskContextResponse, TaskContextRun,
 };
 use crate::repositories::orchestration::OrchestrationTaskRepository;
-use crate::repositories::task_context::{AppliedContextRow, TaskContextRepository};
-use crate::repositories::task_run::RunEvidenceRow;
+use crate::repositories::orchestration::task_context::{AppliedContextRow, TaskContextRepository};
+use crate::repositories::orchestration::task_run::RunEvidenceRow;
 
 const CONTENT_PREVIEW_CHARS: usize = 280;
 

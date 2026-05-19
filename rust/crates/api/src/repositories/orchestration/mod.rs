@@ -1,7 +1,19 @@
-//! Orchestration repository — tenant-scoped queries for tasks and participants.
+//! Orchestration aggregate — task, participant, task run, context injection,
+//! task context, and context link repositories. Tenant-scoped queries for
+//! tasks and participants.
 //!
 //! All task queries must include `WHERE organization_id = $N` so cross-tenant
 //! reads are impossible by construction.
+
+pub mod context_link;
+pub mod run_context_injection;
+pub mod task_context;
+pub mod task_run;
+
+pub use context_link::{ContextLinkRepository, ContextLinkedRunRow, CreateContextLinkRecord};
+pub use run_context_injection::{ContextAppliedRunRow, ContextInjectionCounts, RunContextInjectionRepository};
+pub use task_context::{AppliedContextRow, TaskContextRepository};
+pub use task_run::{RunEvidenceRow, TaskRunRepository};
 
 use agentforge_core::{AgentId, AppResult, ErrorKind, TenantScope, UserId};
 use agentforge_db::entities::{OrchestrationTask, Participant};
