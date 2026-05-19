@@ -22,7 +22,7 @@ use crate::repositories::agent::AgentRepository;
 use crate::repositories::credential::cli::CliCredentialRepository;
 use crate::repositories::credential::git::GitCredentialRepository;
 use crate::repositories::orchestration::ParticipantRepository;
-use crate::repositories::user_llm_config::UserLlmConfigRepository;
+use crate::repositories::user::llm_config::UserLlmConfigRepository;
 use crate::services::agent::AgentService;
 use crate::services::agent_workspace::{
     CONTAINER_WORKSPACE_ROOT, WorkspaceMountScope, ensure_workspace_belongs_to_org, host_path_for_container_cwd,

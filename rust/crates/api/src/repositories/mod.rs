@@ -29,6 +29,5 @@ pub mod skill;
 pub mod team;
 pub mod tile;
 pub mod user;
-pub mod user_llm_config;
 pub mod voice;
 pub mod workspace;

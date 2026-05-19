@@ -300,7 +300,7 @@ async fn send_prompt(
 
     // Provider+prompt agents: run the SSE loop.
     let user_llm_repo =
-        Arc::new(crate::repositories::user_llm_config::UserLlmConfigRepository::new(state.pool.clone()));
+        Arc::new(crate::repositories::user::llm_config::UserLlmConfigRepository::new(state.pool.clone()));
     let keys = Arc::new(crate::services::prompt::UserLlmConfigKeyResolver::new(user_llm_repo, state.encryption_key));
     let prompt_service = crate::services::prompt::PromptService::new(
         Arc::new(crate::repositories::agent::message::MessageRepository::new(state.pool.clone())),

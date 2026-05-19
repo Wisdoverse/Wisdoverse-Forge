@@ -1,7 +1,12 @@
-//! User repository — database queries for the users table.
+//! User aggregate — database queries for the users table and per-user LLM
+//! provider configurations.
 //!
 //! `find_by_email` is NOT tenant-scoped because login happens before org context
-//! is established. Other methods enforce tenant isolation via `TenantScope`.
+//! is known. Per-user LLM configs are tenant-scoped via the user FK.
+
+pub mod llm_config;
+
+pub use llm_config::{UserLlmConfigRepository, UserLlmConfigSecret};
 
 use agentforge_core::{AppResult, ErrorKind, TenantScope, UserId};
 use agentforge_db::entities::User;

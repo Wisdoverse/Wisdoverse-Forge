@@ -140,13 +140,13 @@ pub struct LlmProviderCredential {
 
 /// Production impl: reads `user_llm_configs`, decrypts with `AppState.encryption_key`.
 pub struct UserLlmConfigKeyResolver {
-    repo: Arc<crate::repositories::user_llm_config::UserLlmConfigRepository>,
+    repo: Arc<crate::repositories::user::llm_config::UserLlmConfigRepository>,
     encryption_key: Option<[u8; 32]>,
 }
 
 impl UserLlmConfigKeyResolver {
     pub fn new(
-        repo: Arc<crate::repositories::user_llm_config::UserLlmConfigRepository>,
+        repo: Arc<crate::repositories::user::llm_config::UserLlmConfigRepository>,
         encryption_key: Option<[u8; 32]>,
     ) -> Self {
         Self { repo, encryption_key }
