@@ -1,7 +1,7 @@
 //! Unit 4.1 coverage for the task detail Context tab read model.
 
+use agentforge_api::repositories::orchestration::task_context::TaskContextRepository;
 use agentforge_api::repositories::orchestration::{OrchestrationTaskRepository, ParticipantRepository};
-use agentforge_api::repositories::task_context::TaskContextRepository;
 use agentforge_api::services::orchestration::OrchestrationService;
 use agentforge_api::services::task_context::TaskContextService;
 use agentforge_api::test_support::tenant_scope_for_ids_with_axes;
