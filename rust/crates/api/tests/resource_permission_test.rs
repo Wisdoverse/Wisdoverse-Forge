@@ -3,8 +3,8 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use agentforge_api::repositories::resource_member::ResourceMemberRepository;
-use agentforge_api::repositories::resource_permission::ResourcePermissionRepository;
+use agentforge_api::repositories::resource::member::ResourceMemberRepository;
+use agentforge_api::repositories::resource::permission::ResourcePermissionRepository;
 use agentforge_api::routes::legacy_navigation::test_only::{
     list_projects_canonical_for_test, list_teams_canonical_for_test,
 };
