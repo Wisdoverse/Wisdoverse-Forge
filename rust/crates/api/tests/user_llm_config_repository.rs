@@ -1,4 +1,4 @@
-use agentforge_api::repositories::user_llm_config::UserLlmConfigRepository;
+use agentforge_api::repositories::user::llm_config::UserLlmConfigRepository;
 use sqlx::PgPool;
 
 mod common;

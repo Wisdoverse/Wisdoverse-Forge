@@ -28,7 +28,7 @@ use secrecy::{ExposeSecret, SecretString};
 
 use crate::health::AppState;
 use crate::repositories::credential::cli::CliCredentialRepository;
-use crate::repositories::user_llm_config::UserLlmConfigRepository;
+use crate::repositories::user::llm_config::UserLlmConfigRepository;
 use crate::services::cli_credential::CliCredentialService;
 
 const DEFAULT_OAUTH_MOUNT_ROOT: &str = "/tmp/agentforge/oauth-mounts";
