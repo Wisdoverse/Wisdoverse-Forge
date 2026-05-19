@@ -19,7 +19,7 @@ use crate::domain::memory::{
     MemoryUpdatedAudit, MemoryVisibility, PreparedMemoryContent, memory_audit_event,
 };
 use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository, UpdateMemoryRecord};
-use crate::repositories::resource_permission::ResourcePermissionRepository;
+use crate::repositories::resource::permission::ResourcePermissionRepository;
 use crate::services::context_governance::ContextGovernanceService;
 
 #[derive(Debug, Clone)]

@@ -16,7 +16,7 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::resource_profile::ResourceProfileRepository;
+use crate::repositories::resource::profile::ResourceProfileRepository;
 use crate::services::resource_profile::ResourceProfileService;
 
 /// Request body for creating a resource profile.

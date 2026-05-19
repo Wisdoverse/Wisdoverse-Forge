@@ -18,7 +18,7 @@ use agentforge_core::{AppResult, ProjectId, TeamId, WorkspaceId};
 use crate::health::AppState;
 use crate::repositories::group::GroupRepository;
 use crate::repositories::project::ProjectRepository;
-use crate::repositories::resource_permission::ResourcePermissionRepository;
+use crate::repositories::resource::permission::ResourcePermissionRepository;
 use crate::services::group::GroupService;
 use crate::services::project::ProjectService;
 use crate::services::resource_permission::ResourcePermissionService;
