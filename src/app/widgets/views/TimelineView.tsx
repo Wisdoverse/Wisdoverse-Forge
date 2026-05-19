@@ -66,5 +66,7 @@ export function TimelineView() {
     }
   }, [])
 
-  return <canvas ref={canvasRef} className="h-full w-full" aria-label="Timeline view" />
+  return (
+    <canvas ref={canvasRef} className="timeline-canvas h-full w-full" aria-label="Timeline view" />
+  )
 }

@@ -189,6 +189,16 @@ async function setupAnalyticsFixture(page: Page, baseURL: string) {
       body: JSON.stringify({ ok: true, agents: [{ id: 'agent-1', status: 'idle' }] }),
     })
   })
+  await page.route('**/api/v1/context/features', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ok: true,
+        data: { governance: true, preview: true, injection: true, analytics: true },
+      }),
+    })
+  })
 
   await page.goto(`${baseURL}/analytics`)
   await page.locator('[data-testid="context-usage-dashboard"]').waitFor({ state: 'visible' })
