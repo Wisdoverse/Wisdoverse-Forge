@@ -6,7 +6,7 @@ use agentforge_core::{AgentId, AppResult, TenantScope};
 
 pub use crate::domain::turn::{LastEventCursor, TurnPage};
 use crate::domain::turn::{Turn, TurnCursor, TurnListPage, TurnProjectionEvent, build_turns, turn_projection_event};
-use crate::repositories::event::EventRepository;
+use crate::repositories::agent::event::EventRepository;
 
 pub struct TurnService {
     repo: EventRepository,

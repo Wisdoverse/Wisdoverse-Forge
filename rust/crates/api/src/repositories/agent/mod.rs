@@ -1,4 +1,11 @@
-//! Agent repository — tenant-scoped database queries for the agents table.
+//! Agent aggregate — tenant-scoped queries for the agents table plus the
+//! agent's chat messages and event stream.
+
+pub mod event;
+pub mod message;
+
+pub use event::EventRepository;
+pub use message::MessageRepository;
 
 use agentforge_core::{AgentId, AgentStatus, AppResult, ErrorKind, TenantScope};
 use agentforge_db::entities::{Agent, AgentCollaborator};
