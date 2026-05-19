@@ -9,8 +9,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use agentforge_api::health::ContextFeatureFlags;
-use agentforge_api::repositories::cli_credential::CliCredentialRepository;
-use agentforge_api::repositories::user_llm_config::UserLlmConfigRepository;
+use agentforge_api::repositories::credential::cli::CliCredentialRepository;
+use agentforge_api::repositories::user::llm_config::UserLlmConfigRepository;
 use agentforge_api::services::cli_credential::CliCredentialService;
 use agentforge_api::services::credential_writer::ServiceCredentialWriter;
 use agentforge_api::{AppState, create_router};
@@ -553,7 +553,7 @@ async fn run_cli_auth_refresh_loop(
     nats_client: Option<async_nats::Client>,
     mut shutdown: tokio::sync::watch::Receiver<bool>,
 ) {
-    use agentforge_api::repositories::cli_credential::CliCredentialRepository;
+    use agentforge_api::repositories::credential::cli::CliCredentialRepository;
     use agentforge_api::routes::cli_auth_proxy::resolve_providers;
     use agentforge_api::services::cli_auth_proxy::CliAuthProxyService;
 
