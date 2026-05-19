@@ -162,6 +162,13 @@ Choose checks by blast radius.
   service health and orchestration-chain checks.
 - Before PR/MR push, rebase or merge against current `origin/main` unless the
   user explicitly asks for a different base.
+- E2E flake pattern: lazy-loaded route chunks (Workshop3D, settings nav,
+  Timeline, anything behind `Suspense` + `lazy`) race the Playwright default
+  15s action timeout on a cold CDN cache. When a click-on-an-interactive-
+  element times out but a retry passes, the fix is `waitFor({ state: 'visible' })`
+  on the route container before the click plus `.click({ timeout: 30000 })` —
+  not a sleep, not a hard wait, and not disabling the test. See PR #218
+  (3D view) and PR #222 (theme toggle).
 
 Use `gh` for GitHub PRs and `glab` for GitLab MRs and pipeline inspection. If
 CLI flags differ on this host, check `<tool> <command> --help` or use the
