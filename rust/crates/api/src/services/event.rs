@@ -7,7 +7,7 @@ use agentforge_db::entities::Event;
 use serde_json::Value;
 
 use crate::domain::observability::{EventListPage, EventReplayPage, EventType};
-use crate::repositories::event::EventRepository;
+use crate::repositories::agent::event::EventRepository;
 
 /// Business logic layer for event operations.
 pub struct EventService {

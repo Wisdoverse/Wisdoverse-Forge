@@ -17,7 +17,7 @@ use agentforge_db::entities::Event;
 
 use crate::domain::observability::EventReplayCursor;
 use crate::health::AppState;
-use crate::repositories::event::EventRepository;
+use crate::repositories::agent::event::EventRepository;
 use crate::services::event::EventService;
 
 /// Shape an `Event` DB entity into the JSON object `shared/types/events.ts`

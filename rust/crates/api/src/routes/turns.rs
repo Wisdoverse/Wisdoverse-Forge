@@ -11,7 +11,7 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AgentId, AppResult};
 
 use crate::health::AppState;
-use crate::repositories::event::EventRepository;
+use crate::repositories::agent::event::EventRepository;
 use crate::services::turn::{TurnService, default_turn_limit};
 
 #[derive(Debug, Deserialize)]
