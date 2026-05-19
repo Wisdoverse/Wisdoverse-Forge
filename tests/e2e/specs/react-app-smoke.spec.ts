@@ -845,10 +845,13 @@ test.describe('React App Smoke Tests', () => {
     async function openThemeToggle(page: Page) {
       await page.locator('[data-testid="sidebar-nav-settings"]').click()
       await page.waitForURL('**/settings')
-      await page
-        .locator('[data-testid="settings-desktop-nav"]')
-        .getByRole('button', { name: 'Account' })
-        .click()
+      // Settings page nav is route-level lazy-loaded; on a cold CDN cache the
+      // Account button is in the DOM before the click handler is wired, so a
+      // 15s default action timeout flakes. Wait for the nav container to be
+      // fully mounted, then bump the click timeout to absorb the chunk load.
+      const nav = page.locator('[data-testid="settings-desktop-nav"]')
+      await nav.waitFor({ state: 'visible', timeout: 15000 })
+      await nav.getByRole('button', { name: 'Account' }).click({ timeout: 30000 })
     }
 
     test('dark theme adds dark class to document root', async ({ page, baseURL }) => {
