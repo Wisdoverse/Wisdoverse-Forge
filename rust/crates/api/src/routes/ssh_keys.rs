@@ -18,7 +18,7 @@ use agentforge_core::AppResult;
 use agentforge_db::entities::SshKey;
 
 use crate::health::AppState;
-use crate::repositories::ssh_key::SshKeyRepository;
+use crate::repositories::credential::ssh_key::SshKeyRepository;
 use crate::services::ssh_key::SshKeyService;
 
 /// Query parameters for the list endpoint.

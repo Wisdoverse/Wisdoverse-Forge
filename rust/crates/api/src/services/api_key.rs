@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 pub use crate::domain::credential::CreateApiKeyResult;
 use crate::domain::credential::{ApiKeyFormat, ApiKeyName, ApiKeyScopePolicy, CredentialListPage};
-use crate::repositories::api_key::ApiKeyRepository;
+use crate::repositories::credential::api_key::ApiKeyRepository;
 
 /// Business logic layer for API key operations.
 pub struct ApiKeyService {

@@ -24,7 +24,7 @@ use agentforge_core::{AppConfig, AppResult};
 use secrecy::{ExposeSecret, SecretString};
 
 use crate::health::AppState;
-use crate::repositories::cli_credential::CliCredentialRepository;
+use crate::repositories::credential::cli::CliCredentialRepository;
 use crate::services::cli_auth_proxy::{CallbackMode, CliAuthProxyProvider, CliAuthProxyService, StateStore};
 
 /// Build the service on each request — stateless wiring, no per-request state

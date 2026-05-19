@@ -27,7 +27,7 @@ use agentforge_core::AppResult;
 use secrecy::{ExposeSecret, SecretString};
 
 use crate::health::AppState;
-use crate::repositories::cli_credential::CliCredentialRepository;
+use crate::repositories::credential::cli::CliCredentialRepository;
 use crate::repositories::user_llm_config::UserLlmConfigRepository;
 use crate::services::cli_credential::CliCredentialService;
 
