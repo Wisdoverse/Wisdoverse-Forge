@@ -15,8 +15,7 @@ use crate::domain::skill::{
     SkillStateTransitionPolicy, SkillTtlPolicy, SkillUpdatedAudit, skill_audit_event,
 };
 use crate::repositories::resource_permission::ResourcePermissionRepository;
-use crate::repositories::skill::{CreateSkillRecord, SkillRepository, UpdateSkillRecord};
-use crate::repositories::skill_version::SkillVersionRepository;
+use crate::repositories::skill::{CreateSkillRecord, SkillRepository, SkillVersionRepository, UpdateSkillRecord};
 use crate::services::context_governance::ContextGovernanceService;
 
 #[derive(Debug, Clone)]
