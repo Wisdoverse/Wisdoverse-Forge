@@ -2,7 +2,7 @@
 
 use agentforge_core::{AppResult, ErrorKind, ProjectId, TeamId, TenantScope};
 
-use crate::repositories::resource_permission::ResourcePermissionRepository;
+use crate::repositories::resource::permission::ResourcePermissionRepository;
 
 /// Business rules for resource-scoped management permissions.
 pub struct ResourcePermissionService {

@@ -5,7 +5,7 @@ use agentforge_db::entities::ResourceProfile;
 use uuid::Uuid;
 
 use crate::domain::configuration::ResourceProfilePolicy;
-use crate::repositories::resource_profile::ResourceProfileRepository;
+use crate::repositories::resource::profile::ResourceProfileRepository;
 
 /// Business logic layer for resource profile operations.
 pub struct ResourceProfileService {

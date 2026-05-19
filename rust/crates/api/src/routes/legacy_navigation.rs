@@ -34,7 +34,7 @@ use crate::domain::resource::NavigationResourcePolicy;
 use crate::health::AppState;
 use crate::repositories::group::GroupRepository;
 use crate::repositories::organization::OrganizationRepository;
-use crate::repositories::resource_permission::ResourcePermissionRepository;
+use crate::repositories::resource::permission::ResourcePermissionRepository;
 use crate::services::group::GroupService;
 use crate::services::organization::OrganizationService;
 use crate::services::resource_permission::ResourcePermissionService;

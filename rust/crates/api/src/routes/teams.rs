@@ -16,7 +16,7 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, TeamId};
 
 use crate::health::AppState;
-use crate::repositories::resource_permission::ResourcePermissionRepository;
+use crate::repositories::resource::permission::ResourcePermissionRepository;
 use crate::repositories::team::TeamRepository;
 use crate::services::resource_permission::ResourcePermissionService;
 use crate::services::team::TeamService;

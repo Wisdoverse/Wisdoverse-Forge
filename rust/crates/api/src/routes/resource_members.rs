@@ -10,8 +10,8 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, ProjectId, TeamId};
 
 use crate::health::AppState;
-use crate::repositories::resource_member::ResourceMemberRepository;
-use crate::repositories::resource_permission::ResourcePermissionRepository;
+use crate::repositories::resource::member::ResourceMemberRepository;
+use crate::repositories::resource::permission::ResourcePermissionRepository;
 use crate::services::resource_member::ResourceMemberService;
 
 #[derive(Debug, Deserialize)]
