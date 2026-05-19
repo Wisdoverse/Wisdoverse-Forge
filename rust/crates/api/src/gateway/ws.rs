@@ -16,7 +16,8 @@ use axum::extract::{Query, State, WebSocketUpgrade};
 use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
-use bollard::container::{AttachContainerOptions, LogOutput, ResizeContainerTtyOptions};
+use bollard::container::LogOutput;
+use bollard::query_parameters::{AttachContainerOptions, ResizeContainerTTYOptions};
 use futures::{SinkExt, StreamExt};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -360,12 +361,12 @@ async fn run_terminal_attach(
         .inner()
         .attach_container(
             &container_id,
-            Some(AttachContainerOptions::<String> {
-                stdin: Some(true),
-                stdout: Some(true),
-                stderr: Some(true),
-                stream: Some(true),
-                logs: Some(true),
+            Some(AttachContainerOptions {
+                stdin: true,
+                stdout: true,
+                stderr: true,
+                stream: true,
+                logs: true,
                 detach_keys: None,
             }),
         )
@@ -417,7 +418,10 @@ async fn resize_container_tty(
     cols: u16,
     rows: u16,
 ) -> Result<(), bollard::errors::Error> {
-    docker.inner().resize_container_tty(container_id, ResizeContainerTtyOptions { width: cols, height: rows }).await
+    docker
+        .inner()
+        .resize_container_tty(container_id, ResizeContainerTTYOptions { h: rows as i32, w: cols as i32 })
+        .await
 }
 
 fn payload_agent_id(payload: &Value) -> Option<Uuid> {

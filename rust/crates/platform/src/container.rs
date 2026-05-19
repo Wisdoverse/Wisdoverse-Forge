@@ -1,10 +1,10 @@
 //! Container lifecycle management — create, start, stop, remove, inspect.
 
-use bollard::container::{
-    Config, CreateContainerOptions, InspectContainerOptions, RemoveContainerOptions, StartContainerOptions,
+use bollard::models::{ContainerCreateBody, HostConfig};
+use bollard::query_parameters::{
+    CreateContainerOptions, InspectContainerOptions, RemoveContainerOptions, StartContainerOptions,
     StopContainerOptions,
 };
-use bollard::models::HostConfig;
 
 use crate::docker::DockerClient;
 use crate::security;
@@ -88,7 +88,7 @@ impl DockerClient {
             ..Default::default()
         };
 
-        let create_config = Config {
+        let create_config = ContainerCreateBody {
             image: Some(config.image.clone()),
             working_dir: config.working_dir.clone(),
             env: Some(config.env.clone()),
@@ -102,7 +102,8 @@ impl DockerClient {
             ..Default::default()
         };
 
-        let options = config.name.as_ref().map(|n| CreateContainerOptions { name: n.as_str(), platform: None });
+        let options =
+            config.name.as_ref().map(|n| CreateContainerOptions { name: Some(n.clone()), platform: String::new() });
 
         let response = self.inner().create_container(options, create_config).await.map_err(PlatformError::Docker)?;
 
@@ -116,7 +117,7 @@ impl DockerClient {
 
     /// Start a previously created container.
     pub async fn start_container(&self, id: &str) -> Result<(), PlatformError> {
-        self.inner().start_container(id, None::<StartContainerOptions<String>>).await.map_err(PlatformError::Docker)?;
+        self.inner().start_container(id, None::<StartContainerOptions>).await.map_err(PlatformError::Docker)?;
 
         tracing::info!(container_id = %id, "Container started");
         Ok(())
@@ -125,7 +126,7 @@ impl DockerClient {
     /// Stop a running container with a timeout in seconds.
     pub async fn stop_container(&self, id: &str, timeout_secs: i64) -> Result<(), PlatformError> {
         self.inner()
-            .stop_container(id, Some(StopContainerOptions { t: timeout_secs }))
+            .stop_container(id, Some(StopContainerOptions { t: Some(timeout_secs as i32), signal: None }))
             .await
             .map_err(PlatformError::Docker)?;
 
