@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
-use crate::repositories::task_run::RunEvidenceRow;
+use crate::repositories::orchestration::task_run::RunEvidenceRow;
 
 #[derive(Debug, Clone, FromRow)]
 pub struct AppliedContextRow {

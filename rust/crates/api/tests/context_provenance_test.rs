@@ -8,7 +8,7 @@ use sqlx::PgPool;
 use tower::ServiceExt;
 use uuid::Uuid;
 
-use agentforge_api::repositories::context_link::{ContextLinkRepository, CreateContextLinkRecord};
+use agentforge_api::repositories::orchestration::context_link::{ContextLinkRepository, CreateContextLinkRecord};
 use agentforge_api::test_support::{mint_test_jwt_with_axes, test_app_with_mock_provider};
 use agentforge_core::{OrgId, TenantScope, UserId, WorkspaceId};
 

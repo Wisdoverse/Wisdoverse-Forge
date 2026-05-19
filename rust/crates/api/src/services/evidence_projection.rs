@@ -4,7 +4,7 @@ use agentforge_core::{AppResult, TenantScope};
 use uuid::Uuid;
 
 pub use crate::domain::evidence_projection::Evidence;
-use crate::repositories::task_run::{RunEvidenceRow, TaskRunRepository};
+use crate::repositories::orchestration::task_run::{RunEvidenceRow, TaskRunRepository};
 
 pub struct EvidenceProjectionService {
     task_run_repo: TaskRunRepository,
