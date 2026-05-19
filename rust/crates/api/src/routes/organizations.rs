@@ -15,7 +15,7 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, OrgId};
 
 use crate::health::AppState;
-use crate::repositories::organization::OrganizationRepository;
+use crate::repositories::identity::organization::OrganizationRepository;
 use crate::services::organization::OrganizationService;
 
 /// Request body for creating an organization.
