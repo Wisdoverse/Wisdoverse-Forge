@@ -389,8 +389,12 @@ test.describe('React App Smoke Tests', () => {
       const topBar = page.locator('[data-testid="top-bar"]')
       await topBar.getByRole('button', { name: '3D' }).click()
 
+      // Workshop3DView is a lazy-loaded chunk (~520kB three.js bundle) +
+      // WebGL renderer init in headless Chromium can hit a 15s cap on a cold
+      // CDN cache. Bumping to 30s eliminates the post-deploy flake without
+      // hiding a real regression.
       const scene = page.locator('[data-testid="workshop-3d-scene"]')
-      await expect(scene).toBeVisible({ timeout: 15000 })
+      await expect(scene).toBeVisible({ timeout: 30000 })
       await expect(scene.locator('canvas[data-testid="workshop-3d-canvas"]')).toHaveCount(1)
       await expect(page.getByText(/Full React rewrite coming soon/i)).toHaveCount(0)
 
