@@ -23,11 +23,10 @@ use crate::domain::context::{
     normalize_scope_kind_filter, validate_context_sensitivity, validate_ttl,
 };
 use crate::domain::memory::MemoryScopeKind;
-use crate::repositories::context_approval::{ContextApprovalRepository, CreateContextApprovalRecord};
 use crate::repositories::context_candidate::{
-    ContextCandidateListRow, ContextCandidateRepository, CreateContextCandidateRecord,
+    ContextApprovalRepository, ContextCandidateListRow, ContextCandidateRepository, ContextFeedbackRepository,
+    CreateContextApprovalRecord, CreateContextCandidateRecord, CreateContextFeedbackRecord,
 };
-use crate::repositories::context_feedback::{ContextFeedbackRepository, CreateContextFeedbackRecord};
 use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository};
 use crate::repositories::skill::{SkillRepository, SkillVersionRepository};
 use crate::services::context_governance::ContextGovernanceService;
