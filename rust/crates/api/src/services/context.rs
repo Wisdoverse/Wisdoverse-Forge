@@ -29,8 +29,7 @@ use crate::repositories::context_candidate::{
 };
 use crate::repositories::context_feedback::{ContextFeedbackRepository, CreateContextFeedbackRecord};
 use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository};
-use crate::repositories::skill::SkillRepository;
-use crate::repositories::skill_version::SkillVersionRepository;
+use crate::repositories::skill::{SkillRepository, SkillVersionRepository};
 use crate::services::context_governance::ContextGovernanceService;
 
 #[derive(Debug, Clone)]
