@@ -5,7 +5,7 @@
 
 mod common;
 
-use agentforge_api::repositories::cli_credential::CliCredentialRepository;
+use agentforge_api::repositories::credential::cli::CliCredentialRepository;
 use sqlx::PgPool;
 use uuid::Uuid;
 

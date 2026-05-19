@@ -6,7 +6,7 @@ mod common;
 
 use std::path::PathBuf;
 
-use agentforge_api::repositories::cli_credential::CliCredentialRepository;
+use agentforge_api::repositories::credential::cli::CliCredentialRepository;
 use agentforge_api::repositories::user_llm_config::UserLlmConfigRepository;
 use agentforge_api::services::cli_credential::CliCredentialService;
 use agentforge_core::crypto;

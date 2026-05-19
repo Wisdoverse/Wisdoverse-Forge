@@ -21,7 +21,7 @@ use secrecy::{ExposeSecret, SecretString};
 use tokio::fs;
 
 use crate::domain::credential::{ContainerCliCredentialPolicy, OauthMountContainerKey};
-use crate::repositories::cli_credential::{CliCredentialRepository, CliCredentialStatus};
+use crate::repositories::credential::cli::{CliCredentialRepository, CliCredentialStatus};
 use crate::repositories::user_llm_config::UserLlmConfigRepository;
 
 /// Outcome of credential resolution for a single container spawn.
@@ -285,7 +285,7 @@ mod tests {
 
     #[tokio::test]
     async fn cleanup_oauth_mount_is_idempotent() {
-        use crate::repositories::cli_credential::CliCredentialRepository;
+        use crate::repositories::credential::cli::CliCredentialRepository;
         use crate::repositories::user_llm_config::UserLlmConfigRepository;
         let tmp = std::env::temp_dir().join(format!("agentforge-cleanup-test-{}", uuid::Uuid::new_v4()));
         // Build a service with NO DB pool — cleanup doesn't touch the DB.

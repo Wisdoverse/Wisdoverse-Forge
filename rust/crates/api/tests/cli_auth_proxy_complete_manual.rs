@@ -4,7 +4,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use agentforge_api::repositories::cli_credential::CliCredentialRepository;
+use agentforge_api::repositories::credential::cli::CliCredentialRepository;
 use agentforge_api::services::cli_auth_proxy::{
     CallbackMode, CliAuthProxyProvider, CliAuthProxyService, MemoryStateStore, StateStore,
 };

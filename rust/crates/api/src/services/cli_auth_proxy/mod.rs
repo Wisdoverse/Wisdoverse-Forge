@@ -60,7 +60,7 @@ mod secret_string_serde {
     }
 }
 
-use crate::repositories::cli_credential::{CliCredentialRepository, EncryptedWithRevocation};
+use crate::repositories::credential::cli::{CliCredentialRepository, EncryptedWithRevocation};
 use agentforge_infra::RedisClient;
 
 const STATE_TTL_SECS: u64 = 300;

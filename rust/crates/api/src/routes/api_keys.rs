@@ -19,7 +19,7 @@ use agentforge_core::AppResult;
 use agentforge_db::entities::ApiKey;
 
 use crate::health::AppState;
-use crate::repositories::api_key::ApiKeyRepository;
+use crate::repositories::credential::api_key::ApiKeyRepository;
 use crate::services::api_key::{ApiKeyService, CreateApiKeyResult};
 
 /// Query parameters for the list endpoint.

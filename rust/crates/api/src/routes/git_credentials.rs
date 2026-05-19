@@ -17,7 +17,7 @@ use agentforge_core::{AppResult, ErrorKind, crypto};
 use agentforge_db::entities::GitCredential;
 
 use crate::health::AppState;
-use crate::repositories::git_credential::GitCredentialRepository;
+use crate::repositories::credential::git::GitCredentialRepository;
 use crate::services::git_credential::GitCredentialService;
 
 /// Query parameters for the list endpoint.
