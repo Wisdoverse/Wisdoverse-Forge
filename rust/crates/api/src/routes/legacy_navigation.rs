@@ -32,8 +32,8 @@ use agentforge_core::{AppResult, ErrorKind, OrgId, ProjectId, TeamId};
 
 use crate::domain::resource::NavigationResourcePolicy;
 use crate::health::AppState;
-use crate::repositories::group::GroupRepository;
-use crate::repositories::organization::OrganizationRepository;
+use crate::repositories::identity::group::GroupRepository;
+use crate::repositories::identity::organization::OrganizationRepository;
 use crate::repositories::resource::permission::ResourcePermissionRepository;
 use crate::services::group::GroupService;
 use crate::services::organization::OrganizationService;

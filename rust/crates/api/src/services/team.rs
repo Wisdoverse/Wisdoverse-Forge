@@ -4,7 +4,7 @@ use agentforge_core::{AppResult, TeamId, TenantScope};
 use agentforge_db::entities::Team;
 
 use crate::domain::resource::{ResourceListPage, ResourceName};
-use crate::repositories::team::TeamRepository;
+use crate::repositories::identity::team::TeamRepository;
 
 /// Business logic layer for team operations.
 pub struct TeamService {

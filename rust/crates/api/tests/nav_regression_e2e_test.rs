@@ -17,7 +17,7 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use agentforge_api::repositories::group::GroupRepository;
+use agentforge_api::repositories::identity::group::GroupRepository;
 use agentforge_api::routes::groups::test_only::list_groups_canonical_for_test;
 use agentforge_api::routes::legacy_navigation::test_only::{
     list_projects_canonical_for_test, list_teams_canonical_for_test,
