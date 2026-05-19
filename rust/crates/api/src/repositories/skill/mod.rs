@@ -1,4 +1,8 @@
-//! Skill repository — database queries for the governed skills table.
+//! Skill aggregate — database queries for skills and their versions.
+
+pub mod version;
+
+pub use version::{SkillSnapshot, SkillVersionRepository};
 
 use agentforge_core::{AppResult, ErrorKind, ProjectId, ScopedRead, TeamId, TenantScope, WorkspaceId};
 use agentforge_db::entities::Skill;
@@ -217,7 +221,7 @@ impl SkillRepository {
     pub async fn restore_from_snapshot_in_tx(
         tx: &mut Transaction<'_, Postgres>,
         id: Uuid,
-        snapshot: &crate::repositories::skill_version::SkillSnapshot,
+        snapshot: &SkillSnapshot,
         resulting_version: i32,
     ) -> AppResult<Skill> {
         sqlx::query_as::<_, Skill>(

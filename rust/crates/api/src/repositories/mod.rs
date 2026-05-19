@@ -36,7 +36,6 @@ pub mod run_context_injection;
 pub mod runtime_capability;
 pub mod setting;
 pub mod skill;
-pub mod skill_version;
 pub mod ssh_key;
 pub mod task_context;
 pub mod task_run;
