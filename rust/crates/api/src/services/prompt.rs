@@ -13,7 +13,7 @@ use crate::domain::prompt::{
     PromptContent, PromptContextPolicy, PromptHistoryMessage, SseFrame, sse_error_for_llm_error,
 };
 use crate::repositories::agent::AgentRepository;
-use crate::repositories::message::MessageRepository;
+use crate::repositories::agent::message::MessageRepository;
 
 fn prompt_context_policy(model: &str) -> PromptContextPolicy {
     PromptContextPolicy::new(model, model_context_limit(model))

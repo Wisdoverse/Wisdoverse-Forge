@@ -303,7 +303,7 @@ async fn send_prompt(
         Arc::new(crate::repositories::user_llm_config::UserLlmConfigRepository::new(state.pool.clone()));
     let keys = Arc::new(crate::services::prompt::UserLlmConfigKeyResolver::new(user_llm_repo, state.encryption_key));
     let prompt_service = crate::services::prompt::PromptService::new(
-        Arc::new(crate::repositories::message::MessageRepository::new(state.pool.clone())),
+        Arc::new(crate::repositories::agent::message::MessageRepository::new(state.pool.clone())),
         Arc::new(AgentRepository::new(state.pool.clone())),
         state.llm_factory.clone(),
         keys,
@@ -403,7 +403,7 @@ async fn list_messages(
     let service = make_service(&state);
     let _agent = service.get(&auth.scope, AgentId::from(id)).await?;
 
-    let repo = crate::repositories::message::MessageRepository::new(state.pool.clone());
+    let repo = crate::repositories::agent::message::MessageRepository::new(state.pool.clone());
     let limit = q.limit.clamp(1, 200);
     let mut msgs = repo.list(&auth.scope, AgentId::from(id), limit + 1, q.before).await?;
     let has_more = msgs.len() as i64 > limit;
@@ -422,7 +422,7 @@ async fn delete_messages(
     let service = make_service(&state);
     let _agent = service.get(&auth.scope, AgentId::from(id)).await?;
 
-    let repo = crate::repositories::message::MessageRepository::new(state.pool.clone());
+    let repo = crate::repositories::agent::message::MessageRepository::new(state.pool.clone());
     let deleted = repo.delete_all_by_agent(&auth.scope, AgentId::from(id)).await?;
     Ok(Json(serde_json::json!({ "ok": true, "deleted": deleted })))
 }
