@@ -11,12 +11,12 @@ use axum::extract::Json;
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::post;
-use bollard::container::{
-    AttachContainerOptions, Config as ContainerConfig, CreateContainerOptions, LogsOptions, RemoveContainerOptions,
+use bollard::errors::Error as BollardError;
+use bollard::models::{ContainerCreateBody as ContainerConfig, HostConfig};
+use bollard::query_parameters::{
+    AttachContainerOptions, CreateContainerOptions, InspectContainerOptions, LogsOptions, RemoveContainerOptions,
     StartContainerOptions,
 };
-use bollard::errors::Error as BollardError;
-use bollard::models::HostConfig;
 use chrono::{Duration as ChronoDuration, Utc};
 use futures::StreamExt;
 use serde_json::{Value, json};
@@ -530,7 +530,7 @@ impl LiveDockerMcpRuntimeBackend {
     async fn collect_logs(&self, container_id: &str, tail: usize) -> AppResult<Vec<u8>> {
         let mut stream = self.docker.inner().logs(
             container_id,
-            Some(LogsOptions::<String> {
+            Some(LogsOptions {
                 follow: false,
                 stdout: true,
                 stderr: true,
@@ -565,7 +565,7 @@ impl DockerMcpRuntimeBackend for LiveDockerMcpRuntimeBackend {
             })
             .collect::<Vec<_>>();
         let env = request.env.into_iter().map(|(key, value)| format!("{key}={value}")).collect::<Vec<_>>();
-        let config = ContainerConfig::<String> {
+        let config = ContainerConfig {
             image: Some(request.image),
             working_dir: Some(request.working_dir),
             tty: Some(request.tty),
@@ -581,7 +581,10 @@ impl DockerMcpRuntimeBackend for LiveDockerMcpRuntimeBackend {
         let response = self
             .docker
             .inner()
-            .create_container(Some(CreateContainerOptions::<String> { name: request.name, platform: None }), config)
+            .create_container(
+                Some(CreateContainerOptions { name: Some(request.name), platform: String::new() }),
+                config,
+            )
             .await
             .map_err(docker_into_app_error)?;
         Ok(response.id)
@@ -590,7 +593,7 @@ impl DockerMcpRuntimeBackend for LiveDockerMcpRuntimeBackend {
     async fn start_container(&self, container_id: &str) -> AppResult<()> {
         self.docker
             .inner()
-            .start_container(container_id, None::<StartContainerOptions<String>>)
+            .start_container(container_id, None::<StartContainerOptions>)
             .await
             .map_err(docker_into_app_error)
     }
@@ -607,7 +610,7 @@ impl DockerMcpRuntimeBackend for LiveDockerMcpRuntimeBackend {
         let info = self
             .docker
             .inner()
-            .inspect_container(container_id, None::<bollard::container::InspectContainerOptions>)
+            .inspect_container(container_id, None::<InspectContainerOptions>)
             .await
             .map_err(docker_into_app_error)?;
         let status = info.state.and_then(|state| state.status).map(|value| value.to_string()).unwrap_or_default();
@@ -635,12 +638,12 @@ impl DockerMcpRuntimeBackend for LiveDockerMcpRuntimeBackend {
             .inner()
             .attach_container(
                 container_id,
-                Some(AttachContainerOptions::<String> {
-                    stdin: Some(true),
-                    stdout: Some(false),
-                    stderr: Some(false),
-                    stream: Some(true),
-                    logs: Some(false),
+                Some(AttachContainerOptions {
+                    stdin: true,
+                    stdout: false,
+                    stderr: false,
+                    stream: true,
+                    logs: false,
                     detach_keys: None,
                 }),
             )

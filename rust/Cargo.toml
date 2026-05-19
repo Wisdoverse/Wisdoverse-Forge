@@ -106,7 +106,7 @@ temporalio-sdk-core = "0.4.0"
 temporalio-common = "0.4.0"
 
 # Docker
-bollard = "0.18"
+bollard = "0.21"
 
 # Infrastructure
 redis = { version = "1", features = ["tokio-comp", "connection-manager"] }
