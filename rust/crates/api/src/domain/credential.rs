@@ -5,7 +5,7 @@
 //! handlers, and filesystem mount materialization.
 
 use agentforge_core::{AppResult, CliToolKind, ErrorKind};
-use agentforge_db::entities::ApiKey;
+use agentforge_db::entities::{ApiKey, GitCredential, SshKey};
 use agentforge_llm::{normalize_provider_key, provider_spec};
 use serde::Serialize;
 use url::Url;
@@ -16,6 +16,118 @@ pub struct CreateApiKeyResult {
     pub key: ApiKey,
     /// The plaintext API key — only returned at creation time.
     pub plaintext_key: String,
+}
+
+pub(crate) fn api_key_list_response(keys: &[ApiKey]) -> serde_json::Value {
+    let api_keys: Vec<_> = keys.iter().map(api_key_payload).collect();
+    serde_json::json!({
+        "ok": true,
+        "data": api_keys.clone(),
+        "apiKeys": api_keys,
+    })
+}
+
+pub(crate) fn api_key_create_response(result: CreateApiKeyResult) -> serde_json::Value {
+    let api_key = api_key_payload(&result.key);
+    let plaintext_key = result.plaintext_key;
+    serde_json::json!({
+        "ok": true,
+        "data": {
+            "key": api_key.clone(),
+            "apiKey": api_key.clone(),
+            "plaintext_key": plaintext_key.clone(),
+            "plaintextKey": plaintext_key.clone(),
+        },
+        "key": plaintext_key.clone(),
+        "plaintextKey": plaintext_key,
+        "apiKey": api_key,
+    })
+}
+
+pub(crate) fn ssh_key_list_response(keys: &[SshKey]) -> serde_json::Value {
+    let keys: Vec<_> = keys.iter().map(ssh_key_payload).collect();
+    serde_json::json!({
+        "ok": true,
+        "data": keys.clone(),
+        "keys": keys,
+    })
+}
+
+pub(crate) fn ssh_key_create_response(key: SshKey) -> serde_json::Value {
+    let key = ssh_key_payload(&key);
+    serde_json::json!({
+        "ok": true,
+        "data": key.clone(),
+        "key": key,
+    })
+}
+
+pub(crate) fn git_credential_response(cred: &GitCredential) -> serde_json::Value {
+    let credential = git_credential_payload(cred);
+    serde_json::json!({
+        "ok": true,
+        "data": credential.clone(),
+        "credential": credential,
+    })
+}
+
+pub(crate) fn git_credentials_response(creds: &[GitCredential]) -> serde_json::Value {
+    let credentials: Vec<_> = creds.iter().map(git_credential_payload).collect();
+    serde_json::json!({
+        "ok": true,
+        "data": credentials.clone(),
+        "credentials": credentials,
+    })
+}
+
+fn api_key_payload(key: &ApiKey) -> serde_json::Value {
+    serde_json::json!({
+        "id": key.id,
+        "orgId": key.organization_id,
+        "organizationId": key.organization_id,
+        "userId": key.user_id,
+        "name": &key.name,
+        "keyPrefix": &key.key_prefix,
+        "scopes": &key.scopes,
+        "expiresAt": &key.expires_at,
+        "lastUsedAt": &key.last_used_at,
+        "createdAt": &key.created_at,
+        "revokedAt": &key.revoked_at,
+    })
+}
+
+fn ssh_key_payload(key: &SshKey) -> serde_json::Value {
+    serde_json::json!({
+        "id": key.id,
+        "orgId": key.organization_id,
+        "organizationId": key.organization_id,
+        "userId": key.user_id,
+        "name": &key.name,
+        "publicKey": &key.public_key,
+        "fingerprint": &key.fingerprint,
+        "keyType": &key.key_type,
+        "createdAt": &key.created_at,
+    })
+}
+
+fn git_credential_payload(cred: &GitCredential) -> serde_json::Value {
+    serde_json::json!({
+        "id": cred.id,
+        "orgId": cred.organization_id,
+        "organizationId": cred.organization_id,
+        "userId": cred.user_id,
+        "name": cred.name,
+        "provider": cred.provider,
+        "credentialType": cred.credential_type,
+        "credential_type": cred.credential_type,
+        "host": cred.remote_url,
+        "remoteUrl": cred.remote_url,
+        "remote_url": cred.remote_url,
+        "createdAt": cred.created_at,
+        "created_at": cred.created_at,
+        "updatedAt": cred.updated_at,
+        "updated_at": cred.updated_at,
+    })
 }
 
 const API_KEY_PREFIX: &str = "af_";
@@ -484,7 +596,129 @@ impl GitRemoteHost {
 
 #[cfg(test)]
 mod tests {
+    use agentforge_core::{OrgId, UserId};
+    use chrono::TimeZone;
+    use uuid::Uuid;
+
     use super::*;
+
+    fn sample_org_id() -> OrgId {
+        OrgId::from(Uuid::from_u128(0x11111111111141118111111111111111))
+    }
+
+    fn sample_user_id() -> UserId {
+        UserId::from(Uuid::from_u128(0x22222222222242228222222222222222))
+    }
+
+    fn sample_time() -> chrono::DateTime<chrono::Utc> {
+        chrono::Utc.with_ymd_and_hms(2026, 1, 2, 3, 4, 5).unwrap()
+    }
+
+    fn sample_api_key() -> ApiKey {
+        ApiKey {
+            id: Uuid::from_u128(0x33333333333343338333333333333333),
+            organization_id: sample_org_id(),
+            user_id: sample_user_id(),
+            name: "CI".to_string(),
+            key_hash: "secret-hash".to_string(),
+            key_prefix: "af_12345678".to_string(),
+            scopes: vec!["read".to_string()],
+            expires_at: None,
+            last_used_at: None,
+            created_at: sample_time(),
+            revoked_at: None,
+        }
+    }
+
+    fn sample_ssh_key() -> SshKey {
+        SshKey {
+            id: Uuid::from_u128(0x44444444444444448444444444444444),
+            organization_id: sample_org_id(),
+            user_id: sample_user_id(),
+            name: "Laptop".to_string(),
+            public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 user@host".to_string(),
+            fingerprint: "SHA256:abc".to_string(),
+            key_type: "ed25519".to_string(),
+            created_at: sample_time(),
+        }
+    }
+
+    fn sample_git_credential() -> GitCredential {
+        GitCredential {
+            id: Uuid::from_u128(0x55555555555545558555555555555555),
+            organization_id: sample_org_id(),
+            user_id: sample_user_id(),
+            name: "GitHub".to_string(),
+            provider: "github".to_string(),
+            credential_type: "token".to_string(),
+            token_encrypted: Some(b"secret-ciphertext".to_vec()),
+            token_nonce: Some(b"secret-nonce".to_vec()),
+            remote_url: Some("https://github.com/Wisdoverse/Wisdoverse-Forge".to_string()),
+            created_at: sample_time(),
+            updated_at: sample_time(),
+        }
+    }
+
+    #[test]
+    fn api_key_list_response_owns_legacy_envelope_without_hash() {
+        let body = api_key_list_response(&[sample_api_key()]);
+        let key = &body["data"][0];
+
+        assert_eq!(body["ok"], true);
+        assert_eq!(body["apiKeys"], body["data"]);
+        assert_eq!(key["name"], "CI");
+        assert_eq!(key["keyPrefix"], "af_12345678");
+        assert_eq!(key["orgId"], key["organizationId"]);
+        assert!(key.get("key_hash").is_none());
+        assert!(key.get("keyHash").is_none());
+    }
+
+    #[test]
+    fn api_key_create_response_owns_plaintext_once_contract() {
+        let body = api_key_create_response(CreateApiKeyResult {
+            key: sample_api_key(),
+            plaintext_key: "af_plaintext".to_string(),
+        });
+
+        assert_eq!(body["ok"], true);
+        assert_eq!(body["key"], "af_plaintext");
+        assert_eq!(body["plaintextKey"], "af_plaintext");
+        assert_eq!(body["data"]["plaintext_key"], "af_plaintext");
+        assert_eq!(body["data"]["plaintextKey"], "af_plaintext");
+        assert_eq!(body["apiKey"], body["data"]["apiKey"]);
+        assert_eq!(body["data"]["key"], body["data"]["apiKey"]);
+    }
+
+    #[test]
+    fn ssh_key_responses_own_legacy_envelope() {
+        let list_body = ssh_key_list_response(&[sample_ssh_key()]);
+        let create_body = ssh_key_create_response(sample_ssh_key());
+
+        assert_eq!(list_body["ok"], true);
+        assert_eq!(list_body["keys"], list_body["data"]);
+        assert_eq!(list_body["data"][0]["publicKey"], "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 user@host");
+        assert_eq!(list_body["data"][0]["keyType"], "ed25519");
+        assert_eq!(create_body["key"], create_body["data"]);
+    }
+
+    #[test]
+    fn git_credential_responses_own_legacy_fields_without_secrets() {
+        let credential_body = git_credential_response(&sample_git_credential());
+        let list_body = git_credentials_response(&[sample_git_credential()]);
+        let credential = &credential_body["data"];
+
+        assert_eq!(credential_body["ok"], true);
+        assert_eq!(credential_body["credential"], credential_body["data"]);
+        assert_eq!(list_body["credentials"], list_body["data"]);
+        assert_eq!(credential["credentialType"], "token");
+        assert_eq!(credential["credential_type"], "token");
+        assert_eq!(credential["host"], credential["remoteUrl"]);
+        assert_eq!(credential["remote_url"], credential["remoteUrl"]);
+        assert!(credential.get("token_encrypted").is_none());
+        assert!(credential.get("tokenEncrypted").is_none());
+        assert!(credential.get("token_nonce").is_none());
+        assert!(credential.get("tokenNonce").is_none());
+    }
 
     #[test]
     fn list_page_clamps_limit_and_offset() {
