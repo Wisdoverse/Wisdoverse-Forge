@@ -4,8 +4,17 @@ use agentforge_core::{AppResult, GroupId, ProjectId, TenantScope};
 use agentforge_db::entities::{Group, GroupMember};
 use uuid::Uuid;
 
-use crate::domain::resource::{GroupMemberRole, ResourceListPage, ResourceName};
-use crate::repositories::identity::group::GroupRepository;
+use crate::domain::resource::{GroupMemberRole, ProjectGroupSummary, ResourceListPage, ResourceName};
+pub(crate) use crate::domain::resource::{
+    resource_data_response, resource_delete_response, resource_group_created_response, resource_project_groups_response,
+};
+use crate::repositories::identity::group::{GroupRepository, ProjectGroupSummaryRow};
+
+impl From<ProjectGroupSummaryRow> for ProjectGroupSummary {
+    fn from(row: ProjectGroupSummaryRow) -> Self {
+        Self::new(row.id, row.name, row.project_id)
+    }
+}
 
 /// Business logic layer for group operations.
 pub struct GroupService {
@@ -23,6 +32,18 @@ impl GroupService {
         self.repo.list(scope, page.limit(), page.offset()).await
     }
 
+    /// List project-scoped canonical groups for the tree-pane legacy contract.
+    pub(crate) async fn list_project_group_summaries(
+        &self,
+        scope: &TenantScope,
+        project_id: ProjectId,
+    ) -> AppResult<Vec<ProjectGroupSummary>> {
+        self.repo
+            .list_project_group_summaries(scope, project_id)
+            .await
+            .map(|rows| rows.into_iter().map(ProjectGroupSummary::from).collect())
+    }
+
     /// Get a single group by ID.
     pub async fn get(&self, scope: &TenantScope, id: GroupId) -> AppResult<Group> {
         self.repo.find_by_id(scope, id).await
@@ -38,6 +59,10 @@ impl GroupService {
     ) -> AppResult<Group> {
         let name = ResourceName::parse(name)?;
         self.repo.create(scope, name.value(), description, project_id).await
+    }
+
+    pub(crate) fn project_group_summary(&self, group: &Group, project_id: Option<Uuid>) -> Option<ProjectGroupSummary> {
+        project_id.map(|project_id| ProjectGroupSummary::new(group.id.as_uuid(), group.name.clone(), project_id))
     }
 
     /// Return the project default group, creating it when the project has none.
