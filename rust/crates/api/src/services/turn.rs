@@ -4,6 +4,7 @@ use chrono::{SecondsFormat, Utc};
 
 use agentforge_core::{AgentId, AppResult, TenantScope};
 
+pub(crate) use crate::domain::turn::turn_page_response;
 pub use crate::domain::turn::{LastEventCursor, TurnPage};
 use crate::domain::turn::{Turn, TurnCursor, TurnListPage, TurnProjectionEvent, build_turns, turn_projection_event};
 use crate::repositories::agent::event::EventRepository;

@@ -4,7 +4,7 @@ use axum::extract::{Path, Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
@@ -12,7 +12,7 @@ use agentforge_core::{AgentId, AppResult};
 
 use crate::health::AppState;
 use crate::repositories::agent::event::EventRepository;
-use crate::services::turn::{TurnService, default_turn_limit};
+use crate::services::turn::{TurnService, default_turn_limit, turn_page_response};
 
 #[derive(Debug, Deserialize)]
 pub struct TurnPageQuery {
@@ -30,14 +30,7 @@ async fn list_agent_turns(
     let service = TurnService::new(EventRepository::new(state.pool.clone()));
     let page = service.list_page(&auth.scope, AgentId::from(id), query.cursor.as_deref(), query.limit).await?;
 
-    Ok(Json(json!({
-        "ok": true,
-        "turns": page.turns,
-        "cursor": page.cursor,
-        "hasMore": page.has_more,
-        "totalTurnCount": page.total_turn_count,
-        "lastEvent": page.last_event,
-    })))
+    Ok(Json(turn_page_response(&page)))
 }
 
 pub fn turn_routes() -> Router<AppState> {

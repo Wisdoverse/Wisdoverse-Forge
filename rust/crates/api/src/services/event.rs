@@ -6,7 +6,12 @@ use agentforge_core::{AgentId, AppResult, TenantScope};
 use agentforge_db::entities::Event;
 use serde_json::Value;
 
+#[cfg(test)]
+pub(crate) use crate::domain::observability::event_to_claude_event_json;
 use crate::domain::observability::{EventListPage, EventReplayPage, EventType};
+pub(crate) use crate::domain::observability::{
+    event_ingest_response, event_list_response, event_replay_cursor_response,
+};
 use crate::repositories::agent::event::EventRepository;
 
 /// Business logic layer for event operations.

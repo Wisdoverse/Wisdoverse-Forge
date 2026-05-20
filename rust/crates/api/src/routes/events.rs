@@ -8,53 +8,17 @@ use axum::extract::{Path, Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
 use serde::Deserialize;
-use serde_json::{Value, json};
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
 use agentforge_core::{AgentId, AppResult};
-use agentforge_db::entities::Event;
 
 use crate::domain::observability::EventReplayCursor;
 use crate::health::AppState;
 use crate::repositories::agent::event::EventRepository;
-use crate::services::event::EventService;
-
-/// Shape an `Event` DB entity into the JSON object `shared/types/events.ts`
-/// (ClaudeEvent union) expects: flat keys with `type` + ms `timestamp` +
-/// camelCase `sessionId`, with the `payload` object spread at the root so
-/// variant-specific fields (`tool`, `toolInput`, `prompt`, `response`, ...)
-/// sit beside the base fields.
-///
-/// Mirrors `admin_event_row_to_json` (`routes::admin`). Pinned by test below.
-/// The DB `Event` entity's default Serialize is UNUSABLE by the frontend —
-/// every caller of the list/replay handlers MUST go through this mapper.
-fn event_to_claude_event_json(event: &Event) -> Value {
-    // Spread payload at the root: turns `{ tool: "Read" }` into a sibling of
-    // `type`/`id` so `PreToolUseEvent.tool` deserializes as-is. If the payload
-    // is not an object (legacy rows wrote bare strings), fall back to a
-    // singleton `payload` key so the frontend at least sees something.
-    let mut out = match &event.payload {
-        Value::Object(map) => map.clone(),
-        other => {
-            let mut m = serde_json::Map::new();
-            m.insert("payload".to_owned(), other.clone());
-            m
-        }
-    };
-
-    // Base fields overwrite any conflicting payload keys. If the sidecar ever
-    // persists a payload key named "type"/"id"/"timestamp" those would clobber
-    // the authoritative DB columns — deny that by inserting AFTER the spread.
-    out.insert("id".to_owned(), json!(event.id.as_uuid()));
-    out.insert("type".to_owned(), json!(event.event_type));
-    out.insert("timestamp".to_owned(), json!(event.created_at.timestamp_millis()));
-    out.insert("sessionId".to_owned(), json!(event.session_id));
-    out.insert("orgId".to_owned(), json!(event.organization_id.as_uuid()));
-    out.insert("agentId".to_owned(), json!(event.agent_id.as_uuid()));
-
-    Value::Object(out)
-}
+#[cfg(test)]
+use crate::services::event::event_to_claude_event_json;
+use crate::services::event::{EventService, event_ingest_response, event_list_response, event_replay_cursor_response};
 
 /// Query parameters for list endpoints.
 #[derive(Deserialize)]
@@ -128,7 +92,7 @@ async fn ingest_event(
     let event = service
         .ingest(&auth.scope, AgentId::from(req.agent_id), &req.event_type, req.payload, req.session_id.as_deref())
         .await?;
-    Ok(Json(json!({ "ok": true, "data": event })))
+    Ok(Json(event_ingest_response(event)))
 }
 
 /// `GET /api/events` — list events for org (paginated).
@@ -139,8 +103,7 @@ async fn list_org_events(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let events = service.list_by_org(&auth.scope, query.limit, query.offset).await?;
-    let shaped: Vec<Value> = events.iter().map(event_to_claude_event_json).collect();
-    Ok(Json(json!({ "ok": true, "events": shaped })))
+    Ok(Json(event_list_response(&events)))
 }
 
 /// `GET /api/agents/{id}/events` — list events for an agent (paginated).
@@ -152,8 +115,7 @@ async fn list_agent_events(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let events = service.list_by_agent(&auth.scope, AgentId::from(id), query.limit, query.offset).await?;
-    let shaped: Vec<Value> = events.iter().map(event_to_claude_event_json).collect();
-    Ok(Json(json!({ "ok": true, "events": shaped })))
+    Ok(Json(event_list_response(&events)))
 }
 
 /// `GET /api/events/replay` — replay events for an agent from a timestamp.
@@ -167,8 +129,7 @@ async fn replay_events(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let events = service.replay(&auth.scope, AgentId::from(query.agent_id), query.since, query.limit).await?;
-    let shaped: Vec<Value> = events.iter().map(event_to_claude_event_json).collect();
-    Ok(Json(json!({ "ok": true, "events": shaped })))
+    Ok(Json(event_list_response(&events)))
 }
 
 /// `GET /api/agents/{id}/events/replay` — cursor-based replay for a single agent.
@@ -193,8 +154,7 @@ async fn replay_agent_events(
     let (events, has_more) = service
         .replay_cursor(&auth.scope, AgentId::from(id), cursor.after_ts(), cursor.after_id(), query.limit)
         .await?;
-    let shaped: Vec<Value> = events.iter().map(event_to_claude_event_json).collect();
-    Ok(Json(json!({ "ok": true, "events": shaped, "hasMore": has_more })))
+    Ok(Json(event_replay_cursor_response(&events, has_more)))
 }
 
 /// Build event routes sub-router.
@@ -210,6 +170,8 @@ pub fn event_routes() -> Router<AppState> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use agentforge_db::entities::Event;
+    use serde_json::json;
 
     #[test]
     fn list_query_defaults() {

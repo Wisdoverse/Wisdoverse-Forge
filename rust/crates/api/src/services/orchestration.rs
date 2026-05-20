@@ -24,7 +24,15 @@ use crate::domain::orchestration::{
     TaskCreationPolicy, TaskLifecyclePolicy, TaskListPage, TaskPatchAction, TaskPatchPolicy, TaskPriority,
     TaskRunCapabilityProfile, TaskStatusPolicy, TaskTitle, task_assignment_snapshot,
 };
-pub use crate::domain::orchestration::{TaskContextCounts, TaskStatsResponse, TaskSummary, task_summary};
+pub(crate) use crate::domain::orchestration::{
+    CreateTaskParamsInput, create_task_request_parts, orchestration_delete_response,
+    orchestration_participant_response, orchestration_participants_response, orchestration_stats_response,
+    orchestration_task_context_response, orchestration_task_response, orchestration_tasks_response,
+    task_update_broadcast_payload,
+};
+pub use crate::domain::orchestration::{
+    ParticipantSummary, TaskContextCounts, TaskStatsResponse, TaskSummary, task_summary,
+};
 use crate::repositories::orchestration::run_context_injection::{
     ContextInjectionCounts, RunContextInjectionRepository,
 };
@@ -52,6 +60,19 @@ impl From<OrchestrationTaskStats> for TaskStatsResponse {
         by_state.insert("failed".into(), s.failed);
         by_state.insert("canceled".into(), s.canceled);
         Self { by_state }
+    }
+}
+
+impl From<Participant> for ParticipantSummary {
+    fn from(p: Participant) -> Self {
+        Self {
+            id: p.id,
+            agent_id: p.agent_id.as_uuid(),
+            name: p.name,
+            status: p.status,
+            capabilities: p.capabilities,
+            last_heartbeat_at: p.last_heartbeat_at.map(|t| t.to_rfc3339()),
+        }
     }
 }
 

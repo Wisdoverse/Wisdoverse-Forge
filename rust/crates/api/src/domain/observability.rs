@@ -4,7 +4,9 @@
 //! audit logs, and runtime event streams.
 
 use agentforge_core::{AppResult, ErrorKind};
+use agentforge_db::entities::Event;
 use chrono::{DateTime, Utc};
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 /// Analytics event name policy.
@@ -231,9 +233,62 @@ fn parse_after_id(raw: &str) -> Uuid {
     Uuid::parse_str(raw).unwrap_or_else(|_| Uuid::nil())
 }
 
+/// Shape an `Event` DB entity into the JSON object `shared/types/events.ts`
+/// (ClaudeEvent union) expects: flat keys with `type` + ms `timestamp` +
+/// camelCase `sessionId`, with object payload fields spread at the root.
+pub(crate) fn event_to_claude_event_json(event: &Event) -> Value {
+    let mut out = match &event.payload {
+        Value::Object(map) => map.clone(),
+        other => {
+            let mut map = serde_json::Map::new();
+            map.insert("payload".to_owned(), other.clone());
+            map
+        }
+    };
+
+    out.insert("id".to_owned(), json!(event.id.as_uuid()));
+    out.insert("type".to_owned(), json!(event.event_type));
+    out.insert("timestamp".to_owned(), json!(event.created_at.timestamp_millis()));
+    out.insert("sessionId".to_owned(), json!(event.session_id));
+    out.insert("orgId".to_owned(), json!(event.organization_id.as_uuid()));
+    out.insert("agentId".to_owned(), json!(event.agent_id.as_uuid()));
+
+    Value::Object(out)
+}
+
+pub(crate) fn event_ingest_response(event: Event) -> Value {
+    json!({ "ok": true, "data": event })
+}
+
+pub(crate) fn event_list_response(events: &[Event]) -> Value {
+    let shaped: Vec<Value> = events.iter().map(event_to_claude_event_json).collect();
+    json!({ "ok": true, "events": shaped })
+}
+
+pub(crate) fn event_replay_cursor_response(events: &[Event], has_more: bool) -> Value {
+    let shaped: Vec<Value> = events.iter().map(event_to_claude_event_json).collect();
+    json!({ "ok": true, "events": shaped, "hasMore": has_more })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn fixture_event(payload: Value) -> Event {
+        use agentforge_core::{AgentId, EventId, OrgId};
+        use chrono::TimeZone;
+
+        Event {
+            id: EventId::from(Uuid::parse_str("11111111-1111-1111-1111-111111111111").unwrap()),
+            organization_id: OrgId::from(Uuid::parse_str("22222222-2222-2222-2222-222222222222").unwrap()),
+            agent_id: AgentId::from(Uuid::parse_str("33333333-3333-3333-3333-333333333333").unwrap()),
+            run_id: None,
+            event_type: "pre_tool_use".to_owned(),
+            payload,
+            session_id: Some("cli-sess-123".to_owned()),
+            created_at: chrono::Utc.with_ymd_and_hms(2026, 4, 20, 12, 0, 0).unwrap(),
+        }
+    }
 
     #[test]
     fn analytics_event_name_trims_and_checks_bounds() {
@@ -350,5 +405,94 @@ mod tests {
         let cursor = EventReplayCursor::from_query(None, Some("not-a-uuid"));
 
         assert_eq!(cursor.after_id(), Uuid::nil());
+    }
+
+    #[test]
+    fn event_to_json_renames_columns_to_claude_event_keys() {
+        let event = fixture_event(json!({}));
+        let out = event_to_claude_event_json(&event);
+
+        assert_eq!(out["type"], "pre_tool_use");
+        assert_eq!(out["sessionId"], "cli-sess-123");
+        assert_eq!(out["id"], "11111111-1111-1111-1111-111111111111");
+        assert_eq!(out["orgId"], "22222222-2222-2222-2222-222222222222");
+        assert_eq!(out["agentId"], "33333333-3333-3333-3333-333333333333");
+        assert!(out["event_type"].is_null());
+        assert!(out["created_at"].is_null());
+        assert!(out["organization_id"].is_null());
+    }
+
+    #[test]
+    fn event_to_json_timestamp_is_unix_millis_not_iso_string() {
+        let event = fixture_event(json!({}));
+        let out = event_to_claude_event_json(&event);
+
+        assert!(out["timestamp"].is_i64());
+        assert_eq!(out["timestamp"].as_i64().unwrap(), event.created_at.timestamp_millis());
+    }
+
+    #[test]
+    fn event_to_json_spreads_payload_at_root() {
+        let event = fixture_event(json!({
+            "tool": "Read",
+            "toolInput": {"path": "/tmp/x"},
+            "toolUseId": "tu_123",
+        }));
+        let out = event_to_claude_event_json(&event);
+
+        assert_eq!(out["tool"], "Read");
+        assert_eq!(out["toolInput"]["path"], "/tmp/x");
+        assert_eq!(out["toolUseId"], "tu_123");
+        assert!(out["payload"].is_null());
+    }
+
+    #[test]
+    fn event_to_json_base_columns_override_payload_keys() {
+        let event = fixture_event(json!({
+            "type": "session_end",
+            "id": "forged-id",
+            "timestamp": 0,
+            "sessionId": "forged-session",
+        }));
+        let out = event_to_claude_event_json(&event);
+
+        assert_eq!(out["type"], "pre_tool_use");
+        assert_eq!(out["id"], "11111111-1111-1111-1111-111111111111");
+        assert_eq!(out["sessionId"], "cli-sess-123");
+        assert_eq!(out["timestamp"].as_i64().unwrap(), event.created_at.timestamp_millis());
+    }
+
+    #[test]
+    fn event_to_json_handles_non_object_payload() {
+        let event = fixture_event(json!("raw text"));
+        let out = event_to_claude_event_json(&event);
+
+        assert_eq!(out["payload"], "raw text");
+        assert_eq!(out["type"], "pre_tool_use");
+    }
+
+    #[test]
+    fn event_to_json_session_id_is_null_when_missing() {
+        let mut event = fixture_event(json!({}));
+        event.session_id = None;
+        let out = event_to_claude_event_json(&event);
+
+        assert!(out.as_object().unwrap().contains_key("sessionId"));
+        assert!(out["sessionId"].is_null());
+    }
+
+    #[test]
+    fn event_responses_own_legacy_envelopes() {
+        let event = fixture_event(json!({ "tool": "Read" }));
+        let ingest = event_ingest_response(event.clone());
+        let list = event_list_response(std::slice::from_ref(&event));
+        let replay = event_replay_cursor_response(std::slice::from_ref(&event), false);
+
+        assert_eq!(ingest["ok"], true);
+        assert!(ingest["data"]["event_type"].is_string());
+        assert_eq!(list["ok"], true);
+        assert!(list["events"].is_array());
+        assert!(list["data"].is_null());
+        assert_eq!(replay["hasMore"], false);
     }
 }

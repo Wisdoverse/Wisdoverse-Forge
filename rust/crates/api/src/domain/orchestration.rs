@@ -12,7 +12,7 @@ use agentforge_core::{AgentId, AppResult, ErrorKind};
 use agentforge_db::entities::OrchestrationTask;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use serde_json::json;
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 use crate::domain::context_resolver::ResolvedContext;
@@ -239,6 +239,97 @@ pub struct TaskParams {
 pub struct TaskStatsResponse {
     #[serde(rename = "byState")]
     pub by_state: HashMap<String, i64>,
+}
+
+/// Participant JSON shape returned to the UI orchestration surfaces.
+#[derive(Debug, Clone, Serialize)]
+pub struct ParticipantSummary {
+    pub id: Uuid,
+    #[serde(rename = "agentId")]
+    pub agent_id: Uuid,
+    pub name: String,
+    pub status: String,
+    pub capabilities: Vec<String>,
+    #[serde(rename = "lastHeartbeatAt", skip_serializing_if = "Option::is_none")]
+    pub last_heartbeat_at: Option<String>,
+}
+
+/// Structured task params accepted by legacy A2A clients.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct CreateTaskParamsInput<'a> {
+    pub(crate) task: Option<&'a str>,
+    pub(crate) message: Option<&'a str>,
+    pub(crate) required_inputs: &'a [String],
+    pub(crate) inputs: Option<&'a Value>,
+    pub(crate) env: Option<&'a Value>,
+    pub(crate) api_keys: Option<&'a Value>,
+}
+
+pub(crate) fn create_task_request_parts(
+    title: Option<&str>,
+    description: Option<&str>,
+    params: Option<CreateTaskParamsInput<'_>>,
+) -> (String, Option<String>, Option<Value>) {
+    let title = title.map(str::to_owned).or_else(|| params.and_then(|p| p.task.map(str::to_owned))).unwrap_or_default();
+    let description = description.map(str::to_owned).or_else(|| params.and_then(|p| p.message.map(str::to_owned)));
+    let params_value = params.map(|p| {
+        let mut out = serde_json::Map::new();
+        out.insert("task".into(), Value::String(p.task.unwrap_or_default().to_owned()));
+        out.insert("message".into(), Value::String(p.message.unwrap_or_default().to_owned()));
+        if !p.required_inputs.is_empty() {
+            out.insert("requiredInputs".into(), json!(p.required_inputs));
+        }
+        if let Some(inputs) = p.inputs {
+            out.insert("inputs".into(), inputs.clone());
+        }
+        if let Some(env) = p.env {
+            out.insert("env".into(), env.clone());
+        }
+        if let Some(api_keys) = p.api_keys {
+            out.insert("apiKeys".into(), api_keys.clone());
+        }
+        Value::Object(out)
+    });
+    (title, description, params_value)
+}
+
+pub(crate) fn orchestration_task_response(task: &TaskSummary) -> Value {
+    json!({ "ok": true, "task": task })
+}
+
+pub(crate) fn orchestration_tasks_response(tasks: &[TaskSummary]) -> Value {
+    json!({ "ok": true, "tasks": tasks })
+}
+
+pub(crate) fn orchestration_stats_response(stats: &TaskStatsResponse) -> Value {
+    json!({ "ok": true, "stats": stats })
+}
+
+pub(crate) fn orchestration_task_context_response<T: Serialize>(context: &T) -> Value {
+    json!({ "ok": true, "data": context })
+}
+
+pub(crate) fn orchestration_participant_response(participant: &ParticipantSummary) -> Value {
+    json!({ "ok": true, "participant": participant })
+}
+
+pub(crate) fn orchestration_participants_response(participants: &[ParticipantSummary]) -> Value {
+    json!({ "ok": true, "participants": participants })
+}
+
+pub(crate) fn orchestration_delete_response() -> Value {
+    json!({ "ok": true })
+}
+
+pub(crate) fn task_update_broadcast_payload(action: &str, task: &TaskSummary) -> Value {
+    json!({
+        "type": "orchestration:task_update",
+        "payload": {
+            "action": action,
+            "eventId": Uuid::now_v7(),
+            "task": task,
+        }
+    })
 }
 
 pub fn task_summary(task: OrchestrationTask, agent_name: Option<String>) -> TaskSummary {
@@ -872,12 +963,119 @@ mod tests {
         }
     }
 
+    fn sample_task_summary() -> TaskSummary {
+        TaskSummary {
+            id: Uuid::from_u128(1),
+            group_id: None,
+            state: "queued".to_owned(),
+            method: "tasks/send".to_owned(),
+            params: TaskParams { task: "Build feature".to_owned(), message: "with context".to_owned() },
+            priority: "normal".to_owned(),
+            progress: 0,
+            created_by: Uuid::from_u128(2),
+            assigned_to: None,
+            assigned_agent_name: None,
+            error: None,
+            result: None,
+            blocked_reason: None,
+            blocked_hint: None,
+            blocked_metadata: None,
+            created_at: "2026-04-20T12:00:00Z".to_owned(),
+            updated_at: "2026-04-20T12:00:00Z".to_owned(),
+            completed_at: None,
+            context_counts: TaskContextCounts::default(),
+        }
+    }
+
     #[test]
     fn list_page_clamps_limit_and_offset() {
         assert_eq!(TaskListPage::new(0, -1).limit(), 1);
         assert_eq!(TaskListPage::new(101, 50).limit(), 100);
         assert_eq!(TaskListPage::new(20, -1).offset(), 0);
         assert_eq!(TaskListPage::new(20, 50).offset(), 50);
+    }
+
+    #[test]
+    fn create_task_request_parts_prefers_top_level_fields() {
+        let params = CreateTaskParamsInput {
+            task: Some("Legacy task"),
+            message: Some("Legacy message"),
+            required_inputs: &[],
+            inputs: None,
+            env: None,
+            api_keys: None,
+        };
+
+        let (title, description, params_value) =
+            create_task_request_parts(Some("Top title"), Some("Top description"), Some(params));
+
+        assert_eq!(title, "Top title");
+        assert_eq!(description.as_deref(), Some("Top description"));
+        assert_eq!(params_value.unwrap()["task"], "Legacy task");
+    }
+
+    #[test]
+    fn create_task_request_parts_preserves_legacy_a2a_params() {
+        let required_inputs = vec!["ANTHROPIC_API_KEY".to_owned()];
+        let inputs = json!({ "ticket": "WIS-1" });
+        let env = json!({ "REGION": "eu" });
+        let api_keys = json!({ "anthropic": "ref" });
+        let params = CreateTaskParamsInput {
+            task: Some("Deploy"),
+            message: Some("prod"),
+            required_inputs: &required_inputs,
+            inputs: Some(&inputs),
+            env: Some(&env),
+            api_keys: Some(&api_keys),
+        };
+
+        let (title, description, params_value) = create_task_request_parts(None, None, Some(params));
+        let params_value = params_value.expect("params");
+
+        assert_eq!(title, "Deploy");
+        assert_eq!(description.as_deref(), Some("prod"));
+        assert_eq!(params_value["requiredInputs"][0], "ANTHROPIC_API_KEY");
+        assert_eq!(params_value["inputs"]["ticket"], "WIS-1");
+        assert_eq!(params_value["env"]["REGION"], "eu");
+        assert_eq!(params_value["apiKeys"]["anthropic"], "ref");
+    }
+
+    #[test]
+    fn orchestration_response_helpers_preserve_legacy_envelopes() {
+        let task = sample_task_summary();
+        let tasks = vec![task.clone()];
+        let stats = TaskStatsResponse { by_state: std::collections::HashMap::from([("queued".to_owned(), 1)]) };
+        let participant = ParticipantSummary {
+            id: Uuid::from_u128(3),
+            agent_id: Uuid::from_u128(4),
+            name: "worker-1".to_owned(),
+            status: "available".to_owned(),
+            capabilities: vec!["rust".to_owned()],
+            last_heartbeat_at: Some("2026-04-20T12:00:00Z".to_owned()),
+        };
+        let participants = vec![participant.clone()];
+
+        assert_eq!(orchestration_task_response(&task)["task"]["id"], task.id.to_string());
+        assert_eq!(orchestration_tasks_response(&tasks)["tasks"][0]["id"], task.id.to_string());
+        assert_eq!(orchestration_stats_response(&stats)["stats"]["byState"]["queued"], 1);
+        assert_eq!(orchestration_task_context_response(&json!({ "items": [] }))["data"]["items"], json!([]));
+        assert_eq!(
+            orchestration_participant_response(&participant)["participant"]["agentId"],
+            participant.agent_id.to_string()
+        );
+        assert_eq!(orchestration_participants_response(&participants)["participants"][0]["name"], "worker-1");
+        assert_eq!(orchestration_delete_response()["ok"], true);
+    }
+
+    #[test]
+    fn task_update_broadcast_payload_is_owned_by_domain() {
+        let task = sample_task_summary();
+        let body = task_update_broadcast_payload("task.created", &task);
+
+        assert_eq!(body["type"], "orchestration:task_update");
+        assert_eq!(body["payload"]["action"], "task.created");
+        assert_eq!(body["payload"]["task"]["id"], task.id.to_string());
+        assert!(body["payload"]["eventId"].as_str().is_some());
     }
 
     #[test]

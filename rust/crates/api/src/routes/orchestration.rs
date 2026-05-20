@@ -26,7 +26,7 @@
 use axum::extract::{Path, Query, State};
 use axum::routing::{delete, get, post};
 use axum::{Json, Router};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
@@ -39,7 +39,12 @@ use crate::repositories::orchestration::task_context::TaskContextRepository;
 use crate::repositories::orchestration::{OrchestrationTaskRepository, ParticipantRepository};
 use crate::services::admin::AdminService;
 use crate::services::context_preview::{ContextPreviewService, PublishWithContextInput};
-use crate::services::orchestration::{OrchestrationService, TaskSummary};
+use crate::services::orchestration::{
+    CreateTaskParamsInput, OrchestrationService, ParticipantSummary, TaskSummary, create_task_request_parts,
+    orchestration_delete_response, orchestration_participant_response, orchestration_participants_response,
+    orchestration_stats_response, orchestration_task_context_response, orchestration_task_response,
+    orchestration_tasks_response, task_update_broadcast_payload,
+};
 use crate::services::task_context::TaskContextService;
 
 // ---------------------------------------------------------------------------
@@ -146,35 +151,6 @@ pub struct RegisterParticipantRequest {
 }
 
 // ---------------------------------------------------------------------------
-// Response shapes — match the frontend interfaces.
-// ---------------------------------------------------------------------------
-
-#[derive(Serialize)]
-struct ParticipantSummary {
-    id: Uuid,
-    #[serde(rename = "agentId")]
-    agent_id: Uuid,
-    name: String,
-    status: String,
-    capabilities: Vec<String>,
-    #[serde(rename = "lastHeartbeatAt", skip_serializing_if = "Option::is_none")]
-    last_heartbeat_at: Option<String>,
-}
-
-impl From<agentforge_db::entities::Participant> for ParticipantSummary {
-    fn from(p: agentforge_db::entities::Participant) -> Self {
-        Self {
-            id: p.id,
-            agent_id: p.agent_id.as_uuid(),
-            name: p.name,
-            status: p.status,
-            capabilities: p.capabilities,
-            last_heartbeat_at: p.last_heartbeat_at.map(|t| t.to_rfc3339()),
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -208,28 +184,18 @@ fn make_context_preview_service(state: &AppState) -> ContextPreviewService {
 }
 
 fn extract_params(req: &CreateTaskRequest) -> (String, Option<String>, Option<serde_json::Value>) {
-    // Title can come from the top-level field or, for legacy A2A clients, from `params.task`.
-    let title = req.title.clone().or_else(|| req.params.as_ref().and_then(|p| p.task.clone())).unwrap_or_default();
-    let description = req.description.clone().or_else(|| req.params.as_ref().and_then(|p| p.message.clone()));
-    let params_value = req.params.as_ref().map(|p| {
-        let mut params = serde_json::Map::new();
-        params.insert("task".into(), serde_json::Value::String(p.task.clone().unwrap_or_default()));
-        params.insert("message".into(), serde_json::Value::String(p.message.clone().unwrap_or_default()));
-        if !p.required_inputs.is_empty() {
-            params.insert("requiredInputs".into(), serde_json::json!(p.required_inputs));
-        }
-        if let Some(inputs) = p.inputs.clone() {
-            params.insert("inputs".into(), inputs);
-        }
-        if let Some(env) = p.env.clone() {
-            params.insert("env".into(), env);
-        }
-        if let Some(api_keys) = p.api_keys.clone() {
-            params.insert("apiKeys".into(), api_keys);
-        }
-        serde_json::Value::Object(params)
-    });
-    (title, description, params_value)
+    create_task_request_parts(
+        req.title.as_deref(),
+        req.description.as_deref(),
+        req.params.as_ref().map(|p| CreateTaskParamsInput {
+            task: p.task.as_deref(),
+            message: p.message.as_deref(),
+            required_inputs: &p.required_inputs,
+            inputs: p.inputs.as_ref(),
+            env: p.env.as_ref(),
+            api_keys: p.api_keys.as_ref(),
+        }),
+    )
 }
 
 async fn broadcast_task_update(state: &AppState, auth: &AuthUser, action: &str, task: &TaskSummary) {
@@ -237,14 +203,7 @@ async fn broadcast_task_update(state: &AppState, auth: &AuthUser, action: &str, 
         return;
     }
     let subject = format!("broadcast.{}", auth.scope.org_id().as_uuid());
-    let payload = serde_json::json!({
-        "type": "orchestration:task_update",
-        "payload": {
-            "action": action,
-            "eventId": Uuid::now_v7(),
-            "task": task,
-        }
-    });
+    let payload = task_update_broadcast_payload(action, task);
     if let Err(err) = state.nats.publish_json(&subject, payload).await {
         tracing::warn!(error = ?err, %subject, task_id = %task.id, %action, "Failed to broadcast orchestration task update");
     }
@@ -276,7 +235,7 @@ async fn create_task(
         .await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
     broadcast_task_update(&state, &auth, "task.created", &summary).await;
-    Ok(Json(serde_json::json!({ "ok": true, "task": summary })))
+    Ok(Json(orchestration_task_response(&summary)))
 }
 
 async fn list_tasks(
@@ -289,7 +248,7 @@ async fn list_tasks(
         .list_tasks(&auth.scope, query.status.as_deref(), query.agent_id.map(AgentId::from), query.limit, query.offset)
         .await?;
     let summaries: Vec<TaskSummary> = service.summarize_tasks(&auth.scope, tasks).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "tasks": summaries })))
+    Ok(Json(orchestration_tasks_response(&summaries)))
 }
 
 async fn list_group_tasks(
@@ -301,7 +260,7 @@ async fn list_group_tasks(
     let service = make_service(&state);
     let tasks = service.list_tasks_by_group(&auth.scope, group_id, query.state.as_deref()).await?;
     let summaries: Vec<TaskSummary> = service.summarize_tasks(&auth.scope, tasks).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "tasks": summaries })))
+    Ok(Json(orchestration_tasks_response(&summaries)))
 }
 
 async fn group_task_stats(
@@ -311,7 +270,7 @@ async fn group_task_stats(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let stats = service.task_stats_by_group(&auth.scope, group_id).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "stats": stats })))
+    Ok(Json(orchestration_stats_response(&stats)))
 }
 
 async fn get_task(
@@ -322,7 +281,7 @@ async fn get_task(
     let service = make_service(&state);
     let task = service.get_task(&auth.scope, id).await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "task": summary })))
+    Ok(Json(orchestration_task_response(&summary)))
 }
 
 async fn get_task_context(
@@ -331,7 +290,7 @@ async fn get_task_context(
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
     let context = make_task_context_service(&state).for_task(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": context })))
+    Ok(Json(orchestration_task_context_response(&context)))
 }
 
 async fn patch_task(
@@ -345,7 +304,7 @@ async fn patch_task(
     let task = service.update_task(&auth.scope, id, req.state, req.priority, req.progress, assigned_to).await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
     broadcast_task_update(&state, &auth, "task.updated", &summary).await;
-    Ok(Json(serde_json::json!({ "ok": true, "task": summary })))
+    Ok(Json(orchestration_task_response(&summary)))
 }
 
 async fn dispatch_task(
@@ -357,7 +316,7 @@ async fn dispatch_task(
     let task = service.dispatch_task(&auth.scope, id).await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
     broadcast_task_update(&state, &auth, "task.dispatched", &summary).await;
-    Ok(Json(serde_json::json!({ "ok": true, "task": summary })))
+    Ok(Json(orchestration_task_response(&summary)))
 }
 
 async fn publish_task_with_context(
@@ -384,7 +343,7 @@ async fn publish_task_with_context(
         .await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
     broadcast_task_update(&state, &auth, "task.published", &summary).await;
-    Ok(Json(serde_json::json!({ "ok": true, "task": summary })))
+    Ok(Json(orchestration_task_response(&summary)))
 }
 
 async fn complete_task(
@@ -397,7 +356,7 @@ async fn complete_task(
     let task = service.complete_task(&auth.scope, id, req.result).await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
     broadcast_task_update(&state, &auth, "task.completed", &summary).await;
-    Ok(Json(serde_json::json!({ "ok": true, "task": summary })))
+    Ok(Json(orchestration_task_response(&summary)))
 }
 
 async fn fail_task(
@@ -410,7 +369,7 @@ async fn fail_task(
     let task = service.fail_task(&auth.scope, id, req.error).await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
     broadcast_task_update(&state, &auth, "task.failed", &summary).await;
-    Ok(Json(serde_json::json!({ "ok": true, "task": summary })))
+    Ok(Json(orchestration_task_response(&summary)))
 }
 
 async fn approve_task(
@@ -423,7 +382,7 @@ async fn approve_task(
     let task = service.approve_task(&auth.scope, id).await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
     broadcast_task_update(&state, &auth, "task.approved", &summary).await;
-    Ok(Json(serde_json::json!({ "ok": true, "task": summary })))
+    Ok(Json(orchestration_task_response(&summary)))
 }
 
 async fn cancel_task(
@@ -435,7 +394,7 @@ async fn cancel_task(
     let task = service.cancel_task(&auth.scope, id).await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
     broadcast_task_update(&state, &auth, "task.canceled", &summary).await;
-    Ok(Json(serde_json::json!({ "ok": true, "task": summary })))
+    Ok(Json(orchestration_task_response(&summary)))
 }
 
 async fn retry_task(
@@ -447,7 +406,7 @@ async fn retry_task(
     let task = service.retry_task(&auth.scope, id).await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
     broadcast_task_update(&state, &auth, "task.retried", &summary).await;
-    Ok(Json(serde_json::json!({ "ok": true, "task": summary })))
+    Ok(Json(orchestration_task_response(&summary)))
 }
 
 // ---------------------------------------------------------------------------
@@ -462,7 +421,8 @@ async fn register_participant(
     let service = make_service(&state);
     let participant =
         service.register_participant(&auth.scope, AgentId::from(req.agent_id), &req.name, &req.capabilities).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "participant": ParticipantSummary::from(participant) })))
+    let summary = ParticipantSummary::from(participant);
+    Ok(Json(orchestration_participant_response(&summary)))
 }
 
 async fn list_participants(
@@ -473,7 +433,7 @@ async fn list_participants(
     let service = make_service(&state);
     let participants = service.list_participants(&auth.scope, query.status.as_deref()).await?;
     let summaries: Vec<ParticipantSummary> = participants.into_iter().map(Into::into).collect();
-    Ok(Json(serde_json::json!({ "ok": true, "participants": summaries })))
+    Ok(Json(orchestration_participants_response(&summaries)))
 }
 
 async fn participant_heartbeat(
@@ -483,7 +443,8 @@ async fn participant_heartbeat(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let participant = service.participant_heartbeat(&auth.scope, AgentId::from(agent_id)).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "participant": ParticipantSummary::from(participant) })))
+    let summary = ParticipantSummary::from(participant);
+    Ok(Json(orchestration_participant_response(&summary)))
 }
 
 async fn unregister_participant(
@@ -493,7 +454,7 @@ async fn unregister_participant(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     service.unregister_participant(&auth.scope, AgentId::from(agent_id)).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(orchestration_delete_response()))
 }
 
 // ---------------------------------------------------------------------------
