@@ -14,6 +14,7 @@ use crate::domain::skill::{
     SkillRevokedAudit, SkillScopeKind, SkillScopeTargetPolicy, SkillSensitivity, SkillState,
     SkillStateTransitionPolicy, SkillTtlPolicy, SkillUpdatedAudit, skill_audit_event,
 };
+pub(crate) use crate::domain::skill::{skill_data_response, skill_delete_response};
 use crate::repositories::resource::permission::ResourcePermissionRepository;
 use crate::repositories::skill::{CreateSkillRecord, SkillRepository, SkillVersionRepository, UpdateSkillRecord};
 use crate::services::context_governance::ContextGovernanceService;
