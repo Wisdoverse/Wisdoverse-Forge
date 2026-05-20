@@ -6,11 +6,202 @@
 use std::collections::BTreeMap;
 
 use agentforge_core::{AppResult, ErrorKind};
+use chrono::{DateTime, Utc};
+use serde::Serialize;
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 /// Valid subscription statuses.
 const VALID_STATUSES: &[&str] =
     &["active", "past_due", "canceled", "trialing", "unpaid", "incomplete", "incomplete_expired", "paused"];
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PlanPriceView {
+    monthly: i64,
+    yearly: i64,
+    currency: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct BillingPlanView {
+    id: Uuid,
+    name: String,
+    description: String,
+    features: BTreeMap<String, bool>,
+    limits: BTreeMap<String, i64>,
+    price: PlanPriceView,
+    popular: bool,
+}
+
+impl BillingPlanView {
+    pub(crate) fn from_plan_parts(
+        id: Uuid,
+        name: String,
+        features: &Value,
+        max_agents: i32,
+        max_events_per_day: i32,
+        max_storage_mb: i32,
+    ) -> Self {
+        let lower_name = name.to_ascii_lowercase();
+        let (monthly, yearly, popular) = match lower_name.as_str() {
+            "free" => (0, 0, false),
+            "pro" => (25, 250, false),
+            "team" => (60, 600, true),
+            "business" => (120, 1200, false),
+            "enterprise" => (-1, -1, false),
+            _ => (0, 0, false),
+        };
+
+        let features = features
+            .as_object()
+            .map(|object| {
+                object.iter().filter_map(|(key, value)| value.as_bool().map(|flag| (key.clone(), flag))).collect()
+            })
+            .unwrap_or_default();
+
+        let limits = BTreeMap::from([
+            ("maxAgents".to_string(), max_agents as i64),
+            ("maxEventsPerDay".to_string(), max_events_per_day as i64),
+            ("maxStorageMB".to_string(), max_storage_mb as i64),
+        ]);
+
+        Self {
+            id,
+            name: name.clone(),
+            description: format!("{name} plan"),
+            features,
+            limits,
+            price: PlanPriceView { monthly, yearly, currency: "usd".to_string() },
+            popular,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SubscriptionView {
+    id: Uuid,
+    plan_id: Uuid,
+    status: String,
+    current_period_start: Option<DateTime<Utc>>,
+    current_period_end: Option<DateTime<Utc>>,
+    cancel_at_period_end: bool,
+    canceled_at: Option<DateTime<Utc>>,
+}
+
+impl SubscriptionView {
+    pub(crate) fn new(
+        id: Uuid,
+        plan_id: Uuid,
+        status: String,
+        current_period_start: Option<DateTime<Utc>>,
+        current_period_end: Option<DateTime<Utc>>,
+        cancel_at_period_end: bool,
+        canceled_at: Option<DateTime<Utc>>,
+    ) -> Self {
+        Self { id, plan_id, status, current_period_start, current_period_end, cancel_at_period_end, canceled_at }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BillingSubscriptionProjection {
+    pub(crate) subscription: Option<SubscriptionView>,
+    pub(crate) plan: Option<BillingPlanView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct InvoiceView {
+    id: Uuid,
+    status: String,
+    amount_due: i32,
+    amount_paid: i32,
+    total: i32,
+    currency: String,
+    paid_at: Option<DateTime<Utc>>,
+    created_at: DateTime<Utc>,
+}
+
+impl InvoiceView {
+    pub(crate) fn new(
+        id: Uuid,
+        status: String,
+        amount_cents: i32,
+        currency: String,
+        paid_at: Option<DateTime<Utc>>,
+        created_at: DateTime<Utc>,
+    ) -> Self {
+        let amount_paid = if status == "paid" { amount_cents } else { 0 };
+        Self {
+            id,
+            status,
+            amount_due: amount_cents.saturating_sub(amount_paid),
+            amount_paid,
+            total: amount_cents,
+            currency,
+            paid_at,
+            created_at,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UsageMetricView {
+    metric: String,
+    current: i64,
+    limit: i64,
+    percent_used: i64,
+}
+
+impl UsageMetricView {
+    pub(crate) fn new(metric: impl Into<String>, current: i64, limit: i64, percent_used: i64) -> Self {
+        Self { metric: metric.into(), current, limit, percent_used }
+    }
+}
+
+pub(crate) fn billing_data_response<T: Serialize>(data: T) -> Value {
+    json!({ "ok": true, "data": data })
+}
+
+pub(crate) fn billing_plans_response(plans: Vec<BillingPlanView>) -> Value {
+    json!({ "ok": true, "data": &plans, "plans": plans })
+}
+
+pub(crate) fn billing_subscription_response(projection: BillingSubscriptionProjection) -> Value {
+    json!({
+        "ok": true,
+        "data": &projection.subscription,
+        "subscription": projection.subscription,
+        "plan": projection.plan,
+    })
+}
+
+pub(crate) fn billing_checkout_response(session_id: String, url: String) -> Value {
+    json!({ "ok": true, "data": &url, "agentId": session_id, "url": url })
+}
+
+pub(crate) fn billing_portal_response(url: String) -> Value {
+    json!({ "ok": true, "data": &url, "url": url })
+}
+
+pub(crate) fn billing_subscription_data_response<T: Serialize>(subscription: T) -> Value {
+    json!({ "ok": true, "data": &subscription, "subscription": subscription })
+}
+
+pub(crate) fn billing_usage_response(usage: Vec<UsageMetricView>) -> Value {
+    json!({ "ok": true, "data": &usage, "usage": usage })
+}
+
+pub(crate) fn billing_invoices_response(invoices: Vec<InvoiceView>) -> Value {
+    json!({ "ok": true, "data": &invoices, "invoices": invoices })
+}
+
+pub(crate) fn billing_webhook_received_response() -> Value {
+    json!({ "ok": true, "received": true })
+}
 
 /// Billing cycle policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

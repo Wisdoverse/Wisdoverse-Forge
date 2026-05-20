@@ -16,7 +16,7 @@ use agentforge_core::AppResult;
 
 use crate::health::AppState;
 use crate::repositories::license::LicenseRepository;
-use crate::services::license::LicenseService;
+use crate::services::license::{LicenseService, license_data_response};
 
 /// Request body for validating/activating a license.
 #[derive(Deserialize)]
@@ -33,7 +33,7 @@ fn make_service(state: &AppState) -> LicenseService {
 async fn list_licenses(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let licenses = service.list(&auth.scope).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": licenses })))
+    Ok(Json(license_data_response(licenses)))
 }
 
 /// `POST /licenses/validate` — validate a license key.
@@ -44,7 +44,7 @@ async fn validate_license(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let result = service.validate(&req.license_key).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": result })))
+    Ok(Json(license_data_response(result)))
 }
 
 /// `POST /licenses/activate` — activate a license.
@@ -56,7 +56,7 @@ async fn activate_license(
     let service = make_service(&state);
     let license = service.activate(&auth.scope, &req.license_key).await?;
     tracing::info!(org_id = %auth.scope.org_id(), license = %license.license_key, "License activated");
-    Ok(Json(serde_json::json!({ "ok": true, "data": license })))
+    Ok(Json(license_data_response(license)))
 }
 
 /// `GET /licenses/{id}` — get license details.
@@ -67,7 +67,7 @@ async fn get_license(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let license = service.get(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": license })))
+    Ok(Json(license_data_response(license)))
 }
 
 /// Build license routes sub-router.
