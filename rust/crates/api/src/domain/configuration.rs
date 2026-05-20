@@ -5,6 +5,8 @@
 //! dashboard tiles, and plugin catalog entries.
 
 use agentforge_core::{AppResult, CliToolKind, ErrorKind};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use uuid::Uuid;
 
 const VALID_QUOTA_RESOURCE_TYPES: &[&str] = &["agents", "storage", "events"];
@@ -18,6 +20,144 @@ const DEFAULT_RUNTIME_BACKEND: &str = "container";
 const DEFAULT_GATEWAY_ROUTING_STRATEGY: &str = "specified";
 const DEFAULT_CIRCUIT_BREAKER_THRESHOLD: u32 = 5;
 const DEFAULT_CIRCUIT_BREAKER_RESET_MS: u32 = 30_000;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RuntimeSettings {
+    pub(crate) default_runtime: String,
+    pub(crate) available_runtimes: Vec<String>,
+    pub(crate) default_cli_tool: String,
+    pub(crate) available_cli_tools: Vec<String>,
+}
+
+impl RuntimeSettings {
+    pub(crate) fn from_stored(value: Option<&Value>) -> Self {
+        let mut settings = Self::default();
+        if let Some(value) = value {
+            if let Some(default_runtime) = value.get("defaultRuntime").and_then(Value::as_str)
+                && let Some(default_runtime) = RuntimeSettingsPolicy::runtime_from_stored(default_runtime)
+            {
+                settings.default_runtime = default_runtime.to_string();
+            }
+            if let Some(default_cli_tool) = value.get("defaultCliTool").and_then(Value::as_str)
+                && let Some(default_cli_tool) = RuntimeSettingsPolicy::cli_tool_from_stored(default_cli_tool)
+            {
+                settings.default_cli_tool = default_cli_tool.to_string();
+            }
+        }
+        settings
+    }
+
+    pub(crate) fn apply_update(
+        &mut self,
+        default_runtime: Option<&str>,
+        default_cli_tool: Option<&str>,
+    ) -> AppResult<()> {
+        if let Some(default_runtime) = default_runtime {
+            self.default_runtime = RuntimeSettingsPolicy::canonical_runtime(default_runtime)?.to_string();
+        }
+        if let Some(default_cli_tool) = default_cli_tool {
+            self.default_cli_tool = RuntimeSettingsPolicy::canonical_cli_tool(default_cli_tool)?.to_string();
+        }
+        Ok(())
+    }
+}
+
+impl Default for RuntimeSettings {
+    fn default() -> Self {
+        Self {
+            default_runtime: RuntimeSettingsPolicy::default_runtime().to_string(),
+            available_runtimes: RuntimeSettingsPolicy::available_runtimes(),
+            default_cli_tool: RuntimeSettingsPolicy::default_cli_tool().to_string(),
+            available_cli_tools: RuntimeSettingsPolicy::available_cli_tools(),
+        }
+    }
+}
+
+pub(crate) fn runtime_settings_response(runtime: &RuntimeSettings) -> Value {
+    serde_json::json!({
+        "ok": true,
+        "data": runtime,
+        // Legacy cached frontends read settings fields from the top-level
+        // response instead of the `data` envelope.
+        "defaultRuntime": &runtime.default_runtime,
+        "availableRuntimes": &runtime.available_runtimes,
+        "defaultCliTool": &runtime.default_cli_tool,
+        "availableCliTools": &runtime.available_cli_tools,
+    })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct GatewaySettings {
+    pub(crate) routing_strategy: String,
+    pub(crate) circuit_breaker_threshold: u32,
+    pub(crate) circuit_breaker_reset_ms: u32,
+}
+
+impl GatewaySettings {
+    pub(crate) fn from_stored(value: Option<&Value>) -> Self {
+        let mut settings = Self::default();
+        if let Some(value) = value {
+            if let Some(routing_strategy) = value.get("routingStrategy").and_then(Value::as_str)
+                && let Some(routing_strategy) = GatewaySettingsPolicy::routing_strategy_from_stored(routing_strategy)
+            {
+                settings.routing_strategy = routing_strategy.to_string();
+            }
+            if let Some(threshold) =
+                value.get("circuitBreakerThreshold").and_then(Value::as_u64).and_then(|value| u32::try_from(value).ok())
+            {
+                settings.circuit_breaker_threshold = threshold;
+            }
+            if let Some(reset_ms) =
+                value.get("circuitBreakerResetMs").and_then(Value::as_u64).and_then(|value| u32::try_from(value).ok())
+            {
+                settings.circuit_breaker_reset_ms = reset_ms;
+            }
+        }
+        settings
+    }
+
+    pub(crate) fn apply_update(
+        &mut self,
+        routing_strategy: Option<&str>,
+        circuit_breaker_threshold: Option<u32>,
+        circuit_breaker_reset_ms: Option<u32>,
+    ) -> AppResult<()> {
+        if let Some(routing_strategy) = routing_strategy {
+            self.routing_strategy = GatewaySettingsPolicy::canonical_routing_strategy(routing_strategy)?.to_string();
+        }
+        if let Some(threshold) = circuit_breaker_threshold {
+            self.circuit_breaker_threshold = threshold;
+        }
+        if let Some(reset_ms) = circuit_breaker_reset_ms {
+            self.circuit_breaker_reset_ms = reset_ms;
+        }
+        Ok(())
+    }
+}
+
+impl Default for GatewaySettings {
+    fn default() -> Self {
+        Self {
+            routing_strategy: GatewaySettingsPolicy::default_routing_strategy().to_string(),
+            circuit_breaker_threshold: GatewaySettingsPolicy::default_circuit_breaker_threshold(),
+            circuit_breaker_reset_ms: GatewaySettingsPolicy::default_circuit_breaker_reset_ms(),
+        }
+    }
+}
+
+pub(crate) fn gateway_settings_response(gateway: &GatewaySettings) -> Value {
+    serde_json::json!({
+        "ok": true,
+        "data": gateway,
+        // Legacy cached frontends read settings fields from the top-level
+        // response instead of the `data` envelope.
+        "routingStrategy": &gateway.routing_strategy,
+        "circuitBreakerThreshold": gateway.circuit_breaker_threshold,
+        "circuitBreakerResetMs": gateway.circuit_breaker_reset_ms,
+    })
+}
 
 /// Quota resource type tracked by the platform.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -305,6 +445,64 @@ mod tests {
     }
 
     #[test]
+    fn runtime_settings_defaults_are_frontend_contract() {
+        let defaults = RuntimeSettings::default();
+        assert_eq!(defaults.default_runtime, "container");
+        assert_eq!(defaults.default_cli_tool, "claude");
+        assert!(defaults.available_runtimes.contains(&"api".to_string()));
+        assert!(defaults.available_cli_tools.contains(&"claude".to_string()));
+    }
+
+    #[test]
+    fn runtime_settings_from_stored_keeps_valid_overrides() {
+        let stored = serde_json::json!({
+            "defaultRuntime": "api",
+            "defaultCliTool": "CODEX",
+            "availableRuntimes": ["ignored"],
+        });
+        let runtime = RuntimeSettings::from_stored(Some(&stored));
+
+        assert_eq!(runtime.default_runtime, "api");
+        assert_eq!(runtime.default_cli_tool, "codex");
+        assert_eq!(runtime.available_runtimes, RuntimeSettingsPolicy::available_runtimes());
+    }
+
+    #[test]
+    fn runtime_settings_from_stored_ignores_invalid_overrides() {
+        let stored = serde_json::json!({
+            "defaultRuntime": "desktop",
+            "defaultCliTool": "unknown",
+        });
+        let runtime = RuntimeSettings::from_stored(Some(&stored));
+
+        assert_eq!(runtime, RuntimeSettings::default());
+    }
+
+    #[test]
+    fn runtime_settings_update_validates_values() {
+        let mut runtime = RuntimeSettings::default();
+
+        runtime.apply_update(Some("api"), Some("gemini")).unwrap();
+        assert_eq!(runtime.default_runtime, "api");
+        assert_eq!(runtime.default_cli_tool, "gemini");
+
+        assert!(runtime.apply_update(Some("desktop"), None).is_err());
+        assert!(runtime.apply_update(None, Some("unknown")).is_err());
+    }
+
+    #[test]
+    fn runtime_settings_response_keeps_legacy_top_level_fields() {
+        let runtime = RuntimeSettings::default();
+        let body = runtime_settings_response(&runtime);
+
+        assert_eq!(body["ok"], true);
+        assert_eq!(body["data"]["defaultRuntime"], "container");
+        assert_eq!(body["defaultRuntime"], "container");
+        assert_eq!(body["availableRuntimes"], body["data"]["availableRuntimes"]);
+        assert_eq!(body["availableCliTools"], body["data"]["availableCliTools"]);
+    }
+
+    #[test]
     fn gateway_settings_policy_exposes_defaults_and_validates_strategy() {
         assert_eq!(GatewaySettingsPolicy::default_routing_strategy(), "specified");
         assert_eq!(GatewaySettingsPolicy::default_circuit_breaker_threshold(), 5);
@@ -313,6 +511,56 @@ mod tests {
         assert_eq!(GatewaySettingsPolicy::routing_strategy_from_stored("failover"), Some("failover"));
         assert_eq!(GatewaySettingsPolicy::routing_strategy_from_stored("random"), None);
         assert!(GatewaySettingsPolicy::canonical_routing_strategy("random").is_err());
+    }
+
+    #[test]
+    fn gateway_settings_from_stored_keeps_valid_overrides() {
+        let stored = serde_json::json!({
+            "routingStrategy": "latency",
+            "circuitBreakerThreshold": 9,
+            "circuitBreakerResetMs": 45_000,
+        });
+        let gateway = GatewaySettings::from_stored(Some(&stored));
+
+        assert_eq!(gateway.routing_strategy, "latency");
+        assert_eq!(gateway.circuit_breaker_threshold, 9);
+        assert_eq!(gateway.circuit_breaker_reset_ms, 45_000);
+    }
+
+    #[test]
+    fn gateway_settings_from_stored_ignores_invalid_strategy() {
+        let stored = serde_json::json!({
+            "routingStrategy": "random",
+            "circuitBreakerThreshold": 7,
+        });
+        let gateway = GatewaySettings::from_stored(Some(&stored));
+
+        assert_eq!(gateway.routing_strategy, "specified");
+        assert_eq!(gateway.circuit_breaker_threshold, 7);
+    }
+
+    #[test]
+    fn gateway_settings_update_validates_strategy() {
+        let mut gateway = GatewaySettings::default();
+
+        gateway.apply_update(Some("failover"), Some(12), Some(60_000)).unwrap();
+        assert_eq!(gateway.routing_strategy, "failover");
+        assert_eq!(gateway.circuit_breaker_threshold, 12);
+        assert_eq!(gateway.circuit_breaker_reset_ms, 60_000);
+
+        assert!(gateway.apply_update(Some("random"), None, None).is_err());
+    }
+
+    #[test]
+    fn gateway_settings_response_keeps_legacy_top_level_fields() {
+        let gateway = GatewaySettings::default();
+        let body = gateway_settings_response(&gateway);
+
+        assert_eq!(body["ok"], true);
+        assert_eq!(body["data"]["routingStrategy"], "specified");
+        assert_eq!(body["routingStrategy"], "specified");
+        assert_eq!(body["circuitBreakerThreshold"], body["data"]["circuitBreakerThreshold"]);
+        assert_eq!(body["circuitBreakerResetMs"], body["data"]["circuitBreakerResetMs"]);
     }
 
     #[test]
