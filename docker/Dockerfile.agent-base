@@ -145,7 +145,14 @@ ARG AGENT_GID=1012
 
 # Install system deps (tini provides a proper PID 1 init process)
 # Python 3.11 (Bookworm LTS, supported until 2027-10) for agent tool use
-RUN apt-get update && apt-get install -y --no-install-recommends \
+#
+# `apt-get dist-upgrade` applies debian security backports on top of the
+# upstream node:*-slim layer. node:*-slim is refreshed on Node release cadence,
+# so debian packages (e.g. libgnutls30) can lag behind active CVEs. The Trivy
+# Image Scan workflow enforces a CRITICAL severity gate against this image and
+# all agent-* overlays that inherit from it.
+RUN apt-get update && apt-get -y dist-upgrade \
+    && apt-get install -y --no-install-recommends \
     git git-lfs curl bash ca-certificates openssh-client tini \
     python3 python3-pip python3-venv libnghttp2-14 \
     && rm -rf /var/lib/apt/lists/*
