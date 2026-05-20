@@ -11,18 +11,14 @@
 use axum::extract::{Path, State};
 use axum::routing::{get, put};
 use axum::{Json, Router};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use agentforge_auth::AuthUser;
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::AppResult;
 
-use crate::domain::configuration::{GatewaySettingsPolicy, RuntimeSettingsPolicy};
 use crate::health::AppState;
 use crate::repositories::setting::SettingRepository;
-use crate::services::setting::SettingService;
-
-const RUNTIME_KEY: &str = "runtime";
-const GATEWAY_KEY: &str = "gateway";
+use crate::services::setting::{SettingService, gateway_settings_response, runtime_settings_response};
 
 /// Request body for upserting a setting.
 #[derive(Deserialize)]
@@ -30,28 +26,11 @@ pub struct UpsertSettingRequest {
     pub value: serde_json::Value,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct RuntimeSettings {
-    default_runtime: String,
-    available_runtimes: Vec<String>,
-    default_cli_tool: String,
-    available_cli_tools: Vec<String>,
-}
-
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct UpdateRuntimeSettingsRequest {
     default_runtime: Option<String>,
     default_cli_tool: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct GatewaySettings {
-    routing_strategy: String,
-    circuit_breaker_threshold: u32,
-    circuit_breaker_reset_ms: u32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -67,101 +46,6 @@ fn make_service(state: &AppState) -> SettingService {
     SettingService::new(SettingRepository::new(state.pool.clone()))
 }
 
-fn runtime_defaults() -> RuntimeSettings {
-    RuntimeSettings {
-        default_runtime: RuntimeSettingsPolicy::default_runtime().to_string(),
-        available_runtimes: RuntimeSettingsPolicy::available_runtimes(),
-        default_cli_tool: RuntimeSettingsPolicy::default_cli_tool().to_string(),
-        available_cli_tools: RuntimeSettingsPolicy::available_cli_tools(),
-    }
-}
-
-fn gateway_defaults() -> GatewaySettings {
-    GatewaySettings {
-        routing_strategy: GatewaySettingsPolicy::default_routing_strategy().to_string(),
-        circuit_breaker_threshold: GatewaySettingsPolicy::default_circuit_breaker_threshold(),
-        circuit_breaker_reset_ms: GatewaySettingsPolicy::default_circuit_breaker_reset_ms(),
-    }
-}
-
-fn runtime_from_settings(scope: &TenantScope, settings: &[agentforge_db::entities::Setting]) -> RuntimeSettings {
-    let mut defaults = runtime_defaults();
-    let value = settings
-        .iter()
-        .find(|setting| setting.key == RUNTIME_KEY && setting.user_id == Some(scope.user_id()))
-        .or_else(|| settings.iter().find(|setting| setting.key == RUNTIME_KEY))
-        .map(|setting| &setting.value);
-
-    if let Some(value) = value {
-        if let Some(default_runtime) = value.get("defaultRuntime").and_then(serde_json::Value::as_str)
-            && let Some(default_runtime) = RuntimeSettingsPolicy::runtime_from_stored(default_runtime)
-        {
-            defaults.default_runtime = default_runtime.to_string();
-        }
-        if let Some(default_cli_tool) = value.get("defaultCliTool").and_then(serde_json::Value::as_str)
-            && let Some(default_cli_tool) = RuntimeSettingsPolicy::cli_tool_from_stored(default_cli_tool)
-        {
-            defaults.default_cli_tool = default_cli_tool.to_string();
-        }
-    }
-
-    defaults
-}
-
-fn runtime_response(runtime: RuntimeSettings) -> serde_json::Value {
-    serde_json::json!({
-        "ok": true,
-        "data": &runtime,
-        // Legacy cached frontends read settings fields from the top-level
-        // response instead of the `data` envelope.
-        "defaultRuntime": runtime.default_runtime,
-        "availableRuntimes": runtime.available_runtimes,
-        "defaultCliTool": runtime.default_cli_tool,
-        "availableCliTools": runtime.available_cli_tools,
-    })
-}
-
-fn gateway_from_settings(scope: &TenantScope, settings: &[agentforge_db::entities::Setting]) -> GatewaySettings {
-    let mut defaults = gateway_defaults();
-    let value = settings
-        .iter()
-        .find(|setting| setting.key == GATEWAY_KEY && setting.user_id == Some(scope.user_id()))
-        .or_else(|| settings.iter().find(|setting| setting.key == GATEWAY_KEY))
-        .map(|setting| &setting.value);
-
-    if let Some(value) = value {
-        if let Some(routing_strategy) = value.get("routingStrategy").and_then(serde_json::Value::as_str)
-            && let Some(routing_strategy) = GatewaySettingsPolicy::routing_strategy_from_stored(routing_strategy)
-        {
-            defaults.routing_strategy = routing_strategy.to_string();
-        }
-        if let Some(threshold) =
-            value.get("circuitBreakerThreshold").and_then(serde_json::Value::as_u64).and_then(|v| u32::try_from(v).ok())
-        {
-            defaults.circuit_breaker_threshold = threshold;
-        }
-        if let Some(reset_ms) =
-            value.get("circuitBreakerResetMs").and_then(serde_json::Value::as_u64).and_then(|v| u32::try_from(v).ok())
-        {
-            defaults.circuit_breaker_reset_ms = reset_ms;
-        }
-    }
-
-    defaults
-}
-
-fn gateway_response(gateway: GatewaySettings) -> serde_json::Value {
-    serde_json::json!({
-        "ok": true,
-        "data": &gateway,
-        // Legacy cached frontends read settings fields from the top-level
-        // response instead of the `data` envelope.
-        "routingStrategy": gateway.routing_strategy,
-        "circuitBreakerThreshold": gateway.circuit_breaker_threshold,
-        "circuitBreakerResetMs": gateway.circuit_breaker_reset_ms,
-    })
-}
-
 /// `GET /api/settings` — list settings.
 async fn list_settings(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
@@ -172,9 +56,8 @@ async fn list_settings(State(state): State<AppState>, auth: AuthUser) -> AppResu
 /// `GET /api/settings/runtime` — read runtime settings.
 async fn get_runtime_settings(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
-    let settings = service.list(&auth.scope).await?;
-    let runtime = runtime_from_settings(&auth.scope, &settings);
-    Ok(Json(runtime_response(runtime)))
+    let runtime = service.runtime_settings(&auth.scope).await?;
+    Ok(Json(runtime_settings_response(&runtime)))
 }
 
 /// `PATCH /api/settings/runtime` — update runtime settings.
@@ -184,28 +67,17 @@ async fn update_runtime_settings(
     Json(req): Json<UpdateRuntimeSettingsRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
-    let current = runtime_from_settings(&auth.scope, &service.list(&auth.scope).await?);
-    let mut runtime = current;
-
-    if let Some(default_runtime) = req.default_runtime {
-        runtime.default_runtime = RuntimeSettingsPolicy::canonical_runtime(&default_runtime)?.to_string();
-    }
-
-    if let Some(default_cli_tool) = req.default_cli_tool {
-        runtime.default_cli_tool = RuntimeSettingsPolicy::canonical_cli_tool(&default_cli_tool)?.to_string();
-    }
-
-    let value = serde_json::to_value(&runtime).map_err(|err| ErrorKind::Internal(err.into()))?;
-    service.upsert(&auth.scope, RUNTIME_KEY, &value).await?;
-    Ok(Json(runtime_response(runtime)))
+    let runtime = service
+        .update_runtime_settings(&auth.scope, req.default_runtime.as_deref(), req.default_cli_tool.as_deref())
+        .await?;
+    Ok(Json(runtime_settings_response(&runtime)))
 }
 
 /// `GET /api/settings/gateway` — read gateway settings.
 async fn get_gateway_settings(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
-    let settings = service.list(&auth.scope).await?;
-    let gateway = gateway_from_settings(&auth.scope, &settings);
-    Ok(Json(gateway_response(gateway)))
+    let gateway = service.gateway_settings(&auth.scope).await?;
+    Ok(Json(gateway_settings_response(&gateway)))
 }
 
 /// `PATCH /api/settings/gateway` — update gateway settings.
@@ -215,22 +87,15 @@ async fn update_gateway_settings(
     Json(req): Json<UpdateGatewaySettingsRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
-    let current = gateway_from_settings(&auth.scope, &service.list(&auth.scope).await?);
-    let mut gateway = current;
-
-    if let Some(routing_strategy) = req.routing_strategy {
-        gateway.routing_strategy = GatewaySettingsPolicy::canonical_routing_strategy(&routing_strategy)?.to_string();
-    }
-    if let Some(threshold) = req.circuit_breaker_threshold {
-        gateway.circuit_breaker_threshold = threshold;
-    }
-    if let Some(reset_ms) = req.circuit_breaker_reset_ms {
-        gateway.circuit_breaker_reset_ms = reset_ms;
-    }
-
-    let value = serde_json::to_value(&gateway).map_err(|err| ErrorKind::Internal(err.into()))?;
-    service.upsert(&auth.scope, GATEWAY_KEY, &value).await?;
-    Ok(Json(gateway_response(gateway)))
+    let gateway = service
+        .update_gateway_settings(
+            &auth.scope,
+            req.routing_strategy.as_deref(),
+            req.circuit_breaker_threshold,
+            req.circuit_breaker_reset_ms,
+        )
+        .await?;
+    Ok(Json(gateway_settings_response(&gateway)))
 }
 
 /// `PUT /api/settings/{key}` — upsert setting.
@@ -288,37 +153,16 @@ mod tests {
     }
 
     #[test]
-    fn runtime_update_rejects_unknown_runtime() {
+    fn runtime_update_request_deserializes_legacy_field_names() {
         let req: UpdateRuntimeSettingsRequest = serde_json::from_str(r#"{"defaultRuntime": "legacy"}"#).unwrap();
         assert_eq!(req.default_runtime.as_deref(), Some("legacy"));
-        assert!(RuntimeSettingsPolicy::canonical_runtime(req.default_runtime.as_deref().unwrap()).is_err());
     }
 
     #[test]
-    fn runtime_defaults_are_frontend_contract() {
-        let defaults = runtime_defaults();
-        assert_eq!(defaults.default_runtime, "container");
-        assert!(defaults.available_runtimes.contains(&"api".to_string()));
-        assert!(defaults.available_cli_tools.contains(&"claude".to_string()));
-    }
-
-    #[test]
-    fn runtime_response_keeps_legacy_top_level_fields() {
-        let body = runtime_response(runtime_defaults());
-        assert_eq!(body["ok"], true);
-        assert_eq!(body["data"]["defaultRuntime"], "container");
-        assert_eq!(body["defaultRuntime"], "container");
-        assert_eq!(body["availableRuntimes"], body["data"]["availableRuntimes"]);
-        assert_eq!(body["availableCliTools"], body["data"]["availableCliTools"]);
-    }
-
-    #[test]
-    fn gateway_response_keeps_legacy_top_level_fields() {
-        let body = gateway_response(gateway_defaults());
-        assert_eq!(body["ok"], true);
-        assert_eq!(body["data"]["routingStrategy"], "specified");
-        assert_eq!(body["routingStrategy"], "specified");
-        assert_eq!(body["circuitBreakerThreshold"], body["data"]["circuitBreakerThreshold"]);
-        assert_eq!(body["circuitBreakerResetMs"], body["data"]["circuitBreakerResetMs"]);
+    fn gateway_update_request_deserializes_legacy_field_names() {
+        let req: UpdateGatewaySettingsRequest =
+            serde_json::from_str(r#"{"routingStrategy": "latency", "circuitBreakerThreshold": 10}"#).unwrap();
+        assert_eq!(req.routing_strategy.as_deref(), Some("latency"));
+        assert_eq!(req.circuit_breaker_threshold, Some(10));
     }
 }
