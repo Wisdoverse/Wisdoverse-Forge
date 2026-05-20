@@ -2,11 +2,60 @@
 
 use agentforge_core::{AppError, AppResult, ErrorKind, TenantScope};
 use agentforge_db::entities::{ImpersonationLog, Organization, User};
+use serde_json::Value;
 use uuid::Uuid;
 
 pub use crate::domain::admin::BulkDeleteResult;
-use crate::domain::admin::{AdminImpersonationPolicy, AdminListPage, AdminRolePolicy};
+use crate::domain::admin::{
+    AdminAgentDetailProjection, AdminAgentEventProjection, AdminAgentFilterPolicy, AdminAgentFilterQuery,
+    AdminAgentProjection, AdminAgentTokens, AdminImpersonationPolicy, AdminListPage, AdminRolePolicy,
+    admin_agent_detail_response, admin_agent_list_response,
+};
+pub(crate) use crate::domain::admin::{admin_bulk_delete_response, admin_data_response, admin_delete_response};
 use crate::repositories::admin::{AdminAgentEventRow, AdminAgentFilters, AdminAgentRow, AdminRepository, AdminStats};
+
+/// Service input for the admin agent list endpoint. This is intentionally
+/// independent of the HTTP query DTO so the route only performs extraction.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct AdminAgentListInput<'a> {
+    pub(crate) search: Option<&'a str>,
+    pub(crate) status: Option<&'a str>,
+    pub(crate) user_id: Option<Uuid>,
+    pub(crate) project_id: Option<Uuid>,
+    pub(crate) page: i64,
+    pub(crate) limit: i64,
+    pub(crate) sort_by: Option<&'a str>,
+    pub(crate) sort_order: Option<&'a str>,
+}
+
+impl From<AdminAgentRow> for AdminAgentProjection {
+    fn from(row: AdminAgentRow) -> Self {
+        Self {
+            id: row.id,
+            name: row.name.unwrap_or_default(),
+            status: row.status,
+            cwd: row.cwd.unwrap_or_default(),
+            current_tool: row.current_tool,
+            cli_tool: row.cli_tool,
+            tokens: AdminAgentTokens::new(row.tokens_current, row.tokens_cumulative),
+            git_branch: row.git_status,
+            owner_username: row.owner_username,
+            owner_email: row.owner_email,
+            project_name: row.project_name,
+            created_at: row.created_at.timestamp_millis(),
+            last_activity: row.last_activity.timestamp_millis(),
+            runtime_id: row.runtime_id.unwrap_or_default(),
+            container_id: row.container_id,
+            events_count: row.events_count,
+        }
+    }
+}
+
+impl From<AdminAgentEventRow> for AdminAgentEventProjection {
+    fn from(row: AdminAgentEventRow) -> Self {
+        Self { id: row.id, event_type: row.event_type, tool_name: None, created_at: row.created_at.timestamp_millis() }
+    }
+}
 
 /// Business logic layer for admin operations.
 pub struct AdminService {
@@ -71,12 +120,35 @@ impl AdminService {
         self.repo.list_agents(&filters).await
     }
 
+    /// List agents as the admin-console response projection.
+    pub(crate) async fn list_agent_page(&self, input: AdminAgentListInput<'_>) -> AppResult<Value> {
+        let (filters, page) = filters_from_agent_list_input(input);
+        let limit = filters.limit;
+        let (rows, total) = self.list_agents(filters).await?;
+        let agents = rows.into_iter().map(AdminAgentProjection::from).collect();
+        Ok(admin_agent_list_response(agents, total, page, limit))
+    }
+
     /// Fetch a single agent by ID (admin only) along with its most recent events.
     /// Returns `(row, recent_events)`; callers assemble the final JSON response.
     pub async fn get_agent(&self, agent_id: Uuid) -> AppResult<(AdminAgentRow, Vec<AdminAgentEventRow>)> {
         let row = self.repo.find_agent_by_id(agent_id).await?;
         let events = self.repo.recent_events_for_agent(agent_id, 20).await?;
         Ok((row, events))
+    }
+
+    /// Fetch a single agent as the admin-console detail response projection.
+    pub(crate) async fn get_agent_response(&self, agent_id: Uuid) -> AppResult<Value> {
+        let (row, events) = self.get_agent(agent_id).await?;
+        let detail = AdminAgentDetailProjection {
+            agent: row.clone().into(),
+            user_id: row.user_id,
+            organization_id: row.organization_id,
+            project_id: row.project_id,
+            cli_session_id: row.cli_session_id,
+            recent_events: events.into_iter().map(AdminAgentEventProjection::from).collect(),
+        };
+        Ok(admin_agent_detail_response(detail))
     }
 
     /// Hard-delete a single agent (admin only).
@@ -107,6 +179,32 @@ impl AdminService {
     }
 }
 
+/// Build repository filters from the service-level admin list input.
+fn filters_from_agent_list_input(input: AdminAgentListInput<'_>) -> (AdminAgentFilters, i64) {
+    let decision = AdminAgentFilterPolicy::from_query(AdminAgentFilterQuery {
+        search: input.search,
+        status: input.status,
+        page: input.page,
+        limit: input.limit,
+        sort_by: input.sort_by,
+        sort_order: input.sort_order,
+    });
+
+    (
+        AdminAgentFilters {
+            search: decision.search,
+            status: decision.status,
+            user_id: input.user_id,
+            project_id: input.project_id,
+            sort_by: decision.sort_by,
+            sort_order: decision.sort_order,
+            limit: decision.limit,
+            offset: decision.offset,
+        },
+        decision.page,
+    )
+}
+
 /// Turn an `AppError` into a safe, client-facing message for bulk delete.
 /// Internal errors collapse to a generic "delete failed" string so database
 /// / infra details never leak into the HTTP response.
@@ -126,6 +224,8 @@ fn bulk_delete_error_message(err: &AppError) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::admin::{AdminAgentSort, SortOrder};
+    use agentforge_core::AgentStatus;
 
     #[test]
     fn admin_role_check_owner() {
@@ -150,5 +250,91 @@ mod tests {
     #[test]
     fn admin_role_check_empty_rejected() {
         assert!(AdminService::require_admin("").is_err());
+    }
+
+    #[test]
+    fn admin_agent_list_input_paginates_and_clamps() {
+        let (filters, page) = filters_from_agent_list_input(AdminAgentListInput {
+            search: Some("  "),
+            status: None,
+            user_id: None,
+            project_id: None,
+            page: 4,
+            limit: 10,
+            sort_by: Some("name"),
+            sort_order: Some("asc"),
+        });
+
+        assert_eq!(page, 4);
+        assert_eq!(filters.limit, 10);
+        assert_eq!(filters.offset, 30);
+        assert!(filters.search.is_none());
+        assert_eq!(filters.sort_by, AdminAgentSort::Name);
+        assert_eq!(filters.sort_order, SortOrder::Asc);
+
+        let (filters, page) = filters_from_agent_list_input(AdminAgentListInput {
+            search: Some(" user@example.com "),
+            status: Some("WORKING"),
+            user_id: None,
+            project_id: None,
+            page: 0,
+            limit: 500,
+            sort_by: None,
+            sort_order: Some("nope"),
+        });
+
+        assert_eq!(page, 1);
+        assert_eq!(filters.limit, 100);
+        assert_eq!(filters.offset, 0);
+        assert_eq!(filters.search.as_deref(), Some("user@example.com"));
+        assert_eq!(filters.status, Some(AgentStatus::Working));
+        assert_eq!(filters.sort_order, SortOrder::Desc);
+    }
+
+    #[test]
+    fn admin_agent_row_projection_uses_camel_case_and_epoch_ms() {
+        use chrono::{TimeZone, Utc};
+
+        let row = AdminAgentRow {
+            id: Uuid::nil(),
+            name: Some("worker".into()),
+            status: AgentStatus::Working,
+            model: Some("claude".into()),
+            provider: Some("anthropic".into()),
+            container_id: Some("abc123".into()),
+            cli_session_id: None,
+            cwd: Some("/workspace/agentforge".into()),
+            current_tool: Some("Edit".into()),
+            cli_tool: Some("claude".into()),
+            tokens_current: 1234,
+            tokens_cumulative: 56789,
+            git_status: Some("+3 -1".into()),
+            runtime_id: Some("af-deadbeef".into()),
+            organization_id: Uuid::nil(),
+            project_id: None,
+            user_id: Uuid::nil(),
+            owner_username: Some("alice".into()),
+            owner_email: Some("alice@example.com".into()),
+            project_name: Some("P".into()),
+            created_at: Utc.timestamp_millis_opt(1_700_000_000_000).unwrap(),
+            updated_at: Utc.timestamp_millis_opt(1_700_000_100_000).unwrap(),
+            last_activity: Utc.timestamp_millis_opt(1_700_000_200_000).unwrap(),
+            events_count: 42,
+        };
+        let value = serde_json::to_value(AdminAgentProjection::from(row)).unwrap();
+
+        assert_eq!(value["ownerUsername"], "alice");
+        assert_eq!(value["ownerEmail"], "alice@example.com");
+        assert_eq!(value["projectName"], "P");
+        assert_eq!(value["createdAt"], 1_700_000_000_000_i64);
+        assert_eq!(value["lastActivity"], 1_700_000_200_000_i64);
+        assert_eq!(value["cwd"], "/workspace/agentforge");
+        assert_eq!(value["runtimeId"], "af-deadbeef");
+        assert_eq!(value["currentTool"], "Edit");
+        assert_eq!(value["cliTool"], "claude");
+        assert_eq!(value["gitBranch"], "+3 -1");
+        assert_eq!(value["tokens"]["current"], 1234);
+        assert_eq!(value["tokens"]["cumulative"], 56789);
+        assert_eq!(value["eventsCount"], 42);
     }
 }

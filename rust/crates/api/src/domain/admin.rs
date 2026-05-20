@@ -5,6 +5,7 @@
 
 use agentforge_core::{AgentStatus, AppResult, ErrorKind};
 use serde::Serialize;
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 /// Per-ID outcome from a bulk-delete call, serialised in admin API responses.
@@ -14,6 +15,105 @@ pub struct BulkDeleteResult {
     pub ok: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+}
+
+/// Agent token counters exposed to the admin console.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub(crate) struct AdminAgentTokens {
+    pub(crate) current: i64,
+    pub(crate) cumulative: i64,
+}
+
+impl AdminAgentTokens {
+    pub(crate) fn new(current: i64, cumulative: i64) -> Self {
+        Self { current, cumulative }
+    }
+}
+
+/// Admin-console agent projection consumed by the legacy React admin table.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AdminAgentProjection {
+    pub(crate) id: Uuid,
+    pub(crate) name: String,
+    pub(crate) status: AgentStatus,
+    pub(crate) cwd: String,
+    pub(crate) current_tool: Option<String>,
+    pub(crate) cli_tool: Option<String>,
+    pub(crate) tokens: AdminAgentTokens,
+    pub(crate) git_branch: Option<String>,
+    pub(crate) owner_username: Option<String>,
+    pub(crate) owner_email: Option<String>,
+    pub(crate) project_name: Option<String>,
+    pub(crate) created_at: i64,
+    pub(crate) last_activity: i64,
+    pub(crate) runtime_id: String,
+    pub(crate) container_id: Option<String>,
+    pub(crate) events_count: i64,
+}
+
+/// Recent event projection for the admin agent detail panel.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AdminAgentEventProjection {
+    pub(crate) id: Uuid,
+    #[serde(rename = "type")]
+    pub(crate) event_type: String,
+    pub(crate) tool_name: Option<String>,
+    pub(crate) created_at: i64,
+}
+
+/// Detail response projection for a single admin agent.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AdminAgentDetailProjection {
+    pub(crate) agent: AdminAgentProjection,
+    pub(crate) user_id: Uuid,
+    pub(crate) organization_id: Uuid,
+    pub(crate) project_id: Option<Uuid>,
+    pub(crate) cli_session_id: Option<String>,
+    pub(crate) recent_events: Vec<AdminAgentEventProjection>,
+}
+
+pub(crate) fn admin_data_response<T: Serialize>(data: T) -> Value {
+    json!({ "ok": true, "data": data })
+}
+
+pub(crate) fn admin_delete_response() -> Value {
+    json!({ "ok": true })
+}
+
+pub(crate) fn admin_bulk_delete_response(results: Vec<BulkDeleteResult>) -> Value {
+    json!({ "ok": true, "results": results })
+}
+
+pub(crate) fn admin_agent_list_response(agents: Vec<AdminAgentProjection>, total: i64, page: i64, limit: i64) -> Value {
+    let total_pages = if limit > 0 { (total + limit - 1) / limit } else { 0 };
+    json!({
+        "ok": true,
+        "agents": agents,
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "totalPages": total_pages,
+    })
+}
+
+pub(crate) fn admin_agent_detail_response(detail: AdminAgentDetailProjection) -> Value {
+    let AdminAgentDetailProjection { agent, user_id, organization_id, project_id, cli_session_id, recent_events } =
+        detail;
+    let mut agent = json!(agent);
+    if let Some(obj) = agent.as_object_mut() {
+        obj.insert("userId".into(), json!(user_id));
+        obj.insert("orgId".into(), json!(organization_id));
+        obj.insert("projectId".into(), json!(project_id));
+        obj.insert("cliSessionId".into(), json!(cli_session_id));
+        obj.insert("claudeFlags".into(), Value::Null);
+        obj.insert("groupId".into(), Value::Null);
+        obj.insert("gitStatus".into(), Value::Null);
+        obj.insert("recentEvents".into(), json!(recent_events));
+    }
+
+    json!({ "ok": true, "agent": agent })
 }
 
 /// Validated pagination request for admin list endpoints.
@@ -282,5 +382,85 @@ mod tests {
         assert_eq!(clamped.limit, 100);
         assert_eq!(clamped.offset, 0);
         assert_eq!(clamped.sort_order, SortOrder::Desc);
+    }
+
+    #[test]
+    fn admin_agent_projection_serializes_admin_table_contract() {
+        let value = serde_json::to_value(AdminAgentProjection {
+            id: Uuid::nil(),
+            name: "worker".into(),
+            status: AgentStatus::Working,
+            cwd: "/workspace/agentforge".into(),
+            current_tool: Some("Edit".into()),
+            cli_tool: Some("claude".into()),
+            tokens: AdminAgentTokens::new(1234, 56789),
+            git_branch: Some("+3 -1".into()),
+            owner_username: Some("alice".into()),
+            owner_email: Some("alice@example.com".into()),
+            project_name: Some("P".into()),
+            created_at: 1_700_000_000_000,
+            last_activity: 1_700_000_200_000,
+            runtime_id: "af-deadbeef".into(),
+            container_id: Some("abc123".into()),
+            events_count: 42,
+        })
+        .unwrap();
+
+        assert_eq!(value["ownerUsername"], "alice");
+        assert_eq!(value["ownerEmail"], "alice@example.com");
+        assert_eq!(value["projectName"], "P");
+        assert_eq!(value["createdAt"], 1_700_000_000_000_i64);
+        assert_eq!(value["lastActivity"], 1_700_000_200_000_i64);
+        assert_eq!(value["cwd"], "/workspace/agentforge");
+        assert_eq!(value["runtimeId"], "af-deadbeef");
+        assert_eq!(value["currentTool"], "Edit");
+        assert_eq!(value["cliTool"], "claude");
+        assert_eq!(value["gitBranch"], "+3 -1");
+        assert_eq!(value["tokens"]["current"], 1234);
+        assert_eq!(value["tokens"]["cumulative"], 56789);
+        assert_eq!(value["eventsCount"], 42);
+    }
+
+    #[test]
+    fn admin_agent_detail_response_adds_detail_fields() {
+        let event_id = Uuid::now_v7();
+        let response = admin_agent_detail_response(AdminAgentDetailProjection {
+            agent: AdminAgentProjection {
+                id: Uuid::nil(),
+                name: String::new(),
+                status: AgentStatus::Idle,
+                cwd: String::new(),
+                current_tool: None,
+                cli_tool: None,
+                tokens: AdminAgentTokens::new(0, 0),
+                git_branch: None,
+                owner_username: None,
+                owner_email: None,
+                project_name: None,
+                created_at: 1,
+                last_activity: 2,
+                runtime_id: String::new(),
+                container_id: None,
+                events_count: 1,
+            },
+            user_id: Uuid::nil(),
+            organization_id: Uuid::nil(),
+            project_id: None,
+            cli_session_id: Some("session-1".into()),
+            recent_events: vec![AdminAgentEventProjection {
+                id: event_id,
+                event_type: "tool_call".into(),
+                tool_name: None,
+                created_at: 3,
+            }],
+        });
+
+        assert_eq!(response["ok"], true);
+        assert_eq!(response["agent"]["userId"], json!(Uuid::nil()));
+        assert_eq!(response["agent"]["orgId"], json!(Uuid::nil()));
+        assert_eq!(response["agent"]["cliSessionId"], "session-1");
+        assert!(response["agent"]["gitStatus"].is_null());
+        assert_eq!(response["agent"]["recentEvents"][0]["id"], json!(event_id));
+        assert_eq!(response["agent"]["recentEvents"][0]["type"], "tool_call");
     }
 }
