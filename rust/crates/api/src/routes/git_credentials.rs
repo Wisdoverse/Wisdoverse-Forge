@@ -14,11 +14,10 @@ use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, ErrorKind, crypto};
-use agentforge_db::entities::GitCredential;
 
 use crate::health::AppState;
 use crate::repositories::credential::git::GitCredentialRepository;
-use crate::services::git_credential::GitCredentialService;
+use crate::services::git_credential::{GitCredentialService, git_credential_response, git_credentials_response};
 
 /// Query parameters for the list endpoint.
 #[derive(Deserialize)]
@@ -74,30 +73,6 @@ fn encrypt_git_token(state: &AppState, token: Option<&str>) -> AppResult<Option<
     Ok(Some(encrypted.into_bytes()))
 }
 
-fn git_credential_payload(cred: &GitCredential) -> serde_json::Value {
-    serde_json::json!({
-        "id": cred.id,
-        "orgId": cred.organization_id,
-        "organizationId": cred.organization_id,
-        "userId": cred.user_id,
-        "name": cred.name,
-        "provider": cred.provider,
-        "credentialType": cred.credential_type,
-        "credential_type": cred.credential_type,
-        "host": cred.remote_url,
-        "remoteUrl": cred.remote_url,
-        "remote_url": cred.remote_url,
-        "createdAt": cred.created_at,
-        "created_at": cred.created_at,
-        "updatedAt": cred.updated_at,
-        "updated_at": cred.updated_at,
-    })
-}
-
-fn git_credentials_payload(creds: &[GitCredential]) -> Vec<serde_json::Value> {
-    creds.iter().map(git_credential_payload).collect()
-}
-
 /// `POST /api/git-credentials` — create a new git credential.
 async fn create_git_credential(
     State(state): State<AppState>,
@@ -117,8 +92,7 @@ async fn create_git_credential(
             None,
         )
         .await?;
-    let credential = git_credential_payload(&cred);
-    Ok(Json(serde_json::json!({ "ok": true, "data": credential, "credential": credential })))
+    Ok(Json(git_credential_response(&cred)))
 }
 
 /// `GET /api/git-credentials` — list git credentials.
@@ -129,8 +103,7 @@ async fn list_git_credentials(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let creds = service.list(&auth.scope, query.limit, query.offset).await?;
-    let credentials = git_credentials_payload(&creds);
-    Ok(Json(serde_json::json!({ "ok": true, "data": credentials, "credentials": credentials })))
+    Ok(Json(git_credentials_response(&creds)))
 }
 
 /// `GET /api/git-credentials/{id}` — get a git credential.
@@ -141,8 +114,7 @@ async fn get_git_credential(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let cred = service.get(&auth.scope, id).await?;
-    let credential = git_credential_payload(&cred);
-    Ok(Json(serde_json::json!({ "ok": true, "data": credential, "credential": credential })))
+    Ok(Json(git_credential_response(&cred)))
 }
 
 /// `PUT /api/git-credentials/{provider}` — legacy provider-scoped upsert.
@@ -171,8 +143,7 @@ async fn upsert_git_credential(
             None,
         )
         .await?;
-    let credential = git_credential_payload(&cred);
-    Ok(Json(serde_json::json!({ "ok": true, "data": credential, "credential": credential })))
+    Ok(Json(git_credential_response(&cred)))
 }
 
 /// `DELETE /api/git-credentials/{id}` — delete a git credential.

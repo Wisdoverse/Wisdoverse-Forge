@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 pub use crate::domain::credential::CreateApiKeyResult;
 use crate::domain::credential::{ApiKeyFormat, ApiKeyName, ApiKeyScopePolicy, CredentialListPage};
+pub(crate) use crate::domain::credential::{api_key_create_response, api_key_list_response};
 use crate::repositories::credential::api_key::ApiKeyRepository;
 
 /// Business logic layer for API key operations.
