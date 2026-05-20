@@ -9,10 +9,15 @@ use agentforge_db::entities::{BillingPlan, Invoice, Subscription};
 use uuid::Uuid;
 
 use crate::domain::billing::{
-    BillingCycle, BillingPlanPolicy, BillingRedirectUrlPolicy, BillingUsageLimitPolicy,
-    BillingWebhookReconciliationPolicy, CheckoutCouponPolicy, InvoiceListPage, InvoiceSubscriptionLookup,
-    PaymentMethodId, SubscriptionLifecyclePolicy, SubscriptionOrgResolution, SubscriptionPlanResolution,
-    SubscriptionStatusPolicy,
+    BillingCycle, BillingPlanPolicy, BillingPlanView, BillingRedirectUrlPolicy, BillingSubscriptionProjection,
+    BillingUsageLimitPolicy, BillingWebhookReconciliationPolicy, CheckoutCouponPolicy, InvoiceListPage,
+    InvoiceSubscriptionLookup, InvoiceView, PaymentMethodId, SubscriptionLifecyclePolicy, SubscriptionOrgResolution,
+    SubscriptionPlanResolution, SubscriptionStatusPolicy, SubscriptionView, UsageMetricView,
+};
+pub(crate) use crate::domain::billing::{
+    billing_checkout_response, billing_data_response, billing_invoices_response, billing_plans_response,
+    billing_portal_response, billing_subscription_data_response, billing_subscription_response, billing_usage_response,
+    billing_webhook_received_response,
 };
 use crate::repositories::billing::BillingRepository;
 pub use stripe::{
@@ -41,9 +46,28 @@ impl BillingService {
         self.repo.list_plans().await
     }
 
+    /// List all available billing plans in the legacy browser projection.
+    pub(crate) async fn list_plan_views(&self) -> AppResult<Vec<BillingPlanView>> {
+        Ok(self.repo.list_plans().await?.into_iter().map(plan_view).collect())
+    }
+
     /// Get the current active subscription for the organization.
     pub async fn get_current_subscription(&self, scope: &TenantScope) -> AppResult<Option<Subscription>> {
         self.repo.get_subscription(scope).await
+    }
+
+    /// Get the current subscription and associated plan projection.
+    pub(crate) async fn get_current_subscription_projection(
+        &self,
+        scope: &TenantScope,
+    ) -> AppResult<BillingSubscriptionProjection> {
+        let subscription = self.repo.get_subscription(scope).await?;
+        let plan = match &subscription {
+            Some(subscription) => Some(plan_view(self.repo.find_plan_by_id(subscription.plan_id).await?)),
+            None => None,
+        };
+
+        Ok(BillingSubscriptionProjection { subscription: subscription.map(subscription_view), plan })
     }
 
     /// Create a hosted Stripe Checkout session for a plan.
@@ -188,6 +212,25 @@ impl BillingService {
     pub async fn list_invoices(&self, scope: &TenantScope, limit: i64, offset: i64) -> AppResult<Vec<Invoice>> {
         let page = InvoiceListPage::new(limit, offset);
         self.repo.list_invoices(scope, page.limit(), page.offset()).await
+    }
+
+    /// List invoices in the browser projection.
+    pub(crate) async fn list_invoice_views(
+        &self,
+        scope: &TenantScope,
+        limit: i64,
+        offset: i64,
+    ) -> AppResult<Vec<InvoiceView>> {
+        Ok(self.list_invoices(scope, limit, offset).await?.into_iter().map(invoice_view).collect())
+    }
+
+    /// Current billing usage projection.
+    pub(crate) async fn usage_metrics(&self, scope: &TenantScope) -> AppResult<Vec<UsageMetricView>> {
+        let max_agents = match self.repo.get_subscription(scope).await? {
+            Some(sub) => self.repo.find_plan_by_id(sub.plan_id).await?.max_agents as i64,
+            None => BillingUsageLimitPolicy::default_agent_limit(),
+        };
+        Ok(vec![UsageMetricView::new("agents", 0, max_agents, 0)])
     }
 
     /// Check if the organization is within its plan's agent limit.
@@ -351,5 +394,39 @@ fn billing_not_configured() -> ErrorKind {
     ErrorKind::Unavailable(
         "Stripe billing is not configured; refusing to change local subscription state without Stripe confirmation"
             .to_string(),
+    )
+}
+
+fn plan_view(plan: BillingPlan) -> BillingPlanView {
+    BillingPlanView::from_plan_parts(
+        plan.id,
+        plan.name,
+        &plan.features,
+        plan.max_agents,
+        plan.max_events_per_day,
+        plan.max_storage_mb,
+    )
+}
+
+fn subscription_view(sub: Subscription) -> SubscriptionView {
+    SubscriptionView::new(
+        sub.id,
+        sub.plan_id,
+        sub.status,
+        sub.current_period_start,
+        sub.current_period_end,
+        sub.cancel_at_period_end,
+        sub.canceled_at,
+    )
+}
+
+fn invoice_view(invoice: Invoice) -> InvoiceView {
+    InvoiceView::new(
+        invoice.id,
+        invoice.status,
+        invoice.amount_cents,
+        invoice.currency,
+        invoice.paid_at,
+        invoice.created_at,
     )
 }
