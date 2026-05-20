@@ -12,7 +12,7 @@ use agentforge_core::AppResult;
 
 use crate::health::AppState;
 use crate::repositories::audit::AuditRepository;
-use crate::services::audit::AuditService;
+use crate::services::audit::{AuditService, audit_data_response};
 
 /// Query parameters for the audit log list endpoint.
 #[derive(Deserialize)]
@@ -44,7 +44,7 @@ async fn list_audit(
     let entries = service
         .list(&auth.scope, query.action.as_deref(), query.resource_type.as_deref(), query.limit, query.offset)
         .await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": entries })))
+    Ok(Json(audit_data_response(entries)))
 }
 
 /// Build audit log routes sub-router.

@@ -5,6 +5,7 @@ use agentforge_db::entities::AuditLogEntry;
 use uuid::Uuid;
 
 use crate::domain::observability::AuditListPage;
+pub(crate) use crate::domain::observability::audit_data_response;
 use crate::repositories::audit::AuditRepository;
 
 /// Business logic layer for audit log operations.

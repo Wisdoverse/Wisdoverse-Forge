@@ -3,8 +3,15 @@
 use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::FeatureFlag;
 
+pub(crate) use crate::domain::configuration::configuration_data_response;
 use crate::domain::resource::FeatureFlagName;
 use crate::repositories::feature_flag::FeatureFlagRepository;
+
+#[derive(Debug, Clone)]
+pub struct UpsertFeatureFlagInput {
+    pub enabled: bool,
+    pub metadata: Option<serde_json::Value>,
+}
 
 /// Business logic layer for feature flag operations.
 pub struct FeatureFlagService {
@@ -31,13 +38,11 @@ impl FeatureFlagService {
         &self,
         scope: &TenantScope,
         name: &str,
-        enabled: bool,
-        metadata: Option<&serde_json::Value>,
+        input: UpsertFeatureFlagInput,
     ) -> AppResult<FeatureFlag> {
         let name = FeatureFlagName::parse(name)?;
-        let default_metadata = serde_json::json!({});
-        let metadata = metadata.unwrap_or(&default_metadata);
-        self.repo.upsert(scope.org_id(), name.value(), enabled, metadata).await
+        let metadata = input.metadata.unwrap_or_else(|| serde_json::json!({}));
+        self.repo.upsert(scope.org_id(), name.value(), input.enabled, &metadata).await
     }
 }
 

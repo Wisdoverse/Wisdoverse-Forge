@@ -21,6 +21,14 @@ const DEFAULT_GATEWAY_ROUTING_STRATEGY: &str = "specified";
 const DEFAULT_CIRCUIT_BREAKER_THRESHOLD: u32 = 5;
 const DEFAULT_CIRCUIT_BREAKER_RESET_MS: u32 = 30_000;
 
+pub(crate) fn configuration_data_response<T: Serialize>(data: T) -> Value {
+    serde_json::json!({ "ok": true, "data": data })
+}
+
+pub(crate) fn configuration_delete_response() -> Value {
+    serde_json::json!({ "ok": true })
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RuntimeSettings {

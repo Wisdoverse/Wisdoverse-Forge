@@ -168,6 +168,87 @@ pub(crate) struct GovernanceAuditQueryPolicy<'a> {
     pub to: Option<DateTime<Utc>>,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct GovernanceAuditQueryParams {
+    pub(crate) event_type: Option<String>,
+    pub(crate) event_prefix: Option<String>,
+    pub(crate) item_kind: Option<String>,
+    pub(crate) scope_kind: Option<String>,
+    pub(crate) scope_id: Option<Uuid>,
+    pub(crate) user_id: Option<Uuid>,
+    pub(crate) from: Option<DateTime<Utc>>,
+    pub(crate) to: Option<DateTime<Utc>>,
+    pub(crate) redact_secrets: Option<bool>,
+    pub(crate) limit: Option<i64>,
+    pub(crate) offset: Option<i64>,
+}
+
+impl GovernanceAuditQueryParams {
+    pub(crate) fn apply_export_defaults(&mut self) {
+        self.redact_secrets = Some(self.redact_secrets.unwrap_or(true));
+        self.limit = Some(self.limit.unwrap_or(500).clamp(1, 500));
+    }
+
+    fn policy(&self) -> GovernanceAuditQueryPolicy<'_> {
+        GovernanceAuditQueryPolicy {
+            event_prefix: self.event_prefix.as_deref(),
+            event_type: self.event_type.as_deref(),
+            item_kind: self.item_kind.as_deref(),
+            scope_kind: self.scope_kind.as_deref(),
+            from: self.from,
+            to: self.to,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct GovernanceAuditResponse {
+    pub(crate) entries: Vec<GovernanceAuditEntry>,
+    pub(crate) query: GovernanceAuditQuery,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct GovernanceAuditQuery {
+    pub(crate) event_prefix: String,
+    pub(crate) limit: i64,
+    pub(crate) offset: i64,
+    pub(crate) redacted: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct GovernanceAuditEntry {
+    pub(crate) id: Uuid,
+    pub(crate) event_type: String,
+    pub(crate) actor_user_id: Option<Uuid>,
+    pub(crate) item_kind: Option<String>,
+    pub(crate) scope_kind: Option<String>,
+    pub(crate) scope_id: Option<Uuid>,
+    pub(crate) raw_item_id: Option<Uuid>,
+    pub(crate) audit_subject_hash: String,
+    pub(crate) resource_type: String,
+    pub(crate) resource_id: Option<Uuid>,
+    pub(crate) details: Value,
+    pub(crate) details_redacted: bool,
+    pub(crate) tamper_status: AuditTamperStatus,
+    pub(crate) created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum AuditTamperStatus {
+    NotConfigured,
+    Valid,
+    Invalid,
+}
+
+pub(crate) fn governance_audit_response(data: GovernanceAuditResponse) -> Value {
+    serde_json::json!({ "ok": true, "data": data })
+}
+
 pub(crate) struct ContextGovernancePolicy;
 
 impl ContextGovernancePolicy {
@@ -270,6 +351,10 @@ impl ContextGovernancePolicy {
             return Err(ErrorKind::Validation("from must be earlier than to".into()).into());
         }
         Ok(())
+    }
+
+    pub(crate) fn validate_governance_audit_query_params(query: &GovernanceAuditQueryParams) -> AppResult<()> {
+        Self::validate_audit_query(query.policy())
     }
 
     pub(crate) fn redact_audit_details(value: Value) -> (Value, bool) {
