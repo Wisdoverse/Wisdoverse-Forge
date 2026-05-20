@@ -29,6 +29,32 @@ pub(crate) fn resource_delete_response() -> Value {
     json!({ "ok": true })
 }
 
+/// Legacy project-scoped group projection consumed by the tree-pane frontend.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ProjectGroupSummary {
+    pub(crate) id: Uuid,
+    pub(crate) name: String,
+    pub(crate) project_id: Uuid,
+}
+
+impl ProjectGroupSummary {
+    pub(crate) fn new(id: Uuid, name: String, project_id: Uuid) -> Self {
+        Self { id, name, project_id }
+    }
+}
+
+pub(crate) fn resource_project_groups_response(groups: Vec<ProjectGroupSummary>) -> Value {
+    json!({ "ok": true, "data": groups.clone(), "groups": groups })
+}
+
+pub(crate) fn resource_group_created_response<T: Serialize>(
+    group: T,
+    legacy_group: Option<ProjectGroupSummary>,
+) -> Value {
+    json!({ "ok": true, "data": group, "group": legacy_group })
+}
+
 /// Validated pagination request for tenant resource lists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ResourceListPage {
@@ -441,6 +467,19 @@ mod tests {
         assert_eq!(resource_members_response(vec!["alice"])["members"], json!(["alice"]));
         assert_eq!(resource_member_response("alice")["member"], json!("alice"));
         assert_eq!(resource_delete_response()["ok"], true);
+    }
+
+    #[test]
+    fn project_group_summary_keeps_legacy_alias_shape() {
+        let group = ProjectGroupSummary::new(Uuid::nil(), "Backend".into(), Uuid::nil());
+        let response = resource_project_groups_response(vec![group.clone()]);
+
+        assert_eq!(response["data"], response["groups"]);
+        assert_eq!(response["groups"][0]["projectId"], json!(Uuid::nil()));
+
+        let created = resource_group_created_response("persisted", Some(group));
+        assert_eq!(created["data"], "persisted");
+        assert_eq!(created["group"]["name"], "Backend");
     }
 
     #[test]

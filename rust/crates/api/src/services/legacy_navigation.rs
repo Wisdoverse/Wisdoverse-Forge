@@ -12,7 +12,7 @@ use crate::repositories::resource::navigation::{
     LegacyNavigationRepository, LegacyOrgRow, LegacyProjectRow, LegacyTeamRow,
 };
 use crate::services::group::GroupService;
-use crate::services::organization::OrganizationService;
+use crate::services::organization::{OrganizationService, UpdateOrganizationInput};
 use crate::services::resource_permission::ResourcePermissionService;
 
 pub(crate) use crate::domain::navigation::{
@@ -55,7 +55,9 @@ impl LegacyNavigationService {
             return Err(ErrorKind::Validation("name is required".into()).into());
         };
 
-        self.organizations.update(scope, OrgId::from(org_id), name).await?;
+        self.organizations
+            .update(scope, OrgId::from(org_id), UpdateOrganizationInput { name: name.to_string() })
+            .await?;
         self.get_org(scope, org_id).await
     }
 
