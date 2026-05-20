@@ -6,9 +6,10 @@
 
 use agentforge_core::{AppResult, CliToolKind, ErrorKind};
 use agentforge_db::entities::{ApiKey, GitCredential, SshKey};
-use agentforge_llm::{normalize_provider_key, provider_spec};
+use agentforge_llm::{LlmError, Usage, normalize_provider_key, provider_spec, supported_provider_specs};
 use serde::Serialize;
 use url::Url;
+use uuid::Uuid;
 
 /// Result of creating an API key — includes the plaintext key (shown once).
 #[derive(Debug, Serialize)]
@@ -78,6 +79,159 @@ pub(crate) fn git_credentials_response(creds: &[GitCredential]) -> serde_json::V
         "data": credentials.clone(),
         "credentials": credentials,
     })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ProviderModelInfo {
+    pub(crate) model: &'static str,
+    pub(crate) display_name: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ProviderInfo {
+    pub(crate) provider: &'static str,
+    pub(crate) display_name: &'static str,
+    pub(crate) default_model: Option<&'static str>,
+    pub(crate) default_base_url: Option<&'static str>,
+    pub(crate) requires_api_key: bool,
+    pub(crate) allow_custom_models: bool,
+    pub(crate) models: Vec<ProviderModelInfo>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LlmProviderConfigResponse {
+    pub(crate) id: Uuid,
+    pub(crate) provider: String,
+    pub(crate) display_name: String,
+    pub(crate) model: String,
+    pub(crate) base_url: Option<String>,
+    pub(crate) api_key_prefix: Option<String>,
+    pub(crate) priority: i32,
+    pub(crate) is_enabled: bool,
+    pub(crate) is_default: bool,
+    pub(crate) last_test_status: Option<String>,
+    pub(crate) last_test_error_code: Option<String>,
+    pub(crate) last_test_error_message: Option<String>,
+    pub(crate) last_tested_at: Option<String>,
+}
+
+pub(crate) fn supported_provider_list() -> Vec<ProviderInfo> {
+    supported_provider_specs()
+        .iter()
+        .map(|spec| ProviderInfo {
+            provider: spec.key,
+            display_name: spec.display_name,
+            default_model: spec.default_model,
+            default_base_url: spec.default_base_url,
+            requires_api_key: spec.requires_api_key,
+            allow_custom_models: spec.allow_custom_models,
+            models: spec
+                .models
+                .iter()
+                .map(|model| ProviderModelInfo { model: model.model, display_name: model.display_name })
+                .collect(),
+        })
+        .collect()
+}
+
+pub(crate) fn supported_providers_response() -> serde_json::Value {
+    serde_json::json!({
+        "ok": true,
+        "providers": supported_provider_list(),
+    })
+}
+
+pub(crate) fn llm_provider_list_response(providers: &[LlmProviderConfigResponse]) -> serde_json::Value {
+    serde_json::json!({
+        "ok": true,
+        "providers": providers,
+    })
+}
+
+pub(crate) fn llm_provider_response(provider: &LlmProviderConfigResponse) -> serde_json::Value {
+    serde_json::json!({
+        "ok": true,
+        "provider": provider,
+    })
+}
+
+pub(crate) fn llm_provider_delete_response() -> serde_json::Value {
+    serde_json::json!({ "ok": true })
+}
+
+pub(crate) fn llm_provider_test_success_response(
+    id: Uuid,
+    provider: &str,
+    model: &str,
+    content: &str,
+    usage: Option<&Usage>,
+) -> serde_json::Value {
+    serde_json::json!({
+        "ok": true,
+        "provider": {
+            "id": id,
+            "provider": provider,
+            "model": model,
+        },
+        "responsePreview": content.chars().take(120).collect::<String>(),
+        "usage": usage,
+    })
+}
+
+pub(crate) fn llm_provider_test_disabled_response() -> serde_json::Value {
+    serde_json::json!({
+        "ok": false,
+        "error": {
+            "code": "disabled",
+            "message": "Provider is disabled.",
+            "retryable": false,
+        },
+    })
+}
+
+pub(crate) fn llm_provider_test_timeout_response() -> serde_json::Value {
+    serde_json::json!({
+        "ok": false,
+        "error": {
+            "code": "timeout",
+            "message": "Provider connection test timed out.",
+            "retryable": true,
+        },
+    })
+}
+
+pub(crate) fn llm_provider_test_error_payload(error: &LlmError) -> serde_json::Value {
+    let (code, message, retryable) = llm_provider_test_error_parts(error);
+
+    serde_json::json!({
+        "ok": false,
+        "error": {
+            "code": code,
+            "message": message,
+            "retryable": retryable,
+        },
+    })
+}
+
+pub(crate) fn llm_provider_test_error_parts(error: &LlmError) -> (&'static str, &'static str, bool) {
+    match error {
+        LlmError::Api { status: 401, .. } | LlmError::Api { status: 403, .. } => {
+            ("unauthorized", "Provider rejected the API key.", false)
+        }
+        LlmError::Api { status: 429, .. } => ("rate_limited", "Provider rate limit reached.", true),
+        LlmError::Api { status: 400, .. } | LlmError::Api { status: 404, .. } => {
+            ("bad_request", "Provider rejected the model or request.", false)
+        }
+        LlmError::Api { status: 500..=599, .. } => ("provider_error", "Provider service is currently failing.", true),
+        LlmError::Http(_) => ("network", "Network error reaching provider.", true),
+        LlmError::Parse(_) => ("invalid_response", "Provider returned an unexpected response.", true),
+        LlmError::NotConfigured(_) => ("not_configured", "Provider is not configured for this deployment.", false),
+        LlmError::NotImplemented(_) => ("not_implemented", "Provider is not supported by this deployment.", false),
+        LlmError::Api { .. } => ("provider_error", "Provider rejected the connection test.", true),
+    }
 }
 
 fn api_key_payload(key: &ApiKey) -> serde_json::Value {
@@ -936,6 +1090,99 @@ mod tests {
         assert!(
             matches!(err.kind, ErrorKind::Validation(message) if message == "baseUrl is required for this provider")
         );
+    }
+
+    #[test]
+    fn supported_provider_shape_contains_all_frontend_keys() {
+        let providers = supported_provider_list();
+        let keys: Vec<_> = providers.iter().map(|provider| provider.provider).collect();
+        assert_eq!(
+            keys,
+            vec![
+                "anthropic",
+                "openai",
+                "google",
+                "ollama",
+                "groq",
+                "deepseek",
+                "xai",
+                "openrouter",
+                "together",
+                "fireworks",
+                "litellm",
+                "openai_compatible",
+            ]
+        );
+        assert!(providers.iter().all(|provider| provider.allow_custom_models || !provider.models.is_empty()));
+
+        let litellm =
+            providers.iter().find(|provider| provider.provider == "litellm").expect("litellm supported provider");
+        assert_eq!(litellm.default_base_url, Some("http://litellm:4000"));
+        assert_eq!(litellm.default_model, Some("gpt-4o-mini"));
+
+        let custom = providers
+            .iter()
+            .find(|provider| provider.provider == "openai_compatible")
+            .expect("generic OpenAI-compatible provider");
+        assert_eq!(custom.default_base_url, None);
+        assert_eq!(custom.default_model, None);
+    }
+
+    #[test]
+    fn llm_provider_response_owns_provider_envelope() {
+        let provider = LlmProviderConfigResponse {
+            id: Uuid::from_u128(0x66666666666646668666666666666666),
+            provider: "openai".to_string(),
+            display_name: "OpenAI".to_string(),
+            model: "gpt-5.5".to_string(),
+            base_url: None,
+            api_key_prefix: Some("sk-12345".to_string()),
+            priority: 1,
+            is_enabled: true,
+            is_default: true,
+            last_test_status: Some("passed".to_string()),
+            last_test_error_code: None,
+            last_test_error_message: None,
+            last_tested_at: Some("2026-05-20T13:00:00Z".to_string()),
+        };
+
+        let single = llm_provider_response(&provider);
+        let list = llm_provider_list_response(std::slice::from_ref(&provider));
+
+        assert_eq!(single["ok"], true);
+        assert_eq!(single["provider"]["model"], "gpt-5.5");
+        assert_eq!(single["provider"]["apiKeyPrefix"], "sk-12345");
+        assert_eq!(list["providers"][0], single["provider"]);
+    }
+
+    #[test]
+    fn llm_provider_test_error_payload_redacts_upstream_body() {
+        let payload = llm_provider_test_error_payload(&LlmError::Api {
+            status: 401,
+            message: "invalid key sk-secret-value".to_string(),
+        });
+
+        assert_eq!(payload["ok"], false);
+        assert_eq!(payload["error"]["code"], "unauthorized");
+        let message = payload["error"]["message"].as_str().unwrap();
+        assert!(!message.contains("sk-secret-value"));
+    }
+
+    #[test]
+    fn llm_provider_test_success_response_limits_preview() {
+        let usage = Usage { input_tokens: 10, output_tokens: 4 };
+        let body = llm_provider_test_success_response(
+            Uuid::from_u128(0x77777777777747778777777777777777),
+            "openai",
+            "gpt-5.5",
+            &"x".repeat(140),
+            Some(&usage),
+        );
+
+        assert_eq!(body["ok"], true);
+        assert_eq!(body["provider"]["provider"], "openai");
+        assert_eq!(body["responsePreview"].as_str().unwrap().len(), 120);
+        assert_eq!(body["usage"]["input_tokens"], 10);
     }
 
     #[test]
