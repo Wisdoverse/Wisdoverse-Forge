@@ -5,11 +5,29 @@
 //! HTTP route DTOs.
 
 use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use serde::Serialize;
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 use crate::util::slug::slugify;
 
 const VALID_FAVORITE_TARGET_TYPES: &[&str] = &["agent", "project", "workspace"];
+
+pub(crate) fn resource_data_response<T: Serialize>(data: T) -> Value {
+    json!({ "ok": true, "data": data })
+}
+
+pub(crate) fn resource_members_response<T: Serialize>(members: T) -> Value {
+    json!({ "ok": true, "members": members })
+}
+
+pub(crate) fn resource_member_response<T: Serialize>(member: T) -> Value {
+    json!({ "ok": true, "member": member })
+}
+
+pub(crate) fn resource_delete_response() -> Value {
+    json!({ "ok": true })
+}
 
 /// Validated pagination request for tenant resource lists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -415,6 +433,14 @@ mod tests {
         assert_eq!(ResourceMemberRole::normalize(Some("editor")).unwrap().as_str(), "maintainer");
         assert_eq!(ResourceMemberRole::normalize(Some("viewer")).unwrap().as_str(), "member");
         assert!(ResourceMemberRole::normalize(Some("root")).is_err());
+    }
+
+    #[test]
+    fn resource_response_helpers_keep_legacy_keys() {
+        assert_eq!(resource_data_response(vec![1])["data"], json!([1]));
+        assert_eq!(resource_members_response(vec!["alice"])["members"], json!(["alice"]));
+        assert_eq!(resource_member_response("alice")["member"], json!("alice"));
+        assert_eq!(resource_delete_response()["ok"], true);
     }
 
     #[test]

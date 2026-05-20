@@ -26,6 +26,14 @@ pub(crate) fn skill_audit_event(
     ContextAuditEvent { action, resource_type: skill_audit_resource_type(), resource_id, payload, ip_address: None }
 }
 
+pub(crate) fn skill_data_response<T: Serialize>(data: T) -> Value {
+    json!({ "ok": true, "data": data })
+}
+
+pub(crate) fn skill_delete_response() -> Value {
+    json!({ "ok": true })
+}
+
 /// Validated skill name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SkillName<'a> {
@@ -1251,6 +1259,12 @@ mod tests {
     #[test]
     fn skill_state_transition_rejects_direct_candidate_promotion() {
         assert!(SkillStateTransitionPolicy::next("candidate", Some(true)).is_err());
+    }
+
+    #[test]
+    fn skill_response_helpers_keep_legacy_data_shape() {
+        assert_eq!(skill_data_response(vec!["review"])["data"], json!(["review"]));
+        assert_eq!(skill_delete_response()["ok"], true);
     }
 
     fn synthetic_assigned_secret() -> String {
