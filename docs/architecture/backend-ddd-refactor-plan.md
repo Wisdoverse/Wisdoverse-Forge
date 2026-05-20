@@ -15,9 +15,26 @@ Merged PRs:
   `rust/crates/api/src/services/llm_provider.rs`,
   `rust/crates/api/src/repositories/user/llm_config.rs`, and
   `rust/crates/api/src/domain/credential.rs`.
+- #228 moved legacy navigation behavior into DDD layers.
 
 The main branch is expected to contain merge commit
-`93d40eb7433952c6c85f304a27d67372f2864ff9` or newer before continuing.
+`364d5a2` (`refactor: move legacy navigation into ddd layers (#228)`) or newer
+before continuing.
+
+Current stacked PRs:
+
+- #229 `refactor/backend-ddd-orchestration-events` -> `main`: moved
+  orchestration, event, turn, and observability response projections into
+  domain modules. GitHub CI was green when checked; merge was blocked only by
+  review policy.
+- #230 `refactor/backend-ddd-admin-console` -> #229 branch: moved admin agent
+  projections and response assembly into domain/service layers.
+- #231 `refactor/backend-ddd-skill-resource-contracts` -> #230 branch: moved
+  skill/resource response contracts behind domain helpers and service re-exports.
+- #232 `refactor/backend-ddd-tenant-resource-crud` -> #231 branch: moved
+  organization, workspace, team, project, and group CRUD response contracts,
+  permission orchestration, default project-group creation, and project-scoped
+  group SQL out of routes.
 
 ## Execution Rule
 
@@ -37,36 +54,67 @@ Each batch should produce one PR with:
 
 ## Next Efficient Batches
 
-### Batch 1: Navigation And Resource Tree
+Do not pick a one-endpoint cleanup. Pick one of these larger batches and finish
+the route family end to end.
 
-Move legacy navigation organization/team/project tree behavior out of routes in
-one batch:
+### Batch 1: Agent Execution Runtime
 
-- domain owns the legacy frontend response contract;
-- repository owns all SQL;
-- service owns permission checks, validation drafts, default workspace lookup,
-  and default group creation;
-- route only extracts HTTP data and calls the service.
+Target the high-value runtime path in one PR:
 
-### Batch 2: Orchestration And Task/Run Surfaces
+- `routes/agents.rs`
+- `routes/containers.rs`
+- `routes/pools.rs`
+- `routes/dev_environments.rs`
 
-Target route families around task orchestration, run state, evidence, timeline,
-and event projection. These are high-value because they cross API, jobs,
-orchestrator, and WebSocket behavior.
+Move response contracts, status projections, command/control policy, and runtime
+state mapping into domain/service modules. Keep Docker/container side effects and
+pool orchestration in services or platform-facing adapters, not routes.
 
-### Batch 3: Context, Skill, Resource, And Identity Aggregates
+### Batch 2: Product Configuration And Governance
 
-Target existing aggregate repository groups:
+Target configuration and governance surfaces in one or two coherent PRs:
 
-- `repositories/context_candidate/`
-- `repositories/skill/`
-- `repositories/resource/`
-- `repositories/identity/`
-- `repositories/agent/`
-- `repositories/user/`
+- `routes/feature_flags.rs`
+- `routes/settings.rs`
+- `routes/quota.rs`
+- `routes/licenses.rs`
+- `routes/billing.rs`
+- `routes/governance_audit.rs`
+- `routes/audit.rs`
 
-For each aggregate, finish route-to-service/domain cleanup in one PR per
-aggregate family, not one file at a time.
+Move `{ ok, data }` response helpers, typed inputs, validation, quota/license
+policies, and audit projections into domain/service boundaries.
+
+### Batch 3: Collaboration And Knowledge Surfaces
+
+Target user-facing content/workflow surfaces as a larger aggregate batch:
+
+- `routes/context.rs`
+- `routes/memory.rs`
+- `routes/prompts.rs`
+- `routes/plugins.rs`
+- `routes/attachments.rs`
+- `routes/favorites.rs`
+- `routes/tiles.rs`
+- `routes/inbox.rs`
+
+Move projection types, response helpers, tenant/user policy, and repository
+adapters into the owning aggregate. If the batch becomes too large, split by
+aggregate family, not by individual endpoint.
+
+### Batch 4: Identity And Access Remainder
+
+Finish remaining identity/account surfaces after the resource CRUD stack lands:
+
+- `routes/users.rs`
+- `routes/api_keys.rs`
+- `routes/ssh_keys.rs`
+- `routes/git_credentials.rs`
+- `routes/cli_credentials.rs`
+- `routes/cli_auth_proxy.rs`
+
+Keep sensitive fields out of serialized domain projections, and make service
+methods own permission checks and repository I/O.
 
 ## Validation
 
@@ -115,9 +163,20 @@ Current merged state:
 - PR #226 settings/configuration projections and validation merged.
 - PR #227 LLM provider config service/repository/domain split merged at
   93d40eb7433952c6c85f304a27d67372f2864ff9.
+- PR #228 legacy navigation DDD split merged at 364d5a2.
 
-Create a separate worktree from origin/main, implement the next large backend
-DDD batch, run focused Rust validation plus clippy, push a PR, wait for CI, and
-merge only after checks pass. Preserve unrelated user changes and do not revert
-anything outside the batch.
+Current open stack:
+- #229 orchestration/events/turn projections, base main.
+- #230 admin console projections, stacked on #229.
+- #231 skill/resource response contracts, stacked on #230.
+- #232 tenant resource CRUD, stacked on #231.
+
+Before starting a new PR, inspect the current state of #229-#232. If they have
+not landed yet, stack the next branch on #232. If they have landed, branch from
+updated origin/main.
+
+Create a separate worktree, implement the next large backend DDD batch, run
+focused Rust validation plus clippy, push a PR, wait for CI, and merge only
+after checks pass. Preserve unrelated user changes and do not revert anything
+outside the batch.
 ```
