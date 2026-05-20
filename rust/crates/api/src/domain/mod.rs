@@ -20,6 +20,7 @@ pub(crate) mod dev_environment;
 pub(crate) mod evidence_projection;
 pub(crate) mod license;
 pub(crate) mod memory;
+pub(crate) mod navigation;
 pub(crate) mod observability;
 pub(crate) mod orchestration;
 pub(crate) mod prompt;
