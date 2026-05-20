@@ -27,7 +27,11 @@ LABEL org.opencontainers.image.title="Wisdoverse Forge Frontend" \
       org.opencontainers.image.source="https://github.com/Wisdoverse/Wisdoverse-Forge" \
       org.opencontainers.image.licenses="LicenseRef-Wisdoverse-Forge-BSL-1.1"
 
+# Apply debian security backports on top of the upstream node:*-slim layer.
+# node:*-slim is refreshed on Node release cadence, so libgnutls30 and other
+# debian packages can lag behind active CVEs (Trivy CRITICAL gate).
 RUN apt-get update \
+    && apt-get -y dist-upgrade \
     && apt-get install -y --no-install-recommends tini curl git libnghttp2-14 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
