@@ -26,6 +26,7 @@ pub mod favorite;
 pub mod feature_flag;
 pub mod git_credential;
 pub mod group;
+pub mod legacy_navigation;
 pub mod license;
 pub mod llm_provider;
 pub mod mcp_agent;
