@@ -5,6 +5,7 @@ use agentforge_db::entities::SshKey;
 use uuid::Uuid;
 
 use crate::domain::credential::{CredentialListPage, SshKeyName, SshPublicKey};
+pub(crate) use crate::domain::credential::{ssh_key_create_response, ssh_key_list_response};
 use crate::repositories::credential::ssh_key::SshKeyRepository;
 
 /// Business logic layer for SSH key operations.

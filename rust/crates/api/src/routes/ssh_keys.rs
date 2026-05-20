@@ -15,11 +15,10 @@ use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
-use agentforge_db::entities::SshKey;
 
 use crate::health::AppState;
 use crate::repositories::credential::ssh_key::SshKeyRepository;
-use crate::services::ssh_key::SshKeyService;
+use crate::services::ssh_key::{SshKeyService, ssh_key_create_response, ssh_key_list_response};
 
 /// Query parameters for the list endpoint.
 #[derive(Deserialize)]
@@ -44,38 +43,6 @@ pub struct AddSshKeyRequest {
 /// Build an SshKeyService from shared state.
 fn make_service(state: &AppState) -> SshKeyService {
     SshKeyService::new(SshKeyRepository::new(state.pool.clone()))
-}
-
-fn ssh_key_payload(key: &SshKey) -> serde_json::Value {
-    serde_json::json!({
-        "id": key.id,
-        "orgId": key.organization_id,
-        "organizationId": key.organization_id,
-        "userId": key.user_id,
-        "name": &key.name,
-        "publicKey": &key.public_key,
-        "fingerprint": &key.fingerprint,
-        "keyType": &key.key_type,
-        "createdAt": &key.created_at,
-    })
-}
-
-fn ssh_key_list_response(keys: &[SshKey]) -> serde_json::Value {
-    let keys: Vec<_> = keys.iter().map(ssh_key_payload).collect();
-    serde_json::json!({
-        "ok": true,
-        "data": keys.clone(),
-        "keys": keys,
-    })
-}
-
-fn ssh_key_create_response(key: SshKey) -> serde_json::Value {
-    let key = ssh_key_payload(&key);
-    serde_json::json!({
-        "ok": true,
-        "data": key.clone(),
-        "key": key,
-    })
 }
 
 /// `POST /api/ssh-keys` — add a new SSH key.

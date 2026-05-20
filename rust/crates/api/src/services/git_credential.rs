@@ -5,6 +5,7 @@ use agentforge_db::entities::GitCredential;
 use uuid::Uuid;
 
 use crate::domain::credential::{CredentialListPage, GitCredentialDraft, GitCredentialToken, GitRemoteHost};
+pub(crate) use crate::domain::credential::{git_credential_response, git_credentials_response};
 use crate::repositories::credential::git::GitCredentialRepository;
 
 /// Business logic layer for git credential operations.

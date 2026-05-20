@@ -16,11 +16,10 @@ use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
-use agentforge_db::entities::ApiKey;
 
 use crate::health::AppState;
 use crate::repositories::credential::api_key::ApiKeyRepository;
-use crate::services::api_key::{ApiKeyService, CreateApiKeyResult};
+use crate::services::api_key::{ApiKeyService, api_key_create_response, api_key_list_response};
 
 /// Query parameters for the list endpoint.
 #[derive(Deserialize)]
@@ -47,48 +46,6 @@ pub struct CreateApiKeyRequest {
 /// Build an ApiKeyService from shared state.
 fn make_service(state: &AppState) -> ApiKeyService {
     ApiKeyService::new(ApiKeyRepository::new(state.pool.clone()))
-}
-
-fn api_key_payload(key: &ApiKey) -> serde_json::Value {
-    serde_json::json!({
-        "id": key.id,
-        "orgId": key.organization_id,
-        "organizationId": key.organization_id,
-        "userId": key.user_id,
-        "name": &key.name,
-        "keyPrefix": &key.key_prefix,
-        "scopes": &key.scopes,
-        "expiresAt": &key.expires_at,
-        "lastUsedAt": &key.last_used_at,
-        "createdAt": &key.created_at,
-        "revokedAt": &key.revoked_at,
-    })
-}
-
-fn api_key_list_response(keys: &[ApiKey]) -> serde_json::Value {
-    let api_keys: Vec<_> = keys.iter().map(api_key_payload).collect();
-    serde_json::json!({
-        "ok": true,
-        "data": api_keys.clone(),
-        "apiKeys": api_keys,
-    })
-}
-
-fn api_key_create_response(result: CreateApiKeyResult) -> serde_json::Value {
-    let api_key = api_key_payload(&result.key);
-    let plaintext_key = result.plaintext_key;
-    serde_json::json!({
-        "ok": true,
-        "data": {
-            "key": api_key.clone(),
-            "apiKey": api_key.clone(),
-            "plaintext_key": plaintext_key.clone(),
-            "plaintextKey": plaintext_key.clone(),
-        },
-        "key": plaintext_key.clone(),
-        "plaintextKey": plaintext_key,
-        "apiKey": api_key,
-    })
 }
 
 /// `POST /api/api-keys` — create a new API key.
