@@ -2,8 +2,16 @@
 
 use agentforge_core::{AppResult, ErrorKind, GroupId, ProjectId, TenantScope};
 use agentforge_db::entities::{Group, GroupMember};
-use sqlx::PgPool;
+use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
+
+/// Project-scoped group row for the legacy tree-pane projection.
+#[derive(Debug, Clone, FromRow)]
+pub struct ProjectGroupSummaryRow {
+    pub id: Uuid,
+    pub name: String,
+    pub project_id: Uuid,
+}
 
 /// Database access layer for groups.
 pub struct GroupRepository {
@@ -29,6 +37,37 @@ impl GroupRepository {
         .fetch_all(&self.pool)
         .await?;
         Ok(groups)
+    }
+
+    /// List project-scoped canonical groups visible to the current user.
+    pub async fn list_project_group_summaries(
+        &self,
+        scope: &TenantScope,
+        project_id: ProjectId,
+    ) -> AppResult<Vec<ProjectGroupSummaryRow>> {
+        sqlx::query_as::<_, ProjectGroupSummaryRow>(
+            r#"SELECT
+                   g.id,
+                   g.name,
+                   g.project_id
+               FROM public.groups g
+               JOIN public.projects p
+                 ON p.id = g.project_id
+               JOIN organization_members om
+                 ON om.organization_id = p.organization_id
+              WHERE g.project_id = $1
+                AND om.user_id = $2
+                AND p.organization_id = $3
+                AND g.deleted_at IS NULL
+                AND p.deleted_at IS NULL
+              ORDER BY g.created_at ASC"#,
+        )
+        .bind(project_id.as_uuid())
+        .bind(scope.user_id().as_uuid())
+        .bind(scope.org_id().as_uuid())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(Into::into)
     }
 
     /// Get a single group by ID (tenant-scoped).

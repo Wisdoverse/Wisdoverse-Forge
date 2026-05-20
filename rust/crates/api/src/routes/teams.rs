@@ -18,8 +18,9 @@ use agentforge_core::{AppResult, TeamId};
 use crate::health::AppState;
 use crate::repositories::identity::team::TeamRepository;
 use crate::repositories::resource::permission::ResourcePermissionRepository;
-use crate::services::resource_permission::ResourcePermissionService;
-use crate::services::team::TeamService;
+use crate::services::team::{
+    CreateTeamInput, TeamService, UpdateTeamInput, resource_data_response, resource_delete_response,
+};
 
 /// Query parameters for the list endpoint.
 #[derive(Deserialize)]
@@ -48,11 +49,7 @@ pub struct UpdateTeamRequest {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> TeamService {
-    TeamService::new(TeamRepository::new(state.pool.clone()))
-}
-
-fn make_permission_service(state: &AppState) -> ResourcePermissionService {
-    ResourcePermissionService::new(ResourcePermissionRepository::new(state.pool.clone()))
+    TeamService::new(TeamRepository::new(state.pool.clone()), ResourcePermissionRepository::new(state.pool.clone()))
 }
 
 /// `GET /api/teams` — list teams for the authenticated tenant.
@@ -63,7 +60,7 @@ async fn list_teams(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let teams = service.list(&auth.scope, query.limit, query.offset).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": teams })))
+    Ok(Json(resource_data_response(teams)))
 }
 
 /// `GET /api/teams/{id}` — get a single team.
@@ -74,7 +71,7 @@ async fn get_team(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let team = service.get(&auth.scope, TeamId::from(id)).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": team })))
+    Ok(Json(resource_data_response(team)))
 }
 
 /// `POST /api/teams` — create a new team.
@@ -83,10 +80,9 @@ async fn create_team(
     auth: AuthUser,
     Json(req): Json<CreateTeamRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    make_permission_service(&state).require_org_manager(&auth.scope).await?;
     let service = make_service(&state);
-    let team = service.create(&auth.scope, &req.name).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": team })))
+    let team = service.create(&auth.scope, CreateTeamInput { name: req.name }).await?;
+    Ok(Json(resource_data_response(team)))
 }
 
 /// `PATCH /api/teams/{id}` — update a team.
@@ -97,10 +93,9 @@ async fn update_team(
     Json(req): Json<UpdateTeamRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let team_id = TeamId::from(id);
-    make_permission_service(&state).require_team_manager(&auth.scope, team_id).await?;
     let service = make_service(&state);
-    let team = service.update(&auth.scope, team_id, &req.name).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": team })))
+    let team = service.update(&auth.scope, team_id, UpdateTeamInput { name: req.name }).await?;
+    Ok(Json(resource_data_response(team)))
 }
 
 /// `DELETE /api/teams/{id}` — soft delete a team.
@@ -110,10 +105,9 @@ async fn delete_team(
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
     let team_id = TeamId::from(id);
-    make_permission_service(&state).require_team_manager(&auth.scope, team_id).await?;
     let service = make_service(&state);
     service.delete(&auth.scope, team_id).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(resource_delete_response()))
 }
 
 /// Build team routes sub-router.
