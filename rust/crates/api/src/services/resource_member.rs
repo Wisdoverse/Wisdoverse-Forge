@@ -4,6 +4,9 @@ use agentforge_core::{AppResult, ErrorKind, ProjectId, TeamId, TenantScope};
 use uuid::Uuid;
 
 use crate::domain::resource::{ResourceMemberRole, ResourceOrganizationPolicy};
+pub(crate) use crate::domain::resource::{
+    resource_delete_response, resource_member_response, resource_members_response,
+};
 use crate::repositories::resource::member::{ResourceMember, ResourceMemberRepository};
 use crate::repositories::resource::permission::ResourcePermissionRepository;
 use crate::services::resource_permission::ResourcePermissionService;
