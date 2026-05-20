@@ -4,6 +4,7 @@ use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::QuotaUsage;
 
 use crate::domain::configuration::QuotaResourceType;
+pub(crate) use crate::domain::configuration::configuration_data_response;
 use crate::repositories::quota::QuotaRepository;
 
 /// Business logic layer for quota operations.

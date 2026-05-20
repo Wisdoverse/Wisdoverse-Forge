@@ -12,7 +12,7 @@ use agentforge_core::AppResult;
 
 use crate::health::AppState;
 use crate::repositories::quota::QuotaRepository;
-use crate::services::quota::QuotaService;
+use crate::services::quota::{QuotaService, configuration_data_response};
 
 /// Build a QuotaService from shared state.
 fn make_service(state: &AppState) -> QuotaService {
@@ -23,7 +23,7 @@ fn make_service(state: &AppState) -> QuotaService {
 async fn list_quota(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let quotas = service.list(&auth.scope).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": quotas })))
+    Ok(Json(configuration_data_response(quotas)))
 }
 
 /// `GET /api/v1/quota/{resource_type}` — get specific resource usage.
@@ -34,7 +34,7 @@ async fn get_quota_by_type(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let quota = service.get_by_type(&auth.scope, &resource_type).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": quota })))
+    Ok(Json(configuration_data_response(quota)))
 }
 
 /// Build quota routes sub-router.
