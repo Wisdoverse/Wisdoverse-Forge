@@ -3,8 +3,20 @@
 use agentforge_core::{AppResult, OrgId, TenantScope};
 use agentforge_db::entities::Organization;
 
+pub(crate) use crate::domain::resource::resource_data_response;
 use crate::domain::resource::{OrganizationSlug, ResourceName};
 use crate::repositories::identity::organization::OrganizationRepository;
+
+#[derive(Debug, Clone)]
+pub struct CreateOrganizationInput {
+    pub name: String,
+    pub slug: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct UpdateOrganizationInput {
+    pub name: String,
+}
 
 /// Business logic layer for organization operations.
 pub struct OrganizationService {
@@ -27,15 +39,20 @@ impl OrganizationService {
     }
 
     /// Create a new organization with validated name and slug.
-    pub async fn create(&self, scope: &TenantScope, name: &str, slug: &str) -> AppResult<Organization> {
-        let name = ResourceName::parse(name)?;
-        let slug = OrganizationSlug::parse(slug)?;
+    pub async fn create(&self, scope: &TenantScope, input: CreateOrganizationInput) -> AppResult<Organization> {
+        let name = ResourceName::parse(&input.name)?;
+        let slug = OrganizationSlug::parse(&input.slug)?;
         self.repo.create(scope.user_id(), name.value(), slug.value()).await
     }
 
     /// Update an organization's name.
-    pub async fn update(&self, scope: &TenantScope, id: OrgId, name: &str) -> AppResult<Organization> {
-        let name = ResourceName::parse(name)?;
+    pub async fn update(
+        &self,
+        scope: &TenantScope,
+        id: OrgId,
+        input: UpdateOrganizationInput,
+    ) -> AppResult<Organization> {
+        let name = ResourceName::parse(&input.name)?;
         self.repo.update(scope, id, name.value()).await
     }
 }

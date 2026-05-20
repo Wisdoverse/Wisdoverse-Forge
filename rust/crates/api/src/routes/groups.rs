@@ -13,8 +13,6 @@ use axum::extract::{Path, Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
 use serde::Deserialize;
-use serde::Serialize;
-use sqlx::FromRow;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
@@ -22,7 +20,10 @@ use agentforge_core::{AppResult, GroupId, ProjectId};
 
 use crate::health::AppState;
 use crate::repositories::identity::group::GroupRepository;
-use crate::services::group::GroupService;
+use crate::services::group::{
+    GroupService, resource_data_response, resource_delete_response, resource_group_created_response,
+    resource_project_groups_response,
+};
 
 /// Query parameters for the list endpoint.
 #[derive(Deserialize)]
@@ -37,14 +38,6 @@ pub struct ListQuery {
 
 fn default_limit() -> i64 {
     20
-}
-
-#[derive(Debug, Clone, Serialize, FromRow)]
-#[serde(rename_all = "camelCase")]
-struct LegacyGroupSummary {
-    id: Uuid,
-    name: String,
-    project_id: Uuid,
 }
 
 /// Request body for creating a group.
@@ -89,49 +82,14 @@ async fn list_groups(
     auth: AuthUser,
     Query(query): Query<ListQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
     if let Some(project_id) = query.project_id {
-        let groups = list_canonical_groups_for_project(&state, &auth, project_id).await?;
-        return Ok(Json(serde_json::json!({ "ok": true, "data": groups.clone(), "groups": groups })));
+        let groups = service.list_project_group_summaries(&auth.scope, ProjectId::from(project_id)).await?;
+        return Ok(Json(resource_project_groups_response(groups)));
     }
 
-    let service = make_service(&state);
     let groups = service.list(&auth.scope, query.limit, query.offset).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": groups })))
-}
-
-/// Canonical (`public.groups`) read for `GET /groups?projectId=...`.
-///
-/// Does NOT fall back to "groups with NULL project_id in the same org" —
-/// `groups.project_id` stays nullable per ADR 0001, but the frontend only
-/// renders project-scoped groups when filtering by `projectId`. Pre-project
-/// groups exist for admin tooling and are returned by the unfiltered
-/// `GET /groups` list, not by the project-scoped filter.
-async fn list_canonical_groups_for_project(
-    state: &AppState,
-    auth: &AuthUser,
-    project_id: Uuid,
-) -> AppResult<Vec<LegacyGroupSummary>> {
-    sqlx::query_as::<_, LegacyGroupSummary>(
-        r#"SELECT
-               g.id,
-               g.name,
-               g.project_id
-           FROM public.groups g
-           JOIN public.projects p
-             ON p.id = g.project_id
-           JOIN organization_members om
-             ON om.organization_id = p.organization_id
-          WHERE g.project_id = $1
-            AND om.user_id = $2
-            AND g.deleted_at IS NULL
-            AND p.deleted_at IS NULL
-          ORDER BY g.created_at ASC"#,
-    )
-    .bind(project_id)
-    .bind(auth.scope.user_id().as_uuid())
-    .fetch_all(&state.pool)
-    .await
-    .map_err(Into::into)
+    Ok(Json(resource_data_response(groups)))
 }
 
 /// `GET /api/v1/groups/{id}` — get a single group.
@@ -142,7 +100,7 @@ async fn get_group(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let group = service.get(&auth.scope, GroupId::from(id)).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": group })))
+    Ok(Json(resource_data_response(group)))
 }
 
 /// `POST /api/v1/groups` — create a new group.
@@ -154,12 +112,8 @@ async fn create_group(
     let service = make_service(&state);
     let project_id = req.project_id.map(ProjectId::from);
     let group = service.create(&auth.scope, &req.name, req.description.as_deref(), project_id).await?;
-    let summary = req.project_id.map(|project_id| LegacyGroupSummary {
-        id: group.id.as_uuid(),
-        name: group.name.clone(),
-        project_id,
-    });
-    Ok(Json(serde_json::json!({ "ok": true, "data": group, "group": summary })))
+    let summary = service.project_group_summary(&group, req.project_id);
+    Ok(Json(resource_group_created_response(group, summary)))
 }
 
 /// `PATCH /api/v1/groups/{id}` — update a group.
@@ -171,7 +125,7 @@ async fn update_group(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let group = service.update(&auth.scope, GroupId::from(id), req.name.as_deref(), req.description.as_deref()).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": group })))
+    Ok(Json(resource_data_response(group)))
 }
 
 /// `DELETE /api/v1/groups/{id}` — soft delete a group.
@@ -182,7 +136,7 @@ async fn delete_group(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     service.delete(&auth.scope, GroupId::from(id)).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(resource_delete_response()))
 }
 
 /// `GET /api/v1/groups/{id}/members` — list members of a group.
@@ -193,7 +147,7 @@ async fn list_members(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let members = service.list_members(&auth.scope, GroupId::from(id)).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": members })))
+    Ok(Json(resource_data_response(members)))
 }
 
 /// `POST /api/v1/groups/{id}/members` — add a member to a group.
@@ -205,7 +159,7 @@ async fn add_member(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let member = service.add_member(&auth.scope, GroupId::from(id), req.user_id, &req.role).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": member })))
+    Ok(Json(resource_data_response(member)))
 }
 
 /// `DELETE /api/v1/groups/{id}/members/{user_id}` — remove a member from a group.
@@ -216,7 +170,7 @@ async fn remove_member(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     service.remove_member(&auth.scope, GroupId::from(id), user_id).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(resource_delete_response()))
 }
 
 /// Build the group routes sub-router.
@@ -325,22 +279,29 @@ mod tests {
 /// downstream use."
 #[doc(hidden)]
 pub mod test_only {
-    use super::{AppResult, LegacyGroupSummary};
-    use sqlx::PgPool;
+    use agentforge_core::AppResult;
+    use serde::Serialize;
+    use sqlx::{FromRow, PgPool};
     use uuid::Uuid;
+
+    use crate::domain::resource::ProjectGroupSummary;
+
+    #[derive(Debug, Clone, Serialize, FromRow)]
+    #[serde(rename_all = "camelCase")]
+    struct LegacyGroupSummary {
+        id: Uuid,
+        name: String,
+        project_id: Uuid,
+    }
 
     /// Build a sample [`LegacyGroupSummary`].
     pub fn sample_group_summary() -> serde_json::Value {
-        serde_json::to_value(LegacyGroupSummary {
-            id: Uuid::nil(),
-            name: "Backend Team".to_string(),
-            project_id: Uuid::nil(),
-        })
-        .expect("LegacyGroupSummary serializes")
+        serde_json::to_value(ProjectGroupSummary::new(Uuid::nil(), "Backend Team".to_string(), Uuid::nil()))
+            .expect("LegacyGroupSummary serializes")
     }
 
-    /// Exposes `list_canonical_groups_for_project`'s SQL to integration
-    /// tests without needing a live Axum stack. Query body is duplicated
+    /// Exposes the canonical project-group SQL to integration tests without
+    /// needing a live Axum stack. Query body is duplicated
     /// here (not delegated) so drift between the two is caught by the
     /// regression tests in `tests/nav_regression_e2e_test.rs`.
     pub async fn list_groups_canonical_for_test(

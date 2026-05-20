@@ -4,7 +4,18 @@ use agentforge_core::{AppResult, TenantScope, WorkspaceId};
 use agentforge_db::entities::Workspace;
 
 use crate::domain::resource::{ResourceListPage, ResourceName};
+pub(crate) use crate::domain::resource::{resource_data_response, resource_delete_response};
 use crate::repositories::workspace::WorkspaceRepository;
+
+#[derive(Debug, Clone)]
+pub struct CreateWorkspaceInput {
+    pub name: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct UpdateWorkspaceInput {
+    pub name: String,
+}
 
 /// Business logic layer for workspace operations.
 pub struct WorkspaceService {
@@ -28,14 +39,19 @@ impl WorkspaceService {
     }
 
     /// Create a new workspace with validated name.
-    pub async fn create(&self, scope: &TenantScope, name: &str) -> AppResult<Workspace> {
-        let name = ResourceName::parse(name)?;
+    pub async fn create(&self, scope: &TenantScope, input: CreateWorkspaceInput) -> AppResult<Workspace> {
+        let name = ResourceName::parse(&input.name)?;
         self.repo.create(scope, name.value()).await
     }
 
     /// Update a workspace's name.
-    pub async fn update(&self, scope: &TenantScope, id: WorkspaceId, name: &str) -> AppResult<Workspace> {
-        let name = ResourceName::parse(name)?;
+    pub async fn update(
+        &self,
+        scope: &TenantScope,
+        id: WorkspaceId,
+        input: UpdateWorkspaceInput,
+    ) -> AppResult<Workspace> {
+        let name = ResourceName::parse(&input.name)?;
         self.repo.update(scope, id, name.value()).await
     }
 
