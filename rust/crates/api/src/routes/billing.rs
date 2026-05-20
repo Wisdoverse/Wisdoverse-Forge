@@ -16,19 +16,20 @@ use axum::extract::{Query, State};
 use axum::http::HeaderMap;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
-use std::collections::BTreeMap;
+use serde::Deserialize;
+use serde_json::Value;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, ErrorKind};
-use agentforge_db::entities::{BillingPlan, Invoice, Subscription};
 
 use crate::health::AppState;
 use crate::repositories::billing::BillingRepository;
-use crate::services::billing::BillingService;
+use crate::services::billing::{
+    BillingService, billing_checkout_response, billing_data_response, billing_invoices_response,
+    billing_plans_response, billing_portal_response, billing_subscription_data_response, billing_subscription_response,
+    billing_usage_response, billing_webhook_received_response,
+};
 
 /// Query parameters for paginated list endpoints.
 #[derive(Deserialize)]
@@ -75,145 +76,23 @@ pub struct CancelSubscriptionRequest {
     pub immediately: bool,
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct PlanPriceView {
-    monthly: i64,
-    yearly: i64,
-    currency: String,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct BillingPlanView {
-    id: Uuid,
-    name: String,
-    description: String,
-    features: BTreeMap<String, bool>,
-    limits: BTreeMap<String, i64>,
-    price: PlanPriceView,
-    popular: bool,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct SubscriptionView {
-    id: Uuid,
-    plan_id: Uuid,
-    status: String,
-    current_period_start: Option<DateTime<Utc>>,
-    current_period_end: Option<DateTime<Utc>>,
-    cancel_at_period_end: bool,
-    canceled_at: Option<DateTime<Utc>>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct InvoiceView {
-    id: Uuid,
-    status: String,
-    amount_due: i32,
-    amount_paid: i32,
-    total: i32,
-    currency: String,
-    paid_at: Option<DateTime<Utc>>,
-    created_at: DateTime<Utc>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct UsageMetricView {
-    metric: String,
-    current: i64,
-    limit: i64,
-    percent_used: i64,
-}
-
 /// Build a BillingService from shared state.
 fn make_service(state: &AppState) -> BillingService {
     BillingService::with_gateway(BillingRepository::new(state.pool.clone()), state.billing_gateway.clone())
 }
 
-fn plan_view(plan: BillingPlan) -> BillingPlanView {
-    let lower_name = plan.name.to_ascii_lowercase();
-    let (monthly, yearly, popular) = match lower_name.as_str() {
-        "free" => (0, 0, false),
-        "pro" => (25, 250, false),
-        "team" => (60, 600, true),
-        "business" => (120, 1200, false),
-        "enterprise" => (-1, -1, false),
-        _ => (0, 0, false),
-    };
-
-    let features = plan
-        .features
-        .as_object()
-        .map(|object| {
-            object.iter().filter_map(|(key, value)| value.as_bool().map(|flag| (key.clone(), flag))).collect()
-        })
-        .unwrap_or_default();
-
-    let limits = BTreeMap::from([
-        ("maxAgents".to_string(), plan.max_agents as i64),
-        ("maxEventsPerDay".to_string(), plan.max_events_per_day as i64),
-        ("maxStorageMB".to_string(), plan.max_storage_mb as i64),
-    ]);
-
-    BillingPlanView {
-        id: plan.id,
-        name: plan.name.clone(),
-        description: format!("{} plan", plan.name),
-        features,
-        limits,
-        price: PlanPriceView { monthly, yearly, currency: "usd".to_string() },
-        popular,
-    }
-}
-
-fn subscription_view(sub: Subscription) -> SubscriptionView {
-    SubscriptionView {
-        id: sub.id,
-        plan_id: sub.plan_id,
-        status: sub.status,
-        current_period_start: sub.current_period_start,
-        current_period_end: sub.current_period_end,
-        cancel_at_period_end: sub.cancel_at_period_end,
-        canceled_at: sub.canceled_at,
-    }
-}
-
-fn invoice_view(invoice: Invoice) -> InvoiceView {
-    let amount = invoice.amount_cents;
-    let paid = if invoice.status == "paid" { amount } else { 0 };
-    InvoiceView {
-        id: invoice.id,
-        status: invoice.status,
-        amount_due: amount.saturating_sub(paid),
-        amount_paid: paid,
-        total: amount,
-        currency: invoice.currency,
-        paid_at: invoice.paid_at,
-        created_at: invoice.created_at,
-    }
-}
-
 /// `GET /api/billing/plans` — list available plans.
 async fn list_plans(State(state): State<AppState>, _auth: AuthUser) -> AppResult<Json<Value>> {
     let service = make_service(&state);
-    let plans: Vec<_> = service.list_plans().await?.into_iter().map(plan_view).collect();
-    Ok(Json(json!({ "ok": true, "data": &plans, "plans": plans })))
+    let plans = service.list_plan_views().await?;
+    Ok(Json(billing_plans_response(plans)))
 }
 
 /// `GET /api/billing/subscription` — get current org subscription.
 async fn get_subscription(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<Value>> {
     let service = make_service(&state);
-    let sub = service.get_current_subscription(&auth.scope).await?;
-    let plan = match &sub {
-        Some(sub) => Some(plan_view(BillingRepository::new(state.pool.clone()).find_plan_by_id(sub.plan_id).await?)),
-        None => None,
-    };
-    let subscription = sub.map(subscription_view);
-    Ok(Json(json!({ "ok": true, "data": &subscription, "subscription": subscription, "plan": plan })))
+    let projection = service.get_current_subscription_projection(&auth.scope).await?;
+    Ok(Json(billing_subscription_response(projection)))
 }
 
 /// `POST /api/billing/checkout` — start hosted checkout.
@@ -233,9 +112,7 @@ async fn create_checkout(
             req.coupon_code.as_deref(),
         )
         .await?;
-    let session_id = session.id;
-    let url = session.url;
-    Ok(Json(json!({ "ok": true, "data": &url, "agentId": session_id, "url": url })))
+    Ok(Json(billing_checkout_response(session.id, session.url)))
 }
 
 /// `POST /api/billing/portal` — start Stripe customer portal.
@@ -246,8 +123,7 @@ async fn create_portal(
 ) -> AppResult<Json<Value>> {
     let service = make_service(&state);
     let session = service.create_portal_session(&auth.scope, &req.return_url).await?;
-    let url = session.url;
-    Ok(Json(json!({ "ok": true, "data": &url, "url": url })))
+    Ok(Json(billing_portal_response(session.url)))
 }
 
 /// `POST /api/billing/subscribe` — subscribe to a plan.
@@ -258,14 +134,14 @@ async fn subscribe(
 ) -> AppResult<Json<Value>> {
     let service = make_service(&state);
     let sub = service.subscribe(&auth.scope, req.plan_id, req.payment_method_id.as_deref()).await?;
-    Ok(Json(json!({ "ok": true, "data": sub })))
+    Ok(Json(billing_data_response(sub)))
 }
 
 /// `POST /api/billing/cancel` — cancel subscription.
 async fn cancel_subscription(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<Value>> {
     let service = make_service(&state);
     let sub = service.cancel(&auth.scope, false).await?;
-    Ok(Json(json!({ "ok": true, "data": sub })))
+    Ok(Json(billing_data_response(sub)))
 }
 
 /// `POST /api/billing/subscription/cancel` — cancel subscription.
@@ -276,26 +152,21 @@ async fn cancel_subscription_v2(
 ) -> AppResult<Json<Value>> {
     let service = make_service(&state);
     let sub = service.cancel(&auth.scope, req.immediately).await?;
-    Ok(Json(json!({ "ok": true, "data": sub, "subscription": sub })))
+    Ok(Json(billing_subscription_data_response(sub)))
 }
 
 /// `POST /api/billing/subscription/resume` — resume a scheduled cancellation.
 async fn resume_subscription(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<Value>> {
     let service = make_service(&state);
     let sub = service.resume(&auth.scope).await?;
-    Ok(Json(json!({ "ok": true, "data": sub, "subscription": sub })))
+    Ok(Json(billing_subscription_data_response(sub)))
 }
 
 /// `GET /api/billing/usage` — usage metrics.
 async fn get_usage(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<Value>> {
     let service = make_service(&state);
-    let max_agents = match service.get_current_subscription(&auth.scope).await? {
-        Some(sub) => BillingRepository::new(state.pool.clone()).find_plan_by_id(sub.plan_id).await?.max_agents as i64,
-        None => 1,
-    };
-    let usage: Vec<UsageMetricView> =
-        vec![UsageMetricView { metric: "agents".to_string(), current: 0, limit: max_agents, percent_used: 0 }];
-    Ok(Json(json!({ "ok": true, "data": &usage, "usage": usage })))
+    let usage = service.usage_metrics(&auth.scope).await?;
+    Ok(Json(billing_usage_response(usage)))
 }
 
 /// `GET /api/billing/invoices` — list invoices (paginated).
@@ -305,9 +176,8 @@ async fn list_invoices(
     Query(query): Query<ListQuery>,
 ) -> AppResult<Json<Value>> {
     let service = make_service(&state);
-    let invoices: Vec<_> =
-        service.list_invoices(&auth.scope, query.limit, query.offset).await?.into_iter().map(invoice_view).collect();
-    Ok(Json(json!({ "ok": true, "data": &invoices, "invoices": invoices })))
+    let invoices = service.list_invoice_views(&auth.scope, query.limit, query.offset).await?;
+    Ok(Json(billing_invoices_response(invoices)))
 }
 
 /// `POST /api/billing/webhook` — Stripe webhook (no auth, uses Stripe signature verification).
@@ -316,7 +186,7 @@ async fn stripe_webhook(State(state): State<AppState>, headers: HeaderMap, body:
         headers.get("stripe-signature").and_then(|value| value.to_str().ok()).ok_or(ErrorKind::Unauthorized)?;
     let service = make_service(&state);
     service.handle_webhook(&body, signature).await?;
-    Ok(Json(json!({ "ok": true, "received": true })))
+    Ok(Json(billing_webhook_received_response()))
 }
 
 /// Build billing routes sub-router.

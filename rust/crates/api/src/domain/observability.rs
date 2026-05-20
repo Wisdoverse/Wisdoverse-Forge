@@ -6,6 +6,7 @@
 use agentforge_core::{AppResult, ErrorKind};
 use agentforge_db::entities::Event;
 use chrono::{DateTime, Utc};
+use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
 
@@ -103,6 +104,10 @@ impl ContextUsageQueryBounds {
 pub(crate) struct AuditListPage {
     limit: i64,
     offset: i64,
+}
+
+pub(crate) fn audit_data_response<T: Serialize>(data: T) -> Value {
+    json!({ "ok": true, "data": data })
 }
 
 impl AuditListPage {
