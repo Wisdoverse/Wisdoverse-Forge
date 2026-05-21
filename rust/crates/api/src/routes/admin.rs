@@ -21,7 +21,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::admin::AdminRepository;
 use crate::services::admin::{
     AdminAgentListInput, AdminService, admin_bulk_delete_response, admin_data_response, admin_delete_response,
 };
@@ -48,7 +47,7 @@ pub struct ImpersonateRequest {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> AdminService {
-    AdminService::new(AdminRepository::new(state.pool.clone())).with_auth_callout(state.auth_callout.clone())
+    AdminService::from_runtime(state.pool.clone(), state.auth_callout.clone())
 }
 
 /// `GET /api/v1/admin/users` — list all users (admin only).

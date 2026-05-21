@@ -3,6 +3,7 @@
 use agentforge_core::{AppResult, ErrorKind, TenantScope};
 use agentforge_db::entities::Setting;
 use serde_json::Value;
+use sqlx::PgPool;
 
 use crate::domain::configuration::{GatewaySettings, RuntimeSettings};
 pub(crate) use crate::domain::configuration::{
@@ -40,6 +41,10 @@ pub struct SettingService {
 impl SettingService {
     pub fn new(repo: SettingRepository) -> Self {
         Self { repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(SettingRepository::new(pool))
     }
 
     /// List all settings for the user/org.
