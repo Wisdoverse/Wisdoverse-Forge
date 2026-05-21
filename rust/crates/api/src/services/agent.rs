@@ -12,7 +12,7 @@ use crate::domain::agent::{
 pub(crate) use crate::domain::agent::{
     agent_container_status_response, agent_data_response, agent_delete_response, agent_git_status_response,
     agent_list_response, agent_messages_deleted_response, agent_messages_response, agent_permission_response,
-    agent_prompt_sent_response, agent_response, agent_status_response, pool_status_response,
+    agent_prompt_sent_response, agent_response, agent_status_response,
 };
 use crate::repositories::agent::{AgentListItem, AgentRepository, CreateAgentParams};
 use crate::services::agent_workspace::{resolve_agent_workspace_paths, resolve_workspace_mount_scope};

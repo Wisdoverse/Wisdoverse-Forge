@@ -41,6 +41,7 @@ pub mod memory;
 pub mod orchestration;
 pub mod organization;
 pub mod plugin;
+pub mod pool;
 pub mod project;
 pub mod prompt;
 pub mod prompt_library;
