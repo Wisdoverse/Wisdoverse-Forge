@@ -77,7 +77,7 @@ pub struct CancelSubscriptionRequest {
 
 /// Build a BillingService from shared state.
 fn make_service(state: &AppState) -> BillingService {
-    BillingService::from_runtime(state.pool.clone(), state.billing_gateway.clone())
+    state.billing_service()
 }
 
 /// `GET /api/billing/plans` — list available plans.
