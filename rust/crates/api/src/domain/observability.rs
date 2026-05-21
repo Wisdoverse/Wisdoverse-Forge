@@ -10,6 +10,10 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
 
+pub(crate) fn analytics_data_response<T: Serialize>(data: T) -> Value {
+    json!({ "ok": true, "data": data })
+}
+
 /// Analytics event name policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AnalyticsEventName<'a> {
@@ -35,6 +39,21 @@ impl<'a> AnalyticsEventName<'a> {
 pub(crate) struct AnalyticsListPage {
     limit: i64,
     offset: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) struct AnalyticsTopEvent {
+    pub(crate) event_name: String,
+    pub(crate) count: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) struct AnalyticsSummary {
+    pub(crate) total_events: i64,
+    pub(crate) unique_users: i64,
+    pub(crate) top_events: Vec<AnalyticsTopEvent>,
 }
 
 impl AnalyticsListPage {
