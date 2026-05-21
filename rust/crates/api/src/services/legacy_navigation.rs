@@ -4,6 +4,7 @@
 //! workflow over organizations, teams, and projects.
 
 use agentforge_core::{AppResult, ErrorKind, OrgId, ProjectId, TeamId, TenantScope};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::navigation::{LegacyOrg, LegacyProject, LegacyTeam};
@@ -35,6 +36,15 @@ impl LegacyNavigationService {
         groups: GroupService,
     ) -> Self {
         Self { navigation, organizations, permissions, groups }
+    }
+
+    pub(crate) fn from_pool(pool: PgPool) -> Self {
+        Self::new(
+            LegacyNavigationRepository::new(pool.clone()),
+            OrganizationService::from_pool(pool.clone()),
+            ResourcePermissionService::from_pool(pool.clone()),
+            GroupService::from_pool(pool),
+        )
     }
 
     pub(crate) async fn list_orgs(&self, scope: &TenantScope) -> AppResult<Vec<LegacyOrg>> {

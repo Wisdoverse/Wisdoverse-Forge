@@ -1,6 +1,7 @@
 //! Team and project member management.
 
 use agentforge_core::{AppResult, ErrorKind, ProjectId, TeamId, TenantScope};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::resource::{ResourceMemberRole, ResourceOrganizationPolicy};
@@ -19,6 +20,10 @@ pub struct ResourceMemberService {
 impl ResourceMemberService {
     pub fn new(repo: ResourceMemberRepository, permission_repo: ResourcePermissionRepository) -> Self {
         Self { repo, permissions: ResourcePermissionService::new(permission_repo) }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(ResourceMemberRepository::new(pool.clone()), ResourcePermissionRepository::new(pool))
     }
 
     pub async fn list_team_members(

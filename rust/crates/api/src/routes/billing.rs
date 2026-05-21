@@ -24,7 +24,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, ErrorKind};
 
 use crate::health::AppState;
-use crate::repositories::billing::BillingRepository;
 use crate::services::billing::{
     BillingService, billing_checkout_response, billing_data_response, billing_invoices_response,
     billing_plans_response, billing_portal_response, billing_subscription_data_response, billing_subscription_response,
@@ -78,7 +77,7 @@ pub struct CancelSubscriptionRequest {
 
 /// Build a BillingService from shared state.
 fn make_service(state: &AppState) -> BillingService {
-    BillingService::with_gateway(BillingRepository::new(state.pool.clone()), state.billing_gateway.clone())
+    BillingService::from_runtime(state.pool.clone(), state.billing_gateway.clone())
 }
 
 /// `GET /api/billing/plans` — list available plans.
