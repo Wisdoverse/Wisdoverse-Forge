@@ -16,14 +16,7 @@ use crate::services::agent::{agent_container_status_response, agent_status_respo
 use crate::services::agent_container_control::AgentContainerControlService;
 
 fn make_container_control_service(state: &AppState) -> AgentContainerControlService {
-    AgentContainerControlService::from_runtime(
-        state.pool.clone(),
-        &state.config,
-        state.context_features,
-        state.encryption_key,
-        state.docker.clone(),
-        state.auth_callout.clone(),
-    )
+    state.agent_container_control_service()
 }
 
 /// `POST /api/agents/{id}/start` — Start an agent container.

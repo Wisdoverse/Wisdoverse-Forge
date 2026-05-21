@@ -7,8 +7,6 @@
 //! - `POST   /api/v1/devenv/{id}/stop`  — stop and remove the environment container
 //! - `DELETE /api/v1/devenv/{id}`       — delete environment
 
-use std::sync::Arc;
-
 use axum::extract::{Path, State};
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -20,8 +18,8 @@ use agentforge_core::AppResult;
 
 use crate::health::AppState;
 use crate::services::dev_environment::{
-    DevEnvironmentRuntime, DevEnvironmentService, DockerDevEnvironmentRuntime, dev_environment_data_response,
-    dev_environment_delete_response, dev_environment_message_response,
+    DevEnvironmentService, dev_environment_data_response, dev_environment_delete_response,
+    dev_environment_message_response,
 };
 
 /// Request body for creating a dev environment.
@@ -39,11 +37,7 @@ fn default_config() -> serde_json::Value {
 
 /// Build a DevEnvironmentService from shared state.
 fn make_service(state: &AppState) -> DevEnvironmentService {
-    let runtime = state
-        .docker
-        .as_ref()
-        .map(|docker| Arc::new(DockerDevEnvironmentRuntime::new(docker.clone())) as Arc<dyn DevEnvironmentRuntime>);
-    DevEnvironmentService::from_runtime(state.pool.clone(), runtime)
+    state.dev_environment_service()
 }
 
 /// `GET /api/v1/devenv` — list dev environments.

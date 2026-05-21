@@ -47,7 +47,7 @@ pub struct ImpersonateRequest {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> AdminService {
-    AdminService::from_runtime(state.pool.clone(), state.auth_callout.clone())
+    state.admin_service()
 }
 
 /// `GET /api/v1/admin/users` — list all users (admin only).
