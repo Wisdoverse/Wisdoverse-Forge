@@ -10,6 +10,7 @@ use uuid::Uuid;
 
 const MAX_FILENAME_LEN: usize = 255;
 const MAX_CONTENT_TYPE_LEN: usize = 255;
+pub(crate) const DEFAULT_ATTACHMENT_CONTENT_TYPE: &str = "application/octet-stream";
 
 pub(crate) fn attachment_data_response<T: Serialize>(data: T) -> Value {
     json!({ "ok": true, "data": data })
@@ -17,6 +18,77 @@ pub(crate) fn attachment_data_response<T: Serialize>(data: T) -> Value {
 
 pub(crate) fn attachment_delete_response() -> Value {
     json!({ "ok": true })
+}
+
+/// Upload payload after HTTP multipart fields have been read.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AttachmentUploadDraft {
+    pub(crate) filename: String,
+    pub(crate) content_type: String,
+    pub(crate) agent_id: Option<AgentId>,
+    pub(crate) bytes: Vec<u8>,
+}
+
+impl AttachmentUploadDraft {
+    pub(crate) fn from_parts(
+        file_name: Option<String>,
+        file_content_type: Option<String>,
+        filename_override: Option<String>,
+        content_type_override: Option<String>,
+        agent_id: Option<AgentId>,
+        bytes: Option<Vec<u8>>,
+    ) -> AppResult<Self> {
+        let bytes = bytes.ok_or_else(|| ErrorKind::Validation("multipart field 'file' is required".to_string()))?;
+        let filename = filename_override
+            .or(file_name)
+            .ok_or_else(|| ErrorKind::Validation("attachment filename is required".to_string()))?;
+        let content_type =
+            content_type_override.or(file_content_type).unwrap_or_else(|| DEFAULT_ATTACHMENT_CONTENT_TYPE.to_string());
+
+        Ok(Self { filename, content_type, agent_id, bytes })
+    }
+}
+
+/// Attachment body and metadata prepared for a download response.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AttachmentDownload {
+    filename: String,
+    content_type: String,
+    bytes: Vec<u8>,
+}
+
+impl AttachmentDownload {
+    pub(crate) fn new(filename: String, content_type: String, bytes: Vec<u8>) -> Self {
+        Self { filename, content_type, bytes }
+    }
+
+    pub(crate) fn filename(&self) -> &str {
+        &self.filename
+    }
+
+    pub(crate) fn content_type(&self) -> &str {
+        &self.content_type
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.bytes.len()
+    }
+
+    pub(crate) fn into_bytes(self) -> Vec<u8> {
+        self.bytes
+    }
+}
+
+pub(crate) fn attachment_download_content_disposition(filename: &str) -> String {
+    let escaped = filename
+        .chars()
+        .map(|ch| match ch {
+            '"' | '\\' | '\r' | '\n' => '_',
+            ch if ch.is_control() => '_',
+            ch => ch,
+        })
+        .collect::<String>();
+    format!("attachment; filename=\"{escaped}\"")
 }
 
 /// Validated attachment filename.
@@ -182,5 +254,38 @@ mod tests {
     #[test]
     fn attachment_agent_scope_rejects_non_uuid() {
         assert!(AttachmentAgentScope::parse("not-a-uuid").is_err());
+    }
+
+    #[test]
+    fn upload_draft_prefers_overrides_and_defaults_content_type() {
+        let agent_id = AgentId::new();
+        let draft = AttachmentUploadDraft::from_parts(
+            Some("source.txt".to_string()),
+            None,
+            Some("override.txt".to_string()),
+            None,
+            Some(agent_id),
+            Some(vec![1, 2, 3]),
+        )
+        .unwrap();
+
+        assert_eq!(draft.filename, "override.txt");
+        assert_eq!(draft.content_type, DEFAULT_ATTACHMENT_CONTENT_TYPE);
+        assert_eq!(draft.agent_id, Some(agent_id));
+        assert_eq!(draft.bytes, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn upload_draft_requires_file_and_filename() {
+        assert!(AttachmentUploadDraft::from_parts(None, None, None, None, None, None).is_err());
+        assert!(AttachmentUploadDraft::from_parts(None, None, None, None, None, Some(vec![1])).is_err());
+    }
+
+    #[test]
+    fn download_content_disposition_escapes_unsafe_characters() {
+        assert_eq!(
+            attachment_download_content_disposition("bad\"\r\nname.txt"),
+            "attachment; filename=\"bad___name.txt\""
+        );
     }
 }
