@@ -3,17 +3,19 @@
 use std::sync::Arc;
 
 use agentforge_auth::JwtManager;
-use agentforge_core::{AppResult, ErrorKind, TenantScope, UserId};
+use agentforge_core::{AppConfig, AppResult, ErrorKind, TenantScope, UserId};
 use agentforge_db::entities::User;
 use chrono::{Duration, Utc};
+use sqlx::PgPool;
 use uuid::Uuid;
 
-pub use crate::domain::user::{AuthenticatedUser, LoginResult};
 use crate::domain::user::{
-    GeneratedPasswordResetToken, PASSWORD_RESET_TTL_MINUTES, PasswordResetRequestEmail, PasswordResetToken,
-    RefreshSessionPolicy, RefreshedAccessToken, SWITCH_CONTEXT_REFRESH_EXPIRY_SECONDS, SwitchContextAxes, UserEmail,
-    UserListPage, UserPassword, derive_username, email_domain_for_log, password_reset_email_body,
+    AuthRefreshCookiePolicy, GeneratedPasswordResetToken, PASSWORD_RESET_TTL_MINUTES, PasswordResetRequestEmail,
+    PasswordResetToken, RefreshSessionPolicy, RefreshedAccessToken, SWITCH_CONTEXT_REFRESH_EXPIRY_SECONDS,
+    SwitchContextAxes, UserEmail, UserListPage, UserPassword, derive_username, email_domain_for_log,
+    password_reset_email_body,
 };
+pub use crate::domain::user::{AuthenticatedUser, LoginResult};
 pub(crate) use crate::domain::user::{
     auth_error_response_body, auth_me_response, auth_message_response, auth_ok_response, auth_providers_response,
     auth_refresh_response, auth_success_response_body, auth_switch_context_response, user_data_response,
@@ -53,11 +55,27 @@ pub struct UserService {
     repo: UserRepository,
     jwt: Arc<JwtManager>,
     password_reset_delivery: Option<PasswordResetDelivery>,
+    refresh_cookie_policy: AuthRefreshCookiePolicy,
 }
 
 impl UserService {
     pub fn new(repo: UserRepository, jwt: Arc<JwtManager>) -> Self {
-        Self { repo, jwt, password_reset_delivery: None }
+        Self { repo, jwt, password_reset_delivery: None, refresh_cookie_policy: AuthRefreshCookiePolicy::new(false) }
+    }
+
+    pub(crate) fn from_pool(pool: PgPool, jwt: Arc<JwtManager>) -> Self {
+        Self::new(UserRepository::new(pool), jwt)
+    }
+
+    pub(crate) fn from_app_config(
+        pool: PgPool,
+        jwt: Arc<JwtManager>,
+        email_sender: Arc<dyn EmailSender>,
+        config: &AppConfig,
+    ) -> Self {
+        Self::new(UserRepository::new(pool), jwt)
+            .with_password_reset_delivery(email_sender, config.app_url.clone())
+            .with_refresh_cookie_policy(AuthRefreshCookiePolicy::new(config.is_production()))
     }
 
     pub(crate) fn with_password_reset_delivery(
@@ -67,6 +85,23 @@ impl UserService {
     ) -> Self {
         self.password_reset_delivery = Some(PasswordResetDelivery { email_sender, app_url });
         self
+    }
+
+    pub(crate) fn with_refresh_cookie_policy(mut self, policy: AuthRefreshCookiePolicy) -> Self {
+        self.refresh_cookie_policy = policy;
+        self
+    }
+
+    pub(crate) fn refresh_cookie_name(&self) -> &'static str {
+        self.refresh_cookie_policy.cookie_name()
+    }
+
+    pub(crate) fn refresh_cookie(&self, token: &str, max_age: u64) -> String {
+        self.refresh_cookie_policy.refresh_cookie(token, max_age)
+    }
+
+    pub(crate) fn clear_refresh_cookie(&self) -> String {
+        self.refresh_cookie_policy.clear_cookie()
     }
 
     /// Authenticate with email + password and return a JWT.
