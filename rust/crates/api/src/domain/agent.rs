@@ -6,9 +6,81 @@
 use std::collections::HashMap;
 
 use agentforge_core::{AgentStatus, AppResult, CliToolKind, ErrorKind};
+use serde::Serialize;
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 use crate::domain::credential::ContainerCliCredentialPolicy;
+
+pub(crate) fn agent_list_response<T: Serialize>(agents: T) -> Value {
+    json!({ "ok": true, "agents": agents })
+}
+
+pub(crate) fn agent_response<T: Serialize>(agent: T) -> Value {
+    json!({ "ok": true, "agent": agent })
+}
+
+pub(crate) fn agent_data_response<T: Serialize>(data: T) -> Value {
+    json!({ "ok": true, "data": data })
+}
+
+pub(crate) fn agent_delete_response() -> Value {
+    json!({ "ok": true })
+}
+
+pub(crate) fn agent_status_response(status: &str) -> Value {
+    json!({ "ok": true, "status": status })
+}
+
+pub(crate) fn agent_prompt_sent_response(agent_id: Uuid) -> Value {
+    json!({ "ok": true, "status": "sent", "agent_id": agent_id })
+}
+
+pub(crate) fn agent_messages_response<T: Serialize>(messages: T, has_more: bool) -> Value {
+    json!({ "ok": true, "messages": messages, "hasMore": has_more })
+}
+
+pub(crate) fn agent_messages_deleted_response(deleted: u64) -> Value {
+    json!({ "ok": true, "deleted": deleted })
+}
+
+pub(crate) fn agent_container_status_response(container_id: &str, status: &str) -> Value {
+    json!({ "ok": true, "container_id": container_id, "status": status })
+}
+
+pub(crate) fn agent_git_status_response() -> Value {
+    json!({
+        "ok": true,
+        "data": {
+            "branch": null,
+            "ahead": 0,
+            "behind": 0,
+            "modified": [],
+            "untracked": []
+        }
+    })
+}
+
+pub(crate) fn agent_permission_response(projection: AgentPermissionProjection) -> Value {
+    json!({ "ok": true, "data": projection })
+}
+
+pub(crate) fn pool_status_response(docker_available: bool) -> Value {
+    json!({
+        "ok": true,
+        "data": {
+            "docker_available": docker_available,
+            "message": "pool status — warm pool integration pending"
+        }
+    })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub(crate) struct AgentPermissionProjection {
+    pub(crate) has_permission: bool,
+    pub(crate) is_owner: bool,
+    pub(crate) permission: Option<String>,
+}
 
 /// Validated pagination request for agent lists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -211,6 +283,30 @@ pub(crate) enum AgentStatusTransition {
     Change(AgentStatus),
 }
 
+/// Runtime state reduced to the lifecycle distinction needed for restart.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AgentContainerRuntimeState {
+    Running,
+    NotRunning,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AgentRestartPlan {
+    StopThenStart,
+    StartOnly,
+}
+
+pub(crate) struct AgentContainerLifecyclePolicy;
+
+impl AgentContainerLifecyclePolicy {
+    pub(crate) fn restart_plan(state: AgentContainerRuntimeState) -> AgentRestartPlan {
+        match state {
+            AgentContainerRuntimeState::Running => AgentRestartPlan::StopThenStart,
+            AgentContainerRuntimeState::NotRunning => AgentRestartPlan::StartOnly,
+        }
+    }
+}
+
 impl AgentLifecycle {
     pub(crate) fn transition(from: AgentStatus, to: AgentStatus) -> AppResult<AgentStatusTransition> {
         if from == to {
@@ -306,6 +402,18 @@ impl AgentAccessPolicy {
         collaborator_permission
             .and_then(|permission| AgentCollaboratorPermission::parse(permission).ok())
             .is_some_and(|permission| permission.allows(action))
+    }
+}
+
+pub(crate) fn agent_permission_projection(
+    is_owner: bool,
+    collaborator_permission: Option<&str>,
+    action: &str,
+) -> AgentPermissionProjection {
+    AgentPermissionProjection {
+        has_permission: AgentAccessPolicy::has_permission(is_owner, collaborator_permission, action),
+        is_owner,
+        permission: collaborator_permission.map(str::to_string),
     }
 }
 
