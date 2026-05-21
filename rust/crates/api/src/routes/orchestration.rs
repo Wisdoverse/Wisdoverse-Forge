@@ -153,24 +153,19 @@ pub struct RegisterParticipantRequest {
 // ---------------------------------------------------------------------------
 
 fn make_service(state: &AppState) -> OrchestrationService {
-    OrchestrationService::from_runtime(
-        state.pool.clone(),
-        state.context_features,
-        state.context_resolver.clone(),
-        state.nats.clone(),
-    )
+    state.orchestration_service()
 }
 
 fn make_task_context_service(state: &AppState) -> TaskContextService {
-    TaskContextService::from_pool(state.pool.clone())
+    state.task_context_service()
 }
 
 fn make_context_preview_service(state: &AppState) -> ContextPreviewService {
-    ContextPreviewService::from_runtime(state.pool.clone(), state.context_resolver.clone())
+    state.context_preview_service()
 }
 
 fn make_feature_service(state: &AppState) -> ContextFeatureService {
-    ContextFeatureService::from_runtime(state.pool.clone(), state.context_features)
+    state.context_feature_service()
 }
 
 fn extract_params(req: &CreateTaskRequest) -> (String, Option<String>, Option<serde_json::Value>) {

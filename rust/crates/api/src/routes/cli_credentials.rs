@@ -37,7 +37,7 @@ pub struct UploadRequest {
 }
 
 fn make_service(state: &AppState) -> CliCredentialService {
-    CliCredentialService::from_pool_and_app_config(state.pool.clone(), state.encryption_key, &state.config)
+    state.cli_credential_service()
 }
 
 async fn list_cli_credentials(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<Value>> {
