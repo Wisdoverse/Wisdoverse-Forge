@@ -4,6 +4,8 @@ use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::AnalyticsEvent;
 use sqlx::PgPool;
 
+use crate::domain::observability::{AnalyticsSummary, AnalyticsTopEvent};
+
 /// Database access layer for analytics events.
 pub struct AnalyticsRepository {
     pool: PgPool,
@@ -60,7 +62,7 @@ impl AnalyticsRepository {
     }
 
     /// Get aggregate summary stats.
-    pub async fn summary(&self, scope: &TenantScope) -> AppResult<serde_json::Value> {
+    pub(crate) async fn summary(&self, scope: &TenantScope) -> AppResult<AnalyticsSummary> {
         let row = sqlx::query_as::<_, (i64,)>(r#"SELECT COUNT(*) FROM analytics_events WHERE organization_id = $1"#)
             .bind(scope.org_id().as_uuid())
             .fetch_one(&self.pool)
@@ -88,15 +90,9 @@ impl AnalyticsRepository {
         .fetch_all(&self.pool)
         .await?;
 
-        let top: Vec<serde_json::Value> = top_events
-            .into_iter()
-            .map(|(name, count)| serde_json::json!({"event_name": name, "count": count}))
-            .collect();
+        let top_events =
+            top_events.into_iter().map(|(event_name, count)| AnalyticsTopEvent { event_name, count }).collect();
 
-        Ok(serde_json::json!({
-            "total_events": total_events,
-            "unique_users": unique_users,
-            "top_events": top,
-        }))
+        Ok(AnalyticsSummary { total_events, unique_users, top_events })
     }
 }
