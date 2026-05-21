@@ -33,11 +33,12 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AgentId, AppResult};
 
 use crate::domain::orchestration::TaskAssignmentPatchPolicy;
-use crate::health::{AppState, ContextFeature, ensure_context_feature_enabled};
+use crate::health::AppState;
 use crate::repositories::context_preview::ContextPreviewRepository;
 use crate::repositories::orchestration::task_context::TaskContextRepository;
 use crate::repositories::orchestration::{OrchestrationTaskRepository, ParticipantRepository};
 use crate::services::admin::AdminService;
+use crate::services::context_feature::ContextFeatureService;
 use crate::services::context_preview::{ContextPreviewService, PublishWithContextInput};
 use crate::services::orchestration::{
     CreateTaskParamsInput, OrchestrationService, ParticipantSummary, TaskSummary, create_task_request_parts,
@@ -155,17 +156,12 @@ pub struct RegisterParticipantRequest {
 // ---------------------------------------------------------------------------
 
 fn make_service(state: &AppState) -> OrchestrationService {
-    let service = OrchestrationService::new(
+    OrchestrationService::new(
         OrchestrationTaskRepository::new(state.pool.clone()),
         ParticipantRepository::new(state.pool.clone()),
     )
-    .with_context_injection_enabled(state.context_features.injection)
-    .with_broadcast_bus(state.nats.clone());
-    if state.context_features.injection {
-        service.with_context_resolver(state.context_resolver.clone())
-    } else {
-        service
-    }
+    .with_context_runtime(state.context_features, state.context_resolver.clone())
+    .with_broadcast_bus(state.nats.clone())
 }
 
 fn make_task_context_service(state: &AppState) -> TaskContextService {
@@ -182,6 +178,10 @@ fn make_context_preview_service(state: &AppState) -> ContextPreviewService {
         ParticipantRepository::new(state.pool.clone()),
         state.context_resolver.clone(),
     )
+}
+
+fn make_feature_service(state: &AppState) -> ContextFeatureService {
+    ContextFeatureService::new(state.pool.clone(), state.context_features)
 }
 
 fn extract_params(req: &CreateTaskRequest) -> (String, Option<String>, Option<serde_json::Value>) {
@@ -315,8 +315,9 @@ async fn publish_task_with_context(
     Path(id): Path<Uuid>,
     Json(req): Json<PublishWithContextRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    ensure_context_feature_enabled(&state, &auth.scope, ContextFeature::Preview).await?;
-    ensure_context_feature_enabled(&state, &auth.scope, ContextFeature::Injection).await?;
+    let feature_service = make_feature_service(&state);
+    feature_service.ensure_preview_enabled(&auth.scope).await?;
+    feature_service.ensure_injection_enabled(&auth.scope).await?;
     let service = make_service(&state);
     let task = make_context_preview_service(&state)
         .publish_existing_task(
