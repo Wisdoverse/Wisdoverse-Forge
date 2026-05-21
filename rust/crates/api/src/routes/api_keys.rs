@@ -19,7 +19,9 @@ use agentforge_core::AppResult;
 
 use crate::health::AppState;
 use crate::repositories::credential::api_key::ApiKeyRepository;
-use crate::services::api_key::{ApiKeyService, api_key_create_response, api_key_list_response};
+use crate::services::api_key::{
+    ApiKeyService, api_key_create_response, api_key_list_response, credential_delete_response,
+};
 
 /// Query parameters for the list endpoint.
 #[derive(Deserialize)]
@@ -78,7 +80,7 @@ async fn revoke_api_key(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     service.revoke_key(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(credential_delete_response()))
 }
 
 /// Build API key routes sub-router.

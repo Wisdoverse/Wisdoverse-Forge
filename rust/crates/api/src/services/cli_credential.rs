@@ -21,6 +21,9 @@ use secrecy::{ExposeSecret, SecretString};
 use tokio::fs;
 
 use crate::domain::credential::{ContainerCliCredentialPolicy, OauthMountContainerKey};
+pub(crate) use crate::domain::credential::{
+    cli_credential_deleted_response, cli_credential_stored_response, cli_credentials_response,
+};
 use crate::repositories::credential::cli::{CliCredentialRepository, CliCredentialStatus};
 use crate::repositories::user::llm_config::UserLlmConfigRepository;
 

@@ -17,15 +17,18 @@ use axum::extract::{Path, Query, State};
 use axum::response::{Html, IntoResponse};
 use axum::routing::{delete, get, post};
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use agentforge_auth::AuthUser;
-use agentforge_core::{AppConfig, AppResult};
-use secrecy::{ExposeSecret, SecretString};
+use agentforge_core::AppResult;
 
 use crate::health::AppState;
 use crate::repositories::credential::cli::CliCredentialRepository;
-use crate::services::cli_auth_proxy::{CallbackMode, CliAuthProxyProvider, CliAuthProxyService, StateStore};
+pub use crate::services::cli_auth_proxy::resolve_providers;
+use crate::services::cli_auth_proxy::{
+    CliAuthProxyService, StateStore, cli_auth_authorize_response, cli_auth_connected_response,
+    cli_auth_disconnected_response, cli_auth_providers_response, cli_auth_statuses_response,
+};
 
 /// Build the service on each request — stateless wiring, no per-request state
 /// beyond the shared `AppState`. The Codex provider is baked in; operator-
@@ -46,65 +49,17 @@ fn make_service(state: &AppState) -> CliAuthProxyService {
     )
 }
 
-/// Start from the legacy `builtinOpenAI` baseline (public Codex client,
-/// manual callback) and layer admin overrides from `AppConfig`:
-/// - `cli_auth_proxy_openai_client_id` swaps the public client to the
-///   operator's own OAuth app.
-/// - Optional `client_secret` / `auth_endpoint` / `token_endpoint` mirror
-///   the same keys in legacy `appConfig.cliAuthProxy.openai`.
-/// - When `app_url` is also set, the redirect URI flips to our own server
-///   callback and `callback_mode` becomes `Server`.
-///
-/// Public so the background refresh loop in `bins/server` can build the
-/// service without depending on the route layer's private state.
-pub fn resolve_providers(config: &AppConfig) -> Vec<CliAuthProxyProvider> {
-    let mut openai = CliAuthProxyProvider {
-        name: "openai".to_string(),
-        display_name: "OpenAI (Codex)".to_string(),
-        cli_tool: "codex".to_string(),
-        client_id: "app_EMoamEEZ73f0CkXaXp7hrann".to_string(),
-        client_secret: None,
-        auth_endpoint: "https://auth.openai.com/oauth/authorize".to_string(),
-        token_endpoint: "https://auth.openai.com/oauth/token".to_string(),
-        redirect_uri: "http://localhost:1455/auth/callback".to_string(),
-        scope: "openid profile email offline_access".to_string(),
-        callback_mode: CallbackMode::Manual,
-    };
-    if let Some(cid) = config.cli_auth_proxy_openai_client_id.as_deref().filter(|s| !s.is_empty()) {
-        openai.client_id = cid.to_string();
-        // Keep secrets inside the `SecretString` wrapper as long as possible; a
-        // fresh wrapper is fine because the source-of-truth lives in AppConfig.
-        openai.client_secret = config
-            .cli_auth_proxy_openai_client_secret
-            .as_ref()
-            .map(|s| s.expose_secret().to_string())
-            .filter(|s| !s.is_empty())
-            .map(SecretString::from);
-        if let Some(ep) = config.cli_auth_proxy_openai_auth_endpoint.as_deref().filter(|s| !s.is_empty()) {
-            openai.auth_endpoint = ep.to_string();
-        }
-        if let Some(ep) = config.cli_auth_proxy_openai_token_endpoint.as_deref().filter(|s| !s.is_empty()) {
-            openai.token_endpoint = ep.to_string();
-        }
-        if let Some(app_url) = config.app_url.as_deref().filter(|s| !s.is_empty()) {
-            openai.redirect_uri = format!("{}/api/v1/cli-auth-proxy/openai/callback", app_url.trim_end_matches('/'));
-            openai.callback_mode = CallbackMode::Server;
-        }
-    }
-    vec![openai]
-}
-
 /// Back-compat shim for callers that don't carry an `AppConfig`
 /// (specifically the unit test below). Always returns the pure hardcoded
 /// baseline — no admin overrides applied.
 #[cfg(test)]
-fn builtin_providers() -> Vec<CliAuthProxyProvider> {
+fn builtin_providers() -> Vec<crate::services::cli_auth_proxy::CliAuthProxyProvider> {
     resolve_providers(&default_test_config())
 }
 
 #[cfg(test)]
-fn default_test_config() -> AppConfig {
-    AppConfig {
+fn default_test_config() -> agentforge_core::AppConfig {
+    agentforge_core::AppConfig {
         port: 4003,
         host: "0.0.0.0".into(),
         database_url: "postgres://test".into(),
@@ -113,7 +68,7 @@ fn default_test_config() -> AppConfig {
         nats_agent_url: None,
         nats_callout: agentforge_core::NatsCalloutConfig::default(),
         stripe: agentforge_core::StripeConfig::default(),
-        jwt_secret: SecretString::from("a".repeat(32)),
+        jwt_secret: secrecy::SecretString::from("a".repeat(32)),
         jwt_expiry_seconds: 900,
         environment: "test".into(),
         log_level: "info".into(),
@@ -173,12 +128,12 @@ pub struct ServerCallbackQuery {
 
 async fn list_providers(State(state): State<AppState>, _auth: AuthUser) -> AppResult<Json<Value>> {
     let providers = make_service(&state).list_providers();
-    Ok(Json(json!({ "ok": true, "providers": providers })))
+    Ok(Json(cli_auth_providers_response(providers)))
 }
 
 async fn status(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<Value>> {
     let statuses = make_service(&state).status(&auth.scope).await?;
-    Ok(Json(json!({ "ok": true, "statuses": statuses })))
+    Ok(Json(cli_auth_statuses_response(statuses)))
 }
 
 async fn authorize(
@@ -187,7 +142,7 @@ async fn authorize(
     Path(provider): Path<String>,
 ) -> AppResult<Json<Value>> {
     let url = make_service(&state).authorize(&auth.scope, &provider).await?;
-    Ok(Json(json!({ "ok": true, "url": url })))
+    Ok(Json(cli_auth_authorize_response(url)))
 }
 
 async fn complete_manual(
@@ -197,7 +152,7 @@ async fn complete_manual(
     Json(req): Json<CompleteManualRequest>,
 ) -> AppResult<Json<Value>> {
     make_service(&state).complete_manual(&auth.scope, &provider, &req.input).await?;
-    Ok(Json(json!({ "ok": true, "provider": provider, "status": "connected" })))
+    Ok(Json(cli_auth_connected_response(&provider)))
 }
 
 async fn disconnect(
@@ -206,7 +161,7 @@ async fn disconnect(
     Path(provider): Path<String>,
 ) -> AppResult<Json<Value>> {
     make_service(&state).disconnect(&auth.scope, &provider).await?;
-    Ok(Json(json!({ "ok": true, "provider": provider, "status": "disconnected" })))
+    Ok(Json(cli_auth_disconnected_response(&provider)))
 }
 
 /// Server-callback landing page. The IdP redirects the user's browser here
@@ -301,6 +256,8 @@ pub fn cli_auth_proxy_routes() -> Router<AppState> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::services::cli_auth_proxy::CallbackMode;
+    use secrecy::{ExposeSecret, SecretString};
 
     #[test]
     fn builtin_has_openai_codex() {

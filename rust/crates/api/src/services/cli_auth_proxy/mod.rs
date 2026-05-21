@@ -27,13 +27,17 @@ mod refresh_classifier;
 pub use crate::domain::cli_auth_proxy::{
     CallbackMode, ProviderInfo, ProviderStatus, RefreshSummary, RevokedCliCredential,
 };
+pub(crate) use crate::domain::cli_auth_proxy::{
+    cli_auth_authorize_response, cli_auth_connected_response, cli_auth_disconnected_response,
+    cli_auth_providers_response, cli_auth_statuses_response,
+};
 pub use refresh_classifier::{RefreshErrorKind, classify_refresh_failure};
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use agentforge_core::{AppResult, CliToolKind, ErrorKind, TenantScope, crypto};
+use agentforge_core::{AppConfig, AppResult, CliToolKind, ErrorKind, TenantScope, crypto};
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use rand::RngCore;
@@ -84,6 +88,43 @@ pub struct CliAuthProxyProvider {
     /// `manual` (user pastes callback URL) vs `server` (backend hosts the
     /// redirect). Only `manual` is wired for now.
     pub callback_mode: CallbackMode,
+}
+
+/// Build the deployment's CLI auth provider registry from static defaults plus
+/// operator overrides.
+pub fn resolve_providers(config: &AppConfig) -> Vec<CliAuthProxyProvider> {
+    let mut openai = CliAuthProxyProvider {
+        name: "openai".to_string(),
+        display_name: "OpenAI (Codex)".to_string(),
+        cli_tool: "codex".to_string(),
+        client_id: "app_EMoamEEZ73f0CkXaXp7hrann".to_string(),
+        client_secret: None,
+        auth_endpoint: "https://auth.openai.com/oauth/authorize".to_string(),
+        token_endpoint: "https://auth.openai.com/oauth/token".to_string(),
+        redirect_uri: "http://localhost:1455/auth/callback".to_string(),
+        scope: "openid profile email offline_access".to_string(),
+        callback_mode: CallbackMode::Manual,
+    };
+    if let Some(cid) = config.cli_auth_proxy_openai_client_id.as_deref().filter(|s| !s.is_empty()) {
+        openai.client_id = cid.to_string();
+        openai.client_secret = config
+            .cli_auth_proxy_openai_client_secret
+            .as_ref()
+            .map(|s| s.expose_secret().to_string())
+            .filter(|s| !s.is_empty())
+            .map(SecretString::from);
+        if let Some(ep) = config.cli_auth_proxy_openai_auth_endpoint.as_deref().filter(|s| !s.is_empty()) {
+            openai.auth_endpoint = ep.to_string();
+        }
+        if let Some(ep) = config.cli_auth_proxy_openai_token_endpoint.as_deref().filter(|s| !s.is_empty()) {
+            openai.token_endpoint = ep.to_string();
+        }
+        if let Some(app_url) = config.app_url.as_deref().filter(|s| !s.is_empty()) {
+            openai.redirect_uri = format!("{}/api/v1/cli-auth-proxy/openai/callback", app_url.trim_end_matches('/'));
+            openai.callback_mode = CallbackMode::Server;
+        }
+    }
+    vec![openai]
 }
 
 /// Outcome of one refresh attempt — dispatched by `refresh_stale`.
