@@ -16,9 +16,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, ProjectId, TeamId, WorkspaceId};
 
 use crate::health::AppState;
-use crate::repositories::identity::group::GroupRepository;
-use crate::repositories::project::ProjectRepository;
-use crate::repositories::resource::permission::ResourcePermissionRepository;
 use crate::services::project::{
     CreateProjectInput, ProjectService, UpdateProjectInput, resource_data_response, resource_delete_response,
 };
@@ -73,11 +70,7 @@ pub struct UpdateProjectRequest {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> ProjectService {
-    ProjectService::new(
-        ProjectRepository::new(state.pool.clone()),
-        ResourcePermissionRepository::new(state.pool.clone()),
-        GroupRepository::new(state.pool.clone()),
-    )
+    ProjectService::from_pool(state.pool.clone())
 }
 
 /// `GET /api/projects` — list projects for the authenticated tenant.

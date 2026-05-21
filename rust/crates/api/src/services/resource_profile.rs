@@ -2,6 +2,7 @@
 
 use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::ResourceProfile;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::configuration::ResourceProfilePolicy;
@@ -34,6 +35,10 @@ pub struct ResourceProfileService {
 impl ResourceProfileService {
     pub fn new(repo: ResourceProfileRepository) -> Self {
         Self { repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(ResourceProfileRepository::new(pool))
     }
 
     /// List resource profiles (org + system defaults).

@@ -11,12 +11,11 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::quota::QuotaRepository;
 use crate::services::quota::{QuotaService, configuration_data_response};
 
 /// Build a QuotaService from shared state.
 fn make_service(state: &AppState) -> QuotaService {
-    QuotaService::new(QuotaRepository::new(state.pool.clone()))
+    QuotaService::from_pool(state.pool.clone())
 }
 
 /// `GET /api/v1/quota` — get org quota usage summary.

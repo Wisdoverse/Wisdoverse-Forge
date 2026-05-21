@@ -17,7 +17,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::setting::SettingRepository;
 use crate::services::setting::{
     SettingService, UpdateGatewaySettingsInput, UpdateRuntimeSettingsInput, UpsertSettingInput,
     configuration_data_response, configuration_delete_response, gateway_settings_response, runtime_settings_response,
@@ -46,7 +45,7 @@ struct UpdateGatewaySettingsRequest {
 
 /// Build a SettingService from shared state.
 fn make_service(state: &AppState) -> SettingService {
-    SettingService::new(SettingRepository::new(state.pool.clone()))
+    SettingService::from_pool(state.pool.clone())
 }
 
 /// `GET /api/settings` — list settings.

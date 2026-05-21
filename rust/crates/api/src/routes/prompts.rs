@@ -16,7 +16,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::prompt::PromptRepository;
 use crate::services::prompt_library::{
     PromptLibraryService, prompt_library_data_response, prompt_library_delete_response,
 };
@@ -50,7 +49,7 @@ pub struct UpdatePromptRequest {
 
 /// Build a PromptLibraryService from shared state.
 fn make_service(state: &AppState) -> PromptLibraryService {
-    PromptLibraryService::new(PromptRepository::new(state.pool.clone()))
+    PromptLibraryService::from_pool(state.pool.clone())
 }
 
 /// `GET /api/v1/prompts` — list prompts.
