@@ -1,6 +1,7 @@
 //! Inbox notification service.
 
 use agentforge_core::{AppResult, TenantScope};
+use sqlx::PgPool;
 
 use crate::domain::inbox::{InboxListLimit, InboxNotificationProjection, inbox_notification_projection};
 pub(crate) use crate::domain::inbox::{inbox_data_response, inbox_ok_response};
@@ -13,6 +14,10 @@ pub(crate) struct InboxService {
 impl InboxService {
     pub(crate) fn new(repo: InboxRepository) -> Self {
         Self { repo }
+    }
+
+    pub(crate) fn from_pool(pool: PgPool) -> Self {
+        Self::new(InboxRepository::new(pool))
     }
 
     pub(crate) async fn list(

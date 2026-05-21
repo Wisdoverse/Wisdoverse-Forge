@@ -2,6 +2,7 @@
 
 use agentforge_core::{AppResult, OrgId, TenantScope};
 use agentforge_db::entities::Organization;
+use sqlx::PgPool;
 
 pub(crate) use crate::domain::resource::resource_data_response;
 use crate::domain::resource::{OrganizationSlug, ResourceName};
@@ -26,6 +27,10 @@ pub struct OrganizationService {
 impl OrganizationService {
     pub fn new(repo: OrganizationRepository) -> Self {
         Self { repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(OrganizationRepository::new(pool))
     }
 
     /// List organizations the user belongs to.
