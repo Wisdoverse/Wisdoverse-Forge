@@ -10,8 +10,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, ProjectId, TeamId};
 
 use crate::health::AppState;
-use crate::repositories::resource::member::ResourceMemberRepository;
-use crate::repositories::resource::permission::ResourcePermissionRepository;
 use crate::services::resource_member::{
     ResourceMemberService, resource_delete_response, resource_member_response, resource_members_response,
 };
@@ -37,10 +35,7 @@ struct UpdateMemberRequest {
 }
 
 fn make_service(state: &AppState) -> ResourceMemberService {
-    ResourceMemberService::new(
-        ResourceMemberRepository::new(state.pool.clone()),
-        ResourcePermissionRepository::new(state.pool.clone()),
-    )
+    ResourceMemberService::from_pool(state.pool.clone())
 }
 
 async fn list_team_members(

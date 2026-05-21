@@ -2,6 +2,7 @@
 
 use agentforge_core::{AppResult, ProjectId, TeamId, TenantScope, WorkspaceId};
 use agentforge_db::entities::Project;
+use sqlx::PgPool;
 
 use crate::domain::resource::{ProjectRepositoryUrl, ResourceListPage, ResourceName};
 pub(crate) use crate::domain::resource::{resource_data_response, resource_delete_response};
@@ -38,6 +39,14 @@ impl ProjectService {
         group_repo: GroupRepository,
     ) -> Self {
         Self { repo, permissions: ResourcePermissionService::new(permission_repo), group_repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(
+            ProjectRepository::new(pool.clone()),
+            ResourcePermissionRepository::new(pool.clone()),
+            GroupRepository::new(pool),
+        )
     }
 
     /// List projects with pagination and optional workspace filter. Limit is capped at 100.
