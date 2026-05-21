@@ -14,6 +14,7 @@ use agentforge_core::orchestration_protocol::DEFAULT_ASSIGNMENT_LEASE_SECS;
 use agentforge_core::{AgentId, AppResult, ErrorKind, TenantScope};
 use agentforge_db::entities::{OrchestrationTask, Participant, TaskRun};
 use agentforge_db::inbox_notifications::{TaskOwnerNotificationKind, upsert_task_owner_lifecycle_notification_in_tx};
+use agentforge_infra::NatsClient;
 use agentforge_jobs::insert_assignment_outbox_in_tx;
 use uuid::Uuid;
 
@@ -28,7 +29,7 @@ pub(crate) use crate::domain::orchestration::{
     CreateTaskParamsInput, create_task_request_parts, orchestration_delete_response,
     orchestration_participant_response, orchestration_participants_response, orchestration_stats_response,
     orchestration_task_context_response, orchestration_task_response, orchestration_tasks_response,
-    task_update_broadcast_payload,
+    task_update_broadcast_payload, task_update_broadcast_subject,
 };
 pub use crate::domain::orchestration::{
     ParticipantSummary, TaskContextCounts, TaskStatsResponse, TaskSummary, task_summary,
@@ -83,12 +84,20 @@ pub struct OrchestrationService {
     task_run_repo: TaskRunRepository,
     context_resolver: Option<Arc<ContextResolverService>>,
     context_injection_enabled: bool,
+    broadcast_bus: Option<Arc<NatsClient>>,
 }
 
 impl OrchestrationService {
     pub fn new(task_repo: OrchestrationTaskRepository, participant_repo: ParticipantRepository) -> Self {
         let task_run_repo = TaskRunRepository::new(task_repo.pool().clone());
-        Self { task_repo, participant_repo, task_run_repo, context_resolver: None, context_injection_enabled: true }
+        Self {
+            task_repo,
+            participant_repo,
+            task_run_repo,
+            context_resolver: None,
+            context_injection_enabled: true,
+            broadcast_bus: None,
+        }
     }
 
     pub fn with_context_resolver(mut self, context_resolver: Arc<ContextResolverService>) -> Self {
@@ -101,6 +110,11 @@ impl OrchestrationService {
         if !enabled {
             self.context_resolver = None;
         }
+        self
+    }
+
+    pub fn with_broadcast_bus(mut self, nats: Arc<NatsClient>) -> Self {
+        self.broadcast_bus = Some(nats);
         self
     }
 
@@ -773,6 +787,26 @@ impl OrchestrationService {
             summary.context_counts = counts.into();
         }
         Ok(summary)
+    }
+
+    pub(crate) async fn broadcast_task_update(&self, scope: &TenantScope, action: &str, task: &TaskSummary) {
+        let Some(nats) = &self.broadcast_bus else {
+            return;
+        };
+        if !nats.is_connected() {
+            return;
+        }
+        let subject = task_update_broadcast_subject(scope.org_id().as_uuid());
+        let payload = task_update_broadcast_payload(action, task);
+        if let Err(err) = nats.publish_json(&subject, payload).await {
+            tracing::warn!(
+                error = ?err,
+                %subject,
+                task_id = %task.id,
+                %action,
+                "Failed to broadcast orchestration task update"
+            );
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
