@@ -13,7 +13,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::user::llm_config::UserLlmConfigRepository;
 use crate::services::llm_provider::LlmProviderService;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -37,11 +36,7 @@ pub struct UpdateProviderRequest {
 }
 
 fn make_service(state: &AppState) -> LlmProviderService {
-    LlmProviderService::new(
-        UserLlmConfigRepository::new(state.pool.clone()),
-        state.encryption_key,
-        state.llm_factory.clone(),
-    )
+    LlmProviderService::from_pool(state.pool.clone(), state.encryption_key, state.llm_factory.clone())
 }
 
 /// `GET /api/v1/llm-providers/supported` — static UI provider metadata.

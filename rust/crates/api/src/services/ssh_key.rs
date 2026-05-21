@@ -2,6 +2,7 @@
 
 use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::SshKey;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::credential::{CredentialListPage, SshKeyName, SshPublicKey};
@@ -16,6 +17,10 @@ pub struct SshKeyService {
 }
 
 impl SshKeyService {
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(SshKeyRepository::new(pool))
+    }
+
     pub fn new(repo: SshKeyRepository) -> Self {
         Self { repo }
     }

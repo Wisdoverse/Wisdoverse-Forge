@@ -24,8 +24,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::credential::cli::CliCredentialRepository;
-use crate::repositories::user::llm_config::UserLlmConfigRepository;
 use crate::services::cli_credential::{
     CliCredentialService, cli_credential_deleted_response, cli_credential_stored_response, cli_credentials_response,
 };
@@ -39,12 +37,7 @@ pub struct UploadRequest {
 }
 
 fn make_service(state: &AppState) -> CliCredentialService {
-    CliCredentialService::from_app_config(
-        CliCredentialRepository::new(state.pool.clone()),
-        UserLlmConfigRepository::new(state.pool.clone()),
-        state.encryption_key,
-        &state.config,
-    )
+    CliCredentialService::from_pool_and_app_config(state.pool.clone(), state.encryption_key, &state.config)
 }
 
 async fn list_cli_credentials(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<Value>> {
