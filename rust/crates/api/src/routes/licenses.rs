@@ -15,7 +15,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::license::LicenseRepository;
 use crate::services::license::{LicenseService, license_data_response};
 
 /// Request body for validating/activating a license.
@@ -26,7 +25,7 @@ pub struct LicenseKeyRequest {
 
 /// Build a LicenseService from shared state.
 fn make_service(state: &AppState) -> LicenseService {
-    LicenseService::new(LicenseRepository::new(state.pool.clone()))
+    LicenseService::from_pool(state.pool.clone())
 }
 
 /// `GET /licenses` — list licenses.

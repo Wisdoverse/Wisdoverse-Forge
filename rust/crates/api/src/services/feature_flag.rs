@@ -2,6 +2,7 @@
 
 use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::FeatureFlag;
+use sqlx::PgPool;
 
 pub(crate) use crate::domain::configuration::configuration_data_response;
 use crate::domain::resource::FeatureFlagName;
@@ -21,6 +22,10 @@ pub struct FeatureFlagService {
 impl FeatureFlagService {
     pub fn new(repo: FeatureFlagRepository) -> Self {
         Self { repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(FeatureFlagRepository::new(pool))
     }
 
     /// List all flags for the org (including global).
