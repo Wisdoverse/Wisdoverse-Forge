@@ -6,14 +6,19 @@ use agentforge_auth::JwtManager;
 use agentforge_core::{AppResult, ErrorKind, TenantScope, UserId};
 use agentforge_db::entities::User;
 use chrono::{Duration, Utc};
+use uuid::Uuid;
 
 pub use crate::domain::user::{AuthenticatedUser, LoginResult};
 use crate::domain::user::{
     GeneratedPasswordResetToken, PASSWORD_RESET_TTL_MINUTES, PasswordResetRequestEmail, PasswordResetToken,
-    RefreshSessionPolicy, UserEmail, UserListPage, UserPassword, derive_username, email_domain_for_log,
-    password_reset_email_body,
+    RefreshSessionPolicy, SWITCH_CONTEXT_REFRESH_EXPIRY_SECONDS, SwitchContextAxes, UserEmail, UserListPage,
+    UserPassword, derive_username, email_domain_for_log, password_reset_email_body,
 };
-pub(crate) use crate::domain::user::{user_data_response, user_members_response};
+pub(crate) use crate::domain::user::{
+    auth_error_response_body, auth_me_response, auth_message_response, auth_ok_response, auth_providers_response,
+    auth_refresh_response, auth_success_response_body, auth_switch_context_response, user_data_response,
+    user_members_response,
+};
 use crate::repositories::user::{OrgUserSearchResult, UserRepository};
 use crate::services::email::{EmailMessage, EmailSender};
 
@@ -21,6 +26,20 @@ use crate::services::email::{EmailMessage, EmailSender};
 pub(crate) struct UpdateUserProfileInput {
     pub(crate) target_user_id: UserId,
     pub(crate) display_name: Option<String>,
+}
+
+pub(crate) struct SwitchContextInput {
+    pub(crate) org_id: Uuid,
+    pub(crate) workspace_id: Option<Uuid>,
+    pub(crate) team_id: Option<Uuid>,
+    pub(crate) project_id: Option<Uuid>,
+}
+
+pub(crate) struct SwitchContextSession {
+    pub(crate) access_token: String,
+    pub(crate) refresh_token: String,
+    pub(crate) expires_in: u64,
+    pub(crate) refresh_expires_in: u64,
 }
 
 /// Business logic layer for user operations.
@@ -209,6 +228,74 @@ impl UserService {
         limit: i64,
     ) -> AppResult<Vec<OrgUserSearchResult>> {
         self.repo.search_org_members(scope, query, limit).await
+    }
+
+    pub(crate) async fn switch_context_session(
+        &self,
+        user_id: UserId,
+        input: SwitchContextInput,
+    ) -> AppResult<SwitchContextSession> {
+        let role = self.repo.find_membership_role(user_id, input.org_id).await?.ok_or(ErrorKind::Forbidden)?;
+        let axes = SwitchContextAxes::new(input.workspace_id, input.team_id, input.project_id)?;
+        self.validate_switch_context_axes(user_id, input.org_id, &axes).await?;
+
+        let access_token = self
+            .jwt
+            .create_token_with_axes(
+                user_id.as_uuid(),
+                input.org_id,
+                &role,
+                axes.workspace_id(),
+                axes.team_id(),
+                axes.project_id(),
+            )
+            .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("context switch token creation failed: {e}")))?;
+        let refresh_token = self
+            .jwt
+            .create_token_with_axes_and_expiry(
+                user_id.as_uuid(),
+                input.org_id,
+                &role,
+                axes.workspace_id(),
+                axes.team_id(),
+                axes.project_id(),
+                SWITCH_CONTEXT_REFRESH_EXPIRY_SECONDS,
+            )
+            .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("context switch refresh token creation failed: {e}")))?;
+
+        Ok(SwitchContextSession {
+            access_token,
+            refresh_token,
+            expires_in: self.jwt.expiry_seconds(),
+            refresh_expires_in: SWITCH_CONTEXT_REFRESH_EXPIRY_SECONDS,
+        })
+    }
+
+    async fn validate_switch_context_axes(
+        &self,
+        user_id: UserId,
+        org_id: Uuid,
+        axes: &SwitchContextAxes,
+    ) -> AppResult<()> {
+        if let Some(workspace_id) = axes.workspace_id()
+            && !self.repo.workspace_exists_in_org(org_id, workspace_id).await?
+        {
+            return Err(ErrorKind::Forbidden.into());
+        }
+
+        if let Some(team_id) = axes.team_id()
+            && !self.repo.user_can_read_team(user_id, org_id, team_id).await?
+        {
+            return Err(ErrorKind::Forbidden.into());
+        }
+
+        if let Some((project_id, workspace_id)) = axes.project_workspace_pair()
+            && !self.repo.user_can_read_project(user_id, org_id, project_id, workspace_id).await?
+        {
+            return Err(ErrorKind::Forbidden.into());
+        }
+
+        Ok(())
     }
 
     fn build_auth_result(
