@@ -48,6 +48,22 @@ fn route_handlers_do_not_reintroduce_ddd_boundary_leaks() {
                 ));
             }
 
+            if contains_runtime_state_wiring(trimmed) {
+                violations.push(format!(
+                    "{}:{} wires runtime AppState dependencies in production route code; move service construction to AppState factories",
+                    route.display(),
+                    line_no + 1
+                ));
+            }
+
+            if contains_route_service_constructor(trimmed) {
+                violations.push(format!(
+                    "{}:{} constructs runtime-aware services in production route code; use AppState service factories",
+                    route.display(),
+                    line_no + 1
+                ));
+            }
+
             if let Some(name) = route_local_projection_name(trimmed) {
                 violations.push(format!(
                     "{}:{} defines route-local projection `{name}`; move response/projection types to domain",
@@ -130,6 +146,36 @@ fn contains_repository_namespace_import(line: &str) -> bool {
 
 fn contains_repository_constructor(line: &str) -> bool {
     line.contains("Repository::new")
+}
+
+fn contains_runtime_state_wiring(line: &str) -> bool {
+    [
+        "state.config",
+        "state.encryption_key",
+        "state.llm_factory",
+        "state.docker",
+        "state.nats",
+        "state.object_storage",
+        "state.billing_gateway",
+        "state.auth_callout",
+        "state.email_sender",
+        "state.jwt",
+        "state.agent_command_bus",
+        "state.inflight_prompts",
+        "state.redis",
+        "state.cli_auth_memory_store",
+        "state.context_resolver",
+        "state.context_features",
+    ]
+    .iter()
+    .any(|pattern| line.contains(pattern))
+}
+
+fn contains_route_service_constructor(line: &str) -> bool {
+    line.contains("Service::new(")
+        || line.contains("from_app_config(")
+        || line.contains("from_pool_and_app_config(")
+        || line.contains("from_runtime(")
 }
 
 fn route_local_projection_name(line: &str) -> Option<&str> {
