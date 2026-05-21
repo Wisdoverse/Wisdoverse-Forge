@@ -28,7 +28,7 @@ fn make_service(state: &AppState) -> AppResult<GovernanceAuditService> {
 }
 
 fn make_feature_service(state: &AppState) -> ContextFeatureService {
-    ContextFeatureService::new(state.pool.clone(), state.context_features)
+    ContextFeatureService::from_runtime(state.pool.clone(), state.context_features)
 }
 
 async fn list_governance_audit(
