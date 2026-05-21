@@ -51,6 +51,10 @@ Current stacked PRs:
   context, memory, prompt, plugin, attachment, favorite, tile, and inbox
   response contracts and inbox repository/service/projection boundaries into
   domain/service layers.
+- #237 `refactor/backend-ddd-communication-session` -> #236 branch: moved
+  auth/session response projections, context-switch membership checks and token
+  issuance, analytics summaries, and voice status/response projections into
+  domain/service/repository boundaries.
 
 ## Execution Rule
 
@@ -73,19 +77,23 @@ Each batch should produce one PR with:
 Do not pick a one-endpoint cleanup. Pick one of these larger batches and finish
 the route family end to end.
 
-### Batch 1: Communication, Analytics, And Session Surfaces
+### Batch 1: Completion Sweep And Boundary Enforcement
 
-Target the remaining user-facing backend surfaces in one larger PR:
+Target backend DDD completion, not another one-endpoint migration:
 
-- `routes/analytics.rs`
-- `routes/voice.rs`
-- `routes/auth.rs`
-- remaining direct response construction in `routes/events.rs`
+- audit every `rust/crates/api/src/routes/*.rs` production handler for direct
+  repository construction, raw SQL, route-local response/projection structs, and
+  production `json!` response construction;
+- move any remaining production leaks into the owning domain/service/repository
+  boundary;
+- add or extend a lightweight boundary check so CI can prevent regression where
+  a route reintroduces response assembly or direct SQL orchestration;
+- keep request-default `json!({})` values and route tests only when they are
+  clearly not production response construction.
 
-Move route-local response contracts, session/auth projections, analytics
-summary projections, and voice-provider response helpers into domain/service
-layers. Keep route handlers limited to HTTP extraction, auth scope usage,
-cookie/header transport, and service calls.
+Use the existing stacked PRs as the current working baseline. This batch should
+prove whether the backend route surface now follows the intended DDD boundary
+and close concrete gaps found by the audit.
 
 ## Validation
 
@@ -145,9 +153,10 @@ Current open stack:
 - #234 identity and access surfaces, stacked on #233.
 - #235 agent execution runtime surfaces, stacked on #234.
 - #236 collaboration and knowledge surfaces, stacked on #235.
+- #237 communication, analytics, and session surfaces, stacked on #236.
 
-Before starting a new PR, inspect the current state of #229-#236. If they have
-not landed yet, stack the next branch on #236. If they have landed, branch from
+Before starting a new PR, inspect the current state of #229-#237. If they have
+not landed yet, stack the next branch on #237. If they have landed, branch from
 updated origin/main.
 
 Create a separate worktree, implement the next large backend DDD batch, run
