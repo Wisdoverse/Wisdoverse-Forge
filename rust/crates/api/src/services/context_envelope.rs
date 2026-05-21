@@ -57,6 +57,10 @@ impl ContextEnvelopeService {
         Self { pool, resolver }
     }
 
+    pub fn from_runtime(pool: PgPool, resolver: Arc<ContextResolverService>) -> Self {
+        Self::new(pool, resolver)
+    }
+
     pub async fn build(&self, proof: &ScopedRead, input: ContextEnvelopeInput) -> AppResult<ContextEnvelope> {
         ContextEnvelopeVersionPolicy::ensure_v1_supported(&input.supported_versions)?;
         self.verify_run(proof, &input).await?;

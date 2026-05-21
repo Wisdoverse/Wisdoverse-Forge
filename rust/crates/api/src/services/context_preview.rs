@@ -6,6 +6,7 @@ use agentforge_core::{AgentId, AppResult, ErrorKind, TenantScope};
 use agentforge_db::entities::{ContextPreview, OrchestrationTask};
 use chrono::{Duration, Utc};
 use serde_json::Value;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::context_preview::{
@@ -47,6 +48,18 @@ impl ContextPreviewService {
         resolver: Arc<crate::services::context_resolver::ContextResolverService>,
     ) -> Self {
         Self { previews, tasks, participants, resolver }
+    }
+
+    pub fn from_runtime(
+        pool: PgPool,
+        resolver: Arc<crate::services::context_resolver::ContextResolverService>,
+    ) -> Self {
+        Self::new(
+            ContextPreviewRepository::new(pool.clone()),
+            OrchestrationTaskRepository::new(pool.clone()),
+            ParticipantRepository::new(pool),
+            resolver,
+        )
     }
 
     pub async fn create(
