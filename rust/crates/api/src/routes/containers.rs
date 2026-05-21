@@ -12,40 +12,17 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AgentId, AppResult};
 
 use crate::health::AppState;
-use crate::repositories::agent::AgentRepository;
-use crate::repositories::credential::cli::CliCredentialRepository;
-use crate::repositories::credential::git::GitCredentialRepository;
-use crate::repositories::orchestration::{OrchestrationTaskRepository, ParticipantRepository};
-use crate::repositories::user::llm_config::UserLlmConfigRepository;
 use crate::services::agent::{agent_container_status_response, agent_status_response};
-use crate::services::agent_container_control::{AgentContainerControlService, AgentContainerControlSettings};
-use crate::services::agent_container_credentials::AgentContainerCredentialService;
-use crate::services::agent_workspace::workspace_root_from_env;
-
-fn make_container_credential_service(state: &AppState) -> AgentContainerCredentialService {
-    AgentContainerCredentialService::from_app_config(
-        CliCredentialRepository::new(state.pool.clone()),
-        UserLlmConfigRepository::new(state.pool.clone()),
-        GitCredentialRepository::new(state.pool.clone()),
-        state.encryption_key,
-        &state.config,
-    )
-}
+use crate::services::agent_container_control::AgentContainerControlService;
 
 fn make_container_control_service(state: &AppState) -> AgentContainerControlService {
-    AgentContainerControlService::new(
-        AgentRepository::new(state.pool.clone()),
-        OrchestrationTaskRepository::new(state.pool.clone()),
-        ParticipantRepository::new(state.pool.clone()),
-        make_container_credential_service(state),
+    AgentContainerControlService::from_runtime(
+        state.pool.clone(),
+        &state.config,
+        state.context_features,
+        state.encryption_key,
         state.docker.clone(),
         state.auth_callout.clone(),
-        state.pool.clone(),
-        AgentContainerControlSettings::from_runtime(
-            workspace_root_from_env(),
-            state.config.as_ref(),
-            state.context_features,
-        ),
     )
 }
 

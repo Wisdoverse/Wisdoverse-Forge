@@ -45,6 +45,7 @@ use redis::AsyncCommands;
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
+use sqlx::PgPool;
 use tokio::sync::Mutex as AsyncMutex;
 use tokio::sync::RwLock;
 
@@ -350,6 +351,16 @@ pub struct CliAuthProxyService {
 }
 
 impl CliAuthProxyService {
+    pub fn from_pool_and_app_config(
+        pool: PgPool,
+        config: &AppConfig,
+        encryption_key: Option<[u8; 32]>,
+        redis: Arc<RwLock<RedisClient>>,
+        memory_store: Arc<MemoryStateStore>,
+    ) -> Self {
+        Self::from_app_config(config, CliCredentialRepository::new(pool), encryption_key, redis, memory_store)
+    }
+
     /// Build the deployment-scoped service wiring used by HTTP routes and
     /// workers. Runtime concerns stay here so handlers don't know how the
     /// provider registry, state-store backend, or revoke threshold are chosen.
