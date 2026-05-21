@@ -91,6 +91,21 @@ impl AgentService {
         self.repo.delete(scope, id).await
     }
 
+    pub(crate) async fn set_container(
+        &self,
+        scope: &TenantScope,
+        id: AgentId,
+        container_id: &str,
+        hmac_secret: &str,
+        nats_connect_password: &str,
+    ) -> AppResult<Agent> {
+        self.repo.set_container(scope, id, container_id, hmac_secret, nats_connect_password).await
+    }
+
+    pub(crate) async fn clear_container(&self, scope: &TenantScope, id: AgentId) -> AppResult<Agent> {
+        self.repo.clear_container(scope, id).await
+    }
+
     // --- Collaborator operations ---
 
     /// List collaborators for an agent.
