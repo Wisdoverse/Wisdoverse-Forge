@@ -20,17 +20,14 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AgentId, AgentStatus, AppResult};
 
 use crate::health::AppState;
-use crate::repositories::agent::{AgentRepository, CreateAgentParams, MessageRepository};
-use crate::repositories::user::llm_config::UserLlmConfigRepository;
 use crate::services::agent::{
-    AgentService, agent_data_response, agent_delete_response, agent_git_status_response, agent_list_response,
-    agent_messages_deleted_response, agent_messages_response, agent_permission_response, agent_prompt_sent_response,
-    agent_response, agent_status_response,
+    AgentService, CreateAgentParams, agent_data_response, agent_delete_response, agent_git_status_response,
+    agent_list_response, agent_messages_deleted_response, agent_messages_response, agent_permission_response,
+    agent_prompt_sent_response, agent_response, agent_status_response,
 };
 use crate::services::agent_container_lifecycle::AgentContainerLifecycleService;
 use crate::services::agent_message::AgentMessageService;
 use crate::services::agent_prompt::{AgentPromptDispatch, AgentPromptService};
-use crate::services::agent_workspace::workspace_root_from_env;
 
 /// Query parameters for the list endpoint.
 #[derive(Deserialize)]
@@ -101,19 +98,16 @@ pub struct PromptRequest {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> AgentService {
-    AgentService::new(AgentRepository::new(state.pool.clone()))
-        .with_workspace_resolver(state.pool.clone(), workspace_root_from_env())
+    AgentService::from_pool_with_workspace(state.pool.clone())
 }
 
 fn make_message_service(state: &AppState) -> AgentMessageService {
-    AgentMessageService::new(AgentRepository::new(state.pool.clone()), MessageRepository::new(state.pool.clone()))
+    AgentMessageService::from_pool(state.pool.clone())
 }
 
 fn make_prompt_service(state: &AppState) -> AgentPromptService {
-    AgentPromptService::new(
-        std::sync::Arc::new(AgentRepository::new(state.pool.clone())),
-        std::sync::Arc::new(MessageRepository::new(state.pool.clone())),
-        std::sync::Arc::new(UserLlmConfigRepository::new(state.pool.clone())),
+    AgentPromptService::from_runtime(
+        state.pool.clone(),
         state.llm_factory.clone(),
         state.encryption_key,
         state.agent_command_bus.clone(),
@@ -123,7 +117,7 @@ fn make_prompt_service(state: &AppState) -> AgentPromptService {
 }
 
 fn make_container_lifecycle_service(state: &AppState) -> AgentContainerLifecycleService {
-    AgentContainerLifecycleService::new(AgentRepository::new(state.pool.clone()), state.docker.clone())
+    AgentContainerLifecycleService::from_runtime(state.pool.clone(), state.docker.clone())
 }
 
 /// `GET /api/v1/agents` — list agents for the authenticated tenant.
