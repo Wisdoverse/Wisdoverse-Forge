@@ -542,6 +542,18 @@ mod tests {
     }
 
     #[test]
+    fn agent_container_lifecycle_policy_maps_runtime_states_to_restart_plans() {
+        assert_eq!(
+            AgentContainerLifecyclePolicy::restart_plan(AgentContainerRuntimeState::Running),
+            AgentRestartPlan::StopThenStart
+        );
+        assert_eq!(
+            AgentContainerLifecyclePolicy::restart_plan(AgentContainerRuntimeState::NotRunning),
+            AgentRestartPlan::StartOnly
+        );
+    }
+
+    #[test]
     fn agent_message_page_fetches_one_extra_and_drops_oldest_extra() {
         let page = AgentMessagePage::new(2);
         assert_eq!(page.fetch_limit(), 3);
