@@ -16,6 +16,7 @@ use agentforge_db::entities::{OrchestrationTask, Participant, TaskRun};
 use agentforge_db::inbox_notifications::{TaskOwnerNotificationKind, upsert_task_owner_lifecycle_notification_in_tx};
 use agentforge_infra::NatsClient;
 use agentforge_jobs::insert_assignment_outbox_in_tx;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::context::{ContextFeature, ContextFeatureFlags};
@@ -99,6 +100,17 @@ impl OrchestrationService {
             context_injection_enabled: true,
             broadcast_bus: None,
         }
+    }
+
+    pub fn from_runtime(
+        pool: PgPool,
+        context_features: ContextFeatureFlags,
+        context_resolver: Arc<ContextResolverService>,
+        nats: Arc<NatsClient>,
+    ) -> Self {
+        Self::new(OrchestrationTaskRepository::new(pool.clone()), ParticipantRepository::new(pool))
+            .with_context_runtime(context_features, context_resolver)
+            .with_broadcast_bus(nats)
     }
 
     pub fn with_context_resolver(mut self, context_resolver: Arc<ContextResolverService>) -> Self {
