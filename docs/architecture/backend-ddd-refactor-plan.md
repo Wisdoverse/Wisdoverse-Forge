@@ -111,6 +111,14 @@ Current stacked PRs:
   context-feature runtime/repository wiring into service factories; extends the
   route boundary test to block these agent/orchestration/context factory leaks
   from returning.
+- #251 `refactor/backend-ddd-route-factory-sweep` -> #250 branch: moves the
+  remaining production route-layer repository constructors into service
+  factories across admin, attachment, analytics, audit, billing, dev
+  environment, events/turns/inbox, feature flags, favorites, groups,
+  organizations, plugins, projects, prompts, quota, resource members/profiles,
+  settings, skills, teams, tiles, voice, and workspaces; upgrades the route
+  boundary test to block production route repository imports and all
+  `Repository::new` calls.
 
 ## Execution Rule
 
@@ -149,11 +157,10 @@ Target backend DDD completion, not another one-endpoint migration:
 
 Use the existing stacked PRs as the current working baseline. This batch should
 prove whether the backend route surface now follows the intended DDD boundary
-and close concrete gaps found by the audit. After #250, prefer one larger sweep
-that moves remaining CRUD-style repository constructors together, especially
-workspace/project/resource/group/team/organization/settings/skills/prompts,
-analytics/events/turns/inbox, and other single-table route factory helpers that
-still instantiate repositories directly.
+and close concrete gaps found by the audit. After #251, prefer the next large
+sweep around remaining route-local response/projection construction and
+production `json!` response assembly, or any service constructor that still
+accepts low-level runtime configuration instead of a named factory.
 
 ## Validation
 
@@ -250,8 +257,12 @@ Current open stack:
   task-context, context-preview, context-envelope, context-approval, and
   context-feature runtime/repository wiring into service factories and extending
   route-boundary regression coverage for those leaks.
+- #251 route factory sweep, stacked on #250, currently moving remaining
+  production route repository constructors into service factories and upgrading
+  route-boundary regression coverage to block repository imports and any
+  production route `Repository::new` call.
 
-Before starting a new PR, inspect the current state of #229-#250. If they have
+Before starting a new PR, inspect the current state of #229-#251. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 

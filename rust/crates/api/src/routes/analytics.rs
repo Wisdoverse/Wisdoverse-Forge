@@ -14,7 +14,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::analytics::AnalyticsRepository;
 use crate::services::analytics::{AnalyticsService, analytics_data_response};
 use crate::services::context_feature::ContextFeatureService;
 use crate::services::usage_analytics::{ContextUsageQuery, UsageAnalyticsService};
@@ -47,7 +46,7 @@ pub struct ContextUsageQueryParams {
 
 /// Build an AnalyticsService from shared state.
 fn make_service(state: &AppState) -> AnalyticsService {
-    AnalyticsService::new(AnalyticsRepository::new(state.pool.clone()))
+    AnalyticsService::from_pool(state.pool.clone())
 }
 
 fn make_usage_service(state: &AppState) -> UsageAnalyticsService {
