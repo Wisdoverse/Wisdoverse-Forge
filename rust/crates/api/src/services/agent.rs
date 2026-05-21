@@ -14,8 +14,11 @@ pub(crate) use crate::domain::agent::{
     agent_list_response, agent_messages_deleted_response, agent_messages_response, agent_permission_response,
     agent_prompt_sent_response, agent_response, agent_status_response,
 };
-use crate::repositories::agent::{AgentListItem, AgentRepository, CreateAgentParams};
-use crate::services::agent_workspace::{resolve_agent_workspace_paths, resolve_workspace_mount_scope};
+pub(crate) use crate::repositories::agent::CreateAgentParams;
+use crate::repositories::agent::{AgentListItem, AgentRepository};
+use crate::services::agent_workspace::{
+    resolve_agent_workspace_paths, resolve_workspace_mount_scope, workspace_root_from_env,
+};
 
 /// Application service for agent operations.
 pub struct AgentService {
@@ -31,6 +34,10 @@ struct AgentWorkspaceResolver {
 impl AgentService {
     pub fn new(repo: AgentRepository) -> Self {
         Self { repo, workspace_resolver: None }
+    }
+
+    pub(crate) fn from_pool_with_workspace(pool: PgPool) -> Self {
+        Self::new(AgentRepository::new(pool.clone())).with_workspace_resolver(pool, workspace_root_from_env())
     }
 
     pub(crate) fn with_workspace_resolver(mut self, pool: PgPool, workspace_root: String) -> Self {

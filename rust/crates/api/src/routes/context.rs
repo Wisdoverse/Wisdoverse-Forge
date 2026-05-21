@@ -78,7 +78,7 @@ pub struct CreateContextPreviewRequest {
 }
 
 fn make_service(state: &AppState) -> ContextApprovalService {
-    ContextApprovalService::new(state.pool.clone(), Some(state.nats.clone()))
+    ContextApprovalService::from_runtime(state.pool.clone(), state.nats.clone())
 }
 
 fn make_feedback_service(state: &AppState) -> ContextFeedbackService {
@@ -86,20 +86,15 @@ fn make_feedback_service(state: &AppState) -> ContextFeedbackService {
 }
 
 fn make_envelope_service(state: &AppState) -> ContextEnvelopeService {
-    ContextEnvelopeService::new(state.pool.clone(), state.context_resolver.clone())
+    ContextEnvelopeService::from_runtime(state.pool.clone(), state.context_resolver.clone())
 }
 
 fn make_preview_service(state: &AppState) -> ContextPreviewService {
-    ContextPreviewService::new(
-        crate::repositories::context_preview::ContextPreviewRepository::new(state.pool.clone()),
-        crate::repositories::orchestration::OrchestrationTaskRepository::new(state.pool.clone()),
-        crate::repositories::orchestration::ParticipantRepository::new(state.pool.clone()),
-        state.context_resolver.clone(),
-    )
+    ContextPreviewService::from_runtime(state.pool.clone(), state.context_resolver.clone())
 }
 
 fn make_feature_service(state: &AppState) -> ContextFeatureService {
-    ContextFeatureService::new(state.pool.clone(), state.context_features)
+    ContextFeatureService::from_runtime(state.pool.clone(), state.context_features)
 }
 
 async fn get_context_features(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<Value>> {

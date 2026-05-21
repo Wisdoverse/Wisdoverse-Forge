@@ -10,6 +10,7 @@ use agentforge_core::{AgentId, AppResult, ErrorKind, TenantScope};
 use agentforge_infra::NatsClient;
 use agentforge_llm::LlmProviderFactory;
 use futures::{StreamExt, stream::BoxStream};
+use sqlx::PgPool;
 use tokio::sync::oneshot;
 
 use crate::domain::agent::PlainTextAgentPrompt;
@@ -50,6 +51,26 @@ impl AgentPromptService {
         inflight_prompts: InflightPromptMap,
     ) -> Self {
         Self { agents, messages, llm_configs, llm_factory, encryption_key, command_bus, nats, inflight_prompts }
+    }
+
+    pub(crate) fn from_runtime(
+        pool: PgPool,
+        llm_factory: Arc<LlmProviderFactory>,
+        encryption_key: Option<[u8; 32]>,
+        command_bus: Option<Arc<dyn AgentCommandBus>>,
+        nats: Arc<NatsClient>,
+        inflight_prompts: InflightPromptMap,
+    ) -> Self {
+        Self::new(
+            Arc::new(AgentRepository::new(pool.clone())),
+            Arc::new(MessageRepository::new(pool.clone())),
+            Arc::new(UserLlmConfigRepository::new(pool)),
+            llm_factory,
+            encryption_key,
+            command_bus,
+            nats,
+            inflight_prompts,
+        )
     }
 
     pub(crate) async fn send_prompt(
