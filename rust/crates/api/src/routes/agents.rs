@@ -17,10 +17,8 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
-use agentforge_core::{AgentId, AgentStatus, AppResult, ErrorKind};
-use agentforge_platform::ContainerState;
+use agentforge_core::{AgentId, AgentStatus, AppResult};
 
-use crate::domain::agent::{AgentContainerLifecyclePolicy, AgentContainerRuntimeState, AgentRestartPlan};
 use crate::health::AppState;
 use crate::repositories::agent::{AgentRepository, CreateAgentParams, MessageRepository};
 use crate::repositories::user::llm_config::UserLlmConfigRepository;
@@ -29,6 +27,7 @@ use crate::services::agent::{
     agent_messages_deleted_response, agent_messages_response, agent_permission_response, agent_prompt_sent_response,
     agent_response, agent_status_response,
 };
+use crate::services::agent_container_lifecycle::AgentContainerLifecycleService;
 use crate::services::agent_message::AgentMessageService;
 use crate::services::agent_prompt::{AgentPromptDispatch, AgentPromptService};
 use crate::services::agent_workspace::{resolve_agent_workspace_paths, resolve_workspace_mount_scope};
@@ -122,23 +121,8 @@ fn make_prompt_service(state: &AppState) -> AgentPromptService {
     )
 }
 
-fn restart_state_from_container_state(state: ContainerState) -> AgentContainerRuntimeState {
-    match state {
-        ContainerState::Running => AgentContainerRuntimeState::Running,
-        ContainerState::Created
-        | ContainerState::Paused
-        | ContainerState::Stopped
-        | ContainerState::Dead
-        | ContainerState::Unknown => AgentContainerRuntimeState::NotRunning,
-    }
-}
-
-fn docker_unavailable() -> ErrorKind {
-    ErrorKind::Unavailable("Docker runtime is not available".into())
-}
-
-fn docker_lifecycle_unavailable(action: &str, err: impl std::fmt::Display) -> ErrorKind {
-    ErrorKind::Unavailable(format!("failed to {action} agent container: {err}"))
+fn make_container_lifecycle_service(state: &AppState) -> AgentContainerLifecycleService {
+    AgentContainerLifecycleService::new(AgentRepository::new(state.pool.clone()), state.docker.clone())
 }
 
 /// `GET /api/v1/agents` — list agents for the authenticated tenant.
@@ -362,51 +346,7 @@ async fn restart_agent(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let docker = state.docker.as_ref().ok_or_else(docker_unavailable)?;
-
-    let service = make_service(&state);
-    let agent = service.get(&auth.scope, AgentId::from(id)).await?;
-
-    if agent.cli_tool.is_none() {
-        return Err(ErrorKind::Validation("agent is not container-backed".into()).into());
-    }
-
-    let container_id =
-        agent.container_id.as_ref().ok_or_else(|| ErrorKind::Validation("agent has no container".into()))?;
-
-    let container_info = match docker.inspect_container(container_id).await {
-        Ok(info) => info,
-        Err(err) if err.is_not_found() => {
-            tracing::warn!(
-                error = %err,
-                agent_id = %id,
-                container_id = %container_id,
-                "agent restart found a stale container reference"
-            );
-            service.clear_container(&auth.scope, AgentId::from(id)).await?;
-            return Err(
-                ErrorKind::Validation("agent container is no longer available; start the agent again".into()).into()
-            );
-        }
-        Err(err) => return Err(docker_lifecycle_unavailable("inspect", err).into()),
-    };
-
-    match AgentContainerLifecyclePolicy::restart_plan(restart_state_from_container_state(container_info.status)) {
-        AgentRestartPlan::StopThenStart => {
-            docker.stop_container(container_id, 10).await.map_err(|e| docker_lifecycle_unavailable("stop", e))?;
-            docker.start_container(container_id).await.map_err(|e| docker_lifecycle_unavailable("start", e))?;
-        }
-        AgentRestartPlan::StartOnly => {
-            tracing::info!(
-                agent_id = %id,
-                container_id = %container_id,
-                status = ?container_info.status,
-                "agent restart found a non-running container; starting it directly"
-            );
-            docker.start_container(container_id).await.map_err(|e| docker_lifecycle_unavailable("start", e))?;
-        }
-    }
-
+    make_container_lifecycle_service(&state).restart(&auth.scope, AgentId::from(id)).await?;
     Ok(Json(agent_status_response("restarted")))
 }
 
@@ -416,21 +356,7 @@ async fn resume_agent(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let service = make_service(&state);
-    let agent = service.get(&auth.scope, AgentId::from(id)).await?;
-
-    let container_id =
-        agent.container_id.as_ref().ok_or_else(|| ErrorKind::Validation("agent has no container to resume".into()))?;
-
-    if let Some(docker) = &state.docker {
-        docker
-            .start_container(container_id)
-            .await
-            .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("resume failed: {e}")))?;
-    }
-
-    service.update_status(&auth.scope, AgentId::from(id), AgentStatus::Idle).await?;
-
+    make_container_lifecycle_service(&state).resume(&auth.scope, AgentId::from(id)).await?;
     Ok(Json(agent_status_response("resumed")))
 }
 
@@ -552,6 +478,7 @@ pub fn agent_routes() -> Router<AppState> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use agentforge_core::ErrorKind;
 
     #[test]
     fn list_query_defaults() {
@@ -736,30 +663,6 @@ mod tests {
     fn update_request_camel_case_system_prompt_alias() {
         let req: UpdateAgentRequest = serde_json::from_str(r#"{"systemPrompt": "new prompt"}"#).unwrap();
         assert_eq!(req.system_prompt.as_deref(), Some("new prompt"));
-    }
-
-    #[test]
-    fn restart_plan_stops_then_starts_running_containers() {
-        assert_eq!(
-            AgentContainerLifecyclePolicy::restart_plan(restart_state_from_container_state(ContainerState::Running)),
-            AgentRestartPlan::StopThenStart
-        );
-    }
-
-    #[test]
-    fn restart_plan_starts_non_running_containers_directly() {
-        for state in [
-            ContainerState::Created,
-            ContainerState::Paused,
-            ContainerState::Stopped,
-            ContainerState::Dead,
-            ContainerState::Unknown,
-        ] {
-            assert_eq!(
-                AgentContainerLifecyclePolicy::restart_plan(restart_state_from_container_state(state)),
-                AgentRestartPlan::StartOnly
-            );
-        }
     }
 
     #[test]
