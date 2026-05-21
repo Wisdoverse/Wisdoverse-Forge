@@ -109,6 +109,28 @@ fn route_handlers_do_not_reintroduce_ddd_boundary_leaks() {
     assert!(violations.is_empty(), "route DDD boundary violations:\n{}", violations.join("\n"));
 }
 
+#[test]
+fn services_do_not_reintroduce_direct_sql() {
+    let services_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/services");
+    let mut violations = Vec::new();
+
+    for service in rust_files_recursive(&services_dir) {
+        let source = fs::read_to_string(&service).expect("read service source");
+        let production_source = production_section(&source);
+        for (line_no, line) in production_source.lines().enumerate() {
+            if contains_raw_sql(line.trim()) {
+                violations.push(format!(
+                    "{}:{} uses raw SQL in production service code; move tenant-scoped queries to repositories",
+                    service.display(),
+                    line_no + 1
+                ));
+            }
+        }
+    }
+
+    assert!(violations.is_empty(), "service DDD boundary violations:\n{}", violations.join("\n"));
+}
+
 fn route_files(routes_dir: &Path) -> Vec<PathBuf> {
     let mut files: Vec<_> = fs::read_dir(routes_dir)
         .expect("read routes dir")
@@ -117,6 +139,24 @@ fn route_files(routes_dir: &Path) -> Vec<PathBuf> {
         .collect();
     files.sort();
     files
+}
+
+fn rust_files_recursive(dir: &Path) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    collect_rust_files(dir, &mut files);
+    files.sort();
+    files
+}
+
+fn collect_rust_files(dir: &Path, files: &mut Vec<PathBuf>) {
+    for entry in fs::read_dir(dir).expect("read rust source dir") {
+        let path = entry.expect("read rust source entry").path();
+        if path.is_dir() {
+            collect_rust_files(&path, files);
+        } else if path.extension().is_some_and(|extension| extension == "rs") {
+            files.push(path);
+        }
+    }
 }
 
 fn production_section(source: &str) -> &str {
