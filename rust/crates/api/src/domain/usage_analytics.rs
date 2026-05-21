@@ -5,6 +5,67 @@ use serde::Serialize;
 use sqlx::FromRow;
 use uuid::Uuid;
 
+use super::observability::ContextUsageQueryBounds;
+
+const DEFAULT_LIMIT: i64 = 10;
+const DEFAULT_MIN_APPLIED: i64 = 10;
+const DEFAULT_STALE_AFTER_DAYS: i64 = 30;
+const DEFAULT_MIN_SUCCESS_RATE: f64 = 0.70;
+const DEFAULT_NEGATIVE_RATE: f64 = 0.30;
+
+#[derive(Debug, Clone, Copy)]
+pub struct ContextUsageQuery {
+    pub limit: i64,
+    pub min_applied: i64,
+    pub stale_after_days: i64,
+    pub min_success_rate: f64,
+    pub negative_rate: f64,
+}
+
+impl Default for ContextUsageQuery {
+    fn default() -> Self {
+        Self {
+            limit: DEFAULT_LIMIT,
+            min_applied: DEFAULT_MIN_APPLIED,
+            stale_after_days: DEFAULT_STALE_AFTER_DAYS,
+            min_success_rate: DEFAULT_MIN_SUCCESS_RATE,
+            negative_rate: DEFAULT_NEGATIVE_RATE,
+        }
+    }
+}
+
+impl ContextUsageQuery {
+    pub fn normalized(self) -> Self {
+        let query = ContextUsageQueryBounds::normalize(
+            self.limit,
+            self.min_applied,
+            self.stale_after_days,
+            self.min_success_rate,
+            self.negative_rate,
+        );
+
+        Self {
+            limit: query.limit(),
+            min_applied: query.min_applied(),
+            stale_after_days: query.stale_after_days(),
+            min_success_rate: query.min_success_rate(),
+            negative_rate: query.negative_rate(),
+        }
+    }
+}
+
+impl From<ContextUsageQuery> for ContextUsageQuerySummary {
+    fn from(query: ContextUsageQuery) -> Self {
+        Self {
+            limit: query.limit,
+            min_applied: query.min_applied,
+            stale_after_days: query.stale_after_days,
+            min_success_rate: query.min_success_rate,
+            negative_rate: query.negative_rate,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContextUsageAnalyticsResponse {
