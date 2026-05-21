@@ -31,7 +31,7 @@ pub struct ListAttachmentsQuery {
 
 /// Build an AttachmentService from shared state.
 fn make_service(state: &AppState) -> AttachmentService {
-    AttachmentService::from_pool_and_app_config(state.pool.clone(), state.object_storage.clone(), &state.config)
+    state.attachment_service()
 }
 
 /// `GET /api/v1/attachments` — list attachments.
