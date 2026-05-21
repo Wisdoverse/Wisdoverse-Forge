@@ -67,7 +67,7 @@ pub struct ReclassifyScopeRequest {
 }
 
 fn make_service(state: &AppState) -> MemoryService {
-    MemoryService::new(state.pool.clone())
+    state.memory_service()
 }
 
 async fn list_memory(
