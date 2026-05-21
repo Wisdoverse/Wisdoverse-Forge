@@ -11,8 +11,8 @@ use uuid::Uuid;
 pub use crate::domain::user::{AuthenticatedUser, LoginResult};
 use crate::domain::user::{
     GeneratedPasswordResetToken, PASSWORD_RESET_TTL_MINUTES, PasswordResetRequestEmail, PasswordResetToken,
-    RefreshSessionPolicy, SWITCH_CONTEXT_REFRESH_EXPIRY_SECONDS, SwitchContextAxes, UserEmail, UserListPage,
-    UserPassword, derive_username, email_domain_for_log, password_reset_email_body,
+    RefreshSessionPolicy, RefreshedAccessToken, SWITCH_CONTEXT_REFRESH_EXPIRY_SECONDS, SwitchContextAxes, UserEmail,
+    UserListPage, UserPassword, derive_username, email_domain_for_log, password_reset_email_body,
 };
 pub(crate) use crate::domain::user::{
     auth_error_response_body, auth_me_response, auth_message_response, auth_ok_response, auth_providers_response,
@@ -42,15 +42,31 @@ pub(crate) struct SwitchContextSession {
     pub(crate) refresh_expires_in: u64,
 }
 
+#[derive(Clone)]
+struct PasswordResetDelivery {
+    email_sender: Arc<dyn EmailSender>,
+    app_url: Option<String>,
+}
+
 /// Business logic layer for user operations.
 pub struct UserService {
     repo: UserRepository,
     jwt: Arc<JwtManager>,
+    password_reset_delivery: Option<PasswordResetDelivery>,
 }
 
 impl UserService {
     pub fn new(repo: UserRepository, jwt: Arc<JwtManager>) -> Self {
-        Self { repo, jwt }
+        Self { repo, jwt, password_reset_delivery: None }
+    }
+
+    pub(crate) fn with_password_reset_delivery(
+        mut self,
+        email_sender: Arc<dyn EmailSender>,
+        app_url: Option<String>,
+    ) -> Self {
+        self.password_reset_delivery = Some(PasswordResetDelivery { email_sender, app_url });
+        self
     }
 
     /// Authenticate with email + password and return a JWT.
@@ -131,16 +147,17 @@ impl UserService {
 
     /// Request a password reset link. The response is intentionally generic so
     /// callers cannot enumerate users by email address.
-    pub async fn request_password_reset(
-        &self,
-        email: &str,
-        email_sender: &dyn EmailSender,
-        app_url: Option<&str>,
-    ) -> AppResult<()> {
+    pub async fn request_password_reset(&self, email: &str) -> AppResult<()> {
+        let delivery = self.password_reset_delivery.as_ref().ok_or_else(|| {
+            ErrorKind::Internal(anyhow::anyhow!("password reset delivery is not configured for this service"))
+        })?;
+        let email_sender = delivery.email_sender.as_ref();
         if !email_sender.is_configured() {
             return Err(ErrorKind::Internal(anyhow::anyhow!("SMTP is not configured for password reset")).into());
         }
-        let app_url = app_url
+        let app_url = delivery
+            .app_url
+            .as_deref()
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("APP_URL is required for password reset links")))?;
@@ -269,6 +286,23 @@ impl UserService {
             expires_in: self.jwt.expiry_seconds(),
             refresh_expires_in: SWITCH_CONTEXT_REFRESH_EXPIRY_SECONDS,
         })
+    }
+
+    pub(crate) fn refresh_session(&self, refresh_token: &str) -> AppResult<RefreshedAccessToken> {
+        let claims = self.jwt.verify_token(refresh_token).map_err(|_| ErrorKind::Unauthorized)?;
+        let access_token = self
+            .jwt
+            .create_token_with_axes(
+                claims.sub,
+                claims.org,
+                &claims.role,
+                claims.workspace_id,
+                claims.team_id,
+                claims.project_id,
+            )
+            .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("access token refresh failed: {e}")))?;
+
+        Ok(RefreshedAccessToken::new(access_token, self.jwt.expiry_seconds()))
     }
 
     async fn validate_switch_context_axes(
