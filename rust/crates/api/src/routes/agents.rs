@@ -30,7 +30,9 @@ use crate::services::agent::{
 use crate::services::agent_container_lifecycle::AgentContainerLifecycleService;
 use crate::services::agent_message::AgentMessageService;
 use crate::services::agent_prompt::{AgentPromptDispatch, AgentPromptService};
-use crate::services::agent_workspace::{resolve_agent_workspace_paths, resolve_workspace_mount_scope};
+use crate::services::agent_workspace::{
+    resolve_agent_workspace_paths, resolve_workspace_mount_scope, workspace_root_from_env,
+};
 
 /// Query parameters for the list endpoint.
 #[derive(Deserialize)]
@@ -169,11 +171,7 @@ async fn create_agent(
         resolve_workspace_mount_scope(&state.pool, auth.scope.org_id().as_uuid(), req.workspace_id, req.project_id)
             .await?;
     let resolved_cwd = if cli_tool.is_some() {
-        let paths = resolve_agent_workspace_paths(
-            &crate::routes::containers::workspace_root_from_env(),
-            workspace_scope,
-            req.cwd.as_deref(),
-        )?;
+        let paths = resolve_agent_workspace_paths(&workspace_root_from_env(), workspace_scope, req.cwd.as_deref())?;
         Some(paths.container_cwd)
     } else {
         None
