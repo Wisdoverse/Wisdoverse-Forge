@@ -72,6 +72,7 @@ pub struct SwitchContextRequest {
 /// Build a UserService from shared state.
 fn make_service(state: &AppState) -> UserService {
     UserService::new(UserRepository::new(state.pool.clone()), state.jwt.clone())
+        .with_password_reset_delivery(state.email_sender.clone(), state.config.app_url.clone())
 }
 
 /// `POST /api/v1/auth/login` — authenticate with email and password.
@@ -95,8 +96,7 @@ pub async fn register(State(state): State<AppState>, Json(req): Json<RegisterReq
 /// `POST /api/v1/auth/forgot-password` — send a reset link when the account exists.
 pub async fn forgot_password(State(state): State<AppState>, Json(req): Json<ForgotPasswordRequest>) -> Response {
     let service = make_service(&state);
-    match service.request_password_reset(&req.email, state.email_sender.as_ref(), state.config.app_url.as_deref()).await
-    {
+    match service.request_password_reset(&req.email).await {
         Ok(()) => Json(auth_message_response(
             "If an account exists for that email, password reset instructions have been sent.",
         ))
@@ -155,38 +155,28 @@ pub async fn refresh_token(State(state): State<AppState>, headers: HeaderMap) ->
         return auth_json_error(StatusCode::UNAUTHORIZED, "UNAUTHORIZED", "Missing refresh token");
     };
 
-    let claims = match state.jwt.verify_token(&refresh_token) {
-        Ok(claims) => claims,
-        Err(_) => {
-            let mut response_headers = HeaderMap::new();
-            response_headers.insert(header::SET_COOKIE, clear_refresh_cookie(state.config.is_production()));
-            return (
-                StatusCode::UNAUTHORIZED,
-                response_headers,
-                Json(auth_error_response_body("UNAUTHORIZED", "Invalid or expired refresh token")),
-            )
-                .into_response();
-        }
-    };
-
-    let access_token = match state.jwt.create_token_with_axes(
-        claims.sub,
-        claims.org,
-        &claims.role,
-        claims.workspace_id,
-        claims.team_id,
-        claims.project_id,
-    ) {
-        Ok(token) => token,
+    let service = make_service(&state);
+    match service.refresh_session(&refresh_token) {
+        Ok(session) => Json(auth_refresh_response(&session)).into_response(),
         Err(err) => {
-            return auth_error_response(
-                AppError::from(ErrorKind::Internal(anyhow::anyhow!("token creation failed: {err}"))),
-                None,
-            );
-        }
-    };
+            if matches!(err.kind, ErrorKind::Unauthorized) {
+                return invalid_refresh_response(&state);
+            }
 
-    Json(auth_refresh_response(access_token, state.jwt.expiry_seconds())).into_response()
+            auth_error_response(err, None)
+        }
+    }
+}
+
+fn invalid_refresh_response(state: &AppState) -> Response {
+    let mut response_headers = HeaderMap::new();
+    response_headers.insert(header::SET_COOKIE, clear_refresh_cookie(state.config.is_production()));
+    (
+        StatusCode::UNAUTHORIZED,
+        response_headers,
+        Json(auth_error_response_body("UNAUTHORIZED", "Invalid or expired refresh token")),
+    )
+        .into_response()
 }
 
 /// `POST /api/v1/auth/switch-context` — mint a new token pair for another org the user belongs to.
