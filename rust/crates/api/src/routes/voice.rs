@@ -18,7 +18,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::voice::VoiceRepository;
 use crate::services::voice::{
     VoiceService, voice_data_response, voice_delete_response, voice_transcription_pending_response,
 };
@@ -46,7 +45,7 @@ pub struct UpdateVoiceProviderRequest {
 
 /// Build a VoiceService from shared state.
 fn make_service(state: &AppState) -> VoiceService {
-    VoiceService::new(VoiceRepository::new(state.pool.clone()))
+    VoiceService::from_pool(state.pool.clone())
 }
 
 /// `GET /voice/status` — voice service status.

@@ -15,7 +15,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, OrgId};
 
 use crate::health::AppState;
-use crate::repositories::identity::organization::OrganizationRepository;
 use crate::services::organization::{
     CreateOrganizationInput, OrganizationService, UpdateOrganizationInput, resource_data_response,
 };
@@ -35,7 +34,7 @@ pub struct UpdateOrganizationRequest {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> OrganizationService {
-    OrganizationService::new(OrganizationRepository::new(state.pool.clone()))
+    OrganizationService::from_pool(state.pool.clone())
 }
 
 /// `GET /api/organizations` — list organizations the user belongs to.
