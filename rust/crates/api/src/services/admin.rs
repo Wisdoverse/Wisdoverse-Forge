@@ -1,5 +1,7 @@
 //! Admin service — business logic for admin-only operations.
 
+use std::sync::Arc;
+
 use agentforge_core::{AppError, AppResult, ErrorKind, TenantScope};
 use agentforge_db::entities::{ImpersonationLog, Organization, User};
 use serde_json::Value;
@@ -13,6 +15,7 @@ use crate::domain::admin::{
 };
 pub(crate) use crate::domain::admin::{admin_bulk_delete_response, admin_data_response, admin_delete_response};
 use crate::repositories::admin::{AdminAgentEventRow, AdminAgentFilters, AdminAgentRow, AdminRepository, AdminStats};
+use crate::services::auth_callout::AuthCalloutService;
 
 /// Service input for the admin agent list endpoint. This is intentionally
 /// independent of the HTTP query DTO so the route only performs extraction.
@@ -60,11 +63,17 @@ impl From<AdminAgentEventRow> for AdminAgentEventProjection {
 /// Business logic layer for admin operations.
 pub struct AdminService {
     repo: AdminRepository,
+    auth_callout: Option<Arc<AuthCalloutService>>,
 }
 
 impl AdminService {
     pub fn new(repo: AdminRepository) -> Self {
-        Self { repo }
+        Self { repo, auth_callout: None }
+    }
+
+    pub(crate) fn with_auth_callout(mut self, auth_callout: Option<Arc<AuthCalloutService>>) -> Self {
+        self.auth_callout = auth_callout;
+        self
     }
 
     /// List all users (admin only). Limit capped at 100.
@@ -153,7 +162,15 @@ impl AdminService {
 
     /// Hard-delete a single agent (admin only).
     pub async fn delete_agent(&self, agent_id: Uuid) -> AppResult<()> {
+        self.revoke_agent_connection(agent_id, "admin delete_agent").await;
         self.repo.delete_agent(agent_id).await
+    }
+
+    pub async fn bulk_delete_agents_checked(&self, agent_ids: &[Uuid]) -> AppResult<Vec<BulkDeleteResult>> {
+        if agent_ids.is_empty() {
+            return Err(ErrorKind::Validation("ids array required".into()).into());
+        }
+        Ok(self.bulk_delete_agents(agent_ids).await)
     }
 
     /// Delete multiple agents, collecting per-ID success/failure results so the
@@ -161,6 +178,7 @@ impl AdminService {
     /// from `ErrorKind` (which implements `Display`) to avoid leaking internal
     /// error details in the response.
     pub async fn bulk_delete_agents(&self, agent_ids: &[Uuid]) -> Vec<BulkDeleteResult> {
+        self.revoke_agent_connections(agent_ids, "admin bulk_delete_agents").await;
         let mut results = Vec::with_capacity(agent_ids.len());
         for id in agent_ids {
             match self.repo.delete_agent(*id).await {
@@ -171,6 +189,25 @@ impl AdminService {
             }
         }
         results
+    }
+
+    async fn revoke_agent_connections(&self, agent_ids: &[Uuid], operation: &'static str) {
+        match self.auth_callout.as_ref() {
+            Some(callout) => {
+                for id in agent_ids {
+                    callout.revoke(*id).await;
+                }
+            }
+            None => tracing::info!(
+                count = agent_ids.len(),
+                operation,
+                "auth callout disabled — revocation falls back to JWT TTL"
+            ),
+        }
+    }
+
+    async fn revoke_agent_connection(&self, agent_id: Uuid, operation: &'static str) {
+        self.revoke_agent_connections(&[agent_id], operation).await;
     }
 
     /// Check if the user has admin privileges. Returns an error if not.
