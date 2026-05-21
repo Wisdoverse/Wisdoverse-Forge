@@ -16,7 +16,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::tile::TileRepository;
 use crate::services::tile::{TileService, tile_data_response, tile_delete_response};
 
 /// Request body for creating a tile.
@@ -67,7 +66,7 @@ pub struct BulkLayoutRequest {
 
 /// Build a TileService from shared state.
 fn make_service(state: &AppState) -> TileService {
-    TileService::new(TileRepository::new(state.pool.clone()))
+    TileService::from_pool(state.pool.clone())
 }
 
 /// `GET /tiles` — list tiles.

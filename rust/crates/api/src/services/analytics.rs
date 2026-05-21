@@ -2,6 +2,7 @@
 
 use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::AnalyticsEvent;
+use sqlx::PgPool;
 
 pub(crate) use crate::domain::observability::analytics_data_response;
 use crate::domain::observability::{AnalyticsEventName, AnalyticsListPage, AnalyticsSummary};
@@ -15,6 +16,10 @@ pub struct AnalyticsService {
 impl AnalyticsService {
     pub fn new(repo: AnalyticsRepository) -> Self {
         Self { repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(AnalyticsRepository::new(pool))
     }
 
     /// Track a new analytics event.

@@ -16,8 +16,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, TeamId};
 
 use crate::health::AppState;
-use crate::repositories::identity::team::TeamRepository;
-use crate::repositories::resource::permission::ResourcePermissionRepository;
 use crate::services::team::{
     CreateTeamInput, TeamService, UpdateTeamInput, resource_data_response, resource_delete_response,
 };
@@ -49,7 +47,7 @@ pub struct UpdateTeamRequest {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> TeamService {
-    TeamService::new(TeamRepository::new(state.pool.clone()), ResourcePermissionRepository::new(state.pool.clone()))
+    TeamService::from_pool(state.pool.clone())
 }
 
 /// `GET /api/teams` — list teams for the authenticated tenant.

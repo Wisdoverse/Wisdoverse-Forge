@@ -19,7 +19,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::dev_environment::DevEnvironmentRepository;
 use crate::services::dev_environment::{
     DevEnvironmentRuntime, DevEnvironmentService, DockerDevEnvironmentRuntime, dev_environment_data_response,
     dev_environment_delete_response, dev_environment_message_response,
@@ -44,7 +43,7 @@ fn make_service(state: &AppState) -> DevEnvironmentService {
         .docker
         .as_ref()
         .map(|docker| Arc::new(DockerDevEnvironmentRuntime::new(docker.clone())) as Arc<dyn DevEnvironmentRuntime>);
-    DevEnvironmentService::with_runtime(DevEnvironmentRepository::new(state.pool.clone()), runtime)
+    DevEnvironmentService::from_runtime(state.pool.clone(), runtime)
 }
 
 /// `GET /api/v1/devenv` — list dev environments.
