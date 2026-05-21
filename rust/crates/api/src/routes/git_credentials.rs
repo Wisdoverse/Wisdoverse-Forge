@@ -55,7 +55,7 @@ pub struct UpsertGitCredentialRequest {
 
 /// Build a GitCredentialService from shared state.
 fn make_service(state: &AppState) -> GitCredentialService {
-    GitCredentialService::from_pool(state.pool.clone(), state.encryption_key)
+    state.git_credential_service()
 }
 
 /// `POST /api/git-credentials` — create a new git credential.
