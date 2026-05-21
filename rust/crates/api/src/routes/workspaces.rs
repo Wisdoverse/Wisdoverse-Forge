@@ -16,7 +16,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, WorkspaceId};
 
 use crate::health::AppState;
-use crate::repositories::workspace::WorkspaceRepository;
 use crate::services::workspace::{
     CreateWorkspaceInput, UpdateWorkspaceInput, WorkspaceService, resource_data_response, resource_delete_response,
 };
@@ -48,7 +47,7 @@ pub struct UpdateWorkspaceRequest {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> WorkspaceService {
-    WorkspaceService::new(WorkspaceRepository::new(state.pool.clone()))
+    WorkspaceService::from_pool(state.pool.clone())
 }
 
 /// `GET /api/workspaces` — list workspaces for the authenticated tenant.

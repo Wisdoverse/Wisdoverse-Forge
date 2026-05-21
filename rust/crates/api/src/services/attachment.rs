@@ -5,6 +5,7 @@ use std::sync::Arc;
 use agentforge_core::{AgentId, AppConfig, AppResult, AttachmentId, TenantScope};
 use agentforge_db::entities::Attachment;
 use agentforge_infra::ObjectStorageClient;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 pub(crate) use crate::domain::attachment::{
@@ -27,6 +28,10 @@ pub struct AttachmentService {
 impl AttachmentService {
     pub fn from_app_config(repo: AttachmentRepository, storage: Arc<ObjectStorageClient>, config: &AppConfig) -> Self {
         Self::new(repo, storage, config.storage_max_file_size, config.storage_max_files_per_session)
+    }
+
+    pub fn from_pool_and_app_config(pool: PgPool, storage: Arc<ObjectStorageClient>, config: &AppConfig) -> Self {
+        Self::from_app_config(AttachmentRepository::new(pool), storage, config)
     }
 
     pub fn new(

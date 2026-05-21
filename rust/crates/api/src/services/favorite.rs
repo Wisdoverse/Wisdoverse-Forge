@@ -2,6 +2,7 @@
 
 use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::Favorite;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::resource::FavoriteTargetType;
@@ -18,6 +19,10 @@ pub struct FavoriteService {
 impl FavoriteService {
     pub fn new(repo: FavoriteRepository) -> Self {
         Self { repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(FavoriteRepository::new(pool))
     }
 
     /// List all favorites for the user.
