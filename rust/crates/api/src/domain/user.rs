@@ -35,6 +35,27 @@ pub struct LoginResult {
     pub refresh_expires_in: u64,
 }
 
+/// Access token minted from a valid refresh session.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct RefreshedAccessToken {
+    access_token: String,
+    expires_in: u64,
+}
+
+impl RefreshedAccessToken {
+    pub(crate) fn new(access_token: String, expires_in: u64) -> Self {
+        Self { access_token, expires_in }
+    }
+
+    pub(crate) fn access_token(&self) -> &str {
+        &self.access_token
+    }
+
+    pub(crate) fn expires_in(&self) -> u64 {
+        self.expires_in
+    }
+}
+
 pub(crate) fn user_data_response<T: Serialize>(data: T) -> Value {
     json!({ "ok": true, "data": data })
 }
@@ -115,12 +136,12 @@ pub(crate) fn auth_success_response_body(result: &LoginResult) -> Value {
     })
 }
 
-pub(crate) fn auth_refresh_response(access_token: String, expires_in: u64) -> Value {
+pub(crate) fn auth_refresh_response(session: &RefreshedAccessToken) -> Value {
     json!(RefreshSuccessResponse {
         ok: true,
-        tokens: TokenPayload { access_token: access_token.clone(), expires_in },
-        access_token,
-        expires_in,
+        tokens: TokenPayload { access_token: session.access_token().to_string(), expires_in: session.expires_in() },
+        access_token: session.access_token().to_string(),
+        expires_in: session.expires_in(),
     })
 }
 
@@ -446,5 +467,17 @@ mod tests {
     fn refresh_session_policy_preserves_existing_lifetimes() {
         assert_eq!(RefreshSessionPolicy::refresh_expiry_seconds(false), 7 * 24 * 60 * 60);
         assert_eq!(RefreshSessionPolicy::refresh_expiry_seconds(true), 30 * 24 * 60 * 60);
+    }
+
+    #[test]
+    fn auth_refresh_response_serializes_token_payload() {
+        let session = RefreshedAccessToken::new("new-access".to_string(), 900);
+        let json = auth_refresh_response(&session);
+
+        assert_eq!(json["ok"], true);
+        assert_eq!(json["tokens"]["accessToken"], "new-access");
+        assert_eq!(json["tokens"]["expiresIn"], 900);
+        assert_eq!(json["access_token"], "new-access");
+        assert_eq!(json["expires_in"], 900);
     }
 }
