@@ -39,6 +39,14 @@ fn route_handlers_do_not_reintroduce_ddd_boundary_leaks() {
                     line_no + 1
                 ));
             }
+
+            if contains_runtime_policy_config(trimmed) {
+                violations.push(format!(
+                    "{}:{} reads runtime policy config in production route code; move runtime wiring to service",
+                    route.display(),
+                    line_no + 1
+                ));
+            }
         }
     }
 
@@ -87,4 +95,20 @@ fn route_local_projection_name(line: &str) -> Option<&str> {
     } else {
         None
     }
+}
+
+fn contains_runtime_policy_config(line: &str) -> bool {
+    [
+        "state.config.redis_url",
+        "state.config.cli_auth_proxy_revoke_threshold",
+        "state.config.oauth_mount_dir",
+        "state.config.credential_sync_enabled",
+        "state.config.container_anthropic_api_key",
+        "state.config.container_google_api_key",
+        "state.config.container_openai_api_key",
+        "state.config.storage_max_file_size",
+        "state.config.storage_max_files_per_session",
+    ]
+    .iter()
+    .any(|pattern| line.contains(pattern))
 }
