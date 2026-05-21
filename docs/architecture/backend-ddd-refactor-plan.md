@@ -78,6 +78,9 @@ Current stacked PRs:
   preparation, container credential injection, participant registration/offline
   updates, and NATS connection revocation out of `routes/containers.rs` into
   `AgentContainerControlService`.
+- #244 `refactor/backend-ddd-agent-create-workspace-sweep` -> #243 branch:
+  moves agent creation workspace/project/cwd resolution out of
+  `routes/agents.rs` into `AgentService`.
 
 ## Execution Rule
 
@@ -190,8 +193,10 @@ Current open stack:
   restart/resume Docker lifecycle orchestration out of `routes/agents.rs`.
 - #243 container start/stop sweep, stacked on #242, currently moving agent
   container start/stop orchestration out of `routes/containers.rs`.
+- #244 agent creation workspace sweep, stacked on #243, currently moving agent
+  creation workspace/project/cwd resolution out of `routes/agents.rs`.
 
-Before starting a new PR, inspect the current state of #229-#243. If they have
+Before starting a new PR, inspect the current state of #229-#244. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 

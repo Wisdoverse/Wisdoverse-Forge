@@ -30,9 +30,7 @@ use crate::services::agent::{
 use crate::services::agent_container_lifecycle::AgentContainerLifecycleService;
 use crate::services::agent_message::AgentMessageService;
 use crate::services::agent_prompt::{AgentPromptDispatch, AgentPromptService};
-use crate::services::agent_workspace::{
-    resolve_agent_workspace_paths, resolve_workspace_mount_scope, workspace_root_from_env,
-};
+use crate::services::agent_workspace::workspace_root_from_env;
 
 /// Query parameters for the list endpoint.
 #[derive(Deserialize)]
@@ -104,6 +102,7 @@ pub struct PromptRequest {
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> AgentService {
     AgentService::new(AgentRepository::new(state.pool.clone()))
+        .with_workspace_resolver(state.pool.clone(), workspace_root_from_env())
 }
 
 fn make_message_service(state: &AppState) -> AgentMessageService {
@@ -167,15 +166,6 @@ async fn create_agent(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let cli_tool = req.cli_tool.as_deref().map(str::trim).filter(|s| !s.is_empty());
-    let workspace_scope =
-        resolve_workspace_mount_scope(&state.pool, auth.scope.org_id().as_uuid(), req.workspace_id, req.project_id)
-            .await?;
-    let resolved_cwd = if cli_tool.is_some() {
-        let paths = resolve_agent_workspace_paths(&workspace_root_from_env(), workspace_scope, req.cwd.as_deref())?;
-        Some(paths.container_cwd)
-    } else {
-        None
-    };
     let agent = service
         .create(
             &auth.scope,
@@ -184,8 +174,8 @@ async fn create_agent(
                 model: req.model.as_deref(),
                 provider: req.provider.as_deref(),
                 cli_tool,
-                cwd: resolved_cwd.as_deref(),
-                workspace_id: Some(workspace_scope.workspace_id),
+                cwd: req.cwd.as_deref(),
+                workspace_id: req.workspace_id,
                 project_id: req.project_id,
                 system_prompt: req.system_prompt.as_deref(),
             },
