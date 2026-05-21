@@ -26,13 +26,14 @@ use crate::domain::agent::{
     AgentContainerLifecyclePolicy, AgentContainerRuntimeState, AgentRestartPlan, PlainTextAgentPrompt,
 };
 use crate::health::AppState;
-use crate::repositories::agent::{AgentRepository, CreateAgentParams};
+use crate::repositories::agent::{AgentRepository, CreateAgentParams, MessageRepository};
 use crate::services::agent::{
     AgentService, agent_data_response, agent_delete_response, agent_git_status_response, agent_list_response,
     agent_messages_deleted_response, agent_messages_response, agent_permission_response, agent_prompt_sent_response,
     agent_response, agent_status_response,
 };
 use crate::services::agent_commands::AgentCommandService;
+use crate::services::agent_message::AgentMessageService;
 use crate::services::agent_workspace::{resolve_agent_workspace_paths, resolve_workspace_mount_scope};
 
 /// Query parameters for the list endpoint.
@@ -113,6 +114,10 @@ fn validate_prompt_request(req: &PromptRequest) -> AppResult<PlainTextAgentPromp
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> AgentService {
     AgentService::new(AgentRepository::new(state.pool.clone()))
+}
+
+fn make_message_service(state: &AppState) -> AgentMessageService {
+    AgentMessageService::new(AgentRepository::new(state.pool.clone()), MessageRepository::new(state.pool.clone()))
 }
 
 fn restart_state_from_container_state(state: ContainerState) -> AgentContainerRuntimeState {
@@ -397,19 +402,8 @@ async fn list_messages(
     Path(id): Path<Uuid>,
     Query(q): Query<MessagesQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
-    // Ownership check first — preserves the "no existence leak" 404 contract
-    // for cross-tenant / nonexistent ids. Without this, a cross-tenant agent
-    // id returns {ok:true, messages:[]} instead of 404.
-    let service = make_service(&state);
-    let _agent = service.get(&auth.scope, AgentId::from(id)).await?;
-
-    let repo = crate::repositories::agent::message::MessageRepository::new(state.pool.clone());
-    let limit = q.limit.clamp(1, 200);
-    let mut msgs = repo.list(&auth.scope, AgentId::from(id), limit + 1, q.before).await?;
-    let has_more = msgs.len() as i64 > limit;
-    if has_more {
-        msgs.remove(0);
-    }
+    let service = make_message_service(&state);
+    let (msgs, has_more) = service.list(&auth.scope, AgentId::from(id), q.limit, q.before).await?;
     Ok(Json(agent_messages_response(msgs, has_more)))
 }
 
@@ -419,11 +413,8 @@ async fn delete_messages(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let service = make_service(&state);
-    let _agent = service.get(&auth.scope, AgentId::from(id)).await?;
-
-    let repo = crate::repositories::agent::message::MessageRepository::new(state.pool.clone());
-    let deleted = repo.delete_all_by_agent(&auth.scope, AgentId::from(id)).await?;
+    let service = make_message_service(&state);
+    let deleted = service.delete_all(&auth.scope, AgentId::from(id)).await?;
     Ok(Json(agent_messages_deleted_response(deleted)))
 }
 
@@ -474,8 +465,7 @@ async fn restart_agent(
                 container_id = %container_id,
                 "agent restart found a stale container reference"
             );
-            let repo = AgentRepository::new(state.pool.clone());
-            repo.clear_container(&auth.scope, AgentId::from(id)).await?;
+            service.clear_container(&auth.scope, AgentId::from(id)).await?;
             return Err(
                 ErrorKind::Validation("agent container is no longer available; start the agent again".into()).into()
             );
