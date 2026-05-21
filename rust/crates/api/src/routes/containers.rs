@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 use axum::Json;
 use axum::extract::{Path, State};
-use serde_json::{Value, json};
+use serde_json::Value;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
@@ -23,7 +23,7 @@ use crate::repositories::credential::cli::CliCredentialRepository;
 use crate::repositories::credential::git::GitCredentialRepository;
 use crate::repositories::orchestration::ParticipantRepository;
 use crate::repositories::user::llm_config::UserLlmConfigRepository;
-use crate::services::agent::AgentService;
+use crate::services::agent::{AgentService, agent_container_status_response, agent_status_response};
 use crate::services::agent_workspace::{
     CONTAINER_WORKSPACE_ROOT, WorkspaceMountScope, ensure_workspace_belongs_to_org, host_path_for_container_cwd,
     resolve_agent_workspace_paths,
@@ -75,11 +75,7 @@ pub async fn start_agent(
                 if let Err(err) = register_started_agent_participant(&state, &auth, &agent).await {
                     tracing::warn!(error = ?err, agent_id = %id, "agent already had a running container but participant registration failed");
                 }
-                return Ok(Json(json!({
-                    "ok": true,
-                    "container_id": container_id,
-                    "status": "already_running"
-                })));
+                return Ok(Json(agent_container_status_response(container_id, "already_running")));
             }
             Ok(info) => {
                 tracing::info!(agent_id = %id, container_id = %container_id, status = ?info.status, "agent container is not running; replacing it");
@@ -286,11 +282,7 @@ pub async fn start_agent(
         tracing::warn!(error = ?err, agent_id = %id, "started agent container before participant registration completed");
     }
 
-    Ok(Json(json!({
-        "ok": true,
-        "container_id": container_id,
-        "status": "started"
-    })))
+    Ok(Json(agent_container_status_response(&container_id, "started")))
 }
 
 /// `POST /api/agents/{id}/stop` — Stop an agent container.
@@ -358,7 +350,7 @@ pub async fn stop_agent(State(state): State<AppState>, auth: AuthUser, Path(id):
         ),
     }
 
-    Ok(Json(json!({ "ok": true, "status": "stopped" })))
+    Ok(Json(agent_status_response("stopped")))
 }
 
 async fn mark_participant_offline(state: &AppState, auth: &AuthUser, agent_id: AgentId) {
@@ -382,15 +374,11 @@ async fn register_started_agent_participant(state: &AppState, auth: &AuthUser, a
 
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
+    use crate::services::agent::{agent_container_status_response, agent_status_response};
 
     #[test]
     fn start_response_format() {
-        let response = json!({
-            "ok": true,
-            "container_id": "abc123",
-            "status": "started"
-        });
+        let response = agent_container_status_response("abc123", "started");
         assert_eq!(response["ok"], true);
         assert_eq!(response["container_id"], "abc123");
         assert_eq!(response["status"], "started");
@@ -398,18 +386,14 @@ mod tests {
 
     #[test]
     fn stop_response_format() {
-        let response = json!({ "ok": true, "status": "stopped" });
+        let response = agent_status_response("stopped");
         assert_eq!(response["ok"], true);
         assert_eq!(response["status"], "stopped");
     }
 
     #[test]
     fn already_running_response_format() {
-        let response = json!({
-            "ok": true,
-            "container_id": "existing-id",
-            "status": "already_running"
-        });
+        let response = agent_container_status_response("existing-id", "already_running");
         assert_eq!(response["ok"], true);
         assert_eq!(response["status"], "already_running");
     }

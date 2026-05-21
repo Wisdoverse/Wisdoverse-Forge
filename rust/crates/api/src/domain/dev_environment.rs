@@ -4,6 +4,8 @@ use std::collections::BTreeMap;
 
 use agentforge_core::{AppResult, ErrorKind};
 use serde::Deserialize;
+use serde::Serialize;
+use serde_json::{Value, json};
 
 pub(crate) const MAX_NAME_LEN: usize = 100;
 #[cfg(test)]
@@ -13,6 +15,18 @@ pub(crate) const RUNNING_STATUS: &str = "running";
 pub(crate) const STOPPED_STATUS: &str = "stopped";
 pub(crate) const ERROR_STATUS: &str = "error";
 pub(crate) const DEFAULT_STOP_TIMEOUT_SECONDS: i64 = 30;
+
+pub(crate) fn dev_environment_data_response<T: Serialize>(data: T) -> Value {
+    json!({ "ok": true, "data": data })
+}
+
+pub(crate) fn dev_environment_message_response<T: Serialize>(data: T, message: &'static str) -> Value {
+    json!({ "ok": true, "data": data, "message": message })
+}
+
+pub(crate) fn dev_environment_delete_response() -> Value {
+    json!({ "ok": true })
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct DevEnvironmentName<'a> {

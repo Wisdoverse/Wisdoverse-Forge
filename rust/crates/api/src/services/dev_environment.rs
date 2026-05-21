@@ -15,6 +15,9 @@ use crate::domain::dev_environment::{
     DevEnvironmentRuntimeState, DevEnvironmentStatusUpdate, ERROR_STATUS, RUNNING_STATUS, STARTING_STATUS,
     STOPPED_STATUS, StopPlan,
 };
+pub(crate) use crate::domain::dev_environment::{
+    dev_environment_data_response, dev_environment_delete_response, dev_environment_message_response,
+};
 use crate::repositories::dev_environment::DevEnvironmentRepository;
 
 /// Storage operations used by the dev environment service.
