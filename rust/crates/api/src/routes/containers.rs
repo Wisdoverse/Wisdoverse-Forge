@@ -21,7 +21,7 @@ use crate::health::AppState;
 use crate::repositories::agent::AgentRepository;
 use crate::repositories::credential::cli::CliCredentialRepository;
 use crate::repositories::credential::git::GitCredentialRepository;
-use crate::repositories::orchestration::ParticipantRepository;
+use crate::repositories::orchestration::{OrchestrationTaskRepository, ParticipantRepository};
 use crate::repositories::user::llm_config::UserLlmConfigRepository;
 use crate::services::agent::{AgentService, agent_container_status_response, agent_status_response};
 use crate::services::agent_workspace::{
@@ -30,6 +30,7 @@ use crate::services::agent_workspace::{
 };
 use crate::services::cli_credential::CliCredentialService;
 use crate::services::git_credential::GitCredentialService;
+use crate::services::orchestration::OrchestrationService;
 
 /// Duplicate a `SecretString` by exposing and rewrapping. We can't derive
 /// `Clone` on the secret-bearing `AppConfig` (see its docstring) so the route
@@ -49,6 +50,17 @@ pub(crate) fn workspace_root_from_env() -> String {
     std::env::var("AGENTFORGE_WORKSPACE_ROOT").unwrap_or_else(|_| DEFAULT_WORKSPACE_ROOT.to_string())
 }
 
+fn make_agent_service(state: &AppState) -> AgentService {
+    AgentService::new(AgentRepository::new(state.pool.clone()))
+}
+
+fn make_orchestration_service(state: &AppState) -> OrchestrationService {
+    OrchestrationService::new(
+        OrchestrationTaskRepository::new(state.pool.clone()),
+        ParticipantRepository::new(state.pool.clone()),
+    )
+}
+
 /// `POST /api/agents/{id}/start` — Start an agent container.
 ///
 /// Creates and starts a Docker container for the specified agent. Returns
@@ -61,9 +73,8 @@ pub async fn start_agent(
     let docker = state.docker.as_ref().ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("Docker not available")))?;
 
     // Get agent to verify ownership and get container config.
-    let service = AgentService::new(AgentRepository::new(state.pool.clone()));
+    let service = make_agent_service(&state);
     let agent = service.get(&auth.scope, AgentId::from(id)).await?;
-    let repo = AgentRepository::new(state.pool.clone());
 
     // Reconcile stale DB container references before deciding whether to create
     // a new container. A host prune/manual removal can leave `agents.container_id`
@@ -82,12 +93,12 @@ pub async fn start_agent(
                 if let Err(cleanup_err) = docker.remove_container(container_id, true).await {
                     tracing::warn!(error = %cleanup_err, container_id = %container_id, "failed to remove non-running existing container");
                 }
-                repo.clear_container(&auth.scope, AgentId::from(id)).await?;
+                service.clear_container(&auth.scope, AgentId::from(id)).await?;
                 mark_participant_offline(&state, &auth, AgentId::from(id)).await;
             }
             Err(err) => {
                 tracing::warn!(error = %err, agent_id = %id, container_id = %container_id, "agent container reference is stale; creating a replacement");
-                repo.clear_container(&auth.scope, AgentId::from(id)).await?;
+                service.clear_container(&auth.scope, AgentId::from(id)).await?;
                 mark_participant_offline(&state, &auth, AgentId::from(id)).await;
             }
         }
@@ -260,7 +271,7 @@ pub async fn start_agent(
     // boot, and auth callout reads this DB row to validate the per-agent
     // password. Starting first leaves a race where NATS rejects the sidecar.
     if let Err(err) =
-        repo.set_container(&auth.scope, AgentId::from(id), &container_id, &hmac_secret, &nats_connect_password).await
+        service.set_container(&auth.scope, AgentId::from(id), &container_id, &hmac_secret, &nats_connect_password).await
     {
         if let Err(cleanup_err) = docker.remove_container(&container_id, true).await {
             tracing::warn!(error = %cleanup_err, container_id = %container_id, "failed to clean up container after DB persist failure");
@@ -272,7 +283,7 @@ pub async fn start_agent(
         if let Err(cleanup_err) = docker.remove_container(&container_id, true).await {
             tracing::warn!(error = %cleanup_err, container_id = %container_id, "failed to clean up container after start failure");
         }
-        if let Err(clear_err) = repo.clear_container(&auth.scope, AgentId::from(id)).await {
+        if let Err(clear_err) = service.clear_container(&auth.scope, AgentId::from(id)).await {
             tracing::warn!(error = ?clear_err, agent_id = %id, "failed to clear container metadata after start failure");
         }
         return Err(ErrorKind::Internal(anyhow::anyhow!("Failed to start container: {err}")).into());
@@ -292,7 +303,7 @@ pub async fn start_agent(
 pub async fn stop_agent(State(state): State<AppState>, auth: AuthUser, Path(id): Path<Uuid>) -> AppResult<Json<Value>> {
     let docker = state.docker.as_ref().ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("Docker not available")))?;
 
-    let service = AgentService::new(AgentRepository::new(state.pool.clone()));
+    let service = make_agent_service(&state);
     let agent = service.get(&auth.scope, AgentId::from(id)).await?;
 
     let container_id =
@@ -332,8 +343,7 @@ pub async fn stop_agent(State(state): State<AppState>, auth: AuthUser, Path(id):
         .await
         .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("Failed to remove container after stop: {e}")))?;
 
-    let repo = AgentRepository::new(state.pool.clone());
-    repo.clear_container(&auth.scope, AgentId::from(id)).await?;
+    service.clear_container(&auth.scope, AgentId::from(id)).await?;
     mark_participant_offline(&state, &auth, AgentId::from(id)).await;
 
     // Publish `$SYS.REQ.SERVER.<name>.KICK` targeted at the agent's live
@@ -354,21 +364,21 @@ pub async fn stop_agent(State(state): State<AppState>, auth: AuthUser, Path(id):
 }
 
 async fn mark_participant_offline(state: &AppState, auth: &AuthUser, agent_id: AgentId) {
-    let participant_repo = ParticipantRepository::new(state.pool.clone());
-    if let Err(err) = participant_repo.update_status(&auth.scope, agent_id, "offline").await {
+    let service = make_orchestration_service(state);
+    if let Err(err) = service.mark_participant_offline(&auth.scope, agent_id).await {
         tracing::warn!(error = ?err, %agent_id, "failed to mark participant offline");
     }
 }
 
 async fn register_started_agent_participant(state: &AppState, auth: &AuthUser, agent: &Agent) -> AppResult<()> {
-    let participant_repo = ParticipantRepository::new(state.pool.clone());
+    let service = make_orchestration_service(state);
     let agent_id = agent.id;
     let fallback_name = format!("agent-{}", &agent_id.as_uuid().to_string()[..8]);
     let name = agent.name.as_deref().map(str::trim).filter(|name| !name.is_empty()).unwrap_or(fallback_name.as_str());
     let capabilities: Vec<String> = agent.cli_tool.clone().into_iter().collect();
 
-    participant_repo.register(&auth.scope, agent_id, name, &capabilities).await?;
-    participant_repo.heartbeat(&auth.scope, agent_id).await?;
+    service.register_participant(&auth.scope, agent_id, name, &capabilities).await?;
+    service.participant_heartbeat(&auth.scope, agent_id).await?;
     Ok(())
 }
 
