@@ -11,7 +11,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::audit::AuditRepository;
 use crate::services::audit::{AuditService, audit_data_response};
 
 /// Query parameters for the audit log list endpoint.
@@ -31,7 +30,7 @@ fn default_limit() -> i64 {
 
 /// Build an AuditService from shared state.
 fn make_service(state: &AppState) -> AuditService {
-    AuditService::new(AuditRepository::new(state.pool.clone()))
+    AuditService::from_pool(state.pool.clone())
 }
 
 /// `GET /api/audit` — list audit log entries.

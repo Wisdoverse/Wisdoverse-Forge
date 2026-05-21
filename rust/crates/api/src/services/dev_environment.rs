@@ -8,6 +8,7 @@ use agentforge_db::entities::DevEnvironment;
 use agentforge_platform::DockerClient;
 use agentforge_platform::types::{ContainerConfig, ContainerState, Mount, ResourceLimits};
 use async_trait::async_trait;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::dev_environment::{
@@ -134,6 +135,12 @@ impl DevEnvironmentRuntime for DockerDevEnvironmentRuntime {
 pub struct DevEnvironmentService<R = DevEnvironmentRepository> {
     repo: R,
     runtime: Option<Arc<dyn DevEnvironmentRuntime>>,
+}
+
+impl DevEnvironmentService<DevEnvironmentRepository> {
+    pub fn from_runtime(pool: PgPool, runtime: Option<Arc<dyn DevEnvironmentRuntime>>) -> Self {
+        Self::with_runtime(DevEnvironmentRepository::new(pool), runtime)
+    }
 }
 
 impl<R> DevEnvironmentService<R>

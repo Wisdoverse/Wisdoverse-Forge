@@ -2,6 +2,7 @@
 
 use agentforge_core::{AppResult, GroupId, ProjectId, TenantScope};
 use agentforge_db::entities::{Group, GroupMember};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::resource::{GroupMemberRole, ProjectGroupSummary, ResourceListPage, ResourceName};
@@ -24,6 +25,10 @@ pub struct GroupService {
 impl GroupService {
     pub fn new(repo: GroupRepository) -> Self {
         Self { repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(GroupRepository::new(pool))
     }
 
     /// List groups with pagination. Limit is capped at 100.
