@@ -17,7 +17,9 @@ use agentforge_core::AppResult;
 
 use crate::health::AppState;
 use crate::repositories::prompt::PromptRepository;
-use crate::services::prompt_library::PromptLibraryService;
+use crate::services::prompt_library::{
+    PromptLibraryService, prompt_library_data_response, prompt_library_delete_response,
+};
 
 /// Query parameters for listing prompts.
 #[derive(Deserialize)]
@@ -60,7 +62,7 @@ async fn list_prompts(
     let service = make_service(&state);
     let tags = query.tags.map(|t| t.split(',').map(|s| s.trim().to_string()).collect::<Vec<_>>());
     let prompts = service.list(&auth.scope, query.shared, tags).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": prompts })))
+    Ok(Json(prompt_library_data_response(prompts)))
 }
 
 /// `POST /api/v1/prompts` — create a prompt.
@@ -71,7 +73,7 @@ async fn create_prompt(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let prompt = service.create(&auth.scope, &req.title, &req.content, &req.tags, req.is_shared).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": prompt })))
+    Ok(Json(prompt_library_data_response(prompt)))
 }
 
 /// `GET /api/v1/prompts/{id}` — get a prompt.
@@ -82,7 +84,7 @@ async fn get_prompt(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let prompt = service.get(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": prompt })))
+    Ok(Json(prompt_library_data_response(prompt)))
 }
 
 /// `PATCH /api/v1/prompts/{id}` — update a prompt.
@@ -96,7 +98,7 @@ async fn update_prompt(
     let prompt = service
         .update(&auth.scope, id, req.title.as_deref(), req.content.as_deref(), req.tags.as_deref(), req.is_shared)
         .await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": prompt })))
+    Ok(Json(prompt_library_data_response(prompt)))
 }
 
 /// `DELETE /api/v1/prompts/{id}` — delete a prompt.
@@ -107,7 +109,7 @@ async fn delete_prompt(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     service.delete(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(prompt_library_delete_response()))
 }
 
 /// Build prompt routes sub-router.

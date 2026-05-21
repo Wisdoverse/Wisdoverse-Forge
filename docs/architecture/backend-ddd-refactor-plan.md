@@ -47,6 +47,10 @@ Current stacked PRs:
   container, pool, and development-environment response contracts, permission
   projections, restart lifecycle policy, and runtime status helpers into
   domain/service boundaries.
+- #236 `refactor/backend-ddd-collaboration-knowledge` -> #235 branch: moved
+  context, memory, prompt, plugin, attachment, favorite, tile, and inbox
+  response contracts and inbox repository/service/projection boundaries into
+  domain/service layers.
 
 ## Execution Rule
 
@@ -69,22 +73,19 @@ Each batch should produce one PR with:
 Do not pick a one-endpoint cleanup. Pick one of these larger batches and finish
 the route family end to end.
 
-### Batch 1: Collaboration And Knowledge Surfaces
+### Batch 1: Communication, Analytics, And Session Surfaces
 
-Target user-facing content/workflow surfaces as a larger aggregate batch:
+Target the remaining user-facing backend surfaces in one larger PR:
 
-- `routes/context.rs`
-- `routes/memory.rs`
-- `routes/prompts.rs`
-- `routes/plugins.rs`
-- `routes/attachments.rs`
-- `routes/favorites.rs`
-- `routes/tiles.rs`
-- `routes/inbox.rs`
+- `routes/analytics.rs`
+- `routes/voice.rs`
+- `routes/auth.rs`
+- remaining direct response construction in `routes/events.rs`
 
-Move projection types, response helpers, tenant/user policy, and repository
-adapters into the owning aggregate. If the batch becomes too large, split by
-aggregate family, not by individual endpoint.
+Move route-local response contracts, session/auth projections, analytics
+summary projections, and voice-provider response helpers into domain/service
+layers. Keep route handlers limited to HTTP extraction, auth scope usage,
+cookie/header transport, and service calls.
 
 ## Validation
 
@@ -143,9 +144,10 @@ Current open stack:
 - #233 product configuration and governance, stacked on #232.
 - #234 identity and access surfaces, stacked on #233.
 - #235 agent execution runtime surfaces, stacked on #234.
+- #236 collaboration and knowledge surfaces, stacked on #235.
 
-Before starting a new PR, inspect the current state of #229-#235. If they have
-not landed yet, stack the next branch on #235. If they have landed, branch from
+Before starting a new PR, inspect the current state of #229-#236. If they have
+not landed yet, stack the next branch on #236. If they have landed, branch from
 updated origin/main.
 
 Create a separate worktree, implement the next large backend DDD batch, run

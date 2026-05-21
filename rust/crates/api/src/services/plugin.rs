@@ -5,6 +5,10 @@ use agentforge_db::entities::Plugin;
 use uuid::Uuid;
 
 use crate::domain::configuration::{PluginName, PluginVersion};
+pub(crate) use crate::domain::configuration::{
+    configuration_data_response as plugin_data_response, configuration_delete_response as plugin_delete_response,
+    plugin_agent_plugins_response,
+};
 use crate::repositories::plugin::{AgentPluginRow, PluginRepository};
 
 /// Business logic layer for plugin operations.
