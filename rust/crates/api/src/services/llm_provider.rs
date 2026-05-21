@@ -10,6 +10,7 @@ use std::time::Duration;
 use agentforge_core::{AppResult, ErrorKind, TenantScope, crypto};
 use agentforge_llm::{ChatMessage, ChatRequest, LlmProviderBuildConfig, LlmProviderFactory};
 use serde_json::Value;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::credential::{
@@ -29,6 +30,14 @@ pub(crate) struct LlmProviderService {
 }
 
 impl LlmProviderService {
+    pub(crate) fn from_pool(
+        pool: PgPool,
+        encryption_key: Option<[u8; 32]>,
+        llm_factory: Arc<LlmProviderFactory>,
+    ) -> Self {
+        Self::new(UserLlmConfigRepository::new(pool), encryption_key, llm_factory)
+    }
+
     pub(crate) fn new(
         repo: UserLlmConfigRepository,
         encryption_key: Option<[u8; 32]>,
