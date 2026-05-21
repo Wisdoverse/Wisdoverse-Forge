@@ -2,6 +2,7 @@
 
 use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::License;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 pub(crate) use crate::domain::license::license_data_response;
@@ -16,6 +17,10 @@ pub struct LicenseService {
 impl LicenseService {
     pub fn new(repo: LicenseRepository) -> Self {
         Self { repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(LicenseRepository::new(pool))
     }
 
     /// List licenses for the org.

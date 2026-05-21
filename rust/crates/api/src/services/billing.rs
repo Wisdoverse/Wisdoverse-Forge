@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use agentforge_core::{AppResult, ErrorKind, TenantScope};
 use agentforge_db::entities::{BillingPlan, Invoice, Subscription};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::billing::{
@@ -39,6 +40,10 @@ impl BillingService {
 
     pub fn with_gateway(repo: BillingRepository, gateway: Arc<dyn BillingGateway>) -> Self {
         Self { repo, gateway }
+    }
+
+    pub fn from_runtime(pool: PgPool, gateway: Arc<dyn BillingGateway>) -> Self {
+        Self::with_gateway(BillingRepository::new(pool), gateway)
     }
 
     /// List all available billing plans.

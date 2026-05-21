@@ -9,7 +9,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::inbox::InboxRepository;
 use crate::services::inbox::{InboxService, inbox_data_response, inbox_ok_response};
 
 #[derive(Deserialize)]
@@ -18,7 +17,7 @@ struct ListInboxQuery {
 }
 
 fn make_service(state: &AppState) -> InboxService {
-    InboxService::new(InboxRepository::new(state.pool.clone()))
+    InboxService::from_pool(state.pool.clone())
 }
 
 async fn list_notifications(

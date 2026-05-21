@@ -16,7 +16,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::resource::profile::ResourceProfileRepository;
 use crate::services::resource_profile::{
     CreateResourceProfileInput, ResourceProfileService, UpdateResourceProfileInput, resource_data_response,
     resource_delete_response,
@@ -61,7 +60,7 @@ pub struct UpdateResourceProfileRequest {
 
 /// Build a ResourceProfileService from shared state.
 fn make_service(state: &AppState) -> ResourceProfileService {
-    ResourceProfileService::new(ResourceProfileRepository::new(state.pool.clone()))
+    ResourceProfileService::from_pool(state.pool.clone())
 }
 
 /// `GET /api/v1/resource-profiles` — list resource profiles.
