@@ -36,7 +36,7 @@ pub struct UpdateProviderRequest {
 }
 
 fn make_service(state: &AppState) -> LlmProviderService {
-    LlmProviderService::from_pool(state.pool.clone(), state.encryption_key, state.llm_factory.clone())
+    state.llm_provider_service()
 }
 
 /// `GET /api/v1/llm-providers/supported` — static UI provider metadata.
