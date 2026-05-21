@@ -723,6 +723,15 @@ impl OrchestrationService {
         self.participant_repo.unregister(scope, agent_id).await
     }
 
+    pub(crate) async fn mark_participant_offline(
+        &self,
+        scope: &TenantScope,
+        agent_id: AgentId,
+    ) -> AppResult<Participant> {
+        ParticipantStatusPolicy::validate_filter("offline")?;
+        self.participant_repo.update_status(scope, agent_id, "offline").await
+    }
+
     /// Resolve agent display names for a batch of tasks in a single query.
     pub async fn summarize_tasks(
         &self,
