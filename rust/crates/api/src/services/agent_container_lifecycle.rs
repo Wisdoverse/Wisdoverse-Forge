@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use agentforge_core::{AgentId, AgentStatus, AppResult, ErrorKind, TenantScope};
 use agentforge_platform::{ContainerState, DockerClient};
+use sqlx::PgPool;
 
 use crate::domain::agent::{AgentContainerLifecyclePolicy, AgentContainerRuntimeState, AgentRestartPlan};
 use crate::repositories::agent::AgentRepository;
@@ -19,6 +20,10 @@ pub(crate) struct AgentContainerLifecycleService {
 impl AgentContainerLifecycleService {
     pub(crate) fn new(agents: AgentRepository, docker: Option<Arc<DockerClient>>) -> Self {
         Self { agents: AgentService::new(agents), docker }
+    }
+
+    pub(crate) fn from_runtime(pool: PgPool, docker: Option<Arc<DockerClient>>) -> Self {
+        Self::new(AgentRepository::new(pool), docker)
     }
 
     pub(crate) async fn restart(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<()> {

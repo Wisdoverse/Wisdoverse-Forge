@@ -34,9 +34,6 @@ use agentforge_core::{AgentId, AppResult};
 
 use crate::domain::orchestration::TaskAssignmentPatchPolicy;
 use crate::health::AppState;
-use crate::repositories::context_preview::ContextPreviewRepository;
-use crate::repositories::orchestration::task_context::TaskContextRepository;
-use crate::repositories::orchestration::{OrchestrationTaskRepository, ParticipantRepository};
 use crate::services::admin::AdminService;
 use crate::services::context_feature::ContextFeatureService;
 use crate::services::context_preview::{ContextPreviewService, PublishWithContextInput};
@@ -156,32 +153,24 @@ pub struct RegisterParticipantRequest {
 // ---------------------------------------------------------------------------
 
 fn make_service(state: &AppState) -> OrchestrationService {
-    OrchestrationService::new(
-        OrchestrationTaskRepository::new(state.pool.clone()),
-        ParticipantRepository::new(state.pool.clone()),
+    OrchestrationService::from_runtime(
+        state.pool.clone(),
+        state.context_features,
+        state.context_resolver.clone(),
+        state.nats.clone(),
     )
-    .with_context_runtime(state.context_features, state.context_resolver.clone())
-    .with_broadcast_bus(state.nats.clone())
 }
 
 fn make_task_context_service(state: &AppState) -> TaskContextService {
-    TaskContextService::new(
-        OrchestrationTaskRepository::new(state.pool.clone()),
-        TaskContextRepository::new(state.pool.clone()),
-    )
+    TaskContextService::from_pool(state.pool.clone())
 }
 
 fn make_context_preview_service(state: &AppState) -> ContextPreviewService {
-    ContextPreviewService::new(
-        ContextPreviewRepository::new(state.pool.clone()),
-        OrchestrationTaskRepository::new(state.pool.clone()),
-        ParticipantRepository::new(state.pool.clone()),
-        state.context_resolver.clone(),
-    )
+    ContextPreviewService::from_runtime(state.pool.clone(), state.context_resolver.clone())
 }
 
 fn make_feature_service(state: &AppState) -> ContextFeatureService {
-    ContextFeatureService::new(state.pool.clone(), state.context_features)
+    ContextFeatureService::from_runtime(state.pool.clone(), state.context_features)
 }
 
 fn extract_params(req: &CreateTaskRequest) -> (String, Option<String>, Option<serde_json::Value>) {
