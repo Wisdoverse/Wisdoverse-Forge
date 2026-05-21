@@ -55,6 +55,9 @@ Current stacked PRs:
   auth/session response projections, context-switch membership checks and token
   issuance, analytics summaries, and voice status/response projections into
   domain/service/repository boundaries.
+- #238 `refactor/backend-ddd-boundary-sweep` -> #237 branch: in progress; moves
+  remaining agent message pagination and container/participant persistence
+  coordination out of route handlers into domain/service boundaries.
 
 ## Execution Rule
 
@@ -93,7 +96,8 @@ Target backend DDD completion, not another one-endpoint migration:
 
 Use the existing stacked PRs as the current working baseline. This batch should
 prove whether the backend route surface now follows the intended DDD boundary
-and close concrete gaps found by the audit.
+and close concrete gaps found by the audit. Continue #238 by preferring grouped
+production leaks over test-only fixture cleanup.
 
 ## Validation
 
@@ -154,9 +158,11 @@ Current open stack:
 - #235 agent execution runtime surfaces, stacked on #234.
 - #236 collaboration and knowledge surfaces, stacked on #235.
 - #237 communication, analytics, and session surfaces, stacked on #236.
+- #238 boundary sweep, stacked on #237, currently moving remaining production
+  route persistence leaks into service/domain boundaries.
 
-Before starting a new PR, inspect the current state of #229-#237. If they have
-not landed yet, stack the next branch on #237. If they have landed, branch from
+Before starting a new PR, inspect the current state of #229-#238. If they have
+not landed yet, stack the next branch on #238. If they have landed, branch from
 updated origin/main.
 
 Create a separate worktree, implement the next large backend DDD batch, run
