@@ -3,6 +3,7 @@
 pub mod admin;
 pub mod agent;
 pub mod agent_commands;
+pub mod agent_container_control;
 pub mod agent_container_credentials;
 pub mod agent_container_lifecycle;
 pub mod agent_message;

@@ -9,6 +9,12 @@ pub use crate::domain::agent_workspace::{
     resolve_agent_workspace_paths,
 };
 
+const DEFAULT_WORKSPACE_ROOT: &str = "/data/agentforge/workspaces";
+
+pub(crate) fn workspace_root_from_env() -> String {
+    std::env::var("AGENTFORGE_WORKSPACE_ROOT").unwrap_or_else(|_| DEFAULT_WORKSPACE_ROOT.to_string())
+}
+
 pub async fn resolve_workspace_mount_scope(
     pool: &PgPool,
     org_id: Uuid,
