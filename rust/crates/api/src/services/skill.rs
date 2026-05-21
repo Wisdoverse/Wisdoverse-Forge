@@ -4,6 +4,7 @@ use agentforge_core::{AppResult, ErrorKind, ProjectId, ScopedRead, TeamId, Tenan
 use agentforge_db::entities::{Skill, SkillVersion};
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::skill::{
@@ -64,6 +65,10 @@ impl SkillService {
     pub fn new(repo: SkillRepository) -> Self {
         let permissions = ResourcePermissionRepository::new(repo.pool().clone());
         Self { repo, permissions }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(SkillRepository::new(pool))
     }
 
     /// List all active visible skills for the request scope.

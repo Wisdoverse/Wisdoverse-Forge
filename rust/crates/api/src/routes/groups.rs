@@ -19,7 +19,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, GroupId, ProjectId};
 
 use crate::health::AppState;
-use crate::repositories::identity::group::GroupRepository;
 use crate::services::group::{
     GroupService, resource_data_response, resource_delete_response, resource_group_created_response,
     resource_project_groups_response,
@@ -70,7 +69,7 @@ fn default_role() -> String {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> GroupService {
-    GroupService::new(GroupRepository::new(state.pool.clone()))
+    GroupService::from_pool(state.pool.clone())
 }
 
 /// `GET /api/v1/groups` — list groups for the authenticated tenant.
