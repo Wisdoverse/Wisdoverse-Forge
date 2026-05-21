@@ -21,7 +21,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::credential::cli::CliCredentialRepository;
 #[cfg(test)]
 use crate::services::cli_auth_proxy::resolve_providers;
 use crate::services::cli_auth_proxy::{
@@ -30,9 +29,9 @@ use crate::services::cli_auth_proxy::{
 };
 
 fn make_service(state: &AppState) -> CliAuthProxyService {
-    CliAuthProxyService::from_app_config(
+    CliAuthProxyService::from_pool_and_app_config(
+        state.pool.clone(),
         &state.config,
-        CliCredentialRepository::new(state.pool.clone()),
         state.encryption_key,
         state.redis.clone(),
         state.cli_auth_memory_store.clone(),
