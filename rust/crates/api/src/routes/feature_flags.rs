@@ -13,7 +13,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::feature_flag::FeatureFlagRepository;
 use crate::services::feature_flag::{FeatureFlagService, UpsertFeatureFlagInput, configuration_data_response};
 
 /// Request body for upserting a feature flag.
@@ -25,7 +24,7 @@ pub struct UpsertFeatureFlagRequest {
 
 /// Build a FeatureFlagService from shared state.
 fn make_service(state: &AppState) -> FeatureFlagService {
-    FeatureFlagService::new(FeatureFlagRepository::new(state.pool.clone()))
+    FeatureFlagService::from_pool(state.pool.clone())
 }
 
 /// `GET /api/feature-flags` — list flags.

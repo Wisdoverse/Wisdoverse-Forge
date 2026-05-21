@@ -2,6 +2,7 @@
 
 use agentforge_core::{AppResult, TenantScope, WorkspaceId};
 use agentforge_db::entities::Workspace;
+use sqlx::PgPool;
 
 use crate::domain::resource::{ResourceListPage, ResourceName};
 pub(crate) use crate::domain::resource::{resource_data_response, resource_delete_response};
@@ -25,6 +26,10 @@ pub struct WorkspaceService {
 impl WorkspaceService {
     pub fn new(repo: WorkspaceRepository) -> Self {
         Self { repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(WorkspaceRepository::new(pool))
     }
 
     /// List workspaces with pagination. Limit is capped at 100.
