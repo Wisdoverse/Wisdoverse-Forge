@@ -2,6 +2,7 @@
 
 use agentforge_core::{AppResult, TeamId, TenantScope};
 use agentforge_db::entities::Team;
+use sqlx::PgPool;
 
 use crate::domain::resource::{ResourceListPage, ResourceName};
 pub(crate) use crate::domain::resource::{resource_data_response, resource_delete_response};
@@ -28,6 +29,10 @@ pub struct TeamService {
 impl TeamService {
     pub fn new(repo: TeamRepository, permission_repo: ResourcePermissionRepository) -> Self {
         Self { repo, permissions: ResourcePermissionService::new(permission_repo) }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(TeamRepository::new(pool.clone()), ResourcePermissionRepository::new(pool))
     }
 
     /// List teams with pagination. Limit is capped at 100.

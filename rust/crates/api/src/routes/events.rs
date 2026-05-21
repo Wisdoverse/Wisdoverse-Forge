@@ -15,7 +15,6 @@ use agentforge_core::{AgentId, AppResult};
 
 use crate::domain::observability::EventReplayCursor;
 use crate::health::AppState;
-use crate::repositories::agent::event::EventRepository;
 #[cfg(test)]
 use crate::services::event::event_to_claude_event_json;
 use crate::services::event::{EventService, event_ingest_response, event_list_response, event_replay_cursor_response};
@@ -74,7 +73,7 @@ fn default_payload() -> serde_json::Value {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> EventService {
-    EventService::new(EventRepository::new(state.pool.clone()))
+    EventService::from_pool(state.pool.clone())
 }
 
 /// `POST /api/events` — ingest a new event.
