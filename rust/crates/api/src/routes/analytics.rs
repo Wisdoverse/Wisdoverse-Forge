@@ -13,9 +13,10 @@ use serde::Deserialize;
 use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
-use crate::health::{AppState, ContextFeature, ensure_context_feature_enabled};
+use crate::health::AppState;
 use crate::repositories::analytics::AnalyticsRepository;
 use crate::services::analytics::{AnalyticsService, analytics_data_response};
+use crate::services::context_feature::ContextFeatureService;
 use crate::services::usage_analytics::{ContextUsageQuery, UsageAnalyticsService};
 
 /// Request body for tracking an analytics event.
@@ -53,6 +54,10 @@ fn make_usage_service(state: &AppState) -> UsageAnalyticsService {
     UsageAnalyticsService::new(state.pool.clone())
 }
 
+fn make_feature_service(state: &AppState) -> ContextFeatureService {
+    ContextFeatureService::new(state.pool.clone(), state.context_features)
+}
+
 /// `POST /analytics/events` — track an event.
 async fn track_event(
     State(state): State<AppState>,
@@ -88,7 +93,7 @@ async fn context_usage(
     auth: AuthUser,
     Query(q): Query<ContextUsageQueryParams>,
 ) -> AppResult<Json<serde_json::Value>> {
-    ensure_context_feature_enabled(&state, &auth.scope, ContextFeature::Analytics).await?;
+    make_feature_service(&state).ensure_analytics_enabled(&auth.scope).await?;
     let service = make_usage_service(&state);
     let data = service
         .context_usage(

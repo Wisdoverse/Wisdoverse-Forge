@@ -18,6 +18,7 @@ use agentforge_infra::NatsClient;
 use agentforge_jobs::insert_assignment_outbox_in_tx;
 use uuid::Uuid;
 
+use crate::domain::context::{ContextFeature, ContextFeatureFlags};
 use crate::domain::context_resolver::{ContextTaskSnapshot, ResolvedContext};
 use crate::domain::orchestration::{
     BlockedTaskPolicy, DispatchSweepDecision, DispatchSweepPolicy, ParticipantAvailabilityAction,
@@ -111,6 +112,16 @@ impl OrchestrationService {
             self.context_resolver = None;
         }
         self
+    }
+
+    pub fn with_context_runtime(
+        self,
+        context_features: ContextFeatureFlags,
+        context_resolver: Arc<ContextResolverService>,
+    ) -> Self {
+        let enabled = context_features.enabled(ContextFeature::Injection);
+        let service = self.with_context_injection_enabled(enabled);
+        if enabled { service.with_context_resolver(context_resolver) } else { service }
     }
 
     pub fn with_broadcast_bus(mut self, nats: Arc<NatsClient>) -> Self {
