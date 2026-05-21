@@ -10,17 +10,14 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::services::agent::pool_status_response;
+use crate::services::pool::PoolService;
 
 /// `GET /api/v1/pools/status` — get container pool status.
 ///
 /// Returns warm pool counts. Requires Docker to be available.
 async fn pool_status(State(state): State<AppState>, _auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
-    // Pool status is available through the platform crate's ContainerPool.
-    // For now, return a static response indicating pool availability.
-    let docker_available = state.docker.is_some();
-
-    Ok(Json(pool_status_response(docker_available)))
+    let service = PoolService::new(state.docker.clone());
+    Ok(Json(service.status_response()))
 }
 
 /// Build pool routes sub-router.
@@ -30,7 +27,7 @@ pub fn pool_routes() -> Router<AppState> {
 
 #[cfg(test)]
 mod tests {
-    use crate::services::agent::pool_status_response;
+    use crate::services::pool::pool_status_response;
 
     #[test]
     fn pool_status_response_format() {
