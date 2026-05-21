@@ -78,23 +78,23 @@ pub struct CreateContextPreviewRequest {
 }
 
 fn make_service(state: &AppState) -> ContextApprovalService {
-    ContextApprovalService::from_runtime(state.pool.clone(), state.nats.clone())
+    state.context_approval_service()
 }
 
 fn make_feedback_service(state: &AppState) -> ContextFeedbackService {
-    ContextFeedbackService::new(state.pool.clone())
+    state.context_feedback_service()
 }
 
 fn make_envelope_service(state: &AppState) -> ContextEnvelopeService {
-    ContextEnvelopeService::from_runtime(state.pool.clone(), state.context_resolver.clone())
+    state.context_envelope_service()
 }
 
 fn make_preview_service(state: &AppState) -> ContextPreviewService {
-    ContextPreviewService::from_runtime(state.pool.clone(), state.context_resolver.clone())
+    state.context_preview_service()
 }
 
 fn make_feature_service(state: &AppState) -> ContextFeatureService {
-    ContextFeatureService::from_runtime(state.pool.clone(), state.context_features)
+    state.context_feature_service()
 }
 
 async fn get_context_features(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<Value>> {

@@ -119,6 +119,12 @@ Current stacked PRs:
   settings, skills, teams, tiles, voice, and workspaces; upgrades the route
   boundary test to block production route repository imports and all
   `Repository::new` calls.
+- #252 `refactor/backend-ddd-appstate-runtime-factories` -> #251 branch: moves
+  remaining runtime-heavy service wiring out of production routes into
+  `AppState` service factories, including config, encryption, LLM, Docker,
+  NATS, Redis, object storage, auth callout, JWT, email, context, billing, and
+  in-flight prompt dependencies; extends the route boundary test to block those
+  runtime AppState reads and runtime-aware service constructors from returning.
 
 ## Execution Rule
 
@@ -157,10 +163,10 @@ Target backend DDD completion, not another one-endpoint migration:
 
 Use the existing stacked PRs as the current working baseline. This batch should
 prove whether the backend route surface now follows the intended DDD boundary
-and close concrete gaps found by the audit. After #251, prefer the next large
-sweep around remaining route-local response/projection construction and
-production `json!` response assembly, or any service constructor that still
-accepts low-level runtime configuration instead of a named factory.
+and close concrete gaps found by the audit. After #252, the next large sweep
+should audit the remaining service layer for pure-domain candidates: inline
+policy decisions, ad hoc validation, response/adaptor logic still living beside
+repository I/O, and aggregate repository grouping drift.
 
 ## Validation
 
@@ -261,8 +267,12 @@ Current open stack:
   production route repository constructors into service factories and upgrading
   route-boundary regression coverage to block repository imports and any
   production route `Repository::new` call.
+- #252 AppState runtime factory sweep, stacked on #251, currently moving
+  runtime-heavy service wiring out of route modules into AppState factories and
+  upgrading route-boundary regression coverage to block direct runtime AppState
+  dependency reads from route code.
 
-Before starting a new PR, inspect the current state of #229-#251. If they have
+Before starting a new PR, inspect the current state of #229-#252. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 

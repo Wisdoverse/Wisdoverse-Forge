@@ -10,13 +10,12 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::services::pool::PoolService;
 
 /// `GET /api/v1/pools/status` — get container pool status.
 ///
 /// Returns warm pool counts. Requires Docker to be available.
 async fn pool_status(State(state): State<AppState>, _auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
-    let service = PoolService::new(state.docker.clone());
+    let service = state.pool_service();
     Ok(Json(service.status_response()))
 }
 
