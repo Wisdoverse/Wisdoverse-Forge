@@ -67,7 +67,7 @@ pub struct SwitchContextRequest {
 
 /// Build a UserService from shared state.
 fn make_service(state: &AppState) -> UserService {
-    UserService::from_app_config(state.pool.clone(), state.jwt.clone(), state.email_sender.clone(), &state.config)
+    state.auth_user_service()
 }
 
 /// `POST /api/v1/auth/login` — authenticate with email and password.
