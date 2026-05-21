@@ -16,56 +16,15 @@ use sqlx::PgPool;
 use tokio::sync::RwLock;
 
 use agentforge_auth::JwtManager;
-use agentforge_core::{AgentId, AppConfig, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AgentId, AppConfig, AppResult, TenantScope};
 use agentforge_infra::{NatsClient, ObjectStorageClient, RedisClient};
 use agentforge_platform::DockerClient;
 
+pub use crate::domain::context::{ContextFeature, ContextFeatureFlags};
 use crate::mcp::McpAgentTools;
-use crate::repositories::feature_flag::FeatureFlagRepository;
 use crate::services::billing::BillingGateway;
+use crate::services::context_feature::ContextFeatureService;
 use crate::services::email::EmailSender;
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct ContextFeatureFlags {
-    pub governance: bool,
-    pub preview: bool,
-    pub injection: bool,
-    pub analytics: bool,
-}
-
-impl ContextFeatureFlags {
-    pub const fn all_enabled() -> Self {
-        Self { governance: true, preview: true, injection: true, analytics: true }
-    }
-
-    pub const fn enabled(self, feature: ContextFeature) -> bool {
-        match feature {
-            ContextFeature::Governance => self.governance,
-            ContextFeature::Preview => self.preview,
-            ContextFeature::Injection => self.injection,
-            ContextFeature::Analytics => self.analytics,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ContextFeature {
-    Governance,
-    Preview,
-    Injection,
-    Analytics,
-}
-
-impl ContextFeature {
-    pub const fn key(self) -> &'static str {
-        match self {
-            ContextFeature::Governance => "context.governance.enabled",
-            ContextFeature::Preview => "context.preview.enabled",
-            ContextFeature::Injection => "context.injection.enabled",
-            ContextFeature::Analytics => "context.analytics.enabled",
-        }
-    }
-}
 
 /// Shared application state passed to all route handlers.
 #[derive(Clone)]
@@ -138,16 +97,7 @@ pub struct AppState {
 
 impl AppState {
     pub async fn context_feature_enabled(&self, scope: &TenantScope, feature: ContextFeature) -> AppResult<bool> {
-        let deployment_enabled = self.context_features.enabled(feature);
-        if !deployment_enabled {
-            return Ok(false);
-        }
-
-        match FeatureFlagRepository::new(self.pool.clone()).find_by_name(scope.org_id(), feature.key()).await {
-            Ok(flag) => Ok(flag.enabled),
-            Err(err) if matches!(err.kind, ErrorKind::NotFound(_)) => Ok(deployment_enabled),
-            Err(err) => Err(err),
-        }
+        ContextFeatureService::new(self.pool.clone(), self.context_features).is_enabled(scope, feature).await
     }
 }
 
@@ -156,11 +106,7 @@ pub async fn ensure_context_feature_enabled(
     scope: &TenantScope,
     feature: ContextFeature,
 ) -> AppResult<()> {
-    if state.context_feature_enabled(scope, feature).await? {
-        return Ok(());
-    }
-
-    Err(ErrorKind::NotFound(format!("{} is disabled", feature.key())).into())
+    ContextFeatureService::new(state.pool.clone(), state.context_features).ensure_enabled(scope, feature).await
 }
 
 /// Allow handlers to extract just the Prometheus handle via

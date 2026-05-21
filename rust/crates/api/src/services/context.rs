@@ -12,7 +12,6 @@ use serde_json::Value;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-pub(crate) use crate::domain::context::ContextFeatureSnapshot;
 pub(crate) use crate::domain::context::context_data_response;
 pub use crate::domain::context::{ContextApprovalOutcome, ContextCandidateSummary, ContextFeedbackOutcome};
 use crate::domain::context::{
