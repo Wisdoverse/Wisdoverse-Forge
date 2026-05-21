@@ -1,6 +1,7 @@
 //! CLI auth proxy response shapes.
 
 use serde::Serialize;
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -82,4 +83,24 @@ pub struct RefreshSummary {
     /// owner-scoped Inbox notifications.
     #[serde(rename = "revokedCredentials")]
     pub revoked_credentials: Vec<RevokedCliCredential>,
+}
+
+pub(crate) fn cli_auth_providers_response<T: Serialize>(providers: T) -> Value {
+    json!({ "ok": true, "providers": providers })
+}
+
+pub(crate) fn cli_auth_statuses_response<T: Serialize>(statuses: T) -> Value {
+    json!({ "ok": true, "statuses": statuses })
+}
+
+pub(crate) fn cli_auth_authorize_response(url: String) -> Value {
+    json!({ "ok": true, "url": url })
+}
+
+pub(crate) fn cli_auth_connected_response(provider: &str) -> Value {
+    json!({ "ok": true, "provider": provider, "status": "connected" })
+}
+
+pub(crate) fn cli_auth_disconnected_response(provider: &str) -> Value {
+    json!({ "ok": true, "provider": provider, "status": "disconnected" })
 }
