@@ -16,7 +16,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::credential::git::GitCredentialRepository;
 use crate::services::git_credential::{
     CreateGitCredentialInput, GitCredentialService, UpsertGitCredentialInput, credential_delete_response,
     git_credential_response, git_credentials_response,
@@ -56,7 +55,7 @@ pub struct UpsertGitCredentialRequest {
 
 /// Build a GitCredentialService from shared state.
 fn make_service(state: &AppState) -> GitCredentialService {
-    GitCredentialService::with_encryption_key(GitCredentialRepository::new(state.pool.clone()), state.encryption_key)
+    GitCredentialService::from_pool(state.pool.clone(), state.encryption_key)
 }
 
 /// `POST /api/git-credentials` — create a new git credential.

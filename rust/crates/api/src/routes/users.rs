@@ -14,7 +14,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, UserId};
 
 use crate::health::AppState;
-use crate::repositories::user::UserRepository;
 use crate::services::user::{UpdateUserProfileInput, UserService, user_data_response, user_members_response};
 
 /// Query parameters for the list endpoint.
@@ -50,7 +49,7 @@ pub struct UpdateProfileRequest {
 
 /// Build a UserService from shared state.
 fn make_service(state: &AppState) -> UserService {
-    UserService::new(UserRepository::new(state.pool.clone()), state.jwt.clone())
+    UserService::from_pool(state.pool.clone(), state.jwt.clone())
 }
 
 /// `GET /api/users` — list users in the authenticated org.
