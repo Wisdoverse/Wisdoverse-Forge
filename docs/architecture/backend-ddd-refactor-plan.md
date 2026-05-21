@@ -70,6 +70,9 @@ Current stacked PRs:
   adds a Rust route-boundary test so production route code cannot reintroduce
   raw SQL, production `json!` response assembly, or route-local response
   projections.
+- #242 `refactor/backend-ddd-container-lifecycle-sweep` -> #241 branch: in
+  progress; moves agent restart/resume Docker lifecycle orchestration out of
+  `routes/agents.rs` into `AgentContainerLifecycleService`.
 
 ## Execution Rule
 
@@ -108,7 +111,7 @@ Target backend DDD completion, not another one-endpoint migration:
 
 Use the existing stacked PRs as the current working baseline. This batch should
 prove whether the backend route surface now follows the intended DDD boundary
-and close concrete gaps found by the audit. Continue #241 by preferring grouped
+and close concrete gaps found by the audit. Continue #242 by preferring grouped
 production runtime orchestration leaks over test-only fixture cleanup.
 
 ## Validation
@@ -178,9 +181,11 @@ Current open stack:
   credential injection and cleanup orchestration out of `routes/containers.rs`.
 - #241 route DDD boundary check, stacked on #240, currently adding automated
   regression coverage for route-layer boundary rules.
+- #242 container lifecycle sweep, stacked on #241, currently moving agent
+  restart/resume Docker lifecycle orchestration out of `routes/agents.rs`.
 
-Before starting a new PR, inspect the current state of #229-#241. If they have
-not landed yet, stack the next branch on #241. If they have landed, branch from
+Before starting a new PR, inspect the current state of #229-#242. If they have
+not landed yet, stack the next branch on #242. If they have landed, branch from
 updated origin/main.
 
 Create a separate worktree, implement the next large backend DDD batch, run
