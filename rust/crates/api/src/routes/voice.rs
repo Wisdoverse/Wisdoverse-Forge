@@ -19,7 +19,9 @@ use agentforge_core::AppResult;
 
 use crate::health::AppState;
 use crate::repositories::voice::VoiceRepository;
-use crate::services::voice::VoiceService;
+use crate::services::voice::{
+    VoiceService, voice_data_response, voice_delete_response, voice_transcription_pending_response,
+};
 
 /// Request body for creating a voice provider.
 #[derive(Deserialize)]
@@ -51,14 +53,14 @@ fn make_service(state: &AppState) -> VoiceService {
 async fn voice_status(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let status = service.status(&auth.scope).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": status })))
+    Ok(Json(voice_data_response(status)))
 }
 
 /// `GET /voice/providers` — list providers.
 async fn list_providers(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let providers = service.list_providers(&auth.scope).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": providers })))
+    Ok(Json(voice_data_response(providers)))
 }
 
 /// `POST /voice/providers` — add provider.
@@ -70,7 +72,7 @@ async fn add_provider(
     let service = make_service(&state);
     let provider = service.add_provider(&auth.scope, &req.name, &req.provider_type, &req.config).await?;
     tracing::info!(org_id = %auth.scope.org_id(), provider = %provider.name, "Voice provider added");
-    Ok(Json(serde_json::json!({ "ok": true, "data": provider })))
+    Ok(Json(voice_data_response(provider)))
 }
 
 /// `PUT /voice/providers/{id}` — update provider.
@@ -84,7 +86,7 @@ async fn update_provider(
     let provider = service
         .update_provider(&auth.scope, id, req.name.as_deref(), req.provider_type.as_deref(), req.config.as_ref())
         .await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": provider })))
+    Ok(Json(voice_data_response(provider)))
 }
 
 /// `DELETE /voice/providers/{id}` — remove provider.
@@ -95,7 +97,7 @@ async fn delete_provider(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     service.remove_provider(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(voice_delete_response()))
 }
 
 /// `POST /voice/providers/{id}/default` — set as default.
@@ -106,18 +108,12 @@ async fn set_default_provider(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let provider = service.set_default(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": provider })))
+    Ok(Json(voice_data_response(provider)))
 }
 
 /// `POST /voice/transcribe` — transcribe audio (stub).
 async fn transcribe(_state: State<AppState>, _auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
-    Ok(Json(serde_json::json!({
-        "ok": true,
-        "data": {
-            "text": "",
-            "message": "Voice transcription not yet implemented"
-        }
-    })))
+    Ok(Json(voice_transcription_pending_response()))
 }
 
 /// Build voice routes sub-router.
