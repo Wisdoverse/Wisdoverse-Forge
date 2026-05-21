@@ -43,7 +43,7 @@ use crate::services::orchestration::{
     CreateTaskParamsInput, OrchestrationService, ParticipantSummary, TaskSummary, create_task_request_parts,
     orchestration_delete_response, orchestration_participant_response, orchestration_participants_response,
     orchestration_stats_response, orchestration_task_context_response, orchestration_task_response,
-    orchestration_tasks_response, task_update_broadcast_payload,
+    orchestration_tasks_response,
 };
 use crate::services::task_context::TaskContextService;
 
@@ -159,7 +159,8 @@ fn make_service(state: &AppState) -> OrchestrationService {
         OrchestrationTaskRepository::new(state.pool.clone()),
         ParticipantRepository::new(state.pool.clone()),
     )
-    .with_context_injection_enabled(state.context_features.injection);
+    .with_context_injection_enabled(state.context_features.injection)
+    .with_broadcast_bus(state.nats.clone());
     if state.context_features.injection {
         service.with_context_resolver(state.context_resolver.clone())
     } else {
@@ -198,17 +199,6 @@ fn extract_params(req: &CreateTaskRequest) -> (String, Option<String>, Option<se
     )
 }
 
-async fn broadcast_task_update(state: &AppState, auth: &AuthUser, action: &str, task: &TaskSummary) {
-    if !state.nats.is_connected() {
-        return;
-    }
-    let subject = format!("broadcast.{}", auth.scope.org_id().as_uuid());
-    let payload = task_update_broadcast_payload(action, task);
-    if let Err(err) = state.nats.publish_json(&subject, payload).await {
-        tracing::warn!(error = ?err, %subject, task_id = %task.id, %action, "Failed to broadcast orchestration task update");
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Task handlers
 // ---------------------------------------------------------------------------
@@ -234,7 +224,7 @@ async fn create_task(
         )
         .await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
-    broadcast_task_update(&state, &auth, "task.created", &summary).await;
+    service.broadcast_task_update(&auth.scope, "task.created", &summary).await;
     Ok(Json(orchestration_task_response(&summary)))
 }
 
@@ -303,7 +293,7 @@ async fn patch_task(
     let assigned_to = TaskAssignmentPatchPolicy::parse(req.assigned_to.as_deref())?;
     let task = service.update_task(&auth.scope, id, req.state, req.priority, req.progress, assigned_to).await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
-    broadcast_task_update(&state, &auth, "task.updated", &summary).await;
+    service.broadcast_task_update(&auth.scope, "task.updated", &summary).await;
     Ok(Json(orchestration_task_response(&summary)))
 }
 
@@ -315,7 +305,7 @@ async fn dispatch_task(
     let service = make_service(&state);
     let task = service.dispatch_task(&auth.scope, id).await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
-    broadcast_task_update(&state, &auth, "task.dispatched", &summary).await;
+    service.broadcast_task_update(&auth.scope, "task.dispatched", &summary).await;
     Ok(Json(orchestration_task_response(&summary)))
 }
 
@@ -342,7 +332,7 @@ async fn publish_task_with_context(
         )
         .await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
-    broadcast_task_update(&state, &auth, "task.published", &summary).await;
+    service.broadcast_task_update(&auth.scope, "task.published", &summary).await;
     Ok(Json(orchestration_task_response(&summary)))
 }
 
@@ -355,7 +345,7 @@ async fn complete_task(
     let service = make_service(&state);
     let task = service.complete_task(&auth.scope, id, req.result).await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
-    broadcast_task_update(&state, &auth, "task.completed", &summary).await;
+    service.broadcast_task_update(&auth.scope, "task.completed", &summary).await;
     Ok(Json(orchestration_task_response(&summary)))
 }
 
@@ -368,7 +358,7 @@ async fn fail_task(
     let service = make_service(&state);
     let task = service.fail_task(&auth.scope, id, req.error).await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
-    broadcast_task_update(&state, &auth, "task.failed", &summary).await;
+    service.broadcast_task_update(&auth.scope, "task.failed", &summary).await;
     Ok(Json(orchestration_task_response(&summary)))
 }
 
@@ -381,7 +371,7 @@ async fn approve_task(
     let service = make_service(&state);
     let task = service.approve_task(&auth.scope, id).await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
-    broadcast_task_update(&state, &auth, "task.approved", &summary).await;
+    service.broadcast_task_update(&auth.scope, "task.approved", &summary).await;
     Ok(Json(orchestration_task_response(&summary)))
 }
 
@@ -393,7 +383,7 @@ async fn cancel_task(
     let service = make_service(&state);
     let task = service.cancel_task(&auth.scope, id).await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
-    broadcast_task_update(&state, &auth, "task.canceled", &summary).await;
+    service.broadcast_task_update(&auth.scope, "task.canceled", &summary).await;
     Ok(Json(orchestration_task_response(&summary)))
 }
 
@@ -405,7 +395,7 @@ async fn retry_task(
     let service = make_service(&state);
     let task = service.retry_task(&auth.scope, id).await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
-    broadcast_task_update(&state, &auth, "task.retried", &summary).await;
+    service.broadcast_task_update(&auth.scope, "task.retried", &summary).await;
     Ok(Json(orchestration_task_response(&summary)))
 }
 

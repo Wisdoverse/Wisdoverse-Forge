@@ -18,7 +18,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
-use agentforge_core::{AppResult, ErrorKind};
+use agentforge_core::AppResult;
 
 use crate::health::AppState;
 use crate::repositories::admin::AdminRepository;
@@ -48,7 +48,7 @@ pub struct ImpersonateRequest {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> AdminService {
-    AdminService::new(AdminRepository::new(state.pool.clone()))
+    AdminService::new(AdminRepository::new(state.pool.clone())).with_auth_callout(state.auth_callout.clone())
 }
 
 /// `GET /api/v1/admin/users` — list all users (admin only).
@@ -208,17 +208,6 @@ async fn delete_admin_agent(
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
     AdminService::require_admin(&auth.role)?;
-    // Revoke the live NATS connection BEFORE the DB row vanishes — once the
-    // row is gone, the callout handler would deny any reconnect anyway, but
-    // publishing the KICK while the tracker entry is still keyed by this
-    // agent ID yields a clean ≤2s cutoff instead of the 15-min JWT ceiling.
-    match state.auth_callout.as_ref() {
-        Some(callout) => callout.revoke(id).await,
-        None => tracing::info!(
-            %id,
-            "admin delete_agent: auth callout disabled — revocation falls back to JWT TTL"
-        ),
-    }
     let service = make_service(&state);
     service.delete_agent(id).await?;
     Ok(Json(admin_delete_response()))
@@ -231,27 +220,8 @@ async fn bulk_delete_admin_agents(
     Json(body): Json<BulkDeleteRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     AdminService::require_admin(&auth.role)?;
-    if body.ids.is_empty() {
-        return Err(ErrorKind::Validation("ids array required".into()).into());
-    }
-    // Revoke each agent's live NATS connection before bulk deletion. The
-    // revoke() method is best-effort and logs internally, so a single
-    // loop that ignores failures is the right shape — a partial KICK
-    // fleet-out does not block the DB delete, and `bulk_delete_agents`
-    // below reports per-id success/failure for the DB step.
-    match state.auth_callout.as_ref() {
-        Some(callout) => {
-            for id in &body.ids {
-                callout.revoke(*id).await;
-            }
-        }
-        None => tracing::info!(
-            count = body.ids.len(),
-            "admin bulk_delete_agents: auth callout disabled — revocation falls back to JWT TTL"
-        ),
-    }
     let service = make_service(&state);
-    let results = service.bulk_delete_agents(&body.ids).await;
+    let results = service.bulk_delete_agents_checked(&body.ids).await?;
     Ok(Json(admin_bulk_delete_response(results)))
 }
 
