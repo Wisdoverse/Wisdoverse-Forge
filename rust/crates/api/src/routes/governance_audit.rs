@@ -12,8 +12,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::audit::AuditRepository;
-use crate::repositories::governance_audit::GovernanceAuditRepository;
 use crate::services::context_feature::ContextFeatureService;
 use crate::services::governance_audit::{
     GovernanceAuditService, QueryParams as GovernanceAuditQueryParams, governance_audit_response,
@@ -26,12 +24,7 @@ pub fn governance_audit_routes() -> Router<AppState> {
 }
 
 fn make_service(state: &AppState) -> AppResult<GovernanceAuditService> {
-    GovernanceAuditService::with_runtime_config(
-        GovernanceAuditRepository::new(state.pool.clone()),
-        AuditRepository::new(state.pool.clone()),
-        state.config.is_production(),
-        state.encryption_key,
-    )
+    GovernanceAuditService::from_pool_and_app_config(state.pool.clone(), &state.config, state.encryption_key)
 }
 
 fn make_feature_service(state: &AppState) -> ContextFeatureService {

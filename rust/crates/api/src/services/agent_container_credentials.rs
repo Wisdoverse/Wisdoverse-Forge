@@ -6,6 +6,7 @@
 
 use agentforge_core::{AppConfig, TenantScope};
 use agentforge_platform::Mount;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::agent::AgentContainerEnvPolicy;
@@ -23,6 +24,16 @@ pub(crate) struct AgentContainerCredentialService {
 }
 
 impl AgentContainerCredentialService {
+    pub(crate) fn from_pool_and_app_config(pool: PgPool, encryption_key: Option<[u8; 32]>, config: &AppConfig) -> Self {
+        Self::from_app_config(
+            CliCredentialRepository::new(pool.clone()),
+            UserLlmConfigRepository::new(pool.clone()),
+            GitCredentialRepository::new(pool),
+            encryption_key,
+            config,
+        )
+    }
+
     pub(crate) fn from_app_config(
         cli_credentials: CliCredentialRepository,
         user_llm_configs: UserLlmConfigRepository,
