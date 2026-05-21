@@ -3,7 +3,8 @@
 use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::AnalyticsEvent;
 
-use crate::domain::observability::{AnalyticsEventName, AnalyticsListPage};
+pub(crate) use crate::domain::observability::analytics_data_response;
+use crate::domain::observability::{AnalyticsEventName, AnalyticsListPage, AnalyticsSummary};
 use crate::repositories::analytics::AnalyticsRepository;
 
 /// Business logic layer for analytics operations.
@@ -40,7 +41,7 @@ impl AnalyticsService {
     }
 
     /// Get aggregate summary stats.
-    pub async fn summary(&self, scope: &TenantScope) -> AppResult<serde_json::Value> {
+    pub(crate) async fn summary(&self, scope: &TenantScope) -> AppResult<AnalyticsSummary> {
         self.repo.summary(scope).await
     }
 }
