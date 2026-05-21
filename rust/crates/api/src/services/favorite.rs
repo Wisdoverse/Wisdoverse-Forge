@@ -5,6 +5,9 @@ use agentforge_db::entities::Favorite;
 use uuid::Uuid;
 
 use crate::domain::resource::FavoriteTargetType;
+pub(crate) use crate::domain::resource::{
+    resource_data_response as favorite_data_response, resource_delete_response as favorite_delete_response,
+};
 use crate::repositories::favorite::FavoriteRepository;
 
 /// Business logic layer for favorite operations.

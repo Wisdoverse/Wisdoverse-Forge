@@ -17,7 +17,7 @@ use agentforge_core::AppResult;
 
 use crate::health::AppState;
 use crate::repositories::tile::TileRepository;
-use crate::services::tile::TileService;
+use crate::services::tile::{TileService, tile_data_response, tile_delete_response};
 
 /// Request body for creating a tile.
 #[derive(Deserialize)]
@@ -74,7 +74,7 @@ fn make_service(state: &AppState) -> TileService {
 async fn list_tiles(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let tiles = service.list(&auth.scope).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": tiles })))
+    Ok(Json(tile_data_response(tiles)))
 }
 
 /// `POST /tiles` — create a tile.
@@ -87,7 +87,7 @@ async fn create_tile(
     let tile = service
         .create(&auth.scope, &req.tile_type, &req.config, req.position_x, req.position_y, req.width, req.height)
         .await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": tile })))
+    Ok(Json(tile_data_response(tile)))
 }
 
 /// `PATCH /tiles/{id}` — update a tile.
@@ -101,7 +101,7 @@ async fn update_tile(
     let tile = service
         .update(&auth.scope, id, req.config.as_ref(), req.position_x, req.position_y, req.width, req.height)
         .await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": tile })))
+    Ok(Json(tile_data_response(tile)))
 }
 
 /// `DELETE /tiles/{id}` — remove a tile.
@@ -112,7 +112,7 @@ async fn delete_tile(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     service.delete(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(tile_delete_response()))
 }
 
 /// `PUT /tiles/layout` — bulk update layout.
@@ -125,7 +125,7 @@ async fn bulk_update_layout(
     let entries: Vec<(Uuid, i32, i32, i32, i32)> =
         req.tiles.iter().map(|t| (t.id, t.position_x, t.position_y, t.width, t.height)).collect();
     let tiles = service.bulk_update_layout(&auth.scope, &entries).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": tiles })))
+    Ok(Json(tile_data_response(tiles)))
 }
 
 /// Build tile routes sub-router.

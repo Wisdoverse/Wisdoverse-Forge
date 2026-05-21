@@ -4,10 +4,20 @@
 //! repositories, HTTP route DTOs, and persistence details.
 
 use agentforge_core::{AppResult, ErrorKind};
+use serde::Serialize;
+use serde_json::{Value, json};
 
 const MAX_TITLE_LEN: usize = 200;
 const MAX_CONTENT_LEN: usize = 50_000;
 const MAX_TAGS: usize = 20;
+
+pub(crate) fn prompt_library_data_response<T: Serialize>(data: T) -> Value {
+    json!({ "ok": true, "data": data })
+}
+
+pub(crate) fn prompt_library_delete_response() -> Value {
+    json!({ "ok": true })
+}
 
 /// Stored prompt template validation policy.
 pub(crate) struct PromptTemplatePolicy;
