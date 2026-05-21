@@ -16,6 +16,10 @@ impl ContextFeatureService {
         Self { repo: FeatureFlagRepository::new(pool), deployment }
     }
 
+    pub fn from_runtime(pool: PgPool, deployment: ContextFeatureFlags) -> Self {
+        Self::new(pool, deployment)
+    }
+
     pub(crate) async fn snapshot(&self, scope: &TenantScope) -> AppResult<ContextFeatureSnapshot> {
         Ok(ContextFeatureSnapshot {
             governance: self.is_enabled(scope, ContextFeature::Governance).await?,

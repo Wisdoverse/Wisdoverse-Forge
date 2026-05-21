@@ -55,6 +55,22 @@ fn route_handlers_do_not_reintroduce_ddd_boundary_leaks() {
                     line_no + 1
                 ));
             }
+
+            if contains_agent_orchestration_repository_wiring(trimmed) {
+                violations.push(format!(
+                    "{}:{} constructs agent/orchestration repositories in production route code; move aggregate wiring to service",
+                    route.display(),
+                    line_no + 1
+                ));
+            }
+
+            if contains_runtime_service_factory_wiring(trimmed) {
+                violations.push(format!(
+                    "{}:{} constructs runtime-aware services in production route code; move runtime factories to service",
+                    route.display(),
+                    line_no + 1
+                ));
+            }
         }
     }
 
@@ -131,6 +147,37 @@ fn contains_identity_repository_wiring(line: &str) -> bool {
         "GitCredentialRepository::new",
         "SshKeyRepository::new",
         "UserRepository::new",
+    ]
+    .iter()
+    .any(|pattern| line.contains(pattern))
+}
+
+fn contains_agent_orchestration_repository_wiring(line: &str) -> bool {
+    [
+        "AgentRepository::new",
+        "MessageRepository::new",
+        "UserLlmConfigRepository::new",
+        "OrchestrationTaskRepository::new",
+        "ParticipantRepository::new",
+        "TaskContextRepository::new",
+        "ContextPreviewRepository::new",
+        "workspace_root_from_env",
+    ]
+    .iter()
+    .any(|pattern| line.contains(pattern))
+}
+
+fn contains_runtime_service_factory_wiring(line: &str) -> bool {
+    [
+        "AgentMessageService::new",
+        "AgentPromptService::new",
+        "AgentContainerLifecycleService::new",
+        "OrchestrationService::new",
+        "TaskContextService::new",
+        "ContextPreviewService::new",
+        "ContextEnvelopeService::new",
+        "ContextApprovalService::new",
+        "ContextFeatureService::new",
     ]
     .iter()
     .any(|pattern| line.contains(pattern))
