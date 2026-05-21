@@ -20,7 +20,7 @@ use agentforge_core::{AgentId, AppResult, ErrorKind};
 use crate::domain::attachment::AttachmentAgentScope;
 use crate::health::AppState;
 use crate::repositories::attachment::AttachmentRepository;
-use crate::services::attachment::AttachmentService;
+use crate::services::attachment::{AttachmentService, attachment_data_response, attachment_delete_response};
 
 const DEFAULT_CONTENT_TYPE: &str = "application/octet-stream";
 
@@ -56,7 +56,7 @@ async fn list_attachments(
     let service = make_service(&state);
     let agent_id = query.agent_id.map(AgentId::from);
     let attachments = service.list(&auth.scope, agent_id).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": attachments })))
+    Ok(Json(attachment_data_response(attachments)))
 }
 
 /// `POST /api/v1/attachments` — upload an attachment.
@@ -69,7 +69,7 @@ async fn create_attachment(
     let service = make_service(&state);
     let att =
         service.create(&auth.scope, upload.agent_id, &upload.filename, &upload.content_type, upload.bytes).await?;
-    Ok((StatusCode::CREATED, Json(serde_json::json!({ "ok": true, "data": att }))))
+    Ok((StatusCode::CREATED, Json(attachment_data_response(att))))
 }
 
 /// `GET /api/v1/attachments/{id}` — get attachment metadata.
@@ -80,7 +80,7 @@ async fn get_attachment(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let att = service.get(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": att })))
+    Ok(Json(attachment_data_response(att)))
 }
 
 /// `GET /api/v1/attachments/{id}/download` — download an attachment.
@@ -111,7 +111,7 @@ async fn delete_attachment(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     service.delete(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(attachment_delete_response()))
 }
 
 async fn parse_upload(mut multipart: Multipart) -> AppResult<ParsedUpload> {

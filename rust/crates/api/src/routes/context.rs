@@ -4,8 +4,8 @@ use axum::extract::{Path, Query, State};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde::Deserialize;
+use serde_json::Value;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
@@ -15,8 +15,8 @@ use crate::domain::context::{ContextFeedbackLabel, ContextItemKind};
 use crate::domain::memory::MemoryScopeKind;
 use crate::health::{AppState, ContextFeature, ensure_context_feature_enabled};
 use crate::services::context::{
-    ApproveContextCandidateInput, ContextApprovalService, ContextFeedbackService, ListContextCandidatesInput,
-    RecordContextFeedbackInput, RejectContextCandidateInput,
+    ApproveContextCandidateInput, ContextApprovalService, ContextFeatureSnapshot, ContextFeedbackService,
+    ListContextCandidatesInput, RecordContextFeedbackInput, RejectContextCandidateInput, context_data_response,
 };
 use crate::services::context_envelope::{ContextEnvelopeInput, ContextEnvelopeService};
 use crate::services::context_preview::{ContextPreviewService, CreateContextPreviewInput};
@@ -76,15 +76,6 @@ pub struct CreateContextPreviewRequest {
     pub agent_id: Uuid,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ContextFeatureSnapshot {
-    pub governance: bool,
-    pub preview: bool,
-    pub injection: bool,
-    pub analytics: bool,
-}
-
 fn make_service(state: &AppState) -> ContextApprovalService {
     ContextApprovalService::new(state.pool.clone(), Some(state.nats.clone()))
 }
@@ -113,7 +104,7 @@ async fn get_context_features(State(state): State<AppState>, auth: AuthUser) -> 
         injection: state.context_feature_enabled(&auth.scope, ContextFeature::Injection).await?,
         analytics: state.context_feature_enabled(&auth.scope, ContextFeature::Analytics).await?,
     };
-    Ok(Json(json!({ "ok": true, "data": data })))
+    Ok(Json(context_data_response(data)))
 }
 
 async fn list_pending_candidates(
@@ -134,7 +125,7 @@ async fn list_pending_candidates(
             },
         )
         .await?;
-    Ok(Json(json!({ "ok": true, "data": candidates })))
+    Ok(Json(context_data_response(candidates)))
 }
 
 async fn approve_candidate(
@@ -160,7 +151,7 @@ async fn approve_candidate(
             },
         )
         .await?;
-    Ok(Json(json!({ "ok": true, "data": outcome })))
+    Ok(Json(context_data_response(outcome)))
 }
 
 async fn reject_candidate(
@@ -172,7 +163,7 @@ async fn reject_candidate(
     ensure_context_feature_enabled(&state, &auth.scope, ContextFeature::Governance).await?;
     let outcome =
         make_service(&state).reject(&auth.scope, id, RejectContextCandidateInput { reason: req.reason }).await?;
-    Ok(Json(json!({ "ok": true, "data": outcome })))
+    Ok(Json(context_data_response(outcome)))
 }
 
 async fn record_feedback(
@@ -193,7 +184,7 @@ async fn record_feedback(
             },
         )
         .await?;
-    Ok(Json(json!({ "ok": true, "data": outcome })))
+    Ok(Json(context_data_response(outcome)))
 }
 
 async fn build_context_envelope(
@@ -213,7 +204,7 @@ async fn build_context_envelope(
             },
         )
         .await?;
-    Ok(Json(json!({ "ok": true, "data": envelope })))
+    Ok(Json(context_data_response(envelope)))
 }
 
 async fn create_context_preview(
@@ -228,7 +219,7 @@ async fn create_context_preview(
             CreateContextPreviewInput { task_id: req.task_id, agent_id: agentforge_core::AgentId::from(req.agent_id) },
         )
         .await?;
-    Ok(Json(json!({ "ok": true, "data": preview })))
+    Ok(Json(context_data_response(preview)))
 }
 
 pub fn context_routes() -> Router<AppState> {

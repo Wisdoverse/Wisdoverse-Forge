@@ -5,6 +5,7 @@ use agentforge_db::entities::Prompt;
 use uuid::Uuid;
 
 use crate::domain::prompt_library::PromptTemplatePolicy;
+pub(crate) use crate::domain::prompt_library::{prompt_library_data_response, prompt_library_delete_response};
 use crate::repositories::prompt::PromptRepository;
 
 /// Business logic layer for prompt library operations (stored prompt templates).

@@ -29,6 +29,10 @@ pub(crate) fn configuration_delete_response() -> Value {
     serde_json::json!({ "ok": true })
 }
 
+pub(crate) fn plugin_agent_plugins_response<T: Serialize>(plugins: T) -> Value {
+    serde_json::json!({ "ok": true, "plugins": plugins })
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RuntimeSettings {
