@@ -23,7 +23,7 @@ use crate::services::agent::AgentService;
 use crate::services::agent_container_credentials::AgentContainerCredentialService;
 use crate::services::agent_workspace::{
     CONTAINER_WORKSPACE_ROOT, WorkspaceMountScope, ensure_workspace_belongs_to_org, host_path_for_container_cwd,
-    resolve_agent_workspace_paths,
+    resolve_agent_workspace_paths, workspace_root_from_env,
 };
 use crate::services::auth_callout::AuthCalloutService;
 use crate::services::orchestration::OrchestrationService;
@@ -65,6 +65,26 @@ pub(crate) struct AgentContainerControlService {
 }
 
 impl AgentContainerControlService {
+    pub(crate) fn from_runtime(
+        pool: PgPool,
+        config: &AppConfig,
+        context_features: ContextFeatureFlags,
+        encryption_key: Option<[u8; 32]>,
+        docker: Option<Arc<DockerClient>>,
+        auth_callout: Option<Arc<AuthCalloutService>>,
+    ) -> Self {
+        Self::new(
+            AgentRepository::new(pool.clone()),
+            OrchestrationTaskRepository::new(pool.clone()),
+            ParticipantRepository::new(pool.clone()),
+            AgentContainerCredentialService::from_pool_and_app_config(pool.clone(), encryption_key, config),
+            docker,
+            auth_callout,
+            pool,
+            AgentContainerControlSettings::from_runtime(workspace_root_from_env(), config, context_features),
+        )
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         agents: AgentRepository,
