@@ -6,7 +6,12 @@ use uuid::Uuid;
 
 use crate::domain::agent::{
     AgentCliToolSelection, AgentCollaboratorPermission, AgentCommandSubject, AgentLifecycle, AgentListPage, AgentName,
-    AgentStatusTransition,
+    AgentPermissionProjection, AgentStatusTransition, agent_permission_projection,
+};
+pub(crate) use crate::domain::agent::{
+    agent_container_status_response, agent_data_response, agent_delete_response, agent_git_status_response,
+    agent_list_response, agent_messages_deleted_response, agent_messages_response, agent_permission_response,
+    agent_prompt_sent_response, agent_response, agent_status_response, pool_status_response,
 };
 use crate::repositories::agent::{AgentListItem, AgentRepository, CreateAgentParams};
 
@@ -124,5 +129,24 @@ impl AgentService {
     /// Remove a collaborator from an agent.
     pub async fn remove_collaborator(&self, scope: &TenantScope, agent_id: AgentId, user_id: Uuid) -> AppResult<()> {
         self.repo.remove_collaborator(scope, agent_id, user_id).await
+    }
+
+    /// Check whether a user can perform an agent action.
+    pub(crate) async fn check_permission(
+        &self,
+        scope: &TenantScope,
+        agent_id: AgentId,
+        user_id: Uuid,
+        action: &str,
+    ) -> AppResult<AgentPermissionProjection> {
+        let agent = self.repo.find_by_id(scope, agent_id).await?;
+        let is_owner = agent.user_id.as_uuid() == user_id;
+        let collaborators = self.repo.list_collaborators(scope, agent_id).await?;
+        let collaborator_permission = collaborators
+            .iter()
+            .find(|collaborator| collaborator.user_id.as_uuid() == user_id)
+            .map(|collaborator| collaborator.permission.as_str());
+
+        Ok(agent_permission_projection(is_owner, collaborator_permission, action))
     }
 }

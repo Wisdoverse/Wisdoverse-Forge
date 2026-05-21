@@ -43,6 +43,10 @@ Current stacked PRs:
   key, SSH key, Git credential, Container CLI credential, and CLI auth proxy
   response contracts, permission checks, token encryption, provider resolution,
   and legacy upsert defaults into domain/service boundaries.
+- #235 `refactor/backend-ddd-agent-runtime` -> #234 branch: moved agent,
+  container, pool, and development-environment response contracts, permission
+  projections, restart lifecycle policy, and runtime status helpers into
+  domain/service boundaries.
 
 ## Execution Rule
 
@@ -65,20 +69,7 @@ Each batch should produce one PR with:
 Do not pick a one-endpoint cleanup. Pick one of these larger batches and finish
 the route family end to end.
 
-### Batch 1: Agent Execution Runtime
-
-Target the high-value runtime path in one PR:
-
-- `routes/agents.rs`
-- `routes/containers.rs`
-- `routes/pools.rs`
-- `routes/dev_environments.rs`
-
-Move response contracts, status projections, command/control policy, and runtime
-state mapping into domain/service modules. Keep Docker/container side effects and
-pool orchestration in services or platform-facing adapters, not routes.
-
-### Batch 2: Collaboration And Knowledge Surfaces
+### Batch 1: Collaboration And Knowledge Surfaces
 
 Target user-facing content/workflow surfaces as a larger aggregate batch:
 
@@ -151,9 +142,10 @@ Current open stack:
 - #232 tenant resource CRUD, stacked on #231.
 - #233 product configuration and governance, stacked on #232.
 - #234 identity and access surfaces, stacked on #233.
+- #235 agent execution runtime surfaces, stacked on #234.
 
-Before starting a new PR, inspect the current state of #229-#234. If they have
-not landed yet, stack the next branch on #234. If they have landed, branch from
+Before starting a new PR, inspect the current state of #229-#235. If they have
+not landed yet, stack the next branch on #235. If they have landed, branch from
 updated origin/main.
 
 Create a separate worktree, implement the next large backend DDD batch, run
