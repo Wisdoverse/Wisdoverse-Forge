@@ -2,6 +2,7 @@
 
 use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::VoiceProvider;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::voice::{VoiceProviderDraft, VoiceProviderType, VoiceStatusProjection};
@@ -18,6 +19,10 @@ pub struct VoiceService {
 impl VoiceService {
     pub fn new(repo: VoiceRepository) -> Self {
         Self { repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(VoiceRepository::new(pool))
     }
 
     /// Get voice service status (stub).

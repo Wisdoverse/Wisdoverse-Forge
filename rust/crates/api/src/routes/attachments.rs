@@ -18,7 +18,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AgentId, AppResult, ErrorKind};
 
 use crate::health::AppState;
-use crate::repositories::attachment::AttachmentRepository;
 use crate::services::attachment::{
     AttachmentAgentScope, AttachmentService, AttachmentUploadDraft, DEFAULT_ATTACHMENT_CONTENT_TYPE,
     attachment_data_response, attachment_delete_response, attachment_download_content_disposition,
@@ -32,11 +31,7 @@ pub struct ListAttachmentsQuery {
 
 /// Build an AttachmentService from shared state.
 fn make_service(state: &AppState) -> AttachmentService {
-    AttachmentService::from_app_config(
-        AttachmentRepository::new(state.pool.clone()),
-        state.object_storage.clone(),
-        &state.config,
-    )
+    AttachmentService::from_pool_and_app_config(state.pool.clone(), state.object_storage.clone(), &state.config)
 }
 
 /// `GET /api/v1/attachments` — list attachments.
