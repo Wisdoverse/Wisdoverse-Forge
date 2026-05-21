@@ -19,7 +19,6 @@ use agentforge_core::AppResult;
 
 use crate::domain::skill::{SkillScopeKind, SkillState};
 use crate::health::AppState;
-use crate::repositories::skill::SkillRepository;
 use crate::services::skill::{
     CreateSkillInput, RestoreSkillVersionInput, SkillService, UpdateSkillInput, skill_data_response,
     skill_delete_response,
@@ -66,7 +65,7 @@ pub struct RestoreSkillVersionRequest {
 
 /// Build a SkillService from shared state.
 fn make_service(state: &AppState) -> SkillService {
-    SkillService::new(SkillRepository::new(state.pool.clone()))
+    SkillService::from_pool(state.pool.clone())
 }
 
 /// `GET /skills` — list skills.

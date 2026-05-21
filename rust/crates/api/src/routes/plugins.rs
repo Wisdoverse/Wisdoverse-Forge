@@ -22,7 +22,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AgentId, AppResult};
 
 use crate::health::AppState;
-use crate::repositories::plugin::PluginRepository;
 use crate::services::plugin::{
     PluginService, plugin_agent_plugins_response, plugin_data_response, plugin_delete_response,
 };
@@ -45,7 +44,7 @@ pub struct UpdatePluginRequest {
 
 /// Build a PluginService from shared state.
 fn make_service(state: &AppState) -> PluginService {
-    PluginService::new(PluginRepository::new(state.pool.clone()))
+    PluginService::from_pool(state.pool.clone())
 }
 
 /// `GET /plugins` — list plugins.

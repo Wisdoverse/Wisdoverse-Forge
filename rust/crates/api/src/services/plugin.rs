@@ -2,6 +2,7 @@
 
 use agentforge_core::{AgentId, AppResult, TenantScope};
 use agentforge_db::entities::Plugin;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::configuration::{PluginName, PluginVersion};
@@ -19,6 +20,10 @@ pub struct PluginService {
 impl PluginService {
     pub fn new(repo: PluginRepository) -> Self {
         Self { repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(PluginRepository::new(pool))
     }
 
     /// List all plugins (org-scoped + global).
