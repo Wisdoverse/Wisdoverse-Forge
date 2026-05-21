@@ -4,11 +4,8 @@
 //! container-backed agent: sidecar credential-sync env, Container CLI
 //! credentials, Git platform CLI env, and OAuth mount cleanup.
 
-use std::path::PathBuf;
-
-use agentforge_core::TenantScope;
+use agentforge_core::{AppConfig, TenantScope};
 use agentforge_platform::Mount;
-use secrecy::{ExposeSecret, SecretString};
 use uuid::Uuid;
 
 use crate::domain::agent::AgentContainerEnvPolicy;
@@ -26,30 +23,23 @@ pub(crate) struct AgentContainerCredentialService {
 }
 
 impl AgentContainerCredentialService {
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn new(
+    pub(crate) fn from_app_config(
         cli_credentials: CliCredentialRepository,
         user_llm_configs: UserLlmConfigRepository,
         git_credentials: GitCredentialRepository,
         encryption_key: Option<[u8; 32]>,
-        oauth_mount_root: PathBuf,
-        credential_sync_enabled: bool,
-        system_anthropic: &Option<SecretString>,
-        system_google: &Option<SecretString>,
-        system_openai: &Option<SecretString>,
+        config: &AppConfig,
     ) -> Self {
-        let cli_credentials = CliCredentialService::new(
-            cli_credentials,
-            user_llm_configs,
-            encryption_key,
-            oauth_mount_root,
-            clone_secret(system_anthropic),
-            clone_secret(system_google),
-            clone_secret(system_openai),
-        );
+        let cli_credentials =
+            CliCredentialService::from_app_config(cli_credentials, user_llm_configs, encryption_key, config);
         let git_credentials = GitCredentialService::new(git_credentials);
 
-        Self { cli_credentials, git_credentials, encryption_key, credential_sync_enabled }
+        Self {
+            cli_credentials,
+            git_credentials,
+            encryption_key,
+            credential_sync_enabled: config.credential_sync_enabled,
+        }
     }
 
     pub(crate) async fn inject_runtime_credentials(
@@ -134,8 +124,4 @@ impl AgentContainerCredentialService {
             }
         }
     }
-}
-
-fn clone_secret(secret: &Option<SecretString>) -> Option<SecretString> {
-    secret.as_ref().map(|value| SecretString::from(value.expose_secret().to_string()))
 }
