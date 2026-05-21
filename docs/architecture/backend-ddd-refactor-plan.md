@@ -73,6 +73,11 @@ Current stacked PRs:
 - #242 `refactor/backend-ddd-container-lifecycle-sweep` -> #241 branch: in
   progress; moves agent restart/resume Docker lifecycle orchestration out of
   `routes/agents.rs` into `AgentContainerLifecycleService`.
+- #243 `refactor/backend-ddd-container-start-stop-sweep` -> #242 branch: moves
+  agent container start/stop Docker orchestration, workspace directory
+  preparation, container credential injection, participant registration/offline
+  updates, and NATS connection revocation out of `routes/containers.rs` into
+  `AgentContainerControlService`.
 
 ## Execution Rule
 
@@ -183,10 +188,12 @@ Current open stack:
   regression coverage for route-layer boundary rules.
 - #242 container lifecycle sweep, stacked on #241, currently moving agent
   restart/resume Docker lifecycle orchestration out of `routes/agents.rs`.
+- #243 container start/stop sweep, stacked on #242, currently moving agent
+  container start/stop orchestration out of `routes/containers.rs`.
 
-Before starting a new PR, inspect the current state of #229-#242. If they have
-not landed yet, stack the next branch on #242. If they have landed, branch from
-updated origin/main.
+Before starting a new PR, inspect the current state of #229-#243. If they have
+not landed yet, stack the next branch on the latest open DDD branch. If they
+have landed, branch from updated origin/main.
 
 Create a separate worktree, implement the next large backend DDD batch, run
 focused Rust validation plus clippy, push a PR, wait for CI, and merge only
