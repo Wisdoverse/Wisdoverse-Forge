@@ -103,6 +103,34 @@ impl AgentListPage {
     }
 }
 
+/// Agent chat history pagination.
+///
+/// MessageRepository returns chronological rows after fetching newest-first.
+/// When fetching one extra row, that extra row sits at the front and must be
+/// dropped before returning the page to clients.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct AgentMessagePage {
+    limit: i64,
+}
+
+impl AgentMessagePage {
+    pub(crate) fn new(limit: i64) -> Self {
+        Self { limit: limit.clamp(1, 200) }
+    }
+
+    pub(crate) fn fetch_limit(self) -> i64 {
+        self.limit + 1
+    }
+
+    pub(crate) fn split_has_more<T>(self, mut rows: Vec<T>) -> (Vec<T>, bool) {
+        let has_more = rows.len() as i64 > self.limit;
+        if has_more {
+            rows.remove(0);
+        }
+        (rows, has_more)
+    }
+}
+
 /// Agent display name value object.
 pub(crate) struct AgentName;
 
@@ -511,6 +539,17 @@ mod tests {
             AgentLifecycle::transition(AgentStatus::Idle, AgentStatus::Working).unwrap(),
             AgentStatusTransition::Change(AgentStatus::Working)
         );
+    }
+
+    #[test]
+    fn agent_message_page_fetches_one_extra_and_drops_oldest_extra() {
+        let page = AgentMessagePage::new(2);
+        assert_eq!(page.fetch_limit(), 3);
+
+        let (rows, has_more) = page.split_has_more(vec!["oldest-extra", "first", "second"]);
+
+        assert!(has_more);
+        assert_eq!(rows, vec!["first", "second"]);
     }
 
     #[test]
