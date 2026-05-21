@@ -57,14 +57,11 @@ fn make_container_control_service(state: &AppState) -> AgentContainerControlServ
         state.docker.clone(),
         state.auth_callout.clone(),
         state.pool.clone(),
-        AgentContainerControlSettings {
-            workspace_root: workspace_root_from_env(),
-            nats_agent_url: state.config.nats_agent_url.clone(),
-            nats_url: state.config.nats_url.clone(),
-            container_server_url: state.config.container_server_url.clone(),
-            codex_default_model: state.config.codex_default_model.clone(),
-            context_injection_enabled: state.context_features.injection,
-        },
+        AgentContainerControlSettings::from_runtime(
+            workspace_root_from_env(),
+            state.config.as_ref(),
+            state.context_features,
+        ),
     )
 }
 
