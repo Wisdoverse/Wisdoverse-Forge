@@ -22,29 +22,13 @@ use crate::services::agent_container_control::{AgentContainerControlService, Age
 use crate::services::agent_container_credentials::AgentContainerCredentialService;
 use crate::services::agent_workspace::workspace_root_from_env;
 
-/// Default host directory used when `OAUTH_MOUNT_DIR` is not configured.
-/// Mirrors the legacy `<dataDir>/oauth-mounts` location; chosen to stay under
-/// `/tmp` so the container runtime can always mount it without extra setup.
-const DEFAULT_OAUTH_MOUNT_ROOT: &str = "/tmp/agentforge/oauth-mounts";
-
 fn make_container_credential_service(state: &AppState) -> AgentContainerCredentialService {
-    let oauth_mount_root = state
-        .config
-        .oauth_mount_dir
-        .as_deref()
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| std::path::PathBuf::from(DEFAULT_OAUTH_MOUNT_ROOT));
-
-    AgentContainerCredentialService::new(
+    AgentContainerCredentialService::from_app_config(
         CliCredentialRepository::new(state.pool.clone()),
         UserLlmConfigRepository::new(state.pool.clone()),
         GitCredentialRepository::new(state.pool.clone()),
         state.encryption_key,
-        oauth_mount_root,
-        state.config.credential_sync_enabled,
-        &state.config.container_anthropic_api_key,
-        &state.config.container_google_api_key,
-        &state.config.container_openai_api_key,
+        &state.config,
     )
 }
 

@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use agentforge_core::{AgentId, AppResult, AttachmentId, TenantScope};
+use agentforge_core::{AgentId, AppConfig, AppResult, AttachmentId, TenantScope};
 use agentforge_db::entities::Attachment;
 use agentforge_infra::ObjectStorageClient;
 use uuid::Uuid;
@@ -25,6 +25,10 @@ pub struct AttachmentService {
 }
 
 impl AttachmentService {
+    pub fn from_app_config(repo: AttachmentRepository, storage: Arc<ObjectStorageClient>, config: &AppConfig) -> Self {
+        Self::new(repo, storage, config.storage_max_file_size, config.storage_max_files_per_session)
+    }
+
     pub fn new(
         repo: AttachmentRepository,
         storage: Arc<ObjectStorageClient>,
