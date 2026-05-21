@@ -168,6 +168,14 @@ should audit the remaining service layer for pure-domain candidates: inline
 policy decisions, ad hoc validation, response/adaptor logic still living beside
 repository I/O, and aggregate repository grouping drift.
 
+PR #253 starts with production service SQL rather than
+route-sized slices. Move direct tenant-scoped SQL for context resolver, context
+envelope, context usage analytics, memory/skill/context scope membership, and
+agent workspace mount resolution out of services and into repository modules,
+then guard production services against reintroducing direct SQL. After that
+lands, continue with aggregate-specific policy/adapter drift rather than another
+small route sweep.
+
 ## Validation
 
 Choose checks by changed surface. For backend DDD batches, run at least:
@@ -271,6 +279,10 @@ Current open stack:
   runtime-heavy service wiring out of route modules into AppState factories and
   upgrading route-boundary regression coverage to block direct runtime AppState
   dependency reads from route code.
+- #253 service SQL repository sweep, stacked on #252, moves context
+  resolver, context envelope, context usage analytics, memory/skill/context
+  scope membership, and agent workspace SQL from services into repository
+  modules and adds regression coverage that blocks production service raw SQL.
 
 Before starting a new PR, inspect the current state of #229-#252. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
