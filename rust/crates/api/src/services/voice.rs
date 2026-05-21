@@ -4,7 +4,10 @@ use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::VoiceProvider;
 use uuid::Uuid;
 
-use crate::domain::voice::{VoiceProviderDraft, VoiceProviderType};
+use crate::domain::voice::{VoiceProviderDraft, VoiceProviderType, VoiceStatusProjection};
+pub(crate) use crate::domain::voice::{
+    voice_data_response, voice_delete_response, voice_transcription_pending_response,
+};
 use crate::repositories::voice::VoiceRepository;
 
 /// Business logic layer for voice operations.
@@ -18,14 +21,10 @@ impl VoiceService {
     }
 
     /// Get voice service status (stub).
-    pub async fn status(&self, scope: &TenantScope) -> AppResult<serde_json::Value> {
+    pub(crate) async fn status(&self, scope: &TenantScope) -> AppResult<VoiceStatusProjection> {
         let providers = self.repo.list(scope).await?;
         let has_default = providers.iter().any(|p| p.is_default);
-        Ok(serde_json::json!({
-            "enabled": !providers.is_empty(),
-            "provider_count": providers.len(),
-            "has_default": has_default,
-        }))
+        Ok(VoiceStatusProjection::new(providers.len(), has_default))
     }
 
     /// List voice providers.

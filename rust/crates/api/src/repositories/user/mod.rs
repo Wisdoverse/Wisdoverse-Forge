@@ -179,6 +179,96 @@ impl UserRepository {
         Ok(result)
     }
 
+    pub async fn find_membership_role(&self, user_id: UserId, org_id: uuid::Uuid) -> AppResult<Option<String>> {
+        sqlx::query_scalar::<_, String>(
+            r#"SELECT role
+               FROM organization_members
+              WHERE organization_id = $1
+                AND user_id = $2
+              LIMIT 1"#,
+        )
+        .bind(org_id)
+        .bind(user_id.as_uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
+    pub async fn workspace_exists_in_org(&self, org_id: uuid::Uuid, workspace_id: uuid::Uuid) -> AppResult<bool> {
+        sqlx::query_scalar::<_, bool>(
+            r#"SELECT EXISTS (
+                   SELECT 1 FROM workspaces
+                    WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL
+               )"#,
+        )
+        .bind(workspace_id)
+        .bind(org_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
+    pub async fn user_can_read_team(
+        &self,
+        user_id: UserId,
+        org_id: uuid::Uuid,
+        team_id: uuid::Uuid,
+    ) -> AppResult<bool> {
+        sqlx::query_scalar::<_, bool>(
+            r#"SELECT EXISTS (
+                   SELECT 1
+                     FROM teams t
+                     JOIN team_members tm ON tm.team_id = t.id
+                    WHERE t.id = $1
+                      AND t.organization_id = $2
+                      AND t.deleted_at IS NULL
+                      AND tm.user_id = $3
+               )"#,
+        )
+        .bind(team_id)
+        .bind(org_id)
+        .bind(user_id.as_uuid())
+        .fetch_one(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
+    pub async fn user_can_read_project(
+        &self,
+        user_id: UserId,
+        org_id: uuid::Uuid,
+        project_id: uuid::Uuid,
+        workspace_id: uuid::Uuid,
+    ) -> AppResult<bool> {
+        sqlx::query_scalar::<_, bool>(
+            r#"SELECT EXISTS (
+                   SELECT 1
+                     FROM projects p
+                    WHERE p.id = $1
+                      AND p.organization_id = $2
+                      AND p.workspace_id = $3
+                      AND p.deleted_at IS NULL
+                      AND (
+                          EXISTS (
+                              SELECT 1 FROM project_members pm
+                               WHERE pm.project_id = p.id AND pm.user_id = $4
+                          )
+                          OR EXISTS (
+                              SELECT 1 FROM team_members tm
+                               WHERE tm.team_id = p.team_id AND tm.user_id = $4
+                          )
+                      )
+               )"#,
+        )
+        .bind(project_id)
+        .bind(org_id)
+        .bind(workspace_id)
+        .bind(user_id.as_uuid())
+        .fetch_one(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
     /// Update the user's last_login_at timestamp.
     pub async fn update_last_login(&self, id: UserId) -> AppResult<()> {
         sqlx::query("UPDATE users SET last_login_at = NOW() WHERE id = $1")
