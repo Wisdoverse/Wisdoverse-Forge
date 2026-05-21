@@ -3,6 +3,7 @@
 use agentforge_core::{AppResult, ErrorKind, TenantScope};
 use agentforge_db::entities::{ContextCandidate, TaskRun};
 use serde_json::Value;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::context::{applied_context_source, context_content_preview, redacted_proposal_preview};
@@ -25,6 +26,10 @@ pub struct TaskContextService {
 impl TaskContextService {
     pub fn new(task_repo: OrchestrationTaskRepository, context_repo: TaskContextRepository) -> Self {
         Self { task_repo, context_repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(OrchestrationTaskRepository::new(pool.clone()), TaskContextRepository::new(pool))
     }
 
     pub async fn for_task(&self, scope: &TenantScope, task_id: Uuid) -> AppResult<TaskContextResponse> {

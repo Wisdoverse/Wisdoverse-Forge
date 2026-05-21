@@ -7,6 +7,7 @@ use chrono::{DateTime, Utc};
 
 use agentforge_core::{AgentId, AppResult, TenantScope};
 use agentforge_db::entities::AgentMessage;
+use sqlx::PgPool;
 
 use crate::domain::agent::AgentMessagePage;
 use crate::repositories::agent::{AgentRepository, MessageRepository};
@@ -19,6 +20,10 @@ pub(crate) struct AgentMessageService {
 impl AgentMessageService {
     pub(crate) fn new(agents: AgentRepository, messages: MessageRepository) -> Self {
         Self { agents, messages }
+    }
+
+    pub(crate) fn from_pool(pool: PgPool) -> Self {
+        Self::new(AgentRepository::new(pool.clone()), MessageRepository::new(pool))
     }
 
     pub(crate) async fn list(
