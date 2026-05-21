@@ -23,7 +23,6 @@ use agentforge_platform::DockerClient;
 pub use crate::domain::context::{ContextFeature, ContextFeatureFlags};
 use crate::mcp::McpAgentTools;
 use crate::services::billing::BillingGateway;
-use crate::services::context_feature::ContextFeatureService;
 use crate::services::email::EmailSender;
 
 /// Shared application state passed to all route handlers.
@@ -97,7 +96,7 @@ pub struct AppState {
 
 impl AppState {
     pub async fn context_feature_enabled(&self, scope: &TenantScope, feature: ContextFeature) -> AppResult<bool> {
-        ContextFeatureService::new(self.pool.clone(), self.context_features).is_enabled(scope, feature).await
+        self.context_feature_service().is_enabled(scope, feature).await
     }
 }
 
@@ -106,7 +105,7 @@ pub async fn ensure_context_feature_enabled(
     scope: &TenantScope,
     feature: ContextFeature,
 ) -> AppResult<()> {
-    ContextFeatureService::new(state.pool.clone(), state.context_features).ensure_enabled(scope, feature).await
+    state.context_feature_service().ensure_enabled(scope, feature).await
 }
 
 /// Allow handlers to extract just the Prometheus handle via
