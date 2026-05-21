@@ -18,6 +18,7 @@ use agentforge_core::{AppConfig, AppResult, ErrorKind, TenantScope, crypto};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use secrecy::{ExposeSecret, SecretString};
+use sqlx::PgPool;
 use tokio::fs;
 
 use crate::domain::credential::{ContainerCliCredentialPolicy, OauthMountContainerKey};
@@ -81,6 +82,15 @@ impl CliCredentialRuntimeConfig {
 }
 
 impl CliCredentialService {
+    pub fn from_pool_and_app_config(pool: PgPool, encryption_key: Option<[u8; 32]>, config: &AppConfig) -> Self {
+        Self::from_app_config(
+            CliCredentialRepository::new(pool.clone()),
+            UserLlmConfigRepository::new(pool),
+            encryption_key,
+            config,
+        )
+    }
+
     pub fn from_app_config(
         cli_creds: CliCredentialRepository,
         user_llm: UserLlmConfigRepository,
