@@ -45,6 +45,10 @@ pub(crate) fn api_key_create_response(result: CreateApiKeyResult) -> serde_json:
     })
 }
 
+pub(crate) fn credential_delete_response() -> serde_json::Value {
+    serde_json::json!({ "ok": true })
+}
+
 pub(crate) fn ssh_key_list_response(keys: &[SshKey]) -> serde_json::Value {
     let keys: Vec<_> = keys.iter().map(ssh_key_payload).collect();
     serde_json::json!({
@@ -52,6 +56,18 @@ pub(crate) fn ssh_key_list_response(keys: &[SshKey]) -> serde_json::Value {
         "data": keys.clone(),
         "keys": keys,
     })
+}
+
+pub(crate) fn cli_credentials_response<T: Serialize>(connections: T) -> serde_json::Value {
+    serde_json::json!({ "ok": true, "connections": connections })
+}
+
+pub(crate) fn cli_credential_stored_response(cli_tool: &str) -> serde_json::Value {
+    serde_json::json!({ "ok": true, "cli_tool": cli_tool, "status": "stored" })
+}
+
+pub(crate) fn cli_credential_deleted_response(cli_tool: &str) -> serde_json::Value {
+    serde_json::json!({ "ok": true, "cli_tool": cli_tool, "status": "deleted" })
 }
 
 pub(crate) fn ssh_key_create_response(key: SshKey) -> serde_json::Value {

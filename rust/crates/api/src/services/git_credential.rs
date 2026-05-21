@@ -5,12 +5,33 @@ use agentforge_db::entities::GitCredential;
 use uuid::Uuid;
 
 use crate::domain::credential::{CredentialListPage, GitCredentialDraft, GitCredentialToken, GitRemoteHost};
-pub(crate) use crate::domain::credential::{git_credential_response, git_credentials_response};
+pub(crate) use crate::domain::credential::{
+    credential_delete_response, git_credential_response, git_credentials_response,
+};
 use crate::repositories::credential::git::GitCredentialRepository;
 
 /// Business logic layer for git credential operations.
 pub struct GitCredentialService {
     repo: GitCredentialRepository,
+    encryption_key: Option<[u8; 32]>,
+}
+
+/// Service input for creating a git credential from HTTP/API fields.
+pub(crate) struct CreateGitCredentialInput {
+    pub(crate) name: String,
+    pub(crate) provider: String,
+    pub(crate) credential_type: String,
+    pub(crate) remote_url: Option<String>,
+    pub(crate) token: Option<String>,
+}
+
+/// Service input for the legacy provider-scoped upsert endpoint.
+pub(crate) struct UpsertGitCredentialInput {
+    pub(crate) provider: String,
+    pub(crate) token: String,
+    pub(crate) host: Option<String>,
+    pub(crate) name: Option<String>,
+    pub(crate) credential_type: Option<String>,
 }
 
 /// Environment variables needed by Git platform CLIs inside an agent container.
@@ -21,7 +42,11 @@ pub struct GitCliCredentialInjection {
 
 impl GitCredentialService {
     pub fn new(repo: GitCredentialRepository) -> Self {
-        Self { repo }
+        Self { repo, encryption_key: None }
+    }
+
+    pub fn with_encryption_key(repo: GitCredentialRepository, encryption_key: Option<[u8; 32]>) -> Self {
+        Self { repo, encryption_key }
     }
 
     /// Create a new git credential after validation.
@@ -76,6 +101,42 @@ impl GitCredentialService {
             .await
     }
 
+    /// Create a git credential from request fields, encrypting the token when present.
+    pub(crate) async fn create_with_token(
+        &self,
+        scope: &TenantScope,
+        input: CreateGitCredentialInput,
+    ) -> AppResult<GitCredential> {
+        let token_encrypted = self.encrypt_git_token(input.token.as_deref())?;
+        self.upsert_for_provider(
+            scope,
+            &input.name,
+            &input.provider,
+            &input.credential_type,
+            trimmed_opt(input.remote_url.as_deref()),
+            token_encrypted.as_deref(),
+            None,
+        )
+        .await
+    }
+
+    /// Upsert a provider-scoped git credential using legacy frontend defaults.
+    pub(crate) async fn upsert_provider_with_token(
+        &self,
+        scope: &TenantScope,
+        input: UpsertGitCredentialInput,
+    ) -> AppResult<GitCredential> {
+        let provider = input.provider.trim().to_ascii_lowercase();
+        let remote_url = trimmed_opt(input.host.as_deref());
+        let credential_type = trimmed_opt(input.credential_type.as_deref()).unwrap_or("token");
+        let default_name = remote_url.map_or_else(|| provider.clone(), |host| format!("{provider} ({host})"));
+        let name = trimmed_opt(input.name.as_deref()).unwrap_or(default_name.as_str());
+        let token_encrypted = self.encrypt_git_token(Some(input.token.as_str()))?;
+
+        self.upsert_for_provider(scope, name, &provider, credential_type, remote_url, token_encrypted.as_deref(), None)
+            .await
+    }
+
     /// List git credentials (paginated).
     pub async fn list(&self, scope: &TenantScope, limit: i64, offset: i64) -> AppResult<Vec<GitCredential>> {
         let page = CredentialListPage::new(limit, offset);
@@ -121,6 +182,27 @@ impl GitCredentialService {
     pub async fn delete(&self, scope: &TenantScope, id: Uuid) -> AppResult<()> {
         self.repo.delete(scope, id).await
     }
+
+    fn encrypt_git_token(&self, token: Option<&str>) -> AppResult<Option<Vec<u8>>> {
+        let Some(token) = trimmed_opt(token) else {
+            return Ok(None);
+        };
+        let Some(token) = GitCredentialToken::parse(token) else {
+            return Ok(None);
+        };
+        let key = self.encryption_key.as_ref().ok_or_else(|| {
+            ErrorKind::Validation(
+                "LLM_ENCRYPTION_KEY is not configured - refusing to store plaintext git tokens".into(),
+            )
+        })?;
+        let encrypted = crypto::encrypt_base64(key, token.value())
+            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encrypt git credential token failed: {err}")))?;
+        Ok(Some(encrypted.into_bytes()))
+    }
+}
+
+fn trimmed_opt(value: Option<&str>) -> Option<&str> {
+    value.map(str::trim).filter(|value| !value.is_empty())
 }
 
 fn decrypt_git_token(key: &[u8; 32], cred: &GitCredential) -> AppResult<Option<String>> {
