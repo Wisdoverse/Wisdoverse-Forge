@@ -14,7 +14,7 @@
 
 use std::path::{Path, PathBuf};
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope, crypto};
+use agentforge_core::{AppConfig, AppResult, ErrorKind, TenantScope, crypto};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use secrecy::{ExposeSecret, SecretString};
@@ -26,6 +26,11 @@ pub(crate) use crate::domain::credential::{
 };
 use crate::repositories::credential::cli::{CliCredentialRepository, CliCredentialStatus};
 use crate::repositories::user::llm_config::UserLlmConfigRepository;
+
+/// Default host directory used when `OAUTH_MOUNT_DIR` is not configured.
+/// Mirrors the legacy `<dataDir>/oauth-mounts` location; chosen to stay under
+/// `/tmp` so the container runtime can always mount it without extra setup.
+const DEFAULT_OAUTH_MOUNT_ROOT: &str = "/tmp/agentforge/oauth-mounts";
 
 /// Outcome of credential resolution for a single container spawn.
 ///
@@ -52,7 +57,61 @@ pub struct CliCredentialService {
     system_openai: Option<SecretString>,
 }
 
+#[derive(Debug, Clone)]
+pub struct CliCredentialRuntimeConfig {
+    oauth_mount_root: PathBuf,
+    system_anthropic: Option<SecretString>,
+    system_google: Option<SecretString>,
+    system_openai: Option<SecretString>,
+}
+
+impl CliCredentialRuntimeConfig {
+    pub fn from_app_config(config: &AppConfig) -> Self {
+        Self {
+            oauth_mount_root: config
+                .oauth_mount_dir
+                .as_deref()
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from(DEFAULT_OAUTH_MOUNT_ROOT)),
+            system_anthropic: clone_secret(&config.container_anthropic_api_key),
+            system_google: clone_secret(&config.container_google_api_key),
+            system_openai: clone_secret(&config.container_openai_api_key),
+        }
+    }
+}
+
 impl CliCredentialService {
+    pub fn from_app_config(
+        cli_creds: CliCredentialRepository,
+        user_llm: UserLlmConfigRepository,
+        encryption_key: Option<[u8; 32]>,
+        config: &AppConfig,
+    ) -> Self {
+        Self::from_runtime_config(
+            cli_creds,
+            user_llm,
+            encryption_key,
+            CliCredentialRuntimeConfig::from_app_config(config),
+        )
+    }
+
+    pub fn from_runtime_config(
+        cli_creds: CliCredentialRepository,
+        user_llm: UserLlmConfigRepository,
+        encryption_key: Option<[u8; 32]>,
+        runtime: CliCredentialRuntimeConfig,
+    ) -> Self {
+        Self {
+            cli_creds,
+            user_llm,
+            encryption_key,
+            oauth_mount_root: runtime.oauth_mount_root,
+            system_anthropic: runtime.system_anthropic,
+            system_google: runtime.system_google,
+            system_openai: runtime.system_openai,
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         cli_creds: CliCredentialRepository,
@@ -274,6 +333,10 @@ async fn set_mode(path: &Path, mode: u32) -> std::io::Result<()> {
 #[cfg(not(unix))]
 async fn set_mode(_path: &Path, _mode: u32) -> std::io::Result<()> {
     Ok(())
+}
+
+fn clone_secret(secret: &Option<SecretString>) -> Option<SecretString> {
+    secret.as_ref().map(|value| SecretString::from(value.expose_secret().to_string()))
 }
 
 #[cfg(test)]
