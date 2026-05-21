@@ -81,6 +81,10 @@ impl ContextApprovalService {
         }
     }
 
+    pub fn from_runtime(pool: PgPool, nats: Arc<NatsClient>) -> Self {
+        Self::new(pool, Some(nats))
+    }
+
     pub async fn create_candidate(
         &self,
         scope: &TenantScope,
