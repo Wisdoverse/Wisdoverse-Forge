@@ -17,6 +17,10 @@ use crate::domain::context_governance::{
 const DEFAULT_LIMIT: i64 = 50;
 const MAX_LIMIT: i64 = 200;
 
+pub(crate) fn memory_data_response<T: Serialize>(data: T) -> Value {
+    json!({ "ok": true, "data": data })
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct MemoryContent {
     pub id: MemoryItemId,

@@ -14,6 +14,7 @@ pub mod favorite;
 pub mod feature_flag;
 pub mod governance_audit;
 pub mod identity;
+pub(crate) mod inbox;
 pub mod license;
 pub mod memory;
 pub mod orchestration;

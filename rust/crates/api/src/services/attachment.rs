@@ -10,6 +10,7 @@ use uuid::Uuid;
 use crate::domain::attachment::{
     AttachmentContentType, AttachmentCountPolicy, AttachmentFilename, AttachmentPayloadSize,
 };
+pub(crate) use crate::domain::attachment::{attachment_data_response, attachment_delete_response};
 use crate::repositories::attachment::{AttachmentRepository, NewAttachment};
 
 /// Business logic layer for attachment operations.

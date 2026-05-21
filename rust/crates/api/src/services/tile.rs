@@ -5,6 +5,9 @@ use agentforge_db::entities::Tile;
 use uuid::Uuid;
 
 use crate::domain::configuration::{TileLayoutPolicy, TileType};
+pub(crate) use crate::domain::resource::{
+    resource_data_response as tile_data_response, resource_delete_response as tile_delete_response,
+};
 use crate::repositories::tile::TileRepository;
 
 /// Business logic layer for tile operations.

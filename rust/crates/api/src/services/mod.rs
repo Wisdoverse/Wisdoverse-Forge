@@ -27,6 +27,7 @@ pub mod feature_flag;
 pub mod git_credential;
 pub mod governance_audit;
 pub mod group;
+pub(crate) mod inbox;
 pub mod legacy_navigation;
 pub mod license;
 pub mod llm_provider;
