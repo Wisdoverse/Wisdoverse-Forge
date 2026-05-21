@@ -105,6 +105,12 @@ Current stacked PRs:
   boundary, moves governance-audit/container runtime service wiring behind
   service constructors, and extends the route boundary test to block these
   identity repository and runtime policy reads from returning.
+- #250 `refactor/backend-ddd-agent-orchestration-factories` -> #249 branch:
+  moves agent, message, prompt, container-lifecycle, orchestration,
+  task-context, context-preview, context-envelope, context-approval, and
+  context-feature runtime/repository wiring into service factories; extends the
+  route boundary test to block these agent/orchestration/context factory leaks
+  from returning.
 
 ## Execution Rule
 
@@ -127,7 +133,7 @@ Each batch should produce one PR with:
 Do not pick a one-endpoint cleanup. Pick one of these larger batches and finish
 the route family end to end.
 
-### Batch 1: Completion Sweep And Boundary Enforcement
+### Batch 1: Remaining Route Factory And Projection Sweep
 
 Target backend DDD completion, not another one-endpoint migration:
 
@@ -143,8 +149,11 @@ Target backend DDD completion, not another one-endpoint migration:
 
 Use the existing stacked PRs as the current working baseline. This batch should
 prove whether the backend route surface now follows the intended DDD boundary
-and close concrete gaps found by the audit. Continue #242 by preferring grouped
-production runtime orchestration leaks over test-only fixture cleanup.
+and close concrete gaps found by the audit. After #250, prefer one larger sweep
+that moves remaining CRUD-style repository constructors together, especially
+workspace/project/resource/group/team/organization/settings/skills/prompts,
+analytics/events/turns/inbox, and other single-table route factory helpers that
+still instantiate repositories directly.
 
 ## Validation
 
@@ -236,8 +245,13 @@ Current open stack:
   identity/credential repository construction, auth refresh-cookie production
   policy, governance-audit runtime policy, and container control runtime wiring
   into service/domain factories.
+- #250 agent and orchestration runtime factory sweep, stacked on #249, currently
+  moving agent, message, prompt, container lifecycle, orchestration,
+  task-context, context-preview, context-envelope, context-approval, and
+  context-feature runtime/repository wiring into service factories and extending
+  route-boundary regression coverage for those leaks.
 
-Before starting a new PR, inspect the current state of #229-#249. If they have
+Before starting a new PR, inspect the current state of #229-#250. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 
