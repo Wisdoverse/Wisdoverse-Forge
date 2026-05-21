@@ -29,6 +29,48 @@ pub(crate) struct ContextFeatureSnapshot {
     pub(crate) analytics: bool,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ContextFeatureFlags {
+    pub governance: bool,
+    pub preview: bool,
+    pub injection: bool,
+    pub analytics: bool,
+}
+
+impl ContextFeatureFlags {
+    pub const fn all_enabled() -> Self {
+        Self { governance: true, preview: true, injection: true, analytics: true }
+    }
+
+    pub const fn enabled(self, feature: ContextFeature) -> bool {
+        match feature {
+            ContextFeature::Governance => self.governance,
+            ContextFeature::Preview => self.preview,
+            ContextFeature::Injection => self.injection,
+            ContextFeature::Analytics => self.analytics,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ContextFeature {
+    Governance,
+    Preview,
+    Injection,
+    Analytics,
+}
+
+impl ContextFeature {
+    pub const fn key(self) -> &'static str {
+        match self {
+            ContextFeature::Governance => "context.governance.enabled",
+            ContextFeature::Preview => "context.preview.enabled",
+            ContextFeature::Injection => "context.injection.enabled",
+            ContextFeature::Analytics => "context.analytics.enabled",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ContextCandidateKind {
@@ -1557,6 +1599,20 @@ mod tests {
             summary.proposed_preview.get("content_preview").and_then(Value::as_str).expect("redacted content preview");
         assert!(!preview_content.contains("ghp_aaaa"), "redacted preview must not leak the raw token");
         assert_eq!(summary.proposed_preview.get("title").and_then(Value::as_str), Some("Login token"));
+    }
+
+    #[test]
+    fn context_feature_flags_own_feature_keys_and_deployment_switches() {
+        let flags = ContextFeatureFlags { governance: true, preview: false, injection: true, analytics: false };
+
+        assert!(flags.enabled(ContextFeature::Governance));
+        assert!(!flags.enabled(ContextFeature::Preview));
+        assert!(flags.enabled(ContextFeature::Injection));
+        assert!(!flags.enabled(ContextFeature::Analytics));
+        assert_eq!(ContextFeature::Governance.key(), "context.governance.enabled");
+        assert_eq!(ContextFeature::Preview.key(), "context.preview.enabled");
+        assert_eq!(ContextFeature::Injection.key(), "context.injection.enabled");
+        assert_eq!(ContextFeature::Analytics.key(), "context.analytics.enabled");
     }
 
     #[test]
