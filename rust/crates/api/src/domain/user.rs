@@ -9,6 +9,7 @@ use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use rand::RngCore;
 use serde::Serialize;
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
@@ -32,6 +33,14 @@ pub struct LoginResult {
     pub expires_in: u64,
     pub refresh_token: String,
     pub refresh_expires_in: u64,
+}
+
+pub(crate) fn user_data_response<T: Serialize>(data: T) -> Value {
+    json!({ "ok": true, "data": data })
+}
+
+pub(crate) fn user_members_response<T: Serialize>(members: T) -> Value {
+    json!({ "ok": true, "members": members })
 }
 
 pub(crate) const PASSWORD_RESET_TTL_MINUTES: i64 = 60;

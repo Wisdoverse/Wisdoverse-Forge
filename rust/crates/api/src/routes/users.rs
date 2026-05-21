@@ -11,11 +11,11 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
-use agentforge_core::{AppResult, ErrorKind, UserId};
+use agentforge_core::{AppResult, UserId};
 
 use crate::health::AppState;
 use crate::repositories::user::UserRepository;
-use crate::services::user::UserService;
+use crate::services::user::{UpdateUserProfileInput, UserService, user_data_response, user_members_response};
 
 /// Query parameters for the list endpoint.
 #[derive(Deserialize)]
@@ -61,7 +61,7 @@ async fn list_users(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let users = service.list(&auth.scope, query.limit, query.offset).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": users })))
+    Ok(Json(user_data_response(users)))
 }
 
 /// `GET /api/users/search` — search users in the authenticated org.
@@ -72,7 +72,7 @@ async fn search_users(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let members = service.search_org_members(&auth.scope, &query.q, query.limit).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "members": members })))
+    Ok(Json(user_members_response(members)))
 }
 
 /// `GET /api/users/:id` — get a user by ID (tenant-scoped).
@@ -83,7 +83,7 @@ async fn get_user(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let user = service.get(&auth.scope, UserId::from(id)).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": user })))
+    Ok(Json(user_data_response(user)))
 }
 
 /// `PATCH /api/users/:id` — update own profile.
@@ -96,14 +96,14 @@ async fn update_user(
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateProfileRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    // Users can only update their own profile
-    if auth.scope.user_id().as_uuid() != id {
-        return Err(ErrorKind::Forbidden.into());
-    }
-
     let service = make_service(&state);
-    let user = service.update_profile(&auth.scope, UserId::from(id), req.display_name.as_deref()).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": user })))
+    let user = service
+        .update_own_profile(
+            &auth.scope,
+            UpdateUserProfileInput { target_user_id: UserId::from(id), display_name: req.display_name },
+        )
+        .await?;
+    Ok(Json(user_data_response(user)))
 }
 
 /// Build user routes sub-router.
