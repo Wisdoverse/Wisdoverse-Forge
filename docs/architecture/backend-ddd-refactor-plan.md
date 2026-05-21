@@ -93,6 +93,12 @@ Current stacked PRs:
   governance-audit HMAC runtime setup, orchestration context-injection runtime
   wiring, and container context-injection runtime settings into domain/service
   boundaries.
+- #248 `refactor/backend-ddd-credential-runtime-sweep` -> #247 branch: moves
+  CLI auth proxy provider/state-store/revoke-threshold wiring, CLI credential
+  OAuth mount and system fallback key runtime config, container credential-sync
+  settings, and attachment storage-limit runtime config out of routes into
+  services; extends the route boundary test to block these runtime policy config
+  reads from returning to production route code.
 
 ## Execution Rule
 
@@ -216,8 +222,12 @@ Current open stack:
   flags, route feature gates, governance audit runtime HMAC setup, orchestration
   context-injection runtime wiring, and container context settings into
   domain/service boundaries.
+- #248 credential runtime sweep, stacked on #247, currently moving CLI auth
+  proxy provider/state-store/revoke-threshold wiring, CLI credential OAuth mount
+  and system fallback key runtime config, container credential-sync settings,
+  and attachment storage-limit runtime config into service boundaries.
 
-Before starting a new PR, inspect the current state of #229-#245. If they have
+Before starting a new PR, inspect the current state of #229-#248. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 

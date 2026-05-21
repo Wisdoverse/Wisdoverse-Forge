@@ -32,11 +32,10 @@ pub struct ListAttachmentsQuery {
 
 /// Build an AttachmentService from shared state.
 fn make_service(state: &AppState) -> AttachmentService {
-    AttachmentService::new(
+    AttachmentService::from_app_config(
         AttachmentRepository::new(state.pool.clone()),
         state.object_storage.clone(),
-        state.config.storage_max_file_size,
-        state.config.storage_max_files_per_session,
+        &state.config,
     )
 }
 
