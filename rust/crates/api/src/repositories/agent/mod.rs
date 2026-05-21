@@ -3,9 +3,11 @@
 
 pub mod event;
 pub mod message;
+pub mod workspace;
 
 pub use event::EventRepository;
 pub use message::MessageRepository;
+pub use workspace::AgentWorkspaceRepository;
 
 use agentforge_core::{AgentId, AgentStatus, AppResult, ErrorKind, TenantScope};
 use agentforge_db::entities::{Agent, AgentCollaborator};

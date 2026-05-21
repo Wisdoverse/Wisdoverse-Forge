@@ -3,9 +3,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use agentforge_core::context_envelope::{CONTEXT_ENVELOPE_VERSION_V1, ContextEnvelope};
-use agentforge_core::{AgentId, AppResult, ErrorKind, ScopedRead};
-use sqlx::{FromRow, PgPool};
+use agentforge_core::context_envelope::{CONTEXT_ENVELOPE_VERSION_V1, ContextEnvelope, ContextEnvelopeItem};
+use agentforge_core::{AgentId, AppResult, ScopedRead};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::context_envelope::{
@@ -13,6 +13,7 @@ use crate::domain::context_envelope::{
     ContextEnvelopeVersionPolicy,
 };
 use crate::domain::context_resolver::{ContextItemKind as ResolvedContextItemKind, ResolvedContext};
+use crate::repositories::context_envelope::{ContextEnvelopeMemoryRecord, ContextEnvelopeRepository};
 use crate::services::context_resolver::{ContextResolverService, ResolveContextInput};
 
 #[derive(Debug, Clone)]
@@ -25,36 +26,13 @@ pub struct ContextEnvelopeInput {
 
 #[derive(Clone)]
 pub struct ContextEnvelopeService {
-    pool: PgPool,
+    repo: ContextEnvelopeRepository,
     resolver: Arc<ContextResolverService>,
-}
-
-#[derive(Debug, FromRow)]
-struct MemoryContentRow {
-    id: Uuid,
-    title: String,
-    content: String,
-    content_redacted: bool,
-    content_encrypted: bool,
-    sensitivity: String,
-}
-
-impl MemoryContentRow {
-    fn envelope_item(&self) -> ContextEnvelopeMemoryItem<'_> {
-        ContextEnvelopeMemoryItem {
-            id: self.id,
-            title: &self.title,
-            content: &self.content,
-            content_redacted: self.content_redacted,
-            content_encrypted: self.content_encrypted,
-            sensitivity: &self.sensitivity,
-        }
-    }
 }
 
 impl ContextEnvelopeService {
     pub fn new(pool: PgPool, resolver: Arc<ContextResolverService>) -> Self {
-        Self { pool, resolver }
+        Self { repo: ContextEnvelopeRepository::new(pool), resolver }
     }
 
     pub fn from_runtime(pool: PgPool, resolver: Arc<ContextResolverService>) -> Self {
@@ -84,9 +62,7 @@ impl ContextEnvelopeService {
             .applied
             .iter()
             .filter_map(|item| match item.kind {
-                ResolvedContextItemKind::Memory => {
-                    memory.get(&item.id).map(|row| row.envelope_item().to_envelope_item())
-                }
+                ResolvedContextItemKind::Memory => memory.get(&item.id).map(envelope_item),
                 ResolvedContextItemKind::Skill => None,
             })
             .collect();
@@ -104,72 +80,33 @@ impl ContextEnvelopeService {
     }
 
     async fn verify_run(&self, proof: &ScopedRead, input: &ContextEnvelopeInput) -> AppResult<()> {
-        if proof.workspace_ids().is_empty() {
-            return Err(ErrorKind::NotFound(format!("task run {}", input.run_id)).into());
-        }
-        let workspace_ids: Vec<Uuid> = proof.workspace_ids().iter().map(|id| id.as_uuid()).collect();
-        let found = sqlx::query_scalar::<_, Uuid>(
-            r#"SELECT id
-                 FROM task_runs
-                WHERE id = $1
-                  AND organization_id = $2
-                  AND workspace_id = ANY($3)
-                  AND orchestration_task_id = $4
-                  AND agent_id = $5"#,
-        )
-        .bind(input.run_id)
-        .bind(proof.org_id().as_uuid())
-        .bind(workspace_ids)
-        .bind(input.task_id)
-        .bind(input.agent_id.as_uuid())
-        .fetch_optional(&self.pool)
-        .await?;
-
-        found.map(|_| ()).ok_or_else(|| ErrorKind::NotFound(format!("task run {}", input.run_id)).into())
+        self.repo.verify_run(proof, input.run_id, input.task_id, input.agent_id).await
     }
 
     async fn load_applied_memory_content(
         &self,
         proof: &ScopedRead,
         resolved: &ResolvedContext,
-    ) -> AppResult<HashMap<Uuid, MemoryContentRow>> {
+    ) -> AppResult<HashMap<Uuid, ContextEnvelopeMemoryRecord>> {
         let ids: Vec<Uuid> = resolved
             .applied
             .iter()
             .filter(|item| item.kind == ResolvedContextItemKind::Memory)
             .map(|item| item.id)
             .collect();
-        if ids.is_empty() || proof.workspace_ids().is_empty() {
-            return Ok(HashMap::new());
-        }
 
-        let workspace_ids: Vec<Uuid> = proof.workspace_ids().iter().map(|id| id.as_uuid()).collect();
-        let team_ids: Vec<Uuid> = proof.team_ids().iter().map(|id| id.as_uuid()).collect();
-        let project_ids: Vec<Uuid> = proof.project_ids().iter().map(|id| id.as_uuid()).collect();
-        let rows = sqlx::query_as::<_, MemoryContentRow>(
-            r#"SELECT id, title, content, content_redacted, content_encrypted, sensitivity
-                 FROM memory_items
-                WHERE id = ANY($1)
-                  AND organization_id = $2
-                  AND workspace_id = ANY($3)
-                  AND revoked_at IS NULL
-                  AND state = 'active'
-                  AND (ttl_expires_at IS NULL OR ttl_expires_at > now())
-                  AND (
-                      (scope_kind = 'user' AND scope_id = $4)
-                      OR (scope_kind = 'team' AND scope_id = ANY($5))
-                      OR (scope_kind = 'project' AND scope_id = ANY($6))
-                  )"#,
-        )
-        .bind(ids)
-        .bind(proof.org_id().as_uuid())
-        .bind(workspace_ids)
-        .bind(proof.user_id().as_uuid())
-        .bind(team_ids)
-        .bind(project_ids)
-        .fetch_all(&self.pool)
-        .await?;
-
-        Ok(rows.into_iter().map(|row| (row.id, row)).collect())
+        self.repo.applied_memory_content(proof, &ids).await
     }
+}
+
+fn envelope_item(row: &ContextEnvelopeMemoryRecord) -> ContextEnvelopeItem {
+    ContextEnvelopeMemoryItem {
+        id: row.id,
+        title: &row.title,
+        content: &row.content,
+        content_redacted: row.content_redacted,
+        content_encrypted: row.content_encrypted,
+        sensitivity: &row.sensitivity,
+    }
+    .to_envelope_item()
 }
