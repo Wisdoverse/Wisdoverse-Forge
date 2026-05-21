@@ -13,8 +13,15 @@ use crate::domain::user::{
     RefreshSessionPolicy, UserEmail, UserListPage, UserPassword, derive_username, email_domain_for_log,
     password_reset_email_body,
 };
+pub(crate) use crate::domain::user::{user_data_response, user_members_response};
 use crate::repositories::user::{OrgUserSearchResult, UserRepository};
 use crate::services::email::{EmailMessage, EmailSender};
+
+/// Service input for a user profile update initiated by the authenticated user.
+pub(crate) struct UpdateUserProfileInput {
+    pub(crate) target_user_id: UserId,
+    pub(crate) display_name: Option<String>,
+}
 
 /// Business logic layer for user operations.
 pub struct UserService {
@@ -174,6 +181,19 @@ impl UserService {
     /// Update user profile (tenant-scoped).
     pub async fn update_profile(&self, scope: &TenantScope, id: UserId, display_name: Option<&str>) -> AppResult<User> {
         self.repo.update_profile(scope, id, display_name).await
+    }
+
+    /// Update the authenticated user's own profile.
+    pub(crate) async fn update_own_profile(
+        &self,
+        scope: &TenantScope,
+        input: UpdateUserProfileInput,
+    ) -> AppResult<User> {
+        if scope.user_id() != input.target_user_id {
+            return Err(ErrorKind::Forbidden.into());
+        }
+
+        self.repo.update_profile(scope, input.target_user_id, input.display_name.as_deref()).await
     }
 
     /// List users in the org (admin, paginated).
