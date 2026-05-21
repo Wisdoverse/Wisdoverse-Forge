@@ -47,6 +47,106 @@ pub(crate) const PASSWORD_RESET_TTL_MINUTES: i64 = 60;
 
 const REFRESH_EXPIRY_SECONDS: u64 = 7 * 24 * 60 * 60;
 const REMEMBER_ME_REFRESH_EXPIRY_SECONDS: u64 = 30 * 24 * 60 * 60;
+pub(crate) const SWITCH_CONTEXT_REFRESH_EXPIRY_SECONDS: u64 = 7 * 24 * 60 * 60;
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TokenPayload {
+    access_token: String,
+    expires_in: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PublicUser {
+    id: String,
+    email: String,
+    username: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    org_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    role: Option<String>,
+}
+
+impl From<&AuthenticatedUser> for PublicUser {
+    fn from(user: &AuthenticatedUser) -> Self {
+        Self {
+            id: user.id.clone(),
+            email: user.email.clone(),
+            username: user.username.clone(),
+            org_id: user.org_id.clone(),
+            role: user.role.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct AuthSuccessResponse {
+    ok: bool,
+    user: PublicUser,
+    tokens: TokenPayload,
+    access_token: String,
+    expires_in: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct RefreshSuccessResponse {
+    ok: bool,
+    tokens: TokenPayload,
+    access_token: String,
+    expires_in: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SwitchContextSuccessResponse {
+    ok: bool,
+    access_token: String,
+    expires_in: u64,
+}
+
+pub(crate) fn auth_success_response_body(result: &LoginResult) -> Value {
+    json!(AuthSuccessResponse {
+        ok: true,
+        user: PublicUser::from(&result.user),
+        tokens: TokenPayload { access_token: result.access_token.clone(), expires_in: result.expires_in },
+        access_token: result.access_token.clone(),
+        expires_in: result.expires_in,
+    })
+}
+
+pub(crate) fn auth_refresh_response(access_token: String, expires_in: u64) -> Value {
+    json!(RefreshSuccessResponse {
+        ok: true,
+        tokens: TokenPayload { access_token: access_token.clone(), expires_in },
+        access_token,
+        expires_in,
+    })
+}
+
+pub(crate) fn auth_switch_context_response(access_token: String, expires_in: u64) -> Value {
+    json!(SwitchContextSuccessResponse { ok: true, access_token, expires_in })
+}
+
+pub(crate) fn auth_message_response(message: &'static str) -> Value {
+    json!({ "ok": true, "message": message })
+}
+
+pub(crate) fn auth_ok_response() -> Value {
+    json!({ "ok": true })
+}
+
+pub(crate) fn auth_me_response(user_id: Uuid, org_id: Uuid, role: impl Serialize) -> Value {
+    json!({ "ok": true, "user_id": user_id, "org_id": org_id, "role": role })
+}
+
+pub(crate) fn auth_providers_response() -> Value {
+    json!({ "ok": true, "providers": Vec::<Value>::new() })
+}
+
+pub(crate) fn auth_error_response_body(code: &str, message: &str) -> Value {
+    json!({ "ok": false, "error": code, "message": message })
+}
 
 /// Refresh-token lifetime policy.
 pub(crate) struct RefreshSessionPolicy;

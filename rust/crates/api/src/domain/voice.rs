@@ -4,9 +4,42 @@
 //! repositories, HTTP route DTOs, and persistence details.
 
 use agentforge_core::{AppResult, ErrorKind};
+use serde::Serialize;
+use serde_json::{Value, json};
 
 const VALID_PROVIDER_TYPES: &[&str] = &["openai", "deepgram", "elevenlabs", "custom"];
 const MAX_PROVIDER_NAME_LEN: usize = 255;
+
+pub(crate) fn voice_data_response<T: Serialize>(data: T) -> Value {
+    json!({ "ok": true, "data": data })
+}
+
+pub(crate) fn voice_delete_response() -> Value {
+    json!({ "ok": true })
+}
+
+pub(crate) fn voice_transcription_pending_response() -> Value {
+    json!({
+        "ok": true,
+        "data": {
+            "text": "",
+            "message": "Voice transcription not yet implemented"
+        }
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub(crate) struct VoiceStatusProjection {
+    pub(crate) enabled: bool,
+    pub(crate) provider_count: usize,
+    pub(crate) has_default: bool,
+}
+
+impl VoiceStatusProjection {
+    pub(crate) fn new(provider_count: usize, has_default: bool) -> Self {
+        Self { enabled: provider_count > 0, provider_count, has_default }
+    }
+}
 
 /// Voice provider display name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
