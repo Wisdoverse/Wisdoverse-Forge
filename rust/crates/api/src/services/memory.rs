@@ -11,6 +11,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 pub use crate::domain::memory::MemoryContent;
+pub(crate) use crate::domain::memory::memory_data_response;
 use crate::domain::memory::{
     MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryContentReadAudit, MemoryCreatedAudit,
     MemoryListPage, MemoryMutationAccess, MemoryMutationAccessPolicy, MemoryMutationManagerCheck,

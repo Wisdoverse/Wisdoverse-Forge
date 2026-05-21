@@ -16,6 +16,19 @@ use crate::domain::memory::MemoryScopeKind;
 const DEFAULT_LIMIT: i64 = 50;
 const MAX_LIMIT: i64 = 200;
 
+pub(crate) fn context_data_response<T: Serialize>(data: T) -> Value {
+    json!({ "ok": true, "data": data })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ContextFeatureSnapshot {
+    pub(crate) governance: bool,
+    pub(crate) preview: bool,
+    pub(crate) injection: bool,
+    pub(crate) analytics: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ContextCandidateKind {
