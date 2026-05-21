@@ -58,6 +58,10 @@ Current stacked PRs:
 - #238 `refactor/backend-ddd-boundary-sweep` -> #237 branch: in progress; moves
   remaining agent message pagination and container/participant persistence
   coordination out of route handlers into domain/service boundaries.
+- #239 `refactor/backend-ddd-runtime-orchestration-sweep` -> #238 branch: in
+  progress; moves agent prompt runtime orchestration, sidecar command dispatch,
+  provider prompt stream construction, and in-flight prompt cancellation out of
+  route handlers into `AgentPromptService`.
 
 ## Execution Rule
 
@@ -96,8 +100,8 @@ Target backend DDD completion, not another one-endpoint migration:
 
 Use the existing stacked PRs as the current working baseline. This batch should
 prove whether the backend route surface now follows the intended DDD boundary
-and close concrete gaps found by the audit. Continue #238 by preferring grouped
-production leaks over test-only fixture cleanup.
+and close concrete gaps found by the audit. Continue #239 by preferring grouped
+production runtime orchestration leaks over test-only fixture cleanup.
 
 ## Validation
 
@@ -160,9 +164,11 @@ Current open stack:
 - #237 communication, analytics, and session surfaces, stacked on #236.
 - #238 boundary sweep, stacked on #237, currently moving remaining production
   route persistence leaks into service/domain boundaries.
+- #239 runtime orchestration sweep, stacked on #238, currently moving prompt
+  dispatch/stream orchestration out of `routes/agents.rs`.
 
-Before starting a new PR, inspect the current state of #229-#238. If they have
-not landed yet, stack the next branch on #238. If they have landed, branch from
+Before starting a new PR, inspect the current state of #229-#239. If they have
+not landed yet, stack the next branch on #239. If they have landed, branch from
 updated origin/main.
 
 Create a separate worktree, implement the next large backend DDD batch, run
