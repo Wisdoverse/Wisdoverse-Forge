@@ -24,11 +24,11 @@ pub fn governance_audit_routes() -> Router<AppState> {
 }
 
 fn make_service(state: &AppState) -> AppResult<GovernanceAuditService> {
-    GovernanceAuditService::from_pool_and_app_config(state.pool.clone(), &state.config, state.encryption_key)
+    state.governance_audit_service()
 }
 
 fn make_feature_service(state: &AppState) -> ContextFeatureService {
-    ContextFeatureService::from_runtime(state.pool.clone(), state.context_features)
+    state.context_feature_service()
 }
 
 async fn list_governance_audit(

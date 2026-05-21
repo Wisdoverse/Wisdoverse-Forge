@@ -98,26 +98,19 @@ pub struct PromptRequest {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> AgentService {
-    AgentService::from_pool_with_workspace(state.pool.clone())
+    state.agent_service()
 }
 
 fn make_message_service(state: &AppState) -> AgentMessageService {
-    AgentMessageService::from_pool(state.pool.clone())
+    state.agent_message_service()
 }
 
 fn make_prompt_service(state: &AppState) -> AgentPromptService {
-    AgentPromptService::from_runtime(
-        state.pool.clone(),
-        state.llm_factory.clone(),
-        state.encryption_key,
-        state.agent_command_bus.clone(),
-        state.nats.clone(),
-        state.inflight_prompts.clone(),
-    )
+    state.agent_prompt_service()
 }
 
 fn make_container_lifecycle_service(state: &AppState) -> AgentContainerLifecycleService {
-    AgentContainerLifecycleService::from_runtime(state.pool.clone(), state.docker.clone())
+    state.agent_container_lifecycle_service()
 }
 
 /// `GET /api/v1/agents` — list agents for the authenticated tenant.
