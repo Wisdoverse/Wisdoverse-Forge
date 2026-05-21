@@ -62,6 +62,10 @@ Current stacked PRs:
   progress; moves agent prompt runtime orchestration, sidecar command dispatch,
   provider prompt stream construction, and in-flight prompt cancellation out of
   route handlers into `AgentPromptService`.
+- #240 `refactor/backend-ddd-container-credential-sweep` -> #239 branch: in
+  progress; moves container credential-sync env, Container CLI credential
+  injection, Git CLI credential injection, and OAuth mount cleanup out of
+  `routes/containers.rs` into `AgentContainerCredentialService`.
 
 ## Execution Rule
 
@@ -100,7 +104,7 @@ Target backend DDD completion, not another one-endpoint migration:
 
 Use the existing stacked PRs as the current working baseline. This batch should
 prove whether the backend route surface now follows the intended DDD boundary
-and close concrete gaps found by the audit. Continue #239 by preferring grouped
+and close concrete gaps found by the audit. Continue #240 by preferring grouped
 production runtime orchestration leaks over test-only fixture cleanup.
 
 ## Validation
@@ -166,9 +170,11 @@ Current open stack:
   route persistence leaks into service/domain boundaries.
 - #239 runtime orchestration sweep, stacked on #238, currently moving prompt
   dispatch/stream orchestration out of `routes/agents.rs`.
+- #240 container credential sweep, stacked on #239, currently moving container
+  credential injection and cleanup orchestration out of `routes/containers.rs`.
 
-Before starting a new PR, inspect the current state of #229-#239. If they have
-not landed yet, stack the next branch on #239. If they have landed, branch from
+Before starting a new PR, inspect the current state of #229-#240. If they have
+not landed yet, stack the next branch on #240. If they have landed, branch from
 updated origin/main.
 
 Create a separate worktree, implement the next large backend DDD batch, run
