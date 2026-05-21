@@ -4,10 +4,20 @@
 //! repositories, object storage clients, HTTP route DTOs, and persistence details.
 
 use agentforge_core::{AgentId, AppResult, ErrorKind};
+use serde::Serialize;
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 const MAX_FILENAME_LEN: usize = 255;
 const MAX_CONTENT_TYPE_LEN: usize = 255;
+
+pub(crate) fn attachment_data_response<T: Serialize>(data: T) -> Value {
+    json!({ "ok": true, "data": data })
+}
+
+pub(crate) fn attachment_delete_response() -> Value {
+    json!({ "ok": true })
+}
 
 /// Validated attachment filename.
 #[derive(Debug, Clone, PartialEq, Eq)]
