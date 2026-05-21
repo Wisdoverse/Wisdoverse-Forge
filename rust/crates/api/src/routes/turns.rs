@@ -11,7 +11,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AgentId, AppResult};
 
 use crate::health::AppState;
-use crate::repositories::agent::event::EventRepository;
 use crate::services::turn::{TurnService, default_turn_limit, turn_page_response};
 
 #[derive(Debug, Deserialize)]
@@ -27,7 +26,7 @@ async fn list_agent_turns(
     Path(id): Path<Uuid>,
     Query(query): Query<TurnPageQuery>,
 ) -> AppResult<Json<Value>> {
-    let service = TurnService::new(EventRepository::new(state.pool.clone()));
+    let service = TurnService::from_pool(state.pool.clone());
     let page = service.list_page(&auth.scope, AgentId::from(id), query.cursor.as_deref(), query.limit).await?;
 
     Ok(Json(turn_page_response(&page)))
