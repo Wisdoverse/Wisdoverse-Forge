@@ -49,7 +49,7 @@ pub struct UpdateProfileRequest {
 
 /// Build a UserService from shared state.
 fn make_service(state: &AppState) -> UserService {
-    UserService::from_pool(state.pool.clone(), state.jwt.clone())
+    state.user_service()
 }
 
 /// `GET /api/users` — list users in the authenticated org.
