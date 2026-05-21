@@ -2,6 +2,7 @@
 
 use agentforge_core::{AgentId, AgentStatus, AppResult, TenantScope};
 use agentforge_db::entities::{Agent, AgentCollaborator};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::agent::{
@@ -14,15 +15,27 @@ pub(crate) use crate::domain::agent::{
     agent_prompt_sent_response, agent_response, agent_status_response, pool_status_response,
 };
 use crate::repositories::agent::{AgentListItem, AgentRepository, CreateAgentParams};
+use crate::services::agent_workspace::{resolve_agent_workspace_paths, resolve_workspace_mount_scope};
 
 /// Application service for agent operations.
 pub struct AgentService {
     repo: AgentRepository,
+    workspace_resolver: Option<AgentWorkspaceResolver>,
+}
+
+struct AgentWorkspaceResolver {
+    pool: PgPool,
+    workspace_root: String,
 }
 
 impl AgentService {
     pub fn new(repo: AgentRepository) -> Self {
-        Self { repo }
+        Self { repo, workspace_resolver: None }
+    }
+
+    pub(crate) fn with_workspace_resolver(mut self, pool: PgPool, workspace_root: String) -> Self {
+        self.workspace_resolver = Some(AgentWorkspaceResolver { pool, workspace_root });
+        self
     }
 
     /// Build the NATS subject for agent sidecar commands.
@@ -59,7 +72,38 @@ impl AgentService {
         AgentName::validate(params.name)?;
         let mut params = params;
         params.cli_tool = AgentCliToolSelection::normalize(params.cli_tool)?;
+        if self.workspace_resolver.is_none() {
+            return self.repo.create(scope, params).await;
+        }
+        let resolved_cwd = self.resolve_container_workspace(scope, &mut params).await?;
+        params.cwd = resolved_cwd.as_deref();
         self.repo.create(scope, params).await
+    }
+
+    async fn resolve_container_workspace(
+        &self,
+        scope: &TenantScope,
+        params: &mut CreateAgentParams<'_>,
+    ) -> AppResult<Option<String>> {
+        let Some(resolver) = &self.workspace_resolver else {
+            return Ok(None);
+        };
+
+        let workspace_scope = resolve_workspace_mount_scope(
+            &resolver.pool,
+            scope.org_id().as_uuid(),
+            params.workspace_id,
+            params.project_id,
+        )
+        .await?;
+        params.workspace_id = Some(workspace_scope.workspace_id);
+
+        if params.cli_tool.is_none() {
+            return Ok(None);
+        }
+
+        let paths = resolve_agent_workspace_paths(&resolver.workspace_root, workspace_scope, params.cwd)?;
+        Ok(Some(paths.container_cwd))
     }
 
     /// Update agent fields (name, model, provider, system_prompt).
