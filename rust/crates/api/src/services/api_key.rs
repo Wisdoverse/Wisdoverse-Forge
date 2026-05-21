@@ -5,6 +5,7 @@ use agentforge_db::entities::ApiKey;
 use chrono::{DateTime, Utc};
 use rand::Rng;
 use sha2::{Digest, Sha256};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 pub use crate::domain::credential::CreateApiKeyResult;
@@ -20,6 +21,10 @@ pub struct ApiKeyService {
 }
 
 impl ApiKeyService {
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(ApiKeyRepository::new(pool))
+    }
+
     pub fn new(repo: ApiKeyRepository) -> Self {
         Self { repo }
     }
