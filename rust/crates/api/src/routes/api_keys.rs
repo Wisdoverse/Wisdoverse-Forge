@@ -18,7 +18,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::credential::api_key::ApiKeyRepository;
 use crate::services::api_key::{
     ApiKeyService, api_key_create_response, api_key_list_response, credential_delete_response,
 };
@@ -47,7 +46,7 @@ pub struct CreateApiKeyRequest {
 
 /// Build an ApiKeyService from shared state.
 fn make_service(state: &AppState) -> ApiKeyService {
-    ApiKeyService::new(ApiKeyRepository::new(state.pool.clone()))
+    ApiKeyService::from_pool(state.pool.clone())
 }
 
 /// `POST /api/api-keys` — create a new API key.
