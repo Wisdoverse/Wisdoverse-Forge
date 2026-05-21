@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use agentforge_core::{AgentId, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AgentId, AppConfig, AppResult, ErrorKind, TenantScope};
 use agentforge_db::entities::Agent;
 use agentforge_platform::{ContainerConfig, ContainerState, DockerClient, Mount};
 use sqlx::PgPool;
@@ -16,6 +16,7 @@ use uuid::Uuid;
 use crate::domain::agent::{
     AgentContainerEnvInput, AgentContainerEnvPolicy, AgentContainerImagePolicy, AgentContainerStartOutcome,
 };
+use crate::domain::context::{ContextFeature, ContextFeatureFlags};
 use crate::repositories::agent::AgentRepository;
 use crate::repositories::orchestration::{OrchestrationTaskRepository, ParticipantRepository};
 use crate::services::agent::AgentService;
@@ -34,6 +35,23 @@ pub(crate) struct AgentContainerControlSettings {
     pub(crate) container_server_url: Option<String>,
     pub(crate) codex_default_model: String,
     pub(crate) context_injection_enabled: bool,
+}
+
+impl AgentContainerControlSettings {
+    pub(crate) fn from_runtime(
+        workspace_root: String,
+        config: &AppConfig,
+        context_features: ContextFeatureFlags,
+    ) -> Self {
+        Self {
+            workspace_root,
+            nats_agent_url: config.nats_agent_url.clone(),
+            nats_url: config.nats_url.clone(),
+            container_server_url: config.container_server_url.clone(),
+            codex_default_model: config.codex_default_model.clone(),
+            context_injection_enabled: context_features.enabled(ContextFeature::Injection),
+        }
+    }
 }
 
 pub(crate) struct AgentContainerControlService {
