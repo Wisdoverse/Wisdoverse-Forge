@@ -332,6 +332,10 @@ pub(crate) fn task_update_broadcast_payload(action: &str, task: &TaskSummary) ->
     })
 }
 
+pub(crate) fn task_update_broadcast_subject(org_id: Uuid) -> String {
+    format!("broadcast.{org_id}")
+}
+
 pub fn task_summary(task: OrchestrationTask, agent_name: Option<String>) -> TaskSummary {
     let blocked_hint = match task.status.as_str() {
         "blocked" => {
@@ -1076,6 +1080,12 @@ mod tests {
         assert_eq!(body["payload"]["action"], "task.created");
         assert_eq!(body["payload"]["task"]["id"], task.id.to_string());
         assert!(body["payload"]["eventId"].as_str().is_some());
+    }
+
+    #[test]
+    fn task_update_broadcast_subject_is_org_scoped() {
+        let org_id = Uuid::parse_str("aaaaaaaa-1111-2222-3333-444444444444").unwrap();
+        assert_eq!(task_update_broadcast_subject(org_id), "broadcast.aaaaaaaa-1111-2222-3333-444444444444");
     }
 
     #[test]
