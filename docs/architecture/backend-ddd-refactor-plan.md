@@ -88,6 +88,11 @@ Current stacked PRs:
   refresh-token verification, access-token minting, password-reset delivery
   wiring, attachment upload draft assembly, and attachment download payload
   projection out of route handlers into service/domain boundaries.
+- #247 `refactor/backend-ddd-context-runtime-sweep` -> #246 branch: moves
+  context feature flag ownership, context/governance/analytics route gates,
+  governance-audit HMAC runtime setup, orchestration context-injection runtime
+  wiring, and container context-injection runtime settings into domain/service
+  boundaries.
 
 ## Execution Rule
 
@@ -207,6 +212,10 @@ Current open stack:
 - #246 auth and attachment sweep, stacked on #245, currently moving refresh
   session policy, password-reset delivery wiring, and attachment upload/download
   payload rules out of auth and attachment routes.
+- #247 context runtime sweep, stacked on #246, currently moving context feature
+  flags, route feature gates, governance audit runtime HMAC setup, orchestration
+  context-injection runtime wiring, and container context settings into
+  domain/service boundaries.
 
 Before starting a new PR, inspect the current state of #229-#245. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they

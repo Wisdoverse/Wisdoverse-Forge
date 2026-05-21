@@ -19,6 +19,7 @@ pub mod cli_auth_proxy;
 pub mod cli_credential;
 pub mod context;
 pub mod context_envelope;
+pub mod context_feature;
 pub mod context_governance;
 pub mod context_preview;
 pub mod context_resolver;
