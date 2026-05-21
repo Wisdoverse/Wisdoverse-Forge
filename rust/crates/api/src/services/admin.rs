@@ -5,6 +5,7 @@ use std::sync::Arc;
 use agentforge_core::{AppError, AppResult, ErrorKind, TenantScope};
 use agentforge_db::entities::{ImpersonationLog, Organization, User};
 use serde_json::Value;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 pub use crate::domain::admin::BulkDeleteResult;
@@ -69,6 +70,10 @@ pub struct AdminService {
 impl AdminService {
     pub fn new(repo: AdminRepository) -> Self {
         Self { repo, auth_callout: None }
+    }
+
+    pub fn from_runtime(pool: PgPool, auth_callout: Option<Arc<AuthCalloutService>>) -> Self {
+        Self::new(AdminRepository::new(pool)).with_auth_callout(auth_callout)
     }
 
     pub(crate) fn with_auth_callout(mut self, auth_callout: Option<Arc<AuthCalloutService>>) -> Self {
