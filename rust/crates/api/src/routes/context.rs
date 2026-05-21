@@ -13,12 +13,13 @@ use agentforge_core::AppResult;
 
 use crate::domain::context::{ContextFeedbackLabel, ContextItemKind};
 use crate::domain::memory::MemoryScopeKind;
-use crate::health::{AppState, ContextFeature, ensure_context_feature_enabled};
+use crate::health::AppState;
 use crate::services::context::{
-    ApproveContextCandidateInput, ContextApprovalService, ContextFeatureSnapshot, ContextFeedbackService,
-    ListContextCandidatesInput, RecordContextFeedbackInput, RejectContextCandidateInput, context_data_response,
+    ApproveContextCandidateInput, ContextApprovalService, ContextFeedbackService, ListContextCandidatesInput,
+    RecordContextFeedbackInput, RejectContextCandidateInput, context_data_response,
 };
 use crate::services::context_envelope::{ContextEnvelopeInput, ContextEnvelopeService};
+use crate::services::context_feature::ContextFeatureService;
 use crate::services::context_preview::{ContextPreviewService, CreateContextPreviewInput};
 
 #[derive(Debug, Deserialize)]
@@ -97,13 +98,12 @@ fn make_preview_service(state: &AppState) -> ContextPreviewService {
     )
 }
 
+fn make_feature_service(state: &AppState) -> ContextFeatureService {
+    ContextFeatureService::new(state.pool.clone(), state.context_features)
+}
+
 async fn get_context_features(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<Value>> {
-    let data = ContextFeatureSnapshot {
-        governance: state.context_feature_enabled(&auth.scope, ContextFeature::Governance).await?,
-        preview: state.context_feature_enabled(&auth.scope, ContextFeature::Preview).await?,
-        injection: state.context_feature_enabled(&auth.scope, ContextFeature::Injection).await?,
-        analytics: state.context_feature_enabled(&auth.scope, ContextFeature::Analytics).await?,
-    };
+    let data = make_feature_service(&state).snapshot(&auth.scope).await?;
     Ok(Json(context_data_response(data)))
 }
 
@@ -112,7 +112,7 @@ async fn list_pending_candidates(
     auth: AuthUser,
     Query(query): Query<ListCandidatesQuery>,
 ) -> AppResult<Json<Value>> {
-    ensure_context_feature_enabled(&state, &auth.scope, ContextFeature::Governance).await?;
+    make_feature_service(&state).ensure_governance_enabled(&auth.scope).await?;
     let candidates = make_service(&state)
         .list(
             &auth.scope,
@@ -134,7 +134,7 @@ async fn approve_candidate(
     Path(id): Path<Uuid>,
     Json(req): Json<ApproveContextCandidateRequest>,
 ) -> AppResult<Json<Value>> {
-    ensure_context_feature_enabled(&state, &auth.scope, ContextFeature::Governance).await?;
+    make_feature_service(&state).ensure_governance_enabled(&auth.scope).await?;
     let outcome = make_service(&state)
         .approve(
             &auth.scope,
@@ -160,7 +160,7 @@ async fn reject_candidate(
     Path(id): Path<Uuid>,
     Json(req): Json<RejectContextCandidateRequest>,
 ) -> AppResult<Json<Value>> {
-    ensure_context_feature_enabled(&state, &auth.scope, ContextFeature::Governance).await?;
+    make_feature_service(&state).ensure_governance_enabled(&auth.scope).await?;
     let outcome =
         make_service(&state).reject(&auth.scope, id, RejectContextCandidateInput { reason: req.reason }).await?;
     Ok(Json(context_data_response(outcome)))
@@ -171,7 +171,7 @@ async fn record_feedback(
     auth: AuthUser,
     Json(req): Json<RecordContextFeedbackRequest>,
 ) -> AppResult<Json<Value>> {
-    ensure_context_feature_enabled(&state, &auth.scope, ContextFeature::Governance).await?;
+    make_feature_service(&state).ensure_governance_enabled(&auth.scope).await?;
     let outcome = make_feedback_service(&state)
         .record(
             &auth.scope,
@@ -192,7 +192,7 @@ async fn build_context_envelope(
     auth: AuthUser,
     Json(req): Json<ContextEnvelopeRequest>,
 ) -> AppResult<Json<Value>> {
-    ensure_context_feature_enabled(&state, &auth.scope, ContextFeature::Injection).await?;
+    make_feature_service(&state).ensure_injection_enabled(&auth.scope).await?;
     let envelope = make_envelope_service(&state)
         .build(
             &auth.scope.scoped_read(),
@@ -212,7 +212,7 @@ async fn create_context_preview(
     auth: AuthUser,
     Json(req): Json<CreateContextPreviewRequest>,
 ) -> AppResult<Json<Value>> {
-    ensure_context_feature_enabled(&state, &auth.scope, ContextFeature::Preview).await?;
+    make_feature_service(&state).ensure_preview_enabled(&auth.scope).await?;
     let preview = make_preview_service(&state)
         .create(
             &auth.scope,
