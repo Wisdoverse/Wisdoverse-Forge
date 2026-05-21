@@ -16,15 +16,11 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AppError, AppResult, ErrorKind};
 
 use crate::health::AppState;
-use crate::repositories::user::UserRepository;
 use crate::services::user::{
     LoginResult, SwitchContextInput, UserService, auth_error_response_body, auth_me_response, auth_message_response,
     auth_ok_response, auth_providers_response, auth_refresh_response, auth_success_response_body,
     auth_switch_context_response,
 };
-
-const REFRESH_COOKIE_NAME: &str = "af_rt";
-const REFRESH_COOKIE_PATH: &str = "/api/v1/auth";
 
 /// Login request body.
 #[derive(Deserialize)]
@@ -71,15 +67,14 @@ pub struct SwitchContextRequest {
 
 /// Build a UserService from shared state.
 fn make_service(state: &AppState) -> UserService {
-    UserService::new(UserRepository::new(state.pool.clone()), state.jwt.clone())
-        .with_password_reset_delivery(state.email_sender.clone(), state.config.app_url.clone())
+    UserService::from_app_config(state.pool.clone(), state.jwt.clone(), state.email_sender.clone(), &state.config)
 }
 
 /// `POST /api/v1/auth/login` — authenticate with email and password.
 pub async fn login(State(state): State<AppState>, Json(req): Json<LoginRequest>) -> Response {
     let service = make_service(&state);
     match service.login(&req.email, &req.password, req.remember_me).await {
-        Ok(result) => auth_success_response(StatusCode::OK, &state, result),
+        Ok(result) => auth_success_response(StatusCode::OK, &service, result),
         Err(err) => auth_error_response(err, Some("Invalid email or password")),
     }
 }
@@ -88,7 +83,7 @@ pub async fn login(State(state): State<AppState>, Json(req): Json<LoginRequest>)
 pub async fn register(State(state): State<AppState>, Json(req): Json<RegisterRequest>) -> Response {
     let service = make_service(&state);
     match service.register(&req.email, &req.password, req.username.as_deref()).await {
-        Ok(result) => auth_success_response(StatusCode::CREATED, &state, result),
+        Ok(result) => auth_success_response(StatusCode::CREATED, &service, result),
         Err(err) => auth_error_response(err, None),
     }
 }
@@ -144,23 +139,24 @@ pub async fn providers() -> Json<serde_json::Value> {
 
 /// `POST /api/v1/auth/logout` — clear the refresh cookie and local session.
 pub async fn logout(State(state): State<AppState>) -> Response {
+    let service = make_service(&state);
     let mut headers = HeaderMap::new();
-    headers.insert(header::SET_COOKIE, clear_refresh_cookie(state.config.is_production()));
+    headers.insert(header::SET_COOKIE, cookie_header_value(service.clear_refresh_cookie()));
     (headers, Json(auth_ok_response())).into_response()
 }
 
 /// `POST /api/v1/auth/refresh` — exchange the cookie refresh token for a new access token.
 pub async fn refresh_token(State(state): State<AppState>, headers: HeaderMap) -> Response {
-    let Some(refresh_token) = read_cookie(&headers, REFRESH_COOKIE_NAME) else {
+    let service = make_service(&state);
+    let Some(refresh_token) = read_cookie(&headers, service.refresh_cookie_name()) else {
         return auth_json_error(StatusCode::UNAUTHORIZED, "UNAUTHORIZED", "Missing refresh token");
     };
 
-    let service = make_service(&state);
     match service.refresh_session(&refresh_token) {
         Ok(session) => Json(auth_refresh_response(&session)).into_response(),
         Err(err) => {
             if matches!(err.kind, ErrorKind::Unauthorized) {
-                return invalid_refresh_response(&state);
+                return invalid_refresh_response(&service);
             }
 
             auth_error_response(err, None)
@@ -168,9 +164,9 @@ pub async fn refresh_token(State(state): State<AppState>, headers: HeaderMap) ->
     }
 }
 
-fn invalid_refresh_response(state: &AppState) -> Response {
+fn invalid_refresh_response(service: &UserService) -> Response {
     let mut response_headers = HeaderMap::new();
-    response_headers.insert(header::SET_COOKIE, clear_refresh_cookie(state.config.is_production()));
+    response_headers.insert(header::SET_COOKIE, cookie_header_value(service.clear_refresh_cookie()));
     (
         StatusCode::UNAUTHORIZED,
         response_headers,
@@ -205,18 +201,18 @@ pub async fn switch_context(
     let mut headers = HeaderMap::new();
     headers.insert(
         header::SET_COOKIE,
-        build_refresh_cookie(&session.refresh_token, session.refresh_expires_in, state.config.is_production()),
+        cookie_header_value(service.refresh_cookie(&session.refresh_token, session.refresh_expires_in)),
     );
 
     (StatusCode::OK, headers, Json(auth_switch_context_response(session.access_token, session.expires_in)))
         .into_response()
 }
 
-fn auth_success_response(status: StatusCode, state: &AppState, result: LoginResult) -> Response {
+fn auth_success_response(status: StatusCode, service: &UserService, result: LoginResult) -> Response {
     let mut headers = HeaderMap::new();
     headers.insert(
         header::SET_COOKIE,
-        build_refresh_cookie(&result.refresh_token, result.refresh_expires_in, state.config.is_production()),
+        cookie_header_value(service.refresh_cookie(&result.refresh_token, result.refresh_expires_in)),
     );
 
     (status, headers, Json(auth_success_response_body(&result))).into_response()
@@ -248,23 +244,8 @@ fn auth_json_error(status: StatusCode, code: &str, message: &str) -> Response {
     (status, Json(auth_error_response_body(code, message))).into_response()
 }
 
-fn build_refresh_cookie(token: &str, max_age: u64, secure: bool) -> HeaderValue {
-    let mut cookie = format!(
-        "{REFRESH_COOKIE_NAME}={token}; Path={REFRESH_COOKIE_PATH}; Max-Age={max_age}; HttpOnly; SameSite=Strict"
-    );
-    if secure {
-        cookie.push_str("; Secure");
-    }
+fn cookie_header_value(cookie: String) -> HeaderValue {
     HeaderValue::from_str(&cookie).expect("refresh cookie header should be valid ASCII")
-}
-
-fn clear_refresh_cookie(secure: bool) -> HeaderValue {
-    let mut cookie =
-        format!("{REFRESH_COOKIE_NAME}=; Path={REFRESH_COOKIE_PATH}; Max-Age=0; HttpOnly; SameSite=Strict");
-    if secure {
-        cookie.push_str("; Secure");
-    }
-    HeaderValue::from_str(&cookie).expect("clear refresh cookie header should be valid ASCII")
 }
 
 fn read_cookie(headers: &HeaderMap, name: &str) -> Option<String> {
@@ -372,27 +353,6 @@ mod tests {
         assert_eq!(json["ok"], true);
         assert_eq!(json["accessToken"], "new-access");
         assert_eq!(json["expiresIn"], 900);
-    }
-
-    #[test]
-    fn build_refresh_cookie_sets_expected_flags() {
-        let header = build_refresh_cookie("token-value", 600, true);
-        let value = header.to_str().unwrap();
-        assert!(value.contains("af_rt=token-value"));
-        assert!(value.contains("Path=/api/v1/auth"));
-        assert!(value.contains("Max-Age=600"));
-        assert!(value.contains("HttpOnly"));
-        assert!(value.contains("SameSite=Strict"));
-        assert!(value.contains("Secure"));
-    }
-
-    #[test]
-    fn clear_refresh_cookie_expires_immediately() {
-        let header = clear_refresh_cookie(false);
-        let value = header.to_str().unwrap();
-        assert!(value.contains("af_rt="));
-        assert!(value.contains("Max-Age=0"));
-        assert!(!value.contains("Secure"));
     }
 
     #[test]

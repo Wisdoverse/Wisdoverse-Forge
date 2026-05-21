@@ -66,6 +66,8 @@ pub(crate) fn user_members_response<T: Serialize>(members: T) -> Value {
 
 pub(crate) const PASSWORD_RESET_TTL_MINUTES: i64 = 60;
 
+const REFRESH_COOKIE_NAME: &str = "af_rt";
+const REFRESH_COOKIE_PATH: &str = "/api/v1/auth";
 const REFRESH_EXPIRY_SECONDS: u64 = 7 * 24 * 60 * 60;
 const REMEMBER_ME_REFRESH_EXPIRY_SECONDS: u64 = 30 * 24 * 60 * 60;
 pub(crate) const SWITCH_CONTEXT_REFRESH_EXPIRY_SECONDS: u64 = 7 * 24 * 60 * 60;
@@ -167,6 +169,41 @@ pub(crate) fn auth_providers_response() -> Value {
 
 pub(crate) fn auth_error_response_body(code: &str, message: &str) -> Value {
     json!({ "ok": false, "error": code, "message": message })
+}
+
+/// HTTP refresh-cookie policy derived from deployment runtime settings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct AuthRefreshCookiePolicy {
+    secure: bool,
+}
+
+impl AuthRefreshCookiePolicy {
+    pub(crate) fn new(secure: bool) -> Self {
+        Self { secure }
+    }
+
+    pub(crate) fn cookie_name(self) -> &'static str {
+        REFRESH_COOKIE_NAME
+    }
+
+    pub(crate) fn refresh_cookie(self, token: &str, max_age: u64) -> String {
+        let mut cookie = format!(
+            "{REFRESH_COOKIE_NAME}={token}; Path={REFRESH_COOKIE_PATH}; Max-Age={max_age}; HttpOnly; SameSite=Strict"
+        );
+        if self.secure {
+            cookie.push_str("; Secure");
+        }
+        cookie
+    }
+
+    pub(crate) fn clear_cookie(self) -> String {
+        let mut cookie =
+            format!("{REFRESH_COOKIE_NAME}=; Path={REFRESH_COOKIE_PATH}; Max-Age=0; HttpOnly; SameSite=Strict");
+        if self.secure {
+            cookie.push_str("; Secure");
+        }
+        cookie
+    }
 }
 
 /// Refresh-token lifetime policy.
@@ -467,6 +504,25 @@ mod tests {
     fn refresh_session_policy_preserves_existing_lifetimes() {
         assert_eq!(RefreshSessionPolicy::refresh_expiry_seconds(false), 7 * 24 * 60 * 60);
         assert_eq!(RefreshSessionPolicy::refresh_expiry_seconds(true), 30 * 24 * 60 * 60);
+    }
+
+    #[test]
+    fn auth_refresh_cookie_policy_sets_expected_flags() {
+        let cookie = AuthRefreshCookiePolicy::new(true).refresh_cookie("token-value", 600);
+        assert!(cookie.contains("af_rt=token-value"));
+        assert!(cookie.contains("Path=/api/v1/auth"));
+        assert!(cookie.contains("Max-Age=600"));
+        assert!(cookie.contains("HttpOnly"));
+        assert!(cookie.contains("SameSite=Strict"));
+        assert!(cookie.contains("Secure"));
+    }
+
+    #[test]
+    fn auth_refresh_cookie_policy_clears_without_secure_in_dev() {
+        let cookie = AuthRefreshCookiePolicy::new(false).clear_cookie();
+        assert!(cookie.contains("af_rt="));
+        assert!(cookie.contains("Max-Age=0"));
+        assert!(!cookie.contains("Secure"));
     }
 
     #[test]

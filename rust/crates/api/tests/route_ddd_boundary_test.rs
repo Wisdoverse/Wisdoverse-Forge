@@ -47,6 +47,14 @@ fn route_handlers_do_not_reintroduce_ddd_boundary_leaks() {
                     line_no + 1
                 ));
             }
+
+            if contains_identity_repository_wiring(trimmed) {
+                violations.push(format!(
+                    "{}:{} constructs identity/credential repositories in production route code; move repository wiring to service",
+                    route.display(),
+                    line_no + 1
+                ));
+            }
         }
     }
 
@@ -108,6 +116,21 @@ fn contains_runtime_policy_config(line: &str) -> bool {
         "state.config.container_openai_api_key",
         "state.config.storage_max_file_size",
         "state.config.storage_max_files_per_session",
+        "state.config.is_production",
+        "state.config.app_url",
+        "AgentContainerControlSettings::from_runtime",
+    ]
+    .iter()
+    .any(|pattern| line.contains(pattern))
+}
+
+fn contains_identity_repository_wiring(line: &str) -> bool {
+    [
+        "ApiKeyRepository::new",
+        "CliCredentialRepository::new",
+        "GitCredentialRepository::new",
+        "SshKeyRepository::new",
+        "UserRepository::new",
     ]
     .iter()
     .any(|pattern| line.contains(pattern))

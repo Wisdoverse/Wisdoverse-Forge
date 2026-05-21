@@ -4,7 +4,8 @@ use hmac::{Hmac, Mac};
 use serde_json::{Value, json};
 use sha2::Sha256;
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppConfig, AppResult, ErrorKind, TenantScope};
+use sqlx::PgPool;
 
 use crate::domain::context_governance::{
     AuditTamperStatus, ContextGovernancePolicy, GovernanceAuditEntry, GovernanceAuditQuery, GovernanceAuditQueryParams,
@@ -30,6 +31,19 @@ pub struct GovernanceAuditService {
 impl GovernanceAuditService {
     pub fn new(repo: GovernanceAuditRepository, audit: AuditRepository, hmac_key: Vec<u8>) -> Self {
         Self { repo, audit, hmac_key }
+    }
+
+    pub fn from_pool_and_app_config(
+        pool: PgPool,
+        config: &AppConfig,
+        encryption_key: Option<[u8; 32]>,
+    ) -> AppResult<Self> {
+        Self::with_runtime_config(
+            GovernanceAuditRepository::new(pool.clone()),
+            AuditRepository::new(pool),
+            config.is_production(),
+            encryption_key,
+        )
     }
 
     pub fn with_runtime_config(
