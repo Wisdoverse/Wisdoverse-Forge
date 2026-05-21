@@ -1,6 +1,6 @@
 # Backend DDD Refactor Handoff
 
-Last updated: 2026-05-20
+Last updated: 2026-05-21
 
 ## Current State
 
@@ -39,6 +39,10 @@ Current stacked PRs:
   flag, settings, quota, license, audit, billing, and governance-audit response
   contracts, projections, typed inputs, and export orchestration into
   domain/service boundaries.
+- #234 `refactor/backend-ddd-identity-access` -> #233 branch: moved user, API
+  key, SSH key, Git credential, Container CLI credential, and CLI auth proxy
+  response contracts, permission checks, token encryption, provider resolution,
+  and legacy upsert defaults into domain/service boundaries.
 
 ## Execution Rule
 
@@ -90,20 +94,6 @@ Target user-facing content/workflow surfaces as a larger aggregate batch:
 Move projection types, response helpers, tenant/user policy, and repository
 adapters into the owning aggregate. If the batch becomes too large, split by
 aggregate family, not by individual endpoint.
-
-### Batch 3: Identity And Access Remainder
-
-Finish remaining identity/account surfaces after the resource CRUD stack lands:
-
-- `routes/users.rs`
-- `routes/api_keys.rs`
-- `routes/ssh_keys.rs`
-- `routes/git_credentials.rs`
-- `routes/cli_credentials.rs`
-- `routes/cli_auth_proxy.rs`
-
-Keep sensitive fields out of serialized domain projections, and make service
-methods own permission checks and repository I/O.
 
 ## Validation
 
@@ -160,9 +150,10 @@ Current open stack:
 - #231 skill/resource response contracts, stacked on #230.
 - #232 tenant resource CRUD, stacked on #231.
 - #233 product configuration and governance, stacked on #232.
+- #234 identity and access surfaces, stacked on #233.
 
-Before starting a new PR, inspect the current state of #229-#233. If they have
-not landed yet, stack the next branch on #233. If they have landed, branch from
+Before starting a new PR, inspect the current state of #229-#234. If they have
+not landed yet, stack the next branch on #234. If they have landed, branch from
 updated origin/main.
 
 Create a separate worktree, implement the next large backend DDD batch, run
