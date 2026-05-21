@@ -9,8 +9,6 @@
 //! - `DELETE /api/v1/agents/:id/messages`         — wipe chat history
 //! - `POST   /api/v1/agents/:id/prompt/interrupt` — cancel in-flight SSE stream
 
-use std::sync::Arc;
-
 use axum::extract::{Path, Query, State};
 use axum::routing::{get, patch, post};
 use axum::{Json, Router};
@@ -22,18 +20,17 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AgentId, AgentStatus, AppResult, ErrorKind};
 use agentforge_platform::ContainerState;
 
-use crate::domain::agent::{
-    AgentContainerLifecyclePolicy, AgentContainerRuntimeState, AgentRestartPlan, PlainTextAgentPrompt,
-};
+use crate::domain::agent::{AgentContainerLifecyclePolicy, AgentContainerRuntimeState, AgentRestartPlan};
 use crate::health::AppState;
 use crate::repositories::agent::{AgentRepository, CreateAgentParams, MessageRepository};
+use crate::repositories::user::llm_config::UserLlmConfigRepository;
 use crate::services::agent::{
     AgentService, agent_data_response, agent_delete_response, agent_git_status_response, agent_list_response,
     agent_messages_deleted_response, agent_messages_response, agent_permission_response, agent_prompt_sent_response,
     agent_response, agent_status_response,
 };
-use crate::services::agent_commands::AgentCommandService;
 use crate::services::agent_message::AgentMessageService;
+use crate::services::agent_prompt::{AgentPromptDispatch, AgentPromptService};
 use crate::services::agent_workspace::{resolve_agent_workspace_paths, resolve_workspace_mount_scope};
 
 /// Query parameters for the list endpoint.
@@ -103,14 +100,6 @@ pub struct PromptRequest {
     pub images: Option<Vec<String>>,
 }
 
-/// Validate the current Rust prompt path.
-///
-/// This path only supports plain-text prompts. Images are rejected rather than
-/// silently dropped so the route stays aligned with the command publisher.
-fn validate_prompt_request(req: &PromptRequest) -> AppResult<PlainTextAgentPrompt<'_>> {
-    PlainTextAgentPrompt::new(&req.content, req.images.as_deref())
-}
-
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> AgentService {
     AgentService::new(AgentRepository::new(state.pool.clone()))
@@ -118,6 +107,19 @@ fn make_service(state: &AppState) -> AgentService {
 
 fn make_message_service(state: &AppState) -> AgentMessageService {
     AgentMessageService::new(AgentRepository::new(state.pool.clone()), MessageRepository::new(state.pool.clone()))
+}
+
+fn make_prompt_service(state: &AppState) -> AgentPromptService {
+    AgentPromptService::new(
+        std::sync::Arc::new(AgentRepository::new(state.pool.clone())),
+        std::sync::Arc::new(MessageRepository::new(state.pool.clone())),
+        std::sync::Arc::new(UserLlmConfigRepository::new(state.pool.clone())),
+        state.llm_factory.clone(),
+        state.encryption_key,
+        state.agent_command_bus.clone(),
+        state.nats.clone(),
+        state.inflight_prompts.clone(),
+    )
 }
 
 fn restart_state_from_container_state(state: ContainerState) -> AgentContainerRuntimeState {
@@ -137,28 +139,6 @@ fn docker_unavailable() -> ErrorKind {
 
 fn docker_lifecycle_unavailable(action: &str, err: impl std::fmt::Display) -> ErrorKind {
     ErrorKind::Unavailable(format!("failed to {action} agent container: {err}"))
-}
-
-async fn send_sidecar_prompt(state: &AppState, agent_id: Uuid, content: &str) -> AppResult<()> {
-    #[cfg(any(test, feature = "test-support"))]
-    if let Some(bus) = state.agent_command_bus.clone() {
-        let command_service = AgentCommandService::new(bus);
-        return command_service.send_prompt(&agent_id.to_string(), content).await;
-    }
-
-    let command_service = AgentCommandService::new(state.nats.clone());
-    command_service.send_prompt(&agent_id.to_string(), content).await
-}
-
-async fn send_sidecar_interrupt(state: &AppState, agent_id: Uuid) -> AppResult<()> {
-    #[cfg(any(test, feature = "test-support"))]
-    if let Some(bus) = state.agent_command_bus.clone() {
-        let command_service = AgentCommandService::new(bus);
-        return command_service.interrupt(&agent_id.to_string()).await;
-    }
-
-    let command_service = AgentCommandService::new(state.nats.clone());
-    command_service.interrupt(&agent_id.to_string()).await
 }
 
 /// `GET /api/v1/agents` — list agents for the authenticated tenant.
@@ -281,8 +261,8 @@ async fn update_agent(
 /// `POST /api/v1/agents/:id/prompt` — send a prompt to the agent.
 ///
 /// Container CLI agents (cli_tool = Some) keep the existing NATS publish path.
-/// Provider+prompt agents (cli_tool = None) run an SSE stream via
-/// `PromptService` — see T11. The response Content-Type differs accordingly.
+/// Provider+prompt agents (cli_tool = None) run an SSE stream via the prompt
+/// application service. The response Content-Type differs accordingly.
 async fn send_prompt(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -292,70 +272,16 @@ async fn send_prompt(
     use axum::response::IntoResponse;
     use axum::response::sse::{Event, KeepAlive, Sse};
 
-    let service = make_service(&state);
-    let agent = service.get(&auth.scope, AgentId::from(id)).await?;
+    let service = make_prompt_service(&state);
+    let dispatch =
+        service.send_prompt(auth.scope.clone(), AgentId::from(id), &req.content, req.images.as_deref()).await?;
 
-    let prompt = validate_prompt_request(&req)?;
-
-    // Container CLI agents keep the existing NATS publish path.
-    if agent.cli_tool.is_some() {
-        send_sidecar_prompt(&state, id, prompt.content()).await?;
+    let AgentPromptDispatch::ProviderStream { frames: frame_stream } = dispatch else {
         return Ok(Json(agent_prompt_sent_response(id)).into_response());
-    }
-
-    // Provider+prompt agents: run the SSE loop.
-    let user_llm_repo =
-        Arc::new(crate::repositories::user::llm_config::UserLlmConfigRepository::new(state.pool.clone()));
-    let keys = Arc::new(crate::services::prompt::UserLlmConfigKeyResolver::new(user_llm_repo, state.encryption_key));
-    let prompt_service = crate::services::prompt::PromptService::new(
-        Arc::new(crate::repositories::agent::message::MessageRepository::new(state.pool.clone())),
-        Arc::new(AgentRepository::new(state.pool.clone())),
-        state.llm_factory.clone(),
-        keys,
-    );
-    let model = agent.model.clone().ok_or_else(|| ErrorKind::Validation("agent has no model configured".into()))?;
-    let system_prompt = agent.system_prompt.clone();
-
-    // Build the stream FIRST. Any error from validation / build_history /
-    // key resolution / provider construction returns now, before we touch
-    // the inflight map, so an early failure never wedges the agent as busy.
-    let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
-    let agent_id_typed = AgentId::from(id);
-    let frame_stream = prompt_service
-        .stream(auth.scope.clone(), agent_id_typed, model, system_prompt, prompt.content().to_owned(), cancel_rx)
-        .await?;
-
-    // Register the in-flight sender AFTER the stream is built. Second
-    // concurrent send on the same agent → 409.
-    {
-        let mut map = state.inflight_prompts.lock().expect("inflight_prompts poisoned");
-        if map.contains_key(&agent_id_typed) {
-            return Err(ErrorKind::Conflict("agent_busy".into()).into());
-        }
-        map.insert(agent_id_typed, cancel_tx);
-    }
-
-    // Cleanup guard: removes the in-flight entry when the stream is dropped
-    // — normal completion, client disconnect, or server-initiated interrupt.
-    struct InflightGuard {
-        map: Arc<std::sync::Mutex<std::collections::HashMap<AgentId, tokio::sync::oneshot::Sender<()>>>>,
-        agent_id: AgentId,
-    }
-    impl Drop for InflightGuard {
-        fn drop(&mut self) {
-            if let Ok(mut m) = self.map.lock() {
-                m.remove(&self.agent_id);
-            }
-            // Poisoned mutex on drop: other handlers already treat this as
-            // their own failure path via expect(); silently skipping here is
-            // acceptable because cleanup-on-drop is best-effort.
-        }
-    }
-    let guard = Arc::new(InflightGuard { map: state.inflight_prompts.clone(), agent_id: agent_id_typed });
+    };
 
     type SseBoxError = Box<dyn std::error::Error + Send + Sync>;
     let sse_events = frame_stream.map(move |frame_result| {
-        let _hold = guard.clone();
         let frame = frame_result.map_err(|e| -> SseBoxError { e.kind.to_string().into() })?;
         let (event_name, data) = frame.split();
         Ok::<_, SseBoxError>(Event::default().event(event_name).data(data.to_string()))
@@ -375,11 +301,8 @@ async fn interrupt_agent(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let service = make_service(&state);
-    let _agent = service.get(&auth.scope, AgentId::from(id)).await?;
-
-    send_sidecar_interrupt(&state, id).await?;
-
+    let service = make_prompt_service(&state);
+    service.interrupt_sidecar(&auth.scope, AgentId::from(id)).await?;
     Ok(Json(agent_status_response("interrupting")))
 }
 
@@ -428,13 +351,8 @@ async fn interrupt_prompt(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let service = make_service(&state);
-    let _agent = service.get(&auth.scope, AgentId::from(id)).await?;
-
-    let mut map = state.inflight_prompts.lock().expect("inflight_prompts poisoned");
-    if let Some(tx) = map.remove(&AgentId::from(id)) {
-        let _ = tx.send(());
-    }
+    let service = make_prompt_service(&state);
+    service.interrupt_provider_stream(&auth.scope, AgentId::from(id)).await?;
     Ok(Json(agent_delete_response()))
 }
 
@@ -743,21 +661,21 @@ mod tests {
     #[test]
     fn prompt_request_with_images_is_rejected() {
         let req: PromptRequest = serde_json::from_str(r#"{"content": "hello", "images": ["base64data"]}"#).unwrap();
-        let result = validate_prompt_request(&req);
+        let result = crate::domain::agent::PlainTextAgentPrompt::new(&req.content, req.images.as_deref());
         assert!(matches!(result.unwrap_err().kind, ErrorKind::Validation(msg) if msg.contains("not supported")));
     }
 
     #[test]
     fn prompt_request_empty_content_no_images_should_fail_validation() {
         let req: PromptRequest = serde_json::from_str(r#"{"content": ""}"#).unwrap();
-        let result = validate_prompt_request(&req);
+        let result = crate::domain::agent::PlainTextAgentPrompt::new(&req.content, req.images.as_deref());
         assert!(matches!(result.unwrap_err().kind, ErrorKind::Validation(msg) if msg.contains("required")));
     }
 
     #[test]
     fn prompt_request_blank_content_is_rejected() {
         let req: PromptRequest = serde_json::from_str(r#"{"content": "   "}"#).unwrap();
-        let result = validate_prompt_request(&req);
+        let result = crate::domain::agent::PlainTextAgentPrompt::new(&req.content, req.images.as_deref());
         assert!(result.is_err());
     }
 
