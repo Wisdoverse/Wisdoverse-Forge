@@ -1,6 +1,7 @@
 //! Authorization rules for organization, team, and project management.
 
 use agentforge_core::{AppResult, ErrorKind, ProjectId, TeamId, TenantScope};
+use sqlx::PgPool;
 
 use crate::repositories::resource::permission::ResourcePermissionRepository;
 
@@ -12,6 +13,10 @@ pub struct ResourcePermissionService {
 impl ResourcePermissionService {
     pub fn new(repo: ResourcePermissionRepository) -> Self {
         Self { repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(ResourcePermissionRepository::new(pool))
     }
 
     pub async fn require_org_manager(&self, scope: &TenantScope) -> AppResult<()> {

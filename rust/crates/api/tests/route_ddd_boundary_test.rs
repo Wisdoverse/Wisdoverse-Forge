@@ -32,6 +32,22 @@ fn route_handlers_do_not_reintroduce_ddd_boundary_leaks() {
                 ));
             }
 
+            if contains_repository_namespace_import(trimmed) {
+                violations.push(format!(
+                    "{}:{} imports repositories in production route code; route handlers should depend on service factories",
+                    route.display(),
+                    line_no + 1
+                ));
+            }
+
+            if contains_repository_constructor(trimmed) {
+                violations.push(format!(
+                    "{}:{} constructs repositories in production route code; move repository wiring to service",
+                    route.display(),
+                    line_no + 1
+                ));
+            }
+
             if let Some(name) = route_local_projection_name(trimmed) {
                 violations.push(format!(
                     "{}:{} defines route-local projection `{name}`; move response/projection types to domain",
@@ -106,6 +122,14 @@ fn contains_raw_sql(line: &str) -> bool {
         || line.contains("query!(")
         || line.contains("query_as!(")
         || line.contains("query_scalar!(")
+}
+
+fn contains_repository_namespace_import(line: &str) -> bool {
+    line.starts_with("use crate::repositories::")
+}
+
+fn contains_repository_constructor(line: &str) -> bool {
+    line.contains("Repository::new")
 }
 
 fn route_local_projection_name(line: &str) -> Option<&str> {
