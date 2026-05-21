@@ -48,6 +48,45 @@ pub(crate) fn agent_container_status_response(container_id: &str, status: &str) 
     json!({ "ok": true, "container_id": container_id, "status": status })
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AgentContainerStartOutcome {
+    container_id: String,
+    status: AgentContainerStartStatus,
+}
+
+impl AgentContainerStartOutcome {
+    pub(crate) fn started(container_id: impl Into<String>) -> Self {
+        Self { container_id: container_id.into(), status: AgentContainerStartStatus::Started }
+    }
+
+    pub(crate) fn already_running(container_id: impl Into<String>) -> Self {
+        Self { container_id: container_id.into(), status: AgentContainerStartStatus::AlreadyRunning }
+    }
+
+    pub(crate) fn container_id(&self) -> &str {
+        &self.container_id
+    }
+
+    pub(crate) fn status(&self) -> &'static str {
+        self.status.as_str()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AgentContainerStartStatus {
+    Started,
+    AlreadyRunning,
+}
+
+impl AgentContainerStartStatus {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Started => "started",
+            Self::AlreadyRunning => "already_running",
+        }
+    }
+}
+
 pub(crate) fn agent_git_status_response() -> Value {
     json!({
         "ok": true,
