@@ -2,6 +2,7 @@
 
 use agentforge_core::{AppResult, ErrorKind, TenantScope, crypto};
 use agentforge_db::entities::GitCredential;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::credential::{CredentialListPage, GitCredentialDraft, GitCredentialToken, GitRemoteHost};
@@ -43,6 +44,10 @@ pub struct GitCliCredentialInjection {
 impl GitCredentialService {
     pub fn new(repo: GitCredentialRepository) -> Self {
         Self { repo, encryption_key: None }
+    }
+
+    pub fn from_pool(pool: PgPool, encryption_key: Option<[u8; 32]>) -> Self {
+        Self::with_encryption_key(GitCredentialRepository::new(pool), encryption_key)
     }
 
     pub fn with_encryption_key(repo: GitCredentialRepository, encryption_key: Option<[u8; 32]>) -> Self {

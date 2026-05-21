@@ -17,7 +17,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::credential::ssh_key::SshKeyRepository;
 use crate::services::ssh_key::{
     SshKeyService, credential_delete_response, ssh_key_create_response, ssh_key_list_response,
 };
@@ -44,7 +43,7 @@ pub struct AddSshKeyRequest {
 
 /// Build an SshKeyService from shared state.
 fn make_service(state: &AppState) -> SshKeyService {
-    SshKeyService::new(SshKeyRepository::new(state.pool.clone()))
+    SshKeyService::from_pool(state.pool.clone())
 }
 
 /// `POST /api/ssh-keys` — add a new SSH key.
