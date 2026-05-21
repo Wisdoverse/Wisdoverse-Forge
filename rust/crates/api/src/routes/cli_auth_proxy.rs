@@ -9,8 +9,6 @@
 //! - `POST   /cli-auth-proxy/{provider}/complete-manual` — finish manual callback
 //! - `DELETE /cli-auth-proxy/{provider}`           — disconnect
 
-use std::sync::Arc;
-
 use axum::Json;
 use axum::Router;
 use axum::extract::{Path, Query, State};
@@ -24,28 +22,20 @@ use agentforge_core::AppResult;
 
 use crate::health::AppState;
 use crate::repositories::credential::cli::CliCredentialRepository;
-pub use crate::services::cli_auth_proxy::resolve_providers;
+#[cfg(test)]
+use crate::services::cli_auth_proxy::resolve_providers;
 use crate::services::cli_auth_proxy::{
-    CliAuthProxyService, StateStore, cli_auth_authorize_response, cli_auth_connected_response,
-    cli_auth_disconnected_response, cli_auth_providers_response, cli_auth_statuses_response,
+    CliAuthProxyService, cli_auth_authorize_response, cli_auth_connected_response, cli_auth_disconnected_response,
+    cli_auth_providers_response, cli_auth_statuses_response,
 };
 
-/// Build the service on each request — stateless wiring, no per-request state
-/// beyond the shared `AppState`. The Codex provider is baked in; operator-
-/// supplied OAuth apps can override `client_id` / `client_secret` / endpoints
-/// via `AppConfig`.
 fn make_service(state: &AppState) -> CliAuthProxyService {
-    let store = if state.config.redis_url.is_some() {
-        StateStore::Redis(Arc::clone(&state.redis))
-    } else {
-        StateStore::Memory(Arc::clone(&state.cli_auth_memory_store))
-    };
-    CliAuthProxyService::new(
-        resolve_providers(&state.config),
+    CliAuthProxyService::from_app_config(
+        &state.config,
         CliCredentialRepository::new(state.pool.clone()),
         state.encryption_key,
-        store,
-        state.config.cli_auth_proxy_revoke_threshold,
+        state.redis.clone(),
+        state.cli_auth_memory_store.clone(),
     )
 }
 

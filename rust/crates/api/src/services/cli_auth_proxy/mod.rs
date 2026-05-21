@@ -350,6 +350,21 @@ pub struct CliAuthProxyService {
 }
 
 impl CliAuthProxyService {
+    /// Build the deployment-scoped service wiring used by HTTP routes and
+    /// workers. Runtime concerns stay here so handlers don't know how the
+    /// provider registry, state-store backend, or revoke threshold are chosen.
+    pub fn from_app_config(
+        config: &AppConfig,
+        cli_creds: CliCredentialRepository,
+        encryption_key: Option<[u8; 32]>,
+        redis: Arc<RwLock<RedisClient>>,
+        memory_store: Arc<MemoryStateStore>,
+    ) -> Self {
+        let store =
+            if config.redis_url.is_some() { StateStore::Redis(redis) } else { StateStore::Memory(memory_store) };
+        Self::new(resolve_providers(config), cli_creds, encryption_key, store, config.cli_auth_proxy_revoke_threshold)
+    }
+
     /// Constructor used by per-request handlers. The caller picks the
     /// `StateStore` variant based on whether Redis is configured — in
     /// multi-replica deployments the `Redis` variant MUST be used so that
