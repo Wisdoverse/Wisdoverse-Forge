@@ -99,6 +99,12 @@ Current stacked PRs:
   settings, and attachment storage-limit runtime config out of routes into
   services; extends the route boundary test to block these runtime policy config
   reads from returning to production route code.
+- #249 `refactor/backend-ddd-identity-runtime-factories` -> #248 branch: moves
+  identity and credential route repository construction into service factories,
+  moves auth refresh-cookie production policy into the user domain/service
+  boundary, moves governance-audit/container runtime service wiring behind
+  service constructors, and extends the route boundary test to block these
+  identity repository and runtime policy reads from returning.
 
 ## Execution Rule
 
@@ -226,8 +232,12 @@ Current open stack:
   proxy provider/state-store/revoke-threshold wiring, CLI credential OAuth mount
   and system fallback key runtime config, container credential-sync settings,
   and attachment storage-limit runtime config into service boundaries.
+- #249 identity runtime factory sweep, stacked on #248, currently moving
+  identity/credential repository construction, auth refresh-cookie production
+  policy, governance-audit runtime policy, and container control runtime wiring
+  into service/domain factories.
 
-Before starting a new PR, inspect the current state of #229-#248. If they have
+Before starting a new PR, inspect the current state of #229-#249. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 
