@@ -81,6 +81,9 @@ Current stacked PRs:
 - #244 `refactor/backend-ddd-agent-create-workspace-sweep` -> #243 branch:
   moves agent creation workspace/project/cwd resolution out of
   `routes/agents.rs` into `AgentService`.
+- #245 `refactor/backend-ddd-runtime-control-sweep` -> #244 branch: moves admin
+  NATS revoke, orchestration task-update broadcasting, and pool runtime status
+  reads out of route handlers into service/domain boundaries.
 
 ## Execution Rule
 
@@ -195,8 +198,10 @@ Current open stack:
   container start/stop orchestration out of `routes/containers.rs`.
 - #244 agent creation workspace sweep, stacked on #243, currently moving agent
   creation workspace/project/cwd resolution out of `routes/agents.rs`.
+- #245 runtime control sweep, stacked on #244, currently moving runtime control
+  side effects out of admin, orchestration, and pool routes.
 
-Before starting a new PR, inspect the current state of #229-#244. If they have
+Before starting a new PR, inspect the current state of #229-#245. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 
