@@ -50,11 +50,11 @@ fn make_service(state: &AppState) -> AnalyticsService {
 }
 
 fn make_usage_service(state: &AppState) -> UsageAnalyticsService {
-    UsageAnalyticsService::new(state.pool.clone())
+    state.analytics_usage_service()
 }
 
 fn make_feature_service(state: &AppState) -> ContextFeatureService {
-    ContextFeatureService::from_runtime(state.pool.clone(), state.context_features)
+    state.context_feature_service()
 }
 
 /// `POST /analytics/events` — track an event.
