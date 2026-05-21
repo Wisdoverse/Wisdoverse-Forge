@@ -17,24 +17,17 @@ use uuid::Uuid;
 use agentforge_auth::AuthUser;
 use agentforge_core::{AgentId, AppResult, ErrorKind};
 
-use crate::domain::attachment::AttachmentAgentScope;
 use crate::health::AppState;
 use crate::repositories::attachment::AttachmentRepository;
-use crate::services::attachment::{AttachmentService, attachment_data_response, attachment_delete_response};
-
-const DEFAULT_CONTENT_TYPE: &str = "application/octet-stream";
+use crate::services::attachment::{
+    AttachmentAgentScope, AttachmentService, AttachmentUploadDraft, DEFAULT_ATTACHMENT_CONTENT_TYPE,
+    attachment_data_response, attachment_delete_response, attachment_download_content_disposition,
+};
 
 /// Query parameters for listing attachments.
 #[derive(Deserialize)]
 pub struct ListAttachmentsQuery {
     pub agent_id: Option<Uuid>,
-}
-
-struct ParsedUpload {
-    filename: String,
-    content_type: String,
-    agent_id: Option<AgentId>,
-    bytes: Vec<u8>,
 }
 
 /// Build an AttachmentService from shared state.
@@ -67,8 +60,7 @@ async fn create_attachment(
 ) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
     let upload = parse_upload(multipart).await?;
     let service = make_service(&state);
-    let att =
-        service.create(&auth.scope, upload.agent_id, &upload.filename, &upload.content_type, upload.bytes).await?;
+    let att = service.create_upload(&auth.scope, upload).await?;
     Ok((StatusCode::CREATED, Json(attachment_data_response(att))))
 }
 
@@ -90,17 +82,17 @@ async fn download_attachment(
     Path(id): Path<Uuid>,
 ) -> AppResult<Response> {
     let service = make_service(&state);
-    let (att, bytes) = service.download(&auth.scope, id).await?;
+    let download = service.download_payload(&auth.scope, id).await?;
 
     let mut headers = HeaderMap::new();
-    headers.insert(header::CONTENT_TYPE, content_type_header(&att.content_type));
-    headers.insert(header::CONTENT_DISPOSITION, content_disposition_header(&att.filename));
+    headers.insert(header::CONTENT_TYPE, content_type_header(download.content_type()));
+    headers.insert(header::CONTENT_DISPOSITION, content_disposition_header(download.filename()));
     headers.insert(
         header::CONTENT_LENGTH,
-        HeaderValue::from_str(&bytes.len().to_string()).unwrap_or_else(|_| HeaderValue::from_static("0")),
+        HeaderValue::from_str(&download.len().to_string()).unwrap_or_else(|_| HeaderValue::from_static("0")),
     );
 
-    Ok((StatusCode::OK, headers, bytes).into_response())
+    Ok((StatusCode::OK, headers, download.into_bytes()).into_response())
 }
 
 /// `DELETE /api/v1/attachments/{id}` — delete attachment.
@@ -114,7 +106,7 @@ async fn delete_attachment(
     Ok(Json(attachment_delete_response()))
 }
 
-async fn parse_upload(mut multipart: Multipart) -> AppResult<ParsedUpload> {
+async fn parse_upload(mut multipart: Multipart) -> AppResult<AttachmentUploadDraft> {
     let mut file_name: Option<String> = None;
     let mut file_content_type: Option<String> = None;
     let mut bytes: Option<Vec<u8>> = None;
@@ -153,13 +145,14 @@ async fn parse_upload(mut multipart: Multipart) -> AppResult<ParsedUpload> {
         }
     }
 
-    let bytes = bytes.ok_or_else(|| ErrorKind::Validation("multipart field 'file' is required".to_string()))?;
-    let filename = filename_override
-        .or(file_name)
-        .ok_or_else(|| ErrorKind::Validation("attachment filename is required".to_string()))?;
-    let content_type = content_type_override.or(file_content_type).unwrap_or_else(|| DEFAULT_CONTENT_TYPE.to_string());
-
-    Ok(ParsedUpload { filename, content_type, agent_id, bytes })
+    AttachmentUploadDraft::from_parts(
+        file_name,
+        file_content_type,
+        filename_override,
+        content_type_override,
+        agent_id,
+        bytes,
+    )
 }
 
 fn multipart_error(err: axum::extract::multipart::MultipartError) -> agentforge_core::AppError {
@@ -167,19 +160,11 @@ fn multipart_error(err: axum::extract::multipart::MultipartError) -> agentforge_
 }
 
 fn content_type_header(content_type: &str) -> HeaderValue {
-    HeaderValue::from_str(content_type).unwrap_or_else(|_| HeaderValue::from_static(DEFAULT_CONTENT_TYPE))
+    HeaderValue::from_str(content_type).unwrap_or_else(|_| HeaderValue::from_static(DEFAULT_ATTACHMENT_CONTENT_TYPE))
 }
 
 fn content_disposition_header(filename: &str) -> HeaderValue {
-    let escaped = filename
-        .chars()
-        .map(|ch| match ch {
-            '"' | '\\' | '\r' | '\n' => '_',
-            ch if ch.is_control() => '_',
-            ch => ch,
-        })
-        .collect::<String>();
-    let value = format!("attachment; filename=\"{escaped}\"");
+    let value = attachment_download_content_disposition(filename);
     HeaderValue::from_str(&value).unwrap_or_else(|_| HeaderValue::from_static("attachment"))
 }
 
@@ -214,11 +199,5 @@ mod tests {
     fn parse_agent_id_rejects_non_uuid() {
         assert!(AttachmentAgentScope::parse("550e8400-e29b-41d4-a716-446655440000").is_ok());
         assert!(AttachmentAgentScope::parse("not-a-uuid").is_err());
-    }
-
-    #[test]
-    fn content_disposition_header_escapes_unsafe_characters() {
-        let value = content_disposition_header("bad\"\r\nname.txt");
-        assert_eq!(value.to_str().unwrap(), "attachment; filename=\"bad___name.txt\"");
     }
 }
