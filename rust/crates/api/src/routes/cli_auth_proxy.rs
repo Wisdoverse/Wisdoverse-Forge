@@ -29,13 +29,7 @@ use crate::services::cli_auth_proxy::{
 };
 
 fn make_service(state: &AppState) -> CliAuthProxyService {
-    CliAuthProxyService::from_pool_and_app_config(
-        state.pool.clone(),
-        &state.config,
-        state.encryption_key,
-        state.redis.clone(),
-        state.cli_auth_memory_store.clone(),
-    )
+    state.cli_auth_proxy_service()
 }
 
 /// Back-compat shim for callers that don't carry an `AppConfig`
