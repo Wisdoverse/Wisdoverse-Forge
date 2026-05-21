@@ -66,6 +66,10 @@ Current stacked PRs:
   progress; moves container credential-sync env, Container CLI credential
   injection, Git CLI credential injection, and OAuth mount cleanup out of
   `routes/containers.rs` into `AgentContainerCredentialService`.
+- #241 `refactor/backend-ddd-route-boundary-check` -> #240 branch: in progress;
+  adds a Rust route-boundary test so production route code cannot reintroduce
+  raw SQL, production `json!` response assembly, or route-local response
+  projections.
 
 ## Execution Rule
 
@@ -104,7 +108,7 @@ Target backend DDD completion, not another one-endpoint migration:
 
 Use the existing stacked PRs as the current working baseline. This batch should
 prove whether the backend route surface now follows the intended DDD boundary
-and close concrete gaps found by the audit. Continue #240 by preferring grouped
+and close concrete gaps found by the audit. Continue #241 by preferring grouped
 production runtime orchestration leaks over test-only fixture cleanup.
 
 ## Validation
@@ -172,9 +176,11 @@ Current open stack:
   dispatch/stream orchestration out of `routes/agents.rs`.
 - #240 container credential sweep, stacked on #239, currently moving container
   credential injection and cleanup orchestration out of `routes/containers.rs`.
+- #241 route DDD boundary check, stacked on #240, currently adding automated
+  regression coverage for route-layer boundary rules.
 
-Before starting a new PR, inspect the current state of #229-#240. If they have
-not landed yet, stack the next branch on #240. If they have landed, branch from
+Before starting a new PR, inspect the current state of #229-#241. If they have
+not landed yet, stack the next branch on #241. If they have landed, branch from
 updated origin/main.
 
 Create a separate worktree, implement the next large backend DDD batch, run
