@@ -32,6 +32,15 @@ impl GovernanceAuditService {
         Self { repo, audit, hmac_key }
     }
 
+    pub fn with_runtime_config(
+        repo: GovernanceAuditRepository,
+        audit: AuditRepository,
+        is_production: bool,
+        encryption_key: Option<[u8; 32]>,
+    ) -> AppResult<Self> {
+        Ok(Self::new(repo, audit, governance_audit_hmac_key(is_production, encryption_key)?))
+    }
+
     pub(crate) async fn list(
         &self,
         scope: &TenantScope,
