@@ -3,8 +3,6 @@
 //! - `POST /api/v1/agents/{id}/start` — Start an agent container
 //! - `POST /api/v1/agents/{id}/stop`  — Stop an agent container
 
-use std::path::PathBuf;
-
 use axum::Json;
 use axum::extract::{Path, State};
 use serde_json::Value;
@@ -14,7 +12,6 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AgentId, AppResult, ErrorKind};
 use agentforge_db::entities::Agent;
 use agentforge_platform::{ContainerConfig, ContainerState, Mount};
-use secrecy::{ExposeSecret, SecretString};
 
 use crate::domain::agent::{AgentContainerEnvInput, AgentContainerEnvPolicy, AgentContainerImagePolicy};
 use crate::health::AppState;
@@ -24,21 +21,12 @@ use crate::repositories::credential::git::GitCredentialRepository;
 use crate::repositories::orchestration::{OrchestrationTaskRepository, ParticipantRepository};
 use crate::repositories::user::llm_config::UserLlmConfigRepository;
 use crate::services::agent::{AgentService, agent_container_status_response, agent_status_response};
+use crate::services::agent_container_credentials::AgentContainerCredentialService;
 use crate::services::agent_workspace::{
     CONTAINER_WORKSPACE_ROOT, WorkspaceMountScope, ensure_workspace_belongs_to_org, host_path_for_container_cwd,
     resolve_agent_workspace_paths,
 };
-use crate::services::cli_credential::CliCredentialService;
-use crate::services::git_credential::GitCredentialService;
 use crate::services::orchestration::OrchestrationService;
-
-/// Duplicate a `SecretString` by exposing and rewrapping. We can't derive
-/// `Clone` on the secret-bearing `AppConfig` (see its docstring) so the route
-/// layer does the explicit copy at the tenant boundary — the wrapper keeps the
-/// `Debug` redaction guarantee for everything downstream.
-fn clone_secret(s: &Option<SecretString>) -> Option<SecretString> {
-    s.as_ref().map(|v| SecretString::from(v.expose_secret().to_string()))
-}
 
 /// Default host directory used when `OAUTH_MOUNT_DIR` is not configured.
 /// Mirrors the legacy `<dataDir>/oauth-mounts` location; chosen to stay under
@@ -58,6 +46,27 @@ fn make_orchestration_service(state: &AppState) -> OrchestrationService {
     OrchestrationService::new(
         OrchestrationTaskRepository::new(state.pool.clone()),
         ParticipantRepository::new(state.pool.clone()),
+    )
+}
+
+fn make_container_credential_service(state: &AppState) -> AgentContainerCredentialService {
+    let oauth_mount_root = state
+        .config
+        .oauth_mount_dir
+        .as_deref()
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| std::path::PathBuf::from(DEFAULT_OAUTH_MOUNT_ROOT));
+
+    AgentContainerCredentialService::new(
+        CliCredentialRepository::new(state.pool.clone()),
+        UserLlmConfigRepository::new(state.pool.clone()),
+        GitCredentialRepository::new(state.pool.clone()),
+        state.encryption_key,
+        oauth_mount_root,
+        state.config.credential_sync_enabled,
+        &state.config.container_anthropic_api_key,
+        &state.config.container_google_api_key,
+        &state.config.container_openai_api_key,
     )
 }
 
@@ -170,64 +179,9 @@ pub async fn start_agent(
     let mut mounts: Vec<Mount> =
         vec![Mount { source: workspace_host_path, target: CONTAINER_WORKSPACE_ROOT.to_string(), read_only: false }];
 
-    // Inject credential-sync env vars (issue #41). These let the sidecar
-    // know whether to spawn its watcher and where to watch.
-    env.push(format!("CREDENTIAL_SYNC_ENABLED={}", state.config.credential_sync_enabled));
-    if let Some(cli) = agent.cli_tool.as_deref()
-        && let Some(dir) = AgentContainerEnvPolicy::creds_dir_for_cli_tool(cli)
-    {
-        env.push(format!("CREDS_DIR={dir}"));
-    }
-
-    // Resolve per-user credentials (tier 1–3). Best-effort: infra errors log
-    // and fall through — the container still boots, just without injected
-    // auth (matches the legacy TS warning-and-continue path).
-    if let Some(cli_tool) = agent.cli_tool.as_deref() {
-        let oauth_mount_root = state
-            .config
-            .oauth_mount_dir
-            .as_deref()
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from(DEFAULT_OAUTH_MOUNT_ROOT));
-        let creds = CliCredentialService::new(
-            CliCredentialRepository::new(state.pool.clone()),
-            UserLlmConfigRepository::new(state.pool.clone()),
-            state.encryption_key,
-            oauth_mount_root,
-            clone_secret(&state.config.container_anthropic_api_key),
-            clone_secret(&state.config.container_google_api_key),
-            clone_secret(&state.config.container_openai_api_key),
-        );
-        match creds.resolve(&auth.scope, cli_tool, &container_name).await {
-            Ok(injection) => {
-                for (k, v) in injection.env {
-                    env.push(format!("{k}={v}"));
-                }
-                if let Some(host_dir) = injection.oauth_mount_host_dir {
-                    mounts.push(Mount {
-                        source: host_dir.to_string_lossy().into_owned(),
-                        target: "/run/secrets/oauth-credentials".to_string(),
-                        read_only: true,
-                    });
-                }
-            }
-            Err(err) => {
-                tracing::warn!(error = ?err, agent_id = %id, cli_tool, "Failed to resolve Container CLI credentials — container will boot without injected auth");
-            }
-        }
-    }
-
-    let git_creds = GitCredentialService::new(GitCredentialRepository::new(state.pool.clone()));
-    match git_creds.resolve_cli_env(&auth.scope, state.encryption_key).await {
-        Ok(injection) => {
-            for (k, v) in injection.env {
-                env.push(format!("{k}={v}"));
-            }
-        }
-        Err(err) => {
-            tracing::warn!(error = ?err, agent_id = %id, "Failed to resolve Git platform CLI credentials - container will boot without gh/glab token injection");
-        }
-    }
+    make_container_credential_service(&state)
+        .inject_runtime_credentials(&auth.scope, id, agent.cli_tool.as_deref(), &container_name, &mut env, &mut mounts)
+        .await;
 
     let config = ContainerConfig {
         image: image.clone(),
@@ -314,29 +268,8 @@ pub async fn stop_agent(State(state): State<AppState>, auth: AuthUser, Path(id):
         .await
         .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("Failed to stop container: {e}")))?;
 
-    // Remove the host-side OAuth mount directory so the decrypted file map
-    // doesn't linger on disk after the container is torn down. Best-effort:
-    // on FS failure we log and continue — the row is still in the DB and
-    // the next start will recreate the dir with fresh contents.
-    let oauth_mount_root = state
-        .config
-        .oauth_mount_dir
-        .as_deref()
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(DEFAULT_OAUTH_MOUNT_ROOT));
-    let cleanup_service = CliCredentialService::new(
-        CliCredentialRepository::new(state.pool.clone()),
-        UserLlmConfigRepository::new(state.pool.clone()),
-        state.encryption_key,
-        oauth_mount_root,
-        clone_secret(&state.config.container_anthropic_api_key),
-        clone_secret(&state.config.container_google_api_key),
-        clone_secret(&state.config.container_openai_api_key),
-    );
     let container_name = format!("agentforge-agent-{id}");
-    if let Err(err) = cleanup_service.cleanup_oauth_mount(&container_name).await {
-        tracing::warn!(error = %err, agent_id = %id, "Failed to clean up OAuth mount dir — decrypted blob may linger on disk");
-    }
+    make_container_credential_service(&state).cleanup_oauth_mount_best_effort(id, &container_name).await;
 
     docker
         .remove_container(container_id, true)
