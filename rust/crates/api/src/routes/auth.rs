@@ -16,12 +16,12 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AppError, AppResult};
 
 use crate::health::AppState;
+use crate::services::auth::{AuthService, SwitchContextAxes, SwitchContextSuccessResponse};
 use crate::services::user::{
-    AuthErrorResponseContract, LoginResult, SwitchContextInput, UserService, auth_error_response_body,
-    auth_error_response_contract, auth_me_response, auth_message_response, auth_ok_response, auth_providers_response,
-    auth_refresh_response, auth_success_response_body, auth_switch_context_response,
-    invalid_refresh_token_response_contract, is_unauthorized_error, missing_refresh_token_response_contract,
-    password_reset_error_response_contract,
+    AuthErrorResponseContract, LoginResult, UserService, auth_error_response_body, auth_error_response_contract,
+    auth_me_response, auth_message_response, auth_ok_response, auth_providers_response, auth_refresh_response,
+    auth_success_response_body, invalid_refresh_token_response_contract, is_unauthorized_error,
+    missing_refresh_token_response_contract, password_reset_error_response_contract,
 };
 
 /// Login request body.
@@ -70,6 +70,11 @@ pub struct SwitchContextRequest {
 /// Build a UserService from shared state.
 fn make_service(state: &AppState) -> UserService {
     state.auth_user_service()
+}
+
+/// Build an AuthService from shared state.
+fn make_auth_service(state: &AppState) -> AuthService {
+    state.auth_service()
 }
 
 /// `POST /api/v1/auth/login` — authenticate with email and password.
@@ -169,31 +174,27 @@ pub async fn switch_context(
     auth: AuthUser,
     Json(req): Json<SwitchContextRequest>,
 ) -> Response {
-    let service = make_service(&state);
-    let session = match service
-        .switch_context_session(
-            auth.scope.user_id(),
-            SwitchContextInput {
-                org_id: req.org_id,
-                workspace_id: req.workspace_id,
-                team_id: req.team_id,
-                project_id: req.project_id,
-            },
-        )
-        .await
-    {
-        Ok(session) => session,
+    let axes = match SwitchContextAxes::new(req.workspace_id, req.team_id, req.project_id) {
+        Ok(axes) => axes,
+        Err(err) => return auth_error_response(err, None),
+    };
+
+    let service = make_auth_service(&state);
+    let result = match service.switch_context(auth.scope.user_id(), req.org_id, axes).await {
+        Ok(result) => result,
         Err(err) => return auth_error_response(err, None),
     };
 
     let mut headers = HeaderMap::new();
+    let user_service = make_service(&state);
     headers.insert(
         header::SET_COOKIE,
-        cookie_header_value(service.refresh_cookie(&session.refresh_token, session.refresh_expires_in)),
+        cookie_header_value(user_service.refresh_cookie(&result.refresh_token, result.refresh_expires_in)),
     );
 
-    (StatusCode::OK, headers, Json(auth_switch_context_response(session.access_token, session.expires_in)))
-        .into_response()
+    let body = SwitchContextSuccessResponse::ok(result.access_token, result.access_expires_in);
+
+    (StatusCode::OK, headers, Json(body)).into_response()
 }
 
 fn auth_success_response(status: StatusCode, service: &UserService, result: LoginResult) -> Response {
@@ -334,14 +335,6 @@ mod tests {
         assert_eq!(json["tokens"]["expiresIn"], 3600);
         assert_eq!(json["access_token"], "access-token");
         assert_eq!(json["expires_in"], 3600);
-    }
-
-    #[test]
-    fn switch_context_response_serialization() {
-        let json = auth_switch_context_response("new-access".to_string(), 900);
-        assert_eq!(json["ok"], true);
-        assert_eq!(json["accessToken"], "new-access");
-        assert_eq!(json["expiresIn"], 900);
     }
 
     #[test]

@@ -7,20 +7,18 @@ use agentforge_core::{AppConfig, AppResult, TenantScope, UserId};
 use agentforge_db::entities::User;
 use chrono::{Duration, Utc};
 use sqlx::PgPool;
-use uuid::Uuid;
 
 pub(crate) use crate::domain::user::{
     AuthErrorResponseContract, auth_error_response_body, auth_error_response_contract, auth_me_response,
     auth_message_response, auth_ok_response, auth_providers_response, auth_refresh_response,
-    auth_success_response_body, auth_switch_context_response, invalid_refresh_token_response_contract,
-    is_unauthorized_error, missing_refresh_token_response_contract, password_reset_error_response_contract,
-    user_data_response, user_members_response,
+    auth_success_response_body, invalid_refresh_token_response_contract, is_unauthorized_error,
+    missing_refresh_token_response_contract, password_reset_error_response_contract, user_data_response,
+    user_members_response,
 };
 use crate::domain::user::{
     AuthRefreshCookiePolicy, GeneratedPasswordResetToken, PASSWORD_RESET_TTL_MINUTES, PasswordResetRequestEmail,
-    PasswordResetToken, RefreshSessionPolicy, RefreshedAccessToken, SWITCH_CONTEXT_REFRESH_EXPIRY_SECONDS,
-    SwitchContextAxes, UserAccessPolicy, UserAccountPolicy, UserEmail, UserListPage, UserPassword, derive_username,
-    email_domain_for_log, password_reset_email_body,
+    PasswordResetToken, RefreshSessionPolicy, RefreshedAccessToken, UserAccessPolicy, UserAccountPolicy, UserEmail,
+    UserListPage, UserPassword, derive_username, email_domain_for_log, password_reset_email_body,
 };
 pub use crate::domain::user::{AuthenticatedUser, LoginResult};
 use crate::repositories::user::{OrgUserSearchResult, UserRepository};
@@ -30,20 +28,6 @@ use crate::services::email::{EmailMessage, EmailSender};
 pub(crate) struct UpdateUserProfileInput {
     pub(crate) target_user_id: UserId,
     pub(crate) display_name: Option<String>,
-}
-
-pub(crate) struct SwitchContextInput {
-    pub(crate) org_id: Uuid,
-    pub(crate) workspace_id: Option<Uuid>,
-    pub(crate) team_id: Option<Uuid>,
-    pub(crate) project_id: Option<Uuid>,
-}
-
-pub(crate) struct SwitchContextSession {
-    pub(crate) access_token: String,
-    pub(crate) refresh_token: String,
-    pub(crate) expires_in: u64,
-    pub(crate) refresh_expires_in: u64,
 }
 
 #[derive(Clone)]
@@ -271,48 +255,6 @@ impl UserService {
         self.repo.search_org_members(scope, query, limit).await
     }
 
-    pub(crate) async fn switch_context_session(
-        &self,
-        user_id: UserId,
-        input: SwitchContextInput,
-    ) -> AppResult<SwitchContextSession> {
-        let role =
-            UserAccessPolicy::require_org_membership(self.repo.find_membership_role(user_id, input.org_id).await?)?;
-        let axes = SwitchContextAxes::new(input.workspace_id, input.team_id, input.project_id)?;
-        self.validate_switch_context_axes(user_id, input.org_id, &axes).await?;
-
-        let access_token = self
-            .jwt
-            .create_token_with_axes(
-                user_id.as_uuid(),
-                input.org_id,
-                &role,
-                axes.workspace_id(),
-                axes.team_id(),
-                axes.project_id(),
-            )
-            .map_err(UserAccountPolicy::context_switch_token_creation_failed)?;
-        let refresh_token = self
-            .jwt
-            .create_token_with_axes_and_expiry(
-                user_id.as_uuid(),
-                input.org_id,
-                &role,
-                axes.workspace_id(),
-                axes.team_id(),
-                axes.project_id(),
-                SWITCH_CONTEXT_REFRESH_EXPIRY_SECONDS,
-            )
-            .map_err(UserAccountPolicy::context_switch_refresh_token_creation_failed)?;
-
-        Ok(SwitchContextSession {
-            access_token,
-            refresh_token,
-            expires_in: self.jwt.expiry_seconds(),
-            refresh_expires_in: SWITCH_CONTEXT_REFRESH_EXPIRY_SECONDS,
-        })
-    }
-
     pub(crate) fn refresh_session(&self, refresh_token: &str) -> AppResult<RefreshedAccessToken> {
         let claims = self.jwt.verify_token(refresh_token).map_err(|_| UserAccountPolicy::invalid_refresh_token())?;
         let access_token = self
@@ -328,29 +270,6 @@ impl UserService {
             .map_err(UserAccountPolicy::access_token_refresh_failed)?;
 
         Ok(RefreshedAccessToken::new(access_token, self.jwt.expiry_seconds()))
-    }
-
-    async fn validate_switch_context_axes(
-        &self,
-        user_id: UserId,
-        org_id: Uuid,
-        axes: &SwitchContextAxes,
-    ) -> AppResult<()> {
-        if let Some(workspace_id) = axes.workspace_id() {
-            UserAccessPolicy::ensure_workspace_in_org(self.repo.workspace_exists_in_org(org_id, workspace_id).await?)?;
-        }
-
-        if let Some(team_id) = axes.team_id() {
-            UserAccessPolicy::ensure_team_readable(self.repo.user_can_read_team(user_id, org_id, team_id).await?)?;
-        }
-
-        if let Some((project_id, workspace_id)) = axes.project_workspace_pair() {
-            UserAccessPolicy::ensure_project_readable(
-                self.repo.user_can_read_project(user_id, org_id, project_id, workspace_id).await?,
-            )?;
-        }
-
-        Ok(())
     }
 
     fn build_auth_result(

@@ -3,6 +3,7 @@
 use agentforge_core::{AppResult, TeamId, TenantScope};
 use agentforge_db::entities::Team;
 use sqlx::PgPool;
+use uuid::Uuid;
 
 use crate::domain::resource::ResourceRepositoryPolicy;
 
@@ -71,6 +72,29 @@ impl TeamRepository {
         .fetch_optional(&self.pool)
         .await?
         .ok_or_else(|| ResourceRepositoryPolicy::team_not_found(id))
+    }
+
+    /// Returns true when the user is an active member of the team in the given
+    /// organization. Used by session-context authorization before a context
+    /// switch has been minted (no tenant scope yet).
+    pub async fn is_user_member(&self, team_id: Uuid, org_id: Uuid, user_id: Uuid) -> AppResult<bool> {
+        let exists = sqlx::query_scalar::<_, bool>(
+            r#"SELECT EXISTS (
+                   SELECT 1
+                     FROM teams t
+                     JOIN team_members tm ON tm.team_id = t.id
+                    WHERE t.id = $1
+                      AND t.organization_id = $2
+                      AND t.deleted_at IS NULL
+                      AND tm.user_id = $3
+               )"#,
+        )
+        .bind(team_id)
+        .bind(org_id)
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(exists)
     }
 
     /// Soft-delete a team (set deleted_at).
