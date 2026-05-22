@@ -1,6 +1,6 @@
 # Backend DDD Refactor Handoff
 
-Last updated: 2026-05-21
+Last updated: 2026-05-22
 
 ## Current State
 
@@ -165,6 +165,9 @@ Current stacked PRs:
   callback/state/token exchange, Stripe billing gateway/webhook/API failures,
   password-reset delivery configuration, and transactional email
   SMTP/recipient contracts into domain helpers.
+- #262 `refactor/backend-ddd-runtime-error-policies` -> #261 branch: moves
+  Docker-backed runtime error policy contracts for dev environments and agent
+  container control/lifecycle flows into domain helpers.
 
 ## Execution Rule
 
@@ -367,8 +370,12 @@ Current open stack:
   proxy OAuth callback/state/token exchange errors, Stripe billing
   gateway/webhook/API errors, password-reset delivery configuration errors, and
   transactional email SMTP/recipient contracts into domain policies.
+- #262 runtime error policy sweep, stacked on #261, moves Docker unavailable,
+  container create/start/stop/remove/inspect, missing agent image, resume, and
+  workspace preparation error contracts for dev environments and agent
+  container control/lifecycle flows into domain policies.
 
-Before starting a new PR, inspect the current state of #229-#261. If they have
+Before starting a new PR, inspect the current state of #229-#262. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 
