@@ -1,10 +1,12 @@
 //! Billing repository — database queries for plans, subscriptions, and invoices.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::{BillingPlan, Invoice, Subscription};
 use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
+
+use crate::domain::billing::BillingRepositoryPolicy;
 
 /// Database access layer for billing.
 pub struct BillingRepository {
@@ -32,7 +34,7 @@ impl BillingRepository {
             .bind(id)
             .fetch_optional(&self.pool)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("billing plan {id}")).into())
+            .ok_or_else(|| BillingRepositoryPolicy::plan_not_found(id))
     }
 
     /// Find a billing plan by Stripe price ID.
@@ -41,7 +43,7 @@ impl BillingRepository {
             .bind(stripe_price_id)
             .fetch_optional(&self.pool)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("billing plan for Stripe price {stripe_price_id}")).into())
+            .ok_or_else(|| BillingRepositoryPolicy::plan_for_stripe_price_not_found(stripe_price_id))
     }
 
     /// Load the current user's email for Stripe customer prefill.
@@ -50,7 +52,7 @@ impl BillingRepository {
             .bind(scope.user_id().as_uuid())
             .fetch_optional(&self.pool)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("user {}", scope.user_id())).into())
+            .ok_or_else(|| BillingRepositoryPolicy::user_not_found(scope.user_id()))
     }
 
     // ── Subscriptions (tenant-scoped) ─────────────────────────────────
@@ -226,7 +228,7 @@ impl BillingRepository {
         .bind(scope.org_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("subscription {id}")).into())
+        .ok_or_else(|| BillingRepositoryPolicy::subscription_not_found(id))
     }
 
     /// Update subscription status.
@@ -246,7 +248,7 @@ impl BillingRepository {
         .bind(scope.org_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("subscription {id}")).into())
+        .ok_or_else(|| BillingRepositoryPolicy::subscription_not_found(id))
     }
 
     /// Cancel a subscription (set status to 'canceled' and record cancellation time).
@@ -260,7 +262,7 @@ impl BillingRepository {
         .bind(scope.org_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("subscription {id}")).into())
+        .ok_or_else(|| BillingRepositoryPolicy::subscription_not_found(id))
     }
 
     // ── Invoices (tenant-scoped) ──────────────────────────────────────
