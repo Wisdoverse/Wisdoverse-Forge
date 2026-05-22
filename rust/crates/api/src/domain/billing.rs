@@ -6,6 +6,9 @@
 use std::collections::BTreeMap;
 
 use agentforge_core::{AppResult, ErrorKind};
+use agentforge_db::entities::{BillingPlan, Invoice, Subscription};
+use chrono::{DateTime, Utc};
+use serde::Serialize;
 use uuid::Uuid;
 
 /// Valid subscription statuses.
@@ -271,6 +274,137 @@ impl SubscriptionStatusPolicy {
     fn valid_statuses() -> &'static [&'static str] {
         VALID_STATUSES
     }
+}
+
+/// Plan price points the frontend renders. Currency is held next to amounts
+/// so a future split of price / cycle stays inside this projection.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanPriceView {
+    pub monthly: i64,
+    pub yearly: i64,
+    pub currency: String,
+}
+
+/// Wire shape for `GET /api/billing/plans`.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct BillingPlanView {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub features: BTreeMap<String, bool>,
+    pub limits: BTreeMap<String, i64>,
+    pub price: PlanPriceView,
+    pub popular: bool,
+}
+
+impl BillingPlanView {
+    /// Project a [`BillingPlan`] entity into the wire view, applying the
+    /// frontend's catalog-aware price table.
+    pub fn from_plan(plan: BillingPlan) -> Self {
+        let lower_name = plan.name.to_ascii_lowercase();
+        let (monthly, yearly, popular) = match lower_name.as_str() {
+            "free" => (0, 0, false),
+            "pro" => (25, 250, false),
+            "team" => (60, 600, true),
+            "business" => (120, 1200, false),
+            "enterprise" => (-1, -1, false),
+            _ => (0, 0, false),
+        };
+
+        let features = plan
+            .features
+            .as_object()
+            .map(|object| {
+                object.iter().filter_map(|(key, value)| value.as_bool().map(|flag| (key.clone(), flag))).collect()
+            })
+            .unwrap_or_default();
+
+        let limits = BTreeMap::from([
+            ("maxAgents".to_string(), plan.max_agents as i64),
+            ("maxEventsPerDay".to_string(), plan.max_events_per_day as i64),
+            ("maxStorageMB".to_string(), plan.max_storage_mb as i64),
+        ]);
+
+        Self {
+            id: plan.id,
+            name: plan.name.clone(),
+            description: format!("{} plan", plan.name),
+            features,
+            limits,
+            price: PlanPriceView { monthly, yearly, currency: "usd".to_string() },
+            popular,
+        }
+    }
+}
+
+/// Wire shape for `GET /api/billing/subscription`.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SubscriptionView {
+    pub id: Uuid,
+    pub plan_id: Uuid,
+    pub status: String,
+    pub current_period_start: Option<DateTime<Utc>>,
+    pub current_period_end: Option<DateTime<Utc>>,
+    pub cancel_at_period_end: bool,
+    pub canceled_at: Option<DateTime<Utc>>,
+}
+
+impl From<Subscription> for SubscriptionView {
+    fn from(sub: Subscription) -> Self {
+        Self {
+            id: sub.id,
+            plan_id: sub.plan_id,
+            status: sub.status,
+            current_period_start: sub.current_period_start,
+            current_period_end: sub.current_period_end,
+            cancel_at_period_end: sub.cancel_at_period_end,
+            canceled_at: sub.canceled_at,
+        }
+    }
+}
+
+/// Wire shape for `GET /api/billing/invoices`.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct InvoiceView {
+    pub id: Uuid,
+    pub status: String,
+    pub amount_due: i32,
+    pub amount_paid: i32,
+    pub total: i32,
+    pub currency: String,
+    pub paid_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<Invoice> for InvoiceView {
+    fn from(invoice: Invoice) -> Self {
+        let amount = invoice.amount_cents;
+        let paid = if invoice.status == "paid" { amount } else { 0 };
+        Self {
+            id: invoice.id,
+            status: invoice.status,
+            amount_due: amount.saturating_sub(paid),
+            amount_paid: paid,
+            total: amount,
+            currency: invoice.currency,
+            paid_at: invoice.paid_at,
+            created_at: invoice.created_at,
+        }
+    }
+}
+
+/// Wire shape for `GET /api/billing/usage`.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct UsageMetricView {
+    pub metric: String,
+    pub current: i64,
+    pub limit: i64,
+    pub percent_used: i64,
 }
 
 #[cfg(test)]
