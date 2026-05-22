@@ -84,7 +84,9 @@ pub struct OrchestrationService {
     task_repo: OrchestrationTaskRepository,
     participant_repo: ParticipantRepository,
     task_run_repo: TaskRunRepository,
+    context_injections: RunContextInjectionRepository,
     context_resolver: Option<Arc<ContextResolverService>>,
+    context_envelopes: Option<ContextEnvelopeService>,
     context_injection_enabled: bool,
     broadcast_bus: Option<Arc<NatsClient>>,
 }
@@ -92,11 +94,14 @@ pub struct OrchestrationService {
 impl OrchestrationService {
     pub fn new(task_repo: OrchestrationTaskRepository, participant_repo: ParticipantRepository) -> Self {
         let task_run_repo = TaskRunRepository::new(task_repo.pool().clone());
+        let context_injections = RunContextInjectionRepository::new(task_repo.pool().clone());
         Self {
             task_repo,
             participant_repo,
             task_run_repo,
+            context_injections,
             context_resolver: None,
+            context_envelopes: None,
             context_injection_enabled: true,
             broadcast_bus: None,
         }
@@ -114,6 +119,8 @@ impl OrchestrationService {
     }
 
     pub fn with_context_resolver(mut self, context_resolver: Arc<ContextResolverService>) -> Self {
+        self.context_envelopes =
+            Some(ContextEnvelopeService::new(self.task_repo.pool().clone(), context_resolver.clone()));
         self.context_resolver = Some(context_resolver);
         self
     }
@@ -122,6 +129,7 @@ impl OrchestrationService {
         self.context_injection_enabled = enabled;
         if !enabled {
             self.context_resolver = None;
+            self.context_envelopes = None;
         }
         self
     }
@@ -778,8 +786,7 @@ impl OrchestrationService {
         let agent_ids: Vec<Uuid> = tasks.iter().filter_map(|t| t.assigned_agent_id.map(|a| a.as_uuid())).collect();
         let names = self.task_repo.resolve_agent_names(scope, &agent_ids).await?;
         let task_ids: Vec<Uuid> = tasks.iter().map(|task| task.id).collect();
-        let mut context_counts =
-            RunContextInjectionRepository::new(self.task_repo.pool().clone()).count_by_tasks(scope, &task_ids).await?;
+        let mut context_counts = self.context_injections.count_by_tasks(scope, &task_ids).await?;
         Ok(tasks
             .into_iter()
             .map(|t| {
@@ -802,11 +809,7 @@ impl OrchestrationService {
             None
         };
         let mut summary = task_summary(task, name);
-        if let Some(counts) = RunContextInjectionRepository::new(self.task_repo.pool().clone())
-            .count_by_tasks(scope, &[summary.id])
-            .await?
-            .remove(&summary.id)
-        {
+        if let Some(counts) = self.context_injections.count_by_tasks(scope, &[summary.id]).await?.remove(&summary.id) {
             summary.context_counts = counts.into();
         }
         Ok(summary)
@@ -982,10 +985,10 @@ impl OrchestrationService {
         let Some(resolved_context) = resolved_context else {
             return Ok(None);
         };
-        let Some(resolver) = &self.context_resolver else {
+        let Some(context_envelopes) = &self.context_envelopes else {
             return Ok(None);
         };
-        ContextEnvelopeService::new(self.task_repo.pool().clone(), resolver.clone())
+        context_envelopes
             .build_from_resolved(&scope.scoped_read(), task.id, run.id, agent_id, resolved_context)
             .await
             .map(Some)
