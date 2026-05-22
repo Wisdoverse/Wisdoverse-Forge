@@ -20,6 +20,7 @@ pub(crate) mod credential;
 pub(crate) mod dev_environment;
 pub(crate) mod email;
 pub(crate) mod evidence_projection;
+pub(crate) mod gateway;
 pub(crate) mod inbox;
 pub(crate) mod license;
 pub(crate) mod mcp;
