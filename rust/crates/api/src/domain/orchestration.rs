@@ -84,6 +84,10 @@ pub(crate) struct TaskCreationInitialState {
 }
 
 impl TaskCreationPolicy {
+    pub(crate) fn parent_task_not_found(parent_id: Uuid) -> ErrorKind {
+        ErrorKind::Validation(format!("parent task {parent_id} not found"))
+    }
+
     pub(crate) fn ensure_approval_task_is_unassigned(
         requires_approval: bool,
         assigned_to: Option<AgentId>,
@@ -1536,6 +1540,12 @@ mod tests {
         let error =
             validation_message(TaskCreationPolicy::ensure_approval_task_is_unassigned(true, Some(AgentId::new())));
         assert!(error.contains("cannot be assigned before approval"));
+    }
+
+    #[test]
+    fn task_creation_policy_owns_parent_not_found_error() {
+        let parent_id = Uuid::parse_str("11111111-1111-4111-8111-111111111111").unwrap();
+        assert!(format!("{}", TaskCreationPolicy::parent_task_not_found(parent_id)).contains("parent task"));
     }
 
     #[test]
