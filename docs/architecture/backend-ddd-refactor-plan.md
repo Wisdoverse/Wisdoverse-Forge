@@ -188,6 +188,11 @@ Current stacked PRs:
   selected CLI auth proxy URL/token-file/JSON/error serialization contracts into
   domain modules while services keep repository I/O, Redis, HTTP, encryption,
   and refresh orchestration.
+- #268 `refactor/backend-ddd-external-runtime-policies` -> #267 branch: moves
+  remaining external runtime error and URL policies for provider prompt
+  streaming, NATS auth-callout worker configuration/connect setup, and Stripe
+  webhook HMAC initialization into domain policy modules while services keep
+  LLM, NATS, Stripe, cryptography, and repository I/O orchestration.
 
 ## Execution Rule
 
@@ -419,8 +424,13 @@ Current open stack:
   token JSON parsing, and serialization error contracts into domain helpers
   while services keep repository I/O, Redis, HTTP, encryption, and refresh
   orchestration.
+- #268 external runtime policy sweep, stacked on #267, moves provider prompt
+  encryption/stream failures, NATS auth-callout worker URL/config/connect error
+  contracts, and Stripe webhook HMAC initialization errors into domain helpers
+  while services keep LLM, NATS, Stripe, cryptography, and repository I/O
+  orchestration.
 
-Before starting a new PR, inspect the current state of #229-#267. If they have
+Before starting a new PR, inspect the current state of #229-#268. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 
