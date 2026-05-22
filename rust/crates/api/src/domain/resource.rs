@@ -258,8 +258,24 @@ impl ResourceRepositoryPolicy {
         ErrorKind::NotFound(format!("project {id}")).into()
     }
 
+    pub(crate) fn default_project_team_required() -> AppError {
+        ErrorKind::Validation("cannot create project: organization has no teams — create a team first".into()).into()
+    }
+
     pub(crate) fn workspace_not_found(id: WorkspaceId) -> AppError {
         ErrorKind::NotFound(format!("workspace {id}")).into()
+    }
+
+    pub(crate) fn resource_profile_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("resource_profile {id}")).into()
+    }
+
+    pub(crate) fn favorite_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("favorite {id}")).into()
+    }
+
+    pub(crate) fn favorite_already_exists() -> AppError {
+        ErrorKind::Validation("favorite already exists".into()).into()
     }
 
     pub(crate) fn team_or_user_not_found(team_id: TeamId, user_id: Uuid) -> AppError {
@@ -661,8 +677,24 @@ mod tests {
             ErrorKind::NotFound(message) if message == format!("project {project_id}")
         ));
         assert!(matches!(
+            ResourceRepositoryPolicy::default_project_team_required().kind,
+            ErrorKind::Validation(message) if message == "cannot create project: organization has no teams — create a team first"
+        ));
+        assert!(matches!(
             ResourceRepositoryPolicy::workspace_not_found(workspace_id).kind,
             ErrorKind::NotFound(message) if message == format!("workspace {workspace_id}")
+        ));
+        assert!(matches!(
+            ResourceRepositoryPolicy::resource_profile_not_found(user_id).kind,
+            ErrorKind::NotFound(message) if message == format!("resource_profile {user_id}")
+        ));
+        assert!(matches!(
+            ResourceRepositoryPolicy::favorite_not_found(user_id).kind,
+            ErrorKind::NotFound(message) if message == format!("favorite {user_id}")
+        ));
+        assert!(matches!(
+            ResourceRepositoryPolicy::favorite_already_exists().kind,
+            ErrorKind::Validation(message) if message == "favorite already exists"
         ));
         assert!(matches!(
             ResourceRepositoryPolicy::team_or_user_not_found(team_id, user_id).kind,

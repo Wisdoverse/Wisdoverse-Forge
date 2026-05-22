@@ -1,9 +1,11 @@
 //! Favorite repository — database queries for the favorites table.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::Favorite;
 use sqlx::PgPool;
 use uuid::Uuid;
+
+use crate::domain::resource::ResourceRepositoryPolicy;
 
 /// Database access layer for favorites.
 pub struct FavoriteRepository {
@@ -43,7 +45,7 @@ impl FavoriteRepository {
         .bind(target_id)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::Validation("favorite already exists".into()).into())
+        .ok_or_else(ResourceRepositoryPolicy::favorite_already_exists)
     }
 
     /// Delete a favorite by ID (tenant-scoped).
@@ -59,7 +61,7 @@ impl FavoriteRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("favorite {id}")).into());
+            return Err(ResourceRepositoryPolicy::favorite_not_found(id));
         }
         Ok(())
     }
