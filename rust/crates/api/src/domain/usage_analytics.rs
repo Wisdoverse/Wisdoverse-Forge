@@ -1,5 +1,6 @@
 //! Governed context usage analytics response shape.
 
+use agentforge_core::{AppError, AppResult, ErrorKind, TenantScope, WorkspaceId};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sqlx::FromRow;
@@ -12,6 +13,18 @@ const DEFAULT_MIN_APPLIED: i64 = 10;
 const DEFAULT_STALE_AFTER_DAYS: i64 = 30;
 const DEFAULT_MIN_SUCCESS_RATE: f64 = 0.70;
 const DEFAULT_NEGATIVE_RATE: f64 = 0.30;
+
+pub(crate) struct ContextUsageAccessPolicy;
+
+impl ContextUsageAccessPolicy {
+    pub(crate) fn required_workspace(scope: &TenantScope) -> AppResult<WorkspaceId> {
+        scope.workspace_id().ok_or_else(Self::forbidden)
+    }
+
+    fn forbidden() -> AppError {
+        ErrorKind::Forbidden.into()
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct ContextUsageQuery {
@@ -128,4 +141,28 @@ pub struct ContextUsageItem {
     pub negative_feedback_rate: f64,
     pub last_used_at: DateTime<Utc>,
     pub last_feedback_at: Option<DateTime<Utc>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn context_usage_access_policy_requires_workspace_scope() {
+        let workspace_id = WorkspaceId::new();
+        let scope = TenantScope::with_axes(
+            agentforge_core::OrgId::new(),
+            agentforge_core::UserId::new(),
+            Some(workspace_id),
+            None,
+            None,
+        );
+        let missing_workspace = TenantScope::new(agentforge_core::OrgId::new(), agentforge_core::UserId::new());
+
+        assert_eq!(ContextUsageAccessPolicy::required_workspace(&scope).unwrap(), workspace_id);
+        assert!(matches!(
+            ContextUsageAccessPolicy::required_workspace(&missing_workspace).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
+    }
 }
