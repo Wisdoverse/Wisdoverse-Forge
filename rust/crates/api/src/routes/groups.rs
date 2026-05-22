@@ -277,6 +277,7 @@ mod tests {
 /// Marked `#[doc(hidden)]` to keep it out of rustdoc and signal "not for
 /// downstream use."
 #[doc(hidden)]
+#[cfg(any(test, feature = "test-support"))]
 pub mod test_only {
     use agentforge_core::AppResult;
     use serde::Serialize;
