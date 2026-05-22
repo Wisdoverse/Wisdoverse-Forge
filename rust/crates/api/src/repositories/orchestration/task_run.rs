@@ -1,11 +1,13 @@
 //! Task-run repository — tenant-scoped execution attempts and evidence reads.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::{OrchestrationTask, TaskRun};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool, Postgres, Transaction};
 use uuid::Uuid;
+
+use crate::domain::orchestration::OrchestrationRepositoryPolicy;
 
 /// Typed row projected by `v_run_evidence`.
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -42,9 +44,9 @@ impl TaskRunRepository {
         idempotency_key: &str,
         capability_profile: serde_json::Value,
     ) -> AppResult<TaskRun> {
-        let agent_id = task.assigned_agent_id.ok_or_else(|| {
-            ErrorKind::Internal(anyhow::anyhow!("task {} missing assigned agent for task_run", task.id))
-        })?;
+        let agent_id = task
+            .assigned_agent_id
+            .ok_or_else(|| OrchestrationRepositoryPolicy::missing_assigned_agent_for_task_run(task.id))?;
 
         sqlx::query_as::<_, TaskRun>(
             r#"INSERT INTO task_runs
@@ -72,7 +74,7 @@ impl TaskRunRepository {
         .bind(capability_profile)
         .fetch_optional(&mut **tx)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("agent {} for task_run", agent_id.as_uuid())).into())
+        .ok_or_else(|| OrchestrationRepositoryPolicy::task_run_agent_not_found(agent_id))
     }
 
     pub async fn finish_current_in_tx(
@@ -83,7 +85,7 @@ impl TaskRunRepository {
         status: &str,
     ) -> AppResult<Option<TaskRun>> {
         if !matches!(status, "completed" | "failed" | "canceled") {
-            return Err(ErrorKind::Validation(format!("invalid terminal task_run status: {status}")).into());
+            return Err(OrchestrationRepositoryPolicy::invalid_terminal_task_run_status(status));
         }
 
         let row = sqlx::query_as::<_, TaskRun>(
@@ -137,7 +139,7 @@ impl TaskRunRepository {
         .bind(run_id)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("task_run {run_id}")).into())
+        .ok_or_else(|| OrchestrationRepositoryPolicy::task_run_not_found(run_id))
     }
 
     pub async fn evidence_for_run(&self, scope: &TenantScope, run_id: Uuid) -> AppResult<Vec<RunEvidenceRow>> {
