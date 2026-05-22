@@ -4,16 +4,16 @@ mod stripe;
 
 use std::sync::Arc;
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::{BillingPlan, Invoice, Subscription};
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::billing::{
-    BillingCycle, BillingPlanPolicy, BillingPlanView, BillingRedirectUrlPolicy, BillingSubscriptionProjection,
-    BillingUsageLimitPolicy, BillingWebhookReconciliationPolicy, CheckoutCouponPolicy, InvoiceListPage,
-    InvoiceSubscriptionLookup, InvoiceView, PaymentMethodId, SubscriptionLifecyclePolicy, SubscriptionOrgResolution,
-    SubscriptionPlanResolution, SubscriptionStatusPolicy, SubscriptionView, UsageMetricView,
+    BillingCycle, BillingPlanPolicy, BillingPlanView, BillingRedirectUrlPolicy, BillingStripeGatewayPolicy,
+    BillingSubscriptionProjection, BillingUsageLimitPolicy, BillingWebhookReconciliationPolicy, CheckoutCouponPolicy,
+    InvoiceListPage, InvoiceSubscriptionLookup, InvoiceView, PaymentMethodId, SubscriptionLifecyclePolicy,
+    SubscriptionOrgResolution, SubscriptionPlanResolution, SubscriptionStatusPolicy, SubscriptionView, UsageMetricView,
 };
 pub use crate::domain::billing::{StripeInvoiceSnapshot, StripeSubscriptionSnapshot};
 pub(crate) use crate::domain::billing::{
@@ -281,7 +281,7 @@ impl BillingService {
     }
 
     fn ensure_gateway_configured(&self) -> AppResult<()> {
-        if self.gateway.is_configured() { Ok(()) } else { Err(billing_not_configured().into()) }
+        if self.gateway.is_configured() { Ok(()) } else { Err(BillingStripeGatewayPolicy::not_configured().into()) }
     }
 
     async fn persist_subscription_snapshot(
@@ -394,13 +394,6 @@ impl BillingService {
             }
         }
     }
-}
-
-fn billing_not_configured() -> ErrorKind {
-    ErrorKind::Unavailable(
-        "Stripe billing is not configured; refusing to change local subscription state without Stripe confirmation"
-            .to_string(),
-    )
 }
 
 fn plan_view(plan: BillingPlan) -> BillingPlanView {
