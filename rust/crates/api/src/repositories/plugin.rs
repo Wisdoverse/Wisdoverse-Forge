@@ -1,11 +1,13 @@
 //! Plugin repository — database queries for the plugins table and the
 //! per-agent `agent_plugins` join table.
 
-use agentforge_core::{AgentId, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AgentId, AppResult, TenantScope};
 use agentforge_db::entities::Plugin;
 use serde::Serialize;
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
+
+use crate::domain::configuration::ConfigurationRepositoryPolicy;
 
 /// One row per (agent, plugin) combination — what's enabled for a specific
 /// agent and with what override config. Joined with `plugins` so the listing
@@ -57,7 +59,7 @@ impl PluginRepository {
         .bind(scope.org_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("plugin {id}")).into())
+        .ok_or_else(|| ConfigurationRepositoryPolicy::plugin_not_found(id))
     }
 
     /// Create a new plugin for the org.
@@ -106,7 +108,7 @@ impl PluginRepository {
         .bind(enabled)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("plugin {id}")).into())
+        .ok_or_else(|| ConfigurationRepositoryPolicy::plugin_not_found(id))
     }
 
     /// List plugins joined with the agent's per-agent overrides.
@@ -122,7 +124,7 @@ impl PluginRepository {
                 .fetch_optional(&self.pool)
                 .await?;
         if agent_org.is_none() {
-            return Err(ErrorKind::NotFound(format!("agent {agent_id}")).into());
+            return Err(ConfigurationRepositoryPolicy::agent_not_found(agent_id));
         }
 
         let rows = sqlx::query_as::<_, AgentPluginRow>(
@@ -173,7 +175,7 @@ impl PluginRepository {
         .fetch_one(&self.pool)
         .await?;
         if !ok {
-            return Err(ErrorKind::NotFound(format!("agent {agent_id} or plugin {plugin_id}")).into());
+            return Err(ConfigurationRepositoryPolicy::agent_or_plugin_not_found(agent_id, plugin_id));
         }
 
         sqlx::query(
@@ -210,9 +212,7 @@ impl PluginRepository {
         .execute(&self.pool)
         .await?;
         if result.rows_affected() == 0 {
-            return Err(
-                ErrorKind::NotFound(format!("agent_plugin row for agent {agent_id} / plugin {plugin_id}")).into()
-            );
+            return Err(ConfigurationRepositoryPolicy::agent_plugin_row_not_found(agent_id, plugin_id));
         }
         Ok(())
     }
@@ -229,7 +229,7 @@ impl PluginRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("plugin {id}")).into());
+            return Err(ConfigurationRepositoryPolicy::plugin_not_found(id));
         }
         Ok(())
     }
