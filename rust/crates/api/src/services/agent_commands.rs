@@ -7,7 +7,9 @@ use agentforge_infra::NatsClient;
 
 use crate::services::agent::AgentService;
 use futures::future::{BoxFuture, FutureExt};
-use serde_json::{Value, json};
+use serde_json::Value;
+
+use crate::domain::agent::{agent_interrupt_command_payload, agent_prompt_command_payload};
 
 /// Low-level command bus abstraction for tests and production NATS publishing.
 pub trait AgentCommandBus: Send + Sync {
@@ -28,12 +30,12 @@ impl<B> AgentCommandService<B> {
 impl<B: AgentCommandBus> AgentCommandService<B> {
     /// Send a prompt to the agent sidecar command subject.
     pub async fn send_prompt(&self, agent_id: &str, prompt: &str) -> AppResult<()> {
-        self.publish(agent_id, json!({ "type": "prompt", "prompt": prompt })).await
+        self.publish(agent_id, agent_prompt_command_payload(prompt)).await
     }
 
     /// Send an interrupt command to the agent sidecar command subject.
     pub async fn interrupt(&self, agent_id: &str) -> AppResult<()> {
-        self.publish(agent_id, json!({ "type": "interrupt" })).await
+        self.publish(agent_id, agent_interrupt_command_payload()).await
     }
 
     async fn publish(&self, agent_id: &str, payload: Value) -> AppResult<()> {
