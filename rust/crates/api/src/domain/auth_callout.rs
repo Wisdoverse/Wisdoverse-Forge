@@ -4,6 +4,15 @@ pub(crate) fn nats_kick_payload(client_cid: u64) -> String {
     serde_json::json!({ "cid": client_cid }).to_string()
 }
 
+/// Auth-callout handler output on every allow or deny path.
+///
+/// `payload` is the byte-for-byte response to publish on the reply subject.
+/// `reply_headers` is reserved for future NATS auth-callout protocol changes.
+pub struct CalloutResponse {
+    pub payload: Vec<u8>,
+    pub reply_headers: Option<async_nats::HeaderMap>,
+}
+
 /// Pub/sub allow/deny arrays embedded inside the inner NATS User JWT.
 #[derive(Debug, Clone, Default)]
 pub struct NatsPermissions {
