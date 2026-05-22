@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 use agentforge_core::context_envelope::ContextEnvelope;
 use agentforge_core::orchestration_protocol::TaskAssignment;
-use agentforge_core::{AgentId, AppResult, ErrorKind};
+use agentforge_core::{AgentId, AppError, AppResult, ErrorKind, OrgId, TenantScope, WorkspaceId};
 use agentforge_db::entities::OrchestrationTask;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -134,6 +134,85 @@ impl OrchestrationTransactionPolicy {
 
     pub(crate) fn insert_assignment_outbox_failed(err: impl std::fmt::Display) -> ErrorKind {
         ErrorKind::Internal(anyhow::anyhow!("insert assignment outbox: {err}"))
+    }
+}
+
+pub(crate) struct OrchestrationRepositoryPolicy;
+
+impl OrchestrationRepositoryPolicy {
+    pub(crate) fn task_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("orchestration task {id}")).into()
+    }
+
+    pub(crate) fn approval_blocked_task_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("approval-blocked orchestration task {id}")).into()
+    }
+
+    pub(crate) fn participant_not_found(agent_id: AgentId) -> AppError {
+        ErrorKind::NotFound(format!("participant for agent {agent_id}")).into()
+    }
+
+    pub(crate) fn task_run_not_found(run_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("task_run {run_id}")).into()
+    }
+
+    pub(crate) fn task_run_agent_not_found(agent_id: AgentId) -> AppError {
+        ErrorKind::NotFound(format!("agent {} for task_run", agent_id.as_uuid())).into()
+    }
+
+    pub(crate) fn missing_assigned_agent_for_task_run(task_id: Uuid) -> AppError {
+        ErrorKind::Internal(anyhow::anyhow!("task {task_id} missing assigned agent for task_run")).into()
+    }
+
+    pub(crate) fn invalid_terminal_task_run_status(status: &str) -> AppError {
+        ErrorKind::Validation(format!("invalid terminal task_run status: {status}")).into()
+    }
+
+    pub(crate) fn invalid_context_item_kind(item_kind: &str) -> AppError {
+        ErrorKind::Validation(format!("invalid context item kind: {item_kind}")).into()
+    }
+
+    pub(crate) fn invalid_context_ref_kind(ref_kind: &str) -> AppError {
+        ErrorKind::Validation(format!("invalid context ref kind: {ref_kind}")).into()
+    }
+
+    pub(crate) fn context_injection_capability_profile_serialize(err: impl std::fmt::Display) -> AppError {
+        ErrorKind::Internal(anyhow::anyhow!("serialize context injection capability profile: {err}")).into()
+    }
+
+    pub(crate) fn context_injection_position_overflow(err: impl std::fmt::Display) -> AppError {
+        ErrorKind::Internal(anyhow::anyhow!("context injection position overflow: {err}")).into()
+    }
+
+    pub(crate) fn context_injection_applied_snapshot_serialize(err: impl std::fmt::Display) -> AppError {
+        ErrorKind::Internal(anyhow::anyhow!("serialize context injection applied snapshot: {err}")).into()
+    }
+
+    pub(crate) fn forbidden() -> AppError {
+        ErrorKind::Forbidden.into()
+    }
+
+    pub(crate) fn ensure_exists_or_forbidden(exists: bool) -> AppResult<()> {
+        if exists { Ok(()) } else { Err(Self::forbidden()) }
+    }
+
+    pub(crate) fn ensure_workspace(scope: &TenantScope, workspace_id: WorkspaceId) -> AppResult<()> {
+        if scope.workspace_id() == Some(workspace_id) { Ok(()) } else { Err(Self::forbidden()) }
+    }
+
+    pub(crate) fn required_workspace(scope: &TenantScope) -> AppResult<WorkspaceId> {
+        scope.workspace_id().ok_or_else(Self::forbidden)
+    }
+
+    pub(crate) fn ensure_run_scope(
+        scope: &TenantScope,
+        organization_id: OrgId,
+        workspace_id: WorkspaceId,
+    ) -> AppResult<()> {
+        if organization_id != scope.org_id() {
+            return Err(Self::forbidden());
+        }
+        if scope.scoped_read().contains_workspace(workspace_id) { Ok(()) } else { Err(Self::forbidden()) }
     }
 }
 
@@ -1587,6 +1666,64 @@ mod tests {
             format!("{}", OrchestrationTransactionPolicy::insert_assignment_outbox_failed("bad"))
                 .contains("insert assignment outbox")
         );
+    }
+
+    #[test]
+    fn orchestration_repository_policy_owns_lookup_and_scope_error_contracts() {
+        let task_id = Uuid::new_v4();
+        let run_id = Uuid::new_v4();
+        let agent_id = AgentId::new();
+        let workspace_id = WorkspaceId::new();
+        let scope =
+            TenantScope::with_axes(OrgId::new(), agentforge_core::UserId::new(), Some(workspace_id), None, None);
+        let missing_workspace = TenantScope::new(OrgId::new(), agentforge_core::UserId::new());
+
+        assert!(matches!(
+            OrchestrationRepositoryPolicy::task_not_found(task_id).kind,
+            ErrorKind::NotFound(message) if message == format!("orchestration task {task_id}")
+        ));
+        assert!(matches!(
+            OrchestrationRepositoryPolicy::approval_blocked_task_not_found(task_id).kind,
+            ErrorKind::NotFound(message) if message == format!("approval-blocked orchestration task {task_id}")
+        ));
+        assert!(matches!(
+            OrchestrationRepositoryPolicy::participant_not_found(agent_id).kind,
+            ErrorKind::NotFound(message) if message == format!("participant for agent {agent_id}")
+        ));
+        assert!(matches!(
+            OrchestrationRepositoryPolicy::task_run_not_found(run_id).kind,
+            ErrorKind::NotFound(message) if message == format!("task_run {run_id}")
+        ));
+        assert!(matches!(
+            OrchestrationRepositoryPolicy::task_run_agent_not_found(agent_id).kind,
+            ErrorKind::NotFound(message) if message == format!("agent {} for task_run", agent_id.as_uuid())
+        ));
+        assert!(matches!(
+            OrchestrationRepositoryPolicy::missing_assigned_agent_for_task_run(task_id).kind,
+            ErrorKind::Internal(_)
+        ));
+        assert!(matches!(
+            OrchestrationRepositoryPolicy::invalid_terminal_task_run_status("paused").kind,
+            ErrorKind::Validation(message) if message == "invalid terminal task_run status: paused"
+        ));
+        assert!(matches!(
+            OrchestrationRepositoryPolicy::invalid_context_item_kind("bad").kind,
+            ErrorKind::Validation(message) if message == "invalid context item kind: bad"
+        ));
+        assert!(matches!(
+            OrchestrationRepositoryPolicy::invalid_context_ref_kind("bad").kind,
+            ErrorKind::Validation(message) if message == "invalid context ref kind: bad"
+        ));
+        assert_eq!(OrchestrationRepositoryPolicy::required_workspace(&scope).unwrap(), workspace_id);
+        assert!(matches!(
+            OrchestrationRepositoryPolicy::required_workspace(&missing_workspace).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
+        assert!(OrchestrationRepositoryPolicy::ensure_exists_or_forbidden(true).is_ok());
+        assert!(matches!(
+            OrchestrationRepositoryPolicy::ensure_exists_or_forbidden(false).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
     }
 
     #[test]
