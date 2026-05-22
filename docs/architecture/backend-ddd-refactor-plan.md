@@ -172,6 +172,10 @@ Current stacked PRs:
   orchestration transaction, assignment outbox, and missing assignment-id error
   contracts into domain policy helpers while keeping transaction orchestration
   in the service layer.
+- #264 `refactor/backend-ddd-identity-credential-runtime-policies` -> #263
+  branch: moves identity JWT/password hashing and credential encryption/
+  serialization runtime error contracts into user and credential domain
+  policies.
 
 ## Execution Rule
 
@@ -382,8 +386,13 @@ Current open stack:
   begin/commit transaction errors, assignment outbox insert errors, and missing
   assignment-id contracts into `domain::orchestration` while preserving service
   ownership of repository I/O, rollback, and orchestration side effects.
+- #264 identity and credential runtime policy sweep, stacked on #263, moves
+  user JWT/password hashing/session-token error contracts plus Container CLI,
+  Git credential, and LLM provider encryption/serialization error contracts into
+  domain policies while services keep cryptography calls, repository I/O, and
+  credential injection flow.
 
-Before starting a new PR, inspect the current state of #229-#263. If they have
+Before starting a new PR, inspect the current state of #229-#264. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 

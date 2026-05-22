@@ -223,6 +223,30 @@ impl UserAccountPolicy {
         ErrorKind::Validation("user has no organization membership".into())
     }
 
+    pub(crate) fn jwt_creation_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("JWT creation failed: {err}"))
+    }
+
+    pub(crate) fn password_hashing_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("password hashing failed: {err}"))
+    }
+
+    pub(crate) fn context_switch_token_creation_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("context switch token creation failed: {err}"))
+    }
+
+    pub(crate) fn context_switch_refresh_token_creation_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("context switch refresh token creation failed: {err}"))
+    }
+
+    pub(crate) fn access_token_refresh_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("access token refresh failed: {err}"))
+    }
+
+    pub(crate) fn refresh_token_creation_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("refresh token creation failed: {err}"))
+    }
+
     pub(crate) fn password_reset_delivery_not_configured() -> ErrorKind {
         ErrorKind::Internal(anyhow::anyhow!("password reset delivery is not configured for this service"))
     }
@@ -535,6 +559,21 @@ mod tests {
     fn user_account_policy_owns_auth_error_contracts() {
         assert!(
             format!("{}", UserAccountPolicy::missing_default_org_membership()).contains("no organization membership")
+        );
+        assert!(format!("{}", UserAccountPolicy::jwt_creation_failed("bad")).contains("JWT creation failed"));
+        assert!(format!("{}", UserAccountPolicy::password_hashing_failed("bad")).contains("password hashing failed"));
+        assert!(
+            format!("{}", UserAccountPolicy::context_switch_token_creation_failed("bad"))
+                .contains("context switch token creation failed")
+        );
+        assert!(
+            format!("{}", UserAccountPolicy::context_switch_refresh_token_creation_failed("bad"))
+                .contains("context switch refresh token creation failed")
+        );
+        assert!(format!("{}", UserAccountPolicy::access_token_refresh_failed("bad")).contains("access token refresh"));
+        assert!(
+            format!("{}", UserAccountPolicy::refresh_token_creation_failed("bad"))
+                .contains("refresh token creation failed")
         );
         assert!(
             format!("{}", UserAccountPolicy::password_reset_delivery_not_configured())
