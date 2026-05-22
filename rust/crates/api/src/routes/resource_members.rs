@@ -35,7 +35,7 @@ struct UpdateMemberRequest {
 }
 
 fn make_service(state: &AppState) -> ResourceMemberService {
-    ResourceMemberService::from_pool(state.pool.clone())
+    state.resource_member_service()
 }
 
 async fn list_team_members(
