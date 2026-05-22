@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use agentforge_core::{AppError, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::{ImpersonationLog, Organization, User};
 use serde_json::Value;
 use sqlx::PgPool;
@@ -11,8 +11,8 @@ use uuid::Uuid;
 pub use crate::domain::admin::BulkDeleteResult;
 use crate::domain::admin::{
     AdminAgentDetailProjection, AdminAgentEventProjection, AdminAgentFilterPolicy, AdminAgentFilterQuery,
-    AdminAgentProjection, AdminAgentTokens, AdminImpersonationPolicy, AdminListPage, AdminRolePolicy,
-    admin_agent_detail_response, admin_agent_list_response,
+    AdminAgentProjection, AdminAgentTokens, AdminBulkDeletePolicy, AdminImpersonationPolicy, AdminListPage,
+    AdminRolePolicy, admin_agent_detail_response, admin_agent_list_response,
 };
 pub(crate) use crate::domain::admin::{admin_bulk_delete_response, admin_data_response, admin_delete_response};
 use crate::repositories::admin::{AdminAgentEventRow, AdminAgentFilters, AdminAgentRow, AdminRepository, AdminStats};
@@ -172,9 +172,7 @@ impl AdminService {
     }
 
     pub async fn bulk_delete_agents_checked(&self, agent_ids: &[Uuid]) -> AppResult<Vec<BulkDeleteResult>> {
-        if agent_ids.is_empty() {
-            return Err(ErrorKind::Validation("ids array required".into()).into());
-        }
+        AdminBulkDeletePolicy::require_ids(agent_ids)?;
         Ok(self.bulk_delete_agents(agent_ids).await)
     }
 
@@ -188,9 +186,11 @@ impl AdminService {
         for id in agent_ids {
             match self.repo.delete_agent(*id).await {
                 Ok(()) => results.push(BulkDeleteResult { id: *id, ok: true, error: None }),
-                Err(err) => {
-                    results.push(BulkDeleteResult { id: *id, ok: false, error: Some(bulk_delete_error_message(&err)) })
-                }
+                Err(err) => results.push(BulkDeleteResult {
+                    id: *id,
+                    ok: false,
+                    error: Some(AdminBulkDeletePolicy::error_message(&err)),
+                }),
             }
         }
         results
@@ -245,22 +245,6 @@ fn filters_from_agent_list_input(input: AdminAgentListInput<'_>) -> (AdminAgentF
         },
         decision.page,
     )
-}
-
-/// Turn an `AppError` into a safe, client-facing message for bulk delete.
-/// Internal errors collapse to a generic "delete failed" string so database
-/// / infra details never leak into the HTTP response.
-fn bulk_delete_error_message(err: &AppError) -> String {
-    match &err.kind {
-        ErrorKind::NotFound(_) => "agent not found".to_string(),
-        ErrorKind::Validation(msg) => format!("validation error: {msg}"),
-        ErrorKind::Unprocessable(msg) => format!("unprocessable entity: {msg}"),
-        ErrorKind::Conflict(msg) => format!("conflict: {msg}"),
-        ErrorKind::Unauthorized => "unauthorized".to_string(),
-        ErrorKind::Forbidden => "forbidden".to_string(),
-        ErrorKind::Unavailable(msg) => format!("service unavailable: {msg}"),
-        ErrorKind::Internal(_) => "delete failed".to_string(),
-    }
 }
 
 #[cfg(test)]

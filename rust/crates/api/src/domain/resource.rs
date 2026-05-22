@@ -198,6 +198,15 @@ impl ResourceMemberRole {
     }
 }
 
+/// Team/project membership lookup policy.
+pub(crate) struct ResourceMemberPolicy;
+
+impl ResourceMemberPolicy {
+    pub(crate) fn missing_org_user(email: &str) -> ErrorKind {
+        ErrorKind::NotFound(format!("org user {}", email.trim()))
+    }
+}
+
 /// Tenant organization guard for org-scoped resource mutations.
 pub(crate) struct ResourceOrganizationPolicy;
 
@@ -246,6 +255,10 @@ pub(crate) struct NavigationProjectUpdateDraft {
 }
 
 impl NavigationResourcePolicy {
+    pub(crate) fn org_update_name(name: Option<String>) -> AppResult<String> {
+        name.ok_or_else(|| ErrorKind::Validation("name is required".into()).into())
+    }
+
     pub(crate) fn team_create_draft(
         name: String,
         slug: Option<String>,
@@ -462,6 +475,14 @@ mod tests {
     }
 
     #[test]
+    fn resource_member_policy_owns_email_lookup_error() {
+        assert!(
+            format!("{}", ResourceMemberPolicy::missing_org_user(" user@example.com "))
+                .contains("org user user@example.com")
+        );
+    }
+
+    #[test]
     fn resource_response_helpers_keep_legacy_keys() {
         assert_eq!(resource_data_response(vec![1])["data"], json!([1]));
         assert_eq!(resource_members_response(vec!["alice"])["members"], json!(["alice"]));
@@ -531,6 +552,8 @@ mod tests {
 
     #[test]
     fn navigation_resource_drafts_reject_required_empty_fields() {
+        assert!(NavigationResourcePolicy::org_update_name(None).is_err());
+        assert_eq!(NavigationResourcePolicy::org_update_name(Some("Acme".into())).unwrap(), "Acme");
         assert!(NavigationResourcePolicy::team_create_draft(" ".into(), None, None, None).is_err());
         assert!(NavigationResourcePolicy::project_create_draft(" ".into(), None, None, None).is_err());
         assert!(NavigationResourcePolicy::team_update_draft(Some(" ".into()), None, None, None).is_err());
