@@ -4,7 +4,7 @@
 //! operator-managed configuration surfaces such as quotas, resource profiles,
 //! dashboard tiles, and plugin catalog entries.
 
-use agentforge_core::{AppError, AppResult, CliToolKind, ErrorKind};
+use agentforge_core::{AgentId, AppError, AppResult, CliToolKind, ErrorKind};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
@@ -50,6 +50,22 @@ impl ConfigurationRepositoryPolicy {
 
     pub(crate) fn tile_not_found(id: Uuid) -> AppError {
         ErrorKind::NotFound(format!("tile {id}")).into()
+    }
+
+    pub(crate) fn plugin_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("plugin {id}")).into()
+    }
+
+    pub(crate) fn agent_not_found(agent_id: AgentId) -> AppError {
+        ErrorKind::NotFound(format!("agent {agent_id}")).into()
+    }
+
+    pub(crate) fn agent_or_plugin_not_found(agent_id: AgentId, plugin_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("agent {agent_id} or plugin {plugin_id}")).into()
+    }
+
+    pub(crate) fn agent_plugin_row_not_found(agent_id: AgentId, plugin_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("agent_plugin row for agent {agent_id} / plugin {plugin_id}")).into()
     }
 }
 
@@ -722,6 +738,7 @@ mod tests {
     #[test]
     fn configuration_repository_policy_owns_flat_repository_errors() {
         let id = Uuid::new_v4();
+        let agent_id = AgentId::new();
 
         assert!(matches!(
             ConfigurationRepositoryPolicy::feature_flag_not_found("beta").kind,
@@ -738,6 +755,22 @@ mod tests {
         assert!(matches!(
             ConfigurationRepositoryPolicy::tile_not_found(id).kind,
             ErrorKind::NotFound(message) if message == format!("tile {id}")
+        ));
+        assert!(matches!(
+            ConfigurationRepositoryPolicy::plugin_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("plugin {id}")
+        ));
+        assert!(matches!(
+            ConfigurationRepositoryPolicy::agent_not_found(agent_id).kind,
+            ErrorKind::NotFound(message) if message == format!("agent {agent_id}")
+        ));
+        assert!(matches!(
+            ConfigurationRepositoryPolicy::agent_or_plugin_not_found(agent_id, id).kind,
+            ErrorKind::NotFound(message) if message == format!("agent {agent_id} or plugin {id}")
+        ));
+        assert!(matches!(
+            ConfigurationRepositoryPolicy::agent_plugin_row_not_found(agent_id, id).kind,
+            ErrorKind::NotFound(message) if message == format!("agent_plugin row for agent {agent_id} / plugin {id}")
         ));
     }
 }
