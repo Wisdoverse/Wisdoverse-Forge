@@ -47,7 +47,7 @@ pub struct UpdateWorkspaceRequest {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> WorkspaceService {
-    WorkspaceService::from_pool(state.pool.clone())
+    state.workspace_service()
 }
 
 /// `GET /api/workspaces` — list workspaces for the authenticated tenant.
