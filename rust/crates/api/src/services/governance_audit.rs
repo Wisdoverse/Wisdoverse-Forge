@@ -1,15 +1,15 @@
 //! Governance audit projection service.
 
 use hmac::{Hmac, Mac};
-use serde_json::{Value, json};
+use serde_json::Value;
 use sha2::Sha256;
 
 use agentforge_core::{AppConfig, AppResult, ErrorKind, TenantScope};
 use sqlx::PgPool;
 
 use crate::domain::context_governance::{
-    AuditTamperStatus, ContextGovernancePolicy, GovernanceAuditEntry, GovernanceAuditQuery, GovernanceAuditQueryParams,
-    GovernanceAuditResponse,
+    AuditTamperStatus, ContextGovernancePolicy, GovernanceAuditEntry, GovernanceAuditExportedAudit,
+    GovernanceAuditQuery, GovernanceAuditQueryParams, GovernanceAuditResponse,
 };
 pub(crate) use crate::domain::context_governance::{
     GovernanceAuditQueryParams as QueryParams, governance_audit_response,
@@ -80,13 +80,7 @@ impl GovernanceAuditService {
                 "governance.context.audit.exported",
                 "governance_audit_export",
                 None,
-                &json!({
-                    "entry_count": data.entries.len(),
-                    "redact_secrets": data.query.redacted,
-                    "event_prefix": data.query.event_prefix,
-                    "limit": data.query.limit,
-                    "offset": data.query.offset
-                }),
+                &GovernanceAuditExportedAudit::from_response(&data).audit_payload(),
                 None,
             )
             .await?;
