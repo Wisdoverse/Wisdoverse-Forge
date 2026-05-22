@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::domain::user::{
     AuthRefreshCookiePolicy, GeneratedPasswordResetToken, PASSWORD_RESET_TTL_MINUTES, PasswordResetRequestEmail,
     PasswordResetToken, RefreshSessionPolicy, RefreshedAccessToken, SWITCH_CONTEXT_REFRESH_EXPIRY_SECONDS,
-    SwitchContextAxes, UserEmail, UserListPage, UserPassword, derive_username, email_domain_for_log,
+    SwitchContextAxes, UserAccountPolicy, UserEmail, UserListPage, UserPassword, derive_username, email_domain_for_log,
     password_reset_email_body,
 };
 pub use crate::domain::user::{AuthenticatedUser, LoginResult};
@@ -137,11 +137,8 @@ impl UserService {
         }
 
         // 4. Get user's default org membership + role
-        let (org_id, role) = self
-            .repo
-            .find_default_org(user.id)
-            .await?
-            .ok_or_else(|| ErrorKind::Validation("user has no organization membership".into()))?;
+        let (org_id, role) =
+            self.repo.find_default_org(user.id).await?.ok_or_else(UserAccountPolicy::missing_default_org_membership)?;
 
         // 5. Create JWT
         let token = self
@@ -166,11 +163,8 @@ impl UserService {
             .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("password hashing failed: {e}")))?;
 
         let user = self.repo.create(email.value(), &hash, display_name).await?;
-        let (org_id, role) = self
-            .repo
-            .find_default_org(user.id)
-            .await?
-            .ok_or_else(|| ErrorKind::Validation("user has no organization membership".into()))?;
+        let (org_id, role) =
+            self.repo.find_default_org(user.id).await?.ok_or_else(UserAccountPolicy::missing_default_org_membership)?;
 
         let access_token = self
             .jwt
@@ -239,7 +233,7 @@ impl UserService {
         let token_hash = token.hash();
         let updated = self.repo.reset_password_with_token(&token_hash, &hash).await?;
         if !updated {
-            return Err(ErrorKind::Validation("invalid or expired reset token".into()).into());
+            return Err(UserAccountPolicy::invalid_or_expired_reset_token().into());
         }
         Ok(())
     }
