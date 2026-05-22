@@ -128,10 +128,18 @@ represented as complete product capabilities:
 - [docs/README.md](docs/README.md) - documentation map and truth hierarchy
 - [Architecture Overview](docs/architecture/overview.md) - runtime topology and
   data flow
+- [DDD Layer Contract](docs/architecture/ddd-contract.md) - route/service/domain/repository rules
+- [Aggregate Catalog](docs/architecture/aggregate-catalog.md) - DDD aggregates and modules
+- [Architecture Decision Records](docs/adr/) - durable record of cross-cutting decisions
+- [Threat Model](docs/security/threat-model.md) - STRIDE per trust boundary
+- [Observability and SLOs](docs/runbooks/observability-slo.md) - SLIs, SLOs, alerts
+- [Versioning Policy](docs/versioning.md) - API versioning and release policy
 - [Runtime Validation](docs/runbooks/runtime-validation.md) - current proofed
   runtime boundary and commands
 - [Getting Started](docs/guides/getting-started.md) - local setup path
 - [Contributing](CONTRIBUTING.md) - workflow, validation, and PR expectations
+- [Code of Conduct](CODE_OF_CONDUCT.md) - community standards
+- [Security Policy](SECURITY.md) - vulnerability disclosure
 
 ## License
 
