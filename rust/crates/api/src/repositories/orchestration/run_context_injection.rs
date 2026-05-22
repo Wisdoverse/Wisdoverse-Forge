@@ -3,11 +3,13 @@
 use std::collections::HashMap;
 
 use agentforge_core::context_envelope::{ContextEnvelope, ContextEnvelopeItemKind};
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::{RunContextInjection, TaskRun};
 use chrono::{DateTime, Utc};
 use sqlx::{FromRow, PgPool, Postgres, Transaction};
 use uuid::Uuid;
+
+use crate::domain::orchestration::OrchestrationRepositoryPolicy;
 
 #[derive(Debug, Clone, FromRow)]
 pub struct ContextAppliedRunRow {
@@ -52,19 +54,17 @@ impl RunContextInjectionRepository {
     ) -> AppResult<Vec<RunContextInjection>> {
         require_run_scope(scope, run)?;
         let adapter = envelope.capability.cli_tool.as_str();
-        let capability_profile = serde_json::to_value(&envelope.capability).map_err(|err| {
-            ErrorKind::Internal(anyhow::anyhow!("serialize context injection capability profile: {err}"))
-        })?;
+        let capability_profile = serde_json::to_value(&envelope.capability)
+            .map_err(OrchestrationRepositoryPolicy::context_injection_capability_profile_serialize)?;
         let degradation_reason = applied_degradation_reason(envelope);
         let mut rows = Vec::with_capacity(envelope.applied.len());
 
         for (position, item) in envelope.applied.iter().enumerate() {
-            let position = i32::try_from(position)
-                .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("context injection position overflow: {err}")))?;
+            let position =
+                i32::try_from(position).map_err(OrchestrationRepositoryPolicy::context_injection_position_overflow)?;
             let item_kind = item_kind_label(item.kind);
-            let applied_snapshot = serde_json::to_value(item).map_err(|err| {
-                ErrorKind::Internal(anyhow::anyhow!("serialize context injection applied snapshot: {err}"))
-            })?;
+            let applied_snapshot = serde_json::to_value(item)
+                .map_err(OrchestrationRepositoryPolicy::context_injection_applied_snapshot_serialize)?;
             let row = sqlx::query_as::<_, RunContextInjection>(
                 r#"WITH inserted AS (
                        INSERT INTO run_context_injections (
@@ -231,14 +231,11 @@ impl RunContextInjectionRepository {
 }
 
 fn require_run_scope(scope: &TenantScope, run: &TaskRun) -> AppResult<()> {
-    if run.organization_id != scope.org_id() {
-        return Err(ErrorKind::Forbidden.into());
-    }
-    if scope.scoped_read().contains_workspace(run.workspace_id) { Ok(()) } else { Err(ErrorKind::Forbidden.into()) }
+    OrchestrationRepositoryPolicy::ensure_run_scope(scope, run.organization_id, run.workspace_id)
 }
 
 fn require_workspace(scope: &TenantScope) -> AppResult<agentforge_core::WorkspaceId> {
-    scope.workspace_id().ok_or_else(|| ErrorKind::Forbidden.into())
+    OrchestrationRepositoryPolicy::required_workspace(scope)
 }
 
 fn item_kind_label(kind: ContextEnvelopeItemKind) -> &'static str {
