@@ -10,7 +10,8 @@ use std::sync::Arc;
 use tokio::sync::oneshot;
 
 use crate::domain::prompt::{
-    PromptContent, PromptContextPolicy, PromptHistoryMessage, SseFrame, sse_error_for_llm_error,
+    PromptAgentPolicy, PromptContent, PromptContextPolicy, PromptHistoryMessage, PromptProviderPolicy, SseFrame,
+    sse_error_for_llm_error,
 };
 use crate::repositories::agent::AgentRepository;
 use crate::repositories::agent::message::MessageRepository;
@@ -160,9 +161,11 @@ impl KeyResolver for UserLlmConfigKeyResolver {
             let base_url = self.repo.find_default_secret(scope, provider).await?.and_then(|secret| secret.base_url);
             return Ok(LlmProviderCredential { api_key: String::new(), base_url }); // keyless local
         }
-        let secret = self.repo.find_default_secret(scope, provider).await?.ok_or_else(|| {
-            ErrorKind::Validation(format!("no API key configured for provider '{provider}' — add one in LLM settings"))
-        })?;
+        let secret = self
+            .repo
+            .find_default_secret(scope, provider)
+            .await?
+            .ok_or_else(|| PromptProviderPolicy::missing_api_key(provider))?;
         let key = self
             .encryption_key
             .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("LLM_ENCRYPTION_KEY not configured")))?;
@@ -238,12 +241,8 @@ impl PromptService {
             temperature: None,
         };
 
-        let provider_name = self
-            .agents
-            .find_by_id(&scope, agent_id)
-            .await?
-            .provider
-            .ok_or_else(|| ErrorKind::Validation("agent has no provider configured".into()))?;
+        let provider_name =
+            PromptAgentPolicy::required_provider(self.agents.find_by_id(&scope, agent_id).await?.provider)?;
         let credential = self.keys.resolve(&scope, &provider_name).await?;
         let provider_instance = self
             .factory
@@ -252,7 +251,7 @@ impl PromptService {
                 api_key: credential.api_key,
                 base_url: credential.base_url,
             })
-            .map_err(|e| ErrorKind::Validation(format!("{e}")))?;
+            .map_err(PromptProviderPolicy::build_error)?;
         // TODO(T12): remap `LlmError::Api { status, .. }` to user-remediable `ErrorKind`
         // (Validation / Unauthorized / Conflict / RateLimited) at the route layer so
         // the frontend can distinguish "your API key is wrong" (401) from a real 500.
