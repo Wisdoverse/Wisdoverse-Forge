@@ -303,8 +303,13 @@ Current open stack:
   container-reference errors, and start image rejection messaging into
   `domain::agent` policies so container services stay focused on Docker,
   repository, credential, and orchestration side effects.
+- #257 service protocol DTO sweep, stacked on #256, moves auth-callout
+  response envelopes, CLI auth token endpoint DTOs, OAuth refresh failure
+  classification, and Stripe subscription/invoice snapshots into domain
+  modules so services retain external I/O, signing, encryption, and
+  persistence orchestration instead of owning protocol shapes.
 
-Before starting a new PR, inspect the current state of #229-#256. If they have
+Before starting a new PR, inspect the current state of #229-#257. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 

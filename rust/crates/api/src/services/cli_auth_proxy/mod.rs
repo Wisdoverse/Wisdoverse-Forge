@@ -28,8 +28,8 @@ pub use crate::domain::cli_auth_proxy::{
     CallbackMode, ProviderInfo, ProviderStatus, RefreshSummary, RevokedCliCredential,
 };
 pub(crate) use crate::domain::cli_auth_proxy::{
-    CliAuthTokenFileInput, cli_auth_authorize_response, cli_auth_connected_response, cli_auth_disconnected_response,
-    cli_auth_providers_response, cli_auth_statuses_response, cli_auth_token_file_map,
+    CliAuthTokenFileInput, TokenResponse, cli_auth_authorize_response, cli_auth_connected_response,
+    cli_auth_disconnected_response, cli_auth_providers_response, cli_auth_statuses_response, cli_auth_token_file_map,
 };
 pub use refresh_classifier::{RefreshErrorKind, classify_refresh_failure};
 
@@ -228,22 +228,6 @@ struct StateEntry {
     code_verifier: SecretString,
     provider: String,
     user_id: uuid::Uuid,
-}
-
-/// Raw token response from the provider's token endpoint.
-///
-/// Tokens are wrapped in `SecretString` so the derived `Debug` and any
-/// accidental `tracing::debug!(?tokens)` logs redact the material. `secrecy`'s
-/// `serde` feature provides `Deserialize` directly — we never serialise this
-/// type (the downstream `store_tokens` path explicitly exposes then encrypts).
-#[derive(Debug, Deserialize)]
-struct TokenResponse {
-    id_token: Option<SecretString>,
-    access_token: SecretString,
-    refresh_token: Option<SecretString>,
-    #[allow(dead_code)]
-    expires_in: Option<u64>,
-    account_id: Option<String>,
 }
 
 /// In-memory PKCE state store — used when Redis is not configured. Must live
