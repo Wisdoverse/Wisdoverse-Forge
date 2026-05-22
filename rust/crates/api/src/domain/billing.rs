@@ -147,6 +147,31 @@ impl InvoiceView {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct StripeSubscriptionSnapshot {
+    pub id: String,
+    pub customer_id: Option<String>,
+    pub status: String,
+    pub current_period_start: Option<DateTime<Utc>>,
+    pub current_period_end: Option<DateTime<Utc>>,
+    pub cancel_at_period_end: bool,
+    pub canceled_at: Option<DateTime<Utc>>,
+    pub metadata: BTreeMap<String, String>,
+    pub price_id: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct StripeInvoiceSnapshot {
+    pub id: String,
+    pub customer_id: Option<String>,
+    pub subscription_id: Option<String>,
+    pub amount_cents: i32,
+    pub currency: String,
+    pub status: String,
+    pub paid_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UsageMetricView {
