@@ -16,9 +16,7 @@ pub(crate) use crate::domain::agent::{
 };
 pub(crate) use crate::repositories::agent::CreateAgentParams;
 use crate::repositories::agent::{AgentListItem, AgentRepository};
-use crate::services::agent_workspace::{
-    resolve_agent_workspace_paths, resolve_workspace_mount_scope, workspace_root_from_env,
-};
+use crate::services::agent_workspace::{AgentWorkspaceService, resolve_agent_workspace_paths, workspace_root_from_env};
 
 /// Application service for agent operations.
 pub struct AgentService {
@@ -27,7 +25,7 @@ pub struct AgentService {
 }
 
 struct AgentWorkspaceResolver {
-    pool: PgPool,
+    workspaces: AgentWorkspaceService,
     workspace_root: String,
 }
 
@@ -37,11 +35,12 @@ impl AgentService {
     }
 
     pub(crate) fn from_pool_with_workspace(pool: PgPool) -> Self {
-        Self::new(AgentRepository::new(pool.clone())).with_workspace_resolver(pool, workspace_root_from_env())
+        Self::new(AgentRepository::new(pool.clone()))
+            .with_workspace_resolver(AgentWorkspaceService::from_pool(pool), workspace_root_from_env())
     }
 
-    pub(crate) fn with_workspace_resolver(mut self, pool: PgPool, workspace_root: String) -> Self {
-        self.workspace_resolver = Some(AgentWorkspaceResolver { pool, workspace_root });
+    pub(crate) fn with_workspace_resolver(mut self, workspaces: AgentWorkspaceService, workspace_root: String) -> Self {
+        self.workspace_resolver = Some(AgentWorkspaceResolver { workspaces, workspace_root });
         self
     }
 
@@ -96,13 +95,10 @@ impl AgentService {
             return Ok(None);
         };
 
-        let workspace_scope = resolve_workspace_mount_scope(
-            &resolver.pool,
-            scope.org_id().as_uuid(),
-            params.workspace_id,
-            params.project_id,
-        )
-        .await?;
+        let workspace_scope = resolver
+            .workspaces
+            .resolve_workspace_mount_scope(scope.org_id().as_uuid(), params.workspace_id, params.project_id)
+            .await?;
         params.workspace_id = Some(workspace_scope.workspace_id);
 
         if params.cli_tool.is_none() {

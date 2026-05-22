@@ -27,10 +27,9 @@ use tokio::time::sleep;
 use uuid::Uuid;
 
 use agentforge_core::{AgentStatus, AppError, AppResult, CliToolKind, ErrorKind};
-use agentforge_db::entities::Agent;
 use agentforge_platform::DockerClient;
 
-use crate::services::agent_workspace::default_workspace_for_org;
+use crate::repositories::agent::{McpAgentInsertRecord, McpAgentRepository};
 use crate::services::mcp_agent::{
     CreateSessionRequest, CreateSessionResult, McpAgentRecord, McpAgentRuntime, McpAgentRuntimeConfig,
     McpAgentRuntimeCreate, McpAgentRuntimeCreateResult, McpAgentService, McpAgentStore, ProjectRuntimeContext,
@@ -349,12 +348,12 @@ fn tool_result(id: Value, is_error: bool, text: String) -> Value {
 
 #[derive(Clone)]
 pub struct SqlxMcpAgentStore {
-    pool: PgPool,
+    repo: McpAgentRepository,
 }
 
 impl SqlxMcpAgentStore {
     pub fn new(pool: PgPool) -> Self {
-        Self { pool }
+        Self { repo: McpAgentRepository::new(pool) }
     }
 }
 
@@ -366,77 +365,34 @@ impl McpAgentStore for SqlxMcpAgentStore {
         org_id: Option<Uuid>,
         user_id: Option<Uuid>,
     ) -> AppResult<ProjectRuntimeContext> {
-        let (organization_id, workspace_id) = match project_id {
-            Some(project_id) => {
-                let (project_org_id, workspace_id) = sqlx::query_as::<_, (Uuid, Uuid)>(
-                    r#"SELECT organization_id, workspace_id
-                         FROM projects
-                        WHERE id = $1
-                          AND deleted_at IS NULL"#,
-                )
-                .bind(project_id)
-                .fetch_optional(&self.pool)
-                .await?
-                .ok_or_else(|| ErrorKind::NotFound(format!("project {project_id}")))?;
-                if let Some(org_id) = org_id
-                    && org_id != project_org_id
-                {
-                    return Err(ErrorKind::NotFound(format!("project {project_id}")).into());
-                }
-                (project_org_id, workspace_id)
-            }
-            None => {
-                let organization_id =
-                    org_id.ok_or_else(|| ErrorKind::Validation("project or tenant context is required".into()))?;
-                let workspace_id = default_workspace_for_org(&self.pool, organization_id).await?;
-                (organization_id, workspace_id)
-            }
-        };
-
-        let user_id = match user_id {
-            Some(user_id) => user_id,
-            None => sqlx::query_scalar::<_, Uuid>(
-                r#"SELECT user_id
-                       FROM organization_members
-                       WHERE organization_id = $1
-                       ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, created_at ASC
-                       LIMIT 1"#,
-            )
-            .bind(organization_id)
-            .fetch_optional(&self.pool)
-            .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("organization member for {organization_id}")))?,
-        };
-
-        Ok(ProjectRuntimeContext { project_id, org_id: organization_id, user_id, workspace_id })
+        let row = self.repo.resolve_project_context(project_id, org_id, user_id).await?;
+        Ok(ProjectRuntimeContext {
+            project_id: row.project_id,
+            org_id: row.organization_id,
+            user_id: row.user_id,
+            workspace_id: row.workspace_id,
+        })
     }
 
     async fn insert_agent(&self, record: McpAgentRecord) -> AppResult<()> {
-        sqlx::query(
-            r#"INSERT INTO agents (id, organization_id, workspace_id, project_id, user_id, name, status, container_id, model, provider)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"#,
-        )
-        .bind(record.agent_id)
-        .bind(record.organization_id)
-        .bind(record.workspace_id)
-        .bind(record.project_id)
-        .bind(record.user_id)
-        .bind(record.name)
-        .bind(record.status)
-        .bind(record.container_id)
-        .bind(record.model)
-        .bind(record.provider)
-        .execute(&self.pool)
-        .await?;
-        Ok(())
+        self.repo
+            .insert_agent(McpAgentInsertRecord {
+                agent_id: record.agent_id,
+                organization_id: record.organization_id,
+                workspace_id: record.workspace_id,
+                project_id: record.project_id,
+                user_id: record.user_id,
+                name: record.name,
+                status: record.status,
+                container_id: record.container_id,
+                model: record.model,
+                provider: record.provider,
+            })
+            .await
     }
 
     async fn get_agent(&self, agent_id: Uuid) -> AppResult<McpAgentRecord> {
-        let agent = sqlx::query_as::<_, Agent>("SELECT * FROM agents WHERE id = $1")
-            .bind(agent_id)
-            .fetch_optional(&self.pool)
-            .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("agent {agent_id}")))?;
+        let agent = self.repo.get_agent(agent_id).await?;
 
         Ok(McpAgentRecord {
             agent_id: agent.id.as_uuid(),
@@ -454,23 +410,11 @@ impl McpAgentStore for SqlxMcpAgentStore {
     }
 
     async fn update_agent_status(&self, agent_id: Uuid, status: AgentStatus) -> AppResult<()> {
-        let result = sqlx::query("UPDATE agents SET status = $2, updated_at = NOW() WHERE id = $1")
-            .bind(agent_id)
-            .bind(status)
-            .execute(&self.pool)
-            .await?;
-        if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("agent {agent_id}")).into());
-        }
-        Ok(())
+        self.repo.update_agent_status(agent_id, status).await
     }
 
     async fn delete_agent(&self, agent_id: Uuid) -> AppResult<()> {
-        let result = sqlx::query("DELETE FROM agents WHERE id = $1").bind(agent_id).execute(&self.pool).await?;
-        if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("agent {agent_id}")).into());
-        }
-        Ok(())
+        self.repo.delete_agent(agent_id).await
     }
 }
 
