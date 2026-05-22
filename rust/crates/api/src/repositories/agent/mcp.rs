@@ -1,9 +1,11 @@
 //! Agent aggregate persistence for the internal MCP bridge.
 
-use agentforge_core::{AgentStatus, AppResult, ErrorKind};
+use agentforge_core::{AgentStatus, AppResult};
 use agentforge_db::entities::Agent;
 use sqlx::PgPool;
 use uuid::Uuid;
+
+use crate::domain::agent::AgentRepositoryPolicy;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct McpProjectRuntimeContextRow {
@@ -49,13 +51,12 @@ impl McpAgentRepository {
                 if let Some(org_id) = org_id
                     && org_id != project_org_id
                 {
-                    return Err(ErrorKind::NotFound(format!("project {project_id}")).into());
+                    return Err(AgentRepositoryPolicy::project_not_found(project_id));
                 }
                 (project_org_id, workspace_id)
             }
             None => {
-                let organization_id =
-                    org_id.ok_or_else(|| ErrorKind::Validation("project or tenant context is required".into()))?;
+                let organization_id = org_id.ok_or_else(AgentRepositoryPolicy::tenant_context_required)?;
                 let workspace_id = self.default_workspace_for_org(organization_id).await?;
                 (organization_id, workspace_id)
             }
@@ -94,7 +95,7 @@ impl McpAgentRepository {
             .bind(agent_id)
             .fetch_optional(&self.pool)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("agent {agent_id}")).into())
+            .ok_or_else(|| AgentRepositoryPolicy::agent_uuid_not_found(agent_id))
     }
 
     pub(crate) async fn update_agent_status(&self, agent_id: Uuid, status: AgentStatus) -> AppResult<()> {
@@ -104,7 +105,7 @@ impl McpAgentRepository {
             .execute(&self.pool)
             .await?;
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("agent {agent_id}")).into());
+            return Err(AgentRepositoryPolicy::agent_uuid_not_found(agent_id));
         }
         Ok(())
     }
@@ -112,7 +113,7 @@ impl McpAgentRepository {
     pub(crate) async fn delete_agent(&self, agent_id: Uuid) -> AppResult<()> {
         let result = sqlx::query("DELETE FROM agents WHERE id = $1").bind(agent_id).execute(&self.pool).await?;
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("agent {agent_id}")).into());
+            return Err(AgentRepositoryPolicy::agent_uuid_not_found(agent_id));
         }
         Ok(())
     }
@@ -127,7 +128,7 @@ impl McpAgentRepository {
         .bind(project_id)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("project {project_id}")).into())
+        .ok_or_else(|| AgentRepositoryPolicy::project_not_found(project_id))
     }
 
     async fn default_workspace_for_org(&self, org_id: Uuid) -> AppResult<Uuid> {
@@ -168,6 +169,6 @@ impl McpAgentRepository {
         .bind(org_id)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("organization member for {org_id}")).into())
+        .ok_or_else(|| AgentRepositoryPolicy::organization_member_not_found(org_id))
     }
 }
