@@ -171,6 +171,11 @@ pub(crate) fn context_preview_item(item: &ResolvedItemRef, selected: bool, pinne
     }
 }
 
+pub(crate) fn selected_items_payload(resolved: &ResolvedContext) -> AppResult<Value> {
+    serde_json::to_value(&resolved.applied)
+        .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("serialize context preview selected items: {err}")).into())
+}
+
 #[cfg(test)]
 mod tests {
     use agentforge_core::{CliToolKind, RuntimeCapability, RuntimeKind};
@@ -353,6 +358,34 @@ mod tests {
 
         assert!(!suggested.selected);
         assert!(suggested.pinned);
+    }
+
+    #[test]
+    fn selected_items_payload_serializes_applied_items() {
+        use crate::domain::context_resolver::ContextItemKind;
+
+        let resolved = ResolvedContext {
+            applied: vec![ResolvedItemRef {
+                id: Uuid::from_u128(0x11111111111141118111111111111111),
+                kind: ContextItemKind::Memory,
+                title: "Applied".to_string(),
+                scope_kind: None,
+                scope_id: None,
+                sensitivity: None,
+                estimated_tokens: 5,
+                last_used_at: None,
+                last_verified_at: None,
+                why: "matched".to_string(),
+            }],
+            suggested: Vec::new(),
+            capability: RuntimeCapability::for_cli_tool(CliToolKind::Codex, RuntimeKind::Container),
+            degradation: Vec::new(),
+            envelope_version: "v1".to_string(),
+        };
+
+        let payload = selected_items_payload(&resolved).expect("selected items payload");
+
+        assert_eq!(payload.as_array().map(Vec::len), Some(1));
     }
 
     #[test]
