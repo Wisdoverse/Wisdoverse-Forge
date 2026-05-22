@@ -14,47 +14,13 @@
 
 use reqwest::Response;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RefreshErrorKind {
-    /// Refresh token rejected — user must re-authenticate.
-    InvalidGrant,
-    /// OAuth app-level rejection — operator must investigate.
-    InvalidClient,
-    /// Other RFC 6749 error code (e.g. `invalid_scope`). Log + metric only.
-    OtherOauthError(String),
-    /// 5xx, network failure, non-JSON body on 4xx, or unknown code. Retry.
-    Transient(String),
-}
+pub use crate::domain::cli_auth_proxy::RefreshErrorKind;
+use crate::domain::cli_auth_proxy::RefreshFailureClassifier;
 
 pub async fn classify_refresh_failure(resp: Response) -> RefreshErrorKind {
     let status = resp.status();
-    if status.is_server_error() {
-        return RefreshErrorKind::Transient(format!("HTTP {status}"));
-    }
-    // 4xx — parse body for RFC 6749 error code.
     let body = resp.text().await.unwrap_or_default();
-    let error_code = serde_json::from_str::<serde_json::Value>(&body)
-        .ok()
-        .and_then(|v| v.get("error").and_then(|e| e.as_str()).map(str::to_string));
-    match error_code.as_deref() {
-        Some("invalid_grant") => RefreshErrorKind::InvalidGrant,
-        Some("invalid_client") | Some("unauthorized_client") => RefreshErrorKind::InvalidClient,
-        Some(other) => RefreshErrorKind::OtherOauthError(other.to_string()),
-        // Body not JSON or missing `error` key — could be IdP HTML error
-        // page, WAF 403, etc. Defensive: treat as transient, not revoke.
-        None => RefreshErrorKind::Transient(format!("HTTP {status}: {}", truncate(&body, 200))),
-    }
-}
-
-/// Truncate to at most `max_chars` characters, appending `…` if truncated.
-///
-/// Operates on characters rather than bytes because the IdP body can be any
-/// UTF-8 — a byte-indexed `&s[..max]` would panic if the cutoff lands inside
-/// a multibyte codepoint (non-ASCII WAF pages, localised IdP error messages).
-fn truncate(s: &str, max_chars: usize) -> String {
-    let mut chars = s.chars();
-    let head: String = chars.by_ref().take(max_chars).collect();
-    if chars.next().is_some() { format!("{head}…") } else { head }
+    RefreshFailureClassifier::classify(status.as_u16(), &body)
 }
 
 #[cfg(test)]
