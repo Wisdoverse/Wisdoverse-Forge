@@ -1,9 +1,6 @@
 //! Governed memory item service.
 
-use agentforge_core::{
-    AppResult, ErrorKind, MemoryItemId, ProjectId, ScopedRead, ScopedWrite, ScopedWriteError, TeamId, TenantScope,
-    WorkspaceId,
-};
+use agentforge_core::{AppResult, MemoryItemId, ProjectId, ScopedRead, ScopedWrite, TeamId, TenantScope, WorkspaceId};
 use agentforge_db::entities::MemoryItem;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -13,8 +10,8 @@ use uuid::Uuid;
 pub use crate::domain::memory::MemoryContent;
 pub(crate) use crate::domain::memory::memory_data_response;
 use crate::domain::memory::{
-    MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryContentReadAudit, MemoryCreatedAudit,
-    MemoryListPage, MemoryMutationAccess, MemoryMutationAccessPolicy, MemoryMutationManagerCheck,
+    MemoryAccessPolicy, MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryContentReadAudit,
+    MemoryCreatedAudit, MemoryListPage, MemoryMutationAccess, MemoryMutationAccessPolicy, MemoryMutationManagerCheck,
     MemoryProvenancePolicy, MemoryReclassificationPlan, MemoryReclassificationPolicy, MemoryReclassificationRequest,
     MemoryReclassifiedAudit, MemoryRevokedAudit, MemoryScopeKind, MemoryScopeTargetPolicy, MemoryTitle,
     MemoryTtlExtendedAudit, MemoryTtlPolicy, MemoryUpdatedAudit, MemoryVisibility, PreparedMemoryContent,
@@ -103,7 +100,7 @@ impl MemoryService {
 
     pub async fn create(&self, scope: &TenantScope, input: CreateMemoryInput) -> AppResult<MemoryItem> {
         let proof = self.validated_read(scope).await?;
-        let workspace_id = required_workspace(scope)?;
+        let workspace_id = MemoryAccessPolicy::required_workspace(scope)?;
         let target = self.validated_write_scope(&proof, workspace_id, input.scope_kind, input.scope_id).await?;
         let title = MemoryTitle::parse(&input.title)?.value().to_string();
         let visibility = MemoryVisibility::parse(input.visibility.as_deref())?.as_str();
@@ -237,7 +234,7 @@ impl MemoryService {
         input: ReclassifyScopeInput,
     ) -> AppResult<MemoryItem> {
         let proof = self.validated_read(scope).await?;
-        let workspace_id = required_workspace(scope)?;
+        let workspace_id = MemoryAccessPolicy::required_workspace(scope)?;
         let target = self.validated_write_scope(&proof, workspace_id, input.scope_kind, input.scope_id).await?;
         let mut tx = self.repo.pool().begin().await?;
         let current = MemoryRepository::lock_visible_for_update(&mut tx, &proof, id).await?;
@@ -278,10 +275,11 @@ impl MemoryService {
         scope_id: Option<Uuid>,
     ) -> AppResult<ScopedWrite> {
         let (scope_kind, scope_id) = MemoryScopeTargetPolicy::resolve(scope_kind, scope_id, proof.user_id().as_uuid())?;
-        let write = ScopedWrite::try_new(scope_kind, scope_id, proof.clone()).map_err(scoped_write_error)?;
-        if !self.repo.resource_belongs_to_scope(proof, scope_kind, scope_id, workspace_id).await? {
-            return Err(ErrorKind::Forbidden.into());
-        }
+        let write = ScopedWrite::try_new(scope_kind, scope_id, proof.clone())
+            .map_err(MemoryAccessPolicy::scoped_write_error)?;
+        MemoryAccessPolicy::ensure_resource_belongs_to_scope(
+            self.repo.resource_belongs_to_scope(proof, scope_kind, scope_id, workspace_id).await?,
+        )?;
         Ok(write)
     }
 
@@ -301,7 +299,7 @@ impl MemoryService {
                 let can_manage = self.permissions.can_manage_project(scope, ProjectId::from(project_id)).await?;
                 MemoryMutationAccessPolicy::ensure_manager_authorized(can_manage)
             }
-            MemoryMutationAccess::Forbidden => Err(ErrorKind::Forbidden.into()),
+            MemoryMutationAccess::Forbidden => Err(MemoryAccessPolicy::forbidden()),
         }
     }
 
@@ -335,12 +333,4 @@ impl MemoryService {
         ContextGovernanceService::emit_audit(tx, scope, memory_audit_event(action, payload)).await?;
         Ok(())
     }
-}
-
-fn required_workspace(scope: &TenantScope) -> AppResult<WorkspaceId> {
-    scope.workspace_id().ok_or_else(|| agentforge_core::AppError::from(ErrorKind::Forbidden))
-}
-
-fn scoped_write_error(_err: ScopedWriteError) -> agentforge_core::AppError {
-    ErrorKind::Forbidden.into()
 }
