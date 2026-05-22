@@ -213,6 +213,61 @@ fn mcp_entrypoint_does_not_reintroduce_ddd_boundary_leaks() {
     assert!(violations.is_empty(), "MCP DDD boundary violations:\n{}", violations.join("\n"));
 }
 
+#[test]
+fn gateway_entrypoints_do_not_reintroduce_ddd_boundary_leaks() {
+    let gateway_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/gateway");
+    let mut violations = Vec::new();
+
+    for gateway in rust_files_recursive(&gateway_dir) {
+        let source = fs::read_to_string(&gateway).expect("read gateway source");
+        for (line_no, line) in production_lines(&source) {
+            let trimmed = line.trim();
+
+            if contains_raw_sql(trimmed) {
+                violations.push(format!(
+                    "{}:{} uses raw SQL in production gateway code; move persistence to repository/service boundaries",
+                    gateway.display(),
+                    line_no + 1
+                ));
+            }
+
+            if contains_json_macro(trimmed) {
+                violations.push(format!(
+                    "{}:{} uses json! in production gateway code; move WebSocket payload construction to domain",
+                    gateway.display(),
+                    line_no + 1
+                ));
+            }
+
+            if contains_service_serde_adapter(trimmed) {
+                violations.push(format!(
+                    "{}:{} uses serde_json conversion in production gateway code; move protocol adapters to domain",
+                    gateway.display(),
+                    line_no + 1
+                ));
+            }
+
+            if contains_repository_namespace_import(trimmed) || contains_repository_constructor(trimmed) {
+                violations.push(format!(
+                    "{}:{} owns repository wiring in production gateway code; move persistence access to services",
+                    gateway.display(),
+                    line_no + 1
+                ));
+            }
+
+            if contains_route_error_policy(trimmed) {
+                violations.push(format!(
+                    "{}:{} owns ErrorKind policy in production gateway code; move error contracts to domain/service helpers",
+                    gateway.display(),
+                    line_no + 1
+                ));
+            }
+        }
+    }
+
+    assert!(violations.is_empty(), "gateway DDD boundary violations:\n{}", violations.join("\n"));
+}
+
 fn route_files(routes_dir: &Path) -> Vec<PathBuf> {
     let mut files: Vec<_> = fs::read_dir(routes_dir)
         .expect("read routes dir")
