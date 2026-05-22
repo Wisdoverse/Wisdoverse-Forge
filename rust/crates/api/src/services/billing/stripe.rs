@@ -359,7 +359,7 @@ fn verify_stripe_signature(payload: &str, signature: &str, webhook_secret: &str)
             continue;
         };
         let mut mac = HmacSha256::new_from_slice(webhook_secret.as_bytes())
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("HMAC init failed: {err}")))?;
+            .map_err(BillingStripeGatewayPolicy::hmac_init_failed)?;
         mac.update(signed_payload.as_bytes());
         if mac.verify_slice(&expected).is_ok() {
             return Ok(());
