@@ -183,6 +183,11 @@ Current stacked PRs:
   service-owned access denial, workspace-scope, and resource permission policy
   contracts across user, memory, skill, task-context, usage analytics, and
   resource permission services into their domain modules.
+- #267 `refactor/backend-ddd-service-serialization-policies` -> #266 branch:
+  moves settings persistence values, context resolver Redis cache payloads, and
+  selected CLI auth proxy URL/token-file/JSON/error serialization contracts into
+  domain modules while services keep repository I/O, Redis, HTTP, encryption,
+  and refresh orchestration.
 
 ## Execution Rule
 
@@ -408,8 +413,14 @@ Current open stack:
   errors, task-context and usage-analytics workspace requirements, and resource
   permission denials into domain policies while services keep repository checks,
   manager lookups, transactions, and read-model orchestration.
+- #267 service serialization policy sweep, stacked on #266, moves settings
+  persistence JSON values, context resolver cache payload serialization, and
+  selected CLI auth proxy authorization URL, encrypted token-file payload, stored
+  token JSON parsing, and serialization error contracts into domain helpers
+  while services keep repository I/O, Redis, HTTP, encryption, and refresh
+  orchestration.
 
-Before starting a new PR, inspect the current state of #229-#266. If they have
+Before starting a new PR, inspect the current state of #229-#267. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 
