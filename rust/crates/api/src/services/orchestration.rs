@@ -22,10 +22,10 @@ use uuid::Uuid;
 use crate::domain::context::{ContextFeature, ContextFeatureFlags};
 use crate::domain::context_resolver::{ContextTaskSnapshot, ResolvedContext};
 use crate::domain::orchestration::{
-    BlockedTaskPolicy, DispatchSweepDecision, DispatchSweepPolicy, ParticipantAvailabilityAction,
-    ParticipantAvailabilityPolicy, ParticipantName, ParticipantStatusPolicy, QuotaBlockPolicy, TaskAssignmentPolicy,
-    TaskCreationPolicy, TaskLifecyclePolicy, TaskListPage, TaskPatchAction, TaskPatchPolicy, TaskPriority,
-    TaskRunCapabilityProfile, TaskStatusPolicy, TaskTitle, task_assignment_snapshot,
+    BlockedTaskPolicy, DispatchSweepDecision, DispatchSweepPolicy, OrchestrationTransactionPolicy,
+    ParticipantAvailabilityAction, ParticipantAvailabilityPolicy, ParticipantName, ParticipantStatusPolicy,
+    QuotaBlockPolicy, TaskAssignmentPolicy, TaskCreationPolicy, TaskLifecyclePolicy, TaskListPage, TaskPatchAction,
+    TaskPatchPolicy, TaskPriority, TaskRunCapabilityProfile, TaskStatusPolicy, TaskTitle, task_assignment_snapshot,
 };
 pub(crate) use crate::domain::orchestration::{
     CreateTaskParamsInput, create_task_request_parts, orchestration_delete_response,
@@ -343,10 +343,10 @@ impl OrchestrationService {
             .pool()
             .begin()
             .await
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("begin cancel_task tx: {err}")))?;
+            .map_err(|err| OrchestrationTransactionPolicy::begin_failed("cancel_task", err))?;
         let updated = OrchestrationTaskRepository::cancel_in_tx(&mut tx, scope, id).await?;
         self.task_run_repo.finish_current_in_tx(&mut tx, scope, id, "canceled").await?;
-        tx.commit().await.map_err(|err| ErrorKind::Internal(anyhow::anyhow!("commit cancel_task tx: {err}")))?;
+        tx.commit().await.map_err(|err| OrchestrationTransactionPolicy::commit_failed("cancel_task", err))?;
         if let Some(agent_id) = task.assigned_agent_id
             && let Err(err) = self.participant_repo.update_status(scope, agent_id, "available").await
         {
@@ -425,7 +425,7 @@ impl OrchestrationService {
             .pool()
             .begin()
             .await
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("begin assignment tx: {err}")))?;
+            .map_err(|err| OrchestrationTransactionPolicy::begin_failed("assignment", err))?;
         ParticipantRepository::update_status_in_tx(&mut tx, scope, participant.agent_id, "busy").await?;
         let task = match OrchestrationTaskRepository::assign_agent_in_tx(
             &mut tx,
@@ -445,7 +445,7 @@ impl OrchestrationService {
         };
         let delivery_id = task
             .last_assignment_id
-            .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("task {} missing last_assignment_id", task.id)))?;
+            .ok_or_else(|| OrchestrationTransactionPolicy::missing_last_assignment_id(task.id))?;
         let idempotency_key = delivery_id.to_string();
         let resolved_context = match previewed_context {
             Some(resolved_context) => Some(resolved_context),
@@ -499,9 +499,9 @@ impl OrchestrationService {
         if let Err(err) = insert_assignment_outbox_in_tx(&mut tx, scope.org_id().as_uuid(), task.id, &assignment).await
         {
             let _ = tx.rollback().await;
-            return Err(ErrorKind::Internal(anyhow::anyhow!("insert assignment outbox: {err}")).into());
+            return Err(OrchestrationTransactionPolicy::insert_assignment_outbox_failed(err).into());
         }
-        tx.commit().await.map_err(|err| ErrorKind::Internal(anyhow::anyhow!("commit assignment tx: {err}")))?;
+        tx.commit().await.map_err(|err| OrchestrationTransactionPolicy::commit_failed("assignment", err))?;
         Ok(task)
     }
 
@@ -602,13 +602,13 @@ impl OrchestrationService {
             .pool()
             .begin()
             .await
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("begin complete_task tx: {err}")))?;
+            .map_err(|err| OrchestrationTransactionPolicy::begin_failed("complete_task", err))?;
         let updated =
             OrchestrationTaskRepository::set_result_in_tx(&mut tx, scope, task_id, "completed", result).await?;
         self.task_run_repo.finish_current_in_tx(&mut tx, scope, task_id, "completed").await?;
         let unblocked_children =
             OrchestrationTaskRepository::unblock_children_of_in_tx(&mut tx, scope, task_id).await?;
-        tx.commit().await.map_err(|err| ErrorKind::Internal(anyhow::anyhow!("commit complete_task tx: {err}")))?;
+        tx.commit().await.map_err(|err| OrchestrationTransactionPolicy::commit_failed("complete_task", err))?;
 
         if !unblocked_children.is_empty() {
             tracing::info!(
@@ -652,7 +652,7 @@ impl OrchestrationService {
                 .pool()
                 .begin()
                 .await
-                .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("begin quota block tx: {err}")))?;
+                .map_err(|err| OrchestrationTransactionPolicy::begin_failed("quota block", err))?;
             let updated = OrchestrationTaskRepository::mark_blocked_retryable_in_tx(
                 &mut tx,
                 scope,
@@ -665,7 +665,7 @@ impl OrchestrationService {
             self.task_run_repo.finish_current_in_tx(&mut tx, scope, task_id, "failed").await?;
             upsert_task_owner_lifecycle_notification_in_tx(&mut tx, &updated, None, TaskOwnerNotificationKind::Blocked)
                 .await?;
-            tx.commit().await.map_err(|err| ErrorKind::Internal(anyhow::anyhow!("commit quota block tx: {err}")))?;
+            tx.commit().await.map_err(|err| OrchestrationTransactionPolicy::commit_failed("quota block", err))?;
             if let Some(agent_id) = task.assigned_agent_id
                 && let Err(err) = self.participant_repo.update_status(scope, agent_id, "available").await
             {
@@ -679,12 +679,12 @@ impl OrchestrationService {
             .pool()
             .begin()
             .await
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("begin fail_task tx: {err}")))?;
+            .map_err(|err| OrchestrationTransactionPolicy::begin_failed("fail_task", err))?;
         let updated = OrchestrationTaskRepository::set_result_in_tx(&mut tx, scope, task_id, "failed", error).await?;
         self.task_run_repo.finish_current_in_tx(&mut tx, scope, task_id, "failed").await?;
         upsert_task_owner_lifecycle_notification_in_tx(&mut tx, &updated, None, TaskOwnerNotificationKind::Failed)
             .await?;
-        tx.commit().await.map_err(|err| ErrorKind::Internal(anyhow::anyhow!("commit fail_task tx: {err}")))?;
+        tx.commit().await.map_err(|err| OrchestrationTransactionPolicy::commit_failed("fail_task", err))?;
         if let Some(agent_id) = task.assigned_agent_id
             && let Err(err) = self.participant_repo.update_status(scope, agent_id, "available").await
         {
@@ -849,7 +849,7 @@ impl OrchestrationService {
             .pool()
             .begin()
             .await
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("begin create assigned task tx: {err}")))?;
+            .map_err(|err| OrchestrationTransactionPolicy::begin_failed("create assigned task", err))?;
         let participant = ParticipantRepository::find_by_agent_id_in_tx(&mut tx, scope, agent_id).await?;
         if let Err(err) = ParticipantAvailabilityPolicy::ensure_available(
             &participant.name,
@@ -890,7 +890,7 @@ impl OrchestrationService {
         .await?;
         let delivery_id = task
             .last_assignment_id
-            .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("task {} missing last_assignment_id", task.id)))?;
+            .ok_or_else(|| OrchestrationTransactionPolicy::missing_last_assignment_id(task.id))?;
         let idempotency_key = delivery_id.to_string();
         let resolved_context = match self.resolve_assignment_context(scope, &task, &participant).await {
             Ok(resolved_context) => resolved_context,
@@ -941,11 +941,9 @@ impl OrchestrationService {
         if let Err(err) = insert_assignment_outbox_in_tx(&mut tx, scope.org_id().as_uuid(), task.id, &assignment).await
         {
             let _ = tx.rollback().await;
-            return Err(ErrorKind::Internal(anyhow::anyhow!("insert assignment outbox: {err}")).into());
+            return Err(OrchestrationTransactionPolicy::insert_assignment_outbox_failed(err).into());
         }
-        tx.commit()
-            .await
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("commit create assigned task tx: {err}")))?;
+        tx.commit().await.map_err(|err| OrchestrationTransactionPolicy::commit_failed("create assigned task", err))?;
         Ok(task)
     }
 
