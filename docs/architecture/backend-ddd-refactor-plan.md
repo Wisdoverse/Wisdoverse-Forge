@@ -259,6 +259,11 @@ Current stacked PRs:
   factories across analytics, credentials, resources, settings, events, and
   supporting route families; extends route boundary coverage so production
   routes cannot read `state.pool` or directly call `Service::from_pool`.
+- #281 `refactor/backend-ddd-context-candidate-repo-policy` -> #280 branch:
+  moves context candidate not-found, duplicate approval, and feedback access
+  denial error contracts out of context-candidate repositories into the context
+  domain policy boundary; extends repository boundary coverage so the context
+  candidate aggregate repositories cannot re-own direct `ErrorKind` policy.
 
 ## Execution Rule
 
