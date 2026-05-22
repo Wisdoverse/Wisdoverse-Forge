@@ -5,9 +5,11 @@
 //! Phase 1 only needs "resolve the default enabled key for a provider" — the
 //! full CRUD surface can migrate with the LLM gateway.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
+
+use crate::domain::credential::CredentialRepositoryPolicy;
 
 pub struct UserLlmConfigSecret {
     pub encrypted_api_key: String,
@@ -142,7 +144,7 @@ impl UserLlmConfigRepository {
         .bind(scope.user_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("llm provider {id}")).into())
+        .ok_or_else(|| CredentialRepositoryPolicy::llm_provider_not_found(id))
     }
 
     pub async fn get_test_config(&self, scope: &TenantScope, id: Uuid) -> AppResult<LlmProviderTestRow> {
@@ -155,7 +157,7 @@ impl UserLlmConfigRepository {
         .bind(scope.user_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("llm provider {id}")).into())
+        .ok_or_else(|| CredentialRepositoryPolicy::llm_provider_not_found(id))
     }
 
     pub async fn provider_model_exists(&self, scope: &TenantScope, provider: &str, model: &str) -> AppResult<bool> {
@@ -313,7 +315,7 @@ impl UserLlmConfigRepository {
             .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("llm provider {id}")).into());
+            return Err(CredentialRepositoryPolicy::llm_provider_not_found(id));
         }
         Ok(())
     }
