@@ -1,9 +1,11 @@
 //! Context feedback repository.
 
-use agentforge_core::{AppResult, ErrorKind, ScopedRead, WorkspaceId};
+use agentforge_core::{AppResult, ScopedRead, WorkspaceId};
 use agentforge_db::entities::{ContextFeedback, MemoryItem, Skill};
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
+
+use crate::domain::context::ContextFeedbackPolicy;
 
 pub struct CreateContextFeedbackRecord<'a> {
     pub workspace_id: WorkspaceId,
@@ -45,7 +47,7 @@ impl ContextFeedbackRepository {
         .bind(workspace_id.as_uuid())
         .fetch_optional(&mut **tx)
         .await?
-        .ok_or_else(|| ErrorKind::Forbidden.into())
+        .ok_or_else(ContextFeedbackPolicy::inaccessible_feedback_target)
     }
 
     pub async fn lock_memory_for_feedback_in_tx(
@@ -55,7 +57,7 @@ impl ContextFeedbackRepository {
         item_id: Uuid,
     ) -> AppResult<MemoryItem> {
         if proof.workspace_ids().is_empty() {
-            return Err(ErrorKind::Forbidden.into());
+            return Err(ContextFeedbackPolicy::inaccessible_feedback_target());
         }
 
         sqlx::query_as::<_, MemoryItem>(
@@ -80,7 +82,7 @@ impl ContextFeedbackRepository {
         .bind(project_ids(proof))
         .fetch_optional(&mut **tx)
         .await?
-        .ok_or_else(|| ErrorKind::Forbidden.into())
+        .ok_or_else(ContextFeedbackPolicy::inaccessible_feedback_target)
     }
 
     pub async fn lock_skill_for_feedback_in_tx(
@@ -90,7 +92,7 @@ impl ContextFeedbackRepository {
         item_id: Uuid,
     ) -> AppResult<Skill> {
         if proof.workspace_ids().is_empty() {
-            return Err(ErrorKind::Forbidden.into());
+            return Err(ContextFeedbackPolicy::inaccessible_feedback_target());
         }
 
         sqlx::query_as::<_, Skill>(
@@ -116,7 +118,7 @@ impl ContextFeedbackRepository {
         .bind(project_ids(proof))
         .fetch_optional(&mut **tx)
         .await?
-        .ok_or_else(|| ErrorKind::Forbidden.into())
+        .ok_or_else(ContextFeedbackPolicy::inaccessible_feedback_target)
     }
 
     pub async fn upsert_in_tx(
