@@ -6,7 +6,7 @@ use agentforge_core::{
 };
 use agentforge_db::entities::MemoryItem;
 use chrono::{DateTime, Utc};
-use serde_json::{Value, json};
+use serde_json::Value;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -15,9 +15,10 @@ pub(crate) use crate::domain::memory::memory_data_response;
 use crate::domain::memory::{
     MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryContentReadAudit, MemoryCreatedAudit,
     MemoryListPage, MemoryMutationAccess, MemoryMutationAccessPolicy, MemoryMutationManagerCheck,
-    MemoryReclassificationPlan, MemoryReclassificationPolicy, MemoryReclassificationRequest, MemoryReclassifiedAudit,
-    MemoryRevokedAudit, MemoryScopeKind, MemoryScopeTargetPolicy, MemoryTitle, MemoryTtlExtendedAudit, MemoryTtlPolicy,
-    MemoryUpdatedAudit, MemoryVisibility, PreparedMemoryContent, memory_audit_event,
+    MemoryProvenancePolicy, MemoryReclassificationPlan, MemoryReclassificationPolicy, MemoryReclassificationRequest,
+    MemoryReclassifiedAudit, MemoryRevokedAudit, MemoryScopeKind, MemoryScopeTargetPolicy, MemoryTitle,
+    MemoryTtlExtendedAudit, MemoryTtlPolicy, MemoryUpdatedAudit, MemoryVisibility, PreparedMemoryContent,
+    memory_audit_event,
 };
 use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository, UpdateMemoryRecord};
 use crate::repositories::resource::permission::ResourcePermissionRepository;
@@ -110,7 +111,7 @@ impl MemoryService {
         MemoryConfidencePolicy::validate(input.confidence)?;
 
         let prepared = self.prepare_content_or_audit_rejection(scope, "create", &input.content, input.redacted).await?;
-        let provenance = input.provenance.unwrap_or_else(|| json!({}));
+        let provenance = MemoryProvenancePolicy::resolve(input.provenance);
 
         let mut tx = self.repo.pool().begin().await?;
         let item = MemoryRepository::create_in_tx(
