@@ -253,6 +253,18 @@ pub(crate) fn stripe_api_error_message(body: &str) -> Option<String> {
     serde_json::from_str::<StripeErrorEnvelope>(body).ok().and_then(|envelope| envelope.error.message)
 }
 
+pub(crate) fn stripe_event(payload: Value) -> AppResult<StripeEvent> {
+    serde_json::from_value(payload).map_err(|err| BillingStripeGatewayPolicy::invalid_webhook_event_shape(err).into())
+}
+
+pub(crate) fn stripe_subscription_object_from_value<T: DeserializeOwned>(value: Value) -> AppResult<T> {
+    serde_json::from_value(value).map_err(|err| BillingStripeGatewayPolicy::invalid_subscription_object(err).into())
+}
+
+pub(crate) fn stripe_invoice_object_from_value<T: DeserializeOwned>(value: Value) -> AppResult<T> {
+    serde_json::from_value(value).map_err(|err| BillingStripeGatewayPolicy::invalid_invoice_object(err).into())
+}
+
 #[derive(Debug, Deserialize)]
 struct StripeErrorEnvelope {
     error: StripeErrorBody,
@@ -688,6 +700,43 @@ mod tests {
             Some("card declined")
         );
         assert_eq!(stripe_api_error_message("not-json"), None);
+    }
+
+    #[test]
+    fn stripe_gateway_object_helpers_own_webhook_object_decoding_contract() {
+        let event = stripe_event(
+            serde_json::json!({"type":"invoice.updated","data":{"object":{"id":"in_123","status":"paid"}}}),
+        )
+        .expect("event");
+        assert_eq!(event.event_type, "invoice.updated");
+        assert_eq!(event.data.object["id"], "in_123");
+
+        #[derive(Debug, Deserialize, PartialEq, Eq)]
+        struct TestSubscriptionObject {
+            id: String,
+        }
+
+        let subscription: TestSubscriptionObject =
+            stripe_subscription_object_from_value(serde_json::json!({"id":"sub_123"})).expect("subscription object");
+        assert_eq!(subscription, TestSubscriptionObject { id: "sub_123".to_string() });
+
+        assert!(format!("{}", stripe_event(serde_json::json!({"data":{}})).unwrap_err().kind).contains("event shape"));
+        assert!(
+            format!(
+                "{}",
+                stripe_subscription_object_from_value::<TestSubscriptionObject>(serde_json::json!({}))
+                    .unwrap_err()
+                    .kind
+            )
+            .contains("subscription object")
+        );
+        assert!(
+            format!(
+                "{}",
+                stripe_invoice_object_from_value::<TestSubscriptionObject>(serde_json::json!({})).unwrap_err().kind
+            )
+            .contains("invoice object")
+        );
     }
 
     #[test]
