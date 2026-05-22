@@ -168,6 +168,10 @@ Current stacked PRs:
 - #262 `refactor/backend-ddd-runtime-error-policies` -> #261 branch: moves
   Docker-backed runtime error policy contracts for dev environments and agent
   container control/lifecycle flows into domain helpers.
+- #263 `refactor/backend-ddd-orchestration-tx-policies` -> #262 branch: moves
+  orchestration transaction, assignment outbox, and missing assignment-id error
+  contracts into domain policy helpers while keeping transaction orchestration
+  in the service layer.
 
 ## Execution Rule
 
@@ -374,8 +378,12 @@ Current open stack:
   container create/start/stop/remove/inspect, missing agent image, resume, and
   workspace preparation error contracts for dev environments and agent
   container control/lifecycle flows into domain policies.
+- #263 orchestration transaction policy sweep, stacked on #262, moves
+  begin/commit transaction errors, assignment outbox insert errors, and missing
+  assignment-id contracts into `domain::orchestration` while preserving service
+  ownership of repository I/O, rollback, and orchestration side effects.
 
-Before starting a new PR, inspect the current state of #229-#262. If they have
+Before starting a new PR, inspect the current state of #229-#263. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 
