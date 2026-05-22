@@ -24,6 +24,14 @@ impl ContextEnvelopeVersionPolicy {
     }
 }
 
+pub(crate) struct ContextEnvelopeRunPolicy;
+
+impl ContextEnvelopeRunPolicy {
+    pub(crate) fn task_run_not_found(run_id: Uuid) -> agentforge_core::AppError {
+        ErrorKind::NotFound(format!("task run {run_id}")).into()
+    }
+}
+
 pub(crate) struct ContextEnvelopeCapabilityPolicy;
 
 impl ContextEnvelopeCapabilityPolicy {
@@ -108,6 +116,16 @@ mod tests {
         assert!(matches!(
             err.kind,
             ErrorKind::Validation(message) if message.contains("unsupported context envelope version")
+        ));
+    }
+
+    #[test]
+    fn run_policy_owns_task_run_not_found_contract() {
+        let run_id = Uuid::new_v4();
+
+        assert!(matches!(
+            ContextEnvelopeRunPolicy::task_run_not_found(run_id).kind,
+            ErrorKind::NotFound(message) if message == format!("task run {run_id}")
         ));
     }
 

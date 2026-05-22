@@ -1,11 +1,13 @@
 //! Governed memory item repository.
 
-use agentforge_core::{AppResult, ErrorKind, MemoryItemId, ScopeKind, ScopedRead, ScopedWrite, WorkspaceId};
+use agentforge_core::{AppResult, MemoryItemId, ScopeKind, ScopedRead, ScopedWrite, WorkspaceId};
 use agentforge_db::entities::MemoryItem;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
+
+use crate::domain::memory::MemoryAccessPolicy;
 
 pub struct CreateMemoryRecord<'a> {
     pub workspace_id: WorkspaceId,
@@ -68,7 +70,7 @@ impl MemoryRepository {
 
     pub async fn get_visible_by_id(&self, proof: &ScopedRead, id: MemoryItemId) -> AppResult<MemoryItem> {
         if proof.workspace_ids().is_empty() {
-            return Err(ErrorKind::NotFound(format!("memory item {id}")).into());
+            return Err(MemoryAccessPolicy::not_found(id));
         }
 
         sqlx::query_as::<_, MemoryItem>(VISIBLE_MEMORY_BY_ID_QUERY)
@@ -80,7 +82,7 @@ impl MemoryRepository {
             .bind(project_ids(proof))
             .fetch_optional(&self.pool)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("memory item {id}")).into())
+            .ok_or_else(|| MemoryAccessPolicy::not_found(id))
     }
 
     pub async fn lock_visible_for_update(
@@ -89,7 +91,7 @@ impl MemoryRepository {
         id: MemoryItemId,
     ) -> AppResult<MemoryItem> {
         if proof.workspace_ids().is_empty() {
-            return Err(ErrorKind::NotFound(format!("memory item {id}")).into());
+            return Err(MemoryAccessPolicy::not_found(id));
         }
 
         sqlx::query_as::<_, MemoryItem>(VISIBLE_MEMORY_BY_ID_FOR_UPDATE_QUERY)
@@ -101,7 +103,7 @@ impl MemoryRepository {
             .bind(project_ids(proof))
             .fetch_optional(&mut **tx)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("memory item {id}")).into())
+            .ok_or_else(|| MemoryAccessPolicy::not_found(id))
     }
 
     pub async fn create_in_tx(
@@ -199,7 +201,7 @@ impl MemoryRepository {
         .bind(id.as_uuid())
         .fetch_optional(&mut **tx)
         .await?
-        .ok_or_else(|| ErrorKind::Conflict(format!("memory item {id} is already revoked")).into())
+        .ok_or_else(|| MemoryAccessPolicy::already_revoked(id))
     }
 
     pub async fn reclassify_scope_in_tx(

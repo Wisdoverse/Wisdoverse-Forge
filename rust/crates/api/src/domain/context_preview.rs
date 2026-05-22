@@ -4,7 +4,7 @@
 //! the exact task draft, workspace, agent capability, and resolved context that
 //! the user previewed.
 
-use agentforge_core::{AgentId, AppResult, ErrorKind};
+use agentforge_core::{AgentId, AppError, AppResult, ErrorKind, TenantScope, WorkspaceId};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -90,6 +90,22 @@ impl ContextPreviewFreshnessPolicy {
         stored_preview_hash: &str,
     ) -> AppResult<()> {
         if current_preview_hash == stored_preview_hash { Ok(()) } else { Err(stale_preview_error().into()) }
+    }
+}
+
+pub(crate) struct ContextPreviewAccessPolicy;
+
+impl ContextPreviewAccessPolicy {
+    pub(crate) fn required_workspace(scope: &TenantScope) -> AppResult<WorkspaceId> {
+        scope.workspace_id().ok_or_else(Self::forbidden)
+    }
+
+    pub(crate) fn not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("context preview {id}")).into()
+    }
+
+    fn forbidden() -> AppError {
+        ErrorKind::Forbidden.into()
     }
 }
 
@@ -211,6 +227,16 @@ mod tests {
         ));
         assert_preview_stale(ContextPreviewFreshnessPolicy::ensure_task_draft_matches("draft", "old"));
         assert_preview_stale(ContextPreviewFreshnessPolicy::ensure_resolved_context_matches("resolved", "old"));
+    }
+
+    #[test]
+    fn access_policy_owns_repository_error_contracts() {
+        let id = Uuid::new_v4();
+
+        assert!(matches!(
+            ContextPreviewAccessPolicy::not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("context preview {id}")
+        ));
     }
 
     #[test]
