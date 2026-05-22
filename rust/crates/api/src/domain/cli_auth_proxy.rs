@@ -1,5 +1,6 @@
 //! CLI auth proxy response shapes.
 
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -103,4 +104,59 @@ pub(crate) fn cli_auth_connected_response(provider: &str) -> Value {
 
 pub(crate) fn cli_auth_disconnected_response(provider: &str) -> Value {
     json!({ "ok": true, "provider": provider, "status": "disconnected" })
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct CliAuthTokenFileInput<'a> {
+    pub(crate) id_token: Option<&'a str>,
+    pub(crate) access_token: &'a str,
+    pub(crate) refresh_token: Option<&'a str>,
+    pub(crate) account_id: Option<&'a str>,
+    pub(crate) last_refresh: DateTime<Utc>,
+}
+
+pub(crate) fn cli_auth_token_file_map(input: CliAuthTokenFileInput<'_>) -> Value {
+    let mut auth_tokens = serde_json::Map::new();
+    if let Some(id_token) = input.id_token {
+        auth_tokens.insert("id_token".into(), Value::String(id_token.to_string()));
+    }
+    auth_tokens.insert("access_token".into(), Value::String(input.access_token.to_string()));
+    if let Some(refresh_token) = input.refresh_token {
+        auth_tokens.insert("refresh_token".into(), Value::String(refresh_token.to_string()));
+    }
+    if let Some(account_id) = input.account_id {
+        auth_tokens.insert("account_id".into(), Value::String(account_id.to_string()));
+    }
+
+    let auth_json = json!({
+        "tokens": auth_tokens,
+        "last_refresh": input.last_refresh.to_rfc3339(),
+    });
+    json!({ "auth.json": auth_json.to_string() })
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::TimeZone;
+
+    use super::*;
+
+    #[test]
+    fn token_file_map_owns_auth_json_shape() {
+        let files = cli_auth_token_file_map(CliAuthTokenFileInput {
+            id_token: Some("id"),
+            access_token: "access",
+            refresh_token: Some("refresh"),
+            account_id: Some("acct"),
+            last_refresh: Utc.with_ymd_and_hms(2026, 4, 1, 0, 0, 0).unwrap(),
+        });
+
+        let auth_json = files["auth.json"].as_str().expect("auth.json string");
+        let auth: Value = serde_json::from_str(auth_json).expect("auth json");
+        assert_eq!(auth["tokens"]["id_token"], "id");
+        assert_eq!(auth["tokens"]["access_token"], "access");
+        assert_eq!(auth["tokens"]["refresh_token"], "refresh");
+        assert_eq!(auth["tokens"]["account_id"], "acct");
+        assert_eq!(auth["last_refresh"], "2026-04-01T00:00:00+00:00");
+    }
 }
