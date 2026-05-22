@@ -1,10 +1,12 @@
 //! Context approval repository.
 
-use agentforge_core::{AppResult, ErrorKind, UserId};
+use agentforge_core::{AppResult, UserId};
 use agentforge_db::entities::ContextApproval;
 use chrono::{DateTime, Utc};
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
+
+use crate::domain::context::ContextCandidatePolicy;
 
 pub struct CreateContextApprovalRecord<'a> {
     pub candidate_id: Uuid,
@@ -54,7 +56,7 @@ fn map_insert_error(err: sqlx::Error) -> agentforge_core::AppError {
     if let sqlx::Error::Database(db_err) = &err
         && matches!(db_err.constraint(), Some("idx_context_approvals_candidate_once"))
     {
-        return ErrorKind::Conflict("context candidate already has an approval decision".into()).into();
+        return ContextCandidatePolicy::approval_already_decided();
     }
     err.into()
 }
