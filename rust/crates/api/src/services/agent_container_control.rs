@@ -14,7 +14,8 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::agent::{
-    AgentContainerEnvInput, AgentContainerEnvPolicy, AgentContainerImagePolicy, AgentContainerStartOutcome,
+    AgentContainerEnvInput, AgentContainerEnvPolicy, AgentContainerImagePolicy, AgentContainerLifecyclePolicy,
+    AgentContainerStartOutcome,
 };
 use crate::domain::context::{ContextFeature, ContextFeatureFlags};
 use crate::repositories::agent::AgentRepository;
@@ -147,15 +148,7 @@ impl AgentContainerControlService {
             }
         }
 
-        let image = AgentContainerImagePolicy::resolve(agent.cli_tool.as_deref(), agent.model.as_deref()).map_err(
-            |err| {
-                ErrorKind::Validation(format!(
-                    "{} — set cli_tool to one of: claude, codex, gemini, opencode (this agent has cli_tool={:?}, model={:?})",
-                    err.message(),
-                    agent.cli_tool, agent.model
-                ))
-            },
-        )?;
+        let image = AgentContainerImagePolicy::resolve_for_start(agent.cli_tool.as_deref(), agent.model.as_deref())?;
         let container_name = format!("agentforge-agent-{}", agent_id.as_uuid());
         let hmac_secret = Uuid::new_v4().to_string();
         let nats_connect_password = Uuid::new_v4().to_string();
@@ -265,10 +258,7 @@ impl AgentContainerControlService {
     pub(crate) async fn stop(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<()> {
         let docker = self.docker.as_ref().ok_or_else(docker_not_available)?;
         let agent = self.agents.get(scope, agent_id).await?;
-        let container_id = agent
-            .container_id
-            .as_ref()
-            .ok_or_else(|| ErrorKind::Validation("agent has no running container".into()))?;
+        let container_id = AgentContainerLifecyclePolicy::running_container_id(agent.container_id.as_deref())?;
 
         docker
             .stop_container(container_id, 30)
