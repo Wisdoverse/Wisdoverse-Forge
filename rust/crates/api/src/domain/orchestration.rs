@@ -117,6 +117,26 @@ impl TaskCreationPolicy {
     }
 }
 
+pub(crate) struct OrchestrationTransactionPolicy;
+
+impl OrchestrationTransactionPolicy {
+    pub(crate) fn begin_failed(operation: &'static str, err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("begin {operation} tx: {err}"))
+    }
+
+    pub(crate) fn commit_failed(operation: &'static str, err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("commit {operation} tx: {err}"))
+    }
+
+    pub(crate) fn missing_last_assignment_id(task_id: Uuid) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("task {task_id} missing last_assignment_id"))
+    }
+
+    pub(crate) fn insert_assignment_outbox_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("insert assignment outbox: {err}"))
+    }
+}
+
 /// User-facing task instruction carried by summary responses and assignment
 /// delivery. Structured params win, with legacy title/description fallback.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1546,6 +1566,27 @@ mod tests {
     fn task_creation_policy_owns_parent_not_found_error() {
         let parent_id = Uuid::parse_str("11111111-1111-4111-8111-111111111111").unwrap();
         assert!(format!("{}", TaskCreationPolicy::parent_task_not_found(parent_id)).contains("parent task"));
+    }
+
+    #[test]
+    fn orchestration_transaction_policy_owns_tx_and_outbox_error_contracts() {
+        let task_id = Uuid::parse_str("11111111-1111-4111-8111-111111111111").unwrap();
+        assert!(
+            format!("{}", OrchestrationTransactionPolicy::begin_failed("assignment", "bad"))
+                .contains("begin assignment tx")
+        );
+        assert!(
+            format!("{}", OrchestrationTransactionPolicy::commit_failed("assignment", "bad"))
+                .contains("commit assignment tx")
+        );
+        assert!(
+            format!("{}", OrchestrationTransactionPolicy::missing_last_assignment_id(task_id))
+                .contains("missing last_assignment_id")
+        );
+        assert!(
+            format!("{}", OrchestrationTransactionPolicy::insert_assignment_outbox_failed("bad"))
+                .contains("insert assignment outbox")
+        );
     }
 
     #[test]
