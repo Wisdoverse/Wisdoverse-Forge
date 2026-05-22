@@ -30,8 +30,8 @@ pub use crate::domain::cli_auth_proxy::{
 pub(crate) use crate::domain::cli_auth_proxy::{
     CliAuthProxyPolicy, CliAuthTokenFileInput, TokenResponse, cli_auth_auth_json_from_str, cli_auth_authorize_response,
     cli_auth_authorize_url, cli_auth_connected_response, cli_auth_disconnected_response, cli_auth_providers_response,
-    cli_auth_statuses_response, cli_auth_token_file_payload, cli_auth_token_files_from_plain,
-    extract_chatgpt_account_id, parse_callback_input,
+    cli_auth_state_entry_from_payload, cli_auth_state_entry_payload, cli_auth_statuses_response,
+    cli_auth_token_file_payload, cli_auth_token_files_from_plain, extract_chatgpt_account_id, parse_callback_input,
 };
 pub use refresh_classifier::{RefreshErrorKind, classify_refresh_failure};
 
@@ -39,7 +39,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use agentforge_core::{AppConfig, AppResult, CliToolKind, ErrorKind, TenantScope, crypto};
+use agentforge_core::{AppConfig, AppResult, CliToolKind, TenantScope, crypto};
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use rand::RngCore;
@@ -282,14 +282,12 @@ impl StateStore {
         match self {
             Self::Redis(client) => {
                 let key = redis_state_key(state);
-                let value = serde_json::to_string(&entry).expect("StateEntry is serialisable");
+                let value = cli_auth_state_entry_payload(&entry)?;
                 let mut guard = client.write().await;
-                let conn = guard
-                    .connection_mut()
-                    .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("Redis connection unavailable")))?;
+                let conn = guard.connection_mut().ok_or_else(CliAuthProxyPolicy::redis_connection_unavailable)?;
                 let _: () = conn.set_ex(&key, &value, STATE_TTL_SECS).await.map_err(|err| {
                     tracing::warn!(error = %err, "OAuth state Redis SET_EX failed — propagating as Internal");
-                    ErrorKind::Internal(anyhow::anyhow!("Redis SET_EX failed: {err}"))
+                    CliAuthProxyPolicy::redis_set_failed(err)
                 })?;
                 Ok(())
             }
@@ -305,20 +303,13 @@ impl StateStore {
             Self::Redis(client) => {
                 let key = redis_state_key(state);
                 let mut guard = client.write().await;
-                let conn = guard
-                    .connection_mut()
-                    .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("Redis connection unavailable")))?;
+                let conn = guard.connection_mut().ok_or_else(CliAuthProxyPolicy::redis_connection_unavailable)?;
                 let raw: Option<String> = redis::cmd("GETDEL").arg(&key).query_async(conn).await.map_err(|err| {
                     tracing::warn!(error = %err, "OAuth state Redis GETDEL failed — propagating as Internal");
-                    ErrorKind::Internal(anyhow::anyhow!("Redis GETDEL failed: {err}"))
+                    CliAuthProxyPolicy::redis_getdel_failed(err)
                 })?;
                 match raw {
-                    Some(value) => {
-                        let entry = serde_json::from_str::<StateEntry>(&value).map_err(|err| {
-                            ErrorKind::Internal(anyhow::anyhow!("corrupt StateEntry in Redis: {err}"))
-                        })?;
-                        Ok(Some(entry))
-                    }
+                    Some(value) => Ok(Some(cli_auth_state_entry_from_payload::<StateEntry>(&value)?)),
                     None => Ok(None),
                 }
             }
