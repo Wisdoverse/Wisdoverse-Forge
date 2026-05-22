@@ -1,11 +1,13 @@
 //! Context usage analytics read-model repository.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope, WorkspaceId};
+use agentforge_core::{AppResult, TenantScope, WorkspaceId};
 use chrono::{DateTime, Utc};
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
-use crate::domain::usage_analytics::{ContextUsageItem, ContextUsageQuery, ContextUsageSummary};
+use crate::domain::usage_analytics::{
+    ContextUsageItem, ContextUsageQuery, ContextUsageRepositoryPolicy, ContextUsageSummary,
+};
 
 const REFRESH_LOCK_CLASS: i32 = 72;
 const REFRESH_LOCK_ID: i32 = 5101;
@@ -121,7 +123,7 @@ impl UsageAnalyticsRepository {
             .bind(message)
             .execute(&self.pool)
             .await;
-            return Err(ErrorKind::Internal(anyhow::anyhow!("refresh context usage analytics: {err}")).into());
+            return Err(ContextUsageRepositoryPolicy::refresh_failed(err));
         }
 
         sqlx::query(
