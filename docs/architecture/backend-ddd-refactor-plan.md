@@ -220,6 +220,13 @@ Current stacked PRs:
   agent store SQL boundary; extends regression coverage so production services
   cannot construct repositories from `self`-held infrastructure and the MCP
   entrypoint cannot own persistence SQL.
+- #274 `refactor/backend-ddd-mcp-protocol-runtime` -> #273 branch: moves
+  internal MCP JSON-RPC response construction, tool schemas, argument parsing,
+  error-message contracts, Docker create-request projection, runtime marker
+  policy, completion observation state, and container runtime error mapping into
+  `domain::mcp`; extends boundary coverage so production MCP entrypoint code
+  cannot reintroduce persistence SQL, JSON payload construction, or direct
+  `ErrorKind` policy.
 
 ## Execution Rule
 
