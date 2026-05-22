@@ -28,8 +28,9 @@ pub use crate::domain::cli_auth_proxy::{
     CallbackMode, ProviderInfo, ProviderStatus, RefreshSummary, RevokedCliCredential,
 };
 pub(crate) use crate::domain::cli_auth_proxy::{
-    CliAuthProxyPolicy, CliAuthTokenFileInput, TokenResponse, cli_auth_authorize_response, cli_auth_connected_response,
-    cli_auth_disconnected_response, cli_auth_providers_response, cli_auth_statuses_response, cli_auth_token_file_map,
+    CliAuthProxyPolicy, CliAuthTokenFileInput, TokenResponse, cli_auth_auth_json_from_str, cli_auth_authorize_response,
+    cli_auth_authorize_url, cli_auth_connected_response, cli_auth_disconnected_response, cli_auth_providers_response,
+    cli_auth_statuses_response, cli_auth_token_file_payload, cli_auth_token_files_from_plain,
     extract_chatgpt_account_id, parse_callback_input,
 };
 pub use refresh_classifier::{RefreshErrorKind, classify_refresh_failure};
@@ -425,9 +426,7 @@ impl CliAuthProxyService {
             ("code_challenge", challenge.as_str()),
             ("code_challenge_method", "S256"),
         ];
-        let query = serde_urlencoded::to_string(&params)
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("urlencode: {err}")))?;
-        Ok(format!("{}?{}", provider.auth_endpoint, query))
+        cli_auth_authorize_url(&provider.auth_endpoint, &params)
     }
 
     /// Per-user connection status. `connected=true` only when a non-revoked row
@@ -662,8 +661,7 @@ impl CliAuthProxyService {
                 RefreshErrorKind::Transient(msg) => RefreshOutcome::OtherFailure(msg),
             });
         }
-        let mut tokens: TokenResponse =
-            resp.json().await.map_err(|err| ErrorKind::Internal(anyhow::anyhow!("refresh invalid JSON: {err}")))?;
+        let mut tokens: TokenResponse = resp.json().await.map_err(CliAuthProxyPolicy::refresh_invalid_json)?;
         // Preserve existing refresh_token if the provider didn't issue a new one.
         if tokens.refresh_token.is_none() {
             tokens.refresh_token = Some(SecretString::from(refresh_token.to_string()));
@@ -682,15 +680,15 @@ impl CliAuthProxyService {
         let key = self.encryption_key.as_ref().ok_or_else(CliAuthProxyPolicy::missing_refresh_storage_key)?;
         let account_id =
             tokens.account_id.clone().or_else(|| extract_chatgpt_account_id(tokens.access_token.expose_secret()));
-        let file_map = cli_auth_token_file_map(CliAuthTokenFileInput {
+        let payload = cli_auth_token_file_payload(CliAuthTokenFileInput {
             id_token: tokens.id_token.as_ref().map(|value| value.expose_secret()),
             access_token: tokens.access_token.expose_secret(),
             refresh_token: tokens.refresh_token.as_ref().map(|value| value.expose_secret()),
             account_id: account_id.as_deref(),
             last_refresh: chrono::Utc::now(),
         });
-        let ciphertext = crypto::encrypt_base64(key, &serde_json::to_string(&file_map).expect("Value serialises"))
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encrypt refreshed tokens: {err}")))?;
+        let ciphertext =
+            crypto::encrypt_base64(key, &payload).map_err(CliAuthProxyPolicy::encrypt_refreshed_tokens_failed)?;
         self.cli_creds.upsert_encrypted_by_user_id(user_id, &provider.cli_tool, &ciphertext).await
     }
 
@@ -732,16 +730,13 @@ impl CliAuthProxyService {
             .form(&form)
             .send()
             .await
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("token exchange request failed: {err}")))?;
+            .map_err(CliAuthProxyPolicy::token_exchange_request_failed)?;
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
             return Err(CliAuthProxyPolicy::token_exchange_failed(status, &body).into());
         }
-        let tokens = resp
-            .json::<TokenResponse>()
-            .await
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("token exchange returned invalid JSON: {err}")))?;
+        let tokens = resp.json::<TokenResponse>().await.map_err(CliAuthProxyPolicy::token_exchange_invalid_json)?;
         Ok(tokens)
     }
 
@@ -760,15 +755,14 @@ impl CliAuthProxyService {
         let account_id =
             tokens.account_id.clone().or_else(|| extract_chatgpt_account_id(tokens.access_token.expose_secret()));
 
-        let file_map = cli_auth_token_file_map(CliAuthTokenFileInput {
+        let payload = cli_auth_token_file_payload(CliAuthTokenFileInput {
             id_token: tokens.id_token.as_ref().map(|value| value.expose_secret()),
             access_token: tokens.access_token.expose_secret(),
             refresh_token: tokens.refresh_token.as_ref().map(|value| value.expose_secret()),
             account_id: account_id.as_deref(),
             last_refresh: chrono::Utc::now(),
         });
-        let ciphertext = crypto::encrypt_base64(key, &serde_json::to_string(&file_map).expect("Value serialises"))
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encrypt tokens: {err}")))?;
+        let ciphertext = crypto::encrypt_base64(key, &payload).map_err(CliAuthProxyPolicy::encrypt_tokens_failed)?;
         self.cli_creds.upsert_encrypted(scope, &provider.cli_tool, &ciphertext).await
     }
 }
@@ -788,16 +782,13 @@ fn needs_refresh(
     now: chrono::DateTime<chrono::Utc>,
     threshold: Duration,
 ) -> AppResult<NeedsRefresh> {
-    let plain = crypto::decrypt_base64(key, ciphertext)
-        .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("decrypt: {err}")))?;
-    let files: serde_json::Value =
-        serde_json::from_str(&plain).map_err(|err| ErrorKind::Internal(anyhow::anyhow!("files JSON: {err}")))?;
+    let plain = crypto::decrypt_base64(key, ciphertext).map_err(CliAuthProxyPolicy::decrypt_failed)?;
+    let files = cli_auth_token_files_from_plain(&plain)?;
     let auth_json_str = match files.get("auth.json").and_then(|v| v.as_str()) {
         Some(s) => s,
         None => return Ok(NeedsRefresh::NoRefreshToken),
     };
-    let auth: serde_json::Value =
-        serde_json::from_str(auth_json_str).map_err(|err| ErrorKind::Internal(anyhow::anyhow!("auth.json: {err}")))?;
+    let auth = cli_auth_auth_json_from_str(auth_json_str)?;
     let refresh_token = match auth.pointer("/tokens/refresh_token").and_then(|v| v.as_str()) {
         Some(s) => SecretString::from(s.to_string()),
         None => return Ok(NeedsRefresh::NoRefreshToken),
