@@ -254,6 +254,11 @@ Current stacked PRs:
   repositories into the resource domain/service boundary; removes the `util`
   module and adds repository boundary coverage so persistence code cannot
   re-own resource naming policy.
+- #280 `refactor/backend-ddd-route-flat-factories` -> #279 branch: moves the
+  remaining flat pool-backed route service factories into `AppState` service
+  factories across analytics, credentials, resources, settings, events, and
+  supporting route families; extends route boundary coverage so production
+  routes cannot read `state.pool` or directly call `Service::from_pool`.
 
 ## Execution Rule
 

@@ -45,7 +45,7 @@ struct UpdateGatewaySettingsRequest {
 
 /// Build a SettingService from shared state.
 fn make_service(state: &AppState) -> SettingService {
-    SettingService::from_pool(state.pool.clone())
+    state.setting_service()
 }
 
 /// `GET /api/settings` — list settings.
