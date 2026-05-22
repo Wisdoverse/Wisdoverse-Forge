@@ -44,7 +44,7 @@ pub struct UpdatePluginRequest {
 
 /// Build a PluginService from shared state.
 fn make_service(state: &AppState) -> PluginService {
-    PluginService::from_pool(state.pool.clone())
+    state.plugin_service()
 }
 
 /// `GET /plugins` — list plugins.
