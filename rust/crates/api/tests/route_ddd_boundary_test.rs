@@ -242,6 +242,14 @@ fn repositories_do_not_reintroduce_domain_policy_helpers() {
                     line_no + 1
                 ));
             }
+
+            if is_remaining_repository_error_policy_boundary(&repository) && contains_repository_error_policy(trimmed) {
+                violations.push(format!(
+                    "{}:{} owns remaining repository error policy in production repository code; move error contracts to domain helpers",
+                    repository.display(),
+                    line_no + 1
+                ));
+            }
         }
     }
 
@@ -686,6 +694,19 @@ fn is_flat_repository_error_policy_boundary(path: &Path) -> bool {
         return true;
     }
     false
+}
+
+fn is_remaining_repository_error_policy_boundary(path: &Path) -> bool {
+    let Some(file_name) = path.file_name().and_then(|file_name| file_name.to_str()) else {
+        return false;
+    };
+    if matches!(file_name, "admin.rs" | "billing.rs" | "dev_environment.rs" | "plugin.rs" | "usage_analytics.rs") {
+        return true;
+    }
+
+    path.ends_with(Path::new("user/mod.rs"))
+        || path.ends_with(Path::new("skill/mod.rs"))
+        || path.ends_with(Path::new("skill/version.rs"))
 }
 
 fn contains_repository_error_policy(line: &str) -> bool {

@@ -288,6 +288,11 @@ Current stacked PRs:
   attachment, prompt, voice, and license catalog repositories into domain
   policy helpers; extends repository boundary coverage so these single-table
   repositories cannot re-own direct `ErrorKind` policy.
+- #287 `refactor/backend-ddd-remaining-repository-policies` -> #286 branch:
+  moves remaining admin, billing, user, plugin, skill, dev-environment, and
+  usage-analytics repository error contracts into their owning domain policy
+  helpers; extends repository boundary coverage so these residual repositories
+  cannot re-own direct `ErrorKind` policy.
 
 ## Execution Rule
 
