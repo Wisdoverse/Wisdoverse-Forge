@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 
 use agentforge_core::{AppResult, ErrorKind};
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
@@ -172,6 +172,18 @@ pub struct StripeInvoiceSnapshot {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct StripeEvent {
+    #[serde(rename = "type")]
+    pub event_type: String,
+    pub data: StripeEventData,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StripeEventData {
+    pub object: Value,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UsageMetricView {
@@ -282,6 +294,60 @@ impl BillingPlanPolicy {
         stripe_price_id.map(str::trim).filter(|value| !value.is_empty()).map(str::to_string).ok_or_else(|| {
             ErrorKind::Validation(format!("billing plan '{plan_name}' is not mapped to a Stripe price")).into()
         })
+    }
+}
+
+/// Stripe gateway and webhook error policy.
+pub(crate) struct BillingStripeGatewayPolicy;
+
+impl BillingStripeGatewayPolicy {
+    pub(crate) fn not_configured() -> ErrorKind {
+        ErrorKind::Unavailable(
+            "Stripe billing is not configured; refusing to change local subscription state without Stripe confirmation"
+                .to_string(),
+        )
+    }
+
+    pub(crate) fn api_request_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Unavailable(format!("Stripe API request failed: {err}"))
+    }
+
+    pub(crate) fn api_response_read_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Unavailable(format!("failed to read Stripe API response: {err}"))
+    }
+
+    pub(crate) fn api_response_decode_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Unavailable(format!("failed to decode Stripe API response: {err}"))
+    }
+
+    pub(crate) fn api_error_from_status(status: u16, message: String) -> ErrorKind {
+        match status {
+            400 => ErrorKind::Validation(message),
+            401 | 403 => ErrorKind::Unavailable("Stripe credentials rejected".to_string()),
+            409 => ErrorKind::Conflict(message),
+            429 | 500 | 502 | 503 | 504 => ErrorKind::Unavailable(format!("Stripe API unavailable: {message}")),
+            _ => ErrorKind::Unavailable(message),
+        }
+    }
+
+    pub(crate) fn missing_checkout_redirect_url() -> ErrorKind {
+        ErrorKind::Unavailable("Stripe checkout session did not include a redirect URL".to_string())
+    }
+
+    pub(crate) fn invalid_webhook_json(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Validation(format!("invalid Stripe webhook JSON payload: {err}"))
+    }
+
+    pub(crate) fn invalid_webhook_event_shape(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Validation(format!("invalid Stripe webhook event shape: {err}"))
+    }
+
+    pub(crate) fn invalid_subscription_object(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Validation(format!("invalid Stripe subscription object: {err}"))
+    }
+
+    pub(crate) fn invalid_invoice_object(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Validation(format!("invalid Stripe invoice object: {err}"))
     }
 }
 
@@ -524,6 +590,46 @@ mod tests {
         assert_eq!(BillingPlanPolicy::require_stripe_price_id("Team", Some(" price_123 ")).unwrap(), "price_123");
         assert!(BillingPlanPolicy::require_stripe_price_id("Team", None).is_err());
         assert!(BillingPlanPolicy::require_stripe_price_id("Team", Some("   ")).is_err());
+    }
+
+    #[test]
+    fn billing_stripe_gateway_policy_owns_external_error_contracts() {
+        assert!(
+            format!("{}", BillingStripeGatewayPolicy::not_configured()).contains("Stripe billing is not configured")
+        );
+        assert!(
+            format!("{}", BillingStripeGatewayPolicy::api_request_failed("network"))
+                .contains("Stripe API request failed")
+        );
+        assert!(format!("{}", BillingStripeGatewayPolicy::api_response_read_failed("io")).contains("failed to read"));
+        assert!(
+            format!("{}", BillingStripeGatewayPolicy::api_response_decode_failed("json")).contains("failed to decode")
+        );
+        assert!(format!("{}", BillingStripeGatewayPolicy::missing_checkout_redirect_url()).contains("redirect URL"));
+        assert!(format!("{}", BillingStripeGatewayPolicy::invalid_webhook_json("bad")).contains("webhook JSON"));
+        assert!(format!("{}", BillingStripeGatewayPolicy::invalid_webhook_event_shape("bad")).contains("event shape"));
+        assert!(
+            format!("{}", BillingStripeGatewayPolicy::invalid_subscription_object("bad"))
+                .contains("subscription object")
+        );
+        assert!(format!("{}", BillingStripeGatewayPolicy::invalid_invoice_object("bad")).contains("invoice object"));
+
+        assert!(matches!(
+            BillingStripeGatewayPolicy::api_error_from_status(400, "bad".into()),
+            ErrorKind::Validation(_)
+        ));
+        assert!(matches!(
+            BillingStripeGatewayPolicy::api_error_from_status(403, "nope".into()),
+            ErrorKind::Unavailable(_)
+        ));
+        assert!(matches!(
+            BillingStripeGatewayPolicy::api_error_from_status(409, "conflict".into()),
+            ErrorKind::Conflict(_)
+        ));
+        assert!(
+            format!("{}", BillingStripeGatewayPolicy::api_error_from_status(503, "down".into()))
+                .contains("unavailable")
+        );
     }
 
     #[test]
