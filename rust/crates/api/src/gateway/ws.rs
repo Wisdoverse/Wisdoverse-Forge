@@ -15,36 +15,31 @@ use axum::extract::ws::{Message, WebSocket};
 use axum::extract::{Query, State, WebSocketUpgrade};
 use axum::http::HeaderMap;
 use axum::response::IntoResponse;
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
-use bollard::container::LogOutput;
 use bollard::query_parameters::{AttachContainerOptions, ResizeContainerTTYOptions};
 use futures::{SinkExt, StreamExt};
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use uuid::Uuid;
 
-use agentforge_core::{AgentId, AppError, ErrorKind, OrgId, ProjectId, TeamId, TenantScope, UserId, WorkspaceId};
+use agentforge_core::{AppError, OrgId, ProjectId, TeamId, TenantScope, UserId, WorkspaceId};
 use agentforge_platform::DockerClient;
 
+use crate::domain::gateway::{
+    GatewayTerminalAttachTarget, WebSocketOriginPolicy, WebSocketOriginRejection, docker_unavailable_message,
+    parse_gateway_client_message, realtime_disconnected_frame, realtime_unavailable_frame, subscription_subjects,
+    terminal_error_frame, terminal_output_frame, terminal_payload_agent_id, terminal_payload_dimension,
+    websocket_unauthorized_error,
+};
 use crate::health::AppState;
-use crate::repositories::agent::AgentRepository;
 
 /// Query parameters for the WebSocket upgrade request.
 #[derive(Debug, Deserialize)]
 pub struct WsQuery {
     /// JWT token (WebSocket cannot use Authorization header).
     pub token: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct ClientMessage {
-    #[serde(rename = "type")]
-    kind: String,
-    #[serde(default)]
-    payload: Value,
 }
 
 struct TerminalSession {
@@ -65,25 +60,23 @@ pub async fn ws_handler(
     headers: HeaderMap,
     ws: WebSocketUpgrade,
 ) -> Result<impl IntoResponse, AppError> {
-    // Validate Origin header against configured CORS origin
-    if let Some(allowed_origin) = &state.config.cors_origin {
-        let origin = headers.get(axum::http::header::ORIGIN).and_then(|v| v.to_str().ok());
-        match origin {
-            Some(o) if o == allowed_origin.as_str() => {}
-            Some(o) => {
-                tracing::warn!(origin = o, "WebSocket origin rejected");
-                return Err(ErrorKind::Forbidden.into());
+    let origin = headers.get(axum::http::header::ORIGIN).and_then(|value| value.to_str().ok());
+    if let Err(rejection) =
+        WebSocketOriginPolicy::validate(origin, state.config.cors_origin.as_deref(), state.config.is_production())
+    {
+        match &rejection {
+            WebSocketOriginRejection::Disallowed(origin) => {
+                tracing::warn!(origin, "WebSocket origin rejected");
             }
-            None if state.config.is_production() => {
+            WebSocketOriginRejection::MissingInProduction => {
                 tracing::warn!("WebSocket missing Origin header in production");
-                return Err(ErrorKind::Forbidden.into());
             }
-            None => {} // Allow missing origin in dev
         }
+        return Err(rejection.into_app_error());
     }
 
     // Verify JWT from query param
-    let claims = state.jwt.verify_token(&query.token).map_err(|_| AppError::from(ErrorKind::Unauthorized))?;
+    let claims = state.jwt.verify_token(&query.token).map_err(|_| websocket_unauthorized_error())?;
 
     let scope = TenantScope::with_axes(
         OrgId::from(claims.org),
@@ -155,7 +148,7 @@ async fn handle_ws(socket: WebSocket, state: AppState, scope: TenantScope) {
 
 fn spawn_nats_forwarders(state: &AppState, scope: &TenantScope, outbound_tx: OutboundTx) -> Vec<JoinHandle<()>> {
     let Some(client) = state.nats.client().cloned() else {
-        let _ = outbound_tx.send(r#"{"ok":false,"error":"real-time updates unavailable"}"#.to_string());
+        let _ = outbound_tx.send(realtime_unavailable_frame());
         return Vec::new();
     };
 
@@ -175,30 +168,16 @@ fn spawn_nats_forwarders(state: &AppState, scope: &TenantScope, outbound_tx: Out
                             }
                         }
                         tracing::warn!(org_id = %org_id, subject, "NATS subscription ended unexpectedly");
-                        let _ =
-                            outbound_tx.send(r#"{"ok":false,"error":"real-time updates disconnected"}"#.to_string());
+                        let _ = outbound_tx.send(realtime_disconnected_frame());
                     }
                     Err(err) => {
                         tracing::warn!(error = %err, subject, "Failed to subscribe to NATS");
-                        let _ = outbound_tx.send(r#"{"ok":false,"error":"real-time updates unavailable"}"#.to_string());
+                        let _ = outbound_tx.send(realtime_unavailable_frame());
                     }
                 }
             })
         })
         .collect()
-}
-
-fn subscription_subjects(scope: &TenantScope) -> Vec<String> {
-    let org_id = scope.org_id().as_uuid();
-    let mut subjects =
-        vec![format!("broadcast.{org_id}"), format!("broadcast.{org_id}.scope.user.{}", scope.user_id().as_uuid())];
-    if let Some(team_id) = scope.team_id() {
-        subjects.push(format!("broadcast.{org_id}.scope.team.{}", team_id.as_uuid()));
-    }
-    if let Some(project_id) = scope.project_id() {
-        subjects.push(format!("broadcast.{org_id}.scope.project.{}", project_id.as_uuid()));
-    }
-    subjects
 }
 
 async fn handle_client_message(
@@ -208,7 +187,7 @@ async fn handle_client_message(
     terminals: &mut HashMap<Uuid, TerminalSession>,
     text: &str,
 ) {
-    let Ok(msg) = serde_json::from_str::<ClientMessage>(text) else {
+    let Some(msg) = parse_gateway_client_message(text) else {
         return;
     };
 
@@ -229,32 +208,27 @@ async fn attach_terminal(
     terminals: &mut HashMap<Uuid, TerminalSession>,
     payload: &Value,
 ) {
-    let Some(agent_id) = payload_agent_id(payload) else {
+    let Some(agent_id) = terminal_payload_agent_id(payload) else {
         return;
     };
     detach_terminal_by_id(terminals, agent_id);
 
     let Some(docker) = state.docker.clone() else {
-        let _ = outbound_tx.send(terminal_error_frame(agent_id, "Docker is not available"));
+        let _ = outbound_tx.send(terminal_error_frame(agent_id, docker_unavailable_message()));
         return;
     };
 
-    let repo = AgentRepository::new(state.pool.clone());
-    let agent = match repo.find_by_id(scope, AgentId::from(agent_id)).await {
-        Ok(agent) => agent,
-        Err(err) => {
-            let _ = outbound_tx.send(terminal_error_frame(agent_id, format!("agent lookup failed: {}", err.kind)));
+    let target = state.gateway_terminal_service().attach_target(scope, agent_id).await;
+    let container_id = match target {
+        GatewayTerminalAttachTarget::Ready { container_id } => container_id,
+        GatewayTerminalAttachTarget::Rejected { message } => {
+            let _ = outbound_tx.send(terminal_error_frame(agent_id, message));
             return;
         }
     };
 
-    let Some(container_id) = agent.container_id else {
-        let _ = outbound_tx.send(terminal_error_frame(agent_id, "agent has no running container"));
-        return;
-    };
-
-    let cols = payload_u16(payload, "cols").unwrap_or(80).max(1);
-    let rows = payload_u16(payload, "rows").unwrap_or(24).max(1);
+    let cols = terminal_payload_dimension(payload, "cols").unwrap_or(80).max(1);
+    let rows = terminal_payload_dimension(payload, "rows").unwrap_or(24).max(1);
     let (input_tx, input_rx) = mpsc::unbounded_channel::<Vec<u8>>();
     let task = tokio::spawn(run_terminal_attach(
         docker,
@@ -270,7 +244,7 @@ async fn attach_terminal(
 }
 
 fn write_terminal_data(outbound_tx: &OutboundTx, terminals: &HashMap<Uuid, TerminalSession>, payload: &Value) {
-    let Some(agent_id) = payload_agent_id(payload) else {
+    let Some(agent_id) = terminal_payload_agent_id(payload) else {
         return;
     };
     let Some(data) = payload.get("data").and_then(Value::as_str) else {
@@ -280,7 +254,7 @@ fn write_terminal_data(outbound_tx: &OutboundTx, terminals: &HashMap<Uuid, Termi
 }
 
 fn write_terminal_keys(outbound_tx: &OutboundTx, terminals: &HashMap<Uuid, TerminalSession>, payload: &Value) {
-    let Some(agent_id) = payload_agent_id(payload) else {
+    let Some(agent_id) = terminal_payload_agent_id(payload) else {
         return;
     };
     let Some(keys) = payload.get("keys").and_then(Value::as_array) else {
@@ -315,25 +289,25 @@ async fn resize_terminal(
     terminals: &HashMap<Uuid, TerminalSession>,
     payload: &Value,
 ) {
-    let Some(agent_id) = payload_agent_id(payload) else {
+    let Some(agent_id) = terminal_payload_agent_id(payload) else {
         return;
     };
     let Some(session) = terminals.get(&agent_id) else {
         return;
     };
     let Some(docker) = state.docker.clone() else {
-        let _ = outbound_tx.send(terminal_error_frame(agent_id, "Docker is not available"));
+        let _ = outbound_tx.send(terminal_error_frame(agent_id, docker_unavailable_message()));
         return;
     };
-    let cols = payload_u16(payload, "cols").unwrap_or(80).max(1);
-    let rows = payload_u16(payload, "rows").unwrap_or(24).max(1);
+    let cols = terminal_payload_dimension(payload, "cols").unwrap_or(80).max(1);
+    let rows = terminal_payload_dimension(payload, "rows").unwrap_or(24).max(1);
     if let Err(err) = resize_container_tty(&docker, &session.container_id, cols, rows).await {
         tracing::debug!(error = %err, agent_id = %agent_id, "failed to resize terminal");
     }
 }
 
 fn detach_terminal(terminals: &mut HashMap<Uuid, TerminalSession>, payload: &Value) {
-    if let Some(agent_id) = payload_agent_id(payload) {
+    if let Some(agent_id) = terminal_payload_agent_id(payload) {
         detach_terminal_by_id(terminals, agent_id);
     }
 }
@@ -397,7 +371,7 @@ async fn run_terminal_attach(
             chunk = output.next() => {
                 match chunk {
                     Some(Ok(output)) => {
-                        if outbound_tx.send(terminal_output_frame(agent_id, &output)).is_err() {
+                        if outbound_tx.send(terminal_output_frame(agent_id, output.as_ref())).is_err() {
                             break;
                         }
                     }
@@ -424,36 +398,6 @@ async fn resize_container_tty(
         .await
 }
 
-fn payload_agent_id(payload: &Value) -> Option<Uuid> {
-    payload.get("agentId").and_then(Value::as_str).and_then(|id| Uuid::parse_str(id).ok())
-}
-
-fn payload_u16(payload: &Value, key: &str) -> Option<u16> {
-    payload.get(key).and_then(Value::as_u64).and_then(|value| u16::try_from(value).ok())
-}
-
-fn terminal_output_frame(agent_id: Uuid, output: &LogOutput) -> String {
-    json!({
-        "type": "terminal_output",
-        "payload": {
-            "agentId": agent_id,
-            "data": BASE64.encode(output.as_ref()),
-        }
-    })
-    .to_string()
-}
-
-fn terminal_error_frame(agent_id: Uuid, message: impl Into<String>) -> String {
-    json!({
-        "type": "terminal_error",
-        "payload": {
-            "agentId": agent_id,
-            "message": message.into(),
-        }
-    })
-    .to_string()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -474,30 +418,5 @@ mod tests {
     fn ws_query_empty_token_deserializes() {
         let query: WsQuery = serde_json::from_str(r#"{"token":""}"#).unwrap();
         assert!(query.token.is_empty());
-    }
-
-    #[test]
-    fn nats_subject_format() {
-        let org_id = uuid::Uuid::now_v7();
-        let subject = format!("broadcast.{}", org_id);
-        assert!(subject.starts_with("broadcast."));
-        assert!(subject.len() > "broadcast.".len());
-    }
-
-    #[test]
-    fn terminal_payload_agent_id_parses_camel_case() {
-        let agent_id = Uuid::now_v7();
-        let payload = json!({ "agentId": agent_id.to_string() });
-        assert_eq!(payload_agent_id(&payload), Some(agent_id));
-    }
-
-    #[test]
-    fn terminal_output_frame_base64_encodes_bytes() {
-        let agent_id = Uuid::now_v7();
-        let output = LogOutput::Console { message: b"\x1b[?25hhello\r\n".to_vec().into() };
-        let frame: Value = serde_json::from_str(&terminal_output_frame(agent_id, &output)).unwrap();
-        assert_eq!(frame["type"], "terminal_output");
-        assert_eq!(frame["payload"]["agentId"], agent_id.to_string());
-        assert_eq!(frame["payload"]["data"], BASE64.encode(b"\x1b[?25hhello\r\n"));
     }
 }
