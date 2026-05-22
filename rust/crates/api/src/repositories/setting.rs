@@ -1,8 +1,10 @@
 //! Settings repository — database queries for the settings table.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::Setting;
 use sqlx::PgPool;
+
+use crate::domain::configuration::ConfigurationRepositoryPolicy;
 
 /// Database access layer for settings.
 pub struct SettingRepository {
@@ -59,7 +61,7 @@ impl SettingRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("setting '{key}'")).into());
+            return Err(ConfigurationRepositoryPolicy::setting_not_found(key));
         }
         Ok(())
     }
