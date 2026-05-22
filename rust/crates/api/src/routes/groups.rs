@@ -69,7 +69,7 @@ fn default_role() -> String {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> GroupService {
-    GroupService::from_pool(state.pool.clone())
+    state.group_service()
 }
 
 /// `GET /api/v1/groups` — list groups for the authenticated tenant.
