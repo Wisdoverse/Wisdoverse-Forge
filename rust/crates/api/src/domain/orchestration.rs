@@ -88,6 +88,13 @@ impl TaskCreationPolicy {
         ErrorKind::Validation(format!("parent task {parent_id} not found"))
     }
 
+    pub(crate) fn map_parent_lookup_error(parent_id: Uuid, err: AppError) -> AppError {
+        match err.kind {
+            ErrorKind::NotFound(_) => Self::parent_task_not_found(parent_id).into(),
+            _ => err,
+        }
+    }
+
     pub(crate) fn ensure_approval_task_is_unassigned(
         requires_approval: bool,
         assigned_to: Option<AgentId>,
@@ -1645,6 +1652,16 @@ mod tests {
     fn task_creation_policy_owns_parent_not_found_error() {
         let parent_id = Uuid::parse_str("11111111-1111-4111-8111-111111111111").unwrap();
         assert!(format!("{}", TaskCreationPolicy::parent_task_not_found(parent_id)).contains("parent task"));
+        assert!(matches!(
+            TaskCreationPolicy::map_parent_lookup_error(parent_id, ErrorKind::NotFound("task".into()).into()).kind,
+            ErrorKind::Validation(message) if message == format!("parent task {parent_id} not found")
+        ));
+
+        let internal: AppError = ErrorKind::Internal(anyhow::anyhow!("db failed")).into();
+        assert!(matches!(
+            TaskCreationPolicy::map_parent_lookup_error(parent_id, internal).kind,
+            ErrorKind::Internal(message) if message.to_string().contains("db failed")
+        ));
     }
 
     #[test]
