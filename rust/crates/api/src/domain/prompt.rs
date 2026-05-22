@@ -22,6 +22,37 @@ impl<'a> PromptContent<'a> {
     }
 }
 
+pub(crate) struct PromptAgentPolicy;
+
+impl PromptAgentPolicy {
+    pub(crate) fn required_model(model: Option<String>) -> AppResult<String> {
+        model.ok_or_else(|| ErrorKind::Validation("agent has no model configured".into()).into())
+    }
+
+    pub(crate) fn required_provider(provider: Option<String>) -> AppResult<String> {
+        provider.ok_or_else(|| ErrorKind::Validation("agent has no provider configured".into()).into())
+    }
+
+    pub(crate) fn ensure_not_busy(is_busy: bool) -> AppResult<()> {
+        if is_busy {
+            return Err(ErrorKind::Conflict("agent_busy".into()).into());
+        }
+        Ok(())
+    }
+}
+
+pub(crate) struct PromptProviderPolicy;
+
+impl PromptProviderPolicy {
+    pub(crate) fn missing_api_key(provider: &str) -> ErrorKind {
+        ErrorKind::Validation(format!("no API key configured for provider '{provider}' — add one in LLM settings"))
+    }
+
+    pub(crate) fn build_error(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Validation(format!("{err}"))
+    }
+}
+
 /// Borrowed chat history item used by the context-window selector.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PromptHistoryMessage<'a> {
@@ -198,6 +229,22 @@ mod tests {
     fn prompt_content_trims_and_rejects_empty() {
         assert_eq!(PromptContent::parse("  hi  ").unwrap().value(), "hi");
         assert!(PromptContent::parse("   ").is_err());
+    }
+
+    #[test]
+    fn prompt_agent_policy_requires_model_provider_and_idle_state() {
+        assert_eq!(PromptAgentPolicy::required_model(Some("gpt-5.5".to_string())).unwrap(), "gpt-5.5");
+        assert!(PromptAgentPolicy::required_model(None).is_err());
+        assert_eq!(PromptAgentPolicy::required_provider(Some("openai".to_string())).unwrap(), "openai");
+        assert!(PromptAgentPolicy::required_provider(None).is_err());
+        assert!(PromptAgentPolicy::ensure_not_busy(false).is_ok());
+        assert!(PromptAgentPolicy::ensure_not_busy(true).is_err());
+    }
+
+    #[test]
+    fn prompt_provider_policy_owns_user_visible_errors() {
+        assert!(format!("{}", PromptProviderPolicy::missing_api_key("openai")).contains("provider 'openai'"));
+        assert!(format!("{}", PromptProviderPolicy::build_error("bad model")).contains("bad model"));
     }
 
     #[test]
