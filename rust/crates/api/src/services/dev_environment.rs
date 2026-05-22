@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use agentforge_core::{AppError, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::DevEnvironment;
 use agentforge_platform::DockerClient;
 use agentforge_platform::types::{ContainerConfig, ContainerState, Mount, ResourceLimits};
@@ -12,9 +12,9 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::dev_environment::{
-    DEFAULT_STOP_TIMEOUT_SECONDS, DevEnvironmentLifecyclePolicy, DevEnvironmentName, DevEnvironmentRuntimeSpec,
-    DevEnvironmentRuntimeState, DevEnvironmentStatusUpdate, ERROR_STATUS, RUNNING_STATUS, STARTING_STATUS,
-    STOPPED_STATUS, StopPlan,
+    DEFAULT_STOP_TIMEOUT_SECONDS, DevEnvironmentLifecyclePolicy, DevEnvironmentName, DevEnvironmentRuntimePolicy,
+    DevEnvironmentRuntimeSpec, DevEnvironmentRuntimeState, DevEnvironmentStatusUpdate, ERROR_STATUS, RUNNING_STATUS,
+    STARTING_STATUS, STOPPED_STATUS, StopPlan,
 };
 pub(crate) use crate::domain::dev_environment::{
     dev_environment_data_response, dev_environment_delete_response, dev_environment_message_response,
@@ -101,33 +101,33 @@ impl DockerDevEnvironmentRuntime {
 #[async_trait]
 impl DevEnvironmentRuntime for DockerDevEnvironmentRuntime {
     async fn create_container(&self, config: ContainerConfig) -> AppResult<String> {
-        self.docker.create_container(config).await.map_err(|err| {
-            ErrorKind::Internal(anyhow::anyhow!("failed to create dev environment container: {err}")).into()
-        })
+        self.docker.create_container(config).await.map_err(DevEnvironmentRuntimePolicy::create_container_failed)
     }
 
     async fn start_container(&self, container_id: &str) -> AppResult<()> {
-        self.docker.start_container(container_id).await.map_err(|err| {
-            ErrorKind::Internal(anyhow::anyhow!("failed to start dev environment container: {err}")).into()
-        })
+        self.docker.start_container(container_id).await.map_err(DevEnvironmentRuntimePolicy::start_container_failed)
     }
 
     async fn stop_container(&self, container_id: &str, timeout_secs: i64) -> AppResult<()> {
-        self.docker.stop_container(container_id, timeout_secs).await.map_err(|err| {
-            ErrorKind::Internal(anyhow::anyhow!("failed to stop dev environment container: {err}")).into()
-        })
+        self.docker
+            .stop_container(container_id, timeout_secs)
+            .await
+            .map_err(DevEnvironmentRuntimePolicy::stop_container_failed)
     }
 
     async fn remove_container(&self, container_id: &str, force: bool) -> AppResult<()> {
-        self.docker.remove_container(container_id, force).await.map_err(|err| {
-            ErrorKind::Internal(anyhow::anyhow!("failed to remove dev environment container: {err}")).into()
-        })
+        self.docker
+            .remove_container(container_id, force)
+            .await
+            .map_err(DevEnvironmentRuntimePolicy::remove_container_failed)
     }
 
     async fn inspect_container(&self, container_id: &str) -> AppResult<ContainerState> {
-        self.docker.inspect_container(container_id).await.map(|info| info.status).map_err(|err| {
-            ErrorKind::Internal(anyhow::anyhow!("failed to inspect dev environment container: {err}")).into()
-        })
+        self.docker
+            .inspect_container(container_id)
+            .await
+            .map(|info| info.status)
+            .map_err(DevEnvironmentRuntimePolicy::inspect_container_failed)
     }
 }
 
@@ -188,7 +188,7 @@ where
         let env = self.repo.get(scope, id).await?;
         DevEnvironmentLifecyclePolicy::ensure_can_start(&env.status, env.container_id.as_deref())?;
 
-        let runtime = self.runtime.as_ref().ok_or_else(docker_unavailable)?;
+        let runtime = self.runtime.as_ref().ok_or_else(DevEnvironmentRuntimePolicy::docker_unavailable)?;
         let config = build_container_config(scope, &env)?;
         self.repo.update_status(scope, id, STARTING_STATUS, None).await?;
 
@@ -220,7 +220,7 @@ where
             return self.repo.update_status(scope, id, STOPPED_STATUS, None).await;
         };
 
-        let runtime = self.runtime.as_ref().ok_or_else(docker_unavailable)?;
+        let runtime = self.runtime.as_ref().ok_or_else(DevEnvironmentRuntimePolicy::docker_unavailable)?;
         if let Err(err) = runtime.stop_container(container_id, DEFAULT_STOP_TIMEOUT_SECONDS).await {
             let _ = self.repo.update_status(scope, id, ERROR_STATUS, Some(container_id)).await;
             return Err(err);
@@ -272,10 +272,6 @@ where
             None => Ok(env),
         }
     }
-}
-
-fn docker_unavailable() -> AppError {
-    ErrorKind::Internal(anyhow::anyhow!("Docker runtime not available for dev environments")).into()
 }
 
 fn build_container_config(scope: &TenantScope, env: &DevEnvironment) -> AppResult<ContainerConfig> {
@@ -338,7 +334,7 @@ mod tests {
     use std::collections::VecDeque;
     use std::sync::Mutex;
 
-    use agentforge_core::{DevEnvironmentId, OrgId, ProjectId, UserId};
+    use agentforge_core::{DevEnvironmentId, ErrorKind, OrgId, ProjectId, UserId};
     use chrono::Utc;
     use serde_json::json;
 
