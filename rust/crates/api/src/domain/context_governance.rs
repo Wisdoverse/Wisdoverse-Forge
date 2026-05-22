@@ -237,6 +237,37 @@ pub(crate) struct GovernanceAuditEntry {
     pub(crate) created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct GovernanceAuditExportedAudit {
+    entry_count: usize,
+    redact_secrets: bool,
+    event_prefix: String,
+    limit: i64,
+    offset: i64,
+}
+
+impl GovernanceAuditExportedAudit {
+    pub(crate) fn from_response(response: &GovernanceAuditResponse) -> Self {
+        Self {
+            entry_count: response.entries.len(),
+            redact_secrets: response.query.redacted,
+            event_prefix: response.query.event_prefix.clone(),
+            limit: response.query.limit,
+            offset: response.query.offset,
+        }
+    }
+
+    pub(crate) fn audit_payload(&self) -> Value {
+        serde_json::json!({
+            "entry_count": self.entry_count,
+            "redact_secrets": self.redact_secrets,
+            "event_prefix": self.event_prefix,
+            "limit": self.limit,
+            "offset": self.offset
+        })
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum AuditTamperStatus {
@@ -695,5 +726,26 @@ mod tests {
         assert!(redacted);
         assert_eq!(value["classification"]["token"], REDACTED_MARKER);
         assert_eq!(value["safe"], "internal");
+    }
+
+    #[test]
+    fn governance_audit_exported_audit_owns_payload_shape() {
+        let response = GovernanceAuditResponse {
+            entries: Vec::new(),
+            query: GovernanceAuditQuery {
+                event_prefix: "governance.context.".to_string(),
+                limit: 500,
+                offset: 10,
+                redacted: true,
+            },
+        };
+
+        let payload = GovernanceAuditExportedAudit::from_response(&response).audit_payload();
+
+        assert_eq!(payload["entry_count"], 0);
+        assert_eq!(payload["redact_secrets"], true);
+        assert_eq!(payload["event_prefix"], "governance.context.");
+        assert_eq!(payload["limit"], 500);
+        assert_eq!(payload["offset"], 10);
     }
 }

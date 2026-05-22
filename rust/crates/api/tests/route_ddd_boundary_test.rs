@@ -110,7 +110,7 @@ fn route_handlers_do_not_reintroduce_ddd_boundary_leaks() {
 }
 
 #[test]
-fn services_do_not_reintroduce_direct_sql() {
+fn services_do_not_reintroduce_persistence_or_payload_boundary_leaks() {
     let services_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/services");
     let mut violations = Vec::new();
 
@@ -121,6 +121,14 @@ fn services_do_not_reintroduce_direct_sql() {
             if contains_raw_sql(line.trim()) {
                 violations.push(format!(
                     "{}:{} uses raw SQL in production service code; move tenant-scoped queries to repositories",
+                    service.display(),
+                    line_no + 1
+                ));
+            }
+
+            if contains_json_macro(line.trim()) {
+                violations.push(format!(
+                    "{}:{} uses json! in production service code; move protocol/payload construction to domain",
                     service.display(),
                     line_no + 1
                 ));
@@ -153,10 +161,14 @@ fn collect_rust_files(dir: &Path, files: &mut Vec<PathBuf>) {
         let path = entry.expect("read rust source entry").path();
         if path.is_dir() {
             collect_rust_files(&path, files);
-        } else if path.extension().is_some_and(|extension| extension == "rs") {
+        } else if path.extension().is_some_and(|extension| extension == "rs") && !is_test_support_path(&path) {
             files.push(path);
         }
     }
+}
+
+fn is_test_support_path(path: &Path) -> bool {
+    path.components().any(|component| component.as_os_str() == "tests")
 }
 
 fn production_section(source: &str) -> &str {
