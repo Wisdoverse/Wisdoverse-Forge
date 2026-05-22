@@ -162,15 +162,32 @@ fn services_do_not_reintroduce_persistence_or_payload_boundary_leaks() {
 }
 
 #[test]
-fn mcp_entrypoint_does_not_own_persistence_sql() {
+fn mcp_entrypoint_does_not_reintroduce_ddd_boundary_leaks() {
     let mcp_file = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/mcp.rs");
     let source = fs::read_to_string(&mcp_file).expect("read MCP source");
     let mut violations = Vec::new();
 
     for (line_no, line) in production_lines(&source) {
-        if contains_raw_sql(line.trim()) {
+        let trimmed = line.trim();
+        if contains_raw_sql(trimmed) {
             violations.push(format!(
                 "{}:{} uses raw SQL in production MCP entrypoint code; move persistence to repository/service boundaries",
+                mcp_file.display(),
+                line_no + 1
+            ));
+        }
+
+        if contains_json_macro(trimmed) {
+            violations.push(format!(
+                "{}:{} uses json! in production MCP entrypoint code; move protocol payload construction to domain",
+                mcp_file.display(),
+                line_no + 1
+            ));
+        }
+
+        if contains_route_error_policy(trimmed) {
+            violations.push(format!(
+                "{}:{} owns ErrorKind policy in production MCP entrypoint code; move error contracts to domain helpers",
                 mcp_file.display(),
                 line_no + 1
             ));
