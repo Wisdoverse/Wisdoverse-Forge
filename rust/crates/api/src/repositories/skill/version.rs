@@ -1,13 +1,14 @@
 //! Skill version repository — append-only skill snapshots for rollback.
 
-use agentforge_core::{AppResult, ErrorKind, OrgId, SkillId, UserId, WorkspaceId};
+use agentforge_core::{AppResult, OrgId, SkillId, UserId, WorkspaceId};
 use agentforge_db::entities::{Skill, SkillVersion};
-use anyhow::anyhow;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
+
+use crate::domain::skill::SkillRepositoryPolicy;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkillSnapshot {
@@ -70,13 +71,11 @@ impl From<&Skill> for SkillSnapshot {
 
 impl SkillSnapshot {
     pub fn from_value(value: Value) -> AppResult<Self> {
-        serde_json::from_value(value)
-            .map_err(|err| ErrorKind::Internal(anyhow!("skill version snapshot is invalid: {err}")).into())
+        serde_json::from_value(value).map_err(SkillRepositoryPolicy::snapshot_invalid)
     }
 
     fn to_value(&self) -> AppResult<Value> {
-        serde_json::to_value(self)
-            .map_err(|err| ErrorKind::Internal(anyhow!("failed to serialize skill snapshot: {err}")).into())
+        serde_json::to_value(self).map_err(SkillRepositoryPolicy::snapshot_serialize_failed)
     }
 }
 
@@ -101,9 +100,7 @@ impl SkillVersionRepository {
         .bind(author_user_id.as_uuid())
         .fetch_optional(&mut **tx)
         .await?
-        .ok_or_else(|| {
-            ErrorKind::Conflict(format!("skill {} version {} already exists", skill.id, skill.version)).into()
-        })
+        .ok_or_else(|| SkillRepositoryPolicy::version_already_exists(skill.id, skill.version))
     }
 
     pub async fn list_by_skill_in_tx(
@@ -137,7 +134,7 @@ impl SkillVersionRepository {
         .bind(version)
         .fetch_optional(&mut **tx)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("skill {skill_id} version {version}")))?;
+        .ok_or_else(|| SkillRepositoryPolicy::version_not_found(skill_id, version))?;
         let snapshot = SkillSnapshot::from_value(row.snapshot.clone())?;
         Ok((row, snapshot))
     }
