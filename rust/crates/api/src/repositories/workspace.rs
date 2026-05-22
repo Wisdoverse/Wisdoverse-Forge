@@ -1,8 +1,10 @@
 //! Workspace repository — tenant-scoped database queries for workspaces.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope, WorkspaceId};
+use agentforge_core::{AppResult, TenantScope, WorkspaceId};
 use agentforge_db::entities::Workspace;
 use sqlx::PgPool;
+
+use crate::domain::resource::ResourceRepositoryPolicy;
 
 /// Database access layer for workspaces.
 pub struct WorkspaceRepository {
@@ -39,7 +41,7 @@ impl WorkspaceRepository {
         .bind(scope.org_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("workspace {id}")).into())
+        .ok_or_else(|| ResourceRepositoryPolicy::workspace_not_found(id))
     }
 
     /// Create a new workspace.
@@ -68,7 +70,7 @@ impl WorkspaceRepository {
         .bind(name)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("workspace {id}")).into())
+        .ok_or_else(|| ResourceRepositoryPolicy::workspace_not_found(id))
     }
 
     /// Soft-delete a workspace (set deleted_at).
@@ -83,7 +85,7 @@ impl WorkspaceRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("workspace {id}")).into());
+            return Err(ResourceRepositoryPolicy::workspace_not_found(id));
         }
         Ok(())
     }
