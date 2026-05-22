@@ -8,11 +8,13 @@ pub mod llm_config;
 
 pub use llm_config::{UserLlmConfigRepository, UserLlmConfigSecret};
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope, UserId};
+use agentforge_core::{AppError, AppResult, TenantScope, UserId};
 use agentforge_db::entities::User;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sqlx::{PgPool, Postgres, Transaction};
+
+use crate::domain::user::UserRepositoryPolicy;
 
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
 #[serde(rename_all = "camelCase")]
@@ -53,7 +55,7 @@ impl UserRepository {
         .bind(scope.org_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("user {id}")).into())
+        .ok_or_else(|| UserRepositoryPolicy::user_not_found(id))
     }
 
     /// Create a new user (registration).
@@ -78,10 +80,10 @@ impl UserRepository {
         .bind(display_name)
         .fetch_one(&mut *tx)
         .await
-        .map_err(|e| -> agentforge_core::AppError {
+        .map_err(|e| -> AppError {
             match &e {
                 sqlx::Error::Database(db_err) if db_err.constraint() == Some("users_email_key") => {
-                    ErrorKind::Conflict("email already registered".into()).into()
+                    UserRepositoryPolicy::email_already_registered()
                 }
                 _ => e.into(),
             }
@@ -131,7 +133,7 @@ impl UserRepository {
         .await?;
 
         if membership == 0 {
-            return Err(ErrorKind::NotFound(format!("user {id}")).into());
+            return Err(UserRepositoryPolicy::user_not_found(id));
         }
 
         sqlx::query_as::<_, User>(
@@ -143,7 +145,7 @@ impl UserRepository {
         .bind(display_name)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("user {id}")).into())
+        .ok_or_else(|| UserRepositoryPolicy::user_not_found(id))
     }
 
     /// Find the user's default organization and role.
@@ -459,7 +461,7 @@ async fn insert_personal_org(
         }
     }
 
-    Err(ErrorKind::Internal(anyhow::anyhow!("failed to allocate unique personal organization slug")).into())
+    Err(UserRepositoryPolicy::personal_org_slug_allocation_failed())
 }
 
 #[cfg(test)]
