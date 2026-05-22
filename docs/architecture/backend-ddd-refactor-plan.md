@@ -176,6 +176,9 @@ Current stacked PRs:
   branch: moves identity JWT/password hashing and credential encryption/
   serialization runtime error contracts into user and credential domain
   policies.
+- #265 `refactor/backend-ddd-context-runtime-policies` -> #264 branch: moves
+  context feature gate, tenant/scope, resolver lookup/runtime, and preview
+  selected-items serialization policy contracts into context domain modules.
 
 ## Execution Rule
 
@@ -391,8 +394,13 @@ Current open stack:
   Git credential, and LLM provider encryption/serialization error contracts into
   domain policies while services keep cryptography calls, repository I/O, and
   credential injection flow.
+- #265 context runtime policy sweep, stacked on #264, moves context feature gate
+  disabled/missing-override behavior, tenant workspace/scope access errors,
+  resolver task/agent lookup and unsupported CLI-tool errors, and preview
+  selected-items serialization into context domain modules while services keep
+  repository I/O, transaction, cache, and resolver orchestration.
 
-Before starting a new PR, inspect the current state of #229-#264. If they have
+Before starting a new PR, inspect the current state of #229-#265. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 

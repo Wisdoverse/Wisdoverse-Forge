@@ -1,9 +1,9 @@
 //! Context feature-gate service.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use sqlx::PgPool;
 
-use crate::domain::context::{ContextFeature, ContextFeatureFlags, ContextFeatureSnapshot};
+use crate::domain::context::{ContextFeature, ContextFeatureFlags, ContextFeaturePolicy, ContextFeatureSnapshot};
 use crate::repositories::feature_flag::FeatureFlagRepository;
 
 pub struct ContextFeatureService {
@@ -50,7 +50,7 @@ impl ContextFeatureService {
             return Ok(());
         }
 
-        Err(ErrorKind::NotFound(format!("{} is disabled", feature.key())).into())
+        Err(ContextFeaturePolicy::disabled(feature).into())
     }
 
     pub(crate) async fn is_enabled(&self, scope: &TenantScope, feature: ContextFeature) -> AppResult<bool> {
@@ -61,7 +61,9 @@ impl ContextFeatureService {
 
         match self.repo.find_by_name(scope.org_id(), feature.key()).await {
             Ok(flag) => Ok(flag.enabled),
-            Err(err) if matches!(err.kind, ErrorKind::NotFound(_)) => Ok(deployment_enabled),
+            Err(err) if ContextFeaturePolicy::missing_override_allows_deployment_default(&err.kind) => {
+                Ok(deployment_enabled)
+            }
             Err(err) => Err(err),
         }
     }
