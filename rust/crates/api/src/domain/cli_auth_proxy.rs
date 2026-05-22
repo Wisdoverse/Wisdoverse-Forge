@@ -1,6 +1,6 @@
 //! CLI auth proxy response shapes.
 
-use agentforge_core::ErrorKind;
+use agentforge_core::{AppResult, ErrorKind};
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use chrono::{DateTime, Utc};
@@ -147,6 +147,42 @@ impl CliAuthProxyPolicy {
 
     pub(crate) fn token_exchange_failed(status: impl std::fmt::Display, body: &str) -> ErrorKind {
         ErrorKind::Validation(format!("token exchange failed: HTTP {status} — {body}"))
+    }
+
+    pub(crate) fn urlencode_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("urlencode: {err}"))
+    }
+
+    pub(crate) fn refresh_invalid_json(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("refresh invalid JSON: {err}"))
+    }
+
+    pub(crate) fn token_exchange_request_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("token exchange request failed: {err}"))
+    }
+
+    pub(crate) fn token_exchange_invalid_json(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("token exchange returned invalid JSON: {err}"))
+    }
+
+    pub(crate) fn encrypt_refreshed_tokens_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("encrypt refreshed tokens: {err}"))
+    }
+
+    pub(crate) fn encrypt_tokens_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("encrypt tokens: {err}"))
+    }
+
+    pub(crate) fn decrypt_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("decrypt: {err}"))
+    }
+
+    pub(crate) fn files_json_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("files JSON: {err}"))
+    }
+
+    pub(crate) fn auth_json_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("auth.json: {err}"))
     }
 }
 
@@ -302,6 +338,23 @@ pub(crate) fn cli_auth_token_file_map(input: CliAuthTokenFileInput<'_>) -> Value
     json!({ "auth.json": auth_json.to_string() })
 }
 
+pub(crate) fn cli_auth_authorize_url(auth_endpoint: &str, params: &[(&str, &str)]) -> AppResult<String> {
+    let query = serde_urlencoded::to_string(params).map_err(CliAuthProxyPolicy::urlencode_failed)?;
+    Ok(format!("{auth_endpoint}?{query}"))
+}
+
+pub(crate) fn cli_auth_token_file_payload(input: CliAuthTokenFileInput<'_>) -> String {
+    cli_auth_token_file_map(input).to_string()
+}
+
+pub(crate) fn cli_auth_token_files_from_plain(plain: &str) -> AppResult<Value> {
+    serde_json::from_str(plain).map_err(|err| CliAuthProxyPolicy::files_json_failed(err).into())
+}
+
+pub(crate) fn cli_auth_auth_json_from_str(auth_json: &str) -> AppResult<Value> {
+    serde_json::from_str(auth_json).map_err(|err| CliAuthProxyPolicy::auth_json_failed(err).into())
+}
+
 #[cfg(test)]
 mod tests {
     use chrono::TimeZone;
@@ -326,6 +379,57 @@ mod tests {
         assert_eq!(auth["tokens"]["refresh_token"], "refresh");
         assert_eq!(auth["tokens"]["account_id"], "acct");
         assert_eq!(auth["last_refresh"], "2026-04-01T00:00:00+00:00");
+    }
+
+    #[test]
+    fn token_file_payload_serializes_file_map() {
+        let payload = cli_auth_token_file_payload(CliAuthTokenFileInput {
+            id_token: None,
+            access_token: "access",
+            refresh_token: Some("refresh"),
+            account_id: None,
+            last_refresh: Utc.with_ymd_and_hms(2026, 4, 1, 0, 0, 0).unwrap(),
+        });
+
+        let files: Value = serde_json::from_str(&payload).expect("files JSON");
+        let auth_json = files["auth.json"].as_str().expect("auth.json string");
+        let auth: Value = serde_json::from_str(auth_json).expect("auth JSON");
+
+        assert_eq!(auth["tokens"]["access_token"], "access");
+        assert_eq!(auth["tokens"]["refresh_token"], "refresh");
+        assert!(auth["tokens"].get("id_token").is_none());
+    }
+
+    #[test]
+    fn authorize_url_owns_query_serialization() {
+        let url = cli_auth_authorize_url(
+            "https://auth.example.test/oauth/authorize",
+            &[
+                ("response_type", "code"),
+                ("client_id", "client one"),
+                ("redirect_uri", "http://localhost:1455/auth/callback"),
+                ("scope", "openid profile"),
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(
+            url,
+            "https://auth.example.test/oauth/authorize?response_type=code&client_id=client+one&redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback&scope=openid+profile"
+        );
+    }
+
+    #[test]
+    fn stored_token_file_parsers_map_invalid_json_to_internal() {
+        let files = cli_auth_token_files_from_plain(r#"{"auth.json":"{\"tokens\":{\"refresh_token\":\"rt\"}}"}"#)
+            .expect("files");
+        assert_eq!(files["auth.json"].as_str().unwrap(), r#"{"tokens":{"refresh_token":"rt"}}"#);
+
+        let auth = cli_auth_auth_json_from_str(r#"{"tokens":{"refresh_token":"rt"}}"#).expect("auth");
+        assert_eq!(auth["tokens"]["refresh_token"], "rt");
+
+        assert!(format!("{}", cli_auth_token_files_from_plain("not-json").unwrap_err().kind).contains("files JSON"));
+        assert!(format!("{}", cli_auth_auth_json_from_str("not-json").unwrap_err().kind).contains("auth.json"));
     }
 
     #[test]
@@ -365,6 +469,23 @@ mod tests {
         assert!(format!("{}", CliAuthProxyPolicy::provider_mismatch("openai", "codex")).contains("stored openai"));
         assert!(format!("{}", CliAuthProxyPolicy::state_user_mismatch()).contains("different user"));
         assert!(format!("{}", CliAuthProxyPolicy::token_exchange_failed(400, "bad")).contains("HTTP 400"));
+    }
+
+    #[test]
+    fn cli_auth_proxy_policy_owns_serialization_errors() {
+        for err in [
+            CliAuthProxyPolicy::urlencode_failed("bad"),
+            CliAuthProxyPolicy::refresh_invalid_json("bad"),
+            CliAuthProxyPolicy::token_exchange_request_failed("bad"),
+            CliAuthProxyPolicy::token_exchange_invalid_json("bad"),
+            CliAuthProxyPolicy::encrypt_refreshed_tokens_failed("bad"),
+            CliAuthProxyPolicy::encrypt_tokens_failed("bad"),
+            CliAuthProxyPolicy::decrypt_failed("bad"),
+            CliAuthProxyPolicy::files_json_failed("bad"),
+            CliAuthProxyPolicy::auth_json_failed("bad"),
+        ] {
+            assert!(format!("{err}").contains("bad"));
+        }
     }
 
     #[test]
