@@ -1,8 +1,10 @@
 //! Resource permission checks for organization, team, and project management.
 
-use agentforge_core::{AppResult, ErrorKind, ProjectId, ScopedRead, TeamId, TenantScope};
+use agentforge_core::{AppResult, ProjectId, ScopedRead, TeamId, TenantScope};
 use sqlx::PgPool;
 use uuid::Uuid;
+
+use crate::domain::resource::ResourceRepositoryPolicy;
 
 /// Database access layer for resource permission predicates.
 pub struct ResourcePermissionRepository {
@@ -36,7 +38,7 @@ impl ResourcePermissionRepository {
         .fetch_one(&self.pool)
         .await?;
         if !workspace_exists {
-            return Err(ErrorKind::NotFound(format!("workspace {workspace_id}")).into());
+            return Err(ResourceRepositoryPolicy::workspace_not_found(workspace_id));
         }
 
         let team_ids = sqlx::query_scalar::<_, Uuid>(
