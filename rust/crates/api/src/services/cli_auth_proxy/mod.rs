@@ -29,8 +29,9 @@ pub use crate::domain::cli_auth_proxy::{
 };
 pub(crate) use crate::domain::cli_auth_proxy::{
     CliAuthCredentialPayloadRead, CliAuthProxyPolicy, CliAuthTokenFileInput, TokenResponse,
-    cli_auth_auth_json_from_str, cli_auth_authorize_response, cli_auth_authorize_url, cli_auth_connected_response,
-    cli_auth_credential_decrypt_failed_reason, cli_auth_credential_payload_from_plain,
+    cli_auth_auth_json_from_str, cli_auth_authorize_response, cli_auth_authorize_url, cli_auth_callback_idp_error_html,
+    cli_auth_callback_missing_params_html, cli_auth_callback_service_error_html, cli_auth_callback_success_html,
+    cli_auth_connected_response, cli_auth_credential_decrypt_failed_reason, cli_auth_credential_payload_from_plain,
     cli_auth_credential_payload_invalid_reason, cli_auth_disconnected_response, cli_auth_encryption_key_missing_reason,
     cli_auth_providers_response, cli_auth_state_entry_from_payload, cli_auth_state_entry_payload,
     cli_auth_statuses_response, cli_auth_token_file_payload, cli_auth_token_files_from_plain,

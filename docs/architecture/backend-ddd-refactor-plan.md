@@ -208,6 +208,11 @@ Current stacked PRs:
   Container CLI credential file-map plaintext serialization into domain helpers,
   and extends the service boundary regression test to block direct production
   `serde_json` conversions in services.
+- #272 `refactor/backend-ddd-route-error-adapters` -> #271 branch: moves route
+  error/protocol contracts for auth responses, CLI auth callback HTML,
+  attachment multipart upload errors, and billing webhook signature errors into
+  domain helpers, and extends route boundary coverage to block production
+  `ErrorKind` policy in routes.
 
 ## Execution Rule
 
@@ -458,8 +463,12 @@ Current open stack:
   decoding and Container CLI credential file-map plaintext serialization into
   domain helpers, then guards production services against direct
   `serde_json::{from_str,from_value,to_string,to_value}` conversions.
+- #272 route error adapter sweep, stacked on #271, moves auth route response
+  error contracts, CLI auth callback HTML, attachment multipart upload error
+  strings, and billing webhook signature errors into domain helpers, then
+  guards production routes against direct `ErrorKind` policy ownership.
 
-Before starting a new PR, inspect the current state of #229-#271. If they have
+Before starting a new PR, inspect the current state of #229-#272. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 
