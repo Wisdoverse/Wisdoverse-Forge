@@ -28,10 +28,13 @@ pub use crate::domain::cli_auth_proxy::{
     CallbackMode, ProviderInfo, ProviderStatus, RefreshSummary, RevokedCliCredential,
 };
 pub(crate) use crate::domain::cli_auth_proxy::{
-    CliAuthProxyPolicy, CliAuthTokenFileInput, TokenResponse, cli_auth_auth_json_from_str, cli_auth_authorize_response,
-    cli_auth_authorize_url, cli_auth_connected_response, cli_auth_disconnected_response, cli_auth_providers_response,
-    cli_auth_state_entry_from_payload, cli_auth_state_entry_payload, cli_auth_statuses_response,
-    cli_auth_token_file_payload, cli_auth_token_files_from_plain, extract_chatgpt_account_id, parse_callback_input,
+    CliAuthCredentialPayloadRead, CliAuthProxyPolicy, CliAuthTokenFileInput, TokenResponse,
+    cli_auth_auth_json_from_str, cli_auth_authorize_response, cli_auth_authorize_url, cli_auth_connected_response,
+    cli_auth_credential_decrypt_failed_reason, cli_auth_credential_payload_from_plain,
+    cli_auth_credential_payload_invalid_reason, cli_auth_disconnected_response, cli_auth_encryption_key_missing_reason,
+    cli_auth_providers_response, cli_auth_state_entry_from_payload, cli_auth_state_entry_payload,
+    cli_auth_statuses_response, cli_auth_token_file_payload, cli_auth_token_files_from_plain,
+    extract_chatgpt_account_id, parse_callback_input,
 };
 pub use refresh_classifier::{RefreshErrorKind, classify_refresh_failure};
 
@@ -174,22 +177,18 @@ fn credential_connection_status(
 
     if let Some(key) = encryption_key {
         match crypto::decrypt_base64(key, &enc) {
-            Ok(plain) => match serde_json::from_str::<serde_json::Value>(&plain) {
-                Ok(files) => {
-                    if let Some(auth_json) = files.get("auth.json").and_then(|v| v.as_str())
-                        && let Ok(parsed) = serde_json::from_str::<serde_json::Value>(auth_json)
-                    {
-                        last_refresh = parsed.get("last_refresh").and_then(|v| v.as_str()).map(str::to_string);
-                    }
+            Ok(plain) => match cli_auth_credential_payload_from_plain(&plain) {
+                CliAuthCredentialPayloadRead::Usable { last_refresh: refresh } => {
+                    last_refresh = refresh;
                 }
-                Err(err) => {
+                CliAuthCredentialPayloadRead::InvalidPayload { error } => {
                     tracing::warn!(
-                        error = %err,
+                        error = %error,
                         user_id = %scope.user_id().as_uuid(),
                         cli_tool,
                         "stored Container CLI credentials decrypted but are not a file-map JSON object"
                     );
-                    unusable_reason = Some("credential_payload_invalid".to_string());
+                    unusable_reason = Some(cli_auth_credential_payload_invalid_reason().to_string());
                 }
             },
             Err(err) => {
@@ -199,11 +198,11 @@ fn credential_connection_status(
                     cli_tool,
                     "stored Container CLI credentials cannot be decrypted for status"
                 );
-                unusable_reason = Some("credential_decrypt_failed".to_string());
+                unusable_reason = Some(cli_auth_credential_decrypt_failed_reason().to_string());
             }
         }
     } else {
-        unusable_reason = Some("encryption_key_missing".to_string());
+        unusable_reason = Some(cli_auth_encryption_key_missing_reason().to_string());
     }
 
     let revoked_at = revoked_at.map(|d| d.to_rfc3339());
