@@ -14,6 +14,7 @@ use crate::domain::billing::{
     BillingSubscriptionProjection, BillingUsageLimitPolicy, BillingWebhookReconciliationPolicy, CheckoutCouponPolicy,
     InvoiceListPage, InvoiceSubscriptionLookup, InvoiceView, PaymentMethodId, SubscriptionLifecyclePolicy,
     SubscriptionOrgResolution, SubscriptionPlanResolution, SubscriptionStatusPolicy, SubscriptionView, UsageMetricView,
+    stripe_event,
 };
 pub use crate::domain::billing::{StripeInvoiceSnapshot, StripeSubscriptionSnapshot};
 pub(crate) use crate::domain::billing::{
@@ -26,7 +27,7 @@ pub use stripe::{
     BillingGateway, CheckoutSession, CheckoutSessionInput, DirectSubscriptionInput, DisabledBillingGateway,
     PortalSession, billing_gateway_from_config,
 };
-use stripe::{parse_invoice_object, parse_subscription_object, stripe_event};
+use stripe::{parse_invoice_object, parse_subscription_object};
 
 /// Business logic layer for billing operations.
 pub struct BillingService {

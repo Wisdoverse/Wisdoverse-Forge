@@ -21,7 +21,9 @@ use secrecy::{ExposeSecret, SecretString};
 use sqlx::PgPool;
 use tokio::fs;
 
-use crate::domain::credential::{ContainerCliCredentialPolicy, OauthMountContainerKey};
+use crate::domain::credential::{
+    ContainerCliCredentialPolicy, OauthMountContainerKey, container_cli_oauth_file_map_plaintext,
+};
 pub(crate) use crate::domain::credential::{
     cli_credential_deleted_response, cli_credential_stored_response, cli_credentials_response,
 };
@@ -143,7 +145,7 @@ impl CliCredentialService {
         let key = self.encryption_key.as_ref().ok_or_else(ContainerCliCredentialPolicy::missing_storage_key)?;
         let tool = ContainerCliCredentialPolicy::canonical_tool(cli_tool)?;
         ContainerCliCredentialPolicy::validate_oauth_file_map(files)?;
-        let plaintext = serde_json::to_string(files).map_err(ContainerCliCredentialPolicy::serialize_files_failed)?;
+        let plaintext = container_cli_oauth_file_map_plaintext(files)?;
         let ciphertext = crypto::encrypt_base64(key, &plaintext)
             .map_err(ContainerCliCredentialPolicy::encrypt_credentials_failed)?;
         self.cli_creds.upsert_encrypted(scope, tool, &ciphertext).await
