@@ -155,7 +155,7 @@ impl BillingService {
             .repo
             .get_subscription(scope)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound("no active subscription".to_string()))?;
+            .ok_or_else(SubscriptionLifecyclePolicy::missing_active_subscription)?;
         let stripe_subscription_id =
             SubscriptionLifecyclePolicy::require_stripe_subscription_id(sub.stripe_subscription_id.as_deref())?;
 
@@ -181,7 +181,7 @@ impl BillingService {
             .repo
             .get_subscription(scope)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound("no active subscription".to_string()))?;
+            .ok_or_else(SubscriptionLifecyclePolicy::missing_active_subscription)?;
         let stripe_subscription_id =
             SubscriptionLifecyclePolicy::require_stripe_subscription_id(sub.stripe_subscription_id.as_deref())?;
 
@@ -208,7 +208,7 @@ impl BillingService {
             .repo
             .get_subscription(scope)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound("no active subscription".to_string()))?;
+            .ok_or_else(SubscriptionLifecyclePolicy::missing_active_subscription)?;
         let customer_id = SubscriptionLifecyclePolicy::require_stripe_customer_id(sub.stripe_customer_id.as_deref())?;
 
         self.gateway.create_portal_session(customer_id, return_url).await

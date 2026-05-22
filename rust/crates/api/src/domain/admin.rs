@@ -3,7 +3,7 @@
 //! This module owns pure admin-console policies that are independent of
 //! repositories and HTTP route DTOs.
 
-use agentforge_core::{AgentStatus, AppResult, ErrorKind};
+use agentforge_core::{AgentStatus, AppError, AppResult, ErrorKind};
 use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -249,6 +249,31 @@ impl AdminImpersonationPolicy {
     }
 }
 
+/// Admin bulk-delete request and error-projection policy.
+pub(crate) struct AdminBulkDeletePolicy;
+
+impl AdminBulkDeletePolicy {
+    pub(crate) fn require_ids(agent_ids: &[Uuid]) -> AppResult<()> {
+        if agent_ids.is_empty() {
+            return Err(ErrorKind::Validation("ids array required".into()).into());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn error_message(err: &AppError) -> String {
+        match &err.kind {
+            ErrorKind::NotFound(_) => "agent not found".to_string(),
+            ErrorKind::Validation(msg) => format!("validation error: {msg}"),
+            ErrorKind::Unprocessable(msg) => format!("unprocessable entity: {msg}"),
+            ErrorKind::Conflict(msg) => format!("conflict: {msg}"),
+            ErrorKind::Unauthorized => "unauthorized".to_string(),
+            ErrorKind::Forbidden => "forbidden".to_string(),
+            ErrorKind::Unavailable(msg) => format!("service unavailable: {msg}"),
+            ErrorKind::Internal(_) => "delete failed".to_string(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -279,6 +304,17 @@ mod tests {
         let user_id = Uuid::now_v7();
         assert!(AdminImpersonationPolicy::ensure_not_self(user_id, user_id).is_err());
         assert!(AdminImpersonationPolicy::ensure_not_self(user_id, Uuid::now_v7()).is_ok());
+    }
+
+    #[test]
+    fn admin_bulk_delete_policy_owns_ids_and_error_projection() {
+        assert!(AdminBulkDeletePolicy::require_ids(&[Uuid::now_v7()]).is_ok());
+        assert!(AdminBulkDeletePolicy::require_ids(&[]).is_err());
+
+        let validation: AppError = ErrorKind::Validation("bad id".into()).into();
+        let internal: AppError = ErrorKind::Internal(anyhow::anyhow!("db failed")).into();
+        assert_eq!(AdminBulkDeletePolicy::error_message(&validation), "validation error: bad id");
+        assert_eq!(AdminBulkDeletePolicy::error_message(&internal), "delete failed");
     }
 
     #[test]
