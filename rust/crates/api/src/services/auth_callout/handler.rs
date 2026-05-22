@@ -64,6 +64,8 @@ use uuid::Uuid;
 
 use agentforge_jobs::auth_lookup::NatsConnectPasswordLookup;
 
+use crate::domain::auth_callout::CalloutResponse;
+
 use super::jwt::{self, AuthorizationRequest};
 use super::kick::ConnectionTracker;
 use super::metrics;
@@ -110,20 +112,6 @@ pub struct CalloutSigningKeys {
     /// in `docker/nats.conf`; passing an account public nkey here yields
     /// `no valid account` at CONNECT time.
     pub audience_account_name: String,
-}
-
-/// The handler's output on every path — allow or deny.
-///
-/// `payload` is the byte-for-byte response to publish on the reply subject.
-/// Under xkey encryption it is `xkv1 || nonce || box_ct`; in plaintext mode
-/// (no `server_xkey_from_header`) it is the raw signed JWT bytes.
-///
-/// `reply_headers` is always `None` today but preserved on the struct so
-/// Unit 8 has a single publish path regardless of future spec changes — see
-/// the module docs.
-pub struct CalloutResponse {
-    pub payload: Vec<u8>,
-    pub reply_headers: Option<async_nats::HeaderMap>,
 }
 
 // ---------------------------------------------------------------------------
