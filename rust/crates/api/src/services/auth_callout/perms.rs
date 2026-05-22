@@ -13,12 +13,13 @@
 //! `orchestration.assigned.>` (task injection would let a compromised
 //! sidecar hand itself another tenant's task).
 
-use super::jwt::NatsPermissions;
 use agentforge_core::orchestration_protocol::{
     assignment_consumer_ack_subject_pattern, assignment_consumer_create_subject, assignment_consumer_info_subject,
     assignment_consumer_next_subject,
 };
 use uuid::Uuid;
+
+use crate::domain::auth_callout::NatsPermissions;
 
 /// Build the scoped publish/subscribe allowlist for a specific agent.
 ///
