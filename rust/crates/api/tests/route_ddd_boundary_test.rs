@@ -155,6 +155,14 @@ fn services_do_not_reintroduce_persistence_or_payload_boundary_leaks() {
                     line_no + 1
                 ));
             }
+
+            if contains_service_error_policy(line.trim()) {
+                violations.push(format!(
+                    "{}:{} owns ErrorKind policy in production service code; move user-visible error contracts to domain helpers",
+                    service.display(),
+                    line_no + 1
+                ));
+            }
         }
     }
 
@@ -498,6 +506,18 @@ fn contains_service_serde_adapter(line: &str) -> bool {
 
 fn contains_ad_hoc_service_wiring(line: &str) -> bool {
     line.contains("Repository::new(self.")
+}
+
+fn contains_service_error_policy(line: &str) -> bool {
+    if line.starts_with("///") || line.starts_with("//!") {
+        return false;
+    }
+
+    line.contains("agentforge_core::ErrorKind")
+        || (line.starts_with("use agentforge_core::") && line.contains("ErrorKind"))
+        || (line.contains("ErrorKind::")
+            && !line.contains("std::io::ErrorKind")
+            && !line.contains("RefreshErrorKind::"))
 }
 
 fn contains_raw_sql(line: &str) -> bool {
