@@ -8,24 +8,20 @@ use axum::extract::{Query, State};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::{DateTime, Utc};
-use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use sha2::Sha256;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, ErrorKind};
 
 use crate::domain::context_governance::{ContextGovernancePolicy, GovernanceAuditQueryPolicy};
+use crate::domain::governance_audit::{GovernanceAuditProjection, GovernanceAuditQuery, GovernanceAuditResponse};
 use crate::health::{AppState, ContextFeature, ensure_context_feature_enabled};
 use crate::repositories::audit::AuditRepository;
 use crate::repositories::governance_audit::{
-    GOVERNANCE_CONTEXT_AUDIT_PREFIX, GovernanceAuditFilter, GovernanceAuditRepository, GovernanceAuditRow,
-    normalize_limit,
+    GOVERNANCE_CONTEXT_AUDIT_PREFIX, GovernanceAuditFilter, GovernanceAuditRepository, normalize_limit,
 };
-
-type HmacSha256 = Hmac<Sha256>;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -41,49 +37,6 @@ pub struct GovernanceAuditQueryParams {
     pub redact_secrets: Option<bool>,
     pub limit: Option<i64>,
     pub offset: Option<i64>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GovernanceAuditResponse {
-    pub entries: Vec<GovernanceAuditEntry>,
-    pub query: GovernanceAuditQuery,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GovernanceAuditQuery {
-    pub event_prefix: String,
-    pub limit: i64,
-    pub offset: i64,
-    pub redacted: bool,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GovernanceAuditEntry {
-    pub id: Uuid,
-    pub event_type: String,
-    pub actor_user_id: Option<Uuid>,
-    pub item_kind: Option<String>,
-    pub scope_kind: Option<String>,
-    pub scope_id: Option<Uuid>,
-    pub raw_item_id: Option<Uuid>,
-    pub audit_subject_hash: String,
-    pub resource_type: String,
-    pub resource_id: Option<Uuid>,
-    pub details: Value,
-    pub details_redacted: bool,
-    pub tamper_status: AuditTamperStatus,
-    pub created_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Copy, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AuditTamperStatus {
-    NotConfigured,
-    Valid,
-    Invalid,
 }
 
 pub fn governance_audit_routes() -> Router<AppState> {
@@ -164,7 +117,7 @@ async fn load_projection(
         )
         .await?;
 
-    let entries = rows.into_iter().map(|row| project_row(row, &key, redact)).collect();
+    let entries = rows.into_iter().map(|row| GovernanceAuditProjection::project_row(row, &key, redact)).collect();
     Ok(GovernanceAuditResponse {
         entries,
         query: GovernanceAuditQuery {
@@ -185,47 +138,6 @@ fn validate_query(query: &GovernanceAuditQueryParams) -> AppResult<()> {
         from: query.from,
         to: query.to,
     })
-}
-
-fn project_row(row: GovernanceAuditRow, key: &[u8], redact: bool) -> GovernanceAuditEntry {
-    let hash_subject = row.subject_item_id.unwrap_or(row.id);
-    let scope_kind = row.subject_scope_kind.clone().unwrap_or_else(|| "unknown".to_string());
-    let scope_id = row.subject_scope_id.map(|id| id.to_string()).unwrap_or_else(|| "unknown".to_string());
-    let audit_subject_hash = hmac_hex(key, &format!("{hash_subject}|{scope_kind}|{scope_id}"));
-    let raw_item_id = row.subject_item_id.filter(|_| row.visible_by_scope);
-    let tamper_status = tamper_status(&row, key);
-    let (details, details_redacted) =
-        if redact { ContextGovernancePolicy::redact_audit_details(row.details) } else { (row.details, false) };
-
-    GovernanceAuditEntry {
-        id: row.id,
-        event_type: row.event_type,
-        actor_user_id: row.actor_user_id,
-        item_kind: row.item_kind,
-        scope_kind: row.subject_scope_kind,
-        scope_id: row.subject_scope_id,
-        raw_item_id,
-        audit_subject_hash,
-        resource_type: row.resource_type,
-        resource_id: row.resource_id,
-        details,
-        details_redacted,
-        tamper_status,
-        created_at: row.created_at,
-    }
-}
-
-fn tamper_status(row: &GovernanceAuditRow, key: &[u8]) -> AuditTamperStatus {
-    let Some(signature) = row.details.get("hmac_signature").and_then(Value::as_str) else {
-        return AuditTamperStatus::NotConfigured;
-    };
-    let subject = row.subject_item_id.unwrap_or(row.id);
-    let expected = hmac_hex(key, &format!("{}|{}|{}", row.event_type, subject, row.created_at.to_rfc3339()));
-    if constant_time_eq(signature.as_bytes(), expected.as_bytes()) {
-        AuditTamperStatus::Valid
-    } else {
-        AuditTamperStatus::Invalid
-    }
 }
 
 fn audit_hmac_key(state: &AppState) -> AppResult<Vec<u8>> {
@@ -249,19 +161,6 @@ fn audit_hmac_key(state: &AppState) -> AppResult<Vec<u8>> {
     }
 
     Ok(b"agentforge-dev-governance-audit-key".to_vec())
-}
-
-fn hmac_hex(key: &[u8], message: &str) -> String {
-    let mut mac = HmacSha256::new_from_slice(key).expect("HMAC accepts keys of any size");
-    mac.update(message.as_bytes());
-    hex::encode(mac.finalize().into_bytes())
-}
-
-fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
-    if left.len() != right.len() {
-        return false;
-    }
-    left.iter().zip(right.iter()).fold(0_u8, |acc, (a, b)| acc | (a ^ b)) == 0
 }
 
 fn is_admin_role(role: &str) -> bool {
