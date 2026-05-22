@@ -8,9 +8,8 @@ fn route_handlers_do_not_reintroduce_ddd_boundary_leaks() {
 
     for route in route_files(&routes_dir) {
         let source = fs::read_to_string(&route).expect("read route source");
-        let production_source = production_section(&source);
 
-        for (line_no, line) in production_source.lines().enumerate() {
+        for (line_no, line) in production_lines(&source) {
             let trimmed = line.trim();
             if is_allowed_empty_json_default(trimmed) {
                 continue;
@@ -116,8 +115,7 @@ fn services_do_not_reintroduce_persistence_or_payload_boundary_leaks() {
 
     for service in rust_files_recursive(&services_dir) {
         let source = fs::read_to_string(&service).expect("read service source");
-        let production_source = production_section(&source);
-        for (line_no, line) in production_source.lines().enumerate() {
+        for (line_no, line) in production_lines(&source) {
             if contains_raw_sql(line.trim()) {
                 violations.push(format!(
                     "{}:{} uses raw SQL in production service code; move tenant-scoped queries to repositories",
@@ -171,8 +169,51 @@ fn is_test_support_path(path: &Path) -> bool {
     path.components().any(|component| component.as_os_str() == "tests")
 }
 
-fn production_section(source: &str) -> &str {
-    source.split_once("#[cfg(test)]").map_or(source, |(production, _)| production)
+fn production_lines(source: &str) -> Vec<(usize, &str)> {
+    let mut lines = Vec::new();
+    let mut pending_cfg_test = false;
+    let mut skip_depth: Option<i32> = None;
+
+    for (index, line) in source.lines().enumerate() {
+        if let Some(depth) = skip_depth.as_mut() {
+            *depth += brace_delta(line);
+            if *depth <= 0 {
+                skip_depth = None;
+            }
+            continue;
+        }
+
+        let trimmed = line.trim();
+        if pending_cfg_test {
+            pending_cfg_test = false;
+            let depth = brace_delta(line);
+            if depth > 0 && !trimmed.ends_with(';') {
+                skip_depth = Some(depth);
+            }
+            continue;
+        }
+
+        if is_test_cfg_attr(trimmed) {
+            pending_cfg_test = true;
+            continue;
+        }
+
+        lines.push((index + 1, line));
+    }
+
+    lines
+}
+
+fn brace_delta(line: &str) -> i32 {
+    let opens = line.chars().filter(|character| *character == '{').count() as i32;
+    let closes = line.chars().filter(|character| *character == '}').count() as i32;
+    opens - closes
+}
+
+fn is_test_cfg_attr(line: &str) -> bool {
+    line.starts_with("#[cfg(test)]")
+        || line.starts_with(r#"#[cfg(feature = "test-support")]"#)
+        || line.starts_with(r#"#[cfg(any(test, feature = "test-support"))]"#)
 }
 
 fn is_allowed_empty_json_default(line: &str) -> bool {

@@ -50,12 +50,12 @@
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use nkeys::KeyPair;
-#[cfg(test)]
-use secrecy::ExposeSecret;
 use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
+
+use crate::domain::auth_callout::{NatsPermissions, authorization_response_claims, nats_jwt_header, user_jwt_claims};
 
 /// Structured error surface for the JWT primitives.
 ///
@@ -86,25 +86,6 @@ pub enum JwtError {
 
 // -----------------------------------------------------------------------------
 // Permission payload
-// -----------------------------------------------------------------------------
-
-/// Pub/sub allow/deny arrays embedded inside the inner User JWT's `nats.pub`
-/// and `nats.sub` blocks.
-///
-/// Fields are `pub` because callers (Unit 7's allowlist builder) assemble
-/// them inline. An empty `Vec` serializes to `[]` which NATS treats as
-/// "deny all" for that direction — so Unit 7 must populate both sides
-/// correctly or connections will silently fail to publish.
-#[derive(Debug, Clone, Default)]
-pub struct NatsPermissions {
-    pub pub_allow: Vec<String>,
-    pub pub_deny: Vec<String>,
-    pub sub_allow: Vec<String>,
-    pub sub_deny: Vec<String>,
-}
-
-// -----------------------------------------------------------------------------
-// Request parsing
 // -----------------------------------------------------------------------------
 
 /// Parsed fields from an incoming `AuthorizationRequest` claim body.
@@ -217,18 +198,6 @@ struct RequestClientInfo {
 // JWT header + claims serialization helpers
 // -----------------------------------------------------------------------------
 
-/// Canonical NATS JWT header: `{"typ":"JWT","alg":"ed25519-nkey"}`.
-///
-/// Declared as a function (not a `const`) so the JSON string is computed once
-/// with `serde_json` to guarantee byte-exact output rather than depending on
-/// source-literal spacing. Encodes identically every call.
-fn nats_jwt_header() -> serde_json::Value {
-    serde_json::json!({
-        "typ": "JWT",
-        "alg": "ed25519-nkey",
-    })
-}
-
 /// Current Unix epoch seconds. Returns `0` on the astronomically unlikely
 /// case of clock-before-epoch, which is a safer fallback than panicking —
 /// the JWT will just fail `exp` validation downstream.
@@ -319,27 +288,7 @@ pub fn sign_user_jwt(
     let exp = iat.saturating_add(expires_in.as_secs());
     let jti = Uuid::new_v4().to_string();
 
-    let claims = serde_json::json!({
-        "iss": issuer_pub,
-        "sub": subject_nkey,
-        "aud": audience_account_name,
-        "iat": iat,
-        "exp": exp,
-        "jti": jti,
-        "name": name,
-        "nats": {
-            "pub": {
-                "allow": permissions.pub_allow,
-                "deny": permissions.pub_deny,
-            },
-            "sub": {
-                "allow": permissions.sub_allow,
-                "deny": permissions.sub_deny,
-            },
-            "type": "user",
-            "version": 2,
-        },
-    });
+    let claims = user_jwt_claims(&issuer_pub, subject_nkey, audience_account_name, name, iat, exp, &jti, permissions);
 
     let header_b64 = b64_json(&nats_jwt_header())?;
     let claims_b64 = b64_json(&claims)?;
@@ -396,30 +345,16 @@ pub fn sign_authorization_response_jwt(
 
     // `nats.error` must be omitted entirely on allow (not set to empty
     // string or null) — the upstream Go reference uses `omitempty`.
-    let nats_inner = if let Some(err) = error {
-        serde_json::json!({
-            "jwt": inner_user_jwt,
-            "error": err,
-            "type": "authorization_response",
-            "version": 2,
-        })
-    } else {
-        serde_json::json!({
-            "jwt": inner_user_jwt,
-            "type": "authorization_response",
-            "version": 2,
-        })
-    };
-
-    let claims = serde_json::json!({
-        "iss": issuer_pub,
-        "sub": subject_user_nkey,
-        "aud": audience_server_id,
-        "iat": iat,
-        "exp": exp,
-        "jti": jti,
-        "nats": nats_inner,
-    });
+    let claims = authorization_response_claims(
+        &issuer_pub,
+        subject_user_nkey,
+        audience_server_id,
+        iat,
+        exp,
+        &jti,
+        inner_user_jwt,
+        error,
+    );
 
     let header_b64 = b64_json(&nats_jwt_header())?;
     let claims_b64 = b64_json(&claims)?;
@@ -435,6 +370,7 @@ pub fn sign_authorization_response_jwt(
 mod tests {
     use super::*;
     use nkeys::KeyPair;
+    use secrecy::ExposeSecret;
     use serde_json::Value;
 
     /// Build a fresh account signing keypair for tests.
