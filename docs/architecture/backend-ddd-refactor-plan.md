@@ -308,8 +308,13 @@ Current open stack:
   classification, and Stripe subscription/invoice snapshots into domain
   modules so services retain external I/O, signing, encryption, and
   persistence orchestration instead of owning protocol shapes.
+- #258 prompt provider policy sweep, stacked on #257, moves provider-backed
+  prompt requirements, missing provider/model/API-key errors, in-flight busy
+  conflicts, and provider build-error mapping into `domain::prompt`, keeping
+  prompt services focused on repositories, LLM factory calls, SSE streaming,
+  and cancellation orchestration.
 
-Before starting a new PR, inspect the current state of #229-#257. If they have
+Before starting a new PR, inspect the current state of #229-#258. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 
