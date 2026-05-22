@@ -155,6 +155,11 @@ Current stacked PRs:
   Git credential, Container CLI credential, CLI auth proxy token storage, and
   LLM provider encryption/test error contracts into credential/auth domain
   policies.
+- #260 `refactor/backend-ddd-service-error-policies` -> #259 branch: moves
+  remaining service-owned user-visible error policies across auth/default-org,
+  billing active subscriptions, admin bulk delete, governance audit HMAC
+  runtime keys, legacy navigation org updates, resource member email lookup,
+  and orchestration parent-task mapping into domain policy helpers.
 
 ## Execution Rule
 
@@ -348,8 +353,13 @@ Current open stack:
   encryption/test error contracts into domain policies so credential services
   keep encryption, repository, OAuth, and provider I/O orchestration instead of
   owning user-visible policy strings.
+- #260 service error policy sweep, stacked on #259, moves remaining service-owned
+  user-visible error policy contracts across auth/default-org, billing active
+  subscriptions, admin bulk delete, governance audit HMAC runtime keys, legacy
+  navigation org updates, resource member email lookup, and orchestration
+  parent-task mapping into domain helpers.
 
-Before starting a new PR, inspect the current state of #229-#259. If they have
+Before starting a new PR, inspect the current state of #229-#260. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 
