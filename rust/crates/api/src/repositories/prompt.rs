@@ -1,9 +1,11 @@
 //! Prompt repository — database queries for the prompts table.
 
-use agentforge_core::{AppError, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::Prompt;
 use sqlx::PgPool;
 use uuid::Uuid;
+
+use crate::domain::prompt_library::PromptLibraryRepositoryPolicy;
 
 /// Database access layer for prompts.
 pub struct PromptRepository {
@@ -83,7 +85,7 @@ impl PromptRepository {
         .bind(scope.user_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("prompt {id}")).into())
+        .ok_or_else(|| PromptLibraryRepositoryPolicy::prompt_not_found(id))
     }
 
     /// Create a new prompt.
@@ -139,7 +141,7 @@ impl PromptRepository {
         .bind(is_shared)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| -> AppError { ErrorKind::NotFound(format!("prompt {id}")).into() })?;
+        .ok_or_else(|| PromptLibraryRepositoryPolicy::prompt_not_found(id))?;
         Ok(prompt)
     }
 
@@ -156,7 +158,7 @@ impl PromptRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("prompt {id}")).into());
+            return Err(PromptLibraryRepositoryPolicy::prompt_not_found(id));
         }
         Ok(())
     }
