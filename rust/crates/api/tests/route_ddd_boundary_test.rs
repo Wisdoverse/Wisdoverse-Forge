@@ -147,10 +147,37 @@ fn services_do_not_reintroduce_persistence_or_payload_boundary_leaks() {
                     line_no + 1
                 ));
             }
+
+            if contains_ad_hoc_service_wiring(line.trim()) {
+                violations.push(format!(
+                    "{}:{} constructs repositories or services from self-held infrastructure in production service methods; move wiring to constructors/factories",
+                    service.display(),
+                    line_no + 1
+                ));
+            }
         }
     }
 
     assert!(violations.is_empty(), "service DDD boundary violations:\n{}", violations.join("\n"));
+}
+
+#[test]
+fn mcp_entrypoint_does_not_own_persistence_sql() {
+    let mcp_file = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/mcp.rs");
+    let source = fs::read_to_string(&mcp_file).expect("read MCP source");
+    let mut violations = Vec::new();
+
+    for (line_no, line) in production_lines(&source) {
+        if contains_raw_sql(line.trim()) {
+            violations.push(format!(
+                "{}:{} uses raw SQL in production MCP entrypoint code; move persistence to repository/service boundaries",
+                mcp_file.display(),
+                line_no + 1
+            ));
+        }
+    }
+
+    assert!(violations.is_empty(), "MCP DDD boundary violations:\n{}", violations.join("\n"));
 }
 
 fn route_files(routes_dir: &Path) -> Vec<PathBuf> {
@@ -244,6 +271,10 @@ fn contains_service_serde_adapter(line: &str) -> bool {
     ["serde_json::from_str(", "serde_json::from_value(", "serde_json::to_string(", "serde_json::to_value("]
         .iter()
         .any(|pattern| line.contains(pattern))
+}
+
+fn contains_ad_hoc_service_wiring(line: &str) -> bool {
+    line.contains("Repository::new(self.")
 }
 
 fn contains_raw_sql(line: &str) -> bool {
