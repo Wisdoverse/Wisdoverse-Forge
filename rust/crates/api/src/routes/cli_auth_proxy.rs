@@ -24,8 +24,10 @@ use crate::health::AppState;
 #[cfg(test)]
 use crate::services::cli_auth_proxy::resolve_providers;
 use crate::services::cli_auth_proxy::{
-    CliAuthProxyService, cli_auth_authorize_response, cli_auth_connected_response, cli_auth_disconnected_response,
-    cli_auth_providers_response, cli_auth_statuses_response,
+    CliAuthProxyService, cli_auth_authorize_response, cli_auth_callback_idp_error_html,
+    cli_auth_callback_missing_params_html, cli_auth_callback_service_error_html, cli_auth_callback_success_html,
+    cli_auth_connected_response, cli_auth_disconnected_response, cli_auth_providers_response,
+    cli_auth_statuses_response,
 };
 
 fn make_service(state: &AppState) -> CliAuthProxyService {
@@ -163,67 +165,18 @@ async fn server_callback(
 ) -> impl IntoResponse {
     if let Some(err) = params.error.as_deref() {
         let desc = params.error_description.as_deref().unwrap_or("");
-        return Html(render_idp_error_html(err, desc)).into_response();
+        return Html(cli_auth_callback_idp_error_html(err, desc)).into_response();
     }
     let (Some(code), Some(oauth_state)) = (params.code.as_deref(), params.state.as_deref()) else {
-        return Html(render_missing_params_html().to_string()).into_response();
+        return Html(cli_auth_callback_missing_params_html().to_string()).into_response();
     };
     match make_service(&state).handle_server_callback(&provider, code, oauth_state).await {
-        Ok(()) => Html(
-            "<html><body><h1>Signed in</h1><p>You can close this tab and return to Wisdoverse Forge.</p></body></html>"
-                .to_string(),
-        )
-        .into_response(),
+        Ok(()) => Html(cli_auth_callback_success_html()).into_response(),
         Err(err) => {
             tracing::warn!(error = ?err, provider, "server-callback token exchange failed");
-            // `AppError` doesn't implement `Display` — render kind directly so
-            // validation errors (bad state, mismatched provider) still surface
-            // their `{0}` payload and internal errors show as a generic string
-            // rather than leaking anyhow chain details to the browser.
-            let msg = match &err.kind {
-                agentforge_core::ErrorKind::Validation(m) => m.clone(),
-                agentforge_core::ErrorKind::Unprocessable(m) => m.clone(),
-                _ => "internal error".to_string(),
-            };
-            Html(format!("<html><body><h1>Sign-in failed</h1><p>{}</p></body></html>", html_escape(&msg)))
-                .into_response()
+            Html(cli_auth_callback_service_error_html(&err.kind)).into_response()
         }
     }
-}
-
-/// Render the "IdP returned an error" branch of `server_callback`. Isolated
-/// from the handler so the XSS escape on `error_description` is testable
-/// without standing up the full `AppState`.
-fn render_idp_error_html(error: &str, description: &str) -> String {
-    format!(
-        "<html><body><h1>Sign-in failed</h1><p>{}</p><p>{}</p><p>You can close this tab.</p></body></html>",
-        html_escape(error),
-        html_escape(description),
-    )
-}
-
-/// Render the "callback missing code or state" branch. No user-controlled
-/// input reaches the output — pure static string — but lives here so the
-/// handler's two error paths stay grouped.
-fn render_missing_params_html() -> &'static str {
-    "<html><body><h1>Sign-in failed</h1><p>Callback missing <code>code</code> or <code>state</code>.</p></body></html>"
-}
-
-/// Escape user-provided text before embedding in HTML. Only the minimum set
-/// (`< > & " '`) — we don't render user-controlled markup elsewhere.
-fn html_escape(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for ch in s.chars() {
-        match ch {
-            '<' => out.push_str("&lt;"),
-            '>' => out.push_str("&gt;"),
-            '&' => out.push_str("&amp;"),
-            '"' => out.push_str("&quot;"),
-            '\'' => out.push_str("&#x27;"),
-            c => out.push(c),
-        }
-    }
-    out
 }
 
 pub fn cli_auth_proxy_routes() -> Router<AppState> {
@@ -301,40 +254,8 @@ mod tests {
     }
 
     #[test]
-    fn html_escape_covers_xss_chars() {
-        assert_eq!(html_escape("<script>alert(\"x\")</script>"), "&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;");
-        assert_eq!(html_escape("it's"), "it&#x27;s");
-    }
-
-    #[test]
     fn complete_manual_request_deserializes() {
         let req: CompleteManualRequest = serde_json::from_str(r#"{"input":"abc#xyz"}"#).unwrap();
         assert_eq!(req.input, "abc#xyz");
-    }
-
-    #[test]
-    fn idp_error_html_escapes_xss_payload_in_description() {
-        let out = render_idp_error_html("access_denied", "<script>alert(1)</script>");
-        assert!(out.contains("&lt;script&gt;"), "description must be escaped: {out}");
-        assert!(!out.contains("<script>alert"), "raw payload leaked — XSS regression: {out}");
-        // The literal <h1> is ours, not user-controlled, and must NOT be escaped.
-        assert!(out.contains("<h1>Sign-in failed</h1>"));
-    }
-
-    #[test]
-    fn idp_error_html_escapes_xss_payload_in_error_code() {
-        // The `error` field is also IdP-controlled — some providers echo back
-        // invalid error codes that could carry HTML.
-        let out = render_idp_error_html("<img src=x onerror=alert(1)>", "benign");
-        assert!(out.contains("&lt;img"), "error field must be escaped: {out}");
-        assert!(!out.contains("<img "), "raw <img leaked: {out}");
-    }
-
-    #[test]
-    fn missing_params_html_is_static_non_panicking() {
-        let out = render_missing_params_html();
-        assert!(out.contains("Callback missing"));
-        // Sanity: no format placeholders leaked.
-        assert!(!out.contains("{}"));
     }
 }
