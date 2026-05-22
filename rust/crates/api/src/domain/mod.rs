@@ -18,6 +18,7 @@ pub(crate) mod context_preview;
 pub mod context_resolver;
 pub(crate) mod credential;
 pub(crate) mod dev_environment;
+pub(crate) mod email;
 pub(crate) mod evidence_projection;
 pub(crate) mod inbox;
 pub(crate) mod license;
