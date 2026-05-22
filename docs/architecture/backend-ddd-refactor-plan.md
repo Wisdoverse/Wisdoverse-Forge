@@ -274,6 +274,10 @@ Current stacked PRs:
   run-context-injection repository error contracts into the orchestration domain
   policy boundary; extends repository boundary coverage so orchestration
   repositories cannot re-own direct `ErrorKind` policy.
+- #284 `refactor/backend-ddd-agent-repository-policy` -> #283 branch:
+  moves agent, MCP-agent, workspace, and collaborator repository error contracts
+  into the agent domain policy boundary; extends repository boundary coverage so
+  agent repositories cannot re-own direct `ErrorKind` policy.
 
 ## Execution Rule
 
