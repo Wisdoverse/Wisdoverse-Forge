@@ -7,7 +7,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope, crypto};
+use agentforge_core::{AppResult, TenantScope, crypto};
 use agentforge_llm::{ChatMessage, ChatRequest, LlmProviderBuildConfig, LlmProviderFactory};
 use serde_json::Value;
 use sqlx::PgPool;
@@ -174,7 +174,7 @@ impl LlmProviderService {
         } else {
             let key = self.encryption_key.ok_or_else(LlmProviderPolicy::missing_test_api_key)?;
             crypto::decrypt_base64(&key, &provider.encrypted_api_key)
-                .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("decrypt llm provider api key failed: {err}")))?
+                .map_err(LlmProviderPolicy::decrypt_api_key_failed)?
         };
 
         let provider_instance = match self.llm_factory.build_with_config(LlmProviderBuildConfig {
@@ -242,8 +242,8 @@ impl LlmProviderService {
 
     fn encrypt_api_key(&self, api_key: &str) -> AppResult<(String, String)> {
         let key = self.encryption_key.ok_or_else(LlmProviderPolicy::missing_storage_key)?;
-        let encrypted_api_key = crypto::encrypt_base64(&key, api_key)
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encrypt llm provider api key failed: {err}")))?;
+        let encrypted_api_key =
+            crypto::encrypt_base64(&key, api_key).map_err(LlmProviderPolicy::encrypt_api_key_failed)?;
         Ok((encrypted_api_key, LlmProviderPolicy::api_key_prefix(api_key)))
     }
 }
