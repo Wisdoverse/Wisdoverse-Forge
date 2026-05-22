@@ -3,7 +3,9 @@
 //! This module owns pure memory item input, pagination, and retention policies
 //! that are independent of repositories, HTTP route DTOs, and audit emission.
 
-use agentforge_core::{AppError, AppResult, ErrorKind, MemoryItemId, ScopeKind};
+use agentforge_core::{
+    AppError, AppResult, ErrorKind, MemoryItemId, ScopeKind, ScopedWriteError, TenantScope, WorkspaceId,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -89,6 +91,26 @@ impl MemoryScopeTargetPolicy {
             })?,
         };
         Ok((scope_kind, scope_id))
+    }
+}
+
+pub(crate) struct MemoryAccessPolicy;
+
+impl MemoryAccessPolicy {
+    pub(crate) fn required_workspace(scope: &TenantScope) -> AppResult<WorkspaceId> {
+        scope.workspace_id().ok_or_else(Self::forbidden)
+    }
+
+    pub(crate) fn ensure_resource_belongs_to_scope(belongs_to_scope: bool) -> AppResult<()> {
+        if belongs_to_scope { Ok(()) } else { Err(Self::forbidden()) }
+    }
+
+    pub(crate) fn scoped_write_error(_err: ScopedWriteError) -> AppError {
+        Self::forbidden()
+    }
+
+    pub(crate) fn forbidden() -> AppError {
+        ErrorKind::Forbidden.into()
     }
 }
 
@@ -749,6 +771,30 @@ mod tests {
         assert!(MemoryMutationAccessPolicy::ensure_manager_authorized(true).is_ok());
         assert!(matches!(
             MemoryMutationAccessPolicy::ensure_manager_authorized(false).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
+    }
+
+    #[test]
+    fn memory_access_policy_owns_workspace_and_scope_forbidden_contracts() {
+        let workspace_id = WorkspaceId::new();
+        let scope = TenantScope::with_axes(
+            agentforge_core::OrgId::new(),
+            agentforge_core::UserId::new(),
+            Some(workspace_id),
+            None,
+            None,
+        );
+        let missing_workspace = TenantScope::new(agentforge_core::OrgId::new(), agentforge_core::UserId::new());
+
+        assert_eq!(MemoryAccessPolicy::required_workspace(&scope).unwrap(), workspace_id);
+        assert!(matches!(
+            MemoryAccessPolicy::required_workspace(&missing_workspace).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
+        assert!(MemoryAccessPolicy::ensure_resource_belongs_to_scope(true).is_ok());
+        assert!(matches!(
+            MemoryAccessPolicy::ensure_resource_belongs_to_scope(false).unwrap_err().kind,
             ErrorKind::Forbidden
         ));
     }

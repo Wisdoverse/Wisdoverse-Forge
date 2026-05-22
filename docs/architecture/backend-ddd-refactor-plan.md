@@ -179,6 +179,10 @@ Current stacked PRs:
 - #265 `refactor/backend-ddd-context-runtime-policies` -> #264 branch: moves
   context feature gate, tenant/scope, resolver lookup/runtime, and preview
   selected-items serialization policy contracts into context domain modules.
+- #266 `refactor/backend-ddd-service-access-policies` -> #265 branch: moves
+  service-owned access denial, workspace-scope, and resource permission policy
+  contracts across user, memory, skill, task-context, usage analytics, and
+  resource permission services into their domain modules.
 
 ## Execution Rule
 
@@ -399,8 +403,13 @@ Current open stack:
   resolver task/agent lookup and unsupported CLI-tool errors, and preview
   selected-items serialization into context domain modules while services keep
   repository I/O, transaction, cache, and resolver orchestration.
+- #266 service access policy sweep, stacked on #265, moves user self-profile and
+  switch-context authorization errors, memory/skill workspace and scope access
+  errors, task-context and usage-analytics workspace requirements, and resource
+  permission denials into domain policies while services keep repository checks,
+  manager lookups, transactions, and read-model orchestration.
 
-Before starting a new PR, inspect the current state of #229-#265. If they have
+Before starting a new PR, inspect the current state of #229-#266. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 
