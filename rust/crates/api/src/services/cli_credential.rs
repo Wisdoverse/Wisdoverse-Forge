@@ -140,11 +140,7 @@ impl CliCredentialService {
     /// plaintext credentials, which would be worse than refusing the upload.
     ///
     pub async fn upload(&self, scope: &TenantScope, cli_tool: &str, files: &serde_json::Value) -> AppResult<()> {
-        let key = self.encryption_key.as_ref().ok_or_else(|| {
-            ErrorKind::Validation(
-                "LLM_ENCRYPTION_KEY is not configured — refusing to store plaintext credentials".to_string(),
-            )
-        })?;
+        let key = self.encryption_key.as_ref().ok_or_else(ContainerCliCredentialPolicy::missing_storage_key)?;
         let tool = ContainerCliCredentialPolicy::canonical_tool(cli_tool)?;
         ContainerCliCredentialPolicy::validate_oauth_file_map(files)?;
         let plaintext = serde_json::to_string(files)
@@ -171,11 +167,7 @@ impl CliCredentialService {
         cli_tool: &str,
         plaintext_json: &str,
     ) -> AppResult<()> {
-        let key = self.encryption_key.as_ref().ok_or_else(|| {
-            ErrorKind::Validation(
-                "LLM_ENCRYPTION_KEY is not configured — refusing to store plaintext credentials".to_string(),
-            )
-        })?;
+        let key = self.encryption_key.as_ref().ok_or_else(ContainerCliCredentialPolicy::missing_storage_key)?;
         let tool = ContainerCliCredentialPolicy::canonical_tool(cli_tool)?;
         let ciphertext = crypto::encrypt_base64(key, plaintext_json)
             .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("failed to encrypt credentials: {err}")))?;
@@ -232,9 +224,7 @@ impl CliCredentialService {
         {
             let plaintext = crypto::decrypt_base64(&key, &encrypted).map_err(|err| {
                 tracing::error!(error = %err, user_id = %scope.user_id().as_uuid(), cli_tool, "Failed to decrypt Container CLI credentials — user must reconnect");
-                ErrorKind::Validation(format!(
-                    "stored {cli_tool} credentials cannot be decrypted — reconnect via /api/v1/cli-auth-proxy or /api/v1/cli-credentials"
-                ))
+                ContainerCliCredentialPolicy::stored_oauth_decrypt_failed(cli_tool)
             })?;
             match self.write_oauth_mount(container_key, plaintext.as_bytes()).await {
                 Ok(host_dir) => {
