@@ -162,6 +162,37 @@ fn services_do_not_reintroduce_persistence_or_payload_boundary_leaks() {
 }
 
 #[test]
+fn repositories_do_not_reintroduce_domain_policy_helpers() {
+    let repositories_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/repositories");
+    let mut violations = Vec::new();
+
+    for repository in rust_files_recursive(&repositories_dir) {
+        let source = fs::read_to_string(&repository).expect("read repository source");
+        for (line_no, line) in production_lines(&source) {
+            let trimmed = line.trim();
+
+            if contains_resource_slug_policy(trimmed) {
+                violations.push(format!(
+                    "{}:{} derives resource slugs in production repository code; resolve resource naming policy in domain/service",
+                    repository.display(),
+                    line_no + 1
+                ));
+            }
+
+            if contains_cross_cutting_util_policy(trimmed) {
+                violations.push(format!(
+                    "{}:{} imports cross-cutting util policy in production repository code; move policy ownership to domain",
+                    repository.display(),
+                    line_no + 1
+                ));
+            }
+        }
+    }
+
+    assert!(violations.is_empty(), "repository DDD boundary violations:\n{}", violations.join("\n"));
+}
+
+#[test]
 fn mcp_entrypoint_does_not_reintroduce_ddd_boundary_leaks() {
     let mcp_file = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/mcp.rs");
     let source = fs::read_to_string(&mcp_file).expect("read MCP source");
@@ -531,6 +562,14 @@ fn contains_route_error_policy(line: &str) -> bool {
     line.contains("ErrorKind::")
         || line.contains("agentforge_core::ErrorKind")
         || (line.starts_with("use agentforge_core::") && line.contains("ErrorKind"))
+}
+
+fn contains_resource_slug_policy(line: &str) -> bool {
+    line.contains("slugify(") || line.contains("ResourceSlugPolicy")
+}
+
+fn contains_cross_cutting_util_policy(line: &str) -> bool {
+    line.contains("crate::util::")
 }
 
 fn contains_system_response_contract_literal(line: &str) -> bool {
