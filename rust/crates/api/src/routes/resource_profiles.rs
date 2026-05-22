@@ -60,7 +60,7 @@ pub struct UpdateResourceProfileRequest {
 
 /// Build a ResourceProfileService from shared state.
 fn make_service(state: &AppState) -> ResourceProfileService {
-    ResourceProfileService::from_pool(state.pool.clone())
+    state.resource_profile_service()
 }
 
 /// `GET /api/v1/resource-profiles` — list resource profiles.
