@@ -219,6 +219,30 @@ impl ResourceOrganizationPolicy {
     }
 }
 
+pub(crate) struct ResourcePermissionPolicy;
+
+impl ResourcePermissionPolicy {
+    pub(crate) fn ensure_can_manage_org(can_manage: bool) -> AppResult<()> {
+        Self::ensure_allowed(can_manage)
+    }
+
+    pub(crate) fn ensure_can_manage_team(can_manage: bool) -> AppResult<()> {
+        Self::ensure_allowed(can_manage)
+    }
+
+    pub(crate) fn ensure_can_create_project(can_create: bool) -> AppResult<()> {
+        Self::ensure_allowed(can_create)
+    }
+
+    pub(crate) fn ensure_can_manage_project(can_manage: bool) -> AppResult<()> {
+        Self::ensure_allowed(can_manage)
+    }
+
+    fn ensure_allowed(allowed: bool) -> AppResult<()> {
+        if allowed { Ok(()) } else { Err(ErrorKind::Forbidden.into()) }
+    }
+}
+
 /// Frontend navigation create/update policy for team and project drafts.
 pub(crate) struct NavigationResourcePolicy;
 
@@ -463,6 +487,27 @@ mod tests {
         assert_eq!(GroupMemberRole::parse("admin").unwrap().as_str(), "admin");
         assert!(GroupMemberRole::parse("").is_err());
         assert!(GroupMemberRole::parse("owner").is_err());
+    }
+
+    #[test]
+    fn resource_permission_policy_owns_permission_denials() {
+        assert!(ResourcePermissionPolicy::ensure_can_manage_org(true).is_ok());
+        assert!(matches!(
+            ResourcePermissionPolicy::ensure_can_manage_org(false).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
+        assert!(matches!(
+            ResourcePermissionPolicy::ensure_can_manage_team(false).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
+        assert!(matches!(
+            ResourcePermissionPolicy::ensure_can_create_project(false).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
+        assert!(matches!(
+            ResourcePermissionPolicy::ensure_can_manage_project(false).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
     }
 
     #[test]
