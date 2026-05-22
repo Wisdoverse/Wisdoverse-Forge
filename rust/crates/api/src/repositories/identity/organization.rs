@@ -1,8 +1,10 @@
 //! Organization repository — tenant-scoped database queries for organizations.
 
-use agentforge_core::{AppResult, ErrorKind, OrgId, TenantScope, UserId};
+use agentforge_core::{AppResult, OrgId, TenantScope, UserId};
 use agentforge_db::entities::Organization;
 use sqlx::PgPool;
+
+use crate::domain::resource::ResourceRepositoryPolicy;
 
 /// Database access layer for organizations.
 pub struct OrganizationRepository {
@@ -39,7 +41,7 @@ impl OrganizationRepository {
         .bind(scope.user_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("organization {id}")).into())
+        .ok_or_else(|| ResourceRepositoryPolicy::organization_not_found(id))
     }
 
     /// Create a new organization and add the creator as owner.
@@ -83,6 +85,6 @@ impl OrganizationRepository {
         .bind(name)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("organization {id}")).into())
+        .ok_or_else(|| ResourceRepositoryPolicy::organization_not_found(id))
     }
 }
