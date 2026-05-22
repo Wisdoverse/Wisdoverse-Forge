@@ -49,7 +49,7 @@ pub struct UpdatePromptRequest {
 
 /// Build a PromptLibraryService from shared state.
 fn make_service(state: &AppState) -> PromptLibraryService {
-    PromptLibraryService::from_pool(state.pool.clone())
+    state.prompt_library_service()
 }
 
 /// `GET /api/v1/prompts` — list prompts.
