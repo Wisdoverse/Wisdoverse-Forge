@@ -283,6 +283,11 @@ Current stacked PRs:
   navigation, and permission repository error contracts into the resource
   domain policy boundary; extends repository boundary coverage so those
   repositories cannot re-own direct `ErrorKind` policy.
+- #286 `refactor/backend-ddd-flat-repository-policies` -> #285 branch: moves
+  flat repository error contracts across resource, configuration, credential,
+  attachment, prompt, voice, and license catalog repositories into domain
+  policy helpers; extends repository boundary coverage so these single-table
+  repositories cannot re-own direct `ErrorKind` policy.
 
 ## Execution Rule
 
