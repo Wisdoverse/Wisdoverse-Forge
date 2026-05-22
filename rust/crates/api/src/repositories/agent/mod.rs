@@ -11,13 +11,15 @@ pub(crate) use mcp::{McpAgentInsertRecord, McpAgentRepository};
 pub use message::MessageRepository;
 pub use workspace::AgentWorkspaceRepository;
 
-use agentforge_core::{AgentId, AgentStatus, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AgentId, AgentStatus, AppResult, TenantScope};
 use agentforge_db::entities::{Agent, AgentCollaborator};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sqlx::FromRow;
 use sqlx::PgPool;
 use uuid::Uuid;
+
+use crate::domain::agent::AgentRepositoryPolicy;
 
 /// Enriched agent row with owner and project info joined in.
 ///
@@ -183,7 +185,7 @@ impl AgentRepository {
             .bind(scope.org_id().as_uuid())
             .fetch_optional(&self.pool)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("agent {id}")).into())
+            .ok_or_else(|| AgentRepositoryPolicy::agent_not_found(id))
     }
 
     /// Get a single agent by ID with owner + project joined in (tenant-scoped).
@@ -197,7 +199,7 @@ impl AgentRepository {
             .bind(scope.org_id().as_uuid())
             .fetch_optional(&self.pool)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("agent {id}")).into())
+            .ok_or_else(|| AgentRepositoryPolicy::agent_not_found(id))
     }
 
     /// Create a new agent with `idle` status.
@@ -266,7 +268,7 @@ impl AgentRepository {
         .bind(system_prompt)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("agent {id}")).into())
+        .ok_or_else(|| AgentRepositoryPolicy::agent_not_found(id))
     }
 
     /// Update an agent's status (tenant-scoped).
@@ -281,7 +283,7 @@ impl AgentRepository {
         .bind(status)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("agent {id}")).into())
+        .ok_or_else(|| AgentRepositoryPolicy::agent_not_found(id))
     }
 
     /// Record the docker container backing this agent, the sidecar's HMAC
@@ -324,7 +326,7 @@ impl AgentRepository {
         .bind(nats_connect_password)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("agent {id}")).into())
+        .ok_or_else(|| AgentRepositoryPolicy::agent_not_found(id))
     }
 
     /// Clear container + HMAC + NATS password references and flip status to
@@ -350,7 +352,7 @@ impl AgentRepository {
         .bind(scope.org_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("agent {id}")).into())
+        .ok_or_else(|| AgentRepositoryPolicy::agent_not_found(id))
     }
 
     /// Hard-delete an agent (tenant-scoped).
@@ -362,7 +364,7 @@ impl AgentRepository {
             .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("agent {id}")).into());
+            return Err(AgentRepositoryPolicy::agent_not_found(id));
         }
         Ok(())
     }
@@ -421,7 +423,7 @@ impl AgentRepository {
         .await
         .map_err(|e| match &e {
             sqlx::Error::Database(db_err) if db_err.constraint().is_some() => {
-                ErrorKind::Conflict("user is already a collaborator on this agent".into()).into()
+                AgentRepositoryPolicy::collaborator_already_exists()
             }
             _ => e.into(),
         })
@@ -448,7 +450,7 @@ impl AgentRepository {
         .bind(permission)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("collaborator {user_id} on agent {agent_id}")).into())
+        .ok_or_else(|| AgentRepositoryPolicy::collaborator_not_found(agent_id, user_id))
     }
 
     /// Remove a collaborator from an agent.
@@ -463,7 +465,7 @@ impl AgentRepository {
             .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("collaborator {user_id} on agent {agent_id}")).into());
+            return Err(AgentRepositoryPolicy::collaborator_not_found(agent_id, user_id));
         }
         Ok(())
     }
