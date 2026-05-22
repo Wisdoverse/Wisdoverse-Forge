@@ -101,6 +101,14 @@ impl MemoryAccessPolicy {
         scope.workspace_id().ok_or_else(Self::forbidden)
     }
 
+    pub(crate) fn not_found(id: MemoryItemId) -> AppError {
+        ErrorKind::NotFound(format!("memory item {id}")).into()
+    }
+
+    pub(crate) fn already_revoked(id: MemoryItemId) -> AppError {
+        ErrorKind::Conflict(format!("memory item {id} is already revoked")).into()
+    }
+
     pub(crate) fn ensure_resource_belongs_to_scope(belongs_to_scope: bool) -> AppResult<()> {
         if belongs_to_scope { Ok(()) } else { Err(Self::forbidden()) }
     }
@@ -791,6 +799,15 @@ mod tests {
         assert!(matches!(
             MemoryAccessPolicy::required_workspace(&missing_workspace).unwrap_err().kind,
             ErrorKind::Forbidden
+        ));
+        let item_id = MemoryItemId::new();
+        assert!(matches!(
+            MemoryAccessPolicy::not_found(item_id).kind,
+            ErrorKind::NotFound(message) if message == format!("memory item {item_id}")
+        ));
+        assert!(matches!(
+            MemoryAccessPolicy::already_revoked(item_id).kind,
+            ErrorKind::Conflict(message) if message == format!("memory item {item_id} is already revoked")
         ));
         assert!(MemoryAccessPolicy::ensure_resource_belongs_to_scope(true).is_ok());
         assert!(matches!(
