@@ -1,8 +1,10 @@
 //! Feature flag repository — database queries for the feature_flags table.
 
-use agentforge_core::{AppResult, ErrorKind, OrgId};
+use agentforge_core::{AppResult, OrgId};
 use agentforge_db::entities::FeatureFlag;
 use sqlx::PgPool;
+
+use crate::domain::configuration::ConfigurationRepositoryPolicy;
 
 /// Database access layer for feature flags.
 pub struct FeatureFlagRepository {
@@ -39,7 +41,7 @@ impl FeatureFlagRepository {
         .bind(name)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("feature flag '{name}'")).into())
+        .ok_or_else(|| ConfigurationRepositoryPolicy::feature_flag_not_found(name))
     }
 
     /// Upsert a feature flag by name (org-scoped).
