@@ -1,5 +1,6 @@
 //! CLI auth proxy response shapes.
 
+use agentforge_core::ErrorKind;
 use chrono::{DateTime, Utc};
 use secrecy::SecretString;
 use serde::Serialize;
@@ -105,6 +106,22 @@ pub(crate) fn cli_auth_connected_response(provider: &str) -> Value {
 
 pub(crate) fn cli_auth_disconnected_response(provider: &str) -> Value {
     json!({ "ok": true, "provider": provider, "status": "disconnected" })
+}
+
+pub(crate) struct CliAuthProxyPolicy;
+
+impl CliAuthProxyPolicy {
+    pub(crate) fn missing_refresh_storage_key() -> ErrorKind {
+        ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured".into())
+    }
+
+    pub(crate) fn missing_token_storage_key() -> ErrorKind {
+        ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured — refusing to store plaintext tokens".into())
+    }
+
+    pub(crate) fn unknown_provider(name: &str) -> ErrorKind {
+        ErrorKind::Validation(format!("unknown Container CLI auth proxy provider: {name}"))
+    }
 }
 
 /// Raw token response from a provider token endpoint.
@@ -230,6 +247,16 @@ mod tests {
             assert!(!dbg.contains(needle), "Debug leaked {needle:?}: {dbg}");
         }
         assert!(dbg.contains("acct-public"), "account_id should remain visible: {dbg}");
+    }
+
+    #[test]
+    fn cli_auth_proxy_policy_owns_storage_and_provider_errors() {
+        assert!(format!("{}", CliAuthProxyPolicy::missing_refresh_storage_key()).contains("LLM_ENCRYPTION_KEY"));
+        assert!(format!("{}", CliAuthProxyPolicy::missing_token_storage_key()).contains("plaintext tokens"));
+        assert!(
+            format!("{}", CliAuthProxyPolicy::unknown_provider("openai"))
+                .contains("unknown Container CLI auth proxy provider")
+        );
     }
 
     #[test]
