@@ -15,10 +15,12 @@ pub use run_context_injection::{ContextAppliedRunRow, ContextInjectionCounts, Ru
 pub use task_context::{AppliedContextRow, TaskContextRepository};
 pub use task_run::{RunEvidenceRow, TaskRunRepository};
 
-use agentforge_core::{AgentId, AppResult, ErrorKind, TenantScope, UserId};
+use agentforge_core::{AgentId, AppResult, TenantScope, UserId};
 use agentforge_db::entities::{OrchestrationTask, Participant};
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
+
+use crate::domain::orchestration::OrchestrationRepositoryPolicy;
 
 // ---------------------------------------------------------------------------
 // SQL constants exposed for query-shape unit tests (issue #35) AND shared
@@ -314,7 +316,7 @@ impl OrchestrationTaskRepository {
         .bind(scope.org_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("orchestration task {id}")).into())
+        .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
     }
 
     /// Update a task's status (tenant-scoped).
@@ -329,7 +331,7 @@ impl OrchestrationTaskRepository {
         .bind(status)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("orchestration task {id}")).into())
+        .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
     }
 
     /// Mark task `blocked` and record reason + metadata (tenant-scoped).
@@ -352,7 +354,7 @@ impl OrchestrationTaskRepository {
         .bind(metadata)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("orchestration task {id}")).into())
+        .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
     }
 
     /// Mark a working task as retryably blocked and detach it from the current
@@ -389,7 +391,7 @@ impl OrchestrationTaskRepository {
             .bind(error)
             .fetch_optional(&mut **tx)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("orchestration task {id}")).into())
+            .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
     }
 
     /// Approve a task that is explicitly blocked on human approval. The caller
@@ -428,7 +430,7 @@ impl OrchestrationTaskRepository {
         .bind(next_blocked_metadata)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("approval-blocked orchestration task {id}")).into())
+        .ok_or_else(|| OrchestrationRepositoryPolicy::approval_blocked_task_not_found(id))
     }
 
     /// Apply a partial PATCH update. `None` fields are left untouched.
@@ -458,7 +460,7 @@ impl OrchestrationTaskRepository {
         .bind(update.blocked_metadata.flatten())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("orchestration task {id}")).into())
+        .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
     }
 
     /// Assign an agent to a task and atomically promote it from queued → working.
@@ -492,7 +494,7 @@ impl OrchestrationTaskRepository {
             .bind(lease_secs.to_string())
             .fetch_optional(&mut **tx)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("orchestration task {task_id}")).into())
+            .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(task_id))
     }
 
     /// Set a task's result and terminal status (tenant-scoped).
@@ -510,7 +512,7 @@ impl OrchestrationTaskRepository {
             .bind(result)
             .fetch_optional(&self.pool)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("orchestration task {id}")).into())
+            .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
     }
 
     /// Same as [`Self::set_result`] but inside a caller-owned transaction.
@@ -531,7 +533,7 @@ impl OrchestrationTaskRepository {
             .bind(result)
             .fetch_optional(&mut **tx)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("orchestration task {id}")).into())
+            .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
     }
 
     /// Cancel a task (sets status='canceled' and records timestamp). Idempotent.
@@ -552,7 +554,7 @@ impl OrchestrationTaskRepository {
             .bind(scope.org_id().as_uuid())
             .fetch_optional(&mut **tx)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("orchestration task {id}")).into())
+            .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
     }
 
     /// Reset a terminal task back to backlog so it can be redispatched. Clears
@@ -581,7 +583,7 @@ impl OrchestrationTaskRepository {
         .bind(scope.org_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("orchestration task {id}")).into())
+        .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
     }
 
     /// Unblock children that were waiting on the given parent task. Children
@@ -771,7 +773,7 @@ impl ParticipantRepository {
             .bind(scope.org_id().as_uuid())
             .fetch_optional(&mut **tx)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("participant for agent {agent_id}")).into())
+            .ok_or_else(|| OrchestrationRepositoryPolicy::participant_not_found(agent_id))
     }
 
     /// Find first available participant (tenant-scoped).
@@ -812,7 +814,7 @@ impl ParticipantRepository {
         .bind(status)
         .fetch_optional(&mut **tx)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("participant for agent {agent_id}")).into())
+        .ok_or_else(|| OrchestrationRepositoryPolicy::participant_not_found(agent_id))
     }
 
     /// Update heartbeat timestamp (tenant-scoped). Also bumps status to `available`
@@ -829,7 +831,7 @@ impl ParticipantRepository {
         .bind(scope.org_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("participant for agent {agent_id}")).into())
+        .ok_or_else(|| OrchestrationRepositoryPolicy::participant_not_found(agent_id))
     }
 
     /// Unregister a participant (tenant-scoped).
@@ -841,7 +843,7 @@ impl ParticipantRepository {
             .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("participant for agent {agent_id}")).into());
+            return Err(OrchestrationRepositoryPolicy::participant_not_found(agent_id));
         }
         Ok(())
     }
