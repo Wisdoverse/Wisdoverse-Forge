@@ -278,6 +278,11 @@ Current stacked PRs:
   moves agent, MCP-agent, workspace, and collaborator repository error contracts
   into the agent domain policy boundary; extends repository boundary coverage so
   agent repositories cannot re-own direct `ErrorKind` policy.
+- #285 `refactor/backend-ddd-identity-resource-repository-policy` -> #284
+  branch: moves identity group/team/organization plus resource member,
+  navigation, and permission repository error contracts into the resource
+  domain policy boundary; extends repository boundary coverage so those
+  repositories cannot re-own direct `ErrorKind` policy.
 
 ## Execution Rule
 
