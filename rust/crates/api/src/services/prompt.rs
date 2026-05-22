@@ -1,6 +1,6 @@
 //! PromptService — orchestrates the SSE streaming loop for provider+prompt agents.
 
-use agentforge_core::{AgentId, AppResult, ErrorKind, MessageId, TenantScope};
+use agentforge_core::{AgentId, AppResult, MessageId, TenantScope};
 use agentforge_db::entities::AgentMessage;
 use agentforge_llm::provider::{ChatMessage, ChatRequest, StreamDelta, model_context_limit};
 use agentforge_llm::{LlmProviderBuildConfig, LlmProviderFactory};
@@ -166,11 +166,9 @@ impl KeyResolver for UserLlmConfigKeyResolver {
             .find_default_secret(scope, provider)
             .await?
             .ok_or_else(|| PromptProviderPolicy::missing_api_key(provider))?;
-        let key = self
-            .encryption_key
-            .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("LLM_ENCRYPTION_KEY not configured")))?;
+        let key = self.encryption_key.ok_or_else(PromptProviderPolicy::missing_encryption_key)?;
         let api_key = agentforge_core::crypto::decrypt_base64(&key, &secret.encrypted_api_key)
-            .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("decrypt api_key failed: {e}")))?;
+            .map_err(PromptProviderPolicy::decrypt_api_key_failed)?;
         Ok(LlmProviderCredential { api_key, base_url: secret.base_url })
     }
 }
@@ -255,8 +253,7 @@ impl PromptService {
         // TODO(T12): remap `LlmError::Api { status, .. }` to user-remediable `ErrorKind`
         // (Validation / Unauthorized / Conflict / RateLimited) at the route layer so
         // the frontend can distinguish "your API key is wrong" (401) from a real 500.
-        let mut llm_stream =
-            provider_instance.stream(req).await.map_err(|e| ErrorKind::Internal(anyhow::anyhow!(e)))?;
+        let mut llm_stream = provider_instance.stream(req).await.map_err(PromptProviderPolicy::stream_failed)?;
 
         let messages_repo = self.messages.clone();
         let message_id = MessageId::new();
