@@ -1,11 +1,13 @@
 //! Context preview repository for publish-time stale guards.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::ContextPreview;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 use sqlx::PgPool;
 use uuid::Uuid;
+
+use crate::domain::context_preview::ContextPreviewAccessPolicy;
 
 pub struct CreateContextPreviewRecord<'a> {
     pub workspace_id: Uuid,
@@ -59,7 +61,7 @@ impl ContextPreviewRepository {
         id: Uuid,
         task_id: Uuid,
     ) -> AppResult<ContextPreview> {
-        let workspace_id = scope.workspace_id().ok_or_else(|| ErrorKind::Forbidden)?;
+        let workspace_id = ContextPreviewAccessPolicy::required_workspace(scope)?;
         let row = sqlx::query_as::<_, ContextPreview>(
             r#"SELECT *
                  FROM context_previews
@@ -77,7 +79,7 @@ impl ContextPreviewRepository {
         .bind(scope.user_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| agentforge_core::AppError::from(ErrorKind::NotFound(format!("context preview {id}"))))?;
+        .ok_or_else(|| ContextPreviewAccessPolicy::not_found(id))?;
         Ok(row)
     }
 }
