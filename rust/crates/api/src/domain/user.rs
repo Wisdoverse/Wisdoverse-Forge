@@ -203,6 +203,83 @@ pub(crate) fn auth_error_response_body(code: &str, message: &str) -> Value {
     json!({ "ok": false, "error": code, "message": message })
 }
 
+/// Legacy auth route error response contract.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AuthErrorResponseContract {
+    status: u16,
+    code: &'static str,
+    message: String,
+    log_internal: bool,
+}
+
+impl AuthErrorResponseContract {
+    pub(crate) fn new(status: u16, code: &'static str, message: impl Into<String>) -> Self {
+        Self { status, code, message: message.into(), log_internal: false }
+    }
+
+    pub(crate) fn internal(status: u16, code: &'static str, message: impl Into<String>) -> Self {
+        Self { status, code, message: message.into(), log_internal: true }
+    }
+
+    pub(crate) fn status(&self) -> u16 {
+        self.status
+    }
+
+    pub(crate) fn code(&self) -> &'static str {
+        self.code
+    }
+
+    pub(crate) fn message(&self) -> &str {
+        &self.message
+    }
+
+    pub(crate) fn log_internal(&self) -> bool {
+        self.log_internal
+    }
+}
+
+pub(crate) fn auth_error_response_contract(
+    err: &AppError,
+    unauthorized_message: Option<&str>,
+) -> AuthErrorResponseContract {
+    match &err.kind {
+        ErrorKind::Unauthorized => {
+            AuthErrorResponseContract::new(401, "UNAUTHORIZED", unauthorized_message.unwrap_or("Unauthorized"))
+        }
+        ErrorKind::Forbidden => AuthErrorResponseContract::new(403, "FORBIDDEN", "Forbidden"),
+        ErrorKind::Validation(message) => AuthErrorResponseContract::new(400, "VALIDATION_ERROR", message.clone()),
+        ErrorKind::Unprocessable(message) => {
+            AuthErrorResponseContract::new(422, "UNPROCESSABLE_ENTITY", message.clone())
+        }
+        ErrorKind::Conflict(message) => AuthErrorResponseContract::new(409, "CONFLICT", message.clone()),
+        ErrorKind::NotFound(message) => AuthErrorResponseContract::new(404, "NOT_FOUND", message.clone()),
+        ErrorKind::Unavailable(message) => AuthErrorResponseContract::new(503, "SERVICE_UNAVAILABLE", message.clone()),
+        ErrorKind::Internal(_) => AuthErrorResponseContract::internal(500, "INTERNAL_ERROR", "Internal server error"),
+    }
+}
+
+pub(crate) fn password_reset_error_response_contract(err: &AppError) -> AuthErrorResponseContract {
+    match &err.kind {
+        ErrorKind::Validation(message) => AuthErrorResponseContract::new(400, "VALIDATION_ERROR", message.clone()),
+        ErrorKind::Internal(_) => {
+            AuthErrorResponseContract::internal(503, "EMAIL_UNAVAILABLE", "Password reset email service is unavailable")
+        }
+        _ => auth_error_response_contract(err, None),
+    }
+}
+
+pub(crate) fn missing_refresh_token_response_contract() -> AuthErrorResponseContract {
+    AuthErrorResponseContract::new(401, "UNAUTHORIZED", "Missing refresh token")
+}
+
+pub(crate) fn invalid_refresh_token_response_contract() -> AuthErrorResponseContract {
+    AuthErrorResponseContract::new(401, "UNAUTHORIZED", "Invalid or expired refresh token")
+}
+
+pub(crate) fn is_unauthorized_error(err: &AppError) -> bool {
+    matches!(err.kind, ErrorKind::Unauthorized)
+}
+
 /// HTTP refresh-cookie policy derived from deployment runtime settings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AuthRefreshCookiePolicy {
@@ -694,5 +771,40 @@ mod tests {
         assert_eq!(json["tokens"]["expiresIn"], 900);
         assert_eq!(json["access_token"], "new-access");
         assert_eq!(json["expires_in"], 900);
+    }
+
+    #[test]
+    fn auth_error_contract_maps_legacy_status_codes_and_messages() {
+        let unauthorized = auth_error_response_contract(&ErrorKind::Unauthorized.into(), Some("Invalid login"));
+        assert_eq!(unauthorized.status(), 401);
+        assert_eq!(unauthorized.code(), "UNAUTHORIZED");
+        assert_eq!(unauthorized.message(), "Invalid login");
+        assert!(!unauthorized.log_internal());
+
+        let validation = auth_error_response_contract(&ErrorKind::Validation("bad input".to_string()).into(), None);
+        assert_eq!(validation.status(), 400);
+        assert_eq!(validation.code(), "VALIDATION_ERROR");
+        assert_eq!(validation.message(), "bad input");
+
+        let internal =
+            auth_error_response_contract(&ErrorKind::Internal(anyhow::anyhow!("database unavailable")).into(), None);
+        assert_eq!(internal.status(), 500);
+        assert_eq!(internal.code(), "INTERNAL_ERROR");
+        assert_eq!(internal.message(), "Internal server error");
+        assert!(internal.log_internal());
+    }
+
+    #[test]
+    fn password_reset_error_contract_preserves_email_unavailable_contract() {
+        let unavailable =
+            password_reset_error_response_contract(&ErrorKind::Internal(anyhow::anyhow!("smtp unavailable")).into());
+        assert_eq!(unavailable.status(), 503);
+        assert_eq!(unavailable.code(), "EMAIL_UNAVAILABLE");
+        assert_eq!(unavailable.message(), "Password reset email service is unavailable");
+        assert!(unavailable.log_internal());
+
+        assert_eq!(missing_refresh_token_response_contract().message(), "Missing refresh token");
+        assert_eq!(invalid_refresh_token_response_contract().message(), "Invalid or expired refresh token");
+        assert!(is_unauthorized_error(&ErrorKind::Unauthorized.into()));
     }
 }
