@@ -1,9 +1,11 @@
 //! Git credential repository — database queries for the git_credentials table.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::GitCredential;
 use sqlx::PgPool;
 use uuid::Uuid;
+
+use crate::domain::credential::CredentialRepositoryPolicy;
 
 /// Database access layer for git credentials.
 pub struct GitCredentialRepository {
@@ -138,7 +140,7 @@ impl GitCredentialRepository {
         .bind(scope.user_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("git credential {id}")).into())
+        .ok_or_else(|| CredentialRepositoryPolicy::git_credential_not_found(id))
     }
 
     /// Delete a git credential (tenant-scoped).
@@ -154,7 +156,7 @@ impl GitCredentialRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("git credential {id}")).into());
+            return Err(CredentialRepositoryPolicy::git_credential_not_found(id));
         }
         Ok(())
     }

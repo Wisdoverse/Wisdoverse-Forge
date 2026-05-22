@@ -1,9 +1,11 @@
 //! Tile repository — database queries for the tiles table.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::Tile;
 use sqlx::PgPool;
 use uuid::Uuid;
+
+use crate::domain::configuration::ConfigurationRepositoryPolicy;
 
 /// Database access layer for dashboard tiles.
 pub struct TileRepository {
@@ -90,7 +92,7 @@ impl TileRepository {
         .bind(scope.user_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("tile {id}")).into())
+        .ok_or_else(|| ConfigurationRepositoryPolicy::tile_not_found(id))
     }
 
     /// Delete a tile by ID.
@@ -106,7 +108,7 @@ impl TileRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("tile {id}")).into());
+            return Err(ConfigurationRepositoryPolicy::tile_not_found(id));
         }
         Ok(())
     }
@@ -134,7 +136,7 @@ impl TileRepository {
             .bind(scope.user_id().as_uuid())
             .fetch_optional(&self.pool)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("tile {id}")))?;
+            .ok_or_else(|| ConfigurationRepositoryPolicy::tile_not_found(id))?;
             updated.push(tile);
         }
         Ok(updated)

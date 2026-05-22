@@ -4,7 +4,7 @@
 //! credential policies that are independent of repositories, encryption, HTTP
 //! handlers, and filesystem mount materialization.
 
-use agentforge_core::{AppResult, CliToolKind, ErrorKind};
+use agentforge_core::{AppError, AppResult, CliToolKind, ErrorKind};
 use agentforge_db::entities::{ApiKey, GitCredential, SshKey};
 use agentforge_llm::{LlmError, Usage, normalize_provider_key, provider_spec, supported_provider_specs};
 use serde::Serialize;
@@ -47,6 +47,26 @@ pub(crate) fn api_key_create_response(result: CreateApiKeyResult) -> serde_json:
 
 pub(crate) fn credential_delete_response() -> serde_json::Value {
     serde_json::json!({ "ok": true })
+}
+
+pub(crate) struct CredentialRepositoryPolicy;
+
+impl CredentialRepositoryPolicy {
+    pub(crate) fn api_key_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("api key {id}")).into()
+    }
+
+    pub(crate) fn git_credential_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("git credential {id}")).into()
+    }
+
+    pub(crate) fn ssh_key_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("ssh key {id}")).into()
+    }
+
+    pub(crate) fn llm_provider_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("llm provider {id}")).into()
+    }
 }
 
 pub(crate) fn ssh_key_list_response(keys: &[SshKey]) -> serde_json::Value {
@@ -1431,6 +1451,28 @@ mod tests {
             format!("{}", LlmProviderPolicy::encrypt_api_key_failed("bad"))
                 .contains("encrypt llm provider api key failed")
         );
+    }
+
+    #[test]
+    fn credential_repository_policy_owns_lookup_errors() {
+        let id = Uuid::new_v4();
+
+        assert!(matches!(
+            CredentialRepositoryPolicy::api_key_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("api key {id}")
+        ));
+        assert!(matches!(
+            CredentialRepositoryPolicy::git_credential_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("git credential {id}")
+        ));
+        assert!(matches!(
+            CredentialRepositoryPolicy::ssh_key_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("ssh key {id}")
+        ));
+        assert!(matches!(
+            CredentialRepositoryPolicy::llm_provider_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("llm provider {id}")
+        ));
     }
 
     #[test]
