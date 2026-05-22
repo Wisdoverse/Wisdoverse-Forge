@@ -70,6 +70,10 @@ pub(crate) fn cli_credential_deleted_response(cli_tool: &str) -> serde_json::Val
     serde_json::json!({ "ok": true, "cli_tool": cli_tool, "status": "deleted" })
 }
 
+pub(crate) fn container_cli_oauth_file_map_plaintext(files: &serde_json::Value) -> AppResult<String> {
+    serde_json::to_string(files).map_err(|err| ContainerCliCredentialPolicy::serialize_files_failed(err).into())
+}
+
 pub(crate) fn ssh_key_create_response(key: SshKey) -> serde_json::Value {
     let key = ssh_key_payload(&key);
     serde_json::json!({
@@ -1107,6 +1111,18 @@ mod tests {
         assert!(matches!(non_object.kind, ErrorKind::Validation(message) if message.contains("JSON object mapping")));
         assert!(matches!(empty.kind, ErrorKind::Validation(message) if message.contains("must not be empty")));
         assert!(matches!(typed.kind, ErrorKind::Validation(message) if message.contains("got number")));
+    }
+
+    #[test]
+    fn cli_credential_domain_owns_file_map_plaintext_serialization() {
+        let files = serde_json::json!({
+            "auth.json": "{\"tokens\":{\"access_token\":\"x\"}}",
+            "credentials": "token",
+        });
+
+        let plaintext = container_cli_oauth_file_map_plaintext(&files).expect("files serializes");
+        let roundtrip: serde_json::Value = serde_json::from_str(&plaintext).expect("plaintext remains JSON");
+        assert_eq!(roundtrip, files);
     }
 
     #[test]
