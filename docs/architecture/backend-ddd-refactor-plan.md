@@ -244,6 +244,11 @@ Current stacked PRs:
   gateway boundary coverage so WebSocket entrypoints cannot reintroduce raw SQL,
   response JSON construction, serde adapters, repository wiring, or direct
   `ErrorKind` policy.
+- #278 `refactor/backend-ddd-system-boundary` -> #277 branch: moves process
+  health/readiness response contracts, readiness status policy, and panic error
+  envelopes into domain/service boundaries; adds system entrypoint boundary
+  coverage so health and middleware entrypoints cannot reintroduce direct JSON
+  response construction, system response literals, or direct `ErrorKind` policy.
 
 ## Execution Rule
 
