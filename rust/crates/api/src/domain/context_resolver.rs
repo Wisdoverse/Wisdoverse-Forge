@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use agentforge_core::{AgentId, RuntimeCapability, ScopedRead};
+use agentforge_core::{AgentId, ErrorKind, RuntimeCapability, ScopedRead};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -82,6 +82,22 @@ pub struct ContextTaskSnapshot {
     pub title: String,
     pub description: Option<String>,
     pub params: Option<Value>,
+}
+
+pub(crate) struct ContextResolverPolicy;
+
+impl ContextResolverPolicy {
+    pub(crate) fn task_not_found(task_id: Uuid) -> ErrorKind {
+        ErrorKind::NotFound(format!("orchestration task {task_id}"))
+    }
+
+    pub(crate) fn agent_not_found(agent_id: AgentId) -> ErrorKind {
+        ErrorKind::NotFound(format!("agent {}", agent_id.as_uuid()))
+    }
+
+    pub(crate) fn unsupported_cli_tool(agent_id: AgentId, err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("agent {} has unsupported cli_tool: {err}", agent_id.as_uuid()))
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -304,6 +320,19 @@ mod tests {
         };
 
         assert_eq!(task_search_text(&snapshot), "title description task body message body");
+    }
+
+    #[test]
+    fn context_resolver_policy_owns_lookup_and_runtime_errors() {
+        let task_id = Uuid::from_u128(0x11111111111141118111111111111111);
+        let agent_id = AgentId::from(Uuid::from_u128(0x22222222222242228222222222222222));
+
+        assert!(format!("{}", ContextResolverPolicy::task_not_found(task_id)).contains("orchestration task"));
+        assert!(format!("{}", ContextResolverPolicy::agent_not_found(agent_id)).contains("agent"));
+        assert!(
+            format!("{}", ContextResolverPolicy::unsupported_cli_tool(agent_id, "bad"))
+                .contains("unsupported cli_tool")
+        );
     }
 
     #[test]
