@@ -5,7 +5,9 @@ use agentforge_db::entities::GitCredential;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::credential::{CredentialListPage, GitCredentialDraft, GitCredentialToken, GitRemoteHost};
+use crate::domain::credential::{
+    CredentialListPage, GitCredentialDraft, GitCredentialEncryptionPolicy, GitCredentialToken, GitRemoteHost,
+};
 pub(crate) use crate::domain::credential::{
     credential_delete_response, git_credential_response, git_credentials_response,
 };
@@ -159,9 +161,7 @@ impl GitCredentialService {
             return Ok(GitCliCredentialInjection::default());
         }
 
-        let key = encryption_key.ok_or_else(|| {
-            ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured - cannot decrypt stored git credentials".into())
-        })?;
+        let key = encryption_key.ok_or_else(GitCredentialEncryptionPolicy::missing_decrypt_key)?;
         let mut out = GitCliCredentialInjection::default();
 
         for cred in creds {
@@ -195,11 +195,7 @@ impl GitCredentialService {
         let Some(token) = GitCredentialToken::parse(token) else {
             return Ok(None);
         };
-        let key = self.encryption_key.as_ref().ok_or_else(|| {
-            ErrorKind::Validation(
-                "LLM_ENCRYPTION_KEY is not configured - refusing to store plaintext git tokens".into(),
-            )
-        })?;
+        let key = self.encryption_key.as_ref().ok_or_else(GitCredentialEncryptionPolicy::missing_storage_key)?;
         let encrypted = crypto::encrypt_base64(key, token.value())
             .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encrypt git credential token failed: {err}")))?;
         Ok(Some(encrypted.into_bytes()))
@@ -214,9 +210,8 @@ fn decrypt_git_token(key: &[u8; 32], cred: &GitCredential) -> AppResult<Option<S
     let Some(ciphertext) = cred.token_encrypted.as_deref() else {
         return Ok(None);
     };
-    let ciphertext = std::str::from_utf8(ciphertext).map_err(|err| {
-        ErrorKind::Validation(format!("stored {} git credential ciphertext is not UTF-8: {err}", cred.provider))
-    })?;
+    let ciphertext = std::str::from_utf8(ciphertext)
+        .map_err(|err| GitCredentialEncryptionPolicy::ciphertext_not_utf8(&cred.provider, err))?;
     let token = crypto::decrypt_base64(key, ciphertext).map_err(|err| {
         tracing::error!(
             error = %err,
@@ -224,10 +219,7 @@ fn decrypt_git_token(key: &[u8; 32], cred: &GitCredential) -> AppResult<Option<S
             provider = %cred.provider,
             "Failed to decrypt stored git credential token"
         );
-        ErrorKind::Validation(format!(
-            "stored {} git credential cannot be decrypted - reconnect it in Settings",
-            cred.provider
-        ))
+        GitCredentialEncryptionPolicy::decrypt_failed(&cred.provider)
     })?;
     Ok(GitCredentialToken::parse(&token).map(|token| token.value().to_string()))
 }
