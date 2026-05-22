@@ -24,7 +24,7 @@ pub struct UpsertFeatureFlagRequest {
 
 /// Build a FeatureFlagService from shared state.
 fn make_service(state: &AppState) -> FeatureFlagService {
-    FeatureFlagService::from_pool(state.pool.clone())
+    state.feature_flag_service()
 }
 
 /// `GET /api/feature-flags` — list flags.

@@ -65,7 +65,7 @@ pub struct RestoreSkillVersionRequest {
 
 /// Build a SkillService from shared state.
 fn make_service(state: &AppState) -> SkillService {
-    SkillService::from_pool(state.pool.clone())
+    state.skill_service()
 }
 
 /// `GET /skills` — list skills.
