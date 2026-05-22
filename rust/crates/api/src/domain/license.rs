@@ -3,13 +3,26 @@
 //! This module owns pure license key and validity policies that are independent
 //! of repositories and HTTP route DTOs.
 
-use agentforge_core::{AppResult, ErrorKind};
+use agentforge_core::{AppError, AppResult, ErrorKind};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::{Value, json};
+use uuid::Uuid;
 
 pub(crate) fn license_data_response<T: Serialize>(data: T) -> Value {
     json!({ "ok": true, "data": data })
+}
+
+pub(crate) struct LicenseRepositoryPolicy;
+
+impl LicenseRepositoryPolicy {
+    pub(crate) fn license_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("license {id}")).into()
+    }
+
+    pub(crate) fn license_key_not_found(license_key: &str) -> AppError {
+        ErrorKind::NotFound(format!("license with key '{license_key}'")).into()
+    }
 }
 
 /// Validated license key input.
@@ -126,5 +139,19 @@ mod tests {
 
         assert!(!LicenseValidityPolicy::is_valid(true, Some(now - Duration::seconds(1)), now));
         assert!(!LicenseValidityPolicy::is_valid(true, Some(now), now));
+    }
+
+    #[test]
+    fn license_repository_policy_owns_lookup_errors() {
+        let id = Uuid::new_v4();
+
+        assert!(matches!(
+            LicenseRepositoryPolicy::license_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("license {id}")
+        ));
+        assert!(matches!(
+            LicenseRepositoryPolicy::license_key_not_found("LIC-123").kind,
+            ErrorKind::NotFound(message) if message == "license with key 'LIC-123'"
+        ));
     }
 }
