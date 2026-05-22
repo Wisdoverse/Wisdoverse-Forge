@@ -125,6 +125,36 @@ Current stacked PRs:
   NATS, Redis, object storage, auth callout, JWT, email, context, billing, and
   in-flight prompt dependencies; extends the route boundary test to block those
   runtime AppState reads and runtime-aware service constructors from returning.
+- #253 `refactor/backend-ddd-service-sql-repositories` -> #252 branch: moves
+  context resolver, context envelope, context usage analytics,
+  memory/skill/context scope membership, and agent workspace SQL from services
+  into repository modules and adds regression coverage that blocks production
+  service raw SQL.
+- #254 `refactor/backend-ddd-service-payload-domains` -> #253 branch: moves
+  sidecar command payloads, CLI auth proxy encrypted file-map payloads, NATS
+  KICK payloads, governance audit export payloads, and common configuration,
+  skill, and memory JSON defaults into domain modules; expands service boundary
+  coverage to block production `json!` payload construction.
+- #255 `refactor/backend-ddd-protocol-boundary-hardening` -> #254 branch:
+  moves NATS auth callout JWT protocol claim/header shapes and permissions into
+  `domain::auth_callout`, gates the legacy group helper behind test support,
+  and hardens route/service boundary tests against early test-only imports.
+- #256 `refactor/backend-ddd-agent-container-policy` -> #255 branch: moves
+  container-backed eligibility checks, restart/resume/stop container-id
+  validation, stale container-reference errors, and start image rejection
+  messaging into `domain::agent` policies.
+- #257 `refactor/backend-ddd-service-protocol-dtos` -> #256 branch: moves
+  auth-callout response envelopes, CLI auth token endpoint DTOs, OAuth refresh
+  failure classification, and Stripe subscription/invoice snapshots into domain
+  modules.
+- #258 `refactor/backend-ddd-prompt-provider-policy` -> #257 branch: moves
+  provider-backed prompt requirements, missing provider/model/API-key errors,
+  in-flight busy conflicts, and provider build-error mapping into
+  `domain::prompt`.
+- #259 `refactor/backend-ddd-credential-error-policies` -> #258 branch: moves
+  Git credential, Container CLI credential, CLI auth proxy token storage, and
+  LLM provider encryption/test error contracts into credential/auth domain
+  policies.
 
 ## Execution Rule
 
@@ -313,13 +343,21 @@ Current open stack:
   conflicts, and provider build-error mapping into `domain::prompt`, keeping
   prompt services focused on repositories, LLM factory calls, SSE streaming,
   and cancellation orchestration.
+- #259 credential error policy sweep, stacked on #258, moves Git credential,
+  Container CLI credential, CLI auth proxy token storage, and LLM provider
+  encryption/test error contracts into domain policies so credential services
+  keep encryption, repository, OAuth, and provider I/O orchestration instead of
+  owning user-visible policy strings.
 
-Before starting a new PR, inspect the current state of #229-#258. If they have
+Before starting a new PR, inspect the current state of #229-#259. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 
 Create a separate worktree, implement the next large backend DDD batch, run
 focused Rust validation plus clippy, push a PR, wait for CI, and merge only
-after checks pass. Preserve unrelated user changes and do not revert anything
-outside the batch.
+after checks pass. Prefer broad aggregate/service-family sweeps over small
+single-service cleanup: scan all production services for the same class of
+remaining DDD drift, move the full set in one branch, and add or extend the
+boundary regression test that prevents the class from returning. Preserve
+unrelated user changes and do not revert anything outside the batch.
 ```

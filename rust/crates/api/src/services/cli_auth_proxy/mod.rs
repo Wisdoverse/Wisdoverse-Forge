@@ -28,7 +28,7 @@ pub use crate::domain::cli_auth_proxy::{
     CallbackMode, ProviderInfo, ProviderStatus, RefreshSummary, RevokedCliCredential,
 };
 pub(crate) use crate::domain::cli_auth_proxy::{
-    CliAuthTokenFileInput, TokenResponse, cli_auth_authorize_response, cli_auth_connected_response,
+    CliAuthProxyPolicy, CliAuthTokenFileInput, TokenResponse, cli_auth_authorize_response, cli_auth_connected_response,
     cli_auth_disconnected_response, cli_auth_providers_response, cli_auth_statuses_response, cli_auth_token_file_map,
 };
 pub use refresh_classifier::{RefreshErrorKind, classify_refresh_failure};
@@ -693,10 +693,7 @@ impl CliAuthProxyService {
         provider: &CliAuthProxyProvider,
         tokens: &TokenResponse,
     ) -> AppResult<()> {
-        let key = self
-            .encryption_key
-            .as_ref()
-            .ok_or_else(|| ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured".into()))?;
+        let key = self.encryption_key.as_ref().ok_or_else(CliAuthProxyPolicy::missing_refresh_storage_key)?;
         let account_id =
             tokens.account_id.clone().or_else(|| extract_chatgpt_account_id(tokens.access_token.expose_secret()));
         let file_map = cli_auth_token_file_map(CliAuthTokenFileInput {
@@ -716,9 +713,7 @@ impl CliAuthProxyService {
     // -----------------------------------------------------------------------
 
     fn require_provider(&self, name: &str) -> AppResult<&CliAuthProxyProvider> {
-        self.providers
-            .get(name)
-            .ok_or_else(|| ErrorKind::Validation(format!("unknown Container CLI auth proxy provider: {name}")).into())
+        self.providers.get(name).ok_or_else(|| CliAuthProxyPolicy::unknown_provider(name).into())
     }
 
     async fn store_state(&self, state: &str, entry: StateEntry) -> AppResult<()> {
@@ -770,9 +765,7 @@ impl CliAuthProxyService {
         provider: &CliAuthProxyProvider,
         tokens: &TokenResponse,
     ) -> AppResult<()> {
-        let key = self.encryption_key.as_ref().ok_or_else(|| {
-            ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured — refusing to store plaintext tokens".into())
-        })?;
+        let key = self.encryption_key.as_ref().ok_or_else(CliAuthProxyPolicy::missing_token_storage_key)?;
 
         // Codex: pull chatgpt_account_id out of the access-token JWT (no
         // signature check — the provider already signed it and we only care
