@@ -66,7 +66,7 @@ pub struct BulkLayoutRequest {
 
 /// Build a TileService from shared state.
 fn make_service(state: &AppState) -> TileService {
-    TileService::from_pool(state.pool.clone())
+    state.tile_service()
 }
 
 /// `GET /tiles` — list tiles.
