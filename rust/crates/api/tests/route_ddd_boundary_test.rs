@@ -192,6 +192,14 @@ fn mcp_entrypoint_does_not_reintroduce_ddd_boundary_leaks() {
                 line_no + 1
             ));
         }
+
+        if contains_mcp_runtime_adapter_wiring(trimmed) {
+            violations.push(format!(
+                "{}:{} owns Docker runtime adapter wiring in production MCP entrypoint code; move runtime adapters to services",
+                mcp_file.display(),
+                line_no + 1
+            ));
+        }
     }
 
     assert!(violations.is_empty(), "MCP DDD boundary violations:\n{}", violations.join("\n"));
@@ -420,4 +428,25 @@ fn contains_route_error_policy(line: &str) -> bool {
     line.contains("ErrorKind::")
         || line.contains("agentforge_core::ErrorKind")
         || (line.starts_with("use agentforge_core::") && line.contains("ErrorKind"))
+}
+
+fn contains_mcp_runtime_adapter_wiring(line: &str) -> bool {
+    [
+        "use bollard::",
+        "DockerMcpRuntimeBackend",
+        "LiveDockerMcpRuntimeBackend",
+        "DockerMcpAgentRuntime",
+        "AttachContainerOptions",
+        "CreateContainerOptions",
+        "InspectContainerOptions",
+        "LogsOptions",
+        "RemoveContainerOptions",
+        "StartContainerOptions",
+        "ContainerCreateBody",
+        "HostConfig",
+        "StreamExt",
+        "AsyncWriteExt",
+    ]
+    .iter()
+    .any(|pattern| line.contains(pattern))
 }
