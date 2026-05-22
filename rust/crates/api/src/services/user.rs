@@ -141,10 +141,8 @@ impl UserService {
             self.repo.find_default_org(user.id).await?.ok_or_else(UserAccountPolicy::missing_default_org_membership)?;
 
         // 5. Create JWT
-        let token = self
-            .jwt
-            .create_token(user.id.as_uuid(), org_id, &role)
-            .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("JWT creation failed: {e}")))?;
+        let token =
+            self.jwt.create_token(user.id.as_uuid(), org_id, &role).map_err(UserAccountPolicy::jwt_creation_failed)?;
 
         // 6. Update last_login (fire-and-forget, don't fail the login)
         if let Err(err) = self.repo.update_last_login(user.id).await {
@@ -160,16 +158,14 @@ impl UserService {
         let password = UserPassword::parse(password)?;
 
         let hash = agentforge_auth::password::hash_password(password.value())
-            .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("password hashing failed: {e}")))?;
+            .map_err(UserAccountPolicy::password_hashing_failed)?;
 
         let user = self.repo.create(email.value(), &hash, display_name).await?;
         let (org_id, role) =
             self.repo.find_default_org(user.id).await?.ok_or_else(UserAccountPolicy::missing_default_org_membership)?;
 
-        let access_token = self
-            .jwt
-            .create_token(user.id.as_uuid(), org_id, &role)
-            .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("JWT creation failed: {e}")))?;
+        let access_token =
+            self.jwt.create_token(user.id.as_uuid(), org_id, &role).map_err(UserAccountPolicy::jwt_creation_failed)?;
 
         self.build_auth_result(&user, org_id, &role, access_token, false)
     }
@@ -230,7 +226,7 @@ impl UserService {
         let new_password = UserPassword::parse(new_password)?;
         let token = PasswordResetToken::parse(token)?;
         let hash = agentforge_auth::password::hash_password(new_password.value())
-            .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("password hashing failed: {e}")))?;
+            .map_err(UserAccountPolicy::password_hashing_failed)?;
         let token_hash = token.hash();
         let updated = self.repo.reset_password_with_token(&token_hash, &hash).await?;
         if !updated {
@@ -296,7 +292,7 @@ impl UserService {
                 axes.team_id(),
                 axes.project_id(),
             )
-            .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("context switch token creation failed: {e}")))?;
+            .map_err(UserAccountPolicy::context_switch_token_creation_failed)?;
         let refresh_token = self
             .jwt
             .create_token_with_axes_and_expiry(
@@ -308,7 +304,7 @@ impl UserService {
                 axes.project_id(),
                 SWITCH_CONTEXT_REFRESH_EXPIRY_SECONDS,
             )
-            .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("context switch refresh token creation failed: {e}")))?;
+            .map_err(UserAccountPolicy::context_switch_refresh_token_creation_failed)?;
 
         Ok(SwitchContextSession {
             access_token,
@@ -330,7 +326,7 @@ impl UserService {
                 claims.team_id,
                 claims.project_id,
             )
-            .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("access token refresh failed: {e}")))?;
+            .map_err(UserAccountPolicy::access_token_refresh_failed)?;
 
         Ok(RefreshedAccessToken::new(access_token, self.jwt.expiry_seconds()))
     }
@@ -374,7 +370,7 @@ impl UserService {
         let refresh_token = self
             .jwt
             .create_token_with_expiry(user.id.as_uuid(), org_id, role, refresh_expires_in)
-            .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("refresh token creation failed: {e}")))?;
+            .map_err(UserAccountPolicy::refresh_token_creation_failed)?;
 
         Ok(LoginResult {
             user: AuthenticatedUser {

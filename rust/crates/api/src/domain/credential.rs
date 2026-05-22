@@ -543,6 +543,20 @@ impl ContainerCliCredentialPolicy {
         )
     }
 
+    pub(crate) fn serialize_files_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("serialize files: {err}"))
+    }
+
+    pub(crate) fn encrypt_credentials_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("failed to encrypt credentials: {err}"))
+    }
+
+    pub(crate) fn stored_user_llm_key_decrypt_failed() -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!(
+            "stored user LLM API key failed to decrypt (likely LLM_ENCRYPTION_KEY rotation); re-upload via /api/v1/user-llm-configs"
+        ))
+    }
+
     pub(crate) fn stored_oauth_decrypt_failed(cli_tool: &str) -> ErrorKind {
         ErrorKind::Validation(format!(
             "stored {cli_tool} credentials cannot be decrypted — reconnect via /api/v1/cli-auth-proxy or /api/v1/cli-credentials"
@@ -560,6 +574,10 @@ impl GitCredentialEncryptionPolicy {
 
     pub(crate) fn missing_storage_key() -> ErrorKind {
         ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured - refusing to store plaintext git tokens".into())
+    }
+
+    pub(crate) fn encrypt_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("encrypt git credential token failed: {err}"))
     }
 
     pub(crate) fn ciphertext_not_utf8(provider: &str, err: impl std::fmt::Display) -> ErrorKind {
@@ -613,6 +631,14 @@ impl LlmProviderPolicy {
 
     pub(crate) fn missing_storage_key() -> ErrorKind {
         ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured - refusing to store plaintext API keys".into())
+    }
+
+    pub(crate) fn decrypt_api_key_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("decrypt llm provider api key failed: {err}"))
+    }
+
+    pub(crate) fn encrypt_api_key_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("encrypt llm provider api key failed: {err}"))
     }
 
     pub(crate) fn normalize_supported_provider(provider: &str) -> AppResult<String> {
@@ -1309,6 +1335,15 @@ mod tests {
     #[test]
     fn credential_encryption_policies_own_user_visible_error_messages() {
         assert!(format!("{}", ContainerCliCredentialPolicy::missing_storage_key()).contains("plaintext credentials"));
+        assert!(format!("{}", ContainerCliCredentialPolicy::serialize_files_failed("bad")).contains("serialize files"));
+        assert!(
+            format!("{}", ContainerCliCredentialPolicy::encrypt_credentials_failed("bad"))
+                .contains("failed to encrypt credentials")
+        );
+        assert!(
+            format!("{}", ContainerCliCredentialPolicy::stored_user_llm_key_decrypt_failed())
+                .contains("stored user LLM API key failed to decrypt")
+        );
         assert!(
             format!("{}", ContainerCliCredentialPolicy::stored_oauth_decrypt_failed("codex"))
                 .contains("stored codex credentials cannot be decrypted")
@@ -1316,12 +1351,24 @@ mod tests {
         assert!(format!("{}", GitCredentialEncryptionPolicy::missing_decrypt_key()).contains("cannot decrypt"));
         assert!(format!("{}", GitCredentialEncryptionPolicy::missing_storage_key()).contains("plaintext git tokens"));
         assert!(
+            format!("{}", GitCredentialEncryptionPolicy::encrypt_failed("bad"))
+                .contains("encrypt git credential token failed")
+        );
+        assert!(
             format!("{}", GitCredentialEncryptionPolicy::ciphertext_not_utf8("github", "bad utf8"))
                 .contains("stored github git credential ciphertext is not UTF-8")
         );
         assert!(
             format!("{}", GitCredentialEncryptionPolicy::decrypt_failed("gitlab"))
                 .contains("stored gitlab git credential cannot be decrypted")
+        );
+        assert!(
+            format!("{}", LlmProviderPolicy::decrypt_api_key_failed("bad"))
+                .contains("decrypt llm provider api key failed")
+        );
+        assert!(
+            format!("{}", LlmProviderPolicy::encrypt_api_key_failed("bad"))
+                .contains("encrypt llm provider api key failed")
         );
     }
 
