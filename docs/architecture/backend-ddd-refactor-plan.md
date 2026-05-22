@@ -292,8 +292,14 @@ Current open stack:
 - #254 service payload domain sweep, stacked on #253, moves production service
   JSON/protocol payload construction into domain modules and expands service
   boundary coverage to block production `json!` payload construction.
+- #255 protocol boundary hardening sweep, stacked on #254, moves NATS auth
+  callout JWT protocol claim/header shapes and permissions into
+  `domain::auth_callout`, keeps the signing service focused on cryptographic
+  orchestration, gates the legacy group test-only helper behind
+  test-support, and fixes route/service boundary tests so early `#[cfg(test)]`
+  imports no longer hide later production boundary leaks.
 
-Before starting a new PR, inspect the current state of #229-#252. If they have
+Before starting a new PR, inspect the current state of #229-#255. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 
