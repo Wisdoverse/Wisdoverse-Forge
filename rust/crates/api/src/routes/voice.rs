@@ -45,7 +45,7 @@ pub struct UpdateVoiceProviderRequest {
 
 /// Build a VoiceService from shared state.
 fn make_service(state: &AppState) -> VoiceService {
-    VoiceService::from_pool(state.pool.clone())
+    state.voice_service()
 }
 
 /// `GET /voice/status` — voice service status.

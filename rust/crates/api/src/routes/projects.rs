@@ -70,7 +70,7 @@ pub struct UpdateProjectRequest {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> ProjectService {
-    ProjectService::from_pool(state.pool.clone())
+    state.project_service()
 }
 
 /// `GET /api/projects` — list projects for the authenticated tenant.
