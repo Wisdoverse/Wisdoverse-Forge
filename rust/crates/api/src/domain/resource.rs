@@ -9,8 +9,6 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-use crate::util::slug::slugify;
-
 const VALID_FAVORITE_TARGET_TYPES: &[&str] = &["agent", "project", "workspace"];
 
 pub(crate) fn resource_data_response<T: Serialize>(data: T) -> Value {
@@ -92,6 +90,32 @@ impl<'a> ResourceName<'a> {
 
     pub(crate) fn value(self) -> &'a str {
         self.value
+    }
+}
+
+/// Default slug derivation for team/project resources.
+pub(crate) struct ResourceSlugPolicy;
+
+impl ResourceSlugPolicy {
+    pub(crate) fn derive(name: &str) -> String {
+        let mut out = String::with_capacity(name.len());
+        let mut prev_dash = true;
+
+        for ch in name.chars() {
+            if ch.is_ascii_alphanumeric() {
+                out.push(ch.to_ascii_lowercase());
+                prev_dash = false;
+            } else if !prev_dash {
+                out.push('-');
+                prev_dash = true;
+            }
+        }
+
+        if out.ends_with('-') {
+            out.pop();
+        }
+
+        if out.is_empty() { "untitled".to_string() } else { out }
     }
 }
 
@@ -343,7 +367,7 @@ fn create_resource_draft(
     name_required_message: &str,
 ) -> AppResult<CreateResourceDraft> {
     let trimmed_name = required_text(&name, name_required_message)?;
-    let slug = slug.filter(|value| !value.trim().is_empty()).unwrap_or_else(|| slugify(&name));
+    let slug = slug.filter(|value| !value.trim().is_empty()).unwrap_or_else(|| ResourceSlugPolicy::derive(&name));
     Ok(CreateResourceDraft { name: trimmed_name, slug })
 }
 
@@ -453,6 +477,24 @@ mod tests {
         assert!(ResourceName::parse(&"a".repeat(255)).is_ok());
         assert!(ResourceName::parse("").is_err());
         assert!(ResourceName::parse(&"a".repeat(256)).is_err());
+    }
+
+    #[test]
+    fn resource_slug_policy_derives_default_slugs() {
+        assert_eq!(ResourceSlugPolicy::derive("Engineering"), "engineering");
+        assert_eq!(ResourceSlugPolicy::derive("My Team"), "my-team");
+        assert_eq!(ResourceSlugPolicy::derive("A &&& B"), "a-b");
+        assert_eq!(ResourceSlugPolicy::derive("!!foo__bar!!"), "foo-bar");
+        assert_eq!(ResourceSlugPolicy::derive("---hi---"), "hi");
+        assert_eq!(ResourceSlugPolicy::derive("  spaces  "), "spaces");
+        assert_eq!(ResourceSlugPolicy::derive(""), "untitled");
+        assert_eq!(ResourceSlugPolicy::derive("   "), "untitled");
+    }
+
+    #[test]
+    fn resource_slug_policy_drops_unicode_gracefully() {
+        assert_eq!(ResourceSlugPolicy::derive("日本語"), "untitled");
+        assert_eq!(ResourceSlugPolicy::derive("hello 日本語 world"), "hello-world");
     }
 
     #[test]

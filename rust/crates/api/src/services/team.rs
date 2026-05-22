@@ -4,7 +4,7 @@ use agentforge_core::{AppResult, TeamId, TenantScope};
 use agentforge_db::entities::Team;
 use sqlx::PgPool;
 
-use crate::domain::resource::{ResourceListPage, ResourceName};
+use crate::domain::resource::{ResourceListPage, ResourceName, ResourceSlugPolicy};
 pub(crate) use crate::domain::resource::{resource_data_response, resource_delete_response};
 use crate::repositories::identity::team::TeamRepository;
 use crate::repositories::resource::permission::ResourcePermissionRepository;
@@ -50,7 +50,8 @@ impl TeamService {
     pub async fn create(&self, scope: &TenantScope, input: CreateTeamInput) -> AppResult<Team> {
         self.permissions.require_org_manager(scope).await?;
         let name = ResourceName::parse(&input.name)?;
-        self.repo.create(scope, name.value()).await
+        let slug = ResourceSlugPolicy::derive(name.value());
+        self.repo.create(scope, name.value(), &slug).await
     }
 
     /// Update a team's name.
