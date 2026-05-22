@@ -7,12 +7,14 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
-use agentforge_core::{AppConfig, AppError, AppResult, ErrorKind};
+use agentforge_core::{AppConfig, AppResult};
 use async_trait::async_trait;
 use lettre::message::Mailbox;
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 use secrecy::ExposeSecret;
+
+use crate::domain::email::EmailDeliveryPolicy;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EmailMessage {
@@ -37,7 +39,7 @@ impl EmailSender for DisabledEmailSender {
     }
 
     async fn send(&self, _message: EmailMessage) -> AppResult<()> {
-        Err(ErrorKind::Internal(anyhow::anyhow!("SMTP is not configured")).into())
+        Err(EmailDeliveryPolicy::smtp_not_configured())
     }
 }
 
@@ -57,18 +59,18 @@ impl SmtpEmailSender {
             .as_ref()
             .map(|secret| secret.expose_secret().trim())
             .filter(|value| !value.is_empty())
-            .ok_or_else(|| internal_config_error("SMTP_PASSWORD is required when SMTP_HOST is set"))?;
+            .ok_or_else(|| EmailDeliveryPolicy::required_when_host("SMTP_PASSWORD"))?;
         let from = config
             .smtp_from
             .as_deref()
             .map(str::trim)
             .filter(|value| !value.is_empty())
-            .ok_or_else(|| internal_config_error("SMTP_FROM is required when SMTP_HOST is set"))?;
+            .ok_or_else(|| EmailDeliveryPolicy::required_when_host("SMTP_FROM"))?;
 
         let credentials = Credentials::new(user.to_string(), password.to_string());
         let mut builder = if config.smtp_secure {
             AsyncSmtpTransport::<Tokio1Executor>::relay(host)
-                .map_err(|err| internal_config_error(format!("invalid SMTP relay {host}: {err}")))?
+                .map_err(|err| EmailDeliveryPolicy::invalid_relay(host, err))?
         } else {
             AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(host)
         };
@@ -77,8 +79,7 @@ impl SmtpEmailSender {
         }
 
         Ok(Some(Self {
-            from: Mailbox::from_str(from)
-                .map_err(|err| internal_config_error(format!("invalid SMTP_FROM mailbox: {err}")))?,
+            from: Mailbox::from_str(from).map_err(EmailDeliveryPolicy::invalid_from_mailbox)?,
             transport: builder.credentials(credentials).build(),
         }))
     }
@@ -93,16 +94,12 @@ impl EmailSender for SmtpEmailSender {
     async fn send(&self, message: EmailMessage) -> AppResult<()> {
         let email = Message::builder()
             .from(self.from.clone())
-            .to(Mailbox::from_str(&message.to)
-                .map_err(|err| ErrorKind::Validation(format!("invalid recipient email: {err}")))?)
+            .to(Mailbox::from_str(&message.to).map_err(EmailDeliveryPolicy::invalid_recipient)?)
             .subject(message.subject)
             .body(message.body)
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("build email message: {err}")))?;
+            .map_err(EmailDeliveryPolicy::build_message_failed)?;
 
-        self.transport
-            .send(email)
-            .await
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("send email through SMTP: {err}")))?;
+        self.transport.send(email).await.map_err(EmailDeliveryPolicy::send_failed)?;
         Ok(())
     }
 }
@@ -115,12 +112,5 @@ pub fn sender_from_config(config: &AppConfig) -> AppResult<Arc<dyn EmailSender>>
 }
 
 fn required_trimmed<'a>(value: Option<&'a str>, name: &str) -> AppResult<&'a str> {
-    value
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| internal_config_error(format!("{name} is required when SMTP_HOST is set")))
-}
-
-fn internal_config_error(message: impl Into<String>) -> AppError {
-    ErrorKind::Internal(anyhow::anyhow!(message.into())).into()
+    value.map(str::trim).filter(|value| !value.is_empty()).ok_or_else(|| EmailDeliveryPolicy::required_when_host(name))
 }

@@ -160,6 +160,11 @@ Current stacked PRs:
   billing active subscriptions, admin bulk delete, governance audit HMAC
   runtime keys, legacy navigation org updates, resource member email lookup,
   and orchestration parent-task mapping into domain policy helpers.
+- #261 `refactor/backend-ddd-external-error-policies` -> #260 branch: moves
+  external integration error and protocol policies for CLI auth proxy OAuth
+  callback/state/token exchange, Stripe billing gateway/webhook/API failures,
+  password-reset delivery configuration, and transactional email
+  SMTP/recipient contracts into domain helpers.
 
 ## Execution Rule
 
@@ -358,8 +363,12 @@ Current open stack:
   subscriptions, admin bulk delete, governance audit HMAC runtime keys, legacy
   navigation org updates, resource member email lookup, and orchestration
   parent-task mapping into domain helpers.
+- #261 external integration error policy sweep, stacked on #260, moves CLI auth
+  proxy OAuth callback/state/token exchange errors, Stripe billing
+  gateway/webhook/API errors, password-reset delivery configuration errors, and
+  transactional email SMTP/recipient contracts into domain policies.
 
-Before starting a new PR, inspect the current state of #229-#260. If they have
+Before starting a new PR, inspect the current state of #229-#261. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 
