@@ -293,6 +293,10 @@ Current stacked PRs:
   usage-analytics repository error contracts into their owning domain policy
   helpers; extends repository boundary coverage so these residual repositories
   cannot re-own direct `ErrorKind` policy.
+- #288 `refactor/backend-ddd-service-error-boundary` -> #287 branch: moves the
+  remaining production orchestration-service parent lookup error mapping into
+  the orchestration domain policy boundary; extends service boundary coverage
+  so production services cannot re-own `agentforge_core::ErrorKind` policy.
 
 ## Execution Rule
 
