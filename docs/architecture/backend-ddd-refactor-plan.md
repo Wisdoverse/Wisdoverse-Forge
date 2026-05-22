@@ -298,8 +298,13 @@ Current open stack:
   orchestration, gates the legacy group test-only helper behind
   test-support, and fixes route/service boundary tests so early `#[cfg(test)]`
   imports no longer hide later production boundary leaks.
+- #256 agent container policy sweep, stacked on #255, moves container-backed
+  eligibility checks, restart/resume/stop container-id validation, stale
+  container-reference errors, and start image rejection messaging into
+  `domain::agent` policies so container services stay focused on Docker,
+  repository, credential, and orchestration side effects.
 
-Before starting a new PR, inspect the current state of #229-#255. If they have
+Before starting a new PR, inspect the current state of #229-#256. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 
