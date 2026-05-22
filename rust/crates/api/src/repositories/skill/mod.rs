@@ -4,12 +4,14 @@ pub mod version;
 
 pub use version::{SkillSnapshot, SkillVersionRepository};
 
-use agentforge_core::{AppResult, ErrorKind, ProjectId, ScopedRead, TeamId, TenantScope, WorkspaceId};
+use agentforge_core::{AppResult, ProjectId, ScopedRead, TeamId, TenantScope, WorkspaceId};
 use agentforge_db::entities::Skill;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
+
+use crate::domain::skill::SkillRepositoryPolicy;
 
 pub struct CreateSkillRecord<'a> {
     pub workspace_id: WorkspaceId,
@@ -81,7 +83,7 @@ impl SkillRepository {
             .bind(project_ids(proof))
             .fetch_optional(&self.pool)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("skill {id}")).into())
+            .ok_or_else(|| SkillRepositoryPolicy::skill_not_found(id))
     }
 
     /// Lock an org-owned skill for mutation. Global skills are read-only from
@@ -103,7 +105,7 @@ impl SkillRepository {
         .bind(scope.workspace_id().map(|id| id.as_uuid()))
         .fetch_optional(&mut **tx)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("skill {id}")).into())
+        .ok_or_else(|| SkillRepositoryPolicy::skill_not_found(id))
     }
 
     pub async fn exists_outside_request_boundary(&self, scope: &TenantScope, id: Uuid) -> AppResult<bool> {
@@ -215,7 +217,7 @@ impl SkillRepository {
         .bind(id)
         .fetch_optional(&mut **tx)
         .await?
-        .ok_or_else(|| ErrorKind::Conflict(format!("skill {id} is already revoked")).into())
+        .ok_or_else(|| SkillRepositoryPolicy::skill_already_revoked(id))
     }
 
     pub async fn restore_from_snapshot_in_tx(
@@ -304,7 +306,7 @@ impl SkillRepository {
         .bind(sensitivity)
         .fetch_optional(&mut **tx)
         .await?
-        .ok_or_else(|| ErrorKind::Conflict(format!("skill {id} is not a pending candidate")).into())
+        .ok_or_else(|| SkillRepositoryPolicy::skill_not_pending_candidate(id))
     }
 
     pub async fn resource_belongs_to_scope(
