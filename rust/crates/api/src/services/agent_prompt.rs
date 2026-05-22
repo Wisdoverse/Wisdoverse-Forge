@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use agentforge_core::{AgentId, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AgentId, AppResult, TenantScope};
 use agentforge_infra::NatsClient;
 use agentforge_llm::LlmProviderFactory;
 use futures::{StreamExt, stream::BoxStream};
@@ -14,7 +14,7 @@ use sqlx::PgPool;
 use tokio::sync::oneshot;
 
 use crate::domain::agent::PlainTextAgentPrompt;
-use crate::domain::prompt::SseFrame;
+use crate::domain::prompt::{PromptAgentPolicy, SseFrame};
 use crate::repositories::agent::{AgentRepository, MessageRepository};
 use crate::repositories::user::llm_config::UserLlmConfigRepository;
 use crate::services::agent_commands::{AgentCommandBus, AgentCommandService};
@@ -88,7 +88,7 @@ impl AgentPromptService {
             return Ok(AgentPromptDispatch::Sidecar);
         }
 
-        let model = agent.model.clone().ok_or_else(|| ErrorKind::Validation("agent has no model configured".into()))?;
+        let model = PromptAgentPolicy::required_model(agent.model.clone())?;
         let system_prompt = agent.system_prompt.clone();
         let prompt_service = self.provider_prompt_service();
 
@@ -145,9 +145,7 @@ impl AgentPromptService {
     ) -> AppResult<BoxStream<'static, AppResult<SseFrame>>> {
         {
             let mut map = self.inflight_prompts.lock().expect("inflight_prompts poisoned");
-            if map.contains_key(&agent_id) {
-                return Err(ErrorKind::Conflict("agent_busy".into()).into());
-            }
+            PromptAgentPolicy::ensure_not_busy(map.contains_key(&agent_id))?;
             map.insert(agent_id, cancel_tx);
         }
 
