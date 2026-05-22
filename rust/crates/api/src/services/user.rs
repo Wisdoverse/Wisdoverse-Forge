@@ -9,6 +9,13 @@ use chrono::{Duration, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+pub(crate) use crate::domain::user::{
+    AuthErrorResponseContract, auth_error_response_body, auth_error_response_contract, auth_me_response,
+    auth_message_response, auth_ok_response, auth_providers_response, auth_refresh_response,
+    auth_success_response_body, auth_switch_context_response, invalid_refresh_token_response_contract,
+    is_unauthorized_error, missing_refresh_token_response_contract, password_reset_error_response_contract,
+    user_data_response, user_members_response,
+};
 use crate::domain::user::{
     AuthRefreshCookiePolicy, GeneratedPasswordResetToken, PASSWORD_RESET_TTL_MINUTES, PasswordResetRequestEmail,
     PasswordResetToken, RefreshSessionPolicy, RefreshedAccessToken, SWITCH_CONTEXT_REFRESH_EXPIRY_SECONDS,
@@ -16,11 +23,6 @@ use crate::domain::user::{
     email_domain_for_log, password_reset_email_body,
 };
 pub use crate::domain::user::{AuthenticatedUser, LoginResult};
-pub(crate) use crate::domain::user::{
-    auth_error_response_body, auth_me_response, auth_message_response, auth_ok_response, auth_providers_response,
-    auth_refresh_response, auth_success_response_body, auth_switch_context_response, user_data_response,
-    user_members_response,
-};
 use crate::repositories::user::{OrgUserSearchResult, UserRepository};
 use crate::services::email::{EmailMessage, EmailSender};
 
