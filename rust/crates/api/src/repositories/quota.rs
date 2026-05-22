@@ -1,8 +1,10 @@
 //! Quota repository — database queries for the quota_usage table.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::QuotaUsage;
 use sqlx::PgPool;
+
+use crate::domain::configuration::ConfigurationRepositoryPolicy;
 
 /// Database access layer for quota usage.
 pub struct QuotaRepository {
@@ -37,6 +39,6 @@ impl QuotaRepository {
         .bind(resource_type)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("quota for resource_type '{resource_type}'")).into())
+        .ok_or_else(|| ConfigurationRepositoryPolicy::quota_not_found(resource_type))
     }
 }
