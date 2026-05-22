@@ -11,7 +11,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use agentforge_core::context_envelope::ContextEnvelope;
 use agentforge_core::orchestration_protocol::DEFAULT_ASSIGNMENT_LEASE_SECS;
-use agentforge_core::{AgentId, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AgentId, AppResult, TenantScope};
 use agentforge_db::entities::{OrchestrationTask, Participant, TaskRun};
 use agentforge_db::inbox_notifications::{TaskOwnerNotificationKind, upsert_task_owner_lifecycle_notification_in_tx};
 use agentforge_infra::NatsClient;
@@ -170,14 +170,14 @@ impl OrchestrationService {
         let priority = TaskPriority::validate(priority.unwrap_or("normal"))?;
         TaskCreationPolicy::ensure_approval_task_is_unassigned(requires_approval, assigned_to)?;
         let missing_inputs = BlockedTaskPolicy::missing_required_inputs(params.as_ref());
-        // Parent status gates child creation on waiting_dependency. Only a genuine
-        // `NotFound` is remapped to a validation error; infrastructure errors
-        // (pool/IO/decode) propagate unchanged so operators see the real failure.
+        // Parent status gates child creation on waiting_dependency. Missing
+        // parents become validation errors; infrastructure failures propagate.
         let parent_status = if let Some(parent_id) = parent_task_id {
-            let parent = self.task_repo.find_by_id(scope, parent_id).await.map_err(|err| match err.kind {
-                ErrorKind::NotFound(_) => TaskCreationPolicy::parent_task_not_found(parent_id).into(),
-                _ => err,
-            })?;
+            let parent = self
+                .task_repo
+                .find_by_id(scope, parent_id)
+                .await
+                .map_err(|err| TaskCreationPolicy::map_parent_lookup_error(parent_id, err))?;
             Some(parent.status.clone())
         } else {
             None
