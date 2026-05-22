@@ -245,6 +245,16 @@ impl AgentContainerImagePolicy {
 
         Err(AgentContainerImageRejection::MissingContainerShell)
     }
+
+    pub(crate) fn resolve_for_start(cli_tool: Option<&str>, model: Option<&str>) -> AppResult<String> {
+        Self::resolve(cli_tool, model).map_err(|err| {
+            ErrorKind::Validation(format!(
+                "{} — set cli_tool to one of: claude, codex, gemini, opencode (this agent has cli_tool={cli_tool:?}, model={model:?})",
+                err.message(),
+            ))
+            .into()
+        })
+    }
 }
 
 /// Environment input for a spawned agent container.
@@ -374,6 +384,29 @@ pub(crate) enum AgentRestartPlan {
 pub(crate) struct AgentContainerLifecyclePolicy;
 
 impl AgentContainerLifecyclePolicy {
+    pub(crate) fn ensure_container_backed(cli_tool: Option<&str>) -> AppResult<()> {
+        if cli_tool.is_none() {
+            return Err(ErrorKind::Validation("agent is not container-backed".into()).into());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn restart_container_id(container_id: Option<&str>) -> AppResult<&str> {
+        container_id.ok_or_else(|| ErrorKind::Validation("agent has no container".into()).into())
+    }
+
+    pub(crate) fn resume_container_id(container_id: Option<&str>) -> AppResult<&str> {
+        container_id.ok_or_else(|| ErrorKind::Validation("agent has no container to resume".into()).into())
+    }
+
+    pub(crate) fn running_container_id(container_id: Option<&str>) -> AppResult<&str> {
+        container_id.ok_or_else(|| ErrorKind::Validation("agent has no running container".into()).into())
+    }
+
+    pub(crate) fn stale_container_reference_error() -> ErrorKind {
+        ErrorKind::Validation("agent container is no longer available; start the agent again".into())
+    }
+
     pub(crate) fn restart_plan(state: AgentContainerRuntimeState) -> AgentRestartPlan {
         match state {
             AgentContainerRuntimeState::Running => AgentRestartPlan::StopThenStart,
@@ -598,6 +631,27 @@ mod tests {
             AgentContainerLifecyclePolicy::restart_plan(AgentContainerRuntimeState::NotRunning),
             AgentRestartPlan::StartOnly
         );
+    }
+
+    #[test]
+    fn agent_container_lifecycle_policy_validates_container_backing_and_ids() {
+        assert!(AgentContainerLifecyclePolicy::ensure_container_backed(Some("claude")).is_ok());
+        assert!(AgentContainerLifecyclePolicy::ensure_container_backed(None).is_err());
+        assert_eq!(AgentContainerLifecyclePolicy::restart_container_id(Some("ctr-1")).unwrap(), "ctr-1");
+        assert!(AgentContainerLifecyclePolicy::restart_container_id(None).is_err());
+        assert_eq!(AgentContainerLifecyclePolicy::resume_container_id(Some("ctr-2")).unwrap(), "ctr-2");
+        assert!(AgentContainerLifecyclePolicy::resume_container_id(None).is_err());
+        assert_eq!(AgentContainerLifecyclePolicy::running_container_id(Some("ctr-3")).unwrap(), "ctr-3");
+        assert!(AgentContainerLifecyclePolicy::running_container_id(None).is_err());
+    }
+
+    #[test]
+    fn agent_container_image_policy_owns_start_error_contract() {
+        let err = AgentContainerImagePolicy::resolve_for_start(None, None).expect_err("missing shell should fail");
+        assert!(format!("{:?}", err.kind).contains("agent has no cli_tool"));
+
+        let err = AgentContainerImagePolicy::resolve_for_start(Some("vim"), None).expect_err("unknown cli should fail");
+        assert!(format!("{:?}", err.kind).contains("set cli_tool to one of"));
     }
 
     #[test]
