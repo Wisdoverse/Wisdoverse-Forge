@@ -12,8 +12,8 @@ use uuid::Uuid;
 use crate::domain::user::{
     AuthRefreshCookiePolicy, GeneratedPasswordResetToken, PASSWORD_RESET_TTL_MINUTES, PasswordResetRequestEmail,
     PasswordResetToken, RefreshSessionPolicy, RefreshedAccessToken, SWITCH_CONTEXT_REFRESH_EXPIRY_SECONDS,
-    SwitchContextAxes, UserAccountPolicy, UserEmail, UserListPage, UserPassword, derive_username, email_domain_for_log,
-    password_reset_email_body,
+    SwitchContextAxes, UserAccessPolicy, UserAccountPolicy, UserEmail, UserListPage, UserPassword, derive_username,
+    email_domain_for_log, password_reset_email_body,
 };
 pub use crate::domain::user::{AuthenticatedUser, LoginResult};
 pub(crate) use crate::domain::user::{
@@ -251,9 +251,7 @@ impl UserService {
         scope: &TenantScope,
         input: UpdateUserProfileInput,
     ) -> AppResult<User> {
-        if scope.user_id() != input.target_user_id {
-            return Err(ErrorKind::Forbidden.into());
-        }
+        UserAccessPolicy::ensure_self_profile(scope.user_id(), input.target_user_id)?;
 
         self.repo.update_profile(scope, input.target_user_id, input.display_name.as_deref()).await
     }
@@ -278,7 +276,8 @@ impl UserService {
         user_id: UserId,
         input: SwitchContextInput,
     ) -> AppResult<SwitchContextSession> {
-        let role = self.repo.find_membership_role(user_id, input.org_id).await?.ok_or(ErrorKind::Forbidden)?;
+        let role =
+            UserAccessPolicy::require_org_membership(self.repo.find_membership_role(user_id, input.org_id).await?)?;
         let axes = SwitchContextAxes::new(input.workspace_id, input.team_id, input.project_id)?;
         self.validate_switch_context_axes(user_id, input.org_id, &axes).await?;
 
@@ -337,22 +336,18 @@ impl UserService {
         org_id: Uuid,
         axes: &SwitchContextAxes,
     ) -> AppResult<()> {
-        if let Some(workspace_id) = axes.workspace_id()
-            && !self.repo.workspace_exists_in_org(org_id, workspace_id).await?
-        {
-            return Err(ErrorKind::Forbidden.into());
+        if let Some(workspace_id) = axes.workspace_id() {
+            UserAccessPolicy::ensure_workspace_in_org(self.repo.workspace_exists_in_org(org_id, workspace_id).await?)?;
         }
 
-        if let Some(team_id) = axes.team_id()
-            && !self.repo.user_can_read_team(user_id, org_id, team_id).await?
-        {
-            return Err(ErrorKind::Forbidden.into());
+        if let Some(team_id) = axes.team_id() {
+            UserAccessPolicy::ensure_team_readable(self.repo.user_can_read_team(user_id, org_id, team_id).await?)?;
         }
 
-        if let Some((project_id, workspace_id)) = axes.project_workspace_pair()
-            && !self.repo.user_can_read_project(user_id, org_id, project_id, workspace_id).await?
-        {
-            return Err(ErrorKind::Forbidden.into());
+        if let Some((project_id, workspace_id)) = axes.project_workspace_pair() {
+            UserAccessPolicy::ensure_project_readable(
+                self.repo.user_can_read_project(user_id, org_id, project_id, workspace_id).await?,
+            )?;
         }
 
         Ok(())
