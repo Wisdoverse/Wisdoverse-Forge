@@ -30,6 +30,7 @@ pub use crate::domain::cli_auth_proxy::{
 pub(crate) use crate::domain::cli_auth_proxy::{
     CliAuthProxyPolicy, CliAuthTokenFileInput, TokenResponse, cli_auth_authorize_response, cli_auth_connected_response,
     cli_auth_disconnected_response, cli_auth_providers_response, cli_auth_statuses_response, cli_auth_token_file_map,
+    extract_chatgpt_account_id, parse_callback_input,
 };
 pub use refresh_classifier::{RefreshErrorKind, classify_refresh_failure};
 
@@ -458,23 +459,15 @@ impl CliAuthProxyService {
     /// - `code#state`
     /// - query string (`code=...&state=...`)
     pub async fn complete_manual(&self, scope: &TenantScope, provider_name: &str, input: &str) -> AppResult<()> {
-        let (code, state) = parse_callback_input(input).ok_or_else(|| {
-            ErrorKind::Validation("could not parse authorization code from input. Paste the full callback URL.".into())
-        })?;
+        let (code, state) =
+            parse_callback_input(input).ok_or_else(CliAuthProxyPolicy::invalid_manual_callback_input)?;
 
-        let entry = self
-            .take_state(&state)
-            .await?
-            .ok_or_else(|| ErrorKind::Validation("invalid or expired OAuth state — re-run authorize".into()))?;
+        let entry = self.take_state(&state).await?.ok_or_else(CliAuthProxyPolicy::invalid_or_expired_manual_state)?;
         if entry.provider != provider_name {
-            return Err(ErrorKind::Validation(format!(
-                "provider mismatch: stored {} vs requested {provider_name}",
-                entry.provider
-            ))
-            .into());
+            return Err(CliAuthProxyPolicy::provider_mismatch(&entry.provider, provider_name).into());
         }
         if entry.user_id != scope.user_id().as_uuid() {
-            return Err(ErrorKind::Validation("OAuth state belongs to a different user".into()).into());
+            return Err(CliAuthProxyPolicy::state_user_mismatch().into());
         }
 
         let provider = self.require_provider(provider_name)?;
@@ -494,16 +487,9 @@ impl CliAuthProxyService {
     /// the user: the `StateEntry` stored at authorize-time carries `user_id`,
     /// which we upsert against. Matches legacy `handleCallback`.
     pub async fn handle_server_callback(&self, provider_name: &str, code: &str, state: &str) -> AppResult<()> {
-        let entry = self
-            .take_state(state)
-            .await?
-            .ok_or_else(|| ErrorKind::Validation("invalid or expired OAuth state".into()))?;
+        let entry = self.take_state(state).await?.ok_or_else(CliAuthProxyPolicy::invalid_or_expired_state)?;
         if entry.provider != provider_name {
-            return Err(ErrorKind::Validation(format!(
-                "provider mismatch: stored {} vs requested {provider_name}",
-                entry.provider
-            ))
-            .into());
+            return Err(CliAuthProxyPolicy::provider_mismatch(&entry.provider, provider_name).into());
         }
         let provider = self.require_provider(provider_name)?;
         let tokens = self.exchange_code(provider, code, entry.code_verifier.expose_secret()).await?;
@@ -750,7 +736,7 @@ impl CliAuthProxyService {
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
-            return Err(ErrorKind::Validation(format!("token exchange failed: HTTP {status} — {body}")).into());
+            return Err(CliAuthProxyPolicy::token_exchange_failed(status, &body).into());
         }
         let tokens = resp
             .json::<TokenResponse>()
@@ -850,79 +836,6 @@ fn generate_state() -> String {
 
 fn redis_state_key(state: &str) -> String {
     format!("cli-auth-proxy:state:{state}")
-}
-
-/// Legacy TS supported three paste formats; we match verbatim so UI hints
-/// remain identical:
-/// - Full callback URL
-/// - `code#state` (Codex CLI's own shortcut format)
-/// - Bare query string
-pub(crate) fn parse_callback_input(raw: &str) -> Option<(String, String)> {
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-    // Format 1: URL with query
-    if let Ok(url) = url::Url::parse(trimmed) {
-        let mut code = None;
-        let mut state = None;
-        for (k, v) in url.query_pairs() {
-            match k.as_ref() {
-                "code" => code = Some(v.into_owned()),
-                "state" => state = Some(v.into_owned()),
-                _ => {}
-            }
-        }
-        if let (Some(c), Some(s)) = (code, state) {
-            return Some((c, s));
-        }
-    }
-    // Format 2: code#state (no `=` means it's not a query string)
-    if trimmed.contains('#')
-        && !trimmed.contains('=')
-        && let Some((code, state)) = trimmed.split_once('#')
-        && !code.is_empty()
-        && !state.is_empty()
-    {
-        return Some((code.to_string(), state.to_string()));
-    }
-    // Format 3: bare query string. Percent-decode via `form_urlencoded` so a
-    // code like `abc%2Bdef` survives — the previous manual `split('=')` was
-    // keeping raw percent-encoded bytes and breaking token exchange for any
-    // code containing `+` / `/` / `=` padding.
-    let qs = trimmed.strip_prefix('?').unwrap_or(trimmed);
-    let mut code = None;
-    let mut state = None;
-    for (k, v) in url::form_urlencoded::parse(qs.as_bytes()) {
-        match k.as_ref() {
-            "code" => code = Some(v.into_owned()),
-            "state" => state = Some(v.into_owned()),
-            _ => {}
-        }
-    }
-    if let (Some(c), Some(s)) = (code, state) {
-        return Some((c, s));
-    }
-    None
-}
-
-/// Extract `chatgpt_account_id` from the `https://api.openai.com/auth` claim
-/// of an OpenAI access-token JWT. Returns `None` if the token is malformed or
-/// missing the claim — we never fail the whole flow on extraction error, the
-/// stored `auth.json` just won't have the hint.
-pub(crate) fn extract_chatgpt_account_id(access_token: &str) -> Option<String> {
-    let parts: Vec<&str> = access_token.splitn(3, '.').collect();
-    if parts.len() < 2 {
-        return None;
-    }
-    let payload_b64 = parts[1];
-    let payload = URL_SAFE_NO_PAD.decode(payload_b64).ok()?;
-    let value: serde_json::Value = serde_json::from_slice(&payload).ok()?;
-    value
-        .get("https://api.openai.com/auth")
-        .and_then(|claim| claim.get("chatgpt_account_id"))
-        .and_then(|v| v.as_str())
-        .map(str::to_string)
 }
 
 /// Describe + prime metrics emitted by this module. Call once at startup
