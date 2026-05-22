@@ -251,6 +251,22 @@ impl RefreshSessionPolicy {
 pub(crate) struct UserAccountPolicy;
 
 impl UserAccountPolicy {
+    pub(crate) fn invalid_credentials() -> ErrorKind {
+        ErrorKind::Unauthorized
+    }
+
+    pub(crate) fn require_password_hash(hash: Option<&str>) -> AppResult<&str> {
+        hash.ok_or_else(|| Self::invalid_credentials().into())
+    }
+
+    pub(crate) fn ensure_password_verified(valid: bool) -> AppResult<()> {
+        if valid { Ok(()) } else { Err(Self::invalid_credentials().into()) }
+    }
+
+    pub(crate) fn invalid_refresh_token() -> ErrorKind {
+        ErrorKind::Unauthorized
+    }
+
     pub(crate) fn missing_default_org_membership() -> ErrorKind {
         ErrorKind::Validation("user has no organization membership".into())
     }
@@ -607,6 +623,12 @@ mod tests {
 
     #[test]
     fn user_account_policy_owns_auth_error_contracts() {
+        assert!(matches!(UserAccountPolicy::invalid_credentials(), ErrorKind::Unauthorized));
+        assert!(matches!(UserAccountPolicy::invalid_refresh_token(), ErrorKind::Unauthorized));
+        assert!(UserAccountPolicy::require_password_hash(Some("hash")).is_ok());
+        assert!(UserAccountPolicy::require_password_hash(None).is_err());
+        assert!(UserAccountPolicy::ensure_password_verified(true).is_ok());
+        assert!(UserAccountPolicy::ensure_password_verified(false).is_err());
         assert!(
             format!("{}", UserAccountPolicy::missing_default_org_membership()).contains("no organization membership")
         );
