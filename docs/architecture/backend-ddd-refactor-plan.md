@@ -213,6 +213,13 @@ Current stacked PRs:
   attachment multipart upload errors, and billing webhook signature errors into
   domain helpers, and extends route boundary coverage to block production
   `ErrorKind` policy in routes.
+- #273 `refactor/backend-ddd-service-repository-wiring` -> #272 branch: moves
+  remaining service/MCP ad hoc repository wiring into constructor-owned service
+  fields or agent aggregate repositories, covering orchestration context
+  injection/envelope wiring, agent workspace resolution, and the internal MCP
+  agent store SQL boundary; extends regression coverage so production services
+  cannot construct repositories from `self`-held infrastructure and the MCP
+  entrypoint cannot own persistence SQL.
 
 ## Execution Rule
 
