@@ -48,6 +48,14 @@ pub(crate) fn agent_container_status_response(container_id: &str, status: &str) 
     json!({ "ok": true, "container_id": container_id, "status": status })
 }
 
+pub(crate) fn agent_prompt_command_payload(prompt: &str) -> Value {
+    json!({ "type": "prompt", "prompt": prompt })
+}
+
+pub(crate) fn agent_interrupt_command_payload() -> Value {
+    json!({ "type": "interrupt" })
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct AgentContainerStartOutcome {
     container_id: String,
@@ -848,6 +856,13 @@ mod tests {
         assert!(PlainTextAgentPrompt::new("hello", None).is_ok());
         assert!(PlainTextAgentPrompt::new("   ", None).is_err());
         assert!(PlainTextAgentPrompt::new("hello", Some(&["base64".to_string()])).is_err());
+    }
+
+    #[test]
+    fn sidecar_command_payloads_keep_protocol_shape() {
+        assert_eq!(agent_prompt_command_payload("ship")["type"], "prompt");
+        assert_eq!(agent_prompt_command_payload("ship")["prompt"], "ship");
+        assert_eq!(agent_interrupt_command_payload()["type"], "interrupt");
     }
 
     #[test]
