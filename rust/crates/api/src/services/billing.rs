@@ -15,6 +15,7 @@ use crate::domain::billing::{
     InvoiceSubscriptionLookup, InvoiceView, PaymentMethodId, SubscriptionLifecyclePolicy, SubscriptionOrgResolution,
     SubscriptionPlanResolution, SubscriptionStatusPolicy, SubscriptionView, UsageMetricView,
 };
+pub use crate::domain::billing::{StripeInvoiceSnapshot, StripeSubscriptionSnapshot};
 pub(crate) use crate::domain::billing::{
     billing_checkout_response, billing_data_response, billing_invoices_response, billing_plans_response,
     billing_portal_response, billing_subscription_data_response, billing_subscription_response, billing_usage_response,
@@ -23,7 +24,7 @@ pub(crate) use crate::domain::billing::{
 use crate::repositories::billing::BillingRepository;
 pub use stripe::{
     BillingGateway, CheckoutSession, CheckoutSessionInput, DirectSubscriptionInput, DisabledBillingGateway,
-    PortalSession, StripeInvoiceSnapshot, StripeSubscriptionSnapshot, billing_gateway_from_config,
+    PortalSession, billing_gateway_from_config,
 };
 use stripe::{parse_invoice_object, parse_subscription_object, stripe_event};
 
