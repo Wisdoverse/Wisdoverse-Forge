@@ -5,7 +5,7 @@
 
 use std::collections::BTreeMap;
 
-use agentforge_core::{AppResult, ErrorKind};
+use agentforge_core::{AppError, AppResult, ErrorKind, UserId};
 use chrono::{DateTime, Utc};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -273,6 +273,27 @@ struct StripeErrorEnvelope {
 #[derive(Debug, Deserialize)]
 struct StripeErrorBody {
     message: Option<String>,
+}
+
+/// Billing repository lookup and conflict policy.
+pub(crate) struct BillingRepositoryPolicy;
+
+impl BillingRepositoryPolicy {
+    pub(crate) fn plan_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("billing plan {id}")).into()
+    }
+
+    pub(crate) fn plan_for_stripe_price_not_found(stripe_price_id: &str) -> AppError {
+        ErrorKind::NotFound(format!("billing plan for Stripe price {stripe_price_id}")).into()
+    }
+
+    pub(crate) fn user_not_found(user_id: UserId) -> AppError {
+        ErrorKind::NotFound(format!("user {user_id}")).into()
+    }
+
+    pub(crate) fn subscription_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("subscription {id}")).into()
+    }
 }
 
 /// Billing cycle policy.
@@ -637,6 +658,29 @@ mod tests {
         assert_eq!(BillingPlanPolicy::require_stripe_price_id("Team", Some(" price_123 ")).unwrap(), "price_123");
         assert!(BillingPlanPolicy::require_stripe_price_id("Team", None).is_err());
         assert!(BillingPlanPolicy::require_stripe_price_id("Team", Some("   ")).is_err());
+    }
+
+    #[test]
+    fn billing_repository_policy_owns_lookup_errors() {
+        let id = Uuid::new_v4();
+        let user_id = UserId::new();
+
+        assert!(matches!(
+            BillingRepositoryPolicy::plan_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("billing plan {id}")
+        ));
+        assert!(matches!(
+            BillingRepositoryPolicy::plan_for_stripe_price_not_found("price_123").kind,
+            ErrorKind::NotFound(message) if message == "billing plan for Stripe price price_123"
+        ));
+        assert!(matches!(
+            BillingRepositoryPolicy::user_not_found(user_id).kind,
+            ErrorKind::NotFound(message) if message == format!("user {user_id}")
+        ));
+        assert!(matches!(
+            BillingRepositoryPolicy::subscription_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("subscription {id}")
+        ));
     }
 
     #[test]
