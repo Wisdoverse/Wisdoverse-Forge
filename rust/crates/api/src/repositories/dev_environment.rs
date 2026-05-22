@@ -1,9 +1,11 @@
 //! Dev environment repository — database queries for the dev_environments table.
 
-use agentforge_core::{AppError, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::DevEnvironment;
 use sqlx::PgPool;
 use uuid::Uuid;
+
+use crate::domain::dev_environment::DevEnvironmentRepositoryPolicy;
 
 /// Database access layer for dev environments.
 pub struct DevEnvironmentRepository {
@@ -38,7 +40,7 @@ impl DevEnvironmentRepository {
         .bind(scope.org_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("dev_environment {id}")).into())
+        .ok_or_else(|| DevEnvironmentRepositoryPolicy::dev_environment_not_found(id))
     }
 
     /// Create a new dev environment.
@@ -89,7 +91,7 @@ impl DevEnvironmentRepository {
         .bind(container_id)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| -> AppError { ErrorKind::NotFound(format!("dev_environment {id}")).into() })?;
+        .ok_or_else(|| DevEnvironmentRepositoryPolicy::dev_environment_not_found(id))?;
         Ok(env)
     }
 
@@ -105,7 +107,7 @@ impl DevEnvironmentRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("dev_environment {id}")).into());
+            return Err(DevEnvironmentRepositoryPolicy::dev_environment_not_found(id));
         }
         Ok(())
     }
