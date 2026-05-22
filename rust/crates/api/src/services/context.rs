@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use agentforge_core::{AppResult, ErrorKind, ScopedRead, ScopedWrite, ScopedWriteError, TenantScope, WorkspaceId};
+use agentforge_core::{AppResult, ScopedRead, ScopedWrite, TenantScope, WorkspaceId};
 use agentforge_db::entities::ContextCandidate;
 use agentforge_infra::NatsClient;
 use chrono::{DateTime, Utc};
@@ -16,10 +16,10 @@ use crate::domain::context::{
     ContextApprovalProvenance, ContextCandidateApprovalAudit, ContextCandidateBroadcast,
     ContextCandidateBroadcastEvent, ContextCandidateCreatedAudit, ContextCandidateKind,
     ContextCandidateManualRejectionAudit, ContextCandidatePolicy, ContextCandidateRecord, ContextFeedbackLabel,
-    ContextFeedbackPolicy, ContextFeedbackRecordedAudit, ContextItemKind, context_candidate_audit_event,
-    context_candidate_summary, ensure_pending_candidate, normalize_candidate_kind_filter,
-    normalize_candidate_state_filter, normalize_context_candidate_limit, normalize_feedback_note, normalize_reason,
-    normalize_scope_kind_filter, validate_context_sensitivity, validate_ttl,
+    ContextFeedbackPolicy, ContextFeedbackRecordedAudit, ContextItemKind, ContextTenantPolicy,
+    context_candidate_audit_event, context_candidate_summary, ensure_pending_candidate,
+    normalize_candidate_kind_filter, normalize_candidate_state_filter, normalize_context_candidate_limit,
+    normalize_feedback_note, normalize_reason, normalize_scope_kind_filter, validate_context_sensitivity, validate_ttl,
 };
 use crate::domain::memory::MemoryScopeKind;
 use crate::repositories::context_candidate::{
@@ -91,7 +91,7 @@ impl ContextApprovalService {
         scope: &TenantScope,
         input: CreateContextCandidateInput,
     ) -> AppResult<ContextCandidate> {
-        let workspace_id = required_workspace(scope)?;
+        let workspace_id = ContextTenantPolicy::required_workspace(scope)?;
         ContextCandidatePolicy::validate_create(input.item_kind, input.target_skill_id, &input.proposed_content)?;
 
         let mut tx = self.candidates.pool().begin().await?;
@@ -166,7 +166,7 @@ impl ContextApprovalService {
         let requested_sensitivity = input.sensitivity.as_deref().map(validate_context_sensitivity).transpose()?;
         let approval_reason = normalize_reason(input.reason)?;
         let proof = self.validated_read(scope).await?;
-        let workspace_id = required_workspace(scope)?;
+        let workspace_id = ContextTenantPolicy::required_workspace(scope)?;
         let target = self.validated_write_scope(&proof, workspace_id, input.scope_kind, input.scope_id).await?;
 
         let mut tx = self.candidates.pool().begin().await?;
@@ -476,10 +476,11 @@ impl ContextApprovalService {
     ) -> AppResult<ScopedWrite> {
         let (scope_kind, scope_id) =
             ContextCandidatePolicy::resolve_approval_scope(scope_kind, scope_id, proof.user_id().as_uuid())?;
-        let write = ScopedWrite::try_new(scope_kind, scope_id, proof.clone()).map_err(scoped_write_error)?;
-        if !self.memory.resource_belongs_to_scope(proof, scope_kind, scope_id, workspace_id).await? {
-            return Err(ErrorKind::Forbidden.into());
-        }
+        let write = ScopedWrite::try_new(scope_kind, scope_id, proof.clone())
+            .map_err(ContextTenantPolicy::scoped_write_error)?;
+        ContextTenantPolicy::ensure_resource_belongs_to_scope(
+            self.memory.resource_belongs_to_scope(proof, scope_kind, scope_id, workspace_id).await?,
+        )?;
         Ok(write)
     }
 
@@ -548,7 +549,7 @@ impl ContextFeedbackService {
         scope: &TenantScope,
         input: RecordContextFeedbackInput,
     ) -> AppResult<ContextFeedbackOutcome> {
-        let workspace_id = required_workspace(scope)?;
+        let workspace_id = ContextTenantPolicy::required_workspace(scope)?;
         let proof = self.permissions.validated_read_scope(scope).await?;
         let note = normalize_feedback_note(input.note)?;
         let item_kind = input.item_kind.as_label();
@@ -716,12 +717,4 @@ impl From<ContextCandidateListRow> for ContextCandidateRecord {
             updated_at: row.updated_at,
         }
     }
-}
-
-fn required_workspace(scope: &TenantScope) -> AppResult<WorkspaceId> {
-    scope.workspace_id().ok_or_else(|| agentforge_core::AppError::from(ErrorKind::Forbidden))
-}
-
-fn scoped_write_error(_err: ScopedWriteError) -> agentforge_core::AppError {
-    ErrorKind::Forbidden.into()
 }
