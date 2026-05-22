@@ -1,6 +1,8 @@
 //! CLI auth proxy response shapes.
 
 use agentforge_core::ErrorKind;
+use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use chrono::{DateTime, Utc};
 use secrecy::SecretString;
 use serde::Serialize;
@@ -122,6 +124,100 @@ impl CliAuthProxyPolicy {
     pub(crate) fn unknown_provider(name: &str) -> ErrorKind {
         ErrorKind::Validation(format!("unknown Container CLI auth proxy provider: {name}"))
     }
+
+    pub(crate) fn invalid_manual_callback_input() -> ErrorKind {
+        ErrorKind::Validation("could not parse authorization code from input. Paste the full callback URL.".into())
+    }
+
+    pub(crate) fn invalid_or_expired_manual_state() -> ErrorKind {
+        ErrorKind::Validation("invalid or expired OAuth state — re-run authorize".into())
+    }
+
+    pub(crate) fn invalid_or_expired_state() -> ErrorKind {
+        ErrorKind::Validation("invalid or expired OAuth state".into())
+    }
+
+    pub(crate) fn provider_mismatch(stored: &str, requested: &str) -> ErrorKind {
+        ErrorKind::Validation(format!("provider mismatch: stored {stored} vs requested {requested}"))
+    }
+
+    pub(crate) fn state_user_mismatch() -> ErrorKind {
+        ErrorKind::Validation("OAuth state belongs to a different user".into())
+    }
+
+    pub(crate) fn token_exchange_failed(status: impl std::fmt::Display, body: &str) -> ErrorKind {
+        ErrorKind::Validation(format!("token exchange failed: HTTP {status} — {body}"))
+    }
+}
+
+/// Legacy TS supported three paste formats; we match verbatim so UI hints
+/// remain identical:
+/// - Full callback URL
+/// - `code#state` (Codex CLI's own shortcut format)
+/// - Bare query string
+pub(crate) fn parse_callback_input(raw: &str) -> Option<(String, String)> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    // Format 1: URL with query.
+    if let Ok(url) = url::Url::parse(trimmed) {
+        let mut code = None;
+        let mut state = None;
+        for (k, v) in url.query_pairs() {
+            match k.as_ref() {
+                "code" => code = Some(v.into_owned()),
+                "state" => state = Some(v.into_owned()),
+                _ => {}
+            }
+        }
+        if let (Some(c), Some(s)) = (code, state) {
+            return Some((c, s));
+        }
+    }
+    // Format 2: code#state (no `=` means it's not a query string).
+    if trimmed.contains('#')
+        && !trimmed.contains('=')
+        && let Some((code, state)) = trimmed.split_once('#')
+        && !code.is_empty()
+        && !state.is_empty()
+    {
+        return Some((code.to_string(), state.to_string()));
+    }
+    // Format 3: bare query string. Percent-decode via `form_urlencoded` so a
+    // code like `abc%2Bdef` survives token exchange.
+    let qs = trimmed.strip_prefix('?').unwrap_or(trimmed);
+    let mut code = None;
+    let mut state = None;
+    for (k, v) in url::form_urlencoded::parse(qs.as_bytes()) {
+        match k.as_ref() {
+            "code" => code = Some(v.into_owned()),
+            "state" => state = Some(v.into_owned()),
+            _ => {}
+        }
+    }
+    if let (Some(c), Some(s)) = (code, state) {
+        return Some((c, s));
+    }
+    None
+}
+
+/// Extract `chatgpt_account_id` from the `https://api.openai.com/auth` claim
+/// of an OpenAI access-token JWT. Returns `None` if the token is malformed or
+/// missing the claim.
+pub(crate) fn extract_chatgpt_account_id(access_token: &str) -> Option<String> {
+    let parts: Vec<&str> = access_token.splitn(3, '.').collect();
+    if parts.len() < 2 {
+        return None;
+    }
+    let payload_b64 = parts[1];
+    let payload = URL_SAFE_NO_PAD.decode(payload_b64).ok()?;
+    let value: serde_json::Value = serde_json::from_slice(&payload).ok()?;
+    value
+        .get("https://api.openai.com/auth")
+        .and_then(|claim| claim.get("chatgpt_account_id"))
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
 }
 
 /// Raw token response from a provider token endpoint.
@@ -257,6 +353,41 @@ mod tests {
             format!("{}", CliAuthProxyPolicy::unknown_provider("openai"))
                 .contains("unknown Container CLI auth proxy provider")
         );
+    }
+
+    #[test]
+    fn cli_auth_proxy_policy_owns_oauth_flow_errors() {
+        assert!(format!("{}", CliAuthProxyPolicy::invalid_manual_callback_input()).contains("full callback URL"));
+        assert!(format!("{}", CliAuthProxyPolicy::invalid_or_expired_manual_state()).contains("re-run authorize"));
+        assert!(
+            format!("{}", CliAuthProxyPolicy::invalid_or_expired_state()).contains("invalid or expired OAuth state")
+        );
+        assert!(format!("{}", CliAuthProxyPolicy::provider_mismatch("openai", "codex")).contains("stored openai"));
+        assert!(format!("{}", CliAuthProxyPolicy::state_user_mismatch()).contains("different user"));
+        assert!(format!("{}", CliAuthProxyPolicy::token_exchange_failed(400, "bad")).contains("HTTP 400"));
+    }
+
+    #[test]
+    fn parse_callback_input_accepts_legacy_formats() {
+        assert_eq!(
+            parse_callback_input("http://localhost:1455/auth/callback?code=abc&state=xyz"),
+            Some(("abc".to_string(), "xyz".to_string()))
+        );
+        assert_eq!(parse_callback_input("abc#xyz"), Some(("abc".to_string(), "xyz".to_string())));
+        assert_eq!(parse_callback_input("?code=abc%2Bdef&state=xyz"), Some(("abc+def".to_string(), "xyz".to_string())));
+        assert_eq!(parse_callback_input("not a callback"), None);
+    }
+
+    #[test]
+    fn extract_chatgpt_account_id_reads_openai_auth_claim() {
+        let payload = serde_json::json!({
+            "https://api.openai.com/auth": {
+                "chatgpt_account_id": "acct_123"
+            }
+        });
+        let encoded = URL_SAFE_NO_PAD.encode(payload.to_string());
+        assert_eq!(extract_chatgpt_account_id(&format!("header.{encoded}.sig")), Some("acct_123".to_string()));
+        assert_eq!(extract_chatgpt_account_id("malformed"), None);
     }
 
     #[test]
