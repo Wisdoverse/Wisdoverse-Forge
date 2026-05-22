@@ -1,6 +1,7 @@
 //! CLI auth proxy response shapes.
 
 use chrono::{DateTime, Utc};
+use secrecy::SecretString;
 use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -106,6 +107,59 @@ pub(crate) fn cli_auth_disconnected_response(provider: &str) -> Value {
     json!({ "ok": true, "provider": provider, "status": "disconnected" })
 }
 
+/// Raw token response from a provider token endpoint.
+///
+/// Secret token fields use [`SecretString`] so accidental debug output redacts
+/// OAuth material before service code encrypts it.
+#[derive(Debug, serde::Deserialize)]
+pub(crate) struct TokenResponse {
+    pub(crate) id_token: Option<SecretString>,
+    pub(crate) access_token: SecretString,
+    pub(crate) refresh_token: Option<SecretString>,
+    #[allow(dead_code)]
+    pub(crate) expires_in: Option<u64>,
+    pub(crate) account_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RefreshErrorKind {
+    /// Refresh token rejected — user must re-authenticate.
+    InvalidGrant,
+    /// OAuth app-level rejection — operator must investigate.
+    InvalidClient,
+    /// Other RFC 6749 error code (e.g. `invalid_scope`). Log + metric only.
+    OtherOauthError(String),
+    /// 5xx, network failure, non-JSON body on 4xx, or unknown code. Retry.
+    Transient(String),
+}
+
+pub(crate) struct RefreshFailureClassifier;
+
+impl RefreshFailureClassifier {
+    pub(crate) fn classify(status_code: u16, body: &str) -> RefreshErrorKind {
+        if (500..=599).contains(&status_code) {
+            return RefreshErrorKind::Transient(format!("HTTP {status_code}"));
+        }
+
+        let error_code = serde_json::from_str::<Value>(body)
+            .ok()
+            .and_then(|v| v.get("error").and_then(|e| e.as_str()).map(str::to_string));
+        match error_code.as_deref() {
+            Some("invalid_grant") => RefreshErrorKind::InvalidGrant,
+            Some("invalid_client") | Some("unauthorized_client") => RefreshErrorKind::InvalidClient,
+            Some(other) => RefreshErrorKind::OtherOauthError(other.to_string()),
+            None => RefreshErrorKind::Transient(format!("HTTP {status_code}: {}", truncate(body, 200))),
+        }
+    }
+}
+
+/// Truncate to at most `max_chars` characters, appending `...` if truncated.
+fn truncate(s: &str, max_chars: usize) -> String {
+    let mut chars = s.chars();
+    let head: String = chars.by_ref().take(max_chars).collect();
+    if chars.next().is_some() { format!("{head}...") } else { head }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct CliAuthTokenFileInput<'a> {
     pub(crate) id_token: Option<&'a str>,
@@ -138,6 +192,7 @@ pub(crate) fn cli_auth_token_file_map(input: CliAuthTokenFileInput<'_>) -> Value
 #[cfg(test)]
 mod tests {
     use chrono::TimeZone;
+    use secrecy::SecretString;
 
     use super::*;
 
@@ -158,5 +213,54 @@ mod tests {
         assert_eq!(auth["tokens"]["refresh_token"], "refresh");
         assert_eq!(auth["tokens"]["account_id"], "acct");
         assert_eq!(auth["last_refresh"], "2026-04-01T00:00:00+00:00");
+    }
+
+    #[test]
+    fn token_response_debug_redacts_secret_fields() {
+        let tokens = TokenResponse {
+            id_token: Some(SecretString::from("id-supersecret".to_string())),
+            access_token: SecretString::from("at-supersecret".to_string()),
+            refresh_token: Some(SecretString::from("rt-supersecret".to_string())),
+            expires_in: Some(3600),
+            account_id: Some("acct-public".to_string()),
+        };
+        let dbg = format!("{tokens:?}");
+
+        for needle in ["id-supersecret", "at-supersecret", "rt-supersecret"] {
+            assert!(!dbg.contains(needle), "Debug leaked {needle:?}: {dbg}");
+        }
+        assert!(dbg.contains("acct-public"), "account_id should remain visible: {dbg}");
+    }
+
+    #[test]
+    fn refresh_failure_classifier_maps_oauth_error_codes() {
+        assert_eq!(
+            RefreshFailureClassifier::classify(400, r#"{"error":"invalid_grant"}"#),
+            RefreshErrorKind::InvalidGrant
+        );
+        assert_eq!(
+            RefreshFailureClassifier::classify(401, r#"{"error":"invalid_client"}"#),
+            RefreshErrorKind::InvalidClient
+        );
+        assert_eq!(
+            RefreshFailureClassifier::classify(400, r#"{"error":"unauthorized_client"}"#),
+            RefreshErrorKind::InvalidClient
+        );
+        assert_eq!(
+            RefreshFailureClassifier::classify(400, r#"{"error":"invalid_scope"}"#),
+            RefreshErrorKind::OtherOauthError("invalid_scope".into())
+        );
+    }
+
+    #[test]
+    fn refresh_failure_classifier_treats_non_json_or_5xx_as_transient() {
+        assert_eq!(
+            RefreshFailureClassifier::classify(503, "upstream down"),
+            RefreshErrorKind::Transient("HTTP 503".into())
+        );
+        match RefreshFailureClassifier::classify(400, "<html><body>bad gateway</body></html>") {
+            RefreshErrorKind::Transient(message) => assert!(message.contains("HTTP 400")),
+            other => panic!("expected transient classification, got {other:?}"),
+        }
     }
 }
