@@ -11,7 +11,6 @@ use axum::extract::{FromRef, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use metrics_exporter_prometheus::PrometheusHandle;
-use serde_json::{Value, json};
 use sqlx::PgPool;
 use tokio::sync::RwLock;
 
@@ -21,9 +20,11 @@ use agentforge_infra::{NatsClient, ObjectStorageClient, RedisClient};
 use agentforge_platform::DockerClient;
 
 pub use crate::domain::context::{ContextFeature, ContextFeatureFlags};
+use crate::domain::system::{HealthDependencyChecks, health_response};
 use crate::mcp::McpAgentTools;
 use crate::services::billing::BillingGateway;
 use crate::services::email::EmailSender;
+use crate::services::system::HealthReadinessService;
 
 /// Shared application state passed to all route handlers.
 #[derive(Clone)]
@@ -121,15 +122,15 @@ impl FromRef<AppState> for Arc<PrometheusHandle> {
 ///
 /// Returns `200 OK` immediately. Used by infrastructure probes (Docker, k8s)
 /// to verify the process is alive and accepting connections.
-pub async fn health() -> Json<Value> {
-    Json(json!({ "ok": true, "status": "healthy" }))
+pub async fn health() -> impl IntoResponse {
+    Json(health_response())
 }
 
 /// `GET /api/health` — deep readiness check.
 ///
 /// Verifies database connectivity. Redis and NATS are optional (graceful degradation
-/// per CLAUDE.md: "Circuit breaker: Redis is optional"). Returns `"ready"` when the
-/// database is healthy, `"degraded"` when it is not.
+/// per CLAUDE.md: "Circuit breaker: Redis is optional"). The response contract
+/// is owned by the system domain boundary.
 pub async fn health_ready(State(state): State<AppState>) -> impl IntoResponse {
     let db_ok = agentforge_db::check_health(&state.pool).await;
     let redis_ok = state.redis.write().await.check_health().await;
@@ -145,21 +146,11 @@ pub async fn health_ready(State(state): State<AppState>) -> impl IntoResponse {
     // orchestration/event delivery depend on it; deployments that do not use
     // NATS can still omit NATS_URL and remain ready.
     let nats_required = state.config.nats_url.is_some();
-    let all_ok = db_ok && (!nats_required || nats_ok);
-    let status = if all_ok { "ready" } else { "degraded" };
-    let http_status = if all_ok { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE };
+    let readiness = HealthReadinessService::evaluate(
+        HealthDependencyChecks { database: db_ok, redis: redis_ok, nats: nats_ok, docker: docker_ok },
+        nats_required,
+    );
+    let http_status = if readiness.is_ready() { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE };
 
-    (
-        http_status,
-        Json(json!({
-            "ok": all_ok,
-            "status": status,
-            "checks": {
-                "database": db_ok,
-                "redis": redis_ok,
-                "nats": nats_ok,
-                "docker": docker_ok
-            }
-        })),
-    )
+    (http_status, Json(readiness.response()))
 }
