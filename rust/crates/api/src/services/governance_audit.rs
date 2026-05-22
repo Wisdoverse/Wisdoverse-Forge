@@ -4,12 +4,12 @@ use hmac::{Hmac, Mac};
 use serde_json::Value;
 use sha2::Sha256;
 
-use agentforge_core::{AppConfig, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppConfig, AppResult, TenantScope};
 use sqlx::PgPool;
 
 use crate::domain::context_governance::{
     AuditTamperStatus, ContextGovernancePolicy, GovernanceAuditEntry, GovernanceAuditExportedAudit,
-    GovernanceAuditQuery, GovernanceAuditQueryParams, GovernanceAuditResponse,
+    GovernanceAuditHmacKeyPolicy, GovernanceAuditQuery, GovernanceAuditQueryParams, GovernanceAuditResponse,
 };
 pub(crate) use crate::domain::context_governance::{
     GovernanceAuditQueryParams as QueryParams, governance_audit_response,
@@ -132,26 +132,7 @@ impl GovernanceAuditService {
 }
 
 pub(crate) fn governance_audit_hmac_key(is_production: bool, encryption_key: Option<[u8; 32]>) -> AppResult<Vec<u8>> {
-    if let Ok(raw) = std::env::var("CONTEXT_AUDIT_HMAC_KEY") {
-        if raw.trim().is_empty() {
-            return Err(ErrorKind::Validation("CONTEXT_AUDIT_HMAC_KEY is empty".into()).into());
-        }
-        if raw.len() == 64 && raw.chars().all(|ch| ch.is_ascii_hexdigit()) {
-            return hex::decode(raw)
-                .map_err(|err| ErrorKind::Validation(format!("invalid CONTEXT_AUDIT_HMAC_KEY: {err}")).into());
-        }
-        return Ok(raw.into_bytes());
-    }
-
-    if let Some(key) = encryption_key {
-        return Ok(key.to_vec());
-    }
-
-    if is_production {
-        return Err(ErrorKind::Validation("CONTEXT_AUDIT_HMAC_KEY or LLM_ENCRYPTION_KEY is required".into()).into());
-    }
-
-    Ok(b"agentforge-dev-governance-audit-key".to_vec())
+    GovernanceAuditHmacKeyPolicy::resolve(std::env::var("CONTEXT_AUDIT_HMAC_KEY").ok(), is_production, encryption_key)
 }
 
 fn project_row(row: GovernanceAuditRow, key: &[u8], redact: bool) -> GovernanceAuditEntry {
