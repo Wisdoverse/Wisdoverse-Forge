@@ -1,6 +1,6 @@
 //! Skill service — validation and governance management.
 
-use agentforge_core::{AppResult, ErrorKind, ProjectId, ScopedRead, TeamId, TenantScope, WorkspaceId};
+use agentforge_core::{AppResult, ProjectId, ScopedRead, TeamId, TenantScope, WorkspaceId};
 use agentforge_db::entities::{Skill, SkillVersion};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -8,12 +8,12 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::skill::{
-    PreparedSkillContent, SkillAuditIdentity, SkillBoundaryAccessPolicy, SkillBoundaryMutationPolicy,
-    SkillContentDecision, SkillContentPolicy, SkillCreateStatePolicy, SkillCreatedAudit, SkillJsonArrayPolicy,
-    SkillJsonObjectPolicy, SkillMutationAccess, SkillMutationAccessPolicy, SkillMutationManagerCheck,
-    SkillMutationPolicy, SkillName, SkillRestoreVersionPlan, SkillRestoreVersionPolicy, SkillRestoreVersionRequest,
-    SkillRestoredAudit, SkillRevokedAudit, SkillScopeKind, SkillScopeTargetPolicy, SkillSensitivity, SkillState,
-    SkillStateTransitionPolicy, SkillTtlPolicy, SkillUpdatedAudit, skill_audit_event,
+    PreparedSkillContent, SkillAccessPolicy, SkillAuditIdentity, SkillBoundaryAccessPolicy,
+    SkillBoundaryMutationPolicy, SkillContentDecision, SkillContentPolicy, SkillCreateStatePolicy, SkillCreatedAudit,
+    SkillJsonArrayPolicy, SkillJsonObjectPolicy, SkillMutationAccess, SkillMutationAccessPolicy,
+    SkillMutationManagerCheck, SkillMutationPolicy, SkillName, SkillRestoreVersionPlan, SkillRestoreVersionPolicy,
+    SkillRestoreVersionRequest, SkillRestoredAudit, SkillRevokedAudit, SkillScopeKind, SkillScopeTargetPolicy,
+    SkillSensitivity, SkillState, SkillStateTransitionPolicy, SkillTtlPolicy, SkillUpdatedAudit, skill_audit_event,
 };
 pub(crate) use crate::domain::skill::{skill_data_response, skill_delete_response};
 use crate::repositories::resource::permission::ResourcePermissionRepository;
@@ -85,7 +85,7 @@ impl SkillService {
 
     /// Create a new governed skill.
     pub async fn create(&self, scope: &TenantScope, input: CreateSkillInput) -> AppResult<Skill> {
-        let workspace_id = required_workspace(scope)?;
+        let workspace_id = SkillAccessPolicy::required_workspace(scope)?;
         let name = SkillName::parse(&input.name)?.value();
         let content = self.prepare_content_or_audit_rejection(scope, "create", None, &input.content).await?;
         let target_scope_id = self.validated_write_scope(scope, workspace_id, input.scope_kind, input.scope_id).await?;
@@ -347,9 +347,9 @@ impl SkillService {
     ) -> AppResult<Uuid> {
         let target_scope_id =
             SkillScopeTargetPolicy::resolve(scope_kind, scope_id, scope.org_id().as_uuid(), scope.user_id().as_uuid())?;
-        if !self.repo.resource_belongs_to_scope(scope, workspace_id, scope_kind.as_label(), target_scope_id).await? {
-            return Err(ErrorKind::Forbidden.into());
-        }
+        SkillAccessPolicy::ensure_resource_belongs_to_scope(
+            self.repo.resource_belongs_to_scope(scope, workspace_id, scope_kind.as_label(), target_scope_id).await?,
+        )?;
         Ok(target_scope_id)
     }
 
@@ -399,7 +399,7 @@ impl SkillService {
                 let can_manage = self.permissions.can_manage_project(scope, ProjectId::from(project_id)).await?;
                 SkillMutationAccessPolicy::ensure_manager_authorized(can_manage)
             }
-            SkillMutationAccess::Forbidden => Err(ErrorKind::Forbidden.into()),
+            SkillMutationAccess::Forbidden => Err(SkillAccessPolicy::forbidden()),
         }
     }
 
@@ -468,8 +468,4 @@ impl SkillService {
         ContextGovernanceService::emit_audit(tx, scope, skill_audit_event(action, resource_id, payload)).await?;
         Ok(())
     }
-}
-
-fn required_workspace(scope: &TenantScope) -> AppResult<WorkspaceId> {
-    scope.workspace_id().ok_or_else(|| agentforge_core::AppError::from(ErrorKind::Forbidden))
 }
