@@ -249,6 +249,11 @@ Current stacked PRs:
   envelopes into domain/service boundaries; adds system entrypoint boundary
   coverage so health and middleware entrypoints cannot reintroduce direct JSON
   response construction, system response literals, or direct `ErrorKind` policy.
+- #279 `refactor/backend-ddd-resource-slug-policy` -> #278 branch: moves
+  team/project default slug derivation out of cross-cutting utilities and
+  repositories into the resource domain/service boundary; removes the `util`
+  module and adds repository boundary coverage so persistence code cannot
+  re-own resource naming policy.
 
 ## Execution Rule
 
