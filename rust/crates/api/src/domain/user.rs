@@ -88,6 +88,23 @@ impl UserAccessPolicy {
     }
 }
 
+/// User repository lookup and persistence error policy.
+pub(crate) struct UserRepositoryPolicy;
+
+impl UserRepositoryPolicy {
+    pub(crate) fn user_not_found(id: UserId) -> AppError {
+        ErrorKind::NotFound(format!("user {id}")).into()
+    }
+
+    pub(crate) fn email_already_registered() -> AppError {
+        ErrorKind::Conflict("email already registered".into()).into()
+    }
+
+    pub(crate) fn personal_org_slug_allocation_failed() -> AppError {
+        ErrorKind::Internal(anyhow::anyhow!("failed to allocate unique personal organization slug")).into()
+    }
+}
+
 pub(crate) fn user_data_response<T: Serialize>(data: T) -> Value {
     json!({ "ok": true, "data": data })
 }
@@ -631,6 +648,24 @@ mod tests {
         assert!(matches!(UserAccessPolicy::ensure_workspace_in_org(false).unwrap_err().kind, ErrorKind::Forbidden));
         assert!(matches!(UserAccessPolicy::ensure_team_readable(false).unwrap_err().kind, ErrorKind::Forbidden));
         assert!(matches!(UserAccessPolicy::ensure_project_readable(false).unwrap_err().kind, ErrorKind::Forbidden));
+    }
+
+    #[test]
+    fn user_repository_policy_owns_lookup_and_registration_errors() {
+        let user_id = UserId::new();
+
+        assert!(matches!(
+            UserRepositoryPolicy::user_not_found(user_id).kind,
+            ErrorKind::NotFound(message) if message == format!("user {user_id}")
+        ));
+        assert!(matches!(
+            UserRepositoryPolicy::email_already_registered().kind,
+            ErrorKind::Conflict(message) if message == "email already registered"
+        ));
+        assert!(matches!(
+            UserRepositoryPolicy::personal_org_slug_allocation_failed().kind,
+            ErrorKind::Internal(message) if message.to_string().contains("personal organization slug")
+        ));
     }
 
     #[test]
