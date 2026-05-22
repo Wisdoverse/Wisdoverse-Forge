@@ -22,6 +22,7 @@ pub(crate) mod email;
 pub(crate) mod evidence_projection;
 pub(crate) mod inbox;
 pub(crate) mod license;
+pub(crate) mod mcp;
 pub(crate) mod memory;
 pub(crate) mod navigation;
 pub(crate) mod observability;
