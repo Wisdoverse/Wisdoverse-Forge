@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use agentforge_core::{AgentId, AppResult, CliToolKind, ErrorKind, RuntimeCapability, RuntimeKind, ScopedRead};
+use agentforge_core::{AgentId, AppResult, CliToolKind, RuntimeCapability, RuntimeKind, ScopedRead};
 use agentforge_infra::RedisClient;
 use redis::AsyncCommands;
 use sqlx::PgPool;
@@ -16,8 +16,8 @@ pub use crate::domain::context_resolver::{
     SelectedContext, apply_context_selection,
 };
 use crate::domain::context_resolver::{
-    MemoryCandidate, apply_budget, context_resolver_cache_key, push_degradation, skill_suggestion_item,
-    task_search_text,
+    ContextResolverPolicy, MemoryCandidate, apply_budget, context_resolver_cache_key, push_degradation,
+    skill_suggestion_item, task_search_text,
 };
 use crate::repositories::context_resolver::ContextResolverRepository;
 use crate::services::runtime_capability_registry::RuntimeCapabilityRegistryService;
@@ -107,7 +107,7 @@ impl ContextResolverService {
         self.repo
             .task_snapshot(proof, task_id)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("orchestration task {task_id}")).into())
+            .ok_or_else(|| ContextResolverPolicy::task_not_found(task_id).into())
     }
 
     async fn capability_for_agent(
@@ -115,11 +115,10 @@ impl ContextResolverService {
         proof: &ScopedRead,
         agent_id: AgentId,
     ) -> AppResult<(RuntimeCapability, Vec<DegradationReason>)> {
-        let row = self
-            .repo
-            .agent_runtime(proof, agent_id)
-            .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("agent {}", agent_id.as_uuid())))?;
+        let row =
+            self.repo.agent_runtime(proof, agent_id).await?.ok_or_else(|| -> agentforge_core::AppError {
+                ContextResolverPolicy::agent_not_found(agent_id).into()
+            })?;
 
         let Some(cli_tool) = row.cli_tool else {
             return Ok((
@@ -132,7 +131,7 @@ impl ContextResolverService {
         };
 
         let cli_tool = CliToolKind::parse_legacy(&cli_tool).map_err(|err| -> agentforge_core::AppError {
-            ErrorKind::Internal(anyhow::anyhow!("agent {} has unsupported cli_tool: {err}", agent_id.as_uuid())).into()
+            ContextResolverPolicy::unsupported_cli_tool(agent_id, err).into()
         })?;
         let capability = self.runtime_registry.for_cli_tool(cli_tool, RuntimeKind::Container).await;
         let mut degradation = Vec::new();
