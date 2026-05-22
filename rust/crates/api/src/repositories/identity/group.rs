@@ -1,9 +1,11 @@
 //! Group repository — tenant-scoped database queries for groups and group members.
 
-use agentforge_core::{AppResult, ErrorKind, GroupId, ProjectId, TenantScope};
+use agentforge_core::{AppResult, GroupId, ProjectId, TenantScope};
 use agentforge_db::entities::{Group, GroupMember};
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
+
+use crate::domain::resource::ResourceRepositoryPolicy;
 
 /// Project-scoped group row for the legacy tree-pane projection.
 #[derive(Debug, Clone, FromRow)]
@@ -77,7 +79,7 @@ impl GroupRepository {
             .bind(scope.org_id().as_uuid())
             .fetch_optional(&self.pool)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("group {id}")).into())
+            .ok_or_else(|| ResourceRepositoryPolicy::group_not_found(id))
     }
 
     /// Create a new group. When `project_id` is provided, the project must
@@ -151,7 +153,7 @@ impl GroupRepository {
         .await?;
 
         if !exists {
-            return Err(ErrorKind::NotFound(format!("project {project_id}")).into());
+            return Err(ResourceRepositoryPolicy::project_not_found(project_id));
         }
 
         Ok(())
@@ -179,7 +181,7 @@ impl GroupRepository {
         .bind(description)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("group {id}")).into())
+        .ok_or_else(|| ResourceRepositoryPolicy::group_not_found(id))
     }
 
     /// Soft-delete a group (set deleted_at).
@@ -194,7 +196,7 @@ impl GroupRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("group {id}")).into());
+            return Err(ResourceRepositoryPolicy::group_not_found(id));
         }
         Ok(())
     }
@@ -238,7 +240,7 @@ impl GroupRepository {
         .await
         .map_err(|e| match &e {
             sqlx::Error::Database(db_err) if db_err.constraint().is_some() => {
-                ErrorKind::Conflict("user is already a member of this group".into()).into()
+                ResourceRepositoryPolicy::group_member_already_exists()
             }
             _ => e.into(),
         })
@@ -256,7 +258,7 @@ impl GroupRepository {
             .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("member {user_id} in group {group_id}")).into());
+            return Err(ResourceRepositoryPolicy::group_member_not_found(group_id, user_id));
         }
         Ok(())
     }
