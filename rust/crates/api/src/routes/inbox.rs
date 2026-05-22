@@ -17,7 +17,7 @@ struct ListInboxQuery {
 }
 
 fn make_service(state: &AppState) -> InboxService {
-    InboxService::from_pool(state.pool.clone())
+    state.inbox_service()
 }
 
 async fn list_notifications(
