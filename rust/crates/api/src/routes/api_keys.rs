@@ -46,7 +46,7 @@ pub struct CreateApiKeyRequest {
 
 /// Build an ApiKeyService from shared state.
 fn make_service(state: &AppState) -> ApiKeyService {
-    ApiKeyService::from_pool(state.pool.clone())
+    state.api_key_service()
 }
 
 /// `POST /api/api-keys` — create a new API key.
