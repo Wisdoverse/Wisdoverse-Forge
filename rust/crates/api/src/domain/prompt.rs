@@ -48,8 +48,20 @@ impl PromptProviderPolicy {
         ErrorKind::Validation(format!("no API key configured for provider '{provider}' — add one in LLM settings"))
     }
 
+    pub(crate) fn missing_encryption_key() -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("LLM_ENCRYPTION_KEY not configured"))
+    }
+
+    pub(crate) fn decrypt_api_key_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("decrypt api_key failed: {err}"))
+    }
+
     pub(crate) fn build_error(err: impl std::fmt::Display) -> ErrorKind {
         ErrorKind::Validation(format!("{err}"))
+    }
+
+    pub(crate) fn stream_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("{err}"))
     }
 }
 
@@ -239,6 +251,15 @@ mod tests {
         assert!(PromptAgentPolicy::required_provider(None).is_err());
         assert!(PromptAgentPolicy::ensure_not_busy(false).is_ok());
         assert!(PromptAgentPolicy::ensure_not_busy(true).is_err());
+    }
+
+    #[test]
+    fn prompt_provider_policy_owns_runtime_error_contracts() {
+        assert!(format!("{}", PromptProviderPolicy::missing_api_key("openai")).contains("openai"));
+        assert!(format!("{}", PromptProviderPolicy::missing_encryption_key()).contains("LLM_ENCRYPTION_KEY"));
+        assert!(format!("{}", PromptProviderPolicy::decrypt_api_key_failed("bad cipher")).contains("bad cipher"));
+        assert!(format!("{}", PromptProviderPolicy::build_error("bad model")).contains("bad model"));
+        assert!(format!("{}", PromptProviderPolicy::stream_failed("stream broke")).contains("stream broke"));
     }
 
     #[test]
