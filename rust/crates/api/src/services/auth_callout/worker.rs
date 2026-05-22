@@ -56,6 +56,8 @@ use std::time::Duration;
 use tokio::sync::{Mutex, watch};
 use uuid::Uuid;
 
+use crate::domain::auth_callout::nats_kick_payload;
+
 use super::handler::{CalloutSigningKeys, handle_auth_request};
 use super::kick::ConnectionTracker;
 
@@ -385,7 +387,7 @@ impl AuthCalloutService {
         };
 
         let subject = format!("$SYS.REQ.SERVER.{}.KICK", self.server_name);
-        let payload = serde_json::json!({ "cid": tracked.client_cid }).to_string();
+        let payload = nats_kick_payload(tracked.client_cid);
         match client.publish(subject.clone(), payload.into_bytes().into()).await {
             Ok(()) => {
                 tracing::info!(

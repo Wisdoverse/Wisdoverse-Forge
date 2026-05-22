@@ -4,6 +4,7 @@ use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::FeatureFlag;
 use sqlx::PgPool;
 
+use crate::domain::configuration::FeatureFlagMetadataPolicy;
 pub(crate) use crate::domain::configuration::configuration_data_response;
 use crate::domain::resource::FeatureFlagName;
 use crate::repositories::feature_flag::FeatureFlagRepository;
@@ -46,7 +47,7 @@ impl FeatureFlagService {
         input: UpsertFeatureFlagInput,
     ) -> AppResult<FeatureFlag> {
         let name = FeatureFlagName::parse(name)?;
-        let metadata = input.metadata.unwrap_or_else(|| serde_json::json!({}));
+        let metadata = FeatureFlagMetadataPolicy::resolve(input.metadata);
         self.repo.upsert(scope.org_id(), name.value(), input.enabled, &metadata).await
     }
 }
