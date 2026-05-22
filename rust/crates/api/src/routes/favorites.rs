@@ -25,7 +25,7 @@ pub struct AddFavoriteRequest {
 
 /// Build a FavoriteService from shared state.
 fn make_service(state: &AppState) -> FavoriteService {
-    FavoriteService::from_pool(state.pool.clone())
+    state.favorite_service()
 }
 
 /// `GET /api/favorites` — list favorites.
