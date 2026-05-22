@@ -24,6 +24,7 @@ use crate::services::context_envelope::ContextEnvelopeService;
 use crate::services::context_feature::ContextFeatureService;
 use crate::services::context_preview::ContextPreviewService;
 use crate::services::dev_environment::{DevEnvironmentRuntime, DevEnvironmentService, DockerDevEnvironmentRuntime};
+use crate::services::gateway_terminal::GatewayTerminalService;
 use crate::services::git_credential::GitCredentialService;
 use crate::services::governance_audit::GovernanceAuditService;
 use crate::services::llm_provider::LlmProviderService;
@@ -133,6 +134,10 @@ impl AppState {
 
     pub(crate) fn git_credential_service(&self) -> GitCredentialService {
         GitCredentialService::from_pool(self.pool.clone(), self.encryption_key)
+    }
+
+    pub(crate) fn gateway_terminal_service(&self) -> GatewayTerminalService {
+        GatewayTerminalService::from_pool(self.pool.clone())
     }
 
     pub(crate) fn governance_audit_service(&self) -> AppResult<GovernanceAuditService> {
