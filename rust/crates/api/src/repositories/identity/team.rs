@@ -1,8 +1,10 @@
 //! Team repository — tenant-scoped database queries for teams.
 
-use agentforge_core::{AppResult, ErrorKind, TeamId, TenantScope};
+use agentforge_core::{AppResult, TeamId, TenantScope};
 use agentforge_db::entities::Team;
 use sqlx::PgPool;
+
+use crate::domain::resource::ResourceRepositoryPolicy;
 
 /// Database access layer for teams.
 pub struct TeamRepository {
@@ -37,7 +39,7 @@ impl TeamRepository {
             .bind(scope.org_id().as_uuid())
             .fetch_optional(&self.pool)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("team {id}")).into())
+            .ok_or_else(|| ResourceRepositoryPolicy::team_not_found(id))
     }
 
     /// Create a new team with the domain-resolved slug so migration 026's
@@ -68,7 +70,7 @@ impl TeamRepository {
         .bind(name)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("team {id}")).into())
+        .ok_or_else(|| ResourceRepositoryPolicy::team_not_found(id))
     }
 
     /// Soft-delete a team (set deleted_at).
@@ -83,7 +85,7 @@ impl TeamRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("team {id}")).into());
+            return Err(ResourceRepositoryPolicy::team_not_found(id));
         }
         Ok(())
     }
