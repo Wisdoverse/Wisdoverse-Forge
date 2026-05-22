@@ -30,7 +30,7 @@ fn default_limit() -> i64 {
 
 /// Build an AuditService from shared state.
 fn make_service(state: &AppState) -> AuditService {
-    AuditService::from_pool(state.pool.clone())
+    state.audit_service()
 }
 
 /// `GET /api/audit` — list audit log entries.
