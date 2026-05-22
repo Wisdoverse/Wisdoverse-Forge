@@ -4,7 +4,7 @@
 //! favorites, and membership policies that are independent of repositories and
 //! HTTP route DTOs.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppError, AppResult, ErrorKind, GroupId, OrgId, ProjectId, TeamId, TenantScope, WorkspaceId};
 use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -228,6 +228,62 @@ pub(crate) struct ResourceMemberPolicy;
 impl ResourceMemberPolicy {
     pub(crate) fn missing_org_user(email: &str) -> ErrorKind {
         ErrorKind::NotFound(format!("org user {}", email.trim()))
+    }
+}
+
+pub(crate) struct ResourceRepositoryPolicy;
+
+impl ResourceRepositoryPolicy {
+    pub(crate) fn organization_not_found(id: OrgId) -> AppError {
+        ErrorKind::NotFound(format!("organization {id}")).into()
+    }
+
+    pub(crate) fn organization_uuid_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("organization {id}")).into()
+    }
+
+    pub(crate) fn team_not_found(id: TeamId) -> AppError {
+        ErrorKind::NotFound(format!("team {id}")).into()
+    }
+
+    pub(crate) fn team_uuid_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("team {id}")).into()
+    }
+
+    pub(crate) fn group_not_found(id: GroupId) -> AppError {
+        ErrorKind::NotFound(format!("group {id}")).into()
+    }
+
+    pub(crate) fn project_not_found(id: ProjectId) -> AppError {
+        ErrorKind::NotFound(format!("project {id}")).into()
+    }
+
+    pub(crate) fn workspace_not_found(id: WorkspaceId) -> AppError {
+        ErrorKind::NotFound(format!("workspace {id}")).into()
+    }
+
+    pub(crate) fn team_or_user_not_found(team_id: TeamId, user_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("team {team_id} or user {user_id}")).into()
+    }
+
+    pub(crate) fn project_or_user_not_found(project_id: ProjectId, user_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("project {project_id} or user {user_id}")).into()
+    }
+
+    pub(crate) fn team_member_not_found(user_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("team member {user_id}")).into()
+    }
+
+    pub(crate) fn project_member_not_found(user_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("project member {user_id}")).into()
+    }
+
+    pub(crate) fn group_member_not_found(group_id: GroupId, user_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("member {user_id} in group {group_id}")).into()
+    }
+
+    pub(crate) fn group_member_already_exists() -> AppError {
+        ErrorKind::Conflict("user is already a member of this group".into()).into()
     }
 }
 
@@ -567,6 +623,68 @@ mod tests {
             format!("{}", ResourceMemberPolicy::missing_org_user(" user@example.com "))
                 .contains("org user user@example.com")
         );
+    }
+
+    #[test]
+    fn resource_repository_policy_owns_identity_and_member_error_contracts() {
+        let org_id = OrgId::new();
+        let raw_org_id = Uuid::new_v4();
+        let team_id = TeamId::new();
+        let raw_team_id = Uuid::new_v4();
+        let group_id = GroupId::new();
+        let project_id = ProjectId::new();
+        let workspace_id = WorkspaceId::new();
+        let user_id = Uuid::new_v4();
+
+        assert!(matches!(
+            ResourceRepositoryPolicy::organization_not_found(org_id).kind,
+            ErrorKind::NotFound(message) if message == format!("organization {org_id}")
+        ));
+        assert!(matches!(
+            ResourceRepositoryPolicy::organization_uuid_not_found(raw_org_id).kind,
+            ErrorKind::NotFound(message) if message == format!("organization {raw_org_id}")
+        ));
+        assert!(matches!(
+            ResourceRepositoryPolicy::team_not_found(team_id).kind,
+            ErrorKind::NotFound(message) if message == format!("team {team_id}")
+        ));
+        assert!(matches!(
+            ResourceRepositoryPolicy::team_uuid_not_found(raw_team_id).kind,
+            ErrorKind::NotFound(message) if message == format!("team {raw_team_id}")
+        ));
+        assert!(matches!(
+            ResourceRepositoryPolicy::group_not_found(group_id).kind,
+            ErrorKind::NotFound(message) if message == format!("group {group_id}")
+        ));
+        assert!(matches!(
+            ResourceRepositoryPolicy::project_not_found(project_id).kind,
+            ErrorKind::NotFound(message) if message == format!("project {project_id}")
+        ));
+        assert!(matches!(
+            ResourceRepositoryPolicy::workspace_not_found(workspace_id).kind,
+            ErrorKind::NotFound(message) if message == format!("workspace {workspace_id}")
+        ));
+        assert!(matches!(
+            ResourceRepositoryPolicy::team_or_user_not_found(team_id, user_id).kind,
+            ErrorKind::NotFound(message) if message == format!("team {team_id} or user {user_id}")
+        ));
+        assert!(matches!(
+            ResourceRepositoryPolicy::project_or_user_not_found(project_id, user_id).kind,
+            ErrorKind::NotFound(message) if message == format!("project {project_id} or user {user_id}")
+        ));
+        assert!(matches!(
+            ResourceRepositoryPolicy::team_member_not_found(user_id).kind,
+            ErrorKind::NotFound(message) if message == format!("team member {user_id}")
+        ));
+        assert!(matches!(
+            ResourceRepositoryPolicy::project_member_not_found(user_id).kind,
+            ErrorKind::NotFound(message) if message == format!("project member {user_id}")
+        ));
+        assert!(matches!(
+            ResourceRepositoryPolicy::group_member_not_found(group_id, user_id).kind,
+            ErrorKind::NotFound(message) if message == format!("member {user_id} in group {group_id}")
+        ));
+        assert!(matches!(ResourceRepositoryPolicy::group_member_already_exists().kind, ErrorKind::Conflict(_)));
     }
 
     #[test]
