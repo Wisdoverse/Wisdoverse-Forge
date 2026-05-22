@@ -58,6 +58,7 @@ pub mod runtime_capability_registry;
 pub mod setting;
 pub mod skill;
 pub mod ssh_key;
+pub(crate) mod system;
 pub mod task_context;
 pub mod team;
 pub mod tile;
