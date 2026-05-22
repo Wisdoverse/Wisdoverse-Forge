@@ -1693,7 +1693,7 @@ mod tests {
         let workspace_id = WorkspaceId::new();
         let scope =
             TenantScope::with_axes(OrgId::new(), agentforge_core::UserId::new(), Some(workspace_id), None, None);
-        let missing_workspace = TenantScope::new(OrgId::new(), agentforge_core::UserId::new());
+        let missing_workspace = crate::test_support::tenant_scope();
 
         assert!(matches!(
             OrchestrationRepositoryPolicy::task_not_found(task_id).kind,

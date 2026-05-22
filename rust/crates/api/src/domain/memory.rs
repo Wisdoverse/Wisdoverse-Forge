@@ -793,7 +793,7 @@ mod tests {
             None,
             None,
         );
-        let missing_workspace = TenantScope::new(agentforge_core::OrgId::new(), agentforge_core::UserId::new());
+        let missing_workspace = crate::test_support::tenant_scope();
 
         assert_eq!(MemoryAccessPolicy::required_workspace(&scope).unwrap(), workspace_id);
         assert!(matches!(
