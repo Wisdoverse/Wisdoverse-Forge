@@ -62,7 +62,7 @@ struct LegacyProjectUpdateRequest {
 }
 
 fn make_service(state: &AppState) -> LegacyNavigationService {
-    LegacyNavigationService::from_pool(state.pool.clone())
+    state.legacy_navigation_service()
 }
 
 async fn list_orgs(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
