@@ -4,7 +4,7 @@
 //! operator-managed configuration surfaces such as quotas, resource profiles,
 //! dashboard tiles, and plugin catalog entries.
 
-use agentforge_core::{AppResult, CliToolKind, ErrorKind};
+use agentforge_core::{AppError, AppResult, CliToolKind, ErrorKind};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
@@ -31,6 +31,26 @@ pub(crate) fn configuration_delete_response() -> Value {
 
 pub(crate) fn plugin_agent_plugins_response<T: Serialize>(plugins: T) -> Value {
     serde_json::json!({ "ok": true, "plugins": plugins })
+}
+
+pub(crate) struct ConfigurationRepositoryPolicy;
+
+impl ConfigurationRepositoryPolicy {
+    pub(crate) fn feature_flag_not_found(name: &str) -> AppError {
+        ErrorKind::NotFound(format!("feature flag '{name}'")).into()
+    }
+
+    pub(crate) fn quota_not_found(resource_type: &str) -> AppError {
+        ErrorKind::NotFound(format!("quota for resource_type '{resource_type}'")).into()
+    }
+
+    pub(crate) fn setting_not_found(key: &str) -> AppError {
+        ErrorKind::NotFound(format!("setting '{key}'")).into()
+    }
+
+    pub(crate) fn tile_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("tile {id}")).into()
+    }
 }
 
 pub(crate) struct FeatureFlagMetadataPolicy;
@@ -697,5 +717,27 @@ mod tests {
         let custom = serde_json::json!({ "enabled": true });
         assert_eq!(FeatureFlagMetadataPolicy::resolve(Some(custom.clone())), custom);
         assert_eq!(PluginConfig::from_optional(Some(&custom)).value(), &custom);
+    }
+
+    #[test]
+    fn configuration_repository_policy_owns_flat_repository_errors() {
+        let id = Uuid::new_v4();
+
+        assert!(matches!(
+            ConfigurationRepositoryPolicy::feature_flag_not_found("beta").kind,
+            ErrorKind::NotFound(message) if message == "feature flag 'beta'"
+        ));
+        assert!(matches!(
+            ConfigurationRepositoryPolicy::quota_not_found("agents").kind,
+            ErrorKind::NotFound(message) if message == "quota for resource_type 'agents'"
+        ));
+        assert!(matches!(
+            ConfigurationRepositoryPolicy::setting_not_found("theme").kind,
+            ErrorKind::NotFound(message) if message == "setting 'theme'"
+        ));
+        assert!(matches!(
+            ConfigurationRepositoryPolicy::tile_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("tile {id}")
+        ));
     }
 }

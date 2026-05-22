@@ -3,9 +3,10 @@
 //! This module owns stored prompt template policies that are independent of
 //! repositories, HTTP route DTOs, and persistence details.
 
-use agentforge_core::{AppResult, ErrorKind};
+use agentforge_core::{AppError, AppResult, ErrorKind};
 use serde::Serialize;
 use serde_json::{Value, json};
+use uuid::Uuid;
 
 const MAX_TITLE_LEN: usize = 200;
 const MAX_CONTENT_LEN: usize = 50_000;
@@ -17,6 +18,14 @@ pub(crate) fn prompt_library_data_response<T: Serialize>(data: T) -> Value {
 
 pub(crate) fn prompt_library_delete_response() -> Value {
     json!({ "ok": true })
+}
+
+pub(crate) struct PromptLibraryRepositoryPolicy;
+
+impl PromptLibraryRepositoryPolicy {
+    pub(crate) fn prompt_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("prompt {id}")).into()
+    }
 }
 
 /// Stored prompt template validation policy.
@@ -108,5 +117,15 @@ mod tests {
         assert!(PromptTemplatePolicy::validate_update(Some(""), None, None).is_err());
         assert!(PromptTemplatePolicy::validate_update(None, Some(""), None).is_err());
         assert!(PromptTemplatePolicy::validate_update(None, None, Some(&tags(MAX_TAGS + 1))).is_err());
+    }
+
+    #[test]
+    fn prompt_library_repository_policy_owns_lookup_error() {
+        let id = Uuid::new_v4();
+
+        assert!(matches!(
+            PromptLibraryRepositoryPolicy::prompt_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("prompt {id}")
+        ));
     }
 }
