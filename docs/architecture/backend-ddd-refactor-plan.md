@@ -264,6 +264,11 @@ Current stacked PRs:
   denial error contracts out of context-candidate repositories into the context
   domain policy boundary; extends repository boundary coverage so the context
   candidate aggregate repositories cannot re-own direct `ErrorKind` policy.
+- #282 `refactor/backend-ddd-context-repository-policy` -> #281 branch:
+  moves context envelope run lookup, context preview access, and governed memory
+  repository error contracts into their owning domain policies; extends
+  repository boundary coverage so these context repositories cannot re-own
+  direct `ErrorKind` policy.
 
 ## Execution Rule
 
