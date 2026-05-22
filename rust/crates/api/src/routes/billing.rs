@@ -21,13 +21,13 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
-use agentforge_core::{AppResult, ErrorKind};
+use agentforge_core::AppResult;
 
 use crate::health::AppState;
 use crate::services::billing::{
-    BillingService, billing_checkout_response, billing_data_response, billing_invoices_response,
-    billing_plans_response, billing_portal_response, billing_subscription_data_response, billing_subscription_response,
-    billing_usage_response, billing_webhook_received_response,
+    BillingService, BillingStripeGatewayPolicy, billing_checkout_response, billing_data_response,
+    billing_invoices_response, billing_plans_response, billing_portal_response, billing_subscription_data_response,
+    billing_subscription_response, billing_usage_response, billing_webhook_received_response,
 };
 
 /// Query parameters for paginated list endpoints.
@@ -181,8 +181,10 @@ async fn list_invoices(
 
 /// `POST /api/billing/webhook` — Stripe webhook (no auth, uses Stripe signature verification).
 async fn stripe_webhook(State(state): State<AppState>, headers: HeaderMap, body: String) -> AppResult<Json<Value>> {
-    let signature =
-        headers.get("stripe-signature").and_then(|value| value.to_str().ok()).ok_or(ErrorKind::Unauthorized)?;
+    let signature = headers
+        .get("stripe-signature")
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(BillingStripeGatewayPolicy::missing_webhook_signature)?;
     let service = make_service(&state);
     service.handle_webhook(&body, signature).await?;
     Ok(Json(billing_webhook_received_response()))
