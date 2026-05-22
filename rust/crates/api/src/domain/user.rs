@@ -223,6 +223,18 @@ impl UserAccountPolicy {
         ErrorKind::Validation("user has no organization membership".into())
     }
 
+    pub(crate) fn password_reset_delivery_not_configured() -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("password reset delivery is not configured for this service"))
+    }
+
+    pub(crate) fn password_reset_smtp_not_configured() -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("SMTP is not configured for password reset"))
+    }
+
+    pub(crate) fn password_reset_app_url_required() -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("APP_URL is required for password reset links"))
+    }
+
     pub(crate) fn invalid_or_expired_reset_token() -> ErrorKind {
         ErrorKind::Validation("invalid or expired reset token".into())
     }
@@ -523,6 +535,18 @@ mod tests {
     fn user_account_policy_owns_auth_error_contracts() {
         assert!(
             format!("{}", UserAccountPolicy::missing_default_org_membership()).contains("no organization membership")
+        );
+        assert!(
+            format!("{}", UserAccountPolicy::password_reset_delivery_not_configured())
+                .contains("password reset delivery is not configured")
+        );
+        assert!(
+            format!("{}", UserAccountPolicy::password_reset_smtp_not_configured())
+                .contains("SMTP is not configured for password reset")
+        );
+        assert!(
+            format!("{}", UserAccountPolicy::password_reset_app_url_required())
+                .contains("APP_URL is required for password reset links")
         );
         assert!(
             format!("{}", UserAccountPolicy::invalid_or_expired_reset_token())
