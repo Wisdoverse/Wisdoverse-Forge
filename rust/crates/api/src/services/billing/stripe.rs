@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use agentforge_core::{AppConfig, AppResult, ErrorKind};
+use agentforge_core::{AppConfig, AppResult};
 use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};
 use hmac::{Hmac, Mac};
@@ -345,12 +345,12 @@ fn verify_stripe_signature(payload: &str, signature: &str, webhook_secret: &str)
         }
     }
 
-    let timestamp = timestamp.ok_or_else(|| ErrorKind::Unauthorized)?;
+    let timestamp = timestamp.ok_or_else(BillingStripeGatewayPolicy::invalid_webhook_signature)?;
     if (Utc::now().timestamp() - timestamp).abs() > WEBHOOK_TOLERANCE_SECONDS {
-        return Err(ErrorKind::Unauthorized.into());
+        return Err(BillingStripeGatewayPolicy::invalid_webhook_signature().into());
     }
     if signatures.is_empty() {
-        return Err(ErrorKind::Unauthorized.into());
+        return Err(BillingStripeGatewayPolicy::invalid_webhook_signature().into());
     }
 
     let signed_payload = format!("{timestamp}.{payload}");
@@ -366,7 +366,7 @@ fn verify_stripe_signature(payload: &str, signature: &str, webhook_secret: &str)
         }
     }
 
-    Err(ErrorKind::Unauthorized.into())
+    Err(BillingStripeGatewayPolicy::invalid_webhook_signature().into())
 }
 
 fn unix_to_datetime(seconds: Option<i64>) -> Option<DateTime<Utc>> {
@@ -533,6 +533,8 @@ struct StripeErrorBody {
 
 #[cfg(test)]
 mod tests {
+    use agentforge_core::ErrorKind;
+
     use super::*;
 
     fn signed_header(payload: &str, secret: &str, timestamp: i64) -> String {
