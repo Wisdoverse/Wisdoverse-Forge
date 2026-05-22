@@ -215,6 +215,19 @@ impl RefreshSessionPolicy {
     }
 }
 
+/// User account error policy shared by auth/session services.
+pub(crate) struct UserAccountPolicy;
+
+impl UserAccountPolicy {
+    pub(crate) fn missing_default_org_membership() -> ErrorKind {
+        ErrorKind::Validation("user has no organization membership".into())
+    }
+
+    pub(crate) fn invalid_or_expired_reset_token() -> ErrorKind {
+        ErrorKind::Validation("invalid or expired reset token".into())
+    }
+}
+
 /// Validated context axes for an auth context switch.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SwitchContextAxes {
@@ -340,7 +353,7 @@ impl<'a> PasswordResetToken<'a> {
     pub(crate) fn parse(value: &'a str) -> AppResult<Self> {
         let value = value.trim();
         if value.len() < 32 {
-            return Err(ErrorKind::Validation("invalid or expired reset token".into()).into());
+            return Err(UserAccountPolicy::invalid_or_expired_reset_token().into());
         }
         Ok(Self { value })
     }
@@ -504,6 +517,17 @@ mod tests {
     fn refresh_session_policy_preserves_existing_lifetimes() {
         assert_eq!(RefreshSessionPolicy::refresh_expiry_seconds(false), 7 * 24 * 60 * 60);
         assert_eq!(RefreshSessionPolicy::refresh_expiry_seconds(true), 30 * 24 * 60 * 60);
+    }
+
+    #[test]
+    fn user_account_policy_owns_auth_error_contracts() {
+        assert!(
+            format!("{}", UserAccountPolicy::missing_default_org_membership()).contains("no organization membership")
+        );
+        assert!(
+            format!("{}", UserAccountPolicy::invalid_or_expired_reset_token())
+                .contains("invalid or expired reset token")
+        );
     }
 
     #[test]

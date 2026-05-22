@@ -167,7 +167,7 @@ impl OrchestrationService {
         // (pool/IO/decode) propagate unchanged so operators see the real failure.
         let parent_status = if let Some(parent_id) = parent_task_id {
             let parent = self.task_repo.find_by_id(scope, parent_id).await.map_err(|err| match err.kind {
-                ErrorKind::NotFound(_) => ErrorKind::Validation(format!("parent task {parent_id} not found")).into(),
+                ErrorKind::NotFound(_) => TaskCreationPolicy::parent_task_not_found(parent_id).into(),
                 _ => err,
             })?;
             Some(parent.status.clone())
