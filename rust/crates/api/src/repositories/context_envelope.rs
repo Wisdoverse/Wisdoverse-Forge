@@ -2,9 +2,11 @@
 
 use std::collections::HashMap;
 
-use agentforge_core::{AgentId, AppResult, ErrorKind, ScopedRead};
+use agentforge_core::{AgentId, AppResult, ScopedRead};
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
+
+use crate::domain::context_envelope::ContextEnvelopeRunPolicy;
 
 #[derive(Debug, Clone, FromRow)]
 pub struct ContextEnvelopeMemoryRecord {
@@ -34,7 +36,7 @@ impl ContextEnvelopeRepository {
         agent_id: AgentId,
     ) -> AppResult<()> {
         if proof.workspace_ids().is_empty() {
-            return Err(ErrorKind::NotFound(format!("task run {run_id}")).into());
+            return Err(ContextEnvelopeRunPolicy::task_run_not_found(run_id));
         }
         let workspace_ids: Vec<Uuid> = proof.workspace_ids().iter().map(|id| id.as_uuid()).collect();
         let found = sqlx::query_scalar::<_, Uuid>(
@@ -54,7 +56,7 @@ impl ContextEnvelopeRepository {
         .fetch_optional(&self.pool)
         .await?;
 
-        found.map(|_| ()).ok_or_else(|| ErrorKind::NotFound(format!("task run {run_id}")).into())
+        found.map(|_| ()).ok_or_else(|| ContextEnvelopeRunPolicy::task_run_not_found(run_id))
     }
 
     pub async fn applied_memory_content(
