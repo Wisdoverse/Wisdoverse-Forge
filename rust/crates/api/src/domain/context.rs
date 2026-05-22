@@ -291,6 +291,10 @@ const WRONG_REVOKE_THRESHOLD: i64 = 2;
 pub(crate) struct ContextFeedbackPolicy;
 
 impl ContextFeedbackPolicy {
+    pub(crate) fn inaccessible_feedback_target() -> AppError {
+        ErrorKind::Forbidden.into()
+    }
+
     pub(crate) fn ensure_run_terminal(status: &str) -> AppResult<()> {
         if matches!(status, "completed" | "failed" | "canceled") {
             Ok(())
@@ -755,6 +759,14 @@ impl ContextSecretMemoryAttestationRejection {
 pub(crate) struct ContextCandidatePolicy;
 
 impl ContextCandidatePolicy {
+    pub(crate) fn not_found(candidate_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("context candidate {candidate_id}")).into()
+    }
+
+    pub(crate) fn approval_already_decided() -> AppError {
+        ErrorKind::Conflict("context candidate already has an approval decision".into()).into()
+    }
+
     pub(crate) fn validate_create(
         item_kind: ContextCandidateKind,
         target_skill_id: Option<Uuid>,
@@ -1194,6 +1206,7 @@ mod tests {
 
     #[test]
     fn context_feedback_policy_requires_terminal_runs_and_applies_revoke_thresholds() {
+        assert!(matches!(ContextFeedbackPolicy::inaccessible_feedback_target().kind, ErrorKind::Forbidden));
         assert!(ContextFeedbackPolicy::ensure_run_terminal("completed").is_ok());
         assert!(ContextFeedbackPolicy::ensure_run_terminal("failed").is_ok());
         assert!(ContextFeedbackPolicy::ensure_run_terminal("canceled").is_ok());
@@ -1373,6 +1386,12 @@ mod tests {
 
     #[test]
     fn candidate_create_policy_requires_skill_target_id() {
+        let candidate_id = Uuid::new_v4();
+        assert!(matches!(
+            ContextCandidatePolicy::not_found(candidate_id).kind,
+            ErrorKind::NotFound(message) if message == format!("context candidate {candidate_id}")
+        ));
+        assert!(matches!(ContextCandidatePolicy::approval_already_decided().kind, ErrorKind::Conflict(_)));
         assert!(
             ContextCandidatePolicy::validate_create(ContextCandidateKind::Memory, None, &json!({"title": "x"})).is_ok()
         );
