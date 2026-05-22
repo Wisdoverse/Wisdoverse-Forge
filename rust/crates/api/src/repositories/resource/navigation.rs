@@ -1,11 +1,12 @@
 //! Navigation read/write repository for the frontend tree-pane contract.
 
-use agentforge_core::{AppResult, ErrorKind, ProjectId, TeamId, TenantScope};
+use agentforge_core::{AppResult, ProjectId, TeamId, TenantScope};
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
 use crate::domain::resource::{
     NavigationProjectCreateDraft, NavigationProjectUpdateDraft, NavigationTeamCreateDraft, NavigationTeamUpdateDraft,
+    ResourceRepositoryPolicy,
 };
 
 #[derive(Debug, Clone, FromRow)]
@@ -100,7 +101,7 @@ impl LegacyNavigationRepository {
         .bind(scope.user_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("organization {org_id}")).into())
+        .ok_or_else(|| ResourceRepositoryPolicy::organization_uuid_not_found(org_id))
     }
 
     pub(crate) async fn list_teams(&self, scope: &TenantScope, org_id: Uuid) -> AppResult<Vec<LegacyTeamRow>> {
@@ -195,7 +196,7 @@ impl LegacyNavigationRepository {
         .bind(draft.description)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("organization {org_id}")).into())
+        .ok_or_else(|| ResourceRepositoryPolicy::organization_uuid_not_found(org_id))
     }
 
     pub(crate) async fn update_team(
@@ -240,7 +241,7 @@ impl LegacyNavigationRepository {
         .bind(draft.description)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("team {team_id}")).into())
+        .ok_or_else(|| ResourceRepositoryPolicy::team_not_found(team_id))
     }
 
     pub(crate) async fn delete_team(&self, scope: &TenantScope, org_id: Uuid, team_id: TeamId) -> AppResult<()> {
@@ -264,7 +265,7 @@ impl LegacyNavigationRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("team {team_id}")).into());
+            return Err(ResourceRepositoryPolicy::team_not_found(team_id));
         }
         Ok(())
     }
@@ -349,7 +350,7 @@ impl LegacyNavigationRepository {
         .bind(scope.user_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("team {team_id}")).into())
+        .ok_or_else(|| ResourceRepositoryPolicy::team_not_found(team_id))
     }
 
     #[doc(hidden)]
@@ -367,7 +368,7 @@ impl LegacyNavigationRepository {
         .bind(user_id)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("team {team_id}")).into())
+        .ok_or_else(|| ResourceRepositoryPolicy::team_uuid_not_found(team_id))
     }
 
     pub(crate) async fn default_workspace_for_org(&self, org_id: Uuid) -> AppResult<Uuid> {
@@ -483,7 +484,7 @@ impl LegacyNavigationRepository {
         .bind(draft.description)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("project {project_id}")).into())
+        .ok_or_else(|| ResourceRepositoryPolicy::project_not_found(project_id))
     }
 
     pub(crate) async fn delete_project(
@@ -515,7 +516,7 @@ impl LegacyNavigationRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("project {project_id}")).into());
+            return Err(ResourceRepositoryPolicy::project_not_found(project_id));
         }
         Ok(())
     }
