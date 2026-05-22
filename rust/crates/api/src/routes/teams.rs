@@ -47,7 +47,7 @@ pub struct UpdateTeamRequest {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> TeamService {
-    TeamService::from_pool(state.pool.clone())
+    state.team_service()
 }
 
 /// `GET /api/teams` — list teams for the authenticated tenant.
