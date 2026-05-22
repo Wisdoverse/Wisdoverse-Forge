@@ -28,8 +28,8 @@ pub use crate::domain::cli_auth_proxy::{
     CallbackMode, ProviderInfo, ProviderStatus, RefreshSummary, RevokedCliCredential,
 };
 pub(crate) use crate::domain::cli_auth_proxy::{
-    cli_auth_authorize_response, cli_auth_connected_response, cli_auth_disconnected_response,
-    cli_auth_providers_response, cli_auth_statuses_response,
+    CliAuthTokenFileInput, cli_auth_authorize_response, cli_auth_connected_response, cli_auth_disconnected_response,
+    cli_auth_providers_response, cli_auth_statuses_response, cli_auth_token_file_map,
 };
 pub use refresh_classifier::{RefreshErrorKind, classify_refresh_failure};
 
@@ -715,24 +715,12 @@ impl CliAuthProxyService {
             .ok_or_else(|| ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured".into()))?;
         let account_id =
             tokens.account_id.clone().or_else(|| extract_chatgpt_account_id(tokens.access_token.expose_secret()));
-        let mut auth_tokens = serde_json::Map::new();
-        if let Some(id) = &tokens.id_token {
-            auth_tokens.insert("id_token".into(), serde_json::Value::String(id.expose_secret().to_string()));
-        }
-        auth_tokens
-            .insert("access_token".into(), serde_json::Value::String(tokens.access_token.expose_secret().to_string()));
-        if let Some(rt) = &tokens.refresh_token {
-            auth_tokens.insert("refresh_token".into(), serde_json::Value::String(rt.expose_secret().to_string()));
-        }
-        if let Some(aid) = account_id {
-            auth_tokens.insert("account_id".into(), serde_json::Value::String(aid));
-        }
-        let auth_json = serde_json::json!({
-            "tokens": auth_tokens,
-            "last_refresh": chrono::Utc::now().to_rfc3339(),
-        });
-        let file_map = serde_json::json!({
-            "auth.json": serde_json::to_string(&auth_json).map_err(|err| ErrorKind::Internal(anyhow::anyhow!("serialize auth.json: {err}")))?,
+        let file_map = cli_auth_token_file_map(CliAuthTokenFileInput {
+            id_token: tokens.id_token.as_ref().map(|value| value.expose_secret()),
+            access_token: tokens.access_token.expose_secret(),
+            refresh_token: tokens.refresh_token.as_ref().map(|value| value.expose_secret()),
+            account_id: account_id.as_deref(),
+            last_refresh: chrono::Utc::now(),
         });
         let ciphertext = crypto::encrypt_base64(key, &serde_json::to_string(&file_map).expect("Value serialises"))
             .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encrypt refreshed tokens: {err}")))?;
@@ -809,25 +797,12 @@ impl CliAuthProxyService {
         let account_id =
             tokens.account_id.clone().or_else(|| extract_chatgpt_account_id(tokens.access_token.expose_secret()));
 
-        let mut auth_tokens = serde_json::Map::new();
-        if let Some(id) = &tokens.id_token {
-            auth_tokens.insert("id_token".into(), serde_json::Value::String(id.expose_secret().to_string()));
-        }
-        auth_tokens
-            .insert("access_token".into(), serde_json::Value::String(tokens.access_token.expose_secret().to_string()));
-        if let Some(rt) = &tokens.refresh_token {
-            auth_tokens.insert("refresh_token".into(), serde_json::Value::String(rt.expose_secret().to_string()));
-        }
-        if let Some(aid) = account_id {
-            auth_tokens.insert("account_id".into(), serde_json::Value::String(aid));
-        }
-
-        let auth_json = serde_json::json!({
-            "tokens": auth_tokens,
-            "last_refresh": chrono::Utc::now().to_rfc3339(),
-        });
-        let file_map = serde_json::json!({
-            "auth.json": serde_json::to_string(&auth_json).map_err(|err| ErrorKind::Internal(anyhow::anyhow!("serialize auth.json: {err}")))?,
+        let file_map = cli_auth_token_file_map(CliAuthTokenFileInput {
+            id_token: tokens.id_token.as_ref().map(|value| value.expose_secret()),
+            access_token: tokens.access_token.expose_secret(),
+            refresh_token: tokens.refresh_token.as_ref().map(|value| value.expose_secret()),
+            account_id: account_id.as_deref(),
+            last_refresh: chrono::Utc::now(),
         });
         let ciphertext = crypto::encrypt_base64(key, &serde_json::to_string(&file_map).expect("Value serialises"))
             .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encrypt tokens: {err}")))?;

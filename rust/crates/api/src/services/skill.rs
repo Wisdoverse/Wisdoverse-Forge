@@ -3,16 +3,16 @@
 use agentforge_core::{AppResult, ErrorKind, ProjectId, ScopedRead, TeamId, TenantScope, WorkspaceId};
 use agentforge_db::entities::{Skill, SkillVersion};
 use chrono::{DateTime, Utc};
-use serde_json::{Value, json};
+use serde_json::Value;
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::skill::{
     PreparedSkillContent, SkillAuditIdentity, SkillBoundaryAccessPolicy, SkillBoundaryMutationPolicy,
-    SkillContentDecision, SkillContentPolicy, SkillCreateStatePolicy, SkillCreatedAudit, SkillJsonObjectPolicy,
-    SkillMutationAccess, SkillMutationAccessPolicy, SkillMutationManagerCheck, SkillMutationPolicy, SkillName,
-    SkillRestoreVersionPlan, SkillRestoreVersionPolicy, SkillRestoreVersionRequest, SkillRestoredAudit,
-    SkillRevokedAudit, SkillScopeKind, SkillScopeTargetPolicy, SkillSensitivity, SkillState,
+    SkillContentDecision, SkillContentPolicy, SkillCreateStatePolicy, SkillCreatedAudit, SkillJsonArrayPolicy,
+    SkillJsonObjectPolicy, SkillMutationAccess, SkillMutationAccessPolicy, SkillMutationManagerCheck,
+    SkillMutationPolicy, SkillName, SkillRestoreVersionPlan, SkillRestoreVersionPolicy, SkillRestoreVersionRequest,
+    SkillRestoredAudit, SkillRevokedAudit, SkillScopeKind, SkillScopeTargetPolicy, SkillSensitivity, SkillState,
     SkillStateTransitionPolicy, SkillTtlPolicy, SkillUpdatedAudit, skill_audit_event,
 };
 pub(crate) use crate::domain::skill::{skill_data_response, skill_delete_response};
@@ -94,12 +94,12 @@ impl SkillService {
         let requested_sensitivity =
             input.sensitivity.as_deref().map(SkillSensitivity::parse).transpose()?.map(SkillSensitivity::as_str);
         let sensitivity = requested_sensitivity.unwrap_or(content.sensitivity);
-        let provenance = input.provenance.unwrap_or_else(|| json!({}));
+        let provenance = SkillJsonObjectPolicy::resolve(input.provenance);
         SkillJsonObjectPolicy::validate("provenance", &provenance)?;
-        let required_inputs = input.required_inputs.unwrap_or_else(|| json!([]));
-        let tools = input.tools.unwrap_or_else(|| json!([]));
-        let examples = input.examples.unwrap_or_else(|| json!([]));
-        let success_evidence = input.success_evidence.unwrap_or_else(|| json!([]));
+        let required_inputs = SkillJsonArrayPolicy::resolve(input.required_inputs);
+        let tools = SkillJsonArrayPolicy::resolve(input.tools);
+        let examples = SkillJsonArrayPolicy::resolve(input.examples);
+        let success_evidence = SkillJsonArrayPolicy::resolve(input.success_evidence);
         let state_label = state.as_label();
 
         let mut tx = self.repo.pool().begin().await?;
