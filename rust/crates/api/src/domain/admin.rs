@@ -116,6 +116,19 @@ pub(crate) fn admin_agent_detail_response(detail: AdminAgentDetailProjection) ->
     json!({ "ok": true, "agent": agent })
 }
 
+/// Admin repository lookup policy.
+pub(crate) struct AdminRepositoryPolicy;
+
+impl AdminRepositoryPolicy {
+    pub(crate) fn active_impersonation_not_found() -> AppError {
+        ErrorKind::NotFound("no active impersonation session".into()).into()
+    }
+
+    pub(crate) fn agent_not_found(agent_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("agent {agent_id}")).into()
+    }
+}
+
 /// Validated pagination request for admin list endpoints.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AdminListPage {
@@ -315,6 +328,20 @@ mod tests {
         let internal: AppError = ErrorKind::Internal(anyhow::anyhow!("db failed")).into();
         assert_eq!(AdminBulkDeletePolicy::error_message(&validation), "validation error: bad id");
         assert_eq!(AdminBulkDeletePolicy::error_message(&internal), "delete failed");
+    }
+
+    #[test]
+    fn admin_repository_policy_owns_lookup_errors() {
+        let agent_id = Uuid::new_v4();
+
+        assert!(matches!(
+            AdminRepositoryPolicy::active_impersonation_not_found().kind,
+            ErrorKind::NotFound(message) if message == "no active impersonation session"
+        ));
+        assert!(matches!(
+            AdminRepositoryPolicy::agent_not_found(agent_id).kind,
+            ErrorKind::NotFound(message) if message == format!("agent {agent_id}")
+        ));
     }
 
     #[test]
