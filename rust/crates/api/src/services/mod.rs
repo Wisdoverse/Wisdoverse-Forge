@@ -38,6 +38,7 @@ pub mod legacy_navigation;
 pub mod license;
 pub mod llm_provider;
 pub mod mcp_agent;
+pub(crate) mod mcp_docker_runtime;
 pub mod memory;
 pub mod orchestration;
 pub mod organization;
