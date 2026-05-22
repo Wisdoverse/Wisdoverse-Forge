@@ -1,8 +1,10 @@
 //! Agent workspace mount-scope persistence helpers.
 
-use agentforge_core::{AppResult, ErrorKind};
+use agentforge_core::AppResult;
 use sqlx::PgPool;
 use uuid::Uuid;
+
+use crate::domain::agent::AgentRepositoryPolicy;
 
 #[derive(Debug, Clone)]
 pub struct AgentProjectWorkspaceRow {
@@ -32,7 +34,7 @@ impl AgentWorkspaceRepository {
         .bind(org_id)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("project {project_id}")))?;
+        .ok_or_else(|| AgentRepositoryPolicy::project_not_found(project_id))?;
 
         Ok(AgentProjectWorkspaceRow { organization_id: row.0, workspace_id: row.1 })
     }
@@ -52,7 +54,7 @@ impl AgentWorkspaceRepository {
         .fetch_one(&self.pool)
         .await?;
 
-        if exists { Ok(()) } else { Err(ErrorKind::NotFound(format!("workspace {workspace_id}")).into()) }
+        if exists { Ok(()) } else { Err(AgentRepositoryPolicy::workspace_not_found(workspace_id)) }
     }
 
     pub async fn default_workspace_for_org(&self, org_id: Uuid) -> AppResult<Uuid> {
