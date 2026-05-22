@@ -3,7 +3,7 @@
 //! The URL surface is historical, but this service owns the active tree-pane
 //! workflow over organizations, teams, and projects.
 
-use agentforge_core::{AppResult, ErrorKind, OrgId, ProjectId, TeamId, TenantScope};
+use agentforge_core::{AppResult, OrgId, ProjectId, TeamId, TenantScope};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -61,13 +61,9 @@ impl LegacyNavigationService {
         org_id: Uuid,
         name: Option<String>,
     ) -> AppResult<LegacyOrg> {
-        let Some(name) = name.as_deref() else {
-            return Err(ErrorKind::Validation("name is required".into()).into());
-        };
+        let name = NavigationResourcePolicy::org_update_name(name)?;
 
-        self.organizations
-            .update(scope, OrgId::from(org_id), UpdateOrganizationInput { name: name.to_string() })
-            .await?;
+        self.organizations.update(scope, OrgId::from(org_id), UpdateOrganizationInput { name }).await?;
         self.get_org(scope, org_id).await
     }
 
