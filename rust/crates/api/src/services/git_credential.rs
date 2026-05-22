@@ -1,6 +1,6 @@
 //! Git credential service - validation, management, and Git platform CLI injection.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope, crypto};
+use agentforge_core::{AppResult, TenantScope, crypto};
 use agentforge_db::entities::GitCredential;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -196,8 +196,8 @@ impl GitCredentialService {
             return Ok(None);
         };
         let key = self.encryption_key.as_ref().ok_or_else(GitCredentialEncryptionPolicy::missing_storage_key)?;
-        let encrypted = crypto::encrypt_base64(key, token.value())
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encrypt git credential token failed: {err}")))?;
+        let encrypted =
+            crypto::encrypt_base64(key, token.value()).map_err(GitCredentialEncryptionPolicy::encrypt_failed)?;
         Ok(Some(encrypted.into_bytes()))
     }
 }
