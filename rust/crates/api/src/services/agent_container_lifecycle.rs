@@ -4,11 +4,13 @@
 
 use std::sync::Arc;
 
-use agentforge_core::{AgentId, AgentStatus, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AgentId, AgentStatus, AppResult, TenantScope};
 use agentforge_platform::{ContainerState, DockerClient};
 use sqlx::PgPool;
 
-use crate::domain::agent::{AgentContainerLifecyclePolicy, AgentContainerRuntimeState, AgentRestartPlan};
+use crate::domain::agent::{
+    AgentContainerLifecyclePolicy, AgentContainerRuntimePolicy, AgentContainerRuntimeState, AgentRestartPlan,
+};
 use crate::repositories::agent::AgentRepository;
 use crate::services::agent::AgentService;
 
@@ -27,7 +29,7 @@ impl AgentContainerLifecycleService {
     }
 
     pub(crate) async fn restart(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<()> {
-        let docker = self.docker.as_ref().ok_or_else(docker_unavailable)?;
+        let docker = self.docker.as_ref().ok_or_else(AgentContainerRuntimePolicy::lifecycle_docker_unavailable)?;
         let agent = self.agents.get(scope, agent_id).await?;
 
         AgentContainerLifecyclePolicy::ensure_container_backed(agent.cli_tool.as_deref())?;
@@ -45,7 +47,7 @@ impl AgentContainerLifecycleService {
                 self.agents.clear_container(scope, agent_id).await?;
                 return Err(AgentContainerLifecyclePolicy::stale_container_reference_error().into());
             }
-            Err(err) => return Err(docker_lifecycle_unavailable("inspect", err).into()),
+            Err(err) => return Err(AgentContainerRuntimePolicy::lifecycle_action_unavailable("inspect", err).into()),
         };
 
         match AgentContainerLifecyclePolicy::restart_plan(restart_state_from_container_state(container_info.status)) {
@@ -53,8 +55,11 @@ impl AgentContainerLifecycleService {
                 docker
                     .stop_container(container_id, 10)
                     .await
-                    .map_err(|err| docker_lifecycle_unavailable("stop", err))?;
-                docker.start_container(container_id).await.map_err(|err| docker_lifecycle_unavailable("start", err))?;
+                    .map_err(|err| AgentContainerRuntimePolicy::lifecycle_action_unavailable("stop", err))?;
+                docker
+                    .start_container(container_id)
+                    .await
+                    .map_err(|err| AgentContainerRuntimePolicy::lifecycle_action_unavailable("start", err))?;
             }
             AgentRestartPlan::StartOnly => {
                 tracing::info!(
@@ -63,7 +68,10 @@ impl AgentContainerLifecycleService {
                     status = ?container_info.status,
                     "agent restart found a non-running container; starting it directly"
                 );
-                docker.start_container(container_id).await.map_err(|err| docker_lifecycle_unavailable("start", err))?;
+                docker
+                    .start_container(container_id)
+                    .await
+                    .map_err(|err| AgentContainerRuntimePolicy::lifecycle_action_unavailable("start", err))?;
             }
         }
 
@@ -75,10 +83,7 @@ impl AgentContainerLifecycleService {
         let container_id = AgentContainerLifecyclePolicy::resume_container_id(agent.container_id.as_deref())?;
 
         if let Some(docker) = &self.docker {
-            docker
-                .start_container(container_id)
-                .await
-                .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("resume failed: {err}")))?;
+            docker.start_container(container_id).await.map_err(AgentContainerRuntimePolicy::resume_failed)?;
         }
 
         self.agents.update_status(scope, agent_id, AgentStatus::Idle).await?;
@@ -95,14 +100,6 @@ fn restart_state_from_container_state(state: ContainerState) -> AgentContainerRu
         | ContainerState::Dead
         | ContainerState::Unknown => AgentContainerRuntimeState::NotRunning,
     }
-}
-
-fn docker_unavailable() -> ErrorKind {
-    ErrorKind::Unavailable("Docker runtime is not available".into())
-}
-
-fn docker_lifecycle_unavailable(action: &str, err: impl std::fmt::Display) -> ErrorKind {
-    ErrorKind::Unavailable(format!("failed to {action} agent container: {err}"))
 }
 
 #[cfg(test)]
