@@ -1,9 +1,11 @@
 //! Attachment repository — database queries for the attachments table.
 
-use agentforge_core::{AgentId, AppResult, AttachmentId, ErrorKind, TenantScope};
+use agentforge_core::{AgentId, AppResult, AttachmentId, TenantScope};
 use agentforge_db::entities::Attachment;
 use sqlx::PgPool;
 use uuid::Uuid;
+
+use crate::domain::attachment::AttachmentRepositoryPolicy;
 
 /// Database access layer for attachments.
 pub struct AttachmentRepository {
@@ -65,7 +67,7 @@ impl AttachmentRepository {
         .bind(scope.org_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("attachment {id}")).into())
+        .ok_or_else(|| AttachmentRepositoryPolicy::attachment_not_found(id))
     }
 
     /// Create a new attachment metadata record.
@@ -115,7 +117,7 @@ impl AttachmentRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("attachment {id}")).into());
+            return Err(AttachmentRepositoryPolicy::attachment_not_found(id));
         }
         Ok(())
     }
