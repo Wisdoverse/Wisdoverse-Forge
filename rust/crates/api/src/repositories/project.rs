@@ -66,7 +66,7 @@ impl ProjectRepository {
         .ok_or_else(|| ErrorKind::NotFound(format!("project {id}")).into())
     }
 
-    /// Create a new project. Populates `slug` (derived from name) and
+    /// Create a new project. Persists the domain-resolved `slug` and
     /// `team_id` so migration 026's NOT NULL constraints hold. When the
     /// caller does not supply `team_id`, defaults to the org's oldest
     /// surviving team — matching the migration's backfill rule so existing
@@ -79,13 +79,13 @@ impl ProjectRepository {
         workspace_id: WorkspaceId,
         team_id: Option<TeamId>,
         name: &str,
+        slug: &str,
         repository_url: Option<&str>,
     ) -> AppResult<Project> {
         let resolved_team_id = match team_id {
             Some(id) => id.as_uuid(),
             None => self.default_team_for_org(scope).await?,
         };
-        let slug = crate::util::slug::slugify(name);
         sqlx::query_as::<_, Project>(
             r#"INSERT INTO projects (organization_id, workspace_id, team_id, name, slug, repository_url)
                VALUES ($1, $2, $3, $4, $5, $6)
@@ -95,7 +95,7 @@ impl ProjectRepository {
         .bind(workspace_id.as_uuid())
         .bind(resolved_team_id)
         .bind(name)
-        .bind(&slug)
+        .bind(slug)
         .bind(repository_url)
         .fetch_one(&self.pool)
         .await
