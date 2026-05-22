@@ -210,6 +210,14 @@ fn repositories_do_not_reintroduce_domain_policy_helpers() {
                     line_no + 1
                 ));
             }
+
+            if is_agent_repository(&repository) && contains_repository_error_policy(trimmed) {
+                violations.push(format!(
+                    "{}:{} owns agent repository error policy in production repository code; move error contracts to domain helpers",
+                    repository.display(),
+                    line_no + 1
+                ));
+            }
         }
     }
 
@@ -611,6 +619,10 @@ fn is_context_repository_policy_boundary(path: &Path) -> bool {
 
 fn is_orchestration_repository(path: &Path) -> bool {
     path.components().any(|component| component.as_os_str() == "orchestration")
+}
+
+fn is_agent_repository(path: &Path) -> bool {
+    path.components().any(|component| component.as_os_str() == "agent")
 }
 
 fn contains_repository_error_policy(line: &str) -> bool {
