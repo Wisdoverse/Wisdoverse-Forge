@@ -200,6 +200,14 @@ fn mcp_entrypoint_does_not_reintroduce_ddd_boundary_leaks() {
                 line_no + 1
             ));
         }
+
+        if contains_mcp_live_service_wiring(trimmed) {
+            violations.push(format!(
+                "{}:{} owns live service/repository wiring in production MCP entrypoint code; move live component wiring to services",
+                mcp_file.display(),
+                line_no + 1
+            ));
+        }
     }
 
     assert!(violations.is_empty(), "MCP DDD boundary violations:\n{}", violations.join("\n"));
@@ -446,6 +454,29 @@ fn contains_mcp_runtime_adapter_wiring(line: &str) -> bool {
         "HostConfig",
         "StreamExt",
         "AsyncWriteExt",
+    ]
+    .iter()
+    .any(|pattern| line.contains(pattern))
+}
+
+fn contains_mcp_live_service_wiring(line: &str) -> bool {
+    [
+        "use std::env",
+        "use crate::repositories::",
+        "McpAgentRepository",
+        "McpAgentInsertRecord",
+        "SqlxMcpAgentStore",
+        "McpAgentService::new",
+        "McpAgentRuntimeConfig",
+        "docker_mcp_agent_runtime",
+        "MCP_ENABLED",
+        "MCP_TOKEN",
+        "AGENTFORGE_WORKSPACE_ROOT",
+        "CONTAINER_AGENT_IMAGE",
+        "CONTAINER_IMAGE_",
+        "CONTAINER_ANTHROPIC_API_KEY",
+        "CONTAINER_OPENAI_API_KEY",
+        "CONTAINER_GOOGLE_API_KEY",
     ]
     .iter()
     .any(|pattern| line.contains(pattern))
