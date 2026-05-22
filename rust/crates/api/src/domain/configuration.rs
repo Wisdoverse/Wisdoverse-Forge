@@ -33,6 +33,33 @@ pub(crate) fn plugin_agent_plugins_response<T: Serialize>(plugins: T) -> Value {
     serde_json::json!({ "ok": true, "plugins": plugins })
 }
 
+pub(crate) struct FeatureFlagMetadataPolicy;
+
+impl FeatureFlagMetadataPolicy {
+    pub(crate) fn resolve(metadata: Option<Value>) -> Value {
+        metadata.unwrap_or_else(empty_json_object)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct PluginConfig {
+    value: Value,
+}
+
+impl PluginConfig {
+    pub(crate) fn from_optional(config: Option<&Value>) -> Self {
+        Self { value: config.cloned().unwrap_or_else(empty_json_object) }
+    }
+
+    pub(crate) fn value(&self) -> &Value {
+        &self.value
+    }
+}
+
+fn empty_json_object() -> Value {
+    Value::Object(serde_json::Map::new())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RuntimeSettings {
@@ -632,5 +659,15 @@ mod tests {
     fn plugin_version_defaults_to_existing_version() {
         assert_eq!(PluginVersion::from_optional(None).value(), "0.1.0");
         assert_eq!(PluginVersion::from_optional(Some("1.2.3")).value(), "1.2.3");
+    }
+
+    #[test]
+    fn optional_json_config_policies_default_to_empty_objects() {
+        assert_eq!(FeatureFlagMetadataPolicy::resolve(None), serde_json::json!({}));
+        assert_eq!(PluginConfig::from_optional(None).value(), &serde_json::json!({}));
+
+        let custom = serde_json::json!({ "enabled": true });
+        assert_eq!(FeatureFlagMetadataPolicy::resolve(Some(custom.clone())), custom);
+        assert_eq!(PluginConfig::from_optional(Some(&custom)).value(), &custom);
     }
 }
