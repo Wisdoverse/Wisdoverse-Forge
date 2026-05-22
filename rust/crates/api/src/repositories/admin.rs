@@ -1,13 +1,13 @@
 //! Admin repository — cross-tenant database queries for admin operations.
 
-use agentforge_core::{AgentStatus, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AgentStatus, AppResult, TenantScope};
 use agentforge_db::entities::{ImpersonationLog, Organization, User};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sqlx::{FromRow, PgPool, QueryBuilder};
 use uuid::Uuid;
 
-use crate::domain::admin::{AdminAgentSort, SortOrder};
+use crate::domain::admin::{AdminAgentSort, AdminRepositoryPolicy, SortOrder};
 
 /// Filter parameters for the admin agent list query.
 #[derive(Debug, Default, Clone)]
@@ -182,7 +182,7 @@ impl AdminRepository {
         .bind(scope.org_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound("no active impersonation session".into()).into())
+        .ok_or_else(AdminRepositoryPolicy::active_impersonation_not_found)
     }
 
     /// List impersonation history for the org.
@@ -292,7 +292,7 @@ impl AdminRepository {
             .bind(agent_id)
             .fetch_optional(&self.pool)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("agent {agent_id}")).into())
+            .ok_or_else(|| AdminRepositoryPolicy::agent_not_found(agent_id))
     }
 
     /// Recent events for the admin agent detail view.
@@ -315,7 +315,7 @@ impl AdminRepository {
     pub async fn delete_agent(&self, agent_id: Uuid) -> AppResult<()> {
         let result = sqlx::query("DELETE FROM agents WHERE id = $1").bind(agent_id).execute(&self.pool).await?;
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("agent {agent_id}")).into());
+            return Err(AdminRepositoryPolicy::agent_not_found(agent_id));
         }
         Ok(())
     }
