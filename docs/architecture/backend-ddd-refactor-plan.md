@@ -269,6 +269,11 @@ Current stacked PRs:
   repository error contracts into their owning domain policies; extends
   repository boundary coverage so these context repositories cannot re-own
   direct `ErrorKind` policy.
+- #283 `refactor/backend-ddd-orchestration-repository-policy` -> #282 branch:
+  moves orchestration task, participant, task-run, context-link, and
+  run-context-injection repository error contracts into the orchestration domain
+  policy boundary; extends repository boundary coverage so orchestration
+  repositories cannot re-own direct `ErrorKind` policy.
 
 ## Execution Rule
 
