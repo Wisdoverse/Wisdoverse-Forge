@@ -17,18 +17,24 @@ use bollard::query_parameters::{
     AttachContainerOptions, CreateContainerOptions, InspectContainerOptions, LogsOptions, RemoveContainerOptions,
     StartContainerOptions,
 };
-use chrono::{Duration as ChronoDuration, Utc};
 use futures::StreamExt;
-use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
+use serde_json::Value;
 use sqlx::PgPool;
 use tokio::io::AsyncWriteExt;
 use tokio::time::sleep;
 use uuid::Uuid;
 
-use agentforge_core::{AgentStatus, AppError, AppResult, CliToolKind, ErrorKind};
+use agentforge_core::{AgentStatus, AppError, AppResult};
 use agentforge_platform::DockerClient;
 
+use crate::domain::mcp::{
+    CompletionObservation, DockerCreateRequest, DockerMcpRuntimeOptions, DockerRuntimeSession, DockerSessionState,
+    app_error_message, auth_error_body, cli_ready_timeout_error, create_result_text, docker_create_plan,
+    docker_runtime_error, has_any_indicator, hash_bytes, infer_cli_tool, initialize_response,
+    initialized_notification_response, io_runtime_error, is_not_found_error, jsonrpc_error, missing_container_id_error,
+    ok_result_text, parse_optional_uuid, parse_required_uuid, request_id, request_method, runtime_markers,
+    stale_working_status, status_result_text, tool_arguments, tool_name, tool_result, tools_list_response,
+};
 use crate::repositories::agent::{McpAgentInsertRecord, McpAgentRepository};
 use crate::services::mcp_agent::{
     CreateSessionRequest, CreateSessionResult, McpAgentRecord, McpAgentRuntime, McpAgentRuntimeConfig,
@@ -36,10 +42,8 @@ use crate::services::mcp_agent::{
     SessionStatus,
 };
 
-const WORKSPACE_MOUNT_TARGET: &str = "/workspace";
 const READY_LOG_TAIL: usize = 30;
 const COMPLETION_LOG_TAIL: usize = 1000;
-const DEFAULT_STALE_WORKING_SECS: i64 = 10;
 
 #[async_trait]
 pub trait McpAgentTools: Send + Sync {
@@ -134,104 +138,42 @@ async fn handle_request(
 fn authorize(headers: &HeaderMap, internal_token: &str) -> Result<(), Box<Response>> {
     let Some(value) = headers.get(header::AUTHORIZATION) else {
         return Err(Box::new(
-            (StatusCode::UNAUTHORIZED, Json(json!({"error": "missing authorization header"}))).into_response(),
+            (StatusCode::UNAUTHORIZED, Json(auth_error_body("missing authorization header"))).into_response(),
         ));
     };
     let Ok(value) = value.to_str() else {
         return Err(Box::new(
-            (StatusCode::UNAUTHORIZED, Json(json!({"error": "invalid authorization token"}))).into_response(),
+            (StatusCode::UNAUTHORIZED, Json(auth_error_body("invalid authorization token"))).into_response(),
         ));
     };
     if value != format!("Bearer {internal_token}") {
         return Err(Box::new(
-            (StatusCode::UNAUTHORIZED, Json(json!({"error": "invalid authorization token"}))).into_response(),
+            (StatusCode::UNAUTHORIZED, Json(auth_error_body("invalid authorization token"))).into_response(),
         ));
     }
     Ok(())
 }
 
 async fn handle_jsonrpc(tools: &dyn McpAgentTools, request: Value) -> Value {
-    let id = request.get("id").cloned().unwrap_or(Value::Null);
-    let Some(method) = request.get("method").and_then(Value::as_str) else {
+    let id = request_id(&request);
+    let Some(method) = request_method(&request) else {
         return jsonrpc_error(id, -32600, "invalid request");
     };
 
     match method {
-        "initialize" => initialize(id, &request),
-        "tools/list" => jsonrpc_result(id, json!({ "tools": tool_list() })),
+        "initialize" => initialize_response(id, &request, crate::VERSION),
+        "tools/list" => tools_list_response(id),
         "tools/call" => call_tool(tools, id, &request).await,
-        "notifications/initialized" => jsonrpc_result(id, json!({})),
+        "notifications/initialized" => initialized_notification_response(id),
         _ => jsonrpc_error(id, -32601, "method not found"),
     }
 }
 
-fn initialize(id: Value, request: &Value) -> Value {
-    let protocol_version = request.pointer("/params/protocolVersion").and_then(Value::as_str).unwrap_or("2024-11-05");
-    jsonrpc_result(
-        id,
-        json!({
-            "protocolVersion": protocol_version,
-            "capabilities": { "tools": {} },
-            "serverInfo": { "name": "agentforge-api", "version": crate::VERSION }
-        }),
-    )
-}
-
-fn tool_list() -> Vec<Value> {
-    let cli_tool_enum = CliToolKind::ALL.map(CliToolKind::as_str);
-    vec![
-        tool(
-            "wisdoverse.agent.create",
-            "Create a managed workflow agent backed by the Rust API runtime.",
-            json!({
-                "type": "object",
-                "properties": {
-                    "projectId": {"type": "string"},
-                    "cliTool": {"type": "string", "enum": cli_tool_enum},
-                    "name": {"type": "string"},
-                    "orgId": {"type": "string"},
-                    "userId": {"type": "string"}
-                }
-            }),
-        ),
-        tool(
-            "wisdoverse.agent.prompt",
-            "Send a prompt to an existing managed workflow agent.",
-            json!({
-                "type": "object",
-                "properties": {
-                    "agentId": {"type": "string"},
-                    "prompt": {"type": "string"}
-                },
-                "required": ["agentId", "prompt"]
-            }),
-        ),
-        tool(
-            "wisdoverse.agent.status",
-            "Read the current status of a managed workflow agent.",
-            json!({
-                "type": "object",
-                "properties": {"agentId": {"type": "string"}},
-                "required": ["agentId"]
-            }),
-        ),
-        tool(
-            "wisdoverse.agent.destroy",
-            "Destroy a managed workflow agent.",
-            json!({
-                "type": "object",
-                "properties": {"agentId": {"type": "string"}},
-                "required": ["agentId"]
-            }),
-        ),
-    ]
-}
-
 async fn call_tool(tools: &dyn McpAgentTools, id: Value, request: &Value) -> Value {
-    let Some(name) = request.pointer("/params/name").and_then(Value::as_str) else {
+    let Some(name) = tool_name(request) else {
         return tool_result(id, true, "missing required argument: name".to_string());
     };
-    let arguments = request.pointer("/params/arguments").cloned().unwrap_or_else(|| json!({}));
+    let arguments = tool_arguments(request);
 
     let result = match name {
         "wisdoverse.agent.create" | "agentforge.agent.create" => handle_create(tools, &arguments).await,
@@ -258,11 +200,7 @@ async fn handle_create(tools: &dyn McpAgentTools, arguments: &Value) -> Result<S
     };
 
     let result = tools.create_session(request).await.map_err(app_error_message)?;
-    serialize_json(&json!({
-        "agentId": result.agent_id,
-        "status": result.status,
-        "name": result.name,
-    }))
+    create_result_text(result.agent_id, &result.status, &result.name)
 }
 
 async fn handle_prompt(tools: &dyn McpAgentTools, arguments: &Value) -> Result<String, String> {
@@ -271,79 +209,19 @@ async fn handle_prompt(tools: &dyn McpAgentTools, arguments: &Value) -> Result<S
         return Err("missing required argument: prompt".to_string());
     };
     tools.send_prompt(agent_id, prompt).await.map_err(app_error_message)?;
-    serialize_json(&json!({ "ok": true }))
+    ok_result_text()
 }
 
 async fn handle_status(tools: &dyn McpAgentTools, arguments: &Value) -> Result<String, String> {
     let agent_id = parse_required_uuid(arguments, "agentId")?;
     let status = tools.session_status(agent_id).await.map_err(app_error_message)?;
-    serialize_json(&json!({ "agentId": status.agent_id, "status": status.status }))
+    status_result_text(status.agent_id, &status.status)
 }
 
 async fn handle_destroy(tools: &dyn McpAgentTools, arguments: &Value) -> Result<String, String> {
     let agent_id = parse_required_uuid(arguments, "agentId")?;
     tools.destroy_session(agent_id).await.map_err(app_error_message)?;
-    serialize_json(&json!({ "ok": true }))
-}
-
-fn parse_required_uuid(arguments: &Value, key: &str) -> Result<Uuid, String> {
-    let Some(value) = arguments.get(key).and_then(Value::as_str) else {
-        return Err(format!("missing required argument: {key}"));
-    };
-    Uuid::parse_str(value).map_err(|_| format!("invalid uuid for {key}: {value}"))
-}
-
-fn parse_optional_uuid(value: Option<&Value>) -> Result<Option<Uuid>, String> {
-    let Some(value) = value.and_then(Value::as_str) else {
-        return Ok(None);
-    };
-    if value.trim().is_empty() {
-        return Ok(None);
-    }
-    Uuid::parse_str(value).map(Some).map_err(|_| format!("invalid uuid: {value}"))
-}
-
-fn app_error_message(err: AppError) -> String {
-    match err.kind {
-        ErrorKind::Validation(message) => format!("validation error: {message}"),
-        ErrorKind::Unprocessable(message) => format!("unprocessable entity: {message}"),
-        ErrorKind::NotFound(message) => format!("not found: {message}"),
-        ErrorKind::Conflict(message) => format!("conflict: {message}"),
-        ErrorKind::Unauthorized => "unauthorized".to_string(),
-        ErrorKind::Forbidden => "forbidden".to_string(),
-        ErrorKind::Unavailable(message) => format!("service unavailable: {message}"),
-        ErrorKind::Internal(message) => format!("internal error: {message}"),
-    }
-}
-
-fn serialize_json(value: &Value) -> Result<String, String> {
-    serde_json::to_string(value).map_err(|err| err.to_string())
-}
-
-fn tool(name: &str, description: &str, input_schema: Value) -> Value {
-    json!({
-        "name": name,
-        "description": description,
-        "inputSchema": input_schema,
-    })
-}
-
-fn jsonrpc_result(id: Value, result: Value) -> Value {
-    json!({ "jsonrpc": "2.0", "id": id, "result": result })
-}
-
-fn jsonrpc_error(id: Value, code: i64, message: &str) -> Value {
-    json!({ "jsonrpc": "2.0", "id": id, "error": { "code": code, "message": message } })
-}
-
-fn tool_result(id: Value, is_error: bool, text: String) -> Value {
-    jsonrpc_result(
-        id,
-        json!({
-            "content": [{"type": "text", "text": text}],
-            "isError": is_error,
-        }),
-    )
+    ok_result_text()
 }
 
 #[derive(Clone)]
@@ -416,37 +294,6 @@ impl McpAgentStore for SqlxMcpAgentStore {
     async fn delete_agent(&self, agent_id: Uuid) -> AppResult<()> {
         self.repo.delete_agent(agent_id).await
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct DockerMount {
-    source: String,
-    target: String,
-    read_only: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct DockerCreateRequest {
-    image: String,
-    name: String,
-    working_dir: String,
-    env: HashMap<String, String>,
-    labels: HashMap<String, String>,
-    mounts: Vec<DockerMount>,
-    tty: bool,
-    open_stdin: bool,
-    attach_stdin: bool,
-    attach_stdout: bool,
-    attach_stderr: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum DockerSessionState {
-    Created,
-    Running,
-    Stopped,
-    Dead,
-    Unknown,
 }
 
 #[async_trait]
@@ -608,50 +455,6 @@ impl DockerMcpRuntimeBackend for LiveDockerMcpRuntimeBackend {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct DockerRuntimeSession {
-    container_id: String,
-    cli_tool: String,
-}
-
-#[derive(Debug, Clone)]
-struct CompletionObservation {
-    initial_hash: String,
-    last_hash: Option<String>,
-    stable_polls: usize,
-    saw_working_indicator: bool,
-    first_seen_at: Instant,
-}
-
-impl CompletionObservation {
-    fn new(initial_hash: String, saw_working_indicator: bool) -> Self {
-        Self { initial_hash, last_hash: None, stable_polls: 0, saw_working_indicator, first_seen_at: Instant::now() }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct DockerMcpRuntimeOptions {
-    ready_poll_interval: Duration,
-    ready_timeout: Duration,
-    prompt_chunk_delay: Duration,
-    completion_initial_delay: Duration,
-    completion_poll_interval: Duration,
-    completion_stable_polls: usize,
-}
-
-impl Default for DockerMcpRuntimeOptions {
-    fn default() -> Self {
-        Self {
-            ready_poll_interval: Duration::from_millis(500),
-            ready_timeout: Duration::from_secs(90),
-            prompt_chunk_delay: Duration::from_millis(150),
-            completion_initial_delay: Duration::from_secs(2),
-            completion_poll_interval: Duration::from_millis(500),
-            completion_stable_polls: 3,
-        }
-    }
-}
-
 #[derive(Clone)]
 struct DockerMcpAgentRuntime<S, D> {
     store: S,
@@ -700,10 +503,7 @@ where
                 return Ok(());
             }
             if Instant::now() >= deadline {
-                return Err(ErrorKind::Internal(anyhow!(
-                    "timed out waiting for {cli_tool} prompt in container {container_id}"
-                ))
-                .into());
+                return Err(cli_ready_timeout_error(cli_tool, container_id));
             }
             sleep(self.options.ready_poll_interval).await;
         }
@@ -714,7 +514,7 @@ where
         agent_id: Uuid,
         container_id: &str,
         cli_tool: &str,
-        updated_at: Option<chrono::DateTime<Utc>>,
+        updated_at: Option<chrono::DateTime<chrono::Utc>>,
     ) -> AppResult<bool> {
         let markers = runtime_markers(cli_tool);
         let raw_logs = self.docker.fetch_raw_logs(container_id, COMPLETION_LOG_TAIL).await?;
@@ -769,46 +569,18 @@ where
     D: DockerMcpRuntimeBackend + Clone + Send + Sync + 'static,
 {
     async fn create_agent(&self, req: McpAgentRuntimeCreate) -> AppResult<McpAgentRuntimeCreateResult> {
-        let cli_tool = req
-            .env
-            .get("AGENTFORGE_CLI_TOOL")
-            .cloned()
-            .or_else(|| infer_cli_tool_from_image(&req.image).map(str::to_string))
-            .unwrap_or_else(|| "claude".to_string());
+        let plan = docker_create_plan(req.agent_id, req.org_id, req.project_id, req.image, req.cwd, req.env);
 
-        let mut env = req.env;
-        env.insert("AGENTFORGE_AGENT_ID".to_string(), req.agent_id.to_string());
-        env.insert("AGENTFORGE_ORG_ID".to_string(), req.org_id.to_string());
-        env.insert("AGENTFORGE_WORKSPACE_HOST_PATH".to_string(), req.cwd.clone());
-        if let Some(project_id) = req.project_id {
-            env.insert("AGENTFORGE_PROJECT_ID".to_string(), project_id.to_string());
-        }
-
-        let request = DockerCreateRequest {
-            image: req.image,
-            name: format!("agentforge-agent-{}", req.agent_id),
-            working_dir: WORKSPACE_MOUNT_TARGET.to_string(),
-            env,
-            labels: HashMap::from([
-                ("agentforge.agent_id".to_string(), req.agent_id.to_string()),
-                ("agentforge.org_id".to_string(), req.org_id.to_string()),
-                ("agentforge.runtime".to_string(), "rust-mcp".to_string()),
-            ]),
-            mounts: vec![DockerMount { source: req.cwd, target: WORKSPACE_MOUNT_TARGET.to_string(), read_only: false }],
-            tty: true,
-            open_stdin: true,
-            attach_stdin: true,
-            attach_stdout: true,
-            attach_stderr: true,
-        };
-
-        let container_id = self.docker.create_container(request).await?;
+        let container_id = self.docker.create_container(plan.request).await?;
         if let Err(err) = self.docker.start_container(&container_id).await {
             let _ = self.docker.remove_container(&container_id, true).await;
             return Err(err);
         }
 
-        self.remember_session(req.agent_id, DockerRuntimeSession { container_id: container_id.clone(), cli_tool });
+        self.remember_session(
+            req.agent_id,
+            DockerRuntimeSession { container_id: container_id.clone(), cli_tool: plan.cli_tool },
+        );
         self.observations.lock().expect("observation lock").remove(&req.agent_id);
 
         Ok(McpAgentRuntimeCreateResult { container_id })
@@ -817,7 +589,10 @@ where
     async fn send_prompt(&self, agent_id: Uuid, prompt: &str) -> AppResult<()> {
         let record = self.store.get_agent(agent_id).await?;
         let container_id = require_container_id(&record)?;
-        let cli_tool = infer_cli_tool(&record, self.session_meta(agent_id).as_ref());
+        let cli_tool = infer_cli_tool(
+            record.model.as_deref(),
+            self.session_meta(agent_id).as_ref().map(|session| session.cli_tool.as_str()),
+        );
 
         self.wait_for_cli_ready(&container_id, &cli_tool).await?;
         self.docker
@@ -851,7 +626,7 @@ where
         let container_id = require_container_id(&record)?;
         let state = match self.docker.inspect_state(&container_id).await {
             Ok(state) => state,
-            Err(err) if matches!(err.kind, ErrorKind::NotFound(_)) => DockerSessionState::Stopped,
+            Err(err) if is_not_found_error(&err) => DockerSessionState::Stopped,
             Err(err) => return Err(err),
         };
 
@@ -867,7 +642,10 @@ where
         }
 
         if record.status == AgentStatus::Working {
-            let cli_tool = infer_cli_tool(&record, self.session_meta(agent_id).as_ref());
+            let cli_tool = infer_cli_tool(
+                record.model.as_deref(),
+                self.session_meta(agent_id).as_ref().map(|session| session.cli_tool.as_str()),
+            );
             if self.prompt_completed(agent_id, &container_id, &cli_tool, record.updated_at).await? {
                 self.store.update_agent_status(agent_id, AgentStatus::Idle).await?;
                 self.observations.lock().expect("observation lock").remove(&agent_id);
@@ -880,66 +658,8 @@ where
     }
 }
 
-#[derive(Clone, Copy)]
-struct CliRuntimeMarkers {
-    ready: &'static [&'static str],
-    idle_prompt: &'static [&'static str],
-    working_indicator: &'static [&'static str],
-}
-
-fn runtime_markers(cli_tool: &str) -> CliRuntimeMarkers {
-    match CliToolKind::parse_legacy(cli_tool).unwrap_or(CliToolKind::Claude) {
-        CliToolKind::Codex => CliRuntimeMarkers {
-            ready: &["for shortcuts", "OpenAI Codex"],
-            idle_prompt: &["for shortcuts"],
-            working_indicator: &["Working (", "esc to interrupt"],
-        },
-        CliToolKind::Opencode => CliRuntimeMarkers {
-            ready: &["opencode", "Database migration complete"],
-            idle_prompt: &["opencode"],
-            working_indicator: &[],
-        },
-        CliToolKind::Gemini => CliRuntimeMarkers { ready: &[">"], idle_prompt: &[">"], working_indicator: &[] },
-        CliToolKind::Claude => {
-            CliRuntimeMarkers { ready: &["Try \"", "❯"], idle_prompt: &["❯"], working_indicator: &[] }
-        }
-    }
-}
-
-fn has_any_indicator(text: &str, indicators: &[&str]) -> bool {
-    indicators.iter().any(|indicator| text.contains(indicator))
-}
-
-fn hash_bytes(bytes: &[u8]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    hex::encode(hasher.finalize())
-}
-
-fn infer_cli_tool(record: &McpAgentRecord, session: Option<&DockerRuntimeSession>) -> String {
-    session
-        .map(|meta| meta.cli_tool.clone())
-        .or_else(|| record.model.as_deref().and_then(infer_cli_tool_from_image).map(str::to_string))
-        .unwrap_or_else(|| "claude".to_string())
-}
-
-fn infer_cli_tool_from_image(image: &str) -> Option<&'static str> {
-    CliToolKind::ALL.map(CliToolKind::as_str).into_iter().find(|tool| {
-        image.contains(&format!(":{tool}")) || image.contains(&format!("-{tool}")) || image.ends_with(tool)
-    })
-}
-
-fn stale_working_status(updated_at: Option<chrono::DateTime<Utc>>) -> bool {
-    updated_at
-        .map(|value| Utc::now().signed_duration_since(value) >= ChronoDuration::seconds(DEFAULT_STALE_WORKING_SECS))
-        .unwrap_or(true)
-}
-
 fn require_container_id(record: &McpAgentRecord) -> AppResult<String> {
-    record
-        .container_id
-        .clone()
-        .ok_or_else(|| ErrorKind::Internal(anyhow!("agent {} has no container id", record.agent_id)).into())
+    record.container_id.clone().ok_or_else(|| missing_container_id_error(record.agent_id))
 }
 
 fn docker_error_message(err: &BollardError) -> String {
@@ -951,15 +671,11 @@ fn docker_error_message(err: &BollardError) -> String {
 }
 
 fn docker_into_app_error(err: BollardError) -> AppError {
-    let message = docker_error_message(&err);
-    if message.contains("404") || message.contains("No such container") {
-        return ErrorKind::NotFound(message).into();
-    }
-    ErrorKind::Internal(anyhow!(message)).into()
+    docker_runtime_error(docker_error_message(&err))
 }
 
 fn io_into_app_error(err: std::io::Error) -> AppError {
-    ErrorKind::Internal(anyhow!(err)).into()
+    io_runtime_error(err)
 }
 
 fn read_bool(name: &str) -> bool {
@@ -1003,7 +719,11 @@ mod docker_runtime_tests {
     use std::collections::{HashMap, VecDeque};
     use std::sync::{Arc, Mutex};
 
+    use agentforge_core::ErrorKind;
     use async_trait::async_trait;
+    use chrono::{Duration as ChronoDuration, Utc};
+
+    use crate::domain::mcp::DockerMount;
 
     type StdinWriteRecord = (String, Vec<Vec<u8>>);
 
