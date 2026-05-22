@@ -270,6 +270,14 @@ pub(crate) fn context_resolver_cache_key(task_id: Uuid, agent_id: AgentId, proof
     format!("context_resolver:{task_id}:{}:{}", agent_id.as_uuid(), scope_hash(proof))
 }
 
+pub(crate) fn context_resolver_cache_payload(resolved: &ResolvedContext) -> Option<String> {
+    serde_json::to_string(resolved).ok()
+}
+
+pub(crate) fn resolved_context_from_cache_payload(raw: &str) -> Option<ResolvedContext> {
+    serde_json::from_str(raw).ok()
+}
+
 fn memory_why(confidence: Option<f64>, last_verified_at: Option<DateTime<Utc>>) -> String {
     match (confidence, last_verified_at) {
         (Some(confidence), Some(last_verified_at)) => {
@@ -458,5 +466,21 @@ mod tests {
         assert!(key.starts_with(&format!("context_resolver:{task_id}:{}:", agent_id.as_uuid())));
         assert_eq!(key, context_resolver_cache_key(task_id, agent_id, &read));
         assert_ne!(key, context_resolver_cache_key(task_id, agent_id, &other_read));
+    }
+
+    #[test]
+    fn cache_payload_round_trips_resolved_context() {
+        let resolved = ResolvedContext {
+            applied: vec![item(Uuid::from_u128(0x11111111111141118111111111111111), ContextItemKind::Memory, 5)],
+            suggested: vec![item(Uuid::from_u128(0x22222222222242228222222222222222), ContextItemKind::Skill, 0)],
+            capability: capability(),
+            degradation: vec![DegradationReason::BudgetTruncated],
+            envelope_version: "v1".to_string(),
+        };
+
+        let payload = context_resolver_cache_payload(&resolved).expect("cache payload");
+
+        assert_eq!(resolved_context_from_cache_payload(&payload), Some(resolved));
+        assert!(resolved_context_from_cache_payload("not-json").is_none());
     }
 }
