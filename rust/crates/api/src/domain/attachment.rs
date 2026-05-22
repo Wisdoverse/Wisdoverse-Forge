@@ -3,7 +3,7 @@
 //! This module owns upload metadata and quota policies that are independent of
 //! repositories, object storage clients, HTTP route DTOs, and persistence details.
 
-use agentforge_core::{AgentId, AppResult, ErrorKind};
+use agentforge_core::{AgentId, AppError, AppResult, ErrorKind};
 use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -18,6 +18,14 @@ pub(crate) fn attachment_data_response<T: Serialize>(data: T) -> Value {
 
 pub(crate) fn attachment_delete_response() -> Value {
     json!({ "ok": true })
+}
+
+pub(crate) struct AttachmentRepositoryPolicy;
+
+impl AttachmentRepositoryPolicy {
+    pub(crate) fn attachment_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("attachment {id}")).into()
+    }
 }
 
 /// Upload payload after HTTP multipart fields have been read.
@@ -316,5 +324,15 @@ mod tests {
         assert!(format!("{}", AttachmentMultipartPolicy::duplicate_file_field()).contains("one file"));
         assert!(format!("{}", AttachmentMultipartPolicy::unsupported_field("debug")).contains("debug"));
         assert!(format!("{}", AttachmentMultipartPolicy::invalid_body("bad boundary")).contains("invalid multipart"));
+    }
+
+    #[test]
+    fn attachment_repository_policy_owns_lookup_error() {
+        let id = Uuid::new_v4();
+
+        assert!(matches!(
+            AttachmentRepositoryPolicy::attachment_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("attachment {id}")
+        ));
     }
 }
