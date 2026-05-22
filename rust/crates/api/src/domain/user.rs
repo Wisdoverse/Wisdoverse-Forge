@@ -4,7 +4,7 @@
 //! reset token policy, and user-list pagination that are independent of
 //! repositories, JWT issuance, and email delivery.
 
-use agentforge_core::{AppResult, ErrorKind};
+use agentforge_core::{AppError, AppResult, ErrorKind, UserId};
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use rand::RngCore;
@@ -53,6 +53,38 @@ impl RefreshedAccessToken {
 
     pub(crate) fn expires_in(&self) -> u64 {
         self.expires_in
+    }
+}
+
+pub(crate) struct UserAccessPolicy;
+
+impl UserAccessPolicy {
+    pub(crate) fn ensure_self_profile(actor_user_id: UserId, target_user_id: UserId) -> AppResult<()> {
+        Self::ensure_allowed(actor_user_id == target_user_id)
+    }
+
+    pub(crate) fn require_org_membership<T>(role: Option<T>) -> AppResult<T> {
+        role.ok_or_else(Self::forbidden)
+    }
+
+    pub(crate) fn ensure_workspace_in_org(exists_in_org: bool) -> AppResult<()> {
+        Self::ensure_allowed(exists_in_org)
+    }
+
+    pub(crate) fn ensure_team_readable(can_read: bool) -> AppResult<()> {
+        Self::ensure_allowed(can_read)
+    }
+
+    pub(crate) fn ensure_project_readable(can_read: bool) -> AppResult<()> {
+        Self::ensure_allowed(can_read)
+    }
+
+    fn ensure_allowed(allowed: bool) -> AppResult<()> {
+        if allowed { Ok(()) } else { Err(Self::forbidden()) }
+    }
+
+    fn forbidden() -> AppError {
+        ErrorKind::Forbidden.into()
     }
 }
 
@@ -488,6 +520,24 @@ mod tests {
         assert_eq!(org_only.project_workspace_pair(), None);
         assert_eq!(workspace_only.workspace_id(), Some(workspace_id));
         assert_eq!(workspace_only.project_workspace_pair(), None);
+    }
+
+    #[test]
+    fn user_access_policy_owns_profile_and_context_forbidden_contracts() {
+        let actor = UserId::new();
+        let target = UserId::new();
+
+        assert!(UserAccessPolicy::ensure_self_profile(actor, actor).is_ok());
+        assert!(matches!(UserAccessPolicy::ensure_self_profile(actor, target).unwrap_err().kind, ErrorKind::Forbidden));
+        assert_eq!(UserAccessPolicy::require_org_membership(Some("admin")).unwrap(), "admin");
+        assert!(matches!(
+            UserAccessPolicy::require_org_membership::<&str>(None).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
+        assert!(UserAccessPolicy::ensure_workspace_in_org(true).is_ok());
+        assert!(matches!(UserAccessPolicy::ensure_workspace_in_org(false).unwrap_err().kind, ErrorKind::Forbidden));
+        assert!(matches!(UserAccessPolicy::ensure_team_readable(false).unwrap_err().kind, ErrorKind::Forbidden));
+        assert!(matches!(UserAccessPolicy::ensure_project_readable(false).unwrap_err().kind, ErrorKind::Forbidden));
     }
 
     #[test]
