@@ -30,12 +30,8 @@ impl AgentContainerLifecycleService {
         let docker = self.docker.as_ref().ok_or_else(docker_unavailable)?;
         let agent = self.agents.get(scope, agent_id).await?;
 
-        if agent.cli_tool.is_none() {
-            return Err(ErrorKind::Validation("agent is not container-backed".into()).into());
-        }
-
-        let container_id =
-            agent.container_id.as_ref().ok_or_else(|| ErrorKind::Validation("agent has no container".into()))?;
+        AgentContainerLifecyclePolicy::ensure_container_backed(agent.cli_tool.as_deref())?;
+        let container_id = AgentContainerLifecyclePolicy::restart_container_id(agent.container_id.as_deref())?;
 
         let container_info = match docker.inspect_container(container_id).await {
             Ok(info) => info,
@@ -47,10 +43,7 @@ impl AgentContainerLifecycleService {
                     "agent restart found a stale container reference"
                 );
                 self.agents.clear_container(scope, agent_id).await?;
-                return Err(ErrorKind::Validation(
-                    "agent container is no longer available; start the agent again".into(),
-                )
-                .into());
+                return Err(AgentContainerLifecyclePolicy::stale_container_reference_error().into());
             }
             Err(err) => return Err(docker_lifecycle_unavailable("inspect", err).into()),
         };
@@ -79,10 +72,7 @@ impl AgentContainerLifecycleService {
 
     pub(crate) async fn resume(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<()> {
         let agent = self.agents.get(scope, agent_id).await?;
-        let container_id = agent
-            .container_id
-            .as_ref()
-            .ok_or_else(|| ErrorKind::Validation("agent has no container to resume".into()))?;
+        let container_id = AgentContainerLifecyclePolicy::resume_container_id(agent.container_id.as_deref())?;
 
         if let Some(docker) = &self.docker {
             docker
