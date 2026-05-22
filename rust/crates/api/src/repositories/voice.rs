@@ -1,9 +1,11 @@
 //! Voice repository — database queries for the voice_providers table.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::VoiceProvider;
 use sqlx::PgPool;
 use uuid::Uuid;
+
+use crate::domain::voice::VoiceRepositoryPolicy;
 
 /// Database access layer for voice providers.
 pub struct VoiceRepository {
@@ -75,7 +77,7 @@ impl VoiceRepository {
         .bind(config)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("voice provider {id}")).into())
+        .ok_or_else(|| VoiceRepositoryPolicy::provider_not_found(id))
     }
 
     /// Delete a voice provider.
@@ -90,7 +92,7 @@ impl VoiceRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("voice provider {id}")).into());
+            return Err(VoiceRepositoryPolicy::provider_not_found(id));
         }
         Ok(())
     }
@@ -114,6 +116,6 @@ impl VoiceRepository {
         .bind(scope.org_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("voice provider {id}")).into())
+        .ok_or_else(|| VoiceRepositoryPolicy::provider_not_found(id))
     }
 }
