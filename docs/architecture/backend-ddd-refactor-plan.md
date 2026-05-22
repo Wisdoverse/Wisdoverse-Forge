@@ -232,6 +232,11 @@ Current stacked PRs:
   `services::mcp_docker_runtime`, leaving the MCP entrypoint focused on
   routing/auth/config assembly and extending boundary coverage to prevent
   runtime adapter ownership from returning to the entrypoint.
+- #276 `refactor/backend-ddd-mcp-live-service` -> #275 branch: moves live MCP
+  component construction, environment-derived runtime config, `McpAgentTools`
+  service interface implementation, and the SQLx MCP agent store adapter out of
+  `src/mcp.rs` into service modules; extends MCP boundary coverage so the
+  entrypoint cannot re-own repository, runtime factory, or live config wiring.
 
 ## Execution Rule
 
