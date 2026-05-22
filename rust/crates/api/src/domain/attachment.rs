@@ -91,6 +91,27 @@ pub(crate) fn attachment_download_content_disposition(filename: &str) -> String 
     format!("attachment; filename=\"{escaped}\"")
 }
 
+/// Multipart upload error policy for route-level HTTP field extraction.
+pub(crate) struct AttachmentMultipartPolicy;
+
+impl AttachmentMultipartPolicy {
+    pub(crate) fn missing_field_name() -> ErrorKind {
+        ErrorKind::Validation("multipart field name is required".to_string())
+    }
+
+    pub(crate) fn duplicate_file_field() -> ErrorKind {
+        ErrorKind::Validation("exactly one file field is allowed".to_string())
+    }
+
+    pub(crate) fn unsupported_field(name: &str) -> ErrorKind {
+        ErrorKind::Validation(format!("unsupported multipart field '{name}'"))
+    }
+
+    pub(crate) fn invalid_body(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Validation(format!("invalid multipart body: {err}"))
+    }
+}
+
 /// Validated attachment filename.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct AttachmentFilename {
@@ -287,5 +308,13 @@ mod tests {
             attachment_download_content_disposition("bad\"\r\nname.txt"),
             "attachment; filename=\"bad___name.txt\""
         );
+    }
+
+    #[test]
+    fn multipart_policy_owns_upload_field_errors() {
+        assert!(format!("{}", AttachmentMultipartPolicy::missing_field_name()).contains("field name"));
+        assert!(format!("{}", AttachmentMultipartPolicy::duplicate_file_field()).contains("one file"));
+        assert!(format!("{}", AttachmentMultipartPolicy::unsupported_field("debug")).contains("debug"));
+        assert!(format!("{}", AttachmentMultipartPolicy::invalid_body("bad boundary")).contains("invalid multipart"));
     }
 }
