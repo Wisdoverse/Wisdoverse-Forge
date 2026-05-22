@@ -23,7 +23,7 @@ use crate::repositories::orchestration::{OrchestrationTaskRepository, Participan
 use crate::services::agent::AgentService;
 use crate::services::agent_container_credentials::AgentContainerCredentialService;
 use crate::services::agent_workspace::{
-    CONTAINER_WORKSPACE_ROOT, WorkspaceMountScope, ensure_workspace_belongs_to_org, host_path_for_container_cwd,
+    AgentWorkspaceService, CONTAINER_WORKSPACE_ROOT, WorkspaceMountScope, host_path_for_container_cwd,
     resolve_agent_workspace_paths, workspace_root_from_env,
 };
 use crate::services::auth_callout::AuthCalloutService;
@@ -59,9 +59,9 @@ pub(crate) struct AgentContainerControlService {
     agents: AgentService,
     orchestration: OrchestrationService,
     credentials: AgentContainerCredentialService,
+    workspaces: AgentWorkspaceService,
     docker: Option<Arc<DockerClient>>,
     auth_callout: Option<Arc<AuthCalloutService>>,
-    pool: PgPool,
     settings: AgentContainerControlSettings,
 }
 
@@ -79,9 +79,9 @@ impl AgentContainerControlService {
             OrchestrationTaskRepository::new(pool.clone()),
             ParticipantRepository::new(pool.clone()),
             AgentContainerCredentialService::from_pool_and_app_config(pool.clone(), encryption_key, config),
+            AgentWorkspaceService::from_pool(pool.clone()),
             docker,
             auth_callout,
-            pool,
             AgentContainerControlSettings::from_runtime(workspace_root_from_env(), config, context_features),
         )
     }
@@ -92,18 +92,18 @@ impl AgentContainerControlService {
         orchestration_tasks: OrchestrationTaskRepository,
         participants: ParticipantRepository,
         credentials: AgentContainerCredentialService,
+        workspaces: AgentWorkspaceService,
         docker: Option<Arc<DockerClient>>,
         auth_callout: Option<Arc<AuthCalloutService>>,
-        pool: PgPool,
         settings: AgentContainerControlSettings,
     ) -> Self {
         Self {
             agents: AgentService::new(agents),
             orchestration: OrchestrationService::new(orchestration_tasks, participants),
             credentials,
+            workspaces,
             docker,
             auth_callout,
-            pool,
             settings,
         }
     }
@@ -280,7 +280,7 @@ impl AgentContainerControlService {
     ) -> AppResult<crate::services::agent_workspace::AgentWorkspacePaths> {
         let workspace_scope =
             WorkspaceMountScope { org_id: scope.org_id().as_uuid(), workspace_id: agent.workspace_id.as_uuid() };
-        ensure_workspace_belongs_to_org(&self.pool, workspace_scope.org_id, workspace_scope.workspace_id).await?;
+        self.workspaces.ensure_workspace_belongs_to_org(workspace_scope.org_id, workspace_scope.workspace_id).await?;
         let workspace_paths =
             resolve_agent_workspace_paths(&self.settings.workspace_root, workspace_scope, agent.cwd.as_deref())?;
         tokio::fs::create_dir_all(&workspace_paths.host_projects_root).await.map_err(|err| {
