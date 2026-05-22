@@ -2,10 +2,11 @@
 
 use std::time::Instant;
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use chrono::Utc;
 use sqlx::PgPool;
 
+use crate::domain::usage_analytics::ContextUsageAccessPolicy;
 pub use crate::domain::usage_analytics::{
     ContextUsageAnalyticsResponse, ContextUsageItem, ContextUsageQuery, ContextUsageQuerySummary, ContextUsageSummary,
 };
@@ -34,9 +35,7 @@ impl UsageAnalyticsService {
         scope: &TenantScope,
         query: ContextUsageQuery,
     ) -> AppResult<ContextUsageAnalyticsResponse> {
-        let Some(workspace_id) = scope.workspace_id() else {
-            return Err(ErrorKind::Forbidden.into());
-        };
+        let workspace_id = ContextUsageAccessPolicy::required_workspace(scope)?;
         let query = query.normalized();
         let refresh = self.repo.refresh_status().await?;
         let summary = self.repo.summary(scope, workspace_id).await?;
