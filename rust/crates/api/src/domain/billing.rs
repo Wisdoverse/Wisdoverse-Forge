@@ -289,6 +289,10 @@ impl BillingPlanPolicy {
 pub(crate) struct SubscriptionLifecyclePolicy;
 
 impl SubscriptionLifecyclePolicy {
+    pub(crate) fn missing_active_subscription() -> ErrorKind {
+        ErrorKind::NotFound("no active subscription".to_string())
+    }
+
     pub(crate) fn ensure_no_active_subscription(existing_subscription_id: Option<Uuid>) -> AppResult<()> {
         if let Some(subscription_id) = existing_subscription_id {
             return Err(ErrorKind::Conflict(format!(
@@ -526,6 +530,10 @@ mod tests {
     fn subscription_lifecycle_policy_requires_single_active_subscription_and_stripe_ids() {
         let subscription_id = Uuid::parse_str("11111111-1111-4111-8111-111111111111").unwrap();
 
+        assert!(
+            format!("{}", SubscriptionLifecyclePolicy::missing_active_subscription())
+                .contains("no active subscription")
+        );
         assert!(SubscriptionLifecyclePolicy::ensure_no_active_subscription(None).is_ok());
         assert!(SubscriptionLifecyclePolicy::ensure_no_active_subscription(Some(subscription_id)).is_err());
         assert_eq!(SubscriptionLifecyclePolicy::require_stripe_subscription_id(Some(" sub_123 ")).unwrap(), "sub_123");
