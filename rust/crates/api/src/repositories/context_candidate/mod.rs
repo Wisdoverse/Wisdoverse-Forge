@@ -6,13 +6,15 @@ pub mod feedback;
 pub use approval::{ContextApprovalRepository, CreateContextApprovalRecord};
 pub use feedback::{ContextFeedbackRepository, CreateContextFeedbackRecord};
 
-use agentforge_core::{AppResult, ErrorKind, OrgId, ScopedRead, SkillId, TenantScope, UserId, WorkspaceId};
+use agentforge_core::{AppResult, OrgId, ScopedRead, SkillId, TenantScope, UserId, WorkspaceId};
 use agentforge_db::entities::ContextCandidate;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 use sqlx::FromRow;
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
+
+use crate::domain::context::ContextCandidatePolicy;
 
 pub struct CreateContextCandidateRecord<'a> {
     pub workspace_id: WorkspaceId,
@@ -165,7 +167,7 @@ impl ContextCandidateRepository {
         id: Uuid,
     ) -> AppResult<ContextCandidate> {
         if proof.workspace_ids().is_empty() {
-            return Err(ErrorKind::NotFound(format!("context candidate {id}")).into());
+            return Err(ContextCandidatePolicy::not_found(id));
         }
 
         sqlx::query_as::<_, ContextCandidate>(
@@ -181,7 +183,7 @@ impl ContextCandidateRepository {
         .bind(workspace_ids(proof))
         .fetch_optional(&mut **tx)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("context candidate {id}")).into())
+        .ok_or_else(|| ContextCandidatePolicy::not_found(id))
     }
 
     pub async fn update_state_in_tx(
