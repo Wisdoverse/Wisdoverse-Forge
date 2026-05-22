@@ -237,6 +237,13 @@ Current stacked PRs:
   service interface implementation, and the SQLx MCP agent store adapter out of
   `src/mcp.rs` into service modules; extends MCP boundary coverage so the
   entrypoint cannot re-own repository, runtime factory, or live config wiring.
+- #277 `refactor/backend-ddd-gateway-boundary` -> #276 branch: moves WebSocket
+  gateway origin/auth error policy, NATS subscription subjects, realtime warning
+  frames, terminal client-message/payload parsing, terminal frame construction,
+  and agent terminal attach-target lookup into domain/service boundaries; adds
+  gateway boundary coverage so WebSocket entrypoints cannot reintroduce raw SQL,
+  response JSON construction, serde adapters, repository wiring, or direct
+  `ErrorKind` policy.
 
 ## Execution Rule
 
