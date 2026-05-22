@@ -1,7 +1,50 @@
 //! NATS auth-callout protocol payloads.
 
+use agentforge_core::{AppResult, ErrorKind};
+
 pub(crate) fn nats_kick_payload(client_cid: u64) -> String {
     serde_json::json!({ "cid": client_cid }).to_string()
+}
+
+pub(crate) struct AuthCalloutWorkerPolicy;
+
+impl AuthCalloutWorkerPolicy {
+    pub(crate) fn missing_nats_url_scheme() -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("NATS_URL missing scheme://host separator"))
+    }
+
+    pub(crate) fn missing_auth_service_password() -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("NATS_CALLOUT__AUTH_SERVICE_PASSWORD required"))
+    }
+
+    pub(crate) fn auth_nats_connect_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("AUTH NATS connect: {err}"))
+    }
+
+    pub(crate) fn missing_issuer_seed() -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("NATS_CALLOUT__ISSUER_SEED required"))
+    }
+
+    pub(crate) fn missing_account_signing_key_seed() -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("NATS_CALLOUT__ACCOUNT_SIGNING_KEY_SEED required"))
+    }
+
+    pub(crate) fn missing_xkey_seed() -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("NATS_CALLOUT__XKEY_SEED required"))
+    }
+
+    pub(crate) fn missing_server_name() -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("NATS_CALLOUT__SERVER_NAME required"))
+    }
+}
+
+pub(crate) fn auth_callout_nats_host_url(backend_url: &str) -> AppResult<String> {
+    let (scheme, rest) = backend_url.split_once("://").ok_or_else(AuthCalloutWorkerPolicy::missing_nats_url_scheme)?;
+    let host = match rest.rsplit_once('@') {
+        Some((_, host)) => host,
+        None => rest,
+    };
+    Ok(format!("{scheme}://{host}"))
 }
 
 /// Auth-callout handler output on every allow or deny path.
@@ -138,6 +181,43 @@ mod tests {
     #[test]
     fn nats_kick_payload_owns_sys_request_shape() {
         assert_eq!(nats_kick_payload(42), r#"{"cid":42}"#);
+    }
+
+    #[test]
+    fn auth_callout_nats_host_url_removes_embedded_creds() {
+        assert_eq!(auth_callout_nats_host_url("nats://backend:pw@nats:4222").unwrap(), "nats://nats:4222");
+    }
+
+    #[test]
+    fn auth_callout_nats_host_url_preserves_plain_host() {
+        assert_eq!(auth_callout_nats_host_url("nats://nats:4222").unwrap(), "nats://nats:4222");
+    }
+
+    #[test]
+    fn auth_callout_nats_host_url_rejects_malformed_input() {
+        let err = auth_callout_nats_host_url("not-a-url").expect_err("malformed URL should fail");
+
+        assert!(format!("{}", err.kind).contains("NATS_URL missing scheme"));
+    }
+
+    #[test]
+    fn auth_callout_nats_host_url_uses_last_at_boundary() {
+        assert_eq!(auth_callout_nats_host_url("nats://u:a:b@nats:4222").unwrap(), "nats://nats:4222");
+    }
+
+    #[test]
+    fn auth_callout_worker_policy_owns_runtime_error_contracts() {
+        for err in [
+            AuthCalloutWorkerPolicy::missing_nats_url_scheme(),
+            AuthCalloutWorkerPolicy::missing_auth_service_password(),
+            AuthCalloutWorkerPolicy::auth_nats_connect_failed("refused"),
+            AuthCalloutWorkerPolicy::missing_issuer_seed(),
+            AuthCalloutWorkerPolicy::missing_account_signing_key_seed(),
+            AuthCalloutWorkerPolicy::missing_xkey_seed(),
+            AuthCalloutWorkerPolicy::missing_server_name(),
+        ] {
+            assert!(!format!("{err}").is_empty());
+        }
     }
 
     #[test]
