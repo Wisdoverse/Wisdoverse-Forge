@@ -43,7 +43,7 @@ pub struct AddSshKeyRequest {
 
 /// Build an SshKeyService from shared state.
 fn make_service(state: &AppState) -> SshKeyService {
-    SshKeyService::from_pool(state.pool.clone())
+    state.ssh_key_service()
 }
 
 /// `POST /api/ssh-keys` — add a new SSH key.
