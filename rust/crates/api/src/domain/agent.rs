@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 
-use agentforge_core::{AgentStatus, AppResult, CliToolKind, ErrorKind};
+use agentforge_core::{AgentId, AgentStatus, AppError, AppResult, CliToolKind, ErrorKind};
 use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -663,6 +663,42 @@ impl McpAgentRuntimePolicy {
     }
 }
 
+pub(crate) struct AgentRepositoryPolicy;
+
+impl AgentRepositoryPolicy {
+    pub(crate) fn agent_not_found(id: AgentId) -> AppError {
+        ErrorKind::NotFound(format!("agent {id}")).into()
+    }
+
+    pub(crate) fn agent_uuid_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("agent {id}")).into()
+    }
+
+    pub(crate) fn project_not_found(project_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("project {project_id}")).into()
+    }
+
+    pub(crate) fn workspace_not_found(workspace_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("workspace {workspace_id}")).into()
+    }
+
+    pub(crate) fn tenant_context_required() -> AppError {
+        ErrorKind::Validation("project or tenant context is required".into()).into()
+    }
+
+    pub(crate) fn organization_member_not_found(org_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("organization member for {org_id}")).into()
+    }
+
+    pub(crate) fn collaborator_already_exists() -> AppError {
+        ErrorKind::Conflict("user is already a collaborator on this agent".into()).into()
+    }
+
+    pub(crate) fn collaborator_not_found(agent_id: AgentId, user_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("collaborator {user_id} on agent {agent_id}")).into()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1067,5 +1103,45 @@ mod tests {
 
         assert_eq!(env.get("OPENAI_API_KEY").map(String::as_str), Some("sk-test"));
         assert!(!env.contains_key("ANTHROPIC_API_KEY"));
+    }
+
+    #[test]
+    fn agent_repository_policy_owns_lookup_and_collaboration_error_contracts() {
+        let agent_id = AgentId::new();
+        let raw_agent_id = Uuid::new_v4();
+        let project_id = Uuid::new_v4();
+        let workspace_id = Uuid::new_v4();
+        let org_id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+
+        assert!(matches!(
+            AgentRepositoryPolicy::agent_not_found(agent_id).kind,
+            ErrorKind::NotFound(message) if message == format!("agent {agent_id}")
+        ));
+        assert!(matches!(
+            AgentRepositoryPolicy::agent_uuid_not_found(raw_agent_id).kind,
+            ErrorKind::NotFound(message) if message == format!("agent {raw_agent_id}")
+        ));
+        assert!(matches!(
+            AgentRepositoryPolicy::project_not_found(project_id).kind,
+            ErrorKind::NotFound(message) if message == format!("project {project_id}")
+        ));
+        assert!(matches!(
+            AgentRepositoryPolicy::workspace_not_found(workspace_id).kind,
+            ErrorKind::NotFound(message) if message == format!("workspace {workspace_id}")
+        ));
+        assert!(matches!(
+            AgentRepositoryPolicy::tenant_context_required().kind,
+            ErrorKind::Validation(message) if message == "project or tenant context is required"
+        ));
+        assert!(matches!(
+            AgentRepositoryPolicy::organization_member_not_found(org_id).kind,
+            ErrorKind::NotFound(message) if message == format!("organization member for {org_id}")
+        ));
+        assert!(matches!(AgentRepositoryPolicy::collaborator_already_exists().kind, ErrorKind::Conflict(_)));
+        assert!(matches!(
+            AgentRepositoryPolicy::collaborator_not_found(agent_id, user_id).kind,
+            ErrorKind::NotFound(message) if message == format!("collaborator {user_id} on agent {agent_id}")
+        ));
     }
 }
