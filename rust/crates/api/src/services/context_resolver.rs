@@ -16,8 +16,8 @@ pub use crate::domain::context_resolver::{
     SelectedContext, apply_context_selection,
 };
 use crate::domain::context_resolver::{
-    ContextResolverPolicy, MemoryCandidate, apply_budget, context_resolver_cache_key, push_degradation,
-    skill_suggestion_item, task_search_text,
+    ContextResolverPolicy, MemoryCandidate, apply_budget, context_resolver_cache_key, context_resolver_cache_payload,
+    push_degradation, resolved_context_from_cache_payload, skill_suggestion_item, task_search_text,
 };
 use crate::repositories::context_resolver::ContextResolverRepository;
 use crate::services::runtime_capability_registry::RuntimeCapabilityRegistryService;
@@ -186,14 +186,14 @@ impl ContextResolverService {
                 return None;
             }
         };
-        raw.and_then(|raw| serde_json::from_str(&raw).ok())
+        raw.and_then(|raw| resolved_context_from_cache_payload(&raw))
     }
 
     async fn redis_set(&self, key: &str, resolved: &ResolvedContext) {
         let Some(redis) = &self.redis else {
             return;
         };
-        let Ok(payload) = serde_json::to_string(resolved) else {
+        let Some(payload) = context_resolver_cache_payload(resolved) else {
             return;
         };
         let mut redis = redis.write().await;
