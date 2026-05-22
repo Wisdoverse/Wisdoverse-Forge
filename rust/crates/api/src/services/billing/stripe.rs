@@ -13,6 +13,8 @@ use serde_json::Value;
 use sha2::Sha256;
 use uuid::Uuid;
 
+use crate::domain::billing::{StripeInvoiceSnapshot, StripeSubscriptionSnapshot};
+
 type HmacSha256 = Hmac<Sha256>;
 
 const STRIPE_API_BASE: &str = "https://api.stripe.com";
@@ -49,31 +51,6 @@ pub struct CheckoutSession {
 #[derive(Debug, Clone)]
 pub struct PortalSession {
     pub url: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct StripeSubscriptionSnapshot {
-    pub id: String,
-    pub customer_id: Option<String>,
-    pub status: String,
-    pub current_period_start: Option<DateTime<Utc>>,
-    pub current_period_end: Option<DateTime<Utc>>,
-    pub cancel_at_period_end: bool,
-    pub canceled_at: Option<DateTime<Utc>>,
-    pub metadata: BTreeMap<String, String>,
-    pub price_id: Option<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct StripeInvoiceSnapshot {
-    pub id: String,
-    pub customer_id: Option<String>,
-    pub subscription_id: Option<String>,
-    pub amount_cents: i32,
-    pub currency: String,
-    pub status: String,
-    pub paid_at: Option<DateTime<Utc>>,
-    pub created_at: DateTime<Utc>,
 }
 
 #[async_trait]
