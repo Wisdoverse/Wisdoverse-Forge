@@ -536,6 +536,41 @@ impl ContainerCliCredentialPolicy {
         }
         Ok(())
     }
+
+    pub(crate) fn missing_storage_key() -> ErrorKind {
+        ErrorKind::Validation(
+            "LLM_ENCRYPTION_KEY is not configured — refusing to store plaintext credentials".to_string(),
+        )
+    }
+
+    pub(crate) fn stored_oauth_decrypt_failed(cli_tool: &str) -> ErrorKind {
+        ErrorKind::Validation(format!(
+            "stored {cli_tool} credentials cannot be decrypted — reconnect via /api/v1/cli-auth-proxy or /api/v1/cli-credentials"
+        ))
+    }
+}
+
+/// Git credential encryption and stored-token error policy.
+pub(crate) struct GitCredentialEncryptionPolicy;
+
+impl GitCredentialEncryptionPolicy {
+    pub(crate) fn missing_decrypt_key() -> ErrorKind {
+        ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured - cannot decrypt stored git credentials".into())
+    }
+
+    pub(crate) fn missing_storage_key() -> ErrorKind {
+        ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured - refusing to store plaintext git tokens".into())
+    }
+
+    pub(crate) fn ciphertext_not_utf8(provider: &str, err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Validation(format!("stored {provider} git credential ciphertext is not UTF-8: {err}"))
+    }
+
+    pub(crate) fn decrypt_failed(provider: &str) -> ErrorKind {
+        ErrorKind::Validation(format!(
+            "stored {provider} git credential cannot be decrypted - reconnect it in Settings"
+        ))
+    }
 }
 
 /// User-owned LLM provider configuration policy.
@@ -560,6 +595,26 @@ pub(crate) struct LlmProviderUpdateDraft {
 }
 
 impl LlmProviderPolicy {
+    pub(crate) fn provider_model_conflict() -> ErrorKind {
+        ErrorKind::Conflict("provider/model already exists".into())
+    }
+
+    pub(crate) fn required_test_model(model: Option<&str>) -> AppResult<String> {
+        model
+            .map(str::trim)
+            .filter(|model| !model.is_empty())
+            .map(str::to_string)
+            .ok_or_else(|| ErrorKind::Validation("model is required before testing a provider".into()).into())
+    }
+
+    pub(crate) fn missing_test_api_key() -> ErrorKind {
+        ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured - cannot test stored API keys".into())
+    }
+
+    pub(crate) fn missing_storage_key() -> ErrorKind {
+        ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured - refusing to store plaintext API keys".into())
+    }
+
     pub(crate) fn normalize_supported_provider(provider: &str) -> AppResult<String> {
         let provider = normalize_provider_key(provider);
         if provider_spec(&provider).is_none() {
@@ -1109,6 +1164,17 @@ mod tests {
     }
 
     #[test]
+    fn llm_provider_policy_owns_test_and_encryption_error_contracts() {
+        assert_eq!(LlmProviderPolicy::required_test_model(Some(" gpt-5.5 ")).unwrap(), "gpt-5.5");
+        assert!(LlmProviderPolicy::required_test_model(Some(" ")).is_err());
+        assert!(format!("{}", LlmProviderPolicy::provider_model_conflict()).contains("provider/model already exists"));
+        assert!(format!("{}", LlmProviderPolicy::missing_test_api_key()).contains("cannot test stored API keys"));
+        assert!(
+            format!("{}", LlmProviderPolicy::missing_storage_key()).contains("refusing to store plaintext API keys")
+        );
+    }
+
+    #[test]
     fn supported_provider_shape_contains_all_frontend_keys() {
         let providers = supported_provider_list();
         let keys: Vec<_> = providers.iter().map(|provider| provider.provider).collect();
@@ -1238,6 +1304,25 @@ mod tests {
     fn git_credential_token_trims_and_rejects_empty_values() {
         assert_eq!(GitCredentialToken::parse("  ghp-secret  ").map(GitCredentialToken::value), Some("ghp-secret"));
         assert_eq!(GitCredentialToken::parse("  "), None);
+    }
+
+    #[test]
+    fn credential_encryption_policies_own_user_visible_error_messages() {
+        assert!(format!("{}", ContainerCliCredentialPolicy::missing_storage_key()).contains("plaintext credentials"));
+        assert!(
+            format!("{}", ContainerCliCredentialPolicy::stored_oauth_decrypt_failed("codex"))
+                .contains("stored codex credentials cannot be decrypted")
+        );
+        assert!(format!("{}", GitCredentialEncryptionPolicy::missing_decrypt_key()).contains("cannot decrypt"));
+        assert!(format!("{}", GitCredentialEncryptionPolicy::missing_storage_key()).contains("plaintext git tokens"));
+        assert!(
+            format!("{}", GitCredentialEncryptionPolicy::ciphertext_not_utf8("github", "bad utf8"))
+                .contains("stored github git credential ciphertext is not UTF-8")
+        );
+        assert!(
+            format!("{}", GitCredentialEncryptionPolicy::decrypt_failed("gitlab"))
+                .contains("stored gitlab git credential cannot be decrypted")
+        );
     }
 
     #[test]
