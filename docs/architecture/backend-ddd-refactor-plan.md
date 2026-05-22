@@ -176,6 +176,12 @@ then guard production services against reintroducing direct SQL. After that
 lands, continue with aggregate-specific policy/adapter drift rather than another
 small route sweep.
 
+PR #254 follows with production service protocol/payload construction. Move
+sidecar command payloads, CLI auth proxy encrypted file-map payloads, NATS KICK
+payloads, governance audit export payloads, and common configuration/skill/
+memory JSON defaults into domain modules; extend the service boundary test so
+production services cannot reintroduce raw JSON payload construction.
+
 ## Validation
 
 Choose checks by changed surface. For backend DDD batches, run at least:
@@ -283,6 +289,9 @@ Current open stack:
   resolver, context envelope, context usage analytics, memory/skill/context
   scope membership, and agent workspace SQL from services into repository
   modules and adds regression coverage that blocks production service raw SQL.
+- #254 service payload domain sweep, stacked on #253, moves production service
+  JSON/protocol payload construction into domain modules and expands service
+  boundary coverage to block production `json!` payload construction.
 
 Before starting a new PR, inspect the current state of #229-#252. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
