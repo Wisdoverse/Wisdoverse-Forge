@@ -9,8 +9,8 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 pub(crate) use crate::domain::attachment::{
-    AttachmentAgentScope, AttachmentUploadDraft, DEFAULT_ATTACHMENT_CONTENT_TYPE, attachment_data_response,
-    attachment_delete_response, attachment_download_content_disposition,
+    AttachmentAgentScope, AttachmentMultipartPolicy, AttachmentUploadDraft, DEFAULT_ATTACHMENT_CONTENT_TYPE,
+    attachment_data_response, attachment_delete_response, attachment_download_content_disposition,
 };
 use crate::domain::attachment::{
     AttachmentContentType, AttachmentCountPolicy, AttachmentDownload, AttachmentFilename, AttachmentPayloadSize,

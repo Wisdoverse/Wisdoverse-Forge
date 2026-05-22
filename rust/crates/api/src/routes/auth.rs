@@ -13,13 +13,15 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
-use agentforge_core::{AppError, AppResult, ErrorKind};
+use agentforge_core::{AppError, AppResult};
 
 use crate::health::AppState;
 use crate::services::user::{
-    LoginResult, SwitchContextInput, UserService, auth_error_response_body, auth_me_response, auth_message_response,
-    auth_ok_response, auth_providers_response, auth_refresh_response, auth_success_response_body,
-    auth_switch_context_response,
+    AuthErrorResponseContract, LoginResult, SwitchContextInput, UserService, auth_error_response_body,
+    auth_error_response_contract, auth_me_response, auth_message_response, auth_ok_response, auth_providers_response,
+    auth_refresh_response, auth_success_response_body, auth_switch_context_response,
+    invalid_refresh_token_response_contract, is_unauthorized_error, missing_refresh_token_response_contract,
+    password_reset_error_response_contract,
 };
 
 /// Login request body.
@@ -96,18 +98,7 @@ pub async fn forgot_password(State(state): State<AppState>, Json(req): Json<Forg
             "If an account exists for that email, password reset instructions have been sent.",
         ))
         .into_response(),
-        Err(err) => match err.kind {
-            ErrorKind::Validation(message) => auth_json_error(StatusCode::BAD_REQUEST, "VALIDATION_ERROR", &message),
-            ErrorKind::Internal(error) => {
-                tracing::error!(error = %error, "password reset email failed");
-                auth_json_error(
-                    StatusCode::SERVICE_UNAVAILABLE,
-                    "EMAIL_UNAVAILABLE",
-                    "Password reset email service is unavailable",
-                )
-            }
-            other => auth_error_response(AppError { kind: other }, None),
-        },
+        Err(err) => auth_contract_response(err, password_reset_error_response_contract),
     }
 }
 
@@ -149,13 +140,13 @@ pub async fn logout(State(state): State<AppState>) -> Response {
 pub async fn refresh_token(State(state): State<AppState>, headers: HeaderMap) -> Response {
     let service = make_service(&state);
     let Some(refresh_token) = read_cookie(&headers, service.refresh_cookie_name()) else {
-        return auth_json_error(StatusCode::UNAUTHORIZED, "UNAUTHORIZED", "Missing refresh token");
+        return auth_json_error(missing_refresh_token_response_contract());
     };
 
     match service.refresh_session(&refresh_token) {
         Ok(session) => Json(auth_refresh_response(&session)).into_response(),
         Err(err) => {
-            if matches!(err.kind, ErrorKind::Unauthorized) {
+            if is_unauthorized_error(&err) {
                 return invalid_refresh_response(&service);
             }
 
@@ -167,11 +158,8 @@ pub async fn refresh_token(State(state): State<AppState>, headers: HeaderMap) ->
 fn invalid_refresh_response(service: &UserService) -> Response {
     let mut response_headers = HeaderMap::new();
     response_headers.insert(header::SET_COOKIE, cookie_header_value(service.clear_refresh_cookie()));
-    (
-        StatusCode::UNAUTHORIZED,
-        response_headers,
-        Json(auth_error_response_body("UNAUTHORIZED", "Invalid or expired refresh token")),
-    )
+    let contract = invalid_refresh_token_response_contract();
+    (status_code(&contract), response_headers, Json(auth_error_response_body(contract.code(), contract.message())))
         .into_response()
 }
 
@@ -219,29 +207,30 @@ fn auth_success_response(status: StatusCode, service: &UserService, result: Logi
 }
 
 fn auth_error_response(err: AppError, unauthorized_message: Option<&str>) -> Response {
-    match err.kind {
-        ErrorKind::Unauthorized => {
-            auth_json_error(StatusCode::UNAUTHORIZED, "UNAUTHORIZED", unauthorized_message.unwrap_or("Unauthorized"))
-        }
-        ErrorKind::Forbidden => auth_json_error(StatusCode::FORBIDDEN, "FORBIDDEN", "Forbidden"),
-        ErrorKind::Validation(message) => auth_json_error(StatusCode::BAD_REQUEST, "VALIDATION_ERROR", &message),
-        ErrorKind::Unprocessable(message) => {
-            auth_json_error(StatusCode::UNPROCESSABLE_ENTITY, "UNPROCESSABLE_ENTITY", &message)
-        }
-        ErrorKind::Conflict(message) => auth_json_error(StatusCode::CONFLICT, "CONFLICT", &message),
-        ErrorKind::NotFound(message) => auth_json_error(StatusCode::NOT_FOUND, "NOT_FOUND", &message),
-        ErrorKind::Unavailable(message) => {
-            auth_json_error(StatusCode::SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE", &message)
-        }
-        ErrorKind::Internal(err) => {
-            tracing::error!(error = %err, "internal server error");
-            auth_json_error(StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "Internal server error")
-        }
+    let contract = auth_error_response_contract(&err, unauthorized_message);
+    if contract.log_internal() {
+        tracing::error!(error = ?err, "internal server error");
     }
+    auth_json_error(contract)
 }
 
-fn auth_json_error(status: StatusCode, code: &str, message: &str) -> Response {
-    (status, Json(auth_error_response_body(code, message))).into_response()
+fn auth_contract_response(
+    err: AppError,
+    contract_for: impl FnOnce(&AppError) -> AuthErrorResponseContract,
+) -> Response {
+    let contract = contract_for(&err);
+    if contract.log_internal() {
+        tracing::error!(error = ?err, "auth route error");
+    }
+    auth_json_error(contract)
+}
+
+fn auth_json_error(contract: AuthErrorResponseContract) -> Response {
+    (status_code(&contract), Json(auth_error_response_body(contract.code(), contract.message()))).into_response()
+}
+
+fn status_code(contract: &AuthErrorResponseContract) -> StatusCode {
+    StatusCode::from_u16(contract.status()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR)
 }
 
 fn cookie_header_value(cookie: String) -> HeaderValue {
