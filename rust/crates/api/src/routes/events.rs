@@ -73,7 +73,7 @@ fn default_payload() -> serde_json::Value {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> EventService {
-    EventService::from_pool(state.pool.clone())
+    state.event_service()
 }
 
 /// `POST /api/events` — ingest a new event.
