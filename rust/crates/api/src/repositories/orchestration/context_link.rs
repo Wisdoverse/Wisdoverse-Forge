@@ -1,10 +1,12 @@
 //! Context provenance link repository.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope, UserId, WorkspaceId};
+use agentforge_core::{AppResult, TenantScope, UserId, WorkspaceId};
 use agentforge_db::entities::ContextLink;
 use chrono::{DateTime, Utc};
 use sqlx::{FromRow, PgPool, Postgres, Transaction};
 use uuid::Uuid;
+
+use crate::domain::orchestration::OrchestrationRepositoryPolicy;
 
 pub struct CreateContextLinkRecord<'a> {
     pub workspace_id: WorkspaceId,
@@ -77,7 +79,7 @@ impl ContextLinkRepository {
         limit: i64,
         offset: i64,
     ) -> AppResult<Vec<ContextLinkedRunRow>> {
-        let workspace_id = scope.workspace_id().ok_or_else(|| agentforge_core::AppError::from(ErrorKind::Forbidden))?;
+        let workspace_id = OrchestrationRepositoryPolicy::required_workspace(scope)?;
         let rows = sqlx::query_as::<_, ContextLinkedRunRow>(
             r#"SELECT cl.id AS link_id,
                       tr.id AS run_id,
@@ -136,7 +138,7 @@ impl ContextLinkRepository {
 }
 
 fn require_workspace(scope: &TenantScope, workspace_id: WorkspaceId) -> AppResult<()> {
-    if scope.workspace_id() == Some(workspace_id) { Ok(()) } else { Err(ErrorKind::Forbidden.into()) }
+    OrchestrationRepositoryPolicy::ensure_workspace(scope, workspace_id)
 }
 
 async fn validate_actor_in_org(
@@ -156,7 +158,7 @@ async fn validate_actor_in_org(
     .bind(user_id.as_uuid())
     .fetch_one(&mut **tx)
     .await?;
-    if exists { Ok(()) } else { Err(ErrorKind::Forbidden.into()) }
+    OrchestrationRepositoryPolicy::ensure_exists_or_forbidden(exists)
 }
 
 async fn validate_item_exists(
@@ -199,10 +201,10 @@ async fn validate_item_exists(
             .fetch_one(&mut **tx)
             .await?
         }
-        _ => return Err(ErrorKind::Validation(format!("invalid context item kind: {item_kind}")).into()),
+        _ => return Err(OrchestrationRepositoryPolicy::invalid_context_item_kind(item_kind)),
     };
 
-    if exists { Ok(()) } else { Err(ErrorKind::Forbidden.into()) }
+    OrchestrationRepositoryPolicy::ensure_exists_or_forbidden(exists)
 }
 
 async fn validate_ref_exists(
@@ -317,10 +319,10 @@ async fn validate_ref_exists(
             .fetch_one(&mut **tx)
             .await?
         }
-        _ => return Err(ErrorKind::Validation(format!("invalid context ref kind: {ref_kind}")).into()),
+        _ => return Err(OrchestrationRepositoryPolicy::invalid_context_ref_kind(ref_kind)),
     };
 
-    if exists { Ok(()) } else { Err(ErrorKind::Forbidden.into()) }
+    OrchestrationRepositoryPolicy::ensure_exists_or_forbidden(exists)
 }
 
 fn normalize_limit(limit: i64) -> i64 {
