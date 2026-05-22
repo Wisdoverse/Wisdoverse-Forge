@@ -499,12 +499,24 @@ impl SkillContentPolicy {
 pub(crate) struct SkillJsonObjectPolicy;
 
 impl SkillJsonObjectPolicy {
+    pub(crate) fn resolve(value: Option<Value>) -> Value {
+        value.unwrap_or_else(|| Value::Object(serde_json::Map::new()))
+    }
+
     pub(crate) fn validate(name: &str, value: &Value) -> AppResult<()> {
         if value.as_object().is_some() {
             Ok(())
         } else {
             Err(ErrorKind::Validation(format!("{name} must be a JSON object")).into())
         }
+    }
+}
+
+pub(crate) struct SkillJsonArrayPolicy;
+
+impl SkillJsonArrayPolicy {
+    pub(crate) fn resolve(value: Option<Value>) -> Value {
+        value.unwrap_or_else(|| Value::Array(Vec::new()))
     }
 }
 
@@ -1047,9 +1059,17 @@ mod tests {
 
     #[test]
     fn skill_json_object_policy_rejects_non_objects() {
+        assert_eq!(SkillJsonObjectPolicy::resolve(None), json!({}));
+        assert_eq!(SkillJsonObjectPolicy::resolve(Some(json!({ "source": "manual" }))), json!({ "source": "manual" }));
         assert!(SkillJsonObjectPolicy::validate("provenance", &json!({})).is_ok());
         assert!(SkillJsonObjectPolicy::validate("provenance", &json!([])).is_err());
         assert!(SkillJsonObjectPolicy::validate("provenance", &json!("value")).is_err());
+    }
+
+    #[test]
+    fn skill_json_array_policy_defaults_to_empty_array() {
+        assert_eq!(SkillJsonArrayPolicy::resolve(None), json!([]));
+        assert_eq!(SkillJsonArrayPolicy::resolve(Some(json!(["input"]))), json!(["input"]));
     }
 
     #[test]

@@ -92,6 +92,14 @@ impl MemoryScopeTargetPolicy {
     }
 }
 
+pub(crate) struct MemoryProvenancePolicy;
+
+impl MemoryProvenancePolicy {
+    pub(crate) fn resolve(provenance: Option<Value>) -> Value {
+        provenance.unwrap_or_else(|| Value::Object(serde_json::Map::new()))
+    }
+}
+
 pub(crate) struct MemoryReclassificationPolicy;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -759,6 +767,12 @@ mod tests {
         assert_eq!(MemoryVisibility::parse(Some("private")).unwrap().as_str(), "private");
         assert_eq!(MemoryVisibility::parse(Some("shared")).unwrap().as_str(), "shared");
         assert!(MemoryVisibility::parse(Some("team")).is_err());
+    }
+
+    #[test]
+    fn memory_provenance_policy_defaults_to_empty_object() {
+        assert_eq!(MemoryProvenancePolicy::resolve(None), json!({}));
+        assert_eq!(MemoryProvenancePolicy::resolve(Some(json!({ "source": "manual" }))), json!({ "source": "manual" }));
     }
 
     #[test]
