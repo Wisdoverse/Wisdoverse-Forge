@@ -6,6 +6,7 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use chrono::{DateTime, Utc};
 use secrecy::SecretString;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use uuid::Uuid;
 
@@ -184,6 +185,26 @@ impl CliAuthProxyPolicy {
     pub(crate) fn auth_json_failed(err: impl std::fmt::Display) -> ErrorKind {
         ErrorKind::Internal(anyhow::anyhow!("auth.json: {err}"))
     }
+
+    pub(crate) fn redis_connection_unavailable() -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("Redis connection unavailable"))
+    }
+
+    pub(crate) fn redis_set_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("Redis SET_EX failed: {err}"))
+    }
+
+    pub(crate) fn redis_getdel_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("Redis GETDEL failed: {err}"))
+    }
+
+    pub(crate) fn state_entry_serialize_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("serialize StateEntry for Redis: {err}"))
+    }
+
+    pub(crate) fn state_entry_deserialize_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("corrupt StateEntry in Redis: {err}"))
+    }
 }
 
 /// Legacy TS supported three paste formats; we match verbatim so UI hints
@@ -355,6 +376,14 @@ pub(crate) fn cli_auth_auth_json_from_str(auth_json: &str) -> AppResult<Value> {
     serde_json::from_str(auth_json).map_err(|err| CliAuthProxyPolicy::auth_json_failed(err).into())
 }
 
+pub(crate) fn cli_auth_state_entry_payload<T: Serialize>(entry: &T) -> AppResult<String> {
+    serde_json::to_string(entry).map_err(|err| CliAuthProxyPolicy::state_entry_serialize_failed(err).into())
+}
+
+pub(crate) fn cli_auth_state_entry_from_payload<T: DeserializeOwned>(payload: &str) -> AppResult<T> {
+    serde_json::from_str(payload).map_err(|err| CliAuthProxyPolicy::state_entry_deserialize_failed(err).into())
+}
+
 #[cfg(test)]
 mod tests {
     use chrono::TimeZone;
@@ -432,6 +461,25 @@ mod tests {
         assert!(format!("{}", cli_auth_auth_json_from_str("not-json").unwrap_err().kind).contains("auth.json"));
     }
 
+    #[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
+    struct TestStateEntry {
+        provider: String,
+        user_id: Uuid,
+    }
+
+    #[test]
+    fn state_entry_payload_helpers_own_redis_json_contract() {
+        let entry = TestStateEntry { provider: "openai".to_string(), user_id: Uuid::nil() };
+        let payload = cli_auth_state_entry_payload(&entry).expect("state entry serializes");
+        let parsed: TestStateEntry = cli_auth_state_entry_from_payload(&payload).expect("state entry deserializes");
+
+        assert_eq!(parsed, entry);
+        assert!(
+            format!("{}", cli_auth_state_entry_from_payload::<TestStateEntry>("not-json").unwrap_err().kind)
+                .contains("corrupt StateEntry")
+        );
+    }
+
     #[test]
     fn token_response_debug_redacts_secret_fields() {
         let tokens = TokenResponse {
@@ -483,8 +531,13 @@ mod tests {
             CliAuthProxyPolicy::decrypt_failed("bad"),
             CliAuthProxyPolicy::files_json_failed("bad"),
             CliAuthProxyPolicy::auth_json_failed("bad"),
+            CliAuthProxyPolicy::redis_connection_unavailable(),
+            CliAuthProxyPolicy::redis_set_failed("bad"),
+            CliAuthProxyPolicy::redis_getdel_failed("bad"),
+            CliAuthProxyPolicy::state_entry_serialize_failed("bad"),
+            CliAuthProxyPolicy::state_entry_deserialize_failed("bad"),
         ] {
-            assert!(format!("{err}").contains("bad"));
+            assert!(!format!("{err}").is_empty());
         }
     }
 

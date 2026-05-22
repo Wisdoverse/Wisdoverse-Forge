@@ -1,6 +1,6 @@
 //! API key service — generation, validation, and lifecycle management.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::ApiKey;
 use chrono::{DateTime, Utc};
 use rand::Rng;
@@ -9,7 +9,9 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 pub use crate::domain::credential::CreateApiKeyResult;
-use crate::domain::credential::{ApiKeyFormat, ApiKeyName, ApiKeyScopePolicy, CredentialListPage};
+use crate::domain::credential::{
+    ApiKeyAuthenticationPolicy, ApiKeyFormat, ApiKeyName, ApiKeyScopePolicy, CredentialListPage,
+};
 pub(crate) use crate::domain::credential::{
     api_key_create_response, api_key_list_response, credential_delete_response,
 };
@@ -62,25 +64,14 @@ impl ApiKeyService {
 
     /// Validate a raw API key: hash, lookup, check revocation and expiry.
     pub async fn validate_key(&self, raw_key: &str) -> AppResult<ApiKey> {
-        // Basic format check
-        if ApiKeyFormat::validate(raw_key).is_err() {
-            return Err(ErrorKind::Unauthorized.into());
-        }
+        ApiKeyAuthenticationPolicy::ensure_format(raw_key)?;
 
         let key_hash = hash_key(raw_key);
-        let key = self.repo.find_by_hash(&key_hash).await?.ok_or(ErrorKind::Unauthorized)?;
+        let key = ApiKeyAuthenticationPolicy::require_key(self.repo.find_by_hash(&key_hash).await?)?;
 
-        // Check if revoked
-        if key.revoked_at.is_some() {
-            return Err(ErrorKind::Unauthorized.into());
-        }
+        ApiKeyAuthenticationPolicy::ensure_not_revoked(key.revoked_at.is_some())?;
 
-        // Check if expired
-        if let Some(expires_at) = key.expires_at
-            && expires_at < Utc::now()
-        {
-            return Err(ErrorKind::Unauthorized.into());
-        }
+        ApiKeyAuthenticationPolicy::ensure_not_expired(key.expires_at, Utc::now())?;
 
         // Update last_used (fire-and-forget, but log failures)
         if let Err(err) = self.repo.update_last_used(key.id).await {
