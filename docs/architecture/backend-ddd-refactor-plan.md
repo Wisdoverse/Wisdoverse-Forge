@@ -198,6 +198,11 @@ Current stacked PRs:
   state-store Redis/serde, and Stripe webhook signature failure contracts into
   domain policy modules while services keep password verification, hashing,
   Redis commands, JWT verification, Stripe signature checks, and repository I/O.
+- #270 `refactor/backend-ddd-external-json-adapters` -> #269 branch: moves
+  Stripe webhook/API response body parsing plus CLI auth credential status
+  file-map parsing and local unavailable-reason strings into domain helpers
+  while services keep HTTP, HMAC, decryption, logging, and repository
+  orchestration.
 
 ## Execution Rule
 
@@ -440,8 +445,12 @@ Current open stack:
   state-entry serde contracts, and Stripe webhook invalid-signature failures
   into domain helpers while services keep password verification, hashing, Redis
   commands, JWT verification, Stripe HMAC checks, and repository I/O.
+- #270 external JSON adapter sweep, stacked on #269, moves Stripe webhook/API
+  response body decoding and CLI auth credential status file-map parsing into
+  domain helpers while services keep HTTP, HMAC, decryption, logging, and
+  repository orchestration.
 
-Before starting a new PR, inspect the current state of #229-#269. If they have
+Before starting a new PR, inspect the current state of #229-#270. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 
