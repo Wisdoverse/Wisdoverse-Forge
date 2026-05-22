@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use agentforge_auth::JwtManager;
-use agentforge_core::{AppConfig, AppResult, ErrorKind, TenantScope, UserId};
+use agentforge_core::{AppConfig, AppResult, TenantScope, UserId};
 use agentforge_db::entities::User;
 use chrono::{Duration, Utc};
 use sqlx::PgPool;
@@ -107,14 +107,12 @@ impl UserService {
     /// Authenticate with email + password and return a JWT.
     pub async fn login(&self, email: &str, password: &str, remember_me: bool) -> AppResult<LoginResult> {
         // 1. Find user by email
-        let user = self.repo.find_by_email(email).await?.ok_or(ErrorKind::Unauthorized)?;
+        let user = self.repo.find_by_email(email).await?.ok_or_else(UserAccountPolicy::invalid_credentials)?;
 
         // 2. Verify password
-        let hash = user.password_hash.as_ref().ok_or(ErrorKind::Unauthorized)?;
+        let hash = UserAccountPolicy::require_password_hash(user.password_hash.as_deref())?;
         let verification = agentforge_auth::password::verify_password_compat(password, hash);
-        if !verification.valid {
-            return Err(ErrorKind::Unauthorized.into());
-        }
+        UserAccountPolicy::ensure_password_verified(verification.valid)?;
 
         if verification.needs_upgrade {
             match agentforge_auth::password::hash_password(password) {
@@ -314,7 +312,7 @@ impl UserService {
     }
 
     pub(crate) fn refresh_session(&self, refresh_token: &str) -> AppResult<RefreshedAccessToken> {
-        let claims = self.jwt.verify_token(refresh_token).map_err(|_| ErrorKind::Unauthorized)?;
+        let claims = self.jwt.verify_token(refresh_token).map_err(|_| UserAccountPolicy::invalid_refresh_token())?;
         let access_token = self
             .jwt
             .create_token_with_axes(
