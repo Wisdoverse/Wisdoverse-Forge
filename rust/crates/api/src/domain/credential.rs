@@ -368,6 +368,36 @@ impl ApiKeyFormat {
     }
 }
 
+/// API key authentication failure policy. All validation failures intentionally
+/// collapse to `Unauthorized` so callers cannot distinguish malformed, missing,
+/// revoked, expired, or unknown keys.
+pub(crate) struct ApiKeyAuthenticationPolicy;
+
+impl ApiKeyAuthenticationPolicy {
+    pub(crate) fn unauthorized() -> ErrorKind {
+        ErrorKind::Unauthorized
+    }
+
+    pub(crate) fn ensure_format(raw_key: &str) -> AppResult<()> {
+        ApiKeyFormat::validate(raw_key).map_err(|_| Self::unauthorized().into())
+    }
+
+    pub(crate) fn require_key<T>(key: Option<T>) -> AppResult<T> {
+        key.ok_or_else(|| Self::unauthorized().into())
+    }
+
+    pub(crate) fn ensure_not_revoked(revoked: bool) -> AppResult<()> {
+        if revoked { Err(Self::unauthorized().into()) } else { Ok(()) }
+    }
+
+    pub(crate) fn ensure_not_expired(
+        expires_at: Option<chrono::DateTime<chrono::Utc>>,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> AppResult<()> {
+        if expires_at.is_some_and(|expires_at| expires_at < now) { Err(Self::unauthorized().into()) } else { Ok(()) }
+    }
+}
+
 /// API key scope policy.
 pub(crate) struct ApiKeyScopePolicy;
 
@@ -992,6 +1022,21 @@ mod tests {
         assert!(ApiKeyFormat::validate(&format!("bad_{}", "a".repeat(64))).is_err());
         assert!(ApiKeyFormat::validate("af_short").is_err());
         assert!(ApiKeyFormat::validate(&format!("af_{}", "g".repeat(64))).is_err());
+    }
+
+    #[test]
+    fn api_key_authentication_policy_collapses_failures_to_unauthorized() {
+        assert!(matches!(ApiKeyAuthenticationPolicy::unauthorized(), ErrorKind::Unauthorized));
+        assert!(ApiKeyAuthenticationPolicy::ensure_format(&format!("af_{}", "a".repeat(64))).is_ok());
+        assert!(ApiKeyAuthenticationPolicy::ensure_format("bad").is_err());
+        assert_eq!(ApiKeyAuthenticationPolicy::require_key(Some(7)).unwrap(), 7);
+        assert!(ApiKeyAuthenticationPolicy::require_key::<i32>(None).is_err());
+        assert!(ApiKeyAuthenticationPolicy::ensure_not_revoked(false).is_ok());
+        assert!(ApiKeyAuthenticationPolicy::ensure_not_revoked(true).is_err());
+
+        let now = chrono::Utc.with_ymd_and_hms(2026, 1, 2, 3, 4, 5).unwrap();
+        assert!(ApiKeyAuthenticationPolicy::ensure_not_expired(Some(now + chrono::Duration::seconds(1)), now).is_ok());
+        assert!(ApiKeyAuthenticationPolicy::ensure_not_expired(Some(now - chrono::Duration::seconds(1)), now).is_err());
     }
 
     #[test]
