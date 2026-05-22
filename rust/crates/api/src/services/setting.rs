@@ -1,11 +1,13 @@
 //! Settings service — validation and management.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::Setting;
 use serde_json::Value;
 use sqlx::PgPool;
 
-use crate::domain::configuration::{GatewaySettings, RuntimeSettings};
+use crate::domain::configuration::{
+    GatewaySettings, RuntimeSettings, gateway_settings_persistence_value, runtime_settings_persistence_value,
+};
 pub(crate) use crate::domain::configuration::{
     configuration_data_response, configuration_delete_response, gateway_settings_response, runtime_settings_response,
 };
@@ -78,7 +80,7 @@ impl SettingService {
         let mut runtime = self.runtime_settings(scope).await?;
         runtime.apply_update(input.default_runtime.as_deref(), input.default_cli_tool.as_deref())?;
 
-        let value = serde_json::to_value(&runtime).map_err(|err| ErrorKind::Internal(err.into()))?;
+        let value = runtime_settings_persistence_value(&runtime)?;
         self.upsert(scope, RUNTIME_KEY, UpsertSettingInput { value }).await?;
         Ok(runtime)
     }
@@ -102,7 +104,7 @@ impl SettingService {
             input.circuit_breaker_reset_ms,
         )?;
 
-        let value = serde_json::to_value(&gateway).map_err(|err| ErrorKind::Internal(err.into()))?;
+        let value = gateway_settings_persistence_value(&gateway)?;
         self.upsert(scope, GATEWAY_KEY, UpsertSettingInput { value }).await?;
         Ok(gateway)
     }
