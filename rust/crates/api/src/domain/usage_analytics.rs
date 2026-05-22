@@ -26,6 +26,14 @@ impl ContextUsageAccessPolicy {
     }
 }
 
+pub(crate) struct ContextUsageRepositoryPolicy;
+
+impl ContextUsageRepositoryPolicy {
+    pub(crate) fn refresh_failed(err: impl std::fmt::Display) -> AppError {
+        ErrorKind::Internal(anyhow::anyhow!("refresh context usage analytics: {err}")).into()
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct ContextUsageQuery {
     pub limit: i64,
@@ -163,6 +171,14 @@ mod tests {
         assert!(matches!(
             ContextUsageAccessPolicy::required_workspace(&missing_workspace).unwrap_err().kind,
             ErrorKind::Forbidden
+        ));
+    }
+
+    #[test]
+    fn context_usage_repository_policy_owns_refresh_error() {
+        assert!(matches!(
+            ContextUsageRepositoryPolicy::refresh_failed("db unavailable").kind,
+            ErrorKind::Internal(message) if message.to_string().contains("refresh context usage analytics")
         ));
     }
 }
