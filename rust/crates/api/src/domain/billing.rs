@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 
 use agentforge_core::{AppResult, ErrorKind};
 use chrono::{DateTime, Utc};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -238,6 +239,28 @@ pub(crate) fn billing_invoices_response(invoices: Vec<InvoiceView>) -> Value {
 
 pub(crate) fn billing_webhook_received_response() -> Value {
     json!({ "ok": true, "received": true })
+}
+
+pub(crate) fn stripe_webhook_payload(payload: &str) -> AppResult<Value> {
+    serde_json::from_str(payload).map_err(|err| BillingStripeGatewayPolicy::invalid_webhook_json(err).into())
+}
+
+pub(crate) fn stripe_api_response_body<T: DeserializeOwned>(body: &str) -> AppResult<T> {
+    serde_json::from_str(body).map_err(|err| BillingStripeGatewayPolicy::api_response_decode_failed(err).into())
+}
+
+pub(crate) fn stripe_api_error_message(body: &str) -> Option<String> {
+    serde_json::from_str::<StripeErrorEnvelope>(body).ok().and_then(|envelope| envelope.error.message)
+}
+
+#[derive(Debug, Deserialize)]
+struct StripeErrorEnvelope {
+    error: StripeErrorBody,
+}
+
+#[derive(Debug, Deserialize)]
+struct StripeErrorBody {
+    message: Option<String>,
 }
 
 /// Billing cycle policy.
@@ -640,6 +663,31 @@ mod tests {
             format!("{}", BillingStripeGatewayPolicy::api_error_from_status(503, "down".into()))
                 .contains("unavailable")
         );
+    }
+
+    #[test]
+    fn stripe_gateway_payload_helpers_own_json_decoding_contract() {
+        let payload = stripe_webhook_payload(r#"{"type":"customer.subscription.updated","data":{"object":{}}}"#)
+            .expect("webhook payload");
+        assert_eq!(payload["type"], "customer.subscription.updated");
+        assert!(format!("{}", stripe_webhook_payload("not-json").unwrap_err().kind).contains("webhook JSON"));
+
+        #[derive(Debug, Deserialize, PartialEq, Eq)]
+        struct TestStripeResponse {
+            id: String,
+        }
+
+        let response: TestStripeResponse = stripe_api_response_body(r#"{"id":"sub_123"}"#).expect("api response");
+        assert_eq!(response, TestStripeResponse { id: "sub_123".to_string() });
+        assert!(
+            format!("{}", stripe_api_response_body::<TestStripeResponse>("not-json").unwrap_err().kind)
+                .contains("failed to decode Stripe API response")
+        );
+        assert_eq!(
+            stripe_api_error_message(r#"{"error":{"message":"card declined"}}"#).as_deref(),
+            Some("card declined")
+        );
+        assert_eq!(stripe_api_error_message("not-json"), None);
     }
 
     #[test]
