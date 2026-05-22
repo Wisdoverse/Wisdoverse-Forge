@@ -7,7 +7,7 @@ pub(crate) mod admin;
 pub(crate) mod agent;
 pub(crate) mod agent_workspace;
 pub(crate) mod attachment;
-pub(crate) mod auth_callout;
+pub mod auth_callout;
 pub(crate) mod billing;
 pub(crate) mod cli_auth_proxy;
 pub(crate) mod configuration;
