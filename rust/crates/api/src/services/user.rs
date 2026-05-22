@@ -177,19 +177,20 @@ impl UserService {
     /// Request a password reset link. The response is intentionally generic so
     /// callers cannot enumerate users by email address.
     pub async fn request_password_reset(&self, email: &str) -> AppResult<()> {
-        let delivery = self.password_reset_delivery.as_ref().ok_or_else(|| {
-            ErrorKind::Internal(anyhow::anyhow!("password reset delivery is not configured for this service"))
-        })?;
+        let delivery = self
+            .password_reset_delivery
+            .as_ref()
+            .ok_or_else(UserAccountPolicy::password_reset_delivery_not_configured)?;
         let email_sender = delivery.email_sender.as_ref();
         if !email_sender.is_configured() {
-            return Err(ErrorKind::Internal(anyhow::anyhow!("SMTP is not configured for password reset")).into());
+            return Err(UserAccountPolicy::password_reset_smtp_not_configured().into());
         }
         let app_url = delivery
             .app_url
             .as_deref()
             .map(str::trim)
             .filter(|value| !value.is_empty())
-            .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("APP_URL is required for password reset links")))?;
+            .ok_or_else(UserAccountPolicy::password_reset_app_url_required)?;
 
         let Some(email) = PasswordResetRequestEmail::normalize(email) else {
             return Ok(());
