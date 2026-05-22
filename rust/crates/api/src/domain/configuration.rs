@@ -126,6 +126,10 @@ pub(crate) fn runtime_settings_response(runtime: &RuntimeSettings) -> Value {
     })
 }
 
+pub(crate) fn runtime_settings_persistence_value(runtime: &RuntimeSettings) -> AppResult<Value> {
+    serde_json::to_value(runtime).map_err(|err| ErrorKind::Internal(err.into()).into())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct GatewaySettings {
@@ -196,6 +200,10 @@ pub(crate) fn gateway_settings_response(gateway: &GatewaySettings) -> Value {
         "circuitBreakerThreshold": gateway.circuit_breaker_threshold,
         "circuitBreakerResetMs": gateway.circuit_breaker_reset_ms,
     })
+}
+
+pub(crate) fn gateway_settings_persistence_value(gateway: &GatewaySettings) -> AppResult<Value> {
+    serde_json::to_value(gateway).map_err(|err| ErrorKind::Internal(err.into()).into())
 }
 
 /// Quota resource type tracked by the platform.
@@ -542,6 +550,16 @@ mod tests {
     }
 
     #[test]
+    fn runtime_settings_persistence_value_owns_stored_shape() {
+        let runtime = RuntimeSettings::default();
+        let value = runtime_settings_persistence_value(&runtime).unwrap();
+
+        assert_eq!(value["defaultRuntime"], "container");
+        assert_eq!(value["defaultCliTool"], "claude");
+        assert!(value.get("ok").is_none());
+    }
+
+    #[test]
     fn gateway_settings_policy_exposes_defaults_and_validates_strategy() {
         assert_eq!(GatewaySettingsPolicy::default_routing_strategy(), "specified");
         assert_eq!(GatewaySettingsPolicy::default_circuit_breaker_threshold(), 5);
@@ -600,6 +618,16 @@ mod tests {
         assert_eq!(body["routingStrategy"], "specified");
         assert_eq!(body["circuitBreakerThreshold"], body["data"]["circuitBreakerThreshold"]);
         assert_eq!(body["circuitBreakerResetMs"], body["data"]["circuitBreakerResetMs"]);
+    }
+
+    #[test]
+    fn gateway_settings_persistence_value_owns_stored_shape() {
+        let gateway = GatewaySettings::default();
+        let value = gateway_settings_persistence_value(&gateway).unwrap();
+
+        assert_eq!(value["routingStrategy"], "specified");
+        assert_eq!(value["circuitBreakerThreshold"], 5);
+        assert!(value.get("ok").is_none());
     }
 
     #[test]
