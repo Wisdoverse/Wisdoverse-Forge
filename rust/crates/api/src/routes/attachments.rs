@@ -15,12 +15,13 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
-use agentforge_core::{AgentId, AppResult, ErrorKind};
+use agentforge_core::{AgentId, AppResult};
 
 use crate::health::AppState;
 use crate::services::attachment::{
-    AttachmentAgentScope, AttachmentService, AttachmentUploadDraft, DEFAULT_ATTACHMENT_CONTENT_TYPE,
-    attachment_data_response, attachment_delete_response, attachment_download_content_disposition,
+    AttachmentAgentScope, AttachmentMultipartPolicy, AttachmentService, AttachmentUploadDraft,
+    DEFAULT_ATTACHMENT_CONTENT_TYPE, attachment_data_response, attachment_delete_response,
+    attachment_download_content_disposition,
 };
 
 /// Query parameters for listing attachments.
@@ -111,13 +112,13 @@ async fn parse_upload(mut multipart: Multipart) -> AppResult<AttachmentUploadDra
     while let Some(field) = multipart.next_field().await.map_err(multipart_error)? {
         let name = field.name().unwrap_or("").to_string();
         if name.is_empty() {
-            return Err(ErrorKind::Validation("multipart field name is required".to_string()).into());
+            return Err(AttachmentMultipartPolicy::missing_field_name().into());
         }
 
         match name.as_str() {
             "file" => {
                 if bytes.is_some() {
-                    return Err(ErrorKind::Validation("exactly one file field is allowed".to_string()).into());
+                    return Err(AttachmentMultipartPolicy::duplicate_file_field().into());
                 }
                 file_name = field.file_name().map(ToString::to_string);
                 file_content_type = field.content_type().map(ToString::to_string);
@@ -134,7 +135,7 @@ async fn parse_upload(mut multipart: Multipart) -> AppResult<AttachmentUploadDra
                 agent_id = Some(AttachmentAgentScope::parse(&value)?);
             }
             other => {
-                return Err(ErrorKind::Validation(format!("unsupported multipart field '{other}'")).into());
+                return Err(AttachmentMultipartPolicy::unsupported_field(other).into());
             }
         }
     }
@@ -150,7 +151,7 @@ async fn parse_upload(mut multipart: Multipart) -> AppResult<AttachmentUploadDra
 }
 
 fn multipart_error(err: axum::extract::multipart::MultipartError) -> agentforge_core::AppError {
-    ErrorKind::Validation(format!("invalid multipart body: {err}")).into()
+    AttachmentMultipartPolicy::invalid_body(err).into()
 }
 
 fn content_type_header(content_type: &str) -> HeaderValue {
