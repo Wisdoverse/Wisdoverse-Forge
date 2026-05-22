@@ -131,6 +131,14 @@ fn services_do_not_reintroduce_persistence_or_payload_boundary_leaks() {
                     line_no + 1
                 ));
             }
+
+            if contains_service_serde_adapter(line.trim()) {
+                violations.push(format!(
+                    "{}:{} uses serde_json conversion in production service code; move protocol/object adapters to domain",
+                    service.display(),
+                    line_no + 1
+                ));
+            }
         }
     }
 
@@ -222,6 +230,12 @@ fn is_allowed_empty_json_default(line: &str) -> bool {
 
 fn contains_json_macro(line: &str) -> bool {
     line.contains("serde_json::json!(") || line.contains("json!(")
+}
+
+fn contains_service_serde_adapter(line: &str) -> bool {
+    ["serde_json::from_str(", "serde_json::from_value(", "serde_json::to_string(", "serde_json::to_value("]
+        .iter()
+        .any(|pattern| line.contains(pattern))
 }
 
 fn contains_raw_sql(line: &str) -> bool {
