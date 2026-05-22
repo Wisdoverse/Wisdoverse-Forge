@@ -14,7 +14,7 @@
 
 use std::path::{Path, PathBuf};
 
-use agentforge_core::{AppConfig, AppResult, ErrorKind, TenantScope, crypto};
+use agentforge_core::{AppConfig, AppResult, TenantScope, crypto};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use secrecy::{ExposeSecret, SecretString};
@@ -143,10 +143,9 @@ impl CliCredentialService {
         let key = self.encryption_key.as_ref().ok_or_else(ContainerCliCredentialPolicy::missing_storage_key)?;
         let tool = ContainerCliCredentialPolicy::canonical_tool(cli_tool)?;
         ContainerCliCredentialPolicy::validate_oauth_file_map(files)?;
-        let plaintext = serde_json::to_string(files)
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("serialize files: {err}")))?;
+        let plaintext = serde_json::to_string(files).map_err(ContainerCliCredentialPolicy::serialize_files_failed)?;
         let ciphertext = crypto::encrypt_base64(key, &plaintext)
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("failed to encrypt credentials: {err}")))?;
+            .map_err(ContainerCliCredentialPolicy::encrypt_credentials_failed)?;
         self.cli_creds.upsert_encrypted(scope, tool, &ciphertext).await
     }
 
@@ -170,7 +169,7 @@ impl CliCredentialService {
         let key = self.encryption_key.as_ref().ok_or_else(ContainerCliCredentialPolicy::missing_storage_key)?;
         let tool = ContainerCliCredentialPolicy::canonical_tool(cli_tool)?;
         let ciphertext = crypto::encrypt_base64(key, plaintext_json)
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("failed to encrypt credentials: {err}")))?;
+            .map_err(ContainerCliCredentialPolicy::encrypt_credentials_failed)?;
         self.cli_creds.upsert_encrypted_by_user_id(user_id, tool, &ciphertext).await
     }
 
@@ -206,9 +205,7 @@ impl CliCredentialService {
         {
             let plaintext = crypto::decrypt_base64(&key, &encrypted).map_err(|err| {
                 tracing::error!(error = %err, user_id = %scope.user_id().as_uuid(), %provider, "Failed to decrypt user LLM API key — refusing to fall back to another tier");
-                ErrorKind::Internal(anyhow::anyhow!(
-                    "stored user LLM API key failed to decrypt (likely LLM_ENCRYPTION_KEY rotation); re-upload via /api/v1/user-llm-configs"
-                ))
+                ContainerCliCredentialPolicy::stored_user_llm_key_decrypt_failed()
             })?;
             let mut out = CredentialInjection::default();
             out.env.push((env_var.to_string(), plaintext));
