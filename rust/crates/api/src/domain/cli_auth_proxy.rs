@@ -376,6 +376,39 @@ pub(crate) fn cli_auth_auth_json_from_str(auth_json: &str) -> AppResult<Value> {
     serde_json::from_str(auth_json).map_err(|err| CliAuthProxyPolicy::auth_json_failed(err).into())
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum CliAuthCredentialPayloadRead {
+    Usable { last_refresh: Option<String> },
+    InvalidPayload { error: String },
+}
+
+pub(crate) fn cli_auth_credential_payload_from_plain(plain: &str) -> CliAuthCredentialPayloadRead {
+    let files = match serde_json::from_str::<Value>(plain) {
+        Ok(files) => files,
+        Err(err) => return CliAuthCredentialPayloadRead::InvalidPayload { error: err.to_string() },
+    };
+
+    let last_refresh = files
+        .get("auth.json")
+        .and_then(Value::as_str)
+        .and_then(|auth_json| serde_json::from_str::<Value>(auth_json).ok())
+        .and_then(|auth| auth.get("last_refresh").and_then(Value::as_str).map(str::to_string));
+
+    CliAuthCredentialPayloadRead::Usable { last_refresh }
+}
+
+pub(crate) fn cli_auth_credential_payload_invalid_reason() -> &'static str {
+    "credential_payload_invalid"
+}
+
+pub(crate) fn cli_auth_credential_decrypt_failed_reason() -> &'static str {
+    "credential_decrypt_failed"
+}
+
+pub(crate) fn cli_auth_encryption_key_missing_reason() -> &'static str {
+    "encryption_key_missing"
+}
+
 pub(crate) fn cli_auth_state_entry_payload<T: Serialize>(entry: &T) -> AppResult<String> {
     serde_json::to_string(entry).map_err(|err| CliAuthProxyPolicy::state_entry_serialize_failed(err).into())
 }
@@ -459,6 +492,46 @@ mod tests {
 
         assert!(format!("{}", cli_auth_token_files_from_plain("not-json").unwrap_err().kind).contains("files JSON"));
         assert!(format!("{}", cli_auth_auth_json_from_str("not-json").unwrap_err().kind).contains("auth.json"));
+    }
+
+    #[test]
+    fn credential_payload_status_extracts_last_refresh_from_auth_json() {
+        let payload = cli_auth_token_file_payload(CliAuthTokenFileInput {
+            id_token: None,
+            access_token: "access",
+            refresh_token: Some("refresh"),
+            account_id: None,
+            last_refresh: Utc.with_ymd_and_hms(2026, 4, 1, 0, 0, 0).unwrap(),
+        });
+
+        assert_eq!(
+            cli_auth_credential_payload_from_plain(&payload),
+            CliAuthCredentialPayloadRead::Usable { last_refresh: Some("2026-04-01T00:00:00+00:00".to_string()) }
+        );
+    }
+
+    #[test]
+    fn credential_payload_status_preserves_legacy_usable_edge_cases() {
+        assert_eq!(
+            cli_auth_credential_payload_from_plain(r#"{"other.json":"{}"}"#),
+            CliAuthCredentialPayloadRead::Usable { last_refresh: None }
+        );
+        assert_eq!(
+            cli_auth_credential_payload_from_plain(r#"{"auth.json":"not-json"}"#),
+            CliAuthCredentialPayloadRead::Usable { last_refresh: None }
+        );
+
+        match cli_auth_credential_payload_from_plain("not-json") {
+            CliAuthCredentialPayloadRead::InvalidPayload { error } => assert!(!error.is_empty()),
+            other => panic!("expected invalid payload, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn credential_payload_status_reasons_are_domain_owned() {
+        assert_eq!(cli_auth_credential_payload_invalid_reason(), "credential_payload_invalid");
+        assert_eq!(cli_auth_credential_decrypt_failed_reason(), "credential_decrypt_failed");
+        assert_eq!(cli_auth_encryption_key_missing_reason(), "encryption_key_missing");
     }
 
     #[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
