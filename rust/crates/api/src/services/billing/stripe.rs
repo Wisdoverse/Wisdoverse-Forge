@@ -14,8 +14,9 @@ use sha2::Sha256;
 use uuid::Uuid;
 
 use crate::domain::billing::{
-    BillingStripeGatewayPolicy, StripeEvent, StripeInvoiceSnapshot, StripeSubscriptionSnapshot,
-    stripe_api_error_message, stripe_api_response_body, stripe_webhook_payload,
+    BillingStripeGatewayPolicy, StripeInvoiceSnapshot, StripeSubscriptionSnapshot, stripe_api_error_message,
+    stripe_api_response_body, stripe_invoice_object_from_value, stripe_subscription_object_from_value,
+    stripe_webhook_payload,
 };
 
 type HmacSha256 = Hmac<Sha256>;
@@ -370,19 +371,13 @@ fn unix_to_datetime(seconds: Option<i64>) -> Option<DateTime<Utc>> {
     seconds.and_then(|value| Utc.timestamp_opt(value, 0).single())
 }
 
-pub fn stripe_event(payload: Value) -> AppResult<StripeEvent> {
-    serde_json::from_value(payload).map_err(|err| BillingStripeGatewayPolicy::invalid_webhook_event_shape(err).into())
-}
-
 pub fn parse_subscription_object(value: Value) -> AppResult<StripeSubscriptionSnapshot> {
-    let subscription: StripeSubscriptionApi =
-        serde_json::from_value(value).map_err(BillingStripeGatewayPolicy::invalid_subscription_object)?;
+    let subscription: StripeSubscriptionApi = stripe_subscription_object_from_value(value)?;
     Ok(subscription.into_snapshot())
 }
 
 pub fn parse_invoice_object(value: Value) -> AppResult<StripeInvoiceSnapshot> {
-    let invoice: StripeInvoiceApi =
-        serde_json::from_value(value).map_err(BillingStripeGatewayPolicy::invalid_invoice_object)?;
+    let invoice: StripeInvoiceApi = stripe_invoice_object_from_value(value)?;
     Ok(invoice.into_snapshot())
 }
 
