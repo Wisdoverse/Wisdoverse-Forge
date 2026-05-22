@@ -28,6 +28,14 @@ pub(crate) fn dev_environment_delete_response() -> Value {
     json!({ "ok": true })
 }
 
+pub(crate) struct DevEnvironmentRepositoryPolicy;
+
+impl DevEnvironmentRepositoryPolicy {
+    pub(crate) fn dev_environment_not_found(id: uuid::Uuid) -> AppError {
+        ErrorKind::NotFound(format!("dev_environment {id}")).into()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct DevEnvironmentName<'a> {
     value: &'a str,
@@ -269,6 +277,16 @@ mod tests {
         assert_eq!(DevEnvironmentName::parse("dev-env").unwrap().value(), "dev-env");
         assert!(DevEnvironmentName::parse("").is_err());
         assert!(DevEnvironmentName::parse(&"x".repeat(MAX_NAME_LEN + 1)).is_err());
+    }
+
+    #[test]
+    fn repository_policy_owns_lookup_error() {
+        let id = uuid::Uuid::new_v4();
+
+        assert!(matches!(
+            DevEnvironmentRepositoryPolicy::dev_environment_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("dev_environment {id}")
+        ));
     }
 
     #[test]
