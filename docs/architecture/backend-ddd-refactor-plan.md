@@ -227,6 +227,11 @@ Current stacked PRs:
   `domain::mcp`; extends boundary coverage so production MCP entrypoint code
   cannot reintroduce persistence SQL, JSON payload construction, or direct
   `ErrorKind` policy.
+- #275 `refactor/backend-ddd-mcp-runtime-service` -> #274 branch: moves the
+  Docker-backed MCP runtime adapter and tests out of `src/mcp.rs` into
+  `services::mcp_docker_runtime`, leaving the MCP entrypoint focused on
+  routing/auth/config assembly and extending boundary coverage to prevent
+  runtime adapter ownership from returning to the entrypoint.
 
 ## Execution Rule
 
