@@ -218,6 +218,22 @@ fn repositories_do_not_reintroduce_domain_policy_helpers() {
                     line_no + 1
                 ));
             }
+
+            if is_identity_repository(&repository) && contains_repository_error_policy(trimmed) {
+                violations.push(format!(
+                    "{}:{} owns identity repository error policy in production repository code; move error contracts to domain helpers",
+                    repository.display(),
+                    line_no + 1
+                ));
+            }
+
+            if is_resource_repository_policy_boundary(&repository) && contains_repository_error_policy(trimmed) {
+                violations.push(format!(
+                    "{}:{} owns resource repository error policy in production repository code; move error contracts to domain helpers",
+                    repository.display(),
+                    line_no + 1
+                ));
+            }
         }
     }
 
@@ -623,6 +639,17 @@ fn is_orchestration_repository(path: &Path) -> bool {
 
 fn is_agent_repository(path: &Path) -> bool {
     path.components().any(|component| component.as_os_str() == "agent")
+}
+
+fn is_identity_repository(path: &Path) -> bool {
+    path.components().any(|component| component.as_os_str() == "identity")
+}
+
+fn is_resource_repository_policy_boundary(path: &Path) -> bool {
+    matches!(
+        path.file_name().and_then(|file_name| file_name.to_str()),
+        Some("member.rs" | "navigation.rs" | "permission.rs")
+    )
 }
 
 fn contains_repository_error_policy(line: &str) -> bool {
