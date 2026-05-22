@@ -203,6 +203,11 @@ Current stacked PRs:
   file-map parsing and local unavailable-reason strings into domain helpers
   while services keep HTTP, HMAC, decryption, logging, and repository
   orchestration.
+- #271 `refactor/backend-ddd-object-serde-adapters` -> #270 branch: moves
+  remaining production service serde adapters for Stripe webhook objects and
+  Container CLI credential file-map plaintext serialization into domain helpers,
+  and extends the service boundary regression test to block direct production
+  `serde_json` conversions in services.
 
 ## Execution Rule
 
@@ -449,8 +454,12 @@ Current open stack:
   response body decoding and CLI auth credential status file-map parsing into
   domain helpers while services keep HTTP, HMAC, decryption, logging, and
   repository orchestration.
+- #271 object serde adapter sweep, stacked on #270, moves Stripe webhook object
+  decoding and Container CLI credential file-map plaintext serialization into
+  domain helpers, then guards production services against direct
+  `serde_json::{from_str,from_value,to_string,to_value}` conversions.
 
-Before starting a new PR, inspect the current state of #229-#270. If they have
+Before starting a new PR, inspect the current state of #229-#271. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 
