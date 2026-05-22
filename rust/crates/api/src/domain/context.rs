@@ -1,6 +1,8 @@
 //! Context candidate and feedback input policies.
 
-use agentforge_core::{AppError, AppResult, ErrorKind, ScopeKind, SkillId, UserId, WorkspaceId};
+use agentforge_core::{
+    AppError, AppResult, ErrorKind, ScopeKind, ScopedWriteError, SkillId, TenantScope, UserId, WorkspaceId,
+};
 use agentforge_db::entities::{ContextApproval, ContextCandidate, ContextFeedback, MemoryItem, Skill};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -68,6 +70,38 @@ impl ContextFeature {
             ContextFeature::Injection => "context.injection.enabled",
             ContextFeature::Analytics => "context.analytics.enabled",
         }
+    }
+}
+
+pub(crate) struct ContextFeaturePolicy;
+
+impl ContextFeaturePolicy {
+    pub(crate) fn disabled(feature: ContextFeature) -> ErrorKind {
+        ErrorKind::NotFound(format!("{} is disabled", feature.key()))
+    }
+
+    pub(crate) fn missing_override_allows_deployment_default(kind: &ErrorKind) -> bool {
+        matches!(kind, ErrorKind::NotFound(_))
+    }
+}
+
+pub(crate) struct ContextTenantPolicy;
+
+impl ContextTenantPolicy {
+    pub(crate) fn required_workspace(scope: &TenantScope) -> AppResult<WorkspaceId> {
+        scope.workspace_id().ok_or_else(Self::forbidden)
+    }
+
+    pub(crate) fn ensure_resource_belongs_to_scope(belongs_to_scope: bool) -> AppResult<()> {
+        if belongs_to_scope { Ok(()) } else { Err(Self::forbidden()) }
+    }
+
+    pub(crate) fn scoped_write_error(_err: ScopedWriteError) -> AppError {
+        Self::forbidden()
+    }
+
+    fn forbidden() -> AppError {
+        ErrorKind::Forbidden.into()
     }
 }
 
@@ -1613,6 +1647,37 @@ mod tests {
         assert_eq!(ContextFeature::Preview.key(), "context.preview.enabled");
         assert_eq!(ContextFeature::Injection.key(), "context.injection.enabled");
         assert_eq!(ContextFeature::Analytics.key(), "context.analytics.enabled");
+    }
+
+    #[test]
+    fn context_feature_policy_owns_disabled_and_missing_override_contracts() {
+        assert!(
+            format!("{}", ContextFeaturePolicy::disabled(ContextFeature::Preview))
+                .contains("context.preview.enabled is disabled")
+        );
+        assert!(ContextFeaturePolicy::missing_override_allows_deployment_default(&ErrorKind::NotFound(
+            "context.preview.enabled".into()
+        )));
+        assert!(!ContextFeaturePolicy::missing_override_allows_deployment_default(&ErrorKind::Forbidden));
+    }
+
+    #[test]
+    fn context_tenant_policy_owns_workspace_and_forbidden_contracts() {
+        let workspace_id = WorkspaceId::new();
+        let scope =
+            TenantScope::with_axes(agentforge_core::OrgId::new(), UserId::new(), Some(workspace_id), None, None);
+        let missing_workspace = TenantScope::new(agentforge_core::OrgId::new(), UserId::new());
+
+        assert_eq!(ContextTenantPolicy::required_workspace(&scope).unwrap(), workspace_id);
+        assert!(matches!(
+            ContextTenantPolicy::required_workspace(&missing_workspace).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
+        assert!(ContextTenantPolicy::ensure_resource_belongs_to_scope(true).is_ok());
+        assert!(matches!(
+            ContextTenantPolicy::ensure_resource_belongs_to_scope(false).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
     }
 
     #[test]
