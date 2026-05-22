@@ -102,6 +102,14 @@ fn route_handlers_do_not_reintroduce_ddd_boundary_leaks() {
                     line_no + 1
                 ));
             }
+
+            if contains_route_error_policy(trimmed) {
+                violations.push(format!(
+                    "{}:{} owns ErrorKind policy in production route code; move error contracts to domain/service helpers",
+                    route.display(),
+                    line_no + 1
+                ));
+            }
         }
     }
 
@@ -358,4 +366,10 @@ fn contains_runtime_service_factory_wiring(line: &str) -> bool {
     ]
     .iter()
     .any(|pattern| line.contains(pattern))
+}
+
+fn contains_route_error_policy(line: &str) -> bool {
+    line.contains("ErrorKind::")
+        || line.contains("agentforge_core::ErrorKind")
+        || (line.starts_with("use agentforge_core::") && line.contains("ErrorKind"))
 }
