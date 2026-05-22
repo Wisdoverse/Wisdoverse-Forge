@@ -186,6 +186,14 @@ fn repositories_do_not_reintroduce_domain_policy_helpers() {
                     line_no + 1
                 ));
             }
+
+            if is_context_candidate_repository(&repository) && contains_repository_error_policy(trimmed) {
+                violations.push(format!(
+                    "{}:{} owns context candidate error policy in production repository code; move error contracts to domain helpers",
+                    repository.display(),
+                    line_no + 1
+                ));
+            }
         }
     }
 
@@ -572,6 +580,14 @@ fn contains_resource_slug_policy(line: &str) -> bool {
 
 fn contains_cross_cutting_util_policy(line: &str) -> bool {
     line.contains("crate::util::")
+}
+
+fn is_context_candidate_repository(path: &Path) -> bool {
+    path.components().any(|component| component.as_os_str() == "context_candidate")
+}
+
+fn contains_repository_error_policy(line: &str) -> bool {
+    line.contains("ErrorKind::") || (line.starts_with("use agentforge_core::") && line.contains("ErrorKind"))
 }
 
 fn contains_system_response_contract_literal(line: &str) -> bool {
