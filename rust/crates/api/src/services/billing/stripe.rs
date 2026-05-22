@@ -15,6 +15,7 @@ use uuid::Uuid;
 
 use crate::domain::billing::{
     BillingStripeGatewayPolicy, StripeEvent, StripeInvoiceSnapshot, StripeSubscriptionSnapshot,
+    stripe_api_error_message, stripe_api_response_body, stripe_webhook_payload,
 };
 
 type HmacSha256 = Hmac<Sha256>;
@@ -298,7 +299,7 @@ impl BillingGateway for StripeBillingClient {
 
     fn verify_webhook_payload(&self, payload: &str, signature: &str) -> AppResult<Value> {
         verify_stripe_signature(payload, signature, &self.webhook_secret)?;
-        serde_json::from_str(payload).map_err(|err| BillingStripeGatewayPolicy::invalid_webhook_json(err).into())
+        stripe_webhook_payload(payload)
     }
 }
 
@@ -307,15 +308,11 @@ async fn parse_stripe_response<T: DeserializeOwned>(response: reqwest::Response)
     let body = response.text().await.map_err(BillingStripeGatewayPolicy::api_response_read_failed)?;
 
     if !status.is_success() {
-        let message = stripe_error_message(&body).unwrap_or_else(|| format!("Stripe API returned {status}"));
+        let message = stripe_api_error_message(&body).unwrap_or_else(|| format!("Stripe API returned {status}"));
         return Err(BillingStripeGatewayPolicy::api_error_from_status(status.as_u16(), message).into());
     }
 
-    serde_json::from_str(&body).map_err(|err| BillingStripeGatewayPolicy::api_response_decode_failed(err).into())
-}
-
-fn stripe_error_message(body: &str) -> Option<String> {
-    serde_json::from_str::<StripeErrorEnvelope>(body).ok().and_then(|envelope| envelope.error.message)
+    stripe_api_response_body(&body)
 }
 
 fn push_billing_metadata(
@@ -519,16 +516,6 @@ impl ExpandableId<StripeSubscriptionApi> {
             Self::Object(subscription) => Some(subscription.id),
         }
     }
-}
-
-#[derive(Debug, Deserialize)]
-struct StripeErrorEnvelope {
-    error: StripeErrorBody,
-}
-
-#[derive(Debug, Deserialize)]
-struct StripeErrorBody {
-    message: Option<String>,
 }
 
 #[cfg(test)]
