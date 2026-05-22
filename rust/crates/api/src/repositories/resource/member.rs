@@ -1,10 +1,12 @@
 //! Team and project member repository.
 
-use agentforge_core::{AppResult, ErrorKind, ProjectId, TeamId, TenantScope};
+use agentforge_core::{AppResult, ProjectId, TeamId, TenantScope};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
+
+use crate::domain::resource::ResourceRepositoryPolicy;
 
 #[derive(Debug, Clone, Serialize, FromRow)]
 #[serde(rename_all = "camelCase")]
@@ -104,7 +106,7 @@ impl ResourceMemberRepository {
         .fetch_optional(&self.pool)
         .await?;
 
-        member.ok_or_else(|| ErrorKind::NotFound(format!("team {team_id} or user {user_id}")).into())
+        member.ok_or_else(|| ResourceRepositoryPolicy::team_or_user_not_found(team_id, user_id))
     }
 
     pub async fn update_team_member(
@@ -147,7 +149,7 @@ impl ResourceMemberRepository {
         .fetch_optional(&self.pool)
         .await?;
 
-        member.ok_or_else(|| ErrorKind::NotFound(format!("team member {user_id}")).into())
+        member.ok_or_else(|| ResourceRepositoryPolicy::team_member_not_found(user_id))
     }
 
     pub async fn remove_team_member(
@@ -175,7 +177,7 @@ impl ResourceMemberRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("team member {user_id}")).into());
+            return Err(ResourceRepositoryPolicy::team_member_not_found(user_id));
         }
         Ok(())
     }
@@ -253,7 +255,7 @@ impl ResourceMemberRepository {
         .fetch_optional(&self.pool)
         .await?;
 
-        member.ok_or_else(|| ErrorKind::NotFound(format!("project {project_id} or user {user_id}")).into())
+        member.ok_or_else(|| ResourceRepositoryPolicy::project_or_user_not_found(project_id, user_id))
     }
 
     pub async fn update_project_member(
@@ -293,7 +295,7 @@ impl ResourceMemberRepository {
         .fetch_optional(&self.pool)
         .await?;
 
-        member.ok_or_else(|| ErrorKind::NotFound(format!("project member {user_id}")).into())
+        member.ok_or_else(|| ResourceRepositoryPolicy::project_member_not_found(user_id))
     }
 
     pub async fn remove_project_member(
@@ -318,7 +320,7 @@ impl ResourceMemberRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("project member {user_id}")).into());
+            return Err(ResourceRepositoryPolicy::project_member_not_found(user_id));
         }
         Ok(())
     }
