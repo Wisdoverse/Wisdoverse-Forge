@@ -3,7 +3,7 @@
 //! This module owns pure skill input, lifecycle, and version policies that are
 //! independent of repositories, authorization, and audit emission.
 
-use agentforge_core::{AppError, AppResult, ErrorKind, OrgId, SkillId, WorkspaceId};
+use agentforge_core::{AppError, AppResult, ErrorKind, OrgId, SkillId, TenantScope, WorkspaceId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -121,6 +121,22 @@ impl SkillScopeTargetPolicy {
                 ErrorKind::Validation(format!("scope_id is required for {} skill", scope_kind.as_label())).into()
             }),
         }
+    }
+}
+
+pub(crate) struct SkillAccessPolicy;
+
+impl SkillAccessPolicy {
+    pub(crate) fn required_workspace(scope: &TenantScope) -> AppResult<WorkspaceId> {
+        scope.workspace_id().ok_or_else(Self::forbidden)
+    }
+
+    pub(crate) fn ensure_resource_belongs_to_scope(belongs_to_scope: bool) -> AppResult<()> {
+        if belongs_to_scope { Ok(()) } else { Err(Self::forbidden()) }
+    }
+
+    pub(crate) fn forbidden() -> AppError {
+        ErrorKind::Forbidden.into()
     }
 }
 
@@ -904,6 +920,25 @@ mod tests {
             team_id
         );
         assert!(SkillScopeTargetPolicy::resolve(SkillScopeKind::Project, None, org_id, user_id).is_err());
+    }
+
+    #[test]
+    fn skill_access_policy_owns_workspace_and_scope_forbidden_contracts() {
+        let workspace_id = WorkspaceId::new();
+        let scope =
+            TenantScope::with_axes(OrgId::new(), agentforge_core::UserId::new(), Some(workspace_id), None, None);
+        let missing_workspace = TenantScope::new(OrgId::new(), agentforge_core::UserId::new());
+
+        assert_eq!(SkillAccessPolicy::required_workspace(&scope).unwrap(), workspace_id);
+        assert!(matches!(
+            SkillAccessPolicy::required_workspace(&missing_workspace).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
+        assert!(SkillAccessPolicy::ensure_resource_belongs_to_scope(true).is_ok());
+        assert!(matches!(
+            SkillAccessPolicy::ensure_resource_belongs_to_scope(false).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
     }
 
     #[test]
