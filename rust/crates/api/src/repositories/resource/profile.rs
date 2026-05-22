@@ -1,9 +1,11 @@
 //! Resource profile repository — database queries for the resource_profiles table.
 
-use agentforge_core::{AppError, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::ResourceProfile;
 use sqlx::PgPool;
 use uuid::Uuid;
+
+use crate::domain::resource::ResourceRepositoryPolicy;
 
 /// Database access layer for resource profiles.
 pub struct ResourceProfileRepository {
@@ -38,7 +40,7 @@ impl ResourceProfileRepository {
         .bind(scope.org_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("resource_profile {id}")).into())
+        .ok_or_else(|| ResourceRepositoryPolicy::resource_profile_not_found(id))
     }
 
     /// Create a custom resource profile for the org.
@@ -97,7 +99,7 @@ impl ResourceProfileRepository {
         .bind(max_pids)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| -> AppError { ErrorKind::NotFound(format!("resource_profile {id}")).into() })?;
+        .ok_or_else(|| ResourceRepositoryPolicy::resource_profile_not_found(id))?;
         Ok(profile)
     }
 
@@ -113,7 +115,7 @@ impl ResourceProfileRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("resource_profile {id}")).into());
+            return Err(ResourceRepositoryPolicy::resource_profile_not_found(id));
         }
         Ok(())
     }
