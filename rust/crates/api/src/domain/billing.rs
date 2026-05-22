@@ -342,6 +342,10 @@ impl BillingStripeGatewayPolicy {
         ErrorKind::Validation(format!("invalid Stripe webhook event shape: {err}"))
     }
 
+    pub(crate) fn invalid_webhook_signature() -> ErrorKind {
+        ErrorKind::Unauthorized
+    }
+
     pub(crate) fn hmac_init_failed(err: impl std::fmt::Display) -> ErrorKind {
         ErrorKind::Internal(anyhow::anyhow!("HMAC init failed: {err}"))
     }
@@ -612,6 +616,7 @@ mod tests {
         assert!(format!("{}", BillingStripeGatewayPolicy::missing_checkout_redirect_url()).contains("redirect URL"));
         assert!(format!("{}", BillingStripeGatewayPolicy::invalid_webhook_json("bad")).contains("webhook JSON"));
         assert!(format!("{}", BillingStripeGatewayPolicy::invalid_webhook_event_shape("bad")).contains("event shape"));
+        assert!(matches!(BillingStripeGatewayPolicy::invalid_webhook_signature(), ErrorKind::Unauthorized));
         assert!(format!("{}", BillingStripeGatewayPolicy::hmac_init_failed("bad")).contains("HMAC init failed"));
         assert!(
             format!("{}", BillingStripeGatewayPolicy::invalid_subscription_object("bad"))

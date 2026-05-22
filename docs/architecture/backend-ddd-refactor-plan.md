@@ -193,6 +193,11 @@ Current stacked PRs:
   streaming, NATS auth-callout worker configuration/connect setup, and Stripe
   webhook HMAC initialization into domain policy modules while services keep
   LLM, NATS, Stripe, cryptography, and repository I/O orchestration.
+- #269 `refactor/backend-ddd-auth-runtime-failure-policies` -> #268 branch:
+  moves remaining authentication failure, API-key authorization, CLI auth
+  state-store Redis/serde, and Stripe webhook signature failure contracts into
+  domain policy modules while services keep password verification, hashing,
+  Redis commands, JWT verification, Stripe signature checks, and repository I/O.
 
 ## Execution Rule
 
@@ -429,8 +434,14 @@ Current open stack:
   contracts, and Stripe webhook HMAC initialization errors into domain helpers
   while services keep LLM, NATS, Stripe, cryptography, and repository I/O
   orchestration.
+- #269 auth runtime failure policy sweep, stacked on #268, moves login and
+  refresh unauthorized contracts, API-key format/lookup/revoked/expired
+  authorization decisions, CLI auth proxy Redis state-store error mapping and
+  state-entry serde contracts, and Stripe webhook invalid-signature failures
+  into domain helpers while services keep password verification, hashing, Redis
+  commands, JWT verification, Stripe HMAC checks, and repository I/O.
 
-Before starting a new PR, inspect the current state of #229-#268. If they have
+Before starting a new PR, inspect the current state of #229-#269. If they have
 not landed yet, stack the next branch on the latest open DDD branch. If they
 have landed, branch from updated origin/main.
 
