@@ -466,6 +466,7 @@ fn contains_runtime_state_wiring(line: &str) -> bool {
         "state.email_sender",
         "state.jwt",
         "state.agent_command_bus",
+        "state.pool.clone",
         "state.inflight_prompts",
         "state.redis",
         "state.cli_auth_memory_store",
@@ -478,6 +479,7 @@ fn contains_runtime_state_wiring(line: &str) -> bool {
 
 fn contains_route_service_constructor(line: &str) -> bool {
     line.contains("Service::new(")
+        || line.contains("::from_pool(")
         || line.contains("from_app_config(")
         || line.contains("from_pool_and_app_config(")
         || line.contains("from_runtime(")
