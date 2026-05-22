@@ -4,11 +4,13 @@
 //! before org context is established. Other methods enforce tenant isolation
 //! via `TenantScope`.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::ApiKey;
 use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
+
+use crate::domain::credential::CredentialRepositoryPolicy;
 
 const LIST_ACTIVE_API_KEYS_SQL: &str = r#"SELECT * FROM api_keys
                WHERE organization_id = $1 AND user_id = $2 AND revoked_at IS NULL
@@ -86,7 +88,7 @@ impl ApiKeyRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("api key {id}")).into());
+            return Err(CredentialRepositoryPolicy::api_key_not_found(id));
         }
         Ok(())
     }
