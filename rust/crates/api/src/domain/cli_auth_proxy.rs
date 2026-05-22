@@ -111,6 +111,46 @@ pub(crate) fn cli_auth_disconnected_response(provider: &str) -> Value {
     json!({ "ok": true, "provider": provider, "status": "disconnected" })
 }
 
+pub(crate) fn cli_auth_callback_success_html() -> String {
+    "<html><body><h1>Signed in</h1><p>You can close this tab and return to Wisdoverse Forge.</p></body></html>"
+        .to_string()
+}
+
+pub(crate) fn cli_auth_callback_idp_error_html(error: &str, description: &str) -> String {
+    format!(
+        "<html><body><h1>Sign-in failed</h1><p>{}</p><p>{}</p><p>You can close this tab.</p></body></html>",
+        html_escape(error),
+        html_escape(description),
+    )
+}
+
+pub(crate) fn cli_auth_callback_missing_params_html() -> &'static str {
+    "<html><body><h1>Sign-in failed</h1><p>Callback missing <code>code</code> or <code>state</code>.</p></body></html>"
+}
+
+pub(crate) fn cli_auth_callback_service_error_html(kind: &ErrorKind) -> String {
+    let message = match kind {
+        ErrorKind::Validation(message) | ErrorKind::Unprocessable(message) => message.as_str(),
+        _ => "internal error",
+    };
+    format!("<html><body><h1>Sign-in failed</h1><p>{}</p></body></html>", html_escape(message))
+}
+
+fn html_escape(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '&' => out.push_str("&amp;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&#x27;"),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
 pub(crate) struct CliAuthProxyPolicy;
 
 impl CliAuthProxyPolicy {
@@ -479,6 +519,23 @@ mod tests {
             url,
             "https://auth.example.test/oauth/authorize?response_type=code&client_id=client+one&redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback&scope=openid+profile"
         );
+    }
+
+    #[test]
+    fn callback_html_helpers_escape_user_controlled_text() {
+        assert!(cli_auth_callback_success_html().contains("Signed in"));
+        assert!(cli_auth_callback_missing_params_html().contains("Callback missing"));
+
+        let idp = cli_auth_callback_idp_error_html("<denied>", "\"bad\"");
+        assert!(idp.contains("&lt;denied&gt;"));
+        assert!(idp.contains("&quot;bad&quot;"));
+
+        let service = cli_auth_callback_service_error_html(&ErrorKind::Validation("<bad state>".to_string()));
+        assert!(service.contains("&lt;bad state&gt;"));
+
+        let internal = cli_auth_callback_service_error_html(&ErrorKind::Internal(anyhow::anyhow!("secret")));
+        assert!(internal.contains("internal error"));
+        assert!(!internal.contains("secret"));
     }
 
     #[test]
