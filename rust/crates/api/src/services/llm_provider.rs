@@ -81,7 +81,7 @@ impl LlmProviderService {
         let (encrypted_api_key, api_key_prefix) = self.encrypted_api_key_and_prefix(draft.api_key.as_deref())?;
 
         if self.repo.provider_model_exists(scope, &draft.provider, &draft.model).await? {
-            return Err(ErrorKind::Conflict("provider/model already exists".into()).into());
+            return Err(LlmProviderPolicy::provider_model_conflict().into());
         }
 
         let is_default = self.repo.should_insert_as_default(scope, &draft.provider).await?;
@@ -167,20 +167,12 @@ impl LlmProviderService {
             return Ok(llm_provider_test_disabled_response());
         }
 
-        let model = provider
-            .model
-            .as_deref()
-            .map(str::trim)
-            .filter(|model| !model.is_empty())
-            .ok_or_else(|| ErrorKind::Validation("model is required before testing a provider".into()))?
-            .to_string();
+        let model = LlmProviderPolicy::required_test_model(provider.model.as_deref())?;
 
         let api_key = if provider.provider == "ollama" {
             String::new()
         } else {
-            let key = self.encryption_key.ok_or_else(|| {
-                ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured - cannot test stored API keys".into())
-            })?;
+            let key = self.encryption_key.ok_or_else(LlmProviderPolicy::missing_test_api_key)?;
             crypto::decrypt_base64(&key, &provider.encrypted_api_key)
                 .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("decrypt llm provider api key failed: {err}")))?
         };
@@ -249,9 +241,7 @@ impl LlmProviderService {
     }
 
     fn encrypt_api_key(&self, api_key: &str) -> AppResult<(String, String)> {
-        let key = self.encryption_key.ok_or_else(|| {
-            ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured - refusing to store plaintext API keys".into())
-        })?;
+        let key = self.encryption_key.ok_or_else(LlmProviderPolicy::missing_storage_key)?;
         let encrypted_api_key = crypto::encrypt_base64(&key, api_key)
             .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encrypt llm provider api key failed: {err}")))?;
         Ok((encrypted_api_key, LlmProviderPolicy::api_key_prefix(api_key)))
