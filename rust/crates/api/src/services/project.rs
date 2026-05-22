@@ -4,7 +4,7 @@ use agentforge_core::{AppResult, ProjectId, TeamId, TenantScope, WorkspaceId};
 use agentforge_db::entities::Project;
 use sqlx::PgPool;
 
-use crate::domain::resource::{ProjectRepositoryUrl, ResourceListPage, ResourceName};
+use crate::domain::resource::{ProjectRepositoryUrl, ResourceListPage, ResourceName, ResourceSlugPolicy};
 pub(crate) use crate::domain::resource::{resource_data_response, resource_delete_response};
 use crate::repositories::identity::group::GroupRepository;
 use crate::repositories::project::ProjectRepository;
@@ -79,9 +79,10 @@ impl ProjectService {
         if let Some(url) = input.repository_url.as_deref() {
             ProjectRepositoryUrl::parse(url)?;
         }
+        let slug = ResourceSlugPolicy::derive(name.value());
         let project = self
             .repo
-            .create(scope, input.workspace_id, input.team_id, name.value(), input.repository_url.as_deref())
+            .create(scope, input.workspace_id, input.team_id, name.value(), &slug, input.repository_url.as_deref())
             .await?;
         self.group_repo.find_or_create_default_for_project(scope, ProjectId::from(project.id.as_uuid())).await?;
         Ok(project)
