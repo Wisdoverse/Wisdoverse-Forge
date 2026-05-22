@@ -1,9 +1,11 @@
 //! SSH key repository — database queries for the ssh_keys table.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::SshKey;
 use sqlx::PgPool;
 use uuid::Uuid;
+
+use crate::domain::credential::CredentialRepositoryPolicy;
 
 /// Database access layer for SSH keys.
 pub struct SshKeyRepository {
@@ -68,7 +70,7 @@ impl SshKeyRepository {
         .bind(scope.user_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("ssh key {id}")).into())
+        .ok_or_else(|| CredentialRepositoryPolicy::ssh_key_not_found(id))
     }
 
     /// Delete an SSH key (tenant-scoped).
@@ -84,7 +86,7 @@ impl SshKeyRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("ssh key {id}")).into());
+            return Err(CredentialRepositoryPolicy::ssh_key_not_found(id));
         }
         Ok(())
     }
