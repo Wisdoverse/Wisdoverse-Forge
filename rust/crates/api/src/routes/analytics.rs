@@ -46,7 +46,7 @@ pub struct ContextUsageQueryParams {
 
 /// Build an AnalyticsService from shared state.
 fn make_service(state: &AppState) -> AnalyticsService {
-    AnalyticsService::from_pool(state.pool.clone())
+    state.analytics_service()
 }
 
 fn make_usage_service(state: &AppState) -> UsageAnalyticsService {
