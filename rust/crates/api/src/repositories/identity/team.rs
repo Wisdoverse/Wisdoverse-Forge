@@ -40,10 +40,9 @@ impl TeamRepository {
             .ok_or_else(|| ErrorKind::NotFound(format!("team {id}")).into())
     }
 
-    /// Create a new team. Slug is derived from the name so migration 026's
+    /// Create a new team with the domain-resolved slug so migration 026's
     /// `teams.slug NOT NULL` constraint holds for every new row.
-    pub async fn create(&self, scope: &TenantScope, name: &str) -> AppResult<Team> {
-        let slug = crate::util::slug::slugify(name);
+    pub async fn create(&self, scope: &TenantScope, name: &str, slug: &str) -> AppResult<Team> {
         sqlx::query_as::<_, Team>(
             r#"INSERT INTO teams (organization_id, name, slug)
                VALUES ($1, $2, $3)
@@ -51,7 +50,7 @@ impl TeamRepository {
         )
         .bind(scope.org_id().as_uuid())
         .bind(name)
-        .bind(&slug)
+        .bind(slug)
         .fetch_one(&self.pool)
         .await
         .map_err(Into::into)
