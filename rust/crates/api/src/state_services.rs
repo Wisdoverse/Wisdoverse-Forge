@@ -15,7 +15,10 @@ use crate::services::agent_container_control::AgentContainerControlService;
 use crate::services::agent_container_lifecycle::AgentContainerLifecycleService;
 use crate::services::agent_message::AgentMessageService;
 use crate::services::agent_prompt::AgentPromptService;
+use crate::services::analytics::AnalyticsService;
+use crate::services::api_key::ApiKeyService;
 use crate::services::attachment::AttachmentService;
+use crate::services::audit::AuditService;
 use crate::services::billing::BillingService;
 use crate::services::cli_auth_proxy::CliAuthProxyService;
 use crate::services::cli_credential::CliCredentialService;
@@ -24,16 +27,38 @@ use crate::services::context_envelope::ContextEnvelopeService;
 use crate::services::context_feature::ContextFeatureService;
 use crate::services::context_preview::ContextPreviewService;
 use crate::services::dev_environment::{DevEnvironmentRuntime, DevEnvironmentService, DockerDevEnvironmentRuntime};
+use crate::services::event::EventService;
+use crate::services::favorite::FavoriteService;
+use crate::services::feature_flag::FeatureFlagService;
 use crate::services::gateway_terminal::GatewayTerminalService;
 use crate::services::git_credential::GitCredentialService;
 use crate::services::governance_audit::GovernanceAuditService;
+use crate::services::group::GroupService;
+use crate::services::inbox::InboxService;
+use crate::services::legacy_navigation::LegacyNavigationService;
+use crate::services::license::LicenseService;
 use crate::services::llm_provider::LlmProviderService;
 use crate::services::memory::MemoryService;
 use crate::services::orchestration::OrchestrationService;
+use crate::services::organization::OrganizationService;
+use crate::services::plugin::PluginService;
 use crate::services::pool::PoolService;
+use crate::services::project::ProjectService;
+use crate::services::prompt_library::PromptLibraryService;
+use crate::services::quota::QuotaService;
+use crate::services::resource_member::ResourceMemberService;
+use crate::services::resource_profile::ResourceProfileService;
+use crate::services::setting::SettingService;
+use crate::services::skill::SkillService;
+use crate::services::ssh_key::SshKeyService;
 use crate::services::task_context::TaskContextService;
+use crate::services::team::TeamService;
+use crate::services::tile::TileService;
+use crate::services::turn::TurnService;
 use crate::services::usage_analytics::UsageAnalyticsService;
 use crate::services::user::UserService;
+use crate::services::voice::VoiceService;
+use crate::services::workspace::WorkspaceService;
 
 impl AppState {
     pub(crate) fn admin_service(&self) -> AdminService {
@@ -74,12 +99,24 @@ impl AppState {
         )
     }
 
+    pub(crate) fn analytics_service(&self) -> AnalyticsService {
+        AnalyticsService::from_pool(self.pool.clone())
+    }
+
     pub(crate) fn analytics_usage_service(&self) -> UsageAnalyticsService {
         UsageAnalyticsService::new(self.pool.clone())
     }
 
+    pub(crate) fn api_key_service(&self) -> ApiKeyService {
+        ApiKeyService::from_pool(self.pool.clone())
+    }
+
     pub(crate) fn attachment_service(&self) -> AttachmentService {
         AttachmentService::from_pool_and_app_config(self.pool.clone(), self.object_storage.clone(), &self.config)
+    }
+
+    pub(crate) fn audit_service(&self) -> AuditService {
+        AuditService::from_pool(self.pool.clone())
     }
 
     pub(crate) fn auth_user_service(&self) -> UserService {
@@ -132,6 +169,18 @@ impl AppState {
         DevEnvironmentService::from_runtime(self.pool.clone(), runtime)
     }
 
+    pub(crate) fn event_service(&self) -> EventService {
+        EventService::from_pool(self.pool.clone())
+    }
+
+    pub(crate) fn favorite_service(&self) -> FavoriteService {
+        FavoriteService::from_pool(self.pool.clone())
+    }
+
+    pub(crate) fn feature_flag_service(&self) -> FeatureFlagService {
+        FeatureFlagService::from_pool(self.pool.clone())
+    }
+
     pub(crate) fn git_credential_service(&self) -> GitCredentialService {
         GitCredentialService::from_pool(self.pool.clone(), self.encryption_key)
     }
@@ -144,12 +193,32 @@ impl AppState {
         GovernanceAuditService::from_pool_and_app_config(self.pool.clone(), &self.config, self.encryption_key)
     }
 
+    pub(crate) fn group_service(&self) -> GroupService {
+        GroupService::from_pool(self.pool.clone())
+    }
+
+    pub(crate) fn inbox_service(&self) -> InboxService {
+        InboxService::from_pool(self.pool.clone())
+    }
+
+    pub(crate) fn legacy_navigation_service(&self) -> LegacyNavigationService {
+        LegacyNavigationService::from_pool(self.pool.clone())
+    }
+
+    pub(crate) fn license_service(&self) -> LicenseService {
+        LicenseService::from_pool(self.pool.clone())
+    }
+
     pub(crate) fn llm_provider_service(&self) -> LlmProviderService {
         LlmProviderService::from_pool(self.pool.clone(), self.encryption_key, self.llm_factory.clone())
     }
 
     pub(crate) fn memory_service(&self) -> MemoryService {
         MemoryService::new(self.pool.clone())
+    }
+
+    pub(crate) fn organization_service(&self) -> OrganizationService {
+        OrganizationService::from_pool(self.pool.clone())
     }
 
     pub(crate) fn orchestration_service(&self) -> OrchestrationService {
@@ -161,15 +230,71 @@ impl AppState {
         )
     }
 
+    pub(crate) fn plugin_service(&self) -> PluginService {
+        PluginService::from_pool(self.pool.clone())
+    }
+
     pub(crate) fn pool_service(&self) -> PoolService {
         PoolService::new(self.docker.clone())
+    }
+
+    pub(crate) fn project_service(&self) -> ProjectService {
+        ProjectService::from_pool(self.pool.clone())
+    }
+
+    pub(crate) fn prompt_library_service(&self) -> PromptLibraryService {
+        PromptLibraryService::from_pool(self.pool.clone())
+    }
+
+    pub(crate) fn quota_service(&self) -> QuotaService {
+        QuotaService::from_pool(self.pool.clone())
+    }
+
+    pub(crate) fn resource_member_service(&self) -> ResourceMemberService {
+        ResourceMemberService::from_pool(self.pool.clone())
+    }
+
+    pub(crate) fn resource_profile_service(&self) -> ResourceProfileService {
+        ResourceProfileService::from_pool(self.pool.clone())
+    }
+
+    pub(crate) fn setting_service(&self) -> SettingService {
+        SettingService::from_pool(self.pool.clone())
+    }
+
+    pub(crate) fn skill_service(&self) -> SkillService {
+        SkillService::from_pool(self.pool.clone())
+    }
+
+    pub(crate) fn ssh_key_service(&self) -> SshKeyService {
+        SshKeyService::from_pool(self.pool.clone())
     }
 
     pub(crate) fn task_context_service(&self) -> TaskContextService {
         TaskContextService::from_pool(self.pool.clone())
     }
 
+    pub(crate) fn team_service(&self) -> TeamService {
+        TeamService::from_pool(self.pool.clone())
+    }
+
+    pub(crate) fn tile_service(&self) -> TileService {
+        TileService::from_pool(self.pool.clone())
+    }
+
+    pub(crate) fn turn_service(&self) -> TurnService {
+        TurnService::from_pool(self.pool.clone())
+    }
+
     pub(crate) fn user_service(&self) -> UserService {
         UserService::from_pool(self.pool.clone(), self.jwt.clone())
+    }
+
+    pub(crate) fn voice_service(&self) -> VoiceService {
+        VoiceService::from_pool(self.pool.clone())
+    }
+
+    pub(crate) fn workspace_service(&self) -> WorkspaceService {
+        WorkspaceService::from_pool(self.pool.clone())
     }
 }

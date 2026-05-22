@@ -25,7 +25,7 @@ pub struct LicenseKeyRequest {
 
 /// Build a LicenseService from shared state.
 fn make_service(state: &AppState) -> LicenseService {
-    LicenseService::from_pool(state.pool.clone())
+    state.license_service()
 }
 
 /// `GET /licenses` — list licenses.

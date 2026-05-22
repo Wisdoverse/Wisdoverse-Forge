@@ -34,7 +34,7 @@ pub struct UpdateOrganizationRequest {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> OrganizationService {
-    OrganizationService::from_pool(state.pool.clone())
+    state.organization_service()
 }
 
 /// `GET /api/organizations` — list organizations the user belongs to.
