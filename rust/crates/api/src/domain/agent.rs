@@ -415,6 +415,64 @@ impl AgentContainerLifecyclePolicy {
     }
 }
 
+pub(crate) struct AgentContainerRuntimePolicy;
+
+impl AgentContainerRuntimePolicy {
+    pub(crate) fn control_docker_unavailable() -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("Docker not available"))
+    }
+
+    pub(crate) fn lifecycle_docker_unavailable() -> ErrorKind {
+        ErrorKind::Unavailable("Docker runtime is not available".into())
+    }
+
+    pub(crate) fn create_container_failed(
+        image: &str,
+        cli_tool: Option<&str>,
+        missing_image: bool,
+        err: impl std::fmt::Display,
+    ) -> ErrorKind {
+        if missing_image {
+            let tool = cli_tool.unwrap_or("claude");
+            return ErrorKind::Validation(format!(
+                "agent image '{image}' is not installed on this host; run `make update-agents AGENT_TOOLS={tool}` or `make build-agent CLI_TOOL={tool}` before starting this agent"
+            ));
+        }
+        ErrorKind::Internal(anyhow::anyhow!("Failed to create container: {err}"))
+    }
+
+    pub(crate) fn start_container_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("Failed to start container: {err}"))
+    }
+
+    pub(crate) fn stop_container_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("Failed to stop container: {err}"))
+    }
+
+    pub(crate) fn remove_container_after_stop_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("Failed to remove container after stop: {err}"))
+    }
+
+    pub(crate) fn prepare_workspace_failed(path: impl std::fmt::Display, err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("failed to prepare agent workspace {path}: {err}"))
+    }
+
+    pub(crate) fn prepare_working_directory_failed(
+        path: impl std::fmt::Display,
+        err: impl std::fmt::Display,
+    ) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("failed to prepare agent working directory {path}: {err}"))
+    }
+
+    pub(crate) fn lifecycle_action_unavailable(action: &str, err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Unavailable(format!("failed to {action} agent container: {err}"))
+    }
+
+    pub(crate) fn resume_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("resume failed: {err}"))
+    }
+}
+
 impl AgentLifecycle {
     pub(crate) fn transition(from: AgentStatus, to: AgentStatus) -> AppResult<AgentStatusTransition> {
         if from == to {
@@ -643,6 +701,58 @@ mod tests {
         assert!(AgentContainerLifecyclePolicy::resume_container_id(None).is_err());
         assert_eq!(AgentContainerLifecyclePolicy::running_container_id(Some("ctr-3")).unwrap(), "ctr-3");
         assert!(AgentContainerLifecyclePolicy::running_container_id(None).is_err());
+    }
+
+    #[test]
+    fn agent_container_runtime_policy_owns_docker_error_contracts() {
+        assert!(
+            format!("{:?}", AgentContainerRuntimePolicy::control_docker_unavailable()).contains("Docker not available")
+        );
+        assert!(
+            format!("{:?}", AgentContainerRuntimePolicy::lifecycle_docker_unavailable())
+                .contains("Docker runtime is not available")
+        );
+        assert!(
+            format!(
+                "{:?}",
+                AgentContainerRuntimePolicy::create_container_failed(
+                    "agentforge-agent:codex",
+                    Some("codex"),
+                    true,
+                    "missing",
+                )
+            )
+            .contains("make update-agents AGENT_TOOLS=codex")
+        );
+        assert!(
+            format!("{:?}", AgentContainerRuntimePolicy::create_container_failed("image", None, false, "bad"))
+                .contains("Failed to create container")
+        );
+        assert!(
+            format!("{:?}", AgentContainerRuntimePolicy::start_container_failed("bad"))
+                .contains("Failed to start container")
+        );
+        assert!(
+            format!("{:?}", AgentContainerRuntimePolicy::stop_container_failed("bad"))
+                .contains("Failed to stop container")
+        );
+        assert!(
+            format!("{:?}", AgentContainerRuntimePolicy::remove_container_after_stop_failed("bad"))
+                .contains("Failed to remove container after stop")
+        );
+        assert!(
+            format!("{:?}", AgentContainerRuntimePolicy::prepare_workspace_failed("/tmp/ws", "bad"))
+                .contains("failed to prepare agent workspace")
+        );
+        assert!(
+            format!("{:?}", AgentContainerRuntimePolicy::prepare_working_directory_failed("/tmp/cwd", "bad"))
+                .contains("failed to prepare agent working directory")
+        );
+        assert!(
+            format!("{:?}", AgentContainerRuntimePolicy::lifecycle_action_unavailable("inspect", "bad"))
+                .contains("failed to inspect agent container")
+        );
+        assert!(format!("{:?}", AgentContainerRuntimePolicy::resume_failed("bad")).contains("resume failed"));
     }
 
     #[test]
