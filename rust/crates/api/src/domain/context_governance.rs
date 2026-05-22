@@ -280,6 +280,38 @@ pub(crate) fn governance_audit_response(data: GovernanceAuditResponse) -> Value 
     serde_json::json!({ "ok": true, "data": data })
 }
 
+/// Governance audit HMAC key runtime policy.
+pub(crate) struct GovernanceAuditHmacKeyPolicy;
+
+impl GovernanceAuditHmacKeyPolicy {
+    pub(crate) fn resolve(
+        configured_key: Option<String>,
+        is_production: bool,
+        encryption_key: Option<[u8; 32]>,
+    ) -> AppResult<Vec<u8>> {
+        if let Some(raw) = configured_key {
+            if raw.trim().is_empty() {
+                return Err(ErrorKind::Validation("CONTEXT_AUDIT_HMAC_KEY is empty".into()).into());
+            }
+            if raw.len() == 64 && raw.chars().all(|ch| ch.is_ascii_hexdigit()) {
+                return hex::decode(raw)
+                    .map_err(|err| ErrorKind::Validation(format!("invalid CONTEXT_AUDIT_HMAC_KEY: {err}")).into());
+            }
+            return Ok(raw.into_bytes());
+        }
+
+        if let Some(key) = encryption_key {
+            return Ok(key.to_vec());
+        }
+
+        if is_production {
+            return Err(ErrorKind::Validation("CONTEXT_AUDIT_HMAC_KEY or LLM_ENCRYPTION_KEY is required".into()).into());
+        }
+
+        Ok(b"agentforge-dev-governance-audit-key".to_vec())
+    }
+}
+
 pub(crate) struct ContextGovernancePolicy;
 
 impl ContextGovernancePolicy {
@@ -747,5 +779,22 @@ mod tests {
         assert_eq!(payload["event_prefix"], "governance.context.");
         assert_eq!(payload["limit"], 500);
         assert_eq!(payload["offset"], 10);
+    }
+
+    #[test]
+    fn governance_audit_hmac_policy_resolves_runtime_key_contracts() {
+        let hex_key = "00".repeat(32);
+        assert_eq!(GovernanceAuditHmacKeyPolicy::resolve(Some(hex_key), true, None).unwrap(), vec![0_u8; 32]);
+        assert_eq!(
+            GovernanceAuditHmacKeyPolicy::resolve(Some("raw-key".to_string()), true, None).unwrap(),
+            b"raw-key".to_vec()
+        );
+        assert_eq!(
+            GovernanceAuditHmacKeyPolicy::resolve(None, false, None).unwrap(),
+            b"agentforge-dev-governance-audit-key".to_vec()
+        );
+        assert_eq!(GovernanceAuditHmacKeyPolicy::resolve(None, true, Some([7_u8; 32])).unwrap(), vec![7_u8; 32]);
+        assert!(GovernanceAuditHmacKeyPolicy::resolve(Some(" ".to_string()), true, None).is_err());
+        assert!(GovernanceAuditHmacKeyPolicy::resolve(None, true, None).is_err());
     }
 }
