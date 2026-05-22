@@ -30,6 +30,7 @@ pub mod event;
 pub mod evidence_projection;
 pub mod favorite;
 pub mod feature_flag;
+pub(crate) mod gateway_terminal;
 pub mod git_credential;
 pub mod governance_audit;
 pub mod group;
