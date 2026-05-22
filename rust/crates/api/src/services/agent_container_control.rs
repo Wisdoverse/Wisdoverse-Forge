@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use agentforge_core::{AgentId, AppConfig, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AgentId, AppConfig, AppResult, TenantScope};
 use agentforge_db::entities::Agent;
 use agentforge_platform::{ContainerConfig, ContainerState, DockerClient, Mount};
 use sqlx::PgPool;
@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use crate::domain::agent::{
     AgentContainerEnvInput, AgentContainerEnvPolicy, AgentContainerImagePolicy, AgentContainerLifecyclePolicy,
-    AgentContainerStartOutcome,
+    AgentContainerRuntimePolicy, AgentContainerStartOutcome,
 };
 use crate::domain::context::{ContextFeature, ContextFeatureFlags};
 use crate::repositories::agent::AgentRepository;
@@ -109,7 +109,7 @@ impl AgentContainerControlService {
     }
 
     pub(crate) async fn start(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<AgentContainerStartOutcome> {
-        let docker = self.docker.as_ref().ok_or_else(docker_not_available)?;
+        let docker = self.docker.as_ref().ok_or_else(AgentContainerRuntimePolicy::control_docker_unavailable)?;
         let agent = self.agents.get(scope, agent_id).await?;
 
         if let Some(container_id) = &agent.container_id {
@@ -209,15 +209,12 @@ impl AgentContainerControlService {
         };
 
         let container_id = docker.create_container(config).await.map_err(|err| {
-            if err.is_missing_image() {
-                ErrorKind::Validation(format!(
-                    "agent image '{image}' is not installed on this host; run `make update-agents AGENT_TOOLS={}` or `make build-agent CLI_TOOL={}` before starting this agent",
-                    agent.cli_tool.as_deref().unwrap_or("claude"),
-                    agent.cli_tool.as_deref().unwrap_or("claude")
-                ))
-            } else {
-                ErrorKind::Internal(anyhow::anyhow!("Failed to create container: {err}"))
-            }
+            AgentContainerRuntimePolicy::create_container_failed(
+                &image,
+                agent.cli_tool.as_deref(),
+                err.is_missing_image(),
+                err,
+            )
         })?;
 
         if let Err(err) =
@@ -248,7 +245,7 @@ impl AgentContainerControlService {
                     "failed to clear container metadata after start failure"
                 );
             }
-            return Err(ErrorKind::Internal(anyhow::anyhow!("Failed to start container: {err}")).into());
+            return Err(AgentContainerRuntimePolicy::start_container_failed(err).into());
         }
 
         self.register_started_agent_participant_best_effort(scope, &agent).await;
@@ -256,14 +253,11 @@ impl AgentContainerControlService {
     }
 
     pub(crate) async fn stop(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<()> {
-        let docker = self.docker.as_ref().ok_or_else(docker_not_available)?;
+        let docker = self.docker.as_ref().ok_or_else(AgentContainerRuntimePolicy::control_docker_unavailable)?;
         let agent = self.agents.get(scope, agent_id).await?;
         let container_id = AgentContainerLifecyclePolicy::running_container_id(agent.container_id.as_deref())?;
 
-        docker
-            .stop_container(container_id, 30)
-            .await
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("Failed to stop container: {err}")))?;
+        docker.stop_container(container_id, 30).await.map_err(AgentContainerRuntimePolicy::stop_container_failed)?;
 
         let container_name = format!("agentforge-agent-{}", agent_id.as_uuid());
         self.credentials.cleanup_oauth_mount_best_effort(agent_id.as_uuid(), &container_name).await;
@@ -271,7 +265,7 @@ impl AgentContainerControlService {
         docker
             .remove_container(container_id, true)
             .await
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("Failed to remove container after stop: {err}")))?;
+            .map_err(AgentContainerRuntimePolicy::remove_container_after_stop_failed)?;
 
         self.agents.clear_container(scope, agent_id).await?;
         self.mark_participant_offline_best_effort(scope, agent_id).await;
@@ -290,18 +284,12 @@ impl AgentContainerControlService {
         let workspace_paths =
             resolve_agent_workspace_paths(&self.settings.workspace_root, workspace_scope, agent.cwd.as_deref())?;
         tokio::fs::create_dir_all(&workspace_paths.host_projects_root).await.map_err(|err| {
-            ErrorKind::Internal(anyhow::anyhow!(
-                "failed to prepare agent workspace {}: {err}",
-                workspace_paths.host_projects_root.display()
-            ))
+            AgentContainerRuntimePolicy::prepare_workspace_failed(workspace_paths.host_projects_root.display(), err)
         })?;
         let container_cwd_host_path =
             host_path_for_container_cwd(&workspace_paths.host_projects_root, &workspace_paths.container_cwd)?;
         tokio::fs::create_dir_all(&container_cwd_host_path).await.map_err(|err| {
-            ErrorKind::Internal(anyhow::anyhow!(
-                "failed to prepare agent working directory {}: {err}",
-                container_cwd_host_path.display()
-            ))
+            AgentContainerRuntimePolicy::prepare_working_directory_failed(container_cwd_host_path.display(), err)
         })?;
         Ok(workspace_paths)
     }
@@ -342,10 +330,6 @@ impl AgentContainerControlService {
             ),
         }
     }
-}
-
-fn docker_not_available() -> ErrorKind {
-    ErrorKind::Internal(anyhow::anyhow!("Docker not available"))
 }
 
 #[cfg(test)]
