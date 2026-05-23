@@ -92,17 +92,18 @@ export const zh: TranslationKeys = {
     noProject: '未选择项目',
     projects: '项目',
     steps: {
-      team: {
-        title: '团队',
-        empty: '先创建团队，项目权限才有归属。',
-        create: '创建团队',
-        review: '查看团队',
+      workspace: {
+        title: '工作区',
+        empty: '需要路由时再创建团队和项目。',
+        create: '创建工作区',
+        review: '查看工作区',
       },
-      project: {
-        title: '项目',
-        empty: '会话会在这个工作区边界内运行。',
-        create: '创建项目',
-        review: '查看项目',
+      runtime: {
+        title: '运行时',
+        empty: '确认执行运行时和 Container CLI 选项。',
+        ready: '{{runtime}} 运行时，默认 CLI 为 {{cli}}。',
+        open: '检查运行时',
+        review: '查看运行时',
       },
       provider: {
         title: '模型服务',
@@ -125,11 +126,27 @@ export const zh: TranslationKeys = {
         create: '创建任务组',
         review: '查看路由',
       },
-      history: {
-        title: '会话历史',
-        empty: '请先创建会话。',
-        ready: '可以打开聊天并发送提示词。',
-        open: '打开会话历史',
+      task: {
+        title: '第一个任务',
+        emptyWithRouting: '创建任务、分配会话并观察运行启动。',
+        emptyWithoutRouting: '先完成路由，再创建第一个任务。',
+        ready: '看板上已有 {{count}} 个任务。',
+        create: '创建任务',
+        open: '打开看板',
+      },
+      review: {
+        title: '验收输出',
+        empty: '已分配任务的输出会出现在详情面板。',
+        inFlight: '已有任务被分配，可从看板查看进度。',
+        ready: '{{count}} 个已完成任务等待验收。',
+        open: '查看工作',
+      },
+      reuse: {
+        title: '复用学习',
+        empty: '完成任务后审批上下文或技能候选。',
+        ready: '已有可复用技能或已应用的技能上下文。',
+        review: '审批候选',
+        open: '打开技能',
       },
     },
   },

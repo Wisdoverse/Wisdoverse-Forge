@@ -32,26 +32,27 @@ part of this documentation set.
 
 ## Start Here
 
-| Audience                     | Entry Points                                                                                                                                                                       |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| First local run / developers | [Getting Started](guides/getting-started.md), [Architecture Overview](architecture/overview.md), [Configuration](guides/configuration.md)                                          |
-| Operators (deploy / run)     | [Deployment](guides/deployment.md), [Runtime Validation](runbooks/runtime-validation.md), [Troubleshooting](guides/troubleshooting.md), [NATS Auth Runbook](runbooks/nats-auth.md) |
-| Contributors                 | [Contributing](../CONTRIBUTING.md), [AGENTS.md](../AGENTS.md), [Architecture Overview](architecture/overview.md)                                                                   |
-| API consumers                | [OpenAPI spec](api/openapi.yaml), [Turn API](api/turn-api.md)                                                                                                                      |
+| Audience                     | Entry Points                                                                                                                                                                              |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| First local run / developers | [Getting Started](guides/getting-started.md), [Task Workflow Guide](guides/task-workflow.md), [Architecture Overview](architecture/overview.md), [Configuration](guides/configuration.md) |
+| Operators (deploy / run)     | [Deployment](guides/deployment.md), [Runtime Validation](runbooks/runtime-validation.md), [Troubleshooting](guides/troubleshooting.md), [NATS Auth Runbook](runbooks/nats-auth.md)        |
+| Product reviewers            | [Product UX Direction](architecture/product-ux-direction.md), [Task Workflow Guide](guides/task-workflow.md)                                                                              |
+| Contributors                 | [Contributing](../CONTRIBUTING.md), [AGENTS.md](../AGENTS.md), [Architecture Overview](architecture/overview.md)                                                                          |
+| API consumers                | [OpenAPI spec](api/openapi.yaml), [Turn API](api/turn-api.md)                                                                                                                             |
 
 ## Documentation Map
 
 ### Active — source of truth
 
-| Path                           | Purpose                                                |
-| ------------------------------ | ------------------------------------------------------ |
-| [adr/](adr/)                   | Architecture Decision Records                          |
-| [architecture/](architecture/) | System design, runtime boundaries, data flow           |
-| [api/](api/)                   | OpenAPI specs (CI-enforced contract)                   |
-| [guides/](guides/)             | Setup, configuration, deployment, troubleshooting      |
-| [runbooks/](runbooks/)         | Operational playbooks for failure modes and procedures |
-| [security/](security/)         | Security and dependency policy                         |
-| [versioning.md](versioning.md) | API versioning and release policy                      |
+| Path                           | Purpose                                                            |
+| ------------------------------ | ------------------------------------------------------------------ |
+| [adr/](adr/)                   | Architecture Decision Records                                      |
+| [architecture/](architecture/) | System design, runtime boundaries, data flow, product UX direction |
+| [api/](api/)                   | OpenAPI specs (CI-enforced contract)                               |
+| [guides/](guides/)             | Setup, configuration, deployment, troubleshooting                  |
+| [runbooks/](runbooks/)         | Operational playbooks for failure modes and procedures             |
+| [security/](security/)         | Security and dependency policy                                     |
+| [versioning.md](versioning.md) | API versioning and release policy                                  |
 
 Keep this tree small. Add a doc only when it is part of the public runtime,
 operator, security, or API contract.

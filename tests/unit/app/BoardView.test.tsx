@@ -7,6 +7,7 @@ import { useNavigationStore } from '@app/entities/navigation'
 const mockGetTasks = vi.fn().mockResolvedValue([])
 const mockCreateTask = vi.fn().mockResolvedValue({ ok: true, task: null })
 const mockUpdateTask = vi.fn().mockResolvedValue({ ok: true })
+const mockGetParticipants = vi.fn().mockResolvedValue([])
 
 vi.mock('@app/shared/api/orchestration', () => ({
   taskResultArtifacts: (result: unknown) => (Array.isArray(result) ? result : []),
@@ -14,6 +15,7 @@ vi.mock('@app/shared/api/orchestration', () => ({
     getTasks: (...args: unknown[]) => mockGetTasks(...args),
     createTask: (...args: unknown[]) => mockCreateTask(...args),
     updateTask: (...args: unknown[]) => mockUpdateTask(...args),
+    getParticipants: (...args: unknown[]) => mockGetParticipants(...args),
   },
 }))
 
@@ -21,6 +23,7 @@ beforeEach(() => {
   mockGetTasks.mockClear().mockResolvedValue([])
   mockCreateTask.mockClear()
   mockUpdateTask.mockClear()
+  mockGetParticipants.mockClear().mockResolvedValue([])
 })
 
 afterEach(() => {
@@ -58,6 +61,35 @@ describe('BoardView', () => {
     expect(screen.getByText('Done')).toBeDefined()
     expect(screen.getByText('Failed')).toBeDefined()
     expect(screen.getByText('Canceled')).toBeDefined()
+  })
+
+  test('shows board-level assignment readiness with agent blockers', async () => {
+    mockGetParticipants.mockResolvedValueOnce([
+      {
+        id: 'participant-1',
+        agentId: 'agent-1',
+        name: 'Ready Agent',
+        status: 'available',
+        capabilities: ['codex'],
+      },
+      {
+        id: 'participant-2',
+        agentId: 'agent-2',
+        name: 'Busy Agent',
+        status: 'busy',
+        capabilities: ['claude'],
+      },
+    ])
+    useBoardStore.getState().setSelectedGroupId('test-group')
+
+    render(<BoardView />)
+
+    expect(await screen.findByTestId('assignment-readiness')).toBeDefined()
+    expect(screen.getByText(/1 agent can take work now/i)).toBeDefined()
+    expect(screen.getByText('Ready Agent')).toBeDefined()
+    expect(screen.getByText('Busy Agent')).toBeDefined()
+    expect(screen.getAllByText('Available').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Busy').length).toBeGreaterThan(0)
   })
 
   test('renders failed tasks outside the Done column', async () => {

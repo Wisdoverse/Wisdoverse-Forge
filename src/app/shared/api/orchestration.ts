@@ -50,6 +50,18 @@ export interface TaskContextCounts {
   total: number
 }
 
+export interface TaskRunSummary {
+  id: string
+  agentId: string
+  status: string
+  startedAt: string
+  finishedAt?: string
+  runtimeKind?: string
+  cliTool?: string
+  providerName?: string
+  maxContextTokens?: number
+}
+
 export interface TaskSummary {
   id: string
   groupId?: string
@@ -350,6 +362,10 @@ export const orchestrationApi = {
       `/tasks/${taskId}/context`
     )
     return res.data
+  },
+  getTaskRuns: async (taskId: string): Promise<TaskRunSummary[]> => {
+    const res = await apiFetch<{ ok: boolean; runs: TaskRunSummary[] }>(`/tasks/${taskId}/runs`)
+    return res.runs
   },
   readMemoryContent: async (memoryId: string): Promise<MemoryContent> => {
     const res = await apiV1Fetch<{ ok: boolean; data: MemoryContent }>(

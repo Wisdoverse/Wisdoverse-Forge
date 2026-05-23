@@ -13,6 +13,7 @@
 //! - `POST   /tasks/{id}/cancel`                  — cancel (terminal)
 //! - `POST   /tasks/{id}/retry`                   — reset to backlog and re-dispatch
 //! - `GET    /tasks/{id}/context`                  — task detail Context tab read model
+//! - `GET    /tasks/{id}/runs`                     — task execution attempts
 //! - `GET    /groups/{group_id}/tasks?state=`     — kanban list (group-scoped)
 //! - `GET    /groups/{group_id}/tasks/stats`      — `byState` counts for the kanban
 //! - `POST   /participants`                       — register participant (sweeps after)
@@ -41,7 +42,7 @@ use crate::services::orchestration::{
     CreateTaskParamsInput, OrchestrationService, ParticipantSummary, TaskSummary, create_task_request_parts,
     orchestration_delete_response, orchestration_participant_response, orchestration_participants_response,
     orchestration_stats_response, orchestration_task_context_response, orchestration_task_response,
-    orchestration_tasks_response,
+    orchestration_task_runs_response, orchestration_tasks_response,
 };
 use crate::services::task_context::TaskContextService;
 
@@ -267,6 +268,16 @@ async fn get_task_context(
     Ok(Json(orchestration_task_context_response(&context)))
 }
 
+async fn list_task_runs(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let runs = service.list_task_runs(&auth.scope, id).await?;
+    Ok(Json(orchestration_task_runs_response(&runs)))
+}
+
 async fn patch_task(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -442,6 +453,7 @@ pub fn orchestration_routes() -> Router<AppState> {
         .route("/orchestration/tasks", get(list_tasks).post(create_task))
         .route("/orchestration/tasks/{id}", get(get_task).patch(patch_task))
         .route("/orchestration/tasks/{id}/context", get(get_task_context))
+        .route("/orchestration/tasks/{id}/runs", get(list_task_runs))
         .route("/orchestration/tasks/{id}/dispatch", post(dispatch_task))
         .route("/orchestration/tasks/{id}/publish-with-context", post(publish_task_with_context))
         .route("/orchestration/tasks/{id}/complete", post(complete_task))

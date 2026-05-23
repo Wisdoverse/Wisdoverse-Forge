@@ -1,15 +1,20 @@
 //! Settings service — validation and management.
 
+use std::{env, sync::Arc};
+
 use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::Setting;
+use agentforge_platform::DockerClient;
 use serde_json::Value;
 use sqlx::PgPool;
 
 use crate::domain::configuration::{
-    GatewaySettings, RuntimeSettings, gateway_settings_persistence_value, runtime_settings_persistence_value,
+    GatewaySettings, RuntimeCliToolDetail, RuntimeSettings, RuntimeSettingsWithCliTools,
+    gateway_settings_persistence_value, runtime_settings_persistence_value,
 };
 pub(crate) use crate::domain::configuration::{
-    configuration_data_response, configuration_delete_response, gateway_settings_response, runtime_settings_response,
+    configuration_data_response, configuration_delete_response, gateway_settings_response,
+    runtime_settings_with_cli_tools_response,
 };
 use crate::domain::resource::SettingKey;
 use crate::repositories::setting::SettingRepository;
@@ -38,15 +43,24 @@ pub struct UpdateGatewaySettingsInput {
 /// Business logic layer for settings operations.
 pub struct SettingService {
     repo: SettingRepository,
+    docker: Option<Arc<DockerClient>>,
 }
 
 impl SettingService {
     pub fn new(repo: SettingRepository) -> Self {
-        Self { repo }
+        Self { repo, docker: None }
+    }
+
+    pub fn new_with_runtime(repo: SettingRepository, docker: Option<Arc<DockerClient>>) -> Self {
+        Self { repo, docker }
     }
 
     pub fn from_pool(pool: PgPool) -> Self {
         Self::new(SettingRepository::new(pool))
+    }
+
+    pub fn from_runtime(pool: PgPool, docker: Option<Arc<DockerClient>>) -> Self {
+        Self::new_with_runtime(SettingRepository::new(pool), docker)
     }
 
     /// List all settings for the user/org.
@@ -71,6 +85,15 @@ impl SettingService {
         Ok(RuntimeSettings::from_stored(setting_value(scope, &settings, RUNTIME_KEY)))
     }
 
+    pub(crate) async fn runtime_settings_with_cli_tools(
+        &self,
+        scope: &TenantScope,
+    ) -> AppResult<RuntimeSettingsWithCliTools> {
+        let runtime = self.runtime_settings(scope).await?;
+        let cli_tool_details = self.runtime_cli_tool_details(&runtime).await;
+        Ok(RuntimeSettingsWithCliTools { runtime, cli_tool_details })
+    }
+
     /// Validate and persist runtime settings.
     pub(crate) async fn update_runtime_settings(
         &self,
@@ -83,6 +106,16 @@ impl SettingService {
         let value = runtime_settings_persistence_value(&runtime)?;
         self.upsert(scope, RUNTIME_KEY, UpsertSettingInput { value }).await?;
         Ok(runtime)
+    }
+
+    pub(crate) async fn update_runtime_settings_with_cli_tools(
+        &self,
+        scope: &TenantScope,
+        input: UpdateRuntimeSettingsInput,
+    ) -> AppResult<RuntimeSettingsWithCliTools> {
+        let runtime = self.update_runtime_settings(scope, input).await?;
+        let cli_tool_details = self.runtime_cli_tool_details(&runtime).await;
+        Ok(RuntimeSettingsWithCliTools { runtime, cli_tool_details })
     }
 
     /// Read gateway settings, preferring user-scoped values over organization defaults.
@@ -108,6 +141,47 @@ impl SettingService {
         self.upsert(scope, GATEWAY_KEY, UpsertSettingInput { value }).await?;
         Ok(gateway)
     }
+
+    async fn runtime_cli_tool_details(&self, runtime: &RuntimeSettings) -> Vec<RuntimeCliToolDetail> {
+        let mut details = Vec::with_capacity(runtime.available_cli_tools.len());
+        for cli_tool in &runtime.available_cli_tools {
+            let image = configured_cli_image(cli_tool);
+            let (image_present, version, version_source) = self.inspect_cli_image_version(&image).await;
+            details.push(RuntimeCliToolDetail {
+                cli_tool: cli_tool.clone(),
+                image,
+                version,
+                image_present,
+                version_source,
+            });
+        }
+        details
+    }
+
+    async fn inspect_cli_image_version(&self, image: &str) -> (bool, Option<String>, String) {
+        if let Some(docker) = &self.docker {
+            match docker.inner().inspect_image(image).await {
+                Ok(info) => {
+                    let label_version = info
+                        .config
+                        .and_then(|config| config.labels)
+                        .and_then(|labels| labels.get("org.wisdoverse.cli-version").cloned())
+                        .and_then(clean_version);
+                    if label_version.is_some() {
+                        return (true, label_version, "docker-label".to_string());
+                    }
+                    return (true, image_tag_version(image), "image-tag".to_string());
+                }
+                Err(err) => {
+                    tracing::debug!(error = %err, image, "failed to inspect Container CLI image");
+                }
+            }
+        }
+
+        let tag_version = image_tag_version(image);
+        let source = if tag_version.is_some() { "image-tag" } else { "not-reported" };
+        (false, tag_version, source.to_string())
+    }
 }
 
 fn setting_value<'a>(scope: &TenantScope, settings: &'a [Setting], key: &str) -> Option<&'a Value> {
@@ -118,6 +192,25 @@ fn setting_value<'a>(scope: &TenantScope, settings: &'a [Setting], key: &str) ->
         .map(|setting| &setting.value)
 }
 
+fn configured_cli_image(cli_tool: &str) -> String {
+    let env_name = format!("CONTAINER_IMAGE_{}", cli_tool.to_ascii_uppercase());
+    env::var(env_name)
+        .ok()
+        .filter(|image| !image.trim().is_empty())
+        .unwrap_or_else(|| format!("agentforge-agent:{cli_tool}"))
+}
+
+fn image_tag_version(image: &str) -> Option<String> {
+    let image_name = image.rsplit('/').next()?;
+    let (_, tag) = image_name.rsplit_once(':')?;
+    clean_version(tag.to_string())
+}
+
+fn clean_version(value: String) -> Option<String> {
+    let value = value.trim();
+    if value.is_empty() || value == "<no value>" { None } else { Some(value.to_string()) }
+}
+
 #[cfg(test)]
 mod tests {
     use agentforge_core::{OrgId, SettingId, UserId};
@@ -125,7 +218,7 @@ mod tests {
     use chrono::Utc;
     use uuid::Uuid;
 
-    use super::{RUNTIME_KEY, setting_value};
+    use super::{RUNTIME_KEY, image_tag_version, setting_value};
     use crate::domain::resource::SettingKey;
 
     #[test]
@@ -174,5 +267,14 @@ mod tests {
 
         let value = setting_value(&scope, &settings, RUNTIME_KEY).unwrap();
         assert_eq!(value["defaultRuntime"], "api");
+    }
+
+    #[test]
+    fn image_tag_version_ignores_registry_port() {
+        assert_eq!(
+            image_tag_version("registry.local:5000/team/agentforge-agent:codex-1.2.3").as_deref(),
+            Some("codex-1.2.3")
+        );
+        assert!(image_tag_version("registry.local:5000/team/agentforge-agent").is_none());
     }
 }

@@ -34,10 +34,20 @@ export function ContextCandidatesList({ title, kind, candidates }: ContextCandid
                   <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-badge bg-apple-orange/10 text-apple-orange">
                     {candidate.state}
                   </span>
+                  {candidate.itemKind === 'skill' && (
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-badge bg-apple-blue/10 text-apple-blue">
+                      save as skill
+                    </span>
+                  )}
                 </div>
                 <p className="mt-1 text-[11px] leading-relaxed text-secondary-light dark:text-secondary-dark break-words">
                   {candidatePreview(candidate)}
                 </p>
+                {candidate.itemKind === 'skill' && (
+                  <p className="mt-1 text-[10px] font-medium text-apple-blue">
+                    Review in the Context queue before publishing to agents.
+                  </p>
+                )}
                 <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-secondary-light dark:text-secondary-dark">
                   <span>Created {formatRelativeTime(candidate.createdAt)}</span>
                   {candidate.sourceRunId && <span>Run {candidate.sourceRunId.slice(0, 8)}</span>}

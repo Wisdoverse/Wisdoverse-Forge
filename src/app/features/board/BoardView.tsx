@@ -5,10 +5,15 @@ import { useContextFeaturesStore } from '@app/shared/model/context-features.stor
 import { useNavigationStore } from '@app/entities/navigation'
 import { KanbanColumn } from './KanbanColumn'
 import { TaskCard } from './TaskCard'
-import { orchestrationApi, type TaskSummary } from '@app/shared/api/orchestration'
+import {
+  orchestrationApi,
+  type ParticipantSummary,
+  type TaskSummary,
+} from '@app/shared/api/orchestration'
 import { InjectionPreviewModal } from '@app/entities/context/ui/InjectionPreviewModal'
 import type { ColumnId } from '@app/shared/model/board.types'
 import type { ContextPreviewResponse } from '@shared/types/context'
+import { AssignmentReadinessPanel } from './AssignmentReadinessPanel'
 
 const COLUMN_ORDER: ColumnId[] = [
   'backlog',
@@ -43,6 +48,9 @@ export function BoardView() {
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [publishing, setPublishing] = useState(false)
+  const [participants, setParticipants] = useState<ParticipantSummary[]>([])
+  const [participantsLoading, setParticipantsLoading] = useState(false)
+  const [participantsError, setParticipantsError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!selectedGroupId) return
@@ -72,6 +80,32 @@ export function BoardView() {
       window.clearInterval(fallbackRefresh)
     }
   }, [selectedGroupId, setTasks, setLoading, setError])
+
+  async function loadParticipants(showLoading = true) {
+    try {
+      if (showLoading) setParticipantsLoading(true)
+      setParticipantsError(null)
+      setParticipants(await orchestrationApi.getParticipants('all'))
+    } catch (err) {
+      setParticipants([])
+      setParticipantsError(err instanceof Error ? err.message : 'Failed to load agent readiness')
+    } finally {
+      if (showLoading) setParticipantsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!selectedGroupId) {
+      setParticipants([])
+      return
+    }
+    void loadParticipants(true)
+    const fallbackRefresh = window.setInterval(() => {
+      if (document.visibilityState === 'hidden') return
+      void loadParticipants(false)
+    }, BOARD_FALLBACK_REFRESH_MS)
+    return () => window.clearInterval(fallbackRefresh)
+  }, [selectedGroupId])
 
   function handleDragStart(event: DragStartEvent) {
     const taskId = event.active.id as string
@@ -240,19 +274,27 @@ export function BoardView() {
 
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="flex h-full flex-col gap-3 overflow-y-auto p-1 md:flex-row md:overflow-x-auto md:overflow-y-hidden">
-        {COLUMN_ORDER.map((colId) => (
-          <KanbanColumn
-            key={colId}
-            columnId={colId}
-            tasks={columns[colId]}
-            onTaskClick={setSelectedTask}
-            onTaskPublish={
-              canPublishWithContext ? (task) => void openPublishPreview(task) : undefined
-            }
-            onQuickCreate={handleQuickCreate}
-          />
-        ))}
+      <div className="flex h-full flex-col gap-3 p-1">
+        <AssignmentReadinessPanel
+          participants={participants}
+          loading={participantsLoading}
+          error={participantsError}
+          onRefresh={() => void loadParticipants(true)}
+        />
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto md:flex-row md:overflow-x-auto md:overflow-y-hidden">
+          {COLUMN_ORDER.map((colId) => (
+            <KanbanColumn
+              key={colId}
+              columnId={colId}
+              tasks={columns[colId]}
+              onTaskClick={setSelectedTask}
+              onTaskPublish={
+                canPublishWithContext ? (task) => void openPublishPreview(task) : undefined
+              }
+              onQuickCreate={handleQuickCreate}
+            />
+          ))}
+        </div>
       </div>
       <DragOverlay>{activeTask ? <TaskCard task={activeTask} /> : null}</DragOverlay>
       <InjectionPreviewModal
