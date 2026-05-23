@@ -1,14 +1,20 @@
-import { describe, test, expect, afterEach, vi } from 'vitest'
+import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { AgentDetailView } from '@app/widgets/agent-detail/AgentDetailView'
 
 afterEach(cleanup)
 
+const getTasksByAgentMock = vi.hoisted(() => vi.fn())
+
 // AgentTasksTab triggers an API call on mount; we don't want unit tests to
 // depend on the fetch shim, so stub it out at module level.
 vi.mock('@app/shared/api/orchestration', () => ({
-  orchestrationApi: { getTasksByAgent: vi.fn().mockResolvedValue([]) },
+  orchestrationApi: { getTasksByAgent: getTasksByAgentMock },
 }))
+
+beforeEach(() => {
+  getTasksByAgentMock.mockResolvedValue([])
+})
 
 const containerAgent = {
   id: 'a1',
@@ -101,6 +107,19 @@ describe('AgentDetailView', () => {
     render(<AgentDetailView agent={containerAgent} onBack={() => {}} />)
     expect(screen.getByText('12')).toBeDefined()
     expect(screen.getByText('98%')).toBeDefined()
+  })
+
+  test('foregrounds assignment fit on the agent profile', () => {
+    render(
+      <AgentDetailView
+        agent={{ ...containerAgent, currentTask: 'Implement onboarding flow' }}
+        onBack={() => {}}
+      />
+    )
+    expect(screen.getByTestId('agent-assignment-fit')).toBeDefined()
+    expect(screen.getByText('Can be assigned now')).toBeDefined()
+    expect(screen.getByText('Implement onboarding flow')).toBeDefined()
+    expect(screen.getByText(/attach and review skills/i)).toBeDefined()
   })
 
   test('explains workspace access and primary project context', () => {

@@ -1,23 +1,41 @@
-import { useEffect, useMemo, type ComponentType, type SVGProps } from 'react'
+import { useEffect, useMemo, useState, type ComponentType, type SVGProps } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowRight,
+  Activity,
   Bot,
   CheckCircle2,
   Circle,
   FolderKanban,
   KeyRound,
   Layers3,
-  MessageSquare,
+  ListTodo,
+  Rocket,
+  WandSparkles,
   Users,
 } from 'lucide-react'
 import { useNavigationStore } from '@app/entities/navigation'
+import {
+  orchestrationApi,
+  taskResultArtifacts,
+  type TaskSummary,
+} from '@app/shared/api/orchestration'
 import { useAgentsStore } from '@app/shared/model/agents.store'
+import { useBoardStore } from '@app/shared/model/board.store'
 import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useSkillsStore } from '@app/shared/model/skills.store'
 import { cn } from '@app/shared/lib/utils'
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement> & { size?: number | string }>
+
+interface TaskSnapshot {
+  total: number
+  assigned: number
+  completed: number
+  artifacts: number
+  appliedSkills: number
+}
 
 interface SetupStep {
   id: string
@@ -39,17 +57,36 @@ export function GettingStartedView() {
   const loadOrgs = useNavigationStore((state) => state.loadOrgs)
   const providers = useSettingsStore((state) => state.providers)
   const loadProviders = useSettingsStore((state) => state.loadProviders)
+  const runtimeSettings = useSettingsStore((state) => state.runtimeSettings)
+  const loadRuntimeSettings = useSettingsStore((state) => state.loadRuntimeSettings)
   const agents = useAgentsStore((state) => state.agents)
   const loadAgents = useAgentsStore((state) => state.loadAgents)
+  const boardColumns = useBoardStore((state) => state.columns)
+  const selectedGroupId = useBoardStore((state) => state.selectedGroupId)
+  const skills = useSkillsStore((state) => state.skills)
+  const loadSkills = useSkillsStore((state) => state.loadSkills)
+  const [loadedTasks, setLoadedTasks] = useState<TaskSummary[]>([])
 
   useEffect(() => {
-    void Promise.allSettled([loadOrgs(), loadProviders(), loadAgents()])
-  }, [loadAgents, loadOrgs, loadProviders])
+    void Promise.allSettled([
+      loadOrgs(),
+      loadProviders(),
+      loadRuntimeSettings(),
+      loadAgents(),
+      loadSkills(),
+    ])
+  }, [loadAgents, loadOrgs, loadProviders, loadRuntimeSettings, loadSkills])
 
   const projects = useMemo(() => Object.values(projectsByTeam).flat(), [projectsByTeam])
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) ?? null,
     [projects, selectedProjectId]
+  )
+  const taskGroupId = selectedGroupId ?? agentGroups[0]?.id ?? null
+  const localTasks = useMemo(() => Object.values(boardColumns).flat(), [boardColumns])
+  const taskSnapshot = useMemo(
+    () => summarizeTasks([...localTasks, ...loadedTasks]),
+    [loadedTasks, localTasks]
   )
   const firstProviderAgent = useMemo(
     () => agents.find((agent) => !agent.cliTool) ?? agents[0] ?? null,
@@ -61,35 +98,47 @@ export function GettingStartedView() {
       null,
     [providers]
   )
+  const runtimeReady = Boolean(
+    runtimeSettings &&
+    runtimeSettings.availableRuntimes.length > 0 &&
+    runtimeSettings.availableCliTools.length > 0
+  )
+  const workspaceDetail =
+    selectedProject?.name ??
+    projects[0]?.name ??
+    teams[0]?.name ??
+    t('gettingStarted.steps.workspace.empty')
+  const hasReusableLearning = skills.length > 0 || taskSnapshot.appliedSkills > 0
 
   const steps = useMemo<SetupStep[]>(
     () => [
       {
-        id: 'team',
-        title: t('gettingStarted.steps.team.title'),
-        detail: teams.length > 0 ? teams[0].name : t('gettingStarted.steps.team.empty'),
-        complete: teams.length > 0,
-        path: '/settings/teams',
+        id: 'workspace',
+        title: t('gettingStarted.steps.workspace.title'),
+        detail: workspaceDetail,
+        complete: teams.length > 0 && projects.length > 0,
+        path: '/settings/projects',
         cta:
-          teams.length > 0
-            ? t('gettingStarted.steps.team.review')
-            : t('gettingStarted.steps.team.create'),
+          teams.length > 0 && projects.length > 0
+            ? t('gettingStarted.steps.workspace.review')
+            : t('gettingStarted.steps.workspace.create'),
         Icon: Users,
       },
       {
-        id: 'project',
-        title: t('gettingStarted.steps.project.title'),
-        detail:
-          projects.length > 0
-            ? (selectedProject?.name ?? projects[0].name)
-            : t('gettingStarted.steps.project.empty'),
-        complete: projects.length > 0,
-        path: '/settings/projects',
-        cta:
-          projects.length > 0
-            ? t('gettingStarted.steps.project.review')
-            : t('gettingStarted.steps.project.create'),
-        Icon: FolderKanban,
+        id: 'runtime',
+        title: t('gettingStarted.steps.runtime.title'),
+        detail: runtimeSettings
+          ? t('gettingStarted.steps.runtime.ready', {
+              runtime: runtimeSettings.defaultRuntime,
+              cli: runtimeSettings.defaultCliTool,
+            })
+          : t('gettingStarted.steps.runtime.empty'),
+        complete: runtimeReady,
+        path: '/settings/runtime',
+        cta: runtimeReady
+          ? t('gettingStarted.steps.runtime.review')
+          : t('gettingStarted.steps.runtime.open'),
+        Icon: Activity,
       },
       {
         id: 'provider',
@@ -124,30 +173,61 @@ export function GettingStartedView() {
         id: 'routing',
         title: t('gettingStarted.steps.routing.title'),
         detail:
-          agentGroups.length > 0
-            ? agentGroups[0].name
+          taskGroupId && agentGroups.length > 0
+            ? (agentGroups.find((group) => group.id === taskGroupId)?.name ?? agentGroups[0].name)
             : selectedProject
               ? t('gettingStarted.steps.routing.emptyWithProject')
               : t('gettingStarted.steps.routing.emptyWithoutProject'),
-        complete: agentGroups.length > 0,
+        complete: Boolean(taskGroupId),
         path: '/agents',
-        cta:
-          agentGroups.length > 0
-            ? t('gettingStarted.steps.routing.review')
-            : t('gettingStarted.steps.routing.create'),
+        cta: taskGroupId
+          ? t('gettingStarted.steps.routing.review')
+          : t('gettingStarted.steps.routing.create'),
         Icon: Layers3,
       },
       {
-        id: 'agent-history',
-        title: t('gettingStarted.steps.history.title'),
+        id: 'task',
+        title: t('gettingStarted.steps.task.title'),
         detail:
-          agents.length > 0
-            ? t('gettingStarted.steps.history.ready')
-            : t('gettingStarted.steps.history.empty'),
-        complete: agents.length > 0,
-        path: '/agents',
-        cta: t('gettingStarted.steps.history.open'),
-        Icon: MessageSquare,
+          taskSnapshot.total > 0
+            ? t('gettingStarted.steps.task.ready', { count: taskSnapshot.total })
+            : taskGroupId
+              ? t('gettingStarted.steps.task.emptyWithRouting')
+              : t('gettingStarted.steps.task.emptyWithoutRouting'),
+        complete: taskSnapshot.total > 0,
+        path: '/tasks',
+        cta:
+          taskSnapshot.total > 0
+            ? t('gettingStarted.steps.task.open')
+            : t('gettingStarted.steps.task.create'),
+        Icon: ListTodo,
+      },
+      {
+        id: 'review',
+        title: t('gettingStarted.steps.review.title'),
+        detail:
+          taskSnapshot.completed > 0
+            ? t('gettingStarted.steps.review.ready', { count: taskSnapshot.completed })
+            : taskSnapshot.assigned > 0
+              ? t('gettingStarted.steps.review.inFlight')
+              : t('gettingStarted.steps.review.empty'),
+        complete: taskSnapshot.completed > 0 || taskSnapshot.artifacts > 0,
+        path: '/tasks',
+        cta: t('gettingStarted.steps.review.open'),
+        Icon: Rocket,
+      },
+      {
+        id: 'reuse',
+        title: t('gettingStarted.steps.reuse.title'),
+        detail: hasReusableLearning
+          ? t('gettingStarted.steps.reuse.ready')
+          : t('gettingStarted.steps.reuse.empty'),
+        complete: hasReusableLearning,
+        path: hasReusableLearning ? '/skills' : '/context',
+        cta: hasReusableLearning
+          ? t('gettingStarted.steps.reuse.open')
+          : t('gettingStarted.steps.reuse.review'),
+        Icon: WandSparkles,
       },
     ],
     [
@@ -156,12 +236,37 @@ export function GettingStartedView() {
       firstProviderAgent,
       projects,
       providers.length,
+      runtimeReady,
+      runtimeSettings,
       selectedProject,
+      hasReusableLearning,
+      taskGroupId,
+      taskSnapshot,
       t,
       teams,
       verifiedProvider,
+      workspaceDetail,
     ]
   )
+
+  useEffect(() => {
+    if (!taskGroupId) {
+      setLoadedTasks([])
+      return
+    }
+    let cancelled = false
+    orchestrationApi
+      .getTasks(taskGroupId)
+      .then((tasks) => {
+        if (!cancelled) setLoadedTasks(tasks)
+      })
+      .catch(() => {
+        if (!cancelled) setLoadedTasks([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [taskGroupId])
 
   const completeCount = steps.filter((step) => step.complete).length
   const progress = Math.round((completeCount / steps.length) * 100)
@@ -228,6 +333,31 @@ export function GettingStartedView() {
       </section>
     </div>
   )
+}
+
+function summarizeTasks(tasks: TaskSummary[]): TaskSnapshot {
+  const byId = new Map<string, TaskSummary>()
+  for (const task of tasks) byId.set(task.id, task)
+
+  let assigned = 0
+  let completed = 0
+  let artifacts = 0
+  let appliedSkills = 0
+
+  for (const task of byId.values()) {
+    if (task.assignedTo || task.assignedAgentName) assigned += 1
+    if (task.state === 'completed') completed += 1
+    artifacts += taskResultArtifacts(task.result).length
+    appliedSkills += task.contextCounts?.appliedSkills ?? 0
+  }
+
+  return {
+    total: byId.size,
+    assigned,
+    completed,
+    artifacts,
+    appliedSkills,
+  }
 }
 
 function SetupStepItem({

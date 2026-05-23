@@ -91,17 +91,18 @@ export const en = {
     noProject: 'No project selected',
     projects: 'Projects',
     steps: {
-      team: {
-        title: 'Team',
-        empty: 'Required before project access is useful.',
-        create: 'Create team',
-        review: 'Review teams',
+      workspace: {
+        title: 'Workspace',
+        empty: 'Create a team and project only when routing needs them.',
+        create: 'Create workspace',
+        review: 'Review workspace',
       },
-      project: {
-        title: 'Project',
-        empty: 'The workspace boundary agents will use.',
-        create: 'Create project',
-        review: 'Review projects',
+      runtime: {
+        title: 'Runtime',
+        empty: 'Confirm the execution runtime and Container CLI options.',
+        ready: '{{runtime}} runtime with {{cli}} as default CLI.',
+        open: 'Check runtime',
+        review: 'Review runtime',
       },
       provider: {
         title: 'Provider',
@@ -124,11 +125,27 @@ export const en = {
         create: 'Create task group',
         review: 'Review routing',
       },
-      history: {
-        title: 'Agent history',
-        empty: 'Create an agent first.',
-        ready: 'Ready to open chat and send a prompt.',
-        open: 'Open agent history',
+      task: {
+        title: 'First task',
+        emptyWithRouting: 'Create a task, assign it, and watch the run start.',
+        emptyWithoutRouting: 'Finish routing before creating the first task.',
+        ready: '{{count}} task on the board.',
+        create: 'Create task',
+        open: 'Open board',
+      },
+      review: {
+        title: 'Review output',
+        empty: 'Assigned task output will appear in the detail panel.',
+        inFlight: 'A task is assigned. Review progress from the board.',
+        ready: '{{count}} completed task ready for acceptance.',
+        open: 'Review work',
+      },
+      reuse: {
+        title: 'Reusable learning',
+        empty: 'Approve context or skill candidates after completed work.',
+        ready: 'Reusable skills or applied skill context exist.',
+        review: 'Review candidates',
+        open: 'Open skills',
       },
     },
   },

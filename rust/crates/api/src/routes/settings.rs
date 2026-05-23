@@ -19,7 +19,8 @@ use agentforge_core::AppResult;
 use crate::health::AppState;
 use crate::services::setting::{
     SettingService, UpdateGatewaySettingsInput, UpdateRuntimeSettingsInput, UpsertSettingInput,
-    configuration_data_response, configuration_delete_response, gateway_settings_response, runtime_settings_response,
+    configuration_data_response, configuration_delete_response, gateway_settings_response,
+    runtime_settings_with_cli_tools_response,
 };
 
 /// Request body for upserting a setting.
@@ -58,8 +59,8 @@ async fn list_settings(State(state): State<AppState>, auth: AuthUser) -> AppResu
 /// `GET /api/settings/runtime` — read runtime settings.
 async fn get_runtime_settings(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
-    let runtime = service.runtime_settings(&auth.scope).await?;
-    Ok(Json(runtime_settings_response(&runtime)))
+    let runtime = service.runtime_settings_with_cli_tools(&auth.scope).await?;
+    Ok(Json(runtime_settings_with_cli_tools_response(&runtime)))
 }
 
 /// `PATCH /api/settings/runtime` — update runtime settings.
@@ -70,12 +71,12 @@ async fn update_runtime_settings(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let runtime = service
-        .update_runtime_settings(
+        .update_runtime_settings_with_cli_tools(
             &auth.scope,
             UpdateRuntimeSettingsInput { default_runtime: req.default_runtime, default_cli_tool: req.default_cli_tool },
         )
         .await?;
-    Ok(Json(runtime_settings_response(&runtime)))
+    Ok(Json(runtime_settings_with_cli_tools_response(&runtime)))
 }
 
 /// `GET /api/settings/gateway` — read gateway settings.

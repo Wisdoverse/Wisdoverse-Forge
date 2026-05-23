@@ -30,11 +30,12 @@ use crate::domain::orchestration::{
 pub(crate) use crate::domain::orchestration::{
     CreateTaskParamsInput, create_task_request_parts, orchestration_delete_response,
     orchestration_participant_response, orchestration_participants_response, orchestration_stats_response,
-    orchestration_task_context_response, orchestration_task_response, orchestration_tasks_response,
-    task_update_broadcast_payload, task_update_broadcast_subject,
+    orchestration_task_context_response, orchestration_task_response, orchestration_task_runs_response,
+    orchestration_tasks_response, task_update_broadcast_payload, task_update_broadcast_subject,
 };
 pub use crate::domain::orchestration::{
-    ParticipantSummary, TaskContextCounts, TaskStatsResponse, TaskSummary, task_summary,
+    ParticipantSummary, TaskContextCounts, TaskRunSummary, TaskStatsResponse, TaskSummary, task_run_summary,
+    task_summary,
 };
 use crate::repositories::orchestration::run_context_injection::{
     ContextInjectionCounts, RunContextInjectionRepository,
@@ -813,6 +814,12 @@ impl OrchestrationService {
             summary.context_counts = counts.into();
         }
         Ok(summary)
+    }
+
+    pub async fn list_task_runs(&self, scope: &TenantScope, task_id: Uuid) -> AppResult<Vec<TaskRunSummary>> {
+        self.task_repo.find_by_id(scope, task_id).await?;
+        let runs = self.task_run_repo.list_by_task(scope, task_id).await?;
+        Ok(runs.into_iter().map(task_run_summary).collect())
     }
 
     pub(crate) async fn broadcast_task_update(&self, scope: &TenantScope, action: &str, task: &TaskSummary) {

@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use agentforge_core::context_envelope::ContextEnvelope;
 use agentforge_core::orchestration_protocol::TaskAssignment;
 use agentforge_core::{AgentId, AppError, AppResult, ErrorKind, OrgId, TenantScope, WorkspaceId};
-use agentforge_db::entities::OrchestrationTask;
+use agentforge_db::entities::{OrchestrationTask, TaskRun};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -331,6 +331,26 @@ pub struct TaskContextCounts {
     pub total: i64,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct TaskRunSummary {
+    pub id: Uuid,
+    #[serde(rename = "agentId")]
+    pub agent_id: Uuid,
+    pub status: String,
+    #[serde(rename = "startedAt")]
+    pub started_at: String,
+    #[serde(rename = "finishedAt", skip_serializing_if = "Option::is_none")]
+    pub finished_at: Option<String>,
+    #[serde(rename = "runtimeKind", skip_serializing_if = "Option::is_none")]
+    pub runtime_kind: Option<String>,
+    #[serde(rename = "cliTool", skip_serializing_if = "Option::is_none")]
+    pub cli_tool: Option<String>,
+    #[serde(rename = "providerName", skip_serializing_if = "Option::is_none")]
+    pub provider_name: Option<String>,
+    #[serde(rename = "maxContextTokens", skip_serializing_if = "Option::is_none")]
+    pub max_context_tokens: Option<u64>,
+}
+
 impl TaskContextCounts {
     pub fn new(applied_memories: i64, applied_skills: i64) -> Self {
         Self { applied_memories, applied_skills, total: applied_memories + applied_skills }
@@ -419,6 +439,10 @@ pub(crate) fn orchestration_task_context_response<T: Serialize>(context: &T) -> 
     json!({ "ok": true, "data": context })
 }
 
+pub(crate) fn orchestration_task_runs_response(runs: &[TaskRunSummary]) -> Value {
+    json!({ "ok": true, "runs": runs })
+}
+
 pub(crate) fn orchestration_participant_response(participant: &ParticipantSummary) -> Value {
     json!({ "ok": true, "participant": participant })
 }
@@ -486,6 +510,24 @@ pub fn task_summary(task: OrchestrationTask, agent_name: Option<String>) -> Task
         completed_at: if is_completed { task.completed_at.map(|t| t.to_rfc3339()) } else { None },
         context_counts: TaskContextCounts::default(),
     }
+}
+
+pub fn task_run_summary(run: TaskRun) -> TaskRunSummary {
+    TaskRunSummary {
+        id: run.id,
+        agent_id: run.agent_id.as_uuid(),
+        status: run.status,
+        started_at: run.started_at.to_rfc3339(),
+        finished_at: run.finished_at.map(|t| t.to_rfc3339()),
+        runtime_kind: string_value(&run.capability_profile, "runtime_kind"),
+        cli_tool: string_value(&run.capability_profile, "cli_tool"),
+        provider_name: string_value(&run.capability_profile, "provider_name"),
+        max_context_tokens: run.capability_profile.get("max_context_tokens").and_then(Value::as_u64),
+    }
+}
+
+fn string_value(value: &Value, key: &str) -> Option<String> {
+    value.get(key).and_then(Value::as_str).map(str::to_owned)
 }
 
 pub(crate) fn task_assignment_snapshot(task: &OrchestrationTask) -> TaskAssignmentSnapshot<'_> {

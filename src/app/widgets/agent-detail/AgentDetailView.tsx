@@ -8,6 +8,8 @@ import { AgentKindBadge } from '@app/features/agents/AgentKindBadge'
 import { AgentPluginsTab } from '@app/features/agents/AgentPluginsTab'
 import { AgentTasksTab } from '@app/features/agents/AgentTasksTab'
 import { ChatView } from '@app/features/chat/ChatView'
+import { orchestrationApi, type TaskSummary } from '@app/shared/api/orchestration'
+import { formatRelativeTime } from '@app/shared/lib/time'
 
 // Lazy — keeps xterm out of the agents route's initial chunk
 const AgentTerminalTab = lazy(() =>
@@ -90,12 +92,28 @@ interface AgentDetailViewProps {
 
 export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
   const [activeTab, setActiveTab] = useState<Tab>('overview')
+  const [recentTasks, setRecentTasks] = useState<TaskSummary[]>([])
   const ratePercent = Math.round(agent.successRate * 100)
   const tabs = tabsFor(agent)
 
   useEffect(() => {
     if (!tabs.some((tab) => tab.id === activeTab)) setActiveTab('overview')
   }, [activeTab, tabs])
+
+  useEffect(() => {
+    let cancelled = false
+    orchestrationApi
+      .getTasksByAgent(agent.id, { limit: 5 })
+      .then((tasks) => {
+        if (!cancelled) setRecentTasks(tasks)
+      })
+      .catch(() => {
+        if (!cancelled) setRecentTasks([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [agent.id])
 
   return (
     <div className="flex flex-col gap-4">
@@ -175,6 +193,8 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
       {/* Tab content */}
       {activeTab === 'overview' && (
         <div className="flex flex-col gap-4">
+          <AssignmentFitCard agent={agent} recentTasks={recentTasks} />
+
           {/* Stats grid */}
           <div className="grid grid-cols-2 gap-3">
             <StatCard label="Tasks Done" value={String(agent.tasksCompleted)} />
@@ -253,6 +273,104 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
       {activeTab === 'plugins' && <AgentPluginsTab agentId={agent.id} />}
 
       {activeTab === 'config' && <AgentConfigTab agentId={agent.id} />}
+    </div>
+  )
+}
+
+function AssignmentFitCard({
+  agent,
+  recentTasks,
+}: {
+  agent: AgentInfo
+  recentTasks: TaskSummary[]
+}) {
+  const available = agent.status === 'idle'
+  const activeTask = recentTasks.find((task) => task.state === 'working' || task.state === 'queued')
+  const latestTask = recentTasks[0]
+  const appliedSkillCount = recentTasks.reduce(
+    (sum, task) => sum + (task.contextCounts?.appliedSkills ?? 0),
+    0
+  )
+  const availability = available
+    ? 'Can be assigned now'
+    : agent.status === 'working'
+      ? 'Already working'
+      : 'Unavailable until restarted or reconnected'
+  const runtime = agent.cliTool ? `${agent.cliTool} Container CLI` : `${agent.provider} provider`
+  const credential =
+    agent.cliTool === 'codex'
+      ? 'Container CLI OAuth status is checked in Runtime settings.'
+      : agent.cliTool
+        ? 'Container credentials are injected when the agent starts.'
+        : 'Provider API key readiness comes from Settings providers.'
+
+  return (
+    <section
+      data-testid="agent-assignment-fit"
+      className={cn(
+        'bg-white dark:bg-[#2c2c2e] rounded-xl px-4 py-3',
+        'border border-black/[0.08] dark:border-white/[0.1]',
+        'flex flex-col gap-3'
+      )}
+    >
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+            Availability
+          </p>
+          <h2 className="mt-0.5 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+            {availability}
+          </h2>
+        </div>
+        <span
+          className={cn(
+            'inline-flex h-7 w-fit items-center rounded-full px-2.5 text-ui-caption font-medium',
+            available
+              ? 'bg-apple-green/10 text-apple-green'
+              : agent.status === 'working'
+                ? 'bg-apple-orange/10 text-apple-orange'
+                : 'bg-apple-gray-5 text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
+          )}
+        >
+          {STATUS_LABELS[agent.status]}
+        </span>
+      </div>
+
+      <div className="grid gap-2 text-ui-caption sm:grid-cols-2">
+        <ProfileSummaryRow
+          label="Current work"
+          value={activeTask?.params.task ?? agent.currentTask ?? 'No active task'}
+        />
+        <ProfileSummaryRow
+          label="Recent update"
+          value={
+            latestTask
+              ? `${latestTask.params.task} updated ${formatRelativeTime(latestTask.updatedAt)}`
+              : 'No recent task updates'
+          }
+        />
+        <ProfileSummaryRow label="Runtime" value={runtime} />
+        <ProfileSummaryRow
+          label="Skills"
+          value={
+            appliedSkillCount > 0
+              ? `${appliedSkillCount} applied skill${appliedSkillCount === 1 ? '' : 's'} in recent work`
+              : 'Attach and review skills from task context'
+          }
+        />
+        <ProfileSummaryRow label="Credentials" value={credential} />
+      </div>
+    </section>
+  )
+}
+
+function ProfileSummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-lg bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]">
+      <span className="block text-secondary-light dark:text-secondary-dark">{label}</span>
+      <span className="mt-0.5 block truncate font-medium text-foreground-light dark:text-foreground-dark">
+        {value}
+      </span>
     </div>
   )
 }

@@ -264,7 +264,7 @@ impl AppState {
     }
 
     pub(crate) fn setting_service(&self) -> SettingService {
-        SettingService::from_pool(self.pool.clone())
+        SettingService::from_runtime(self.pool.clone(), self.docker.clone())
     }
 
     pub(crate) fn skill_service(&self) -> SkillService {
