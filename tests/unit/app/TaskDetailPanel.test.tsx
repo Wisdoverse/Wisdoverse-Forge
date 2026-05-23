@@ -1,12 +1,33 @@
 import { describe, test, expect, afterEach, vi } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { TaskDetailPanel } from '@app/features/detail/TaskDetailPanel'
 import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
+import { useBoardStore } from '@app/shared/model/board.store'
+
+const orchestrationApiMock = vi.hoisted(() => ({
+  updateTask: vi.fn(),
+  cancelTask: vi.fn(),
+  retryTask: vi.fn(),
+  approveTask: vi.fn(),
+  getParticipants: vi.fn(),
+  previewContext: vi.fn(),
+  publishWithContext: vi.fn(),
+}))
+
+vi.mock('@app/shared/api/orchestration', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@app/shared/api/orchestration')>()
+  return {
+    ...actual,
+    orchestrationApi: orchestrationApiMock,
+  }
+})
 
 afterEach(() => {
   cleanup()
   useContextFeaturesStore.getState().reset()
+  useBoardStore.getState().reset()
+  vi.clearAllMocks()
 })
 
 const mockTask = {
@@ -75,6 +96,56 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByTestId('task-next-action')).toBeDefined()
     expect(screen.getByText(/resolve the blocker/i)).toBeDefined()
     expect(screen.getAllByText(/waiting for deployment approval/i).length).toBeGreaterThan(0)
+  })
+
+  test('retries failed tasks and updates the board store', async () => {
+    const retriedTask = { ...mockTask, state: 'queued' as const, progress: 0, error: undefined }
+    orchestrationApiMock.retryTask.mockResolvedValue({ ok: true, task: retriedTask })
+
+    render(
+      <TaskDetailPanel
+        task={{
+          ...mockTask,
+          state: 'failed',
+          error: 'Runtime exited before producing a result',
+        }}
+        onClose={() => {}}
+      />
+    )
+
+    expect(screen.getByTestId('task-recovery-actions')).toBeDefined()
+    await userEvent.setup().click(screen.getByRole('button', { name: /retry task/i }))
+
+    await waitFor(() => expect(orchestrationApiMock.retryTask).toHaveBeenCalledWith('task-1'))
+    expect(useBoardStore.getState().columns.queued[0]).toMatchObject({
+      id: 'task-1',
+      state: 'queued',
+    })
+  })
+
+  test('approves blocked tasks waiting on human approval', async () => {
+    const approvedTask = { ...mockTask, state: 'queued' as const, blockedReason: undefined }
+    orchestrationApiMock.approveTask.mockResolvedValue({ ok: true, task: approvedTask })
+
+    render(
+      <TaskDetailPanel
+        task={{
+          ...mockTask,
+          state: 'blocked',
+          blockedReason: 'waiting_approval',
+          blockedHint: 'Waiting for release owner approval',
+        }}
+        onClose={() => {}}
+      />
+    )
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /approve and continue/i }))
+
+    await waitFor(() => expect(orchestrationApiMock.approveTask).toHaveBeenCalledWith('task-1'))
+    expect(useBoardStore.getState().columns.queued[0]).toMatchObject({
+      id: 'task-1',
+      state: 'queued',
+    })
   })
 
   test('surfaces reusable skill review after completed work', () => {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Send, X } from 'lucide-react'
+import { CheckCircle2, RotateCcw, Send, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import {
   orchestrationApi,
@@ -49,6 +49,8 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [publishing, setPublishing] = useState(false)
   const [skillDraftOpen, setSkillDraftOpen] = useState(false)
+  const [recoveryAction, setRecoveryAction] = useState<'retry' | 'approve' | null>(null)
+  const [recoveryError, setRecoveryError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!contextVisible && activeTab === 'context') setActiveTab('description')
@@ -60,6 +62,8 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
     (task.state === 'backlog' ||
       task.state === 'queued' ||
       (task.state === 'blocked' && task.blockedReason === 'waiting_agent'))
+  const canRetry = task.state === 'failed' || task.state === 'canceled'
+  const canApprove = task.state === 'blocked' && task.blockedReason === 'waiting_approval'
 
   useEffect(() => {
     if (!canAssign) return
@@ -112,6 +116,22 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       setPreviewError(err instanceof Error ? err.message : 'Failed to publish task')
     } finally {
       setPublishing(false)
+    }
+  }
+
+  async function handleRecovery(action: 'retry' | 'approve') {
+    setRecoveryAction(action)
+    setRecoveryError(null)
+    try {
+      const response =
+        action === 'retry'
+          ? await orchestrationApi.retryTask(task.id)
+          : await orchestrationApi.approveTask(task.id)
+      if (response.ok && response.task) upsertTask(response.task)
+    } catch (err) {
+      setRecoveryError(err instanceof Error ? err.message : 'Failed to update task')
+    } finally {
+      setRecoveryAction(null)
     }
   }
 
@@ -238,6 +258,51 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
             >
               <Send size={14} strokeWidth={2} />
             </button>
+          </div>
+        </div>
+      )}
+
+      {(canRetry || canApprove) && (
+        <div
+          data-testid="task-recovery-actions"
+          className="space-y-2 pt-3 border-t border-black/[0.04] dark:border-white/[0.04]"
+        >
+          {recoveryError && (
+            <div className="rounded-lg bg-apple-red/10 px-3 py-2 text-xs text-apple-red">
+              {recoveryError}
+            </div>
+          )}
+          <div className="flex gap-2">
+            {canRetry && (
+              <button
+                type="button"
+                onClick={() => void handleRecovery('retry')}
+                disabled={recoveryAction !== null}
+                className={cn(
+                  'inline-flex flex-1 items-center justify-center gap-1.5 rounded-button py-1.5 text-xs font-medium',
+                  'bg-apple-blue/10 text-apple-blue transition-colors hover:bg-apple-blue/15',
+                  'disabled:cursor-not-allowed disabled:opacity-50'
+                )}
+              >
+                <RotateCcw size={13} strokeWidth={2.25} aria-hidden="true" />
+                <span>{recoveryAction === 'retry' ? 'Retrying…' : 'Retry task'}</span>
+              </button>
+            )}
+            {canApprove && (
+              <button
+                type="button"
+                onClick={() => void handleRecovery('approve')}
+                disabled={recoveryAction !== null}
+                className={cn(
+                  'inline-flex flex-1 items-center justify-center gap-1.5 rounded-button py-1.5 text-xs font-medium',
+                  'bg-apple-green/10 text-apple-green transition-colors hover:bg-apple-green/15',
+                  'disabled:cursor-not-allowed disabled:opacity-50'
+                )}
+              >
+                <CheckCircle2 size={13} strokeWidth={2.25} aria-hidden="true" />
+                <span>{recoveryAction === 'approve' ? 'Approving…' : 'Approve and continue'}</span>
+              </button>
+            )}
           </div>
         </div>
       )}
