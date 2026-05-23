@@ -59,6 +59,24 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByText('Cancel')).toBeDefined()
   })
 
+  test('shows next action guidance for blocked tasks', () => {
+    render(
+      <TaskDetailPanel
+        task={{
+          ...mockTask,
+          state: 'blocked',
+          blockedReason: 'waiting_owner',
+          blockedHint: 'Waiting for deployment approval',
+        }}
+        onClose={() => {}}
+      />
+    )
+
+    expect(screen.getByTestId('task-next-action')).toBeDefined()
+    expect(screen.getByText(/resolve the blocker/i)).toBeDefined()
+    expect(screen.getAllByText(/waiting for deployment approval/i).length).toBeGreaterThan(0)
+  })
+
   test('surfaces reusable skill review after completed work', () => {
     useContextFeaturesStore.setState({ governance: true, preview: true, injection: true })
     render(
