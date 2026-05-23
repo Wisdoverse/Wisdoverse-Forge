@@ -13,6 +13,7 @@ pub mod analytics;
 pub mod api_key;
 pub mod attachment;
 pub mod audit;
+pub mod auth;
 pub mod auth_callout;
 pub mod billing;
 pub mod cli_auth_proxy;
