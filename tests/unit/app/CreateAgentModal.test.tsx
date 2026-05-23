@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { CreateAgentModal } from '@app/features/agents/CreateAgentModal'
 import { useAgentsStore } from '@app/shared/model/agents.store'
@@ -251,5 +251,31 @@ describe('CreateAgentModal', () => {
       model: 'claude-sonnet-4-6',
     })
     expect(payload).not.toHaveProperty('cliTool')
+  })
+
+  test('applies a role template to a provider agent prompt', async () => {
+    const createAgent = vi.fn().mockResolvedValue(true)
+    useAgentsStore.setState({ createAgent } as never)
+
+    render(<CreateAgentModal />)
+    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+    const templateGroup = screen.getByRole('group', { name: /agent role templates/i })
+    fireEvent.click(within(templateGroup).getByRole('button', { name: /reviewer/i }))
+
+    expect(screen.getByLabelText(/^name$/i)).toHaveValue('Review Agent')
+    expect((screen.getByLabelText(/system prompt/i) as HTMLTextAreaElement).value).toContain(
+      'security issues'
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+
+    await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
+    expect(createAgent.mock.calls[0][0]).toMatchObject({
+      kind: 'provider',
+      name: 'Review Agent',
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-6',
+      systemPrompt: expect.stringContaining('security issues'),
+    })
   })
 })
