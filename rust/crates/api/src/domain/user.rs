@@ -63,22 +63,6 @@ impl UserAccessPolicy {
         Self::ensure_allowed(actor_user_id == target_user_id)
     }
 
-    pub(crate) fn require_org_membership<T>(role: Option<T>) -> AppResult<T> {
-        role.ok_or_else(Self::forbidden)
-    }
-
-    pub(crate) fn ensure_workspace_in_org(exists_in_org: bool) -> AppResult<()> {
-        Self::ensure_allowed(exists_in_org)
-    }
-
-    pub(crate) fn ensure_team_readable(can_read: bool) -> AppResult<()> {
-        Self::ensure_allowed(can_read)
-    }
-
-    pub(crate) fn ensure_project_readable(can_read: bool) -> AppResult<()> {
-        Self::ensure_allowed(can_read)
-    }
-
     fn ensure_allowed(allowed: bool) -> AppResult<()> {
         if allowed { Ok(()) } else { Err(Self::forbidden()) }
     }
@@ -119,7 +103,6 @@ const REFRESH_COOKIE_NAME: &str = "af_rt";
 const REFRESH_COOKIE_PATH: &str = "/api/v1/auth";
 const REFRESH_EXPIRY_SECONDS: u64 = 7 * 24 * 60 * 60;
 const REMEMBER_ME_REFRESH_EXPIRY_SECONDS: u64 = 30 * 24 * 60 * 60;
-pub(crate) const SWITCH_CONTEXT_REFRESH_EXPIRY_SECONDS: u64 = 7 * 24 * 60 * 60;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -169,14 +152,6 @@ struct RefreshSuccessResponse {
     expires_in: u64,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct SwitchContextSuccessResponse {
-    ok: bool,
-    access_token: String,
-    expires_in: u64,
-}
-
 pub(crate) fn auth_success_response_body(result: &LoginResult) -> Value {
     json!(AuthSuccessResponse {
         ok: true,
@@ -194,10 +169,6 @@ pub(crate) fn auth_refresh_response(session: &RefreshedAccessToken) -> Value {
         access_token: session.access_token().to_string(),
         expires_in: session.expires_in(),
     })
-}
-
-pub(crate) fn auth_switch_context_response(access_token: String, expires_in: u64) -> Value {
-    json!(SwitchContextSuccessResponse { ok: true, access_token, expires_in })
 }
 
 pub(crate) fn auth_message_response(message: &'static str) -> Value {
@@ -373,14 +344,6 @@ impl UserAccountPolicy {
         ErrorKind::Internal(anyhow::anyhow!("password hashing failed: {err}"))
     }
 
-    pub(crate) fn context_switch_token_creation_failed(err: impl std::fmt::Display) -> ErrorKind {
-        ErrorKind::Internal(anyhow::anyhow!("context switch token creation failed: {err}"))
-    }
-
-    pub(crate) fn context_switch_refresh_token_creation_failed(err: impl std::fmt::Display) -> ErrorKind {
-        ErrorKind::Internal(anyhow::anyhow!("context switch refresh token creation failed: {err}"))
-    }
-
     pub(crate) fn access_token_refresh_failed(err: impl std::fmt::Display) -> ErrorKind {
         ErrorKind::Internal(anyhow::anyhow!("access token refresh failed: {err}"))
     }
@@ -403,43 +366,6 @@ impl UserAccountPolicy {
 
     pub(crate) fn invalid_or_expired_reset_token() -> ErrorKind {
         ErrorKind::Validation("invalid or expired reset token".into())
-    }
-}
-
-/// Validated context axes for an auth context switch.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct SwitchContextAxes {
-    workspace_id: Option<Uuid>,
-    team_id: Option<Uuid>,
-    project_id: Option<Uuid>,
-}
-
-impl SwitchContextAxes {
-    pub(crate) fn new(workspace_id: Option<Uuid>, team_id: Option<Uuid>, project_id: Option<Uuid>) -> AppResult<Self> {
-        if project_id.is_some() && workspace_id.is_none() {
-            return Err(ErrorKind::Validation("workspaceId is required when projectId is selected".into()).into());
-        }
-
-        Ok(Self { workspace_id, team_id, project_id })
-    }
-
-    pub(crate) fn workspace_id(&self) -> Option<Uuid> {
-        self.workspace_id
-    }
-
-    pub(crate) fn team_id(&self) -> Option<Uuid> {
-        self.team_id
-    }
-
-    pub(crate) fn project_id(&self) -> Option<Uuid> {
-        self.project_id
-    }
-
-    pub(crate) fn project_workspace_pair(&self) -> Option<(Uuid, Uuid)> {
-        match (self.project_id, self.workspace_id) {
-            (Some(project_id), Some(workspace_id)) => Some((project_id, workspace_id)),
-            _ => None,
-        }
     }
 }
 
@@ -598,56 +524,12 @@ mod tests {
     }
 
     #[test]
-    fn switch_context_axes_allow_workspace_team_and_project_selection() {
-        let workspace_id = Uuid::new_v4();
-        let team_id = Uuid::new_v4();
-        let project_id = Uuid::new_v4();
-
-        let axes = SwitchContextAxes::new(Some(workspace_id), Some(team_id), Some(project_id)).unwrap();
-
-        assert_eq!(axes.workspace_id(), Some(workspace_id));
-        assert_eq!(axes.team_id(), Some(team_id));
-        assert_eq!(axes.project_id(), Some(project_id));
-        assert_eq!(axes.project_workspace_pair(), Some((project_id, workspace_id)));
-    }
-
-    #[test]
-    fn switch_context_axes_require_workspace_for_project_selection() {
-        let err = SwitchContextAxes::new(None, None, Some(Uuid::new_v4())).unwrap_err();
-
-        assert!(
-            matches!(err.kind, ErrorKind::Validation(message) if message == "workspaceId is required when projectId is selected")
-        );
-    }
-
-    #[test]
-    fn switch_context_axes_allow_org_only_and_workspace_only_selection() {
-        let workspace_id = Uuid::new_v4();
-
-        let org_only = SwitchContextAxes::new(None, None, None).unwrap();
-        let workspace_only = SwitchContextAxes::new(Some(workspace_id), None, None).unwrap();
-
-        assert_eq!(org_only.project_workspace_pair(), None);
-        assert_eq!(workspace_only.workspace_id(), Some(workspace_id));
-        assert_eq!(workspace_only.project_workspace_pair(), None);
-    }
-
-    #[test]
-    fn user_access_policy_owns_profile_and_context_forbidden_contracts() {
+    fn user_access_policy_owns_self_profile_forbidden_contract() {
         let actor = UserId::new();
         let target = UserId::new();
 
         assert!(UserAccessPolicy::ensure_self_profile(actor, actor).is_ok());
         assert!(matches!(UserAccessPolicy::ensure_self_profile(actor, target).unwrap_err().kind, ErrorKind::Forbidden));
-        assert_eq!(UserAccessPolicy::require_org_membership(Some("admin")).unwrap(), "admin");
-        assert!(matches!(
-            UserAccessPolicy::require_org_membership::<&str>(None).unwrap_err().kind,
-            ErrorKind::Forbidden
-        ));
-        assert!(UserAccessPolicy::ensure_workspace_in_org(true).is_ok());
-        assert!(matches!(UserAccessPolicy::ensure_workspace_in_org(false).unwrap_err().kind, ErrorKind::Forbidden));
-        assert!(matches!(UserAccessPolicy::ensure_team_readable(false).unwrap_err().kind, ErrorKind::Forbidden));
-        assert!(matches!(UserAccessPolicy::ensure_project_readable(false).unwrap_err().kind, ErrorKind::Forbidden));
     }
 
     #[test]
@@ -746,14 +628,6 @@ mod tests {
         );
         assert!(format!("{}", UserAccountPolicy::jwt_creation_failed("bad")).contains("JWT creation failed"));
         assert!(format!("{}", UserAccountPolicy::password_hashing_failed("bad")).contains("password hashing failed"));
-        assert!(
-            format!("{}", UserAccountPolicy::context_switch_token_creation_failed("bad"))
-                .contains("context switch token creation failed")
-        );
-        assert!(
-            format!("{}", UserAccountPolicy::context_switch_refresh_token_creation_failed("bad"))
-                .contains("context switch refresh token creation failed")
-        );
         assert!(format!("{}", UserAccountPolicy::access_token_refresh_failed("bad")).contains("access token refresh"));
         assert!(
             format!("{}", UserAccountPolicy::refresh_token_creation_failed("bad"))

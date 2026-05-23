@@ -3,6 +3,7 @@
 use agentforge_core::{AppResult, OrgId, TenantScope, UserId};
 use agentforge_db::entities::Organization;
 use sqlx::PgPool;
+use uuid::Uuid;
 
 use crate::domain::resource::ResourceRepositoryPolicy;
 
@@ -69,6 +70,27 @@ impl OrganizationRepository {
 
         tx.commit().await?;
         Ok(org)
+    }
+
+    /// Returns the user's role in the given organization, or `None` if no
+    /// active membership exists.
+    ///
+    /// Intentionally not tenant-scoped: callers use this *before* a context
+    /// switch into `org_id` has been authorized, so they cannot present a
+    /// tenant scope yet.
+    pub async fn find_member_role(&self, user_id: Uuid, org_id: Uuid) -> AppResult<Option<String>> {
+        let role = sqlx::query_scalar::<_, String>(
+            r#"SELECT role
+                 FROM organization_members
+                WHERE organization_id = $1
+                  AND user_id = $2
+                LIMIT 1"#,
+        )
+        .bind(org_id)
+        .bind(user_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(role)
     }
 
     /// Update an organization's name (tenant-scoped via membership check).

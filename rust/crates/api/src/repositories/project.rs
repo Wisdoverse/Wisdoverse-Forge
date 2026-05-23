@@ -3,6 +3,7 @@
 use agentforge_core::{AppResult, ProjectId, TeamId, TenantScope, WorkspaceId};
 use agentforge_db::entities::Project;
 use sqlx::PgPool;
+use uuid::Uuid;
 
 use crate::domain::resource::ResourceRepositoryPolicy;
 
@@ -118,6 +119,46 @@ impl ProjectRepository {
         .fetch_optional(&self.pool)
         .await?;
         row.map(|r| r.0).ok_or_else(ResourceRepositoryPolicy::default_project_team_required)
+    }
+
+    /// Returns true when the user can read `project_id` in the given
+    /// `org_id`/`workspace_id` via direct project membership or membership of
+    /// the project's owning team. Used by session-context authorization
+    /// before a context switch has been minted (no tenant scope yet).
+    pub async fn user_can_read(
+        &self,
+        project_id: Uuid,
+        org_id: Uuid,
+        workspace_id: Uuid,
+        user_id: Uuid,
+    ) -> AppResult<bool> {
+        let can_read = sqlx::query_scalar::<_, bool>(
+            r#"SELECT EXISTS (
+                   SELECT 1
+                     FROM projects p
+                    WHERE p.id = $1
+                      AND p.organization_id = $2
+                      AND p.workspace_id = $3
+                      AND p.deleted_at IS NULL
+                      AND (
+                          EXISTS (
+                              SELECT 1 FROM project_members pm
+                               WHERE pm.project_id = p.id AND pm.user_id = $4
+                          )
+                          OR EXISTS (
+                              SELECT 1 FROM team_members tm
+                               WHERE tm.team_id = p.team_id AND tm.user_id = $4
+                          )
+                      )
+               )"#,
+        )
+        .bind(project_id)
+        .bind(org_id)
+        .bind(workspace_id)
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(can_read)
     }
 
     /// Update a project (tenant-scoped).

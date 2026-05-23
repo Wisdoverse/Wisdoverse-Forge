@@ -19,6 +19,7 @@ use crate::services::analytics::AnalyticsService;
 use crate::services::api_key::ApiKeyService;
 use crate::services::attachment::AttachmentService;
 use crate::services::audit::AuditService;
+use crate::services::auth::AuthService;
 use crate::services::billing::BillingService;
 use crate::services::cli_auth_proxy::CliAuthProxyService;
 use crate::services::cli_credential::CliCredentialService;
@@ -121,6 +122,10 @@ impl AppState {
 
     pub(crate) fn auth_user_service(&self) -> UserService {
         UserService::from_app_config(self.pool.clone(), self.jwt.clone(), self.email_sender.clone(), &self.config)
+    }
+
+    pub(crate) fn auth_service(&self) -> AuthService {
+        AuthService::from_pool(self.pool.clone(), self.jwt.clone())
     }
 
     pub(crate) fn billing_service(&self) -> BillingService {

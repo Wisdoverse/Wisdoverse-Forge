@@ -3,6 +3,7 @@
 use agentforge_core::{AppResult, TenantScope, WorkspaceId};
 use agentforge_db::entities::Workspace;
 use sqlx::PgPool;
+use uuid::Uuid;
 
 use crate::domain::resource::ResourceRepositoryPolicy;
 
@@ -42,6 +43,23 @@ impl WorkspaceRepository {
         .fetch_optional(&self.pool)
         .await?
         .ok_or_else(|| ResourceRepositoryPolicy::workspace_not_found(id))
+    }
+
+    /// Returns true when an active workspace with `workspace_id` exists in
+    /// `org_id`. Used by session-context authorization before a context
+    /// switch has been minted (no tenant scope yet).
+    pub async fn exists_in_org(&self, workspace_id: Uuid, org_id: Uuid) -> AppResult<bool> {
+        let exists = sqlx::query_scalar::<_, bool>(
+            r#"SELECT EXISTS (
+                   SELECT 1 FROM workspaces
+                    WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL
+               )"#,
+        )
+        .bind(workspace_id)
+        .bind(org_id)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(exists)
     }
 
     /// Create a new workspace.
