@@ -1,5 +1,5 @@
 import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
 import { useNavigationStore } from '@app/entities/navigation'
@@ -13,7 +13,7 @@ import {
 import { InjectionPreviewModal } from '@app/entities/context/ui/InjectionPreviewModal'
 import type { ColumnId } from '@app/shared/model/board.types'
 import type { ContextPreviewResponse } from '@shared/types/context'
-import { AssignmentReadinessPanel } from './AssignmentReadinessPanel'
+import { AssignmentReadinessPanel, type BoardWorkloadSnapshot } from './AssignmentReadinessPanel'
 
 const COLUMN_ORDER: ColumnId[] = [
   'backlog',
@@ -51,6 +51,7 @@ export function BoardView() {
   const [participants, setParticipants] = useState<ParticipantSummary[]>([])
   const [participantsLoading, setParticipantsLoading] = useState(false)
   const [participantsError, setParticipantsError] = useState<string | null>(null)
+  const workload = useMemo(() => summarizeWorkload(columns), [columns])
 
   useEffect(() => {
     if (!selectedGroupId) return
@@ -277,6 +278,7 @@ export function BoardView() {
       <div className="flex h-full flex-col gap-3 p-1">
         <AssignmentReadinessPanel
           participants={participants}
+          workload={workload}
           loading={participantsLoading}
           error={participantsError}
           onRefresh={() => void loadParticipants(true)}
@@ -313,4 +315,16 @@ export function BoardView() {
       />
     </DndContext>
   )
+}
+
+function summarizeWorkload(columns: Record<ColumnId, TaskSummary[]>): BoardWorkloadSnapshot {
+  const backlog = columns.backlog.length
+  return {
+    backlog,
+    unassigned: columns.backlog.filter((task) => !task.assignedTo && !task.assignedAgentName)
+      .length,
+    inFlight: columns.queued.length + columns.working.length,
+    blocked: columns.blocked.length,
+    review: columns.done.length,
+  }
 }
