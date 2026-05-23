@@ -435,6 +435,33 @@ impl ParticipantName {
 /// Participant status policy.
 pub(crate) struct ParticipantStatusPolicy;
 
+/// Wire shape for `GET /api/v1/orchestration/participants` and related
+/// endpoints. Camel-cased fields preserve the frontend contract.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ParticipantSummary {
+    pub id: Uuid,
+    #[serde(rename = "agentId")]
+    pub agent_id: Uuid,
+    pub name: String,
+    pub status: String,
+    pub capabilities: Vec<String>,
+    #[serde(rename = "lastHeartbeatAt", skip_serializing_if = "Option::is_none")]
+    pub last_heartbeat_at: Option<String>,
+}
+
+impl From<agentforge_db::entities::Participant> for ParticipantSummary {
+    fn from(p: agentforge_db::entities::Participant) -> Self {
+        Self {
+            id: p.id,
+            agent_id: p.agent_id.as_uuid(),
+            name: p.name,
+            status: p.status,
+            capabilities: p.capabilities,
+            last_heartbeat_at: p.last_heartbeat_at.map(|t| t.to_rfc3339()),
+        }
+    }
+}
+
 impl ParticipantStatusPolicy {
     pub(crate) fn validate_filter(status: &str) -> AppResult<()> {
         if !Self::is_valid(status) {

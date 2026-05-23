@@ -16,6 +16,17 @@ use crate::domain::memory::MemoryScopeKind;
 const DEFAULT_LIMIT: i64 = 50;
 const MAX_LIMIT: i64 = 200;
 
+/// Wire shape for `GET /api/v1/context/features`. Reports which context
+/// feature flags are enabled for the operator's current tenant scope.
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextFeatureSnapshot {
+    pub governance: bool,
+    pub preview: bool,
+    pub injection: bool,
+    pub analytics: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ContextCandidateKind {

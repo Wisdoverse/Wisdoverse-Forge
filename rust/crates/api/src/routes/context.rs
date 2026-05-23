@@ -4,14 +4,14 @@ use axum::extract::{Path, Query, State};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
-use crate::domain::context::{ContextFeedbackLabel, ContextItemKind};
+use crate::domain::context::{ContextFeatureSnapshot, ContextFeedbackLabel, ContextItemKind};
 use crate::domain::memory::MemoryScopeKind;
 use crate::health::{AppState, ContextFeature, ensure_context_feature_enabled};
 use crate::services::context::{
@@ -74,15 +74,6 @@ pub struct CreateContextPreviewRequest {
     pub task_id: Uuid,
     #[serde(rename = "agentId")]
     pub agent_id: Uuid,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ContextFeatureSnapshot {
-    pub governance: bool,
-    pub preview: bool,
-    pub injection: bool,
-    pub analytics: bool,
 }
 
 fn make_service(state: &AppState) -> ContextApprovalService {

@@ -26,13 +26,13 @@
 use axum::extract::{Path, Query, State};
 use axum::routing::{delete, get, post};
 use axum::{Json, Router};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
 use agentforge_core::{AgentId, AppResult};
 
-use crate::domain::orchestration::TaskAssignmentPatchPolicy;
+use crate::domain::orchestration::{ParticipantSummary, TaskAssignmentPatchPolicy};
 use crate::health::{AppState, ContextFeature, ensure_context_feature_enabled};
 use crate::repositories::context_preview::ContextPreviewRepository;
 use crate::repositories::orchestration::task_context::TaskContextRepository;
@@ -143,35 +143,6 @@ pub struct RegisterParticipantRequest {
     pub name: String,
     #[serde(default)]
     pub capabilities: Vec<String>,
-}
-
-// ---------------------------------------------------------------------------
-// Response shapes — match the frontend interfaces.
-// ---------------------------------------------------------------------------
-
-#[derive(Serialize)]
-struct ParticipantSummary {
-    id: Uuid,
-    #[serde(rename = "agentId")]
-    agent_id: Uuid,
-    name: String,
-    status: String,
-    capabilities: Vec<String>,
-    #[serde(rename = "lastHeartbeatAt", skip_serializing_if = "Option::is_none")]
-    last_heartbeat_at: Option<String>,
-}
-
-impl From<agentforge_db::entities::Participant> for ParticipantSummary {
-    fn from(p: agentforge_db::entities::Participant) -> Self {
-        Self {
-            id: p.id,
-            agent_id: p.agent_id.as_uuid(),
-            name: p.name,
-            status: p.status,
-            capabilities: p.capabilities,
-            last_heartbeat_at: p.last_heartbeat_at.map(|t| t.to_rfc3339()),
-        }
-    }
 }
 
 // ---------------------------------------------------------------------------
