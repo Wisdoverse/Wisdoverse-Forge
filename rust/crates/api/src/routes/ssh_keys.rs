@@ -17,8 +17,9 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::credential::ssh_key::SshKeyRepository;
-use crate::services::ssh_key::{SshKeyService, ssh_key_create_response, ssh_key_list_response};
+use crate::services::ssh_key::{
+    SshKeyService, credential_delete_response, ssh_key_create_response, ssh_key_list_response,
+};
 
 /// Query parameters for the list endpoint.
 #[derive(Deserialize)]
@@ -42,7 +43,7 @@ pub struct AddSshKeyRequest {
 
 /// Build an SshKeyService from shared state.
 fn make_service(state: &AppState) -> SshKeyService {
-    SshKeyService::new(SshKeyRepository::new(state.pool.clone()))
+    state.ssh_key_service()
 }
 
 /// `POST /api/ssh-keys` — add a new SSH key.
@@ -75,7 +76,7 @@ async fn delete_ssh_key(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     service.delete_key(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(credential_delete_response()))
 }
 
 /// Build SSH key routes sub-router.

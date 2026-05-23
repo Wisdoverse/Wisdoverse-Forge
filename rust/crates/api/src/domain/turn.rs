@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 use agentforge_core::{AppResult, ErrorKind};
@@ -32,6 +32,17 @@ pub struct TurnPage {
     pub total_turn_count: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_event: Option<LastEventCursor>,
+}
+
+pub(crate) fn turn_page_response(page: &TurnPage) -> Value {
+    json!({
+        "ok": true,
+        "turns": page.turns,
+        "cursor": page.cursor,
+        "hasMore": page.has_more,
+        "totalTurnCount": page.total_turn_count,
+        "lastEvent": page.last_event,
+    })
 }
 
 /// Validated page size for turn read-model pagination.
@@ -562,6 +573,28 @@ mod tests {
         assert!(page.has_more(10));
         assert_eq!(page.start_index(2), 0);
         assert!(!page.has_more(2));
+    }
+
+    #[test]
+    fn turn_page_response_preserves_frontend_envelope() {
+        let page = TurnPage {
+            turns: Vec::new(),
+            cursor: Some("cursor".to_owned()),
+            has_more: true,
+            total_turn_count: 3,
+            last_event: Some(LastEventCursor {
+                timestamp: "2026-04-20T12:00:00.000Z".to_owned(),
+                id: "evt".to_owned(),
+            }),
+        };
+        let body = turn_page_response(&page);
+
+        assert_eq!(body["ok"], true);
+        assert!(body["turns"].is_array());
+        assert_eq!(body["cursor"], "cursor");
+        assert_eq!(body["hasMore"], true);
+        assert_eq!(body["totalTurnCount"], 3);
+        assert_eq!(body["lastEvent"]["id"], "evt");
     }
 
     #[test]

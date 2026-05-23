@@ -14,17 +14,10 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::identity::group::GroupRepository;
-use crate::repositories::identity::organization::OrganizationRepository;
-use crate::repositories::resource::navigation::LegacyNavigationRepository;
-use crate::repositories::resource::permission::ResourcePermissionRepository;
-use crate::services::group::GroupService;
 use crate::services::legacy_navigation::{
     LegacyNavigationService, legacy_delete_response, legacy_org_response, legacy_orgs_response,
     legacy_project_response, legacy_projects_response, legacy_team_response, legacy_teams_response,
 };
-use crate::services::organization::OrganizationService;
-use crate::services::resource_permission::ResourcePermissionService;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -69,12 +62,7 @@ struct LegacyProjectUpdateRequest {
 }
 
 fn make_service(state: &AppState) -> LegacyNavigationService {
-    LegacyNavigationService::new(
-        LegacyNavigationRepository::new(state.pool.clone()),
-        OrganizationService::new(OrganizationRepository::new(state.pool.clone())),
-        ResourcePermissionService::new(ResourcePermissionRepository::new(state.pool.clone())),
-        GroupService::new(GroupRepository::new(state.pool.clone())),
-    )
+    state.legacy_navigation_service()
 }
 
 async fn list_orgs(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {

@@ -16,8 +16,10 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::resource::profile::ResourceProfileRepository;
-use crate::services::resource_profile::ResourceProfileService;
+use crate::services::resource_profile::{
+    CreateResourceProfileInput, ResourceProfileService, UpdateResourceProfileInput, resource_data_response,
+    resource_delete_response,
+};
 
 /// Request body for creating a resource profile.
 #[derive(Deserialize)]
@@ -58,14 +60,14 @@ pub struct UpdateResourceProfileRequest {
 
 /// Build a ResourceProfileService from shared state.
 fn make_service(state: &AppState) -> ResourceProfileService {
-    ResourceProfileService::new(ResourceProfileRepository::new(state.pool.clone()))
+    state.resource_profile_service()
 }
 
 /// `GET /api/v1/resource-profiles` — list resource profiles.
 async fn list_profiles(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let profiles = service.list(&auth.scope).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": profiles })))
+    Ok(Json(resource_data_response(profiles)))
 }
 
 /// `POST /api/v1/resource-profiles` — create a custom profile.
@@ -75,9 +77,19 @@ async fn create_profile(
     Json(req): Json<CreateResourceProfileRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
-    let profile =
-        service.create(&auth.scope, &req.name, req.cpu_millicores, req.memory_mb, req.storage_mb, req.max_pids).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": profile })))
+    let profile = service
+        .create(
+            &auth.scope,
+            CreateResourceProfileInput {
+                name: req.name,
+                cpu_millicores: req.cpu_millicores,
+                memory_mb: req.memory_mb,
+                storage_mb: req.storage_mb,
+                max_pids: req.max_pids,
+            },
+        )
+        .await?;
+    Ok(Json(resource_data_response(profile)))
 }
 
 /// `GET /api/v1/resource-profiles/{id}` — get a profile.
@@ -88,7 +100,7 @@ async fn get_profile(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let profile = service.get(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": profile })))
+    Ok(Json(resource_data_response(profile)))
 }
 
 /// `PATCH /api/v1/resource-profiles/{id}` — update a profile.
@@ -100,9 +112,19 @@ async fn update_profile(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let profile = service
-        .update(&auth.scope, id, req.name.as_deref(), req.cpu_millicores, req.memory_mb, req.storage_mb, req.max_pids)
+        .update(
+            &auth.scope,
+            id,
+            UpdateResourceProfileInput {
+                name: req.name,
+                cpu_millicores: req.cpu_millicores,
+                memory_mb: req.memory_mb,
+                storage_mb: req.storage_mb,
+                max_pids: req.max_pids,
+            },
+        )
         .await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": profile })))
+    Ok(Json(resource_data_response(profile)))
 }
 
 /// `DELETE /api/v1/resource-profiles/{id}` — delete a profile.
@@ -113,7 +135,7 @@ async fn delete_profile(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     service.delete(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(resource_delete_response()))
 }
 
 /// Build resource profile routes sub-router.

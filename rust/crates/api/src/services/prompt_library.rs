@@ -2,9 +2,11 @@
 
 use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::Prompt;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::prompt_library::PromptTemplatePolicy;
+pub(crate) use crate::domain::prompt_library::{prompt_library_data_response, prompt_library_delete_response};
 use crate::repositories::prompt::PromptRepository;
 
 /// Business logic layer for prompt library operations (stored prompt templates).
@@ -15,6 +17,10 @@ pub struct PromptLibraryService {
 impl PromptLibraryService {
     pub fn new(repo: PromptRepository) -> Self {
         Self { repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(PromptRepository::new(pool))
     }
 
     /// List prompts visible to the user.

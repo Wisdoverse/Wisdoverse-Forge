@@ -10,9 +10,9 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, ProjectId, TeamId};
 
 use crate::health::AppState;
-use crate::repositories::resource::member::ResourceMemberRepository;
-use crate::repositories::resource::permission::ResourcePermissionRepository;
-use crate::services::resource_member::ResourceMemberService;
+use crate::services::resource_member::{
+    ResourceMemberService, resource_delete_response, resource_member_response, resource_members_response,
+};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -35,10 +35,7 @@ struct UpdateMemberRequest {
 }
 
 fn make_service(state: &AppState) -> ResourceMemberService {
-    ResourceMemberService::new(
-        ResourceMemberRepository::new(state.pool.clone()),
-        ResourcePermissionRepository::new(state.pool.clone()),
-    )
+    state.resource_member_service()
 }
 
 async fn list_team_members(
@@ -47,7 +44,7 @@ async fn list_team_members(
     Path((org_id, team_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Json<serde_json::Value>> {
     let members = make_service(&state).list_team_members(&auth.scope, org_id, TeamId::from(team_id)).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "members": members })))
+    Ok(Json(resource_members_response(members)))
 }
 
 async fn add_team_member(
@@ -59,7 +56,7 @@ async fn add_team_member(
     let member = make_service(&state)
         .add_team_member(&auth.scope, org_id, TeamId::from(team_id), req.user_id, req.role.as_deref())
         .await?;
-    Ok(Json(serde_json::json!({ "ok": true, "member": member })))
+    Ok(Json(resource_member_response(member)))
 }
 
 async fn invite_team_member(
@@ -71,7 +68,7 @@ async fn invite_team_member(
     let member = make_service(&state)
         .add_team_member_by_email(&auth.scope, org_id, TeamId::from(team_id), &req.email, req.role.as_deref())
         .await?;
-    Ok(Json(serde_json::json!({ "ok": true, "member": member })))
+    Ok(Json(resource_member_response(member)))
 }
 
 async fn update_team_member(
@@ -82,7 +79,7 @@ async fn update_team_member(
 ) -> AppResult<Json<serde_json::Value>> {
     let member =
         make_service(&state).update_team_member(&auth.scope, org_id, TeamId::from(team_id), user_id, &req.role).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "member": member })))
+    Ok(Json(resource_member_response(member)))
 }
 
 async fn remove_team_member(
@@ -91,7 +88,7 @@ async fn remove_team_member(
     Path((org_id, team_id, user_id)): Path<(Uuid, Uuid, Uuid)>,
 ) -> AppResult<Json<serde_json::Value>> {
     make_service(&state).remove_team_member(&auth.scope, org_id, TeamId::from(team_id), user_id).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(resource_delete_response()))
 }
 
 async fn list_project_members(
@@ -100,7 +97,7 @@ async fn list_project_members(
     Path(project_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
     let members = make_service(&state).list_project_members(&auth.scope, ProjectId::from(project_id)).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "members": members })))
+    Ok(Json(resource_members_response(members)))
 }
 
 async fn add_project_member(
@@ -112,7 +109,7 @@ async fn add_project_member(
     let member = make_service(&state)
         .add_project_member(&auth.scope, ProjectId::from(project_id), req.user_id, req.role.as_deref())
         .await?;
-    Ok(Json(serde_json::json!({ "ok": true, "member": member })))
+    Ok(Json(resource_member_response(member)))
 }
 
 async fn invite_project_member(
@@ -124,7 +121,7 @@ async fn invite_project_member(
     let member = make_service(&state)
         .add_project_member_by_email(&auth.scope, ProjectId::from(project_id), &req.email, req.role.as_deref())
         .await?;
-    Ok(Json(serde_json::json!({ "ok": true, "member": member })))
+    Ok(Json(resource_member_response(member)))
 }
 
 async fn update_project_member(
@@ -136,7 +133,7 @@ async fn update_project_member(
     let member = make_service(&state)
         .update_project_member(&auth.scope, ProjectId::from(project_id), user_id, &req.role)
         .await?;
-    Ok(Json(serde_json::json!({ "ok": true, "member": member })))
+    Ok(Json(resource_member_response(member)))
 }
 
 async fn remove_project_member(
@@ -145,7 +142,7 @@ async fn remove_project_member(
     Path((project_id, user_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Json<serde_json::Value>> {
     make_service(&state).remove_project_member(&auth.scope, ProjectId::from(project_id), user_id).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(resource_delete_response()))
 }
 
 pub fn resource_member_routes() -> Router<AppState> {

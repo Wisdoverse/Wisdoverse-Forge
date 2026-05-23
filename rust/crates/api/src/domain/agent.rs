@@ -5,10 +5,129 @@
 
 use std::collections::HashMap;
 
-use agentforge_core::{AgentStatus, AppResult, CliToolKind, ErrorKind};
+use agentforge_core::{AgentId, AgentStatus, AppError, AppResult, CliToolKind, ErrorKind};
+use serde::Serialize;
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 use crate::domain::credential::ContainerCliCredentialPolicy;
+
+pub(crate) fn agent_list_response<T: Serialize>(agents: T) -> Value {
+    json!({ "ok": true, "agents": agents })
+}
+
+pub(crate) fn agent_response<T: Serialize>(agent: T) -> Value {
+    json!({ "ok": true, "agent": agent })
+}
+
+pub(crate) fn agent_data_response<T: Serialize>(data: T) -> Value {
+    json!({ "ok": true, "data": data })
+}
+
+pub(crate) fn agent_delete_response() -> Value {
+    json!({ "ok": true })
+}
+
+pub(crate) fn agent_status_response(status: &str) -> Value {
+    json!({ "ok": true, "status": status })
+}
+
+pub(crate) fn agent_prompt_sent_response(agent_id: Uuid) -> Value {
+    json!({ "ok": true, "status": "sent", "agent_id": agent_id })
+}
+
+pub(crate) fn agent_messages_response<T: Serialize>(messages: T, has_more: bool) -> Value {
+    json!({ "ok": true, "messages": messages, "hasMore": has_more })
+}
+
+pub(crate) fn agent_messages_deleted_response(deleted: u64) -> Value {
+    json!({ "ok": true, "deleted": deleted })
+}
+
+pub(crate) fn agent_container_status_response(container_id: &str, status: &str) -> Value {
+    json!({ "ok": true, "container_id": container_id, "status": status })
+}
+
+pub(crate) fn agent_prompt_command_payload(prompt: &str) -> Value {
+    json!({ "type": "prompt", "prompt": prompt })
+}
+
+pub(crate) fn agent_interrupt_command_payload() -> Value {
+    json!({ "type": "interrupt" })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AgentContainerStartOutcome {
+    container_id: String,
+    status: AgentContainerStartStatus,
+}
+
+impl AgentContainerStartOutcome {
+    pub(crate) fn started(container_id: impl Into<String>) -> Self {
+        Self { container_id: container_id.into(), status: AgentContainerStartStatus::Started }
+    }
+
+    pub(crate) fn already_running(container_id: impl Into<String>) -> Self {
+        Self { container_id: container_id.into(), status: AgentContainerStartStatus::AlreadyRunning }
+    }
+
+    pub(crate) fn container_id(&self) -> &str {
+        &self.container_id
+    }
+
+    pub(crate) fn status(&self) -> &'static str {
+        self.status.as_str()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AgentContainerStartStatus {
+    Started,
+    AlreadyRunning,
+}
+
+impl AgentContainerStartStatus {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Started => "started",
+            Self::AlreadyRunning => "already_running",
+        }
+    }
+}
+
+pub(crate) fn agent_git_status_response() -> Value {
+    json!({
+        "ok": true,
+        "data": {
+            "branch": null,
+            "ahead": 0,
+            "behind": 0,
+            "modified": [],
+            "untracked": []
+        }
+    })
+}
+
+pub(crate) fn agent_permission_response(projection: AgentPermissionProjection) -> Value {
+    json!({ "ok": true, "data": projection })
+}
+
+pub(crate) fn pool_status_response(docker_available: bool) -> Value {
+    json!({
+        "ok": true,
+        "data": {
+            "docker_available": docker_available,
+            "message": "pool status — warm pool integration pending"
+        }
+    })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub(crate) struct AgentPermissionProjection {
+    pub(crate) has_permission: bool,
+    pub(crate) is_owner: bool,
+    pub(crate) permission: Option<String>,
+}
 
 /// Validated pagination request for agent lists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,6 +147,34 @@ impl AgentListPage {
 
     pub(crate) fn offset(self) -> i64 {
         self.offset
+    }
+}
+
+/// Agent chat history pagination.
+///
+/// MessageRepository returns chronological rows after fetching newest-first.
+/// When fetching one extra row, that extra row sits at the front and must be
+/// dropped before returning the page to clients.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct AgentMessagePage {
+    limit: i64,
+}
+
+impl AgentMessagePage {
+    pub(crate) fn new(limit: i64) -> Self {
+        Self { limit: limit.clamp(1, 200) }
+    }
+
+    pub(crate) fn fetch_limit(self) -> i64 {
+        self.limit + 1
+    }
+
+    pub(crate) fn split_has_more<T>(self, mut rows: Vec<T>) -> (Vec<T>, bool) {
+        let has_more = rows.len() as i64 > self.limit;
+        if has_more {
+            rows.remove(0);
+        }
+        (rows, has_more)
     }
 }
 
@@ -97,6 +244,16 @@ impl AgentContainerImagePolicy {
         }
 
         Err(AgentContainerImageRejection::MissingContainerShell)
+    }
+
+    pub(crate) fn resolve_for_start(cli_tool: Option<&str>, model: Option<&str>) -> AppResult<String> {
+        Self::resolve(cli_tool, model).map_err(|err| {
+            ErrorKind::Validation(format!(
+                "{} — set cli_tool to one of: claude, codex, gemini, opencode (this agent has cli_tool={cli_tool:?}, model={model:?})",
+                err.message(),
+            ))
+            .into()
+        })
     }
 }
 
@@ -211,6 +368,111 @@ pub(crate) enum AgentStatusTransition {
     Change(AgentStatus),
 }
 
+/// Runtime state reduced to the lifecycle distinction needed for restart.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AgentContainerRuntimeState {
+    Running,
+    NotRunning,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AgentRestartPlan {
+    StopThenStart,
+    StartOnly,
+}
+
+pub(crate) struct AgentContainerLifecyclePolicy;
+
+impl AgentContainerLifecyclePolicy {
+    pub(crate) fn ensure_container_backed(cli_tool: Option<&str>) -> AppResult<()> {
+        if cli_tool.is_none() {
+            return Err(ErrorKind::Validation("agent is not container-backed".into()).into());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn restart_container_id(container_id: Option<&str>) -> AppResult<&str> {
+        container_id.ok_or_else(|| ErrorKind::Validation("agent has no container".into()).into())
+    }
+
+    pub(crate) fn resume_container_id(container_id: Option<&str>) -> AppResult<&str> {
+        container_id.ok_or_else(|| ErrorKind::Validation("agent has no container to resume".into()).into())
+    }
+
+    pub(crate) fn running_container_id(container_id: Option<&str>) -> AppResult<&str> {
+        container_id.ok_or_else(|| ErrorKind::Validation("agent has no running container".into()).into())
+    }
+
+    pub(crate) fn stale_container_reference_error() -> ErrorKind {
+        ErrorKind::Validation("agent container is no longer available; start the agent again".into())
+    }
+
+    pub(crate) fn restart_plan(state: AgentContainerRuntimeState) -> AgentRestartPlan {
+        match state {
+            AgentContainerRuntimeState::Running => AgentRestartPlan::StopThenStart,
+            AgentContainerRuntimeState::NotRunning => AgentRestartPlan::StartOnly,
+        }
+    }
+}
+
+pub(crate) struct AgentContainerRuntimePolicy;
+
+impl AgentContainerRuntimePolicy {
+    pub(crate) fn control_docker_unavailable() -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("Docker not available"))
+    }
+
+    pub(crate) fn lifecycle_docker_unavailable() -> ErrorKind {
+        ErrorKind::Unavailable("Docker runtime is not available".into())
+    }
+
+    pub(crate) fn create_container_failed(
+        image: &str,
+        cli_tool: Option<&str>,
+        missing_image: bool,
+        err: impl std::fmt::Display,
+    ) -> ErrorKind {
+        if missing_image {
+            let tool = cli_tool.unwrap_or("claude");
+            return ErrorKind::Validation(format!(
+                "agent image '{image}' is not installed on this host; run `make update-agents AGENT_TOOLS={tool}` or `make build-agent CLI_TOOL={tool}` before starting this agent"
+            ));
+        }
+        ErrorKind::Internal(anyhow::anyhow!("Failed to create container: {err}"))
+    }
+
+    pub(crate) fn start_container_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("Failed to start container: {err}"))
+    }
+
+    pub(crate) fn stop_container_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("Failed to stop container: {err}"))
+    }
+
+    pub(crate) fn remove_container_after_stop_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("Failed to remove container after stop: {err}"))
+    }
+
+    pub(crate) fn prepare_workspace_failed(path: impl std::fmt::Display, err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("failed to prepare agent workspace {path}: {err}"))
+    }
+
+    pub(crate) fn prepare_working_directory_failed(
+        path: impl std::fmt::Display,
+        err: impl std::fmt::Display,
+    ) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("failed to prepare agent working directory {path}: {err}"))
+    }
+
+    pub(crate) fn lifecycle_action_unavailable(action: &str, err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Unavailable(format!("failed to {action} agent container: {err}"))
+    }
+
+    pub(crate) fn resume_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("resume failed: {err}"))
+    }
+}
+
 impl AgentLifecycle {
     pub(crate) fn transition(from: AgentStatus, to: AgentStatus) -> AppResult<AgentStatusTransition> {
         if from == to {
@@ -309,6 +571,18 @@ impl AgentAccessPolicy {
     }
 }
 
+pub(crate) fn agent_permission_projection(
+    is_owner: bool,
+    collaborator_permission: Option<&str>,
+    action: &str,
+) -> AgentPermissionProjection {
+    AgentPermissionProjection {
+        has_permission: AgentAccessPolicy::has_permission(is_owner, collaborator_permission, action),
+        is_owner,
+        permission: collaborator_permission.map(str::to_string),
+    }
+}
+
 /// Command subject used by the sidecar command bus.
 pub(crate) struct AgentCommandSubject;
 
@@ -389,6 +663,42 @@ impl McpAgentRuntimePolicy {
     }
 }
 
+pub(crate) struct AgentRepositoryPolicy;
+
+impl AgentRepositoryPolicy {
+    pub(crate) fn agent_not_found(id: AgentId) -> AppError {
+        ErrorKind::NotFound(format!("agent {id}")).into()
+    }
+
+    pub(crate) fn agent_uuid_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("agent {id}")).into()
+    }
+
+    pub(crate) fn project_not_found(project_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("project {project_id}")).into()
+    }
+
+    pub(crate) fn workspace_not_found(workspace_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("workspace {workspace_id}")).into()
+    }
+
+    pub(crate) fn tenant_context_required() -> AppError {
+        ErrorKind::Validation("project or tenant context is required".into()).into()
+    }
+
+    pub(crate) fn organization_member_not_found(org_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("organization member for {org_id}")).into()
+    }
+
+    pub(crate) fn collaborator_already_exists() -> AppError {
+        ErrorKind::Conflict("user is already a collaborator on this agent".into()).into()
+    }
+
+    pub(crate) fn collaborator_not_found(agent_id: AgentId, user_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("collaborator {user_id} on agent {agent_id}")).into()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -403,6 +713,102 @@ mod tests {
             AgentLifecycle::transition(AgentStatus::Idle, AgentStatus::Working).unwrap(),
             AgentStatusTransition::Change(AgentStatus::Working)
         );
+    }
+
+    #[test]
+    fn agent_container_lifecycle_policy_maps_runtime_states_to_restart_plans() {
+        assert_eq!(
+            AgentContainerLifecyclePolicy::restart_plan(AgentContainerRuntimeState::Running),
+            AgentRestartPlan::StopThenStart
+        );
+        assert_eq!(
+            AgentContainerLifecyclePolicy::restart_plan(AgentContainerRuntimeState::NotRunning),
+            AgentRestartPlan::StartOnly
+        );
+    }
+
+    #[test]
+    fn agent_container_lifecycle_policy_validates_container_backing_and_ids() {
+        assert!(AgentContainerLifecyclePolicy::ensure_container_backed(Some("claude")).is_ok());
+        assert!(AgentContainerLifecyclePolicy::ensure_container_backed(None).is_err());
+        assert_eq!(AgentContainerLifecyclePolicy::restart_container_id(Some("ctr-1")).unwrap(), "ctr-1");
+        assert!(AgentContainerLifecyclePolicy::restart_container_id(None).is_err());
+        assert_eq!(AgentContainerLifecyclePolicy::resume_container_id(Some("ctr-2")).unwrap(), "ctr-2");
+        assert!(AgentContainerLifecyclePolicy::resume_container_id(None).is_err());
+        assert_eq!(AgentContainerLifecyclePolicy::running_container_id(Some("ctr-3")).unwrap(), "ctr-3");
+        assert!(AgentContainerLifecyclePolicy::running_container_id(None).is_err());
+    }
+
+    #[test]
+    fn agent_container_runtime_policy_owns_docker_error_contracts() {
+        assert!(
+            format!("{:?}", AgentContainerRuntimePolicy::control_docker_unavailable()).contains("Docker not available")
+        );
+        assert!(
+            format!("{:?}", AgentContainerRuntimePolicy::lifecycle_docker_unavailable())
+                .contains("Docker runtime is not available")
+        );
+        assert!(
+            format!(
+                "{:?}",
+                AgentContainerRuntimePolicy::create_container_failed(
+                    "agentforge-agent:codex",
+                    Some("codex"),
+                    true,
+                    "missing",
+                )
+            )
+            .contains("make update-agents AGENT_TOOLS=codex")
+        );
+        assert!(
+            format!("{:?}", AgentContainerRuntimePolicy::create_container_failed("image", None, false, "bad"))
+                .contains("Failed to create container")
+        );
+        assert!(
+            format!("{:?}", AgentContainerRuntimePolicy::start_container_failed("bad"))
+                .contains("Failed to start container")
+        );
+        assert!(
+            format!("{:?}", AgentContainerRuntimePolicy::stop_container_failed("bad"))
+                .contains("Failed to stop container")
+        );
+        assert!(
+            format!("{:?}", AgentContainerRuntimePolicy::remove_container_after_stop_failed("bad"))
+                .contains("Failed to remove container after stop")
+        );
+        assert!(
+            format!("{:?}", AgentContainerRuntimePolicy::prepare_workspace_failed("/tmp/ws", "bad"))
+                .contains("failed to prepare agent workspace")
+        );
+        assert!(
+            format!("{:?}", AgentContainerRuntimePolicy::prepare_working_directory_failed("/tmp/cwd", "bad"))
+                .contains("failed to prepare agent working directory")
+        );
+        assert!(
+            format!("{:?}", AgentContainerRuntimePolicy::lifecycle_action_unavailable("inspect", "bad"))
+                .contains("failed to inspect agent container")
+        );
+        assert!(format!("{:?}", AgentContainerRuntimePolicy::resume_failed("bad")).contains("resume failed"));
+    }
+
+    #[test]
+    fn agent_container_image_policy_owns_start_error_contract() {
+        let err = AgentContainerImagePolicy::resolve_for_start(None, None).expect_err("missing shell should fail");
+        assert!(format!("{:?}", err.kind).contains("agent has no cli_tool"));
+
+        let err = AgentContainerImagePolicy::resolve_for_start(Some("vim"), None).expect_err("unknown cli should fail");
+        assert!(format!("{:?}", err.kind).contains("set cli_tool to one of"));
+    }
+
+    #[test]
+    fn agent_message_page_fetches_one_extra_and_drops_oldest_extra() {
+        let page = AgentMessagePage::new(2);
+        assert_eq!(page.fetch_limit(), 3);
+
+        let (rows, has_more) = page.split_has_more(vec!["oldest-extra", "first", "second"]);
+
+        assert!(has_more);
+        assert_eq!(rows, vec!["first", "second"]);
     }
 
     #[test]
@@ -653,6 +1059,13 @@ mod tests {
     }
 
     #[test]
+    fn sidecar_command_payloads_keep_protocol_shape() {
+        assert_eq!(agent_prompt_command_payload("ship")["type"], "prompt");
+        assert_eq!(agent_prompt_command_payload("ship")["prompt"], "ship");
+        assert_eq!(agent_interrupt_command_payload()["type"], "interrupt");
+    }
+
+    #[test]
     fn mcp_agent_prompt_requires_content_without_rewriting_value() {
         assert_eq!(McpAgentPrompt::parse(" ship it ").unwrap().content(), " ship it ");
         assert!(McpAgentPrompt::parse("   ").is_err());
@@ -690,5 +1103,45 @@ mod tests {
 
         assert_eq!(env.get("OPENAI_API_KEY").map(String::as_str), Some("sk-test"));
         assert!(!env.contains_key("ANTHROPIC_API_KEY"));
+    }
+
+    #[test]
+    fn agent_repository_policy_owns_lookup_and_collaboration_error_contracts() {
+        let agent_id = AgentId::new();
+        let raw_agent_id = Uuid::new_v4();
+        let project_id = Uuid::new_v4();
+        let workspace_id = Uuid::new_v4();
+        let org_id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+
+        assert!(matches!(
+            AgentRepositoryPolicy::agent_not_found(agent_id).kind,
+            ErrorKind::NotFound(message) if message == format!("agent {agent_id}")
+        ));
+        assert!(matches!(
+            AgentRepositoryPolicy::agent_uuid_not_found(raw_agent_id).kind,
+            ErrorKind::NotFound(message) if message == format!("agent {raw_agent_id}")
+        ));
+        assert!(matches!(
+            AgentRepositoryPolicy::project_not_found(project_id).kind,
+            ErrorKind::NotFound(message) if message == format!("project {project_id}")
+        ));
+        assert!(matches!(
+            AgentRepositoryPolicy::workspace_not_found(workspace_id).kind,
+            ErrorKind::NotFound(message) if message == format!("workspace {workspace_id}")
+        ));
+        assert!(matches!(
+            AgentRepositoryPolicy::tenant_context_required().kind,
+            ErrorKind::Validation(message) if message == "project or tenant context is required"
+        ));
+        assert!(matches!(
+            AgentRepositoryPolicy::organization_member_not_found(org_id).kind,
+            ErrorKind::NotFound(message) if message == format!("organization member for {org_id}")
+        ));
+        assert!(matches!(AgentRepositoryPolicy::collaborator_already_exists().kind, ErrorKind::Conflict(_)));
+        assert!(matches!(
+            AgentRepositoryPolicy::collaborator_not_found(agent_id, user_id).kind,
+            ErrorKind::NotFound(message) if message == format!("collaborator {user_id} on agent {agent_id}")
+        ));
     }
 }

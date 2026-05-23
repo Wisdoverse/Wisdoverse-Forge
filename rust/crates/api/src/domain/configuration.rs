@@ -4,7 +4,7 @@
 //! operator-managed configuration surfaces such as quotas, resource profiles,
 //! dashboard tiles, and plugin catalog entries.
 
-use agentforge_core::{AppResult, CliToolKind, ErrorKind};
+use agentforge_core::{AgentId, AppError, AppResult, CliToolKind, ErrorKind};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
@@ -20,6 +20,81 @@ const DEFAULT_RUNTIME_BACKEND: &str = "container";
 const DEFAULT_GATEWAY_ROUTING_STRATEGY: &str = "specified";
 const DEFAULT_CIRCUIT_BREAKER_THRESHOLD: u32 = 5;
 const DEFAULT_CIRCUIT_BREAKER_RESET_MS: u32 = 30_000;
+
+pub(crate) fn configuration_data_response<T: Serialize>(data: T) -> Value {
+    serde_json::json!({ "ok": true, "data": data })
+}
+
+pub(crate) fn configuration_delete_response() -> Value {
+    serde_json::json!({ "ok": true })
+}
+
+pub(crate) fn plugin_agent_plugins_response<T: Serialize>(plugins: T) -> Value {
+    serde_json::json!({ "ok": true, "plugins": plugins })
+}
+
+pub(crate) struct ConfigurationRepositoryPolicy;
+
+impl ConfigurationRepositoryPolicy {
+    pub(crate) fn feature_flag_not_found(name: &str) -> AppError {
+        ErrorKind::NotFound(format!("feature flag '{name}'")).into()
+    }
+
+    pub(crate) fn quota_not_found(resource_type: &str) -> AppError {
+        ErrorKind::NotFound(format!("quota for resource_type '{resource_type}'")).into()
+    }
+
+    pub(crate) fn setting_not_found(key: &str) -> AppError {
+        ErrorKind::NotFound(format!("setting '{key}'")).into()
+    }
+
+    pub(crate) fn tile_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("tile {id}")).into()
+    }
+
+    pub(crate) fn plugin_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("plugin {id}")).into()
+    }
+
+    pub(crate) fn agent_not_found(agent_id: AgentId) -> AppError {
+        ErrorKind::NotFound(format!("agent {agent_id}")).into()
+    }
+
+    pub(crate) fn agent_or_plugin_not_found(agent_id: AgentId, plugin_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("agent {agent_id} or plugin {plugin_id}")).into()
+    }
+
+    pub(crate) fn agent_plugin_row_not_found(agent_id: AgentId, plugin_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("agent_plugin row for agent {agent_id} / plugin {plugin_id}")).into()
+    }
+}
+
+pub(crate) struct FeatureFlagMetadataPolicy;
+
+impl FeatureFlagMetadataPolicy {
+    pub(crate) fn resolve(metadata: Option<Value>) -> Value {
+        metadata.unwrap_or_else(empty_json_object)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct PluginConfig {
+    value: Value,
+}
+
+impl PluginConfig {
+    pub(crate) fn from_optional(config: Option<&Value>) -> Self {
+        Self { value: config.cloned().unwrap_or_else(empty_json_object) }
+    }
+
+    pub(crate) fn value(&self) -> &Value {
+        &self.value
+    }
+}
+
+fn empty_json_object() -> Value {
+    Value::Object(serde_json::Map::new())
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -85,6 +160,10 @@ pub(crate) fn runtime_settings_response(runtime: &RuntimeSettings) -> Value {
         "defaultCliTool": &runtime.default_cli_tool,
         "availableCliTools": &runtime.available_cli_tools,
     })
+}
+
+pub(crate) fn runtime_settings_persistence_value(runtime: &RuntimeSettings) -> AppResult<Value> {
+    serde_json::to_value(runtime).map_err(|err| ErrorKind::Internal(err.into()).into())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -157,6 +236,10 @@ pub(crate) fn gateway_settings_response(gateway: &GatewaySettings) -> Value {
         "circuitBreakerThreshold": gateway.circuit_breaker_threshold,
         "circuitBreakerResetMs": gateway.circuit_breaker_reset_ms,
     })
+}
+
+pub(crate) fn gateway_settings_persistence_value(gateway: &GatewaySettings) -> AppResult<Value> {
+    serde_json::to_value(gateway).map_err(|err| ErrorKind::Internal(err.into()).into())
 }
 
 /// Quota resource type tracked by the platform.
@@ -503,6 +586,16 @@ mod tests {
     }
 
     #[test]
+    fn runtime_settings_persistence_value_owns_stored_shape() {
+        let runtime = RuntimeSettings::default();
+        let value = runtime_settings_persistence_value(&runtime).unwrap();
+
+        assert_eq!(value["defaultRuntime"], "container");
+        assert_eq!(value["defaultCliTool"], "claude");
+        assert!(value.get("ok").is_none());
+    }
+
+    #[test]
     fn gateway_settings_policy_exposes_defaults_and_validates_strategy() {
         assert_eq!(GatewaySettingsPolicy::default_routing_strategy(), "specified");
         assert_eq!(GatewaySettingsPolicy::default_circuit_breaker_threshold(), 5);
@@ -564,6 +657,16 @@ mod tests {
     }
 
     #[test]
+    fn gateway_settings_persistence_value_owns_stored_shape() {
+        let gateway = GatewaySettings::default();
+        let value = gateway_settings_persistence_value(&gateway).unwrap();
+
+        assert_eq!(value["routingStrategy"], "specified");
+        assert_eq!(value["circuitBreakerThreshold"], 5);
+        assert!(value.get("ok").is_none());
+    }
+
+    #[test]
     fn resource_profile_create_policy_matches_existing_bounds() {
         assert!(ResourceProfilePolicy::validate_create("small", 1000, 512, 2048, 128).is_ok());
         assert!(ResourceProfilePolicy::validate_create("", 1000, 512, 2048, 128).is_err());
@@ -620,5 +723,54 @@ mod tests {
     fn plugin_version_defaults_to_existing_version() {
         assert_eq!(PluginVersion::from_optional(None).value(), "0.1.0");
         assert_eq!(PluginVersion::from_optional(Some("1.2.3")).value(), "1.2.3");
+    }
+
+    #[test]
+    fn optional_json_config_policies_default_to_empty_objects() {
+        assert_eq!(FeatureFlagMetadataPolicy::resolve(None), serde_json::json!({}));
+        assert_eq!(PluginConfig::from_optional(None).value(), &serde_json::json!({}));
+
+        let custom = serde_json::json!({ "enabled": true });
+        assert_eq!(FeatureFlagMetadataPolicy::resolve(Some(custom.clone())), custom);
+        assert_eq!(PluginConfig::from_optional(Some(&custom)).value(), &custom);
+    }
+
+    #[test]
+    fn configuration_repository_policy_owns_flat_repository_errors() {
+        let id = Uuid::new_v4();
+        let agent_id = AgentId::new();
+
+        assert!(matches!(
+            ConfigurationRepositoryPolicy::feature_flag_not_found("beta").kind,
+            ErrorKind::NotFound(message) if message == "feature flag 'beta'"
+        ));
+        assert!(matches!(
+            ConfigurationRepositoryPolicy::quota_not_found("agents").kind,
+            ErrorKind::NotFound(message) if message == "quota for resource_type 'agents'"
+        ));
+        assert!(matches!(
+            ConfigurationRepositoryPolicy::setting_not_found("theme").kind,
+            ErrorKind::NotFound(message) if message == "setting 'theme'"
+        ));
+        assert!(matches!(
+            ConfigurationRepositoryPolicy::tile_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("tile {id}")
+        ));
+        assert!(matches!(
+            ConfigurationRepositoryPolicy::plugin_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("plugin {id}")
+        ));
+        assert!(matches!(
+            ConfigurationRepositoryPolicy::agent_not_found(agent_id).kind,
+            ErrorKind::NotFound(message) if message == format!("agent {agent_id}")
+        ));
+        assert!(matches!(
+            ConfigurationRepositoryPolicy::agent_or_plugin_not_found(agent_id, id).kind,
+            ErrorKind::NotFound(message) if message == format!("agent {agent_id} or plugin {id}")
+        ));
+        assert!(matches!(
+            ConfigurationRepositoryPolicy::agent_plugin_row_not_found(agent_id, id).kind,
+            ErrorKind::NotFound(message) if message == format!("agent_plugin row for agent {agent_id} / plugin {id}")
+        ));
     }
 }

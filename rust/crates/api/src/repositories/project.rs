@@ -1,8 +1,10 @@
 //! Project repository — tenant-scoped database queries for projects.
 
-use agentforge_core::{AppResult, ErrorKind, ProjectId, TeamId, TenantScope, WorkspaceId};
+use agentforge_core::{AppResult, ProjectId, TeamId, TenantScope, WorkspaceId};
 use agentforge_db::entities::Project;
 use sqlx::PgPool;
+
+use crate::domain::resource::ResourceRepositoryPolicy;
 
 /// Database access layer for projects.
 pub struct ProjectRepository {
@@ -63,10 +65,10 @@ impl ProjectRepository {
         .bind(scope.org_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("project {id}")).into())
+        .ok_or_else(|| ResourceRepositoryPolicy::project_not_found(id))
     }
 
-    /// Create a new project. Populates `slug` (derived from name) and
+    /// Create a new project. Persists the domain-resolved `slug` and
     /// `team_id` so migration 026's NOT NULL constraints hold. When the
     /// caller does not supply `team_id`, defaults to the org's oldest
     /// surviving team — matching the migration's backfill rule so existing
@@ -79,13 +81,13 @@ impl ProjectRepository {
         workspace_id: WorkspaceId,
         team_id: Option<TeamId>,
         name: &str,
+        slug: &str,
         repository_url: Option<&str>,
     ) -> AppResult<Project> {
         let resolved_team_id = match team_id {
             Some(id) => id.as_uuid(),
             None => self.default_team_for_org(scope).await?,
         };
-        let slug = crate::util::slug::slugify(name);
         sqlx::query_as::<_, Project>(
             r#"INSERT INTO projects (organization_id, workspace_id, team_id, name, slug, repository_url)
                VALUES ($1, $2, $3, $4, $5, $6)
@@ -95,7 +97,7 @@ impl ProjectRepository {
         .bind(workspace_id.as_uuid())
         .bind(resolved_team_id)
         .bind(name)
-        .bind(&slug)
+        .bind(slug)
         .bind(repository_url)
         .fetch_one(&self.pool)
         .await
@@ -115,10 +117,7 @@ impl ProjectRepository {
         .bind(scope.org_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?;
-        row.map(|r| r.0).ok_or_else(|| {
-            ErrorKind::Validation("cannot create project: organization has no teams — create a team first".into())
-                .into()
-        })
+        row.map(|r| r.0).ok_or_else(ResourceRepositoryPolicy::default_project_team_required)
     }
 
     /// Update a project (tenant-scoped).
@@ -150,7 +149,7 @@ impl ProjectRepository {
         .bind(new_url)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("project {id}")).into())
+        .ok_or_else(|| ResourceRepositoryPolicy::project_not_found(id))
     }
 
     /// Soft-delete a project (set deleted_at).
@@ -165,7 +164,7 @@ impl ProjectRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(ErrorKind::NotFound(format!("project {id}")).into());
+            return Err(ResourceRepositoryPolicy::project_not_found(id));
         }
         Ok(())
     }

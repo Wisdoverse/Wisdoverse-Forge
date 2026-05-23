@@ -2,15 +2,16 @@
 
 use std::sync::Arc;
 
-use agentforge_core::{AgentId, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AgentId, AppResult, TenantScope};
 use agentforge_db::entities::{ContextPreview, OrchestrationTask};
 use chrono::{Duration, Utc};
-use serde_json::Value;
+use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::domain::context::ContextTenantPolicy;
 use crate::domain::context_preview::{
     CONTEXT_PREVIEW_TTL_MINUTES, ContextPreviewFreshnessPolicy, ContextPreviewResponse, ContextPreviewTaskDraft,
-    context_preview_hash, context_preview_response,
+    context_preview_hash, context_preview_response, selected_items_payload,
 };
 use crate::domain::context_resolver::{ContextSelection, ResolvedContext, apply_context_selection};
 use crate::domain::orchestration::{ParticipantAvailabilityAction, ParticipantAvailabilityPolicy};
@@ -49,13 +50,25 @@ impl ContextPreviewService {
         Self { previews, tasks, participants, resolver }
     }
 
+    pub fn from_runtime(
+        pool: PgPool,
+        resolver: Arc<crate::services::context_resolver::ContextResolverService>,
+    ) -> Self {
+        Self::new(
+            ContextPreviewRepository::new(pool.clone()),
+            OrchestrationTaskRepository::new(pool.clone()),
+            ParticipantRepository::new(pool),
+            resolver,
+        )
+    }
+
     pub async fn create(
         &self,
         scope: &TenantScope,
         input: CreateContextPreviewInput,
     ) -> AppResult<ContextPreviewResponse> {
         let task = self.tasks.find_by_id(scope, input.task_id).await?;
-        let workspace_id = scope.workspace_id().ok_or_else(|| ErrorKind::Forbidden)?;
+        let workspace_id = ContextTenantPolicy::required_workspace(scope)?;
         let participant = self.participants.find_by_agent_id(scope, input.agent_id).await?;
         ParticipantAvailabilityPolicy::ensure_available(
             &participant.name,
@@ -150,11 +163,6 @@ pub struct ValidatedContextPreview {
     pub preview: ContextPreview,
     pub resolved: ResolvedContext,
     pub warnings: Vec<String>,
-}
-
-fn selected_items_payload(resolved: &ResolvedContext) -> AppResult<Value> {
-    serde_json::to_value(&resolved.applied)
-        .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("serialize context preview selected items: {err}")).into())
 }
 
 fn task_draft(task: &OrchestrationTask) -> ContextPreviewTaskDraft<'_> {

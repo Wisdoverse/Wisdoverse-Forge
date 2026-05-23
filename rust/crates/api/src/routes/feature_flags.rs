@@ -13,8 +13,7 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::feature_flag::FeatureFlagRepository;
-use crate::services::feature_flag::FeatureFlagService;
+use crate::services::feature_flag::{FeatureFlagService, UpsertFeatureFlagInput, configuration_data_response};
 
 /// Request body for upserting a feature flag.
 #[derive(Deserialize)]
@@ -25,14 +24,14 @@ pub struct UpsertFeatureFlagRequest {
 
 /// Build a FeatureFlagService from shared state.
 fn make_service(state: &AppState) -> FeatureFlagService {
-    FeatureFlagService::new(FeatureFlagRepository::new(state.pool.clone()))
+    state.feature_flag_service()
 }
 
 /// `GET /api/feature-flags` — list flags.
 async fn list_flags(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let flags = service.list(&auth.scope).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": flags })))
+    Ok(Json(configuration_data_response(flags)))
 }
 
 /// `GET /api/feature-flags/{name}` — get a specific flag.
@@ -43,7 +42,7 @@ async fn get_flag(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let flag = service.get_by_name(&auth.scope, &name).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": flag })))
+    Ok(Json(configuration_data_response(flag)))
 }
 
 /// `PUT /api/feature-flags/{name}` — upsert a flag.
@@ -54,9 +53,11 @@ async fn upsert_flag(
     Json(req): Json<UpsertFeatureFlagRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
-    let flag = service.upsert(&auth.scope, &name, req.enabled, req.metadata.as_ref()).await?;
+    let flag = service
+        .upsert(&auth.scope, &name, UpsertFeatureFlagInput { enabled: req.enabled, metadata: req.metadata })
+        .await?;
     tracing::info!(org_id = %auth.scope.org_id(), user_id = %auth.scope.user_id(), flag = %name, enabled = req.enabled, "Feature flag updated");
-    Ok(Json(serde_json::json!({ "ok": true, "data": flag })))
+    Ok(Json(configuration_data_response(flag)))
 }
 
 /// Build feature flag routes sub-router.

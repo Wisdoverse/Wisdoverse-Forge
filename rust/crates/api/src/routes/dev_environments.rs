@@ -7,8 +7,6 @@
 //! - `POST   /api/v1/devenv/{id}/stop`  — stop and remove the environment container
 //! - `DELETE /api/v1/devenv/{id}`       — delete environment
 
-use std::sync::Arc;
-
 use axum::extract::{Path, State};
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -19,8 +17,10 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::dev_environment::DevEnvironmentRepository;
-use crate::services::dev_environment::{DevEnvironmentRuntime, DevEnvironmentService, DockerDevEnvironmentRuntime};
+use crate::services::dev_environment::{
+    DevEnvironmentService, dev_environment_data_response, dev_environment_delete_response,
+    dev_environment_message_response,
+};
 
 /// Request body for creating a dev environment.
 #[derive(Deserialize)]
@@ -37,18 +37,14 @@ fn default_config() -> serde_json::Value {
 
 /// Build a DevEnvironmentService from shared state.
 fn make_service(state: &AppState) -> DevEnvironmentService {
-    let runtime = state
-        .docker
-        .as_ref()
-        .map(|docker| Arc::new(DockerDevEnvironmentRuntime::new(docker.clone())) as Arc<dyn DevEnvironmentRuntime>);
-    DevEnvironmentService::with_runtime(DevEnvironmentRepository::new(state.pool.clone()), runtime)
+    state.dev_environment_service()
 }
 
 /// `GET /api/v1/devenv` — list dev environments.
 async fn list_devenvs(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let envs = service.list(&auth.scope).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": envs })))
+    Ok(Json(dev_environment_data_response(envs)))
 }
 
 /// `POST /api/v1/devenv` — create a dev environment.
@@ -59,7 +55,7 @@ async fn create_devenv(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let env = service.create(&auth.scope, &req.name, req.project_id, &req.config).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": env })))
+    Ok(Json(dev_environment_data_response(env)))
 }
 
 /// `GET /api/v1/devenv/{id}` — get a dev environment.
@@ -70,7 +66,7 @@ async fn get_devenv(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let env = service.get(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": env })))
+    Ok(Json(dev_environment_data_response(env)))
 }
 
 /// `POST /api/v1/devenv/{id}/start` — create and start the dev environment container.
@@ -81,7 +77,7 @@ async fn start_devenv(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let env = service.start(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": env, "message": "environment started" })))
+    Ok(Json(dev_environment_message_response(env, "environment started")))
 }
 
 /// `POST /api/v1/devenv/{id}/stop` — stop and remove the dev environment container.
@@ -92,7 +88,7 @@ async fn stop_devenv(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let env = service.stop(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": env, "message": "environment stopped" })))
+    Ok(Json(dev_environment_message_response(env, "environment stopped")))
 }
 
 /// `DELETE /api/v1/devenv/{id}` — delete a dev environment.
@@ -103,7 +99,7 @@ async fn delete_devenv(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     service.delete(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(dev_environment_delete_response()))
 }
 
 /// Build dev environment routes sub-router.

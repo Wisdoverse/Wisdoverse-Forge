@@ -105,6 +105,14 @@ pub trait McpAgentRuntime: Send + Sync {
     async fn session_status(&self, agent_id: Uuid) -> AppResult<SessionStatus>;
 }
 
+#[async_trait]
+pub trait McpAgentTools: Send + Sync {
+    async fn create_session(&self, request: CreateSessionRequest) -> AppResult<CreateSessionResult>;
+    async fn send_prompt(&self, agent_id: Uuid, prompt: &str) -> AppResult<()>;
+    async fn destroy_session(&self, agent_id: Uuid) -> AppResult<()>;
+    async fn session_status(&self, agent_id: Uuid) -> AppResult<SessionStatus>;
+}
+
 pub struct McpAgentService<S, R> {
     store: S,
     runtime: R,
@@ -187,5 +195,28 @@ where
 
     pub async fn session_status(&self, agent_id: Uuid) -> AppResult<SessionStatus> {
         self.runtime.session_status(agent_id).await
+    }
+}
+
+#[async_trait]
+impl<S, R> McpAgentTools for McpAgentService<S, R>
+where
+    S: McpAgentStore,
+    R: McpAgentRuntime,
+{
+    async fn create_session(&self, request: CreateSessionRequest) -> AppResult<CreateSessionResult> {
+        McpAgentService::create_session(self, request).await
+    }
+
+    async fn send_prompt(&self, agent_id: Uuid, prompt: &str) -> AppResult<()> {
+        McpAgentService::send_prompt(self, agent_id, prompt).await
+    }
+
+    async fn destroy_session(&self, agent_id: Uuid) -> AppResult<()> {
+        McpAgentService::destroy_session(self, agent_id).await
+    }
+
+    async fn session_status(&self, agent_id: Uuid) -> AppResult<SessionStatus> {
+        McpAgentService::session_status(self, agent_id).await
     }
 }

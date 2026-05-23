@@ -2,13 +2,18 @@
 
 use std::sync::Arc;
 
-use agentforge_core::{AgentId, AppResult, AttachmentId, TenantScope};
+use agentforge_core::{AgentId, AppConfig, AppResult, AttachmentId, TenantScope};
 use agentforge_db::entities::Attachment;
 use agentforge_infra::ObjectStorageClient;
+use sqlx::PgPool;
 use uuid::Uuid;
 
+pub(crate) use crate::domain::attachment::{
+    AttachmentAgentScope, AttachmentMultipartPolicy, AttachmentUploadDraft, DEFAULT_ATTACHMENT_CONTENT_TYPE,
+    attachment_data_response, attachment_delete_response, attachment_download_content_disposition,
+};
 use crate::domain::attachment::{
-    AttachmentContentType, AttachmentCountPolicy, AttachmentFilename, AttachmentPayloadSize,
+    AttachmentContentType, AttachmentCountPolicy, AttachmentDownload, AttachmentFilename, AttachmentPayloadSize,
 };
 use crate::repositories::attachment::{AttachmentRepository, NewAttachment};
 
@@ -21,6 +26,14 @@ pub struct AttachmentService {
 }
 
 impl AttachmentService {
+    pub fn from_app_config(repo: AttachmentRepository, storage: Arc<ObjectStorageClient>, config: &AppConfig) -> Self {
+        Self::new(repo, storage, config.storage_max_file_size, config.storage_max_files_per_session)
+    }
+
+    pub fn from_pool_and_app_config(pool: PgPool, storage: Arc<ObjectStorageClient>, config: &AppConfig) -> Self {
+        Self::from_app_config(AttachmentRepository::new(pool), storage, config)
+    }
+
     pub fn new(
         repo: AttachmentRepository,
         storage: Arc<ObjectStorageClient>,
@@ -53,8 +66,26 @@ impl AttachmentService {
         content_type: &str,
         bytes: Vec<u8>,
     ) -> AppResult<Attachment> {
-        let filename = AttachmentFilename::parse(filename)?;
-        let content_type = AttachmentContentType::parse(content_type)?;
+        self.create_upload(
+            scope,
+            AttachmentUploadDraft {
+                filename: filename.to_string(),
+                content_type: content_type.to_string(),
+                agent_id,
+                bytes,
+            },
+        )
+        .await
+    }
+
+    pub(crate) async fn create_upload(
+        &self,
+        scope: &TenantScope,
+        upload: AttachmentUploadDraft,
+    ) -> AppResult<Attachment> {
+        let AttachmentUploadDraft { filename, content_type, agent_id, bytes } = upload;
+        let filename = AttachmentFilename::parse(&filename)?;
+        let content_type = AttachmentContentType::parse(&content_type)?;
         let size_bytes = AttachmentPayloadSize::from_len(bytes.len(), self.max_file_size)?.bytes();
         if let Some(agent_id) = agent_id {
             let existing = self.repo.count_for_agent(scope, agent_id).await?;
@@ -102,6 +133,11 @@ impl AttachmentService {
         let attachment = self.repo.get(scope, id).await?;
         let bytes = self.storage.get_bytes(&attachment.storage_path).await?;
         Ok((attachment, bytes))
+    }
+
+    pub(crate) async fn download_payload(&self, scope: &TenantScope, id: Uuid) -> AppResult<AttachmentDownload> {
+        let (attachment, bytes) = self.download(scope, id).await?;
+        Ok(AttachmentDownload::new(attachment.filename, attachment.content_type, bytes))
     }
 
     /// Delete the object before deleting metadata so a failed object deletion

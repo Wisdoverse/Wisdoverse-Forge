@@ -2,10 +2,13 @@
 
 use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::SshKey;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::credential::{CredentialListPage, SshKeyName, SshPublicKey};
-pub(crate) use crate::domain::credential::{ssh_key_create_response, ssh_key_list_response};
+pub(crate) use crate::domain::credential::{
+    credential_delete_response, ssh_key_create_response, ssh_key_list_response,
+};
 use crate::repositories::credential::ssh_key::SshKeyRepository;
 
 /// Business logic layer for SSH key operations.
@@ -14,6 +17,10 @@ pub struct SshKeyService {
 }
 
 impl SshKeyService {
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(SshKeyRepository::new(pool))
+    }
+
     pub fn new(repo: SshKeyRepository) -> Self {
         Self { repo }
     }

@@ -8,11 +8,13 @@ pub mod llm_config;
 
 pub use llm_config::{UserLlmConfigRepository, UserLlmConfigSecret};
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope, UserId};
+use agentforge_core::{AppError, AppResult, TenantScope, UserId};
 use agentforge_db::entities::User;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sqlx::{PgPool, Postgres, Transaction};
+
+use crate::domain::user::UserRepositoryPolicy;
 
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
 #[serde(rename_all = "camelCase")]
@@ -53,7 +55,7 @@ impl UserRepository {
         .bind(scope.org_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("user {id}")).into())
+        .ok_or_else(|| UserRepositoryPolicy::user_not_found(id))
     }
 
     /// Create a new user (registration).
@@ -78,10 +80,10 @@ impl UserRepository {
         .bind(display_name)
         .fetch_one(&mut *tx)
         .await
-        .map_err(|e| -> agentforge_core::AppError {
+        .map_err(|e| -> AppError {
             match &e {
                 sqlx::Error::Database(db_err) if db_err.constraint() == Some("users_email_key") => {
-                    ErrorKind::Conflict("email already registered".into()).into()
+                    UserRepositoryPolicy::email_already_registered()
                 }
                 _ => e.into(),
             }
@@ -131,7 +133,7 @@ impl UserRepository {
         .await?;
 
         if membership == 0 {
-            return Err(ErrorKind::NotFound(format!("user {id}")).into());
+            return Err(UserRepositoryPolicy::user_not_found(id));
         }
 
         sqlx::query_as::<_, User>(
@@ -143,7 +145,7 @@ impl UserRepository {
         .bind(display_name)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("user {id}")).into())
+        .ok_or_else(|| UserRepositoryPolicy::user_not_found(id))
     }
 
     /// Find the user's default organization and role.
@@ -177,6 +179,96 @@ impl UserRepository {
         .fetch_optional(&self.pool)
         .await?;
         Ok(result)
+    }
+
+    pub async fn find_membership_role(&self, user_id: UserId, org_id: uuid::Uuid) -> AppResult<Option<String>> {
+        sqlx::query_scalar::<_, String>(
+            r#"SELECT role
+               FROM organization_members
+              WHERE organization_id = $1
+                AND user_id = $2
+              LIMIT 1"#,
+        )
+        .bind(org_id)
+        .bind(user_id.as_uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
+    pub async fn workspace_exists_in_org(&self, org_id: uuid::Uuid, workspace_id: uuid::Uuid) -> AppResult<bool> {
+        sqlx::query_scalar::<_, bool>(
+            r#"SELECT EXISTS (
+                   SELECT 1 FROM workspaces
+                    WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL
+               )"#,
+        )
+        .bind(workspace_id)
+        .bind(org_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
+    pub async fn user_can_read_team(
+        &self,
+        user_id: UserId,
+        org_id: uuid::Uuid,
+        team_id: uuid::Uuid,
+    ) -> AppResult<bool> {
+        sqlx::query_scalar::<_, bool>(
+            r#"SELECT EXISTS (
+                   SELECT 1
+                     FROM teams t
+                     JOIN team_members tm ON tm.team_id = t.id
+                    WHERE t.id = $1
+                      AND t.organization_id = $2
+                      AND t.deleted_at IS NULL
+                      AND tm.user_id = $3
+               )"#,
+        )
+        .bind(team_id)
+        .bind(org_id)
+        .bind(user_id.as_uuid())
+        .fetch_one(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
+    pub async fn user_can_read_project(
+        &self,
+        user_id: UserId,
+        org_id: uuid::Uuid,
+        project_id: uuid::Uuid,
+        workspace_id: uuid::Uuid,
+    ) -> AppResult<bool> {
+        sqlx::query_scalar::<_, bool>(
+            r#"SELECT EXISTS (
+                   SELECT 1
+                     FROM projects p
+                    WHERE p.id = $1
+                      AND p.organization_id = $2
+                      AND p.workspace_id = $3
+                      AND p.deleted_at IS NULL
+                      AND (
+                          EXISTS (
+                              SELECT 1 FROM project_members pm
+                               WHERE pm.project_id = p.id AND pm.user_id = $4
+                          )
+                          OR EXISTS (
+                              SELECT 1 FROM team_members tm
+                               WHERE tm.team_id = p.team_id AND tm.user_id = $4
+                          )
+                      )
+               )"#,
+        )
+        .bind(project_id)
+        .bind(org_id)
+        .bind(workspace_id)
+        .bind(user_id.as_uuid())
+        .fetch_one(&self.pool)
+        .await
+        .map_err(Into::into)
     }
 
     /// Update the user's last_login_at timestamp.
@@ -369,7 +461,7 @@ async fn insert_personal_org(
         }
     }
 
-    Err(ErrorKind::Internal(anyhow::anyhow!("failed to allocate unique personal organization slug")).into())
+    Err(UserRepositoryPolicy::personal_org_slug_allocation_failed())
 }
 
 #[cfg(test)]

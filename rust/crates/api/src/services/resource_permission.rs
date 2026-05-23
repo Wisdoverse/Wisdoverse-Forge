@@ -1,7 +1,9 @@
 //! Authorization rules for organization, team, and project management.
 
-use agentforge_core::{AppResult, ErrorKind, ProjectId, TeamId, TenantScope};
+use agentforge_core::{AppResult, ProjectId, TeamId, TenantScope};
+use sqlx::PgPool;
 
+use crate::domain::resource::ResourcePermissionPolicy;
 use crate::repositories::resource::permission::ResourcePermissionRepository;
 
 /// Business rules for resource-scoped management permissions.
@@ -14,32 +16,24 @@ impl ResourcePermissionService {
         Self { repo }
     }
 
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(ResourcePermissionRepository::new(pool))
+    }
+
     pub async fn require_org_manager(&self, scope: &TenantScope) -> AppResult<()> {
-        if self.repo.can_manage_org(scope).await? {
-            return Ok(());
-        }
-        Err(ErrorKind::Forbidden.into())
+        ResourcePermissionPolicy::ensure_can_manage_org(self.repo.can_manage_org(scope).await?)
     }
 
     pub async fn require_team_manager(&self, scope: &TenantScope, team_id: TeamId) -> AppResult<()> {
-        if self.repo.can_manage_team(scope, team_id).await? {
-            return Ok(());
-        }
-        Err(ErrorKind::Forbidden.into())
+        ResourcePermissionPolicy::ensure_can_manage_team(self.repo.can_manage_team(scope, team_id).await?)
     }
 
     pub async fn require_project_creator(&self, scope: &TenantScope, team_id: TeamId) -> AppResult<()> {
-        if self.repo.can_create_project_in_team(scope, team_id).await? {
-            return Ok(());
-        }
-        Err(ErrorKind::Forbidden.into())
+        ResourcePermissionPolicy::ensure_can_create_project(self.repo.can_create_project_in_team(scope, team_id).await?)
     }
 
     pub async fn require_project_manager(&self, scope: &TenantScope, project_id: ProjectId) -> AppResult<()> {
-        if self.repo.can_manage_project(scope, project_id).await? {
-            return Ok(());
-        }
-        Err(ErrorKind::Forbidden.into())
+        ResourcePermissionPolicy::ensure_can_manage_project(self.repo.can_manage_project(scope, project_id).await?)
     }
 }
 
@@ -53,8 +47,7 @@ mod tests {
 
     #[test]
     fn forbidden_maps_to_permission_denial() {
-        let err: agentforge_core::AppError = ErrorKind::Forbidden.into();
-        assert!(matches!(err.kind, ErrorKind::Forbidden));
+        assert!(ResourcePermissionPolicy::ensure_can_manage_org(false).is_err());
     }
 
     #[test]

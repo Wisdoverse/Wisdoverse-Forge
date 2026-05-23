@@ -15,8 +15,9 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, OrgId};
 
 use crate::health::AppState;
-use crate::repositories::identity::organization::OrganizationRepository;
-use crate::services::organization::OrganizationService;
+use crate::services::organization::{
+    CreateOrganizationInput, OrganizationService, UpdateOrganizationInput, resource_data_response,
+};
 
 /// Request body for creating an organization.
 #[derive(Deserialize)]
@@ -33,14 +34,14 @@ pub struct UpdateOrganizationRequest {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> OrganizationService {
-    OrganizationService::new(OrganizationRepository::new(state.pool.clone()))
+    state.organization_service()
 }
 
 /// `GET /api/organizations` — list organizations the user belongs to.
 async fn list_organizations(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let orgs = service.list(&auth.scope).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": orgs })))
+    Ok(Json(resource_data_response(orgs)))
 }
 
 /// `GET /api/organizations/{id}` — get a single organization.
@@ -51,7 +52,7 @@ async fn get_organization(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let org = service.get(&auth.scope, OrgId::from(id)).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": org })))
+    Ok(Json(resource_data_response(org)))
 }
 
 /// `POST /api/organizations` — create a new organization.
@@ -61,8 +62,8 @@ async fn create_organization(
     Json(req): Json<CreateOrganizationRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
-    let org = service.create(&auth.scope, &req.name, &req.slug).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": org })))
+    let org = service.create(&auth.scope, CreateOrganizationInput { name: req.name, slug: req.slug }).await?;
+    Ok(Json(resource_data_response(org)))
 }
 
 /// `PATCH /api/organizations/{id}` — update an organization.
@@ -73,8 +74,8 @@ async fn update_organization(
     Json(req): Json<UpdateOrganizationRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
-    let org = service.update(&auth.scope, OrgId::from(id), &req.name).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": org })))
+    let org = service.update(&auth.scope, OrgId::from(id), UpdateOrganizationInput { name: req.name }).await?;
+    Ok(Json(resource_data_response(org)))
 }
 
 /// Build organization routes sub-router.

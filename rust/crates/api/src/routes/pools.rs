@@ -15,17 +15,8 @@ use crate::health::AppState;
 ///
 /// Returns warm pool counts. Requires Docker to be available.
 async fn pool_status(State(state): State<AppState>, _auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
-    // Pool status is available through the platform crate's ContainerPool.
-    // For now, return a static response indicating pool availability.
-    let docker_available = state.docker.is_some();
-
-    Ok(Json(serde_json::json!({
-        "ok": true,
-        "data": {
-            "docker_available": docker_available,
-            "message": "pool status — warm pool integration pending"
-        }
-    })))
+    let service = state.pool_service();
+    Ok(Json(service.status_response()))
 }
 
 /// Build pool routes sub-router.
@@ -35,17 +26,11 @@ pub fn pool_routes() -> Router<AppState> {
 
 #[cfg(test)]
 mod tests {
+    use crate::services::pool::pool_status_response;
+
     #[test]
     fn pool_status_response_format() {
-        let response = serde_json::json!({
-            "ok": true,
-            "data": {
-                "docker_available": true,
-                "warm_count": 3,
-                "min_size": 2,
-                "max_size": 10
-            }
-        });
+        let response = pool_status_response(true);
         assert_eq!(response["ok"], true);
         assert_eq!(response["data"]["docker_available"], true);
     }

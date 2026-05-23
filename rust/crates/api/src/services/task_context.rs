@@ -1,16 +1,17 @@
 //! Task detail Context tab read model.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::{ContextCandidate, TaskRun};
 use serde_json::Value;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::context::{applied_context_source, context_content_preview, redacted_proposal_preview};
-use crate::domain::task_context::task_context_provenance;
 pub use crate::domain::task_context::{
     AppliedContextFeedback, AppliedContextItem, TaskContextCandidate, TaskContextEvidence, TaskContextProvenance,
     TaskContextResponse, TaskContextRun,
 };
+use crate::domain::task_context::{TaskContextAccessPolicy, task_context_provenance};
 use crate::repositories::orchestration::OrchestrationTaskRepository;
 use crate::repositories::orchestration::task_context::{AppliedContextRow, TaskContextRepository};
 use crate::repositories::orchestration::task_run::RunEvidenceRow;
@@ -27,10 +28,13 @@ impl TaskContextService {
         Self { task_repo, context_repo }
     }
 
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(OrchestrationTaskRepository::new(pool.clone()), TaskContextRepository::new(pool))
+    }
+
     pub async fn for_task(&self, scope: &TenantScope, task_id: Uuid) -> AppResult<TaskContextResponse> {
         self.task_repo.find_by_id(scope, task_id).await?;
-        let workspace_id =
-            scope.workspace_id().ok_or_else(|| -> agentforge_core::AppError { ErrorKind::Forbidden.into() })?;
+        let workspace_id = TaskContextAccessPolicy::required_workspace(scope)?;
         let runs = self.context_repo.runs_for_task(scope, workspace_id, task_id).await?;
         let run_ids: Vec<Uuid> = runs.iter().map(|run| run.id).collect();
 

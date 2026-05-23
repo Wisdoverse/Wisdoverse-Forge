@@ -16,8 +16,9 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, WorkspaceId};
 
 use crate::health::AppState;
-use crate::repositories::workspace::WorkspaceRepository;
-use crate::services::workspace::WorkspaceService;
+use crate::services::workspace::{
+    CreateWorkspaceInput, UpdateWorkspaceInput, WorkspaceService, resource_data_response, resource_delete_response,
+};
 
 /// Query parameters for the list endpoint.
 #[derive(Deserialize)]
@@ -46,7 +47,7 @@ pub struct UpdateWorkspaceRequest {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> WorkspaceService {
-    WorkspaceService::new(WorkspaceRepository::new(state.pool.clone()))
+    state.workspace_service()
 }
 
 /// `GET /api/workspaces` — list workspaces for the authenticated tenant.
@@ -57,7 +58,7 @@ async fn list_workspaces(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let workspaces = service.list(&auth.scope, query.limit, query.offset).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": workspaces })))
+    Ok(Json(resource_data_response(workspaces)))
 }
 
 /// `GET /api/workspaces/{id}` — get a single workspace.
@@ -68,7 +69,7 @@ async fn get_workspace(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let workspace = service.get(&auth.scope, WorkspaceId::from(id)).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": workspace })))
+    Ok(Json(resource_data_response(workspace)))
 }
 
 /// `POST /api/workspaces` — create a new workspace.
@@ -78,8 +79,8 @@ async fn create_workspace(
     Json(req): Json<CreateWorkspaceRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
-    let workspace = service.create(&auth.scope, &req.name).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": workspace })))
+    let workspace = service.create(&auth.scope, CreateWorkspaceInput { name: req.name }).await?;
+    Ok(Json(resource_data_response(workspace)))
 }
 
 /// `PATCH /api/workspaces/{id}` — update a workspace.
@@ -90,8 +91,8 @@ async fn update_workspace(
     Json(req): Json<UpdateWorkspaceRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
-    let workspace = service.update(&auth.scope, WorkspaceId::from(id), &req.name).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": workspace })))
+    let workspace = service.update(&auth.scope, WorkspaceId::from(id), UpdateWorkspaceInput { name: req.name }).await?;
+    Ok(Json(resource_data_response(workspace)))
 }
 
 /// `DELETE /api/workspaces/{id}` — soft delete a workspace.
@@ -102,7 +103,7 @@ async fn delete_workspace(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     service.delete(&auth.scope, WorkspaceId::from(id)).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(resource_delete_response()))
 }
 
 /// Build workspace routes sub-router.

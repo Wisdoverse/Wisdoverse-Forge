@@ -1,16 +1,39 @@
 //! Settings service — validation and management.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::Setting;
 use serde_json::Value;
+use sqlx::PgPool;
 
-use crate::domain::configuration::{GatewaySettings, RuntimeSettings};
-pub(crate) use crate::domain::configuration::{gateway_settings_response, runtime_settings_response};
+use crate::domain::configuration::{
+    GatewaySettings, RuntimeSettings, gateway_settings_persistence_value, runtime_settings_persistence_value,
+};
+pub(crate) use crate::domain::configuration::{
+    configuration_data_response, configuration_delete_response, gateway_settings_response, runtime_settings_response,
+};
 use crate::domain::resource::SettingKey;
 use crate::repositories::setting::SettingRepository;
 
 const RUNTIME_KEY: &str = "runtime";
 const GATEWAY_KEY: &str = "gateway";
+
+#[derive(Debug, Clone)]
+pub struct UpsertSettingInput {
+    pub value: Value,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct UpdateRuntimeSettingsInput {
+    pub default_runtime: Option<String>,
+    pub default_cli_tool: Option<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct UpdateGatewaySettingsInput {
+    pub routing_strategy: Option<String>,
+    pub circuit_breaker_threshold: Option<u32>,
+    pub circuit_breaker_reset_ms: Option<u32>,
+}
 
 /// Business logic layer for settings operations.
 pub struct SettingService {
@@ -22,15 +45,19 @@ impl SettingService {
         Self { repo }
     }
 
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(SettingRepository::new(pool))
+    }
+
     /// List all settings for the user/org.
     pub async fn list(&self, scope: &TenantScope) -> AppResult<Vec<Setting>> {
         self.repo.list(scope).await
     }
 
     /// Upsert a setting by key.
-    pub async fn upsert(&self, scope: &TenantScope, key: &str, value: &Value) -> AppResult<Setting> {
+    pub async fn upsert(&self, scope: &TenantScope, key: &str, input: UpsertSettingInput) -> AppResult<Setting> {
         let key = SettingKey::parse(key)?;
-        self.repo.upsert(scope, key.value(), value).await
+        self.repo.upsert(scope, key.value(), &input.value).await
     }
 
     /// Delete a setting by key.
@@ -48,14 +75,13 @@ impl SettingService {
     pub(crate) async fn update_runtime_settings(
         &self,
         scope: &TenantScope,
-        default_runtime: Option<&str>,
-        default_cli_tool: Option<&str>,
+        input: UpdateRuntimeSettingsInput,
     ) -> AppResult<RuntimeSettings> {
         let mut runtime = self.runtime_settings(scope).await?;
-        runtime.apply_update(default_runtime, default_cli_tool)?;
+        runtime.apply_update(input.default_runtime.as_deref(), input.default_cli_tool.as_deref())?;
 
-        let value = serde_json::to_value(&runtime).map_err(|err| ErrorKind::Internal(err.into()))?;
-        self.upsert(scope, RUNTIME_KEY, &value).await?;
+        let value = runtime_settings_persistence_value(&runtime)?;
+        self.upsert(scope, RUNTIME_KEY, UpsertSettingInput { value }).await?;
         Ok(runtime)
     }
 
@@ -69,15 +95,17 @@ impl SettingService {
     pub(crate) async fn update_gateway_settings(
         &self,
         scope: &TenantScope,
-        routing_strategy: Option<&str>,
-        circuit_breaker_threshold: Option<u32>,
-        circuit_breaker_reset_ms: Option<u32>,
+        input: UpdateGatewaySettingsInput,
     ) -> AppResult<GatewaySettings> {
         let mut gateway = self.gateway_settings(scope).await?;
-        gateway.apply_update(routing_strategy, circuit_breaker_threshold, circuit_breaker_reset_ms)?;
+        gateway.apply_update(
+            input.routing_strategy.as_deref(),
+            input.circuit_breaker_threshold,
+            input.circuit_breaker_reset_ms,
+        )?;
 
-        let value = serde_json::to_value(&gateway).map_err(|err| ErrorKind::Internal(err.into()))?;
-        self.upsert(scope, GATEWAY_KEY, &value).await?;
+        let value = gateway_settings_persistence_value(&gateway)?;
+        self.upsert(scope, GATEWAY_KEY, UpsertSettingInput { value }).await?;
         Ok(gateway)
     }
 }

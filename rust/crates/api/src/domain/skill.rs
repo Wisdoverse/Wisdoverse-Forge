@@ -3,7 +3,7 @@
 //! This module owns pure skill input, lifecycle, and version policies that are
 //! independent of repositories, authorization, and audit emission.
 
-use agentforge_core::{AppError, AppResult, ErrorKind, OrgId, SkillId, WorkspaceId};
+use agentforge_core::{AppError, AppResult, ErrorKind, OrgId, SkillId, TenantScope, WorkspaceId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -24,6 +24,14 @@ pub(crate) fn skill_audit_event(
     payload: Value,
 ) -> ContextAuditEvent<'static> {
     ContextAuditEvent { action, resource_type: skill_audit_resource_type(), resource_id, payload, ip_address: None }
+}
+
+pub(crate) fn skill_data_response<T: Serialize>(data: T) -> Value {
+    json!({ "ok": true, "data": data })
+}
+
+pub(crate) fn skill_delete_response() -> Value {
+    json!({ "ok": true })
 }
 
 /// Validated skill name.
@@ -113,6 +121,55 @@ impl SkillScopeTargetPolicy {
                 ErrorKind::Validation(format!("scope_id is required for {} skill", scope_kind.as_label())).into()
             }),
         }
+    }
+}
+
+pub(crate) struct SkillAccessPolicy;
+
+impl SkillAccessPolicy {
+    pub(crate) fn required_workspace(scope: &TenantScope) -> AppResult<WorkspaceId> {
+        scope.workspace_id().ok_or_else(Self::forbidden)
+    }
+
+    pub(crate) fn ensure_resource_belongs_to_scope(belongs_to_scope: bool) -> AppResult<()> {
+        if belongs_to_scope { Ok(()) } else { Err(Self::forbidden()) }
+    }
+
+    pub(crate) fn forbidden() -> AppError {
+        ErrorKind::Forbidden.into()
+    }
+}
+
+/// Skill repository lookup, conflict, and snapshot serialization policy.
+pub(crate) struct SkillRepositoryPolicy;
+
+impl SkillRepositoryPolicy {
+    pub(crate) fn skill_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("skill {id}")).into()
+    }
+
+    pub(crate) fn skill_already_revoked(id: Uuid) -> AppError {
+        ErrorKind::Conflict(format!("skill {id} is already revoked")).into()
+    }
+
+    pub(crate) fn skill_not_pending_candidate(id: Uuid) -> AppError {
+        ErrorKind::Conflict(format!("skill {id} is not a pending candidate")).into()
+    }
+
+    pub(crate) fn snapshot_invalid(err: impl std::fmt::Display) -> AppError {
+        ErrorKind::Internal(anyhow::anyhow!("skill version snapshot is invalid: {err}")).into()
+    }
+
+    pub(crate) fn snapshot_serialize_failed(err: impl std::fmt::Display) -> AppError {
+        ErrorKind::Internal(anyhow::anyhow!("failed to serialize skill snapshot: {err}")).into()
+    }
+
+    pub(crate) fn version_already_exists(skill_id: SkillId, version: i32) -> AppError {
+        ErrorKind::Conflict(format!("skill {skill_id} version {version} already exists")).into()
+    }
+
+    pub(crate) fn version_not_found(skill_id: SkillId, version: i32) -> AppError {
+        ErrorKind::NotFound(format!("skill {skill_id} version {version}")).into()
     }
 }
 
@@ -491,12 +548,24 @@ impl SkillContentPolicy {
 pub(crate) struct SkillJsonObjectPolicy;
 
 impl SkillJsonObjectPolicy {
+    pub(crate) fn resolve(value: Option<Value>) -> Value {
+        value.unwrap_or_else(|| Value::Object(serde_json::Map::new()))
+    }
+
     pub(crate) fn validate(name: &str, value: &Value) -> AppResult<()> {
         if value.as_object().is_some() {
             Ok(())
         } else {
             Err(ErrorKind::Validation(format!("{name} must be a JSON object")).into())
         }
+    }
+}
+
+pub(crate) struct SkillJsonArrayPolicy;
+
+impl SkillJsonArrayPolicy {
+    pub(crate) fn resolve(value: Option<Value>) -> Value {
+        value.unwrap_or_else(|| Value::Array(Vec::new()))
     }
 }
 
@@ -887,6 +956,60 @@ mod tests {
     }
 
     #[test]
+    fn skill_access_policy_owns_workspace_and_scope_forbidden_contracts() {
+        let workspace_id = WorkspaceId::new();
+        let scope =
+            TenantScope::with_axes(OrgId::new(), agentforge_core::UserId::new(), Some(workspace_id), None, None);
+        let missing_workspace = crate::test_support::tenant_scope();
+
+        assert_eq!(SkillAccessPolicy::required_workspace(&scope).unwrap(), workspace_id);
+        assert!(matches!(
+            SkillAccessPolicy::required_workspace(&missing_workspace).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
+        assert!(SkillAccessPolicy::ensure_resource_belongs_to_scope(true).is_ok());
+        assert!(matches!(
+            SkillAccessPolicy::ensure_resource_belongs_to_scope(false).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
+    }
+
+    #[test]
+    fn skill_repository_policy_owns_lookup_version_and_snapshot_errors() {
+        let skill_id = SkillId::new();
+        let raw_skill_id = skill_id.as_uuid();
+
+        assert!(matches!(
+            SkillRepositoryPolicy::skill_not_found(raw_skill_id).kind,
+            ErrorKind::NotFound(message) if message == format!("skill {raw_skill_id}")
+        ));
+        assert!(matches!(
+            SkillRepositoryPolicy::skill_already_revoked(raw_skill_id).kind,
+            ErrorKind::Conflict(message) if message == format!("skill {raw_skill_id} is already revoked")
+        ));
+        assert!(matches!(
+            SkillRepositoryPolicy::skill_not_pending_candidate(raw_skill_id).kind,
+            ErrorKind::Conflict(message) if message == format!("skill {raw_skill_id} is not a pending candidate")
+        ));
+        assert!(matches!(
+            SkillRepositoryPolicy::snapshot_invalid("bad shape").kind,
+            ErrorKind::Internal(message) if message.to_string().contains("snapshot is invalid")
+        ));
+        assert!(matches!(
+            SkillRepositoryPolicy::snapshot_serialize_failed("bad shape").kind,
+            ErrorKind::Internal(message) if message.to_string().contains("failed to serialize skill snapshot")
+        ));
+        assert!(matches!(
+            SkillRepositoryPolicy::version_already_exists(skill_id, 2).kind,
+            ErrorKind::Conflict(message) if message == format!("skill {skill_id} version 2 already exists")
+        ));
+        assert!(matches!(
+            SkillRepositoryPolicy::version_not_found(skill_id, 2).kind,
+            ErrorKind::NotFound(message) if message == format!("skill {skill_id} version 2")
+        ));
+    }
+
+    #[test]
     fn skill_create_state_policy_defaults_to_active_and_requires_publish_rights() {
         assert_eq!(SkillCreateStatePolicy::resolve(None, true).unwrap(), SkillState::Active);
         assert_eq!(SkillCreateStatePolicy::resolve(Some(SkillState::Candidate), false).unwrap(), SkillState::Candidate);
@@ -1039,9 +1162,17 @@ mod tests {
 
     #[test]
     fn skill_json_object_policy_rejects_non_objects() {
+        assert_eq!(SkillJsonObjectPolicy::resolve(None), json!({}));
+        assert_eq!(SkillJsonObjectPolicy::resolve(Some(json!({ "source": "manual" }))), json!({ "source": "manual" }));
         assert!(SkillJsonObjectPolicy::validate("provenance", &json!({})).is_ok());
         assert!(SkillJsonObjectPolicy::validate("provenance", &json!([])).is_err());
         assert!(SkillJsonObjectPolicy::validate("provenance", &json!("value")).is_err());
+    }
+
+    #[test]
+    fn skill_json_array_policy_defaults_to_empty_array() {
+        assert_eq!(SkillJsonArrayPolicy::resolve(None), json!([]));
+        assert_eq!(SkillJsonArrayPolicy::resolve(Some(json!(["input"]))), json!(["input"]));
     }
 
     #[test]
@@ -1251,6 +1382,12 @@ mod tests {
     #[test]
     fn skill_state_transition_rejects_direct_candidate_promotion() {
         assert!(SkillStateTransitionPolicy::next("candidate", Some(true)).is_err());
+    }
+
+    #[test]
+    fn skill_response_helpers_keep_legacy_data_shape() {
+        assert_eq!(skill_data_response(vec!["review"])["data"], json!(["review"]));
+        assert_eq!(skill_delete_response()["ok"], true);
     }
 
     fn synthetic_assigned_secret() -> String {

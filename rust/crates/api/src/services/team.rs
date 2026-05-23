@@ -2,18 +2,37 @@
 
 use agentforge_core::{AppResult, TeamId, TenantScope};
 use agentforge_db::entities::Team;
+use sqlx::PgPool;
 
-use crate::domain::resource::{ResourceListPage, ResourceName};
+use crate::domain::resource::{ResourceListPage, ResourceName, ResourceSlugPolicy};
+pub(crate) use crate::domain::resource::{resource_data_response, resource_delete_response};
 use crate::repositories::identity::team::TeamRepository;
+use crate::repositories::resource::permission::ResourcePermissionRepository;
+use crate::services::resource_permission::ResourcePermissionService;
+
+#[derive(Debug, Clone)]
+pub struct CreateTeamInput {
+    pub name: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct UpdateTeamInput {
+    pub name: String,
+}
 
 /// Business logic layer for team operations.
 pub struct TeamService {
     repo: TeamRepository,
+    permissions: ResourcePermissionService,
 }
 
 impl TeamService {
-    pub fn new(repo: TeamRepository) -> Self {
-        Self { repo }
+    pub fn new(repo: TeamRepository, permission_repo: ResourcePermissionRepository) -> Self {
+        Self { repo, permissions: ResourcePermissionService::new(permission_repo) }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(TeamRepository::new(pool.clone()), ResourcePermissionRepository::new(pool))
     }
 
     /// List teams with pagination. Limit is capped at 100.
@@ -28,19 +47,23 @@ impl TeamService {
     }
 
     /// Create a new team with validated name.
-    pub async fn create(&self, scope: &TenantScope, name: &str) -> AppResult<Team> {
-        let name = ResourceName::parse(name)?;
-        self.repo.create(scope, name.value()).await
+    pub async fn create(&self, scope: &TenantScope, input: CreateTeamInput) -> AppResult<Team> {
+        self.permissions.require_org_manager(scope).await?;
+        let name = ResourceName::parse(&input.name)?;
+        let slug = ResourceSlugPolicy::derive(name.value());
+        self.repo.create(scope, name.value(), &slug).await
     }
 
     /// Update a team's name.
-    pub async fn update(&self, scope: &TenantScope, id: TeamId, name: &str) -> AppResult<Team> {
-        let name = ResourceName::parse(name)?;
+    pub async fn update(&self, scope: &TenantScope, id: TeamId, input: UpdateTeamInput) -> AppResult<Team> {
+        self.permissions.require_team_manager(scope, id).await?;
+        let name = ResourceName::parse(&input.name)?;
         self.repo.update(scope, id, name.value()).await
     }
 
     /// Soft-delete a team.
     pub async fn delete(&self, scope: &TenantScope, id: TeamId) -> AppResult<()> {
+        self.permissions.require_team_manager(scope, id).await?;
         self.repo.delete(scope, id).await
     }
 }

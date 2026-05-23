@@ -2,10 +2,30 @@
 
 use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::ResourceProfile;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::configuration::ResourceProfilePolicy;
+pub(crate) use crate::domain::resource::{resource_data_response, resource_delete_response};
 use crate::repositories::resource::profile::ResourceProfileRepository;
+
+#[derive(Debug, Clone)]
+pub struct CreateResourceProfileInput {
+    pub name: String,
+    pub cpu_millicores: i32,
+    pub memory_mb: i32,
+    pub storage_mb: i32,
+    pub max_pids: i32,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct UpdateResourceProfileInput {
+    pub name: Option<String>,
+    pub cpu_millicores: Option<i32>,
+    pub memory_mb: Option<i32>,
+    pub storage_mb: Option<i32>,
+    pub max_pids: Option<i32>,
+}
 
 /// Business logic layer for resource profile operations.
 pub struct ResourceProfileService {
@@ -15,6 +35,10 @@ pub struct ResourceProfileService {
 impl ResourceProfileService {
     pub fn new(repo: ResourceProfileRepository) -> Self {
         Self { repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(ResourceProfileRepository::new(pool))
     }
 
     /// List resource profiles (org + system defaults).
@@ -28,17 +52,17 @@ impl ResourceProfileService {
     }
 
     /// Create a custom resource profile.
-    pub async fn create(
-        &self,
-        scope: &TenantScope,
-        name: &str,
-        cpu_millicores: i32,
-        memory_mb: i32,
-        storage_mb: i32,
-        max_pids: i32,
-    ) -> AppResult<ResourceProfile> {
-        ResourceProfilePolicy::validate_create(name, cpu_millicores, memory_mb, storage_mb, max_pids)?;
-        self.repo.create(scope, name, cpu_millicores, memory_mb, storage_mb, max_pids).await
+    pub async fn create(&self, scope: &TenantScope, input: CreateResourceProfileInput) -> AppResult<ResourceProfile> {
+        ResourceProfilePolicy::validate_create(
+            &input.name,
+            input.cpu_millicores,
+            input.memory_mb,
+            input.storage_mb,
+            input.max_pids,
+        )?;
+        self.repo
+            .create(scope, &input.name, input.cpu_millicores, input.memory_mb, input.storage_mb, input.max_pids)
+            .await
     }
 
     /// Update a resource profile.
@@ -46,14 +70,26 @@ impl ResourceProfileService {
         &self,
         scope: &TenantScope,
         id: Uuid,
-        name: Option<&str>,
-        cpu_millicores: Option<i32>,
-        memory_mb: Option<i32>,
-        storage_mb: Option<i32>,
-        max_pids: Option<i32>,
+        input: UpdateResourceProfileInput,
     ) -> AppResult<ResourceProfile> {
-        ResourceProfilePolicy::validate_update(name, cpu_millicores, memory_mb, storage_mb, max_pids)?;
-        self.repo.update(scope, id, name, cpu_millicores, memory_mb, storage_mb, max_pids).await
+        ResourceProfilePolicy::validate_update(
+            input.name.as_deref(),
+            input.cpu_millicores,
+            input.memory_mb,
+            input.storage_mb,
+            input.max_pids,
+        )?;
+        self.repo
+            .update(
+                scope,
+                id,
+                input.name.as_deref(),
+                input.cpu_millicores,
+                input.memory_mb,
+                input.storage_mb,
+                input.max_pids,
+            )
+            .await
     }
 
     /// Delete a resource profile.

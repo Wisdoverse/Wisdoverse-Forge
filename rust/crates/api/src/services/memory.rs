@@ -1,22 +1,21 @@
 //! Governed memory item service.
 
-use agentforge_core::{
-    AppResult, ErrorKind, MemoryItemId, ProjectId, ScopedRead, ScopedWrite, ScopedWriteError, TeamId, TenantScope,
-    WorkspaceId,
-};
+use agentforge_core::{AppResult, MemoryItemId, ProjectId, ScopedRead, ScopedWrite, TeamId, TenantScope, WorkspaceId};
 use agentforge_db::entities::MemoryItem;
 use chrono::{DateTime, Utc};
-use serde_json::{Value, json};
+use serde_json::Value;
 use sqlx::PgPool;
 use uuid::Uuid;
 
 pub use crate::domain::memory::MemoryContent;
+pub(crate) use crate::domain::memory::memory_data_response;
 use crate::domain::memory::{
-    MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryContentReadAudit, MemoryCreatedAudit,
-    MemoryListPage, MemoryMutationAccess, MemoryMutationAccessPolicy, MemoryMutationManagerCheck,
-    MemoryReclassificationPlan, MemoryReclassificationPolicy, MemoryReclassificationRequest, MemoryReclassifiedAudit,
-    MemoryRevokedAudit, MemoryScopeKind, MemoryScopeTargetPolicy, MemoryTitle, MemoryTtlExtendedAudit, MemoryTtlPolicy,
-    MemoryUpdatedAudit, MemoryVisibility, PreparedMemoryContent, memory_audit_event,
+    MemoryAccessPolicy, MemoryConfidencePolicy, MemoryContentDecision, MemoryContentPolicy, MemoryContentReadAudit,
+    MemoryCreatedAudit, MemoryListPage, MemoryMutationAccess, MemoryMutationAccessPolicy, MemoryMutationManagerCheck,
+    MemoryProvenancePolicy, MemoryReclassificationPlan, MemoryReclassificationPolicy, MemoryReclassificationRequest,
+    MemoryReclassifiedAudit, MemoryRevokedAudit, MemoryScopeKind, MemoryScopeTargetPolicy, MemoryTitle,
+    MemoryTtlExtendedAudit, MemoryTtlPolicy, MemoryUpdatedAudit, MemoryVisibility, PreparedMemoryContent,
+    memory_audit_event,
 };
 use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository, UpdateMemoryRecord};
 use crate::repositories::resource::permission::ResourcePermissionRepository;
@@ -101,7 +100,7 @@ impl MemoryService {
 
     pub async fn create(&self, scope: &TenantScope, input: CreateMemoryInput) -> AppResult<MemoryItem> {
         let proof = self.validated_read(scope).await?;
-        let workspace_id = required_workspace(scope)?;
+        let workspace_id = MemoryAccessPolicy::required_workspace(scope)?;
         let target = self.validated_write_scope(&proof, workspace_id, input.scope_kind, input.scope_id).await?;
         let title = MemoryTitle::parse(&input.title)?.value().to_string();
         let visibility = MemoryVisibility::parse(input.visibility.as_deref())?.as_str();
@@ -109,7 +108,7 @@ impl MemoryService {
         MemoryConfidencePolicy::validate(input.confidence)?;
 
         let prepared = self.prepare_content_or_audit_rejection(scope, "create", &input.content, input.redacted).await?;
-        let provenance = input.provenance.unwrap_or_else(|| json!({}));
+        let provenance = MemoryProvenancePolicy::resolve(input.provenance);
 
         let mut tx = self.repo.pool().begin().await?;
         let item = MemoryRepository::create_in_tx(
@@ -235,7 +234,7 @@ impl MemoryService {
         input: ReclassifyScopeInput,
     ) -> AppResult<MemoryItem> {
         let proof = self.validated_read(scope).await?;
-        let workspace_id = required_workspace(scope)?;
+        let workspace_id = MemoryAccessPolicy::required_workspace(scope)?;
         let target = self.validated_write_scope(&proof, workspace_id, input.scope_kind, input.scope_id).await?;
         let mut tx = self.repo.pool().begin().await?;
         let current = MemoryRepository::lock_visible_for_update(&mut tx, &proof, id).await?;
@@ -265,79 +264,7 @@ impl MemoryService {
     }
 
     async fn validated_read(&self, scope: &TenantScope) -> AppResult<ScopedRead> {
-        let Some(workspace_id) = scope.workspace_id() else {
-            return Ok(ScopedRead::from_validated_memberships(
-                scope.org_id(),
-                scope.user_id(),
-                std::iter::empty(),
-                std::iter::empty(),
-                std::iter::empty(),
-            ));
-        };
-
-        let workspace_exists = sqlx::query_scalar::<_, bool>(
-            r#"SELECT EXISTS (
-                   SELECT 1 FROM workspaces
-                    WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL
-               )"#,
-        )
-        .bind(workspace_id.as_uuid())
-        .bind(scope.org_id().as_uuid())
-        .fetch_one(self.repo.pool())
-        .await?;
-        if !workspace_exists {
-            return Err(ErrorKind::NotFound(format!("workspace {workspace_id}")).into());
-        }
-
-        let team_ids = sqlx::query_scalar::<_, Uuid>(
-            r#"SELECT tm.team_id
-                 FROM team_members tm
-                 JOIN teams t ON t.id = tm.team_id
-                WHERE t.organization_id = $1
-                  AND t.deleted_at IS NULL
-                  AND tm.user_id = $2"#,
-        )
-        .bind(scope.org_id().as_uuid())
-        .bind(scope.user_id().as_uuid())
-        .fetch_all(self.repo.pool())
-        .await?
-        .into_iter()
-        .map(TeamId::from)
-        .collect::<Vec<_>>();
-
-        let project_ids = sqlx::query_scalar::<_, Uuid>(
-            r#"SELECT DISTINCT p.id
-                 FROM projects p
-                WHERE p.organization_id = $1
-                  AND p.workspace_id = $2
-                  AND p.deleted_at IS NULL
-                  AND (
-                      EXISTS (
-                          SELECT 1 FROM project_members pm
-                           WHERE pm.project_id = p.id AND pm.user_id = $3
-                      )
-                      OR EXISTS (
-                          SELECT 1 FROM team_members tm
-                           WHERE tm.team_id = p.team_id AND tm.user_id = $3
-                      )
-                  )"#,
-        )
-        .bind(scope.org_id().as_uuid())
-        .bind(workspace_id.as_uuid())
-        .bind(scope.user_id().as_uuid())
-        .fetch_all(self.repo.pool())
-        .await?
-        .into_iter()
-        .map(ProjectId::from)
-        .collect::<Vec<_>>();
-
-        Ok(ScopedRead::from_validated_memberships(
-            scope.org_id(),
-            scope.user_id(),
-            [workspace_id],
-            team_ids,
-            project_ids,
-        ))
+        self.permissions.validated_read_scope(scope).await
     }
 
     async fn validated_write_scope(
@@ -348,10 +275,11 @@ impl MemoryService {
         scope_id: Option<Uuid>,
     ) -> AppResult<ScopedWrite> {
         let (scope_kind, scope_id) = MemoryScopeTargetPolicy::resolve(scope_kind, scope_id, proof.user_id().as_uuid())?;
-        let write = ScopedWrite::try_new(scope_kind, scope_id, proof.clone()).map_err(scoped_write_error)?;
-        if !self.repo.resource_belongs_to_scope(proof, scope_kind, scope_id, workspace_id).await? {
-            return Err(ErrorKind::Forbidden.into());
-        }
+        let write = ScopedWrite::try_new(scope_kind, scope_id, proof.clone())
+            .map_err(MemoryAccessPolicy::scoped_write_error)?;
+        MemoryAccessPolicy::ensure_resource_belongs_to_scope(
+            self.repo.resource_belongs_to_scope(proof, scope_kind, scope_id, workspace_id).await?,
+        )?;
         Ok(write)
     }
 
@@ -371,7 +299,7 @@ impl MemoryService {
                 let can_manage = self.permissions.can_manage_project(scope, ProjectId::from(project_id)).await?;
                 MemoryMutationAccessPolicy::ensure_manager_authorized(can_manage)
             }
-            MemoryMutationAccess::Forbidden => Err(ErrorKind::Forbidden.into()),
+            MemoryMutationAccess::Forbidden => Err(MemoryAccessPolicy::forbidden()),
         }
     }
 
@@ -405,12 +333,4 @@ impl MemoryService {
         ContextGovernanceService::emit_audit(tx, scope, memory_audit_event(action, payload)).await?;
         Ok(())
     }
-}
-
-fn required_workspace(scope: &TenantScope) -> AppResult<WorkspaceId> {
-    scope.workspace_id().ok_or_else(|| agentforge_core::AppError::from(ErrorKind::Forbidden))
-}
-
-fn scoped_write_error(_err: ScopedWriteError) -> agentforge_core::AppError {
-    ErrorKind::Forbidden.into()
 }

@@ -168,6 +168,150 @@ pub(crate) struct GovernanceAuditQueryPolicy<'a> {
     pub to: Option<DateTime<Utc>>,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct GovernanceAuditQueryParams {
+    pub(crate) event_type: Option<String>,
+    pub(crate) event_prefix: Option<String>,
+    pub(crate) item_kind: Option<String>,
+    pub(crate) scope_kind: Option<String>,
+    pub(crate) scope_id: Option<Uuid>,
+    pub(crate) user_id: Option<Uuid>,
+    pub(crate) from: Option<DateTime<Utc>>,
+    pub(crate) to: Option<DateTime<Utc>>,
+    pub(crate) redact_secrets: Option<bool>,
+    pub(crate) limit: Option<i64>,
+    pub(crate) offset: Option<i64>,
+}
+
+impl GovernanceAuditQueryParams {
+    pub(crate) fn apply_export_defaults(&mut self) {
+        self.redact_secrets = Some(self.redact_secrets.unwrap_or(true));
+        self.limit = Some(self.limit.unwrap_or(500).clamp(1, 500));
+    }
+
+    fn policy(&self) -> GovernanceAuditQueryPolicy<'_> {
+        GovernanceAuditQueryPolicy {
+            event_prefix: self.event_prefix.as_deref(),
+            event_type: self.event_type.as_deref(),
+            item_kind: self.item_kind.as_deref(),
+            scope_kind: self.scope_kind.as_deref(),
+            from: self.from,
+            to: self.to,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct GovernanceAuditResponse {
+    pub(crate) entries: Vec<GovernanceAuditEntry>,
+    pub(crate) query: GovernanceAuditQuery,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct GovernanceAuditQuery {
+    pub(crate) event_prefix: String,
+    pub(crate) limit: i64,
+    pub(crate) offset: i64,
+    pub(crate) redacted: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct GovernanceAuditEntry {
+    pub(crate) id: Uuid,
+    pub(crate) event_type: String,
+    pub(crate) actor_user_id: Option<Uuid>,
+    pub(crate) item_kind: Option<String>,
+    pub(crate) scope_kind: Option<String>,
+    pub(crate) scope_id: Option<Uuid>,
+    pub(crate) raw_item_id: Option<Uuid>,
+    pub(crate) audit_subject_hash: String,
+    pub(crate) resource_type: String,
+    pub(crate) resource_id: Option<Uuid>,
+    pub(crate) details: Value,
+    pub(crate) details_redacted: bool,
+    pub(crate) tamper_status: AuditTamperStatus,
+    pub(crate) created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct GovernanceAuditExportedAudit {
+    entry_count: usize,
+    redact_secrets: bool,
+    event_prefix: String,
+    limit: i64,
+    offset: i64,
+}
+
+impl GovernanceAuditExportedAudit {
+    pub(crate) fn from_response(response: &GovernanceAuditResponse) -> Self {
+        Self {
+            entry_count: response.entries.len(),
+            redact_secrets: response.query.redacted,
+            event_prefix: response.query.event_prefix.clone(),
+            limit: response.query.limit,
+            offset: response.query.offset,
+        }
+    }
+
+    pub(crate) fn audit_payload(&self) -> Value {
+        serde_json::json!({
+            "entry_count": self.entry_count,
+            "redact_secrets": self.redact_secrets,
+            "event_prefix": self.event_prefix,
+            "limit": self.limit,
+            "offset": self.offset
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum AuditTamperStatus {
+    NotConfigured,
+    Valid,
+    Invalid,
+}
+
+pub(crate) fn governance_audit_response(data: GovernanceAuditResponse) -> Value {
+    serde_json::json!({ "ok": true, "data": data })
+}
+
+/// Governance audit HMAC key runtime policy.
+pub(crate) struct GovernanceAuditHmacKeyPolicy;
+
+impl GovernanceAuditHmacKeyPolicy {
+    pub(crate) fn resolve(
+        configured_key: Option<String>,
+        is_production: bool,
+        encryption_key: Option<[u8; 32]>,
+    ) -> AppResult<Vec<u8>> {
+        if let Some(raw) = configured_key {
+            if raw.trim().is_empty() {
+                return Err(ErrorKind::Validation("CONTEXT_AUDIT_HMAC_KEY is empty".into()).into());
+            }
+            if raw.len() == 64 && raw.chars().all(|ch| ch.is_ascii_hexdigit()) {
+                return hex::decode(raw)
+                    .map_err(|err| ErrorKind::Validation(format!("invalid CONTEXT_AUDIT_HMAC_KEY: {err}")).into());
+            }
+            return Ok(raw.into_bytes());
+        }
+
+        if let Some(key) = encryption_key {
+            return Ok(key.to_vec());
+        }
+
+        if is_production {
+            return Err(ErrorKind::Validation("CONTEXT_AUDIT_HMAC_KEY or LLM_ENCRYPTION_KEY is required".into()).into());
+        }
+
+        Ok(b"agentforge-dev-governance-audit-key".to_vec())
+    }
+}
+
 pub(crate) struct ContextGovernancePolicy;
 
 impl ContextGovernancePolicy {
@@ -270,6 +414,10 @@ impl ContextGovernancePolicy {
             return Err(ErrorKind::Validation("from must be earlier than to".into()).into());
         }
         Ok(())
+    }
+
+    pub(crate) fn validate_governance_audit_query_params(query: &GovernanceAuditQueryParams) -> AppResult<()> {
+        Self::validate_audit_query(query.policy())
     }
 
     pub(crate) fn redact_audit_details(value: Value) -> (Value, bool) {
@@ -610,5 +758,43 @@ mod tests {
         assert!(redacted);
         assert_eq!(value["classification"]["token"], REDACTED_MARKER);
         assert_eq!(value["safe"], "internal");
+    }
+
+    #[test]
+    fn governance_audit_exported_audit_owns_payload_shape() {
+        let response = GovernanceAuditResponse {
+            entries: Vec::new(),
+            query: GovernanceAuditQuery {
+                event_prefix: "governance.context.".to_string(),
+                limit: 500,
+                offset: 10,
+                redacted: true,
+            },
+        };
+
+        let payload = GovernanceAuditExportedAudit::from_response(&response).audit_payload();
+
+        assert_eq!(payload["entry_count"], 0);
+        assert_eq!(payload["redact_secrets"], true);
+        assert_eq!(payload["event_prefix"], "governance.context.");
+        assert_eq!(payload["limit"], 500);
+        assert_eq!(payload["offset"], 10);
+    }
+
+    #[test]
+    fn governance_audit_hmac_policy_resolves_runtime_key_contracts() {
+        let hex_key = "00".repeat(32);
+        assert_eq!(GovernanceAuditHmacKeyPolicy::resolve(Some(hex_key), true, None).unwrap(), vec![0_u8; 32]);
+        assert_eq!(
+            GovernanceAuditHmacKeyPolicy::resolve(Some("raw-key".to_string()), true, None).unwrap(),
+            b"raw-key".to_vec()
+        );
+        assert_eq!(
+            GovernanceAuditHmacKeyPolicy::resolve(None, false, None).unwrap(),
+            b"agentforge-dev-governance-audit-key".to_vec()
+        );
+        assert_eq!(GovernanceAuditHmacKeyPolicy::resolve(None, true, Some([7_u8; 32])).unwrap(), vec![7_u8; 32]);
+        assert!(GovernanceAuditHmacKeyPolicy::resolve(Some(" ".to_string()), true, None).is_err());
+        assert!(GovernanceAuditHmacKeyPolicy::resolve(None, true, None).is_err());
     }
 }

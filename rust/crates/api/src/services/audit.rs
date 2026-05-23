@@ -2,9 +2,11 @@
 
 use agentforge_core::{AppResult, OrgId, TenantScope, UserId};
 use agentforge_db::entities::AuditLogEntry;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::observability::AuditListPage;
+pub(crate) use crate::domain::observability::audit_data_response;
 use crate::repositories::audit::AuditRepository;
 
 /// Business logic layer for audit log operations.
@@ -15,6 +17,10 @@ pub struct AuditService {
 impl AuditService {
     pub fn new(repo: AuditRepository) -> Self {
         Self { repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(AuditRepository::new(pool))
     }
 
     /// List audit log entries (paginated, with optional filters).
