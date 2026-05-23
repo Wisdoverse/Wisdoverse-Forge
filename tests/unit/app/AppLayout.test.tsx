@@ -198,6 +198,39 @@ describe('AppLayout', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
+  test('applies a brief template before creating a New Task', async () => {
+    seedProjectNavigation('p1')
+    useBoardStore.getState().setSelectedGroupId('group-1')
+
+    render(<MemoryRouter />)
+    fireEvent.click(screen.getByRole('button', { name: /\+ task/i }))
+
+    await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
+    const briefGroup = screen.getByRole('group', { name: /task brief templates/i })
+    fireEvent.click(within(briefGroup).getByRole('button', { name: /bug/i }))
+
+    expect(screen.getByPlaceholderText(/what needs to be done/i)).toHaveValue(
+      'Fix a reproducible defect'
+    )
+    expect(screen.getByPlaceholderText(/additional details/i)).toHaveValue()
+    expect(
+      (screen.getByPlaceholderText(/additional details/i) as HTMLTextAreaElement).value
+    ).toContain('Symptom:')
+
+    fireEvent.click(screen.getByRole('button', { name: /create task/i }))
+
+    await waitFor(() =>
+      expect(mockCreateTask).toHaveBeenCalledWith({
+        groupId: 'group-1',
+        params: {
+          task: 'Fix a reproducible defect',
+          message: expect.stringContaining('Verification:'),
+        },
+        priority: 'high',
+      })
+    )
+  })
+
   test('lets New Task choose a project before creating', async () => {
     seedProjectNavigation(null)
 
