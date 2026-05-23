@@ -45,11 +45,13 @@ part of this documentation set.
 
 | Path                           | Purpose                                                |
 | ------------------------------ | ------------------------------------------------------ |
+| [adr/](adr/)                   | Architecture Decision Records                          |
 | [architecture/](architecture/) | System design, runtime boundaries, data flow           |
 | [api/](api/)                   | OpenAPI specs (CI-enforced contract)                   |
 | [guides/](guides/)             | Setup, configuration, deployment, troubleshooting      |
 | [runbooks/](runbooks/)         | Operational playbooks for failure modes and procedures |
 | [security/](security/)         | Security and dependency policy                         |
+| [versioning.md](versioning.md) | API versioning and release policy                      |
 
 Keep this tree small. Add a doc only when it is part of the public runtime,
 operator, security, or API contract.
@@ -76,4 +78,6 @@ operator, security, or API contract.
 - [../README.md](../README.md) — repository entry point
 - [../SPEC.md](../SPEC.md) — service contract for the Wisdoverse Forge runtime model
 - [../CONTRIBUTING.md](../CONTRIBUTING.md) — engineering workflow
+- [../CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) — community standards
+- [../SECURITY.md](../SECURITY.md) — vulnerability disclosure policy
 - [../docker/README.md](../docker/README.md) — Docker asset reference
