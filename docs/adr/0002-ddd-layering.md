@@ -64,7 +64,5 @@ directly on `domain::`.
   anti-patterns.
 - `docs/architecture/aggregate-catalog.md` — current aggregates and their
   module paths.
-- `docs/architecture/backend-ddd-refactor-plan.md` — in-flight migration
-  status.
 - `AGENTS.md` — "Backend Contracts" section.
 - PR series #210–#228, #289, #290 — concrete examples of the refactor.

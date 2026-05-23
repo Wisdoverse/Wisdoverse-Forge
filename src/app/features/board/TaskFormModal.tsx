@@ -66,6 +66,7 @@ export function TaskFormModal({
   const dialogRef = useRef<HTMLDivElement>(null)
   const projectId = watch('projectId')
   const selectedProject = projects.find((project) => project.id === projectId)
+  const assignableAgents = agents.filter((agent) => agentCanTakeTask(agent.status))
   const projectGroups = useMemo(() => groupProjectsByTeam(projects), [projects])
   const projectField = register('projectId', {
     required: 'Choose a project before creating a task.',
@@ -229,6 +230,18 @@ export function TaskFormModal({
           </div>
         )}
 
+        {agents.length > 0 && assignableAgents.length === 0 && (
+          <div className="mb-4 flex gap-2 rounded-lg bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
+            <AlertTriangle
+              size={14}
+              strokeWidth={2}
+              className="mt-0.5 shrink-0"
+              aria-hidden="true"
+            />
+            <span>All agents are busy or offline. Leave the task unassigned so it can queue.</span>
+          </div>
+        )}
+
         {submitError && (
           <div
             role="alert"
@@ -293,12 +306,17 @@ export function TaskFormModal({
               </select>
             </div>
             <div className="flex-1">
-              <label
-                htmlFor="task-assigned-to"
-                className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
-              >
-                Assign Agent
-              </label>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <label
+                  htmlFor="task-assigned-to"
+                  className="block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
+                >
+                  Assign Agent
+                </label>
+                <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  {assignableAgents.length} available
+                </span>
+              </div>
               <select
                 id="task-assigned-to"
                 {...register('assignedTo')}
@@ -306,11 +324,14 @@ export function TaskFormModal({
               >
                 <option value="">Unassigned</option>
                 {agents.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} ({a.status})
+                  <option key={a.id} value={a.id} disabled={!agentCanTakeTask(a.status)}>
+                    {a.name} ({agentStatusLabel(a.status)})
                   </option>
                 ))}
               </select>
+              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                Busy and offline agents stay visible so assignment blockers are obvious.
+              </p>
             </div>
           </div>
 
@@ -335,6 +356,25 @@ export function TaskFormModal({
       </div>
     </div>
   )
+}
+
+function agentCanTakeTask(status: string): boolean {
+  return status === 'available' || status === 'idle'
+}
+
+function agentStatusLabel(status: string): string {
+  switch (status) {
+    case 'available':
+    case 'idle':
+      return 'available'
+    case 'busy':
+    case 'working':
+      return 'busy'
+    case 'offline':
+      return 'offline'
+    default:
+      return status
+  }
 }
 
 function groupProjectsByTeam(projects: TaskProjectOption[]): TaskProjectGroup[] {

@@ -246,6 +246,7 @@ impl ResourceRepositoryPolicy {
         ErrorKind::NotFound(format!("team {id}")).into()
     }
 
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn team_uuid_not_found(id: Uuid) -> AppError {
         ErrorKind::NotFound(format!("team {id}")).into()
     }

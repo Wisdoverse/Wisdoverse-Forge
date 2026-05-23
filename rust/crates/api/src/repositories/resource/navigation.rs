@@ -354,6 +354,7 @@ impl LegacyNavigationRepository {
     }
 
     #[doc(hidden)]
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) async fn resolve_team_org_for_test(&self, user_id: Uuid, team_id: Uuid) -> AppResult<Uuid> {
         sqlx::query_scalar(
             r#"SELECT t.organization_id

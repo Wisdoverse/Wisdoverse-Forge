@@ -6,7 +6,7 @@ The product should feel less like a collection of infrastructure surfaces and
 more like a team workspace where agents can be assigned work, report progress,
 and leave reusable knowledge behind.
 
-## Direction
+## Product Contract
 
 - Make the first-run path explicit: connect a runtime, add a provider or
   credential, create an agent, create a task, assign it, watch progress, review
@@ -29,28 +29,39 @@ and leave reusable knowledge behind.
   permissions. The default workflow should hide unnecessary hierarchy until the
   team needs it.
 
-## Priority UX Gaps
+## Current Implemented Surface
 
-1. First-run onboarding is still concept-heavy.
-2. Runtime readiness is not visible enough before agent creation.
-3. Task assignment and execution progress need stronger status, comment, and
-   blocker affordances.
-4. Agent availability and capability matching are not obvious from the board.
-5. Evidence, context, and skills are powerful but feel separate from the core
-   task lifecycle.
-6. The product needs clearer empty states and recovery actions when no runtime,
-   no provider, no available agent, or no task group exists.
+| Surface               | Current behavior                                                                                                                                                                                                                                                                |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| First-run checklist   | `/start` walks through workspace, runtime, provider or CLI credential, agent creation, first task, review, and reusable learning. Each step links to the owning app route.                                                                                                      |
+| Runtime readiness     | Settings -> Runtime shows runtime options, available Container CLIs, image/version reporting, CLI credential state, latest agent heartbeat, refresh, and remediation actions. The Rust settings API returns `cliToolDetails` with image, presence, version, and version source. |
+| Task board assignment | The task board shows assignment readiness before task creation. Task creation surfaces available agents, disables busy or offline agents, and explains when work will queue until an agent is available.                                                                        |
+| Task detail review    | Task details use Work, Result, Context, and Updates tabs. The Work tab combines brief, assignment, execution log, artifacts/evidence, reusable learning, and completion review.                                                                                                 |
+| Execution history     | The Updates tab reads task run attempts through `GET /api/v1/orchestration/tasks/{id}/runs` and combines them with task lifecycle state.                                                                                                                                        |
+| Agent profile         | Agent detail pages show assignment fit, runtime mode, credential guidance, current or recent task activity, and applied skill counts derived from recent task data.                                                                                                             |
+| Skill reuse           | Completed tasks can open a draft skill review path. The draft is prefilled from task result artifacts and task context before publishing through the skills store.                                                                                                              |
 
-## Near-Term Product Work
+## Current Flow
 
-- Add a guided setup checklist that links directly to the runtime, provider,
-  agent, and first task actions.
-- Add a runtime health page with CLI detection, credential readiness, and
-  troubleshooting actions.
-- Redesign task detail around work review: updates, execution log, artifacts,
-  context/evidence, and final acceptance.
-- Add board-level assignment controls that show available agents and why an
-  agent can or cannot take a task.
-- Add agent profile summaries for current task, recent activity, configured
-  skills, runtime, and credential status.
-- Add a post-completion "save as skill" path with review before publishing.
+1. Open `/start`.
+2. Confirm workspace, team, and project routing.
+3. Confirm runtime readiness in Settings -> Runtime.
+4. Add and test a provider in Settings -> Providers, or connect a Container CLI credential.
+5. Create an agent from Agents.
+6. Open Tasks, create a task, and assign it to an available agent or leave it queued.
+7. Review task progress from the detail panel.
+8. On completion, review artifacts/evidence and draft a reusable skill when the output contains durable knowledge.
+
+See [Task Workflow Guide](../guides/task-workflow.md) for the operator-facing version of this flow.
+
+## Remaining Product Gaps
+
+- Human comments and blocker updates should become first-class task records,
+  separate from execution attempts and lifecycle state.
+- The save-as-skill path creates a draft, but attaching that skill back to
+  matching agents should be a clearer next action.
+- Runtime readiness is visible in Settings; a future operations view can combine
+  runtime, provider, participant, and queue state for incident triage.
+- Empty states should continue to prefer direct actions over conceptual
+  explanations when no project, task group, provider, runtime, agent, or
+  available participant exists.

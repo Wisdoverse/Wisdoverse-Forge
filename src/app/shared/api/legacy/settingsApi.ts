@@ -68,6 +68,15 @@ export interface RuntimeSettings {
   availableRuntimes: RuntimeType[]
   defaultCliTool: CliTool
   availableCliTools: CliTool[]
+  cliToolDetails: RuntimeCliToolDetail[]
+}
+
+export interface RuntimeCliToolDetail {
+  cliTool: CliTool
+  image: string
+  version?: string
+  imagePresent: boolean
+  versionSource: 'docker-label' | 'image-tag' | 'not-reported' | string
 }
 
 export interface TestConnectionResult {
@@ -239,15 +248,41 @@ function mapApiKeyRecord(value: unknown): ApiKeyRecord {
 
 function extractRuntimeSettings(data: Record<string, unknown>): RuntimeSettings {
   const payload = payloadRecord(data)
+  const fallbackCliTools: CliTool[] = ['claude', 'codex', 'gemini', 'opencode']
+  const availableCliTools = Array.isArray(payload.availableCliTools)
+    ? (payload.availableCliTools as CliTool[])
+    : fallbackCliTools
+  const rawDetails = payloadArray(payload, 'cliToolDetails')
   return {
     defaultRuntime: (payload.defaultRuntime as RuntimeType) || 'container',
     availableRuntimes: Array.isArray(payload.availableRuntimes)
       ? (payload.availableRuntimes as RuntimeType[])
       : ['container', 'api'],
     defaultCliTool: (payload.defaultCliTool as CliTool) || 'claude',
-    availableCliTools: Array.isArray(payload.availableCliTools)
-      ? (payload.availableCliTools as CliTool[])
-      : ['claude', 'codex', 'gemini', 'opencode'],
+    availableCliTools,
+    cliToolDetails:
+      rawDetails.length > 0
+        ? rawDetails.map(mapRuntimeCliToolDetail)
+        : availableCliTools.map((cliTool) => ({
+            cliTool,
+            image: `agentforge-agent:${cliTool}`,
+            imagePresent: false,
+            version: cliTool,
+            versionSource: 'image-tag',
+          })),
+  }
+}
+
+function mapRuntimeCliToolDetail(value: unknown): RuntimeCliToolDetail {
+  const data = asRecord(value)
+  const cliTool = (stringField(data, 'cliTool', 'cli_tool') ?? 'claude') as CliTool
+  const version = stringField(data, 'version')
+  return {
+    cliTool,
+    image: stringField(data, 'image') ?? `agentforge-agent:${cliTool}`,
+    version,
+    imagePresent: boolField(data, false, 'imagePresent', 'image_present'),
+    versionSource: stringField(data, 'versionSource', 'version_source') ?? 'not-reported',
   }
 }
 
