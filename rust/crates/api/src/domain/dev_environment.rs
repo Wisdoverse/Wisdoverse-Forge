@@ -2,8 +2,10 @@
 
 use std::collections::BTreeMap;
 
-use agentforge_core::{AppResult, ErrorKind};
+use agentforge_core::{AppError, AppResult, ErrorKind};
 use serde::Deserialize;
+use serde::Serialize;
+use serde_json::{Value, json};
 
 pub(crate) const MAX_NAME_LEN: usize = 100;
 #[cfg(test)]
@@ -13,6 +15,26 @@ pub(crate) const RUNNING_STATUS: &str = "running";
 pub(crate) const STOPPED_STATUS: &str = "stopped";
 pub(crate) const ERROR_STATUS: &str = "error";
 pub(crate) const DEFAULT_STOP_TIMEOUT_SECONDS: i64 = 30;
+
+pub(crate) fn dev_environment_data_response<T: Serialize>(data: T) -> Value {
+    json!({ "ok": true, "data": data })
+}
+
+pub(crate) fn dev_environment_message_response<T: Serialize>(data: T, message: &'static str) -> Value {
+    json!({ "ok": true, "data": data, "message": message })
+}
+
+pub(crate) fn dev_environment_delete_response() -> Value {
+    json!({ "ok": true })
+}
+
+pub(crate) struct DevEnvironmentRepositoryPolicy;
+
+impl DevEnvironmentRepositoryPolicy {
+    pub(crate) fn dev_environment_not_found(id: uuid::Uuid) -> AppError {
+        ErrorKind::NotFound(format!("dev_environment {id}")).into()
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct DevEnvironmentName<'a> {
@@ -99,6 +121,34 @@ impl DevEnvironmentLifecyclePolicy {
             }
             DevEnvironmentRuntimeState::Running | DevEnvironmentRuntimeState::Other => None,
         }
+    }
+}
+
+pub(crate) struct DevEnvironmentRuntimePolicy;
+
+impl DevEnvironmentRuntimePolicy {
+    pub(crate) fn docker_unavailable() -> AppError {
+        ErrorKind::Internal(anyhow::anyhow!("Docker runtime not available for dev environments")).into()
+    }
+
+    pub(crate) fn create_container_failed(err: impl std::fmt::Display) -> AppError {
+        ErrorKind::Internal(anyhow::anyhow!("failed to create dev environment container: {err}")).into()
+    }
+
+    pub(crate) fn start_container_failed(err: impl std::fmt::Display) -> AppError {
+        ErrorKind::Internal(anyhow::anyhow!("failed to start dev environment container: {err}")).into()
+    }
+
+    pub(crate) fn stop_container_failed(err: impl std::fmt::Display) -> AppError {
+        ErrorKind::Internal(anyhow::anyhow!("failed to stop dev environment container: {err}")).into()
+    }
+
+    pub(crate) fn remove_container_failed(err: impl std::fmt::Display) -> AppError {
+        ErrorKind::Internal(anyhow::anyhow!("failed to remove dev environment container: {err}")).into()
+    }
+
+    pub(crate) fn inspect_container_failed(err: impl std::fmt::Display) -> AppError {
+        ErrorKind::Internal(anyhow::anyhow!("failed to inspect dev environment container: {err}")).into()
     }
 }
 
@@ -230,6 +280,16 @@ mod tests {
     }
 
     #[test]
+    fn repository_policy_owns_lookup_error() {
+        let id = uuid::Uuid::new_v4();
+
+        assert!(matches!(
+            DevEnvironmentRepositoryPolicy::dev_environment_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("dev_environment {id}")
+        ));
+    }
+
+    #[test]
     fn start_policy_rejects_active_or_leaked_container_state() {
         assert!(DevEnvironmentLifecyclePolicy::ensure_can_start("stopped", None).is_ok());
         assert!(DevEnvironmentLifecyclePolicy::ensure_can_start("running", None).is_err());
@@ -307,6 +367,26 @@ mod tests {
         match err.kind {
             ErrorKind::Validation(message) => assert!(message.contains("KEY=VALUE")),
             other => panic!("expected validation error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn runtime_policy_owns_docker_error_contracts() {
+        for (err, expected) in [
+            (DevEnvironmentRuntimePolicy::docker_unavailable(), "Docker runtime not available"),
+            (DevEnvironmentRuntimePolicy::create_container_failed("bad"), "failed to create dev environment container"),
+            (DevEnvironmentRuntimePolicy::start_container_failed("bad"), "failed to start dev environment container"),
+            (DevEnvironmentRuntimePolicy::stop_container_failed("bad"), "failed to stop dev environment container"),
+            (DevEnvironmentRuntimePolicy::remove_container_failed("bad"), "failed to remove dev environment container"),
+            (
+                DevEnvironmentRuntimePolicy::inspect_container_failed("bad"),
+                "failed to inspect dev environment container",
+            ),
+        ] {
+            match err.kind {
+                ErrorKind::Internal(message) => assert!(message.to_string().contains(expected)),
+                other => panic!("expected internal error, got {other:?}"),
+            }
         }
     }
 }

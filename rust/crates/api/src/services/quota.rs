@@ -2,8 +2,10 @@
 
 use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::QuotaUsage;
+use sqlx::PgPool;
 
 use crate::domain::configuration::QuotaResourceType;
+pub(crate) use crate::domain::configuration::configuration_data_response;
 use crate::repositories::quota::QuotaRepository;
 
 /// Business logic layer for quota operations.
@@ -14,6 +16,10 @@ pub struct QuotaService {
 impl QuotaService {
     pub fn new(repo: QuotaRepository) -> Self {
         Self { repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(QuotaRepository::new(pool))
     }
 
     /// Get all quota usage for the org.

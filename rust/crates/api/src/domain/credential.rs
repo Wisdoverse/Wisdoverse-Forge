@@ -4,7 +4,7 @@
 //! credential policies that are independent of repositories, encryption, HTTP
 //! handlers, and filesystem mount materialization.
 
-use agentforge_core::{AppResult, CliToolKind, ErrorKind};
+use agentforge_core::{AppError, AppResult, CliToolKind, ErrorKind};
 use agentforge_db::entities::{ApiKey, GitCredential, SshKey};
 use agentforge_llm::{LlmError, Usage, normalize_provider_key, provider_spec, supported_provider_specs};
 use serde::Serialize;
@@ -45,6 +45,30 @@ pub(crate) fn api_key_create_response(result: CreateApiKeyResult) -> serde_json:
     })
 }
 
+pub(crate) fn credential_delete_response() -> serde_json::Value {
+    serde_json::json!({ "ok": true })
+}
+
+pub(crate) struct CredentialRepositoryPolicy;
+
+impl CredentialRepositoryPolicy {
+    pub(crate) fn api_key_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("api key {id}")).into()
+    }
+
+    pub(crate) fn git_credential_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("git credential {id}")).into()
+    }
+
+    pub(crate) fn ssh_key_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("ssh key {id}")).into()
+    }
+
+    pub(crate) fn llm_provider_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("llm provider {id}")).into()
+    }
+}
+
 pub(crate) fn ssh_key_list_response(keys: &[SshKey]) -> serde_json::Value {
     let keys: Vec<_> = keys.iter().map(ssh_key_payload).collect();
     serde_json::json!({
@@ -52,6 +76,22 @@ pub(crate) fn ssh_key_list_response(keys: &[SshKey]) -> serde_json::Value {
         "data": keys.clone(),
         "keys": keys,
     })
+}
+
+pub(crate) fn cli_credentials_response<T: Serialize>(connections: T) -> serde_json::Value {
+    serde_json::json!({ "ok": true, "connections": connections })
+}
+
+pub(crate) fn cli_credential_stored_response(cli_tool: &str) -> serde_json::Value {
+    serde_json::json!({ "ok": true, "cli_tool": cli_tool, "status": "stored" })
+}
+
+pub(crate) fn cli_credential_deleted_response(cli_tool: &str) -> serde_json::Value {
+    serde_json::json!({ "ok": true, "cli_tool": cli_tool, "status": "deleted" })
+}
+
+pub(crate) fn container_cli_oauth_file_map_plaintext(files: &serde_json::Value) -> AppResult<String> {
+    serde_json::to_string(files).map_err(|err| ContainerCliCredentialPolicy::serialize_files_failed(err).into())
 }
 
 pub(crate) fn ssh_key_create_response(key: SshKey) -> serde_json::Value {
@@ -352,6 +392,36 @@ impl ApiKeyFormat {
     }
 }
 
+/// API key authentication failure policy. All validation failures intentionally
+/// collapse to `Unauthorized` so callers cannot distinguish malformed, missing,
+/// revoked, expired, or unknown keys.
+pub(crate) struct ApiKeyAuthenticationPolicy;
+
+impl ApiKeyAuthenticationPolicy {
+    pub(crate) fn unauthorized() -> ErrorKind {
+        ErrorKind::Unauthorized
+    }
+
+    pub(crate) fn ensure_format(raw_key: &str) -> AppResult<()> {
+        ApiKeyFormat::validate(raw_key).map_err(|_| Self::unauthorized().into())
+    }
+
+    pub(crate) fn require_key<T>(key: Option<T>) -> AppResult<T> {
+        key.ok_or_else(|| Self::unauthorized().into())
+    }
+
+    pub(crate) fn ensure_not_revoked(revoked: bool) -> AppResult<()> {
+        if revoked { Err(Self::unauthorized().into()) } else { Ok(()) }
+    }
+
+    pub(crate) fn ensure_not_expired(
+        expires_at: Option<chrono::DateTime<chrono::Utc>>,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> AppResult<()> {
+        if expires_at.is_some_and(|expires_at| expires_at < now) { Err(Self::unauthorized().into()) } else { Ok(()) }
+    }
+}
+
 /// API key scope policy.
 pub(crate) struct ApiKeyScopePolicy;
 
@@ -520,6 +590,59 @@ impl ContainerCliCredentialPolicy {
         }
         Ok(())
     }
+
+    pub(crate) fn missing_storage_key() -> ErrorKind {
+        ErrorKind::Validation(
+            "LLM_ENCRYPTION_KEY is not configured — refusing to store plaintext credentials".to_string(),
+        )
+    }
+
+    pub(crate) fn serialize_files_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("serialize files: {err}"))
+    }
+
+    pub(crate) fn encrypt_credentials_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("failed to encrypt credentials: {err}"))
+    }
+
+    pub(crate) fn stored_user_llm_key_decrypt_failed() -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!(
+            "stored user LLM API key failed to decrypt (likely LLM_ENCRYPTION_KEY rotation); re-upload via /api/v1/user-llm-configs"
+        ))
+    }
+
+    pub(crate) fn stored_oauth_decrypt_failed(cli_tool: &str) -> ErrorKind {
+        ErrorKind::Validation(format!(
+            "stored {cli_tool} credentials cannot be decrypted — reconnect via /api/v1/cli-auth-proxy or /api/v1/cli-credentials"
+        ))
+    }
+}
+
+/// Git credential encryption and stored-token error policy.
+pub(crate) struct GitCredentialEncryptionPolicy;
+
+impl GitCredentialEncryptionPolicy {
+    pub(crate) fn missing_decrypt_key() -> ErrorKind {
+        ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured - cannot decrypt stored git credentials".into())
+    }
+
+    pub(crate) fn missing_storage_key() -> ErrorKind {
+        ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured - refusing to store plaintext git tokens".into())
+    }
+
+    pub(crate) fn encrypt_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("encrypt git credential token failed: {err}"))
+    }
+
+    pub(crate) fn ciphertext_not_utf8(provider: &str, err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Validation(format!("stored {provider} git credential ciphertext is not UTF-8: {err}"))
+    }
+
+    pub(crate) fn decrypt_failed(provider: &str) -> ErrorKind {
+        ErrorKind::Validation(format!(
+            "stored {provider} git credential cannot be decrypted - reconnect it in Settings"
+        ))
+    }
 }
 
 /// User-owned LLM provider configuration policy.
@@ -544,6 +667,34 @@ pub(crate) struct LlmProviderUpdateDraft {
 }
 
 impl LlmProviderPolicy {
+    pub(crate) fn provider_model_conflict() -> ErrorKind {
+        ErrorKind::Conflict("provider/model already exists".into())
+    }
+
+    pub(crate) fn required_test_model(model: Option<&str>) -> AppResult<String> {
+        model
+            .map(str::trim)
+            .filter(|model| !model.is_empty())
+            .map(str::to_string)
+            .ok_or_else(|| ErrorKind::Validation("model is required before testing a provider".into()).into())
+    }
+
+    pub(crate) fn missing_test_api_key() -> ErrorKind {
+        ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured - cannot test stored API keys".into())
+    }
+
+    pub(crate) fn missing_storage_key() -> ErrorKind {
+        ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured - refusing to store plaintext API keys".into())
+    }
+
+    pub(crate) fn decrypt_api_key_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("decrypt llm provider api key failed: {err}"))
+    }
+
+    pub(crate) fn encrypt_api_key_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("encrypt llm provider api key failed: {err}"))
+    }
+
     pub(crate) fn normalize_supported_provider(provider: &str) -> AppResult<String> {
         let provider = normalize_provider_key(provider);
         if provider_spec(&provider).is_none() {
@@ -898,6 +1049,21 @@ mod tests {
     }
 
     #[test]
+    fn api_key_authentication_policy_collapses_failures_to_unauthorized() {
+        assert!(matches!(ApiKeyAuthenticationPolicy::unauthorized(), ErrorKind::Unauthorized));
+        assert!(ApiKeyAuthenticationPolicy::ensure_format(&format!("af_{}", "a".repeat(64))).is_ok());
+        assert!(ApiKeyAuthenticationPolicy::ensure_format("bad").is_err());
+        assert_eq!(ApiKeyAuthenticationPolicy::require_key(Some(7)).unwrap(), 7);
+        assert!(ApiKeyAuthenticationPolicy::require_key::<i32>(None).is_err());
+        assert!(ApiKeyAuthenticationPolicy::ensure_not_revoked(false).is_ok());
+        assert!(ApiKeyAuthenticationPolicy::ensure_not_revoked(true).is_err());
+
+        let now = chrono::Utc.with_ymd_and_hms(2026, 1, 2, 3, 4, 5).unwrap();
+        assert!(ApiKeyAuthenticationPolicy::ensure_not_expired(Some(now + chrono::Duration::seconds(1)), now).is_ok());
+        assert!(ApiKeyAuthenticationPolicy::ensure_not_expired(Some(now - chrono::Duration::seconds(1)), now).is_err());
+    }
+
+    #[test]
     fn api_key_scope_policy_is_case_sensitive() {
         assert!(ApiKeyScopePolicy::validate(&["read".into(), "write".into(), "admin".into()]).is_ok());
         assert!(ApiKeyScopePolicy::validate(&[]).is_ok());
@@ -965,6 +1131,18 @@ mod tests {
         assert!(matches!(non_object.kind, ErrorKind::Validation(message) if message.contains("JSON object mapping")));
         assert!(matches!(empty.kind, ErrorKind::Validation(message) if message.contains("must not be empty")));
         assert!(matches!(typed.kind, ErrorKind::Validation(message) if message.contains("got number")));
+    }
+
+    #[test]
+    fn cli_credential_domain_owns_file_map_plaintext_serialization() {
+        let files = serde_json::json!({
+            "auth.json": "{\"tokens\":{\"access_token\":\"x\"}}",
+            "credentials": "token",
+        });
+
+        let plaintext = container_cli_oauth_file_map_plaintext(&files).expect("files serializes");
+        let roundtrip: serde_json::Value = serde_json::from_str(&plaintext).expect("plaintext remains JSON");
+        assert_eq!(roundtrip, files);
     }
 
     #[test]
@@ -1089,6 +1267,17 @@ mod tests {
 
         assert!(
             matches!(err.kind, ErrorKind::Validation(message) if message == "baseUrl is required for this provider")
+        );
+    }
+
+    #[test]
+    fn llm_provider_policy_owns_test_and_encryption_error_contracts() {
+        assert_eq!(LlmProviderPolicy::required_test_model(Some(" gpt-5.5 ")).unwrap(), "gpt-5.5");
+        assert!(LlmProviderPolicy::required_test_model(Some(" ")).is_err());
+        assert!(format!("{}", LlmProviderPolicy::provider_model_conflict()).contains("provider/model already exists"));
+        assert!(format!("{}", LlmProviderPolicy::missing_test_api_key()).contains("cannot test stored API keys"));
+        assert!(
+            format!("{}", LlmProviderPolicy::missing_storage_key()).contains("refusing to store plaintext API keys")
         );
     }
 
@@ -1222,6 +1411,68 @@ mod tests {
     fn git_credential_token_trims_and_rejects_empty_values() {
         assert_eq!(GitCredentialToken::parse("  ghp-secret  ").map(GitCredentialToken::value), Some("ghp-secret"));
         assert_eq!(GitCredentialToken::parse("  "), None);
+    }
+
+    #[test]
+    fn credential_encryption_policies_own_user_visible_error_messages() {
+        assert!(format!("{}", ContainerCliCredentialPolicy::missing_storage_key()).contains("plaintext credentials"));
+        assert!(format!("{}", ContainerCliCredentialPolicy::serialize_files_failed("bad")).contains("serialize files"));
+        assert!(
+            format!("{}", ContainerCliCredentialPolicy::encrypt_credentials_failed("bad"))
+                .contains("failed to encrypt credentials")
+        );
+        assert!(
+            format!("{}", ContainerCliCredentialPolicy::stored_user_llm_key_decrypt_failed())
+                .contains("stored user LLM API key failed to decrypt")
+        );
+        assert!(
+            format!("{}", ContainerCliCredentialPolicy::stored_oauth_decrypt_failed("codex"))
+                .contains("stored codex credentials cannot be decrypted")
+        );
+        assert!(format!("{}", GitCredentialEncryptionPolicy::missing_decrypt_key()).contains("cannot decrypt"));
+        assert!(format!("{}", GitCredentialEncryptionPolicy::missing_storage_key()).contains("plaintext git tokens"));
+        assert!(
+            format!("{}", GitCredentialEncryptionPolicy::encrypt_failed("bad"))
+                .contains("encrypt git credential token failed")
+        );
+        assert!(
+            format!("{}", GitCredentialEncryptionPolicy::ciphertext_not_utf8("github", "bad utf8"))
+                .contains("stored github git credential ciphertext is not UTF-8")
+        );
+        assert!(
+            format!("{}", GitCredentialEncryptionPolicy::decrypt_failed("gitlab"))
+                .contains("stored gitlab git credential cannot be decrypted")
+        );
+        assert!(
+            format!("{}", LlmProviderPolicy::decrypt_api_key_failed("bad"))
+                .contains("decrypt llm provider api key failed")
+        );
+        assert!(
+            format!("{}", LlmProviderPolicy::encrypt_api_key_failed("bad"))
+                .contains("encrypt llm provider api key failed")
+        );
+    }
+
+    #[test]
+    fn credential_repository_policy_owns_lookup_errors() {
+        let id = Uuid::new_v4();
+
+        assert!(matches!(
+            CredentialRepositoryPolicy::api_key_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("api key {id}")
+        ));
+        assert!(matches!(
+            CredentialRepositoryPolicy::git_credential_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("git credential {id}")
+        ));
+        assert!(matches!(
+            CredentialRepositoryPolicy::ssh_key_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("ssh key {id}")
+        ));
+        assert!(matches!(
+            CredentialRepositoryPolicy::llm_provider_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("llm provider {id}")
+        ));
     }
 
     #[test]

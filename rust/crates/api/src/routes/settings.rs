@@ -17,8 +17,10 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::setting::SettingRepository;
-use crate::services::setting::{SettingService, gateway_settings_response, runtime_settings_response};
+use crate::services::setting::{
+    SettingService, UpdateGatewaySettingsInput, UpdateRuntimeSettingsInput, UpsertSettingInput,
+    configuration_data_response, configuration_delete_response, gateway_settings_response, runtime_settings_response,
+};
 
 /// Request body for upserting a setting.
 #[derive(Deserialize)]
@@ -43,14 +45,14 @@ struct UpdateGatewaySettingsRequest {
 
 /// Build a SettingService from shared state.
 fn make_service(state: &AppState) -> SettingService {
-    SettingService::new(SettingRepository::new(state.pool.clone()))
+    state.setting_service()
 }
 
 /// `GET /api/settings` — list settings.
 async fn list_settings(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let settings = service.list(&auth.scope).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": settings })))
+    Ok(Json(configuration_data_response(settings)))
 }
 
 /// `GET /api/settings/runtime` — read runtime settings.
@@ -68,7 +70,10 @@ async fn update_runtime_settings(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let runtime = service
-        .update_runtime_settings(&auth.scope, req.default_runtime.as_deref(), req.default_cli_tool.as_deref())
+        .update_runtime_settings(
+            &auth.scope,
+            UpdateRuntimeSettingsInput { default_runtime: req.default_runtime, default_cli_tool: req.default_cli_tool },
+        )
         .await?;
     Ok(Json(runtime_settings_response(&runtime)))
 }
@@ -90,9 +95,11 @@ async fn update_gateway_settings(
     let gateway = service
         .update_gateway_settings(
             &auth.scope,
-            req.routing_strategy.as_deref(),
-            req.circuit_breaker_threshold,
-            req.circuit_breaker_reset_ms,
+            UpdateGatewaySettingsInput {
+                routing_strategy: req.routing_strategy,
+                circuit_breaker_threshold: req.circuit_breaker_threshold,
+                circuit_breaker_reset_ms: req.circuit_breaker_reset_ms,
+            },
         )
         .await?;
     Ok(Json(gateway_settings_response(&gateway)))
@@ -106,8 +113,8 @@ async fn upsert_setting(
     Json(req): Json<UpsertSettingRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
-    let setting = service.upsert(&auth.scope, &key, &req.value).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": setting })))
+    let setting = service.upsert(&auth.scope, &key, UpsertSettingInput { value: req.value }).await?;
+    Ok(Json(configuration_data_response(setting)))
 }
 
 /// `DELETE /api/settings/{key}` — delete setting.
@@ -118,7 +125,7 @@ async fn delete_setting(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     service.delete(&auth.scope, &key).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(configuration_delete_response()))
 }
 
 /// Build settings routes sub-router.

@@ -1,6 +1,8 @@
 //! Context candidate and feedback input policies.
 
-use agentforge_core::{AppError, AppResult, ErrorKind, ScopeKind, SkillId, UserId, WorkspaceId};
+use agentforge_core::{
+    AppError, AppResult, ErrorKind, ScopeKind, ScopedWriteError, SkillId, TenantScope, UserId, WorkspaceId,
+};
 use agentforge_db::entities::{ContextApproval, ContextCandidate, ContextFeedback, MemoryItem, Skill};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -15,6 +17,93 @@ use crate::domain::memory::MemoryScopeKind;
 
 const DEFAULT_LIMIT: i64 = 50;
 const MAX_LIMIT: i64 = 200;
+
+pub(crate) fn context_data_response<T: Serialize>(data: T) -> Value {
+    json!({ "ok": true, "data": data })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ContextFeatureSnapshot {
+    pub(crate) governance: bool,
+    pub(crate) preview: bool,
+    pub(crate) injection: bool,
+    pub(crate) analytics: bool,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ContextFeatureFlags {
+    pub governance: bool,
+    pub preview: bool,
+    pub injection: bool,
+    pub analytics: bool,
+}
+
+impl ContextFeatureFlags {
+    pub const fn all_enabled() -> Self {
+        Self { governance: true, preview: true, injection: true, analytics: true }
+    }
+
+    pub const fn enabled(self, feature: ContextFeature) -> bool {
+        match feature {
+            ContextFeature::Governance => self.governance,
+            ContextFeature::Preview => self.preview,
+            ContextFeature::Injection => self.injection,
+            ContextFeature::Analytics => self.analytics,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ContextFeature {
+    Governance,
+    Preview,
+    Injection,
+    Analytics,
+}
+
+impl ContextFeature {
+    pub const fn key(self) -> &'static str {
+        match self {
+            ContextFeature::Governance => "context.governance.enabled",
+            ContextFeature::Preview => "context.preview.enabled",
+            ContextFeature::Injection => "context.injection.enabled",
+            ContextFeature::Analytics => "context.analytics.enabled",
+        }
+    }
+}
+
+pub(crate) struct ContextFeaturePolicy;
+
+impl ContextFeaturePolicy {
+    pub(crate) fn disabled(feature: ContextFeature) -> ErrorKind {
+        ErrorKind::NotFound(format!("{} is disabled", feature.key()))
+    }
+
+    pub(crate) fn missing_override_allows_deployment_default(kind: &ErrorKind) -> bool {
+        matches!(kind, ErrorKind::NotFound(_))
+    }
+}
+
+pub(crate) struct ContextTenantPolicy;
+
+impl ContextTenantPolicy {
+    pub(crate) fn required_workspace(scope: &TenantScope) -> AppResult<WorkspaceId> {
+        scope.workspace_id().ok_or_else(Self::forbidden)
+    }
+
+    pub(crate) fn ensure_resource_belongs_to_scope(belongs_to_scope: bool) -> AppResult<()> {
+        if belongs_to_scope { Ok(()) } else { Err(Self::forbidden()) }
+    }
+
+    pub(crate) fn scoped_write_error(_err: ScopedWriteError) -> AppError {
+        Self::forbidden()
+    }
+
+    fn forbidden() -> AppError {
+        ErrorKind::Forbidden.into()
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -202,6 +291,10 @@ const WRONG_REVOKE_THRESHOLD: i64 = 2;
 pub(crate) struct ContextFeedbackPolicy;
 
 impl ContextFeedbackPolicy {
+    pub(crate) fn inaccessible_feedback_target() -> AppError {
+        ErrorKind::Forbidden.into()
+    }
+
     pub(crate) fn ensure_run_terminal(status: &str) -> AppResult<()> {
         if matches!(status, "completed" | "failed" | "canceled") {
             Ok(())
@@ -666,6 +759,14 @@ impl ContextSecretMemoryAttestationRejection {
 pub(crate) struct ContextCandidatePolicy;
 
 impl ContextCandidatePolicy {
+    pub(crate) fn not_found(candidate_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("context candidate {candidate_id}")).into()
+    }
+
+    pub(crate) fn approval_already_decided() -> AppError {
+        ErrorKind::Conflict("context candidate already has an approval decision".into()).into()
+    }
+
     pub(crate) fn validate_create(
         item_kind: ContextCandidateKind,
         target_skill_id: Option<Uuid>,
@@ -1105,6 +1206,7 @@ mod tests {
 
     #[test]
     fn context_feedback_policy_requires_terminal_runs_and_applies_revoke_thresholds() {
+        assert!(matches!(ContextFeedbackPolicy::inaccessible_feedback_target().kind, ErrorKind::Forbidden));
         assert!(ContextFeedbackPolicy::ensure_run_terminal("completed").is_ok());
         assert!(ContextFeedbackPolicy::ensure_run_terminal("failed").is_ok());
         assert!(ContextFeedbackPolicy::ensure_run_terminal("canceled").is_ok());
@@ -1284,6 +1386,12 @@ mod tests {
 
     #[test]
     fn candidate_create_policy_requires_skill_target_id() {
+        let candidate_id = Uuid::new_v4();
+        assert!(matches!(
+            ContextCandidatePolicy::not_found(candidate_id).kind,
+            ErrorKind::NotFound(message) if message == format!("context candidate {candidate_id}")
+        ));
+        assert!(matches!(ContextCandidatePolicy::approval_already_decided().kind, ErrorKind::Conflict(_)));
         assert!(
             ContextCandidatePolicy::validate_create(ContextCandidateKind::Memory, None, &json!({"title": "x"})).is_ok()
         );
@@ -1544,6 +1652,51 @@ mod tests {
             summary.proposed_preview.get("content_preview").and_then(Value::as_str).expect("redacted content preview");
         assert!(!preview_content.contains("ghp_aaaa"), "redacted preview must not leak the raw token");
         assert_eq!(summary.proposed_preview.get("title").and_then(Value::as_str), Some("Login token"));
+    }
+
+    #[test]
+    fn context_feature_flags_own_feature_keys_and_deployment_switches() {
+        let flags = ContextFeatureFlags { governance: true, preview: false, injection: true, analytics: false };
+
+        assert!(flags.enabled(ContextFeature::Governance));
+        assert!(!flags.enabled(ContextFeature::Preview));
+        assert!(flags.enabled(ContextFeature::Injection));
+        assert!(!flags.enabled(ContextFeature::Analytics));
+        assert_eq!(ContextFeature::Governance.key(), "context.governance.enabled");
+        assert_eq!(ContextFeature::Preview.key(), "context.preview.enabled");
+        assert_eq!(ContextFeature::Injection.key(), "context.injection.enabled");
+        assert_eq!(ContextFeature::Analytics.key(), "context.analytics.enabled");
+    }
+
+    #[test]
+    fn context_feature_policy_owns_disabled_and_missing_override_contracts() {
+        assert!(
+            format!("{}", ContextFeaturePolicy::disabled(ContextFeature::Preview))
+                .contains("context.preview.enabled is disabled")
+        );
+        assert!(ContextFeaturePolicy::missing_override_allows_deployment_default(&ErrorKind::NotFound(
+            "context.preview.enabled".into()
+        )));
+        assert!(!ContextFeaturePolicy::missing_override_allows_deployment_default(&ErrorKind::Forbidden));
+    }
+
+    #[test]
+    fn context_tenant_policy_owns_workspace_and_forbidden_contracts() {
+        let workspace_id = WorkspaceId::new();
+        let scope =
+            TenantScope::with_axes(agentforge_core::OrgId::new(), UserId::new(), Some(workspace_id), None, None);
+        let missing_workspace = crate::test_support::tenant_scope();
+
+        assert_eq!(ContextTenantPolicy::required_workspace(&scope).unwrap(), workspace_id);
+        assert!(matches!(
+            ContextTenantPolicy::required_workspace(&missing_workspace).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
+        assert!(ContextTenantPolicy::ensure_resource_belongs_to_scope(true).is_ok());
+        assert!(matches!(
+            ContextTenantPolicy::ensure_resource_belongs_to_scope(false).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
     }
 
     #[test]

@@ -13,11 +13,13 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
-use agentforge_core::{AppResult, ErrorKind, crypto};
+use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::credential::git::GitCredentialRepository;
-use crate::services::git_credential::{GitCredentialService, git_credential_response, git_credentials_response};
+use crate::services::git_credential::{
+    CreateGitCredentialInput, GitCredentialService, UpsertGitCredentialInput, credential_delete_response,
+    git_credential_response, git_credentials_response,
+};
 
 /// Query parameters for the list endpoint.
 #[derive(Deserialize)]
@@ -53,24 +55,7 @@ pub struct UpsertGitCredentialRequest {
 
 /// Build a GitCredentialService from shared state.
 fn make_service(state: &AppState) -> GitCredentialService {
-    GitCredentialService::new(GitCredentialRepository::new(state.pool.clone()))
-}
-
-fn trimmed_opt(value: Option<&str>) -> Option<&str> {
-    value.map(str::trim).filter(|value| !value.is_empty())
-}
-
-fn encrypt_git_token(state: &AppState, token: Option<&str>) -> AppResult<Option<Vec<u8>>> {
-    let Some(token) = trimmed_opt(token) else {
-        return Ok(None);
-    };
-
-    let key = state.encryption_key.as_ref().ok_or_else(|| {
-        ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured - refusing to store plaintext git tokens".into())
-    })?;
-    let encrypted = crypto::encrypt_base64(key, token)
-        .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encrypt git credential token failed: {err}")))?;
-    Ok(Some(encrypted.into_bytes()))
+    state.git_credential_service()
 }
 
 /// `POST /api/git-credentials` — create a new git credential.
@@ -80,16 +65,16 @@ async fn create_git_credential(
     Json(req): Json<CreateGitCredentialRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
-    let token_encrypted = encrypt_git_token(&state, req.token.as_deref())?;
     let cred = service
-        .upsert_for_provider(
+        .create_with_token(
             &auth.scope,
-            &req.name,
-            &req.provider,
-            &req.credential_type,
-            trimmed_opt(req.remote_url.as_deref()),
-            token_encrypted.as_deref(),
-            None,
+            CreateGitCredentialInput {
+                name: req.name,
+                provider: req.provider,
+                credential_type: req.credential_type,
+                remote_url: req.remote_url,
+                token: req.token,
+            },
         )
         .await?;
     Ok(Json(git_credential_response(&cred)))
@@ -124,23 +109,17 @@ async fn upsert_git_credential(
     Path(provider): Path<String>,
     Json(req): Json<UpsertGitCredentialRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let provider = provider.trim().to_ascii_lowercase();
-    let remote_url = trimmed_opt(req.host.as_deref());
-    let credential_type = trimmed_opt(req.credential_type.as_deref()).unwrap_or("token");
-    let default_name = remote_url.map_or_else(|| provider.clone(), |host| format!("{provider} ({host})"));
-    let name = trimmed_opt(req.name.as_deref()).unwrap_or(default_name.as_str());
-    let token_encrypted = encrypt_git_token(&state, Some(req.token.as_str()))?;
-
     let service = make_service(&state);
     let cred = service
-        .upsert_for_provider(
+        .upsert_provider_with_token(
             &auth.scope,
-            name,
-            &provider,
-            credential_type,
-            remote_url,
-            token_encrypted.as_deref(),
-            None,
+            UpsertGitCredentialInput {
+                provider,
+                token: req.token,
+                host: req.host,
+                name: req.name,
+                credential_type: req.credential_type,
+            },
         )
         .await?;
     Ok(Json(git_credential_response(&cred)))
@@ -154,7 +133,7 @@ async fn delete_git_credential(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     service.delete(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(credential_delete_response()))
 }
 
 /// Build git credential routes sub-router.

@@ -48,13 +48,15 @@
 
 use std::sync::Arc;
 
-use agentforge_core::{AppResult, ErrorKind, NatsCalloutConfig};
+use agentforge_core::{AppResult, NatsCalloutConfig};
 use agentforge_jobs::NatsConnectPasswordLookup;
 use async_nats::Client;
 use secrecy::ExposeSecret;
 use std::time::Duration;
 use tokio::sync::{Mutex, watch};
 use uuid::Uuid;
+
+use crate::domain::auth_callout::{AuthCalloutWorkerPolicy, auth_callout_nats_host_url, nats_kick_payload};
 
 use super::handler::{CalloutSigningKeys, handle_auth_request};
 use super::kick::ConnectionTracker;
@@ -74,25 +76,6 @@ const AUTH_QUEUE_GROUP: &str = "auth_callout";
 /// ephemeral xkey public used to encrypt the request body. `None` means the
 /// request arrived in plaintext mode — acceptable only in dev overrides.
 const SERVER_XKEY_HEADER: &str = "Nats-Server-Xkey";
-
-/// Strip any `user:password@` user-info segment from a NATS URL so
-/// `ConnectOptions::connect(url)` sees only the scheme + host. The
-/// backend's `NATS_URL` may carry backend-account credentials; those
-/// must never be handed to the callout-account / SYS-account CONNECT.
-///
-/// Same `rsplit_once('@')` rationale as `containers.rs::strip_nats_url_user_info`:
-/// passwords may contain `:` but never `@`, so the host/user-info
-/// boundary is the last `@` before the path.
-fn strip_user_info(backend_url: &str) -> AppResult<String> {
-    let (scheme, rest) = backend_url
-        .split_once("://")
-        .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("NATS_URL missing scheme://host separator")))?;
-    let host = match rest.rsplit_once('@') {
-        Some((_, host)) => host,
-        None => rest,
-    };
-    Ok(format!("{scheme}://{host}"))
-}
 
 /// Live NATS auth-callout worker. Opens the AUTH connection at
 /// construction time (fail-fast — wrong password should crash startup
@@ -129,7 +112,7 @@ impl<L: NatsConnectPasswordLookup> AuthCalloutWorker<L> {
         let auth_pw = config
             .auth_service_password
             .as_ref()
-            .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("NATS_CALLOUT__AUTH_SERVICE_PASSWORD required")))?
+            .ok_or_else(AuthCalloutWorkerPolicy::missing_auth_service_password)?
             .expose_secret()
             .to_string();
         // `async_nats::connect` silently ignores user-info embedded in
@@ -140,35 +123,24 @@ impl<L: NatsConnectPasswordLookup> AuthCalloutWorker<L> {
         // `authorization violation` because the server saw an
         // anonymous client, which then bounced off the callout's
         // `auth_users` whitelist.
-        let host_url = strip_user_info(backend_nats_url)?;
+        let host_url = auth_callout_nats_host_url(backend_nats_url)?;
         let auth_client = async_nats::ConnectOptions::new()
             .user_and_password("auth_service".to_string(), auth_pw)
             .connect(&host_url)
             .await
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("AUTH NATS connect: {err}")))?;
+            .map_err(AuthCalloutWorkerPolicy::auth_nats_connect_failed)?;
 
-        let issuer_seed = config
-            .issuer_seed
-            .as_ref()
-            .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("NATS_CALLOUT__ISSUER_SEED required")))?
-            .clone();
+        let issuer_seed = config.issuer_seed.as_ref().ok_or_else(AuthCalloutWorkerPolicy::missing_issuer_seed)?.clone();
         let account_signing_key_seed = config
             .account_signing_key_seed
             .as_ref()
-            .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("NATS_CALLOUT__ACCOUNT_SIGNING_KEY_SEED required")))?
+            .ok_or_else(AuthCalloutWorkerPolicy::missing_account_signing_key_seed)?
             .clone();
-        let xkey_seed = config
-            .xkey_seed
-            .as_ref()
-            .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("NATS_CALLOUT__XKEY_SEED required")))?
-            .clone();
+        let xkey_seed = config.xkey_seed.as_ref().ok_or_else(AuthCalloutWorkerPolicy::missing_xkey_seed)?.clone();
         let signing_keys =
             CalloutSigningKeys { issuer_seed, account_signing_key_seed, xkey_seed, audience_account_name };
 
-        let server_name = config
-            .server_name
-            .clone()
-            .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("NATS_CALLOUT__SERVER_NAME required")))?;
+        let server_name = config.server_name.clone().ok_or_else(AuthCalloutWorkerPolicy::missing_server_name)?;
 
         // SYS credentials are optional — stored as (host_url, password)
         // so the revoke path can use the `ConnectOptions` builder and
@@ -385,7 +357,7 @@ impl AuthCalloutService {
         };
 
         let subject = format!("$SYS.REQ.SERVER.{}.KICK", self.server_name);
-        let payload = serde_json::json!({ "cid": tracked.client_cid }).to_string();
+        let payload = nats_kick_payload(tracked.client_cid);
         match client.publish(subject.clone(), payload.into_bytes().into()).await {
             Ok(()) => {
                 tracing::info!(
@@ -406,33 +378,5 @@ impl AuthCalloutService {
                 super::metrics::record_callout_revoke("kick_publish_failed");
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn strip_user_info_removes_embedded_creds() {
-        assert_eq!(strip_user_info("nats://backend:pw@nats:4222").unwrap(), "nats://nats:4222");
-    }
-
-    #[test]
-    fn strip_user_info_preserves_plain_host() {
-        assert_eq!(strip_user_info("nats://nats:4222").unwrap(), "nats://nats:4222");
-    }
-
-    #[test]
-    fn strip_user_info_rejects_malformed_input() {
-        assert!(strip_user_info("not-a-url").is_err());
-    }
-
-    #[test]
-    fn strip_user_info_uses_last_at_boundary() {
-        // Passwords may contain `:`; `rsplit_once('@')` picks the last
-        // `@`, which is the user-info boundary. Hostnames never contain
-        // `@`, so this is unambiguous.
-        assert_eq!(strip_user_info("nats://u:a:b@nats:4222").unwrap(), "nats://nats:4222");
     }
 }

@@ -1,12 +1,24 @@
 //! Task detail Context tab response shape.
 
-use agentforge_core::{SkillId, UserId};
+use agentforge_core::{AppError, AppResult, ErrorKind, SkillId, TenantScope, UserId, WorkspaceId};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::Value;
 use uuid::Uuid;
 
 use crate::domain::context::AppliedContextSource;
+
+pub(crate) struct TaskContextAccessPolicy;
+
+impl TaskContextAccessPolicy {
+    pub(crate) fn required_workspace(scope: &TenantScope) -> AppResult<WorkspaceId> {
+        scope.workspace_id().ok_or_else(Self::forbidden)
+    }
+
+    fn forbidden() -> AppError {
+        ErrorKind::Forbidden.into()
+    }
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -176,5 +188,19 @@ mod tests {
         assert_eq!(provenance.applied_at, item.applied_at);
         assert_eq!(provenance.state.as_deref(), Some("active"));
         assert!(!provenance.revoked);
+    }
+
+    #[test]
+    fn task_context_access_policy_requires_workspace_scope() {
+        let workspace_id = WorkspaceId::new();
+        let scope =
+            TenantScope::with_axes(agentforge_core::OrgId::new(), UserId::new(), Some(workspace_id), None, None);
+        let missing_workspace = crate::test_support::tenant_scope();
+
+        assert_eq!(TaskContextAccessPolicy::required_workspace(&scope).unwrap(), workspace_id);
+        assert!(matches!(
+            TaskContextAccessPolicy::required_workspace(&missing_workspace).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
     }
 }

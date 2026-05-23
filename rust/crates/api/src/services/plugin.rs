@@ -2,9 +2,14 @@
 
 use agentforge_core::{AgentId, AppResult, TenantScope};
 use agentforge_db::entities::Plugin;
+use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::configuration::{PluginName, PluginVersion};
+use crate::domain::configuration::{PluginConfig, PluginName, PluginVersion};
+pub(crate) use crate::domain::configuration::{
+    configuration_data_response as plugin_data_response, configuration_delete_response as plugin_delete_response,
+    plugin_agent_plugins_response,
+};
 use crate::repositories::plugin::{AgentPluginRow, PluginRepository};
 
 /// Business logic layer for plugin operations.
@@ -15,6 +20,10 @@ pub struct PluginService {
 impl PluginService {
     pub fn new(repo: PluginRepository) -> Self {
         Self { repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(PluginRepository::new(pool))
     }
 
     /// List all plugins (org-scoped + global).
@@ -38,9 +47,8 @@ impl PluginService {
     ) -> AppResult<Plugin> {
         let name = PluginName::parse(name)?;
         let version = PluginVersion::from_optional(version);
-        let default_config = serde_json::json!({});
-        let config = config.unwrap_or(&default_config);
-        self.repo.create(scope, name.value(), version.value(), description, config).await
+        let config = PluginConfig::from_optional(config);
+        self.repo.create(scope, name.value(), version.value(), description, config.value()).await
     }
 
     /// Update a plugin's config/enabled state.

@@ -14,8 +14,7 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::favorite::FavoriteRepository;
-use crate::services::favorite::FavoriteService;
+use crate::services::favorite::{FavoriteService, favorite_data_response, favorite_delete_response};
 
 /// Request body for adding a favorite.
 #[derive(Deserialize)]
@@ -26,14 +25,14 @@ pub struct AddFavoriteRequest {
 
 /// Build a FavoriteService from shared state.
 fn make_service(state: &AppState) -> FavoriteService {
-    FavoriteService::new(FavoriteRepository::new(state.pool.clone()))
+    state.favorite_service()
 }
 
 /// `GET /api/favorites` — list favorites.
 async fn list_favorites(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let favs = service.list(&auth.scope).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": favs })))
+    Ok(Json(favorite_data_response(favs)))
 }
 
 /// `POST /api/favorites` — add a favorite.
@@ -44,7 +43,7 @@ async fn add_favorite(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let fav = service.add(&auth.scope, &req.target_type, req.target_id).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": fav })))
+    Ok(Json(favorite_data_response(fav)))
 }
 
 /// `DELETE /api/favorites/{id}` — remove a favorite.
@@ -55,7 +54,7 @@ async fn remove_favorite(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     service.remove(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(favorite_delete_response()))
 }
 
 /// Build favorite routes sub-router.

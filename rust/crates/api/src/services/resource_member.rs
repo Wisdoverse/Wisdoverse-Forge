@@ -1,9 +1,13 @@
 //! Team and project member management.
 
-use agentforge_core::{AppResult, ErrorKind, ProjectId, TeamId, TenantScope};
+use agentforge_core::{AppResult, ProjectId, TeamId, TenantScope};
+use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::resource::{ResourceMemberRole, ResourceOrganizationPolicy};
+use crate::domain::resource::{ResourceMemberPolicy, ResourceMemberRole, ResourceOrganizationPolicy};
+pub(crate) use crate::domain::resource::{
+    resource_delete_response, resource_member_response, resource_members_response,
+};
 use crate::repositories::resource::member::{ResourceMember, ResourceMemberRepository};
 use crate::repositories::resource::permission::ResourcePermissionRepository;
 use crate::services::resource_permission::ResourcePermissionService;
@@ -16,6 +20,10 @@ pub struct ResourceMemberService {
 impl ResourceMemberService {
     pub fn new(repo: ResourceMemberRepository, permission_repo: ResourcePermissionRepository) -> Self {
         Self { repo, permissions: ResourcePermissionService::new(permission_repo) }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(ResourceMemberRepository::new(pool.clone()), ResourcePermissionRepository::new(pool))
     }
 
     pub async fn list_team_members(
@@ -55,7 +63,7 @@ impl ResourceMemberService {
             .repo
             .find_org_user_by_email(scope, email)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("org user {}", email.trim())))?;
+            .ok_or_else(|| ResourceMemberPolicy::missing_org_user(email))?;
         self.add_team_member(scope, org_id, team_id, user_id, role).await
     }
 
@@ -117,7 +125,7 @@ impl ResourceMemberService {
             .repo
             .find_org_user_by_email(scope, email)
             .await?
-            .ok_or_else(|| ErrorKind::NotFound(format!("org user {}", email.trim())))?;
+            .ok_or_else(|| ResourceMemberPolicy::missing_org_user(email))?;
         self.add_project_member(scope, project_id, user_id, role).await
     }
 

@@ -15,16 +15,15 @@ use axum::extract::{Path, Query, State};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::Deserialize;
-use serde_json::json;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
-use agentforge_core::{AppResult, ErrorKind};
+use agentforge_core::AppResult;
 
-use crate::domain::admin::{AdminAgentFilterPolicy, AdminAgentFilterQuery};
 use crate::health::AppState;
-use crate::repositories::admin::{AdminAgentEventRow, AdminAgentFilters, AdminAgentRow, AdminRepository};
-use crate::services::admin::AdminService;
+use crate::services::admin::{
+    AdminAgentListInput, AdminService, admin_bulk_delete_response, admin_data_response, admin_delete_response,
+};
 
 /// Query parameters for paginated admin endpoints.
 #[derive(Deserialize)]
@@ -48,7 +47,7 @@ pub struct ImpersonateRequest {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> AdminService {
-    AdminService::new(AdminRepository::new(state.pool.clone()))
+    state.admin_service()
 }
 
 /// `GET /api/v1/admin/users` — list all users (admin only).
@@ -60,7 +59,7 @@ async fn list_users(
     AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
     let users = service.list_all_users(query.limit, query.offset).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": users })))
+    Ok(Json(admin_data_response(users)))
 }
 
 /// `GET /api/v1/admin/organizations` — list all organizations (admin only).
@@ -72,7 +71,7 @@ async fn list_organizations(
     AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
     let orgs = service.list_all_organizations(query.limit, query.offset).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": orgs })))
+    Ok(Json(admin_data_response(orgs)))
 }
 
 /// `POST /api/v1/admin/impersonate` — start impersonation.
@@ -84,7 +83,7 @@ async fn start_impersonation(
     AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
     let log = service.start_impersonation(&auth.scope, req.target_user_id, req.reason.as_deref()).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": log })))
+    Ok(Json(admin_data_response(log)))
 }
 
 /// `POST /api/v1/admin/impersonate/end` — end impersonation.
@@ -92,7 +91,7 @@ async fn end_impersonation(State(state): State<AppState>, auth: AuthUser) -> App
     AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
     let log = service.end_impersonation(&auth.scope).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": log })))
+    Ok(Json(admin_data_response(log)))
 }
 
 /// `GET /api/v1/admin/impersonation-log` — list impersonation history.
@@ -104,7 +103,7 @@ async fn list_impersonation_log(
     AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
     let logs = service.list_impersonation_log(&auth.scope, query.limit, query.offset).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": logs })))
+    Ok(Json(admin_data_response(logs)))
 }
 
 /// `GET /api/v1/admin/stats` — system-wide statistics.
@@ -112,7 +111,7 @@ async fn get_stats(State(state): State<AppState>, auth: AuthUser) -> AppResult<J
     AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
     let stats = service.stats().await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": stats })))
+    Ok(Json(admin_data_response(stats)))
 }
 
 // ============================================================================
@@ -148,6 +147,21 @@ pub struct AdminAgentsQuery {
     pub sort_order: Option<String>,
 }
 
+impl AdminAgentsQuery {
+    fn as_service_input(&self) -> AdminAgentListInput<'_> {
+        AdminAgentListInput {
+            search: self.search.as_deref(),
+            status: self.status.as_deref(),
+            user_id: self.user_id,
+            project_id: self.project_id,
+            page: self.page,
+            limit: self.limit,
+            sort_by: self.sort_by.as_deref(),
+            sort_order: self.sort_order.as_deref(),
+        }
+    }
+}
+
 fn default_page() -> i64 {
     1
 }
@@ -162,77 +176,6 @@ pub struct BulkDeleteRequest {
     pub ids: Vec<Uuid>,
 }
 
-/// Build the `AdminAgentFilters` struct passed down to the repository.
-fn filters_from_query(query: &AdminAgentsQuery) -> AdminAgentFilters {
-    let decision = AdminAgentFilterPolicy::from_query(AdminAgentFilterQuery {
-        search: query.search.as_deref(),
-        status: query.status.as_deref(),
-        page: query.page,
-        limit: query.limit,
-        sort_by: query.sort_by.as_deref(),
-        sort_order: query.sort_order.as_deref(),
-    });
-
-    AdminAgentFilters {
-        search: decision.search,
-        status: decision.status,
-        user_id: query.user_id,
-        project_id: query.project_id,
-        sort_by: decision.sort_by,
-        sort_order: decision.sort_order,
-        limit: decision.limit,
-        offset: decision.offset,
-    }
-}
-
-fn page_from_query(query: &AdminAgentsQuery) -> i64 {
-    AdminAgentFilterPolicy::from_query(AdminAgentFilterQuery {
-        search: query.search.as_deref(),
-        status: query.status.as_deref(),
-        page: query.page,
-        limit: query.limit,
-        sort_by: query.sort_by.as_deref(),
-        sort_order: query.sort_order.as_deref(),
-    })
-    .page
-}
-
-/// Shape a DB row into the JSON object the frontend `AdminAgent` interface
-/// expects. Columns that do not yet exist in the Rust `agents` schema
-/// (`cwd`, `current_tool`, `tokens_*`, `git_status`, `runtime_id`) are
-/// emitted as null / zero / empty string so the UI still renders gracefully.
-///
-fn admin_agent_row_to_json(row: &AdminAgentRow) -> serde_json::Value {
-    json!({
-        "id": row.id,
-        "name": row.name.clone().unwrap_or_default(),
-        "status": row.status,
-        "cwd": row.cwd.clone().unwrap_or_default(),
-        "currentTool": row.current_tool,
-        "cliTool": row.cli_tool,
-        "tokens": { "current": row.tokens_current, "cumulative": row.tokens_cumulative },
-        "gitBranch": row.git_status,
-        "ownerUsername": row.owner_username,
-        "ownerEmail": row.owner_email,
-        "projectName": row.project_name,
-        "createdAt": row.created_at.timestamp_millis(),
-        "lastActivity": row.last_activity.timestamp_millis(),
-        "runtimeId": row.runtime_id.clone().unwrap_or_default(),
-        "containerId": row.container_id,
-        "eventsCount": row.events_count,
-    })
-}
-
-/// Shape a recent-events row for the admin agent detail panel.
-fn admin_event_row_to_json(row: &AdminAgentEventRow) -> serde_json::Value {
-    json!({
-        "id": row.id,
-        "type": row.event_type,
-        "toolName": null,
-        "createdAt": row.created_at.timestamp_millis(),
-    })
-}
-
 /// `GET /api/v1/admin/agents` — paginated list of agents across all tenants.
 async fn list_admin_agents(
     State(state): State<AppState>,
@@ -241,23 +184,8 @@ async fn list_admin_agents(
 ) -> AppResult<Json<serde_json::Value>> {
     AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
-
-    let filters = filters_from_query(&query);
-    let page = page_from_query(&query);
-    let limit = filters.limit;
-    let (rows, total) = service.list_agents(filters).await?;
-
-    let agents: Vec<serde_json::Value> = rows.iter().map(admin_agent_row_to_json).collect();
-    let total_pages = if limit > 0 { (total + limit - 1) / limit } else { 0 };
-
-    Ok(Json(json!({
-        "ok": true,
-        "agents": agents,
-        "total": total,
-        "page": page,
-        "limit": limit,
-        "totalPages": total_pages,
-    })))
+    let response = service.list_agent_page(query.as_service_input()).await?;
+    Ok(Json(response))
 }
 
 /// `GET /api/v1/admin/agents/:id` — agent detail including recent events.
@@ -268,22 +196,8 @@ async fn get_admin_agent(
 ) -> AppResult<Json<serde_json::Value>> {
     AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
-    let (row, events) = service.get_agent(id).await?;
-
-    let mut agent = admin_agent_row_to_json(&row);
-    // Augment the list shape with the extra fields the detail panel expects.
-    if let Some(obj) = agent.as_object_mut() {
-        obj.insert("userId".into(), json!(row.user_id));
-        obj.insert("orgId".into(), json!(row.organization_id));
-        obj.insert("projectId".into(), json!(row.project_id));
-        obj.insert("cliSessionId".into(), json!(row.cli_session_id));
-        obj.insert("claudeFlags".into(), serde_json::Value::Null);
-        obj.insert("groupId".into(), serde_json::Value::Null);
-        obj.insert("gitStatus".into(), serde_json::Value::Null);
-        obj.insert("recentEvents".into(), json!(events.iter().map(admin_event_row_to_json).collect::<Vec<_>>()));
-    }
-
-    Ok(Json(json!({ "ok": true, "agent": agent })))
+    let response = service.get_agent_response(id).await?;
+    Ok(Json(response))
 }
 
 /// `DELETE /api/v1/admin/agents/:id` — hard-delete a single agent.
@@ -293,20 +207,9 @@ async fn delete_admin_agent(
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
     AdminService::require_admin(&auth.role)?;
-    // Revoke the live NATS connection BEFORE the DB row vanishes — once the
-    // row is gone, the callout handler would deny any reconnect anyway, but
-    // publishing the KICK while the tracker entry is still keyed by this
-    // agent ID yields a clean ≤2s cutoff instead of the 15-min JWT ceiling.
-    match state.auth_callout.as_ref() {
-        Some(callout) => callout.revoke(id).await,
-        None => tracing::info!(
-            %id,
-            "admin delete_agent: auth callout disabled — revocation falls back to JWT TTL"
-        ),
-    }
     let service = make_service(&state);
     service.delete_agent(id).await?;
-    Ok(Json(json!({ "ok": true })))
+    Ok(Json(admin_delete_response()))
 }
 
 /// `DELETE /api/v1/admin/agents` — bulk delete via a JSON `{ ids: [...] }` body.
@@ -316,28 +219,9 @@ async fn bulk_delete_admin_agents(
     Json(body): Json<BulkDeleteRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     AdminService::require_admin(&auth.role)?;
-    if body.ids.is_empty() {
-        return Err(ErrorKind::Validation("ids array required".into()).into());
-    }
-    // Revoke each agent's live NATS connection before bulk deletion. The
-    // revoke() method is best-effort and logs internally, so a single
-    // loop that ignores failures is the right shape — a partial KICK
-    // fleet-out does not block the DB delete, and `bulk_delete_agents`
-    // below reports per-id success/failure for the DB step.
-    match state.auth_callout.as_ref() {
-        Some(callout) => {
-            for id in &body.ids {
-                callout.revoke(*id).await;
-            }
-        }
-        None => tracing::info!(
-            count = body.ids.len(),
-            "admin bulk_delete_agents: auth callout disabled — revocation falls back to JWT TTL"
-        ),
-    }
     let service = make_service(&state);
-    let results = service.bulk_delete_agents(&body.ids).await;
-    Ok(Json(json!({ "ok": true, "results": results })))
+    let results = service.bulk_delete_agents_checked(&body.ids).await?;
+    Ok(Json(admin_bulk_delete_response(results)))
 }
 
 /// Build admin routes sub-router.
@@ -356,8 +240,6 @@ pub fn admin_routes() -> Router<AppState> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::admin::{AdminAgentSort, SortOrder};
-    use agentforge_core::AgentStatus;
 
     #[test]
     fn list_query_defaults() {
@@ -442,119 +324,6 @@ mod tests {
         assert_eq!(query.limit, 50);
         assert_eq!(query.sort_by.as_deref(), Some("lastActivity"));
         assert_eq!(query.sort_order.as_deref(), Some("asc"));
-    }
-
-    #[test]
-    fn filters_from_query_paginates_and_clamps() {
-        let query: AdminAgentsQuery =
-            serde_json::from_str(r#"{"page": 4, "limit": 10, "search": "  ", "sortBy": "name", "sortOrder": "asc"}"#)
-                .unwrap();
-        let filters = filters_from_query(&query);
-        assert_eq!(filters.limit, 10);
-        assert_eq!(filters.offset, 30); // (page 4 - 1) * 10
-        // Blank-only search strings are dropped so they don't hit SQL.
-        assert!(filters.search.is_none());
-        assert_eq!(filters.sort_by, AdminAgentSort::Name);
-        assert_eq!(filters.sort_order, SortOrder::Asc);
-    }
-
-    #[test]
-    fn filters_from_query_clamps_limit_to_100() {
-        let query: AdminAgentsQuery = serde_json::from_str(r#"{"page": 1, "limit": 500}"#).unwrap();
-        let filters = filters_from_query(&query);
-        assert_eq!(filters.limit, 100);
-        assert_eq!(filters.offset, 0);
-    }
-
-    #[test]
-    fn filters_from_query_floor_page_to_one() {
-        let query: AdminAgentsQuery = serde_json::from_str(r#"{"page": 0, "limit": 25}"#).unwrap();
-        let filters = filters_from_query(&query);
-        assert_eq!(filters.offset, 0);
-    }
-
-    #[test]
-    fn admin_agent_row_to_json_uses_camel_case_and_epoch_ms() {
-        use chrono::{TimeZone, Utc};
-        let row = AdminAgentRow {
-            id: Uuid::nil(),
-            name: Some("worker".into()),
-            status: AgentStatus::Working,
-            model: Some("claude".into()),
-            provider: Some("anthropic".into()),
-            container_id: Some("abc123".into()),
-            cli_session_id: None,
-            cwd: Some("/workspace/agentforge".into()),
-            current_tool: Some("Edit".into()),
-            cli_tool: Some("claude".into()),
-            tokens_current: 1234,
-            tokens_cumulative: 56789,
-            git_status: Some("+3 -1".into()),
-            runtime_id: Some("af-deadbeef".into()),
-            organization_id: Uuid::nil(),
-            project_id: None,
-            user_id: Uuid::nil(),
-            owner_username: Some("alice".into()),
-            owner_email: Some("alice@example.com".into()),
-            project_name: Some("P".into()),
-            created_at: Utc.timestamp_millis_opt(1_700_000_000_000).unwrap(),
-            updated_at: Utc.timestamp_millis_opt(1_700_000_100_000).unwrap(),
-            last_activity: Utc.timestamp_millis_opt(1_700_000_200_000).unwrap(),
-            events_count: 42,
-        };
-        let value = admin_agent_row_to_json(&row);
-
-        // Owner fields are surfaced at the expected camelCase keys.
-        assert_eq!(value["ownerUsername"], "alice");
-        assert_eq!(value["ownerEmail"], "alice@example.com");
-        assert_eq!(value["projectName"], "P");
-
-        // Timestamps are epoch milliseconds (numeric), not ISO strings.
-        assert_eq!(value["createdAt"], 1_700_000_000_000_i64);
-        assert_eq!(value["lastActivity"], 1_700_000_200_000_i64);
-
-        // Migration 013 surfaces real runtime data instead of placeholders.
-        assert_eq!(value["cwd"], "/workspace/agentforge");
-        assert_eq!(value["runtimeId"], "af-deadbeef");
-        assert_eq!(value["currentTool"], "Edit");
-        assert_eq!(value["gitBranch"], "+3 -1");
-        assert_eq!(value["tokens"]["current"], 1234);
-        assert_eq!(value["tokens"]["cumulative"], 56789);
-
-        assert_eq!(value["eventsCount"], 42);
-    }
-
-    #[test]
-    fn admin_agent_row_to_json_emits_cli_tool() {
-        use chrono::Utc;
-        let row = AdminAgentRow {
-            id: uuid::Uuid::nil(),
-            name: Some("t".into()),
-            status: AgentStatus::Idle,
-            model: None,
-            provider: None,
-            container_id: None,
-            cli_session_id: None,
-            cwd: None,
-            current_tool: None,
-            cli_tool: Some("claude".into()),
-            tokens_current: 0,
-            tokens_cumulative: 0,
-            git_status: None,
-            runtime_id: None,
-            organization_id: uuid::Uuid::nil(),
-            project_id: None,
-            user_id: uuid::Uuid::nil(),
-            owner_username: None,
-            owner_email: None,
-            project_name: None,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-            last_activity: Utc::now(),
-            events_count: 0,
-        };
-        let v = admin_agent_row_to_json(&row);
-        assert_eq!(v["cliTool"], serde_json::json!("claude"));
     }
 
     #[test]

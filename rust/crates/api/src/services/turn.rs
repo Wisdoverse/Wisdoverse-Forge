@@ -3,7 +3,9 @@
 use chrono::{SecondsFormat, Utc};
 
 use agentforge_core::{AgentId, AppResult, TenantScope};
+use sqlx::PgPool;
 
+pub(crate) use crate::domain::turn::turn_page_response;
 pub use crate::domain::turn::{LastEventCursor, TurnPage};
 use crate::domain::turn::{Turn, TurnCursor, TurnListPage, TurnProjectionEvent, build_turns, turn_projection_event};
 use crate::repositories::agent::event::EventRepository;
@@ -15,6 +17,10 @@ pub struct TurnService {
 impl TurnService {
     pub fn new(repo: EventRepository) -> Self {
         Self { repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(EventRepository::new(pool))
     }
 
     pub async fn list_page(

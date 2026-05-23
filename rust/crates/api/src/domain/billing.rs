@@ -5,12 +5,296 @@
 
 use std::collections::BTreeMap;
 
-use agentforge_core::{AppResult, ErrorKind};
+use agentforge_core::{AppError, AppResult, ErrorKind, UserId};
+use chrono::{DateTime, Utc};
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 /// Valid subscription statuses.
 const VALID_STATUSES: &[&str] =
     &["active", "past_due", "canceled", "trialing", "unpaid", "incomplete", "incomplete_expired", "paused"];
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PlanPriceView {
+    monthly: i64,
+    yearly: i64,
+    currency: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct BillingPlanView {
+    id: Uuid,
+    name: String,
+    description: String,
+    features: BTreeMap<String, bool>,
+    limits: BTreeMap<String, i64>,
+    price: PlanPriceView,
+    popular: bool,
+}
+
+impl BillingPlanView {
+    pub(crate) fn from_plan_parts(
+        id: Uuid,
+        name: String,
+        features: &Value,
+        max_agents: i32,
+        max_events_per_day: i32,
+        max_storage_mb: i32,
+    ) -> Self {
+        let lower_name = name.to_ascii_lowercase();
+        let (monthly, yearly, popular) = match lower_name.as_str() {
+            "free" => (0, 0, false),
+            "pro" => (25, 250, false),
+            "team" => (60, 600, true),
+            "business" => (120, 1200, false),
+            "enterprise" => (-1, -1, false),
+            _ => (0, 0, false),
+        };
+
+        let features = features
+            .as_object()
+            .map(|object| {
+                object.iter().filter_map(|(key, value)| value.as_bool().map(|flag| (key.clone(), flag))).collect()
+            })
+            .unwrap_or_default();
+
+        let limits = BTreeMap::from([
+            ("maxAgents".to_string(), max_agents as i64),
+            ("maxEventsPerDay".to_string(), max_events_per_day as i64),
+            ("maxStorageMB".to_string(), max_storage_mb as i64),
+        ]);
+
+        Self {
+            id,
+            name: name.clone(),
+            description: format!("{name} plan"),
+            features,
+            limits,
+            price: PlanPriceView { monthly, yearly, currency: "usd".to_string() },
+            popular,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SubscriptionView {
+    id: Uuid,
+    plan_id: Uuid,
+    status: String,
+    current_period_start: Option<DateTime<Utc>>,
+    current_period_end: Option<DateTime<Utc>>,
+    cancel_at_period_end: bool,
+    canceled_at: Option<DateTime<Utc>>,
+}
+
+impl SubscriptionView {
+    pub(crate) fn new(
+        id: Uuid,
+        plan_id: Uuid,
+        status: String,
+        current_period_start: Option<DateTime<Utc>>,
+        current_period_end: Option<DateTime<Utc>>,
+        cancel_at_period_end: bool,
+        canceled_at: Option<DateTime<Utc>>,
+    ) -> Self {
+        Self { id, plan_id, status, current_period_start, current_period_end, cancel_at_period_end, canceled_at }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BillingSubscriptionProjection {
+    pub(crate) subscription: Option<SubscriptionView>,
+    pub(crate) plan: Option<BillingPlanView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct InvoiceView {
+    id: Uuid,
+    status: String,
+    amount_due: i32,
+    amount_paid: i32,
+    total: i32,
+    currency: String,
+    paid_at: Option<DateTime<Utc>>,
+    created_at: DateTime<Utc>,
+}
+
+impl InvoiceView {
+    pub(crate) fn new(
+        id: Uuid,
+        status: String,
+        amount_cents: i32,
+        currency: String,
+        paid_at: Option<DateTime<Utc>>,
+        created_at: DateTime<Utc>,
+    ) -> Self {
+        let amount_paid = if status == "paid" { amount_cents } else { 0 };
+        Self {
+            id,
+            status,
+            amount_due: amount_cents.saturating_sub(amount_paid),
+            amount_paid,
+            total: amount_cents,
+            currency,
+            paid_at,
+            created_at,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct StripeSubscriptionSnapshot {
+    pub id: String,
+    pub customer_id: Option<String>,
+    pub status: String,
+    pub current_period_start: Option<DateTime<Utc>>,
+    pub current_period_end: Option<DateTime<Utc>>,
+    pub cancel_at_period_end: bool,
+    pub canceled_at: Option<DateTime<Utc>>,
+    pub metadata: BTreeMap<String, String>,
+    pub price_id: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct StripeInvoiceSnapshot {
+    pub id: String,
+    pub customer_id: Option<String>,
+    pub subscription_id: Option<String>,
+    pub amount_cents: i32,
+    pub currency: String,
+    pub status: String,
+    pub paid_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StripeEvent {
+    #[serde(rename = "type")]
+    pub event_type: String,
+    pub data: StripeEventData,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StripeEventData {
+    pub object: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UsageMetricView {
+    metric: String,
+    current: i64,
+    limit: i64,
+    percent_used: i64,
+}
+
+impl UsageMetricView {
+    pub(crate) fn new(metric: impl Into<String>, current: i64, limit: i64, percent_used: i64) -> Self {
+        Self { metric: metric.into(), current, limit, percent_used }
+    }
+}
+
+pub(crate) fn billing_data_response<T: Serialize>(data: T) -> Value {
+    json!({ "ok": true, "data": data })
+}
+
+pub(crate) fn billing_plans_response(plans: Vec<BillingPlanView>) -> Value {
+    json!({ "ok": true, "data": &plans, "plans": plans })
+}
+
+pub(crate) fn billing_subscription_response(projection: BillingSubscriptionProjection) -> Value {
+    json!({
+        "ok": true,
+        "data": &projection.subscription,
+        "subscription": projection.subscription,
+        "plan": projection.plan,
+    })
+}
+
+pub(crate) fn billing_checkout_response(session_id: String, url: String) -> Value {
+    json!({ "ok": true, "data": &url, "agentId": session_id, "url": url })
+}
+
+pub(crate) fn billing_portal_response(url: String) -> Value {
+    json!({ "ok": true, "data": &url, "url": url })
+}
+
+pub(crate) fn billing_subscription_data_response<T: Serialize>(subscription: T) -> Value {
+    json!({ "ok": true, "data": &subscription, "subscription": subscription })
+}
+
+pub(crate) fn billing_usage_response(usage: Vec<UsageMetricView>) -> Value {
+    json!({ "ok": true, "data": &usage, "usage": usage })
+}
+
+pub(crate) fn billing_invoices_response(invoices: Vec<InvoiceView>) -> Value {
+    json!({ "ok": true, "data": &invoices, "invoices": invoices })
+}
+
+pub(crate) fn billing_webhook_received_response() -> Value {
+    json!({ "ok": true, "received": true })
+}
+
+pub(crate) fn stripe_webhook_payload(payload: &str) -> AppResult<Value> {
+    serde_json::from_str(payload).map_err(|err| BillingStripeGatewayPolicy::invalid_webhook_json(err).into())
+}
+
+pub(crate) fn stripe_api_response_body<T: DeserializeOwned>(body: &str) -> AppResult<T> {
+    serde_json::from_str(body).map_err(|err| BillingStripeGatewayPolicy::api_response_decode_failed(err).into())
+}
+
+pub(crate) fn stripe_api_error_message(body: &str) -> Option<String> {
+    serde_json::from_str::<StripeErrorEnvelope>(body).ok().and_then(|envelope| envelope.error.message)
+}
+
+pub(crate) fn stripe_event(payload: Value) -> AppResult<StripeEvent> {
+    serde_json::from_value(payload).map_err(|err| BillingStripeGatewayPolicy::invalid_webhook_event_shape(err).into())
+}
+
+pub(crate) fn stripe_subscription_object_from_value<T: DeserializeOwned>(value: Value) -> AppResult<T> {
+    serde_json::from_value(value).map_err(|err| BillingStripeGatewayPolicy::invalid_subscription_object(err).into())
+}
+
+pub(crate) fn stripe_invoice_object_from_value<T: DeserializeOwned>(value: Value) -> AppResult<T> {
+    serde_json::from_value(value).map_err(|err| BillingStripeGatewayPolicy::invalid_invoice_object(err).into())
+}
+
+#[derive(Debug, Deserialize)]
+struct StripeErrorEnvelope {
+    error: StripeErrorBody,
+}
+
+#[derive(Debug, Deserialize)]
+struct StripeErrorBody {
+    message: Option<String>,
+}
+
+/// Billing repository lookup and conflict policy.
+pub(crate) struct BillingRepositoryPolicy;
+
+impl BillingRepositoryPolicy {
+    pub(crate) fn plan_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("billing plan {id}")).into()
+    }
+
+    pub(crate) fn plan_for_stripe_price_not_found(stripe_price_id: &str) -> AppError {
+        ErrorKind::NotFound(format!("billing plan for Stripe price {stripe_price_id}")).into()
+    }
+
+    pub(crate) fn user_not_found(user_id: UserId) -> AppError {
+        ErrorKind::NotFound(format!("user {user_id}")).into()
+    }
+
+    pub(crate) fn subscription_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("subscription {id}")).into()
+    }
+}
 
 /// Billing cycle policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -69,10 +353,80 @@ impl BillingPlanPolicy {
     }
 }
 
+/// Stripe gateway and webhook error policy.
+pub(crate) struct BillingStripeGatewayPolicy;
+
+impl BillingStripeGatewayPolicy {
+    pub(crate) fn not_configured() -> ErrorKind {
+        ErrorKind::Unavailable(
+            "Stripe billing is not configured; refusing to change local subscription state without Stripe confirmation"
+                .to_string(),
+        )
+    }
+
+    pub(crate) fn api_request_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Unavailable(format!("Stripe API request failed: {err}"))
+    }
+
+    pub(crate) fn api_response_read_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Unavailable(format!("failed to read Stripe API response: {err}"))
+    }
+
+    pub(crate) fn api_response_decode_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Unavailable(format!("failed to decode Stripe API response: {err}"))
+    }
+
+    pub(crate) fn api_error_from_status(status: u16, message: String) -> ErrorKind {
+        match status {
+            400 => ErrorKind::Validation(message),
+            401 | 403 => ErrorKind::Unavailable("Stripe credentials rejected".to_string()),
+            409 => ErrorKind::Conflict(message),
+            429 | 500 | 502 | 503 | 504 => ErrorKind::Unavailable(format!("Stripe API unavailable: {message}")),
+            _ => ErrorKind::Unavailable(message),
+        }
+    }
+
+    pub(crate) fn missing_checkout_redirect_url() -> ErrorKind {
+        ErrorKind::Unavailable("Stripe checkout session did not include a redirect URL".to_string())
+    }
+
+    pub(crate) fn invalid_webhook_json(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Validation(format!("invalid Stripe webhook JSON payload: {err}"))
+    }
+
+    pub(crate) fn invalid_webhook_event_shape(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Validation(format!("invalid Stripe webhook event shape: {err}"))
+    }
+
+    pub(crate) fn invalid_webhook_signature() -> ErrorKind {
+        ErrorKind::Unauthorized
+    }
+
+    pub(crate) fn missing_webhook_signature() -> ErrorKind {
+        ErrorKind::Unauthorized
+    }
+
+    pub(crate) fn hmac_init_failed(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("HMAC init failed: {err}"))
+    }
+
+    pub(crate) fn invalid_subscription_object(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Validation(format!("invalid Stripe subscription object: {err}"))
+    }
+
+    pub(crate) fn invalid_invoice_object(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Validation(format!("invalid Stripe invoice object: {err}"))
+    }
+}
+
 /// Subscription lifecycle policy.
 pub(crate) struct SubscriptionLifecyclePolicy;
 
 impl SubscriptionLifecyclePolicy {
+    pub(crate) fn missing_active_subscription() -> ErrorKind {
+        ErrorKind::NotFound("no active subscription".to_string())
+    }
+
     pub(crate) fn ensure_no_active_subscription(existing_subscription_id: Option<Uuid>) -> AppResult<()> {
         if let Some(subscription_id) = existing_subscription_id {
             return Err(ErrorKind::Conflict(format!(
@@ -307,9 +661,141 @@ mod tests {
     }
 
     #[test]
+    fn billing_repository_policy_owns_lookup_errors() {
+        let id = Uuid::new_v4();
+        let user_id = UserId::new();
+
+        assert!(matches!(
+            BillingRepositoryPolicy::plan_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("billing plan {id}")
+        ));
+        assert!(matches!(
+            BillingRepositoryPolicy::plan_for_stripe_price_not_found("price_123").kind,
+            ErrorKind::NotFound(message) if message == "billing plan for Stripe price price_123"
+        ));
+        assert!(matches!(
+            BillingRepositoryPolicy::user_not_found(user_id).kind,
+            ErrorKind::NotFound(message) if message == format!("user {user_id}")
+        ));
+        assert!(matches!(
+            BillingRepositoryPolicy::subscription_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("subscription {id}")
+        ));
+    }
+
+    #[test]
+    fn billing_stripe_gateway_policy_owns_external_error_contracts() {
+        assert!(
+            format!("{}", BillingStripeGatewayPolicy::not_configured()).contains("Stripe billing is not configured")
+        );
+        assert!(
+            format!("{}", BillingStripeGatewayPolicy::api_request_failed("network"))
+                .contains("Stripe API request failed")
+        );
+        assert!(format!("{}", BillingStripeGatewayPolicy::api_response_read_failed("io")).contains("failed to read"));
+        assert!(
+            format!("{}", BillingStripeGatewayPolicy::api_response_decode_failed("json")).contains("failed to decode")
+        );
+        assert!(format!("{}", BillingStripeGatewayPolicy::missing_checkout_redirect_url()).contains("redirect URL"));
+        assert!(format!("{}", BillingStripeGatewayPolicy::invalid_webhook_json("bad")).contains("webhook JSON"));
+        assert!(format!("{}", BillingStripeGatewayPolicy::invalid_webhook_event_shape("bad")).contains("event shape"));
+        assert!(matches!(BillingStripeGatewayPolicy::invalid_webhook_signature(), ErrorKind::Unauthorized));
+        assert!(matches!(BillingStripeGatewayPolicy::missing_webhook_signature(), ErrorKind::Unauthorized));
+        assert!(format!("{}", BillingStripeGatewayPolicy::hmac_init_failed("bad")).contains("HMAC init failed"));
+        assert!(
+            format!("{}", BillingStripeGatewayPolicy::invalid_subscription_object("bad"))
+                .contains("subscription object")
+        );
+        assert!(format!("{}", BillingStripeGatewayPolicy::invalid_invoice_object("bad")).contains("invoice object"));
+
+        assert!(matches!(
+            BillingStripeGatewayPolicy::api_error_from_status(400, "bad".into()),
+            ErrorKind::Validation(_)
+        ));
+        assert!(matches!(
+            BillingStripeGatewayPolicy::api_error_from_status(403, "nope".into()),
+            ErrorKind::Unavailable(_)
+        ));
+        assert!(matches!(
+            BillingStripeGatewayPolicy::api_error_from_status(409, "conflict".into()),
+            ErrorKind::Conflict(_)
+        ));
+        assert!(
+            format!("{}", BillingStripeGatewayPolicy::api_error_from_status(503, "down".into()))
+                .contains("unavailable")
+        );
+    }
+
+    #[test]
+    fn stripe_gateway_payload_helpers_own_json_decoding_contract() {
+        let payload = stripe_webhook_payload(r#"{"type":"customer.subscription.updated","data":{"object":{}}}"#)
+            .expect("webhook payload");
+        assert_eq!(payload["type"], "customer.subscription.updated");
+        assert!(format!("{}", stripe_webhook_payload("not-json").unwrap_err().kind).contains("webhook JSON"));
+
+        #[derive(Debug, Deserialize, PartialEq, Eq)]
+        struct TestStripeResponse {
+            id: String,
+        }
+
+        let response: TestStripeResponse = stripe_api_response_body(r#"{"id":"sub_123"}"#).expect("api response");
+        assert_eq!(response, TestStripeResponse { id: "sub_123".to_string() });
+        assert!(
+            format!("{}", stripe_api_response_body::<TestStripeResponse>("not-json").unwrap_err().kind)
+                .contains("failed to decode Stripe API response")
+        );
+        assert_eq!(
+            stripe_api_error_message(r#"{"error":{"message":"card declined"}}"#).as_deref(),
+            Some("card declined")
+        );
+        assert_eq!(stripe_api_error_message("not-json"), None);
+    }
+
+    #[test]
+    fn stripe_gateway_object_helpers_own_webhook_object_decoding_contract() {
+        let event = stripe_event(
+            serde_json::json!({"type":"invoice.updated","data":{"object":{"id":"in_123","status":"paid"}}}),
+        )
+        .expect("event");
+        assert_eq!(event.event_type, "invoice.updated");
+        assert_eq!(event.data.object["id"], "in_123");
+
+        #[derive(Debug, Deserialize, PartialEq, Eq)]
+        struct TestSubscriptionObject {
+            id: String,
+        }
+
+        let subscription: TestSubscriptionObject =
+            stripe_subscription_object_from_value(serde_json::json!({"id":"sub_123"})).expect("subscription object");
+        assert_eq!(subscription, TestSubscriptionObject { id: "sub_123".to_string() });
+
+        assert!(format!("{}", stripe_event(serde_json::json!({"data":{}})).unwrap_err().kind).contains("event shape"));
+        assert!(
+            format!(
+                "{}",
+                stripe_subscription_object_from_value::<TestSubscriptionObject>(serde_json::json!({}))
+                    .unwrap_err()
+                    .kind
+            )
+            .contains("subscription object")
+        );
+        assert!(
+            format!(
+                "{}",
+                stripe_invoice_object_from_value::<TestSubscriptionObject>(serde_json::json!({})).unwrap_err().kind
+            )
+            .contains("invoice object")
+        );
+    }
+
+    #[test]
     fn subscription_lifecycle_policy_requires_single_active_subscription_and_stripe_ids() {
         let subscription_id = Uuid::parse_str("11111111-1111-4111-8111-111111111111").unwrap();
 
+        assert!(
+            format!("{}", SubscriptionLifecyclePolicy::missing_active_subscription())
+                .contains("no active subscription")
+        );
         assert!(SubscriptionLifecyclePolicy::ensure_no_active_subscription(None).is_ok());
         assert!(SubscriptionLifecyclePolicy::ensure_no_active_subscription(Some(subscription_id)).is_err());
         assert_eq!(SubscriptionLifecyclePolicy::require_stripe_subscription_id(Some(" sub_123 ")).unwrap(), "sub_123");

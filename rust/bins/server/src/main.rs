@@ -554,8 +554,7 @@ async fn run_cli_auth_refresh_loop(
     mut shutdown: tokio::sync::watch::Receiver<bool>,
 ) {
     use agentforge_api::repositories::credential::cli::CliCredentialRepository;
-    use agentforge_api::routes::cli_auth_proxy::resolve_providers;
-    use agentforge_api::services::cli_auth_proxy::CliAuthProxyService;
+    use agentforge_api::services::cli_auth_proxy::{CliAuthProxyService, resolve_providers};
 
     const REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_secs(4 * 3600);
     const REFRESH_THRESHOLD: std::time::Duration = std::time::Duration::from_secs(3 * 3600);

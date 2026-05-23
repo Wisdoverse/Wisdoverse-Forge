@@ -22,8 +22,9 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AgentId, AppResult};
 
 use crate::health::AppState;
-use crate::repositories::plugin::PluginRepository;
-use crate::services::plugin::PluginService;
+use crate::services::plugin::{
+    PluginService, plugin_agent_plugins_response, plugin_data_response, plugin_delete_response,
+};
 
 /// Request body for creating a plugin.
 #[derive(Deserialize)]
@@ -43,14 +44,14 @@ pub struct UpdatePluginRequest {
 
 /// Build a PluginService from shared state.
 fn make_service(state: &AppState) -> PluginService {
-    PluginService::new(PluginRepository::new(state.pool.clone()))
+    state.plugin_service()
 }
 
 /// `GET /plugins` — list plugins.
 async fn list_plugins(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let plugins = service.list(&auth.scope).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": plugins })))
+    Ok(Json(plugin_data_response(plugins)))
 }
 
 /// `POST /plugins` — create a plugin.
@@ -64,7 +65,7 @@ async fn create_plugin(
         .create(&auth.scope, &req.name, req.version.as_deref(), req.description.as_deref(), req.config.as_ref())
         .await?;
     tracing::info!(org_id = %auth.scope.org_id(), plugin = %plugin.name, "Plugin created");
-    Ok(Json(serde_json::json!({ "ok": true, "data": plugin })))
+    Ok(Json(plugin_data_response(plugin)))
 }
 
 /// `GET /plugins/{id}` — get a plugin.
@@ -75,7 +76,7 @@ async fn get_plugin(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let plugin = service.get(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": plugin })))
+    Ok(Json(plugin_data_response(plugin)))
 }
 
 /// `PATCH /plugins/{id}` — update a plugin.
@@ -87,7 +88,7 @@ async fn update_plugin(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let plugin = service.update(&auth.scope, id, req.config.as_ref(), req.enabled).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": plugin })))
+    Ok(Json(plugin_data_response(plugin)))
 }
 
 /// `DELETE /plugins/{id}` — uninstall a plugin.
@@ -98,7 +99,7 @@ async fn delete_plugin(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     service.delete(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(plugin_delete_response()))
 }
 
 /// Body for `PUT /agents/{agent_id}/plugins/{plugin_id}` — set per-agent override.
@@ -116,7 +117,7 @@ async fn list_agent_plugins(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let rows = service.list_for_agent(&auth.scope, AgentId::from(agent_id)).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "plugins": rows })))
+    Ok(Json(plugin_agent_plugins_response(rows)))
 }
 
 async fn set_agent_plugin(
@@ -127,7 +128,7 @@ async fn set_agent_plugin(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     service.set_for_agent(&auth.scope, AgentId::from(agent_id), plugin_id, req.enabled, req.config.as_ref()).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(plugin_delete_response()))
 }
 
 async fn unset_agent_plugin(
@@ -137,7 +138,7 @@ async fn unset_agent_plugin(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     service.remove_for_agent(&auth.scope, AgentId::from(agent_id), plugin_id).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(plugin_delete_response()))
 }
 
 /// Build plugin routes sub-router.

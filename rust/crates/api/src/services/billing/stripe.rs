@@ -1,17 +1,23 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use agentforge_core::{AppConfig, AppResult, ErrorKind};
+use agentforge_core::{AppConfig, AppResult};
 use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};
 use hmac::{Hmac, Mac};
-use reqwest::{Client, Method, StatusCode};
+use reqwest::{Client, Method};
 use secrecy::ExposeSecret;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use sha2::Sha256;
 use uuid::Uuid;
+
+use crate::domain::billing::{
+    BillingStripeGatewayPolicy, StripeInvoiceSnapshot, StripeSubscriptionSnapshot, stripe_api_error_message,
+    stripe_api_response_body, stripe_invoice_object_from_value, stripe_subscription_object_from_value,
+    stripe_webhook_payload,
+};
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -51,31 +57,6 @@ pub struct PortalSession {
     pub url: String,
 }
 
-#[derive(Debug, Clone)]
-pub struct StripeSubscriptionSnapshot {
-    pub id: String,
-    pub customer_id: Option<String>,
-    pub status: String,
-    pub current_period_start: Option<DateTime<Utc>>,
-    pub current_period_end: Option<DateTime<Utc>>,
-    pub cancel_at_period_end: bool,
-    pub canceled_at: Option<DateTime<Utc>>,
-    pub metadata: BTreeMap<String, String>,
-    pub price_id: Option<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct StripeInvoiceSnapshot {
-    pub id: String,
-    pub customer_id: Option<String>,
-    pub subscription_id: Option<String>,
-    pub amount_cents: i32,
-    pub currency: String,
-    pub status: String,
-    pub paid_at: Option<DateTime<Utc>>,
-    pub created_at: DateTime<Utc>,
-}
-
 #[async_trait]
 pub trait BillingGateway: Send + Sync {
     fn is_configured(&self) -> bool;
@@ -108,18 +89,18 @@ impl BillingGateway for DisabledBillingGateway {
     }
 
     async fn create_checkout_session(&self, _input: CheckoutSessionInput) -> AppResult<CheckoutSession> {
-        Err(billing_not_configured().into())
+        Err(BillingStripeGatewayPolicy::not_configured().into())
     }
 
     async fn create_direct_subscription(
         &self,
         _input: DirectSubscriptionInput,
     ) -> AppResult<StripeSubscriptionSnapshot> {
-        Err(billing_not_configured().into())
+        Err(BillingStripeGatewayPolicy::not_configured().into())
     }
 
     async fn create_portal_session(&self, _customer_id: &str, _return_url: &str) -> AppResult<PortalSession> {
-        Err(billing_not_configured().into())
+        Err(BillingStripeGatewayPolicy::not_configured().into())
     }
 
     async fn cancel_subscription(
@@ -127,15 +108,15 @@ impl BillingGateway for DisabledBillingGateway {
         _subscription_id: &str,
         _immediately: bool,
     ) -> AppResult<StripeSubscriptionSnapshot> {
-        Err(billing_not_configured().into())
+        Err(BillingStripeGatewayPolicy::not_configured().into())
     }
 
     async fn resume_subscription(&self, _subscription_id: &str) -> AppResult<StripeSubscriptionSnapshot> {
-        Err(billing_not_configured().into())
+        Err(BillingStripeGatewayPolicy::not_configured().into())
     }
 
     fn verify_webhook_payload(&self, _payload: &str, _signature: &str) -> AppResult<Value> {
-        Err(billing_not_configured().into())
+        Err(BillingStripeGatewayPolicy::not_configured().into())
     }
 }
 
@@ -163,14 +144,14 @@ impl StripeBillingClient {
             .as_ref()
             .map(|value| value.expose_secret().trim().to_string())
             .filter(|value| !value.is_empty())
-            .ok_or_else(billing_not_configured)?;
+            .ok_or_else(BillingStripeGatewayPolicy::not_configured)?;
         let webhook_secret = config
             .stripe
             .stripe_webhook_secret
             .as_ref()
             .map(|value| value.expose_secret().trim().to_string())
             .filter(|value| !value.is_empty())
-            .ok_or_else(billing_not_configured)?;
+            .ok_or_else(BillingStripeGatewayPolicy::not_configured)?;
 
         Ok(Self { http: Client::new(), secret_key, webhook_secret, api_base: STRIPE_API_BASE.to_string() })
     }
@@ -189,7 +170,7 @@ impl StripeBillingClient {
             .form(&params)
             .send()
             .await
-            .map_err(|err| ErrorKind::Unavailable(format!("Stripe API request failed: {err}")))?;
+            .map_err(BillingStripeGatewayPolicy::api_request_failed)?;
 
         parse_stripe_response(response).await
     }
@@ -202,7 +183,7 @@ impl StripeBillingClient {
             .bearer_auth(&self.secret_key)
             .send()
             .await
-            .map_err(|err| ErrorKind::Unavailable(format!("Stripe API request failed: {err}")))?;
+            .map_err(BillingStripeGatewayPolicy::api_request_failed)?;
 
         parse_stripe_response(response).await
     }
@@ -236,9 +217,10 @@ impl BillingGateway for StripeBillingClient {
         params.push(("subscription_data[metadata][billing_cycle]".to_string(), input.billing_cycle));
 
         let session: StripeCheckoutSession = self.request_form(Method::POST, "/v1/checkout/sessions", params).await?;
-        let url = session.url.filter(|value| !value.trim().is_empty()).ok_or_else(|| {
-            ErrorKind::Unavailable("Stripe checkout session did not include a redirect URL".to_string())
-        })?;
+        let url = session
+            .url
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(BillingStripeGatewayPolicy::missing_checkout_redirect_url)?;
 
         Ok(CheckoutSession { id: session.id, url })
     }
@@ -318,45 +300,20 @@ impl BillingGateway for StripeBillingClient {
 
     fn verify_webhook_payload(&self, payload: &str, signature: &str) -> AppResult<Value> {
         verify_stripe_signature(payload, signature, &self.webhook_secret)?;
-        serde_json::from_str(payload)
-            .map_err(|err| ErrorKind::Validation(format!("invalid Stripe webhook JSON payload: {err}")).into())
+        stripe_webhook_payload(payload)
     }
 }
 
 async fn parse_stripe_response<T: DeserializeOwned>(response: reqwest::Response) -> AppResult<T> {
     let status = response.status();
-    let body = response
-        .text()
-        .await
-        .map_err(|err| ErrorKind::Unavailable(format!("failed to read Stripe API response: {err}")))?;
+    let body = response.text().await.map_err(BillingStripeGatewayPolicy::api_response_read_failed)?;
 
     if !status.is_success() {
-        let message = stripe_error_message(&body).unwrap_or_else(|| format!("Stripe API returned {status}"));
-        return Err(map_stripe_status(status, message).into());
+        let message = stripe_api_error_message(&body).unwrap_or_else(|| format!("Stripe API returned {status}"));
+        return Err(BillingStripeGatewayPolicy::api_error_from_status(status.as_u16(), message).into());
     }
 
-    serde_json::from_str(&body)
-        .map_err(|err| ErrorKind::Unavailable(format!("failed to decode Stripe API response: {err}")).into())
-}
-
-fn map_stripe_status(status: StatusCode, message: String) -> ErrorKind {
-    match status {
-        StatusCode::BAD_REQUEST => ErrorKind::Validation(message),
-        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
-            ErrorKind::Unavailable("Stripe credentials rejected".to_string())
-        }
-        StatusCode::CONFLICT => ErrorKind::Conflict(message),
-        StatusCode::TOO_MANY_REQUESTS
-        | StatusCode::INTERNAL_SERVER_ERROR
-        | StatusCode::BAD_GATEWAY
-        | StatusCode::SERVICE_UNAVAILABLE
-        | StatusCode::GATEWAY_TIMEOUT => ErrorKind::Unavailable(format!("Stripe API unavailable: {message}")),
-        _ => ErrorKind::Unavailable(message),
-    }
-}
-
-fn stripe_error_message(body: &str) -> Option<String> {
-    serde_json::from_str::<StripeErrorEnvelope>(body).ok().and_then(|envelope| envelope.error.message)
+    stripe_api_response_body(&body)
 }
 
 fn push_billing_metadata(
@@ -386,12 +343,12 @@ fn verify_stripe_signature(payload: &str, signature: &str, webhook_secret: &str)
         }
     }
 
-    let timestamp = timestamp.ok_or_else(|| ErrorKind::Unauthorized)?;
+    let timestamp = timestamp.ok_or_else(BillingStripeGatewayPolicy::invalid_webhook_signature)?;
     if (Utc::now().timestamp() - timestamp).abs() > WEBHOOK_TOLERANCE_SECONDS {
-        return Err(ErrorKind::Unauthorized.into());
+        return Err(BillingStripeGatewayPolicy::invalid_webhook_signature().into());
     }
     if signatures.is_empty() {
-        return Err(ErrorKind::Unauthorized.into());
+        return Err(BillingStripeGatewayPolicy::invalid_webhook_signature().into());
     }
 
     let signed_payload = format!("{timestamp}.{payload}");
@@ -400,46 +357,27 @@ fn verify_stripe_signature(payload: &str, signature: &str, webhook_secret: &str)
             continue;
         };
         let mut mac = HmacSha256::new_from_slice(webhook_secret.as_bytes())
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("HMAC init failed: {err}")))?;
+            .map_err(BillingStripeGatewayPolicy::hmac_init_failed)?;
         mac.update(signed_payload.as_bytes());
         if mac.verify_slice(&expected).is_ok() {
             return Ok(());
         }
     }
 
-    Err(ErrorKind::Unauthorized.into())
+    Err(BillingStripeGatewayPolicy::invalid_webhook_signature().into())
 }
 
 fn unix_to_datetime(seconds: Option<i64>) -> Option<DateTime<Utc>> {
     seconds.and_then(|value| Utc.timestamp_opt(value, 0).single())
 }
 
-pub fn stripe_event(payload: Value) -> AppResult<StripeEvent> {
-    serde_json::from_value(payload)
-        .map_err(|err| ErrorKind::Validation(format!("invalid Stripe webhook event shape: {err}")).into())
-}
-
-#[derive(Debug, Deserialize)]
-pub struct StripeEvent {
-    #[serde(rename = "type")]
-    pub event_type: String,
-    pub data: StripeEventData,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct StripeEventData {
-    pub object: Value,
-}
-
 pub fn parse_subscription_object(value: Value) -> AppResult<StripeSubscriptionSnapshot> {
-    let subscription: StripeSubscriptionApi = serde_json::from_value(value)
-        .map_err(|err| ErrorKind::Validation(format!("invalid Stripe subscription object: {err}")))?;
+    let subscription: StripeSubscriptionApi = stripe_subscription_object_from_value(value)?;
     Ok(subscription.into_snapshot())
 }
 
 pub fn parse_invoice_object(value: Value) -> AppResult<StripeInvoiceSnapshot> {
-    let invoice: StripeInvoiceApi = serde_json::from_value(value)
-        .map_err(|err| ErrorKind::Validation(format!("invalid Stripe invoice object: {err}")))?;
+    let invoice: StripeInvoiceApi = stripe_invoice_object_from_value(value)?;
     Ok(invoice.into_snapshot())
 }
 
@@ -575,25 +513,10 @@ impl ExpandableId<StripeSubscriptionApi> {
     }
 }
 
-#[derive(Debug, Deserialize)]
-struct StripeErrorEnvelope {
-    error: StripeErrorBody,
-}
-
-#[derive(Debug, Deserialize)]
-struct StripeErrorBody {
-    message: Option<String>,
-}
-
-fn billing_not_configured() -> ErrorKind {
-    ErrorKind::Unavailable(
-        "Stripe billing is not configured; refusing to change local subscription state without Stripe confirmation"
-            .to_string(),
-    )
-}
-
 #[cfg(test)]
 mod tests {
+    use agentforge_core::ErrorKind;
+
     use super::*;
 
     fn signed_header(payload: &str, secret: &str, timestamp: i64) -> String {

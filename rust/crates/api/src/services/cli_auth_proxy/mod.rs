@@ -27,13 +27,23 @@ mod refresh_classifier;
 pub use crate::domain::cli_auth_proxy::{
     CallbackMode, ProviderInfo, ProviderStatus, RefreshSummary, RevokedCliCredential,
 };
+pub(crate) use crate::domain::cli_auth_proxy::{
+    CliAuthCredentialPayloadRead, CliAuthProxyPolicy, CliAuthTokenFileInput, TokenResponse,
+    cli_auth_auth_json_from_str, cli_auth_authorize_response, cli_auth_authorize_url, cli_auth_callback_idp_error_html,
+    cli_auth_callback_missing_params_html, cli_auth_callback_service_error_html, cli_auth_callback_success_html,
+    cli_auth_connected_response, cli_auth_credential_decrypt_failed_reason, cli_auth_credential_payload_from_plain,
+    cli_auth_credential_payload_invalid_reason, cli_auth_disconnected_response, cli_auth_encryption_key_missing_reason,
+    cli_auth_providers_response, cli_auth_state_entry_from_payload, cli_auth_state_entry_payload,
+    cli_auth_statuses_response, cli_auth_token_file_payload, cli_auth_token_files_from_plain,
+    extract_chatgpt_account_id, parse_callback_input,
+};
 pub use refresh_classifier::{RefreshErrorKind, classify_refresh_failure};
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use agentforge_core::{AppResult, CliToolKind, ErrorKind, TenantScope, crypto};
+use agentforge_core::{AppConfig, AppResult, CliToolKind, TenantScope, crypto};
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use rand::RngCore;
@@ -41,6 +51,7 @@ use redis::AsyncCommands;
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
+use sqlx::PgPool;
 use tokio::sync::Mutex as AsyncMutex;
 use tokio::sync::RwLock;
 
@@ -84,6 +95,43 @@ pub struct CliAuthProxyProvider {
     /// `manual` (user pastes callback URL) vs `server` (backend hosts the
     /// redirect). Only `manual` is wired for now.
     pub callback_mode: CallbackMode,
+}
+
+/// Build the deployment's CLI auth provider registry from static defaults plus
+/// operator overrides.
+pub fn resolve_providers(config: &AppConfig) -> Vec<CliAuthProxyProvider> {
+    let mut openai = CliAuthProxyProvider {
+        name: "openai".to_string(),
+        display_name: "OpenAI (Codex)".to_string(),
+        cli_tool: "codex".to_string(),
+        client_id: "app_EMoamEEZ73f0CkXaXp7hrann".to_string(),
+        client_secret: None,
+        auth_endpoint: "https://auth.openai.com/oauth/authorize".to_string(),
+        token_endpoint: "https://auth.openai.com/oauth/token".to_string(),
+        redirect_uri: "http://localhost:1455/auth/callback".to_string(),
+        scope: "openid profile email offline_access".to_string(),
+        callback_mode: CallbackMode::Manual,
+    };
+    if let Some(cid) = config.cli_auth_proxy_openai_client_id.as_deref().filter(|s| !s.is_empty()) {
+        openai.client_id = cid.to_string();
+        openai.client_secret = config
+            .cli_auth_proxy_openai_client_secret
+            .as_ref()
+            .map(|s| s.expose_secret().to_string())
+            .filter(|s| !s.is_empty())
+            .map(SecretString::from);
+        if let Some(ep) = config.cli_auth_proxy_openai_auth_endpoint.as_deref().filter(|s| !s.is_empty()) {
+            openai.auth_endpoint = ep.to_string();
+        }
+        if let Some(ep) = config.cli_auth_proxy_openai_token_endpoint.as_deref().filter(|s| !s.is_empty()) {
+            openai.token_endpoint = ep.to_string();
+        }
+        if let Some(app_url) = config.app_url.as_deref().filter(|s| !s.is_empty()) {
+            openai.redirect_uri = format!("{}/api/v1/cli-auth-proxy/openai/callback", app_url.trim_end_matches('/'));
+            openai.callback_mode = CallbackMode::Server;
+        }
+    }
+    vec![openai]
 }
 
 /// Outcome of one refresh attempt — dispatched by `refresh_stale`.
@@ -130,22 +178,18 @@ fn credential_connection_status(
 
     if let Some(key) = encryption_key {
         match crypto::decrypt_base64(key, &enc) {
-            Ok(plain) => match serde_json::from_str::<serde_json::Value>(&plain) {
-                Ok(files) => {
-                    if let Some(auth_json) = files.get("auth.json").and_then(|v| v.as_str())
-                        && let Ok(parsed) = serde_json::from_str::<serde_json::Value>(auth_json)
-                    {
-                        last_refresh = parsed.get("last_refresh").and_then(|v| v.as_str()).map(str::to_string);
-                    }
+            Ok(plain) => match cli_auth_credential_payload_from_plain(&plain) {
+                CliAuthCredentialPayloadRead::Usable { last_refresh: refresh } => {
+                    last_refresh = refresh;
                 }
-                Err(err) => {
+                CliAuthCredentialPayloadRead::InvalidPayload { error } => {
                     tracing::warn!(
-                        error = %err,
+                        error = %error,
                         user_id = %scope.user_id().as_uuid(),
                         cli_tool,
                         "stored Container CLI credentials decrypted but are not a file-map JSON object"
                     );
-                    unusable_reason = Some("credential_payload_invalid".to_string());
+                    unusable_reason = Some(cli_auth_credential_payload_invalid_reason().to_string());
                 }
             },
             Err(err) => {
@@ -155,11 +199,11 @@ fn credential_connection_status(
                     cli_tool,
                     "stored Container CLI credentials cannot be decrypted for status"
                 );
-                unusable_reason = Some("credential_decrypt_failed".to_string());
+                unusable_reason = Some(cli_auth_credential_decrypt_failed_reason().to_string());
             }
         }
     } else {
-        unusable_reason = Some("encryption_key_missing".to_string());
+        unusable_reason = Some(cli_auth_encryption_key_missing_reason().to_string());
     }
 
     let revoked_at = revoked_at.map(|d| d.to_rfc3339());
@@ -186,22 +230,6 @@ struct StateEntry {
     code_verifier: SecretString,
     provider: String,
     user_id: uuid::Uuid,
-}
-
-/// Raw token response from the provider's token endpoint.
-///
-/// Tokens are wrapped in `SecretString` so the derived `Debug` and any
-/// accidental `tracing::debug!(?tokens)` logs redact the material. `secrecy`'s
-/// `serde` feature provides `Deserialize` directly — we never serialise this
-/// type (the downstream `store_tokens` path explicitly exposes then encrypts).
-#[derive(Debug, Deserialize)]
-struct TokenResponse {
-    id_token: Option<SecretString>,
-    access_token: SecretString,
-    refresh_token: Option<SecretString>,
-    #[allow(dead_code)]
-    expires_in: Option<u64>,
-    account_id: Option<String>,
 }
 
 /// In-memory PKCE state store — used when Redis is not configured. Must live
@@ -254,14 +282,12 @@ impl StateStore {
         match self {
             Self::Redis(client) => {
                 let key = redis_state_key(state);
-                let value = serde_json::to_string(&entry).expect("StateEntry is serialisable");
+                let value = cli_auth_state_entry_payload(&entry)?;
                 let mut guard = client.write().await;
-                let conn = guard
-                    .connection_mut()
-                    .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("Redis connection unavailable")))?;
+                let conn = guard.connection_mut().ok_or_else(CliAuthProxyPolicy::redis_connection_unavailable)?;
                 let _: () = conn.set_ex(&key, &value, STATE_TTL_SECS).await.map_err(|err| {
                     tracing::warn!(error = %err, "OAuth state Redis SET_EX failed — propagating as Internal");
-                    ErrorKind::Internal(anyhow::anyhow!("Redis SET_EX failed: {err}"))
+                    CliAuthProxyPolicy::redis_set_failed(err)
                 })?;
                 Ok(())
             }
@@ -277,20 +303,13 @@ impl StateStore {
             Self::Redis(client) => {
                 let key = redis_state_key(state);
                 let mut guard = client.write().await;
-                let conn = guard
-                    .connection_mut()
-                    .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("Redis connection unavailable")))?;
+                let conn = guard.connection_mut().ok_or_else(CliAuthProxyPolicy::redis_connection_unavailable)?;
                 let raw: Option<String> = redis::cmd("GETDEL").arg(&key).query_async(conn).await.map_err(|err| {
                     tracing::warn!(error = %err, "OAuth state Redis GETDEL failed — propagating as Internal");
-                    ErrorKind::Internal(anyhow::anyhow!("Redis GETDEL failed: {err}"))
+                    CliAuthProxyPolicy::redis_getdel_failed(err)
                 })?;
                 match raw {
-                    Some(value) => {
-                        let entry = serde_json::from_str::<StateEntry>(&value).map_err(|err| {
-                            ErrorKind::Internal(anyhow::anyhow!("corrupt StateEntry in Redis: {err}"))
-                        })?;
-                        Ok(Some(entry))
-                    }
+                    Some(value) => Ok(Some(cli_auth_state_entry_from_payload::<StateEntry>(&value)?)),
                     None => Ok(None),
                 }
             }
@@ -309,6 +328,31 @@ pub struct CliAuthProxyService {
 }
 
 impl CliAuthProxyService {
+    pub fn from_pool_and_app_config(
+        pool: PgPool,
+        config: &AppConfig,
+        encryption_key: Option<[u8; 32]>,
+        redis: Arc<RwLock<RedisClient>>,
+        memory_store: Arc<MemoryStateStore>,
+    ) -> Self {
+        Self::from_app_config(config, CliCredentialRepository::new(pool), encryption_key, redis, memory_store)
+    }
+
+    /// Build the deployment-scoped service wiring used by HTTP routes and
+    /// workers. Runtime concerns stay here so handlers don't know how the
+    /// provider registry, state-store backend, or revoke threshold are chosen.
+    pub fn from_app_config(
+        config: &AppConfig,
+        cli_creds: CliCredentialRepository,
+        encryption_key: Option<[u8; 32]>,
+        redis: Arc<RwLock<RedisClient>>,
+        memory_store: Arc<MemoryStateStore>,
+    ) -> Self {
+        let store =
+            if config.redis_url.is_some() { StateStore::Redis(redis) } else { StateStore::Memory(memory_store) };
+        Self::new(resolve_providers(config), cli_creds, encryption_key, store, config.cli_auth_proxy_revoke_threshold)
+    }
+
     /// Constructor used by per-request handlers. The caller picks the
     /// `StateStore` variant based on whether Redis is configured — in
     /// multi-replica deployments the `Redis` variant MUST be used so that
@@ -373,9 +417,7 @@ impl CliAuthProxyService {
             ("code_challenge", challenge.as_str()),
             ("code_challenge_method", "S256"),
         ];
-        let query = serde_urlencoded::to_string(&params)
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("urlencode: {err}")))?;
-        Ok(format!("{}?{}", provider.auth_endpoint, query))
+        cli_auth_authorize_url(&provider.auth_endpoint, &params)
     }
 
     /// Per-user connection status. `connected=true` only when a non-revoked row
@@ -407,23 +449,15 @@ impl CliAuthProxyService {
     /// - `code#state`
     /// - query string (`code=...&state=...`)
     pub async fn complete_manual(&self, scope: &TenantScope, provider_name: &str, input: &str) -> AppResult<()> {
-        let (code, state) = parse_callback_input(input).ok_or_else(|| {
-            ErrorKind::Validation("could not parse authorization code from input. Paste the full callback URL.".into())
-        })?;
+        let (code, state) =
+            parse_callback_input(input).ok_or_else(CliAuthProxyPolicy::invalid_manual_callback_input)?;
 
-        let entry = self
-            .take_state(&state)
-            .await?
-            .ok_or_else(|| ErrorKind::Validation("invalid or expired OAuth state — re-run authorize".into()))?;
+        let entry = self.take_state(&state).await?.ok_or_else(CliAuthProxyPolicy::invalid_or_expired_manual_state)?;
         if entry.provider != provider_name {
-            return Err(ErrorKind::Validation(format!(
-                "provider mismatch: stored {} vs requested {provider_name}",
-                entry.provider
-            ))
-            .into());
+            return Err(CliAuthProxyPolicy::provider_mismatch(&entry.provider, provider_name).into());
         }
         if entry.user_id != scope.user_id().as_uuid() {
-            return Err(ErrorKind::Validation("OAuth state belongs to a different user".into()).into());
+            return Err(CliAuthProxyPolicy::state_user_mismatch().into());
         }
 
         let provider = self.require_provider(provider_name)?;
@@ -443,16 +477,9 @@ impl CliAuthProxyService {
     /// the user: the `StateEntry` stored at authorize-time carries `user_id`,
     /// which we upsert against. Matches legacy `handleCallback`.
     pub async fn handle_server_callback(&self, provider_name: &str, code: &str, state: &str) -> AppResult<()> {
-        let entry = self
-            .take_state(state)
-            .await?
-            .ok_or_else(|| ErrorKind::Validation("invalid or expired OAuth state".into()))?;
+        let entry = self.take_state(state).await?.ok_or_else(CliAuthProxyPolicy::invalid_or_expired_state)?;
         if entry.provider != provider_name {
-            return Err(ErrorKind::Validation(format!(
-                "provider mismatch: stored {} vs requested {provider_name}",
-                entry.provider
-            ))
-            .into());
+            return Err(CliAuthProxyPolicy::provider_mismatch(&entry.provider, provider_name).into());
         }
         let provider = self.require_provider(provider_name)?;
         let tokens = self.exchange_code(provider, code, entry.code_verifier.expose_secret()).await?;
@@ -625,8 +652,7 @@ impl CliAuthProxyService {
                 RefreshErrorKind::Transient(msg) => RefreshOutcome::OtherFailure(msg),
             });
         }
-        let mut tokens: TokenResponse =
-            resp.json().await.map_err(|err| ErrorKind::Internal(anyhow::anyhow!("refresh invalid JSON: {err}")))?;
+        let mut tokens: TokenResponse = resp.json().await.map_err(CliAuthProxyPolicy::refresh_invalid_json)?;
         // Preserve existing refresh_token if the provider didn't issue a new one.
         if tokens.refresh_token.is_none() {
             tokens.refresh_token = Some(SecretString::from(refresh_token.to_string()));
@@ -642,33 +668,18 @@ impl CliAuthProxyService {
         provider: &CliAuthProxyProvider,
         tokens: &TokenResponse,
     ) -> AppResult<()> {
-        let key = self
-            .encryption_key
-            .as_ref()
-            .ok_or_else(|| ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured".into()))?;
+        let key = self.encryption_key.as_ref().ok_or_else(CliAuthProxyPolicy::missing_refresh_storage_key)?;
         let account_id =
             tokens.account_id.clone().or_else(|| extract_chatgpt_account_id(tokens.access_token.expose_secret()));
-        let mut auth_tokens = serde_json::Map::new();
-        if let Some(id) = &tokens.id_token {
-            auth_tokens.insert("id_token".into(), serde_json::Value::String(id.expose_secret().to_string()));
-        }
-        auth_tokens
-            .insert("access_token".into(), serde_json::Value::String(tokens.access_token.expose_secret().to_string()));
-        if let Some(rt) = &tokens.refresh_token {
-            auth_tokens.insert("refresh_token".into(), serde_json::Value::String(rt.expose_secret().to_string()));
-        }
-        if let Some(aid) = account_id {
-            auth_tokens.insert("account_id".into(), serde_json::Value::String(aid));
-        }
-        let auth_json = serde_json::json!({
-            "tokens": auth_tokens,
-            "last_refresh": chrono::Utc::now().to_rfc3339(),
+        let payload = cli_auth_token_file_payload(CliAuthTokenFileInput {
+            id_token: tokens.id_token.as_ref().map(|value| value.expose_secret()),
+            access_token: tokens.access_token.expose_secret(),
+            refresh_token: tokens.refresh_token.as_ref().map(|value| value.expose_secret()),
+            account_id: account_id.as_deref(),
+            last_refresh: chrono::Utc::now(),
         });
-        let file_map = serde_json::json!({
-            "auth.json": serde_json::to_string(&auth_json).map_err(|err| ErrorKind::Internal(anyhow::anyhow!("serialize auth.json: {err}")))?,
-        });
-        let ciphertext = crypto::encrypt_base64(key, &serde_json::to_string(&file_map).expect("Value serialises"))
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encrypt refreshed tokens: {err}")))?;
+        let ciphertext =
+            crypto::encrypt_base64(key, &payload).map_err(CliAuthProxyPolicy::encrypt_refreshed_tokens_failed)?;
         self.cli_creds.upsert_encrypted_by_user_id(user_id, &provider.cli_tool, &ciphertext).await
     }
 
@@ -677,9 +688,7 @@ impl CliAuthProxyService {
     // -----------------------------------------------------------------------
 
     fn require_provider(&self, name: &str) -> AppResult<&CliAuthProxyProvider> {
-        self.providers
-            .get(name)
-            .ok_or_else(|| ErrorKind::Validation(format!("unknown Container CLI auth proxy provider: {name}")).into())
+        self.providers.get(name).ok_or_else(|| CliAuthProxyPolicy::unknown_provider(name).into())
     }
 
     async fn store_state(&self, state: &str, entry: StateEntry) -> AppResult<()> {
@@ -712,16 +721,13 @@ impl CliAuthProxyService {
             .form(&form)
             .send()
             .await
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("token exchange request failed: {err}")))?;
+            .map_err(CliAuthProxyPolicy::token_exchange_request_failed)?;
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
-            return Err(ErrorKind::Validation(format!("token exchange failed: HTTP {status} — {body}")).into());
+            return Err(CliAuthProxyPolicy::token_exchange_failed(status, &body).into());
         }
-        let tokens = resp
-            .json::<TokenResponse>()
-            .await
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("token exchange returned invalid JSON: {err}")))?;
+        let tokens = resp.json::<TokenResponse>().await.map_err(CliAuthProxyPolicy::token_exchange_invalid_json)?;
         Ok(tokens)
     }
 
@@ -731,9 +737,7 @@ impl CliAuthProxyService {
         provider: &CliAuthProxyProvider,
         tokens: &TokenResponse,
     ) -> AppResult<()> {
-        let key = self.encryption_key.as_ref().ok_or_else(|| {
-            ErrorKind::Validation("LLM_ENCRYPTION_KEY is not configured — refusing to store plaintext tokens".into())
-        })?;
+        let key = self.encryption_key.as_ref().ok_or_else(CliAuthProxyPolicy::missing_token_storage_key)?;
 
         // Codex: pull chatgpt_account_id out of the access-token JWT (no
         // signature check — the provider already signed it and we only care
@@ -742,28 +746,14 @@ impl CliAuthProxyService {
         let account_id =
             tokens.account_id.clone().or_else(|| extract_chatgpt_account_id(tokens.access_token.expose_secret()));
 
-        let mut auth_tokens = serde_json::Map::new();
-        if let Some(id) = &tokens.id_token {
-            auth_tokens.insert("id_token".into(), serde_json::Value::String(id.expose_secret().to_string()));
-        }
-        auth_tokens
-            .insert("access_token".into(), serde_json::Value::String(tokens.access_token.expose_secret().to_string()));
-        if let Some(rt) = &tokens.refresh_token {
-            auth_tokens.insert("refresh_token".into(), serde_json::Value::String(rt.expose_secret().to_string()));
-        }
-        if let Some(aid) = account_id {
-            auth_tokens.insert("account_id".into(), serde_json::Value::String(aid));
-        }
-
-        let auth_json = serde_json::json!({
-            "tokens": auth_tokens,
-            "last_refresh": chrono::Utc::now().to_rfc3339(),
+        let payload = cli_auth_token_file_payload(CliAuthTokenFileInput {
+            id_token: tokens.id_token.as_ref().map(|value| value.expose_secret()),
+            access_token: tokens.access_token.expose_secret(),
+            refresh_token: tokens.refresh_token.as_ref().map(|value| value.expose_secret()),
+            account_id: account_id.as_deref(),
+            last_refresh: chrono::Utc::now(),
         });
-        let file_map = serde_json::json!({
-            "auth.json": serde_json::to_string(&auth_json).map_err(|err| ErrorKind::Internal(anyhow::anyhow!("serialize auth.json: {err}")))?,
-        });
-        let ciphertext = crypto::encrypt_base64(key, &serde_json::to_string(&file_map).expect("Value serialises"))
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("encrypt tokens: {err}")))?;
+        let ciphertext = crypto::encrypt_base64(key, &payload).map_err(CliAuthProxyPolicy::encrypt_tokens_failed)?;
         self.cli_creds.upsert_encrypted(scope, &provider.cli_tool, &ciphertext).await
     }
 }
@@ -783,16 +773,13 @@ fn needs_refresh(
     now: chrono::DateTime<chrono::Utc>,
     threshold: Duration,
 ) -> AppResult<NeedsRefresh> {
-    let plain = crypto::decrypt_base64(key, ciphertext)
-        .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("decrypt: {err}")))?;
-    let files: serde_json::Value =
-        serde_json::from_str(&plain).map_err(|err| ErrorKind::Internal(anyhow::anyhow!("files JSON: {err}")))?;
+    let plain = crypto::decrypt_base64(key, ciphertext).map_err(CliAuthProxyPolicy::decrypt_failed)?;
+    let files = cli_auth_token_files_from_plain(&plain)?;
     let auth_json_str = match files.get("auth.json").and_then(|v| v.as_str()) {
         Some(s) => s,
         None => return Ok(NeedsRefresh::NoRefreshToken),
     };
-    let auth: serde_json::Value =
-        serde_json::from_str(auth_json_str).map_err(|err| ErrorKind::Internal(anyhow::anyhow!("auth.json: {err}")))?;
+    let auth = cli_auth_auth_json_from_str(auth_json_str)?;
     let refresh_token = match auth.pointer("/tokens/refresh_token").and_then(|v| v.as_str()) {
         Some(s) => SecretString::from(s.to_string()),
         None => return Ok(NeedsRefresh::NoRefreshToken),
@@ -831,79 +818,6 @@ fn generate_state() -> String {
 
 fn redis_state_key(state: &str) -> String {
     format!("cli-auth-proxy:state:{state}")
-}
-
-/// Legacy TS supported three paste formats; we match verbatim so UI hints
-/// remain identical:
-/// - Full callback URL
-/// - `code#state` (Codex CLI's own shortcut format)
-/// - Bare query string
-pub(crate) fn parse_callback_input(raw: &str) -> Option<(String, String)> {
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-    // Format 1: URL with query
-    if let Ok(url) = url::Url::parse(trimmed) {
-        let mut code = None;
-        let mut state = None;
-        for (k, v) in url.query_pairs() {
-            match k.as_ref() {
-                "code" => code = Some(v.into_owned()),
-                "state" => state = Some(v.into_owned()),
-                _ => {}
-            }
-        }
-        if let (Some(c), Some(s)) = (code, state) {
-            return Some((c, s));
-        }
-    }
-    // Format 2: code#state (no `=` means it's not a query string)
-    if trimmed.contains('#')
-        && !trimmed.contains('=')
-        && let Some((code, state)) = trimmed.split_once('#')
-        && !code.is_empty()
-        && !state.is_empty()
-    {
-        return Some((code.to_string(), state.to_string()));
-    }
-    // Format 3: bare query string. Percent-decode via `form_urlencoded` so a
-    // code like `abc%2Bdef` survives — the previous manual `split('=')` was
-    // keeping raw percent-encoded bytes and breaking token exchange for any
-    // code containing `+` / `/` / `=` padding.
-    let qs = trimmed.strip_prefix('?').unwrap_or(trimmed);
-    let mut code = None;
-    let mut state = None;
-    for (k, v) in url::form_urlencoded::parse(qs.as_bytes()) {
-        match k.as_ref() {
-            "code" => code = Some(v.into_owned()),
-            "state" => state = Some(v.into_owned()),
-            _ => {}
-        }
-    }
-    if let (Some(c), Some(s)) = (code, state) {
-        return Some((c, s));
-    }
-    None
-}
-
-/// Extract `chatgpt_account_id` from the `https://api.openai.com/auth` claim
-/// of an OpenAI access-token JWT. Returns `None` if the token is malformed or
-/// missing the claim — we never fail the whole flow on extraction error, the
-/// stored `auth.json` just won't have the hint.
-pub(crate) fn extract_chatgpt_account_id(access_token: &str) -> Option<String> {
-    let parts: Vec<&str> = access_token.splitn(3, '.').collect();
-    if parts.len() < 2 {
-        return None;
-    }
-    let payload_b64 = parts[1];
-    let payload = URL_SAFE_NO_PAD.decode(payload_b64).ok()?;
-    let value: serde_json::Value = serde_json::from_slice(&payload).ok()?;
-    value
-        .get("https://api.openai.com/auth")
-        .and_then(|claim| claim.get("chatgpt_account_id"))
-        .and_then(|v| v.as_str())
-        .map(str::to_string)
 }
 
 /// Describe + prime metrics emitted by this module. Call once at startup

@@ -1,9 +1,11 @@
 //! License repository — database queries for the licenses table.
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::License;
 use sqlx::PgPool;
 use uuid::Uuid;
+
+use crate::domain::license::LicenseRepositoryPolicy;
 
 /// Database access layer for licenses.
 pub struct LicenseRepository {
@@ -38,7 +40,7 @@ impl LicenseRepository {
         .bind(scope.org_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("license {id}")).into())
+        .ok_or_else(|| LicenseRepositoryPolicy::license_not_found(id))
     }
 
     /// Find a license by key (cross-org for validation).
@@ -62,6 +64,6 @@ impl LicenseRepository {
         .bind(scope.org_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("license with key '{license_key}'")).into())
+        .ok_or_else(|| LicenseRepositoryPolicy::license_key_not_found(license_key))
     }
 }

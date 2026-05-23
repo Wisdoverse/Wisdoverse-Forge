@@ -11,61 +11,20 @@ use axum::extract::{FromRef, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use metrics_exporter_prometheus::PrometheusHandle;
-use serde_json::{Value, json};
 use sqlx::PgPool;
 use tokio::sync::RwLock;
 
 use agentforge_auth::JwtManager;
-use agentforge_core::{AgentId, AppConfig, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AgentId, AppConfig, AppResult, TenantScope};
 use agentforge_infra::{NatsClient, ObjectStorageClient, RedisClient};
 use agentforge_platform::DockerClient;
 
+pub use crate::domain::context::{ContextFeature, ContextFeatureFlags};
+use crate::domain::system::{HealthDependencyChecks, health_response};
 use crate::mcp::McpAgentTools;
-use crate::repositories::feature_flag::FeatureFlagRepository;
 use crate::services::billing::BillingGateway;
 use crate::services::email::EmailSender;
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct ContextFeatureFlags {
-    pub governance: bool,
-    pub preview: bool,
-    pub injection: bool,
-    pub analytics: bool,
-}
-
-impl ContextFeatureFlags {
-    pub const fn all_enabled() -> Self {
-        Self { governance: true, preview: true, injection: true, analytics: true }
-    }
-
-    pub const fn enabled(self, feature: ContextFeature) -> bool {
-        match feature {
-            ContextFeature::Governance => self.governance,
-            ContextFeature::Preview => self.preview,
-            ContextFeature::Injection => self.injection,
-            ContextFeature::Analytics => self.analytics,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ContextFeature {
-    Governance,
-    Preview,
-    Injection,
-    Analytics,
-}
-
-impl ContextFeature {
-    pub const fn key(self) -> &'static str {
-        match self {
-            ContextFeature::Governance => "context.governance.enabled",
-            ContextFeature::Preview => "context.preview.enabled",
-            ContextFeature::Injection => "context.injection.enabled",
-            ContextFeature::Analytics => "context.analytics.enabled",
-        }
-    }
-}
+use crate::services::system::HealthReadinessService;
 
 /// Shared application state passed to all route handlers.
 #[derive(Clone)]
@@ -138,16 +97,7 @@ pub struct AppState {
 
 impl AppState {
     pub async fn context_feature_enabled(&self, scope: &TenantScope, feature: ContextFeature) -> AppResult<bool> {
-        let deployment_enabled = self.context_features.enabled(feature);
-        if !deployment_enabled {
-            return Ok(false);
-        }
-
-        match FeatureFlagRepository::new(self.pool.clone()).find_by_name(scope.org_id(), feature.key()).await {
-            Ok(flag) => Ok(flag.enabled),
-            Err(err) if matches!(err.kind, ErrorKind::NotFound(_)) => Ok(deployment_enabled),
-            Err(err) => Err(err),
-        }
+        self.context_feature_service().is_enabled(scope, feature).await
     }
 }
 
@@ -156,11 +106,7 @@ pub async fn ensure_context_feature_enabled(
     scope: &TenantScope,
     feature: ContextFeature,
 ) -> AppResult<()> {
-    if state.context_feature_enabled(scope, feature).await? {
-        return Ok(());
-    }
-
-    Err(ErrorKind::NotFound(format!("{} is disabled", feature.key())).into())
+    state.context_feature_service().ensure_enabled(scope, feature).await
 }
 
 /// Allow handlers to extract just the Prometheus handle via
@@ -176,15 +122,15 @@ impl FromRef<AppState> for Arc<PrometheusHandle> {
 ///
 /// Returns `200 OK` immediately. Used by infrastructure probes (Docker, k8s)
 /// to verify the process is alive and accepting connections.
-pub async fn health() -> Json<Value> {
-    Json(json!({ "ok": true, "status": "healthy" }))
+pub async fn health() -> impl IntoResponse {
+    Json(health_response())
 }
 
 /// `GET /api/health` — deep readiness check.
 ///
 /// Verifies database connectivity. Redis and NATS are optional (graceful degradation
-/// per CLAUDE.md: "Circuit breaker: Redis is optional"). Returns `"ready"` when the
-/// database is healthy, `"degraded"` when it is not.
+/// per CLAUDE.md: "Circuit breaker: Redis is optional"). The response contract
+/// is owned by the system domain boundary.
 pub async fn health_ready(State(state): State<AppState>) -> impl IntoResponse {
     let db_ok = agentforge_db::check_health(&state.pool).await;
     let redis_ok = state.redis.write().await.check_health().await;
@@ -200,21 +146,11 @@ pub async fn health_ready(State(state): State<AppState>) -> impl IntoResponse {
     // orchestration/event delivery depend on it; deployments that do not use
     // NATS can still omit NATS_URL and remain ready.
     let nats_required = state.config.nats_url.is_some();
-    let all_ok = db_ok && (!nats_required || nats_ok);
-    let status = if all_ok { "ready" } else { "degraded" };
-    let http_status = if all_ok { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE };
+    let readiness = HealthReadinessService::evaluate(
+        HealthDependencyChecks { database: db_ok, redis: redis_ok, nats: nats_ok, docker: docker_ok },
+        nats_required,
+    );
+    let http_status = if readiness.is_ready() { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE };
 
-    (
-        http_status,
-        Json(json!({
-            "ok": all_ok,
-            "status": status,
-            "checks": {
-                "database": db_ok,
-                "redis": redis_ok,
-                "nats": nats_ok,
-                "docker": docker_ok
-            }
-        })),
-    )
+    (http_status, Json(readiness.response()))
 }

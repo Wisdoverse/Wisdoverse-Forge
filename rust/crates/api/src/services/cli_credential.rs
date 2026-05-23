@@ -14,15 +14,26 @@
 
 use std::path::{Path, PathBuf};
 
-use agentforge_core::{AppResult, ErrorKind, TenantScope, crypto};
+use agentforge_core::{AppConfig, AppResult, TenantScope, crypto};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use secrecy::{ExposeSecret, SecretString};
+use sqlx::PgPool;
 use tokio::fs;
 
-use crate::domain::credential::{ContainerCliCredentialPolicy, OauthMountContainerKey};
+use crate::domain::credential::{
+    ContainerCliCredentialPolicy, OauthMountContainerKey, container_cli_oauth_file_map_plaintext,
+};
+pub(crate) use crate::domain::credential::{
+    cli_credential_deleted_response, cli_credential_stored_response, cli_credentials_response,
+};
 use crate::repositories::credential::cli::{CliCredentialRepository, CliCredentialStatus};
 use crate::repositories::user::llm_config::UserLlmConfigRepository;
+
+/// Default host directory used when `OAUTH_MOUNT_DIR` is not configured.
+/// Mirrors the legacy `<dataDir>/oauth-mounts` location; chosen to stay under
+/// `/tmp` so the container runtime can always mount it without extra setup.
+const DEFAULT_OAUTH_MOUNT_ROOT: &str = "/tmp/agentforge/oauth-mounts";
 
 /// Outcome of credential resolution for a single container spawn.
 ///
@@ -49,7 +60,70 @@ pub struct CliCredentialService {
     system_openai: Option<SecretString>,
 }
 
+#[derive(Debug, Clone)]
+pub struct CliCredentialRuntimeConfig {
+    oauth_mount_root: PathBuf,
+    system_anthropic: Option<SecretString>,
+    system_google: Option<SecretString>,
+    system_openai: Option<SecretString>,
+}
+
+impl CliCredentialRuntimeConfig {
+    pub fn from_app_config(config: &AppConfig) -> Self {
+        Self {
+            oauth_mount_root: config
+                .oauth_mount_dir
+                .as_deref()
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from(DEFAULT_OAUTH_MOUNT_ROOT)),
+            system_anthropic: clone_secret(&config.container_anthropic_api_key),
+            system_google: clone_secret(&config.container_google_api_key),
+            system_openai: clone_secret(&config.container_openai_api_key),
+        }
+    }
+}
+
 impl CliCredentialService {
+    pub fn from_pool_and_app_config(pool: PgPool, encryption_key: Option<[u8; 32]>, config: &AppConfig) -> Self {
+        Self::from_app_config(
+            CliCredentialRepository::new(pool.clone()),
+            UserLlmConfigRepository::new(pool),
+            encryption_key,
+            config,
+        )
+    }
+
+    pub fn from_app_config(
+        cli_creds: CliCredentialRepository,
+        user_llm: UserLlmConfigRepository,
+        encryption_key: Option<[u8; 32]>,
+        config: &AppConfig,
+    ) -> Self {
+        Self::from_runtime_config(
+            cli_creds,
+            user_llm,
+            encryption_key,
+            CliCredentialRuntimeConfig::from_app_config(config),
+        )
+    }
+
+    pub fn from_runtime_config(
+        cli_creds: CliCredentialRepository,
+        user_llm: UserLlmConfigRepository,
+        encryption_key: Option<[u8; 32]>,
+        runtime: CliCredentialRuntimeConfig,
+    ) -> Self {
+        Self {
+            cli_creds,
+            user_llm,
+            encryption_key,
+            oauth_mount_root: runtime.oauth_mount_root,
+            system_anthropic: runtime.system_anthropic,
+            system_google: runtime.system_google,
+            system_openai: runtime.system_openai,
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         cli_creds: CliCredentialRepository,
@@ -68,17 +142,12 @@ impl CliCredentialService {
     /// plaintext credentials, which would be worse than refusing the upload.
     ///
     pub async fn upload(&self, scope: &TenantScope, cli_tool: &str, files: &serde_json::Value) -> AppResult<()> {
-        let key = self.encryption_key.as_ref().ok_or_else(|| {
-            ErrorKind::Validation(
-                "LLM_ENCRYPTION_KEY is not configured — refusing to store plaintext credentials".to_string(),
-            )
-        })?;
+        let key = self.encryption_key.as_ref().ok_or_else(ContainerCliCredentialPolicy::missing_storage_key)?;
         let tool = ContainerCliCredentialPolicy::canonical_tool(cli_tool)?;
         ContainerCliCredentialPolicy::validate_oauth_file_map(files)?;
-        let plaintext = serde_json::to_string(files)
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("serialize files: {err}")))?;
+        let plaintext = container_cli_oauth_file_map_plaintext(files)?;
         let ciphertext = crypto::encrypt_base64(key, &plaintext)
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("failed to encrypt credentials: {err}")))?;
+            .map_err(ContainerCliCredentialPolicy::encrypt_credentials_failed)?;
         self.cli_creds.upsert_encrypted(scope, tool, &ciphertext).await
     }
 
@@ -99,14 +168,10 @@ impl CliCredentialService {
         cli_tool: &str,
         plaintext_json: &str,
     ) -> AppResult<()> {
-        let key = self.encryption_key.as_ref().ok_or_else(|| {
-            ErrorKind::Validation(
-                "LLM_ENCRYPTION_KEY is not configured — refusing to store plaintext credentials".to_string(),
-            )
-        })?;
+        let key = self.encryption_key.as_ref().ok_or_else(ContainerCliCredentialPolicy::missing_storage_key)?;
         let tool = ContainerCliCredentialPolicy::canonical_tool(cli_tool)?;
         let ciphertext = crypto::encrypt_base64(key, plaintext_json)
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("failed to encrypt credentials: {err}")))?;
+            .map_err(ContainerCliCredentialPolicy::encrypt_credentials_failed)?;
         self.cli_creds.upsert_encrypted_by_user_id(user_id, tool, &ciphertext).await
     }
 
@@ -142,9 +207,7 @@ impl CliCredentialService {
         {
             let plaintext = crypto::decrypt_base64(&key, &encrypted).map_err(|err| {
                 tracing::error!(error = %err, user_id = %scope.user_id().as_uuid(), %provider, "Failed to decrypt user LLM API key — refusing to fall back to another tier");
-                ErrorKind::Internal(anyhow::anyhow!(
-                    "stored user LLM API key failed to decrypt (likely LLM_ENCRYPTION_KEY rotation); re-upload via /api/v1/user-llm-configs"
-                ))
+                ContainerCliCredentialPolicy::stored_user_llm_key_decrypt_failed()
             })?;
             let mut out = CredentialInjection::default();
             out.env.push((env_var.to_string(), plaintext));
@@ -160,9 +223,7 @@ impl CliCredentialService {
         {
             let plaintext = crypto::decrypt_base64(&key, &encrypted).map_err(|err| {
                 tracing::error!(error = %err, user_id = %scope.user_id().as_uuid(), cli_tool, "Failed to decrypt Container CLI credentials — user must reconnect");
-                ErrorKind::Validation(format!(
-                    "stored {cli_tool} credentials cannot be decrypted — reconnect via /api/v1/cli-auth-proxy or /api/v1/cli-credentials"
-                ))
+                ContainerCliCredentialPolicy::stored_oauth_decrypt_failed(cli_tool)
             })?;
             match self.write_oauth_mount(container_key, plaintext.as_bytes()).await {
                 Ok(host_dir) => {
@@ -271,6 +332,10 @@ async fn set_mode(path: &Path, mode: u32) -> std::io::Result<()> {
 #[cfg(not(unix))]
 async fn set_mode(_path: &Path, _mode: u32) -> std::io::Result<()> {
     Ok(())
+}
+
+fn clone_secret(secret: &Option<SecretString>) -> Option<SecretString> {
+    secret.as_ref().map(|value| SecretString::from(value.expose_secret().to_string()))
 }
 
 #[cfg(test)]

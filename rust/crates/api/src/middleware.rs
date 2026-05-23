@@ -10,10 +10,11 @@ use axum::Json;
 use axum::http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use axum::http::{HeaderValue, Method, StatusCode};
 use axum::response::IntoResponse;
-use serde_json::json;
 use tower_http::catch_panic::{CatchPanicLayer, ResponseForPanic};
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
+
+use crate::domain::system::internal_error_response;
 
 /// CORS layer configured for the current environment.
 ///
@@ -71,14 +72,7 @@ impl ResponseForPanic for JsonPanicResponse {
         };
         tracing::error!(panic = %detail, "handler panicked");
 
-        let body = json!({
-            "ok": false,
-            "error": {
-                "code": "INTERNAL_ERROR",
-                "message": "Internal server error"
-            }
-        });
-        (StatusCode::INTERNAL_SERVER_ERROR, Json(body)).into_response()
+        (StatusCode::INTERNAL_SERVER_ERROR, Json(internal_error_response())).into_response()
     }
 }
 

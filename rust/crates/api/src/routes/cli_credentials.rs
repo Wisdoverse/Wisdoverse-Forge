@@ -14,24 +14,19 @@
 //! unconfigured the upload endpoint refuses the request rather than storing
 //! plaintext — see `CliCredentialService::upload`.
 
-use std::path::PathBuf;
-
 use axum::extract::{Path, State};
 use axum::routing::{delete, get};
 use axum::{Json, Router};
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
-use secrecy::{ExposeSecret, SecretString};
 
 use crate::health::AppState;
-use crate::repositories::credential::cli::CliCredentialRepository;
-use crate::repositories::user::llm_config::UserLlmConfigRepository;
-use crate::services::cli_credential::CliCredentialService;
-
-const DEFAULT_OAUTH_MOUNT_ROOT: &str = "/tmp/agentforge/oauth-mounts";
+use crate::services::cli_credential::{
+    CliCredentialService, cli_credential_deleted_response, cli_credential_stored_response, cli_credentials_response,
+};
 
 #[derive(Deserialize)]
 pub struct UploadRequest {
@@ -42,31 +37,13 @@ pub struct UploadRequest {
 }
 
 fn make_service(state: &AppState) -> CliCredentialService {
-    let oauth_mount_root = state
-        .config
-        .oauth_mount_dir
-        .as_deref()
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(DEFAULT_OAUTH_MOUNT_ROOT));
-    CliCredentialService::new(
-        CliCredentialRepository::new(state.pool.clone()),
-        UserLlmConfigRepository::new(state.pool.clone()),
-        state.encryption_key,
-        oauth_mount_root,
-        clone_secret(&state.config.container_anthropic_api_key),
-        clone_secret(&state.config.container_google_api_key),
-        clone_secret(&state.config.container_openai_api_key),
-    )
-}
-
-fn clone_secret(s: &Option<SecretString>) -> Option<SecretString> {
-    s.as_ref().map(|v| SecretString::from(v.expose_secret().to_string()))
+    state.cli_credential_service()
 }
 
 async fn list_cli_credentials(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<Value>> {
     let service = make_service(&state);
     let statuses = service.list_statuses(&auth.scope).await?;
-    Ok(Json(json!({ "ok": true, "connections": statuses })))
+    Ok(Json(cli_credentials_response(statuses)))
 }
 
 async fn upload_cli_credential(
@@ -77,7 +54,7 @@ async fn upload_cli_credential(
 ) -> AppResult<Json<Value>> {
     let service = make_service(&state);
     service.upload(&auth.scope, &cli_tool, &req.files).await?;
-    Ok(Json(json!({ "ok": true, "cli_tool": cli_tool, "status": "stored" })))
+    Ok(Json(cli_credential_stored_response(&cli_tool)))
 }
 
 async fn delete_cli_credential(
@@ -87,7 +64,7 @@ async fn delete_cli_credential(
 ) -> AppResult<Json<Value>> {
     let service = make_service(&state);
     service.remove(&auth.scope, &cli_tool).await?;
-    Ok(Json(json!({ "ok": true, "cli_tool": cli_tool, "status": "deleted" })))
+    Ok(Json(cli_credential_deleted_response(&cli_tool)))
 }
 
 pub fn cli_credential_routes() -> Router<AppState> {

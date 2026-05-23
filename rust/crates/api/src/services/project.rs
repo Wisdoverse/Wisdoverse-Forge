@@ -2,18 +2,51 @@
 
 use agentforge_core::{AppResult, ProjectId, TeamId, TenantScope, WorkspaceId};
 use agentforge_db::entities::Project;
+use sqlx::PgPool;
 
-use crate::domain::resource::{ProjectRepositoryUrl, ResourceListPage, ResourceName};
+use crate::domain::resource::{ProjectRepositoryUrl, ResourceListPage, ResourceName, ResourceSlugPolicy};
+pub(crate) use crate::domain::resource::{resource_data_response, resource_delete_response};
+use crate::repositories::identity::group::GroupRepository;
 use crate::repositories::project::ProjectRepository;
+use crate::repositories::resource::permission::ResourcePermissionRepository;
+use crate::services::resource_permission::ResourcePermissionService;
+
+#[derive(Debug, Clone)]
+pub struct CreateProjectInput {
+    pub workspace_id: WorkspaceId,
+    pub team_id: Option<TeamId>,
+    pub name: String,
+    pub repository_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct UpdateProjectInput {
+    pub name: Option<String>,
+    pub repository_url: Option<Option<String>>,
+}
 
 /// Business logic layer for project operations.
 pub struct ProjectService {
     repo: ProjectRepository,
+    permissions: ResourcePermissionService,
+    group_repo: GroupRepository,
 }
 
 impl ProjectService {
-    pub fn new(repo: ProjectRepository) -> Self {
-        Self { repo }
+    pub fn new(
+        repo: ProjectRepository,
+        permission_repo: ResourcePermissionRepository,
+        group_repo: GroupRepository,
+    ) -> Self {
+        Self { repo, permissions: ResourcePermissionService::new(permission_repo), group_repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(
+            ProjectRepository::new(pool.clone()),
+            ResourcePermissionRepository::new(pool.clone()),
+            GroupRepository::new(pool),
+        )
     }
 
     /// List projects with pagination and optional workspace filter. Limit is capped at 100.
@@ -35,30 +68,31 @@ impl ProjectService {
 
     /// Create a new project with validated fields. `team_id` defaults to
     /// the org's oldest team when absent — see `ProjectRepository::create`.
-    pub async fn create(
-        &self,
-        scope: &TenantScope,
-        workspace_id: WorkspaceId,
-        team_id: Option<TeamId>,
-        name: &str,
-        repository_url: Option<&str>,
-    ) -> AppResult<Project> {
-        let name = ResourceName::parse(name)?;
-        if let Some(url) = repository_url {
+    pub async fn create(&self, scope: &TenantScope, input: CreateProjectInput) -> AppResult<Project> {
+        if let Some(team_id) = input.team_id {
+            self.permissions.require_project_creator(scope, team_id).await?;
+        } else {
+            self.permissions.require_org_manager(scope).await?;
+        }
+
+        let name = ResourceName::parse(&input.name)?;
+        if let Some(url) = input.repository_url.as_deref() {
             ProjectRepositoryUrl::parse(url)?;
         }
-        self.repo.create(scope, workspace_id, team_id, name.value(), repository_url).await
+        let slug = ResourceSlugPolicy::derive(name.value());
+        let project = self
+            .repo
+            .create(scope, input.workspace_id, input.team_id, name.value(), &slug, input.repository_url.as_deref())
+            .await?;
+        self.group_repo.find_or_create_default_for_project(scope, ProjectId::from(project.id.as_uuid())).await?;
+        Ok(project)
     }
 
     /// Update a project.
-    pub async fn update(
-        &self,
-        scope: &TenantScope,
-        id: ProjectId,
-        name: Option<&str>,
-        repository_url: Option<Option<&str>>,
-    ) -> AppResult<Project> {
-        let name = name.map(ResourceName::parse).transpose()?.map(ResourceName::value);
+    pub async fn update(&self, scope: &TenantScope, id: ProjectId, input: UpdateProjectInput) -> AppResult<Project> {
+        self.permissions.require_project_manager(scope, id).await?;
+        let name = input.name.as_deref().map(ResourceName::parse).transpose()?.map(ResourceName::value);
+        let repository_url = input.repository_url.as_ref().map(|opt| opt.as_deref());
         if let Some(Some(url)) = repository_url {
             ProjectRepositoryUrl::parse(url)?;
         }
@@ -67,6 +101,7 @@ impl ProjectService {
 
     /// Soft-delete a project.
     pub async fn delete(&self, scope: &TenantScope, id: ProjectId) -> AppResult<()> {
+        self.permissions.require_project_manager(scope, id).await?;
         self.repo.delete(scope, id).await
     }
 }

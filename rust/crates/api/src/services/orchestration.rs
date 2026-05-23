@@ -11,20 +11,31 @@ use std::{collections::HashMap, sync::Arc};
 
 use agentforge_core::context_envelope::ContextEnvelope;
 use agentforge_core::orchestration_protocol::DEFAULT_ASSIGNMENT_LEASE_SECS;
-use agentforge_core::{AgentId, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AgentId, AppResult, TenantScope};
 use agentforge_db::entities::{OrchestrationTask, Participant, TaskRun};
 use agentforge_db::inbox_notifications::{TaskOwnerNotificationKind, upsert_task_owner_lifecycle_notification_in_tx};
+use agentforge_infra::NatsClient;
 use agentforge_jobs::insert_assignment_outbox_in_tx;
+use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::domain::context::{ContextFeature, ContextFeatureFlags};
 use crate::domain::context_resolver::{ContextTaskSnapshot, ResolvedContext};
 use crate::domain::orchestration::{
-    BlockedTaskPolicy, DispatchSweepDecision, DispatchSweepPolicy, ParticipantAvailabilityAction,
-    ParticipantAvailabilityPolicy, ParticipantName, ParticipantStatusPolicy, QuotaBlockPolicy, TaskAssignmentPolicy,
-    TaskCreationPolicy, TaskLifecyclePolicy, TaskListPage, TaskPatchAction, TaskPatchPolicy, TaskPriority,
-    TaskRunCapabilityProfile, TaskStatusPolicy, TaskTitle, task_assignment_snapshot,
+    BlockedTaskPolicy, DispatchSweepDecision, DispatchSweepPolicy, OrchestrationTransactionPolicy,
+    ParticipantAvailabilityAction, ParticipantAvailabilityPolicy, ParticipantName, ParticipantStatusPolicy,
+    QuotaBlockPolicy, TaskAssignmentPolicy, TaskCreationPolicy, TaskLifecyclePolicy, TaskListPage, TaskPatchAction,
+    TaskPatchPolicy, TaskPriority, TaskRunCapabilityProfile, TaskStatusPolicy, TaskTitle, task_assignment_snapshot,
 };
-pub use crate::domain::orchestration::{TaskContextCounts, TaskStatsResponse, TaskSummary, task_summary};
+pub(crate) use crate::domain::orchestration::{
+    CreateTaskParamsInput, create_task_request_parts, orchestration_delete_response,
+    orchestration_participant_response, orchestration_participants_response, orchestration_stats_response,
+    orchestration_task_context_response, orchestration_task_response, orchestration_tasks_response,
+    task_update_broadcast_payload, task_update_broadcast_subject,
+};
+pub use crate::domain::orchestration::{
+    ParticipantSummary, TaskContextCounts, TaskStatsResponse, TaskSummary, task_summary,
+};
 use crate::repositories::orchestration::run_context_injection::{
     ContextInjectionCounts, RunContextInjectionRepository,
 };
@@ -55,22 +66,61 @@ impl From<OrchestrationTaskStats> for TaskStatsResponse {
     }
 }
 
+impl From<Participant> for ParticipantSummary {
+    fn from(p: Participant) -> Self {
+        Self {
+            id: p.id,
+            agent_id: p.agent_id.as_uuid(),
+            name: p.name,
+            status: p.status,
+            capabilities: p.capabilities,
+            last_heartbeat_at: p.last_heartbeat_at.map(|t| t.to_rfc3339()),
+        }
+    }
+}
+
 /// Business logic layer for orchestration operations.
 pub struct OrchestrationService {
     task_repo: OrchestrationTaskRepository,
     participant_repo: ParticipantRepository,
     task_run_repo: TaskRunRepository,
+    context_injections: RunContextInjectionRepository,
     context_resolver: Option<Arc<ContextResolverService>>,
+    context_envelopes: Option<ContextEnvelopeService>,
     context_injection_enabled: bool,
+    broadcast_bus: Option<Arc<NatsClient>>,
 }
 
 impl OrchestrationService {
     pub fn new(task_repo: OrchestrationTaskRepository, participant_repo: ParticipantRepository) -> Self {
         let task_run_repo = TaskRunRepository::new(task_repo.pool().clone());
-        Self { task_repo, participant_repo, task_run_repo, context_resolver: None, context_injection_enabled: true }
+        let context_injections = RunContextInjectionRepository::new(task_repo.pool().clone());
+        Self {
+            task_repo,
+            participant_repo,
+            task_run_repo,
+            context_injections,
+            context_resolver: None,
+            context_envelopes: None,
+            context_injection_enabled: true,
+            broadcast_bus: None,
+        }
+    }
+
+    pub fn from_runtime(
+        pool: PgPool,
+        context_features: ContextFeatureFlags,
+        context_resolver: Arc<ContextResolverService>,
+        nats: Arc<NatsClient>,
+    ) -> Self {
+        Self::new(OrchestrationTaskRepository::new(pool.clone()), ParticipantRepository::new(pool))
+            .with_context_runtime(context_features, context_resolver)
+            .with_broadcast_bus(nats)
     }
 
     pub fn with_context_resolver(mut self, context_resolver: Arc<ContextResolverService>) -> Self {
+        self.context_envelopes =
+            Some(ContextEnvelopeService::new(self.task_repo.pool().clone(), context_resolver.clone()));
         self.context_resolver = Some(context_resolver);
         self
     }
@@ -79,7 +129,23 @@ impl OrchestrationService {
         self.context_injection_enabled = enabled;
         if !enabled {
             self.context_resolver = None;
+            self.context_envelopes = None;
         }
+        self
+    }
+
+    pub fn with_context_runtime(
+        self,
+        context_features: ContextFeatureFlags,
+        context_resolver: Arc<ContextResolverService>,
+    ) -> Self {
+        let enabled = context_features.enabled(ContextFeature::Injection);
+        let service = self.with_context_injection_enabled(enabled);
+        if enabled { service.with_context_resolver(context_resolver) } else { service }
+    }
+
+    pub fn with_broadcast_bus(mut self, nats: Arc<NatsClient>) -> Self {
+        self.broadcast_bus = Some(nats);
         self
     }
 
@@ -104,14 +170,14 @@ impl OrchestrationService {
         let priority = TaskPriority::validate(priority.unwrap_or("normal"))?;
         TaskCreationPolicy::ensure_approval_task_is_unassigned(requires_approval, assigned_to)?;
         let missing_inputs = BlockedTaskPolicy::missing_required_inputs(params.as_ref());
-        // Parent status gates child creation on waiting_dependency. Only a genuine
-        // `NotFound` is remapped to a validation error; infrastructure errors
-        // (pool/IO/decode) propagate unchanged so operators see the real failure.
+        // Parent status gates child creation on waiting_dependency. Missing
+        // parents become validation errors; infrastructure failures propagate.
         let parent_status = if let Some(parent_id) = parent_task_id {
-            let parent = self.task_repo.find_by_id(scope, parent_id).await.map_err(|err| match err.kind {
-                ErrorKind::NotFound(_) => ErrorKind::Validation(format!("parent task {parent_id} not found")).into(),
-                _ => err,
-            })?;
+            let parent = self
+                .task_repo
+                .find_by_id(scope, parent_id)
+                .await
+                .map_err(|err| TaskCreationPolicy::map_parent_lookup_error(parent_id, err))?;
             Some(parent.status.clone())
         } else {
             None
@@ -285,10 +351,10 @@ impl OrchestrationService {
             .pool()
             .begin()
             .await
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("begin cancel_task tx: {err}")))?;
+            .map_err(|err| OrchestrationTransactionPolicy::begin_failed("cancel_task", err))?;
         let updated = OrchestrationTaskRepository::cancel_in_tx(&mut tx, scope, id).await?;
         self.task_run_repo.finish_current_in_tx(&mut tx, scope, id, "canceled").await?;
-        tx.commit().await.map_err(|err| ErrorKind::Internal(anyhow::anyhow!("commit cancel_task tx: {err}")))?;
+        tx.commit().await.map_err(|err| OrchestrationTransactionPolicy::commit_failed("cancel_task", err))?;
         if let Some(agent_id) = task.assigned_agent_id
             && let Err(err) = self.participant_repo.update_status(scope, agent_id, "available").await
         {
@@ -367,7 +433,7 @@ impl OrchestrationService {
             .pool()
             .begin()
             .await
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("begin assignment tx: {err}")))?;
+            .map_err(|err| OrchestrationTransactionPolicy::begin_failed("assignment", err))?;
         ParticipantRepository::update_status_in_tx(&mut tx, scope, participant.agent_id, "busy").await?;
         let task = match OrchestrationTaskRepository::assign_agent_in_tx(
             &mut tx,
@@ -387,7 +453,7 @@ impl OrchestrationService {
         };
         let delivery_id = task
             .last_assignment_id
-            .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("task {} missing last_assignment_id", task.id)))?;
+            .ok_or_else(|| OrchestrationTransactionPolicy::missing_last_assignment_id(task.id))?;
         let idempotency_key = delivery_id.to_string();
         let resolved_context = match previewed_context {
             Some(resolved_context) => Some(resolved_context),
@@ -441,9 +507,9 @@ impl OrchestrationService {
         if let Err(err) = insert_assignment_outbox_in_tx(&mut tx, scope.org_id().as_uuid(), task.id, &assignment).await
         {
             let _ = tx.rollback().await;
-            return Err(ErrorKind::Internal(anyhow::anyhow!("insert assignment outbox: {err}")).into());
+            return Err(OrchestrationTransactionPolicy::insert_assignment_outbox_failed(err).into());
         }
-        tx.commit().await.map_err(|err| ErrorKind::Internal(anyhow::anyhow!("commit assignment tx: {err}")))?;
+        tx.commit().await.map_err(|err| OrchestrationTransactionPolicy::commit_failed("assignment", err))?;
         Ok(task)
     }
 
@@ -544,13 +610,13 @@ impl OrchestrationService {
             .pool()
             .begin()
             .await
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("begin complete_task tx: {err}")))?;
+            .map_err(|err| OrchestrationTransactionPolicy::begin_failed("complete_task", err))?;
         let updated =
             OrchestrationTaskRepository::set_result_in_tx(&mut tx, scope, task_id, "completed", result).await?;
         self.task_run_repo.finish_current_in_tx(&mut tx, scope, task_id, "completed").await?;
         let unblocked_children =
             OrchestrationTaskRepository::unblock_children_of_in_tx(&mut tx, scope, task_id).await?;
-        tx.commit().await.map_err(|err| ErrorKind::Internal(anyhow::anyhow!("commit complete_task tx: {err}")))?;
+        tx.commit().await.map_err(|err| OrchestrationTransactionPolicy::commit_failed("complete_task", err))?;
 
         if !unblocked_children.is_empty() {
             tracing::info!(
@@ -594,7 +660,7 @@ impl OrchestrationService {
                 .pool()
                 .begin()
                 .await
-                .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("begin quota block tx: {err}")))?;
+                .map_err(|err| OrchestrationTransactionPolicy::begin_failed("quota block", err))?;
             let updated = OrchestrationTaskRepository::mark_blocked_retryable_in_tx(
                 &mut tx,
                 scope,
@@ -607,7 +673,7 @@ impl OrchestrationService {
             self.task_run_repo.finish_current_in_tx(&mut tx, scope, task_id, "failed").await?;
             upsert_task_owner_lifecycle_notification_in_tx(&mut tx, &updated, None, TaskOwnerNotificationKind::Blocked)
                 .await?;
-            tx.commit().await.map_err(|err| ErrorKind::Internal(anyhow::anyhow!("commit quota block tx: {err}")))?;
+            tx.commit().await.map_err(|err| OrchestrationTransactionPolicy::commit_failed("quota block", err))?;
             if let Some(agent_id) = task.assigned_agent_id
                 && let Err(err) = self.participant_repo.update_status(scope, agent_id, "available").await
             {
@@ -621,12 +687,12 @@ impl OrchestrationService {
             .pool()
             .begin()
             .await
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("begin fail_task tx: {err}")))?;
+            .map_err(|err| OrchestrationTransactionPolicy::begin_failed("fail_task", err))?;
         let updated = OrchestrationTaskRepository::set_result_in_tx(&mut tx, scope, task_id, "failed", error).await?;
         self.task_run_repo.finish_current_in_tx(&mut tx, scope, task_id, "failed").await?;
         upsert_task_owner_lifecycle_notification_in_tx(&mut tx, &updated, None, TaskOwnerNotificationKind::Failed)
             .await?;
-        tx.commit().await.map_err(|err| ErrorKind::Internal(anyhow::anyhow!("commit fail_task tx: {err}")))?;
+        tx.commit().await.map_err(|err| OrchestrationTransactionPolicy::commit_failed("fail_task", err))?;
         if let Some(agent_id) = task.assigned_agent_id
             && let Err(err) = self.participant_repo.update_status(scope, agent_id, "available").await
         {
@@ -702,6 +768,15 @@ impl OrchestrationService {
         self.participant_repo.unregister(scope, agent_id).await
     }
 
+    pub(crate) async fn mark_participant_offline(
+        &self,
+        scope: &TenantScope,
+        agent_id: AgentId,
+    ) -> AppResult<Participant> {
+        ParticipantStatusPolicy::validate_filter("offline")?;
+        self.participant_repo.update_status(scope, agent_id, "offline").await
+    }
+
     /// Resolve agent display names for a batch of tasks in a single query.
     pub async fn summarize_tasks(
         &self,
@@ -711,8 +786,7 @@ impl OrchestrationService {
         let agent_ids: Vec<Uuid> = tasks.iter().filter_map(|t| t.assigned_agent_id.map(|a| a.as_uuid())).collect();
         let names = self.task_repo.resolve_agent_names(scope, &agent_ids).await?;
         let task_ids: Vec<Uuid> = tasks.iter().map(|task| task.id).collect();
-        let mut context_counts =
-            RunContextInjectionRepository::new(self.task_repo.pool().clone()).count_by_tasks(scope, &task_ids).await?;
+        let mut context_counts = self.context_injections.count_by_tasks(scope, &task_ids).await?;
         Ok(tasks
             .into_iter()
             .map(|t| {
@@ -735,14 +809,30 @@ impl OrchestrationService {
             None
         };
         let mut summary = task_summary(task, name);
-        if let Some(counts) = RunContextInjectionRepository::new(self.task_repo.pool().clone())
-            .count_by_tasks(scope, &[summary.id])
-            .await?
-            .remove(&summary.id)
-        {
+        if let Some(counts) = self.context_injections.count_by_tasks(scope, &[summary.id]).await?.remove(&summary.id) {
             summary.context_counts = counts.into();
         }
         Ok(summary)
+    }
+
+    pub(crate) async fn broadcast_task_update(&self, scope: &TenantScope, action: &str, task: &TaskSummary) {
+        let Some(nats) = &self.broadcast_bus else {
+            return;
+        };
+        if !nats.is_connected() {
+            return;
+        }
+        let subject = task_update_broadcast_subject(scope.org_id().as_uuid());
+        let payload = task_update_broadcast_payload(action, task);
+        if let Err(err) = nats.publish_json(&subject, payload).await {
+            tracing::warn!(
+                error = ?err,
+                %subject,
+                task_id = %task.id,
+                %action,
+                "Failed to broadcast orchestration task update"
+            );
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -762,7 +852,7 @@ impl OrchestrationService {
             .pool()
             .begin()
             .await
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("begin create assigned task tx: {err}")))?;
+            .map_err(|err| OrchestrationTransactionPolicy::begin_failed("create assigned task", err))?;
         let participant = ParticipantRepository::find_by_agent_id_in_tx(&mut tx, scope, agent_id).await?;
         if let Err(err) = ParticipantAvailabilityPolicy::ensure_available(
             &participant.name,
@@ -803,7 +893,7 @@ impl OrchestrationService {
         .await?;
         let delivery_id = task
             .last_assignment_id
-            .ok_or_else(|| ErrorKind::Internal(anyhow::anyhow!("task {} missing last_assignment_id", task.id)))?;
+            .ok_or_else(|| OrchestrationTransactionPolicy::missing_last_assignment_id(task.id))?;
         let idempotency_key = delivery_id.to_string();
         let resolved_context = match self.resolve_assignment_context(scope, &task, &participant).await {
             Ok(resolved_context) => resolved_context,
@@ -854,11 +944,9 @@ impl OrchestrationService {
         if let Err(err) = insert_assignment_outbox_in_tx(&mut tx, scope.org_id().as_uuid(), task.id, &assignment).await
         {
             let _ = tx.rollback().await;
-            return Err(ErrorKind::Internal(anyhow::anyhow!("insert assignment outbox: {err}")).into());
+            return Err(OrchestrationTransactionPolicy::insert_assignment_outbox_failed(err).into());
         }
-        tx.commit()
-            .await
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("commit create assigned task tx: {err}")))?;
+        tx.commit().await.map_err(|err| OrchestrationTransactionPolicy::commit_failed("create assigned task", err))?;
         Ok(task)
     }
 
@@ -897,10 +985,10 @@ impl OrchestrationService {
         let Some(resolved_context) = resolved_context else {
             return Ok(None);
         };
-        let Some(resolver) = &self.context_resolver else {
+        let Some(context_envelopes) = &self.context_envelopes else {
             return Ok(None);
         };
-        ContextEnvelopeService::new(self.task_repo.pool().clone(), resolver.clone())
+        context_envelopes
             .build_from_resolved(&scope.scoped_read(), task.id, run.id, agent_id, resolved_context)
             .await
             .map(Some)

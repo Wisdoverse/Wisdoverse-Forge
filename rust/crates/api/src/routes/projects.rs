@@ -16,12 +16,9 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AppResult, ProjectId, TeamId, WorkspaceId};
 
 use crate::health::AppState;
-use crate::repositories::identity::group::GroupRepository;
-use crate::repositories::project::ProjectRepository;
-use crate::repositories::resource::permission::ResourcePermissionRepository;
-use crate::services::group::GroupService;
-use crate::services::project::ProjectService;
-use crate::services::resource_permission::ResourcePermissionService;
+use crate::services::project::{
+    CreateProjectInput, ProjectService, UpdateProjectInput, resource_data_response, resource_delete_response,
+};
 
 /// Query parameters for the list endpoint.
 #[derive(Deserialize)]
@@ -73,11 +70,7 @@ pub struct UpdateProjectRequest {
 
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> ProjectService {
-    ProjectService::new(ProjectRepository::new(state.pool.clone()))
-}
-
-fn make_permission_service(state: &AppState) -> ResourcePermissionService {
-    ResourcePermissionService::new(ResourcePermissionRepository::new(state.pool.clone()))
+    state.project_service()
 }
 
 /// `GET /api/projects` — list projects for the authenticated tenant.
@@ -89,7 +82,7 @@ async fn list_projects(
     let service = make_service(&state);
     let workspace_id = query.workspace_id.map(WorkspaceId::from);
     let projects = service.list(&auth.scope, workspace_id, query.limit, query.offset).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": projects })))
+    Ok(Json(resource_data_response(projects)))
 }
 
 /// `GET /api/projects/{id}` — get a single project.
@@ -100,7 +93,7 @@ async fn get_project(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let project = service.get(&auth.scope, ProjectId::from(id)).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": project })))
+    Ok(Json(resource_data_response(project)))
 }
 
 /// `POST /api/projects` — create a new project.
@@ -109,26 +102,19 @@ async fn create_project(
     auth: AuthUser,
     Json(req): Json<CreateProjectRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let permission_service = make_permission_service(&state);
-    if let Some(team_id) = req.team_id {
-        permission_service.require_project_creator(&auth.scope, TeamId::from(team_id)).await?;
-    } else {
-        permission_service.require_org_manager(&auth.scope).await?;
-    }
-
     let service = make_service(&state);
     let project = service
         .create(
             &auth.scope,
-            WorkspaceId::from(req.workspace_id),
-            req.team_id.map(TeamId::from),
-            &req.name,
-            req.repository_url.as_deref(),
+            CreateProjectInput {
+                workspace_id: WorkspaceId::from(req.workspace_id),
+                team_id: req.team_id.map(TeamId::from),
+                name: req.name,
+                repository_url: req.repository_url,
+            },
         )
         .await?;
-    let group_service = GroupService::new(GroupRepository::new(state.pool.clone()));
-    group_service.find_or_create_default_for_project(&auth.scope, ProjectId::from(project.id.as_uuid())).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": project })))
+    Ok(Json(resource_data_response(project)))
 }
 
 /// `PATCH /api/projects/{id}` — update a project.
@@ -139,13 +125,11 @@ async fn update_project(
     Json(req): Json<UpdateProjectRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let project_id = ProjectId::from(id);
-    make_permission_service(&state).require_project_manager(&auth.scope, project_id).await?;
     let service = make_service(&state);
-    let repository_url = req.repository_url.map(|opt| opt.as_deref().map(|s| s.to_owned()));
-    // Convert Option<Option<String>> to Option<Option<&str>> for the service
-    let repo_url_ref = repository_url.as_ref().map(|opt| opt.as_deref());
-    let project = service.update(&auth.scope, project_id, req.name.as_deref(), repo_url_ref).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": project })))
+    let project = service
+        .update(&auth.scope, project_id, UpdateProjectInput { name: req.name, repository_url: req.repository_url })
+        .await?;
+    Ok(Json(resource_data_response(project)))
 }
 
 /// `DELETE /api/projects/{id}` — soft delete a project.
@@ -155,10 +139,9 @@ async fn delete_project(
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
     let project_id = ProjectId::from(id);
-    make_permission_service(&state).require_project_manager(&auth.scope, project_id).await?;
     let service = make_service(&state);
     service.delete(&auth.scope, project_id).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(resource_delete_response()))
 }
 
 /// Build project routes sub-router.

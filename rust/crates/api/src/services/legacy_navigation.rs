@@ -3,7 +3,8 @@
 //! The URL surface is historical, but this service owns the active tree-pane
 //! workflow over organizations, teams, and projects.
 
-use agentforge_core::{AppResult, ErrorKind, OrgId, ProjectId, TeamId, TenantScope};
+use agentforge_core::{AppResult, OrgId, ProjectId, TeamId, TenantScope};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::navigation::{LegacyOrg, LegacyProject, LegacyTeam};
@@ -12,7 +13,7 @@ use crate::repositories::resource::navigation::{
     LegacyNavigationRepository, LegacyOrgRow, LegacyProjectRow, LegacyTeamRow,
 };
 use crate::services::group::GroupService;
-use crate::services::organization::OrganizationService;
+use crate::services::organization::{OrganizationService, UpdateOrganizationInput};
 use crate::services::resource_permission::ResourcePermissionService;
 
 pub(crate) use crate::domain::navigation::{
@@ -37,6 +38,15 @@ impl LegacyNavigationService {
         Self { navigation, organizations, permissions, groups }
     }
 
+    pub(crate) fn from_pool(pool: PgPool) -> Self {
+        Self::new(
+            LegacyNavigationRepository::new(pool.clone()),
+            OrganizationService::from_pool(pool.clone()),
+            ResourcePermissionService::from_pool(pool.clone()),
+            GroupService::from_pool(pool),
+        )
+    }
+
     pub(crate) async fn list_orgs(&self, scope: &TenantScope) -> AppResult<Vec<LegacyOrg>> {
         Ok(self.navigation.list_orgs(scope).await?.into_iter().map(Into::into).collect())
     }
@@ -51,11 +61,9 @@ impl LegacyNavigationService {
         org_id: Uuid,
         name: Option<String>,
     ) -> AppResult<LegacyOrg> {
-        let Some(name) = name.as_deref() else {
-            return Err(ErrorKind::Validation("name is required".into()).into());
-        };
+        let name = NavigationResourcePolicy::org_update_name(name)?;
 
-        self.organizations.update(scope, OrgId::from(org_id), name).await?;
+        self.organizations.update(scope, OrgId::from(org_id), UpdateOrganizationInput { name }).await?;
         self.get_org(scope, org_id).await
     }
 

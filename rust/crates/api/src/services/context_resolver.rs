@@ -4,11 +4,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use agentforge_core::{AgentId, AppResult, CliToolKind, ErrorKind, RuntimeCapability, RuntimeKind, ScopedRead};
+use agentforge_core::{AgentId, AppResult, CliToolKind, RuntimeCapability, RuntimeKind, ScopedRead};
 use agentforge_infra::RedisClient;
-use chrono::{DateTime, Utc};
 use redis::AsyncCommands;
-use sqlx::{FromRow, PgPool};
+use sqlx::PgPool;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -17,9 +16,10 @@ pub use crate::domain::context_resolver::{
     SelectedContext, apply_context_selection,
 };
 use crate::domain::context_resolver::{
-    MemoryCandidate, SkillSuggestionCandidate, apply_budget, context_resolver_cache_key, push_degradation,
-    skill_suggestion_item, task_search_text,
+    ContextResolverPolicy, MemoryCandidate, apply_budget, context_resolver_cache_key, context_resolver_cache_payload,
+    push_degradation, resolved_context_from_cache_payload, skill_suggestion_item, task_search_text,
 };
+use crate::repositories::context_resolver::ContextResolverRepository;
 use crate::services::runtime_capability_registry::RuntimeCapabilityRegistryService;
 
 const ENVELOPE_VERSION: &str = "v1";
@@ -34,7 +34,7 @@ pub struct ResolveContextInput {
 
 #[derive(Clone)]
 pub struct ContextResolverService {
-    pool: PgPool,
+    repo: ContextResolverRepository,
     runtime_registry: RuntimeCapabilityRegistryService,
     redis: Option<Arc<RwLock<RedisClient>>>,
     memo: Arc<RwLock<HashMap<String, MemoEntry>>>,
@@ -46,73 +46,14 @@ struct MemoEntry {
     resolved: ResolvedContext,
 }
 
-#[derive(Debug, FromRow)]
-struct TaskSnapshotRow {
-    id: Uuid,
-    title: String,
-    description: Option<String>,
-    params: Option<serde_json::Value>,
-}
-
-#[derive(Debug, FromRow)]
-struct AgentRuntimeRow {
-    cli_tool: Option<String>,
-    provider: Option<String>,
-}
-
-#[derive(Debug, FromRow)]
-struct MemoryCandidateRow {
-    id: Uuid,
-    title: String,
-    scope_kind: String,
-    scope_id: Uuid,
-    sensitivity: String,
-    estimated_tokens: i64,
-    last_used_at: Option<DateTime<Utc>>,
-    last_verified_at: Option<DateTime<Utc>>,
-    confidence: Option<f64>,
-}
-
-impl From<MemoryCandidateRow> for MemoryCandidate {
-    fn from(row: MemoryCandidateRow) -> Self {
-        Self {
-            id: row.id,
-            title: row.title,
-            scope_kind: row.scope_kind,
-            scope_id: row.scope_id,
-            sensitivity: row.sensitivity,
-            estimated_tokens: row.estimated_tokens,
-            last_used_at: row.last_used_at,
-            last_verified_at: row.last_verified_at,
-            confidence: row.confidence,
-        }
-    }
-}
-
-#[derive(Debug, FromRow)]
-struct SkillCandidateRow {
-    id: Uuid,
-    name: String,
-    scope_kind: Option<String>,
-    scope_id: Option<Uuid>,
-    sensitivity: String,
-}
-
-impl From<SkillCandidateRow> for SkillSuggestionCandidate {
-    fn from(row: SkillCandidateRow) -> Self {
-        Self {
-            id: row.id,
-            name: row.name,
-            scope_kind: row.scope_kind,
-            scope_id: row.scope_id,
-            sensitivity: row.sensitivity,
-        }
-    }
-}
-
 impl ContextResolverService {
     pub fn new(pool: PgPool, runtime_registry: RuntimeCapabilityRegistryService) -> Self {
-        Self { pool, runtime_registry, redis: None, memo: Arc::new(RwLock::new(HashMap::new())) }
+        Self {
+            repo: ContextResolverRepository::new(pool),
+            runtime_registry,
+            redis: None,
+            memo: Arc::new(RwLock::new(HashMap::new())),
+        }
     }
 
     pub fn with_redis(mut self, redis: Arc<RwLock<RedisClient>>) -> Self {
@@ -163,19 +104,10 @@ impl ContextResolverService {
     }
 
     async fn load_task_snapshot(&self, proof: &ScopedRead, task_id: Uuid) -> AppResult<ContextTaskSnapshot> {
-        let row = sqlx::query_as::<_, TaskSnapshotRow>(
-            r#"SELECT id, title, description, params
-                 FROM orchestration_tasks
-                WHERE id = $1
-                  AND organization_id = $2"#,
-        )
-        .bind(task_id)
-        .bind(proof.org_id().as_uuid())
-        .fetch_optional(&self.pool)
-        .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("orchestration task {task_id}")))?;
-
-        Ok(ContextTaskSnapshot { task_id: row.id, title: row.title, description: row.description, params: row.params })
+        self.repo
+            .task_snapshot(proof, task_id)
+            .await?
+            .ok_or_else(|| ContextResolverPolicy::task_not_found(task_id).into())
     }
 
     async fn capability_for_agent(
@@ -183,24 +115,10 @@ impl ContextResolverService {
         proof: &ScopedRead,
         agent_id: AgentId,
     ) -> AppResult<(RuntimeCapability, Vec<DegradationReason>)> {
-        if proof.workspace_ids().is_empty() {
-            return Err(ErrorKind::NotFound(format!("agent {}", agent_id.as_uuid())).into());
-        }
-
-        let workspace_ids: Vec<Uuid> = proof.workspace_ids().iter().map(|id| id.as_uuid()).collect();
-        let row = sqlx::query_as::<_, AgentRuntimeRow>(
-            r#"SELECT cli_tool, provider
-                 FROM agents
-                WHERE id = $1
-                  AND organization_id = $2
-                  AND workspace_id = ANY($3)"#,
-        )
-        .bind(agent_id.as_uuid())
-        .bind(proof.org_id().as_uuid())
-        .bind(workspace_ids)
-        .fetch_optional(&self.pool)
-        .await?
-        .ok_or_else(|| ErrorKind::NotFound(format!("agent {}", agent_id.as_uuid())))?;
+        let row =
+            self.repo.agent_runtime(proof, agent_id).await?.ok_or_else(|| -> agentforge_core::AppError {
+                ContextResolverPolicy::agent_not_found(agent_id).into()
+            })?;
 
         let Some(cli_tool) = row.cli_tool else {
             return Ok((
@@ -213,7 +131,7 @@ impl ContextResolverService {
         };
 
         let cli_tool = CliToolKind::parse_legacy(&cli_tool).map_err(|err| -> agentforge_core::AppError {
-            ErrorKind::Internal(anyhow::anyhow!("agent {} has unsupported cli_tool: {err}", agent_id.as_uuid())).into()
+            ContextResolverPolicy::unsupported_cli_tool(agent_id, err).into()
         })?;
         let capability = self.runtime_registry.for_cli_tool(cli_tool, RuntimeKind::Container).await;
         let mut degradation = Vec::new();
@@ -228,69 +146,7 @@ impl ContextResolverService {
         proof: &ScopedRead,
         search_text: &str,
     ) -> AppResult<Vec<MemoryCandidate>> {
-        if proof.workspace_ids().is_empty() {
-            return Ok(Vec::new());
-        }
-
-        let rows = sqlx::query_as::<_, MemoryCandidateRow>(
-            r#"WITH q AS (
-                   SELECT plainto_tsquery('simple', $6) AS query
-               ), ranked AS (
-                   SELECT id,
-                          title,
-                          scope_kind,
-                          scope_id,
-                          sensitivity,
-                          GREATEST(1, CEIL((char_length(title) + char_length(content))::numeric / 4.0)::bigint) AS estimated_tokens,
-                          CASE
-                              WHEN btrim($6) = '' THEN 0.0
-                              ELSE ts_rank(to_tsvector('simple', coalesce(title, '') || ' ' || coalesce(content, '')), (SELECT query FROM q))
-                          END AS trigger_match_score,
-                          last_used_at,
-                          last_verified_at,
-                          confidence
-                     FROM memory_items
-                    WHERE organization_id = $1
-                      AND workspace_id = ANY($2)
-                      AND revoked_at IS NULL
-                      AND state = 'active'
-                      AND (ttl_expires_at IS NULL OR ttl_expires_at > now())
-                      AND (
-                          (scope_kind = 'user' AND scope_id = $3)
-                          OR (scope_kind = 'team' AND scope_id = ANY($4))
-                          OR (scope_kind = 'project' AND scope_id = ANY($5))
-                      )
-                      AND (
-                          btrim($6) = ''
-                          OR to_tsvector('simple', coalesce(title, '') || ' ' || coalesce(content, '')) @@ (SELECT query FROM q)
-                          OR tsvector_to_array(to_tsvector('simple', coalesce(title, '') || ' ' || coalesce(content, '')))
-                             && tsvector_to_array(to_tsvector('simple', $6))
-                      )
-                    ORDER BY last_verified_at DESC NULLS LAST,
-                             confidence DESC NULLS LAST,
-                             trigger_match_score DESC,
-                             id ASC
-                    LIMIT $7
-               )
-               SELECT id, title, scope_kind, scope_id, sensitivity, estimated_tokens, last_used_at, last_verified_at, confidence
-                 FROM ranked
-                ORDER BY last_verified_at DESC NULLS LAST,
-                         confidence DESC NULLS LAST,
-                         trigger_match_score DESC,
-                         id ASC"#,
-        )
-        .bind(proof.org_id().as_uuid())
-        .bind(workspace_ids(proof))
-        .bind(proof.user_id().as_uuid())
-        .bind(team_ids(proof))
-        .bind(project_ids(proof))
-        .bind(search_text)
-        .bind(CANDIDATE_LIMIT)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(agentforge_core::AppError::from)?;
-
-        Ok(rows.into_iter().map(Into::into).collect())
+        self.repo.visible_memory_candidates(proof, search_text, CANDIDATE_LIMIT).await
     }
 
     async fn visible_skill_suggestions(
@@ -298,55 +154,8 @@ impl ContextResolverService {
         proof: &ScopedRead,
         search_text: &str,
     ) -> AppResult<Vec<ResolvedItemRef>> {
-        if proof.workspace_ids().is_empty() {
-            return Ok(Vec::new());
-        }
-
-        let rows = sqlx::query_as::<_, SkillCandidateRow>(
-            r#"WITH q AS (
-                   SELECT plainto_tsquery('simple', $6) AS query
-               )
-               SELECT id, name, scope_kind, scope_id, sensitivity
-                 FROM skills
-                WHERE enabled = TRUE
-                  AND state = 'active'
-                  AND revoked_at IS NULL
-                  AND trigger_pattern IS NOT NULL
-                  AND (ttl_expires_at IS NULL OR ttl_expires_at > now())
-                  AND (
-                      organization_id IS NULL
-                      OR (
-                          organization_id = $1
-                          AND workspace_id = ANY($2)
-                          AND (
-                              (scope_kind = 'org' AND scope_id = $1)
-                              OR (scope_kind = 'user' AND scope_id = $3)
-                              OR (scope_kind = 'team' AND scope_id = ANY($4))
-                              OR (scope_kind = 'project' AND scope_id = ANY($5))
-                          )
-                      )
-                  )
-                  AND (
-                      position(lower(trigger_pattern) in lower($6)) > 0
-                      OR to_tsvector(
-                          'simple',
-                          coalesce(name, '') || ' ' || coalesce(description, '') || ' ' || coalesce(trigger_pattern, '')
-                      ) @@ (SELECT query FROM q)
-                  )
-                ORDER BY name ASC, id ASC
-                LIMIT $7"#,
-        )
-        .bind(proof.org_id().as_uuid())
-        .bind(workspace_ids(proof))
-        .bind(proof.user_id().as_uuid())
-        .bind(team_ids(proof))
-        .bind(project_ids(proof))
-        .bind(search_text)
-        .bind(CANDIDATE_LIMIT)
-        .fetch_all(&self.pool)
-        .await?;
-
-        Ok(rows.into_iter().map(Into::into).map(skill_suggestion_item).collect())
+        let rows = self.repo.visible_skill_suggestions(proof, search_text, CANDIDATE_LIMIT).await?;
+        Ok(rows.into_iter().map(skill_suggestion_item).collect())
     }
 
     async fn memo_get(&self, key: &str) -> Option<ResolvedContext> {
@@ -377,14 +186,14 @@ impl ContextResolverService {
                 return None;
             }
         };
-        raw.and_then(|raw| serde_json::from_str(&raw).ok())
+        raw.and_then(|raw| resolved_context_from_cache_payload(&raw))
     }
 
     async fn redis_set(&self, key: &str, resolved: &ResolvedContext) {
         let Some(redis) = &self.redis else {
             return;
         };
-        let Ok(payload) = serde_json::to_string(resolved) else {
+        let Some(payload) = context_resolver_cache_payload(resolved) else {
             return;
         };
         let mut redis = redis.write().await;
@@ -397,16 +206,4 @@ impl ContextResolverService {
             metrics::counter!("context_resolver_memo_redis_error_total", "op" => "set").increment(1);
         }
     }
-}
-
-fn workspace_ids(proof: &ScopedRead) -> Vec<Uuid> {
-    proof.workspace_ids().iter().map(|id| id.as_uuid()).collect()
-}
-
-fn team_ids(proof: &ScopedRead) -> Vec<Uuid> {
-    proof.team_ids().iter().map(|id| id.as_uuid()).collect()
-}
-
-fn project_ids(proof: &ScopedRead) -> Vec<Uuid> {
-    proof.project_ids().iter().map(|id| id.as_uuid()).collect()
 }

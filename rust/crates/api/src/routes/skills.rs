@@ -19,8 +19,10 @@ use agentforge_core::AppResult;
 
 use crate::domain::skill::{SkillScopeKind, SkillState};
 use crate::health::AppState;
-use crate::repositories::skill::SkillRepository;
-use crate::services::skill::{CreateSkillInput, RestoreSkillVersionInput, SkillService, UpdateSkillInput};
+use crate::services::skill::{
+    CreateSkillInput, RestoreSkillVersionInput, SkillService, UpdateSkillInput, skill_data_response,
+    skill_delete_response,
+};
 
 /// Request body for creating a skill.
 #[derive(Deserialize)]
@@ -63,14 +65,14 @@ pub struct RestoreSkillVersionRequest {
 
 /// Build a SkillService from shared state.
 fn make_service(state: &AppState) -> SkillService {
-    SkillService::new(SkillRepository::new(state.pool.clone()))
+    state.skill_service()
 }
 
 /// `GET /skills` — list skills.
 async fn list_skills(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let skills = service.list(&auth.scope).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": skills })))
+    Ok(Json(skill_data_response(skills)))
 }
 
 /// `POST /skills` — create a skill.
@@ -103,7 +105,7 @@ async fn create_skill(
         )
         .await?;
     tracing::info!(org_id = %auth.scope.org_id(), skill = %skill.name, "Skill created");
-    Ok(Json(serde_json::json!({ "ok": true, "data": skill })))
+    Ok(Json(skill_data_response(skill)))
 }
 
 /// `GET /skills/{id}` — get a skill.
@@ -114,7 +116,7 @@ async fn get_skill(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let skill = service.get(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": skill })))
+    Ok(Json(skill_data_response(skill)))
 }
 
 /// `PATCH /skills/{id}` — update a skill.
@@ -138,7 +140,7 @@ async fn update_skill(
             },
         )
         .await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": skill })))
+    Ok(Json(skill_data_response(skill)))
 }
 
 /// `DELETE /skills/{id}` — delete a skill.
@@ -149,7 +151,7 @@ async fn delete_skill(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     service.delete(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(skill_delete_response()))
 }
 
 /// `GET /skills/{id}/versions` — list version snapshots for a skill.
@@ -160,7 +162,7 @@ async fn list_skill_versions(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let versions = service.list_versions(&auth.scope, id).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": versions })))
+    Ok(Json(skill_data_response(versions)))
 }
 
 /// `POST /skills/{id}/restore-version` — restore a skill version.
@@ -182,7 +184,7 @@ async fn restore_skill_version(
             },
         )
         .await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": skill })))
+    Ok(Json(skill_data_response(skill)))
 }
 
 /// Build skill routes sub-router.

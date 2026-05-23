@@ -2,9 +2,11 @@
 
 use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::License;
+use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::license::{LicenseKey, LicenseValidityPolicy};
+pub(crate) use crate::domain::license::license_data_response;
+use crate::domain::license::{LicenseKey, LicenseValidation, LicenseValidityPolicy};
 use crate::repositories::license::LicenseRepository;
 
 /// Business logic layer for license operations.
@@ -15,6 +17,10 @@ pub struct LicenseService {
 impl LicenseService {
     pub fn new(repo: LicenseRepository) -> Self {
         Self { repo }
+    }
+
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(LicenseRepository::new(pool))
     }
 
     /// List licenses for the org.
@@ -28,21 +34,21 @@ impl LicenseService {
     }
 
     /// Validate a license key — check if it exists and is active.
-    pub async fn validate(&self, license_key: &str) -> AppResult<serde_json::Value> {
+    pub(crate) async fn validate(&self, license_key: &str) -> AppResult<LicenseValidation> {
         let license_key = LicenseKey::parse(license_key)?;
         match self.repo.find_by_key(license_key.value()).await? {
             Some(license) => {
                 let valid = LicenseValidityPolicy::is_valid(license.is_active, license.valid_until, chrono::Utc::now());
-                Ok(serde_json::json!({
-                    "valid": valid,
-                    "plan_name": license.plan_name,
-                    "max_agents": license.max_agents,
-                    "max_users": license.max_users,
-                    "is_active": license.is_active,
-                    "valid_until": license.valid_until,
-                }))
+                Ok(LicenseValidation::known(
+                    valid,
+                    license.plan_name,
+                    license.max_agents,
+                    license.max_users,
+                    license.is_active,
+                    license.valid_until,
+                ))
             }
-            None => Ok(serde_json::json!({ "valid": false, "reason": "unknown_key" })),
+            None => Ok(LicenseValidation::unknown_key()),
         }
     }
 

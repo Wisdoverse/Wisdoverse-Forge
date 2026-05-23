@@ -9,8 +9,6 @@
 //! - `DELETE /api/v1/agents/:id/messages`         — wipe chat history
 //! - `POST   /api/v1/agents/:id/prompt/interrupt` — cancel in-flight SSE stream
 
-use std::sync::Arc;
-
 use axum::extract::{Path, Query, State};
 use axum::routing::{get, patch, post};
 use axum::{Json, Router};
@@ -19,15 +17,17 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
-use agentforge_core::{AgentId, AgentStatus, AppResult, ErrorKind};
-use agentforge_platform::ContainerState;
+use agentforge_core::{AgentId, AgentStatus, AppResult};
 
-use crate::domain::agent::{AgentAccessPolicy, PlainTextAgentPrompt};
 use crate::health::AppState;
-use crate::repositories::agent::{AgentRepository, CreateAgentParams};
-use crate::services::agent::AgentService;
-use crate::services::agent_commands::AgentCommandService;
-use crate::services::agent_workspace::{resolve_agent_workspace_paths, resolve_workspace_mount_scope};
+use crate::services::agent::{
+    AgentService, CreateAgentParams, agent_data_response, agent_delete_response, agent_git_status_response,
+    agent_list_response, agent_messages_deleted_response, agent_messages_response, agent_permission_response,
+    agent_prompt_sent_response, agent_response, agent_status_response,
+};
+use crate::services::agent_container_lifecycle::AgentContainerLifecycleService;
+use crate::services::agent_message::AgentMessageService;
+use crate::services::agent_prompt::{AgentPromptDispatch, AgentPromptService};
 
 /// Query parameters for the list endpoint.
 #[derive(Deserialize)]
@@ -96,64 +96,21 @@ pub struct PromptRequest {
     pub images: Option<Vec<String>>,
 }
 
-/// Validate the current Rust prompt path.
-///
-/// This path only supports plain-text prompts. Images are rejected rather than
-/// silently dropped so the route stays aligned with the command publisher.
-fn validate_prompt_request(req: &PromptRequest) -> AppResult<PlainTextAgentPrompt<'_>> {
-    PlainTextAgentPrompt::new(&req.content, req.images.as_deref())
-}
-
 /// Build a service instance from shared state.
 fn make_service(state: &AppState) -> AgentService {
-    AgentService::new(AgentRepository::new(state.pool.clone()))
+    state.agent_service()
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum RestartPlan {
-    StopThenStart,
-    StartOnly,
+fn make_message_service(state: &AppState) -> AgentMessageService {
+    state.agent_message_service()
 }
 
-fn restart_plan_for_container_state(state: ContainerState) -> RestartPlan {
-    match state {
-        ContainerState::Running => RestartPlan::StopThenStart,
-        ContainerState::Created
-        | ContainerState::Paused
-        | ContainerState::Stopped
-        | ContainerState::Dead
-        | ContainerState::Unknown => RestartPlan::StartOnly,
-    }
+fn make_prompt_service(state: &AppState) -> AgentPromptService {
+    state.agent_prompt_service()
 }
 
-fn docker_unavailable() -> ErrorKind {
-    ErrorKind::Unavailable("Docker runtime is not available".into())
-}
-
-fn docker_lifecycle_unavailable(action: &str, err: impl std::fmt::Display) -> ErrorKind {
-    ErrorKind::Unavailable(format!("failed to {action} agent container: {err}"))
-}
-
-async fn send_sidecar_prompt(state: &AppState, agent_id: Uuid, content: &str) -> AppResult<()> {
-    #[cfg(any(test, feature = "test-support"))]
-    if let Some(bus) = state.agent_command_bus.clone() {
-        let command_service = AgentCommandService::new(bus);
-        return command_service.send_prompt(&agent_id.to_string(), content).await;
-    }
-
-    let command_service = AgentCommandService::new(state.nats.clone());
-    command_service.send_prompt(&agent_id.to_string(), content).await
-}
-
-async fn send_sidecar_interrupt(state: &AppState, agent_id: Uuid) -> AppResult<()> {
-    #[cfg(any(test, feature = "test-support"))]
-    if let Some(bus) = state.agent_command_bus.clone() {
-        let command_service = AgentCommandService::new(bus);
-        return command_service.interrupt(&agent_id.to_string()).await;
-    }
-
-    let command_service = AgentCommandService::new(state.nats.clone());
-    command_service.interrupt(&agent_id.to_string()).await
+fn make_container_lifecycle_service(state: &AppState) -> AgentContainerLifecycleService {
+    state.agent_container_lifecycle_service()
 }
 
 /// `GET /api/v1/agents` — list agents for the authenticated tenant.
@@ -168,7 +125,7 @@ async fn list_agents(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let agents = service.list_with_owner(&auth.scope, query.limit, query.offset).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "agents": agents })))
+    Ok(Json(agent_list_response(agents)))
 }
 
 /// `GET /api/agents/:id` — get a single agent by ID.
@@ -181,7 +138,7 @@ async fn get_agent(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let agent = service.get_with_owner(&auth.scope, AgentId::from(id)).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "agent": agent })))
+    Ok(Json(agent_response(agent)))
 }
 
 /// `POST /api/v1/agents` — create a new agent.
@@ -196,19 +153,6 @@ async fn create_agent(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let cli_tool = req.cli_tool.as_deref().map(str::trim).filter(|s| !s.is_empty());
-    let workspace_scope =
-        resolve_workspace_mount_scope(&state.pool, auth.scope.org_id().as_uuid(), req.workspace_id, req.project_id)
-            .await?;
-    let resolved_cwd = if cli_tool.is_some() {
-        let paths = resolve_agent_workspace_paths(
-            &crate::routes::containers::workspace_root_from_env(),
-            workspace_scope,
-            req.cwd.as_deref(),
-        )?;
-        Some(paths.container_cwd)
-    } else {
-        None
-    };
     let agent = service
         .create(
             &auth.scope,
@@ -217,8 +161,8 @@ async fn create_agent(
                 model: req.model.as_deref(),
                 provider: req.provider.as_deref(),
                 cli_tool,
-                cwd: resolved_cwd.as_deref(),
-                workspace_id: Some(workspace_scope.workspace_id),
+                cwd: req.cwd.as_deref(),
+                workspace_id: req.workspace_id,
                 project_id: req.project_id,
                 system_prompt: req.system_prompt.as_deref(),
             },
@@ -226,7 +170,7 @@ async fn create_agent(
         .await?;
     // Re-fetch so the response includes owner + project names via the JOIN view.
     let enriched = service.get_with_owner(&auth.scope, agent.id).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "agent": enriched })))
+    Ok(Json(agent_response(enriched)))
 }
 
 /// `PATCH /api/v1/agents/:id/status` — update agent status with state machine validation.
@@ -238,7 +182,7 @@ async fn update_agent_status(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let agent = service.update_status(&auth.scope, AgentId::from(id), req.status).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": agent })))
+    Ok(Json(agent_data_response(agent)))
 }
 
 /// `DELETE /api/v1/agents/:id` — delete an agent.
@@ -249,7 +193,7 @@ async fn delete_agent(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     service.delete(&auth.scope, AgentId::from(id)).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(agent_delete_response()))
 }
 
 /// `PATCH /api/v1/agents/:id` — update agent fields (name, model, provider).
@@ -270,14 +214,14 @@ async fn update_agent(
             req.system_prompt.as_deref(),
         )
         .await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": agent })))
+    Ok(Json(agent_data_response(agent)))
 }
 
 /// `POST /api/v1/agents/:id/prompt` — send a prompt to the agent.
 ///
 /// Container CLI agents (cli_tool = Some) keep the existing NATS publish path.
-/// Provider+prompt agents (cli_tool = None) run an SSE stream via
-/// `PromptService` — see T11. The response Content-Type differs accordingly.
+/// Provider+prompt agents (cli_tool = None) run an SSE stream via the prompt
+/// application service. The response Content-Type differs accordingly.
 async fn send_prompt(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -287,70 +231,16 @@ async fn send_prompt(
     use axum::response::IntoResponse;
     use axum::response::sse::{Event, KeepAlive, Sse};
 
-    let service = make_service(&state);
-    let agent = service.get(&auth.scope, AgentId::from(id)).await?;
+    let service = make_prompt_service(&state);
+    let dispatch =
+        service.send_prompt(auth.scope.clone(), AgentId::from(id), &req.content, req.images.as_deref()).await?;
 
-    let prompt = validate_prompt_request(&req)?;
-
-    // Container CLI agents keep the existing NATS publish path.
-    if agent.cli_tool.is_some() {
-        send_sidecar_prompt(&state, id, prompt.content()).await?;
-        return Ok(Json(serde_json::json!({ "ok": true, "status": "sent", "agent_id": id })).into_response());
-    }
-
-    // Provider+prompt agents: run the SSE loop.
-    let user_llm_repo =
-        Arc::new(crate::repositories::user::llm_config::UserLlmConfigRepository::new(state.pool.clone()));
-    let keys = Arc::new(crate::services::prompt::UserLlmConfigKeyResolver::new(user_llm_repo, state.encryption_key));
-    let prompt_service = crate::services::prompt::PromptService::new(
-        Arc::new(crate::repositories::agent::message::MessageRepository::new(state.pool.clone())),
-        Arc::new(AgentRepository::new(state.pool.clone())),
-        state.llm_factory.clone(),
-        keys,
-    );
-    let model = agent.model.clone().ok_or_else(|| ErrorKind::Validation("agent has no model configured".into()))?;
-    let system_prompt = agent.system_prompt.clone();
-
-    // Build the stream FIRST. Any error from validation / build_history /
-    // key resolution / provider construction returns now, before we touch
-    // the inflight map, so an early failure never wedges the agent as busy.
-    let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
-    let agent_id_typed = AgentId::from(id);
-    let frame_stream = prompt_service
-        .stream(auth.scope.clone(), agent_id_typed, model, system_prompt, prompt.content().to_owned(), cancel_rx)
-        .await?;
-
-    // Register the in-flight sender AFTER the stream is built. Second
-    // concurrent send on the same agent → 409.
-    {
-        let mut map = state.inflight_prompts.lock().expect("inflight_prompts poisoned");
-        if map.contains_key(&agent_id_typed) {
-            return Err(ErrorKind::Conflict("agent_busy".into()).into());
-        }
-        map.insert(agent_id_typed, cancel_tx);
-    }
-
-    // Cleanup guard: removes the in-flight entry when the stream is dropped
-    // — normal completion, client disconnect, or server-initiated interrupt.
-    struct InflightGuard {
-        map: Arc<std::sync::Mutex<std::collections::HashMap<AgentId, tokio::sync::oneshot::Sender<()>>>>,
-        agent_id: AgentId,
-    }
-    impl Drop for InflightGuard {
-        fn drop(&mut self) {
-            if let Ok(mut m) = self.map.lock() {
-                m.remove(&self.agent_id);
-            }
-            // Poisoned mutex on drop: other handlers already treat this as
-            // their own failure path via expect(); silently skipping here is
-            // acceptable because cleanup-on-drop is best-effort.
-        }
-    }
-    let guard = Arc::new(InflightGuard { map: state.inflight_prompts.clone(), agent_id: agent_id_typed });
+    let AgentPromptDispatch::ProviderStream { frames: frame_stream } = dispatch else {
+        return Ok(Json(agent_prompt_sent_response(id)).into_response());
+    };
 
     type SseBoxError = Box<dyn std::error::Error + Send + Sync>;
     let sse_events = frame_stream.map(move |frame_result| {
-        let _hold = guard.clone();
         let frame = frame_result.map_err(|e| -> SseBoxError { e.kind.to_string().into() })?;
         let (event_name, data) = frame.split();
         Ok::<_, SseBoxError>(Event::default().event(event_name).data(data.to_string()))
@@ -370,12 +260,9 @@ async fn interrupt_agent(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let service = make_service(&state);
-    let _agent = service.get(&auth.scope, AgentId::from(id)).await?;
-
-    send_sidecar_interrupt(&state, id).await?;
-
-    Ok(Json(serde_json::json!({ "ok": true, "status": "interrupting" })))
+    let service = make_prompt_service(&state);
+    service.interrupt_sidecar(&auth.scope, AgentId::from(id)).await?;
+    Ok(Json(agent_status_response("interrupting")))
 }
 
 /// Query parameters for the messages list endpoint.
@@ -397,20 +284,9 @@ async fn list_messages(
     Path(id): Path<Uuid>,
     Query(q): Query<MessagesQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
-    // Ownership check first — preserves the "no existence leak" 404 contract
-    // for cross-tenant / nonexistent ids. Without this, a cross-tenant agent
-    // id returns {ok:true, messages:[]} instead of 404.
-    let service = make_service(&state);
-    let _agent = service.get(&auth.scope, AgentId::from(id)).await?;
-
-    let repo = crate::repositories::agent::message::MessageRepository::new(state.pool.clone());
-    let limit = q.limit.clamp(1, 200);
-    let mut msgs = repo.list(&auth.scope, AgentId::from(id), limit + 1, q.before).await?;
-    let has_more = msgs.len() as i64 > limit;
-    if has_more {
-        msgs.remove(0);
-    }
-    Ok(Json(serde_json::json!({ "ok": true, "messages": msgs, "hasMore": has_more })))
+    let service = make_message_service(&state);
+    let (msgs, has_more) = service.list(&auth.scope, AgentId::from(id), q.limit, q.before).await?;
+    Ok(Json(agent_messages_response(msgs, has_more)))
 }
 
 /// `DELETE /api/v1/agents/:id/messages` — wipe all chat history for the agent.
@@ -419,12 +295,9 @@ async fn delete_messages(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let service = make_service(&state);
-    let _agent = service.get(&auth.scope, AgentId::from(id)).await?;
-
-    let repo = crate::repositories::agent::message::MessageRepository::new(state.pool.clone());
-    let deleted = repo.delete_all_by_agent(&auth.scope, AgentId::from(id)).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "deleted": deleted })))
+    let service = make_message_service(&state);
+    let deleted = service.delete_all(&auth.scope, AgentId::from(id)).await?;
+    Ok(Json(agent_messages_deleted_response(deleted)))
 }
 
 /// `POST /api/v1/agents/:id/prompt/interrupt` — cancel the in-flight LLM stream.
@@ -437,14 +310,9 @@ async fn interrupt_prompt(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let service = make_service(&state);
-    let _agent = service.get(&auth.scope, AgentId::from(id)).await?;
-
-    let mut map = state.inflight_prompts.lock().expect("inflight_prompts poisoned");
-    if let Some(tx) = map.remove(&AgentId::from(id)) {
-        let _ = tx.send(());
-    }
-    Ok(Json(serde_json::json!({ "ok": true })))
+    let service = make_prompt_service(&state);
+    service.interrupt_provider_stream(&auth.scope, AgentId::from(id)).await?;
+    Ok(Json(agent_delete_response()))
 }
 
 /// `POST /api/v1/agents/:id/restart` — restart agent container.
@@ -453,53 +321,8 @@ async fn restart_agent(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let docker = state.docker.as_ref().ok_or_else(docker_unavailable)?;
-
-    let service = make_service(&state);
-    let agent = service.get(&auth.scope, AgentId::from(id)).await?;
-
-    if agent.cli_tool.is_none() {
-        return Err(ErrorKind::Validation("agent is not container-backed".into()).into());
-    }
-
-    let container_id =
-        agent.container_id.as_ref().ok_or_else(|| ErrorKind::Validation("agent has no container".into()))?;
-
-    let container_info = match docker.inspect_container(container_id).await {
-        Ok(info) => info,
-        Err(err) if err.is_not_found() => {
-            tracing::warn!(
-                error = %err,
-                agent_id = %id,
-                container_id = %container_id,
-                "agent restart found a stale container reference"
-            );
-            let repo = AgentRepository::new(state.pool.clone());
-            repo.clear_container(&auth.scope, AgentId::from(id)).await?;
-            return Err(
-                ErrorKind::Validation("agent container is no longer available; start the agent again".into()).into()
-            );
-        }
-        Err(err) => return Err(docker_lifecycle_unavailable("inspect", err).into()),
-    };
-
-    match restart_plan_for_container_state(container_info.status) {
-        RestartPlan::StopThenStart => {
-            docker.stop_container(container_id, 10).await.map_err(|e| docker_lifecycle_unavailable("stop", e))?;
-            docker.start_container(container_id).await.map_err(|e| docker_lifecycle_unavailable("start", e))?;
-        }
-        RestartPlan::StartOnly => {
-            tracing::info!(
-                agent_id = %id,
-                container_id = %container_id,
-                status = ?container_info.status,
-                "agent restart found a non-running container; starting it directly"
-            );
-            docker.start_container(container_id).await.map_err(|e| docker_lifecycle_unavailable("start", e))?;
-        }
-    }
-
-    Ok(Json(serde_json::json!({ "ok": true, "status": "restarted" })))
+    make_container_lifecycle_service(&state).restart(&auth.scope, AgentId::from(id)).await?;
+    Ok(Json(agent_status_response("restarted")))
 }
 
 /// `POST /api/v1/agents/:id/resume` — resume a stopped agent.
@@ -508,22 +331,8 @@ async fn resume_agent(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let service = make_service(&state);
-    let agent = service.get(&auth.scope, AgentId::from(id)).await?;
-
-    let container_id =
-        agent.container_id.as_ref().ok_or_else(|| ErrorKind::Validation("agent has no container to resume".into()))?;
-
-    if let Some(docker) = &state.docker {
-        docker
-            .start_container(container_id)
-            .await
-            .map_err(|e| ErrorKind::Internal(anyhow::anyhow!("resume failed: {e}")))?;
-    }
-
-    service.update_status(&auth.scope, AgentId::from(id), AgentStatus::Idle).await?;
-
-    Ok(Json(serde_json::json!({ "ok": true, "status": "resumed" })))
+    make_container_lifecycle_service(&state).resume(&auth.scope, AgentId::from(id)).await?;
+    Ok(Json(agent_status_response("resumed")))
 }
 
 /// Request body for adding a collaborator.
@@ -559,7 +368,7 @@ async fn list_collaborators(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let collabs = service.list_collaborators(&auth.scope, AgentId::from(id)).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": collabs })))
+    Ok(Json(agent_data_response(collabs)))
 }
 
 /// `POST /api/v1/agents/:id/collaborators` — add a collaborator.
@@ -571,7 +380,7 @@ async fn add_collaborator(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let collab = service.add_collaborator(&auth.scope, AgentId::from(id), req.user_id, &req.permission).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": collab })))
+    Ok(Json(agent_data_response(collab)))
 }
 
 /// `PATCH /api/v1/agents/:id/collaborators/:user_id` — update a collaborator's permission.
@@ -583,7 +392,7 @@ async fn update_collaborator(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let collab = service.update_collaborator(&auth.scope, AgentId::from(id), user_id, &req.permission).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": collab })))
+    Ok(Json(agent_data_response(collab)))
 }
 
 /// `DELETE /api/v1/agents/:id/collaborators/:user_id` — remove a collaborator.
@@ -594,7 +403,7 @@ async fn remove_collaborator(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     service.remove_collaborator(&auth.scope, AgentId::from(id), user_id).await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(agent_delete_response()))
 }
 
 /// `GET /api/v1/agents/:id/git` — get git status (stub).
@@ -608,16 +417,7 @@ async fn get_git_status(
     let _agent = service.get(&auth.scope, AgentId::from(id)).await?;
 
     // Stub: return empty git status
-    Ok(Json(serde_json::json!({
-        "ok": true,
-        "data": {
-            "branch": null,
-            "ahead": 0,
-            "behind": 0,
-            "modified": [],
-            "untracked": []
-        }
-    })))
+    Ok(Json(agent_git_status_response()))
 }
 
 /// `POST /api/v1/agents/:id/permission` — check/grant permission.
@@ -628,21 +428,8 @@ async fn check_permission(
     Json(req): Json<PermissionRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
-    let agent = service.get(&auth.scope, AgentId::from(id)).await?;
-
-    let is_owner = agent.user_id.as_uuid() == req.user_id;
-    let collabs = service.list_collaborators(&auth.scope, AgentId::from(id)).await?;
-    let collab_permission = collabs.iter().find(|c| c.user_id.as_uuid() == req.user_id).map(|c| c.permission.as_str());
-    let has_permission = AgentAccessPolicy::has_permission(is_owner, collab_permission, &req.action);
-
-    Ok(Json(serde_json::json!({
-        "ok": true,
-        "data": {
-            "has_permission": has_permission,
-            "is_owner": is_owner,
-            "permission": collab_permission,
-        }
-    })))
+    let projection = service.check_permission(&auth.scope, AgentId::from(id), req.user_id, &req.action).await?;
+    Ok(Json(agent_permission_response(projection)))
 }
 
 /// Build agent routes sub-router.
@@ -666,6 +453,7 @@ pub fn agent_routes() -> Router<AppState> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use agentforge_core::ErrorKind;
 
     #[test]
     fn list_query_defaults() {
@@ -775,21 +563,21 @@ mod tests {
     #[test]
     fn prompt_request_with_images_is_rejected() {
         let req: PromptRequest = serde_json::from_str(r#"{"content": "hello", "images": ["base64data"]}"#).unwrap();
-        let result = validate_prompt_request(&req);
+        let result = crate::domain::agent::PlainTextAgentPrompt::new(&req.content, req.images.as_deref());
         assert!(matches!(result.unwrap_err().kind, ErrorKind::Validation(msg) if msg.contains("not supported")));
     }
 
     #[test]
     fn prompt_request_empty_content_no_images_should_fail_validation() {
         let req: PromptRequest = serde_json::from_str(r#"{"content": ""}"#).unwrap();
-        let result = validate_prompt_request(&req);
+        let result = crate::domain::agent::PlainTextAgentPrompt::new(&req.content, req.images.as_deref());
         assert!(matches!(result.unwrap_err().kind, ErrorKind::Validation(msg) if msg.contains("required")));
     }
 
     #[test]
     fn prompt_request_blank_content_is_rejected() {
         let req: PromptRequest = serde_json::from_str(r#"{"content": "   "}"#).unwrap();
-        let result = validate_prompt_request(&req);
+        let result = crate::domain::agent::PlainTextAgentPrompt::new(&req.content, req.images.as_deref());
         assert!(result.is_err());
     }
 
@@ -850,24 +638,6 @@ mod tests {
     fn update_request_camel_case_system_prompt_alias() {
         let req: UpdateAgentRequest = serde_json::from_str(r#"{"systemPrompt": "new prompt"}"#).unwrap();
         assert_eq!(req.system_prompt.as_deref(), Some("new prompt"));
-    }
-
-    #[test]
-    fn restart_plan_stops_then_starts_running_containers() {
-        assert_eq!(restart_plan_for_container_state(ContainerState::Running), RestartPlan::StopThenStart);
-    }
-
-    #[test]
-    fn restart_plan_starts_non_running_containers_directly() {
-        for state in [
-            ContainerState::Created,
-            ContainerState::Paused,
-            ContainerState::Stopped,
-            ContainerState::Dead,
-            ContainerState::Unknown,
-        ] {
-            assert_eq!(restart_plan_for_container_state(state), RestartPlan::StartOnly);
-        }
     }
 
     #[test]

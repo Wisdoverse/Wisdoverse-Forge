@@ -3,7 +3,9 @@
 //! This module owns pure memory item input, pagination, and retention policies
 //! that are independent of repositories, HTTP route DTOs, and audit emission.
 
-use agentforge_core::{AppError, AppResult, ErrorKind, MemoryItemId, ScopeKind};
+use agentforge_core::{
+    AppError, AppResult, ErrorKind, MemoryItemId, ScopeKind, ScopedWriteError, TenantScope, WorkspaceId,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -16,6 +18,10 @@ use crate::domain::context_governance::{
 
 const DEFAULT_LIMIT: i64 = 50;
 const MAX_LIMIT: i64 = 200;
+
+pub(crate) fn memory_data_response<T: Serialize>(data: T) -> Value {
+    json!({ "ok": true, "data": data })
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct MemoryContent {
@@ -85,6 +91,42 @@ impl MemoryScopeTargetPolicy {
             })?,
         };
         Ok((scope_kind, scope_id))
+    }
+}
+
+pub(crate) struct MemoryAccessPolicy;
+
+impl MemoryAccessPolicy {
+    pub(crate) fn required_workspace(scope: &TenantScope) -> AppResult<WorkspaceId> {
+        scope.workspace_id().ok_or_else(Self::forbidden)
+    }
+
+    pub(crate) fn not_found(id: MemoryItemId) -> AppError {
+        ErrorKind::NotFound(format!("memory item {id}")).into()
+    }
+
+    pub(crate) fn already_revoked(id: MemoryItemId) -> AppError {
+        ErrorKind::Conflict(format!("memory item {id} is already revoked")).into()
+    }
+
+    pub(crate) fn ensure_resource_belongs_to_scope(belongs_to_scope: bool) -> AppResult<()> {
+        if belongs_to_scope { Ok(()) } else { Err(Self::forbidden()) }
+    }
+
+    pub(crate) fn scoped_write_error(_err: ScopedWriteError) -> AppError {
+        Self::forbidden()
+    }
+
+    pub(crate) fn forbidden() -> AppError {
+        ErrorKind::Forbidden.into()
+    }
+}
+
+pub(crate) struct MemoryProvenancePolicy;
+
+impl MemoryProvenancePolicy {
+    pub(crate) fn resolve(provenance: Option<Value>) -> Value {
+        provenance.unwrap_or_else(|| Value::Object(serde_json::Map::new()))
     }
 }
 
@@ -742,6 +784,39 @@ mod tests {
     }
 
     #[test]
+    fn memory_access_policy_owns_workspace_and_scope_forbidden_contracts() {
+        let workspace_id = WorkspaceId::new();
+        let scope = TenantScope::with_axes(
+            agentforge_core::OrgId::new(),
+            agentforge_core::UserId::new(),
+            Some(workspace_id),
+            None,
+            None,
+        );
+        let missing_workspace = crate::test_support::tenant_scope();
+
+        assert_eq!(MemoryAccessPolicy::required_workspace(&scope).unwrap(), workspace_id);
+        assert!(matches!(
+            MemoryAccessPolicy::required_workspace(&missing_workspace).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
+        let item_id = MemoryItemId::new();
+        assert!(matches!(
+            MemoryAccessPolicy::not_found(item_id).kind,
+            ErrorKind::NotFound(message) if message == format!("memory item {item_id}")
+        ));
+        assert!(matches!(
+            MemoryAccessPolicy::already_revoked(item_id).kind,
+            ErrorKind::Conflict(message) if message == format!("memory item {item_id} is already revoked")
+        ));
+        assert!(MemoryAccessPolicy::ensure_resource_belongs_to_scope(true).is_ok());
+        assert!(matches!(
+            MemoryAccessPolicy::ensure_resource_belongs_to_scope(false).unwrap_err().kind,
+            ErrorKind::Forbidden
+        ));
+    }
+
+    #[test]
     fn memory_title_trims_and_checks_bounds() {
         assert_eq!(MemoryTitle::parse(" title ").unwrap().value(), "title");
         assert!(MemoryTitle::parse("").is_err());
@@ -755,6 +830,12 @@ mod tests {
         assert_eq!(MemoryVisibility::parse(Some("private")).unwrap().as_str(), "private");
         assert_eq!(MemoryVisibility::parse(Some("shared")).unwrap().as_str(), "shared");
         assert!(MemoryVisibility::parse(Some("team")).is_err());
+    }
+
+    #[test]
+    fn memory_provenance_policy_defaults_to_empty_object() {
+        assert_eq!(MemoryProvenancePolicy::resolve(None), json!({}));
+        assert_eq!(MemoryProvenancePolicy::resolve(Some(json!({ "source": "manual" }))), json!({ "source": "manual" }));
     }
 
     #[test]

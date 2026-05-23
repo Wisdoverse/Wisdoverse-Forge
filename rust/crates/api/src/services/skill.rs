@@ -1,19 +1,21 @@
 //! Skill service — validation and governance management.
 
-use agentforge_core::{AppResult, ErrorKind, ProjectId, ScopedRead, TeamId, TenantScope, WorkspaceId};
+use agentforge_core::{AppResult, ProjectId, ScopedRead, TeamId, TenantScope, WorkspaceId};
 use agentforge_db::entities::{Skill, SkillVersion};
 use chrono::{DateTime, Utc};
-use serde_json::{Value, json};
+use serde_json::Value;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::skill::{
-    PreparedSkillContent, SkillAuditIdentity, SkillBoundaryAccessPolicy, SkillBoundaryMutationPolicy,
-    SkillContentDecision, SkillContentPolicy, SkillCreateStatePolicy, SkillCreatedAudit, SkillJsonObjectPolicy,
-    SkillMutationAccess, SkillMutationAccessPolicy, SkillMutationManagerCheck, SkillMutationPolicy, SkillName,
-    SkillRestoreVersionPlan, SkillRestoreVersionPolicy, SkillRestoreVersionRequest, SkillRestoredAudit,
-    SkillRevokedAudit, SkillScopeKind, SkillScopeTargetPolicy, SkillSensitivity, SkillState,
-    SkillStateTransitionPolicy, SkillTtlPolicy, SkillUpdatedAudit, skill_audit_event,
+    PreparedSkillContent, SkillAccessPolicy, SkillAuditIdentity, SkillBoundaryAccessPolicy,
+    SkillBoundaryMutationPolicy, SkillContentDecision, SkillContentPolicy, SkillCreateStatePolicy, SkillCreatedAudit,
+    SkillJsonArrayPolicy, SkillJsonObjectPolicy, SkillMutationAccess, SkillMutationAccessPolicy,
+    SkillMutationManagerCheck, SkillMutationPolicy, SkillName, SkillRestoreVersionPlan, SkillRestoreVersionPolicy,
+    SkillRestoreVersionRequest, SkillRestoredAudit, SkillRevokedAudit, SkillScopeKind, SkillScopeTargetPolicy,
+    SkillSensitivity, SkillState, SkillStateTransitionPolicy, SkillTtlPolicy, SkillUpdatedAudit, skill_audit_event,
 };
+pub(crate) use crate::domain::skill::{skill_data_response, skill_delete_response};
 use crate::repositories::resource::permission::ResourcePermissionRepository;
 use crate::repositories::skill::{CreateSkillRecord, SkillRepository, SkillVersionRepository, UpdateSkillRecord};
 use crate::services::context_governance::ContextGovernanceService;
@@ -65,6 +67,10 @@ impl SkillService {
         Self { repo, permissions }
     }
 
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self::new(SkillRepository::new(pool))
+    }
+
     /// List all active visible skills for the request scope.
     pub async fn list(&self, scope: &TenantScope) -> AppResult<Vec<Skill>> {
         let proof = self.validated_read(scope).await?;
@@ -79,7 +85,7 @@ impl SkillService {
 
     /// Create a new governed skill.
     pub async fn create(&self, scope: &TenantScope, input: CreateSkillInput) -> AppResult<Skill> {
-        let workspace_id = required_workspace(scope)?;
+        let workspace_id = SkillAccessPolicy::required_workspace(scope)?;
         let name = SkillName::parse(&input.name)?.value();
         let content = self.prepare_content_or_audit_rejection(scope, "create", None, &input.content).await?;
         let target_scope_id = self.validated_write_scope(scope, workspace_id, input.scope_kind, input.scope_id).await?;
@@ -88,12 +94,12 @@ impl SkillService {
         let requested_sensitivity =
             input.sensitivity.as_deref().map(SkillSensitivity::parse).transpose()?.map(SkillSensitivity::as_str);
         let sensitivity = requested_sensitivity.unwrap_or(content.sensitivity);
-        let provenance = input.provenance.unwrap_or_else(|| json!({}));
+        let provenance = SkillJsonObjectPolicy::resolve(input.provenance);
         SkillJsonObjectPolicy::validate("provenance", &provenance)?;
-        let required_inputs = input.required_inputs.unwrap_or_else(|| json!([]));
-        let tools = input.tools.unwrap_or_else(|| json!([]));
-        let examples = input.examples.unwrap_or_else(|| json!([]));
-        let success_evidence = input.success_evidence.unwrap_or_else(|| json!([]));
+        let required_inputs = SkillJsonArrayPolicy::resolve(input.required_inputs);
+        let tools = SkillJsonArrayPolicy::resolve(input.tools);
+        let examples = SkillJsonArrayPolicy::resolve(input.examples);
+        let success_evidence = SkillJsonArrayPolicy::resolve(input.success_evidence);
         let state_label = state.as_label();
 
         let mut tx = self.repo.pool().begin().await?;
@@ -329,79 +335,7 @@ impl SkillService {
     }
 
     async fn validated_read(&self, scope: &TenantScope) -> AppResult<ScopedRead> {
-        let Some(workspace_id) = scope.workspace_id() else {
-            return Ok(ScopedRead::from_validated_memberships(
-                scope.org_id(),
-                scope.user_id(),
-                std::iter::empty(),
-                std::iter::empty(),
-                std::iter::empty(),
-            ));
-        };
-
-        let workspace_exists = sqlx::query_scalar::<_, bool>(
-            r#"SELECT EXISTS (
-                   SELECT 1 FROM workspaces
-                    WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL
-               )"#,
-        )
-        .bind(workspace_id.as_uuid())
-        .bind(scope.org_id().as_uuid())
-        .fetch_one(self.repo.pool())
-        .await?;
-        if !workspace_exists {
-            return Err(ErrorKind::NotFound(format!("workspace {workspace_id}")).into());
-        }
-
-        let team_ids = sqlx::query_scalar::<_, Uuid>(
-            r#"SELECT tm.team_id
-                 FROM team_members tm
-                 JOIN teams t ON t.id = tm.team_id
-                WHERE t.organization_id = $1
-                  AND t.deleted_at IS NULL
-                  AND tm.user_id = $2"#,
-        )
-        .bind(scope.org_id().as_uuid())
-        .bind(scope.user_id().as_uuid())
-        .fetch_all(self.repo.pool())
-        .await?
-        .into_iter()
-        .map(TeamId::from)
-        .collect::<Vec<_>>();
-
-        let project_ids = sqlx::query_scalar::<_, Uuid>(
-            r#"SELECT DISTINCT p.id
-                 FROM projects p
-                WHERE p.organization_id = $1
-                  AND p.deleted_at IS NULL
-                  AND p.workspace_id = $3
-                  AND (
-                      EXISTS (
-                          SELECT 1 FROM project_members pm
-                           WHERE pm.project_id = p.id AND pm.user_id = $2
-                      )
-                      OR EXISTS (
-                          SELECT 1 FROM team_members tm
-                           WHERE tm.team_id = p.team_id AND tm.user_id = $2
-                      )
-                  )"#,
-        )
-        .bind(scope.org_id().as_uuid())
-        .bind(scope.user_id().as_uuid())
-        .bind(workspace_id.as_uuid())
-        .fetch_all(self.repo.pool())
-        .await?
-        .into_iter()
-        .map(ProjectId::from)
-        .collect::<Vec<_>>();
-
-        Ok(ScopedRead::from_validated_memberships(
-            scope.org_id(),
-            scope.user_id(),
-            [workspace_id],
-            team_ids,
-            project_ids,
-        ))
+        self.permissions.validated_read_scope(scope).await
     }
 
     async fn validated_write_scope(
@@ -413,9 +347,9 @@ impl SkillService {
     ) -> AppResult<Uuid> {
         let target_scope_id =
             SkillScopeTargetPolicy::resolve(scope_kind, scope_id, scope.org_id().as_uuid(), scope.user_id().as_uuid())?;
-        if !self.repo.resource_belongs_to_scope(scope, workspace_id, scope_kind.as_label(), target_scope_id).await? {
-            return Err(ErrorKind::Forbidden.into());
-        }
+        SkillAccessPolicy::ensure_resource_belongs_to_scope(
+            self.repo.resource_belongs_to_scope(scope, workspace_id, scope_kind.as_label(), target_scope_id).await?,
+        )?;
         Ok(target_scope_id)
     }
 
@@ -465,7 +399,7 @@ impl SkillService {
                 let can_manage = self.permissions.can_manage_project(scope, ProjectId::from(project_id)).await?;
                 SkillMutationAccessPolicy::ensure_manager_authorized(can_manage)
             }
-            SkillMutationAccess::Forbidden => Err(ErrorKind::Forbidden.into()),
+            SkillMutationAccess::Forbidden => Err(SkillAccessPolicy::forbidden()),
         }
     }
 
@@ -534,8 +468,4 @@ impl SkillService {
         ContextGovernanceService::emit_audit(tx, scope, skill_audit_event(action, resource_id, payload)).await?;
         Ok(())
     }
-}
-
-fn required_workspace(scope: &TenantScope) -> AppResult<WorkspaceId> {
-    scope.workspace_id().ok_or_else(|| agentforge_core::AppError::from(ErrorKind::Forbidden))
 }

@@ -13,9 +13,9 @@ use serde::Deserialize;
 use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
-use crate::health::{AppState, ContextFeature, ensure_context_feature_enabled};
-use crate::repositories::analytics::AnalyticsRepository;
-use crate::services::analytics::AnalyticsService;
+use crate::health::AppState;
+use crate::services::analytics::{AnalyticsService, analytics_data_response};
+use crate::services::context_feature::ContextFeatureService;
 use crate::services::usage_analytics::{ContextUsageQuery, UsageAnalyticsService};
 
 /// Request body for tracking an analytics event.
@@ -46,11 +46,15 @@ pub struct ContextUsageQueryParams {
 
 /// Build an AnalyticsService from shared state.
 fn make_service(state: &AppState) -> AnalyticsService {
-    AnalyticsService::new(AnalyticsRepository::new(state.pool.clone()))
+    state.analytics_service()
 }
 
 fn make_usage_service(state: &AppState) -> UsageAnalyticsService {
-    UsageAnalyticsService::new(state.pool.clone())
+    state.analytics_usage_service()
+}
+
+fn make_feature_service(state: &AppState) -> ContextFeatureService {
+    state.context_feature_service()
 }
 
 /// `POST /analytics/events` — track an event.
@@ -61,7 +65,7 @@ async fn track_event(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let event = service.track(&auth.scope, &req.event_name, &req.properties).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": event })))
+    Ok(Json(analytics_data_response(event)))
 }
 
 /// `GET /analytics/events` — list events.
@@ -72,14 +76,14 @@ async fn list_events(
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let events = service.list(&auth.scope, q.event_name.as_deref(), q.limit, q.offset).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": events })))
+    Ok(Json(analytics_data_response(events)))
 }
 
 /// `GET /analytics/summary` — aggregate stats.
 async fn summary(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
     let summary = service.summary(&auth.scope).await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": summary })))
+    Ok(Json(analytics_data_response(summary)))
 }
 
 /// `GET /analytics/context-usage` — governed context usage analytics snapshot.
@@ -88,7 +92,7 @@ async fn context_usage(
     auth: AuthUser,
     Query(q): Query<ContextUsageQueryParams>,
 ) -> AppResult<Json<serde_json::Value>> {
-    ensure_context_feature_enabled(&state, &auth.scope, ContextFeature::Analytics).await?;
+    make_feature_service(&state).ensure_analytics_enabled(&auth.scope).await?;
     let service = make_usage_service(&state);
     let data = service
         .context_usage(
@@ -102,7 +106,7 @@ async fn context_usage(
             },
         )
         .await?;
-    Ok(Json(serde_json::json!({ "ok": true, "data": data })))
+    Ok(Json(analytics_data_response(data)))
 }
 
 /// Build analytics routes sub-router.

@@ -23,11 +23,13 @@ pub mod perms;
 pub mod worker;
 pub mod xkey;
 
+pub use crate::domain::auth_callout::{CalloutResponse, NatsPermissions};
+
 // Convenience re-exports for downstream units assembling the callout
 // response. Keep this list narrow — only surface what Unit 7 / Unit 8 bind
 // against so the module's public area stays auditable.
-pub use handler::{CalloutResponse, CalloutSigningKeys, DEFAULT_JWT_TTL, handle_auth_request};
-pub use jwt::{AuthorizationRequest, JwtError, NatsPermissions};
+pub use handler::{CalloutSigningKeys, DEFAULT_JWT_TTL, handle_auth_request};
+pub use jwt::{AuthorizationRequest, JwtError};
 pub use kick::{ConnectionTracker, TrackedConnection};
 pub use perms::build_agent_permissions;
 pub use worker::{AuthCalloutService, AuthCalloutWorker};

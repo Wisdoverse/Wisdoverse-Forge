@@ -9,102 +9,42 @@
 //! - `POST   /cli-auth-proxy/{provider}/complete-manual` — finish manual callback
 //! - `DELETE /cli-auth-proxy/{provider}`           — disconnect
 
-use std::sync::Arc;
-
 use axum::Json;
 use axum::Router;
 use axum::extract::{Path, Query, State};
 use axum::response::{Html, IntoResponse};
 use axum::routing::{delete, get, post};
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use agentforge_auth::AuthUser;
-use agentforge_core::{AppConfig, AppResult};
-use secrecy::{ExposeSecret, SecretString};
+use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::repositories::credential::cli::CliCredentialRepository;
-use crate::services::cli_auth_proxy::{CallbackMode, CliAuthProxyProvider, CliAuthProxyService, StateStore};
+#[cfg(test)]
+use crate::services::cli_auth_proxy::resolve_providers;
+use crate::services::cli_auth_proxy::{
+    CliAuthProxyService, cli_auth_authorize_response, cli_auth_callback_idp_error_html,
+    cli_auth_callback_missing_params_html, cli_auth_callback_service_error_html, cli_auth_callback_success_html,
+    cli_auth_connected_response, cli_auth_disconnected_response, cli_auth_providers_response,
+    cli_auth_statuses_response,
+};
 
-/// Build the service on each request — stateless wiring, no per-request state
-/// beyond the shared `AppState`. The Codex provider is baked in; operator-
-/// supplied OAuth apps can override `client_id` / `client_secret` / endpoints
-/// via `AppConfig`.
 fn make_service(state: &AppState) -> CliAuthProxyService {
-    let store = if state.config.redis_url.is_some() {
-        StateStore::Redis(Arc::clone(&state.redis))
-    } else {
-        StateStore::Memory(Arc::clone(&state.cli_auth_memory_store))
-    };
-    CliAuthProxyService::new(
-        resolve_providers(&state.config),
-        CliCredentialRepository::new(state.pool.clone()),
-        state.encryption_key,
-        store,
-        state.config.cli_auth_proxy_revoke_threshold,
-    )
-}
-
-/// Start from the legacy `builtinOpenAI` baseline (public Codex client,
-/// manual callback) and layer admin overrides from `AppConfig`:
-/// - `cli_auth_proxy_openai_client_id` swaps the public client to the
-///   operator's own OAuth app.
-/// - Optional `client_secret` / `auth_endpoint` / `token_endpoint` mirror
-///   the same keys in legacy `appConfig.cliAuthProxy.openai`.
-/// - When `app_url` is also set, the redirect URI flips to our own server
-///   callback and `callback_mode` becomes `Server`.
-///
-/// Public so the background refresh loop in `bins/server` can build the
-/// service without depending on the route layer's private state.
-pub fn resolve_providers(config: &AppConfig) -> Vec<CliAuthProxyProvider> {
-    let mut openai = CliAuthProxyProvider {
-        name: "openai".to_string(),
-        display_name: "OpenAI (Codex)".to_string(),
-        cli_tool: "codex".to_string(),
-        client_id: "app_EMoamEEZ73f0CkXaXp7hrann".to_string(),
-        client_secret: None,
-        auth_endpoint: "https://auth.openai.com/oauth/authorize".to_string(),
-        token_endpoint: "https://auth.openai.com/oauth/token".to_string(),
-        redirect_uri: "http://localhost:1455/auth/callback".to_string(),
-        scope: "openid profile email offline_access".to_string(),
-        callback_mode: CallbackMode::Manual,
-    };
-    if let Some(cid) = config.cli_auth_proxy_openai_client_id.as_deref().filter(|s| !s.is_empty()) {
-        openai.client_id = cid.to_string();
-        // Keep secrets inside the `SecretString` wrapper as long as possible; a
-        // fresh wrapper is fine because the source-of-truth lives in AppConfig.
-        openai.client_secret = config
-            .cli_auth_proxy_openai_client_secret
-            .as_ref()
-            .map(|s| s.expose_secret().to_string())
-            .filter(|s| !s.is_empty())
-            .map(SecretString::from);
-        if let Some(ep) = config.cli_auth_proxy_openai_auth_endpoint.as_deref().filter(|s| !s.is_empty()) {
-            openai.auth_endpoint = ep.to_string();
-        }
-        if let Some(ep) = config.cli_auth_proxy_openai_token_endpoint.as_deref().filter(|s| !s.is_empty()) {
-            openai.token_endpoint = ep.to_string();
-        }
-        if let Some(app_url) = config.app_url.as_deref().filter(|s| !s.is_empty()) {
-            openai.redirect_uri = format!("{}/api/v1/cli-auth-proxy/openai/callback", app_url.trim_end_matches('/'));
-            openai.callback_mode = CallbackMode::Server;
-        }
-    }
-    vec![openai]
+    state.cli_auth_proxy_service()
 }
 
 /// Back-compat shim for callers that don't carry an `AppConfig`
 /// (specifically the unit test below). Always returns the pure hardcoded
 /// baseline — no admin overrides applied.
 #[cfg(test)]
-fn builtin_providers() -> Vec<CliAuthProxyProvider> {
+fn builtin_providers() -> Vec<crate::services::cli_auth_proxy::CliAuthProxyProvider> {
     resolve_providers(&default_test_config())
 }
 
 #[cfg(test)]
-fn default_test_config() -> AppConfig {
-    AppConfig {
+fn default_test_config() -> agentforge_core::AppConfig {
+    agentforge_core::AppConfig {
         port: 4003,
         host: "0.0.0.0".into(),
         database_url: "postgres://test".into(),
@@ -113,7 +53,7 @@ fn default_test_config() -> AppConfig {
         nats_agent_url: None,
         nats_callout: agentforge_core::NatsCalloutConfig::default(),
         stripe: agentforge_core::StripeConfig::default(),
-        jwt_secret: SecretString::from("a".repeat(32)),
+        jwt_secret: secrecy::SecretString::from("a".repeat(32)),
         jwt_expiry_seconds: 900,
         environment: "test".into(),
         log_level: "info".into(),
@@ -173,12 +113,12 @@ pub struct ServerCallbackQuery {
 
 async fn list_providers(State(state): State<AppState>, _auth: AuthUser) -> AppResult<Json<Value>> {
     let providers = make_service(&state).list_providers();
-    Ok(Json(json!({ "ok": true, "providers": providers })))
+    Ok(Json(cli_auth_providers_response(providers)))
 }
 
 async fn status(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<Value>> {
     let statuses = make_service(&state).status(&auth.scope).await?;
-    Ok(Json(json!({ "ok": true, "statuses": statuses })))
+    Ok(Json(cli_auth_statuses_response(statuses)))
 }
 
 async fn authorize(
@@ -187,7 +127,7 @@ async fn authorize(
     Path(provider): Path<String>,
 ) -> AppResult<Json<Value>> {
     let url = make_service(&state).authorize(&auth.scope, &provider).await?;
-    Ok(Json(json!({ "ok": true, "url": url })))
+    Ok(Json(cli_auth_authorize_response(url)))
 }
 
 async fn complete_manual(
@@ -197,7 +137,7 @@ async fn complete_manual(
     Json(req): Json<CompleteManualRequest>,
 ) -> AppResult<Json<Value>> {
     make_service(&state).complete_manual(&auth.scope, &provider, &req.input).await?;
-    Ok(Json(json!({ "ok": true, "provider": provider, "status": "connected" })))
+    Ok(Json(cli_auth_connected_response(&provider)))
 }
 
 async fn disconnect(
@@ -206,7 +146,7 @@ async fn disconnect(
     Path(provider): Path<String>,
 ) -> AppResult<Json<Value>> {
     make_service(&state).disconnect(&auth.scope, &provider).await?;
-    Ok(Json(json!({ "ok": true, "provider": provider, "status": "disconnected" })))
+    Ok(Json(cli_auth_disconnected_response(&provider)))
 }
 
 /// Server-callback landing page. The IdP redirects the user's browser here
@@ -225,67 +165,18 @@ async fn server_callback(
 ) -> impl IntoResponse {
     if let Some(err) = params.error.as_deref() {
         let desc = params.error_description.as_deref().unwrap_or("");
-        return Html(render_idp_error_html(err, desc)).into_response();
+        return Html(cli_auth_callback_idp_error_html(err, desc)).into_response();
     }
     let (Some(code), Some(oauth_state)) = (params.code.as_deref(), params.state.as_deref()) else {
-        return Html(render_missing_params_html().to_string()).into_response();
+        return Html(cli_auth_callback_missing_params_html().to_string()).into_response();
     };
     match make_service(&state).handle_server_callback(&provider, code, oauth_state).await {
-        Ok(()) => Html(
-            "<html><body><h1>Signed in</h1><p>You can close this tab and return to Wisdoverse Forge.</p></body></html>"
-                .to_string(),
-        )
-        .into_response(),
+        Ok(()) => Html(cli_auth_callback_success_html()).into_response(),
         Err(err) => {
             tracing::warn!(error = ?err, provider, "server-callback token exchange failed");
-            // `AppError` doesn't implement `Display` — render kind directly so
-            // validation errors (bad state, mismatched provider) still surface
-            // their `{0}` payload and internal errors show as a generic string
-            // rather than leaking anyhow chain details to the browser.
-            let msg = match &err.kind {
-                agentforge_core::ErrorKind::Validation(m) => m.clone(),
-                agentforge_core::ErrorKind::Unprocessable(m) => m.clone(),
-                _ => "internal error".to_string(),
-            };
-            Html(format!("<html><body><h1>Sign-in failed</h1><p>{}</p></body></html>", html_escape(&msg)))
-                .into_response()
+            Html(cli_auth_callback_service_error_html(&err.kind)).into_response()
         }
     }
-}
-
-/// Render the "IdP returned an error" branch of `server_callback`. Isolated
-/// from the handler so the XSS escape on `error_description` is testable
-/// without standing up the full `AppState`.
-fn render_idp_error_html(error: &str, description: &str) -> String {
-    format!(
-        "<html><body><h1>Sign-in failed</h1><p>{}</p><p>{}</p><p>You can close this tab.</p></body></html>",
-        html_escape(error),
-        html_escape(description),
-    )
-}
-
-/// Render the "callback missing code or state" branch. No user-controlled
-/// input reaches the output — pure static string — but lives here so the
-/// handler's two error paths stay grouped.
-fn render_missing_params_html() -> &'static str {
-    "<html><body><h1>Sign-in failed</h1><p>Callback missing <code>code</code> or <code>state</code>.</p></body></html>"
-}
-
-/// Escape user-provided text before embedding in HTML. Only the minimum set
-/// (`< > & " '`) — we don't render user-controlled markup elsewhere.
-fn html_escape(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for ch in s.chars() {
-        match ch {
-            '<' => out.push_str("&lt;"),
-            '>' => out.push_str("&gt;"),
-            '&' => out.push_str("&amp;"),
-            '"' => out.push_str("&quot;"),
-            '\'' => out.push_str("&#x27;"),
-            c => out.push(c),
-        }
-    }
-    out
 }
 
 pub fn cli_auth_proxy_routes() -> Router<AppState> {
@@ -301,6 +192,8 @@ pub fn cli_auth_proxy_routes() -> Router<AppState> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::services::cli_auth_proxy::CallbackMode;
+    use secrecy::{ExposeSecret, SecretString};
 
     #[test]
     fn builtin_has_openai_codex() {
@@ -361,40 +254,8 @@ mod tests {
     }
 
     #[test]
-    fn html_escape_covers_xss_chars() {
-        assert_eq!(html_escape("<script>alert(\"x\")</script>"), "&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;");
-        assert_eq!(html_escape("it's"), "it&#x27;s");
-    }
-
-    #[test]
     fn complete_manual_request_deserializes() {
         let req: CompleteManualRequest = serde_json::from_str(r#"{"input":"abc#xyz"}"#).unwrap();
         assert_eq!(req.input, "abc#xyz");
-    }
-
-    #[test]
-    fn idp_error_html_escapes_xss_payload_in_description() {
-        let out = render_idp_error_html("access_denied", "<script>alert(1)</script>");
-        assert!(out.contains("&lt;script&gt;"), "description must be escaped: {out}");
-        assert!(!out.contains("<script>alert"), "raw payload leaked — XSS regression: {out}");
-        // The literal <h1> is ours, not user-controlled, and must NOT be escaped.
-        assert!(out.contains("<h1>Sign-in failed</h1>"));
-    }
-
-    #[test]
-    fn idp_error_html_escapes_xss_payload_in_error_code() {
-        // The `error` field is also IdP-controlled — some providers echo back
-        // invalid error codes that could carry HTML.
-        let out = render_idp_error_html("<img src=x onerror=alert(1)>", "benign");
-        assert!(out.contains("&lt;img"), "error field must be escaped: {out}");
-        assert!(!out.contains("<img "), "raw <img leaked: {out}");
-    }
-
-    #[test]
-    fn missing_params_html_is_static_non_panicking() {
-        let out = render_missing_params_html();
-        assert!(out.contains("Callback missing"));
-        // Sanity: no format placeholders leaked.
-        assert!(!out.contains("{}"));
     }
 }

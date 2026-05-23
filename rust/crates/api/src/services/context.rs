@@ -2,9 +2,7 @@
 
 use std::sync::Arc;
 
-use agentforge_core::{
-    AppResult, ErrorKind, ProjectId, ScopedRead, ScopedWrite, ScopedWriteError, TeamId, TenantScope, WorkspaceId,
-};
+use agentforge_core::{AppResult, ScopedRead, ScopedWrite, TenantScope, WorkspaceId};
 use agentforge_db::entities::ContextCandidate;
 use agentforge_infra::NatsClient;
 use chrono::{DateTime, Utc};
@@ -12,15 +10,16 @@ use serde_json::Value;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+pub(crate) use crate::domain::context::context_data_response;
 pub use crate::domain::context::{ContextApprovalOutcome, ContextCandidateSummary, ContextFeedbackOutcome};
 use crate::domain::context::{
     ContextApprovalProvenance, ContextCandidateApprovalAudit, ContextCandidateBroadcast,
     ContextCandidateBroadcastEvent, ContextCandidateCreatedAudit, ContextCandidateKind,
     ContextCandidateManualRejectionAudit, ContextCandidatePolicy, ContextCandidateRecord, ContextFeedbackLabel,
-    ContextFeedbackPolicy, ContextFeedbackRecordedAudit, ContextItemKind, context_candidate_audit_event,
-    context_candidate_summary, ensure_pending_candidate, normalize_candidate_kind_filter,
-    normalize_candidate_state_filter, normalize_context_candidate_limit, normalize_feedback_note, normalize_reason,
-    normalize_scope_kind_filter, validate_context_sensitivity, validate_ttl,
+    ContextFeedbackPolicy, ContextFeedbackRecordedAudit, ContextItemKind, ContextTenantPolicy,
+    context_candidate_audit_event, context_candidate_summary, ensure_pending_candidate,
+    normalize_candidate_kind_filter, normalize_candidate_state_filter, normalize_context_candidate_limit,
+    normalize_feedback_note, normalize_reason, normalize_scope_kind_filter, validate_context_sensitivity, validate_ttl,
 };
 use crate::domain::memory::MemoryScopeKind;
 use crate::repositories::context_candidate::{
@@ -28,6 +27,7 @@ use crate::repositories::context_candidate::{
     CreateContextApprovalRecord, CreateContextCandidateRecord, CreateContextFeedbackRecord,
 };
 use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository};
+use crate::repositories::resource::permission::ResourcePermissionRepository;
 use crate::repositories::skill::{SkillRepository, SkillVersionRepository};
 use crate::services::context_governance::ContextGovernanceService;
 
@@ -68,6 +68,7 @@ pub struct RejectContextCandidateInput {
 pub struct ContextApprovalService {
     candidates: ContextCandidateRepository,
     memory: MemoryRepository,
+    permissions: ResourcePermissionRepository,
     nats: Option<Arc<NatsClient>>,
 }
 
@@ -76,8 +77,13 @@ impl ContextApprovalService {
         Self {
             candidates: ContextCandidateRepository::new(pool.clone()),
             memory: MemoryRepository::new(pool.clone()),
+            permissions: ResourcePermissionRepository::new(pool.clone()),
             nats,
         }
+    }
+
+    pub fn from_runtime(pool: PgPool, nats: Arc<NatsClient>) -> Self {
+        Self::new(pool, Some(nats))
     }
 
     pub async fn create_candidate(
@@ -85,7 +91,7 @@ impl ContextApprovalService {
         scope: &TenantScope,
         input: CreateContextCandidateInput,
     ) -> AppResult<ContextCandidate> {
-        let workspace_id = required_workspace(scope)?;
+        let workspace_id = ContextTenantPolicy::required_workspace(scope)?;
         ContextCandidatePolicy::validate_create(input.item_kind, input.target_skill_id, &input.proposed_content)?;
 
         let mut tx = self.candidates.pool().begin().await?;
@@ -160,7 +166,7 @@ impl ContextApprovalService {
         let requested_sensitivity = input.sensitivity.as_deref().map(validate_context_sensitivity).transpose()?;
         let approval_reason = normalize_reason(input.reason)?;
         let proof = self.validated_read(scope).await?;
-        let workspace_id = required_workspace(scope)?;
+        let workspace_id = ContextTenantPolicy::required_workspace(scope)?;
         let target = self.validated_write_scope(&proof, workspace_id, input.scope_kind, input.scope_id).await?;
 
         let mut tx = self.candidates.pool().begin().await?;
@@ -458,7 +464,7 @@ impl ContextApprovalService {
     }
 
     async fn validated_read(&self, scope: &TenantScope) -> AppResult<ScopedRead> {
-        validated_context_read(self.candidates.pool(), scope).await
+        self.permissions.validated_read_scope(scope).await
     }
 
     async fn validated_write_scope(
@@ -470,10 +476,11 @@ impl ContextApprovalService {
     ) -> AppResult<ScopedWrite> {
         let (scope_kind, scope_id) =
             ContextCandidatePolicy::resolve_approval_scope(scope_kind, scope_id, proof.user_id().as_uuid())?;
-        let write = ScopedWrite::try_new(scope_kind, scope_id, proof.clone()).map_err(scoped_write_error)?;
-        if !self.memory.resource_belongs_to_scope(proof, scope_kind, scope_id, workspace_id).await? {
-            return Err(ErrorKind::Forbidden.into());
-        }
+        let write = ScopedWrite::try_new(scope_kind, scope_id, proof.clone())
+            .map_err(ContextTenantPolicy::scoped_write_error)?;
+        ContextTenantPolicy::ensure_resource_belongs_to_scope(
+            self.memory.resource_belongs_to_scope(proof, scope_kind, scope_id, workspace_id).await?,
+        )?;
         Ok(write)
     }
 
@@ -526,11 +533,15 @@ pub struct RecordContextFeedbackInput {
 
 pub struct ContextFeedbackService {
     feedback: ContextFeedbackRepository,
+    permissions: ResourcePermissionRepository,
 }
 
 impl ContextFeedbackService {
     pub fn new(pool: PgPool) -> Self {
-        Self { feedback: ContextFeedbackRepository::new(pool) }
+        Self {
+            feedback: ContextFeedbackRepository::new(pool.clone()),
+            permissions: ResourcePermissionRepository::new(pool),
+        }
     }
 
     pub async fn record(
@@ -538,8 +549,8 @@ impl ContextFeedbackService {
         scope: &TenantScope,
         input: RecordContextFeedbackInput,
     ) -> AppResult<ContextFeedbackOutcome> {
-        let workspace_id = required_workspace(scope)?;
-        let proof = validated_context_read(self.feedback.pool(), scope).await?;
+        let workspace_id = ContextTenantPolicy::required_workspace(scope)?;
+        let proof = self.permissions.validated_read_scope(scope).await?;
         let note = normalize_feedback_note(input.note)?;
         let item_kind = input.item_kind.as_label();
         let label = input.label.as_label();
@@ -706,82 +717,4 @@ impl From<ContextCandidateListRow> for ContextCandidateRecord {
             updated_at: row.updated_at,
         }
     }
-}
-
-fn required_workspace(scope: &TenantScope) -> AppResult<WorkspaceId> {
-    scope.workspace_id().ok_or_else(|| agentforge_core::AppError::from(ErrorKind::Forbidden))
-}
-
-async fn validated_context_read(pool: &PgPool, scope: &TenantScope) -> AppResult<ScopedRead> {
-    let Some(workspace_id) = scope.workspace_id() else {
-        return Ok(ScopedRead::from_validated_memberships(
-            scope.org_id(),
-            scope.user_id(),
-            std::iter::empty(),
-            std::iter::empty(),
-            std::iter::empty(),
-        ));
-    };
-
-    let workspace_exists = sqlx::query_scalar::<_, bool>(
-        r#"SELECT EXISTS (
-               SELECT 1 FROM workspaces
-                WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL
-           )"#,
-    )
-    .bind(workspace_id.as_uuid())
-    .bind(scope.org_id().as_uuid())
-    .fetch_one(pool)
-    .await?;
-    if !workspace_exists {
-        return Err(ErrorKind::NotFound(format!("workspace {workspace_id}")).into());
-    }
-
-    let team_ids = sqlx::query_scalar::<_, Uuid>(
-        r#"SELECT tm.team_id
-             FROM team_members tm
-             JOIN teams t ON t.id = tm.team_id
-            WHERE t.organization_id = $1
-              AND t.deleted_at IS NULL
-              AND tm.user_id = $2"#,
-    )
-    .bind(scope.org_id().as_uuid())
-    .bind(scope.user_id().as_uuid())
-    .fetch_all(pool)
-    .await?
-    .into_iter()
-    .map(TeamId::from)
-    .collect::<Vec<_>>();
-
-    let project_ids = sqlx::query_scalar::<_, Uuid>(
-        r#"SELECT DISTINCT p.id
-             FROM projects p
-            WHERE p.organization_id = $1
-              AND p.workspace_id = $2
-              AND p.deleted_at IS NULL
-              AND (
-                  EXISTS (
-                      SELECT 1 FROM project_members pm
-                       WHERE pm.project_id = p.id AND pm.user_id = $3
-                  )
-                  OR EXISTS (
-                      SELECT 1 FROM team_members tm
-                       WHERE tm.team_id = p.team_id AND tm.user_id = $3
-                  )
-              )"#,
-    )
-    .bind(scope.org_id().as_uuid())
-    .bind(workspace_id.as_uuid())
-    .bind(scope.user_id().as_uuid())
-    .fetch_all(pool)
-    .await?
-    .into_iter()
-    .map(ProjectId::from)
-    .collect::<Vec<_>>();
-
-    Ok(ScopedRead::from_validated_memberships(scope.org_id(), scope.user_id(), [workspace_id], team_ids, project_ids))
-}
-
-fn scoped_write_error(_err: ScopedWriteError) -> agentforge_core::AppError {
-    ErrorKind::Forbidden.into()
 }

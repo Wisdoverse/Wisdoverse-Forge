@@ -3,11 +3,122 @@
 //! This module owns upload metadata and quota policies that are independent of
 //! repositories, object storage clients, HTTP route DTOs, and persistence details.
 
-use agentforge_core::{AgentId, AppResult, ErrorKind};
+use agentforge_core::{AgentId, AppError, AppResult, ErrorKind};
+use serde::Serialize;
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 const MAX_FILENAME_LEN: usize = 255;
 const MAX_CONTENT_TYPE_LEN: usize = 255;
+pub(crate) const DEFAULT_ATTACHMENT_CONTENT_TYPE: &str = "application/octet-stream";
+
+pub(crate) fn attachment_data_response<T: Serialize>(data: T) -> Value {
+    json!({ "ok": true, "data": data })
+}
+
+pub(crate) fn attachment_delete_response() -> Value {
+    json!({ "ok": true })
+}
+
+pub(crate) struct AttachmentRepositoryPolicy;
+
+impl AttachmentRepositoryPolicy {
+    pub(crate) fn attachment_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("attachment {id}")).into()
+    }
+}
+
+/// Upload payload after HTTP multipart fields have been read.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AttachmentUploadDraft {
+    pub(crate) filename: String,
+    pub(crate) content_type: String,
+    pub(crate) agent_id: Option<AgentId>,
+    pub(crate) bytes: Vec<u8>,
+}
+
+impl AttachmentUploadDraft {
+    pub(crate) fn from_parts(
+        file_name: Option<String>,
+        file_content_type: Option<String>,
+        filename_override: Option<String>,
+        content_type_override: Option<String>,
+        agent_id: Option<AgentId>,
+        bytes: Option<Vec<u8>>,
+    ) -> AppResult<Self> {
+        let bytes = bytes.ok_or_else(|| ErrorKind::Validation("multipart field 'file' is required".to_string()))?;
+        let filename = filename_override
+            .or(file_name)
+            .ok_or_else(|| ErrorKind::Validation("attachment filename is required".to_string()))?;
+        let content_type =
+            content_type_override.or(file_content_type).unwrap_or_else(|| DEFAULT_ATTACHMENT_CONTENT_TYPE.to_string());
+
+        Ok(Self { filename, content_type, agent_id, bytes })
+    }
+}
+
+/// Attachment body and metadata prepared for a download response.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AttachmentDownload {
+    filename: String,
+    content_type: String,
+    bytes: Vec<u8>,
+}
+
+impl AttachmentDownload {
+    pub(crate) fn new(filename: String, content_type: String, bytes: Vec<u8>) -> Self {
+        Self { filename, content_type, bytes }
+    }
+
+    pub(crate) fn filename(&self) -> &str {
+        &self.filename
+    }
+
+    pub(crate) fn content_type(&self) -> &str {
+        &self.content_type
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.bytes.len()
+    }
+
+    pub(crate) fn into_bytes(self) -> Vec<u8> {
+        self.bytes
+    }
+}
+
+pub(crate) fn attachment_download_content_disposition(filename: &str) -> String {
+    let escaped = filename
+        .chars()
+        .map(|ch| match ch {
+            '"' | '\\' | '\r' | '\n' => '_',
+            ch if ch.is_control() => '_',
+            ch => ch,
+        })
+        .collect::<String>();
+    format!("attachment; filename=\"{escaped}\"")
+}
+
+/// Multipart upload error policy for route-level HTTP field extraction.
+pub(crate) struct AttachmentMultipartPolicy;
+
+impl AttachmentMultipartPolicy {
+    pub(crate) fn missing_field_name() -> ErrorKind {
+        ErrorKind::Validation("multipart field name is required".to_string())
+    }
+
+    pub(crate) fn duplicate_file_field() -> ErrorKind {
+        ErrorKind::Validation("exactly one file field is allowed".to_string())
+    }
+
+    pub(crate) fn unsupported_field(name: &str) -> ErrorKind {
+        ErrorKind::Validation(format!("unsupported multipart field '{name}'"))
+    }
+
+    pub(crate) fn invalid_body(err: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Validation(format!("invalid multipart body: {err}"))
+    }
+}
 
 /// Validated attachment filename.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -172,5 +283,56 @@ mod tests {
     #[test]
     fn attachment_agent_scope_rejects_non_uuid() {
         assert!(AttachmentAgentScope::parse("not-a-uuid").is_err());
+    }
+
+    #[test]
+    fn upload_draft_prefers_overrides_and_defaults_content_type() {
+        let agent_id = AgentId::new();
+        let draft = AttachmentUploadDraft::from_parts(
+            Some("source.txt".to_string()),
+            None,
+            Some("override.txt".to_string()),
+            None,
+            Some(agent_id),
+            Some(vec![1, 2, 3]),
+        )
+        .unwrap();
+
+        assert_eq!(draft.filename, "override.txt");
+        assert_eq!(draft.content_type, DEFAULT_ATTACHMENT_CONTENT_TYPE);
+        assert_eq!(draft.agent_id, Some(agent_id));
+        assert_eq!(draft.bytes, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn upload_draft_requires_file_and_filename() {
+        assert!(AttachmentUploadDraft::from_parts(None, None, None, None, None, None).is_err());
+        assert!(AttachmentUploadDraft::from_parts(None, None, None, None, None, Some(vec![1])).is_err());
+    }
+
+    #[test]
+    fn download_content_disposition_escapes_unsafe_characters() {
+        assert_eq!(
+            attachment_download_content_disposition("bad\"\r\nname.txt"),
+            "attachment; filename=\"bad___name.txt\""
+        );
+    }
+
+    #[test]
+    fn multipart_policy_owns_upload_field_errors() {
+        assert!(format!("{}", AttachmentMultipartPolicy::missing_field_name()).contains("field name"));
+        assert!(format!("{}", AttachmentMultipartPolicy::duplicate_file_field()).contains("one file"));
+        assert!(format!("{}", AttachmentMultipartPolicy::unsupported_field("debug")).contains("debug"));
+        assert!(format!("{}", AttachmentMultipartPolicy::invalid_body("bad boundary")).contains("invalid multipart"));
+    }
+
+    #[test]
+    fn attachment_repository_policy_owns_lookup_error() {
+        let id = Uuid::new_v4();
+
+        assert!(matches!(
+            AttachmentRepositoryPolicy::attachment_not_found(id).kind,
+            ErrorKind::NotFound(message) if message == format!("attachment {id}")
+        ));
     }
 }

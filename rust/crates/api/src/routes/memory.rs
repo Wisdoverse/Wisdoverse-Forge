@@ -5,7 +5,7 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
@@ -13,7 +13,9 @@ use agentforge_core::{AppResult, MemoryItemId};
 
 use crate::domain::memory::MemoryScopeKind;
 use crate::health::AppState;
-use crate::services::memory::{CreateMemoryInput, MemoryService, ReclassifyScopeInput, UpdateMemoryInput};
+use crate::services::memory::{
+    CreateMemoryInput, MemoryService, ReclassifyScopeInput, UpdateMemoryInput, memory_data_response,
+};
 
 #[derive(Debug, Deserialize)]
 struct ListMemoryQuery {
@@ -65,7 +67,7 @@ pub struct ReclassifyScopeRequest {
 }
 
 fn make_service(state: &AppState) -> MemoryService {
-    MemoryService::new(state.pool.clone())
+    state.memory_service()
 }
 
 async fn list_memory(
@@ -74,7 +76,7 @@ async fn list_memory(
     Query(query): Query<ListMemoryQuery>,
 ) -> AppResult<Json<Value>> {
     let items = make_service(&state).list(&auth.scope, query.limit, query.offset).await?;
-    Ok(Json(json!({ "ok": true, "data": items })))
+    Ok(Json(memory_data_response(items)))
 }
 
 async fn create_memory(
@@ -100,12 +102,12 @@ async fn create_memory(
             },
         )
         .await?;
-    Ok(Json(json!({ "ok": true, "data": item })))
+    Ok(Json(memory_data_response(item)))
 }
 
 async fn get_memory(State(state): State<AppState>, auth: AuthUser, Path(id): Path<Uuid>) -> AppResult<Json<Value>> {
     let item = make_service(&state).get(&auth.scope, MemoryItemId::from(id)).await?;
-    Ok(Json(json!({ "ok": true, "data": item })))
+    Ok(Json(memory_data_response(item)))
 }
 
 async fn read_memory_content(
@@ -114,7 +116,7 @@ async fn read_memory_content(
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<Value>> {
     let content = make_service(&state).read_content(&auth.scope, MemoryItemId::from(id)).await?;
-    Ok(Json(json!({ "ok": true, "data": content })))
+    Ok(Json(memory_data_response(content)))
 }
 
 async fn update_memory(
@@ -138,12 +140,12 @@ async fn update_memory(
             },
         )
         .await?;
-    Ok(Json(json!({ "ok": true, "data": item })))
+    Ok(Json(memory_data_response(item)))
 }
 
 async fn revoke_memory(State(state): State<AppState>, auth: AuthUser, Path(id): Path<Uuid>) -> AppResult<Json<Value>> {
     let item = make_service(&state).revoke(&auth.scope, MemoryItemId::from(id)).await?;
-    Ok(Json(json!({ "ok": true, "data": item })))
+    Ok(Json(memory_data_response(item)))
 }
 
 async fn extend_memory_ttl(
@@ -153,7 +155,7 @@ async fn extend_memory_ttl(
     Json(req): Json<ExtendTtlRequest>,
 ) -> AppResult<Json<Value>> {
     let item = make_service(&state).extend_ttl(&auth.scope, MemoryItemId::from(id), req.ttl_expires_at).await?;
-    Ok(Json(json!({ "ok": true, "data": item })))
+    Ok(Json(memory_data_response(item)))
 }
 
 async fn reclassify_memory_scope(
@@ -174,7 +176,7 @@ async fn reclassify_memory_scope(
             },
         )
         .await?;
-    Ok(Json(json!({ "ok": true, "data": item })))
+    Ok(Json(memory_data_response(item)))
 }
 
 pub fn memory_routes() -> Router<AppState> {
