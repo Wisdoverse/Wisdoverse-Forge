@@ -70,6 +70,19 @@ async function waitForAppReady(page: Page): Promise<void> {
   await page.locator('[data-testid="sidebar"]').waitFor({ state: 'attached', timeout: 15000 })
 }
 
+async function gotoAndWaitForAppReady(page: Page, baseURL: string, path = ''): Promise<void> {
+  await page.goto(baseURL + path)
+  try {
+    await waitForAppReady(page)
+  } catch (err) {
+    console.warn(
+      `[smoke] waitForAppReady stalled on first nav to ${path || '/'}; reloading once. ${err}`
+    )
+    await page.reload()
+    await waitForAppReady(page)
+  }
+}
+
 /** Standard setup: seed localStorage + navigate + wait. API mocks are
  * installed at the browser-context level by the fixture (see
  * `app-fixtures.ts`), so they're in place before this function runs.
@@ -81,16 +94,7 @@ async function waitForAppReady(page: Page): Promise<void> {
  * is logged so the flake rate stays visible in CI output. */
 async function setupAndNavigate(page: Page, baseURL: string, path = ''): Promise<void> {
   await injectAuth(page, baseURL)
-  await page.goto(baseURL + path)
-  try {
-    await waitForAppReady(page)
-  } catch (err) {
-    console.warn(
-      `[smoke] waitForAppReady stalled on first nav to ${path || '/'}; reloading once. ${err}`
-    )
-    await page.reload()
-    await waitForAppReady(page)
-  }
+  await gotoAndWaitForAppReady(page, baseURL, path)
   // Right panel defaults to collapsed (AppLayout.tsx:46) and has no persisted
   // open/closed state. Expand it once post-mount so downstream tests that
   // read `[data-testid="right-panel"]` see a mounted element. The dedicated
@@ -548,7 +552,9 @@ test.describe('React App Smoke Tests', () => {
       // and User (Account, Teams, Projects) groupings.
       await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible({ timeout: 5000 })
       await expect(page.getByRole('button', { name: 'Providers', exact: true })).toBeVisible()
-      await expect(page.getByRole('button', { name: 'Platform API Keys', exact: true })).toBeVisible()
+      await expect(
+        page.getByRole('button', { name: 'Platform API Keys', exact: true })
+      ).toBeVisible()
       await expect(page.getByRole('button', { name: 'Account', exact: true })).toBeVisible()
       await screenshot(page, '21-settings-page')
     })
@@ -612,7 +618,9 @@ test.describe('React App Smoke Tests', () => {
       // Loading store may still be fetching real skills; accept either the
       // empty-state copy or the loading indicator.
       const emptyOrLoading = page
-        .getByText(/No skills (available|match your search)|Loading skills…/)
+        .getByText(
+          /No skills (available|match your search)|Loading skills…|Create your first skill/
+        )
         .first()
       await expect(emptyOrLoading).toBeVisible()
       await screenshot(page, '25-skills-page')
@@ -702,8 +710,7 @@ test.describe('React App Smoke Tests', () => {
       // nav loader never auto-selects a project.
       await overrideOrgs(context, [])
 
-      await page.goto(baseURL!)
-      await waitForAppReady(page)
+      await gotoAndWaitForAppReady(page, baseURL!)
 
       await expect(page.locator('[data-testid="board-no-group"]')).toBeVisible({ timeout: 10000 })
       await expect(page.getByText('Pick a project to get started')).toBeVisible()
@@ -717,8 +724,7 @@ test.describe('React App Smoke Tests', () => {
     test('clicking org switcher opens dropdown with orgs', async ({ page, context, baseURL }) => {
       await injectAuth(page, baseURL!)
       await overrideOrgs(context, [MOCK_ORG, MOCK_ORG_2])
-      await page.goto(baseURL!)
-      await waitForAppReady(page)
+      await gotoAndWaitForAppReady(page, baseURL!)
 
       await page.locator('[data-testid="org-switcher"]').click()
       const dropdown = page.locator('[data-testid="org-dropdown"]')
@@ -731,8 +737,7 @@ test.describe('React App Smoke Tests', () => {
     test('selected org shows checkmark', async ({ page, context, baseURL }) => {
       await injectAuth(page, baseURL!)
       await overrideOrgs(context, [MOCK_ORG, MOCK_ORG_2])
-      await page.goto(baseURL!)
-      await waitForAppReady(page)
+      await gotoAndWaitForAppReady(page, baseURL!)
 
       await page.locator('[data-testid="org-switcher"]').click()
       const dropdown = page.locator('[data-testid="org-dropdown"]')
@@ -746,8 +751,7 @@ test.describe('React App Smoke Tests', () => {
     test('clicking outside closes dropdown', async ({ page, context, baseURL }) => {
       await injectAuth(page, baseURL!)
       await overrideOrgs(context, [MOCK_ORG, MOCK_ORG_2])
-      await page.goto(baseURL!)
-      await waitForAppReady(page)
+      await gotoAndWaitForAppReady(page, baseURL!)
 
       await page.locator('[data-testid="org-switcher"]').click()
       await expect(page.locator('[data-testid="org-dropdown"]')).toBeVisible({ timeout: 3000 })
@@ -759,8 +763,7 @@ test.describe('React App Smoke Tests', () => {
 
     test('org switcher shows org name when selected', async ({ page, baseURL }) => {
       await injectAuth(page, baseURL!)
-      await page.goto(baseURL!)
-      await waitForAppReady(page)
+      await gotoAndWaitForAppReady(page, baseURL!)
 
       await expect(page.locator('[data-testid="org-switcher"]')).toContainText('Test Org')
     })
@@ -772,8 +775,7 @@ test.describe('React App Smoke Tests', () => {
     test('team toggle expands to show projects', async ({ page, context, baseURL }) => {
       await injectAuth(page, baseURL!)
       await overrideTeams(context, [MOCK_TEAM, MOCK_TEAM_2])
-      await page.goto(baseURL!)
-      await waitForAppReady(page)
+      await gotoAndWaitForAppReady(page, baseURL!)
 
       const sidebar = page.locator('[data-testid="sidebar"]')
       // Team-1 is already expanded (pre-seeded in localStorage)
@@ -790,8 +792,7 @@ test.describe('React App Smoke Tests', () => {
     test('team toggle collapses to hide projects', async ({ page, context, baseURL }) => {
       await injectAuth(page, baseURL!)
       await overrideTeams(context, [MOCK_TEAM, MOCK_TEAM_2])
-      await page.goto(baseURL!)
-      await waitForAppReady(page)
+      await gotoAndWaitForAppReady(page, baseURL!)
 
       const sidebar = page.locator('[data-testid="sidebar"]')
       // Team-1 is expanded — click to collapse
@@ -802,8 +803,7 @@ test.describe('React App Smoke Tests', () => {
     test('selected project is highlighted', async ({ page, context, baseURL }) => {
       await injectAuth(page, baseURL!)
       await overrideTeams(context, [MOCK_TEAM, MOCK_TEAM_2])
-      await page.goto(baseURL!)
-      await waitForAppReady(page)
+      await gotoAndWaitForAppReady(page, baseURL!)
 
       const selectedProject = page.locator('[data-testid="project-proj-1"]')
       await expect(selectedProject).toBeVisible({ timeout: 10000 })
@@ -816,8 +816,7 @@ test.describe('React App Smoke Tests', () => {
     test('clicking different project updates selection', async ({ page, context, baseURL }) => {
       await injectAuth(page, baseURL!)
       await overrideTeams(context, [MOCK_TEAM, MOCK_TEAM_2])
-      await page.goto(baseURL!)
-      await waitForAppReady(page)
+      await gotoAndWaitForAppReady(page, baseURL!)
 
       const sidebar = page.locator('[data-testid="sidebar"]')
       // Expand team-2

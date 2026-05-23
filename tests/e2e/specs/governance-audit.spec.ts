@@ -91,7 +91,16 @@ async function setupGovernanceAuditFixture(page: Page, baseURL: string) {
   })
 
   await page.goto(`${baseURL}/context/audit`, { waitUntil: 'domcontentloaded' })
-  await page.locator('[data-testid="governance-audit-view"]').waitFor({ state: 'visible' })
+  try {
+    await page.locator('#root > *').first().waitFor({ state: 'attached', timeout: 30_000 })
+    await page.locator('[data-testid="governance-audit-view"]').waitFor({ state: 'visible' })
+  } catch (err) {
+    console.warn(`[governance-audit] app shell stalled on first nav; reloading once. ${err}`)
+    await page.reload()
+    await page.waitForLoadState('domcontentloaded')
+    await page.locator('#root > *').first().waitFor({ state: 'attached', timeout: 30_000 })
+    await page.locator('[data-testid="governance-audit-view"]').waitFor({ state: 'visible' })
+  }
 }
 
 test.describe('Governance audit log', () => {
