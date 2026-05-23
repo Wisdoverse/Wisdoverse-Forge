@@ -20,8 +20,21 @@ async function setupAndNavigate(page: Page, baseURL: string): Promise<void> {
     localStorage.setItem('af:nav:expandedTeams', '["team-1"]')
   })
   await page.goto(baseURL)
-  await page.locator('#root > *').first().waitFor({ state: 'attached', timeout: 30000 })
-  await page.locator('[data-testid="main-content"]').waitFor({ state: 'attached', timeout: 15000 })
+  try {
+    await page.waitForLoadState('domcontentloaded')
+    await page.locator('#root > *').first().waitFor({ state: 'attached', timeout: 30_000 })
+    await page
+      .locator('[data-testid="main-content"]')
+      .waitFor({ state: 'attached', timeout: 15_000 })
+  } catch (err) {
+    console.warn(`[context-preview] app shell stalled on first nav; reloading once. ${err}`)
+    await page.reload()
+    await page.waitForLoadState('domcontentloaded')
+    await page.locator('#root > *').first().waitFor({ state: 'attached', timeout: 30_000 })
+    await page
+      .locator('[data-testid="main-content"]')
+      .waitFor({ state: 'attached', timeout: 15_000 })
+  }
 }
 
 test.describe('Context injection preview', () => {

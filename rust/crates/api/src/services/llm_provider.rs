@@ -9,14 +9,12 @@ use std::time::Duration;
 
 use agentforge_core::{AppResult, TenantScope, crypto};
 use agentforge_llm::{ChatMessage, ChatRequest, LlmProviderBuildConfig, LlmProviderFactory};
-use serde_json::Value;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::credential::{
-    LlmProviderConfigResponse, LlmProviderPolicy, llm_provider_delete_response, llm_provider_list_response,
-    llm_provider_response, llm_provider_test_disabled_response, llm_provider_test_error_parts,
-    llm_provider_test_error_payload, llm_provider_test_success_response, llm_provider_test_timeout_response,
+use crate::domain::credential::{LlmProviderConfigResponse, LlmProviderPolicy, LlmProviderTestResult};
+pub(crate) use crate::domain::credential::{
+    llm_provider_delete_response, llm_provider_list_response, llm_provider_response, llm_provider_test_response,
     supported_providers_response,
 };
 use crate::repositories::user::llm_config::{
@@ -46,26 +44,20 @@ impl LlmProviderService {
         Self { repo, encryption_key, llm_factory }
     }
 
-    pub(crate) fn supported_providers(&self) -> Value {
-        supported_providers_response()
-    }
-
-    pub(crate) async fn list_providers(&self, scope: &TenantScope) -> AppResult<Value> {
-        let providers: Vec<_> = self
+    pub(crate) async fn list_providers(&self, scope: &TenantScope) -> AppResult<Vec<LlmProviderConfigResponse>> {
+        Ok(self
             .repo
             .list_configs(scope)
             .await?
             .into_iter()
             .enumerate()
             .map(|(idx, row)| provider_response_from_row(row, i32::try_from(idx + 1).unwrap_or(i32::MAX)))
-            .collect();
-        Ok(llm_provider_list_response(&providers))
+            .collect())
     }
 
-    pub(crate) async fn get_provider(&self, scope: &TenantScope, id: Uuid) -> AppResult<Value> {
+    pub(crate) async fn get_provider(&self, scope: &TenantScope, id: Uuid) -> AppResult<LlmProviderConfigResponse> {
         let row = self.repo.get_config(scope, id).await?;
-        let provider = provider_response_from_row(row, 1);
-        Ok(llm_provider_response(&provider))
+        Ok(provider_response_from_row(row, 1))
     }
 
     pub(crate) async fn create_provider(
@@ -76,7 +68,7 @@ impl LlmProviderService {
         display_name: Option<String>,
         api_key: Option<String>,
         base_url: Option<String>,
-    ) -> AppResult<Value> {
+    ) -> AppResult<LlmProviderConfigResponse> {
         let draft = LlmProviderPolicy::create_draft(provider, model, display_name, api_key, base_url)?;
         let (encrypted_api_key, api_key_prefix) = self.encrypted_api_key_and_prefix(draft.api_key.as_deref())?;
 
@@ -100,8 +92,7 @@ impl LlmProviderService {
                 },
             )
             .await?;
-        let provider = provider_response_from_row(row, 1);
-        Ok(llm_provider_response(&provider))
+        Ok(provider_response_from_row(row, 1))
     }
 
     pub(crate) async fn update_provider(
@@ -113,7 +104,7 @@ impl LlmProviderService {
         api_key: Option<String>,
         base_url: Option<String>,
         is_enabled: Option<bool>,
-    ) -> AppResult<Value> {
+    ) -> AppResult<LlmProviderConfigResponse> {
         let current = self.repo.get_config(scope, id).await?;
         let draft = LlmProviderPolicy::update_draft(
             &current.provider,
@@ -144,27 +135,29 @@ impl LlmProviderService {
                 },
             )
             .await?;
-        let provider = provider_response_from_row(row, 1);
-        Ok(llm_provider_response(&provider))
+        Ok(provider_response_from_row(row, 1))
     }
 
-    pub(crate) async fn delete_provider(&self, scope: &TenantScope, id: Uuid) -> AppResult<Value> {
+    pub(crate) async fn delete_provider(&self, scope: &TenantScope, id: Uuid) -> AppResult<()> {
         self.repo.delete_config(scope, id).await?;
-        Ok(llm_provider_delete_response())
+        Ok(())
     }
 
-    pub(crate) async fn set_default_provider(&self, scope: &TenantScope, id: Uuid) -> AppResult<Value> {
+    pub(crate) async fn set_default_provider(
+        &self,
+        scope: &TenantScope,
+        id: Uuid,
+    ) -> AppResult<LlmProviderConfigResponse> {
         let current = self.repo.get_config(scope, id).await?;
         let row = self.repo.set_default_config(scope, id, &current.provider).await?;
-        let provider = provider_response_from_row(row, 1);
-        Ok(llm_provider_response(&provider))
+        Ok(provider_response_from_row(row, 1))
     }
 
-    pub(crate) async fn test_provider(&self, scope: &TenantScope, id: Uuid) -> AppResult<Value> {
+    pub(crate) async fn test_provider(&self, scope: &TenantScope, id: Uuid) -> AppResult<LlmProviderTestResult> {
         let provider = self.repo.get_test_config(scope, id).await?;
         if !provider.is_enabled.unwrap_or(true) {
             self.repo.record_test_result(scope, id, "failed", Some("disabled"), Some("Provider is disabled.")).await?;
-            return Ok(llm_provider_test_disabled_response());
+            return Ok(LlmProviderTestResult::disabled());
         }
 
         let model = LlmProviderPolicy::required_test_model(provider.model.as_deref())?;
@@ -184,9 +177,13 @@ impl LlmProviderService {
         }) {
             Ok(instance) => instance,
             Err(error) => {
-                let (code, message, _) = llm_provider_test_error_parts(&error);
-                self.repo.record_test_result(scope, id, "failed", Some(code), Some(message)).await?;
-                return Ok(llm_provider_test_error_payload(&error));
+                let LlmProviderTestResult::Error(test_error) = LlmProviderTestResult::from_llm_error(&error) else {
+                    unreachable!("LLM errors map to failed provider tests");
+                };
+                self.repo
+                    .record_test_result(scope, id, "failed", Some(test_error.code()), Some(test_error.message()))
+                    .await?;
+                return Ok(LlmProviderTestResult::Error(test_error));
             }
         };
 
@@ -203,18 +200,22 @@ impl LlmProviderService {
         match tokio::time::timeout(Duration::from_secs(30), provider_instance.chat(request)).await {
             Ok(Ok(response)) => {
                 self.repo.record_test_result(scope, id, "passed", None, None).await?;
-                Ok(llm_provider_test_success_response(
+                Ok(LlmProviderTestResult::success(
                     provider.id,
-                    &provider.provider,
-                    &model,
+                    provider.provider,
+                    model,
                     &response.content,
-                    response.usage.as_ref(),
+                    response.usage,
                 ))
             }
             Ok(Err(error)) => {
-                let (code, message, _) = llm_provider_test_error_parts(&error);
-                self.repo.record_test_result(scope, id, "failed", Some(code), Some(message)).await?;
-                Ok(llm_provider_test_error_payload(&error))
+                let LlmProviderTestResult::Error(test_error) = LlmProviderTestResult::from_llm_error(&error) else {
+                    unreachable!("LLM errors map to failed provider tests");
+                };
+                self.repo
+                    .record_test_result(scope, id, "failed", Some(test_error.code()), Some(test_error.message()))
+                    .await?;
+                Ok(LlmProviderTestResult::Error(test_error))
             }
             Err(_) => {
                 self.repo
@@ -226,7 +227,7 @@ impl LlmProviderService {
                         Some("Provider connection test timed out."),
                     )
                     .await?;
-                Ok(llm_provider_test_timeout_response())
+                Ok(LlmProviderTestResult::timeout())
             }
         }
     }

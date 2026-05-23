@@ -112,11 +112,22 @@ pub(crate) fn agent_permission_response(projection: AgentPermissionProjection) -
     json!({ "ok": true, "data": projection })
 }
 
-pub(crate) fn pool_status_response(docker_available: bool) -> Value {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PoolStatusProjection {
+    docker_available: bool,
+}
+
+impl PoolStatusProjection {
+    pub(crate) fn new(docker_available: bool) -> Self {
+        Self { docker_available }
+    }
+}
+
+pub(crate) fn pool_status_response(projection: PoolStatusProjection) -> Value {
     json!({
         "ok": true,
         "data": {
-            "docker_available": docker_available,
+            "docker_available": projection.docker_available,
             "message": "pool status — warm pool integration pending"
         }
     })

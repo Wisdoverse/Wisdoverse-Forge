@@ -44,6 +44,33 @@ struct ContextUsageItemRow {
     last_feedback_at: Option<DateTime<Utc>>,
 }
 
+#[derive(Debug, Clone, Default, FromRow)]
+struct ContextUsageSummaryRow {
+    row_count: i64,
+    distinct_items: i64,
+    distinct_agents: i64,
+    applied_count: i64,
+    completed_count: i64,
+    success_rate: f64,
+    feedback_useful_count: i64,
+    feedback_negative_count: i64,
+}
+
+impl From<ContextUsageSummaryRow> for ContextUsageSummary {
+    fn from(row: ContextUsageSummaryRow) -> Self {
+        Self {
+            row_count: row.row_count,
+            distinct_items: row.distinct_items,
+            distinct_agents: row.distinct_agents,
+            applied_count: row.applied_count,
+            completed_count: row.completed_count,
+            success_rate: row.success_rate,
+            feedback_useful_count: row.feedback_useful_count,
+            feedback_negative_count: row.feedback_negative_count,
+        }
+    }
+}
+
 impl From<ContextUsageItemRow> for ContextUsageItem {
     fn from(row: ContextUsageItemRow) -> Self {
         Self {
@@ -150,7 +177,7 @@ impl UsageAnalyticsRepository {
     }
 
     pub async fn summary(&self, scope: &TenantScope, workspace_id: WorkspaceId) -> AppResult<ContextUsageSummary> {
-        let row = sqlx::query_as::<_, ContextUsageSummary>(
+        let row = sqlx::query_as::<_, ContextUsageSummaryRow>(
             r#"SELECT
                     COUNT(*)::bigint AS row_count,
                     COUNT(DISTINCT item_kind || ':' || item_id::text)::bigint AS distinct_items,
@@ -172,7 +199,7 @@ impl UsageAnalyticsRepository {
         .bind(workspace_id.as_uuid())
         .fetch_one(&self.pool)
         .await?;
-        Ok(row)
+        Ok(row.into())
     }
 
     pub async fn top_useful(

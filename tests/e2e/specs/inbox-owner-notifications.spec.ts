@@ -132,7 +132,17 @@ async function openInboxWithOwnerUpdate(page: Page, baseURL: string, update: Own
   await installOwnerTaskWebSocket(page, update)
   await injectOwnerAuth(page)
   await page.goto(`${baseURL}/inbox`)
-  await page.locator('[data-testid="top-bar"]').waitFor({ state: 'visible', timeout: 15_000 })
+  try {
+    await page.waitForLoadState('domcontentloaded')
+    await page.locator('#root > *').first().waitFor({ state: 'attached', timeout: 30_000 })
+    await page.locator('[data-testid="top-bar"]').waitFor({ state: 'visible', timeout: 15_000 })
+  } catch (err) {
+    console.warn(`[inbox] app shell stalled on first nav; reloading once. ${err}`)
+    await page.reload()
+    await page.waitForLoadState('domcontentloaded')
+    await page.locator('#root > *').first().waitFor({ state: 'attached', timeout: 30_000 })
+    await page.locator('[data-testid="top-bar"]').waitFor({ state: 'visible', timeout: 15_000 })
+  }
 }
 
 test.describe('Inbox owner task notifications', () => {

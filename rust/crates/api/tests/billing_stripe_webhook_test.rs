@@ -3,7 +3,7 @@ use std::sync::Arc;
 use agentforge_api::repositories::billing::BillingRepository;
 use agentforge_api::services::billing::{
     BillingGateway, BillingService, CheckoutSession, CheckoutSessionInput, DirectSubscriptionInput, PortalSession,
-    StripeSubscriptionSnapshot,
+    StripeEvent, StripeSubscriptionSnapshot,
 };
 use agentforge_core::{AppResult, ErrorKind};
 use async_trait::async_trait;
@@ -47,7 +47,7 @@ impl BillingGateway for WebhookOnlyGateway {
         Err(ErrorKind::Unavailable("not used".to_string()).into())
     }
 
-    fn verify_webhook_payload(&self, payload: &str, _signature: &str) -> AppResult<serde_json::Value> {
+    fn verify_webhook_payload(&self, payload: &str, _signature: &str) -> AppResult<StripeEvent> {
         serde_json::from_str(payload).map_err(|err| ErrorKind::Validation(err.to_string()).into())
     }
 }

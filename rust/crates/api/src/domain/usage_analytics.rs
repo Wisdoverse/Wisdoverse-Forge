@@ -3,7 +3,6 @@
 use agentforge_core::{AppError, AppResult, ErrorKind, TenantScope, WorkspaceId};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use sqlx::FromRow;
 use uuid::Uuid;
 
 use super::observability::ContextUsageQueryBounds;
@@ -112,7 +111,7 @@ pub struct ContextUsageQuerySummary {
     pub negative_rate: f64,
 }
 
-#[derive(Debug, Clone, Default, FromRow, Serialize)]
+#[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContextUsageSummary {
     pub row_count: i64,

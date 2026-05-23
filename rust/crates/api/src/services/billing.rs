@@ -13,14 +13,14 @@ use crate::domain::billing::{
     BillingCycle, BillingPlanPolicy, BillingPlanView, BillingRedirectUrlPolicy, BillingSubscriptionProjection,
     BillingUsageLimitPolicy, BillingWebhookReconciliationPolicy, CheckoutCouponPolicy, InvoiceListPage,
     InvoiceSubscriptionLookup, InvoiceView, PaymentMethodId, SubscriptionLifecyclePolicy, SubscriptionOrgResolution,
-    SubscriptionPlanResolution, SubscriptionStatusPolicy, SubscriptionView, UsageMetricView, stripe_event,
+    SubscriptionPlanResolution, SubscriptionStatusPolicy, SubscriptionView, UsageMetricView,
 };
 pub(crate) use crate::domain::billing::{
     BillingStripeGatewayPolicy, billing_checkout_response, billing_data_response, billing_invoices_response,
     billing_plans_response, billing_portal_response, billing_subscription_data_response, billing_subscription_response,
     billing_usage_response, billing_webhook_received_response,
 };
-pub use crate::domain::billing::{StripeInvoiceSnapshot, StripeSubscriptionSnapshot};
+pub use crate::domain::billing::{StripeEvent, StripeInvoiceSnapshot, StripeSubscriptionSnapshot};
 use crate::repositories::billing::BillingRepository;
 pub use stripe::{
     BillingGateway, CheckoutSession, CheckoutSessionInput, DirectSubscriptionInput, DisabledBillingGateway,
@@ -260,8 +260,7 @@ impl BillingService {
     /// Verify and apply a Stripe webhook event.
     pub async fn handle_webhook(&self, payload: &str, signature: &str) -> AppResult<()> {
         self.ensure_gateway_configured()?;
-        let verified_payload = self.gateway.verify_webhook_payload(payload, signature)?;
-        let event = stripe_event(verified_payload)?;
+        let event = self.gateway.verify_webhook_payload(payload, signature)?;
 
         match event.event_type.as_str() {
             "customer.subscription.created" | "customer.subscription.updated" | "customer.subscription.deleted" => {

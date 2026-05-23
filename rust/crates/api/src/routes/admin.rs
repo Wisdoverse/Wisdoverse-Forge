@@ -22,7 +22,8 @@ use agentforge_core::AppResult;
 
 use crate::health::AppState;
 use crate::services::admin::{
-    AdminAgentListInput, AdminService, admin_bulk_delete_response, admin_data_response, admin_delete_response,
+    AdminAgentListInput, AdminService, admin_agent_detail_response, admin_agent_list_response,
+    admin_bulk_delete_response, admin_data_response, admin_delete_response,
 };
 
 /// Query parameters for paginated admin endpoints.
@@ -184,8 +185,8 @@ async fn list_admin_agents(
 ) -> AppResult<Json<serde_json::Value>> {
     AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
-    let response = service.list_agent_page(query.as_service_input()).await?;
-    Ok(Json(response))
+    let page = service.list_agent_page(query.as_service_input()).await?;
+    Ok(Json(admin_agent_list_response(page)))
 }
 
 /// `GET /api/v1/admin/agents/:id` — agent detail including recent events.
@@ -196,8 +197,8 @@ async fn get_admin_agent(
 ) -> AppResult<Json<serde_json::Value>> {
     AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
-    let response = service.get_agent_response(id).await?;
-    Ok(Json(response))
+    let detail = service.get_agent_detail(id).await?;
+    Ok(Json(admin_agent_detail_response(detail)))
 }
 
 /// `DELETE /api/v1/admin/agents/:id` — hard-delete a single agent.

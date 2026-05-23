@@ -74,6 +74,25 @@ pub(crate) struct AdminAgentDetailProjection {
     pub(crate) recent_events: Vec<AdminAgentEventProjection>,
 }
 
+/// Paginated admin-console agent list projection.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AdminAgentListProjection {
+    pub(crate) agents: Vec<AdminAgentProjection>,
+    pub(crate) total: i64,
+    pub(crate) page: i64,
+    pub(crate) limit: i64,
+}
+
+impl AdminAgentListProjection {
+    pub(crate) fn new(agents: Vec<AdminAgentProjection>, total: i64, page: i64, limit: i64) -> Self {
+        Self { agents, total, page, limit }
+    }
+
+    fn total_pages(&self) -> i64 {
+        if self.limit > 0 { (self.total + self.limit - 1) / self.limit } else { 0 }
+    }
+}
+
 pub(crate) fn admin_data_response<T: Serialize>(data: T) -> Value {
     json!({ "ok": true, "data": data })
 }
@@ -86,14 +105,14 @@ pub(crate) fn admin_bulk_delete_response(results: Vec<BulkDeleteResult>) -> Valu
     json!({ "ok": true, "results": results })
 }
 
-pub(crate) fn admin_agent_list_response(agents: Vec<AdminAgentProjection>, total: i64, page: i64, limit: i64) -> Value {
-    let total_pages = if limit > 0 { (total + limit - 1) / limit } else { 0 };
+pub(crate) fn admin_agent_list_response(projection: AdminAgentListProjection) -> Value {
+    let total_pages = projection.total_pages();
     json!({
         "ok": true,
-        "agents": agents,
-        "total": total,
-        "page": page,
-        "limit": limit,
+        "agents": projection.agents,
+        "total": projection.total,
+        "page": projection.page,
+        "limit": projection.limit,
         "totalPages": total_pages,
     })
 }
