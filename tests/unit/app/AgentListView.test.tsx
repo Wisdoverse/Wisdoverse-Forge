@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { AgentListView } from '@app/features/agents/AgentListView'
 import { useAgentsStore } from '@app/shared/model/agents.store'
 import { useBoardStore } from '@app/shared/model/board.store'
@@ -124,5 +124,56 @@ describe('AgentListView', () => {
       'aria-pressed',
       'true'
     )
+  })
+
+  test('applies a task group template before creating routing', async () => {
+    const createAgentGroup = vi.fn(
+      async (projectId: string, input: { name: string; description?: string }) => {
+        const group = { id: 'g-review', name: input.name, projectId }
+        useNavigationStore.setState({ agentGroups: [group] })
+        useBoardStore.getState().setSelectedGroupId(group.id)
+        return group
+      }
+    )
+    useNavigationStore.setState({
+      selectedProjectId: 'p1',
+      projects: {
+        t1: [
+          {
+            id: 'p1',
+            teamId: 't1',
+            name: 'Platform',
+            slug: 'platform',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+      agentGroups: [],
+      createAgentGroup,
+    } as never)
+
+    render(<AgentListView />)
+
+    const templates = screen.getByRole('group', { name: /task group templates/i })
+    fireEvent.click(within(templates).getByRole('button', { name: /review/i }))
+
+    expect(screen.getByLabelText(/task group name/i)).toHaveValue('Review Group')
+    expect((screen.getByLabelText(/task group description/i) as HTMLInputElement).value).toContain(
+      'release risk'
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /^create$/i }))
+
+    await waitFor(() =>
+      expect(createAgentGroup).toHaveBeenCalledWith(
+        'p1',
+        expect.objectContaining({
+          name: 'Review Group',
+          description: expect.stringContaining('release risk'),
+        })
+      )
+    )
+    expect(useBoardStore.getState().selectedGroupId).toBe('g-review')
   })
 })
