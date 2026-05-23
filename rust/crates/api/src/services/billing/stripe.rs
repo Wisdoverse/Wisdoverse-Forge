@@ -14,9 +14,9 @@ use sha2::Sha256;
 use uuid::Uuid;
 
 use crate::domain::billing::{
-    BillingStripeGatewayPolicy, StripeInvoiceSnapshot, StripeSubscriptionSnapshot, stripe_api_error_message,
-    stripe_api_response_body, stripe_invoice_object_from_value, stripe_subscription_object_from_value,
-    stripe_webhook_payload,
+    BillingStripeGatewayPolicy, StripeEvent, StripeInvoiceSnapshot, StripeSubscriptionSnapshot,
+    stripe_api_error_message, stripe_api_response_body, stripe_invoice_object_from_value,
+    stripe_subscription_object_from_value, stripe_webhook_event,
 };
 
 type HmacSha256 = Hmac<Sha256>;
@@ -76,7 +76,7 @@ pub trait BillingGateway: Send + Sync {
 
     async fn resume_subscription(&self, subscription_id: &str) -> AppResult<StripeSubscriptionSnapshot>;
 
-    fn verify_webhook_payload(&self, payload: &str, signature: &str) -> AppResult<Value>;
+    fn verify_webhook_payload(&self, payload: &str, signature: &str) -> AppResult<StripeEvent>;
 }
 
 #[derive(Debug, Default)]
@@ -115,7 +115,7 @@ impl BillingGateway for DisabledBillingGateway {
         Err(BillingStripeGatewayPolicy::not_configured().into())
     }
 
-    fn verify_webhook_payload(&self, _payload: &str, _signature: &str) -> AppResult<Value> {
+    fn verify_webhook_payload(&self, _payload: &str, _signature: &str) -> AppResult<StripeEvent> {
         Err(BillingStripeGatewayPolicy::not_configured().into())
     }
 }
@@ -298,9 +298,9 @@ impl BillingGateway for StripeBillingClient {
         Ok(subscription.into_snapshot())
     }
 
-    fn verify_webhook_payload(&self, payload: &str, signature: &str) -> AppResult<Value> {
+    fn verify_webhook_payload(&self, payload: &str, signature: &str) -> AppResult<StripeEvent> {
         verify_stripe_signature(payload, signature, &self.webhook_secret)?;
-        stripe_webhook_payload(payload)
+        stripe_webhook_event(payload)
     }
 }
 
