@@ -159,6 +159,38 @@ impl GroupRepository {
         Ok(())
     }
 
+    /// Test-support query matching the historical project-scoped navigation
+    /// contract, where project membership is proven by user organization
+    /// membership rather than the active tenant scope.
+    #[cfg(any(test, feature = "test-support"))]
+    pub async fn list_canonical_for_project_for_test(
+        &self,
+        user_id: Uuid,
+        project_id: Uuid,
+    ) -> AppResult<Vec<ProjectGroupSummaryRow>> {
+        sqlx::query_as::<_, ProjectGroupSummaryRow>(
+            r#"SELECT
+                   g.id,
+                   g.name,
+                   g.project_id
+               FROM public.groups g
+               JOIN public.projects p
+                 ON p.id = g.project_id
+               JOIN organization_members om
+                 ON om.organization_id = p.organization_id
+              WHERE g.project_id = $1
+                AND om.user_id = $2
+                AND g.deleted_at IS NULL
+                AND p.deleted_at IS NULL
+              ORDER BY g.created_at ASC"#,
+        )
+        .bind(project_id)
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
     /// Update a group's name and/or description (tenant-scoped).
     pub async fn update(
         &self,

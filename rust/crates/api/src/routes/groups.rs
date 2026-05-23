@@ -269,10 +269,10 @@ mod tests {
     }
 }
 
-/// Test-only constructor for [`LegacyGroupSummary`]. The struct keeps private
-/// fields so callers outside this module can't synthesize a legacy response by
-/// accident. The `testing` module uses this helper to build shape fixtures for
-/// contract tests.
+/// Test-only entry point for integration tests in
+/// `tests/nav_regression_e2e_test.rs`. Delegates to
+/// `GroupRepository::list_canonical_for_project_for_test` so the contract test
+/// exercises the same SQL the route serves.
 ///
 /// Marked `#[doc(hidden)]` to keep it out of rustdoc and signal "not for
 /// downstream use."
@@ -280,56 +280,27 @@ mod tests {
 #[cfg(any(test, feature = "test-support"))]
 pub mod test_only {
     use agentforge_core::AppResult;
-    use serde::Serialize;
-    use sqlx::{FromRow, PgPool};
+    use sqlx::PgPool;
     use uuid::Uuid;
 
     use crate::domain::resource::ProjectGroupSummary;
-
-    #[derive(Debug, Clone, Serialize, FromRow)]
-    #[serde(rename_all = "camelCase")]
-    struct LegacyGroupSummary {
-        id: Uuid,
-        name: String,
-        project_id: Uuid,
-    }
-
-    /// Build a sample [`LegacyGroupSummary`].
-    pub fn sample_group_summary() -> serde_json::Value {
-        serde_json::to_value(ProjectGroupSummary::new(Uuid::nil(), "Backend Team".to_string(), Uuid::nil()))
-            .expect("LegacyGroupSummary serializes")
-    }
+    use crate::repositories::identity::group::GroupRepository;
 
     /// Exposes the canonical project-group SQL to integration tests without
-    /// needing a live Axum stack. Query body is duplicated
-    /// here (not delegated) so drift between the two is caught by the
-    /// regression tests in `tests/nav_regression_e2e_test.rs`.
+    /// needing a live Axum stack, while keeping the SQL centralized in the
+    /// repository test-support path.
     pub async fn list_groups_canonical_for_test(
         pool: &PgPool,
         user_id: Uuid,
         project_id: Uuid,
     ) -> AppResult<Vec<serde_json::Value>> {
-        let rows = sqlx::query_as::<_, LegacyGroupSummary>(
-            r#"SELECT
-                   g.id,
-                   g.name,
-                   g.project_id
-               FROM public.groups g
-               JOIN public.projects p
-                 ON p.id = g.project_id
-               JOIN organization_members om
-                 ON om.organization_id = p.organization_id
-              WHERE g.project_id = $1
-                AND om.user_id = $2
-                AND g.deleted_at IS NULL
-                AND p.deleted_at IS NULL
-              ORDER BY g.created_at ASC"#,
-        )
-        .bind(project_id)
-        .bind(user_id)
-        .fetch_all(pool)
-        .await
-        .map_err(Into::into);
-        rows.map(|r| r.iter().map(|g| serde_json::to_value(g).expect("LegacyGroupSummary serializes")).collect())
+        let rows = GroupRepository::new(pool.clone()).list_canonical_for_project_for_test(user_id, project_id).await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| {
+                serde_json::to_value(ProjectGroupSummary::new(row.id, row.name, row.project_id))
+                    .expect("ProjectGroupSummary serializes")
+            })
+            .collect())
     }
 }
