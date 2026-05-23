@@ -37,6 +37,12 @@ interface AgentRoleTemplate {
   Icon: LucideIcon
 }
 
+interface RuntimeFitSummary {
+  title: string
+  detail: string
+  items: { label: string; value: string }[]
+}
+
 const AGENT_ROLE_TEMPLATES: AgentRoleTemplate[] = [
   {
     id: 'builder',
@@ -103,6 +109,39 @@ function providerDefaultModel(provider: string): string {
   return PROVIDERS.find((candidate) => candidate.value === provider)?.defaultModel ?? ''
 }
 
+function providerLabel(provider: string): string {
+  return PROVIDERS.find((candidate) => candidate.value === provider)?.label ?? provider
+}
+
+function cliToolLabel(cliTool: CliTool): string {
+  return CLI_TOOLS.find((tool) => tool.value === cliTool)?.label ?? cliTool
+}
+
+function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): RuntimeFitSummary {
+  if (kind === 'cli') {
+    return {
+      title: `${cliToolLabel(cliTool)} container worker`,
+      detail: 'Best when the task needs repository files, terminal tools, or local CLI sessions.',
+      items: [
+        { label: 'Execution', value: 'Container CLI' },
+        { label: 'Files', value: '/workspace mounted' },
+        { label: 'Before use', value: 'Runtime container must start' },
+      ],
+    }
+  }
+
+  return {
+    title: `${providerLabel(provider)} prompt worker`,
+    detail:
+      'Best for planning, review, and lightweight coordination that does not need filesystem tools.',
+    items: [
+      { label: 'Execution', value: 'Provider API' },
+      { label: 'Files', value: 'No direct workspace mount' },
+      { label: 'Before use', value: 'Provider key must be ready' },
+    ],
+  }
+}
+
 function buildDefaultValues(provider: LlmProviderConfig | null): CreateAgentFormData {
   const providerKey = provider?.provider ?? PROVIDERS[0].value
   return {
@@ -140,6 +179,8 @@ export function CreateAgentModal() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const kind = watch('kind')
   const provider = watch('provider')
+  const cliTool = watch('cliTool')
+  const runtimeFit = runtimeFitFor(kind, cliTool, provider)
   const selectedProject = selectedProjectId
     ? (Object.values(projectsByTeam)
         .flat()
@@ -375,6 +416,43 @@ export function CreateAgentModal() {
                 : 'Calls the LLM provider directly — no container, no terminal.'}
             </p>
           </div>
+
+          <section
+            data-testid="agent-runtime-fit"
+            className="rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                  Runtime fit
+                </p>
+                <p className="mt-0.5 text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
+                  {runtimeFit.title}
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-apple-blue/10 px-2 py-0.5 text-ui-caption font-medium text-apple-blue">
+                {kind === 'cli' ? 'File work' : 'Prompt work'}
+              </span>
+            </div>
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {runtimeFit.detail}
+            </p>
+            <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
+              {runtimeFit.items.map((item) => (
+                <div
+                  key={item.label}
+                  className="min-w-0 rounded-md bg-white px-2 py-1.5 dark:bg-black/20"
+                >
+                  <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                    {item.label}
+                  </span>
+                  <span className="mt-0.5 block truncate text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+                    {item.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
 
           <div>
             <div className="mb-1 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">

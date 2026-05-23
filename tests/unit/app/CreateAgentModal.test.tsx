@@ -48,6 +48,10 @@ describe('CreateAgentModal', () => {
     render(<CreateAgentModal />)
 
     expect(screen.getByRole('radio', { name: /container cli/i })).toBeChecked()
+    expect(screen.getByTestId('agent-runtime-fit')).toBeInTheDocument()
+    expect(screen.getByText(/claude container worker/i)).toBeInTheDocument()
+    expect(screen.getByText('/workspace mounted')).toBeInTheDocument()
+    expect(screen.getByText(/runtime container must start/i)).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /container cli/i })).toBeInTheDocument()
     expect(screen.getByLabelText(/working directory/i)).toBeInTheDocument()
     expect(screen.getByText(/shared workspace mount/i)).toBeInTheDocument()
@@ -159,10 +163,29 @@ describe('CreateAgentModal', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
 
+    expect(screen.getByText(/anthropic prompt worker/i)).toBeInTheDocument()
+    expect(screen.getByText(/no direct workspace mount/i)).toBeInTheDocument()
+    expect(screen.getByText(/provider key must be ready/i)).toBeInTheDocument()
     expect(screen.queryByRole('combobox', { name: /container cli/i })).toBeNull()
     expect(screen.queryByLabelText(/working directory/i)).toBeNull()
     expect(screen.getByLabelText(/^provider$/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/^model$/i)).toBeInTheDocument()
+  })
+
+  test('updates runtime fit when the operator changes runtime choices', async () => {
+    render(<CreateAgentModal />)
+
+    fireEvent.change(screen.getByRole('combobox', { name: /container cli/i }), {
+      target: { value: 'codex' },
+    })
+    expect(screen.getByText(/codex container worker/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+    fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'google' } })
+
+    await waitFor(() => {
+      expect(screen.getByText(/google prompt worker/i)).toBeInTheDocument()
+    })
   })
 
   test('defaults to Provider+Prompt when a verified provider exists', async () => {
