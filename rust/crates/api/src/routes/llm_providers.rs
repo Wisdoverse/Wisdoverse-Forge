@@ -13,7 +13,10 @@ use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
 use crate::health::AppState;
-use crate::services::llm_provider::LlmProviderService;
+use crate::services::llm_provider::{
+    LlmProviderService, llm_provider_delete_response, llm_provider_list_response, llm_provider_response,
+    llm_provider_test_response, supported_providers_response,
+};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -40,13 +43,14 @@ fn make_service(state: &AppState) -> LlmProviderService {
 }
 
 /// `GET /api/v1/llm-providers/supported` — static UI provider metadata.
-async fn get_supported_providers(State(state): State<AppState>) -> Json<serde_json::Value> {
-    Json(make_service(&state).supported_providers())
+async fn get_supported_providers() -> Json<serde_json::Value> {
+    Json(supported_providers_response())
 }
 
 /// `GET /api/v1/llm-providers` — list user provider configs.
 async fn list_providers(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
-    Ok(Json(make_service(&state).list_providers(&auth.scope).await?))
+    let providers = make_service(&state).list_providers(&auth.scope).await?;
+    Ok(Json(llm_provider_list_response(&providers)))
 }
 
 /// `POST /api/v1/llm-providers` — create a user provider config.
@@ -58,7 +62,7 @@ async fn create_provider(
     let body = make_service(&state)
         .create_provider(&auth.scope, req.provider, req.model, req.display_name, req.api_key, req.base_url)
         .await?;
-    Ok(Json(body))
+    Ok(Json(llm_provider_response(&body)))
 }
 
 /// `PATCH /api/v1/llm-providers/{id}` — update non-secret metadata and optional API key.
@@ -71,7 +75,7 @@ async fn update_provider(
     let body = make_service(&state)
         .update_provider(&auth.scope, id, req.model, req.display_name, req.api_key, req.base_url, req.is_enabled)
         .await?;
-    Ok(Json(body))
+    Ok(Json(llm_provider_response(&body)))
 }
 
 /// `DELETE /api/v1/llm-providers/{id}` — remove a user provider config.
@@ -80,7 +84,8 @@ async fn delete_provider(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    Ok(Json(make_service(&state).delete_provider(&auth.scope, id).await?))
+    make_service(&state).delete_provider(&auth.scope, id).await?;
+    Ok(Json(llm_provider_delete_response()))
 }
 
 /// `POST /api/v1/llm-providers/{id}/default` — mark provider as default for its provider key.
@@ -89,7 +94,8 @@ async fn set_default_provider(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    Ok(Json(make_service(&state).set_default_provider(&auth.scope, id).await?))
+    let provider = make_service(&state).set_default_provider(&auth.scope, id).await?;
+    Ok(Json(llm_provider_response(&provider)))
 }
 
 /// `POST /api/v1/llm-providers/{id}/test` — send a tiny real request through the Rust LLM gateway.
@@ -98,7 +104,8 @@ async fn test_provider(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    Ok(Json(make_service(&state).test_provider(&auth.scope, id).await?))
+    let result = make_service(&state).test_provider(&auth.scope, id).await?;
+    Ok(Json(llm_provider_test_response(result)))
 }
 
 /// Build LLM provider routes sub-router.
@@ -117,7 +124,8 @@ async fn get_provider(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    Ok(Json(make_service(&state).get_provider(&auth.scope, id).await?))
+    let provider = make_service(&state).get_provider(&auth.scope, id).await?;
+    Ok(Json(llm_provider_response(&provider)))
 }
 
 #[cfg(test)]

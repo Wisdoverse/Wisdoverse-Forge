@@ -158,6 +158,77 @@ pub(crate) struct LlmProviderConfigResponse {
     pub(crate) last_tested_at: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) enum LlmProviderTestResult {
+    Success(LlmProviderTestSuccess),
+    Error(LlmProviderTestError),
+}
+
+impl LlmProviderTestResult {
+    pub(crate) fn success(
+        id: Uuid,
+        provider: impl Into<String>,
+        model: impl Into<String>,
+        content: &str,
+        usage: Option<Usage>,
+    ) -> Self {
+        Self::Success(LlmProviderTestSuccess {
+            provider: LlmProviderTestProvider { id, provider: provider.into(), model: model.into() },
+            response_preview: content.chars().take(120).collect(),
+            usage,
+        })
+    }
+
+    pub(crate) fn disabled() -> Self {
+        Self::Error(LlmProviderTestError { code: "disabled", message: "Provider is disabled.", retryable: false })
+    }
+
+    pub(crate) fn timeout() -> Self {
+        Self::Error(LlmProviderTestError {
+            code: "timeout",
+            message: "Provider connection test timed out.",
+            retryable: true,
+        })
+    }
+
+    pub(crate) fn from_llm_error(error: &LlmError) -> Self {
+        let (code, message, retryable) = llm_provider_test_error_parts(error);
+        Self::Error(LlmProviderTestError { code, message, retryable })
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LlmProviderTestSuccess {
+    provider: LlmProviderTestProvider,
+    response_preview: String,
+    usage: Option<Usage>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct LlmProviderTestProvider {
+    id: Uuid,
+    provider: String,
+    model: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub(crate) struct LlmProviderTestError {
+    code: &'static str,
+    message: &'static str,
+    retryable: bool,
+}
+
+impl LlmProviderTestError {
+    pub(crate) fn code(self) -> &'static str {
+        self.code
+    }
+
+    pub(crate) fn message(self) -> &'static str {
+        self.message
+    }
+}
+
 pub(crate) fn supported_provider_list() -> Vec<ProviderInfo> {
     supported_provider_specs()
         .iter()
@@ -202,58 +273,19 @@ pub(crate) fn llm_provider_delete_response() -> serde_json::Value {
     serde_json::json!({ "ok": true })
 }
 
-pub(crate) fn llm_provider_test_success_response(
-    id: Uuid,
-    provider: &str,
-    model: &str,
-    content: &str,
-    usage: Option<&Usage>,
-) -> serde_json::Value {
-    serde_json::json!({
-        "ok": true,
-        "provider": {
-            "id": id,
-            "provider": provider,
-            "model": model,
-        },
-        "responsePreview": content.chars().take(120).collect::<String>(),
-        "usage": usage,
-    })
-}
-
-pub(crate) fn llm_provider_test_disabled_response() -> serde_json::Value {
-    serde_json::json!({
-        "ok": false,
-        "error": {
-            "code": "disabled",
-            "message": "Provider is disabled.",
-            "retryable": false,
-        },
-    })
-}
-
-pub(crate) fn llm_provider_test_timeout_response() -> serde_json::Value {
-    serde_json::json!({
-        "ok": false,
-        "error": {
-            "code": "timeout",
-            "message": "Provider connection test timed out.",
-            "retryable": true,
-        },
-    })
-}
-
-pub(crate) fn llm_provider_test_error_payload(error: &LlmError) -> serde_json::Value {
-    let (code, message, retryable) = llm_provider_test_error_parts(error);
-
-    serde_json::json!({
-        "ok": false,
-        "error": {
-            "code": code,
-            "message": message,
-            "retryable": retryable,
-        },
-    })
+pub(crate) fn llm_provider_test_response(result: LlmProviderTestResult) -> serde_json::Value {
+    match result {
+        LlmProviderTestResult::Success(success) => serde_json::json!({
+            "ok": true,
+            "provider": success.provider,
+            "responsePreview": success.response_preview,
+            "usage": success.usage,
+        }),
+        LlmProviderTestResult::Error(error) => serde_json::json!({
+            "ok": false,
+            "error": error,
+        }),
+    }
 }
 
 pub(crate) fn llm_provider_test_error_parts(error: &LlmError) -> (&'static str, &'static str, bool) {
@@ -1346,10 +1378,11 @@ mod tests {
 
     #[test]
     fn llm_provider_test_error_payload_redacts_upstream_body() {
-        let payload = llm_provider_test_error_payload(&LlmError::Api {
+        let result = LlmProviderTestResult::from_llm_error(&LlmError::Api {
             status: 401,
             message: "invalid key sk-secret-value".to_string(),
         });
+        let payload = llm_provider_test_response(result);
 
         assert_eq!(payload["ok"], false);
         assert_eq!(payload["error"]["code"], "unauthorized");
@@ -1360,13 +1393,14 @@ mod tests {
     #[test]
     fn llm_provider_test_success_response_limits_preview() {
         let usage = Usage { input_tokens: 10, output_tokens: 4 };
-        let body = llm_provider_test_success_response(
+        let result = LlmProviderTestResult::success(
             Uuid::from_u128(0x77777777777747778777777777777777),
             "openai",
             "gpt-5.5",
             &"x".repeat(140),
-            Some(&usage),
+            Some(usage),
         );
+        let body = llm_provider_test_response(result);
 
         assert_eq!(body["ok"], true);
         assert_eq!(body["provider"]["provider"], "openai");

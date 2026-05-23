@@ -173,7 +173,7 @@ hides where the real I/O happens.
 - Tenant scope enforcement: methods that take `&TenantScope` add the
   organization filter inside the SQL.
 - Lightweight projections that are SQL-shaped (e.g. `LegacyGroupSummary` with
-  `#[derive(FromRow)]`, defined in `domain/group.rs` and used by
+  `#[derive(FromRow)]`, defined in a repository row type and mapped into
   `GroupRepository::list_canonical_for_project`).
 
 ### Must Not

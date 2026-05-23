@@ -245,6 +245,10 @@ pub(crate) fn stripe_webhook_payload(payload: &str) -> AppResult<Value> {
     serde_json::from_str(payload).map_err(|err| BillingStripeGatewayPolicy::invalid_webhook_json(err).into())
 }
 
+pub(crate) fn stripe_webhook_event(payload: &str) -> AppResult<StripeEvent> {
+    stripe_event(stripe_webhook_payload(payload)?)
+}
+
 pub(crate) fn stripe_api_response_body<T: DeserializeOwned>(body: &str) -> AppResult<T> {
     serde_json::from_str(body).map_err(|err| BillingStripeGatewayPolicy::api_response_decode_failed(err).into())
 }

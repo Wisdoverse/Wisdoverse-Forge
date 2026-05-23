@@ -5,9 +5,8 @@
 use std::sync::Arc;
 
 use agentforge_platform::DockerClient;
-use serde_json::Value;
 
-pub(crate) use crate::domain::agent::pool_status_response;
+pub(crate) use crate::domain::agent::{PoolStatusProjection, pool_status_response};
 
 pub(crate) struct PoolService {
     docker: Option<Arc<DockerClient>>,
@@ -18,8 +17,8 @@ impl PoolService {
         Self { docker }
     }
 
-    pub(crate) fn status_response(&self) -> Value {
-        pool_status_response(self.docker.is_some())
+    pub(crate) fn status(&self) -> PoolStatusProjection {
+        PoolStatusProjection::new(self.docker.is_some())
     }
 }
 
@@ -29,7 +28,7 @@ mod tests {
 
     #[test]
     fn status_response_reports_missing_docker_runtime() {
-        let response = PoolService::new(None).status_response();
+        let response = pool_status_response(PoolService::new(None).status());
         assert_eq!(response["ok"], true);
         assert_eq!(response["data"]["docker_available"], false);
     }

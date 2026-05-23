@@ -4,17 +4,19 @@ use std::sync::Arc;
 
 use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::{ImpersonationLog, Organization, User};
-use serde_json::Value;
 use sqlx::PgPool;
 use uuid::Uuid;
 
 pub use crate::domain::admin::BulkDeleteResult;
 use crate::domain::admin::{
     AdminAgentDetailProjection, AdminAgentEventProjection, AdminAgentFilterPolicy, AdminAgentFilterQuery,
-    AdminAgentProjection, AdminAgentTokens, AdminBulkDeletePolicy, AdminImpersonationPolicy, AdminListPage,
-    AdminRolePolicy, admin_agent_detail_response, admin_agent_list_response,
+    AdminAgentListProjection, AdminAgentProjection, AdminAgentTokens, AdminBulkDeletePolicy, AdminImpersonationPolicy,
+    AdminListPage, AdminRolePolicy,
 };
-pub(crate) use crate::domain::admin::{admin_bulk_delete_response, admin_data_response, admin_delete_response};
+pub(crate) use crate::domain::admin::{
+    admin_agent_detail_response, admin_agent_list_response, admin_bulk_delete_response, admin_data_response,
+    admin_delete_response,
+};
 use crate::repositories::admin::{AdminAgentEventRow, AdminAgentFilters, AdminAgentRow, AdminRepository, AdminStats};
 use crate::services::auth_callout::AuthCalloutService;
 
@@ -135,12 +137,12 @@ impl AdminService {
     }
 
     /// List agents as the admin-console response projection.
-    pub(crate) async fn list_agent_page(&self, input: AdminAgentListInput<'_>) -> AppResult<Value> {
+    pub(crate) async fn list_agent_page(&self, input: AdminAgentListInput<'_>) -> AppResult<AdminAgentListProjection> {
         let (filters, page) = filters_from_agent_list_input(input);
         let limit = filters.limit;
         let (rows, total) = self.list_agents(filters).await?;
         let agents = rows.into_iter().map(AdminAgentProjection::from).collect();
-        Ok(admin_agent_list_response(agents, total, page, limit))
+        Ok(AdminAgentListProjection::new(agents, total, page, limit))
     }
 
     /// Fetch a single agent by ID (admin only) along with its most recent events.
@@ -152,17 +154,16 @@ impl AdminService {
     }
 
     /// Fetch a single agent as the admin-console detail response projection.
-    pub(crate) async fn get_agent_response(&self, agent_id: Uuid) -> AppResult<Value> {
+    pub(crate) async fn get_agent_detail(&self, agent_id: Uuid) -> AppResult<AdminAgentDetailProjection> {
         let (row, events) = self.get_agent(agent_id).await?;
-        let detail = AdminAgentDetailProjection {
+        Ok(AdminAgentDetailProjection {
             agent: row.clone().into(),
             user_id: row.user_id,
             organization_id: row.organization_id,
             project_id: row.project_id,
             cli_session_id: row.cli_session_id,
             recent_events: events.into_iter().map(AdminAgentEventProjection::from).collect(),
-        };
-        Ok(admin_agent_detail_response(detail))
+        })
     }
 
     /// Hard-delete a single agent (admin only).
