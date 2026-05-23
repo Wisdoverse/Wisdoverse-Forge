@@ -105,6 +105,22 @@ pub(crate) struct RuntimeSettings {
     pub(crate) available_cli_tools: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RuntimeCliToolDetail {
+    pub(crate) cli_tool: String,
+    pub(crate) image: String,
+    pub(crate) version: Option<String>,
+    pub(crate) image_present: bool,
+    pub(crate) version_source: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct RuntimeSettingsWithCliTools {
+    pub(crate) runtime: RuntimeSettings,
+    pub(crate) cli_tool_details: Vec<RuntimeCliToolDetail>,
+}
+
 impl RuntimeSettings {
     pub(crate) fn from_stored(value: Option<&Value>) -> Self {
         let mut settings = Self::default();
@@ -149,16 +165,23 @@ impl Default for RuntimeSettings {
     }
 }
 
-pub(crate) fn runtime_settings_response(runtime: &RuntimeSettings) -> Value {
+pub(crate) fn runtime_settings_with_cli_tools_response(runtime: &RuntimeSettingsWithCliTools) -> Value {
     serde_json::json!({
         "ok": true,
-        "data": runtime,
+        "data": {
+            "defaultRuntime": &runtime.runtime.default_runtime,
+            "availableRuntimes": &runtime.runtime.available_runtimes,
+            "defaultCliTool": &runtime.runtime.default_cli_tool,
+            "availableCliTools": &runtime.runtime.available_cli_tools,
+            "cliToolDetails": &runtime.cli_tool_details,
+        },
         // Legacy cached frontends read settings fields from the top-level
         // response instead of the `data` envelope.
-        "defaultRuntime": &runtime.default_runtime,
-        "availableRuntimes": &runtime.available_runtimes,
-        "defaultCliTool": &runtime.default_cli_tool,
-        "availableCliTools": &runtime.available_cli_tools,
+        "defaultRuntime": &runtime.runtime.default_runtime,
+        "availableRuntimes": &runtime.runtime.available_runtimes,
+        "defaultCliTool": &runtime.runtime.default_cli_tool,
+        "availableCliTools": &runtime.runtime.available_cli_tools,
+        "cliToolDetails": &runtime.cli_tool_details,
     })
 }
 
@@ -576,13 +599,17 @@ mod tests {
     #[test]
     fn runtime_settings_response_keeps_legacy_top_level_fields() {
         let runtime = RuntimeSettings::default();
-        let body = runtime_settings_response(&runtime);
+        let body = runtime_settings_with_cli_tools_response(&RuntimeSettingsWithCliTools {
+            runtime,
+            cli_tool_details: Vec::new(),
+        });
 
         assert_eq!(body["ok"], true);
         assert_eq!(body["data"]["defaultRuntime"], "container");
         assert_eq!(body["defaultRuntime"], "container");
         assert_eq!(body["availableRuntimes"], body["data"]["availableRuntimes"]);
         assert_eq!(body["availableCliTools"], body["data"]["availableCliTools"]);
+        assert_eq!(body["cliToolDetails"], body["data"]["cliToolDetails"]);
     }
 
     #[test]

@@ -863,7 +863,7 @@ export function createAgentAPI(
       try {
         const response = await fetchFn(
           `${apiUrl}/cli-auth-proxy/${encodeURIComponent(provider)}/authorize`,
-          { headers: headersNoBody() }
+          { method: 'POST', headers: headersNoBody() }
         )
         if (!response.ok) {
           const body = await response.json().catch(() => ({}))

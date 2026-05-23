@@ -15,13 +15,14 @@ import { TaskMetadata } from './TaskMetadata'
 import { DescriptionTab } from './DescriptionTab'
 import { ContextTab } from './ContextTab'
 import { HistoryTab } from './HistoryTab'
+import { SkillDraftModal } from './SkillDraftModal'
 
 type TabId = 'description' | 'result' | 'context' | 'history'
 
 const BASE_TABS: { id: TabId; label: string }[] = [
-  { id: 'description', label: 'Description' },
+  { id: 'description', label: 'Work' },
   { id: 'context', label: 'Context' },
-  { id: 'history', label: 'History' },
+  { id: 'history', label: 'Updates' },
 ]
 
 interface TaskDetailPanelProps {
@@ -47,6 +48,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [publishing, setPublishing] = useState(false)
+  const [skillDraftOpen, setSkillDraftOpen] = useState(false)
 
   useEffect(() => {
     if (!contextVisible && activeTab === 'context') setActiveTab('description')
@@ -172,7 +174,14 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
 
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto">
-        {activeTab === 'description' && <DescriptionTab task={task} />}
+        {activeTab === 'description' && (
+          <DescriptionTab
+            task={task}
+            onOpenResult={hasResult ? () => setActiveTab('result') : undefined}
+            onOpenContext={contextVisible ? () => setActiveTab('context') : undefined}
+            onDraftSkill={task.state === 'completed' ? () => setSkillDraftOpen(true) : undefined}
+          />
+        )}
         {contextVisible && activeTab === 'context' && <ContextTab taskId={task.id} />}
         {activeTab === 'result' && hasResult && (
           <div className="py-3 space-y-3">
@@ -193,7 +202,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
             ))}
           </div>
         )}
-        {activeTab === 'history' && <HistoryTab />}
+        {activeTab === 'history' && <HistoryTab task={task} />}
       </div>
 
       {/* Action buttons */}
@@ -272,6 +281,12 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
           if (!publishing) setPreviewOpen(false)
         }}
         onConfirm={(selection) => void publishWithContext(selection)}
+      />
+      <SkillDraftModal
+        open={skillDraftOpen}
+        task={task}
+        artifacts={resultArtifacts}
+        onClose={() => setSkillDraftOpen(false)}
       />
     </div>
   )

@@ -87,27 +87,33 @@ define a default application administrator.
 
 ## 4. First Use Path
 
-After registering, open `/start` in the app. It shows the same minimum path as
-an in-product checklist. Use the direct provider path first; it avoids Container
-CLI image and OAuth setup while still proving the application can run useful AI
-work.
+After registering, open `/start` in the app. It is the in-product checklist for
+the minimum setup-to-work path.
 
-1. Open Settings -> Teams and create a team.
-2. Open Settings -> Projects and create a project under that team.
+1. Open Settings -> Teams and Settings -> Projects, then create or select a team
+   and project.
+2. Open Settings -> Runtime and confirm the runtime readiness panel. It should
+   show available runtimes, available Container CLIs, CLI image/version state,
+   credential state, and recent agent heartbeat state.
 3. Open Settings -> Providers, choose Add Provider, select your LLM provider,
-   enter a model and API key, save, then use Test to verify the key.
-   For Ollama, configure `OLLAMA_BASE_URL` on the backend and leave API Key
-   empty.
+   enter a model and API key, save, then use Test to verify the key. For Ollama,
+   configure `OLLAMA_BASE_URL` on the backend and leave API Key empty.
 4. Select the project in the sidebar.
-5. Open Agents -> New Agent, choose Provider + Prompt, select the provider and
-   model, then create the agent.
-6. Open the agent and use the History chat to send a short prompt.
+5. Open Agents -> New Agent. Choose Provider + Prompt for the shortest path, or
+   choose a Container CLI runtime after image and credential readiness are
+   confirmed.
+6. Open Tasks, create or select a task group for the selected project, then use
+   Add Task on the board.
+7. Assign the task to an available agent, or leave it queued if no agent is
+   online.
+8. Open the task detail panel to review Work, Result, Context, and Updates.
+   Completed tasks can draft reusable skills from the review flow.
 
-To route tasks through the board, create or select a task group for the selected
-project. The New Agent dialog can create a default task group when a project is
-selected. Then open Tasks and use Add Task on the board.
+The New Agent dialog can create a default task group when a project is selected.
+Provider-backed agents are the fastest first proof because they do not require
+Container CLI image and OAuth setup.
 
-Use Container CLI agents only after the base UI path works. Pull public CLI
+Use Container CLI agents after runtime readiness is clear. Pull public CLI
 images with `make update-agents`, or build Claude locally with
 `make build-agent CLI_TOOL=claude` after accepting the vendor terms. Container
 CLI agents also need matching user OAuth credentials or deployment-level
@@ -167,5 +173,6 @@ This loop does not provide the orchestrator, Temporal, or the full backend integ
 ## Next Reads
 
 - [Configuration Guide](configuration.md) for runtime variables.
+- [Task Workflow Guide](task-workflow.md) for the browser task lifecycle.
 - [Architecture Overview](../architecture/overview.md) for service boundaries and flow diagrams.
 - [Deployment Guide](deployment.md) for production-oriented Compose usage.
