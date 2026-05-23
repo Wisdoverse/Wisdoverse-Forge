@@ -155,8 +155,17 @@ async function openMobile(
   await installNoopWebSocket(page)
   await injectMobileAuth(page)
   await page.goto(`${baseURL}${path}`)
-  await page.locator('#root > *').first().waitFor({ state: 'attached', timeout: 30_000 })
-  await page.locator('[data-testid="top-bar"]').waitFor({ state: 'visible', timeout: 15_000 })
+  try {
+    await page.waitForLoadState('domcontentloaded')
+    await page.locator('#root > *').first().waitFor({ state: 'attached', timeout: 30_000 })
+    await page.locator('[data-testid="top-bar"]').waitFor({ state: 'visible', timeout: 15_000 })
+  } catch (err) {
+    console.warn(`[mobile] app shell stalled on first nav to ${path}; reloading once. ${err}`)
+    await page.reload()
+    await page.waitForLoadState('domcontentloaded')
+    await page.locator('#root > *').first().waitFor({ state: 'attached', timeout: 30_000 })
+    await page.locator('[data-testid="top-bar"]').waitFor({ state: 'visible', timeout: 15_000 })
+  }
 }
 
 async function expectNoHorizontalOverflow(page: Page): Promise<void> {

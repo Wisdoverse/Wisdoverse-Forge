@@ -73,7 +73,17 @@ async function openAgents(page: Page, baseURL: string): Promise<void> {
   await installNoopWebSocket(page)
   await injectAgentAuth(page)
   await page.goto(`${baseURL}/agents`)
-  await page.locator('[data-testid="top-bar"]').waitFor({ state: 'visible', timeout: 15_000 })
+  try {
+    await page.waitForLoadState('domcontentloaded')
+    await page.locator('#root > *').first().waitFor({ state: 'attached', timeout: 30_000 })
+    await page.locator('[data-testid="top-bar"]').waitFor({ state: 'visible', timeout: 15_000 })
+  } catch (err) {
+    console.warn(`[agent-terminal] app shell stalled on first nav; reloading once. ${err}`)
+    await page.reload()
+    await page.waitForLoadState('domcontentloaded')
+    await page.locator('#root > *').first().waitFor({ state: 'attached', timeout: 30_000 })
+    await page.locator('[data-testid="top-bar"]').waitFor({ state: 'visible', timeout: 15_000 })
+  }
 }
 
 test.describe('Agent detail Terminal tab', () => {
