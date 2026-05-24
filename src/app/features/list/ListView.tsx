@@ -1,6 +1,6 @@
 import { useRef, useMemo, useState, type ReactNode } from 'react'
 import { useVirtualizer, type VirtualizerOptions } from '@tanstack/react-virtual'
-import { AlertTriangle, CheckCircle2, Clock3, CircleDot, Search } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock3, CircleDot, ListChecks, Search } from 'lucide-react'
 import { useBoardStore } from '@app/shared/model/board.store'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 import { cn } from '@app/shared/lib/utils'
@@ -46,7 +46,7 @@ const STATUS_COLORS: Record<string, string> = {
     'border-black/[0.08] bg-white text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark',
 }
 
-const ROW_HEIGHT = 52
+const ROW_HEIGHT = 68
 
 type ListTaskFilter = 'all' | 'open' | 'attention' | 'completed'
 
@@ -92,6 +92,7 @@ export function ListView() {
 
   const tasks = useMemo<TaskSummary[]>(() => Object.values(columns).flat(), [columns])
   const workload = useMemo(() => summarizeListTasks(tasks), [tasks])
+  const nextStep = listNextStep(workload, tasks.length)
   const filterCounts = useMemo(
     () =>
       LIST_FILTERS.map((item) => ({
@@ -122,6 +123,25 @@ export function ListView() {
         data-testid="list-work-register"
         className="rounded-lg border border-black/[0.08] bg-white px-3 py-3 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
       >
+        <div className="mb-3 flex items-start gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-apple-blue/10 text-apple-blue">
+            <ListChecks size={17} strokeWidth={2.1} aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
+              Task List
+            </h2>
+            <p
+              data-testid="list-next-step"
+              className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+            >
+              <span className="font-medium text-foreground-light dark:text-foreground-dark">
+                {nextStep.title}
+              </span>{' '}
+              {nextStep.detail}
+            </p>
+          </div>
+        </div>
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:w-[560px]">
             <ListMetric
@@ -209,15 +229,32 @@ export function ListView() {
       </div>
 
       {tasks.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center text-ui-body text-secondary-light dark:text-secondary-dark">
-          No Tasks Yet
+        <div
+          data-testid="list-empty-state"
+          className="flex flex-1 flex-col items-center justify-center gap-2 px-4 text-center text-ui-body"
+        >
+          <div className="flex size-10 items-center justify-center rounded-lg bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+            <ListChecks size={18} strokeWidth={1.9} aria-hidden="true" />
+          </div>
+          <p className="font-semibold text-foreground-light dark:text-foreground-dark">
+            No tasks yet
+          </p>
+          <p className="max-w-sm text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
+            Create one small task from the board first. Start with the outcome you want, then add
+            the proof you expect the agent to return.
+          </p>
         </div>
       ) : visibleTasks.length === 0 ? (
         <div
           data-testid="list-filter-empty"
           className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-ui-body text-secondary-light dark:text-secondary-dark"
         >
-          <span>No tasks match the current filters.</span>
+          <span className="font-medium text-foreground-light dark:text-foreground-dark">
+            No tasks match this view
+          </span>
+          <span className="max-w-sm text-ui-caption leading-relaxed">
+            Show all tasks first, then narrow by task title, agent name, blocker, or priority.
+          </span>
           {hasActiveFilter && (
             <button
               type="button"
@@ -227,7 +264,7 @@ export function ListView() {
               }}
               className="rounded-full bg-apple-blue/10 px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
             >
-              Clear filters
+              Show all tasks
             </button>
           )}
         </div>
@@ -241,6 +278,7 @@ export function ListView() {
             {virtualizer.getVirtualItems().map((virtualRow) => {
               const task = visibleTasks[virtualRow.index]
               const openTask = () => setSelectedTask(task.id)
+              const nextAction = taskNextAction(task)
               return (
                 <div
                   key={task.id}
@@ -256,7 +294,7 @@ export function ListView() {
                   className="grid cursor-pointer grid-cols-[minmax(220px,1fr)_120px_140px_96px_96px] items-center border-b border-black/[0.05] px-4 transition-colors hover:bg-black/[0.025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.06] dark:hover:bg-white/[0.04]"
                   role="button"
                   tabIndex={0}
-                  aria-label={`Open ${task.params.task}`}
+                  aria-label={`Open ${task.params.task}. ${nextAction}`}
                   onClick={openTask}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
@@ -266,8 +304,13 @@ export function ListView() {
                   }}
                 >
                   {/* Title */}
-                  <span className="truncate pr-4 text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-                    {task.params.task}
+                  <span className="min-w-0 pr-4">
+                    <span className="block truncate text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+                      {task.params.task}
+                    </span>
+                    <span className="mt-0.5 block truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
+                      {nextAction}
+                    </span>
                   </span>
 
                   {/* Status badge */}
@@ -402,6 +445,69 @@ function summarizeListTasks(tasks: TaskSummary[]): {
     },
     { active: 0, backlog: 0, attention: 0, completed: 0 }
   )
+}
+
+function listNextStep(
+  workload: ReturnType<typeof summarizeListTasks>,
+  totalTasks: number
+): { title: string; detail: string } {
+  if (totalTasks === 0) {
+    return {
+      title: 'Create your first small task.',
+      detail: 'Use the board to give an agent one clear outcome and expected proof.',
+    }
+  }
+
+  if (workload.attention > 0) {
+    return {
+      title: `Start with ${workload.attention} task${workload.attention === 1 ? '' : 's'} needing action.`,
+      detail: 'Open the blocked or failed work first so the agent is not waiting on you.',
+    }
+  }
+
+  if (workload.active > 0) {
+    return {
+      title: `Review ${workload.active} active task${workload.active === 1 ? '' : 's'}.`,
+      detail: 'Open active work to confirm progress is moving and no decision is needed.',
+    }
+  }
+
+  if (workload.backlog > 0) {
+    return {
+      title: `Move ${workload.backlog} backlog task${workload.backlog === 1 ? '' : 's'} forward.`,
+      detail: 'Assign an agent or send ready work into the next lane when the scope is clear.',
+    }
+  }
+
+  return {
+    title: 'Review completed work.',
+    detail: 'Open completed tasks to check the result, evidence, and anything worth reusing.',
+  }
+}
+
+function taskNextAction(task: TaskSummary): string {
+  switch (task.state) {
+    case 'backlog':
+      return task.assignedAgentName || task.assignedTo
+        ? 'Queue this when you are ready for the agent to start.'
+        : 'Assign an agent or move it into a ready work lane.'
+    case 'queued':
+      return 'Wait for an agent to pick it up; check again if it stays queued.'
+    case 'working':
+      return `Follow progress at ${task.progress}%; open it if updates stop.`
+    case 'blocked':
+      return task.blockedHint || task.blockedReason
+        ? `Resolve blocker: ${task.blockedHint ?? task.blockedReason}.`
+        : 'Open it and provide the missing decision or input.'
+    case 'failed':
+      return 'Open it, read the failure, then retry only after the cause is clear.'
+    case 'completed':
+      return 'Open it to review the result and evidence.'
+    case 'canceled':
+      return 'Open it only if you need to restart or explain why it stopped.'
+    default:
+      return 'Open the task to decide the next safe step.'
+  }
 }
 
 function filterListTasks(
