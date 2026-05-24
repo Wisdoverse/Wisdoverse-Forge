@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Activity } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Activity, AlertTriangle, CheckCircle2, Plus, Search } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
@@ -23,6 +23,15 @@ interface AddProviderForm {
   apiKey: string
   baseUrl: string
 }
+
+type ProviderFilter = 'all' | 'ready' | 'needs-test' | 'disabled'
+
+const PROVIDER_FILTERS: { id: ProviderFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'ready', label: 'Ready' },
+  { id: 'needs-test', label: 'Needs Test' },
+  { id: 'disabled', label: 'Disabled' },
+]
 
 const DEFAULT_FORM: AddProviderForm = {
   provider: 'anthropic',
@@ -170,36 +179,55 @@ function providerNeedsBaseUrl(provider: LlmProvider, info?: ProviderInfo): boole
   return provider === 'openai_compatible' && !info?.defaultBaseUrl
 }
 
+function providerConnectionState(provider: LlmProviderConfig): ProviderFilter {
+  if (!provider.isEnabled) return 'disabled'
+  return provider.lastTestStatus === 'passed' ? 'ready' : 'needs-test'
+}
+
+function providerStatusLabel(provider: LlmProviderConfig): string {
+  if (!provider.isEnabled) return 'Disabled'
+  if (provider.lastTestStatus === 'passed') return 'Ready'
+  if (provider.lastTestStatus === 'failed') return 'Failed'
+  return 'Needs Test'
+}
+
+function providerStatusTone(provider: LlmProviderConfig): string {
+  if (!provider.isEnabled) {
+    return 'bg-apple-gray-5 text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
+  }
+  if (provider.lastTestStatus === 'passed') return 'bg-apple-green/10 text-apple-green'
+  return 'bg-apple-orange/12 text-apple-orange'
+}
+
+function providerMatchesSearch(provider: LlmProviderConfig, search: string): boolean {
+  const query = search.trim().toLowerCase()
+  if (!query) return true
+  return [provider.displayName, provider.provider, provider.model, provider.apiKeyPrefix]
+    .filter((value): value is string => Boolean(value))
+    .some((value) => value.toLowerCase().includes(query))
+}
+
 // ============================================================================
 // Provider Card
 // ============================================================================
 
 interface ProviderCardProps {
-  id: string
-  provider: string
-  displayName: string
-  model: string
-  isEnabled: boolean
-  isDefault: boolean
-  apiKeyPrefix?: string
-  lastTestStatus?: LlmProviderConfig['lastTestStatus']
-  lastTestErrorMessage?: string
+  providerConfig: LlmProviderConfig
   onTest: (id: string) => Promise<TestConnectionResult>
   onDelete: (id: string) => void
 }
 
-function ProviderCard({
-  id,
-  displayName,
-  model,
-  isEnabled,
-  isDefault,
-  apiKeyPrefix,
-  lastTestStatus,
-  lastTestErrorMessage,
-  onTest,
-  onDelete,
-}: ProviderCardProps) {
+function ProviderCard({ providerConfig, onTest, onDelete }: ProviderCardProps) {
+  const {
+    id,
+    displayName,
+    model,
+    isEnabled,
+    isDefault,
+    apiKeyPrefix,
+    lastTestStatus,
+    lastTestErrorMessage,
+  } = providerConfig
   const [confirming, setConfirming] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
@@ -260,6 +288,14 @@ function ProviderCard({
               {displayName}
             </span>
             {isDefault && <span className={uiStyles.activeBadge}>default</span>}
+            <span
+              className={cn(
+                'rounded-full px-2 py-0.5 text-ui-caption font-semibold',
+                providerStatusTone(providerConfig)
+              )}
+            >
+              {providerStatusLabel(providerConfig)}
+            </span>
           </div>
           <div className="flex items-center gap-2 mt-0.5">
             <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -311,6 +347,102 @@ function ProviderCard({
   )
 }
 
+function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] }) {
+  const total = providers.length
+  const ready = providers.filter((provider) => providerConnectionState(provider) === 'ready').length
+  const disabled = providers.filter(
+    (provider) => providerConnectionState(provider) === 'disabled'
+  ).length
+  const needsTest = providers.filter(
+    (provider) => providerConnectionState(provider) === 'needs-test'
+  ).length
+  const defaultProvider = providers.find((provider) => provider.isDefault)
+  const allReady = total > 0 && ready === total - disabled && needsTest === 0
+
+  return (
+    <section
+      data-testid="provider-readiness"
+      className="mb-4 rounded-lg border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            {allReady ? (
+              <CheckCircle2
+                size={17}
+                strokeWidth={2.25}
+                className="text-apple-green"
+                aria-hidden="true"
+              />
+            ) : (
+              <AlertTriangle
+                size={17}
+                strokeWidth={2.25}
+                className="text-apple-orange"
+                aria-hidden="true"
+              />
+            )}
+            <h3 className={uiStyles.sectionTitle}>
+              {allReady ? 'Providers ready for agent creation' : 'Provider setup needs attention'}
+            </h3>
+          </div>
+          <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
+            {total === 0
+              ? 'Add and test a provider before creating Provider + Prompt agents.'
+              : `${ready}/${total} provider${total === 1 ? '' : 's'} ready, ${needsTest} need${
+                  needsTest === 1 ? 's' : ''
+                } a connection test, ${disabled} disabled.`}
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full bg-black/[0.04] px-2.5 py-1 text-ui-caption font-semibold text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+          Default: {defaultProvider?.displayName ?? 'None'}
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-4">
+        <ProviderReadinessMetric label="Ready" value={String(ready)} ready={ready > 0} />
+        <ProviderReadinessMetric
+          label="Needs Test"
+          value={String(needsTest)}
+          ready={needsTest === 0}
+        />
+        <ProviderReadinessMetric label="Disabled" value={String(disabled)} ready={disabled === 0} />
+        <ProviderReadinessMetric
+          label="Default Route"
+          value={defaultProvider?.displayName ?? 'Not Set'}
+          ready={Boolean(defaultProvider)}
+        />
+      </div>
+    </section>
+  )
+}
+
+function ProviderReadinessMetric({
+  label,
+  value,
+  ready,
+}: {
+  label: string
+  value: string
+  ready: boolean
+}) {
+  return (
+    <div className="rounded-lg border border-black/[0.06] px-3 py-2 dark:border-white/[0.08]">
+      <div className="flex items-center gap-2">
+        <span
+          className={cn('h-2 w-2 rounded-full', ready ? 'bg-apple-green' : 'bg-apple-orange')}
+        />
+        <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+          {label}
+        </span>
+      </div>
+      <p className="mt-1 truncate text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+        {value}
+      </p>
+    </div>
+  )
+}
+
 // ============================================================================
 // Add Provider Form
 // ============================================================================
@@ -337,6 +469,11 @@ function AddProviderFormPanel({
   const needsApiKey = providerNeedsApiKey(form.provider, selectedProvider)
   const needsBaseUrl = providerNeedsBaseUrl(form.provider, selectedProvider)
   const modelListId = `provider-models-${form.provider}`
+  const providerInputId = 'provider-form-provider'
+  const modelInputId = 'provider-form-model'
+  const displayNameInputId = 'provider-form-display-name'
+  const apiKeyInputId = 'provider-form-api-key'
+  const baseUrlInputId = 'provider-form-base-url'
   const canSubmit = Boolean(
     form.model.trim() &&
     (!needsApiKey || form.apiKey.trim()) &&
@@ -376,8 +513,12 @@ function AddProviderFormPanel({
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {/* Provider */}
         <div>
-          <label className={uiStyles.label}>Provider</label>
+          <label htmlFor={providerInputId} className={uiStyles.label}>
+            Provider
+          </label>
           <select
+            id={providerInputId}
+            name="provider"
             value={form.provider}
             onChange={(e) => handleProviderChange(e.target.value as LlmProvider)}
             className={cn(uiStyles.select, 'w-full')}
@@ -392,15 +533,20 @@ function AddProviderFormPanel({
 
         {/* Model */}
         <div>
-          <label className={uiStyles.label}>Model</label>
+          <label htmlFor={modelInputId} className={uiStyles.label}>
+            Model
+          </label>
           {(selectedProvider?.allowCustomModels ?? true) ? (
             <>
               <input
+                id={modelInputId}
                 type="text"
+                name="model"
                 value={form.model}
                 onChange={(e) => setForm({ ...form, model: e.target.value })}
-                placeholder={selectedProvider?.defaultModel ?? 'e.g. llama3'}
+                placeholder={selectedProvider?.defaultModel ?? 'e.g. llama3…'}
                 list={models.length > 0 ? modelListId : undefined}
+                autoComplete="off"
                 className={uiStyles.input}
               />
               {models.length > 0 && (
@@ -415,6 +561,8 @@ function AddProviderFormPanel({
             </>
           ) : models.length > 0 ? (
             <select
+              id={modelInputId}
+              name="model"
               value={form.model}
               onChange={(e) => setForm({ ...form, model: e.target.value })}
               className={cn(uiStyles.select, 'w-full')}
@@ -427,10 +575,13 @@ function AddProviderFormPanel({
             </select>
           ) : (
             <input
+              id={modelInputId}
               type="text"
+              name="model"
               value={form.model}
               onChange={(e) => setForm({ ...form, model: e.target.value })}
-              placeholder="e.g. llama3"
+              placeholder="e.g. llama3…"
+              autoComplete="off"
               className={uiStyles.input}
             />
           )}
@@ -438,42 +589,53 @@ function AddProviderFormPanel({
 
         {/* Display Name */}
         <div>
-          <label className={uiStyles.label}>Display Name</label>
+          <label htmlFor={displayNameInputId} className={uiStyles.label}>
+            Display Name
+          </label>
           <input
+            id={displayNameInputId}
             type="text"
+            name="displayName"
             value={form.displayName}
             onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-            placeholder="My Provider"
+            placeholder="My Provider…"
+            autoComplete="off"
             className={uiStyles.input}
           />
         </div>
 
         {/* API Key */}
         <div>
-          <label className={uiStyles.label}>
+          <label htmlFor={apiKeyInputId} className={uiStyles.label}>
             API Key {needsApiKey && <span className="text-red-500">*</span>}
           </label>
           <input
+            id={apiKeyInputId}
             type="password"
+            name="apiKey"
             value={form.apiKey}
             onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
-            placeholder={needsApiKey ? 'sk-...' : 'not required'}
+            placeholder={needsApiKey ? 'sk-…' : 'not required…'}
             required={needsApiKey}
+            autoComplete="off"
             className={uiStyles.input}
           />
         </div>
 
         {/* Base URL (optional) */}
         <div className="sm:col-span-2">
-          <label className={uiStyles.label}>
+          <label htmlFor={baseUrlInputId} className={uiStyles.label}>
             Base URL {needsBaseUrl && <span className="text-red-500">*</span>}
           </label>
           <input
+            id={baseUrlInputId}
             type="url"
+            name="baseUrl"
             value={form.baseUrl}
             onChange={(e) => setForm({ ...form, baseUrl: e.target.value })}
-            placeholder={baseUrlPlaceholder(form.provider, selectedProvider)}
+            placeholder={`${baseUrlPlaceholder(form.provider, selectedProvider)}…`}
             required={needsBaseUrl}
+            autoComplete="off"
             className={uiStyles.input}
           />
         </div>
@@ -489,7 +651,7 @@ function AddProviderFormPanel({
           Cancel
         </button>
         <button type="submit" disabled={saving || !canSubmit} className={uiStyles.primaryButton}>
-          {saving ? 'Saving...' : 'Save Provider'}
+          {saving ? 'Saving…' : 'Save Provider'}
         </button>
       </div>
     </form>
@@ -512,6 +674,17 @@ export function ProvidersSection() {
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [supportedProviders, setSupportedProviders] = useState<ProviderInfo[]>([])
+  const [providerSearch, setProviderSearch] = useState('')
+  const [providerFilter, setProviderFilter] = useState<ProviderFilter>('all')
+  const filteredProviders = useMemo(
+    () =>
+      providers.filter((provider) => {
+        const matchesFilter =
+          providerFilter === 'all' || providerConnectionState(provider) === providerFilter
+        return matchesFilter && providerMatchesSearch(provider, providerSearch)
+      }),
+    [providerFilter, providerSearch, providers]
+  )
 
   useEffect(() => {
     void loadProviders()
@@ -557,7 +730,7 @@ export function ProvidersSection() {
             onClick={() => setShowForm(true)}
             className={uiStyles.primaryButton}
           >
-            <span>+</span>
+            <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
             <span>Add Provider</span>
           </button>
         )}
@@ -566,11 +739,52 @@ export function ProvidersSection() {
       {/* Error */}
       {providersError && <div className={uiStyles.error}>{providersError}</div>}
 
+      <ProviderReadinessPanel providers={providers} />
+
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <label className="relative min-w-0 flex-1">
+          <span className="sr-only">Search Providers</span>
+          <Search
+            size={14}
+            strokeWidth={2}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-light dark:text-secondary-dark"
+            aria-hidden="true"
+          />
+          <input
+            type="search"
+            name="provider-search"
+            value={providerSearch}
+            onChange={(event) => setProviderSearch(event.target.value)}
+            placeholder="Search providers…"
+            autoComplete="off"
+            className={cn(uiStyles.input, 'pl-9')}
+          />
+        </label>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter providers by status">
+          {PROVIDER_FILTERS.map((filter) => (
+            <button
+              key={filter.id}
+              type="button"
+              onClick={() => setProviderFilter(filter.id)}
+              className={cn(
+                'inline-flex h-8 items-center rounded-full px-3 text-ui-caption font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
+                providerFilter === filter.id
+                  ? 'bg-apple-blue text-white'
+                  : 'border border-black/[0.08] bg-white text-secondary-light hover:bg-black/[0.03] hover:text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.08] dark:hover:text-foreground-dark'
+              )}
+              aria-pressed={providerFilter === filter.id}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Provider list */}
       <div className={uiStyles.card}>
         {providersLoading && providers.length === 0 ? (
           <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading providers...
+            Loading providers…
           </div>
         ) : providers.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center">
@@ -581,19 +795,20 @@ export function ProvidersSection() {
               Add a provider to enable AI capabilities
             </p>
           </div>
+        ) : filteredProviders.length === 0 && !showForm ? (
+          <div className="px-4 py-6 text-center">
+            <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
+              No providers match this view
+            </p>
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Clear search or switch filters to review every provider.
+            </p>
+          </div>
         ) : (
-          providers.map((provider) => (
+          filteredProviders.map((provider) => (
             <ProviderCard
               key={provider.id}
-              id={provider.id}
-              provider={provider.provider}
-              displayName={provider.displayName}
-              model={provider.model}
-              isEnabled={provider.isEnabled}
-              isDefault={provider.isDefault}
-              apiKeyPrefix={provider.apiKeyPrefix}
-              lastTestStatus={provider.lastTestStatus}
-              lastTestErrorMessage={provider.lastTestErrorMessage}
+              providerConfig={provider}
               onTest={handleTest}
               onDelete={handleDelete}
             />
