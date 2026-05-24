@@ -1,6 +1,7 @@
 import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { AgentDetailView } from '@app/widgets/agent-detail/AgentDetailView'
+import type { TaskSummary } from '@app/shared/api/orchestration'
 
 afterEach(cleanup)
 
@@ -58,6 +59,21 @@ const hostCliAgent = {
   runtimeId: 'host-aabbccdd',
   runtimeKind: 'host-cli' as const,
   cwd: '/home/operator/project',
+}
+
+function makeTask(overrides: Partial<TaskSummary>): TaskSummary {
+  return {
+    id: 'task-default',
+    groupId: 'group-1',
+    state: 'working',
+    method: 'tasks/send',
+    params: { task: 'Default task', message: '' },
+    priority: 'normal',
+    progress: 20,
+    createdAt: '2026-05-24T08:00:00.000Z',
+    updatedAt: '2026-05-24T08:30:00.000Z',
+    ...overrides,
+  }
 }
 
 describe('AgentDetailView', () => {
@@ -140,6 +156,57 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Can be assigned now')).toBeDefined()
     expect(screen.getByText('Implement onboarding flow')).toBeDefined()
     expect(screen.getByText(/attach and review skills/i)).toBeDefined()
+  })
+
+  test('guides an idle agent toward a first safe task', () => {
+    render(<AgentDetailView agent={containerAgent} onBack={() => {}} />)
+
+    expect(screen.getByTestId('agent-next-step')).toBeDefined()
+    expect(screen.getByText('Ready')).toBeDefined()
+    expect(screen.getByText('Assign a First Safe Task')).toBeDefined()
+    expect(screen.getByRole('button', { name: /open tasks/i })).toBeDefined()
+  })
+
+  test('guides active work into the Tasks tab', async () => {
+    getTasksByAgentMock.mockResolvedValueOnce([
+      makeTask({
+        id: 'active-task',
+        state: 'working',
+        params: { task: 'Fix onboarding copy', message: '' },
+      }),
+    ])
+
+    render(<AgentDetailView agent={{ ...containerAgent, status: 'working' }} onBack={() => {}} />)
+
+    expect(await screen.findByText('Review Current Work')).toBeDefined()
+    expect(screen.getAllByText(/Fix onboarding copy/).length).toBeGreaterThan(0)
+    expect(screen.getByText('Do This Next')).toBeDefined()
+  })
+
+  test('guides pending container agents to the Terminal tab', () => {
+    render(
+      <AgentDetailView
+        agent={{
+          ...codexContainerAgent,
+          id: 'pending-offline',
+          status: 'offline',
+          containerId: undefined,
+        }}
+        onBack={() => {}}
+      />
+    )
+
+    expect(screen.getByText('Start the Container Runtime')).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /open terminal/i }))
+    expect(screen.getByText('No container is running')).toBeDefined()
+  })
+
+  test('guides offline Host CLI agents back to the local sidecar', () => {
+    render(<AgentDetailView agent={{ ...hostCliAgent, status: 'offline' }} onBack={() => {}} />)
+
+    expect(screen.getByText('Reconnect the Local Sidecar')).toBeDefined()
+    expect(screen.getByText(/Start the sidecar on the enrolled machine/i)).toBeDefined()
+    expect(screen.queryByRole('button', { name: /open terminal/i })).toBeNull()
   })
 
   test('explains workspace access and primary project context', () => {

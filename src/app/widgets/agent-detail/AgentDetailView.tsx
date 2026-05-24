@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { Info } from 'lucide-react'
+import { AlertTriangle, ArrowRight, CheckCircle2, Info } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import {
   isHostCliAgent,
@@ -47,6 +47,15 @@ function defaultGradient(provider: string): string {
 }
 
 type Tab = 'overview' | 'tasks' | 'history' | 'terminal' | 'plugins' | 'config'
+
+interface AgentNextStep {
+  title: string
+  detail: string
+  success: string
+  ready: boolean
+  targetTab?: Tab
+  actionLabel?: string
+}
 
 // Terminal attach is only available for platform-managed containers. Host CLI
 // agents are still task-managed through sidecar/NATS, but their local terminal
@@ -206,6 +215,10 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
       {/* Tab content */}
       {activeTab === 'overview' && (
         <div className="flex flex-col gap-4">
+          <AgentNextStepCard
+            step={agentNextStep(agent, recentTasks)}
+            onOpenTab={(tab) => setActiveTab(tab)}
+          />
           <AssignmentFitCard agent={agent} recentTasks={recentTasks} />
 
           {/* Stats grid */}
@@ -300,6 +313,148 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
 
       {activeTab === 'config' && <AgentConfigTab agentId={agent.id} />}
     </div>
+  )
+}
+
+function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextStep {
+  const activeTask = recentTasks.find((task) => task.state === 'working' || task.state === 'queued')
+  const latestTask = recentTasks[0]
+  const hostCli = isHostCliAgent(agent)
+  const hasContainerTerminal = Boolean(agent.cliTool && !hostCli)
+
+  if (agent.status === 'offline') {
+    if (hostCli) {
+      return {
+        title: 'Reconnect the Local Sidecar',
+        detail:
+          'Start the sidecar on the enrolled machine. This agent cannot receive new work until heartbeats resume.',
+        success: 'The status changes from Offline to Idle or Working.',
+        ready: false,
+      }
+    }
+
+    if (hasContainerTerminal) {
+      return {
+        title: 'Start the Container Runtime',
+        detail:
+          'Open Terminal and start the agent container before assigning new work to this agent.',
+        success: 'The agent returns to Idle and can receive tasks.',
+        ready: false,
+        targetTab: 'terminal',
+        actionLabel: 'Open Terminal',
+      }
+    }
+
+    return {
+      title: 'Reconnect Before Assigning Work',
+      detail: 'This provider-backed agent is offline. Check provider setup before sending work.',
+      success: 'The agent returns to Idle and can receive tasks.',
+      ready: false,
+    }
+  }
+
+  if (activeTask) {
+    return {
+      title: 'Review Current Work',
+      detail: `${agent.name} is already handling "${activeTask.params.task}". Open Tasks to follow progress or unblock it.`,
+      success: 'You can see the active task state and decide whether it needs owner input.',
+      ready: false,
+      targetTab: 'tasks',
+      actionLabel: 'Open Tasks',
+    }
+  }
+
+  if (agent.status === 'idle') {
+    return {
+      title: 'Assign a First Safe Task',
+      detail: hostCli
+        ? 'Use Tasks to send a small, low-risk task. The terminal stays on the enrolled machine while Forge tracks results.'
+        : 'Use Tasks to send a small, low-risk task. Leave it unassigned if any ready agent can pick it up.',
+      success: 'A task appears as Queued or Working for this agent.',
+      ready: true,
+      targetTab: 'tasks',
+      actionLabel: 'Open Tasks',
+    }
+  }
+
+  return {
+    title: 'Review Recent Activity',
+    detail: latestTask
+      ? `The latest task was "${latestTask.params.task}" updated ${formatRelativeTime(latestTask.updatedAt)}.`
+      : 'No task activity has been loaded yet. Open Tasks to see this agent history.',
+    success: 'You can decide whether to reuse the agent, review evidence, or assign another task.',
+    ready: true,
+    targetTab: 'tasks',
+    actionLabel: 'Open Tasks',
+  }
+}
+
+function AgentNextStepCard({
+  step,
+  onOpenTab,
+}: {
+  step: AgentNextStep
+  onOpenTab: (tab: Tab) => void
+}) {
+  const targetTab = step.targetTab
+  const actionLabel = step.actionLabel
+
+  return (
+    <section
+      data-testid="agent-next-step"
+      className={cn(
+        'rounded-xl border px-4 py-3',
+        step.ready
+          ? 'border-apple-green/20 bg-apple-green/5'
+          : 'border-apple-blue/20 bg-apple-blue/[0.04]'
+      )}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            {step.ready ? (
+              <CheckCircle2
+                size={17}
+                strokeWidth={2.25}
+                className="shrink-0 text-apple-green"
+                aria-hidden="true"
+              />
+            ) : (
+              <AlertTriangle
+                size={17}
+                strokeWidth={2.25}
+                className="shrink-0 text-apple-blue"
+                aria-hidden="true"
+              />
+            )}
+            <p className="text-ui-caption font-semibold uppercase text-secondary-light dark:text-secondary-dark">
+              {step.ready ? 'Ready' : 'Do This Next'}
+            </p>
+          </div>
+          <h2 className="mt-1 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+            {step.title}
+          </h2>
+          <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
+            {step.detail}
+          </p>
+          <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Success: {step.success}
+          </p>
+        </div>
+        {targetTab && actionLabel && (
+          <button
+            type="button"
+            onClick={() => onOpenTab(targetTab)}
+            className={cn(
+              'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]'
+            )}
+          >
+            <span>{actionLabel}</span>
+            <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
+          </button>
+        )}
+      </div>
+    </section>
   )
 }
 
