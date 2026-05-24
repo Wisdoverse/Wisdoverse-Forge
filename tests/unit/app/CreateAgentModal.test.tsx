@@ -142,7 +142,7 @@ describe('CreateAgentModal', () => {
       expect(agentGroupApi.createGroup).toHaveBeenCalledWith({
         projectId: 'p1',
         name: 'Default Task Group',
-        description: 'Agents in this group can receive tasks from the board.',
+        description: 'This task group is a work lane where agents can receive board tasks.',
       })
     )
     expect(screen.getByRole('combobox', { name: /task group/i })).toHaveValue('group-new')

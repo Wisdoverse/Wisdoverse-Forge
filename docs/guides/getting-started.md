@@ -20,6 +20,12 @@ The full platform mode is the default recommendation.
 - Make
 - Git
 
+You do not need to build the Platform CLI for the first browser-based trial.
+Use the CLI when you want to connect a local machine as a managed Host CLI
+agent or operate a remote instance from a terminal. See
+[CLI Platform Support](cli-platform-support.md) for the supported Linux, macOS,
+and Windows operator paths.
+
 ## 1. Clone the Repository
 
 ```bash
@@ -120,6 +126,12 @@ CLI agents also need matching user OAuth credentials or deployment-level
 fallback keys such as `CONTAINER_OPENAI_API_KEY`, `CONTAINER_ANTHROPIC_API_KEY`,
 or `CONTAINER_GOOGLE_API_KEY`.
 
+To use a local machine as a managed agent, install the Platform CLI and
+`agentforge-sidecar`, then follow
+[Host CLI Agent Enrollment](../runbooks/host-cli-agent-enrollment.md). This path
+is intended for operators who want the remote platform to assign tasks to a CLI
+running on their own workstation.
+
 ## 5. Verify the Environment
 
 ```bash
@@ -174,5 +186,7 @@ This loop does not provide the orchestrator, Temporal, or the full backend integ
 
 - [Configuration Guide](configuration.md) for runtime variables.
 - [Task Workflow Guide](task-workflow.md) for the browser task lifecycle.
+- [CLI Platform Support](cli-platform-support.md) for Platform CLI and local
+  sidecar installation expectations.
 - [Architecture Overview](../architecture/overview.md) for service boundaries and flow diagrams.
 - [Deployment Guide](deployment.md) for production-oriented Compose usage.

@@ -19,7 +19,8 @@ import { useBoardStore } from '@app/shared/model/board.store'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 import { useNavigationStore } from '@app/entities/navigation'
 
-const DEFAULT_GROUP_DESCRIPTION = 'Agents in this group can receive tasks from the board.'
+const DEFAULT_GROUP_DESCRIPTION =
+  'This task group is a work lane where agents can receive board tasks.'
 
 const TASK_STATE_LABELS: Record<TaskSummary['state'], string> = {
   backlog: 'Backlog',
@@ -217,7 +218,8 @@ export function AgentGroupsPanel() {
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Route board tasks to agent groups in the selected project.
+            Task groups work like simple lanes: pick one, create tasks, and agents know where to
+            look for work.
           </p>
           {selectedProject && (
             <p className="mt-2 truncate rounded-md bg-black/[0.04] px-2 py-1 text-ui-caption text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
@@ -247,7 +249,8 @@ export function AgentGroupsPanel() {
 
       {!selectedProjectId ? (
         <div className="mt-3 rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark">
-          Select a project from the sidebar to manage task routing.
+          Select a project from the sidebar first. Each project keeps its own task groups and
+          agents.
         </div>
       ) : (
         <div className="mt-3 flex flex-col gap-3">
@@ -275,7 +278,7 @@ export function AgentGroupsPanel() {
               })
             ) : (
               <div className="rounded-lg border border-dashed border-black/10 px-3 py-2 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark">
-                No task groups yet
+                No work lanes yet. Create one below so agents can receive tasks.
               </div>
             )}
           </div>
@@ -344,7 +347,7 @@ export function AgentGroupsPanel() {
                   value={routingSearch}
                   onChange={(event) => setRoutingSearch(event.target.value)}
                   className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-ui-body text-foreground-light outline-none placeholder:text-secondary-light focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:text-foreground-dark dark:placeholder:text-secondary-dark"
-                  placeholder="Search routed work, assignees, blockers..."
+                  placeholder="Search routed work, assignees, blockers…"
                 />
               </label>
 
@@ -385,6 +388,10 @@ export function AgentGroupsPanel() {
 
           {formOpen && (
             <form onSubmit={handleCreateGroup} className="grid gap-2">
+              <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                Pick a starter lane or name one yourself. New tasks can use it as soon as it is
+                created.
+              </p>
               <div
                 role="group"
                 aria-label="Task group templates"
@@ -449,7 +456,7 @@ export function AgentGroupsPanel() {
                   )}
                 >
                   <Check size={14} strokeWidth={2.25} aria-hidden="true" />
-                  {saving ? 'Creating…' : 'Create'}
+                  {saving ? 'Creating…' : 'Create Lane'}
                 </button>
                 {agentGroups.length > 0 && (
                   <button

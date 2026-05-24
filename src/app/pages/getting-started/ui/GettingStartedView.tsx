@@ -7,7 +7,6 @@ import {
   Bot,
   CheckCircle2,
   Circle,
-  FolderKanban,
   KeyRound,
   Layers3,
   ListTodo,
@@ -41,6 +40,8 @@ interface SetupStep {
   id: string
   title: string
   detail: string
+  why: string
+  success: string
   complete: boolean
   path: string
   cta: string
@@ -122,6 +123,8 @@ export function GettingStartedView() {
         id: 'workspace',
         title: t('gettingStarted.steps.workspace.title'),
         detail: workspaceDetail,
+        why: t('gettingStarted.steps.workspace.why'),
+        success: t('gettingStarted.steps.workspace.success'),
         complete: teams.length > 0 && projects.length > 0,
         path: '/settings/projects',
         cta:
@@ -139,6 +142,8 @@ export function GettingStartedView() {
               cli: runtimeSettings.defaultCliTool,
             })
           : t('gettingStarted.steps.runtime.empty'),
+        why: t('gettingStarted.steps.runtime.why'),
+        success: t('gettingStarted.steps.runtime.success'),
         complete: runtimeReady,
         path: '/settings/runtime',
         cta: runtimeReady
@@ -159,6 +164,8 @@ export function GettingStartedView() {
             : providers.length > 0
               ? t('gettingStarted.steps.provider.needsTest')
               : t('gettingStarted.steps.provider.empty'),
+        why: t('gettingStarted.steps.provider.why'),
+        success: t('gettingStarted.steps.provider.success'),
         complete: executionCredentialReady,
         path: executionCredentialPath,
         cta: executionCredentialReady
@@ -176,6 +183,8 @@ export function GettingStartedView() {
         id: 'agent',
         title: t('gettingStarted.steps.agent.title'),
         detail: firstAgent?.name ?? t('gettingStarted.steps.agent.empty'),
+        why: t('gettingStarted.steps.agent.why'),
+        success: t('gettingStarted.steps.agent.success'),
         complete: agents.length > 0,
         path: '/agents',
         cta:
@@ -193,6 +202,8 @@ export function GettingStartedView() {
             : selectedProject
               ? t('gettingStarted.steps.routing.emptyWithProject')
               : t('gettingStarted.steps.routing.emptyWithoutProject'),
+        why: t('gettingStarted.steps.routing.why'),
+        success: t('gettingStarted.steps.routing.success'),
         complete: Boolean(taskGroupId),
         path: '/agents',
         cta: taskGroupId
@@ -209,6 +220,8 @@ export function GettingStartedView() {
             : taskGroupId
               ? t('gettingStarted.steps.task.emptyWithRouting')
               : t('gettingStarted.steps.task.emptyWithoutRouting'),
+        why: t('gettingStarted.steps.task.why'),
+        success: t('gettingStarted.steps.task.success'),
         complete: taskSnapshot.total > 0,
         path: '/tasks',
         cta:
@@ -226,6 +239,8 @@ export function GettingStartedView() {
             : taskSnapshot.assigned > 0
               ? t('gettingStarted.steps.review.inFlight')
               : t('gettingStarted.steps.review.empty'),
+        why: t('gettingStarted.steps.review.why'),
+        success: t('gettingStarted.steps.review.success'),
         complete: taskSnapshot.completed > 0 || taskSnapshot.artifacts > 0,
         path: '/tasks',
         cta: t('gettingStarted.steps.review.open'),
@@ -237,6 +252,8 @@ export function GettingStartedView() {
         detail: hasReusableLearning
           ? t('gettingStarted.steps.reuse.ready')
           : t('gettingStarted.steps.reuse.empty'),
+        why: t('gettingStarted.steps.reuse.why'),
+        success: t('gettingStarted.steps.reuse.success'),
         complete: hasReusableLearning,
         path: hasReusableLearning ? '/skills' : '/context',
         cta: hasReusableLearning
@@ -288,6 +305,9 @@ export function GettingStartedView() {
 
   const completeCount = steps.filter((step) => step.complete).length
   const progress = Math.round((completeCount / steps.length) * 100)
+  const nextStep = steps.find((step) => !step.complete) ?? steps[steps.length - 1]
+  const NextStepIcon = nextStep.Icon
+  const setupComplete = completeCount === steps.length
 
   function go(path: string) {
     void navigate({ to: path })
@@ -328,25 +348,49 @@ export function GettingStartedView() {
 
         <div className="rounded-card border border-black/[0.08] bg-white p-5 dark:border-white/[0.1] dark:bg-[#2a2a2c]">
           <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            {t('gettingStarted.currentProject')}
+            {setupComplete ? t('gettingStarted.readyTitle') : t('gettingStarted.nextTitle')}
           </p>
-          <p className="mt-2 truncate text-ui-body text-secondary-light dark:text-secondary-dark">
-            {selectedProject?.name ?? t('gettingStarted.noProject')}
+          <p className="mt-1 text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+            {nextStep.title}
           </p>
+          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            {setupComplete ? t('gettingStarted.readyDetail') : nextStep.why}
+          </p>
+          <div className="mt-3 rounded-lg bg-black/[0.035] px-3 py-2 text-ui-caption text-secondary-light dark:bg-white/[0.05] dark:text-secondary-dark">
+            <span className="font-medium text-foreground-light dark:text-foreground-dark">
+              {t('gettingStarted.successLabel')}
+            </span>{' '}
+            {nextStep.success}
+          </div>
           <button
             type="button"
-            onClick={() => go('/settings/projects')}
-            className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-full bg-black/[0.04] px-4 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.08] dark:bg-white/[0.06] dark:text-foreground-dark dark:hover:bg-white/[0.1]"
+            onClick={() => go(nextStep.path)}
+            className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-full bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
           >
-            <FolderKanban size={14} strokeWidth={2.25} aria-hidden="true" />
-            {t('gettingStarted.projects')}
+            <NextStepIcon width={14} height={14} aria-hidden="true" />
+            {nextStep.cta}
+            <ArrowRight size={14} strokeWidth={2.25} aria-hidden="true" />
           </button>
+          <div className="mt-4 border-t border-black/[0.06] pt-3 dark:border-white/[0.08]">
+            <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+              {t('gettingStarted.currentProject')}
+            </p>
+            <p className="mt-1 truncate text-ui-body text-secondary-light dark:text-secondary-dark">
+              {selectedProject?.name ?? t('gettingStarted.noProject')}
+            </p>
+          </div>
         </div>
       </section>
 
       <section className="mt-4 grid gap-3 lg:grid-cols-2">
-        {steps.map((step) => (
-          <SetupStepItem key={step.id} step={step} onNavigate={go} />
+        {steps.map((step, index) => (
+          <SetupStepItem
+            key={step.id}
+            step={step}
+            index={index}
+            isNext={!setupComplete && nextStep.id === step.id}
+            onNavigate={go}
+          />
         ))}
       </section>
     </div>
@@ -380,19 +424,31 @@ function summarizeTasks(tasks: TaskSummary[]): TaskSnapshot {
 
 function SetupStepItem({
   step,
+  index,
+  isNext,
   onNavigate,
 }: {
   step: SetupStep
+  index: number
+  isNext: boolean
   onNavigate: (path: string) => void
 }) {
+  const { t } = useTranslation()
   const StatusIcon = step.complete ? CheckCircle2 : Circle
   const Icon = step.Icon
+  const statusLabel = step.complete
+    ? t('gettingStarted.stepStatus.done')
+    : isNext
+      ? t('gettingStarted.stepStatus.next')
+      : t('gettingStarted.stepStatus.later')
 
   return (
     <article
       className={cn(
         'flex min-w-0 items-center gap-4 rounded-card border bg-white p-4 dark:bg-[#2a2a2c]',
-        step.complete ? 'border-apple-blue/25' : 'border-black/[0.08] dark:border-white/[0.1]'
+        step.complete || isNext
+          ? 'border-apple-blue/30'
+          : 'border-black/[0.08] dark:border-white/[0.1]'
       )}
     >
       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
@@ -409,12 +465,30 @@ function SetupStepItem({
             aria-hidden="true"
           />
           <h3 className="truncate text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+            <span className="mr-1 tabular-nums text-secondary-light dark:text-secondary-dark">
+              {index + 1}.
+            </span>
             {step.title}
           </h3>
+          <span
+            className={cn(
+              'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
+              step.complete || isNext
+                ? 'bg-apple-blue/10 text-apple-blue'
+                : 'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
+            )}
+          >
+            {statusLabel}
+          </span>
         </div>
         <p className="mt-1 truncate text-ui-body text-secondary-light dark:text-secondary-dark">
           {step.detail}
         </p>
+        {isNext && (
+          <p className="mt-1 line-clamp-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            {step.why}
+          </p>
+        )}
       </div>
       <button
         type="button"

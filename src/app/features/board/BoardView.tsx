@@ -262,14 +262,12 @@ export function BoardView() {
         </div>
         <div className="space-y-1">
           <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            {selectedProjectId
-              ? 'No task group in this project yet'
-              : 'Pick a project to get started'}
+            {selectedProjectId ? 'Create a Work Lane First' : 'Pick a Project to Start'}
           </p>
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
             {selectedProjectId
-              ? 'Create or select a task group first. Agents in a group can receive tasks from the board.'
-              : 'Tasks route through project-scoped task groups. Choose a project from the sidebar, or create your first project in Settings → Projects.'}
+              ? 'A task group is the work lane agents listen to. Create one in Agents > Task Routing, then come back here to add work.'
+              : 'Choose a project from the sidebar first. A project keeps tasks, agents, and work lanes together.'}
           </p>
         </div>
       </div>

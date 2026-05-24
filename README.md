@@ -33,6 +33,19 @@ revocable reuse.
 - Enough local resources for PostgreSQL, Redis, NATS, Temporal, and
   Docker-backed agent sessions
 
+### Product and Documentation Standard
+
+Wisdoverse Forge treats operators as first-time users unless a section is
+explicitly marked as advanced. Product flows, CLI commands, and docs should
+start with the simplest safe path, state prerequisites before commands, explain
+the expected result, and keep implementation details behind validation or
+troubleshooting sections.
+
+CLI and local-agent workflows are supported product surfaces. The Platform CLI
+and local sidecar release policy must cover mainstream Linux, macOS, and Windows
+operator environments. See [CLI Platform Support](docs/guides/cli-platform-support.md)
+for supported targets, artifact expectations, and beginner-first CLI standards.
+
 ### Option 1. Build a compatible service
 
 Use the service contract as the implementation target:
@@ -137,6 +150,8 @@ represented as complete product capabilities:
 - [Runtime Validation](docs/runbooks/runtime-validation.md) - current proofed
   runtime boundary and commands
 - [Getting Started](docs/guides/getting-started.md) - local setup path
+- [CLI Platform Support](docs/guides/cli-platform-support.md) - Platform CLI,
+  local sidecar, and multi-platform release expectations
 - [Contributing](CONTRIBUTING.md) - workflow, validation, and PR expectations
 - [Code of Conduct](CODE_OF_CONDUCT.md) - community standards
 - [Security Policy](SECURITY.md) - vulnerability disclosure
