@@ -105,12 +105,15 @@ export const en = {
         review: 'Review runtime',
       },
       provider: {
-        title: 'Provider',
-        empty: 'Add one model provider and API key.',
+        title: 'Execution credential',
+        empty: 'Add a model provider or connect a CLI agent.',
         needsTest: 'Run Test on a provider before creating an agent.',
+        cliReady: '{{name}} is connected through {{runtime}}.',
         create: 'Add provider',
+        connectCli: 'Connect CLI agent',
         test: 'Test provider',
-        review: 'Review providers',
+        reviewProviders: 'Review providers',
+        reviewAgents: 'Review agents',
       },
       agent: {
         title: 'Agent',

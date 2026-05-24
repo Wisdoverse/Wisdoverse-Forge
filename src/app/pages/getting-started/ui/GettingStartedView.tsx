@@ -21,7 +21,7 @@ import {
   taskResultArtifacts,
   type TaskSummary,
 } from '@app/shared/api/orchestration'
-import { useAgentsStore } from '@app/shared/model/agents.store'
+import { isHostCliAgent, useAgentsStore } from '@app/shared/model/agents.store'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import { useSkillsStore } from '@app/shared/model/skills.store'
@@ -88,10 +88,8 @@ export function GettingStartedView() {
     () => summarizeTasks([...localTasks, ...loadedTasks]),
     [loadedTasks, localTasks]
   )
-  const firstProviderAgent = useMemo(
-    () => agents.find((agent) => !agent.cliTool) ?? agents[0] ?? null,
-    [agents]
-  )
+  const firstAgent = useMemo(() => agents[0] ?? null, [agents])
+  const cliExecutionAgent = useMemo(() => agents.find((agent) => agent.cliTool) ?? null, [agents])
   const verifiedProvider = useMemo(
     () =>
       providers.find((provider) => provider.isEnabled && provider.lastTestStatus === 'passed') ??
@@ -103,6 +101,14 @@ export function GettingStartedView() {
     runtimeSettings.availableRuntimes.length > 0 &&
     runtimeSettings.availableCliTools.length > 0
   )
+  const executionCredentialReady = Boolean(verifiedProvider || cliExecutionAgent)
+  const executionCredentialPath = verifiedProvider
+    ? '/settings/providers'
+    : providers.length > 0
+      ? '/settings/providers'
+      : runtimeReady
+        ? '/agents'
+        : '/settings/providers'
   const workspaceDetail =
     selectedProject?.name ??
     projects[0]?.name ??
@@ -145,22 +151,31 @@ export function GettingStartedView() {
         title: t('gettingStarted.steps.provider.title'),
         detail: verifiedProvider
           ? verifiedProvider.displayName || verifiedProvider.provider
-          : providers.length > 0
-            ? t('gettingStarted.steps.provider.needsTest')
-            : t('gettingStarted.steps.provider.empty'),
-        complete: Boolean(verifiedProvider),
-        path: '/settings/providers',
-        cta: verifiedProvider
-          ? t('gettingStarted.steps.provider.review')
+          : cliExecutionAgent
+            ? t('gettingStarted.steps.provider.cliReady', {
+                name: cliExecutionAgent.name,
+                runtime: isHostCliAgent(cliExecutionAgent) ? 'Host CLI' : 'Container CLI',
+              })
+            : providers.length > 0
+              ? t('gettingStarted.steps.provider.needsTest')
+              : t('gettingStarted.steps.provider.empty'),
+        complete: executionCredentialReady,
+        path: executionCredentialPath,
+        cta: executionCredentialReady
+          ? verifiedProvider
+            ? t('gettingStarted.steps.provider.reviewProviders')
+            : t('gettingStarted.steps.provider.reviewAgents')
           : providers.length > 0
             ? t('gettingStarted.steps.provider.test')
-            : t('gettingStarted.steps.provider.create'),
+            : runtimeReady
+              ? t('gettingStarted.steps.provider.connectCli')
+              : t('gettingStarted.steps.provider.create'),
         Icon: KeyRound,
       },
       {
         id: 'agent',
         title: t('gettingStarted.steps.agent.title'),
-        detail: firstProviderAgent?.name ?? t('gettingStarted.steps.agent.empty'),
+        detail: firstAgent?.name ?? t('gettingStarted.steps.agent.empty'),
         complete: agents.length > 0,
         path: '/agents',
         cta:
@@ -233,7 +248,10 @@ export function GettingStartedView() {
     [
       agentGroups,
       agents,
-      firstProviderAgent,
+      cliExecutionAgent,
+      executionCredentialPath,
+      executionCredentialReady,
+      firstAgent,
       projects,
       providers.length,
       runtimeReady,
