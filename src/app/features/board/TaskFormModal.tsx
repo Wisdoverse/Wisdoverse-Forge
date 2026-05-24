@@ -208,9 +208,14 @@ export function TaskFormModal({
         )}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 id="task-form-title" className="text-ui-title font-semibold">
-            New Task
-          </h2>
+          <div className="min-w-0">
+            <h2 id="task-form-title" className="text-ui-title font-semibold">
+              New Task
+            </h2>
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Start with the outcome. Templates add the scope and proof an agent needs.
+            </p>
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -326,7 +331,10 @@ export function TaskFormModal({
           <div>
             <div className="mb-2 flex items-center justify-between gap-2">
               <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Brief
+                Start From a Brief
+              </span>
+              <span className="hidden text-ui-caption text-secondary-light dark:text-secondary-dark sm:inline">
+                Outcome, scope, proof
               </span>
             </div>
             <div
@@ -439,7 +447,7 @@ export function TaskFormModal({
                 ))}
               </select>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Busy and offline agents stay visible so assignment blockers are obvious.
+                Leave this unassigned when you want the next available agent to pick it up.
               </p>
             </div>
           </div>

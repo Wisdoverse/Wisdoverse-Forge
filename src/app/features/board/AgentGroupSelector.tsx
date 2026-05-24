@@ -30,7 +30,7 @@ export function AgentGroupSelector({
         )}
       >
         {!selectedProjectId && <option value="">No project</option>}
-        {selectedProjectId && groups.length === 0 && <option value="">No task groups</option>}
+        {selectedProjectId && groups.length === 0 && <option value="">No work lanes yet</option>}
         {groups.map((group) => (
           <option key={group.id} value={group.id}>
             {group.name}

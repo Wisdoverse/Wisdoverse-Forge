@@ -171,6 +171,8 @@ describe('GettingStartedView', () => {
     expect(screen.getByText('OpenAI')).toBeDefined()
     expect(screen.getByText('Starter Agent')).toBeDefined()
     expect(await screen.findByText('100%')).toBeDefined()
+    expect(screen.getByText('Ready to run work')).toBeDefined()
+    expect(screen.getByText(/The basic path is complete/i)).toBeDefined()
     expect(loadOrgsMock).toHaveBeenCalled()
     expect(loadProvidersMock).toHaveBeenCalled()
     expect(loadRuntimeSettingsMock).toHaveBeenCalled()
@@ -182,6 +184,8 @@ describe('GettingStartedView', () => {
   test('routes an incomplete provider step to provider settings', async () => {
     render(<GettingStartedView />)
 
+    expect(await screen.findByText('Do this next')).toBeDefined()
+    expect(screen.getAllByText(/A project gives tasks a clear home/i).length).toBeGreaterThan(0)
     fireEvent.click(await screen.findByRole('button', { name: /add provider/i }))
 
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/providers' })
@@ -305,8 +309,14 @@ describe('GettingStartedView', () => {
     expect(
       await screen.findByText('Run Test on a provider before creating an agent.')
     ).toBeDefined()
+    expect(screen.getByText('Do this next')).toBeDefined()
+    expect(
+      screen.getAllByText(/An agent needs either a tested provider key/i).length
+    ).toBeGreaterThan(0)
     expect(screen.queryByText('100%')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: /test provider/i }))
+    const [testProviderButton] = screen.getAllByRole('button', { name: /test provider/i })
+    expect(testProviderButton).toBeDefined()
+    fireEvent.click(testProviderButton!)
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/providers' })
   })
 

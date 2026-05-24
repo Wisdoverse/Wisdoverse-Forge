@@ -36,6 +36,7 @@ part of this documentation set.
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | First local run / developers | [Getting Started](guides/getting-started.md), [Task Workflow Guide](guides/task-workflow.md), [Architecture Overview](architecture/overview.md), [Configuration](guides/configuration.md) |
 | Operators (deploy / run)     | [Deployment](guides/deployment.md), [Runtime Validation](runbooks/runtime-validation.md), [Troubleshooting](guides/troubleshooting.md), [NATS Auth Runbook](runbooks/nats-auth.md)        |
+| CLI and local-agent users    | [CLI Platform Support](guides/cli-platform-support.md), [Host CLI Agent Enrollment](runbooks/host-cli-agent-enrollment.md), [Getting Started](guides/getting-started.md)                  |
 | Product reviewers            | [Product UX Direction](architecture/product-ux-direction.md), [Task Workflow Guide](guides/task-workflow.md)                                                                              |
 | Contributors                 | [Contributing](../CONTRIBUTING.md), [AGENTS.md](../AGENTS.md), [Architecture Overview](architecture/overview.md)                                                                          |
 | API consumers                | [OpenAPI spec](api/openapi.yaml), [Turn API](api/turn-api.md)                                                                                                                             |
@@ -64,6 +65,8 @@ operator, security, or API contract.
 - Every runtime, API, deployment, or workflow change updates the affected doc in the same PR.
 - Keep retired implementation paths out of active docs unless the running code still exposes a compatibility boundary.
 - Prefer relative links. Keep the first screen of each doc useful to its target audience.
+- Write product and CLI docs for first-time operators by default. Put expert
+  internals after the basic path, and make every command copy-pasteable.
 
 ## Writing Standards
 
