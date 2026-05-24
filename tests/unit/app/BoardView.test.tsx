@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach, vi, beforeEach } from 'vitest'
-import { render, screen, cleanup, waitFor, act } from '@testing-library/react'
+import { render, screen, cleanup, waitFor, act, fireEvent, within } from '@testing-library/react'
 import { BoardView } from '@app/features/board/BoardView'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useNavigationStore } from '@app/entities/navigation'
@@ -218,6 +218,84 @@ describe('BoardView', () => {
       expect(screen.getByText('Task A')).toBeDefined()
     })
     expect(screen.getByText('Task B')).toBeDefined()
+  })
+
+  test('filters board cards by task search and clears empty results', async () => {
+    mockGetTasks.mockResolvedValueOnce([
+      {
+        id: 'api-1',
+        state: 'backlog',
+        params: { task: 'API migration', message: 'Move settings to Rust' },
+        priority: 'urgent',
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: 'ui-1',
+        state: 'working',
+        params: { task: 'Dashboard polish', message: 'Tighten board cards' },
+        assignedTo: 'agent-1',
+        assignedAgentName: 'Design Agent',
+        priority: 'low',
+        progress: 50,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ] as any)
+    useBoardStore.getState().setSelectedGroupId('test-group')
+    render(<BoardView />)
+
+    expect(await screen.findByText('API migration')).toBeDefined()
+    fireEvent.change(screen.getByTestId('board-search'), { target: { value: 'dashboard' } })
+    expect(screen.queryByText('API migration')).toBeNull()
+    expect(screen.getByText('Dashboard polish')).toBeDefined()
+
+    fireEvent.change(screen.getByTestId('board-search'), { target: { value: 'missing' } })
+    expect(screen.getByTestId('board-filter-empty')).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }))
+    expect(screen.getByText('API migration')).toBeDefined()
+    expect(screen.getByText('Dashboard polish')).toBeDefined()
+  })
+
+  test('filters board cards by priority and assignee state', async () => {
+    mockGetTasks.mockResolvedValueOnce([
+      {
+        id: 'urgent-1',
+        state: 'backlog',
+        params: { task: 'Production incident', message: '' },
+        priority: 'urgent',
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: 'low-1',
+        state: 'queued',
+        params: { task: 'Copy review', message: '' },
+        assignedTo: 'agent-1',
+        assignedAgentName: 'Reviewer',
+        priority: 'low',
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ] as any)
+    useBoardStore.getState().setSelectedGroupId('test-group')
+    render(<BoardView />)
+
+    expect(await screen.findByText('Production incident')).toBeDefined()
+    const toolbar = screen.getByTestId('board-toolbar')
+
+    fireEvent.click(within(toolbar).getByRole('button', { name: /urgent\s*1/i }))
+    expect(screen.getByText('Production incident')).toBeDefined()
+    expect(screen.queryByText('Copy review')).toBeNull()
+
+    fireEvent.click(within(toolbar).getByRole('button', { name: /all priority\s*2/i }))
+    fireEvent.click(within(toolbar).getByRole('button', { name: /^assigned\s*1$/i }))
+    expect(screen.queryByText('Production incident')).toBeNull()
+    expect(screen.getByText('Copy review')).toBeDefined()
   })
 
   test('shows column task count', async () => {
