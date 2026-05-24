@@ -69,6 +69,7 @@ impl Cli {
                     AgentsSubcommand::List(_) => "agents/list".into(),
                     AgentsSubcommand::Get(_) => "agents/get".into(),
                     AgentsSubcommand::Create(_) => "agents/create".into(),
+                    AgentsSubcommand::EnrollLocal(_) => "agents/enroll-local".into(),
                     AgentsSubcommand::Update(_) => "agents/update".into(),
                     AgentsSubcommand::Delete(_) => "agents/delete".into(),
                     AgentsSubcommand::Move(_) => "agents/move".into(),

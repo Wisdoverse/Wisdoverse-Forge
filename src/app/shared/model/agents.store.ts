@@ -4,6 +4,7 @@ import { getAgentApi } from '@app/shared/api/legacy'
 import { extractApiError } from '@app/shared/api/legacy/AgentAPI'
 
 export type AgentStatus = 'working' | 'idle' | 'offline'
+export type AgentRuntimeKind = 'container-cli' | 'host-cli' | 'provider'
 
 export interface AgentInfo {
   id: string
@@ -16,6 +17,8 @@ export interface AgentInfo {
   successRate: number
   currentTask?: string
   cliTool?: CliTool
+  runtimeId?: string
+  runtimeKind?: AgentRuntimeKind
   cwd?: string
   containerId?: string
   workspaceId?: string
@@ -24,6 +27,10 @@ export interface AgentInfo {
   projectName?: string
   /** Provider+prompt agents only. `null` when unset. Not present for CLI-tool agents. */
   systemPrompt?: string | null
+}
+
+export function isHostCliAgent(agent: Pick<AgentInfo, 'runtimeKind' | 'runtimeId'>): boolean {
+  return agent.runtimeKind === 'host-cli' || agent.runtimeId?.startsWith('host-') === true
 }
 
 interface AgentsState {
@@ -96,6 +103,12 @@ function cliToolToProvider(cliTool?: CliTool): string {
 }
 
 function managedToAgentInfo(agent: ManagedAgent): AgentInfo {
+  const runtimeKind: AgentRuntimeKind = agent.cliTool
+    ? agent.runtimeId?.startsWith('host-')
+      ? 'host-cli'
+      : 'container-cli'
+    : 'provider'
+
   return {
     id: agent.id,
     name: agent.name,
@@ -108,6 +121,8 @@ function managedToAgentInfo(agent: ManagedAgent): AgentInfo {
     tasksInProgress: 0,
     successRate: 0,
     cliTool: agent.cliTool,
+    runtimeId: agent.runtimeId ?? undefined,
+    runtimeKind,
     cwd: agent.cwd,
     containerId: agent.containerId,
     workspaceId: agent.workspaceId,

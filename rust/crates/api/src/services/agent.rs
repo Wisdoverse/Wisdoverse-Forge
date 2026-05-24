@@ -10,9 +10,9 @@ use crate::domain::agent::{
     AgentPermissionProjection, AgentStatusTransition, agent_permission_projection,
 };
 pub(crate) use crate::domain::agent::{
-    agent_container_status_response, agent_data_response, agent_delete_response, agent_git_status_response,
-    agent_list_response, agent_messages_deleted_response, agent_messages_response, agent_permission_response,
-    agent_prompt_sent_response, agent_response, agent_status_response,
+    agent_container_status_response, agent_data_response, agent_delete_response, agent_enrollment_response,
+    agent_git_status_response, agent_list_response, agent_messages_deleted_response, agent_messages_response,
+    agent_permission_response, agent_prompt_sent_response, agent_response, agent_status_response,
 };
 pub(crate) use crate::repositories::agent::CreateAgentParams;
 use crate::repositories::agent::{AgentListItem, AgentRepository};

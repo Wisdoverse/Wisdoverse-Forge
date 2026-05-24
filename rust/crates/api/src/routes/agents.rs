@@ -2,6 +2,7 @@
 //!
 //! - `GET    /api/v1/agents`                      — list agents (paginated)
 //! - `POST   /api/v1/agents`                      — create agent
+//! - `POST   /api/v1/agents/local-enroll`         — enroll a Host CLI agent
 //! - `GET    /api/v1/agents/:id`                  — get agent by ID
 //! - `DELETE /api/v1/agents/:id`                  — delete agent
 //! - `PATCH  /api/v1/agents/:id/status`           — update agent status
@@ -21,11 +22,12 @@ use agentforge_core::{AgentId, AgentStatus, AppResult};
 
 use crate::health::AppState;
 use crate::services::agent::{
-    AgentService, CreateAgentParams, agent_data_response, agent_delete_response, agent_git_status_response,
-    agent_list_response, agent_messages_deleted_response, agent_messages_response, agent_permission_response,
-    agent_prompt_sent_response, agent_response, agent_status_response,
+    AgentService, CreateAgentParams, agent_data_response, agent_delete_response, agent_enrollment_response,
+    agent_git_status_response, agent_list_response, agent_messages_deleted_response, agent_messages_response,
+    agent_permission_response, agent_prompt_sent_response, agent_response, agent_status_response,
 };
 use crate::services::agent_container_lifecycle::AgentContainerLifecycleService;
+use crate::services::agent_enrollment::{HostAgentEnrollmentInput, HostAgentEnrollmentService};
 use crate::services::agent_message::AgentMessageService;
 use crate::services::agent_prompt::{AgentPromptDispatch, AgentPromptService};
 
@@ -70,6 +72,22 @@ pub struct CreateAgentRequest {
     pub system_prompt: Option<String>,
 }
 
+/// Request body for enrolling a Host CLI agent that runs outside the platform
+/// Docker runtime but is still managed by the remote control plane.
+#[derive(Deserialize)]
+pub struct EnrollLocalAgentRequest {
+    pub name: Option<String>,
+    pub model: Option<String>,
+    #[serde(alias = "cliTool")]
+    pub cli_tool: String,
+    #[serde(default)]
+    pub cwd: Option<String>,
+    #[serde(default, alias = "workspaceId")]
+    pub workspace_id: Option<Uuid>,
+    #[serde(default, alias = "projectId")]
+    pub project_id: Option<Uuid>,
+}
+
 /// Request body for updating agent fields (name, model, provider, system_prompt).
 #[derive(Deserialize)]
 pub struct UpdateAgentRequest {
@@ -111,6 +129,10 @@ fn make_prompt_service(state: &AppState) -> AgentPromptService {
 
 fn make_container_lifecycle_service(state: &AppState) -> AgentContainerLifecycleService {
     state.agent_container_lifecycle_service()
+}
+
+fn make_host_enrollment_service(state: &AppState) -> HostAgentEnrollmentService {
+    state.host_agent_enrollment_service()
 }
 
 /// `GET /api/v1/agents` — list agents for the authenticated tenant.
@@ -171,6 +193,30 @@ async fn create_agent(
     // Re-fetch so the response includes owner + project names via the JOIN view.
     let enriched = service.get_with_owner(&auth.scope, agent.id).await?;
     Ok(Json(agent_response(enriched)))
+}
+
+/// `POST /api/v1/agents/local-enroll` — create a managed Host CLI agent and
+/// return the one-time sidecar environment needed on the local machine.
+async fn enroll_local_agent(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(req): Json<EnrollLocalAgentRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_host_enrollment_service(&state);
+    let (agent, enrollment) = service
+        .enroll(
+            &auth.scope,
+            HostAgentEnrollmentInput {
+                name: req.name.as_deref(),
+                model: req.model.as_deref(),
+                cli_tool: req.cli_tool.as_str(),
+                cwd: req.cwd.as_deref(),
+                workspace_id: req.workspace_id,
+                project_id: req.project_id,
+            },
+        )
+        .await?;
+    Ok(Json(agent_enrollment_response(agent, enrollment)))
 }
 
 /// `PATCH /api/v1/agents/:id/status` — update agent status with state machine validation.
@@ -436,6 +482,7 @@ async fn check_permission(
 pub fn agent_routes() -> Router<AppState> {
     Router::new()
         .route("/agents", get(list_agents).post(create_agent))
+        .route("/agents/local-enroll", post(enroll_local_agent))
         .route("/agents/{id}", get(get_agent).patch(update_agent).delete(delete_agent))
         .route("/agents/{id}/status", patch(update_agent_status))
         .route("/agents/{id}/prompt", post(send_prompt))
@@ -499,6 +546,33 @@ mod tests {
         assert_eq!(req.cwd.as_deref(), Some("~/projects"));
         assert_eq!(req.workspace_id, Some(Uuid::parse_str("650e8400-e29b-41d4-a716-446655440000").unwrap()));
         assert_eq!(req.project_id, Some(Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap()));
+    }
+
+    #[test]
+    fn local_enroll_request_accepts_camel_case_scope() {
+        let req: EnrollLocalAgentRequest = serde_json::from_str(
+            r#"{
+                "name": "host-codex",
+                "model": "gpt-5.5",
+                "cliTool": "codex",
+                "cwd": "/home/operator/project",
+                "workspaceId": "650e8400-e29b-41d4-a716-446655440000",
+                "projectId": "550e8400-e29b-41d4-a716-446655440000"
+            }"#,
+        )
+        .unwrap();
+        assert_eq!(req.name.as_deref(), Some("host-codex"));
+        assert_eq!(req.model.as_deref(), Some("gpt-5.5"));
+        assert_eq!(req.cli_tool, "codex");
+        assert_eq!(req.cwd.as_deref(), Some("/home/operator/project"));
+        assert_eq!(req.workspace_id, Some(Uuid::parse_str("650e8400-e29b-41d4-a716-446655440000").unwrap()));
+        assert_eq!(req.project_id, Some(Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap()));
+    }
+
+    #[test]
+    fn local_enroll_request_requires_cli_tool() {
+        let result = serde_json::from_str::<EnrollLocalAgentRequest>(r#"{"name":"host"}"#);
+        assert!(result.is_err());
     }
 
     #[test]

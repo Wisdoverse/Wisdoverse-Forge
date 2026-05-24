@@ -329,6 +329,40 @@ impl AgentRepository {
         .ok_or_else(|| AgentRepositoryPolicy::agent_not_found(id))
     }
 
+    /// Enroll an externally started Host CLI runtime. It receives the same
+    /// per-agent NATS and HMAC credentials as a spawned container, but keeps
+    /// `container_id` empty so Docker lifecycle actions do not target it.
+    pub async fn set_host_runtime(
+        &self,
+        scope: &TenantScope,
+        id: AgentId,
+        runtime_id: &str,
+        hmac_secret: &str,
+        nats_connect_password: &str,
+    ) -> AppResult<Agent> {
+        sqlx::query_as::<_, Agent>(
+            r#"UPDATE agents
+                  SET container_id          = NULL,
+                      runtime_id            = $3,
+                      hmac_secret           = $4,
+                      nats_connect_password = $5,
+                      status                = 'offline',
+                      started_at            = COALESCE(started_at, NOW()),
+                      ended_at              = NULL,
+                      updated_at            = NOW()
+                WHERE id = $1 AND organization_id = $2
+                RETURNING *"#,
+        )
+        .bind(id.as_uuid())
+        .bind(scope.org_id().as_uuid())
+        .bind(runtime_id)
+        .bind(hmac_secret)
+        .bind(nats_connect_password)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or_else(|| AgentRepositoryPolicy::agent_not_found(id))
+    }
+
     /// Clear container + HMAC + NATS password references and flip status to
     /// `offline` after a stop. Column-order note: `nats_connect_password` is
     /// nulled FIRST, then `hmac_secret` — so an interruption mid-statement

@@ -1,14 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ArrowDownUp, Bot, Plus, Search } from 'lucide-react'
-import { useAgentsStore, type AgentInfo, type AgentStatus } from '@app/shared/model/agents.store'
+import {
+  isHostCliAgent,
+  useAgentsStore,
+  type AgentInfo,
+  type AgentStatus,
+} from '@app/shared/model/agents.store'
 import { cn } from '@app/shared/lib/utils'
 import { AgentCard } from './AgentCard'
 import { AgentGroupsPanel } from './AgentGroupsPanel'
 import { CreateAgentModal } from './CreateAgentModal'
 
 type AgentStatusFilter = 'all' | AgentStatus
-type AgentRuntimeFilter = 'all' | 'cli' | 'provider'
+type AgentRuntimeFilter = 'all' | 'container' | 'host' | 'provider'
 type AgentSortKey = 'name' | 'status' | 'active' | 'success'
 
 const STATUS_FILTERS: { value: AgentStatusFilter; label: string }[] = [
@@ -20,7 +25,8 @@ const STATUS_FILTERS: { value: AgentStatusFilter; label: string }[] = [
 
 const RUNTIME_FILTERS: { value: AgentRuntimeFilter; label: string }[] = [
   { value: 'all', label: 'All Runtimes' },
-  { value: 'cli', label: 'Container CLI' },
+  { value: 'container', label: 'Container CLI' },
+  { value: 'host', label: 'Host CLI' },
   { value: 'provider', label: 'Provider' },
 ]
 
@@ -81,7 +87,7 @@ export function AgentListView() {
                 Agent Fleet
               </h2>
               <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Container CLI and provider-backed agents available for tasks.
+                Container, Host CLI, and provider-backed agents available for tasks.
               </p>
             </div>
             <p className="shrink-0 text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
@@ -193,7 +199,8 @@ function filterAndSortAgents(
   const query = searchQuery.trim().toLowerCase()
   const filtered = agents.filter((agent) => {
     if (statusFilter !== 'all' && agent.status !== statusFilter) return false
-    if (runtimeFilter === 'cli' && !agent.cliTool) return false
+    if (runtimeFilter === 'container' && (!agent.cliTool || isHostCliAgent(agent))) return false
+    if (runtimeFilter === 'host' && !isHostCliAgent(agent)) return false
     if (runtimeFilter === 'provider' && agent.cliTool) return false
     if (!query) return true
     return agentSearchText(agent).includes(query)
@@ -255,11 +262,12 @@ function countByRuntime(agents: AgentInfo[]): Record<AgentRuntimeFilter, number>
   return agents.reduce(
     (counts, agent) => {
       counts.all += 1
-      if (agent.cliTool) counts.cli += 1
+      if (isHostCliAgent(agent)) counts.host += 1
+      else if (agent.cliTool) counts.container += 1
       else counts.provider += 1
       return counts
     },
-    { all: 0, cli: 0, provider: 0 } as Record<AgentRuntimeFilter, number>
+    { all: 0, container: 0, host: 0, provider: 0 } as Record<AgentRuntimeFilter, number>
   )
 }
 

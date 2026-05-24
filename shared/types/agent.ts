@@ -20,7 +20,7 @@ export interface ManagedAgent {
   /** User-friendly name ("Frontend", "Tests") */
   name: string
   /** Platform runtime identifier for the agent (format: 'af-{id-prefix}') */
-  runtimeId: string
+  runtimeId?: string | null
   /** Actual Docker/K8s container hash (may be undefined if container not yet started) */
   containerId?: string
   /** Current status */

@@ -113,6 +113,16 @@ describe('AgentListView', () => {
         cliTool: 'gemini',
         status: 'offline',
       }),
+      makeAgent({
+        id: 'host-agent',
+        name: 'Local Codex',
+        provider: 'OpenAI',
+        model: 'codex',
+        cliTool: 'codex',
+        runtimeId: 'host-abc12345',
+        runtimeKind: 'host-cli',
+        status: 'idle',
+      }),
     ])
 
     render(<AgentListView />)
@@ -127,7 +137,11 @@ describe('AgentListView', () => {
     expect(screen.getByText('Review Analyst')).toBeDefined()
     expect(screen.queryByText('Build Runner')).toBeNull()
 
-    fireEvent.click(within(runtimeFilters).getByRole('button', { name: /all runtimes\s*3/i }))
+    fireEvent.click(within(runtimeFilters).getByRole('button', { name: /host cli\s*1/i }))
+    expect(screen.getByText('Local Codex')).toBeDefined()
+    expect(screen.queryByText('Build Runner')).toBeNull()
+
+    fireEvent.click(within(runtimeFilters).getByRole('button', { name: /all runtimes\s*4/i }))
     const statusFilters = screen.getByRole('group', { name: /status filter/i })
     fireEvent.click(within(statusFilters).getByRole('button', { name: /offline\s*1/i }))
     expect(screen.getByText('Legacy Worker')).toBeDefined()
