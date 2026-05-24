@@ -65,10 +65,10 @@ export function ActivityFeed() {
           </span>
           <div className="min-w-0">
             <div className="truncate text-xs font-semibold text-foreground-light dark:text-foreground-dark">
-              Agent operations
+              Current work
             </div>
             <div className="text-[10px] text-secondary-light dark:text-secondary-dark">
-              Managed runtime status
+              Start with anything that needs action.
             </div>
           </div>
         </div>
@@ -88,7 +88,7 @@ export function ActivityFeed() {
             testId="feed-metric-needs-action"
           />
           <SummaryMetric
-            label="Updates"
+            label="Recent updates"
             value={operations.recentUpdates}
             Icon={ListFilter}
             tone="neutral"
@@ -104,6 +104,19 @@ export function ActivityFeed() {
         </div>
       </section>
 
+      <section
+        data-testid="feed-review-guide"
+        className="rounded-lg border border-apple-blue/15 bg-apple-blue/[0.055] px-3 py-2.5 dark:border-apple-blue/25 dark:bg-apple-blue/[0.09]"
+      >
+        <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-apple-blue">
+          Check order
+        </div>
+        <p className="mt-1 text-[11px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+          Handle needs action first, then confirm completed work. Progress updates usually only need
+          a quick glance.
+        </p>
+      </section>
+
       <AgentStatusBar agents={agents} />
       <AttentionZone items={attentionItems} />
 
@@ -111,7 +124,7 @@ export function ActivityFeed() {
         <div>
           <div className="mb-2 flex flex-col gap-2">
             <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-secondary-light dark:text-secondary-dark">
-              Live feed
+              Recent activity
             </div>
             <div
               className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-lg bg-black/[0.035] p-1 dark:bg-white/[0.05]"
@@ -149,7 +162,8 @@ export function ActivityFeed() {
             Quiet so far
           </p>
           <p className="text-[11px] text-secondary-light dark:text-secondary-dark leading-relaxed">
-            Tool calls, prompts, and agent updates will stream here in real time.
+            No work has reported progress yet. Start a task or wait for an assigned agent to send
+            its first update.
           </p>
         </div>
       )}
@@ -232,6 +246,9 @@ function FilteredEmptyState() {
       </div>
       <p className="text-[11px] font-medium text-foreground-light dark:text-foreground-dark">
         No updates in this view
+      </p>
+      <p className="max-w-[220px] text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+        Choose All to see every recent update, or check back when this type of work changes.
       </p>
     </div>
   )
