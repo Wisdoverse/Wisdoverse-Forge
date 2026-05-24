@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
@@ -20,12 +20,16 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
   const createSkill = useSkillsStore((state) => state.createSkill)
   const [form, setForm] = useState(emptyForm)
   const [error, setError] = useState<string | null>(null)
+  const [fieldError, setFieldError] = useState<'name' | 'content' | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const nameInputRef = useRef<HTMLInputElement>(null)
+  const contentInputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     if (!open) return
     setForm(emptyForm)
     setError(null)
+    setFieldError(null)
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') onClose()
@@ -43,16 +47,21 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
     const content = form.content.trim()
 
     if (!name) {
-      setError('Name is required')
+      setError('Name this skill before creating it.')
+      setFieldError('name')
+      nameInputRef.current?.focus()
       return
     }
     if (!content) {
-      setError('Content is required')
+      setError('Add the instructions this skill should apply.')
+      setFieldError('content')
+      contentInputRef.current?.focus()
       return
     }
 
     setSubmitting(true)
     setError(null)
+    setFieldError(null)
     try {
       await createSkill({
         name,
@@ -65,6 +74,14 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
       setError(err instanceof Error ? err.message : 'Failed to create skill')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  function updateField(field: keyof typeof emptyForm, value: string) {
+    setForm((current) => ({ ...current, [field]: value }))
+    if (field === fieldError) {
+      setError(null)
+      setFieldError(null)
     }
   }
 
@@ -98,7 +115,16 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
           </button>
         </div>
 
-        {error && <div className={uiStyles.error}>{error}</div>}
+        <p className="mb-4 text-ui-body text-secondary-light dark:text-secondary-dark">
+          Skills are reusable instructions. Start with a clear name and the rules the agent should
+          follow.
+        </p>
+
+        {error && (
+          <div id="create-skill-error" role="alert" className={uiStyles.error}>
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
@@ -107,12 +133,23 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
             </label>
             <input
               id="skill-name"
+              ref={nameInputRef}
               value={form.name}
-              onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+              onChange={(event) => updateField('name', event.target.value)}
               className={uiStyles.input}
-              placeholder="e.g. frontend-review"
+              placeholder="frontend-review"
+              aria-invalid={fieldError === 'name'}
+              aria-describedby={
+                fieldError === 'name' ? 'skill-name-help create-skill-error' : 'skill-name-help'
+              }
               autoFocus
             />
+            <p
+              id="skill-name-help"
+              className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+            >
+              Use a short name people can recognize when selecting skills.
+            </p>
           </div>
 
           <div>
@@ -122,12 +159,17 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
             <input
               id="skill-description"
               value={form.description}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, description: event.target.value }))
-              }
+              onChange={(event) => updateField('description', event.target.value)}
               className={uiStyles.input}
               placeholder="What this skill helps with"
+              aria-describedby="skill-description-help"
             />
+            <p
+              id="skill-description-help"
+              className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+            >
+              Optional. One sentence is enough.
+            </p>
           </div>
 
           <div>
@@ -137,12 +179,17 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
             <input
               id="skill-trigger"
               value={form.triggerPattern}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, triggerPattern: event.target.value }))
-              }
+              onChange={(event) => updateField('triggerPattern', event.target.value)}
               className={cn(uiStyles.input, 'font-mono')}
-              placeholder="Optional keyword or regex"
+              placeholder="frontend, review, release"
+              aria-describedby="skill-trigger-help"
             />
+            <p
+              id="skill-trigger-help"
+              className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+            >
+              Optional. Add words that should suggest this skill.
+            </p>
           </div>
 
           <div>
@@ -151,15 +198,26 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
             </label>
             <textarea
               id="skill-content"
+              ref={contentInputRef}
               value={form.content}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, content: event.target.value }))
-              }
+              onChange={(event) => updateField('content', event.target.value)}
               className={cn(
                 'min-h-36 w-full resize-y rounded-[18px] border border-black/[0.08] bg-white px-3 py-2 font-mono text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
               )}
-              placeholder="Instructions the agent should apply when this skill is selected"
+              placeholder="Check the user path first. List blockers before suggestions."
+              aria-invalid={fieldError === 'content'}
+              aria-describedby={
+                fieldError === 'content'
+                  ? 'skill-content-help create-skill-error'
+                  : 'skill-content-help'
+              }
             />
+            <p
+              id="skill-content-help"
+              className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+            >
+              Required. Write the instructions the agent should apply when this skill is selected.
+            </p>
           </div>
 
           <div className="flex justify-end gap-2 pt-1">
