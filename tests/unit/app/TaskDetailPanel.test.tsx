@@ -11,6 +11,7 @@ const orchestrationApiMock = vi.hoisted(() => ({
   retryTask: vi.fn(),
   approveTask: vi.fn(),
   getParticipants: vi.fn(),
+  getTaskRuns: vi.fn(),
   previewContext: vi.fn(),
   publishWithContext: vi.fn(),
 }))
@@ -72,6 +73,54 @@ describe('TaskDetailPanel', () => {
   test('shows description tab by default', () => {
     render(<TaskDetailPanel task={mockTask} onClose={() => {}} />)
     expect(screen.getByText('Update the schema for v2')).toBeDefined()
+  })
+
+  test('summarizes agent check-ins in task updates', async () => {
+    orchestrationApiMock.getTaskRuns.mockResolvedValue([])
+
+    render(
+      <TaskDetailPanel
+        task={{
+          ...mockTask,
+          state: 'blocked',
+          blockedReason: 'waiting_input',
+          blockedHint: 'Waiting for API credentials',
+        }}
+        onClose={() => {}}
+      />
+    )
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /updates/i }))
+
+    expect(await screen.findByTestId('task-agent-check-in')).toBeDefined()
+    expect(screen.getByText('Agent check-in')).toBeDefined()
+    expect(screen.getByText(/claude-2 needs owner input/i)).toBeDefined()
+    expect(screen.getAllByText(/waiting for api credentials/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
+  })
+
+  test('shows completed handoff readiness in task updates', async () => {
+    orchestrationApiMock.getTaskRuns.mockResolvedValue([])
+
+    render(
+      <TaskDetailPanel
+        task={{
+          ...mockTask,
+          state: 'completed',
+          progress: 100,
+          result: [{ name: 'summary.md', mimeType: 'text/markdown', data: 'Done' }],
+          completedAt: new Date().toISOString(),
+        }}
+        onClose={() => {}}
+      />
+    )
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /updates/i }))
+
+    expect(await screen.findByTestId('task-agent-check-in')).toBeDefined()
+    expect(screen.getByText(/claude-2 completed the handoff/i)).toBeDefined()
+    expect(screen.getByText(/1 artifact ready for review/i)).toBeDefined()
+    expect(screen.getAllByText('Completed').length).toBeGreaterThan(0)
   })
 
   test('has action buttons for working tasks', () => {
