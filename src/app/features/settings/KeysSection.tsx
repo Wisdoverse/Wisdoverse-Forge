@@ -134,34 +134,91 @@ interface CreateKeyFormProps {
 
 function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
   const [name, setName] = useState('')
+  const [submitAttempted, setSubmitAttempted] = useState(false)
+  const nameInputId = 'platform-key-name'
+  const statusId = 'platform-key-form-status'
+  const errorId = 'platform-key-name-error'
+  const trimmedName = name.trim()
+  const isReady = Boolean(trimmedName)
+  const visibleError =
+    submitAttempted && !isReady ? 'Name this platform API key before creating it.' : null
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!name.trim()) return
-    await onSave(name.trim())
+    setSubmitAttempted(true)
+    if (!isReady) {
+      document.getElementById(nameInputId)?.focus()
+      return
+    }
+    await onSave(trimmedName)
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-center gap-2 mt-3">
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Key name (e.g. CI/CD pipeline or integration)"
-        autoFocus
-        className={cn(uiStyles.input, 'min-w-0 flex-1')}
-      />
-      <button
-        type="button"
-        onClick={onCancel}
-        disabled={saving}
-        className={uiStyles.secondaryButton}
+    <form onSubmit={handleSubmit} noValidate className="mt-3">
+      <div
+        id={statusId}
+        data-testid="platform-key-form-status"
+        aria-live="polite"
+        className={cn(
+          'mb-3 rounded-card border px-3 py-2',
+          isReady
+            ? 'border-apple-green/25 bg-apple-green/10'
+            : 'border-apple-blue/20 bg-apple-blue/[0.04]'
+        )}
       >
-        Cancel
-      </button>
-      <button type="submit" disabled={saving || !name.trim()} className={uiStyles.primaryButton}>
-        {saving ? 'Creating...' : 'Create'}
-      </button>
+        <p className="text-ui-button font-semibold text-foreground-light dark:text-foreground-dark">
+          {isReady ? 'Ready to Create Key' : 'Next: Name the Platform Key'}
+        </p>
+        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {isReady
+            ? 'Create this key, then copy it before closing the one-time key banner.'
+            : 'Use a name that tells future admins where this key will be used.'}
+        </p>
+      </div>
+
+      {visibleError && (
+        <div className={cn(uiStyles.error, 'mb-3')} role="alert" aria-live="polite">
+          {visibleError}
+        </div>
+      )}
+
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
+        <div className="min-w-0">
+          <label htmlFor={nameInputId} className={uiStyles.label}>
+            Key Name
+          </label>
+          <input
+            id={nameInputId}
+            name="platformKeyName"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. CI job or integration…"
+            autoFocus
+            autoComplete="off"
+            spellCheck={false}
+            aria-invalid={visibleError !== null}
+            aria-describedby={`${statusId}${visibleError ? ` ${errorId}` : ''}`}
+            className={cn(uiStyles.input, 'min-w-0')}
+          />
+          {visibleError && (
+            <p id={errorId} className="mt-1 text-ui-caption text-apple-red">
+              {visibleError}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={saving}
+          className={uiStyles.secondaryButton}
+        >
+          Cancel
+        </button>
+        <button type="submit" disabled={saving} className={uiStyles.primaryButton}>
+          {saving ? 'Creating…' : 'Create'}
+        </button>
+      </div>
     </form>
   )
 }
@@ -242,7 +299,7 @@ export function KeysSection() {
       <div className={cn(uiStyles.card, 'mt-3 overflow-x-auto')}>
         {keysLoading && apiKeys.length === 0 ? (
           <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading keys...
+            Loading keys…
           </div>
         ) : apiKeys.length === 0 ? (
           <div className="px-4 py-6 text-center">
