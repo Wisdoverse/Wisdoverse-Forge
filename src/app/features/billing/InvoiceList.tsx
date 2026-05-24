@@ -22,31 +22,40 @@ function formatDate(iso: string): string {
   })
 }
 
-function statusConfig(status: InvoiceStatus): { label: string; color: string } {
+function statusConfig(status: InvoiceStatus): {
+  label: string
+  description: string
+  color: string
+} {
   switch (status) {
     case 'paid':
       return {
         label: 'Paid',
+        description: 'No action needed.',
         color: 'bg-apple-blue/10 text-apple-blue',
       }
     case 'open':
       return {
-        label: 'Open',
+        label: 'Payment open',
+        description: 'Payment may still be due.',
         color: 'bg-apple-blue/10 text-apple-blue',
       }
     case 'void':
       return {
-        label: 'Void',
+        label: 'Canceled',
+        description: 'This invoice will not be collected.',
         color: 'text-secondary-light bg-black/5 dark:bg-white/5 dark:text-secondary-dark',
       }
     case 'draft':
       return {
         label: 'Draft',
+        description: 'This invoice is still being prepared.',
         color: 'text-secondary-light bg-black/5 dark:bg-white/5 dark:text-secondary-dark',
       }
     case 'uncollectible':
       return {
-        label: 'Uncollectible',
+        label: 'Needs review',
+        description: 'Ask an administrator to review payment status.',
         color: 'bg-apple-red/10 text-apple-red',
       }
   }
@@ -65,9 +74,14 @@ interface InvoiceListProps {
 export function InvoiceList({ invoices, loading, error }: InvoiceListProps) {
   return (
     <div>
-      <h2 className="mb-4 text-ui-title font-semibold text-foreground-light dark:text-foreground-dark">
-        Invoice History
-      </h2>
+      <div className="mb-4">
+        <h2 className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark">
+          Invoice History
+        </h2>
+        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          Invoices appear after billing is enabled and charges are created.
+        </p>
+      </div>
 
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {loading && (
@@ -83,15 +97,21 @@ export function InvoiceList({ invoices, loading, error }: InvoiceListProps) {
         )}
 
         {!loading && error && (
-          <div className="px-6 py-8 text-center">
+          <div role="alert" className="px-6 py-8 text-center">
             <p className="text-ui-body text-apple-red">{error}</p>
+            <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Try again later or ask an administrator to check billing access.
+            </p>
           </div>
         )}
 
         {!loading && !error && invoices.length === 0 && (
           <div className="px-6 py-8 text-center">
-            <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No invoices yet
+            <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+              No invoices yet.
+            </p>
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Nothing needs to be downloaded until the first charge is created.
             </p>
           </div>
         )}
@@ -104,12 +124,12 @@ export function InvoiceList({ invoices, loading, error }: InvoiceListProps) {
                 <th className={uiStyles.tableHeaderCell}>Invoice</th>
                 <th className={uiStyles.tableHeaderCell}>Status</th>
                 <th className={cn(uiStyles.tableHeaderCell, 'text-right')}>Amount</th>
-                <th className={cn(uiStyles.tableHeaderCell, 'text-right')}>PDF</th>
+                <th className={cn(uiStyles.tableHeaderCell, 'text-right')}>Record</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[rgb(var(--border))]">
               {invoices.map((inv) => {
-                const { label, color } = statusConfig(inv.status)
+                const { label, description, color } = statusConfig(inv.status)
                 return (
                   <tr
                     key={inv.id}
@@ -132,14 +152,19 @@ export function InvoiceList({ invoices, loading, error }: InvoiceListProps) {
                       {inv.number ?? inv.id.slice(0, 12)}
                     </td>
                     <td className={uiStyles.tableCell}>
-                      <span
-                        className={cn(
-                          'inline-flex items-center rounded-full px-2 py-0.5 text-ui-caption font-medium',
-                          color
-                        )}
-                      >
-                        {label}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span
+                          className={cn(
+                            'inline-flex w-fit items-center rounded-full px-2 py-0.5 text-ui-caption font-medium',
+                            color
+                          )}
+                        >
+                          {label}
+                        </span>
+                        <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                          {description}
+                        </span>
+                      </div>
                     </td>
                     <td
                       className={cn(
@@ -157,7 +182,7 @@ export function InvoiceList({ invoices, loading, error }: InvoiceListProps) {
                           rel="noopener noreferrer"
                           className="text-ui-caption text-apple-blue hover:underline"
                         >
-                          PDF
+                          Download PDF
                         </a>
                       ) : inv.hostedInvoiceUrl ? (
                         <a
@@ -166,11 +191,11 @@ export function InvoiceList({ invoices, loading, error }: InvoiceListProps) {
                           rel="noopener noreferrer"
                           className="text-ui-caption text-apple-blue hover:underline"
                         >
-                          View
+                          View Invoice
                         </a>
                       ) : (
                         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                          —
+                          No link
                         </span>
                       )}
                     </td>

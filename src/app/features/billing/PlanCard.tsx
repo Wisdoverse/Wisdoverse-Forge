@@ -26,21 +26,66 @@ function formatDate(iso: string): string {
   })
 }
 
-function statusBadge(status: SubscriptionStatus): { label: string; color: string } {
+function statusBadge(status: SubscriptionStatus): {
+  label: string
+  description: string
+  color: string
+} {
   switch (status) {
     case 'active':
-      return { label: 'Active', color: 'bg-apple-blue/10 text-apple-blue' }
+      return {
+        label: 'Plan active',
+        description: 'Your team can keep using the capacity included with this plan.',
+        color: 'bg-apple-blue/10 text-apple-blue',
+      }
     case 'trialing':
-      return { label: 'Trial', color: 'bg-apple-blue/10 text-apple-blue' }
+      return {
+        label: 'Trial active',
+        description: 'Review usage before the trial ends so there are no surprises.',
+        color: 'bg-apple-blue/10 text-apple-blue',
+      }
     case 'past_due':
       return {
-        label: 'Past Due',
+        label: 'Payment needs attention',
+        description: 'Update the payment method before access is interrupted.',
         color: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
       }
     case 'canceled':
-      return { label: 'Canceled', color: 'bg-apple-red/10 text-apple-red' }
+      return {
+        label: 'Plan canceled',
+        description: 'Upgrade again when the team needs paid capacity.',
+        color: 'bg-apple-red/10 text-apple-red',
+      }
     case 'unpaid':
-      return { label: 'Unpaid', color: 'bg-apple-red/10 text-apple-red' }
+      return {
+        label: 'Payment incomplete',
+        description: 'Open billing management to finish the payment.',
+        color: 'bg-apple-red/10 text-apple-red',
+      }
+  }
+}
+
+function nextStep(plan: BillingPlan | null, subscription: BillingSubscription | null): string {
+  if (!subscription) {
+    return plan
+      ? 'Upgrade only when your team needs this paid capacity.'
+      : 'Start here. Upgrade when your team needs more agents, history, or AI usage.'
+  }
+
+  if (subscription.cancelAtPeriodEnd) {
+    return `The plan will stop on ${formatDate(subscription.currentPeriodEnd)}. Manage billing to resume it before that date.`
+  }
+
+  switch (subscription.status) {
+    case 'active':
+      return 'No action needed now. Manage billing for receipts, payment details, or cancellation.'
+    case 'trialing':
+      return `The trial runs until ${formatDate(subscription.currentPeriodEnd)}. Check usage before it ends.`
+    case 'past_due':
+    case 'unpaid':
+      return 'Open billing management to update payment details and avoid blocked work.'
+    case 'canceled':
+      return 'Choose a plan again when your team needs paid capacity.'
   }
 }
 
@@ -54,9 +99,19 @@ interface PlanCardProps {
   onUpgrade: () => void
   onManage: () => void
   loading?: boolean
+  actionPending?: 'checkout' | 'portal' | null
+  actionError?: string | null
 }
 
-export function PlanCard({ plan, subscription, onUpgrade, onManage, loading }: PlanCardProps) {
+export function PlanCard({
+  plan,
+  subscription,
+  onUpgrade,
+  onManage,
+  loading,
+  actionPending,
+  actionError,
+}: PlanCardProps) {
   if (loading) {
     return (
       <div className={cn(uiStyles.cardPadded, 'animate-pulse')}>
@@ -68,12 +123,13 @@ export function PlanCard({ plan, subscription, onUpgrade, onManage, loading }: P
   }
 
   const badge = subscription ? statusBadge(subscription.status) : null
+  const priceLabel = plan ? formatCurrency(plan.price.monthly, plan.price.currency) : '$0'
 
   return (
-    <div className={uiStyles.cardPadded}>
-      <div className="flex items-start justify-between gap-4">
+    <div className={cn(uiStyles.cardPadded, 'flex flex-col gap-4')}>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
             <h3 className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark">
               {plan?.name ?? 'Free Plan'}
             </h3>
@@ -89,44 +145,69 @@ export function PlanCard({ plan, subscription, onUpgrade, onManage, loading }: P
             )}
           </div>
 
-          {plan && (
-            <div className="flex items-baseline gap-1 mb-2">
-              <span className="text-ui-metric font-semibold text-foreground-light dark:text-foreground-dark">
-                {formatCurrency(plan.price.monthly, plan.price.currency)}
-              </span>
-              <span className="text-ui-body text-secondary-light dark:text-secondary-dark">
-                /mo
-              </span>
-            </div>
-          )}
+          <div className="mb-2 flex items-baseline gap-1">
+            <span className="text-ui-metric font-semibold text-foreground-light dark:text-foreground-dark">
+              {priceLabel}
+            </span>
+            <span className="text-ui-body text-secondary-light dark:text-secondary-dark">/mo</span>
+          </div>
 
-          {plan?.description && (
-            <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              {plan.description}
-            </p>
-          )}
+          <p className="max-w-2xl text-ui-body text-secondary-light dark:text-secondary-dark">
+            {plan?.description ??
+              'No paid plan is active yet. You can keep working until the team needs more capacity.'}
+          </p>
 
-          {subscription && (
+          {badge && (
             <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              {subscription.cancelAtPeriodEnd
-                ? `Cancels on ${formatDate(subscription.currentPeriodEnd)}`
-                : `Renews on ${formatDate(subscription.currentPeriodEnd)}`}
+              {badge.description}
             </p>
           )}
         </div>
 
-        <div className="flex flex-col gap-2 shrink-0">
+        <div className="flex shrink-0 flex-col gap-2 sm:items-end">
           {subscription ? (
-            <button type="button" onClick={onManage} className={uiStyles.secondaryButton}>
-              Manage
+            <button
+              type="button"
+              onClick={onManage}
+              disabled={actionPending !== null && actionPending !== undefined}
+              aria-label="Open billing management"
+              className={uiStyles.secondaryButton}
+            >
+              {actionPending === 'portal' ? 'Opening...' : 'Manage Billing'}
             </button>
           ) : (
-            <button type="button" onClick={onUpgrade} className={uiStyles.primaryButton}>
-              Upgrade
+            <button
+              type="button"
+              onClick={onUpgrade}
+              disabled={actionPending !== null && actionPending !== undefined}
+              aria-label="Upgrade plan"
+              className={uiStyles.primaryButton}
+            >
+              {actionPending === 'checkout' ? 'Opening...' : 'Upgrade Plan'}
             </button>
           )}
         </div>
       </div>
+
+      <div className="rounded-card border border-black/[0.08] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.03]">
+        <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+          What to do next
+        </p>
+        <p className="mt-0.5 text-ui-body text-secondary-light dark:text-secondary-dark">
+          {nextStep(plan, subscription)}
+        </p>
+        {subscription && !subscription.cancelAtPeriodEnd && (
+          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Renews on {formatDate(subscription.currentPeriodEnd)}
+          </p>
+        )}
+      </div>
+
+      {actionError && (
+        <p role="alert" className="text-ui-body text-apple-red">
+          {actionError}
+        </p>
+      )}
     </div>
   )
 }
