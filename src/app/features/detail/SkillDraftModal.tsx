@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { X } from 'lucide-react'
+import { ArrowRight, CheckCircle2, LibraryBig, Users, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { useSkillsStore } from '@app/shared/model/skills.store'
+import { useSkillsStore, type Skill } from '@app/shared/model/skills.store'
 import type { TaskResultArtifact, TaskSummary } from '@app/shared/api/orchestration'
 
 interface SkillDraftModalProps {
@@ -23,12 +23,14 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
   const createSkill = useSkillsStore((state) => state.createSkill)
   const initialForm = useMemo(() => buildSkillDraft(task, artifacts), [artifacts, task])
   const [form, setForm] = useState<DraftForm>(initialForm)
+  const [createdSkill, setCreatedSkill] = useState<Skill | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
     setForm(initialForm)
+    setCreatedSkill(null)
     setError(null)
   }, [initialForm, open])
 
@@ -50,13 +52,13 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
     setSubmitting(true)
     setError(null)
     try {
-      await createSkill({
+      const skill = await createSkill({
         name,
         description: form.description.trim() || undefined,
         trigger_pattern: form.triggerPattern.trim() || undefined,
         content,
       })
-      onClose()
+      setCreatedSkill(skill)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create skill')
     } finally {
@@ -102,75 +104,155 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
 
         {error && <div className={uiStyles.error}>{error}</div>}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="grid gap-3 sm:grid-cols-2">
+        {createdSkill ? (
+          <SkillPublishedState skill={createdSkill} onClose={onClose} />
+        ) : (
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor="skill-draft-name" className={uiStyles.label}>
+                  Name
+                </label>
+                <input
+                  id="skill-draft-name"
+                  value={form.name}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, name: event.target.value }))
+                  }
+                  className={uiStyles.input}
+                />
+              </div>
+              <div>
+                <label htmlFor="skill-draft-trigger" className={uiStyles.label}>
+                  Trigger Pattern
+                </label>
+                <input
+                  id="skill-draft-trigger"
+                  value={form.triggerPattern}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, triggerPattern: event.target.value }))
+                  }
+                  className={cn(uiStyles.input, 'font-mono')}
+                />
+              </div>
+            </div>
+
             <div>
-              <label htmlFor="skill-draft-name" className={uiStyles.label}>
-                Name
+              <label htmlFor="skill-draft-description" className={uiStyles.label}>
+                Description
               </label>
               <input
-                id="skill-draft-name"
-                value={form.name}
+                id="skill-draft-description"
+                value={form.description}
                 onChange={(event) =>
-                  setForm((current) => ({ ...current, name: event.target.value }))
+                  setForm((current) => ({ ...current, description: event.target.value }))
                 }
                 className={uiStyles.input}
               />
             </div>
+
             <div>
-              <label htmlFor="skill-draft-trigger" className={uiStyles.label}>
-                Trigger Pattern
+              <label htmlFor="skill-draft-content" className={uiStyles.label}>
+                Content
               </label>
-              <input
-                id="skill-draft-trigger"
-                value={form.triggerPattern}
+              <textarea
+                id="skill-draft-content"
+                value={form.content}
                 onChange={(event) =>
-                  setForm((current) => ({ ...current, triggerPattern: event.target.value }))
+                  setForm((current) => ({ ...current, content: event.target.value }))
                 }
-                className={cn(uiStyles.input, 'font-mono')}
+                className="min-h-64 w-full resize-y rounded-[18px] border border-black/[0.08] bg-white px-3 py-2 font-mono text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70"
               />
             </div>
-          </div>
 
-          <div>
-            <label htmlFor="skill-draft-description" className={uiStyles.label}>
-              Description
-            </label>
-            <input
-              id="skill-draft-description"
-              value={form.description}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, description: event.target.value }))
-              }
-              className={uiStyles.input}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="skill-draft-content" className={uiStyles.label}>
-              Content
-            </label>
-            <textarea
-              id="skill-draft-content"
-              value={form.content}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, content: event.target.value }))
-              }
-              className="min-h-64 w-full resize-y rounded-[18px] border border-black/[0.08] bg-white px-3 py-2 font-mono text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70"
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-1">
-            <button type="button" onClick={onClose} className={uiStyles.secondaryButton}>
-              Cancel
-            </button>
-            <button type="submit" disabled={submitting} className={uiStyles.primaryButton}>
-              {submitting ? 'Publishing...' : 'Publish skill'}
-            </button>
-          </div>
-        </form>
+            <div className="flex justify-end gap-2 pt-1">
+              <button type="button" onClick={onClose} className={uiStyles.secondaryButton}>
+                Cancel
+              </button>
+              <button type="submit" disabled={submitting} className={uiStyles.primaryButton}>
+                {submitting ? 'Publishing...' : 'Publish skill'}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
+  )
+}
+
+function SkillPublishedState({ skill, onClose }: { skill: Skill; onClose: () => void }) {
+  return (
+    <div className="flex flex-col gap-4" data-testid="skill-published-state">
+      <div className="rounded-card border border-apple-green/20 bg-apple-green/10 px-4 py-3 text-apple-green">
+        <div className="flex items-start gap-3">
+          <CheckCircle2 size={18} strokeWidth={2.25} aria-hidden="true" className="mt-0.5" />
+          <div className="min-w-0">
+            <p className="text-ui-section font-semibold">Skill published</p>
+            <p className="mt-1 break-words text-ui-body text-foreground-light dark:text-foreground-dark">
+              {skill.name}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <NextReuseLink
+          href="/skills"
+          Icon={LibraryBig}
+          title="Open skills"
+          detail="Review the reusable instructions."
+        />
+        <NextReuseLink
+          href="/agents"
+          Icon={Users}
+          title="Choose agent"
+          detail="Pick who should reuse this skill."
+        />
+      </div>
+
+      <div className="flex justify-end">
+        <button type="button" onClick={onClose} className={uiStyles.secondaryButton}>
+          Done
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function NextReuseLink({
+  href,
+  Icon,
+  title,
+  detail,
+}: {
+  href: string
+  Icon: typeof LibraryBig
+  title: string
+  detail: string
+}) {
+  return (
+    <a
+      href={href}
+      className="group flex min-w-0 items-start gap-3 rounded-card border border-black/[0.08] bg-black/[0.02] px-3 py-3 transition-colors hover:border-apple-blue/35 hover:bg-apple-blue/10 dark:border-white/[0.1] dark:bg-white/[0.035] dark:hover:bg-apple-blue/15"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-apple-blue dark:bg-white/[0.08]">
+        <Icon size={16} strokeWidth={2.25} aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
+          {title}
+        </span>
+        <span className="mt-0.5 block text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {detail}
+        </span>
+      </span>
+      <ArrowRight
+        size={14}
+        strokeWidth={2.25}
+        aria-hidden="true"
+        className="mt-1 shrink-0 text-secondary-light transition-colors group-hover:text-apple-blue dark:text-secondary-dark"
+      />
+    </a>
   )
 }
 
