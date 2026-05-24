@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
@@ -19,6 +20,40 @@ function formatDate(dateStr: string): string {
 const PROVIDER_LABELS: Record<GitProvider, string> = {
   github: 'GitHub',
   gitlab: 'GitLab',
+}
+
+interface CredentialFormReadiness {
+  ready: boolean
+  title: string
+  detail: string
+  error: string | null
+  fieldId: string | null
+}
+
+function credentialFormReadiness({
+  token,
+  tokenInputId,
+}: {
+  token: string
+  tokenInputId: string
+}): CredentialFormReadiness {
+  if (!token.trim()) {
+    return {
+      ready: false,
+      title: 'Next: Paste Access Token',
+      detail: 'Paste a token from GitHub or GitLab so agents can clone and push repositories.',
+      error: 'Paste an access token before saving this credential.',
+      fieldId: tokenInputId,
+    }
+  }
+
+  return {
+    ready: true,
+    title: 'Ready to Save',
+    detail: 'Save this token, then use a small agent task to confirm repository access.',
+    error: null,
+    fieldId: null,
+  }
 }
 
 // ============================================================================
@@ -102,10 +137,22 @@ function AddCredentialForm({
   saving,
 }: AddCredentialFormProps) {
   const [form, setForm] = useState<AddCredentialFormState>(DEFAULT_FORM)
+  const [submitAttempted, setSubmitAttempted] = useState(false)
+  const providerInputId = 'git-credential-provider'
+  const tokenInputId = 'git-credential-token'
+  const hostInputId = 'git-credential-host'
+  const formStatusId = 'git-credential-form-status'
+  const tokenErrorId = 'git-credential-token-error'
+  const readiness = credentialFormReadiness({ token: form.token, tokenInputId })
+  const visibleError = submitAttempted && !readiness.ready ? readiness.error : null
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.token.trim()) return
+    setSubmitAttempted(true)
+    if (!readiness.ready) {
+      if (readiness.fieldId) document.getElementById(readiness.fieldId)?.focus()
+      return
+    }
     await onSave(form.provider, form.token.trim(), form.host.trim() || undefined)
   }
 
@@ -120,12 +167,59 @@ function AddCredentialForm({
         'border-t border-black/[0.06] p-4 dark:border-white/[0.08]',
         'bg-black/[0.015] dark:bg-white/[0.025]'
       )}
+      noValidate
     >
+      <div
+        id={formStatusId}
+        data-testid="git-credential-form-status"
+        aria-live="polite"
+        className={cn(
+          'mb-3 rounded-lg border px-3 py-2',
+          readiness.ready
+            ? 'border-apple-green/25 bg-apple-green/10'
+            : 'border-apple-blue/20 bg-apple-blue/[0.04]'
+        )}
+      >
+        <div className="flex items-center gap-2">
+          {readiness.ready ? (
+            <CheckCircle2
+              size={16}
+              strokeWidth={2.25}
+              className="shrink-0 text-apple-green"
+              aria-hidden="true"
+            />
+          ) : (
+            <AlertTriangle
+              size={16}
+              strokeWidth={2.25}
+              className="shrink-0 text-apple-blue"
+              aria-hidden="true"
+            />
+          )}
+          <p className="text-ui-button font-semibold text-foreground-light dark:text-foreground-dark">
+            {readiness.title}
+          </p>
+        </div>
+        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {readiness.detail}
+        </p>
+      </div>
+
+      {visibleError && (
+        <div className={cn(uiStyles.error, 'mb-3')} role="alert" aria-live="polite">
+          {visibleError}
+        </div>
+      )}
+
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {/* Provider */}
         <div>
-          <label className={uiStyles.label}>Provider</label>
+          <label htmlFor={providerInputId} className={uiStyles.label}>
+            Provider
+          </label>
           <select
+            id={providerInputId}
+            name="provider"
             value={form.provider}
             onChange={(e) => setForm({ ...form, provider: e.target.value as GitProvider })}
             className={cn(uiStyles.select, 'w-full')}
@@ -140,34 +234,54 @@ function AddCredentialForm({
 
         {/* Token */}
         <div>
-          <label className={uiStyles.label}>
+          <label htmlFor={tokenInputId} className={uiStyles.label}>
             Token <span className="text-red-500">*</span>
           </label>
           <input
+            id={tokenInputId}
             type="password"
+            name="token"
             value={form.token}
             onChange={(e) => setForm({ ...form, token: e.target.value })}
-            placeholder="Paste access token"
-            required
+            placeholder="Paste access token…"
+            autoComplete="off"
+            spellCheck={false}
+            aria-invalid={visibleError !== null && readiness.fieldId === tokenInputId}
+            aria-describedby={`${formStatusId}${
+              visibleError !== null && readiness.fieldId === tokenInputId ? ` ${tokenErrorId}` : ''
+            }`}
             className={uiStyles.input}
           />
+          {visibleError !== null && readiness.fieldId === tokenInputId && (
+            <p id={tokenErrorId} className="mt-1 text-ui-caption text-apple-red">
+              {visibleError}
+            </p>
+          )}
         </div>
 
         {/* Custom host (optional, for self-hosted) */}
         <div className="sm:col-span-2">
-          <label className={uiStyles.label}>
+          <label htmlFor={hostInputId} className={uiStyles.label}>
             Custom Host{' '}
             <span className="text-secondary-light dark:text-secondary-dark font-normal">
               (optional, for self-hosted)
             </span>
           </label>
           <input
+            id={hostInputId}
             type="text"
+            name="host"
             value={form.host}
             onChange={(e) => setForm({ ...form, host: e.target.value })}
-            placeholder="e.g. gitlab.company.com"
+            placeholder="e.g. gitlab.company.com…"
+            autoComplete="off"
+            spellCheck={false}
             className={uiStyles.input}
           />
+          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Leave this blank for github.com or gitlab.com. Add it only for a company-hosted Git
+            server.
+          </p>
         </div>
       </div>
 
@@ -180,12 +294,8 @@ function AddCredentialForm({
         >
           Cancel
         </button>
-        <button
-          type="submit"
-          disabled={saving || !form.token.trim()}
-          className={uiStyles.primaryButton}
-        >
-          {saving ? 'Saving...' : 'Save Credential'}
+        <button type="submit" disabled={saving} className={uiStyles.primaryButton}>
+          {saving ? 'Saving…' : 'Save Credential'}
         </button>
       </div>
     </form>
@@ -262,7 +372,7 @@ export function GitCredentialsSection() {
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {gitCredentialsLoading && gitCredentials.length === 0 ? (
           <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading credentials...
+            Loading credentials…
           </div>
         ) : gitCredentials.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center">
