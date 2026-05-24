@@ -143,6 +143,7 @@ export function RuntimeSection() {
     cliToolLabel
   )
   const checklistReadyCount = checklistItems.filter((item) => item.ready).length
+  const nextChecklistItem = checklistItems.find((item) => !item.ready) ?? null
 
   async function connectCliProvider(provider: string) {
     setOpeningProvider(provider)
@@ -314,6 +315,19 @@ export function RuntimeSection() {
           </div>
         )}
 
+        <RuntimeNextStepPanel
+          item={nextChecklistItem}
+          allReady={checklistItems.length > 0 && checklistReadyCount === checklistItems.length}
+          busy={
+            nextChecklistItem?.action === 'refresh'
+              ? cliStatusLoading
+              : openingProvider === nextChecklistItem?.provider
+          }
+          onAction={() => {
+            if (nextChecklistItem) handleChecklistAction(nextChecklistItem)
+          }}
+        />
+
         <div
           data-testid="runtime-launch-checklist"
           className="mt-4 rounded-lg border border-black/[0.06] bg-black/[0.02] p-3 dark:border-white/[0.08] dark:bg-white/[0.03]"
@@ -437,6 +451,82 @@ export function RuntimeSection() {
         )}
       </div>
     </div>
+  )
+}
+
+function RuntimeNextStepPanel({
+  item,
+  allReady,
+  busy,
+  onAction,
+}: {
+  item: RuntimeChecklistItem | null
+  allReady: boolean
+  busy: boolean
+  onAction: () => void
+}) {
+  const busyLabel = item?.action === 'refresh' ? 'Refreshing' : 'Opening'
+
+  return (
+    <section
+      data-testid="runtime-next-step"
+      className={cn(
+        'mt-4 rounded-lg border px-4 py-3',
+        allReady
+          ? 'border-apple-green/20 bg-apple-green/5'
+          : 'border-apple-blue/20 bg-apple-blue/[0.04]'
+      )}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            {allReady ? (
+              <CheckCircle2
+                size={17}
+                strokeWidth={2.25}
+                className="shrink-0 text-apple-green"
+                aria-hidden="true"
+              />
+            ) : (
+              <AlertTriangle
+                size={17}
+                strokeWidth={2.25}
+                className="shrink-0 text-apple-blue"
+                aria-hidden="true"
+              />
+            )}
+            <p className="text-ui-caption font-semibold uppercase text-secondary-light dark:text-secondary-dark">
+              {allReady ? 'Ready' : 'Do This Next'}
+            </p>
+          </div>
+          <h3 className="mt-1 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+            {allReady ? 'Ready to Launch Agents' : item?.title}
+          </h3>
+          <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
+            {allReady
+              ? 'Runtime defaults, CLI images, credentials, and agent heartbeat signals are ready.'
+              : item?.detail}
+          </p>
+          <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Success:{' '}
+            {allReady
+              ? 'Open Agents, create or select an agent, then assign work from Tasks.'
+              : 'This warning disappears from the launch checklist.'}
+          </p>
+        </div>
+        {!allReady && item?.action && item.actionLabel && (
+          <button
+            type="button"
+            onClick={onAction}
+            disabled={busy}
+            className={cn(uiStyles.secondaryButton, 'shrink-0')}
+          >
+            <span>{busy ? busyLabel : item.actionLabel}</span>
+            <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
+          </button>
+        )}
+      </div>
+    </section>
   )
 }
 
