@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
-import { render, screen, cleanup, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 // Mock fetch to prevent real network calls; store's loadSkills will
@@ -78,8 +78,52 @@ describe('SkillsView', () => {
       expect(screen.getByText('webui-review')).toBeDefined()
     })
     expect(screen.getByText('Review WebUI flows')).toBeDefined()
+    expect(screen.getByText('Trigger: webui')).toBeDefined()
     expect(screen.getByText('Global skills')).toBeDefined()
     expect(screen.getByText('1 skill')).toBeDefined()
+  })
+
+  test('summarizes reuse readiness and filters CLI scoped skills', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        data: [
+          {
+            id: 'skill-cli-review',
+            name: 'cli-review',
+            description: 'Review terminal workflows',
+            trigger_pattern: 'terminal',
+            content: 'Check CLI handoff states',
+            enabled: true,
+            cliTool: 'codex',
+          },
+          {
+            id: 'skill-draft',
+            organization_id: 'org-1',
+            name: 'release-draft',
+            description: 'Draft release notes',
+            trigger_pattern: 'release',
+            content: 'Summarize accepted work',
+            enabled: false,
+          },
+        ],
+      }),
+    })
+
+    render(<SkillsView />)
+
+    const summary = await screen.findByTestId('skill-reuse-summary')
+    expect(within(summary).getByText('Total')).toBeDefined()
+    expect(within(summary).getAllByText('Installed').length).toBeGreaterThan(0)
+    expect(within(summary).getAllByText('Available').length).toBeGreaterThan(0)
+    expect(within(summary).getAllByText('CLI scoped').length).toBeGreaterThan(0)
+
+    const filters = within(summary).getByRole('group', { name: /skill filter/i })
+    fireEvent.click(within(filters).getByRole('button', { name: /cli scoped\s*1/i }))
+
+    expect(screen.getByText('cli-review')).toBeDefined()
+    expect(screen.queryByText('release-draft')).toBeNull()
   })
 
   test('creates a skill through the Rust API', async () => {
