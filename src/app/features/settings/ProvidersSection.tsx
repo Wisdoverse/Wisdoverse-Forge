@@ -25,6 +25,16 @@ interface AddProviderForm {
 }
 
 type ProviderFilter = 'all' | 'ready' | 'needs-test' | 'disabled'
+type ProviderNextAction = 'add-provider' | 'show-needs-test'
+
+interface ProviderNextStep {
+  title: string
+  detail: string
+  success: string
+  ready: boolean
+  action?: ProviderNextAction
+  actionLabel?: string
+}
 
 const PROVIDER_FILTERS: { id: ProviderFilter; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -207,6 +217,69 @@ function providerMatchesSearch(provider: LlmProviderConfig, search: string): boo
     .some((value) => value.toLowerCase().includes(query))
 }
 
+function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
+  const total = providers.length
+  const readyProviders = providers.filter(
+    (provider) => providerConnectionState(provider) === 'ready'
+  )
+  const needsTestProviders = providers.filter(
+    (provider) => providerConnectionState(provider) === 'needs-test'
+  )
+  const defaultProvider = providers.find((provider) => provider.isDefault)
+
+  if (total === 0) {
+    return {
+      title: 'Add Your First Provider',
+      detail:
+        'A provider gives agents a model to use. Pick a provider, paste the key, save it, then run a connection test.',
+      success: 'At least 1 provider is saved and ready for a test.',
+      ready: false,
+      action: 'add-provider',
+      actionLabel: 'Add Provider',
+    }
+  }
+
+  if (needsTestProviders.length > 0) {
+    const firstProvider = needsTestProviders[0]
+    return {
+      title: 'Test Provider Connection',
+      detail: `Test ${firstProvider.displayName} before assigning work so agent creation does not fail on the first run.`,
+      success: 'The provider shows Ready and can be used by Provider + Prompt agents.',
+      ready: false,
+      action: 'show-needs-test',
+      actionLabel: 'Show Needs Test',
+    }
+  }
+
+  if (readyProviders.length === 0) {
+    return {
+      title: 'Add an Active Provider',
+      detail:
+        'All saved providers are disabled. Add a working provider so agents have a model to use.',
+      success: 'At least 1 enabled provider is tested and marked Ready.',
+      ready: false,
+      action: 'add-provider',
+      actionLabel: 'Add Provider',
+    }
+  }
+
+  if (!defaultProvider && readyProviders.length > 0) {
+    return {
+      title: 'Ready Provider Available',
+      detail: `${readyProviders[0].displayName} is ready. Use it when creating a Provider + Prompt agent.`,
+      success: 'New Provider + Prompt agents can select a tested provider.',
+      ready: true,
+    }
+  }
+
+  return {
+    title: 'Ready to Create Provider Agents',
+    detail: `${defaultProvider?.displayName ?? readyProviders[0]?.displayName ?? 'A provider'} is ready for Provider + Prompt agents.`,
+    success: 'Open Agents, choose New Agent, then select Provider + Prompt.',
+    ready: true,
+  }
+}
+
 // ============================================================================
 // Provider Card
 // ============================================================================
@@ -357,7 +430,7 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
     (provider) => providerConnectionState(provider) === 'needs-test'
   ).length
   const defaultProvider = providers.find((provider) => provider.isDefault)
-  const allReady = total > 0 && ready === total - disabled && needsTest === 0
+  const allReady = ready > 0 && ready === total - disabled && needsTest === 0
 
   return (
     <section
@@ -412,6 +485,71 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
           value={defaultProvider?.displayName ?? 'Not Set'}
           ready={Boolean(defaultProvider)}
         />
+      </div>
+    </section>
+  )
+}
+
+function ProviderNextStepPanel({
+  step,
+  onAction,
+}: {
+  step: ProviderNextStep
+  onAction: (action: ProviderNextAction) => void
+}) {
+  const action = step.action
+
+  return (
+    <section
+      data-testid="provider-next-step"
+      className={cn(
+        'mb-4 rounded-lg border px-4 py-3',
+        step.ready
+          ? 'border-apple-green/20 bg-apple-green/5'
+          : 'border-apple-blue/20 bg-apple-blue/[0.04]'
+      )}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            {step.ready ? (
+              <CheckCircle2
+                size={17}
+                strokeWidth={2.25}
+                className="shrink-0 text-apple-green"
+                aria-hidden="true"
+              />
+            ) : (
+              <AlertTriangle
+                size={17}
+                strokeWidth={2.25}
+                className="shrink-0 text-apple-blue"
+                aria-hidden="true"
+              />
+            )}
+            <p className="text-ui-caption font-semibold uppercase text-secondary-light dark:text-secondary-dark">
+              {step.ready ? 'Ready' : 'Do This Next'}
+            </p>
+          </div>
+          <h3 className="mt-1 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+            {step.title}
+          </h3>
+          <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
+            {step.detail}
+          </p>
+          <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Success: {step.success}
+          </p>
+        </div>
+        {action && step.actionLabel && (
+          <button
+            type="button"
+            onClick={() => onAction(action)}
+            className={cn(uiStyles.secondaryButton, 'shrink-0')}
+          >
+            {step.actionLabel}
+          </button>
+        )}
       </div>
     </section>
   )
@@ -618,6 +756,7 @@ function AddProviderFormPanel({
             placeholder={needsApiKey ? 'sk-…' : 'not required…'}
             required={needsApiKey}
             autoComplete="off"
+            spellCheck={false}
             className={uiStyles.input}
           />
         </div>
@@ -676,6 +815,7 @@ export function ProvidersSection() {
   const [supportedProviders, setSupportedProviders] = useState<ProviderInfo[]>([])
   const [providerSearch, setProviderSearch] = useState('')
   const [providerFilter, setProviderFilter] = useState<ProviderFilter>('all')
+  const nextStep = useMemo(() => providerNextStep(providers), [providers])
   const filteredProviders = useMemo(
     () =>
       providers.filter((provider) => {
@@ -716,6 +856,17 @@ export function ProvidersSection() {
     return result
   }
 
+  function handleNextStepAction(action: ProviderNextAction) {
+    if (action === 'add-provider') {
+      setShowForm(true)
+      return
+    }
+    if (action === 'show-needs-test') {
+      setProviderSearch('')
+      setProviderFilter('needs-test')
+    }
+  }
+
   return (
     <div>
       {/* Section header */}
@@ -740,6 +891,7 @@ export function ProvidersSection() {
       {providersError && <div className={uiStyles.error}>{providersError}</div>}
 
       <ProviderReadinessPanel providers={providers} />
+      <ProviderNextStepPanel step={nextStep} onAction={handleNextStepAction} />
 
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <label className="relative min-w-0 flex-1">
