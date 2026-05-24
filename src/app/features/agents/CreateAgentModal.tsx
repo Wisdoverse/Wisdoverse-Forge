@@ -254,7 +254,9 @@ export function CreateAgentModal() {
 
   async function handleCreateDefaultGroup() {
     if (!selectedProjectId) {
-      setError('Select a project before creating a task group.')
+      setError(
+        'Select a project before creating a task group. Projects keep the work lanes agents can listen to.'
+      )
       return
     }
 
@@ -263,7 +265,7 @@ export function CreateAgentModal() {
     try {
       const group = await createAgentGroup(selectedProjectId, {
         name: 'Default Task Group',
-        description: 'Agents in this group can receive tasks from the board.',
+        description: 'This task group is a work lane where agents can receive board tasks.',
       })
       setValue('groupId', group.id, { shouldDirty: true })
     } catch (err) {
@@ -587,24 +589,29 @@ export function CreateAgentModal() {
                     ))}
                   </select>
                   <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                    Agents in a group can receive tasks from the board
+                    A task group is the work lane this agent listens to for board tasks.
                   </p>
                 </>
               ) : (
-                <button
-                  type="button"
-                  onClick={handleCreateDefaultGroup}
-                  disabled={creatingGroup}
-                  className={cn(
-                    'flex h-10 w-full items-center justify-center gap-2 rounded-full px-4 text-ui-button font-medium transition-transform active:scale-95',
-                    'border border-black/[0.08] bg-white text-apple-blue hover:bg-apple-blue/5',
-                    'dark:bg-white/[0.06] dark:text-foreground-dark dark:hover:bg-white/[0.1]',
-                    creatingGroup && 'cursor-not-allowed opacity-60'
-                  )}
-                >
-                  <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-                  {creatingGroup ? 'Creating…' : 'Create Task Group'}
-                </button>
+                <div>
+                  <button
+                    type="button"
+                    onClick={handleCreateDefaultGroup}
+                    disabled={creatingGroup}
+                    className={cn(
+                      'flex h-10 w-full items-center justify-center gap-2 rounded-full px-4 text-ui-button font-medium transition-transform active:scale-95',
+                      'border border-black/[0.08] bg-white text-apple-blue hover:bg-apple-blue/5',
+                      'dark:bg-white/[0.06] dark:text-foreground-dark dark:hover:bg-white/[0.1]',
+                      creatingGroup && 'cursor-not-allowed opacity-60'
+                    )}
+                  >
+                    <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
+                    {creatingGroup ? 'Creating…' : 'Create Task Group'}
+                  </button>
+                  <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                    This creates the first work lane so the agent can receive tasks.
+                  </p>
+                </div>
               )}
             </div>
           )}

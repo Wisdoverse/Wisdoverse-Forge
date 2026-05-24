@@ -43,7 +43,7 @@ export function AssignmentReadinessPanel({
   const offline = participants.filter((participant) => participant.status === 'offline')
   const summary =
     participants.length === 0
-      ? 'No agents are registered for this task group.'
+      ? 'No agents are registered for this work lane yet.'
       : available.length > 0
         ? `${available.length} agent${available.length === 1 ? '' : 's'} can take work now.`
         : 'No agent can take work right now.'
@@ -65,7 +65,7 @@ export function AssignmentReadinessPanel({
                 Assignment readiness
               </h2>
               <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {loading ? 'Checking agents...' : summary}
+                {loading ? 'Checking agents…' : summary}
               </span>
             </div>
             <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -169,7 +169,7 @@ function summarizeHandoff(workload: BoardWorkloadSnapshot, availableCount: numbe
     return `${workload.review} completed ${pluralize(workload.review, 'task')} ready for review.`
   }
 
-  return 'Handoff lane is clear.'
+  return 'Work lane is clear.'
 }
 
 function pluralize(count: number, singular: string): string {

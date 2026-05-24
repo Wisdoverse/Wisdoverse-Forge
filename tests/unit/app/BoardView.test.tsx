@@ -37,7 +37,7 @@ describe('BoardView', () => {
   test('shows no-group placeholder when no group is selected', () => {
     render(<BoardView />)
     expect(screen.getByTestId('board-no-group')).toBeDefined()
-    expect(screen.getByText(/pick a project to get started/i)).toBeDefined()
+    expect(screen.getByText(/pick a project to start/i)).toBeDefined()
   })
 
   test('explains missing task group when a project is selected', () => {
@@ -45,8 +45,8 @@ describe('BoardView', () => {
 
     render(<BoardView />)
 
-    expect(screen.getByText(/no task group in this project yet/i)).toBeDefined()
-    expect(screen.getByText(/agents in a group can receive tasks from the board/i)).toBeDefined()
+    expect(screen.getByText(/create a work lane first/i)).toBeDefined()
+    expect(screen.getByText(/task group is the work lane agents listen to/i)).toBeDefined()
   })
 
   test('renders task lifecycle columns with correct headers', async () => {

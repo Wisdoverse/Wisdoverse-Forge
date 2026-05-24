@@ -89,6 +89,21 @@ Use the current Session -> Agent vocabulary consistently.
 See `docs/architecture/glossary.md` when changing UI copy, API fields, or DB
 concept names.
 
+## Product And Documentation Standard
+
+Treat operators as first-time users by default. New features, UI copy, CLI
+commands, runbooks, and errors must start from the shortest safe path for a
+non-specialist user, then move advanced implementation details into validation,
+troubleshooting, or architecture sections.
+
+- State prerequisites before commands or configuration.
+- Use copy-pasteable examples with clear placeholders.
+- Explain what success looks like and what the user should do next.
+- Prefer product vocabulary from `docs/architecture/glossary.md` over internal
+  implementation shortcuts.
+- CLI work must follow `docs/guides/cli-platform-support.md`, including
+  mainstream Linux, macOS, and Windows operator support expectations.
+
 ## Commands
 
 Frontend and TypeScript:

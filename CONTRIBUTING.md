@@ -78,6 +78,43 @@ Every PR should include:
 - migration, environment, or rollout notes when runtime behavior changes,
 - documentation updates for any changed API, runtime, deployment path, or contributor workflow.
 
+## User Experience Standard
+
+Build and document features for first-time operators, not only professional
+engineers.
+
+- The first path in UI and docs should be the shortest safe path.
+- Prerequisites must appear before commands or configuration fields.
+- Each workflow should say what success looks like and what to do next.
+- Advanced internals belong in a later section, runbook, or validation block.
+- Error messages should explain the failed action, why it matters, and the next
+  action the user can take.
+- Avoid exposing implementation-only terms when a product term exists in the
+  glossary.
+
+For UI changes, PRs should include a screenshot or a concise description of the
+operator path that was tested. For CLI changes, include the command used, the
+target platform, and the expected success output.
+
+## CLI Platform Standard
+
+The Platform CLI and local sidecar are supported product surfaces. Changes to
+`rust/bins/cli`, `rust/crates/cli`, `rust/bins/sidecar`, release packaging, or
+Host CLI enrollment must preserve the multi-platform policy in
+[`docs/guides/cli-platform-support.md`](docs/guides/cli-platform-support.md).
+
+CLI-related PRs should state support for:
+
+- Linux x86_64 and ARM64,
+- macOS Apple Silicon and Intel,
+- Windows x86_64,
+- Windows ARM64 when the release pipeline has a validated runner and signer.
+
+If a platform cannot be validated in the PR, document it as unverified rather
+than implying support. Public release artifacts should include checksums,
+signature or provenance instructions, and a smoke test for `agentforge --help`
+and `agentforge-sidecar --help`.
+
 ## Documentation Policy
 
 Documentation is English-first. Public docs, repository guides, examples, and
@@ -94,6 +131,9 @@ Update docs in the same PR when you change:
 - environment variables or operational runbooks.
 
 At minimum, runtime and deployment changes usually require updates to `README.md`, `docs/architecture/overview.md`, and the relevant guide under `docs/guides/`.
+CLI and local-agent changes require updates to
+`docs/guides/cli-platform-support.md` or
+`docs/runbooks/host-cli-agent-enrollment.md` when user-facing behavior changes.
 
 ## Security and Secrets
 

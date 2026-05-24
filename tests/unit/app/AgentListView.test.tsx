@@ -231,17 +231,18 @@ describe('AgentListView', () => {
     render(<AgentListView />)
 
     expect(screen.getByText('Task Routing')).toBeDefined()
+    expect(screen.getByText(/task groups work like simple lanes/i)).toBeDefined()
     fireEvent.change(screen.getByLabelText(/task group name/i), {
       target: { value: 'Frontend Delivery' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /^create$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^create lane$/i }))
 
     await waitFor(() =>
       expect(createAgentGroup).toHaveBeenCalledWith(
         'p1',
         expect.objectContaining({
           name: 'Frontend Delivery',
-          description: 'Agents in this group can receive tasks from the board.',
+          description: 'This task group is a work lane where agents can receive board tasks.',
         })
       )
     )
@@ -289,7 +290,7 @@ describe('AgentListView', () => {
       'release risk'
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /^create$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^create lane$/i }))
 
     await waitFor(() =>
       expect(createAgentGroup).toHaveBeenCalledWith(
