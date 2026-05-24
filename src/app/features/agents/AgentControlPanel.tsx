@@ -11,19 +11,30 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
   const { sendPrompt, startAgent, restartAgent, deleteAgent, error } = useAgentsStore()
 
   const [prompt, setPrompt] = useState('')
+  const [promptError, setPromptError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [starting, setStarting] = useState(false)
   const [confirmRestart, setConfirmRestart] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const promptInputId = 'agent-control-prompt'
+  const promptHelpId = 'agent-control-prompt-help'
+  const promptErrorId = 'agent-control-prompt-error'
 
   const hostCli = isHostCliAgent(agent)
   const canStartContainer = Boolean(agent.cliTool && !agent.containerId && !hostCli)
   const canRestartContainer = Boolean(agent.cliTool && agent.containerId && !hostCli)
 
   async function handleSendPrompt() {
-    if (!prompt.trim() || sending) return
+    if (sending) return
+    const trimmedPrompt = prompt.trim()
+    if (!trimmedPrompt) {
+      setPromptError('Write an instruction before sending it to this agent.')
+      document.getElementById(promptInputId)?.focus()
+      return
+    }
+    setPromptError(null)
     setSending(true)
-    const ok = await sendPrompt(agent.id, prompt.trim())
+    const ok = await sendPrompt(agent.id, trimmedPrompt)
     setSending(false)
     if (ok) setPrompt('')
   }
@@ -62,15 +73,26 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
           'flex flex-col gap-2'
         )}
       >
-        <label className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+        <label
+          htmlFor={promptInputId}
+          className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
+        >
           Send Prompt
         </label>
         <textarea
+          id={promptInputId}
+          name="agentPrompt"
           value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
+          onChange={(e) => {
+            setPrompt(e.target.value)
+            if (promptError) setPromptError(null)
+          }}
           rows={3}
           className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
           placeholder="Enter a prompt for this agent…"
+          autoComplete="off"
+          aria-invalid={promptError !== null}
+          aria-describedby={`${promptHelpId}${promptError ? ` ${promptErrorId}` : ''}`}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
               e.preventDefault()
@@ -78,14 +100,25 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
             }
           }}
         />
+        {promptError && (
+          <div id={promptErrorId} className="text-ui-caption text-apple-red" role="alert">
+            {promptError}
+          </div>
+        )}
+        <p
+          id={promptHelpId}
+          className="text-ui-caption text-secondary-light dark:text-secondary-dark"
+        >
+          Send one concrete instruction, then watch this agent&apos;s task history for progress.
+        </p>
         <div className="flex justify-end">
           <button
             type="button"
             onClick={handleSendPrompt}
-            disabled={!prompt.trim() || sending}
+            disabled={sending}
             className={cn(
               'rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95',
-              (!prompt.trim() || sending) && 'opacity-50 cursor-not-allowed'
+              sending && 'opacity-50 cursor-not-allowed'
             )}
           >
             {sending ? 'Sending…' : 'Send'}
