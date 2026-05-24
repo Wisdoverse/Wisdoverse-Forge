@@ -19,6 +19,7 @@ const TYPE_CONFIG: Record<
     dot: string
     label: string
     actionLabel: string
+    guidance: string
     template: 'task-lifecycle' | 'credential-action' | 'collaboration'
   }
 > = {
@@ -29,6 +30,7 @@ const TYPE_CONFIG: Record<
     dot: 'bg-apple-red',
     label: 'Blocked task',
     actionLabel: 'Review blocker',
+    guidance: 'Open the task, read what is missing, and provide the requested input.',
     template: 'task-lifecycle',
   },
   completed: {
@@ -38,6 +40,7 @@ const TYPE_CONFIG: Record<
     dot: 'bg-apple-blue',
     label: 'Completed task',
     actionLabel: 'Review result',
+    guidance: 'Open the result when you need to review, share, or reuse the work.',
     template: 'task-lifecycle',
   },
   failed: {
@@ -47,6 +50,7 @@ const TYPE_CONFIG: Record<
     dot: 'bg-apple-red',
     label: 'Failed task',
     actionLabel: 'View failure',
+    guidance: 'Open the task to see what failed before starting another attempt.',
     template: 'task-lifecycle',
   },
   assigned: {
@@ -56,6 +60,7 @@ const TYPE_CONFIG: Record<
     dot: 'bg-apple-blue',
     label: 'Assignment',
     actionLabel: 'Open task',
+    guidance: 'Open the task to check what changed and who owns the next step.',
     template: 'collaboration',
   },
   mentioned: {
@@ -65,6 +70,7 @@ const TYPE_CONFIG: Record<
     dot: 'bg-apple-gray-1',
     label: 'Mention',
     actionLabel: 'Open thread',
+    guidance: 'Open the thread to see where your input is needed.',
     template: 'collaboration',
   },
   credential_expired: {
@@ -74,9 +80,12 @@ const TYPE_CONFIG: Record<
     dot: 'bg-apple-blue',
     label: 'Credential',
     actionLabel: 'Reconnect credential',
+    guidance: 'Reconnect access in settings so agents can keep working.',
     template: 'credential-action',
   },
 }
+
+const RELATIVE_TIME = new Intl.RelativeTimeFormat('en-US', { numeric: 'auto' })
 
 export function InboxItem({
   notification,
@@ -93,6 +102,7 @@ export function InboxItem({
       type="button"
       data-testid={`inbox-notification-${notification.id}`}
       data-template={config.template}
+      aria-label={`${config.actionLabel}: ${notification.taskTitle}`}
       onClick={onClick}
       className={cn(
         'flex w-full gap-3 px-4 py-3 text-left transition-colors',
@@ -127,14 +137,17 @@ export function InboxItem({
         </div>
         <p
           className={cn(
-            'mt-1 text-ui-body font-medium text-foreground-light dark:text-foreground-dark',
+            'mt-1 break-words text-ui-body font-medium text-foreground-light dark:text-foreground-dark',
             !notification.read && 'font-semibold'
           )}
         >
           {notification.taskTitle}
         </p>
-        <p className="mt-0.5 line-clamp-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+        <p className="mt-0.5 line-clamp-2 break-words text-ui-caption text-secondary-light dark:text-secondary-dark">
           {notification.message}
+        </p>
+        <p className="mt-1 text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+          {config.guidance}
         </p>
         <span className={cn('mt-1 inline-flex text-ui-caption font-medium', config.color)}>
           {config.actionLabel}
@@ -145,9 +158,11 @@ export function InboxItem({
 }
 
 function formatTime(ts: number): string {
-  const diff = Date.now() - ts
+  const diff = Math.max(0, Date.now() - ts)
   const mins = Math.floor(diff / 60000)
   if (mins < 1) return 'now'
-  if (mins < 60) return `${mins}m ago`
-  return `${Math.floor(mins / 60)}h ago`
+  if (mins < 60) return RELATIVE_TIME.format(-mins, 'minute')
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return RELATIVE_TIME.format(-hours, 'hour')
+  return RELATIVE_TIME.format(-Math.floor(hours / 24), 'day')
 }
