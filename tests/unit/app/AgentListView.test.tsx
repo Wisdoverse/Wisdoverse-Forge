@@ -63,7 +63,30 @@ describe('AgentListView', () => {
     expect(within(enrollment).getByText('Connect Host CLI')).toBeDefined()
     expect(enrollment.textContent).toContain('agentforge agents enroll-local')
     expect(enrollment.textContent).toContain('--project p1')
-    expect(within(enrollment).getByRole('button', { name: /copy command/i })).toBeDefined()
+    expect(enrollment.textContent).toContain('--shell-format bash')
+    expect(within(enrollment).getByRole('button', { name: /macos \/ linux/i })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    expect(within(enrollment).getByRole('button', { name: /copy command/i })).toBeEnabled()
+
+    fireEvent.click(within(enrollment).getByRole('button', { name: /windows/i }))
+
+    expect(enrollment.textContent).toContain('--cwd "$($PWD.Path)"')
+    expect(enrollment.textContent).toContain('--shell-format powershell')
+    expect(within(enrollment).getByRole('button', { name: /windows/i })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+  })
+
+  test('keeps Host CLI copy disabled until a project is selected', () => {
+    render(<AgentListView />)
+
+    const enrollment = screen.getByTestId('host-cli-enrollment-panel')
+    expect(enrollment.textContent).toContain('<project-id>')
+    expect(enrollment.textContent).toContain('Select a project first')
+    expect(within(enrollment).getByRole('button', { name: /select project first/i })).toBeDisabled()
   })
 
   test('renders agent cards', () => {
