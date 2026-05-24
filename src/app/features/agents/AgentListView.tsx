@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { ArrowDownUp, Bot, Plus, Search } from 'lucide-react'
+import { ArrowDownUp, Bot, Check, Copy, Plus, Search, ShieldCheck, Terminal } from 'lucide-react'
 import {
   isHostCliAgent,
   useAgentsStore,
   type AgentInfo,
   type AgentStatus,
 } from '@app/shared/model/agents.store'
+import { useNavigationStore } from '@app/entities/navigation'
 import { cn } from '@app/shared/lib/utils'
 import { AgentCard } from './AgentCard'
 import { AgentGroupsPanel } from './AgentGroupsPanel'
@@ -39,10 +40,15 @@ const SORT_OPTIONS: { value: AgentSortKey; label: string }[] = [
 
 export function AgentListView() {
   const { agents, selectAgent, setCreateModalOpen, loadAgents, loading } = useAgentsStore()
+  const selectedProjectId = useNavigationStore((state) => state.selectedProjectId)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<AgentStatusFilter>('all')
   const [runtimeFilter, setRuntimeFilter] = useState<AgentRuntimeFilter>('all')
   const [sortKey, setSortKey] = useState<AgentSortKey>('name')
+  const localEnrollCommand = useMemo(
+    () => buildLocalEnrollCommand(selectedProjectId),
+    [selectedProjectId]
+  )
   const statusCounts = useMemo(() => countByStatus(agents), [agents])
   const runtimeCounts = useMemo(() => countByRuntime(agents), [agents])
   const filteredAgents = useMemo(
@@ -181,11 +187,109 @@ export function AgentListView() {
           )}
         </section>
 
-        <AgentGroupsPanel />
+        <aside className="space-y-4 xl:sticky xl:top-0 xl:self-start">
+          <HostCliEnrollmentPanel
+            command={localEnrollCommand}
+            selectedProjectId={selectedProjectId}
+          />
+          <AgentGroupsPanel />
+        </aside>
       </div>
 
       <CreateAgentModal />
     </div>
+  )
+}
+
+function buildLocalEnrollCommand(selectedProjectId: string | null): string {
+  const projectArg = selectedProjectId ?? '<project-id>'
+  return [
+    'agentforge agents enroll-local \\',
+    '  --tool codex \\',
+    '  --name "Host Codex" \\',
+    `  --project ${projectArg} \\`,
+    '  --cwd "$PWD"',
+  ].join('\n')
+}
+
+function HostCliEnrollmentPanel({
+  command,
+  selectedProjectId,
+}: {
+  command: string
+  selectedProjectId: string | null
+}) {
+  const [copied, setCopied] = useState(false)
+  const projectLabel = selectedProjectId ?? 'Select a project'
+
+  async function handleCopyCommand() {
+    if (!navigator.clipboard?.writeText) return
+    try {
+      await navigator.clipboard.writeText(command)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1800)
+    } catch {
+      // Copy is a convenience action; the command remains visible when unsupported.
+    }
+  }
+
+  return (
+    <section
+      data-testid="host-cli-enrollment-panel"
+      className="rounded-card border border-black/[0.08] bg-white p-5 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <Terminal
+              size={15}
+              strokeWidth={2}
+              className="text-secondary-light dark:text-secondary-dark"
+              aria-hidden="true"
+            />
+            <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+              Connect Host CLI
+            </h2>
+          </div>
+          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Add a local machine as a managed agent for this project.
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full bg-apple-blue/[0.08] px-2 py-1 text-[10px] font-semibold text-apple-blue">
+          Managed
+        </span>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.04]">
+        <ShieldCheck size={15} strokeWidth={2.1} className="shrink-0 text-apple-green" />
+        <p className="min-w-0 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
+          Project: <span className="font-mono">{projectLabel}</span>
+        </p>
+      </div>
+
+      <pre className="mt-3 max-h-36 overflow-auto rounded-lg bg-[#111318] p-3 text-left font-mono text-[11px] leading-relaxed text-white/85">
+        <code className="whitespace-pre-wrap break-all">{command}</code>
+      </pre>
+
+      <div className="mt-3 grid gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+        <p>Platform CLI enrolls the agent identity.</p>
+        <p>The local sidecar sends heartbeats, task results, and evidence.</p>
+        <p>Container actions stay hidden for Host CLI agents.</p>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => void handleCopyCommand()}
+        className="mt-4 inline-flex h-9 w-full items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-apple-blue/35 hover:text-apple-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+      >
+        {copied ? (
+          <Check size={14} strokeWidth={2.25} aria-hidden="true" />
+        ) : (
+          <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
+        )}
+        <span>{copied ? 'Copied' : 'Copy command'}</span>
+      </button>
+    </section>
   )
 }
 

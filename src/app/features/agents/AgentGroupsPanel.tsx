@@ -130,7 +130,7 @@ export function AgentGroupsPanel() {
   return (
     <section
       data-testid="agent-groups-panel"
-      className="rounded-card border border-black/[0.08] bg-white p-6 dark:border-white/[0.1] dark:bg-[#2a2a2c] xl:sticky xl:top-0 xl:self-start"
+      className="rounded-card border border-black/[0.08] bg-white p-6 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">

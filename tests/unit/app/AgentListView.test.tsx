@@ -40,6 +40,32 @@ describe('AgentListView', () => {
     expect(screen.getByText(/no agents/i)).toBeDefined()
   })
 
+  test('shows Host CLI enrollment command for the selected project', () => {
+    useNavigationStore.setState({
+      selectedProjectId: 'p1',
+      projects: {
+        t1: [
+          {
+            id: 'p1',
+            teamId: 't1',
+            name: 'Platform',
+            slug: 'platform',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+    } as never)
+
+    render(<AgentListView />)
+
+    const enrollment = screen.getByTestId('host-cli-enrollment-panel')
+    expect(within(enrollment).getByText('Connect Host CLI')).toBeDefined()
+    expect(enrollment.textContent).toContain('agentforge agents enroll-local')
+    expect(enrollment.textContent).toContain('--project p1')
+    expect(within(enrollment).getByRole('button', { name: /copy command/i })).toBeDefined()
+  })
+
   test('renders agent cards', () => {
     useAgentsStore.getState().setAgents([
       makeAgent({
