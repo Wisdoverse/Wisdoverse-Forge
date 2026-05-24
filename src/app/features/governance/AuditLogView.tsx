@@ -64,6 +64,55 @@ const SCOPE_KIND_OPTIONS: { value: ScopeKindFilter; label: string }[] = [
   { value: 'user', label: 'User' },
 ]
 
+const COMMON_EVENT_TYPES = [
+  'governance.context.feedback.recorded',
+  'governance.context.skill.approved',
+  'governance.context.skill.reviewed',
+  'governance.context.memory.updated',
+  'governance.context.memory.rejected',
+]
+
+const QUICK_AUDIT_FILTERS: {
+  label: string
+  filters: Partial<FilterState>
+}[] = [
+  {
+    label: 'Recent Context',
+    filters: {
+      eventPrefix: DEFAULT_FILTERS.eventPrefix,
+      eventType: '',
+      itemKind: 'all',
+      scopeKind: 'all',
+      scopeId: '',
+      userId: '',
+    },
+  },
+  {
+    label: 'Feedback',
+    filters: {
+      eventPrefix: DEFAULT_FILTERS.eventPrefix,
+      eventType: 'governance.context.feedback.recorded',
+      itemKind: 'all',
+    },
+  },
+  {
+    label: 'Skill Changes',
+    filters: {
+      eventPrefix: 'governance.context.skill.',
+      eventType: '',
+      itemKind: 'skill',
+    },
+  },
+  {
+    label: 'Memory Changes',
+    filters: {
+      eventPrefix: 'governance.context.memory.',
+      eventType: '',
+      itemKind: 'memory',
+    },
+  },
+]
+
 const INPUT_CLASS =
   'h-9 w-full rounded-full border border-black/[0.08] bg-white px-3 text-ui-caption text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
 
@@ -109,6 +158,12 @@ export function AuditLogView() {
     void loadAudit(filters)
   }
 
+  function applyQuickFilter(preset: Partial<FilterState>) {
+    const nextFilters = { ...filters, ...preset }
+    setFilters(nextFilters)
+    void loadAudit(nextFilters)
+  }
+
   async function exportAudit() {
     setExporting(true)
     setError(null)
@@ -138,18 +193,55 @@ export function AuditLogView() {
         onSubmit={submitFilters}
         className="shrink-0 border-b border-black/[0.06] px-4 py-3 dark:border-white/[0.06] sm:px-6"
       >
+        <div
+          data-testid="governance-audit-filter-guide"
+          className="mb-3 rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-caption text-apple-blue"
+        >
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <p>
+              Start broad. Leave Event Type, Scope ID, and User ID empty unless you copied a value
+              from another screen.
+            </p>
+            <div
+              role="group"
+              aria-label="Common audit filters"
+              className="flex max-w-full gap-1 overflow-x-auto"
+            >
+              {QUICK_AUDIT_FILTERS.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => applyQuickFilter(preset.filters)}
+                  className="h-8 shrink-0 rounded-full border border-apple-blue/20 bg-white/80 px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:bg-black/20 dark:hover:bg-black/30"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_160px_160px_160px_auto]">
-          <Field label="Event prefix">
+          <Field
+            label="Event prefix"
+            help="Use the default for context events, or leave blank to search all audit events."
+            helpId="governance-audit-event-prefix-help"
+          >
             <input
               data-testid="governance-audit-filter-event-prefix"
               name="eventPrefix"
               autoComplete="off"
               value={filters.eventPrefix}
               onChange={(event) => updateFilter('eventPrefix', event.target.value)}
+              aria-describedby="governance-audit-event-prefix-help"
               className={INPUT_CLASS}
             />
           </Field>
-          <Field label="Event type">
+          <Field
+            label="Event type"
+            help="Optional. Pick a common event or paste an exact event type."
+            helpId="governance-audit-event-type-help"
+          >
             <input
               data-testid="governance-audit-filter-event-type"
               name="eventType"
@@ -157,12 +249,20 @@ export function AuditLogView() {
               value={filters.eventType}
               onChange={(event) => updateFilter('eventType', event.target.value)}
               placeholder="governance.context.feedback.recorded…"
+              list="governance-audit-event-type-options"
+              aria-describedby="governance-audit-event-type-help"
               className={INPUT_CLASS}
             />
+            <datalist id="governance-audit-event-type-options">
+              {COMMON_EVENT_TYPES.map((eventType) => (
+                <option key={eventType} value={eventType} />
+              ))}
+            </datalist>
           </Field>
-          <Field label="Item">
+          <Field label="Item" help="Optional. Filter to memory or skill records.">
             <select
               data-testid="governance-audit-filter-item-kind"
+              name="itemKind"
               value={filters.itemKind}
               onChange={(event) => updateFilter('itemKind', event.target.value as ItemKindFilter)}
               className={INPUT_CLASS}
@@ -174,9 +274,10 @@ export function AuditLogView() {
               ))}
             </select>
           </Field>
-          <Field label="Scope">
+          <Field label="Scope" help="Optional. Narrow to a workspace, project, team, or user.">
             <select
               data-testid="governance-audit-filter-scope-kind"
+              name="scopeKind"
               value={filters.scopeKind}
               onChange={(event) => updateFilter('scopeKind', event.target.value as ScopeKindFilter)}
               className={INPUT_CLASS}
@@ -188,12 +289,14 @@ export function AuditLogView() {
               ))}
             </select>
           </Field>
-          <Field label="Limit">
+          <Field label="Limit" help="Show 1-200 rows.">
             <input
               type="number"
               name="limit"
               min={1}
               max={200}
+              inputMode="numeric"
+              autoComplete="off"
               value={filters.limit}
               onChange={(event) => updateFilter('limit', Number(event.target.value))}
               className={INPUT_CLASS}
@@ -213,6 +316,7 @@ export function AuditLogView() {
               data-testid="governance-audit-refresh"
               onClick={() => void loadAudit(filters)}
               disabled={loading}
+              aria-label="Refresh audit events"
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-ui-button text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
               title="Refresh"
             >
@@ -223,6 +327,7 @@ export function AuditLogView() {
               data-testid="governance-audit-export"
               onClick={() => void exportAudit()}
               disabled={exporting}
+              aria-label="Export audit events"
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-ui-button text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
               title="Export"
             >
@@ -232,39 +337,51 @@ export function AuditLogView() {
         </div>
 
         <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_180px_180px_auto]">
-          <Field label="Scope ID">
+          <Field
+            label="Scope ID"
+            help="Optional. Paste an ID only when you already know the workspace, project, team, or user."
+            helpId="governance-audit-scope-id-help"
+          >
             <input
               value={filters.scopeId}
               name="scopeId"
               autoComplete="off"
               onChange={(event) => updateFilter('scopeId', event.target.value)}
               placeholder="UUID…"
+              aria-describedby="governance-audit-scope-id-help"
               className={INPUT_CLASS}
             />
           </Field>
-          <Field label="User ID">
+          <Field
+            label="User ID"
+            help="Optional. Leave blank to include system and all users."
+            helpId="governance-audit-user-id-help"
+          >
             <input
               value={filters.userId}
               name="userId"
               autoComplete="off"
               onChange={(event) => updateFilter('userId', event.target.value)}
               placeholder="UUID…"
+              aria-describedby="governance-audit-user-id-help"
               className={INPUT_CLASS}
             />
           </Field>
-          <Field label="From">
+          <Field label="From" help="Optional start time.">
             <input
               type="datetime-local"
               name="from"
+              autoComplete="off"
               value={filters.from}
               onChange={(event) => updateFilter('from', event.target.value)}
               className={INPUT_CLASS}
             />
           </Field>
-          <Field label="To">
+          <Field label="To" help="Optional end time.">
             <input
               type="datetime-local"
               name="to"
+              autoComplete="off"
               value={filters.to}
               onChange={(event) => updateFilter('to', event.target.value)}
               className={INPUT_CLASS}
@@ -273,6 +390,7 @@ export function AuditLogView() {
           <label className="flex h-full min-h-14 items-end gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
             <input
               type="checkbox"
+              name="redactSecrets"
               checked={filters.redactSecrets}
               onChange={(event) => updateFilter('redactSecrets', event.target.checked)}
               className="mb-2 h-4 w-4 rounded border-black/20 text-apple-blue focus:ring-apple-blue"
@@ -284,12 +402,18 @@ export function AuditLogView() {
 
       <div className="flex-1 overflow-auto p-4 sm:p-6">
         {error && (
-          <div className="mb-4 rounded-card border border-apple-red/20 bg-apple-red/10 px-4 py-2 text-ui-body text-apple-red">
+          <div
+            role="alert"
+            className="mb-4 rounded-card border border-apple-red/20 bg-apple-red/10 px-4 py-2 text-ui-body text-apple-red"
+          >
             {error}
           </div>
         )}
         {exportStatus && (
-          <div className="mb-4 rounded-card border border-apple-blue/20 bg-apple-blue/10 px-4 py-2 text-ui-body text-apple-blue">
+          <div
+            aria-live="polite"
+            className="mb-4 rounded-card border border-apple-blue/20 bg-apple-blue/10 px-4 py-2 text-ui-body text-apple-blue"
+          >
             {exportStatus}
           </div>
         )}
@@ -483,13 +607,31 @@ function Metric({
   )
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({
+  label,
+  help,
+  helpId,
+  children,
+}: {
+  label: string
+  help?: string
+  helpId?: string
+  children: ReactNode
+}) {
   return (
     <label className="flex min-w-0 flex-col gap-1">
       <span className="text-ui-caption font-semibold text-secondary-light dark:text-secondary-dark">
         {label}
       </span>
       {children}
+      {help && (
+        <span
+          id={helpId}
+          className="text-ui-caption leading-snug text-secondary-light dark:text-secondary-dark"
+        >
+          {help}
+        </span>
+      )}
     </label>
   )
 }
