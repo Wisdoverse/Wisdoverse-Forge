@@ -166,4 +166,47 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByText(/completed work can become a governed skill/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /review skill candidates/i })).toBeDefined()
   })
+
+  test('shows available agents as selectable handoff cards', async () => {
+    useContextFeaturesStore.setState({ governance: true, preview: true, injection: true })
+    orchestrationApiMock.getParticipants.mockResolvedValue([
+      {
+        id: 'participant-1',
+        agentId: 'agent-1',
+        name: 'Builder Agent',
+        status: 'available',
+        capabilities: ['codex', 'rust'],
+      },
+      {
+        id: 'participant-2',
+        agentId: 'agent-2',
+        name: 'Review Agent',
+        status: 'available',
+        capabilities: ['review'],
+      },
+    ])
+
+    render(
+      <TaskDetailPanel
+        task={{
+          ...mockTask,
+          state: 'backlog',
+          assignedTo: undefined,
+          assignedAgentName: undefined,
+        }}
+        onClose={() => {}}
+      />
+    )
+
+    expect(await screen.findByText('Available agents')).toBeDefined()
+    expect(screen.getByText('Builder Agent')).toBeDefined()
+    expect(screen.getByText('Review Agent')).toBeDefined()
+    expect(screen.getByText('codex, rust')).toBeDefined()
+    expect(screen.getByText('2 ready')).toBeDefined()
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /review agent/i }))
+
+    expect(screen.getAllByText('Selected').length).toBe(1)
+    expect(screen.getByRole('button', { name: /preview and publish/i })).toBeEnabled()
+  })
 })
