@@ -51,6 +51,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
   const initial = agent?.systemPrompt ?? ''
   const [value, setValue] = useState(initial)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const stats = useMemo(() => promptStats(value), [value])
 
@@ -67,20 +68,46 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
     return <CliRuntimeConfig agent={agent} />
   }
 
+  const dirty = value !== initial
+  const hasPrompt = value.trim().length > 0
+  const activeTemplateId = PROMPT_TEMPLATES.find((template) => value === template.value)?.id ?? null
+  const promptHelpId = `${agentId}-system-prompt-help`
+  const promptStatusId = `${agentId}-system-prompt-status`
+
   async function handleSave() {
-    if (saving) return
+    if (saving || !dirty) return
     setSaving(true)
+    setSaveError(null)
     try {
       // Empty string clears the stored prompt (backend T12 `CASE WHEN $6 = '' THEN NULL`).
-      await updateAgentSystemPrompt(agentId, value.trim())
-      setSavedAt(Date.now())
+      const saved = await updateAgentSystemPrompt(agentId, value.trim())
+      if (saved) {
+        setSavedAt(Date.now())
+      } else {
+        setSaveError('Prompt profile was not saved. Check the details and try again.')
+      }
     } finally {
       setSaving(false)
     }
   }
 
-  const dirty = value !== initial
-  const hasPrompt = value.trim().length > 0
+  const promptStatus = saveError
+    ? saveError
+    : saving
+      ? 'Saving prompt profile…'
+      : dirty
+        ? 'Unsaved changes. Save to use this prompt on future work.'
+        : savedAt != null
+          ? 'Prompt profile saved.'
+          : hasPrompt
+            ? 'This agent already has a prompt profile.'
+            : 'Choose a template or write instructions before saving.'
+  const updatePromptValue = (nextValue: string) => {
+    setValue(nextValue)
+    if (saveError) {
+      setSaveError(null)
+    }
+  }
 
   return (
     <div
@@ -123,31 +150,52 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
       </div>
 
       <div className="flex flex-wrap gap-2" role="group" aria-label="Prompt templates">
-        {PROMPT_TEMPLATES.map((template) => (
-          <button
-            key={template.id}
-            type="button"
-            onClick={() => setValue(template.value)}
-            className="inline-flex h-8 items-center gap-2 rounded-lg border border-black/[0.08] bg-white px-3 text-ui-caption font-medium text-foreground-light transition-colors hover:border-apple-blue/35 hover:text-apple-blue dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-foreground-dark"
-          >
-            <FileText size={13} strokeWidth={2} aria-hidden="true" />
-            {template.label}
-          </button>
-        ))}
+        {PROMPT_TEMPLATES.map((template) => {
+          const selected = activeTemplateId === template.id
+          return (
+            <button
+              key={template.id}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => updatePromptValue(template.value)}
+              className={cn(
+                'inline-flex h-8 items-center gap-2 rounded-lg border px-3 text-ui-caption font-medium transition-colors hover:border-apple-blue/35 hover:text-apple-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
+                selected
+                  ? 'border-apple-blue/50 bg-apple-blue/10 text-apple-blue dark:border-apple-blue/60 dark:bg-apple-blue/15'
+                  : 'border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-foreground-dark'
+              )}
+            >
+              <FileText size={13} strokeWidth={2} aria-hidden="true" />
+              {template.label}
+            </button>
+          )
+        })}
       </div>
 
-      <label
-        htmlFor="config-system-prompt"
-        className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
-      >
-        System prompt
-      </label>
+      <div className="flex flex-col gap-1">
+        <label
+          htmlFor="config-system-prompt"
+          className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
+        >
+          System Prompt
+        </label>
+        <p
+          id={promptHelpId}
+          className="text-ui-caption text-secondary-light dark:text-secondary-dark"
+        >
+          Start from a template or write everyday instructions. Tell this agent the outcome, what to
+          avoid, and how to report progress.
+        </p>
+      </div>
       <textarea
         id="config-system-prompt"
+        name="systemPrompt"
+        autoComplete="off"
         rows={9}
         value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="e.g. You are a concise, Pythonic code reviewer."
+        onChange={(e) => updatePromptValue(e.target.value)}
+        aria-describedby={`${promptHelpId} ${promptStatusId}`}
+        placeholder="Example: Report progress in plain language, protect existing work, and list checks run…"
         className={cn(
           'w-full resize-none rounded-lg px-3 py-2 text-ui-body outline-none',
           'border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-white/[0.04]',
@@ -155,14 +203,28 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
           'focus:ring-2 focus:ring-apple-blue-focus'
         )}
       />
+      <p
+        id={promptStatusId}
+        role={saveError ? 'alert' : 'status'}
+        aria-live="polite"
+        className={cn(
+          'text-ui-caption',
+          saveError ? 'text-apple-red' : 'text-secondary-light dark:text-secondary-dark'
+        )}
+      >
+        {promptStatus}
+      </p>
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => setValue(initial)}
+            onClick={() => updatePromptValue(initial)}
             disabled={!dirty}
+            title={
+              dirty ? 'Reset to the last saved prompt.' : 'Make an edit before reset is available.'
+            }
             className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-lg border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-apple-blue/35 hover:text-apple-blue dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-foreground-dark',
+              'inline-flex h-9 items-center gap-2 rounded-lg border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-apple-blue/35 hover:text-apple-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-foreground-dark',
               !dirty && 'cursor-not-allowed opacity-50'
             )}
           >
@@ -171,10 +233,13 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
           </button>
           <button
             type="button"
-            onClick={() => setValue('')}
+            onClick={() => updatePromptValue('')}
             disabled={!hasPrompt}
+            title={
+              hasPrompt ? 'Clear the prompt text.' : 'Add prompt text before clear is available.'
+            }
             className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-lg border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-apple-red/35 hover:text-apple-red dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-foreground-dark',
+              'inline-flex h-9 items-center gap-2 rounded-lg border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-apple-red/35 hover:text-apple-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-foreground-dark',
               !hasPrompt && 'cursor-not-allowed opacity-50'
             )}
           >
@@ -186,13 +251,18 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
           type="button"
           onClick={handleSave}
           disabled={saving || !dirty}
+          title={
+            dirty
+              ? 'Save this prompt for future work.'
+              : 'Change the prompt before save is available.'
+          }
           className={cn(
-            'inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95',
+            'inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus active:scale-95',
             (saving || !dirty) && 'cursor-not-allowed opacity-50'
           )}
         >
           <Save size={14} strokeWidth={2} aria-hidden="true" />
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? 'Saving…' : 'Save Prompt Profile'}
         </button>
       </div>
     </div>
