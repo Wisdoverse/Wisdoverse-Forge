@@ -115,9 +115,14 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     expect(await screen.findByTestId('runtime-launch-checklist')).toBeDefined()
+    const nextStep = screen.getByTestId('runtime-next-step')
+    expect(nextStep).toHaveTextContent('Do This Next')
+    expect(nextStep).toHaveTextContent('CLI image inventory')
     expect(screen.getByText('Launch checklist')).toBeDefined()
     expect(screen.getByText('2/4 ready')).toBeDefined()
-    expect(screen.getByText(/Run make update-agents or make build-agent-all/i)).toBeDefined()
+    expect(
+      screen.getAllByText(/Run make update-agents or make build-agent-all/i).length
+    ).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: /Connect GitHub/i })).toBeDefined()
 
     fireEvent.click(screen.getByRole('button', { name: /Connect GitHub/i }))
@@ -164,6 +169,7 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     expect(await screen.findByText('4/4 ready')).toBeDefined()
+    expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Ready to Launch Agents')
     expect(screen.queryByRole('button', { name: /Connect GitHub/i })).toBeNull()
     expect(screen.getByText(/1\/1 Container CLI versions reported/i)).toBeDefined()
   })

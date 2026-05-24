@@ -90,11 +90,14 @@ describe('ProvidersSection', () => {
     const readiness = await screen.findByTestId('provider-readiness')
     expect(within(readiness).getByText(/1\/3 providers ready/i)).toBeDefined()
     expect(within(readiness).getByText('Default: OpenAI Production')).toBeDefined()
+    const nextStep = screen.getByTestId('provider-next-step')
+    expect(within(nextStep).getByText('Do This Next')).toBeDefined()
+    expect(within(nextStep).getByText('Test Provider Connection')).toBeDefined()
     expect(screen.getByRole('button', { name: /test openai production connection/i })).toBeDefined()
     expect(screen.getByText('Anthropic Review')).toBeDefined()
     expect(screen.getByText('Local Lab')).toBeDefined()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Needs Test' }))
+    fireEvent.click(within(nextStep).getByRole('button', { name: /show needs test/i }))
 
     expect(screen.queryByRole('button', { name: /test openai production connection/i })).toBeNull()
     expect(screen.getByText('Anthropic Review')).toBeDefined()
@@ -121,6 +124,50 @@ describe('ProvidersSection', () => {
     })
 
     expect(screen.getByText('No providers match this view')).toBeDefined()
+  })
+
+  test('guides an empty provider setup into the add form', async () => {
+    useSettingsStore.setState({ providers: [] })
+
+    render(<ProvidersSection />)
+
+    const nextStep = await screen.findByTestId('provider-next-step')
+    expect(within(nextStep).getByText('Add Your First Provider')).toBeDefined()
+    expect(within(nextStep).getByText(/paste the key/i)).toBeDefined()
+
+    fireEvent.click(within(nextStep).getByRole('button', { name: /add provider/i }))
+
+    expect(screen.getByLabelText(/^provider$/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: /save provider/i })).toBeDisabled()
+  })
+
+  test('does not treat disabled-only providers as ready', async () => {
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-disabled-only',
+          provider: 'ollama',
+          displayName: 'Local Disabled',
+          model: 'llama3',
+          priority: 1,
+          isEnabled: false,
+          isDefault: false,
+          lastTestStatus: 'untested',
+        },
+      ],
+    })
+
+    render(<ProvidersSection />)
+
+    const readiness = await screen.findByTestId('provider-readiness')
+    expect(within(readiness).getByText('Provider setup needs attention')).toBeDefined()
+    const nextStep = screen.getByTestId('provider-next-step')
+    expect(within(nextStep).getByText('Add an Active Provider')).toBeDefined()
+
+    fireEvent.click(within(nextStep).getByRole('button', { name: /add provider/i }))
+
+    expect(screen.getByText('Local Disabled')).toBeDefined()
+    expect(screen.getByRole('button', { name: /save provider/i })).toBeDisabled()
   })
 
   test('runs a provider test from the provider row', async () => {
