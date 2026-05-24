@@ -11,6 +11,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
   const [title, setTitle] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const submittedRef = useRef(false)
+  const trimmedTitle = title.trim()
 
   useEffect(() => {
     if (isOpen) {
@@ -21,10 +22,15 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
 
   function handleSubmit() {
     if (submittedRef.current) return
-    const trimmed = title.trim()
-    if (!trimmed) return
+    if (!trimmedTitle) return
     submittedRef.current = true
-    onSubmit(trimmed, columnId)
+    onSubmit(trimmedTitle, columnId)
+    setTitle('')
+    setIsOpen(false)
+  }
+
+  function handleCancel() {
+    submittedRef.current = true
     setTitle('')
     setIsOpen(false)
   }
@@ -42,7 +48,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
   }
 
   return (
-    <div className="px-1">
+    <div className="space-y-2 px-1">
       <input
         ref={inputRef}
         aria-label="Task title"
@@ -51,14 +57,12 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') handleSubmit()
-          if (e.key === 'Escape') {
-            submittedRef.current = true
-            setIsOpen(false)
-            setTitle('')
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            handleSubmit()
           }
+          if (e.key === 'Escape') handleCancel()
         }}
-        onBlur={handleSubmit}
         placeholder="Task title…"
         className={cn(
           'h-10 w-full rounded-full border border-black/[0.08] px-4 text-ui-body outline-none',
@@ -66,6 +70,28 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
           'placeholder:text-secondary-light dark:placeholder:text-secondary-dark'
         )}
       />
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={!trimmedTitle}
+          className={cn(
+            'inline-flex h-8 flex-1 items-center justify-center rounded-full px-3 text-ui-button font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
+            trimmedTitle
+              ? 'bg-apple-blue text-white hover:bg-apple-blue-focus'
+              : 'cursor-not-allowed bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
+          )}
+        >
+          Add Task
+        </button>
+        <button
+          type="button"
+          onClick={handleCancel}
+          className="inline-flex h-8 items-center justify-center rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-secondary-light transition-colors hover:border-apple-blue/35 hover:text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-secondary-dark dark:hover:text-foreground-dark"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   )
 }
