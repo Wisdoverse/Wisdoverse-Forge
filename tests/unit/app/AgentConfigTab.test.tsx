@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AgentConfigTab } from '@app/features/agents/AgentConfigTab'
 import { useAgentsStore } from '@app/shared/model/agents.store'
@@ -45,6 +45,16 @@ describe('AgentConfigTab', () => {
     expect(screen.getByLabelText(/system prompt/i)).toHaveValue('old prompt')
   })
 
+  it('summarizes prompt profile readiness', () => {
+    render(<AgentConfigTab agentId="a1" />)
+    const summary = screen.getByTestId('agent-config-summary')
+    expect(within(summary).getByText('Words')).toBeDefined()
+    expect(within(summary).getByText('2')).toBeDefined()
+    expect(within(summary).getByText('Lines')).toBeDefined()
+    expect(within(summary).getByText('1')).toBeDefined()
+    expect(screen.getByText('Configured')).toBeDefined()
+  })
+
   it('Save button disabled until user edits the value', () => {
     render(<AgentConfigTab agentId="a1" />)
     const save = screen.getByRole('button', { name: /save/i })
@@ -53,6 +63,19 @@ describe('AgentConfigTab', () => {
       target: { value: 'new prompt' },
     })
     expect(save).not.toBeDisabled()
+  })
+
+  it('applies a prompt template and can reset the edit', () => {
+    render(<AgentConfigTab agentId="a1" />)
+    fireEvent.click(screen.getByRole('button', { name: /review/i }))
+
+    expect((screen.getByLabelText(/system prompt/i) as HTMLTextAreaElement).value).toContain(
+      'code review agent'
+    )
+    expect(screen.getByText('Unsaved')).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: /reset/i }))
+    expect(screen.getByLabelText(/system prompt/i)).toHaveValue('old prompt')
   })
 
   it('calls updateAgentSystemPrompt with trimmed value on Save', async () => {
@@ -78,6 +101,9 @@ describe('AgentConfigTab', () => {
   it('renders CLI-agent-not-supported notice instead of the form', () => {
     render(<AgentConfigTab agentId="cli1" />)
     expect(screen.queryByLabelText(/system prompt/i)).toBeNull()
+    expect(screen.getByTestId('agent-cli-config-summary')).toBeInTheDocument()
+    expect(screen.getByText('Runtime profile')).toBeInTheDocument()
+    expect(screen.getAllByText('Container CLI').length).toBeGreaterThan(0)
     expect(screen.getByText(/only available for provider\+prompt agents/i)).toBeInTheDocument()
   })
 

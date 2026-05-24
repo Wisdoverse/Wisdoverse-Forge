@@ -1,6 +1,6 @@
 import { useForm } from 'react-hook-form'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Bug, ClipboardCheck, Code2, Plus, Search, type LucideIcon } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { useAgentsStore } from '@app/shared/model/agents.store'
 import { useNavigationStore } from '@app/entities/navigation'
@@ -28,6 +28,60 @@ const CLI_TOOLS: { value: CliTool; label: string }[] = [
   { value: 'opencode', label: 'OpenCode' },
 ]
 
+interface AgentRoleTemplate {
+  id: string
+  label: string
+  summary: string
+  name: string
+  systemPrompt: string
+  Icon: LucideIcon
+}
+
+interface RuntimeFitSummary {
+  title: string
+  detail: string
+  items: { label: string; value: string }[]
+}
+
+const AGENT_ROLE_TEMPLATES: AgentRoleTemplate[] = [
+  {
+    id: 'builder',
+    label: 'Builder',
+    summary: 'Implementation and tests',
+    name: 'Builder Agent',
+    systemPrompt:
+      'You turn scoped requests into working changes. Keep edits narrow, explain tradeoffs when requirements conflict, and verify with the most relevant checks before handing work back.',
+    Icon: Code2,
+  },
+  {
+    id: 'reviewer',
+    label: 'Reviewer',
+    summary: 'Risk and release checks',
+    name: 'Review Agent',
+    systemPrompt:
+      'You review changes for regressions, security issues, missing tests, and release risk. Lead with concrete findings and cite the exact files or checks that prove each point.',
+    Icon: ClipboardCheck,
+  },
+  {
+    id: 'investigator',
+    label: 'Investigator',
+    summary: 'Root-cause analysis',
+    name: 'Investigation Agent',
+    systemPrompt:
+      'You investigate uncertain failures by gathering evidence first, separating facts from hypotheses, and ending with the smallest next action that can disprove or confirm the cause.',
+    Icon: Search,
+  },
+  {
+    id: 'fixer',
+    label: 'Fixer',
+    summary: 'Bug repair loop',
+    name: 'Bug Fix Agent',
+    systemPrompt:
+      'You reproduce bugs, identify the smallest responsible path, patch the defect without unrelated refactors, and verify both the failing case and the nearby regression surface.',
+    Icon: Bug,
+  },
+]
+
 /// Providers the backend LLM gateway can route to. Models are free-text so new
 /// model releases don't require a frontend redeploy.
 const PROVIDERS: { value: string; label: string; defaultModel: string }[] = [
@@ -53,6 +107,39 @@ const DEFAULT_AGENT_CWD = '/workspace'
 
 function providerDefaultModel(provider: string): string {
   return PROVIDERS.find((candidate) => candidate.value === provider)?.defaultModel ?? ''
+}
+
+function providerLabel(provider: string): string {
+  return PROVIDERS.find((candidate) => candidate.value === provider)?.label ?? provider
+}
+
+function cliToolLabel(cliTool: CliTool): string {
+  return CLI_TOOLS.find((tool) => tool.value === cliTool)?.label ?? cliTool
+}
+
+function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): RuntimeFitSummary {
+  if (kind === 'cli') {
+    return {
+      title: `${cliToolLabel(cliTool)} container worker`,
+      detail: 'Best when the task needs repository files, terminal tools, or local CLI sessions.',
+      items: [
+        { label: 'Execution', value: 'Container CLI' },
+        { label: 'Files', value: '/workspace mounted' },
+        { label: 'Before use', value: 'Runtime container must start' },
+      ],
+    }
+  }
+
+  return {
+    title: `${providerLabel(provider)} prompt worker`,
+    detail:
+      'Best for planning, review, and lightweight coordination that does not need filesystem tools.',
+    items: [
+      { label: 'Execution', value: 'Provider API' },
+      { label: 'Files', value: 'No direct workspace mount' },
+      { label: 'Before use', value: 'Provider key must be ready' },
+    ],
+  }
 }
 
 function buildDefaultValues(provider: LlmProviderConfig | null): CreateAgentFormData {
@@ -89,8 +176,11 @@ export function CreateAgentModal() {
   const { register, handleSubmit, reset, watch, setValue } = useForm<CreateAgentFormData>({
     defaultValues,
   })
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const kind = watch('kind')
   const provider = watch('provider')
+  const cliTool = watch('cliTool')
+  const runtimeFit = runtimeFitFor(kind, cliTool, provider)
   const selectedProject = selectedProjectId
     ? (Object.values(projectsByTeam)
         .flat()
@@ -116,6 +206,7 @@ export function CreateAgentModal() {
     if (!createModalOpen) return
 
     reset(defaultValues)
+    setSelectedTemplateId(null)
     setError(null)
   }, [createModalOpen, defaultValues, reset, setError])
 
@@ -182,6 +273,12 @@ export function CreateAgentModal() {
     }
   }
 
+  function applyRoleTemplate(template: AgentRoleTemplate) {
+    setSelectedTemplateId(template.id)
+    setValue('name', template.name, { shouldDirty: true })
+    setValue('systemPrompt', template.systemPrompt, { shouldDirty: true })
+  }
+
   function handleClose() {
     setCreateModalOpen(false)
     setError(null)
@@ -228,6 +325,47 @@ export function CreateAgentModal() {
         )}
 
         <form onSubmit={handleSubmit(handleFormSubmit)} className="flex flex-col gap-4">
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                Role template
+              </span>
+              <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                {kind === 'provider' ? 'Prompt ready' : 'Name only for Container CLI'}
+              </span>
+            </div>
+            <div
+              role="group"
+              aria-label="Agent role templates"
+              className="grid gap-2 sm:grid-cols-2"
+            >
+              {AGENT_ROLE_TEMPLATES.map((template) => (
+                <button
+                  key={template.id}
+                  type="button"
+                  onClick={() => applyRoleTemplate(template)}
+                  aria-pressed={selectedTemplateId === template.id}
+                  className={cn(
+                    'flex min-h-16 items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors',
+                    selectedTemplateId === template.id
+                      ? 'border-apple-blue/40 bg-apple-blue/10 text-foreground-light dark:text-foreground-dark'
+                      : 'border-black/[0.08] bg-black/[0.02] text-foreground-light hover:bg-black/[0.04] dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.07]'
+                  )}
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-apple-blue shadow-sm dark:bg-black/20">
+                    <template.Icon size={15} strokeWidth={2.25} aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-ui-button font-semibold">{template.label}</span>
+                    <span className="block truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
+                      {template.summary}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div>
             <label
               htmlFor="agent-name"
@@ -278,6 +416,43 @@ export function CreateAgentModal() {
                 : 'Calls the LLM provider directly — no container, no terminal.'}
             </p>
           </div>
+
+          <section
+            data-testid="agent-runtime-fit"
+            className="rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                  Runtime fit
+                </p>
+                <p className="mt-0.5 text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
+                  {runtimeFit.title}
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-apple-blue/10 px-2 py-0.5 text-ui-caption font-medium text-apple-blue">
+                {kind === 'cli' ? 'File work' : 'Prompt work'}
+              </span>
+            </div>
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {runtimeFit.detail}
+            </p>
+            <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
+              {runtimeFit.items.map((item) => (
+                <div
+                  key={item.label}
+                  className="min-w-0 rounded-md bg-white px-2 py-1.5 dark:bg-black/20"
+                >
+                  <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                    {item.label}
+                  </span>
+                  <span className="mt-0.5 block truncate text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+                    {item.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
 
           <div>
             <div className="mb-1 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">

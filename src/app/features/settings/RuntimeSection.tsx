@@ -1,6 +1,6 @@
-import { useEffect, useCallback, useMemo, useState } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Activity, AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react'
+import { Activity, AlertTriangle, ArrowRight, CheckCircle2, RefreshCw } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { uiStyles } from '@app/shared/lib/uiStyles'
@@ -18,6 +18,16 @@ interface SettingRowProps {
   label: string
   description?: string
   children: React.ReactNode
+}
+
+interface RuntimeChecklistItem {
+  id: string
+  title: string
+  detail: string
+  ready: boolean
+  action?: 'refresh' | 'connect'
+  actionLabel?: string
+  provider?: string
 }
 
 function SettingRow({ label, description, children }: SettingRowProps) {
@@ -123,10 +133,16 @@ export function RuntimeSection() {
   const connectedCredentialCount = cliStatuses.filter((status) => status.connected).length
   const disconnectedCredentials = cliStatuses.filter((status) => !status.connected)
   const latestHeartbeat = latestParticipantHeartbeat(participants)
-  const remediationItems = useMemo(
-    () => runtimeRemediationItems(runtimeSettings, cliStatuses, cliStatusError, participantsError),
-    [cliStatusError, cliStatuses, participantsError, runtimeSettings]
+  const checklistItems = runtimeLaunchChecklistItems(
+    runtimeSettings,
+    cliStatuses,
+    cliStatusError,
+    participantsError,
+    latestHeartbeat,
+    runtimeLabel,
+    cliToolLabel
   )
+  const checklistReadyCount = checklistItems.filter((item) => item.ready).length
 
   async function connectCliProvider(provider: string) {
     setOpeningProvider(provider)
@@ -140,6 +156,16 @@ export function RuntimeSection() {
       window.open(result.url, '_blank', 'noopener,noreferrer')
     } finally {
       setOpeningProvider(null)
+    }
+  }
+
+  function handleChecklistAction(item: RuntimeChecklistItem) {
+    if (item.action === 'refresh') {
+      void refreshRuntimeSignals()
+      return
+    }
+    if (item.action === 'connect' && item.provider) {
+      void connectCliProvider(item.provider)
     }
   }
 
@@ -288,18 +314,44 @@ export function RuntimeSection() {
           </div>
         )}
 
-        {remediationItems.length > 0 && (
-          <div className="mt-4 rounded-lg bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
-            <div className="flex items-start gap-2">
-              <Activity size={14} strokeWidth={2} className="mt-0.5 shrink-0" aria-hidden="true" />
-              <div className="space-y-1">
-                {remediationItems.map((item) => (
-                  <p key={item}>{item}</p>
-                ))}
+        <div
+          data-testid="runtime-launch-checklist"
+          className="mt-4 rounded-lg border border-black/[0.06] bg-black/[0.02] p-3 dark:border-white/[0.08] dark:bg-white/[0.03]"
+        >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Activity
+                  size={14}
+                  strokeWidth={2}
+                  className="text-apple-blue"
+                  aria-hidden="true"
+                />
+                <h4 className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
+                  Launch checklist
+                </h4>
               </div>
+              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                Resolve warnings here before assigning Container CLI work.
+              </p>
             </div>
+            <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-ui-caption font-medium tabular-nums text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+              {checklistReadyCount}/{checklistItems.length} ready
+            </span>
           </div>
-        )}
+          <div className="mt-3 grid gap-2 lg:grid-cols-2">
+            {checklistItems.map((item) => (
+              <RuntimeChecklistRow
+                key={item.id}
+                item={item}
+                busy={
+                  item.action === 'refresh' ? cliStatusLoading : openingProvider === item.provider
+                }
+                onAction={() => handleChecklistAction(item)}
+              />
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* Settings card */}
@@ -388,6 +440,78 @@ export function RuntimeSection() {
   )
 }
 
+function RuntimeChecklistRow({
+  item,
+  busy,
+  onAction,
+}: {
+  item: RuntimeChecklistItem
+  busy: boolean
+  onAction: () => void
+}) {
+  const busyLabel = item.action === 'refresh' ? 'Refreshing' : 'Opening'
+
+  return (
+    <div
+      className={cn(
+        'flex min-w-0 flex-col gap-3 rounded-lg border px-3 py-2 sm:flex-row sm:items-center sm:justify-between',
+        item.ready
+          ? 'border-apple-green/15 bg-apple-green/5'
+          : 'border-apple-orange/20 bg-apple-orange/10'
+      )}
+    >
+      <div className="flex min-w-0 items-start gap-2">
+        {item.ready ? (
+          <CheckCircle2
+            size={15}
+            strokeWidth={2.25}
+            className="mt-0.5 shrink-0 text-apple-green"
+            aria-hidden="true"
+          />
+        ) : (
+          <AlertTriangle
+            size={15}
+            strokeWidth={2.25}
+            className="mt-0.5 shrink-0 text-apple-orange"
+            aria-hidden="true"
+          />
+        )}
+        <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <p className="font-medium text-ui-caption text-foreground-light dark:text-foreground-dark">
+              {item.title}
+            </p>
+            <span
+              className={cn(
+                'rounded-full px-2 py-0.5 text-[11px] font-semibold',
+                item.ready
+                  ? 'bg-apple-green/10 text-apple-green'
+                  : 'bg-apple-orange/15 text-apple-orange'
+              )}
+            >
+              {item.ready ? 'Ready' : 'Action'}
+            </span>
+          </div>
+          <p className="mt-1 text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
+            {item.detail}
+          </p>
+        </div>
+      </div>
+      {item.action && item.actionLabel && (
+        <button
+          type="button"
+          onClick={onAction}
+          disabled={busy}
+          className={cn(uiStyles.secondaryButton, 'h-8 shrink-0 px-2.5')}
+        >
+          <span>{busy ? busyLabel : item.actionLabel}</span>
+          <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
+        </button>
+      )}
+    </div>
+  )
+}
+
 function RuntimeReadinessMetric({
   label,
   value,
@@ -459,49 +583,118 @@ function CredentialStatusRow({
           disabled={opening}
           className={cn(uiStyles.secondaryButton, 'shrink-0')}
         >
-          {opening ? 'Opening...' : 'Connect'}
+          {opening ? 'Opening' : 'Connect'}
         </button>
       )}
     </div>
   )
 }
 
-function runtimeRemediationItems(
+function runtimeLaunchChecklistItems(
   runtimeSettings: RuntimeSettings | null,
   cliStatuses: CliAuthProxyStatusEntry[],
   cliStatusError: string | null,
-  participantsError: string | null
-): string[] {
-  const items: string[] = []
+  participantsError: string | null,
+  latestHeartbeat: string | null,
+  runtimeLabel: (rt: RuntimeType) => string,
+  cliToolLabel: (tool: CliTool) => string
+): RuntimeChecklistItem[] {
+  const items: RuntimeChecklistItem[] = []
   if (!runtimeSettings) {
-    items.push('Check that the Rust API is reachable and /api/v1/settings/runtime returns ok.')
-    return items
+    return [
+      {
+        id: 'runtime-api',
+        title: 'Runtime API',
+        detail: 'Runtime settings have not loaded yet. Refresh after the Rust API is reachable.',
+        ready: false,
+        action: 'refresh',
+        actionLabel: 'Refresh Status',
+      },
+    ]
   }
-  if (runtimeSettings.availableRuntimes.length === 0) {
-    items.push('Enable at least one runtime in server configuration before creating agents.')
-  }
+
+  const defaultRuntimeReady =
+    runtimeSettings.availableRuntimes.length > 0 &&
+    runtimeSettings.availableCliTools.length > 0 &&
+    runtimeSettings.availableRuntimes.includes(runtimeSettings.defaultRuntime) &&
+    runtimeSettings.availableCliTools.includes(runtimeSettings.defaultCliTool)
+  items.push({
+    id: 'defaults',
+    title: 'Execution defaults',
+    detail: defaultRuntimeReady
+      ? `${runtimeLabel(runtimeSettings.defaultRuntime)} with ${cliToolLabel(
+          runtimeSettings.defaultCliTool
+        )} is selectable for new agents.`
+      : 'Choose defaults that are present in the available runtime and Container CLI lists.',
+    ready: defaultRuntimeReady,
+  })
+
+  const missingImages = runtimeSettings.cliToolDetails.filter((detail) => !detail.imagePresent)
+  const reportedVersionCount = runtimeSettings.cliToolDetails.filter(
+    (detail) => detail.version
+  ).length
+  const imageInventoryReady =
+    runtimeSettings.availableCliTools.length > 0 &&
+    runtimeSettings.cliToolDetails.length > 0 &&
+    missingImages.length === 0 &&
+    reportedVersionCount === runtimeSettings.cliToolDetails.length
+  let imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} Container CLI versions reported.`
   if (runtimeSettings.availableCliTools.length === 0) {
-    items.push('Build or enable Container CLI images so CLI-backed agents can start.')
+    imageDetail = 'Build or enable Container CLI images so CLI-backed agents can start.'
+  } else if (runtimeSettings.cliToolDetails.length === 0) {
+    imageDetail = 'No Container CLI image metadata has been reported yet.'
+  } else if (missingImages.length > 0) {
+    imageDetail = `${missingImages.length} Container CLI image${
+      missingImages.length === 1 ? '' : 's'
+    } could not be inspected. Run make update-agents or make build-agent-all, then refresh.`
+  } else if (reportedVersionCount !== runtimeSettings.cliToolDetails.length) {
+    imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} Container CLI versions reported. Rebuild missing images with CLI_VERSION labels.`
   }
-  if (runtimeSettings.cliToolDetails.some((detail) => !detail.imagePresent)) {
-    items.push(
-      'Run make update-agents or make build-agent-all so missing Container CLI images can be inspected.'
-    )
-  }
-  if (runtimeSettings.cliToolDetails.some((detail) => !detail.version)) {
-    items.push('Rebuild agent images with CLI_VERSION so each Container CLI version is visible.')
-  }
-  if (cliStatusError) {
-    items.push('Credential status could not be checked; refresh after the API is healthy.')
-  }
-  if (participantsError) {
-    items.push(
-      'Agent heartbeat status could not be checked; refresh after orchestration is healthy.'
-    )
-  }
-  if (cliStatuses.some((status) => !status.connected)) {
-    items.push('Reconnect disconnected CLI credentials before starting new Container CLI agents.')
-  }
+  items.push({
+    id: 'images',
+    title: 'CLI image inventory',
+    detail: imageDetail,
+    ready: imageInventoryReady,
+    action: imageInventoryReady ? undefined : 'refresh',
+    actionLabel: imageInventoryReady ? undefined : 'Refresh Status',
+  })
+
+  const connectedCredentialCount = cliStatuses.filter((status) => status.connected).length
+  const disconnectedCredential = cliStatuses.find((status) => !status.connected)
+  const credentialReady = !cliStatusError && (!disconnectedCredential || cliStatuses.length === 0)
+  items.push({
+    id: 'credentials',
+    title: 'CLI credentials',
+    detail: cliStatusError
+      ? 'Credential status could not be checked. Refresh after the API is healthy.'
+      : cliStatuses.length === 0
+        ? 'No CLI OAuth providers require connection.'
+        : disconnectedCredential
+          ? `${connectedCredentialCount}/${cliStatuses.length} credentials connected. Reconnect ${disconnectedCredential.displayName} before starting new CLI agents.`
+          : `${connectedCredentialCount}/${cliStatuses.length} credentials connected.`,
+    ready: credentialReady,
+    action: cliStatusError ? 'refresh' : disconnectedCredential ? 'connect' : undefined,
+    actionLabel: cliStatusError
+      ? 'Refresh Status'
+      : disconnectedCredential
+        ? `Connect ${disconnectedCredential.displayName}`
+        : undefined,
+    provider: disconnectedCredential?.provider,
+  })
+
+  items.push({
+    id: 'heartbeats',
+    title: 'Agent heartbeat',
+    detail: participantsError
+      ? 'Agent heartbeat status could not be checked. Refresh after orchestration is healthy.'
+      : latestHeartbeat
+        ? `Latest agent heartbeat ${formatRelativeTime(latestHeartbeat)}.`
+        : 'No agent heartbeat has been observed yet. Start or wake an agent runtime, then refresh.',
+    ready: !participantsError && Boolean(latestHeartbeat),
+    action: participantsError || !latestHeartbeat ? 'refresh' : undefined,
+    actionLabel: participantsError || !latestHeartbeat ? 'Refresh Status' : undefined,
+  })
+
   return items
 }
 

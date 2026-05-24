@@ -1,7 +1,12 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Info } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
-import { useAgentsStore, type AgentInfo, type AgentStatus } from '@app/shared/model/agents.store'
+import {
+  isHostCliAgent,
+  useAgentsStore,
+  type AgentInfo,
+  type AgentStatus,
+} from '@app/shared/model/agents.store'
 import { AgentConfigTab } from '@app/features/agents/AgentConfigTab'
 import { AgentControlPanel } from '@app/features/agents/AgentControlPanel'
 import { AgentKindBadge } from '@app/features/agents/AgentKindBadge'
@@ -43,22 +48,24 @@ function defaultGradient(provider: string): string {
 
 type Tab = 'overview' | 'tasks' | 'history' | 'terminal' | 'plugins' | 'config'
 
-// Terminal tab is gated on Container CLI runtime selection. A CLI agent may be
-// temporarily missing a container id; the tab stays visible and explains why it
-// cannot attach yet.
+// Terminal attach is only available for platform-managed containers. Host CLI
+// agents are still task-managed through sidecar/NATS, but their local terminal
+// stays on the enrolled machine.
 function tabsFor(agent: AgentInfo): { id: Tab; label: string }[] {
-  const isContainerCli = Boolean(agent.cliTool)
+  const isCli = Boolean(agent.cliTool)
+  const hasTerminal = isCli && !isHostCliAgent(agent)
   return [
     { id: 'overview', label: 'Overview' },
     { id: 'tasks', label: 'Tasks' },
-    { id: 'history', label: isContainerCli ? 'History' : 'Chat' },
-    ...(isContainerCli ? [{ id: 'terminal' as Tab, label: 'Terminal' }] : []),
+    { id: 'history', label: isCli ? 'History' : 'Chat' },
+    ...(hasTerminal ? [{ id: 'terminal' as Tab, label: 'Terminal' }] : []),
     { id: 'plugins', label: 'Plugins' },
     { id: 'config', label: 'Config' },
   ]
 }
 
-function WorkspaceBoundaryNote({ isContainerCli }: { isContainerCli: boolean }) {
+function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
+  const hostCli = isHostCliAgent(agent)
   return (
     <div className="flex gap-2 rounded-lg bg-apple-blue/10 px-3 py-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
       <Info
@@ -67,7 +74,13 @@ function WorkspaceBoundaryNote({ isContainerCli }: { isContainerCli: boolean }) 
         className="mt-0.5 shrink-0 text-apple-blue"
         aria-hidden="true"
       />
-      {isContainerCli ? (
+      {hostCli ? (
+        <p>
+          Host CLI agents run on the enrolled machine. The platform manages identity, task
+          assignment, heartbeats, and result evidence; filesystem access remains the local directory
+          where the sidecar runs.
+        </p>
+      ) : agent.cliTool ? (
         <p>
           /workspace is mounted from the shared workspace and may include multiple projects. Primary
           Project only sets default task context. Only Container CLI agents use this mount; Provider
@@ -150,7 +163,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
             <h1 className="truncate text-ui-title font-semibold text-foreground-light dark:text-foreground-dark">
               {agent.name}
             </h1>
-            <AgentKindBadge cliTool={agent.cliTool} />
+            <AgentKindBadge cliTool={agent.cliTool} runtimeKind={agent.runtimeKind} />
           </div>
           <p className="truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
             {agent.provider} · {agent.model}
@@ -215,22 +228,34 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
               Details
             </span>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-ui-caption">
-              <DetailRow label="Container CLI" value={agent.cliTool ?? 'Not applicable'} />
+              <DetailRow
+                label="Runtime"
+                value={
+                  isHostCliAgent(agent)
+                    ? `Host CLI · ${agent.cliTool ?? 'unknown'}`
+                    : agent.cliTool
+                      ? `Container CLI · ${agent.cliTool}`
+                      : `${agent.provider} provider`
+                }
+              />
               <DetailRow label="Status" value={agent.status} />
               <DetailRow
                 label="Workspace Access"
                 value={agent.workspaceName ?? 'Default workspace'}
               />
               <DetailRow label="Primary Project" value={agent.projectName ?? 'None'} />
-              <DetailRow label="Container CWD" value={agent.cwd ?? 'Not applicable'} />
+              <DetailRow label="Working Directory" value={agent.cwd ?? 'Not applicable'} />
               <DetailRow
-                label="Container"
+                label={isHostCliAgent(agent) ? 'Runtime ID' : 'Container'}
                 value={
-                  agent.containerId?.slice(0, 12) ?? (agent.cliTool ? 'Pending' : 'Not applicable')
+                  isHostCliAgent(agent)
+                    ? (agent.runtimeId ?? 'Pending sidecar')
+                    : (agent.containerId?.slice(0, 12) ??
+                      (agent.cliTool ? 'Pending' : 'Not applicable'))
                 }
               />
             </div>
-            <WorkspaceBoundaryNote isContainerCli={Boolean(agent.cliTool)} />
+            <WorkspaceBoundaryNote agent={agent} />
           </div>
 
           {/* Control panel */}
@@ -242,7 +267,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
 
       {activeTab === 'history' && <ChatView agentId={agent.id} />}
 
-      {activeTab === 'terminal' && agent.cliTool && agent.containerId && (
+      {activeTab === 'terminal' && agent.cliTool && !isHostCliAgent(agent) && agent.containerId && (
         <Suspense
           fallback={
             <div
@@ -266,9 +291,10 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
         </Suspense>
       )}
 
-      {activeTab === 'terminal' && agent.cliTool && !agent.containerId && (
-        <PendingTerminal agent={agent} />
-      )}
+      {activeTab === 'terminal' &&
+        agent.cliTool &&
+        !isHostCliAgent(agent) &&
+        !agent.containerId && <PendingTerminal agent={agent} />}
 
       {activeTab === 'plugins' && <AgentPluginsTab agentId={agent.id} />}
 
@@ -296,9 +322,15 @@ function AssignmentFitCard({
     : agent.status === 'working'
       ? 'Already working'
       : 'Unavailable until restarted or reconnected'
-  const runtime = agent.cliTool ? `${agent.cliTool} Container CLI` : `${agent.provider} provider`
-  const credential =
-    agent.cliTool === 'codex'
+  const hostCli = isHostCliAgent(agent)
+  const runtime = hostCli
+    ? `${agent.cliTool ?? 'Host'} CLI on enrolled machine`
+    : agent.cliTool
+      ? `${agent.cliTool} Container CLI`
+      : `${agent.provider} provider`
+  const credential = hostCli
+    ? 'Uses credentials and tools installed on the enrolled machine.'
+    : agent.cliTool === 'codex'
       ? 'Container CLI OAuth status is checked in Runtime settings.'
       : agent.cliTool
         ? 'Container credentials are injected when the agent starts.'

@@ -107,6 +107,60 @@ describe('InboxView', () => {
     expect(screen.getByTestId('unread-count').textContent).toMatch(/^1\s*new$/)
   })
 
+  test('filters notifications by triage lane', async () => {
+    const store = useFeedStore.getState()
+    store.addNotification({
+      id: 'n1',
+      type: 'blocked',
+      taskId: 't1',
+      taskTitle: 'Blocked deployment',
+      message: 'Needs owner input',
+      read: false,
+      timestamp: Date.now() - 1000,
+    })
+    store.addNotification({
+      id: 'n2',
+      type: 'completed',
+      taskId: 't2',
+      taskTitle: 'Completed cleanup',
+      message: 'Ready for review',
+      read: true,
+      timestamp: Date.now() - 2000,
+    })
+    store.addNotification({
+      id: 'n3',
+      type: 'credential_expired',
+      taskId: 'credential:codex',
+      taskTitle: 'Credential expired',
+      message: 'Reconnect runtime access',
+      taskHref: '/settings',
+      read: false,
+      timestamp: Date.now(),
+    })
+
+    render(<InboxView />)
+
+    expect(screen.getByTestId('inbox-filter-count-all').textContent).toBe('3')
+    expect(screen.getByTestId('inbox-filter-count-unread').textContent).toBe('2')
+    expect(screen.getByTestId('inbox-filter-count-needs-action').textContent).toBe('2')
+    expect(screen.getByTestId('inbox-filter-count-credentials').textContent).toBe('1')
+
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('inbox-filter-needs-action'))
+    expect(screen.getByText('Blocked deployment')).toBeDefined()
+    expect(screen.getByText('Credential expired')).toBeDefined()
+    expect(screen.queryByText('Completed cleanup')).toBeNull()
+
+    await user.click(screen.getByTestId('inbox-filter-credentials'))
+    expect(screen.getByText('Credential expired')).toBeDefined()
+    expect(screen.queryByText('Blocked deployment')).toBeNull()
+
+    await user.click(screen.getByTestId('inbox-filter-unread'))
+    expect(screen.getByText('Blocked deployment')).toBeDefined()
+    expect(screen.getByText('Credential expired')).toBeDefined()
+    expect(screen.queryByText('Completed cleanup')).toBeNull()
+  })
+
   test('opens linked task notifications and marks them read', async () => {
     useFeedStore.getState().addNotification({
       id: 'task-owner:t1:blocked',

@@ -1,6 +1,15 @@
 import { useForm } from 'react-hook-form'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, FolderKanban, X } from 'lucide-react'
+import {
+  AlertTriangle,
+  Bug,
+  ClipboardCheck,
+  FolderKanban,
+  Search,
+  ShieldCheck,
+  X,
+  type LucideIcon,
+} from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 
 interface TaskFormData {
@@ -24,6 +33,57 @@ interface TaskProjectGroup {
   teamName: string
   projects: TaskProjectOption[]
 }
+
+interface TaskBriefTemplate {
+  id: string
+  label: string
+  summary: string
+  title: string
+  description: string
+  priority: TaskFormData['priority']
+  Icon: LucideIcon
+}
+
+const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
+  {
+    id: 'feature',
+    label: 'Feature',
+    summary: 'Scoped implementation',
+    title: 'Ship a scoped feature',
+    description: 'Outcome:\n- \n\nScope:\n- \n\nConstraints:\n- \n\nEvidence:\n- ',
+    priority: 'normal',
+    Icon: ClipboardCheck,
+  },
+  {
+    id: 'bug',
+    label: 'Bug',
+    summary: 'Reproduce and fix',
+    title: 'Fix a reproducible defect',
+    description: 'Symptom:\n- \n\nExpected behavior:\n- \n\nLikely area:\n- \n\nVerification:\n- ',
+    priority: 'high',
+    Icon: Bug,
+  },
+  {
+    id: 'investigation',
+    label: 'Investigate',
+    summary: 'Find root cause',
+    title: 'Investigate an unclear issue',
+    description:
+      'Question:\n- \n\nSignals to inspect:\n- \n\nKnown constraints:\n- \n\nDecision needed:\n- ',
+    priority: 'normal',
+    Icon: Search,
+  },
+  {
+    id: 'review',
+    label: 'Review',
+    summary: 'Risk and evidence pass',
+    title: 'Review a change for release readiness',
+    description:
+      'Change to review:\n- \n\nRisk areas:\n- \n\nRequired checks:\n- \n\nOutput expected:\n- ',
+    priority: 'normal',
+    Icon: ShieldCheck,
+  },
+]
 
 interface TaskFormModalProps {
   isOpen: boolean
@@ -62,6 +122,7 @@ export function TaskFormModal({
   })
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [selectingProject, setSelectingProject] = useState(false)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
 
   const dialogRef = useRef<HTMLDivElement>(null)
   const projectId = watch('projectId')
@@ -73,7 +134,10 @@ export function TaskFormModal({
   })
 
   useEffect(() => {
-    if (isOpen) setSubmitError(null)
+    if (isOpen) {
+      setSubmitError(null)
+      setSelectedTemplateId(null)
+    }
   }, [isOpen])
 
   useEffect(() => {
@@ -117,6 +181,13 @@ export function TaskFormModal({
     } finally {
       setSelectingProject(false)
     }
+  }
+
+  function applyTemplate(template: TaskBriefTemplate) {
+    setSelectedTemplateId(template.id)
+    setValue('title', template.title, { shouldDirty: true })
+    setValue('description', template.description, { shouldDirty: true })
+    setValue('priority', template.priority, { shouldDirty: true })
   }
 
   return (
@@ -252,6 +323,44 @@ export function TaskFormModal({
         )}
 
         <form onSubmit={handleSubmit(handleFormSubmit)} className="flex flex-col gap-4">
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                Brief
+              </span>
+            </div>
+            <div
+              role="group"
+              aria-label="Task brief templates"
+              className="grid gap-2 sm:grid-cols-2"
+            >
+              {TASK_BRIEF_TEMPLATES.map((template) => (
+                <button
+                  key={template.id}
+                  type="button"
+                  onClick={() => applyTemplate(template)}
+                  aria-pressed={selectedTemplateId === template.id}
+                  className={cn(
+                    'flex min-h-16 items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors',
+                    selectedTemplateId === template.id
+                      ? 'border-apple-blue/40 bg-apple-blue/10 text-foreground-light dark:text-foreground-dark'
+                      : 'border-black/[0.08] bg-black/[0.02] text-foreground-light hover:bg-black/[0.04] dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.07]'
+                  )}
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-apple-blue shadow-sm dark:bg-black/20">
+                    <template.Icon size={15} strokeWidth={2.25} aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-ui-button font-semibold">{template.label}</span>
+                    <span className="block truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
+                      {template.summary}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div>
             <label
               htmlFor="task-title"

@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach, beforeEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
 import { ListView } from '@app/features/list/ListView'
 import { useBoardStore } from '@app/shared/model/board.store'
 
@@ -44,5 +44,101 @@ describe('ListView', () => {
   test('shows empty state when no tasks', () => {
     render(<ListView />)
     expect(screen.getByText(/no tasks/i)).toBeDefined()
+  })
+
+  test('summarizes task work register across lifecycle states', () => {
+    useBoardStore.getState().setTasks([
+      {
+        id: 'backlog-1',
+        state: 'backlog',
+        params: { task: 'Plan onboarding', message: '' },
+        priority: 'normal',
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+      {
+        id: 'working-1',
+        state: 'working',
+        params: { task: 'Build settings', message: '' },
+        assignedAgentName: 'Build Runner',
+        priority: 'high',
+        progress: 40,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+      {
+        id: 'blocked-1',
+        state: 'blocked',
+        params: { task: 'Deploy preview', message: 'Waiting on approval' },
+        priority: 'urgent',
+        progress: 20,
+        blockedHint: 'Waiting on approval',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+      {
+        id: 'done-1',
+        state: 'completed',
+        params: { task: 'Document setup', message: '' },
+        priority: 'low',
+        progress: 100,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+    ])
+
+    render(<ListView />)
+
+    expect(screen.getByTestId('list-work-register')).toBeDefined()
+    expect(within(screen.getByTestId('list-metric-active')).getByText('1')).toBeDefined()
+    expect(within(screen.getByTestId('list-metric-backlog')).getByText('1')).toBeDefined()
+    expect(within(screen.getByTestId('list-metric-attention')).getByText('1')).toBeDefined()
+    expect(within(screen.getByTestId('list-metric-completed')).getByText('1')).toBeDefined()
+  })
+
+  test('filters task list by attention state and search', () => {
+    useBoardStore.getState().setTasks([
+      {
+        id: 'working-1',
+        state: 'working',
+        params: { task: 'Build settings', message: '' },
+        assignedAgentName: 'Build Runner',
+        priority: 'high',
+        progress: 40,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+      {
+        id: 'blocked-1',
+        state: 'blocked',
+        params: { task: 'Deploy preview', message: 'Waiting on approval' },
+        assignedAgentName: 'Release Agent',
+        priority: 'urgent',
+        progress: 20,
+        blockedHint: 'Waiting on approval',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+    ])
+
+    render(<ListView />)
+
+    fireEvent.click(
+      within(screen.getByTestId('list-task-filter')).getByRole('button', {
+        name: /needs action\s*1/i,
+      })
+    )
+
+    expect(screen.getByText('Deploy preview')).toBeDefined()
+    expect(screen.queryByText('Build settings')).toBeNull()
+
+    fireEvent.change(screen.getByTestId('list-search'), {
+      target: { value: 'missing task' },
+    })
+    expect(screen.getByTestId('list-filter-empty')).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }))
+    expect(screen.getByText('Build settings')).toBeDefined()
   })
 })

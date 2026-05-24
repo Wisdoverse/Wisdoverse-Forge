@@ -7,6 +7,7 @@ use std::io::{BufRead, Write};
 pub mod collaborators;
 pub mod create;
 pub mod delete;
+pub mod enroll_local;
 pub mod get;
 pub mod interrupt;
 pub mod keys;
@@ -44,6 +45,8 @@ pub enum AgentsSubcommand {
     Get(get::GetArgs),
     /// Create a new agent
     Create(create::CreateArgs),
+    /// Enroll a local Host CLI agent into the remote control plane
+    EnrollLocal(enroll_local::EnrollLocalArgs),
     /// Update an agent
     Update(update::UpdateArgs),
     /// Delete an agent
@@ -79,6 +82,7 @@ pub async fn dispatch(
         AgentsSubcommand::List(a) => list::run(a, ctx, stdout).await,
         AgentsSubcommand::Get(a) => get::run(a, ctx, stdout).await,
         AgentsSubcommand::Create(a) => create::run(a, ctx, stdout, stderr).await,
+        AgentsSubcommand::EnrollLocal(a) => enroll_local::run(a, ctx, stdout).await,
         AgentsSubcommand::Update(a) => update::run(a, ctx, stdout).await,
         AgentsSubcommand::Delete(a) => delete::run(a, ctx, stdin, stdout, stderr).await,
         AgentsSubcommand::Move(a) => move_::run(a, ctx, stdout).await,

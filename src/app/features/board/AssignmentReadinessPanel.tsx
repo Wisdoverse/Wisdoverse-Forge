@@ -3,8 +3,17 @@ import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import type { ParticipantSummary } from '@app/shared/api/orchestration'
 
+export interface BoardWorkloadSnapshot {
+  backlog: number
+  unassigned: number
+  inFlight: number
+  blocked: number
+  review: number
+}
+
 interface AssignmentReadinessPanelProps {
   participants: ParticipantSummary[]
+  workload: BoardWorkloadSnapshot
   loading: boolean
   error: string | null
   onRefresh: () => void
@@ -24,6 +33,7 @@ const STATUS_STYLES: Record<ParticipantSummary['status'], string> = {
 
 export function AssignmentReadinessPanel({
   participants,
+  workload,
   loading,
   error,
   onRefresh,
@@ -37,6 +47,7 @@ export function AssignmentReadinessPanel({
       : available.length > 0
         ? `${available.length} agent${available.length === 1 ? '' : 's'} can take work now.`
         : 'No agent can take work right now.'
+  const handoffSummary = summarizeHandoff(workload, available.length)
 
   return (
     <section
@@ -57,14 +68,17 @@ export function AssignmentReadinessPanel({
                 {loading ? 'Checking agents...' : summary}
               </span>
             </div>
+            <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {handoffSummary}
+            </p>
             {error && <p className="mt-0.5 text-ui-caption text-apple-red">{error}</p>}
           </div>
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <ReadinessCount label="Available" value={available.length} />
-          <ReadinessCount label="Busy" value={busy.length} />
-          <ReadinessCount label="Offline" value={offline.length} />
+          <MetricPill label="Available" value={available.length} />
+          <MetricPill label="Busy" value={busy.length} />
+          <MetricPill label="Offline" value={offline.length} />
           <button
             type="button"
             onClick={onRefresh}
@@ -83,6 +97,22 @@ export function AssignmentReadinessPanel({
         </div>
       </div>
 
+      <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-black/[0.06] pt-2 dark:border-white/[0.08]">
+        <MetricPill label="Backlog" value={workload.backlog} />
+        <MetricPill label="Unassigned" value={workload.unassigned} />
+        <MetricPill label="In flight" value={workload.inFlight} />
+        <MetricPill
+          label="Blocked"
+          value={workload.blocked}
+          tone={workload.blocked > 0 ? 'warn' : 'default'}
+        />
+        <MetricPill
+          label="Review"
+          value={workload.review}
+          tone={workload.review > 0 ? 'success' : 'default'}
+        />
+      </div>
+
       {participants.length > 0 && (
         <div className="mt-2 flex gap-2 overflow-x-auto pb-0.5">
           {participants.map((participant) => (
@@ -94,15 +124,56 @@ export function AssignmentReadinessPanel({
   )
 }
 
-function ReadinessCount({ label, value }: { label: string; value: number }) {
+function MetricPill({
+  label,
+  value,
+  tone = 'default',
+}: {
+  label: string
+  value: number
+  tone?: 'default' | 'success' | 'warn'
+}) {
   return (
-    <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-black/[0.04] px-2 text-ui-caption text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+    <span
+      data-testid={`assignment-metric-${label.toLowerCase().replace(/\s+/g, '-')}`}
+      className={cn(
+        'inline-flex h-7 items-center gap-1.5 rounded-full px-2 text-ui-caption',
+        tone === 'success'
+          ? 'bg-apple-green/10 text-apple-green'
+          : tone === 'warn'
+            ? 'bg-apple-orange/10 text-apple-orange'
+            : 'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
+      )}
+    >
       <span className="font-semibold tabular-nums text-foreground-light dark:text-foreground-dark">
         {value}
       </span>
       {label}
     </span>
   )
+}
+
+function summarizeHandoff(workload: BoardWorkloadSnapshot, availableCount: number): string {
+  if (workload.unassigned > 0) {
+    const taskLabel = pluralize(workload.unassigned, 'task')
+    return availableCount > 0
+      ? `${workload.unassigned} unassigned ${taskLabel} can be handed off.`
+      : `${workload.unassigned} unassigned ${taskLabel} waiting for capacity.`
+  }
+
+  if (workload.blocked > 0) {
+    return `${workload.blocked} blocked ${pluralize(workload.blocked, 'task')} need follow-up.`
+  }
+
+  if (workload.review > 0) {
+    return `${workload.review} completed ${pluralize(workload.review, 'task')} ready for review.`
+  }
+
+  return 'Handoff lane is clear.'
+}
+
+function pluralize(count: number, singular: string): string {
+  return count === 1 ? singular : `${singular}s`
 }
 
 function ParticipantChip({ participant }: { participant: ParticipantSummary }) {
