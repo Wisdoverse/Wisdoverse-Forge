@@ -13,6 +13,7 @@ use crate::services::admin::AdminService;
 use crate::services::agent::AgentService;
 use crate::services::agent_container_control::AgentContainerControlService;
 use crate::services::agent_container_lifecycle::AgentContainerLifecycleService;
+use crate::services::agent_enrollment::HostAgentEnrollmentService;
 use crate::services::agent_message::AgentMessageService;
 use crate::services::agent_prompt::AgentPromptService;
 use crate::services::analytics::AnalyticsService;
@@ -98,6 +99,10 @@ impl AppState {
             self.docker.clone(),
             self.auth_callout.clone(),
         )
+    }
+
+    pub(crate) fn host_agent_enrollment_service(&self) -> HostAgentEnrollmentService {
+        HostAgentEnrollmentService::from_runtime(self.pool.clone(), &self.config, self.context_features)
     }
 
     pub(crate) fn analytics_service(&self) -> AnalyticsService {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Send, X } from 'lucide-react'
+import { Bot, CheckCircle2, RotateCcw, Send, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import {
   orchestrationApi,
@@ -49,6 +49,8 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [publishing, setPublishing] = useState(false)
   const [skillDraftOpen, setSkillDraftOpen] = useState(false)
+  const [recoveryAction, setRecoveryAction] = useState<'retry' | 'approve' | null>(null)
+  const [recoveryError, setRecoveryError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!contextVisible && activeTab === 'context') setActiveTab('description')
@@ -60,6 +62,8 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
     (task.state === 'backlog' ||
       task.state === 'queued' ||
       (task.state === 'blocked' && task.blockedReason === 'waiting_agent'))
+  const canRetry = task.state === 'failed' || task.state === 'canceled'
+  const canApprove = task.state === 'blocked' && task.blockedReason === 'waiting_approval'
 
   useEffect(() => {
     if (!canAssign) return
@@ -112,6 +116,22 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       setPreviewError(err instanceof Error ? err.message : 'Failed to publish task')
     } finally {
       setPublishing(false)
+    }
+  }
+
+  async function handleRecovery(action: 'retry' | 'approve') {
+    setRecoveryAction(action)
+    setRecoveryError(null)
+    try {
+      const response =
+        action === 'retry'
+          ? await orchestrationApi.retryTask(task.id)
+          : await orchestrationApi.approveTask(task.id)
+      if (response.ok && response.task) upsertTask(response.task)
+    } catch (err) {
+      setRecoveryError(err instanceof Error ? err.message : 'Failed to update task')
+    } finally {
+      setRecoveryAction(null)
     }
   }
 
@@ -208,28 +228,37 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       {/* Action buttons */}
       {canAssign && (
         <div className="space-y-2 pt-3 border-t border-black/[0.04] dark:border-white/[0.04]">
-          <label className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
-            Assign with context
-          </label>
-          <div className="flex gap-2">
-            <select
-              value={selectedAgentId}
-              onChange={(event) => setSelectedAgentId(event.target.value)}
-              className="min-w-0 flex-1 rounded-lg bg-apple-gray-6 px-2 py-1.5 text-xs outline-none dark:bg-white/[0.06]"
-            >
-              <option value="">No available agent</option>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] font-medium uppercase text-secondary-light dark:text-secondary-dark">
+              Available agents
+            </span>
+            <span className="text-[10px] tabular-nums text-secondary-light dark:text-secondary-dark">
+              {participants.length} ready
+            </span>
+          </div>
+          {participants.length > 0 ? (
+            <div className="grid gap-2">
               {participants.map((participant) => (
-                <option key={participant.agentId} value={participant.agentId}>
-                  {participant.name}
-                </option>
+                <AgentChoice
+                  key={participant.agentId}
+                  participant={participant}
+                  selected={participant.agentId === selectedAgentId}
+                  onSelect={() => setSelectedAgentId(participant.agentId)}
+                />
               ))}
-            </select>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-black/[0.1] px-3 py-2 text-xs text-secondary-light dark:border-white/[0.12] dark:text-secondary-dark">
+              No available agent can take this task right now.
+            </div>
+          )}
+          <div className="flex justify-end">
             <button
               type="button"
               onClick={() => void openContextPreview(selectedAgentId)}
               disabled={!selectedAgentId}
               className={cn(
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                'inline-flex h-8 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-medium',
                 'bg-apple-blue text-white transition-colors hover:bg-apple-blue/90',
                 'disabled:cursor-not-allowed disabled:opacity-50'
               )}
@@ -237,7 +266,53 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
               title="Preview and publish task"
             >
               <Send size={14} strokeWidth={2} />
+              <span>Preview and publish</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {(canRetry || canApprove) && (
+        <div
+          data-testid="task-recovery-actions"
+          className="space-y-2 pt-3 border-t border-black/[0.04] dark:border-white/[0.04]"
+        >
+          {recoveryError && (
+            <div className="rounded-lg bg-apple-red/10 px-3 py-2 text-xs text-apple-red">
+              {recoveryError}
+            </div>
+          )}
+          <div className="flex gap-2">
+            {canRetry && (
+              <button
+                type="button"
+                onClick={() => void handleRecovery('retry')}
+                disabled={recoveryAction !== null}
+                className={cn(
+                  'inline-flex flex-1 items-center justify-center gap-1.5 rounded-button py-1.5 text-xs font-medium',
+                  'bg-apple-blue/10 text-apple-blue transition-colors hover:bg-apple-blue/15',
+                  'disabled:cursor-not-allowed disabled:opacity-50'
+                )}
+              >
+                <RotateCcw size={13} strokeWidth={2.25} aria-hidden="true" />
+                <span>{recoveryAction === 'retry' ? 'Retrying…' : 'Retry task'}</span>
+              </button>
+            )}
+            {canApprove && (
+              <button
+                type="button"
+                onClick={() => void handleRecovery('approve')}
+                disabled={recoveryAction !== null}
+                className={cn(
+                  'inline-flex flex-1 items-center justify-center gap-1.5 rounded-button py-1.5 text-xs font-medium',
+                  'bg-apple-green/10 text-apple-green transition-colors hover:bg-apple-green/15',
+                  'disabled:cursor-not-allowed disabled:opacity-50'
+                )}
+              >
+                <CheckCircle2 size={13} strokeWidth={2.25} aria-hidden="true" />
+                <span>{recoveryAction === 'approve' ? 'Approving…' : 'Approve and continue'}</span>
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -289,5 +364,60 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
         onClose={() => setSkillDraftOpen(false)}
       />
     </div>
+  )
+}
+
+function AgentChoice({
+  participant,
+  selected,
+  onSelect,
+}: {
+  participant: ParticipantSummary
+  selected: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      className={cn(
+        'flex min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors',
+        selected
+          ? 'border-apple-blue/35 bg-apple-blue/10'
+          : 'border-black/[0.08] bg-black/[0.02] hover:border-apple-blue/25 dark:border-white/[0.1] dark:bg-white/[0.035]'
+      )}
+    >
+      <span
+        className={cn(
+          'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+          selected
+            ? 'bg-apple-blue text-white'
+            : 'bg-white text-secondary-light dark:bg-white/[0.07] dark:text-secondary-dark'
+        )}
+      >
+        <Bot size={15} strokeWidth={2.25} aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-xs font-semibold text-foreground-light dark:text-foreground-dark">
+          {participant.name}
+        </span>
+        <span className="block truncate text-[10px] text-secondary-light dark:text-secondary-dark">
+          {participant.capabilities.length > 0
+            ? participant.capabilities.join(', ')
+            : 'Ready for assignment'}
+        </span>
+      </span>
+      <span
+        className={cn(
+          'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium',
+          selected
+            ? 'bg-apple-blue text-white'
+            : 'bg-apple-green/10 text-apple-green dark:bg-apple-green/15'
+        )}
+      >
+        {selected ? 'Selected' : 'Ready'}
+      </span>
+    </button>
   )
 }

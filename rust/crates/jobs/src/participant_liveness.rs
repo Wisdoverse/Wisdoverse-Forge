@@ -76,6 +76,15 @@ pub(crate) const UPSERT_PARTICIPANT_SQL: &str = r#"WITH agent_row AS (
                 last_heartbeat_at = NOW()
         RETURNING *"#;
 
+pub(crate) const UPDATE_AGENT_STATUS_FROM_HEARTBEAT_SQL: &str = r#"UPDATE agents
+           SET status = $3::agent_status,
+               updated_at = CASE
+                   WHEN status IS DISTINCT FROM $3::agent_status THEN NOW()
+                   ELSE updated_at
+               END
+         WHERE id = $1
+           AND organization_id = $2"#;
+
 pub(crate) const MARK_STALE_OFFLINE_SQL: &str = r#"UPDATE participants
            SET status = 'offline'
          WHERE status <> 'offline'
@@ -204,6 +213,15 @@ pub(crate) const RELEASE_PARTICIPANT_AFTER_LEASE_EXPIRY_SQL: &str = r#"UPDATE pa
          WHERE organization_id = $1
            AND agent_id = $2
         RETURNING *"#;
+
+pub(crate) const UPDATE_AGENT_STATUS_OFFLINE_SQL: &str = r#"UPDATE agents
+           SET status = 'offline',
+               updated_at = CASE
+                   WHEN status IS DISTINCT FROM 'offline'::agent_status THEN NOW()
+                   ELSE updated_at
+               END
+         WHERE id = $1
+           AND organization_id = $2"#;
 
 #[derive(Debug, Deserialize)]
 struct HeartbeatPayload {
@@ -343,6 +361,8 @@ pub async fn handle_heartbeat(client: &Client, pool: &PgPool, subject: &str, pay
         return Err(anyhow!("no agent row found for heartbeat agent {subject_agent}"));
     };
 
+    update_agent_status_from_participant(pool, &participant).await?;
+
     if let Err(err) = publish_participant_update(client, &participant, "participant.heartbeat").await {
         tracing::warn!(error = %err, participant_id = %participant.id, "Failed to broadcast participant heartbeat");
     }
@@ -369,11 +389,32 @@ pub async fn mark_stale_offline(client: &Client, pool: &PgPool, stale_after: Dur
         .fetch_all(pool)
         .await?;
     for participant in &participants {
+        update_agent_status_offline(pool, participant).await?;
         if let Err(err) = publish_participant_update(client, participant, "participant.offline").await {
             tracing::warn!(error = %err, participant_id = %participant.id, "Failed to broadcast participant offline update");
         }
     }
     Ok(participants.len() as u64)
+}
+
+async fn update_agent_status_from_participant(pool: &PgPool, participant: &Participant) -> Result<()> {
+    let status = if participant.status == "busy" { "working" } else { "idle" };
+    sqlx::query(UPDATE_AGENT_STATUS_FROM_HEARTBEAT_SQL)
+        .bind(participant.agent_id.as_uuid())
+        .bind(participant.organization_id.as_uuid())
+        .bind(status)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+async fn update_agent_status_offline(pool: &PgPool, participant: &Participant) -> Result<()> {
+    sqlx::query(UPDATE_AGENT_STATUS_OFFLINE_SQL)
+        .bind(participant.agent_id.as_uuid())
+        .bind(participant.organization_id.as_uuid())
+        .execute(pool)
+        .await?;
+    Ok(())
 }
 
 #[derive(Debug, Clone)]
@@ -635,6 +676,14 @@ mod tests {
     fn stale_sql_only_marks_non_offline_rows() {
         assert!(MARK_STALE_OFFLINE_SQL.contains("status <> 'offline'"));
         assert!(MARK_STALE_OFFLINE_SQL.contains("last_heartbeat_at < NOW()"));
+    }
+
+    #[test]
+    fn agent_status_sql_tracks_participant_liveness_without_touching_other_tenants() {
+        assert!(UPDATE_AGENT_STATUS_FROM_HEARTBEAT_SQL.contains("organization_id = $2"));
+        assert!(UPDATE_AGENT_STATUS_FROM_HEARTBEAT_SQL.contains("$3::agent_status"));
+        assert!(UPDATE_AGENT_STATUS_OFFLINE_SQL.contains("'offline'::agent_status"));
+        assert!(UPDATE_AGENT_STATUS_OFFLINE_SQL.contains("organization_id = $2"));
     }
 
     #[test]

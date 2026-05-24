@@ -4,14 +4,44 @@ import type { TaskSummary } from '@app/shared/api/orchestration'
 import { TaskCard } from './TaskCard'
 import { QuickCreate } from './QuickCreate'
 
-const COLUMN_CONFIG: Record<string, { label: string; dot: string }> = {
-  backlog: { label: 'Backlog', dot: 'bg-apple-gray-2' },
-  queued: { label: 'Queued', dot: 'bg-apple-gray-1' },
-  working: { label: 'Working', dot: 'bg-foreground-light dark:bg-foreground-dark' },
-  blocked: { label: 'Blocked', dot: 'bg-apple-red' },
-  done: { label: 'Done', dot: 'bg-apple-gray-2' },
-  failed: { label: 'Failed', dot: 'bg-apple-red' },
-  canceled: { label: 'Canceled', dot: 'bg-apple-gray-3' },
+type BoardDisplayMode = 'comfortable' | 'compact'
+
+const COLUMN_CONFIG: Record<string, { label: string; dot: string; surface: string }> = {
+  backlog: {
+    label: 'Backlog',
+    dot: 'bg-apple-gray-2',
+    surface: 'bg-white/70 dark:bg-white/[0.03]',
+  },
+  queued: {
+    label: 'Queued',
+    dot: 'bg-apple-blue',
+    surface: 'bg-apple-blue/[0.035] dark:bg-apple-blue/[0.06]',
+  },
+  working: {
+    label: 'Working',
+    dot: 'bg-foreground-light dark:bg-foreground-dark',
+    surface: 'bg-apple-green/[0.04] dark:bg-apple-green/[0.08]',
+  },
+  blocked: {
+    label: 'Blocked',
+    dot: 'bg-apple-red',
+    surface: 'bg-apple-red/[0.045] dark:bg-apple-red/[0.08]',
+  },
+  done: {
+    label: 'Done',
+    dot: 'bg-apple-green',
+    surface: 'bg-apple-green/[0.035] dark:bg-apple-green/[0.06]',
+  },
+  failed: {
+    label: 'Failed',
+    dot: 'bg-apple-red',
+    surface: 'bg-apple-red/[0.04] dark:bg-apple-red/[0.07]',
+  },
+  canceled: {
+    label: 'Canceled',
+    dot: 'bg-apple-gray-3',
+    surface: 'bg-black/[0.025] dark:bg-white/[0.035]',
+  },
 }
 
 interface KanbanColumnProps {
@@ -20,6 +50,7 @@ interface KanbanColumnProps {
   onTaskClick?: (taskId: string) => void
   onTaskPublish?: (task: TaskSummary) => void
   onQuickCreate?: (title: string, columnId: string) => void
+  displayMode?: BoardDisplayMode
 }
 
 export function KanbanColumn({
@@ -28,15 +59,21 @@ export function KanbanColumn({
   onTaskClick,
   onTaskPublish,
   onQuickCreate,
+  displayMode = 'comfortable',
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: columnId })
-  const config = COLUMN_CONFIG[columnId] ?? { label: columnId, dot: 'bg-apple-gray-2' }
+  const config = COLUMN_CONFIG[columnId] ?? {
+    label: columnId,
+    dot: 'bg-apple-gray-2',
+    surface: 'bg-white/70 dark:bg-white/[0.03]',
+  }
 
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        'flex min-w-0 flex-none flex-col rounded-card border border-black/[0.08] bg-white/70 p-3 dark:border-white/[0.1] dark:bg-white/[0.03] md:min-w-[220px] md:flex-1',
+        'flex min-w-0 flex-none flex-col rounded-card border border-black/[0.08] p-3 dark:border-white/[0.1] md:min-w-[220px] md:flex-1',
+        config.surface,
         isOver && 'ring-2 ring-apple-blue/30'
       )}
     >
@@ -59,8 +96,14 @@ export function KanbanColumn({
             task={task}
             onClick={() => onTaskClick?.(task.id)}
             onPublish={onTaskPublish}
+            displayMode={displayMode}
           />
         ))}
+        {tasks.length === 0 && (
+          <div className="rounded-lg border border-dashed border-black/10 px-3 py-4 text-center text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark">
+            No tasks
+          </div>
+        )}
       </div>
       {/* Quick-add only on backlog. Other columns reflect dispatcher state and
           can't accept manual inserts — promote a backlog task by dragging instead. */}

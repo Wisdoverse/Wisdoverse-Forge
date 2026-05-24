@@ -3,7 +3,7 @@
 //! This module owns the Agent bounded-context policies that are independent of
 //! HTTP handlers, SQL repositories, Docker clients, and message buses.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use agentforge_core::{AgentId, AgentStatus, AppError, AppResult, CliToolKind, ErrorKind};
 use serde::Serialize;
@@ -18,6 +18,10 @@ pub(crate) fn agent_list_response<T: Serialize>(agents: T) -> Value {
 
 pub(crate) fn agent_response<T: Serialize>(agent: T) -> Value {
     json!({ "ok": true, "agent": agent })
+}
+
+pub(crate) fn agent_enrollment_response<T: Serialize, U: Serialize>(agent: T, enrollment: U) -> Value {
+    json!({ "ok": true, "agent": agent, "enrollment": enrollment })
 }
 
 pub(crate) fn agent_data_response<T: Serialize>(data: T) -> Value {
@@ -110,6 +114,65 @@ pub(crate) fn agent_git_status_response() -> Value {
 
 pub(crate) fn agent_permission_response(projection: AgentPermissionProjection) -> Value {
     json!({ "ok": true, "data": projection })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct HostAgentEnrollment {
+    pub(crate) agent_id: Uuid,
+    pub(crate) runtime_id: String,
+    pub(crate) cli_tool: String,
+    pub(crate) env: BTreeMap<String, String>,
+    pub(crate) shell_exports: String,
+    pub(crate) sidecar_command: String,
+    pub(crate) server_url: Option<String>,
+}
+
+pub(crate) struct HostAgentEnrollmentPolicy;
+
+impl HostAgentEnrollmentPolicy {
+    pub(crate) const SIDECAR_COMMAND: &'static str = "agentforge-sidecar";
+
+    pub(crate) fn require_cli_tool(raw: &str) -> AppResult<&'static str> {
+        AgentCliToolSelection::normalize(Some(raw))?
+            .ok_or_else(|| ErrorKind::Validation("cliTool is required for Host CLI enrollment".into()).into())
+    }
+
+    pub(crate) fn require_nats_base_url(agent_url: Option<&str>, backend_url: Option<&str>) -> AppResult<String> {
+        AgentContainerEnvPolicy::pick_nats_base_url(agent_url, backend_url)
+            .filter(|url| !url.trim().is_empty())
+            .ok_or_else(|| {
+                ErrorKind::Validation(
+                    "NATS_AGENT_URL or NATS_URL must be configured before enrolling a Host CLI agent".into(),
+                )
+                .into()
+            })
+    }
+
+    pub(crate) fn runtime_id(agent_id: Uuid) -> String {
+        format!("host-{}", &agent_id.to_string()[..8])
+    }
+
+    pub(crate) fn env_map(env: Vec<String>) -> BTreeMap<String, String> {
+        env.into_iter()
+            .filter_map(|entry| {
+                let (key, value) = entry.split_once('=')?;
+                Some((key.to_string(), value.to_string()))
+            })
+            .collect()
+    }
+
+    pub(crate) fn shell_exports(env: &BTreeMap<String, String>) -> String {
+        env.iter()
+            .map(|(key, value)| format!("export {key}={}", shell_quote(value)))
+            .chain(std::iter::once(Self::SIDECAR_COMMAND.to_string()))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+}
+
+fn shell_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\"'\"'"))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1060,6 +1123,44 @@ mod tests {
         );
         assert_eq!(AgentContainerEnvPolicy::creds_dir_for_cli_tool("codex"), Some("/home/agent/.codex"));
         assert_eq!(AgentContainerEnvPolicy::creds_dir_for_cli_tool("unknown"), None);
+    }
+
+    #[test]
+    fn host_agent_enrollment_policy_builds_ordered_shell_exports() {
+        let env = HostAgentEnrollmentPolicy::env_map(vec![
+            "NATS_URL=nats://agent:pw@nats:4222".to_string(),
+            "AGENT_ID=11111111-2222-3333-4444-555555555555".to_string(),
+            "HMAC_SECRET=value'with-quote".to_string(),
+        ]);
+        let shell = HostAgentEnrollmentPolicy::shell_exports(&env);
+
+        assert!(shell.contains("export AGENT_ID='11111111-2222-3333-4444-555555555555'"));
+        assert!(shell.contains("export HMAC_SECRET='value'\"'\"'with-quote'"));
+        assert!(shell.ends_with("agentforge-sidecar"));
+    }
+
+    #[test]
+    fn host_agent_enrollment_policy_requires_cli_tool() {
+        assert_eq!(HostAgentEnrollmentPolicy::require_cli_tool(" Codex ").unwrap(), "codex");
+        assert!(HostAgentEnrollmentPolicy::require_cli_tool("unknown").is_err());
+    }
+
+    #[test]
+    fn host_agent_enrollment_policy_requires_reachable_nats_url() {
+        let shared_url = ["nats://backend:", "secret", "@nats:4222"].concat();
+
+        assert_eq!(
+            HostAgentEnrollmentPolicy::require_nats_base_url(None, Some(&shared_url)).unwrap(),
+            "nats://nats:4222"
+        );
+        assert!(HostAgentEnrollmentPolicy::require_nats_base_url(None, None).is_err());
+    }
+
+    #[test]
+    fn host_agent_runtime_id_is_stable_and_prefixed() {
+        let agent_id = Uuid::parse_str("11111111-2222-3333-4444-555555555555").unwrap();
+
+        assert_eq!(HostAgentEnrollmentPolicy::runtime_id(agent_id), "host-11111111");
     }
 
     #[test]

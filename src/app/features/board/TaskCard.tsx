@@ -36,9 +36,10 @@ interface TaskCardProps {
   task: TaskSummary
   onClick?: () => void
   onPublish?: (task: TaskSummary) => void
+  displayMode?: 'comfortable' | 'compact'
 }
 
-export function TaskCard({ task, onClick, onPublish }: TaskCardProps) {
+export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable' }: TaskCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
   })
@@ -57,6 +58,7 @@ export function TaskCard({ task, onClick, onPublish }: TaskCardProps) {
     task.state === 'backlog' ||
     task.state === 'queued' ||
     (task.state === 'blocked' && task.blockedReason === 'waiting_agent')
+  const compact = displayMode === 'compact'
 
   function trackPressStart(e: PointerEvent<HTMLDivElement> | MouseEvent<HTMLDivElement>) {
     if (e.button !== 0) return
@@ -101,13 +103,14 @@ export function TaskCard({ task, onClick, onPublish }: TaskCardProps) {
         if (e.key === 'Enter' || e.key === ' ') onClick?.()
       }}
       className={cn(
-        'cursor-pointer rounded-card border border-black/[0.08] bg-white p-3 text-left dark:border-white/[0.1] dark:bg-[#2c2c2e]',
+        'cursor-pointer rounded-card border border-black/[0.08] bg-white text-left dark:border-white/[0.1] dark:bg-[#2c2c2e]',
+        compact ? 'p-2.5' : 'p-3',
         'transition-colors hover:border-apple-blue/30 hover:bg-white dark:hover:border-apple-blue/35 dark:hover:bg-white/[0.05]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
         isDragging && 'opacity-50'
       )}
     >
-      <div className="mb-2 flex items-center justify-between">
+      <div className={cn('flex items-center justify-between', compact ? 'mb-1.5' : 'mb-2')}>
         <div className="flex items-center gap-1.5">
           <div className={cn('h-1.5 w-1.5 rounded-full', STATE_DOTS[task.state])} />
           <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -144,11 +147,16 @@ export function TaskCard({ task, onClick, onPublish }: TaskCardProps) {
         </div>
       </div>
 
-      <p className="mb-2 line-clamp-2 text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+      <p
+        className={cn(
+          'text-ui-body font-medium text-foreground-light dark:text-foreground-dark',
+          compact ? 'mb-1.5 line-clamp-1' : 'mb-2 line-clamp-2'
+        )}
+      >
         {task.params.task}
       </p>
 
-      {showProgress && (
+      {showProgress && !compact && (
         <div data-testid="progress-bar" className="mb-2">
           <div className="h-1 overflow-hidden rounded-full bg-apple-gray-5 dark:bg-white/10">
             <div

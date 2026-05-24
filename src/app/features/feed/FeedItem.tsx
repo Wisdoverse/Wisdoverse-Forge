@@ -1,14 +1,33 @@
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  Circle,
+  CircleDot,
+  RefreshCw,
+  XCircle,
+  type LucideIcon,
+} from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import type { FeedItem as FeedItemType } from '@app/shared/model/feed.store'
 
-const TYPE_ICONS: Record<string, string> = {
-  'task.completed': '✓',
-  'task.queued': '→',
-  'task.working': '●',
-  'task.blocked': '⚠',
-  'task.failed': '✕',
-  'task.progress': '↻',
+const TYPE_ICONS: Record<string, LucideIcon> = {
+  'task.completed': CheckCircle2,
+  'task.queued': ArrowRight,
+  'task.working': CircleDot,
+  'task.blocked': AlertTriangle,
+  'task.failed': XCircle,
+  'task.progress': RefreshCw,
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  'task.completed': 'Completed',
+  'task.queued': 'Queued',
+  'task.working': 'Working',
+  'task.blocked': 'Blocked',
+  'task.failed': 'Failed',
+  'task.progress': 'Progress',
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -21,6 +40,8 @@ const TYPE_COLORS: Record<string, string> = {
 }
 
 export function FeedItem({ item }: { item: FeedItemType }) {
+  const Icon = TYPE_ICONS[item.type] ?? Circle
+
   return (
     <div className="flex gap-2 py-2">
       <div
@@ -29,13 +50,16 @@ export function FeedItem({ item }: { item: FeedItemType }) {
           TYPE_COLORS[item.type] ?? 'bg-apple-gray-5 text-apple-gray-1'
         )}
       >
-        {TYPE_ICONS[item.type] ?? '•'}
+        <Icon size={12} strokeWidth={2.1} aria-hidden="true" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-[11px]">
+        <div className="flex min-w-0 items-center gap-1.5 text-[11px]">
           <span className="font-medium">{item.agentName}</span>
           <span className="text-secondary-light dark:text-secondary-dark"> · </span>
-          <span className="font-medium">{item.taskTitle}</span>
+          <span className="min-w-0 flex-1 truncate font-medium">{item.taskTitle}</span>
+          <span className="shrink-0 rounded-full bg-black/[0.04] px-1.5 py-0.5 text-[9px] font-medium text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+            {TYPE_LABELS[item.type] ?? 'Update'}
+          </span>
         </div>
         {item.detail && (
           <div className="text-[10px] text-secondary-light dark:text-secondary-dark mt-0.5">

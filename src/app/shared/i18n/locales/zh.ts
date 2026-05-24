@@ -106,12 +106,15 @@ export const zh: TranslationKeys = {
         review: '查看运行时',
       },
       provider: {
-        title: '模型服务',
-        empty: '添加一个模型服务和 API Key。',
+        title: '执行凭证',
+        empty: '添加模型服务，或接入 CLI 会话。',
         needsTest: '请先点击测试，确认模型服务可以连接。',
+        cliReady: '{{name}} 已通过 {{runtime}} 接入。',
         create: '添加服务',
+        connectCli: '接入 CLI 会话',
         test: '测试服务',
-        review: '查看服务',
+        reviewProviders: '查看服务',
+        reviewAgents: '查看会话',
       },
       agent: {
         title: '会话',

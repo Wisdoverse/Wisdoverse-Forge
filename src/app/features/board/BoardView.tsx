@@ -1,5 +1,5 @@
 import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
 import { useNavigationStore } from '@app/entities/navigation'
@@ -13,7 +13,14 @@ import {
 import { InjectionPreviewModal } from '@app/entities/context/ui/InjectionPreviewModal'
 import type { ColumnId } from '@app/shared/model/board.types'
 import type { ContextPreviewResponse } from '@shared/types/context'
-import { AssignmentReadinessPanel } from './AssignmentReadinessPanel'
+import { AssignmentReadinessPanel, type BoardWorkloadSnapshot } from './AssignmentReadinessPanel'
+import {
+  BoardToolbar,
+  type BoardAssigneeFilter,
+  type BoardDisplayMode,
+  type BoardFilterCounts,
+  type BoardPriorityFilter,
+} from './BoardToolbar'
 
 const COLUMN_ORDER: ColumnId[] = [
   'backlog',
@@ -51,6 +58,25 @@ export function BoardView() {
   const [participants, setParticipants] = useState<ParticipantSummary[]>([])
   const [participantsLoading, setParticipantsLoading] = useState(false)
   const [participantsError, setParticipantsError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [priorityFilter, setPriorityFilter] = useState<BoardPriorityFilter>('all')
+  const [assigneeFilter, setAssigneeFilter] = useState<BoardAssigneeFilter>('all')
+  const [displayMode, setDisplayMode] = useState<BoardDisplayMode>('comfortable')
+  const workload = useMemo(() => summarizeWorkload(columns), [columns])
+  const boardFilters = useMemo(
+    () => ({ searchQuery, priorityFilter, assigneeFilter }),
+    [assigneeFilter, priorityFilter, searchQuery]
+  )
+  const visibleColumns = useMemo(
+    () => filterBoardColumns(columns, boardFilters),
+    [columns, boardFilters]
+  )
+  const filterCounts = useMemo(
+    () => summarizeBoardFilters(columns, visibleColumns),
+    [columns, visibleColumns]
+  )
+  const hasActiveBoardFilter =
+    searchQuery.trim().length > 0 || priorityFilter !== 'all' || assigneeFilter !== 'all'
 
   useEffect(() => {
     if (!selectedGroupId) return
@@ -277,24 +303,67 @@ export function BoardView() {
       <div className="flex h-full flex-col gap-3 p-1">
         <AssignmentReadinessPanel
           participants={participants}
+          workload={workload}
           loading={participantsLoading}
           error={participantsError}
           onRefresh={() => void loadParticipants(true)}
         />
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto md:flex-row md:overflow-x-auto md:overflow-y-hidden">
-          {COLUMN_ORDER.map((colId) => (
-            <KanbanColumn
-              key={colId}
-              columnId={colId}
-              tasks={columns[colId]}
-              onTaskClick={setSelectedTask}
-              onTaskPublish={
-                canPublishWithContext ? (task) => void openPublishPreview(task) : undefined
-              }
-              onQuickCreate={handleQuickCreate}
-            />
-          ))}
-        </div>
+        <BoardToolbar
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          priorityFilter={priorityFilter}
+          onPriorityFilterChange={setPriorityFilter}
+          assigneeFilter={assigneeFilter}
+          onAssigneeFilterChange={setAssigneeFilter}
+          displayMode={displayMode}
+          onDisplayModeChange={setDisplayMode}
+          counts={filterCounts}
+          onClear={() => {
+            setSearchQuery('')
+            setPriorityFilter('all')
+            setAssigneeFilter('all')
+          }}
+        />
+        {hasActiveBoardFilter && filterCounts.visible === 0 ? (
+          <div
+            data-testid="board-filter-empty"
+            className="flex min-h-64 flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-black/10 px-6 text-center dark:border-white/10"
+          >
+            <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+              No Tasks Match This Board View
+            </p>
+            <p className="max-w-sm text-ui-body text-secondary-light dark:text-secondary-dark">
+              Adjust search, priority, or assignee filters to return to the full workflow.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('')
+                setPriorityFilter('all')
+                setAssigneeFilter('all')
+              }}
+              className="inline-flex h-9 items-center justify-center rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-apple-blue/35 hover:text-apple-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:text-foreground-dark"
+            >
+              Clear Filters
+            </button>
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto md:flex-row md:overflow-x-auto md:overflow-y-hidden">
+            {COLUMN_ORDER.map((colId) => (
+              <KanbanColumn
+                key={colId}
+                columnId={colId}
+                tasks={visibleColumns[colId]}
+                onTaskClick={setSelectedTask}
+                onTaskPublish={
+                  canPublishWithContext ? (task) => void openPublishPreview(task) : undefined
+                }
+                onQuickCreate={handleQuickCreate}
+                displayMode={displayMode}
+              />
+            ))}
+          </div>
+        )}
       </div>
       <DragOverlay>{activeTask ? <TaskCard task={activeTask} /> : null}</DragOverlay>
       <InjectionPreviewModal
@@ -313,4 +382,82 @@ export function BoardView() {
       />
     </DndContext>
   )
+}
+
+interface BoardFilters {
+  searchQuery: string
+  priorityFilter: BoardPriorityFilter
+  assigneeFilter: BoardAssigneeFilter
+}
+
+function summarizeWorkload(columns: Record<ColumnId, TaskSummary[]>): BoardWorkloadSnapshot {
+  const backlog = columns.backlog.length
+  return {
+    backlog,
+    unassigned: columns.backlog.filter((task) => !task.assignedTo && !task.assignedAgentName)
+      .length,
+    inFlight: columns.queued.length + columns.working.length,
+    blocked: columns.blocked.length,
+    review: columns.done.length,
+  }
+}
+
+function filterBoardColumns(
+  columns: Record<ColumnId, TaskSummary[]>,
+  filters: BoardFilters
+): Record<ColumnId, TaskSummary[]> {
+  return COLUMN_ORDER.reduce(
+    (result, columnId) => {
+      result[columnId] = columns[columnId].filter((task) => taskMatchesBoardFilters(task, filters))
+      return result
+    },
+    {} as Record<ColumnId, TaskSummary[]>
+  )
+}
+
+function taskMatchesBoardFilters(task: TaskSummary, filters: BoardFilters): boolean {
+  if (filters.priorityFilter !== 'all' && task.priority !== filters.priorityFilter) return false
+  if (filters.assigneeFilter === 'assigned' && !task.assignedTo && !task.assignedAgentName)
+    return false
+  if (filters.assigneeFilter === 'unassigned' && (task.assignedTo || task.assignedAgentName))
+    return false
+
+  const query = filters.searchQuery.trim().toLowerCase()
+  if (!query) return true
+
+  return [
+    task.id,
+    task.params.task,
+    task.params.message,
+    task.assignedAgentName,
+    task.priority,
+    task.blockedHint,
+    task.error,
+  ]
+    .filter(Boolean)
+    .some((value) => String(value).toLowerCase().includes(query))
+}
+
+function summarizeBoardFilters(
+  columns: Record<ColumnId, TaskSummary[]>,
+  visibleColumns: Record<ColumnId, TaskSummary[]>
+): BoardFilterCounts {
+  const tasks = COLUMN_ORDER.flatMap((columnId) => columns[columnId])
+  const visibleTasks = COLUMN_ORDER.flatMap((columnId) => visibleColumns[columnId])
+  return {
+    total: tasks.length,
+    visible: visibleTasks.length,
+    priority: {
+      all: tasks.length,
+      urgent: tasks.filter((task) => task.priority === 'urgent').length,
+      high: tasks.filter((task) => task.priority === 'high').length,
+      normal: tasks.filter((task) => task.priority === 'normal').length,
+      low: tasks.filter((task) => task.priority === 'low').length,
+    },
+    assignee: {
+      all: tasks.length,
+      assigned: tasks.filter((task) => task.assignedTo || task.assignedAgentName).length,
+      unassigned: tasks.filter((task) => !task.assignedTo && !task.assignedAgentName).length,
+    },
+  }
 }

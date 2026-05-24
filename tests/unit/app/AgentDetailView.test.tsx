@@ -50,6 +50,16 @@ const codexContainerAgent = {
   cliTool: 'codex',
 }
 
+const hostCliAgent = {
+  ...codexContainerAgent,
+  id: 'a5',
+  name: 'Host Codex',
+  containerId: undefined,
+  runtimeId: 'host-aabbccdd',
+  runtimeKind: 'host-cli' as const,
+  cwd: '/home/operator/project',
+}
+
 describe('AgentDetailView', () => {
   test('renders agent name', () => {
     render(<AgentDetailView agent={containerAgent} onBack={() => {}} />)
@@ -92,6 +102,16 @@ describe('AgentDetailView', () => {
     expect(screen.queryByRole('button', { name: 'History' })).toBeNull()
   })
 
+  test('Host CLI agent is managed without container terminal actions', () => {
+    render(<AgentDetailView agent={hostCliAgent} onBack={() => {}} />)
+    expect(screen.getByText('Host CLI')).toBeDefined()
+    expect(screen.getByRole('button', { name: 'History' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Terminal' })).toBeNull()
+    expect(screen.getByText('host-aabbccdd')).toBeDefined()
+    expect(screen.getByText(/run on the enrolled machine/i)).toBeDefined()
+    expect(screen.queryByRole('button', { name: /start agent/i })).toBeNull()
+  })
+
   test('provider+prompt agent ignores stale container ids for Terminal visibility', () => {
     render(
       <AgentDetailView
@@ -124,7 +144,7 @@ describe('AgentDetailView', () => {
 
   test('explains workspace access and primary project context', () => {
     render(<AgentDetailView agent={{ ...containerAgent, cwd: '/workspace' }} onBack={() => {}} />)
-    expect(screen.getByText('Container CWD')).toBeDefined()
+    expect(screen.getByText('Working Directory')).toBeDefined()
     expect(screen.getByText('Workspace Access')).toBeDefined()
     expect(screen.getByText('Engineering')).toBeDefined()
     expect(screen.getByText('Primary Project')).toBeDefined()
@@ -138,7 +158,7 @@ describe('AgentDetailView', () => {
 
   test('explains provider+prompt agents do not mount workspace files', () => {
     render(<AgentDetailView agent={providerAgent} onBack={() => {}} />)
-    expect(screen.getByText('Container CWD')).toBeDefined()
+    expect(screen.getByText('Working Directory')).toBeDefined()
     expect(screen.getAllByText('Not applicable').length).toBeGreaterThan(0)
     expect(screen.getByText(/do not mount \/workspace or read files directly/i)).toBeDefined()
     expect(

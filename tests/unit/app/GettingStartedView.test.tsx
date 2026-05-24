@@ -187,6 +187,50 @@ describe('GettingStartedView', () => {
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/providers' })
   })
 
+  test('accepts a Host CLI agent as the execution credential', async () => {
+    useSettingsStore.setState({
+      runtimeSettings: {
+        defaultRuntime: 'container',
+        availableRuntimes: ['container'],
+        defaultCliTool: 'codex',
+        availableCliTools: ['codex'],
+        cliToolDetails: [
+          {
+            cliTool: 'codex',
+            image: 'agentforge-agent:codex',
+            version: '1.0.0',
+            imagePresent: true,
+            versionSource: 'docker-label',
+          },
+        ],
+      },
+      providers: [],
+    })
+    useAgentsStore.setState({
+      agents: [
+        {
+          id: 'host-agent',
+          name: 'Local Codex',
+          provider: 'OpenAI',
+          model: 'codex',
+          cliTool: 'codex',
+          runtimeId: 'host-abc12345',
+          runtimeKind: 'host-cli',
+          status: 'idle',
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+        },
+      ],
+    })
+
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText('Local Codex is connected through Host CLI.')).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /review agents/i }))
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/agents' })
+  })
+
   test('does not complete provider step until connection test has passed', async () => {
     useNavigationStore.setState({
       teams: [

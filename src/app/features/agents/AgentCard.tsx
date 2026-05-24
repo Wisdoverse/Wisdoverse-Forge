@@ -1,5 +1,5 @@
 import { cn } from '@app/shared/lib/utils'
-import type { AgentInfo, AgentStatus } from '@app/shared/model/agents.store'
+import { isHostCliAgent, type AgentInfo, type AgentStatus } from '@app/shared/model/agents.store'
 import { AgentKindBadge } from './AgentKindBadge'
 
 const PROVIDER_GRADIENTS: Record<string, string> = {
@@ -38,7 +38,11 @@ interface AgentCardProps {
 
 export function AgentCard({ agent, onClick }: AgentCardProps) {
   const ratePercent = Math.round(agent.successRate * 100)
-  const runtimeLabel = agent.cliTool ? 'Container CLI' : 'Provider Agent'
+  const runtimeLabel = isHostCliAgent(agent)
+    ? 'Host CLI'
+    : agent.cliTool
+      ? 'Container CLI'
+      : 'Provider Agent'
   const projectLabel = agent.projectName ?? agent.workspaceName ?? 'No project selected'
 
   return (
@@ -70,7 +74,7 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
           <span className="min-w-0 truncate text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
             {agent.name}
           </span>
-          <AgentKindBadge cliTool={agent.cliTool} />
+          <AgentKindBadge cliTool={agent.cliTool} runtimeKind={agent.runtimeKind} />
         </div>
 
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-ui-caption text-secondary-light dark:text-secondary-dark">

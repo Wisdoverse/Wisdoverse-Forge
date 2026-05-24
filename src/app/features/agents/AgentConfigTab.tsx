@@ -1,9 +1,46 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { FileText, RotateCcw, Save, Scissors, ShieldCheck, Sparkles } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
-import { useAgentsStore } from '@app/shared/model/agents.store'
+import { isHostCliAgent, useAgentsStore, type AgentInfo } from '@app/shared/model/agents.store'
 
 interface AgentConfigTabProps {
   agentId: string
+}
+
+interface PromptStats {
+  characters: number
+  words: number
+  lines: number
+}
+
+const PROMPT_TEMPLATES = [
+  {
+    id: 'delivery',
+    label: 'Delivery',
+    value:
+      'You are a delivery-focused implementation agent. Clarify blockers early, keep changes scoped to the assigned task, preserve existing conventions, and report validation evidence with each handoff.',
+  },
+  {
+    id: 'review',
+    label: 'Review',
+    value:
+      'You are a code review agent. Prioritize correctness, regressions, security, missing tests, and unclear ownership. Lead with concrete findings and cite the exact files or behavior that prove each issue.',
+  },
+  {
+    id: 'triage',
+    label: 'Triage',
+    value:
+      'You are a triage agent. Reproduce the reported behavior, separate symptoms from root cause, identify the smallest safe fix, and leave a clear next action when more evidence is needed.',
+  },
+]
+
+function promptStats(value: string): PromptStats {
+  const trimmed = value.trim()
+  return {
+    characters: value.length,
+    words: trimmed ? trimmed.split(/\s+/).length : 0,
+    lines: value ? value.split('\n').length : 0,
+  }
 }
 
 export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
@@ -15,6 +52,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
   const [value, setValue] = useState(initial)
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<number | null>(null)
+  const stats = useMemo(() => promptStats(value), [value])
 
   // Keep local state in sync when store updates (e.g. after save refresh).
   useEffect(() => {
@@ -26,16 +64,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
   }
 
   if (agent.cliTool) {
-    return (
-      <div
-        className={cn(
-          'rounded-card border border-black/[0.08] bg-white px-4 py-6 dark:border-white/[0.1] dark:bg-[#2a2a2c]',
-          'text-center text-ui-body text-secondary-light dark:text-secondary-dark'
-        )}
-      >
-        System prompt edit is only available for provider+prompt agents.
-      </div>
-    )
+    return <CliRuntimeConfig agent={agent} />
   }
 
   async function handleSave() {
@@ -51,27 +80,71 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
   }
 
   const dirty = value !== initial
+  const hasPrompt = value.trim().length > 0
 
   return (
     <div
       className={cn(
-        'flex flex-col gap-3 rounded-card border border-black/[0.08] bg-white p-6 dark:border-white/[0.1] dark:bg-[#2a2a2c]'
+        'flex flex-col gap-4 rounded-card border border-black/[0.08] bg-white p-5 dark:border-white/[0.1] dark:bg-[#2a2a2c]'
       )}
     >
-      <div className="flex items-center justify-between">
-        <label
-          htmlFor="config-system-prompt"
-          className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <Sparkles size={16} strokeWidth={2} className="text-apple-blue" aria-hidden="true" />
+            <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+              Prompt profile
+            </h2>
+          </div>
+          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            {agent.provider} · {agent.model}
+          </p>
+        </div>
+        <span
+          className={cn(
+            'inline-flex h-7 w-fit items-center rounded-full px-2.5 text-ui-caption font-medium',
+            dirty
+              ? 'bg-apple-orange/10 text-apple-orange'
+              : savedAt != null
+                ? 'bg-apple-blue/10 text-apple-blue'
+                : hasPrompt
+                  ? 'bg-apple-green/10 text-apple-green'
+                  : 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.08] dark:text-secondary-dark'
+          )}
         >
-          System prompt
-        </label>
-        {savedAt != null && !dirty && (
-          <span className="text-ui-caption text-apple-blue">Saved</span>
-        )}
+          {dirty ? 'Unsaved' : savedAt != null ? 'Saved' : hasPrompt ? 'Configured' : 'Empty'}
+        </span>
       </div>
+
+      <div data-testid="agent-config-summary" className="grid grid-cols-3 gap-2">
+        <ConfigMetric label="Words" value={String(stats.words)} />
+        <ConfigMetric label="Lines" value={String(stats.lines)} />
+        <ConfigMetric label="Chars" value={String(stats.characters)} />
+      </div>
+
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Prompt templates">
+        {PROMPT_TEMPLATES.map((template) => (
+          <button
+            key={template.id}
+            type="button"
+            onClick={() => setValue(template.value)}
+            className="inline-flex h-8 items-center gap-2 rounded-lg border border-black/[0.08] bg-white px-3 text-ui-caption font-medium text-foreground-light transition-colors hover:border-apple-blue/35 hover:text-apple-blue dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-foreground-dark"
+          >
+            <FileText size={13} strokeWidth={2} aria-hidden="true" />
+            {template.label}
+          </button>
+        ))}
+      </div>
+
+      <label
+        htmlFor="config-system-prompt"
+        className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
+      >
+        System prompt
+      </label>
       <textarea
         id="config-system-prompt"
-        rows={6}
+        rows={9}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="e.g. You are a concise, Pythonic code reviewer."
@@ -82,19 +155,117 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
           'focus:ring-2 focus:ring-apple-blue-focus'
         )}
       />
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setValue(initial)}
+            disabled={!dirty}
+            className={cn(
+              'inline-flex h-9 items-center gap-2 rounded-lg border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-apple-blue/35 hover:text-apple-blue dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-foreground-dark',
+              !dirty && 'cursor-not-allowed opacity-50'
+            )}
+          >
+            <RotateCcw size={14} strokeWidth={2} aria-hidden="true" />
+            Reset
+          </button>
+          <button
+            type="button"
+            onClick={() => setValue('')}
+            disabled={!hasPrompt}
+            className={cn(
+              'inline-flex h-9 items-center gap-2 rounded-lg border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-apple-red/35 hover:text-apple-red dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-foreground-dark',
+              !hasPrompt && 'cursor-not-allowed opacity-50'
+            )}
+          >
+            <Scissors size={14} strokeWidth={2} aria-hidden="true" />
+            Clear
+          </button>
+        </div>
         <button
           type="button"
           onClick={handleSave}
           disabled={saving || !dirty}
           className={cn(
-            'rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95',
+            'inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95',
             (saving || !dirty) && 'cursor-not-allowed opacity-50'
           )}
         >
+          <Save size={14} strokeWidth={2} aria-hidden="true" />
           {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
+    </div>
+  )
+}
+
+function ConfigMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.04]">
+      <p className="text-[10px] font-medium uppercase tracking-normal text-secondary-light dark:text-secondary-dark">
+        {label}
+      </p>
+      <p className="mt-1 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+        {value}
+      </p>
+    </div>
+  )
+}
+
+function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
+  const hostCli = isHostCliAgent(agent)
+  return (
+    <div
+      data-testid="agent-cli-config-summary"
+      className={cn(
+        'flex flex-col gap-4 rounded-card border border-black/[0.08] bg-white p-5 dark:border-white/[0.1] dark:bg-[#2a2a2c]'
+      )}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <ShieldCheck
+              size={16}
+              strokeWidth={2}
+              className="text-apple-green"
+              aria-hidden="true"
+            />
+            <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+              Runtime profile
+            </h2>
+          </div>
+          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            System prompt edit is only available for provider+prompt agents.
+          </p>
+        </div>
+        <span className="inline-flex h-7 w-fit items-center rounded-full bg-apple-blue/10 px-2.5 text-ui-caption font-medium text-apple-blue">
+          {hostCli ? 'Host CLI' : 'Container CLI'}
+        </span>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <RuntimeRow label="Container CLI" value={agent.cliTool ?? 'Unknown'} />
+        <RuntimeRow
+          label="Runtime ID"
+          value={agent.runtimeId ?? (hostCli ? 'Pending sidecar' : 'Managed container')}
+        />
+        <RuntimeRow label="Project" value={agent.projectName ?? 'No primary project'} />
+        <RuntimeRow
+          label="Working directory"
+          value={agent.cwd ?? (hostCli ? 'Local sidecar directory' : '/workspace')}
+        />
+      </div>
+    </div>
+  )
+}
+
+function RuntimeRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-lg bg-black/[0.03] px-3 py-2 text-ui-caption dark:bg-white/[0.04]">
+      <span className="block text-secondary-light dark:text-secondary-dark">{label}</span>
+      <span className="mt-0.5 block truncate font-medium text-foreground-light dark:text-foreground-dark">
+        {value}
+      </span>
     </div>
   )
 }

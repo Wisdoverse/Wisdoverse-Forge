@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Clock3,
   FileText,
+  ListChecks,
   MessageSquare,
   WandSparkles,
 } from 'lucide-react'
@@ -27,6 +28,7 @@ export function DescriptionTab({
   const resultArtifacts = taskResultArtifacts(task.result)
   const contextTotal = task.contextCounts?.total ?? 0
   const canReview = task.state === 'completed' || task.state === 'failed'
+  const nextAction = nextActionForTask(task, resultArtifacts.length, contextTotal)
 
   return (
     <div className="space-y-3 py-3" data-testid="task-work-review">
@@ -40,6 +42,25 @@ export function DescriptionTab({
             No description provided.
           </p>
         )}
+      </ReviewSection>
+
+      <ReviewSection title="Next action" Icon={ListChecks}>
+        <div className="space-y-1.5 text-xs">
+          <div
+            data-testid="task-next-action"
+            className={cn(
+              'rounded-lg px-2 py-1.5',
+              nextAction.tone === 'warn'
+                ? 'bg-apple-orange/10 text-apple-orange'
+                : nextAction.tone === 'success'
+                  ? 'bg-apple-green/10 text-apple-green'
+                  : 'bg-apple-blue/10 text-foreground-light dark:text-foreground-dark'
+            )}
+          >
+            <p className="font-semibold">{nextAction.title}</p>
+            <p className="mt-0.5 leading-relaxed">{nextAction.detail}</p>
+          </div>
+        </div>
       </ReviewSection>
 
       <ReviewSection title="Assignment" Icon={MessageSquare}>
@@ -213,5 +234,73 @@ function stateLabel(state: TaskSummary['state']): string {
       return 'Failed'
     case 'canceled':
       return 'Canceled'
+  }
+}
+
+function nextActionForTask(
+  task: TaskSummary,
+  artifactCount: number,
+  contextTotal: number
+): { title: string; detail: string; tone: 'default' | 'success' | 'warn' } {
+  switch (task.state) {
+    case 'backlog':
+      return task.assignedTo || task.assignedAgentName
+        ? {
+            title: 'Ready for dispatch',
+            detail: 'Review the brief and queue this task when the assigned agent is available.',
+            tone: 'default',
+          }
+        : {
+            title: 'Assign an agent',
+            detail:
+              'Choose an available agent or publish with context so the task leaves the backlog.',
+            tone: 'warn',
+          }
+    case 'queued':
+      return {
+        title: 'Waiting for execution',
+        detail: 'Keep the brief current while the runtime claims the task.',
+        tone: 'default',
+      }
+    case 'working':
+      return {
+        title: 'Monitor progress',
+        detail:
+          task.progress >= 80
+            ? 'Prepare to review artifacts when the agent completes the run.'
+            : 'Watch progress and use Block if the agent needs owner input.',
+        tone: 'default',
+      }
+    case 'blocked':
+      return {
+        title: 'Resolve the blocker',
+        detail: task.blockedHint ?? task.blockedReason ?? 'Clarify what is missing, then reassign.',
+        tone: 'warn',
+      }
+    case 'completed':
+      return {
+        title: 'Review the handoff',
+        detail:
+          artifactCount > 0
+            ? 'Open artifacts, review context, and draft reusable learning if the work should repeat.'
+            : contextTotal > 0
+              ? 'Review context and decide whether the completed work should become reusable learning.'
+              : 'Confirm the outcome and decide whether follow-up evidence or reusable learning is needed.',
+        tone: 'success',
+      }
+    case 'failed':
+      return {
+        title: 'Triage failure',
+        detail:
+          task.error ??
+          'Inspect the run history, then decide whether to retry or rewrite the brief.',
+        tone: 'warn',
+      }
+    case 'canceled':
+      return {
+        title: 'No active run',
+        detail: 'Create a new task or reopen the brief if this work still matters.',
+        tone: 'default',
+      }
   }
 }

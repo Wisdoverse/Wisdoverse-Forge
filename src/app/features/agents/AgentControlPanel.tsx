@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { cn } from '@app/shared/lib/utils'
-import { useAgentsStore, type AgentInfo } from '@app/shared/model/agents.store'
+import { isHostCliAgent, useAgentsStore, type AgentInfo } from '@app/shared/model/agents.store'
 
 interface AgentControlPanelProps {
   agent: AgentInfo
@@ -16,8 +16,9 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
   const [confirmRestart, setConfirmRestart] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
-  const canStartContainer = Boolean(agent.cliTool && !agent.containerId)
-  const canRestartContainer = Boolean(agent.cliTool && agent.containerId)
+  const hostCli = isHostCliAgent(agent)
+  const canStartContainer = Boolean(agent.cliTool && !agent.containerId && !hostCli)
+  const canRestartContainer = Boolean(agent.cliTool && agent.containerId && !hostCli)
 
   async function handleSendPrompt() {
     if (!prompt.trim() || sending) return

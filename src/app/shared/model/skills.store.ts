@@ -15,6 +15,7 @@ export interface Skill {
   installed: boolean
   marketplace: string
   cliTool: string
+  triggerPattern: string
 }
 
 type ApiSkill = Partial<Skill> & {
@@ -98,6 +99,7 @@ function normalizeSkill(skill: ApiSkill): Skill {
     installed: skill.installed ?? skill.enabled ?? true,
     marketplace: skill.marketplace ?? (globalSkill ? 'global' : 'workspace'),
     cliTool: skill.cliTool ?? '',
+    triggerPattern: skill.trigger_pattern ?? '',
   }
 }
 

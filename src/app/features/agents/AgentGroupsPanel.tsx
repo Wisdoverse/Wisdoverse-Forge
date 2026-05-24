@@ -1,21 +1,112 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
-import { Check, Layers3, Plus, X } from 'lucide-react'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Check,
+  ClipboardCheck,
+  Clock3,
+  CircleDot,
+  Layers3,
+  Plus,
+  Search,
+  ShieldCheck,
+  Wrench,
+  X,
+  type LucideIcon,
+} from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { useBoardStore } from '@app/shared/model/board.store'
+import type { TaskSummary } from '@app/shared/api/orchestration'
 import { useNavigationStore } from '@app/entities/navigation'
 
 const DEFAULT_GROUP_DESCRIPTION = 'Agents in this group can receive tasks from the board.'
+
+const TASK_STATE_LABELS: Record<TaskSummary['state'], string> = {
+  backlog: 'Backlog',
+  queued: 'Queued',
+  working: 'Working',
+  blocked: 'Blocked',
+  completed: 'Done',
+  failed: 'Failed',
+  canceled: 'Canceled',
+}
+
+const TASK_STATE_TONE: Record<TaskSummary['state'], string> = {
+  backlog: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.07] dark:text-secondary-dark',
+  queued: 'bg-apple-blue/10 text-apple-blue',
+  working: 'bg-apple-green/10 text-apple-green',
+  blocked: 'bg-apple-orange/10 text-apple-orange',
+  completed: 'bg-apple-green/10 text-apple-green',
+  failed: 'bg-apple-red/10 text-apple-red',
+  canceled: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.07] dark:text-secondary-dark',
+}
+
+const STATE_SORT_WEIGHT: Record<TaskSummary['state'], number> = {
+  blocked: 0,
+  failed: 1,
+  working: 2,
+  queued: 3,
+  backlog: 4,
+  completed: 5,
+  canceled: 6,
+}
+
+const PRIORITY_SORT_WEIGHT: Record<TaskSummary['priority'], number> = {
+  urgent: 0,
+  high: 1,
+  normal: 2,
+  low: 3,
+}
+
+interface TaskGroupTemplate {
+  id: string
+  label: string
+  summary: string
+  name: string
+  description: string
+  Icon: LucideIcon
+}
+
+const TASK_GROUP_TEMPLATES: TaskGroupTemplate[] = [
+  {
+    id: 'delivery',
+    label: 'Delivery',
+    summary: 'Build and verify',
+    name: 'Delivery Group',
+    description: 'Build scoped changes, keep work moving, and verify before handoff.',
+    Icon: Wrench,
+  },
+  {
+    id: 'review',
+    label: 'Review',
+    summary: 'Risk and readiness',
+    name: 'Review Group',
+    description: 'Review completed work for regressions, missing tests, and release risk.',
+    Icon: ShieldCheck,
+  },
+  {
+    id: 'triage',
+    label: 'Triage',
+    summary: 'Clarify and route',
+    name: 'Triage Group',
+    description: 'Clarify incoming work, identify blockers, and route tasks to the right agent.',
+    Icon: ClipboardCheck,
+  },
+]
 
 export function AgentGroupsPanel() {
   const selectedProjectId = useNavigationStore((state) => state.selectedProjectId)
   const projectsByTeam = useNavigationStore((state) => state.projects)
   const agentGroups = useNavigationStore((state) => state.agentGroups)
   const createAgentGroup = useNavigationStore((state) => state.createAgentGroup)
+  const columns = useBoardStore((state) => state.columns)
   const selectedGroupId = useBoardStore((state) => state.selectedGroupId)
   const setSelectedGroupId = useBoardStore((state) => state.setSelectedGroupId)
   const [formOpen, setFormOpen] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState(DEFAULT_GROUP_DESCRIPTION)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
+  const [routingSearch, setRoutingSearch] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -28,11 +119,38 @@ export function AgentGroupsPanel() {
     )
   }, [projectsByTeam, selectedProjectId])
 
+  const selectedGroup = useMemo(
+    () => agentGroups.find((group) => group.id === selectedGroupId) ?? null,
+    [agentGroups, selectedGroupId]
+  )
+
+  const groupTasks = useMemo(() => {
+    if (!selectedGroupId) return []
+    return Object.values(columns)
+      .flat()
+      .filter((task) => !task.groupId || task.groupId === selectedGroupId)
+  }, [columns, selectedGroupId])
+
+  const workload = useMemo(() => summarizeGroupTasks(groupTasks), [groupTasks])
+
+  const visibleTasks = useMemo(
+    () => filterAndSortGroupTasks(groupTasks, routingSearch).slice(0, 5),
+    [groupTasks, routingSearch]
+  )
+
+  const hasRoutingSearch = routingSearch.trim().length > 0
+
   useEffect(() => {
     setName('')
     setDescription(DEFAULT_GROUP_DESCRIPTION)
+    setSelectedTemplateId(null)
+    setRoutingSearch('')
     setError(null)
   }, [selectedProjectId])
+
+  useEffect(() => {
+    setRoutingSearch('')
+  }, [selectedGroupId])
 
   useEffect(() => {
     if (!selectedProjectId) {
@@ -65,6 +183,7 @@ export function AgentGroupsPanel() {
       })
       setName('')
       setDescription(DEFAULT_GROUP_DESCRIPTION)
+      setSelectedTemplateId(null)
       setFormOpen(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create task group.')
@@ -73,10 +192,16 @@ export function AgentGroupsPanel() {
     }
   }
 
+  function applyTemplate(template: TaskGroupTemplate) {
+    setSelectedTemplateId(template.id)
+    setName(template.name)
+    setDescription(template.description)
+  }
+
   return (
     <section
       data-testid="agent-groups-panel"
-      className="rounded-card border border-black/[0.08] bg-white p-6 dark:border-white/[0.1] dark:bg-[#2a2a2c] xl:sticky xl:top-0 xl:self-start"
+      className="rounded-card border border-black/[0.08] bg-white p-6 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -155,8 +280,144 @@ export function AgentGroupsPanel() {
             )}
           </div>
 
+          {agentGroups.length > 0 && (
+            <section
+              data-testid="task-routing-workload"
+              className="rounded-xl border border-black/[0.08] bg-black/[0.02] p-3 dark:border-white/[0.1] dark:bg-white/[0.04]"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                    Group workload
+                  </p>
+                  <h3 className="truncate text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+                    {selectedGroup?.name ?? 'Select a task group'}
+                  </h3>
+                </div>
+                <span className="shrink-0 rounded-full bg-white px-2 py-1 text-ui-caption font-medium text-secondary-light shadow-sm dark:bg-black/20 dark:text-secondary-dark">
+                  {workload.total} routed
+                </span>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <RoutingMetric
+                  testId="routing-metric-active"
+                  label="Active"
+                  value={workload.active}
+                  Icon={CircleDot}
+                  tone="active"
+                />
+                <RoutingMetric
+                  testId="routing-metric-backlog"
+                  label="Backlog"
+                  value={workload.backlog}
+                  Icon={Clock3}
+                  tone="neutral"
+                />
+                <RoutingMetric
+                  testId="routing-metric-needs-action"
+                  label="Needs action"
+                  value={workload.needsAction}
+                  Icon={AlertTriangle}
+                  tone="warn"
+                />
+                <RoutingMetric
+                  testId="routing-metric-completed"
+                  label="Completed"
+                  value={workload.completed}
+                  Icon={CheckCircle2}
+                  tone="success"
+                />
+              </div>
+
+              <label className="relative mt-3 block">
+                <span className="sr-only">Search routed tasks</span>
+                <Search
+                  size={14}
+                  strokeWidth={2}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-light dark:text-secondary-dark"
+                  aria-hidden="true"
+                />
+                <input
+                  data-testid="task-routing-search"
+                  type="search"
+                  value={routingSearch}
+                  onChange={(event) => setRoutingSearch(event.target.value)}
+                  className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-ui-body text-foreground-light outline-none placeholder:text-secondary-light focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:text-foreground-dark dark:placeholder:text-secondary-dark"
+                  placeholder="Search routed work, assignees, blockers..."
+                />
+              </label>
+
+              <div className="mt-3">
+                {groupTasks.length === 0 ? (
+                  <p
+                    data-testid="task-routing-empty"
+                    className="rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark"
+                  >
+                    No routed work is loaded for this group yet.
+                  </p>
+                ) : visibleTasks.length > 0 ? (
+                  <ul className="flex flex-col gap-1.5">
+                    {visibleTasks.map((task) => (
+                      <RoutedTaskRow key={task.id} task={task} />
+                    ))}
+                  </ul>
+                ) : (
+                  <div
+                    data-testid="task-routing-filter-empty"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark"
+                  >
+                    <span>No routed work matches this search.</span>
+                    {hasRoutingSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setRoutingSearch('')}
+                        className="shrink-0 rounded-full bg-white px-2.5 py-1 text-ui-button font-medium text-apple-blue shadow-sm transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:bg-black/20"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
           {formOpen && (
             <form onSubmit={handleCreateGroup} className="grid gap-2">
+              <div
+                role="group"
+                aria-label="Task group templates"
+                className="grid gap-2 sm:grid-cols-3"
+              >
+                {TASK_GROUP_TEMPLATES.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    onClick={() => applyTemplate(template)}
+                    aria-pressed={selectedTemplateId === template.id}
+                    className={cn(
+                      'flex min-h-16 min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors',
+                      selectedTemplateId === template.id
+                        ? 'border-apple-blue/40 bg-apple-blue/10 text-foreground-light dark:text-foreground-dark'
+                        : 'border-black/[0.08] bg-black/[0.02] text-foreground-light hover:bg-black/[0.04] dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.07]'
+                    )}
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-apple-blue shadow-sm dark:bg-black/20">
+                      <template.Icon size={15} strokeWidth={2.25} aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-ui-button font-semibold">
+                        {template.label}
+                      </span>
+                      <span className="block truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
+                        {template.summary}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+
               <input
                 aria-label="Task group name"
                 name="taskGroupName"
@@ -213,4 +474,133 @@ export function AgentGroupsPanel() {
       )}
     </section>
   )
+}
+
+function RoutingMetric({
+  testId,
+  label,
+  value,
+  Icon,
+  tone,
+}: {
+  testId: string
+  label: string
+  value: number
+  Icon: LucideIcon
+  tone: 'active' | 'neutral' | 'success' | 'warn'
+}) {
+  const toneClass =
+    tone === 'active'
+      ? 'bg-apple-blue/10 text-apple-blue'
+      : tone === 'success'
+        ? 'bg-apple-green/10 text-apple-green'
+        : tone === 'warn'
+          ? 'bg-apple-orange/10 text-apple-orange'
+          : 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.07] dark:text-secondary-dark'
+
+  return (
+    <div
+      data-testid={testId}
+      className="flex min-h-16 items-center gap-2 rounded-lg bg-white px-2.5 py-2 shadow-sm dark:bg-black/20"
+    >
+      <span
+        className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', toneClass)}
+      >
+        <Icon size={15} strokeWidth={2.2} aria-hidden="true" />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-ui-title font-semibold text-foreground-light dark:text-foreground-dark">
+          {value}
+        </span>
+        <span className="block truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {label}
+        </span>
+      </span>
+    </div>
+  )
+}
+
+function RoutedTaskRow({ task }: { task: TaskSummary }) {
+  return (
+    <li
+      data-testid="task-routing-row"
+      className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 shadow-sm dark:bg-black/20"
+    >
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-2">
+          <span
+            className={cn(
+              'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
+              TASK_STATE_TONE[task.state]
+            )}
+          >
+            {TASK_STATE_LABELS[task.state]}
+          </span>
+          <p className="truncate text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+            {task.params.task}
+          </p>
+        </div>
+        <p className="mt-1 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {task.assignedAgentName || task.assignedTo || 'Unassigned'} · {task.priority} priority
+        </p>
+      </div>
+      <span className="shrink-0 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+        {Math.round(task.progress)}%
+      </span>
+    </li>
+  )
+}
+
+function summarizeGroupTasks(tasks: TaskSummary[]): {
+  total: number
+  active: number
+  backlog: number
+  needsAction: number
+  completed: number
+} {
+  return tasks.reduce(
+    (summary, task) => {
+      summary.total += 1
+      if (task.state === 'queued' || task.state === 'working') summary.active += 1
+      if (task.state === 'backlog') summary.backlog += 1
+      if (task.state === 'blocked' || task.state === 'failed') summary.needsAction += 1
+      if (task.state === 'completed') summary.completed += 1
+      return summary
+    },
+    { total: 0, active: 0, backlog: 0, needsAction: 0, completed: 0 }
+  )
+}
+
+function filterAndSortGroupTasks(tasks: TaskSummary[], query: string): TaskSummary[] {
+  const normalizedQuery = query.trim().toLowerCase()
+  const filtered =
+    normalizedQuery.length === 0
+      ? tasks
+      : tasks.filter((task) => groupTaskSearchText(task).includes(normalizedQuery))
+
+  return [...filtered].sort((a, b) => {
+    const stateDelta = STATE_SORT_WEIGHT[a.state] - STATE_SORT_WEIGHT[b.state]
+    if (stateDelta !== 0) return stateDelta
+
+    const priorityDelta = PRIORITY_SORT_WEIGHT[a.priority] - PRIORITY_SORT_WEIGHT[b.priority]
+    if (priorityDelta !== 0) return priorityDelta
+
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  })
+}
+
+function groupTaskSearchText(task: TaskSummary): string {
+  return [
+    task.params.task,
+    task.params.message,
+    task.assignedAgentName,
+    task.assignedTo,
+    task.priority,
+    task.state,
+    task.error,
+    task.blockedHint,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
 }

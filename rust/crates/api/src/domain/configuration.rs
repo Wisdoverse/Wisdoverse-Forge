@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 const VALID_QUOTA_RESOURCE_TYPES: &[&str] = &["agents", "storage", "events"];
 const VALID_TILE_TYPES: &[&str] = &["agent", "feed", "chart", "custom"];
-const VALID_RUNTIME_BACKENDS: &[&str] = &["container", "api"];
+const VALID_RUNTIME_BACKENDS: &[&str] = &["container", "cli", "api"];
 const VALID_GATEWAY_ROUTING_STRATEGIES: &[&str] = &["specified", "cost", "latency", "failover"];
 const MAX_RESOURCE_PROFILE_NAME_LEN: usize = 100;
 const MAX_PLUGIN_NAME_LEN: usize = 255;
@@ -531,7 +531,10 @@ mod tests {
     fn runtime_settings_policy_exposes_defaults_and_available_values() {
         assert_eq!(RuntimeSettingsPolicy::default_runtime(), "container");
         assert_eq!(RuntimeSettingsPolicy::default_cli_tool(), "claude");
-        assert_eq!(RuntimeSettingsPolicy::available_runtimes(), vec!["container".to_string(), "api".to_string()]);
+        assert_eq!(
+            RuntimeSettingsPolicy::available_runtimes(),
+            vec!["container".to_string(), "cli".to_string(), "api".to_string()]
+        );
         assert_eq!(
             RuntimeSettingsPolicy::available_cli_tools(),
             vec!["claude".to_string(), "codex".to_string(), "gemini".to_string(), "opencode".to_string()]
@@ -541,6 +544,7 @@ mod tests {
     #[test]
     fn runtime_settings_policy_validates_runtime_and_cli_tool() {
         assert_eq!(RuntimeSettingsPolicy::canonical_runtime("api").unwrap(), "api");
+        assert_eq!(RuntimeSettingsPolicy::canonical_runtime("cli").unwrap(), "cli");
         assert_eq!(RuntimeSettingsPolicy::canonical_cli_tool(" CODEX ").unwrap(), "codex");
         assert!(RuntimeSettingsPolicy::canonical_runtime("desktop").is_err());
         assert!(RuntimeSettingsPolicy::canonical_cli_tool("unknown").is_err());
