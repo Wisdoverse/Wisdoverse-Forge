@@ -133,6 +133,22 @@ pub(crate) struct HostAgentEnrollmentPolicy;
 impl HostAgentEnrollmentPolicy {
     pub(crate) const SIDECAR_COMMAND: &'static str = "agentforge-sidecar";
 
+    pub(crate) fn require_cli_tool(raw: &str) -> AppResult<&'static str> {
+        AgentCliToolSelection::normalize(Some(raw))?
+            .ok_or_else(|| ErrorKind::Validation("cliTool is required for Host CLI enrollment".into()).into())
+    }
+
+    pub(crate) fn require_nats_base_url(agent_url: Option<&str>, backend_url: Option<&str>) -> AppResult<String> {
+        AgentContainerEnvPolicy::pick_nats_base_url(agent_url, backend_url)
+            .filter(|url| !url.trim().is_empty())
+            .ok_or_else(|| {
+                ErrorKind::Validation(
+                    "NATS_AGENT_URL or NATS_URL must be configured before enrolling a Host CLI agent".into(),
+                )
+                .into()
+            })
+    }
+
     pub(crate) fn runtime_id(agent_id: Uuid) -> String {
         format!("host-{}", &agent_id.to_string()[..8])
     }
@@ -1121,6 +1137,23 @@ mod tests {
         assert!(shell.contains("export AGENT_ID='11111111-2222-3333-4444-555555555555'"));
         assert!(shell.contains("export HMAC_SECRET='value'\"'\"'with-quote'"));
         assert!(shell.ends_with("agentforge-sidecar"));
+    }
+
+    #[test]
+    fn host_agent_enrollment_policy_requires_cli_tool() {
+        assert_eq!(HostAgentEnrollmentPolicy::require_cli_tool(" Codex ").unwrap(), "codex");
+        assert!(HostAgentEnrollmentPolicy::require_cli_tool("unknown").is_err());
+    }
+
+    #[test]
+    fn host_agent_enrollment_policy_requires_reachable_nats_url() {
+        let shared_url = ["nats://backend:", "secret", "@nats:4222"].concat();
+
+        assert_eq!(
+            HostAgentEnrollmentPolicy::require_nats_base_url(None, Some(&shared_url)).unwrap(),
+            "nats://nats:4222"
+        );
+        assert!(HostAgentEnrollmentPolicy::require_nats_base_url(None, None).is_err());
     }
 
     #[test]

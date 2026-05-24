@@ -4,13 +4,12 @@
 //! NATS/HMAC material used by container sidecars, and returns a one-time shell
 //! environment for running a sidecar on an operator-managed machine.
 
-use agentforge_core::{AgentId, AppConfig, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AgentId, AppConfig, AppResult, TenantScope};
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::agent::{
-    AgentCliToolSelection, AgentContainerEnvInput, AgentContainerEnvPolicy, AgentName, HostAgentEnrollment,
-    HostAgentEnrollmentPolicy,
+    AgentContainerEnvInput, AgentContainerEnvPolicy, AgentName, HostAgentEnrollment, HostAgentEnrollmentPolicy,
 };
 use crate::domain::context::{ContextFeature, ContextFeatureFlags};
 use crate::repositories::agent::{AgentListItem, AgentRepository, CreateAgentParams};
@@ -62,19 +61,11 @@ impl HostAgentEnrollmentService {
         input: HostAgentEnrollmentInput<'_>,
     ) -> AppResult<(AgentListItem, HostAgentEnrollment)> {
         AgentName::validate(input.name)?;
-        let cli_tool = AgentCliToolSelection::normalize(Some(input.cli_tool))?
-            .ok_or_else(|| ErrorKind::Validation("cliTool is required for Host CLI enrollment".into()))?;
-
-        let nats_base_url = AgentContainerEnvPolicy::pick_nats_base_url(
+        let cli_tool = HostAgentEnrollmentPolicy::require_cli_tool(input.cli_tool)?;
+        let nats_base_url = HostAgentEnrollmentPolicy::require_nats_base_url(
             self.settings.nats_agent_url.as_deref(),
             self.settings.nats_url.as_deref(),
-        )
-        .filter(|url| !url.trim().is_empty())
-        .ok_or_else(|| {
-            ErrorKind::Validation(
-                "NATS_AGENT_URL or NATS_URL must be configured before enrolling a Host CLI agent".into(),
-            )
-        })?;
+        )?;
 
         let workspace_scope = self
             .workspaces
