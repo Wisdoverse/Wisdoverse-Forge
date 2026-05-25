@@ -37,6 +37,12 @@ const VIEW_COMMANDS = [
   { id: 'view:3d', label: '3D view', description: 'Inspect work and agents in a visual map.' },
 ]
 
+const COMMAND_DISCOVERY_STEPS = [
+  'Use Tasks when you want to plan or inspect work.',
+  'Use Inbox when something needs your attention.',
+  'Use Settings when setup, credentials, or runtime status is blocking work.',
+]
+
 export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProps) {
   const contextGovernanceEnabled = useContextFeaturesStore((s) => s.governance)
   if (!isOpen) return null
@@ -66,18 +72,17 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
       >
         <Command>
           <div className="border-b border-black/[0.08] px-4 py-3 dark:border-white/[0.08]">
-            <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-              Quick finder
+            <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+              Command discovery path
             </p>
-            <h2 className="mt-1 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              Find a page or action
-            </h2>
-            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Type what you want to do, such as task, alert, agent, key, or theme.
-            </p>
+            <ol className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {COMMAND_DISCOVERY_STEPS.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
           </div>
           <Command.Input
-            placeholder="Search pages and actions"
+            placeholder="Search commands, e.g. tasks, inbox, settings"
             className={cn(
               'w-full px-4 py-3 text-sm outline-none',
               'bg-transparent border-b border-black/[0.08] dark:border-white/[0.08]',
@@ -86,12 +91,12 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
             )}
           />
           <Command.List className="max-h-80 overflow-y-auto py-2">
-            <Command.Empty className="px-4 py-6 text-center">
-              <p className="text-sm font-medium text-foreground-light dark:text-foreground-dark">
-                No matching page or action
+            <Command.Empty className="px-4 py-6 text-center text-sm text-secondary-light dark:text-secondary-dark">
+              <p className="font-medium text-foreground-light dark:text-foreground-dark">
+                No commands found
               </p>
-              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Try a simpler word like task, agent, key, or settings.
+              <p className="mt-1">
+                Try Tasks, Inbox, Agents, Skills, or Settings to jump to a common workflow.
               </p>
             </Command.Empty>
 
