@@ -92,6 +92,7 @@ describe('Sidebar', () => {
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
 
     expect(screen.getByTestId('sidebar')).toBeInTheDocument()
+    expect(screen.getByText('Wisdoverse Forge')).toBeInTheDocument()
     expect(screen.getByText('My Org')).toBeInTheDocument()
     expect(screen.getByTestId('sidebar-nav-tasks')).toBeInTheDocument()
     expect(screen.getByTestId('sidebar-nav-agents')).toBeInTheDocument()
@@ -110,6 +111,8 @@ describe('Sidebar', () => {
 
     expect(screen.getByTestId('sidebar')).toBeInTheDocument()
     expect(screen.queryByText('My Org')).not.toBeInTheDocument()
+    expect(screen.queryByText('Wisdoverse Forge')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeInTheDocument()
   })
 
   it('clicking nav item calls onNavigate', () => {
