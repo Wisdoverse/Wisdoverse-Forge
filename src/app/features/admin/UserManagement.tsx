@@ -6,23 +6,16 @@ import { useAdminStore, type AdminUser } from '@app/shared/model/admin.store'
 const ROLE_OPTIONS = ['admin', 'operator', 'viewer'] as const
 type Role = (typeof ROLE_OPTIONS)[number]
 
-const ROLE_DETAILS: Record<Role, { label: string; description: string }> = {
-  admin: {
-    label: 'Admin',
-    description: 'Can manage users, settings, and system configuration.',
-  },
-  operator: {
-    label: 'Operator',
-    description: 'Can run daily workspace operations without changing admin settings.',
-  },
-  viewer: {
-    label: 'Viewer',
-    description: 'Can read workspace information without making changes.',
-  },
+const ROLE_LABELS: Record<Role, string> = {
+  admin: 'Full access',
+  operator: 'Can run work',
+  viewer: 'View only',
 }
 
-function normalizeRole(role: string): Role {
-  return ROLE_OPTIONS.includes(role as Role) ? (role as Role) : 'viewer'
+const ROLE_HELP: Record<Role, string> = {
+  admin: 'Can manage users, billing, settings, and work.',
+  operator: 'Can run day-to-day agent and task work.',
+  viewer: 'Can review information without changing it.',
 }
 
 function formatDate(iso: string | null): string {
@@ -39,7 +32,7 @@ function formatDate(iso: string | null): string {
 }
 
 function RoleBadge({ role }: { role: string }) {
-  const normalizedRole = normalizeRole(role)
+  const knownRole = ROLE_OPTIONS.includes(role as Role) ? (role as Role) : 'viewer'
   const colors: Record<string, string> = {
     admin: 'bg-apple-blue/10 text-apple-blue',
     operator: 'bg-apple-blue/[0.07] text-apple-blue',
@@ -52,28 +45,24 @@ function RoleBadge({ role }: { role: string }) {
         colors[normalizedRole]
       )}
     >
-      {ROLE_DETAILS[normalizedRole].label}
+      {ROLE_LABELS[knownRole]}
     </span>
   )
 }
 
 function StatusBadge({ status }: { status: AdminUser['status'] }) {
+  const active = status === 'active'
   return (
     <span
       className={cn(
         'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-ui-caption font-medium',
-        status === 'active'
+        active
           ? 'bg-apple-blue/10 text-apple-blue'
           : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
       )}
     >
-      <span
-        className={cn(
-          'w-1.5 h-1.5 rounded-full',
-          status === 'active' ? 'bg-apple-blue' : 'bg-gray-400'
-        )}
-      />
-      {status}
+      <span className={cn('w-1.5 h-1.5 rounded-full', active ? 'bg-apple-blue' : 'bg-gray-400')} />
+      {active ? 'Can sign in' : 'Access paused'}
     </span>
   )
 }
@@ -147,10 +136,11 @@ function UserRow({ user }: { user: AdminUser }) {
                 setRoleFeedback(null)
               }}
               className={cn(uiStyles.select, 'h-8 text-ui-caption')}
+              aria-label="Access level"
             >
               {ROLE_OPTIONS.map((r) => (
                 <option key={r} value={r}>
-                  {ROLE_DETAILS[r].label}
+                  {ROLE_LABELS[r]}
                 </option>
               ))}
             </select>
@@ -188,29 +178,22 @@ function UserRow({ user }: { user: AdminUser }) {
             </div>
           </div>
         ) : (
-          <div className="grid gap-1">
-            <button
-              type="button"
-              onClick={() => {
-                setRoleError(null)
-                setRoleFeedback(null)
-                setEditing(true)
-              }}
-              className="flex w-fit items-center gap-2"
-              aria-label={`Edit role for ${user.displayName}`}
-            >
-              <RoleBadge role={user.role} />
-              <span className="text-ui-caption text-apple-blue">Edit role</span>
-            </button>
-            <p className="max-w-[260px] text-ui-caption text-secondary-light dark:text-secondary-dark">
-              {ROLE_DETAILS[currentRole].description}
-            </p>
-            {roleFeedback && (
-              <p role="status" className="text-ui-caption text-apple-blue">
-                {roleFeedback}
-              </p>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="group flex items-center gap-1.5"
+            title="Change what this user can do"
+          >
+            <RoleBadge role={user.role} />
+            <span className="text-ui-caption text-secondary-light opacity-0 transition-opacity group-hover:opacity-100 dark:text-secondary-dark">
+              change access
+            </span>
+          </button>
+        )}
+        {!editing && (
+          <p className="mt-1 max-w-[220px] text-ui-caption text-secondary-light dark:text-secondary-dark">
+            {ROLE_HELP[ROLE_OPTIONS.includes(user.role as Role) ? (user.role as Role) : 'viewer']}
+          </p>
         )}
       </td>
       <td className={uiStyles.tableCell}>
@@ -230,7 +213,7 @@ function UserRow({ user }: { user: AdminUser }) {
           'text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark'
         )}
       >
-        {user.sessionsCount}
+        {user.sessionsCount === 0 ? 'No active sessions' : `${user.sessionsCount} active`}
       </td>
     </tr>
   )
@@ -263,31 +246,25 @@ export function UserManagement() {
     <div>
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Users</h2>
+          <h2 className={uiStyles.sectionTitle}>User access</h2>
           <p className={uiStyles.sectionDescription}>
-            {usersTotal} total users. Review access before changing a role.
+            {usersTotal} people can be reviewed here. Change access only when their job changes.
           </p>
         </div>
       </div>
 
       {/* Search */}
-      <form onSubmit={handleSearch} className="mb-4 space-y-2">
-        <div className="flex gap-2">
-          <input
-            type="search"
-            value={userSearch}
-            onChange={(e) => setUserSearch(e.target.value)}
-            placeholder="Search by email or name..."
-            aria-label="Search users by name or email"
-            className={cn(uiStyles.input, 'min-w-0 flex-1')}
-          />
-          <button type="submit" className={uiStyles.primaryButton}>
-            Search Users
-          </button>
-        </div>
-        <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Search by name or email. Leave it blank to show everyone.
-        </p>
+      <form onSubmit={handleSearch} className="mb-4 flex gap-2">
+        <input
+          type="text"
+          value={userSearch}
+          onChange={(e) => setUserSearch(e.target.value)}
+          placeholder="Search by name or email..."
+          className={cn(uiStyles.input, 'min-w-0 flex-1')}
+        />
+        <button type="submit" className={uiStyles.primaryButton}>
+          Find users
+        </button>
       </form>
 
       {/* Error */}
@@ -297,26 +274,28 @@ export function UserManagement() {
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {usersLoading && users.length === 0 ? (
           <div className="flex items-center justify-center py-12">
-            <p className="text-ui-body text-secondary-light dark:text-secondary-dark">Loading...</p>
+            <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
+              Loading user access...
+            </p>
           </div>
         ) : users.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-1 py-12 text-center">
-            <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No users found.
+          <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
+            <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+              No users match this view
             </p>
-            <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Try another name or clear the search box.
+            <p className="mt-1 max-w-sm text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Try a different name or email. New teammates appear here after they are invited.
             </p>
           </div>
         ) : (
           <table className={uiStyles.table}>
             <thead className={uiStyles.tableHead}>
               <tr>
-                <th className={uiStyles.tableHeaderCell}>User</th>
-                <th className={uiStyles.tableHeaderCell}>Role</th>
-                <th className={uiStyles.tableHeaderCell}>Status</th>
-                <th className={uiStyles.tableHeaderCell}>Created</th>
-                <th className={uiStyles.tableHeaderCell}>Agents</th>
+                <th className={uiStyles.tableHeaderCell}>Person</th>
+                <th className={uiStyles.tableHeaderCell}>Access level</th>
+                <th className={uiStyles.tableHeaderCell}>Sign-in status</th>
+                <th className={uiStyles.tableHeaderCell}>Added</th>
+                <th className={uiStyles.tableHeaderCell}>Active sessions</th>
               </tr>
             </thead>
             <tbody>
@@ -332,7 +311,7 @@ export function UserManagement() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4">
           <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Page {usersPage} of {totalPages}
+            Showing page {usersPage} of {totalPages}
           </p>
           <div className="flex gap-2">
             <button
