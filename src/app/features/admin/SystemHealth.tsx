@@ -88,12 +88,12 @@ function StatusBadge({ status }: { status: ServiceStatus }) {
   }
   const label =
     status === 'up'
-      ? 'Healthy'
+      ? 'Ready'
       : status === 'degraded'
-        ? 'Degraded'
+        ? 'Needs attention'
         : status === 'down'
-          ? 'Down'
-          : 'Unknown'
+          ? 'Unavailable'
+          : 'Not checked'
 
   return (
     <span
@@ -138,7 +138,7 @@ interface ServiceRowProps extends ServiceDefinition {
 
 function ServiceRow({ name, supportName, description, impact, action, health }: ServiceRowProps) {
   const status: ServiceStatus = health?.status ?? 'unknown'
-  const hasIssue = status !== 'up'
+  const responseTime = health?.latencyMs !== undefined ? `${health.latencyMs} ms response` : null
 
   return (
     <div className={cn('grid gap-3 px-4 py-3 sm:grid-cols-[1fr_auto]', uiStyles.row)}>
@@ -176,10 +176,10 @@ function ServiceRow({ name, supportName, description, impact, action, health }: 
           )}
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-4 sm:justify-end">
-        {health?.latencyMs !== undefined && (
+      <div className="flex items-center gap-4 shrink-0 ml-4">
+        {responseTime && (
           <span className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
-            Response: {health.latencyMs}ms
+            {responseTime}
           </span>
         )}
         <StatusBadge status={status} />
@@ -203,26 +203,20 @@ function OverallBanner({
     healthy: {
       bg: 'border-apple-blue/20 bg-apple-blue/10',
       text: 'text-apple-blue',
-      label: 'Everything is working',
-      detail: 'Users should be able to open the app, start agent work, and see updates normally.',
+      label: 'All services are ready',
+      detail: 'Users should be able to open the app, run agents, and receive updates.',
     },
     degraded: {
       bg: 'border-black/[0.08] bg-black/[0.03] dark:border-white/[0.08] dark:bg-white/[0.03]',
       text: 'text-secondary-light dark:text-secondary-dark',
-      label: 'Some parts need attention',
-      detail:
-        attentionCount === 1
-          ? 'One area may be slower or unreliable. Review the next step below.'
-          : `${attentionCount} areas may be slower or unreliable. Review the next steps below.`,
+      label: 'Some services need attention',
+      detail: 'Users may see slow screens, delayed updates, or queued work until this clears.',
     },
     unhealthy: {
       bg: 'border-apple-red/20 bg-apple-red/10',
       text: 'text-apple-red',
-      label: 'Users may be blocked',
-      detail:
-        attentionCount === 1
-          ? 'One required area is not healthy. Fix it before asking users to retry.'
-          : `${attentionCount} required areas are not healthy. Fix them before asking users to retry.`,
+      label: 'Service interruption likely',
+      detail: 'Check the unavailable service first before assigning new work.',
     },
   }
   const c = config[status]
@@ -231,7 +225,7 @@ function OverallBanner({
     <div className={cn('mb-6 flex items-start gap-3 rounded-card border px-4 py-3', c.bg)}>
       <span
         className={cn(
-          'mt-1 h-2.5 w-2.5 rounded-full',
+          'mt-1 w-2.5 h-2.5 rounded-full',
           status === 'healthy'
             ? 'bg-apple-blue'
             : status === 'degraded'
@@ -239,7 +233,7 @@ function OverallBanner({
               : 'bg-apple-red'
         )}
       />
-      <div>
+      <div className="min-w-0">
         <p className={cn('text-ui-body font-medium', c.text)}>{c.label}</p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {c.detail}
@@ -276,15 +270,41 @@ export function SystemHealth() {
     return () => clearInterval(interval)
   }, [loadHealth])
 
-  const attentionCount = health ? countAttentionServices(health) : 0
+  const services = [
+    {
+      key: 'database',
+      name: 'Data storage',
+      description: 'Keeps accounts, tasks, and settings available',
+    },
+    {
+      key: 'redis',
+      name: 'Fast cache',
+      description: 'Speeds up screens and short-lived status updates',
+    },
+    {
+      key: 'nats',
+      name: 'Agent message channel',
+      description: 'Moves live updates between agents and the app',
+    },
+    {
+      key: 'platform',
+      name: 'Agent runtime',
+      description: 'Starts and manages the containers that run agents',
+    },
+    {
+      key: 'bullmq',
+      name: 'Background work queue',
+      description: 'Runs queued jobs and maintenance work',
+    },
+  ] as const
 
   return (
     <div>
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>System Health</h2>
+          <h2 className={uiStyles.sectionTitle}>Service readiness</h2>
           <p className={uiStyles.sectionDescription}>
-            Check whether users can save work, start agents, and see live updates.
+            Auto-checks every 30 seconds. Start with anything marked Needs attention or Unavailable.
           </p>
         </div>
         <button
@@ -293,15 +313,15 @@ export function SystemHealth() {
           disabled={healthLoading}
           className={uiStyles.secondaryButton}
         >
-          {healthLoading ? 'Checking...' : 'Check Again'}
+          {healthLoading ? 'Checking...' : 'Check now'}
         </button>
       </div>
 
       {/* Error */}
       {healthError && !health && (
-        <div role="alert" className={uiStyles.error}>
-          Health could not be loaded. Check that the API is running, then try again. Detail:{' '}
-          {healthError}
+        <div className={uiStyles.error}>
+          Could not load service readiness. Try Check now again or confirm the API is reachable.
+          <span className="mt-1 block text-ui-caption">{healthError}</span>
         </div>
       )}
 
@@ -309,7 +329,7 @@ export function SystemHealth() {
       {healthLoading && !health && (
         <div className="flex items-center justify-center py-12">
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-            Checking system health...
+            Checking service readiness...
           </p>
         </div>
       )}
@@ -336,8 +356,12 @@ export function SystemHealth() {
           {/* Uptime */}
           {health.uptime !== undefined && (
             <p className="mt-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              The system has been running for about {formatUptime(health.uptime)}. This page checks
-              again every 30 seconds.
+              API has been running for{' '}
+              {health.uptime < 60
+                ? `${Math.round(health.uptime)}s`
+                : health.uptime < 3600
+                  ? `${Math.round(health.uptime / 60)}m`
+                  : `${Math.round(health.uptime / 3600)}h`}
             </p>
           )}
         </>
