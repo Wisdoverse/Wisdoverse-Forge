@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import {
+  ClipboardCheck,
   Download,
   EyeOff,
   Fingerprint,
@@ -8,6 +9,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   ShieldQuestion,
+  type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import {
@@ -36,6 +38,14 @@ interface FilterState {
   limit: number
 }
 
+interface QuickAuditView {
+  id: string
+  label: string
+  description: string
+  Icon: LucideIcon
+  filters: Partial<FilterState>
+}
+
 const DEFAULT_FILTERS: FilterState = {
   eventPrefix: 'governance.context.',
   eventType: '',
@@ -48,6 +58,36 @@ const DEFAULT_FILTERS: FilterState = {
   redactSecrets: true,
   limit: 50,
 }
+
+const QUICK_AUDIT_VIEWS: QuickAuditView[] = [
+  {
+    id: 'all',
+    label: 'All governance events',
+    description: 'Start broad, then narrow the result.',
+    Icon: Search,
+    filters: {},
+  },
+  {
+    id: 'skill-decisions',
+    label: 'Skill decisions',
+    description: 'Review approvals and changes for skills.',
+    Icon: ClipboardCheck,
+    filters: {
+      eventPrefix: 'governance.context.skill.',
+      itemKind: 'skill',
+    },
+  },
+  {
+    id: 'memory-feedback',
+    label: 'Memory feedback',
+    description: 'See saved context feedback first.',
+    Icon: ShieldCheck,
+    filters: {
+      eventType: 'governance.context.feedback.recorded',
+      itemKind: 'memory',
+    },
+  },
+]
 
 const ITEM_KIND_OPTIONS: { value: ItemKindFilter; label: string }[] = [
   { value: 'all', label: 'All items' },
@@ -87,6 +127,10 @@ export function AuditLogView() {
     () => entries.filter((entry) => entry.detailsRedacted).length,
     [entries]
   )
+  const activeQuickViewId = useMemo(
+    () => QUICK_AUDIT_VIEWS.find((view) => quickViewMatches(filters, view))?.id ?? null,
+    [filters]
+  )
 
   const loadAudit = useCallback(async (nextFilters: FilterState) => {
     setLoading(true)
@@ -115,8 +159,8 @@ export function AuditLogView() {
     void loadAudit(filters)
   }
 
-  function applyQuickFilter(preset: Partial<FilterState>) {
-    const nextFilters = { ...filters, ...preset }
+  function applyQuickView(view: QuickAuditView) {
+    const nextFilters = { ...DEFAULT_FILTERS, ...view.filters }
     setFilters(nextFilters)
     void loadAudit(nextFilters)
   }
@@ -136,7 +180,9 @@ export function AuditLogView() {
       link.click()
       URL.revokeObjectURL(url)
       setData(response)
-      setExportStatus(`${response.entries.length} records exported`)
+      setExportStatus(
+        `${response.entries.length} audit ${response.entries.length === 1 ? 'event' : 'events'} exported`
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to export governance audit')
     } finally {
@@ -150,28 +196,27 @@ export function AuditLogView() {
         onSubmit={submitFilters}
         className="shrink-0 border-b border-black/[0.06] px-4 py-3 dark:border-white/[0.06] sm:px-6"
       >
-        <section
-          data-testid="governance-audit-review-path"
-          className="mb-3 rounded-card border border-black/[0.08] bg-white px-3 py-2.5 dark:border-white/[0.1] dark:bg-[#2c2c2e]"
-        >
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] lg:items-start">
-            <div>
-              <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
-                Audit review path
-              </p>
-              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Use this page to find who changed governed context, what changed, and whether the
-                exported evidence is safe to share.
-              </p>
-            </div>
-            <ol className="list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              {AUDIT_REVIEW_STEPS.map((step) => (
-                <li key={step}>{step}</li>
-              ))}
-            </ol>
+        <div className="mb-4 flex flex-col gap-2">
+          <div>
+            <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+              Start with what you need to check
+            </p>
+            <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Pick a common audit view, then narrow it by item, work area, person, or time.
+            </p>
           </div>
-        </section>
-
+          <div role="group" aria-label="Common audit views" className="grid gap-2 sm:grid-cols-3">
+            {QUICK_AUDIT_VIEWS.map((view) => (
+              <QuickAuditButton
+                key={view.id}
+                view={view}
+                active={activeQuickViewId === view.id}
+                disabled={loading}
+                onClick={() => applyQuickView(view)}
+              />
+            ))}
+          </div>
+        </div>
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_160px_160px_160px_auto]">
           <Field label="Event family">
             <input
@@ -180,20 +225,18 @@ export function AuditLogView() {
               autoComplete="off"
               value={filters.eventPrefix}
               onChange={(event) => updateFilter('eventPrefix', event.target.value)}
-              aria-describedby="governance-audit-event-prefix-help"
+              placeholder="governance.context."
               className={INPUT_CLASS}
             />
           </Field>
-          <Field label="Exact event">
+          <Field label="Exact event name">
             <input
               data-testid="governance-audit-filter-event-type"
               name="eventType"
               autoComplete="off"
               value={filters.eventType}
               onChange={(event) => updateFilter('eventType', event.target.value)}
-              placeholder="governance.context.feedback.recorded…"
-              list="governance-audit-event-type-options"
-              aria-describedby="governance-audit-event-type-help"
+              placeholder="Pick a view or paste an event name"
               className={INPUT_CLASS}
             />
             <datalist id="governance-audit-event-type-options">
@@ -261,7 +304,8 @@ export function AuditLogView() {
               disabled={loading}
               aria-label="Refresh audit events"
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-ui-button text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
-              title="Refresh"
+              title="Refresh audit events"
+              aria-label="Refresh audit events"
             >
               <RefreshCw size={15} className={cn(loading && 'animate-spin')} aria-hidden="true" />
             </button>
@@ -272,7 +316,8 @@ export function AuditLogView() {
               disabled={exporting}
               aria-label="Export audit events"
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-ui-button text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
-              title="Export"
+              title="Export audit events"
+              aria-label="Export audit events"
             >
               <Download size={15} aria-hidden="true" />
             </button>
@@ -280,23 +325,23 @@ export function AuditLogView() {
         </div>
 
         <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_180px_180px_auto]">
-          <Field label="Area ID">
+          <Field label="Work area ID">
             <input
               value={filters.scopeId}
               name="scopeId"
               autoComplete="off"
               onChange={(event) => updateFilter('scopeId', event.target.value)}
-              placeholder="Optional ID…"
+              placeholder="Paste an org, workspace, team, or project ID"
               className={INPUT_CLASS}
             />
           </Field>
-          <Field label="Changed by user ID">
+          <Field label="Person ID">
             <input
               value={filters.userId}
               name="userId"
               autoComplete="off"
               onChange={(event) => updateFilter('userId', event.target.value)}
-              placeholder="Optional user ID…"
+              placeholder="Paste a user ID when needed"
               className={INPUT_CLASS}
             />
           </Field>
@@ -352,14 +397,10 @@ export function AuditLogView() {
         )}
 
         <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Metric label="Records" value={entries.length} />
-          <Metric
-            label="Event family"
-            value={data?.query.eventPrefix ?? filters.eventPrefix}
-            compact
-          />
-          <Metric label="Private IDs" value={hiddenRawIds} />
-          <Metric label="Protected rows" value={redactedRows} />
+          <Metric label="Events" value={entries.length} />
+          <Metric label="View" value={data?.query.eventPrefix ?? filters.eventPrefix} compact />
+          <Metric label="Protected subjects" value={hiddenRawIds} />
+          <Metric label="Safe details" value={redactedRows} />
         </div>
 
         <div className="overflow-hidden rounded-card border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#2c2c2e]">
@@ -385,16 +426,13 @@ export function AuditLogView() {
                   </tr>
                 ) : entries.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center text-secondary-light">
-                      <div className="mx-auto max-w-sm">
-                        <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-                          No governance audit events
-                        </p>
-                        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                          Clear narrow filters or increase the limit if you expected recent
-                          approvals, rejections, or exports.
-                        </p>
-                      </div>
+                    <td colSpan={7} className="px-4 py-12 text-center">
+                      <p className="font-semibold text-foreground-light dark:text-foreground-dark">
+                        No audit events in this view
+                      </p>
+                      <p className="mt-1 text-secondary-light dark:text-secondary-dark">
+                        Try All governance events or widen the time range.
+                      </p>
                     </td>
                   </tr>
                 ) : (
@@ -406,6 +444,45 @@ export function AuditLogView() {
         </div>
       </div>
     </div>
+  )
+}
+
+function QuickAuditButton({
+  view,
+  active,
+  disabled,
+  onClick,
+}: {
+  view: QuickAuditView
+  active: boolean
+  disabled: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        'flex min-h-16 items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60',
+        active
+          ? 'border-apple-blue/45 bg-apple-blue/[0.08]'
+          : 'border-black/[0.08] bg-white hover:border-apple-blue/35 dark:border-white/[0.1] dark:bg-white/[0.04]'
+      )}
+    >
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-black/[0.04] text-apple-blue dark:bg-white/[0.06]">
+        <view.Icon size={15} strokeWidth={2.25} aria-hidden="true" />
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+          {view.label}
+        </span>
+        <span className="mt-0.5 block text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {view.description}
+        </span>
+      </span>
+    </button>
   )
 }
 
@@ -578,6 +655,22 @@ function Field({
         </span>
       )}
     </label>
+  )
+}
+
+function quickViewMatches(filters: FilterState, view: QuickAuditView): boolean {
+  const expected = { ...DEFAULT_FILTERS, ...view.filters }
+  return (
+    filters.eventPrefix === expected.eventPrefix &&
+    filters.eventType === expected.eventType &&
+    filters.itemKind === expected.itemKind &&
+    filters.scopeKind === expected.scopeKind &&
+    filters.scopeId === expected.scopeId &&
+    filters.userId === expected.userId &&
+    filters.from === expected.from &&
+    filters.to === expected.to &&
+    filters.redactSecrets === expected.redactSecrets &&
+    filters.limit === expected.limit
   )
 }
 
