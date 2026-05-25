@@ -13,9 +13,14 @@ export function ContextCandidatesList({ title, kind, candidates }: ContextCandid
 
   return (
     <section className="space-y-2" data-testid={`context-candidates-${kind}`}>
-      <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
-        {title}
-      </h3>
+      <div>
+        <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
+          {title}
+        </h3>
+        <p className="mt-0.5 text-[11px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+          {sectionDescription(kind)}
+        </p>
+      </div>
       <div className="space-y-2">
         {candidates.map((candidate) => (
           <article
@@ -24,33 +29,29 @@ export function ContextCandidatesList({ title, kind, candidates }: ContextCandid
           >
             <div className="flex items-start gap-2">
               <div className="mt-0.5 w-6 h-6 rounded-md bg-white dark:bg-white/[0.06] flex items-center justify-center text-apple-orange shrink-0">
-                <Lightbulb size={14} strokeWidth={2} />
+                <Lightbulb size={14} strokeWidth={2} aria-hidden="true" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <h4 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
                     {candidateTitle(candidate)}
                   </h4>
-                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-badge bg-apple-orange/10 text-apple-orange">
-                    {candidate.state}
+                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-badge bg-apple-blue/10 text-apple-blue">
+                    {candidateKindLabel(candidate)}
                   </span>
-                  {candidate.itemKind === 'skill' && (
-                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-badge bg-apple-blue/10 text-apple-blue">
-                      save as skill
-                    </span>
-                  )}
+                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-badge bg-apple-orange/10 text-apple-orange">
+                    {candidateStateLabel(candidate.state)}
+                  </span>
                 </div>
                 <p className="mt-1 text-[11px] leading-relaxed text-secondary-light dark:text-secondary-dark break-words">
                   {candidatePreview(candidate)}
                 </p>
-                {candidate.itemKind === 'skill' && (
-                  <p className="mt-1 text-[10px] font-medium text-apple-blue">
-                    Review in the Context queue before publishing to agents.
-                  </p>
-                )}
+                <p className="mt-1 text-[10px] font-medium text-apple-blue">
+                  {candidateNextStep(candidate)}
+                </p>
                 <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-secondary-light dark:text-secondary-dark">
                   <span>Created {formatRelativeTime(candidate.createdAt)}</span>
-                  {candidate.sourceRunId && <span>Run {candidate.sourceRunId.slice(0, 8)}</span>}
+                  {candidate.sourceRunId && <span>Suggested from this task run</span>}
                 </div>
               </div>
             </div>
@@ -61,18 +62,41 @@ export function ContextCandidatesList({ title, kind, candidates }: ContextCandid
   )
 }
 
+function sectionDescription(kind: ContextCandidateKind): string {
+  return kind === 'skill'
+    ? 'Draft skills are suggestions only. Review them before agents can reuse the workflow.'
+    : 'Suggested memories are not saved for future work until someone reviews them.'
+}
+
 function candidateTitle(candidate: TaskContextCandidate): string {
   const preview = candidate.proposedPreview
   for (const key of ['title', 'name', 'description']) {
     const value = preview[key]
     if (typeof value === 'string' && value.trim().length > 0) return value
   }
-  return candidate.itemKind === 'skill' ? 'Skill candidate' : 'Memory update'
+  return candidate.itemKind === 'skill' ? 'Suggested skill' : 'Suggested memory'
 }
 
 function candidatePreview(candidate: TaskContextCandidate): string {
   const value = candidate.proposedPreview.content_preview
   return typeof value === 'string' && value.trim().length > 0
     ? value
-    : 'Candidate is waiting for review.'
+    : 'No preview is available yet. Open the Context queue to inspect the full suggestion.'
+}
+
+function candidateKindLabel(candidate: TaskContextCandidate): string {
+  return candidate.itemKind === 'skill' ? 'Draft skill' : 'Suggested memory'
+}
+
+function candidateStateLabel(state: TaskContextCandidate['state']): string {
+  if (state === 'approved') return 'Approved'
+  if (state === 'rejected') return 'Rejected'
+  if (state === 'superseded') return 'Replaced'
+  return 'Waiting for review'
+}
+
+function candidateNextStep(candidate: TaskContextCandidate): string {
+  return candidate.itemKind === 'skill'
+    ? 'Next step: review the draft in Context before agents can use it.'
+    : 'Next step: check the wording in Context before saving it for future tasks.'
 }
