@@ -2,6 +2,7 @@ import { Navigate, createRoute } from '@tanstack/react-router'
 import { Route as rootRoute } from './__root'
 import { ApprovalQueueView } from '@app/features/context/ApprovalQueueView'
 import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
+import { FeatureRouteLoadingState } from '@app/shared/ui/FeatureRouteLoadingState'
 
 export const Route = createRoute({
   getParentRoute: () => rootRoute,
@@ -11,9 +12,11 @@ export const Route = createRoute({
     const enabled = useContextFeaturesStore((s) => s.governance)
     if (!loaded) {
       return (
-        <div className="flex h-full items-center justify-center text-ui-body text-secondary-light dark:text-secondary-dark">
-          Loading context…
-        </div>
+        <FeatureRouteLoadingState
+          testId="context-route-loading"
+          title="Checking context review"
+          detail="We are confirming whether context review is enabled for this workspace. If this takes more than a moment, refresh the page or ask an administrator to check setup."
+        />
       )
     }
     if (!enabled) return <Navigate to="/tasks" />
