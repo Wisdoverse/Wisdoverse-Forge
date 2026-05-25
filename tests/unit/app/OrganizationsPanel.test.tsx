@@ -1,45 +1,37 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { OrganizationsPanel } from '@app/features/admin/OrganizationsPanel'
-import { useAdminStore, type AdminOrg } from '@app/shared/model/admin.store'
+import type { AdminOrg } from '@app/shared/model/admin.store'
+import { useAdminStore } from '@app/shared/model/admin.store'
 
 const loadOrgsMock = vi.fn().mockResolvedValue(undefined)
 const originalLoadOrgs = useAdminStore.getState().loadOrgs
 
-const readyOrg: AdminOrg = {
-  id: 'org-ready',
-  name: 'Ready Org',
-  slug: 'ready-org',
-  plan: 'pro',
-  membersCount: 4,
-  teamsCount: 2,
-  createdAt: '2026-01-01T00:00:00.000Z',
-}
-
-const missingTeamOrg: AdminOrg = {
-  id: 'org-needs-team',
-  name: 'Needs Team Org',
-  slug: 'needs-team-org',
-  plan: 'free',
-  membersCount: 2,
-  teamsCount: 0,
-  createdAt: '2026-01-02T00:00:00.000Z',
-}
-
-const missingMemberOrg: AdminOrg = {
-  id: 'org-needs-members',
-  name: 'Needs Members Org',
-  slug: 'needs-members-org',
-  plan: 'enterprise',
-  membersCount: 0,
-  teamsCount: 1,
-  createdAt: '2026-01-03T00:00:00.000Z',
-}
+const organizations: AdminOrg[] = [
+  {
+    id: 'org-1',
+    name: 'Acme Labs',
+    slug: 'acme',
+    plan: 'enterprise',
+    membersCount: 6,
+    teamsCount: 2,
+    createdAt: '2026-05-01T10:00:00.000Z',
+  },
+  {
+    id: 'org-2',
+    name: 'Beta Team',
+    slug: 'beta',
+    plan: 'free',
+    membersCount: 2,
+    teamsCount: 1,
+    createdAt: '2026-05-02T10:00:00.000Z',
+  },
+]
 
 beforeEach(() => {
   loadOrgsMock.mockClear()
   useAdminStore.setState({
-    orgs: [readyOrg, missingTeamOrg, missingMemberOrg],
+    orgs: organizations,
     orgsLoading: false,
     orgsError: null,
     loadOrgs: loadOrgsMock,
@@ -48,7 +40,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
-  vi.clearAllMocks()
+  vi.restoreAllMocks()
   useAdminStore.setState({
     orgs: [],
     orgsLoading: false,
@@ -58,50 +50,56 @@ afterEach(() => {
 })
 
 describe('OrganizationsPanel', () => {
-  test('summarizes organization setup and explains row readiness', async () => {
+  test('explains organization health signals before the admin table', async () => {
     render(<OrganizationsPanel />)
 
-    await waitFor(() => expect(loadOrgsMock).toHaveBeenCalledWith())
-    expect(screen.getByText('2 organizations need setup before teams can use them.')).toBeDefined()
-    expect(screen.getByText('Showing 3 organizations with 6 members and 3 teams.')).toBeDefined()
-    expect(screen.getByText('Organization URL name: ready-org')).toBeDefined()
-    expect(screen.getByText('Ready for regular team work.')).toBeDefined()
-    expect(screen.getByText('Ready to use')).toBeDefined()
+    const guide = await screen.findByTestId('admin-org-guide')
     expect(
-      screen.getByText('Members can create projects and start work from their teams.')
+      within(guide).getByText('Use organizations to check tenant setup at a glance')
     ).toBeDefined()
-    expect(screen.getByText('Needs a team')).toBeDefined()
     expect(
-      screen.getByText('Create a team so members have a place to organize projects.')
+      within(guide).getByText('8 members and 3 teams are spread across 2 organizations.')
     ).toBeDefined()
-    expect(screen.getByText('Needs members')).toBeDefined()
-    expect(
-      screen.getByText('Invite at least one member so someone can use this organization.')
-    ).toBeDefined()
+    expect(within(guide).getByText('Plan shows limits')).toBeDefined()
+    expect(within(guide).getByText('Members show access size')).toBeDefined()
+    expect(within(guide).getByText('Teams show routing shape')).toBeDefined()
+
+    expect(screen.getByText('Acme Labs')).toBeDefined()
+    expect(screen.getByText('enterprise')).toBeDefined()
+    expect(screen.getAllByText('Review access when membership or teams change.').length).toBe(2)
+    expect(loadOrgsMock).toHaveBeenCalled()
   })
 
-  test('shows a beginner-friendly empty state', () => {
+  test('guides administrators when no organizations are visible', async () => {
     useAdminStore.setState({ orgs: [] })
 
     render(<OrganizationsPanel />)
 
-    expect(screen.getByText('No organizations found.')).toBeDefined()
+    const guide = await screen.findByTestId('admin-org-guide')
     expect(
-      screen.getByText('Create or join an organization first, then it will appear here.')
+      within(guide).getByText(
+        'Organizations appear here after setup or sync. Teams, projects, and members need an organization first.'
+      )
+    ).toBeDefined()
+
+    const emptyState = screen.getByTestId('admin-org-empty')
+    expect(within(emptyState).getByText('No organizations are visible yet')).toBeDefined()
+    expect(
+      within(emptyState).getByText(/Create or sync an organization before creating teams/i)
     ).toBeDefined()
   })
 
-  test('explains load errors with the next action', () => {
-    useAdminStore.setState({
-      orgs: [],
-      orgsError: 'HTTP 403',
-      orgsLoading: false,
-    })
+  test('adds recovery guidance when organizations fail to load', async () => {
+    useAdminStore.setState({ orgsError: 'HTTP 503' })
 
     render(<OrganizationsPanel />)
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'Organizations could not be loaded. Check your admin access and try again. Detail: HTTP 403'
-    )
+    const error = await screen.findByTestId('admin-org-error')
+    expect(within(error).getByText('HTTP 503')).toBeDefined()
+    expect(
+      within(error).getByText(
+        'Refresh after the API is healthy, or confirm this account has admin access.'
+      )
+    ).toBeDefined()
   })
 })
