@@ -21,13 +21,31 @@ const TYPE_ICONS: Record<string, LucideIcon> = {
   'task.progress': RefreshCw,
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  'task.completed': 'Completed',
-  'task.queued': 'Queued',
-  'task.working': 'Working',
-  'task.blocked': 'Blocked',
-  'task.failed': 'Failed',
-  'task.progress': 'Progress',
+const TYPE_COPY: Record<string, { label: string; description: string }> = {
+  'task.completed': {
+    label: 'Finished',
+    description: 'The task finished successfully.',
+  },
+  'task.queued': {
+    label: 'Waiting',
+    description: 'The task is waiting for an agent to start.',
+  },
+  'task.working': {
+    label: 'Working now',
+    description: 'The agent is actively working on this task.',
+  },
+  'task.blocked': {
+    label: 'Needs help',
+    description: 'The task is waiting for someone to clear a blocker.',
+  },
+  'task.failed': {
+    label: 'Failed',
+    description: 'The task hit an error and needs review.',
+  },
+  'task.progress': {
+    label: 'Update',
+    description: 'The agent reported progress on this task.',
+  },
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -41,9 +59,16 @@ const TYPE_COLORS: Record<string, string> = {
 
 export function FeedItem({ item }: { item: FeedItemType }) {
   const Icon = TYPE_ICONS[item.type] ?? Circle
+  const typeCopy = TYPE_COPY[item.type] ?? {
+    label: 'Update',
+    description: 'The agent reported a task update.',
+  }
 
   return (
-    <div className="flex gap-2 py-2">
+    <article
+      aria-label={`${typeCopy.label}: ${item.agentName} on ${item.taskTitle}. ${typeCopy.description}`}
+      className="flex gap-2 py-2"
+    >
       <div
         className={cn(
           'w-5 h-5 rounded-md flex items-center justify-center text-[10px] flex-shrink-0 mt-0.5',
@@ -58,7 +83,7 @@ export function FeedItem({ item }: { item: FeedItemType }) {
           <span className="text-secondary-light dark:text-secondary-dark"> · </span>
           <span className="min-w-0 flex-1 truncate font-medium">{item.taskTitle}</span>
           <span className="shrink-0 rounded-full bg-black/[0.04] px-1.5 py-0.5 text-[9px] font-medium text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-            {TYPE_LABELS[item.type] ?? 'Update'}
+            {typeCopy.label}
           </span>
         </div>
         {item.detail && (
@@ -70,7 +95,7 @@ export function FeedItem({ item }: { item: FeedItemType }) {
           {formatTime(item.timestamp)}
         </div>
       </div>
-    </div>
+    </article>
   )
 }
 
