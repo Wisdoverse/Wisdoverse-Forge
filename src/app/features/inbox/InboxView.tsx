@@ -25,6 +25,12 @@ const FILTERS: { id: InboxFilter; label: string; empty: string }[] = [
   },
 ]
 
+const INBOX_TRIAGE_STEPS = [
+  'Start with Needs action to find blocked tasks and failures.',
+  'Use Credentials when an agent needs access reconnected.',
+  'Mark items read after the task or setting has been handled.',
+]
+
 export function InboxView() {
   const { notifications, addNotification, markRead, markAllRead } = useFeedStore()
   const setSelectedTask = useBoardStore((s) => s.setSelectedTask)
@@ -116,7 +122,7 @@ export function InboxView() {
 
   if (notifications.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 max-w-sm mx-auto text-center px-6">
+      <div className="mx-auto flex h-full max-w-sm flex-col items-center justify-center gap-4 px-6 text-center">
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-apple-blue/10 text-apple-blue">
           <InboxIcon size={26} strokeWidth={1.75} aria-hidden="true" />
         </div>
@@ -128,22 +134,7 @@ export function InboxView() {
             Agent updates, task completions, and system alerts will show up here.
           </p>
         </div>
-        {loadError && (
-          <div
-            role="alert"
-            className="rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red"
-          >
-            Could not load older notifications. New updates will still appear here.
-            <button
-              type="button"
-              onClick={loadNotifications}
-              className="mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30"
-            >
-              <RefreshCw size={14} aria-hidden="true" />
-              Try Again
-            </button>
-          </div>
-        )}
+        <InboxTriagePath compact />
       </div>
     )
   }
@@ -265,6 +256,7 @@ export function InboxView() {
             )
           })}
         </div>
+        <InboxTriagePath />
       </div>
       <div className="flex-1 divide-y divide-black/[0.04] overflow-y-auto dark:divide-white/[0.04]">
         {filteredNotifications.length > 0 ? (
@@ -274,20 +266,12 @@ export function InboxView() {
         ) : (
           <div
             data-testid="inbox-filter-empty"
-            className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center"
+            className="flex h-full flex-col items-center justify-center px-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark"
           >
-            <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              {activeFilterConfig.empty}
+            <p>No notifications in this view.</p>
+            <p className="mt-1 max-w-sm text-ui-caption">
+              Try All for the full history, or Needs action for items that still need a response.
             </p>
-            {activeFilter !== 'all' && (
-              <button
-                type="button"
-                onClick={() => setActiveFilter('all')}
-                className="rounded-full px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
-              >
-                Show All Notifications
-              </button>
-            )}
           </div>
         )}
       </div>
@@ -316,56 +300,25 @@ function matchesFilter(notification: Notification, filter: InboxFilter): boolean
   }
 }
 
-function nextStepTitle(notification: Notification): string {
-  switch (notification.type) {
-    case 'credential_expired':
-      return 'Reconnect a credential before more agent work starts'
-    case 'blocked':
-      return 'Review the blocker that is stopping work'
-    case 'failed':
-      return 'Review the failed task before retrying'
-    case 'completed':
-      return 'Review the latest completed result when you have time'
-    case 'assigned':
-      return 'Open the newest assignment'
-    case 'mentioned':
-      return 'Open the newest mention'
-  }
-}
-
-function nextStepDescription(
-  notification: Notification,
-  needsActionCount: number,
-  credentialCount: number
-): string {
-  if (notification.type === 'credential_expired') {
-    return credentialCount === 1
-      ? 'One credential needs reconnecting. Fixing it keeps future agent runs from failing.'
-      : `${credentialCount} credentials need reconnecting. Start here because access problems can block new runs.`
-  }
-
-  if (notification.type === 'blocked' || notification.type === 'failed') {
-    return needsActionCount === 1
-      ? 'This is the only item that needs action. Open it and decide the next owner step.'
-      : `${needsActionCount} items need action. Start with the newest blocker or failure first.`
-  }
-
-  return 'There are no urgent blockers. Open this update only if you need to review the latest work.'
-}
-
-function nextStepActionLabel(notification: Notification): string {
-  switch (notification.type) {
-    case 'credential_expired':
-      return 'Open Settings'
-    case 'blocked':
-      return 'Open Blocked Task'
-    case 'failed':
-      return 'Open Failed Task'
-    case 'completed':
-      return 'Open Result'
-    case 'assigned':
-      return 'Open Assignment'
-    case 'mentioned':
-      return 'Open Mention'
-  }
+function InboxTriagePath({ compact = false }: { compact?: boolean }) {
+  return (
+    <section
+      data-testid="inbox-triage-path"
+      className={cn(
+        'text-left text-ui-caption text-secondary-light dark:text-secondary-dark',
+        compact
+          ? 'max-w-sm'
+          : 'mt-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.03]'
+      )}
+    >
+      <p className="font-semibold text-foreground-light dark:text-foreground-dark">
+        Inbox triage path
+      </p>
+      <ol className="mt-2 list-decimal space-y-1 pl-4">
+        {INBOX_TRIAGE_STEPS.map((step) => (
+          <li key={step}>{step}</li>
+        ))}
+      </ol>
+    </section>
+  )
 }
