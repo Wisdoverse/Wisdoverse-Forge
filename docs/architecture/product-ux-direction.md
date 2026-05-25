@@ -29,6 +29,24 @@ and leave reusable knowledge behind.
   permissions. The default workflow should hide unnecessary hierarchy until the
   team needs it.
 
+## Feature UX Acceptance Checklist
+
+Every new or changed product surface must pass this checklist before it is
+ready for review. This applies to browser UI, Platform CLI commands, runbooks,
+API-facing errors, and operator-facing automation.
+
+| Requirement              | Acceptance evidence                                                                                                                                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shortest safe path       | The surface states the next safe action before exposing advanced options. If setup is incomplete, the first action sends the user to the missing prerequisite.                                                |
+| Plain-language outcome   | Titles, badges, empty states, and button labels describe what the user can do or what changed, not only the internal object name. Prefer "Ready to assign" over "idle" when the screen is about task routing. |
+| Visible prerequisites    | Required project, runtime, provider, credential, agent, task group, or permission state is shown before the user submits work. Missing prerequisites include one direct action and a success condition.       |
+| Clear success state      | The user can tell what success looks like after completing the action. For async work, show the next place to watch progress or verify evidence.                                                              |
+| Recoverable errors       | Errors explain the failed action, avoid leaking internal details, and include a retry, refresh, setup, or navigation path when one exists.                                                                    |
+| Safe destructive actions | Delete, revoke, rotate, and permission-changing actions require explicit confirmation that names the affected resource and the expected impact.                                                               |
+| Progressive detail       | The first screen uses simple decisions. Advanced IDs, raw runtime names, logs, and diagnostics stay in details, troubleshooting, or copyable evidence blocks.                                                 |
+| Cross-platform CLI path  | CLI-facing features document copy-pasteable Linux, macOS, and Windows operator paths when the action can run locally. Follow [CLI Platform Support](../guides/cli-platform-support.md).                       |
+| Testable operator path   | PR validation names the user path checked, not only the technical command. Tests or screenshots should cover empty, loading, success, and recovery states when the feature owns them.                         |
+
 ## Current Implemented Surface
 
 | Surface               | Current behavior                                                                                                                                                                                                                                                                |
