@@ -150,6 +150,7 @@ export function ProjectTree({
   const [teamEditor, setTeamEditor] = useState<TeamEditorState | null>(null)
   const [projectEditor, setProjectEditor] = useState<ProjectEditorState | null>(null)
   const [membersProject, setMembersProject] = useState<NavProject | null>(null)
+  const [copyMessage, setCopyMessage] = useState<string | null>(null)
 
   const loadOrgUsers = useCallback(() => userApi.getUsers(), [])
 
@@ -197,6 +198,12 @@ export function ProjectTree({
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [teamMenu, projectMenu, teamEditor, projectEditor])
+
+  useEffect(() => {
+    if (!copyMessage) return
+    const timeout = window.setTimeout(() => setCopyMessage(null), 1800)
+    return () => window.clearTimeout(timeout)
+  }, [copyMessage])
 
   if (teams.length === 0) {
     return (
@@ -263,12 +270,13 @@ export function ProjectTree({
     setMembersProject(project)
   }
 
-  async function handleCopyProjectValue(value: string) {
+  async function handleCopyProjectValue(value: string, successMessage: string) {
     setProjectMenu(null)
     try {
       await copyToClipboard(value)
+      setCopyMessage(successMessage)
     } catch {
-      // Copy is a convenience action; do not block the menu on browser support.
+      setCopyMessage('Could not copy. Open project settings and copy it from there.')
     }
   }
 
@@ -332,7 +340,7 @@ export function ProjectTree({
   async function handleDeleteProject(project: NavProject) {
     setProjectMenu(null)
     const confirmed = window.confirm(
-      `Delete project "${project.name}"? Agents will be moved out of this project.`
+      `Delete project "${project.name}"? The project disappears from this workspace, but agents are moved out instead of deleted.`
     )
     if (!confirmed) return
     await onDeleteProject(project.id)
@@ -468,35 +476,35 @@ export function ProjectTree({
                 </span>
               </div>
               <p className="mt-0.5 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {projectMenu.team.name} / {projectMenu.project.slug}
+                {projectMenu.team.name} team · link name {projectMenu.project.slug}
               </p>
             </div>
 
             <ProjectMenuItem
               Icon={FolderOpen}
-              label="Open Project"
-              detail="Switch board context"
+              label="Open project board"
+              detail="Show this project's tasks"
               tone="primary"
               onClick={() => void handleOpenProject(projectMenu.project)}
             />
             <ProjectMenuItem
               Icon={ListPlus}
-              label="New Task"
-              detail="Create inside this project"
+              label="Create task here"
+              detail="Start work in this project"
               onClick={() => void handleCreateTask(projectMenu.project)}
             />
             {canManageProject(projectMenu.project) && (
               <>
                 <ProjectMenuItem
                   Icon={Users}
-                  label="Manage Access"
-                  detail="Add people and set roles"
+                  label="Share project"
+                  detail="Invite people and choose roles"
                   onClick={() => openProjectMembers(projectMenu.project)}
                 />
                 <ProjectMenuItem
                   Icon={Pencil}
-                  label="Configure Project"
-                  detail="Rename and tune basics"
+                  label="Rename project"
+                  detail="Change the name people see"
                   onClick={() => openProjectEditor(projectMenu.project)}
                 />
               </>
@@ -504,23 +512,27 @@ export function ProjectTree({
             {onNavigate && (
               <ProjectMenuItem
                 Icon={Settings}
-                label="Project Settings"
-                detail="Open Settings / Projects"
+                label="All project settings"
+                detail="Open the full settings page"
                 onClick={handleProjectSettings}
               />
             )}
             <div className="my-1 h-px bg-black/[0.06] dark:bg-white/[0.08]" />
             <ProjectMenuItem
               Icon={Copy}
-              label="Copy Project ID"
-              detail={projectMenu.project.id}
-              onClick={() => void handleCopyProjectValue(projectMenu.project.id)}
+              label="Copy support ID"
+              detail={`${projectMenu.project.id} · use when an admin asks`}
+              onClick={() =>
+                void handleCopyProjectValue(projectMenu.project.id, 'Project support ID copied')
+              }
             />
             <ProjectMenuItem
               Icon={Hash}
-              label="Copy Slug"
-              detail={projectMenu.project.slug}
-              onClick={() => void handleCopyProjectValue(projectMenu.project.slug)}
+              label="Copy link name"
+              detail={`${projectMenu.project.slug} · appears in project links`}
+              onClick={() =>
+                void handleCopyProjectValue(projectMenu.project.slug, 'Project link name copied')
+              }
             />
             {canDeleteProject(projectMenu.project) && (
               <>
@@ -528,7 +540,7 @@ export function ProjectTree({
                 <ProjectMenuItem
                   Icon={Trash2}
                   label="Delete Project"
-                  detail="Remove from this workspace"
+                  detail="Remove project, not the whole team"
                   tone="danger"
                   onClick={() => void handleDeleteProject(projectMenu.project)}
                 />
@@ -619,7 +631,7 @@ export function ProjectTree({
               id="project-config-title"
               className="mb-4 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark"
             >
-              Configure Project
+              Rename project
             </h2>
             {projectEditor.error && (
               <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-ui-caption text-red-600 dark:bg-red-900/20 dark:text-red-400">
@@ -630,7 +642,7 @@ export function ProjectTree({
               htmlFor="project-config-name"
               className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
             >
-              Project Name
+              Project name people see
             </label>
             <input
               id="project-config-name"
@@ -673,6 +685,20 @@ export function ProjectTree({
           removeMember={removeSelectedProjectMember}
           onClose={() => setMembersProject(null)}
         />
+      )}
+
+      {copyMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="project-copy-status"
+          className={cn(
+            'fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-full px-4 py-2 text-ui-caption font-medium shadow-lg',
+            'bg-foreground-light text-white dark:bg-foreground-dark dark:text-black'
+          )}
+        >
+          {copyMessage}
+        </div>
       )}
     </div>
   )
