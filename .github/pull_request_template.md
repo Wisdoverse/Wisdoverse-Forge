@@ -30,6 +30,21 @@ Related to #
 -
 -
 
+## Beginner UX / Operator Path
+
+<!--
+Required for browser UI, Platform CLI, runbooks, API-facing errors, automation,
+or any change an operator may see. If this PR is not user-facing, write
+"Not user-facing" and explain why.
+-->
+
+- Shortest safe path:
+- Prerequisites shown before action:
+- Success looks like:
+- Error or recovery path:
+- Destructive or permission impact:
+- CLI platforms covered, if applicable:
+
 ## Screenshots / Demo
 
 <!-- If applicable, add screenshots or a demo video -->
@@ -69,6 +84,7 @@ Related to #
 - [ ] I have updated the documentation accordingly
 - [ ] I have updated the CHANGELOG.md (if applicable)
 - [ ] I have added JSDoc comments for public APIs
+- [ ] User-facing copy follows the first-time operator standard in `CONTRIBUTING.md`
 
 ### Security
 
