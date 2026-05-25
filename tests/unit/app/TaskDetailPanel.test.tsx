@@ -213,6 +213,10 @@ describe('TaskDetailPanel', () => {
     )
 
     expect(screen.getByText(/completed work can become a governed skill/i)).toBeDefined()
+    expect(screen.getByTestId('task-handoff-checklist')).toBeDefined()
+    expect(screen.getByText('Outcome')).toBeDefined()
+    expect(screen.getByText(/solves the original request/i)).toBeDefined()
+    expect(screen.getByText(/open artifacts or context/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /review skill candidates/i })).toBeDefined()
   })
 

@@ -19,6 +19,12 @@ interface DescriptionTabProps {
   onDraftSkill?: () => void
 }
 
+const HANDOFF_REVIEW_POINTS = [
+  { label: 'Outcome', value: 'Confirm the result solves the original request.' },
+  { label: 'Evidence', value: 'Open artifacts or context before accepting the work.' },
+  { label: 'Reuse', value: 'Draft a skill only when the steps should help future tasks.' },
+]
+
 export function DescriptionTab({
   task,
   onOpenContext,
@@ -62,6 +68,26 @@ export function DescriptionTab({
           </div>
         </div>
       </ReviewSection>
+
+      {task.state === 'completed' && (
+        <ReviewSection title="Handoff checklist" Icon={CheckCircle2}>
+          <div data-testid="task-handoff-checklist" className="grid gap-1.5 text-xs sm:grid-cols-3">
+            {HANDOFF_REVIEW_POINTS.map((point) => (
+              <div
+                key={point.label}
+                className="min-w-0 rounded-lg bg-white px-2 py-1.5 dark:bg-black/20"
+              >
+                <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                  {point.label}
+                </span>
+                <span className="mt-0.5 block leading-relaxed text-foreground-light dark:text-foreground-dark">
+                  {point.value}
+                </span>
+              </div>
+            ))}
+          </div>
+        </ReviewSection>
+      )}
 
       <ReviewSection title="Assignment" Icon={MessageSquare}>
         <div className="space-y-1.5 text-xs">
