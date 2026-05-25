@@ -58,6 +58,11 @@ describe('SkillDraftModal', () => {
       />
     )
 
+    expect(screen.getByLabelText(/^use when$/i)).toBeDefined()
+    expect(screen.getByText(/check before publishing/i)).toBeDefined()
+    expect(screen.getByText('No secrets')).toBeDefined()
+    expect(screen.getByText(/choose the agents that should use it/i)).toBeDefined()
+
     await userEvent.setup().click(screen.getByRole('button', { name: /publish skill/i }))
 
     expect(await screen.findByTestId('skill-published-state')).toBeDefined()
