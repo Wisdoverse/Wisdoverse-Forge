@@ -46,8 +46,7 @@ function statusBadge(status: SubscriptionStatus): {
       }
     case 'past_due':
       return {
-        label: 'Payment needs attention',
-        description: 'Update the payment method before access is interrupted.',
+        label: 'Payment due',
         color: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
       }
     case 'canceled':
@@ -57,35 +56,7 @@ function statusBadge(status: SubscriptionStatus): {
         color: 'bg-apple-red/10 text-apple-red',
       }
     case 'unpaid':
-      return {
-        label: 'Payment incomplete',
-        description: 'Open billing management to finish the payment.',
-        color: 'bg-apple-red/10 text-apple-red',
-      }
-  }
-}
-
-function nextStep(plan: BillingPlan | null, subscription: BillingSubscription | null): string {
-  if (!subscription) {
-    return plan
-      ? 'Upgrade only when your team needs this paid capacity.'
-      : 'Start here. Upgrade when your team needs more agents, history, or AI usage.'
-  }
-
-  if (subscription.cancelAtPeriodEnd) {
-    return `The plan will stop on ${formatDate(subscription.currentPeriodEnd)}. Manage billing to resume it before that date.`
-  }
-
-  switch (subscription.status) {
-    case 'active':
-      return 'No action needed now. Manage billing for receipts, payment details, or cancellation.'
-    case 'trialing':
-      return `The trial runs until ${formatDate(subscription.currentPeriodEnd)}. Check usage before it ends.`
-    case 'past_due':
-    case 'unpaid':
-      return 'Open billing management to update payment details and avoid blocked work.'
-    case 'canceled':
-      return 'Choose a plan again when your team needs paid capacity.'
+      return { label: 'Payment needed', color: 'bg-apple-red/10 text-apple-red' }
   }
 }
 
@@ -166,24 +137,12 @@ export function PlanCard({
 
         <div className="flex shrink-0 flex-col gap-2 sm:items-end">
           {subscription ? (
-            <button
-              type="button"
-              onClick={onManage}
-              disabled={actionPending !== null && actionPending !== undefined}
-              aria-label="Open billing management"
-              className={uiStyles.secondaryButton}
-            >
-              {actionPending === 'portal' ? 'Opening...' : 'Manage Billing'}
+            <button type="button" onClick={onManage} className={uiStyles.secondaryButton}>
+              Manage billing
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={onUpgrade}
-              disabled={actionPending !== null && actionPending !== undefined}
-              aria-label="Upgrade plan"
-              className={uiStyles.primaryButton}
-            >
-              {actionPending === 'checkout' ? 'Opening...' : 'Upgrade Plan'}
+            <button type="button" onClick={onUpgrade} className={uiStyles.primaryButton}>
+              Choose plan
             </button>
           )}
         </div>
