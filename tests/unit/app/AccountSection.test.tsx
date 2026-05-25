@@ -2,106 +2,140 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { AccountSection } from '@app/features/settings/AccountSection'
 import { useNavigationStore } from '@app/entities/navigation'
+import { AuthContext, type AuthContextValue } from '@app/shared/model/auth.context'
+import { I18nContext } from '@app/shared/model/i18n.context'
+import { ThemeContext } from '@app/shared/model/theme.context'
 
-const userApiMock = vi.hoisted(() => ({
-  changePassword: vi.fn(),
-}))
+const changePasswordMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@app/shared/api/legacy', () => ({
-  getUserApi: () => userApiMock,
+  getUserApi: () => ({
+    changePassword: changePasswordMock,
+  }),
 }))
 
-vi.mock('@app/shared/model/auth.context', () => ({
-  useAuth: () => ({
+const originalUpdateOrg = useNavigationStore.getState().updateOrg
+
+function renderAccountSection() {
+  const authValue: AuthContextValue = {
+    authManager: {} as AuthContextValue['authManager'],
     user: {
-      username: 'dev',
-      email: 'dev@example.com',
+      id: 'user-1',
+      email: 'operator@example.com',
+      username: 'Operator',
       role: 'owner',
+      orgId: 'org-1',
     },
-  }),
-}))
+    isAuthenticated: true,
+    isLoading: false,
+  }
 
-vi.mock('@app/shared/model/theme.context', () => ({
-  useTheme: () => ({
-    theme: 'light',
-    toggleTheme: vi.fn(),
-  }),
-}))
-
-vi.mock('@app/shared/model/i18n.context', () => ({
-  useI18n: () => ({
-    language: 'en',
-    setLanguage: vi.fn(),
-  }),
-}))
+  return render(
+    <AuthContext.Provider value={authValue}>
+      <ThemeContext.Provider
+        value={{
+          theme: 'light',
+          toggleTheme: vi.fn(),
+          setTheme: vi.fn(),
+        }}
+      >
+        <I18nContext.Provider value={{ language: 'en', setLanguage: vi.fn() }}>
+          <AccountSection />
+        </I18nContext.Provider>
+      </ThemeContext.Provider>
+    </AuthContext.Provider>
+  )
+}
 
 beforeEach(() => {
-  userApiMock.changePassword.mockResolvedValue(undefined)
+  changePasswordMock.mockResolvedValue(undefined)
   useNavigationStore.setState({
     orgs: [
-      { id: 'org-1', name: 'Workspace Org', slug: 'workspace-org', plan: 'pro', role: 'owner' },
+      {
+        id: 'org-1',
+        name: 'Acme Operations',
+        slug: 'acme',
+        plan: 'team',
+        role: 'owner',
+      },
     ],
     selectedOrgId: 'org-1',
+    updateOrg: vi.fn().mockResolvedValue(undefined),
   })
 })
 
 afterEach(() => {
   cleanup()
-  vi.clearAllMocks()
-  useNavigationStore.getState().reset()
+  vi.restoreAllMocks()
+  changePasswordMock.mockReset()
+  useNavigationStore.setState({
+    orgs: [],
+    selectedOrgId: null,
+    updateOrg: originalUpdateOrg,
+  })
 })
 
-describe('AccountSection password change', () => {
-  test('shows the next missing password step before the submit button is enabled', () => {
-    render(<AccountSection />)
+describe('AccountSection', () => {
+  test('explains the password update path and confirms the next sign-in behavior', async () => {
+    renderAccountSection()
 
-    const currentPassword = screen.getByLabelText(/^current password$/i)
-    const newPassword = screen.getByLabelText(/^new password$/i)
-    const confirmPassword = screen.getByLabelText(/^confirm new password$/i)
-    const submit = screen.getByRole('button', { name: /change password/i })
+    expect(
+      screen.getByText(
+        'Enter your current password, then choose a new password with at least 8 characters.'
+      )
+    ).toBeDefined()
 
-    expect(screen.getByText('Next: Enter your current password.')).toBeDefined()
-    expect(submit).toBeDisabled()
-
-    fireEvent.change(currentPassword, { target: { value: 'old-password' } })
-
-    expect(screen.getByText('Next: Use at least 8 characters for the new password.')).toBeDefined()
-    expect(submit).toBeDisabled()
-
-    fireEvent.change(newPassword, { target: { value: 'new-password' } })
-
-    expect(screen.getByText('Next: Confirm the new password.')).toBeDefined()
-    expect(submit).toBeDisabled()
-
-    fireEvent.change(confirmPassword, { target: { value: 'different-password' } })
-
-    expect(screen.getByText('Next: Make the confirmation match the new password.')).toBeDefined()
-    expect(submit).toBeDisabled()
-
-    fireEvent.change(confirmPassword, { target: { value: 'new-password' } })
-
-    expect(screen.getByText('Ready to update your password.')).toBeDefined()
-    expect(submit).toBeEnabled()
-  })
-
-  test('submits the password change and clears the form after success', async () => {
-    render(<AccountSection />)
-
-    const currentPassword = screen.getByLabelText(/^current password$/i) as HTMLInputElement
-    const newPassword = screen.getByLabelText(/^new password$/i) as HTMLInputElement
-    const confirmPassword = screen.getByLabelText(/^confirm new password$/i) as HTMLInputElement
-
-    fireEvent.change(currentPassword, { target: { value: 'old-password' } })
-    fireEvent.change(newPassword, { target: { value: 'new-password' } })
-    fireEvent.change(confirmPassword, { target: { value: 'new-password' } })
-    fireEvent.click(screen.getByRole('button', { name: /change password/i }))
+    fireEvent.change(screen.getByLabelText('Current Password'), {
+      target: { value: 'old-password' },
+    })
+    fireEvent.change(screen.getByLabelText('New Password'), {
+      target: { value: 'new-password' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm New Password'), {
+      target: { value: 'new-password' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /update password/i }))
 
     await waitFor(() =>
-      expect(userApiMock.changePassword).toHaveBeenCalledWith('old-password', 'new-password')
+      expect(changePasswordMock).toHaveBeenCalledWith('old-password', 'new-password')
     )
-    expect(await screen.findByText('Password changed successfully')).toBeDefined()
-    expect(currentPassword.value).toBe('')
-    expect(newPassword.value).toBe('')
-    expect(confirmPassword.value).toBe('')
+    expect(
+      screen.getByText('Password changed. Use the new password the next time you sign in.')
+    ).toBeDefined()
+  })
+
+  test('makes organization rename consequences and the save action explicit', async () => {
+    const updateOrg = vi.fn().mockResolvedValue(undefined)
+    useNavigationStore.setState({ updateOrg })
+
+    renderAccountSection()
+
+    expect(
+      screen.getByText(
+        'This changes the display name only. Projects, teams, and permissions stay where they are.'
+      )
+    ).toBeDefined()
+
+    fireEvent.change(screen.getByLabelText('Organization Name'), {
+      target: { value: 'Acme Support' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save organization name/i }))
+
+    await waitFor(() => expect(updateOrg).toHaveBeenCalledWith('org-1', { name: 'Acme Support' }))
+    expect(
+      screen.getByText('Organization name updated. Teammates will see the new name in navigation.')
+    ).toBeDefined()
+  })
+
+  test('guides users when no organization is selected', () => {
+    useNavigationStore.setState({ orgs: [], selectedOrgId: null })
+
+    renderAccountSection()
+
+    expect(
+      screen.getByText(
+        'Select an organization from the sidebar before changing organization settings.'
+      )
+    ).toBeDefined()
   })
 })
