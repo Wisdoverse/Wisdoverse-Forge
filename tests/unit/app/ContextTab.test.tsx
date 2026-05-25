@@ -173,7 +173,7 @@ describe('ContextTab', () => {
     expect(screen.getByText('Skill candidates')).toBeDefined()
     expect(screen.getByText('Release operator')).toBeDefined()
     expect(screen.getByTestId('context-evidence')).toBeDefined()
-    expect(screen.getByText(/Revoked context remains visible/)).toBeDefined()
+    expect(screen.getByText(/No longer used for future work/)).toBeDefined()
     expect(screen.getByTestId('context-provenance')).toBeDefined()
   })
 
