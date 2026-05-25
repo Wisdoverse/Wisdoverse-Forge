@@ -109,7 +109,7 @@ afterEach(() => {
 })
 
 describe('RuntimeSection', () => {
-  test('shows launch checklist actions for missing images and disconnected credentials', async () => {
+  test('shows work setup actions for missing tools and disconnected sign-ins', async () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
 
     render(<RuntimeSection />)
@@ -117,12 +117,10 @@ describe('RuntimeSection', () => {
     expect(await screen.findByTestId('runtime-launch-checklist')).toBeDefined()
     const nextStep = screen.getByTestId('runtime-next-step')
     expect(nextStep).toHaveTextContent('Do This Next')
-    expect(nextStep).toHaveTextContent('CLI image inventory')
-    expect(screen.getByText('Launch checklist')).toBeDefined()
+    expect(nextStep).toHaveTextContent('Local tool setup')
+    expect(screen.getByText('Work setup checklist')).toBeDefined()
     expect(screen.getByText('2/4 ready')).toBeDefined()
-    expect(
-      screen.getAllByText(/Run make update-agents or make build-agent-all/i).length
-    ).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Rebuild the agent tool packages/i).length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: /Connect GitHub/i })).toBeDefined()
 
     fireEvent.click(screen.getByRole('button', { name: /Connect GitHub/i }))
@@ -135,7 +133,7 @@ describe('RuntimeSection', () => {
     )
   })
 
-  test('summarizes the ready runtime path without connection actions', async () => {
+  test('summarizes the ready work setup without connection actions', async () => {
     agentApiMock.getCliAuthProxyStatus.mockResolvedValueOnce({
       ok: true,
       statuses: [
@@ -169,8 +167,8 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     expect(await screen.findByText('4/4 ready')).toBeDefined()
-    expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Ready to Launch Agents')
+    expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Ready to start agent work')
     expect(screen.queryByRole('button', { name: /Connect GitHub/i })).toBeNull()
-    expect(screen.getByText(/1\/1 Container CLI versions reported/i)).toBeDefined()
+    expect(screen.getByText(/1\/1 local tool versions reported/i)).toBeDefined()
   })
 })
