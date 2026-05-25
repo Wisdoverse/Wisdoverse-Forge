@@ -39,9 +39,9 @@ interface PluginSummary {
 
 const FILTER_LABELS: Record<PluginFilter, string> = {
   all: 'All',
-  enabled: 'Enabled',
-  disabled: 'Disabled',
-  overridden: 'Overrides',
+  enabled: 'Can use',
+  disabled: 'Turned off',
+  overridden: 'Changed here',
 }
 
 function authHeaders(): Record<string, string> {
@@ -182,7 +182,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
     return (
       <div className="flex items-center justify-center py-8">
         <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-          Loading plugins…
+          Loading this agent's tools...
         </p>
       </div>
     )
@@ -190,8 +190,11 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <p className="text-ui-body text-apple-red">{error}</p>
+      <div className="flex flex-col items-center justify-center py-8 text-center">
+        <p className="text-ui-body font-medium text-apple-red">Tools could not be loaded.</p>
+        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          Details: {error}
+        </p>
       </div>
     )
   }
@@ -200,7 +203,8 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
     return (
       <div className="flex items-center justify-center py-8">
         <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-          No plugins available
+          No tools are available for this agent yet. Add tools to the workspace before assigning
+          them here.
         </p>
       </div>
     )
@@ -209,11 +213,43 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
   return (
     <div className="flex flex-col gap-4">
       <section data-testid="agent-plugin-readiness" className="space-y-4">
+        <div className="rounded-card border border-black/[0.08] bg-white px-4 py-3 dark:border-white/[0.1] dark:bg-[#2a2a2c]">
+          <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+            Agent tools
+          </p>
+          <h3 className="mt-1 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+            What this agent can use
+          </h3>
+          <p className="mt-1 max-w-2xl text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Tools are extra abilities. Turning one on or off here affects only this agent.
+          </p>
+        </div>
+
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-          <PluginMetric label="Enabled" value={summary.enabled} tone="success" />
-          <PluginMetric label="Disabled" value={summary.disabled} tone="muted" />
-          <PluginMetric label="Overrides" value={summary.overridden} tone="attention" />
-          <PluginMetric label="Total" value={summary.total} tone="default" />
+          <PluginMetric
+            testId="agent-plugin-metric-enabled"
+            label="Can use now"
+            value={summary.enabled}
+            tone="success"
+          />
+          <PluginMetric
+            testId="agent-plugin-metric-disabled"
+            label="Turned off"
+            value={summary.disabled}
+            tone="muted"
+          />
+          <PluginMetric
+            testId="agent-plugin-metric-overrides"
+            label="Changed here"
+            value={summary.overridden}
+            tone="attention"
+          />
+          <PluginMetric
+            testId="agent-plugin-metric-total"
+            label="Installed tools"
+            value={summary.total}
+            tone="default"
+          />
         </div>
 
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -228,7 +264,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
               data-testid="agent-plugin-search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search plugins"
+              placeholder="Search by tool name or what it does"
               className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light/75 focus:border-apple-blue/45 focus:ring-2 focus:ring-apple-blue/15 dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:text-foreground-dark dark:placeholder:text-secondary-dark/75"
             />
           </label>
@@ -263,7 +299,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
         <div className="flex items-center gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
           <SlidersHorizontal size={14} strokeWidth={2} aria-hidden="true" />
           <span>
-            Showing {visiblePlugins.length} of {summary.total} plugins
+            Showing {visiblePlugins.length} of {summary.total} tools
           </span>
         </div>
       </section>
@@ -279,7 +315,10 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
             className="text-secondary-light dark:text-secondary-dark"
           />
           <p className="mt-2 text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-            No plugins match the current view
+            No tools match this view
+          </p>
+          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Clear the search or choose All to see every tool this agent can be given.
           </p>
           <button
             type="button"
@@ -315,8 +354,8 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
               </span>
               <span className="text-[10px] font-mono uppercase tracking-normal text-secondary-light/80 dark:text-secondary-dark/80">
                 {plugin.hasOverride
-                  ? `Agent override · default ${plugin.defaultEnabled ? 'enabled' : 'disabled'}`
-                  : `Default ${plugin.defaultEnabled ? 'enabled' : 'disabled'}`}
+                  ? `Changed for this agent · workspace default is ${plugin.defaultEnabled ? 'on' : 'off'}`
+                  : `Using workspace default · ${plugin.defaultEnabled ? 'on' : 'off'}`}
               </span>
             </div>
 
@@ -324,7 +363,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
               type="button"
               role="switch"
               aria-checked={plugin.enabled}
-              aria-label={`Toggle ${plugin.name}`}
+              aria-label={`${plugin.enabled ? 'Turn off' : 'Turn on'} ${plugin.name} for this agent`}
               onClick={() => void toggle(plugin)}
               disabled={plugin.saving}
               className={cn(
@@ -350,10 +389,12 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
 }
 
 function PluginMetric({
+  testId,
   label,
   value,
   tone,
 }: {
+  testId: string
   label: string
   value: number
   tone: 'success' | 'muted' | 'attention' | 'default'
@@ -367,7 +408,7 @@ function PluginMetric({
 
   return (
     <div
-      data-testid={`agent-plugin-metric-${label.toLowerCase()}`}
+      data-testid={testId}
       className="rounded-card border border-black/[0.08] bg-white px-3 py-2 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
     >
       <p className="text-[10px] font-medium uppercase tracking-normal text-secondary-light dark:text-secondary-dark">
@@ -380,6 +421,7 @@ function PluginMetric({
 
 function PluginStatusPill({ plugin }: { plugin: PluginItem }) {
   const Icon = plugin.enabled ? CheckCircle2 : Circle
+  const label = plugin.enabled ? 'Agent can use' : 'Not available'
   return (
     <span
       className={cn(
@@ -390,7 +432,7 @@ function PluginStatusPill({ plugin }: { plugin: PluginItem }) {
       )}
     >
       <Icon size={11} strokeWidth={2.2} aria-hidden="true" />
-      {plugin.enabled ? 'Enabled' : 'Disabled'}
+      {label}
     </span>
   )
 }

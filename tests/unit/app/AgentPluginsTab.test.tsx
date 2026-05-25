@@ -58,8 +58,14 @@ describe('AgentPluginsTab', () => {
 
     const readiness = await screen.findByTestId('agent-plugin-readiness')
     expect(readiness).toBeDefined()
+    expect(within(readiness).getByText('What this agent can use')).toBeDefined()
     expect(
-      within(screen.getByTestId('agent-plugin-metric-enabled')).getByText('Enabled')
+      within(readiness).getByText(
+        'Tools are extra abilities. Turning one on or off here affects only this agent.'
+      )
+    ).toBeDefined()
+    expect(
+      within(screen.getByTestId('agent-plugin-metric-enabled')).getByText('Can use now')
     ).toBeDefined()
     expect(within(screen.getByTestId('agent-plugin-metric-enabled')).getByText('2')).toBeDefined()
     expect(within(screen.getByTestId('agent-plugin-metric-disabled')).getByText('1')).toBeDefined()
@@ -77,7 +83,7 @@ describe('AgentPluginsTab', () => {
 
     await screen.findByText('Shell Tools')
     const filters = screen.getByTestId('agent-plugin-filter')
-    fireEvent.click(within(filters).getByRole('button', { name: /disabled\s*1/i }))
+    fireEvent.click(within(filters).getByRole('button', { name: /turned off\s*1/i }))
 
     expect(screen.getByText('Deploy Tools')).toBeDefined()
     expect(screen.queryByText('Shell Tools')).toBeNull()
@@ -100,7 +106,9 @@ describe('AgentPluginsTab', () => {
 
     render(<AgentPluginsTab agentId="agent-1" />)
 
-    const shellSwitch = await screen.findByRole('switch', { name: /toggle shell tools/i })
+    const shellSwitch = await screen.findByRole('switch', {
+      name: /turn off shell tools for this agent/i,
+    })
     expect(shellSwitch).toHaveAttribute('aria-checked', 'true')
 
     fireEvent.click(shellSwitch)
@@ -115,5 +123,20 @@ describe('AgentPluginsTab', () => {
       )
     })
     expect(shellSwitch).toHaveAttribute('aria-checked', 'false')
+  })
+
+  test('shows beginner next steps when no tools are available', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ok: true, plugins: [] }),
+    })
+
+    render(<AgentPluginsTab agentId="agent-1" />)
+
+    expect(
+      await screen.findByText(
+        'No tools are available for this agent yet. Add tools to the workspace before assigning them here.'
+      )
+    ).toBeDefined()
   })
 })
