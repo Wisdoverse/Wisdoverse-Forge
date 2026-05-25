@@ -63,9 +63,14 @@ function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
         <button
           type="button"
           onClick={handleDelete}
+          aria-label={
+            confirming
+              ? `Confirm removing ${sshKey.label} SSH key`
+              : `Remove ${sshKey.label} SSH key`
+          }
           className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
         >
-          {confirming ? 'Confirm?' : 'Delete'}
+          {confirming ? 'Remove key?' : 'Remove'}
         </button>
       </td>
     </tr>
@@ -158,18 +163,17 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
       )}
 
       <div className="flex flex-col gap-3 mb-3">
-        {/* Label */}
         <div>
-          <label htmlFor={labelInputId} className={uiStyles.label}>
-            Label <span className="text-red-500">*</span>
+          <label htmlFor="ssh-key-label" className={uiStyles.label}>
+            Key name <span className="text-red-500">*</span>
           </label>
           <input
-            id={labelInputId}
-            name="sshKeyLabel"
+            id="ssh-key-label"
             type="text"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="e.g. My Laptop Key…"
+            placeholder="e.g. GitHub deploy key"
+            aria-describedby="ssh-key-label-help"
             autoFocus
             autoComplete="off"
             spellCheck={false}
@@ -177,40 +181,36 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
             aria-describedby={`${statusId}${visibleError !== null && missingField === 'label' ? ` ${errorId}` : ''}`}
             className={uiStyles.input}
           />
-          {visibleError !== null && missingField === 'label' && (
-            <p id={errorId} className="mt-1 text-ui-caption text-apple-red">
-              {visibleError}
-            </p>
-          )}
+          <p
+            id="ssh-key-label-help"
+            className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+          >
+            Use a name that tells your team where this key is used.
+          </p>
         </div>
 
-        {/* Public Key */}
         <div>
-          <label htmlFor={publicKeyInputId} className={uiStyles.label}>
-            Public Key <span className="text-red-500">*</span>
+          <label htmlFor="ssh-key-public" className={uiStyles.label}>
+            Public key text <span className="text-red-500">*</span>
           </label>
           <textarea
-            id={publicKeyInputId}
-            name="sshPublicKey"
+            id="ssh-key-public"
             value={publicKey}
             onChange={(e) => setPublicKey(e.target.value)}
-            placeholder="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA… user@host"
-            autoComplete="off"
-            spellCheck={false}
-            aria-invalid={visibleError !== null && missingField === 'publicKey'}
-            aria-describedby={`${statusId}${visibleError !== null && missingField === 'publicKey' ? ` ${errorId}` : ''}`}
+            placeholder="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... user@host"
+            aria-describedby="ssh-key-public-help"
+            required
             rows={6}
             className={cn(
               'w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-3 py-2 font-mono text-ui-caption text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
             )}
           />
-          {visibleError !== null && missingField === 'publicKey' && (
-            <p id={errorId} className="mt-1 text-ui-caption text-apple-red">
-              {visibleError}
-            </p>
-          )}
-          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Paste the public key used by agent containers for git operations.
+          <p
+            id="ssh-key-public-help"
+            className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+          >
+            Paste only the public key that starts with ssh-ed25519 or ssh-rsa. Never paste a private
+            key.
           </p>
         </div>
       </div>
@@ -224,8 +224,12 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
         >
           Cancel
         </button>
-        <button type="submit" disabled={saving} className={uiStyles.primaryButton}>
-          {saving ? 'Saving…' : 'Add SSH Key'}
+        <button
+          type="submit"
+          disabled={saving || !label.trim() || !publicKey.trim()}
+          className={uiStyles.primaryButton}
+        >
+          {saving ? 'Saving...' : 'Save SSH key'}
         </button>
       </div>
     </form>
@@ -258,10 +262,10 @@ export function SshKeysSection() {
   }
 
   const tableHeaders: { label: string; className?: string }[] = [
-    { label: 'Label' },
+    { label: 'Key name' },
     { label: 'Fingerprint' },
-    { label: 'Type' },
-    { label: 'Added' },
+    { label: 'Key type' },
+    { label: 'Added on' },
     { label: '', className: 'w-20' },
   ]
 
@@ -270,8 +274,10 @@ export function SshKeysSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>SSH Keys</h2>
-          <p className={uiStyles.sectionDescription}>SSH keys used by agents for git operations</p>
+          <h2 className={uiStyles.sectionTitle}>Repository SSH keys</h2>
+          <p className={uiStyles.sectionDescription}>
+            Add public keys that let agents access private repositories without a password.
+          </p>
         </div>
         {!showForm && (
           <button
@@ -280,7 +286,7 @@ export function SshKeysSection() {
             className={uiStyles.primaryButton}
           >
             <span>+</span>
-            <span>Add Key</span>
+            <span>Add SSH key</span>
           </button>
         )}
       </div>
@@ -292,21 +298,21 @@ export function SshKeysSection() {
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {sshKeysLoading && sshKeys.length === 0 ? (
           <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading SSH keys…
+            Loading repository SSH keys...
           </div>
         ) : sshKeys.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No SSH keys yet
+              No repository SSH keys yet
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Add an SSH key to enable authenticated git operations
+              Add a public key before assigning private repository work that uses SSH access.
             </p>
           </div>
         ) : (
           <>
             {sshKeys.length > 0 && (
-              <table className={uiStyles.table}>
+              <table className={uiStyles.table} aria-label="Repository SSH keys">
                 <thead className={uiStyles.tableHead}>
                   <tr>
                     {tableHeaders.map((h) => (
