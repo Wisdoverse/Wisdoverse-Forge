@@ -27,13 +27,23 @@ const STATE_ORDER: TaskState[] = [
 ]
 
 const STATE_LABELS: Record<TaskState, string> = {
-  working: 'Working',
-  queued: 'Queued',
-  backlog: 'Backlog',
-  blocked: 'Blocked',
-  completed: 'Completed',
-  failed: 'Failed',
+  working: 'Doing now',
+  queued: 'Waiting to start',
+  backlog: 'Ready for later',
+  blocked: 'Needs your help',
+  completed: 'Done',
+  failed: 'Stopped with an error',
   canceled: 'Canceled',
+}
+
+const STATE_HELP: Record<TaskState, string> = {
+  working: 'The agent is actively working on these tasks.',
+  queued: 'These tasks are next in line for this agent.',
+  backlog: 'These tasks are assigned but not started yet.',
+  blocked: 'These tasks need a person to unblock them.',
+  completed: 'These tasks are finished.',
+  failed: 'These tasks stopped before finishing.',
+  canceled: 'These tasks were stopped on purpose.',
 }
 
 const STATE_DOT: Record<TaskState, string> = {
@@ -50,9 +60,9 @@ type AgentTaskFilter = 'all' | 'open' | 'needs-action' | 'completed'
 
 const TASK_FILTERS: { value: AgentTaskFilter; label: string }[] = [
   { value: 'all', label: 'All' },
-  { value: 'open', label: 'Open' },
-  { value: 'needs-action', label: 'Needs action' },
-  { value: 'completed', label: 'Completed' },
+  { value: 'open', label: 'Still open' },
+  { value: 'needs-action', label: 'Needs help' },
+  { value: 'completed', label: 'Done' },
 ]
 
 export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
@@ -110,7 +120,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
           'animate-pulse text-center text-ui-body text-secondary-light dark:text-secondary-dark'
         )}
       >
-        Loading tasks…
+        Loading this agent's tasks...
       </div>
     )
   }
@@ -125,7 +135,10 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
           'text-center text-ui-body text-apple-red'
         )}
       >
-        {error}
+        <p className="font-medium">Tasks could not be loaded.</p>
+        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          Details: {error}
+        </p>
       </div>
     )
   }
@@ -140,7 +153,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
           'text-center text-ui-body text-secondary-light dark:text-secondary-dark'
         )}
       >
-        No tasks have been routed to this agent yet.
+        This agent has no assigned tasks yet. Assign a task to this agent to track the work here.
       </div>
     )
   }
@@ -157,38 +170,41 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
           </span>
           <div className="min-w-0">
             <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-              Work queue
+              Agent work list
             </p>
             <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              Agent task load
+              What this agent is handling
             </h3>
+            <p className="mt-1 max-w-2xl text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Start with Needs help, then check Doing now and Waiting to start.
+            </p>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <WorkloadMetric
             testId="agent-task-metric-active"
-            label="Active"
+            label="Doing now"
             value={workload.active}
             Icon={CircleDot}
             tone="active"
           />
           <WorkloadMetric
             testId="agent-task-metric-backlog"
-            label="Backlog"
+            label="Waiting"
             value={workload.backlog}
             Icon={Clock3}
             tone="neutral"
           />
           <WorkloadMetric
             testId="agent-task-metric-needs-action"
-            label="Needs action"
+            label="Needs help"
             value={workload.needsAction}
             Icon={AlertTriangle}
             tone="warn"
           />
           <WorkloadMetric
             testId="agent-task-metric-completed"
-            label="Completed"
+            label="Done"
             value={workload.completed}
             Icon={CheckCircle2}
             tone="success"
@@ -209,7 +225,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search tasks, blockers, results…"
+            placeholder="Search by task name, blocker, or result"
             className={cn(
               'h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-ui-body outline-none',
               'text-foreground-light placeholder:text-secondary-light dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:placeholder:text-secondary-dark',
@@ -243,12 +259,19 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
             <section key={state} className="flex flex-col gap-2">
               <header className="flex items-center gap-2 px-1">
                 <span className={cn('w-2 h-2 rounded-full', STATE_DOT[state])} />
-                <h3 className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
-                  {STATE_LABELS[state]}
-                </h3>
-                <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  {list.length}
-                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+                      {STATE_LABELS[state]}
+                    </h3>
+                    <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                      {list.length}
+                    </span>
+                  </div>
+                  <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                    {STATE_HELP[state]}
+                  </p>
+                </div>
               </header>
               <ul className="flex flex-col gap-1.5">
                 {list.map((task) => (
@@ -266,7 +289,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
             'text-center text-ui-body text-secondary-light dark:border-white/[0.12] dark:bg-[#2c2c2e] dark:text-secondary-dark'
           )}
         >
-          No tasks match this view.
+          Nothing matches this view. Clear the search or choose All.
         </div>
       )}
     </div>
@@ -377,7 +400,7 @@ function AgentTaskRow({ task }: { task: TaskSummary }) {
           title={task.blockedHint}
         >
           <AlertTriangle size={12} strokeWidth={2.25} className="mt-0.5 shrink-0" />
-          <span className="line-clamp-2">{task.blockedHint}</span>
+          <span className="line-clamp-2">Needs help: {task.blockedHint}</span>
         </p>
       )}
 
@@ -387,7 +410,7 @@ function AgentTaskRow({ task }: { task: TaskSummary }) {
           className="line-clamp-1 text-ui-caption text-apple-red"
           title={task.error}
         >
-          {task.error}
+          Stopped because: {task.error}
         </p>
       )}
     </li>
