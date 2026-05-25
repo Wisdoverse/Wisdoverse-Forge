@@ -73,7 +73,13 @@ describe('ContextTab', () => {
   test('shows the empty state when no run context exists', async () => {
     render(<ContextTab taskId="task-1" loadContext={async () => context({ runs: [] })} />)
 
-    expect(await screen.findByText('No context applied to this run.')).toBeDefined()
+    const emptyState = await screen.findByTestId('context-empty-state')
+    expect(
+      within(emptyState).getByText('Context will appear after useful run activity')
+    ).toBeDefined()
+    expect(within(emptyState).getByText(/has not applied memories, skills, evidence/)).toBeDefined()
+    expect(within(emptyState).getByText(/Run or update the task brief/)).toBeDefined()
+    expect(within(emptyState).getByText(/Return here after completion/)).toBeDefined()
   })
 
   test('renders applied context, candidates, evidence, and provenance', async () => {

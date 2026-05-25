@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { CheckCircle2, Clock3, ListChecks } from 'lucide-react'
 import { orchestrationApi } from '@app/shared/api/orchestration'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { ContextAppliedList } from './ContextAppliedList'
@@ -112,10 +113,46 @@ export function ContextTab({
 
   if (!context || isEmptyContext(context)) {
     return (
-      <div className="py-8 flex items-center justify-center" data-testid="context-empty-state">
-        <p className="text-xs text-secondary-light dark:text-secondary-dark">
-          No context applied to this run.
-        </p>
+      <div className="py-5" data-testid="context-empty-state">
+        <div className="rounded-lg border border-black/[0.08] bg-apple-gray-6/70 p-4 dark:border-white/[0.08] dark:bg-white/[0.035]">
+          <div className="flex items-start gap-3">
+            <Clock3
+              size={18}
+              strokeWidth={2.15}
+              className="mt-0.5 shrink-0 text-apple-blue"
+              aria-hidden="true"
+            />
+            <div>
+              <p className="text-sm font-semibold text-foreground-light dark:text-foreground-dark">
+                Context will appear after useful run activity
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-secondary-light dark:text-secondary-dark">
+                The agent has not applied memories, skills, evidence, or review candidates for this
+                task yet.
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 grid gap-2 text-xs text-secondary-light dark:text-secondary-dark sm:grid-cols-2">
+            <div className="flex items-start gap-2 rounded-lg bg-white px-2.5 py-2 dark:bg-white/[0.04]">
+              <ListChecks
+                size={14}
+                strokeWidth={2.15}
+                className="mt-0.5 shrink-0 text-apple-blue"
+                aria-hidden="true"
+              />
+              <span>Run or update the task brief if the agent needs more instructions.</span>
+            </div>
+            <div className="flex items-start gap-2 rounded-lg bg-white px-2.5 py-2 dark:bg-white/[0.04]">
+              <CheckCircle2
+                size={14}
+                strokeWidth={2.15}
+                className="mt-0.5 shrink-0 text-apple-green"
+                aria-hidden="true"
+              />
+              <span>Return here after completion to review reusable context and evidence.</span>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
