@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { Bot, Power, RefreshCw } from 'lucide-react'
 import * as THREE from 'three'
 import { useAgentsStore, type AgentInfo, type AgentStatus } from '@app/shared/model/agents.store'
 
@@ -60,6 +61,38 @@ const STATUS_STYLE: Record<
     className: 'bg-zinc-500',
     desk: 0x6f737d,
   },
+}
+
+const EMPTY_STATE_STEPS = [
+  { label: 'Create an agent from Agents', icon: Bot },
+  { label: 'Start or wake the runtime', icon: Power },
+  { label: 'Refresh after the agent checks in', icon: RefreshCw },
+]
+
+export function Workshop3DEmptyState() {
+  return (
+    <div
+      data-testid="workshop-3d-empty-state"
+      className="space-y-3 px-2 py-1 text-xs leading-5 text-white/70"
+    >
+      <div>
+        <p className="text-sm font-medium leading-5 text-white">No agents in the workshop yet</p>
+        <p className="mt-1">
+          Create or wake an agent, then this view will show its live status and activity in 3D.
+        </p>
+      </div>
+      <ol className="space-y-2">
+        {EMPTY_STATE_STEPS.map(({ label, icon: Icon }) => (
+          <li key={label} className="flex items-start gap-2">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/80">
+              <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+            </span>
+            <span className="min-w-0">{label}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
 }
 
 function agentPosition(index: number, total: number): THREE.Vector3 {
@@ -827,9 +860,7 @@ export function Workshop3DView() {
 
       <div className="absolute inset-x-3 bottom-3 z-10 flex max-h-36 flex-col gap-2 overflow-y-auto rounded-lg border border-white/10 bg-black/35 p-2 text-white shadow-lg backdrop-blur sm:inset-x-auto sm:bottom-auto sm:right-4 sm:top-4 sm:max-h-[calc(100%-2rem)] sm:w-64">
         {agents.length === 0 && !loading ? (
-          <div data-testid="workshop-3d-empty-state" className="px-2 py-1 text-xs text-white/65">
-            No active agents
-          </div>
+          <Workshop3DEmptyState />
         ) : (
           agents.map((agent) => {
             const status = STATUS_STYLE[agent.status]
