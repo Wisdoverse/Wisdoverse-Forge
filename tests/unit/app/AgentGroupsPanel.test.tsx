@@ -109,7 +109,27 @@ describe('AgentGroupsPanel', () => {
       within(screen.getByTestId('routing-metric-completed')).getByText('1')
     ).toBeInTheDocument()
     expect(screen.getByText('Auth handoff blocked')).toBeInTheDocument()
+    expect(screen.getByText(/needs agent .* assign an agent before dispatch/i)).toBeInTheDocument()
+    expect(screen.getByText(/build runner .* monitor live progress/i)).toBeInTheDocument()
+    expect(screen.getByText(/needs agent .* missing secret/i)).toBeInTheDocument()
     expect(screen.queryByText('Other group work')).toBeNull()
+  })
+
+  test('does not call routed work unassigned when only the agent id is loaded', () => {
+    seedRoutingState([
+      makeTask({
+        id: 'queued-1',
+        state: 'queued',
+        params: { task: 'Queue deployment', message: '' },
+        assignedTo: 'agent-1',
+      }),
+    ])
+
+    render(<AgentGroupsPanel />)
+
+    expect(screen.getByText('Queue deployment')).toBeInTheDocument()
+    expect(screen.getByText(/assigned agent .* waiting for runtime pickup/i)).toBeInTheDocument()
+    expect(screen.queryByText(/unassigned/i)).toBeNull()
   })
 
   test('filters the routed work queue by search', () => {
