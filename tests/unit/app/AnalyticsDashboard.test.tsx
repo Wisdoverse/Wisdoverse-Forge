@@ -29,6 +29,45 @@ afterEach(() => {
 })
 
 describe('AnalyticsDashboard · ActivityBarChart', () => {
+  test('explains the next operator action before the raw metrics', () => {
+    render(<AnalyticsDashboard />)
+
+    const nextStep = screen.getByTestId('analytics-next-step')
+    expect(nextStep).toHaveTextContent('What to check next')
+    expect(nextStep).toHaveTextContent('Bring offline agents back before judging work')
+    expect(nextStep).toHaveTextContent('Open Agents and reconnect or restart the offline agents')
+  })
+
+  test('guides an empty activity range toward running a first task', () => {
+    useAnalyticsStore.setState({
+      summary: { totalEvents: 0, toolCalls: 0, prompts: 0, responses: 0 },
+      tools: [],
+      hourly: [],
+      agentStats: { total: 1, online: 1, offline: 0, working: 0 },
+    })
+
+    render(<AnalyticsDashboard />)
+
+    const nextStep = screen.getByTestId('analytics-next-step')
+    expect(nextStep).toHaveTextContent('Start a task to create activity data')
+    expect(nextStep).toHaveTextContent('Create one simple task')
+    expect(screen.getByText('No activity data')).toBeDefined()
+  })
+
+  test('points beginners at the busiest low-success tool first', () => {
+    useAnalyticsStore.setState({
+      tools: [{ tool: 'Bash', count: 12, successRate: 0.42 }],
+      agentStats: { total: 2, online: 2, offline: 0, working: 0 },
+    })
+
+    render(<AnalyticsDashboard />)
+
+    const nextStep = screen.getByTestId('analytics-next-step')
+    expect(nextStep).toHaveTextContent('Review Bash failures first')
+    expect(nextStep).toHaveTextContent('completed cleanly only 42%')
+    expect(screen.getByText('Busiest tool')).toBeDefined()
+  })
+
   test('renders the hourly activity chart with axis labels', () => {
     render(<AnalyticsDashboard />)
     const chart = screen.getByTestId('activity-chart')
