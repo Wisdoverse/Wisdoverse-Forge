@@ -20,6 +20,12 @@ const STATUS_LABELS: Record<AgentStatus, string> = {
   offline: 'Offline',
 }
 
+const STATUS_HELP: Record<AgentStatus, string> = {
+  working: 'Running a task now',
+  idle: 'Ready for the next task',
+  offline: 'Reconnect before assigning work',
+}
+
 function providerInitial(provider: string): string {
   return provider.charAt(0).toUpperCase()
 }
@@ -38,6 +44,7 @@ interface AgentCardProps {
 
 export function AgentCard({ agent, onClick }: AgentCardProps) {
   const ratePercent = Math.round(agent.successRate * 100)
+  const statusHelp = STATUS_HELP[agent.status]
   const runtimeLabel = isHostCliAgent(agent)
     ? 'Host CLI'
     : agent.cliTool
@@ -96,12 +103,25 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
             {agent.currentTask}
           </p>
         )}
+        <p
+          data-testid={`agent-status-help-${agent.id}`}
+          className={cn(
+            'mt-2 rounded-md px-2 py-1 text-ui-caption',
+            agent.status === 'offline'
+              ? 'bg-apple-red/10 text-apple-red'
+              : agent.status === 'working'
+                ? 'bg-apple-blue/10 text-secondary-light dark:text-secondary-dark'
+                : 'bg-apple-green/10 text-secondary-light dark:text-secondary-dark'
+          )}
+        >
+          {statusHelp}
+        </p>
       </div>
 
       <div className="hidden shrink-0 grid-cols-3 gap-3 text-right sm:grid">
-        <Metric value={String(agent.tasksCompleted)} label="Done" />
-        <Metric value={String(agent.tasksInProgress)} label="Active" />
-        <Metric value={`${ratePercent}%`} label="Rate" />
+        <Metric value={String(agent.tasksCompleted)} label="Finished" />
+        <Metric value={String(agent.tasksInProgress)} label="Running" />
+        <Metric value={`${ratePercent}%`} label="Success" />
       </div>
 
       <span
