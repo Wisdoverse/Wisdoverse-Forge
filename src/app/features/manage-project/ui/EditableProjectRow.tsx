@@ -107,7 +107,7 @@ export function EditableProjectRow({
               onChange={(e) => setDescription(e.target.value)}
               disabled={saving}
               aria-label="Project description"
-              placeholder="Description"
+              placeholder="What work belongs here"
               className={uiStyles.input}
             />
             <div className="flex justify-end gap-1">
@@ -210,28 +210,13 @@ export function EditableProjectRow({
                 Keep
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => void handleDelete()}
-              disabled={saving}
-              aria-label={
-                confirmingDelete ? `Delete project ${project.name}` : `Delete ${project.name}`
-              }
-              title={confirmingDelete ? 'Delete project' : 'Delete'}
-              className={cn(
-                'flex h-8 touch-manipulation items-center justify-center rounded-lg text-ui-button transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:cursor-not-allowed disabled:opacity-50',
-                confirmingDelete
-                  ? 'w-auto whitespace-nowrap bg-apple-red px-2 text-ui-caption font-semibold text-white hover:bg-apple-red/90'
-                  : 'w-8 text-secondary-light hover:bg-apple-red/10 hover:text-apple-red dark:text-secondary-dark dark:hover:bg-apple-red/10 dark:hover:text-apple-red'
-              )}
-            >
-              {confirmingDelete ? (
-                'Delete project'
-              ) : (
-                <Trash2 size={14} strokeWidth={2} aria-hidden="true" />
-              )}
-            </button>
-          </>
+          >
+            {confirmingDelete ? (
+              'Delete project'
+            ) : (
+              <Trash2 size={14} strokeWidth={2} aria-hidden="true" />
+            )}
+          </button>
         )}
       </div>
     </div>
