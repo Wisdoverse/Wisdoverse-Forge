@@ -27,7 +27,7 @@ interface BoardToolbarProps {
 }
 
 const PRIORITY_FILTERS: { value: BoardPriorityFilter; label: string }[] = [
-  { value: 'all', label: 'All Priority' },
+  { value: 'all', label: 'All priorities' },
   { value: 'urgent', label: 'Urgent' },
   { value: 'high', label: 'High' },
   { value: 'normal', label: 'Normal' },
@@ -35,13 +35,13 @@ const PRIORITY_FILTERS: { value: BoardPriorityFilter; label: string }[] = [
 ]
 
 const ASSIGNEE_FILTERS: { value: BoardAssigneeFilter; label: string }[] = [
-  { value: 'all', label: 'All Owners' },
-  { value: 'unassigned', label: 'Unassigned' },
-  { value: 'assigned', label: 'Assigned' },
+  { value: 'all', label: 'All agents' },
+  { value: 'unassigned', label: 'Needs agent' },
+  { value: 'assigned', label: 'Has agent' },
 ]
 
 const DISPLAY_OPTIONS: { value: BoardDisplayMode; label: string }[] = [
-  { value: 'comfortable', label: 'Comfort' },
+  { value: 'comfortable', label: 'Guided' },
   { value: 'compact', label: 'Compact' },
 ]
 
@@ -80,7 +80,7 @@ export function BoardToolbar({
               type="search"
               value={searchQuery}
               onChange={(event) => onSearchQueryChange(event.target.value)}
-              placeholder="Search tasks, agents, blockers…"
+              placeholder="Search task names, agents, blockers..."
               className="h-9 w-full rounded-lg border border-black/[0.08] bg-black/[0.02] pl-9 pr-3 text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light focus:border-apple-blue/40 focus:bg-white focus:ring-2 focus:ring-apple-blue/20 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark dark:focus:bg-white/[0.06]"
             />
           </label>
@@ -97,7 +97,7 @@ export function BoardToolbar({
           />
 
           <FilterGroup
-            ariaLabel="Filter tasks by assignee"
+            ariaLabel="Filter tasks by agent assignment"
             options={ASSIGNEE_FILTERS.map((filter) => ({
               ...filter,
               count: counts.assignee[filter.value],
@@ -109,7 +109,7 @@ export function BoardToolbar({
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <span className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
-            {counts.visible}/{counts.total} tasks
+            Showing {counts.visible} of {counts.total} tasks
           </span>
           {hasActiveFilter && (
             <button
@@ -121,7 +121,7 @@ export function BoardToolbar({
             </button>
           )}
           <FilterGroup
-            ariaLabel="Choose board density"
+            ariaLabel="Choose card detail level"
             icon={<LayoutGrid size={14} strokeWidth={2} aria-hidden="true" />}
             options={DISPLAY_OPTIONS.map((option) => ({ ...option, count: null }))}
             value={displayMode}
