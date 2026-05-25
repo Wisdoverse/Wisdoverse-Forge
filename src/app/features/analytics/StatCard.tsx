@@ -89,6 +89,7 @@ export function StatCard({
 
   return (
     <div
+      aria-busy={loading || undefined}
       className={cn(
         'flex flex-col gap-3 rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2c2c2e]'
       )}
@@ -98,7 +99,15 @@ export function StatCard({
       </p>
 
       {loading ? (
-        <div className="h-7 w-20 animate-pulse rounded-card bg-black/[0.04] dark:bg-white/[0.05]" />
+        <div className="flex min-h-7 items-center gap-2" aria-live="polite">
+          <div
+            className="h-7 w-20 animate-pulse rounded-card bg-black/[0.04] dark:bg-white/[0.05]"
+            aria-hidden="true"
+          />
+          <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Loading
+          </span>
+        </div>
       ) : (
         <div className="flex items-baseline gap-2">
           <span className={cn('text-ui-metric font-semibold tabular-nums', accentClass)}>
