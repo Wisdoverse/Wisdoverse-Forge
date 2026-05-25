@@ -8,10 +8,12 @@ interface SkillCardProps {
 }
 
 export function SkillCard({ skill, onClick }: SkillCardProps) {
+  const statusLabel = skill.installed ? 'Ready to reuse' : 'Install to use'
   return (
     <button
       type="button"
       onClick={() => onClick(skill)}
+      aria-label={`${skill.name}. ${statusLabel}. ${skill.description || 'No description available'}`}
       className={cn(
         'w-full rounded-lg px-4 py-3 text-left text-ui-button transition-colors',
         'border border-black/[0.08] bg-white hover:border-apple-blue/35 hover:bg-white',
@@ -28,8 +30,8 @@ export function SkillCard({ skill, onClick }: SkillCardProps) {
             {skill.description || 'No description available'}
           </p>
           <span className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            {skill.plugin}
-            {skill.pluginAuthor ? ` · ${skill.pluginAuthor}` : ''}
+            Source: <span>{skill.plugin}</span>
+            {skill.pluginAuthor ? <span> by {skill.pluginAuthor}</span> : null}
           </span>
           {skill.triggerPattern && (
             <span className="mt-1 inline-flex w-fit max-w-full items-center rounded-full bg-black/[0.04] px-2 py-0.5 font-mono text-[10px] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
@@ -42,7 +44,7 @@ export function SkillCard({ skill, onClick }: SkillCardProps) {
         <span
           className={cn('mt-0.5 shrink-0', skill.installed ? uiStyles.activeBadge : uiStyles.badge)}
         >
-          {skill.installed ? 'Installed' : 'Available'}
+          {statusLabel}
         </span>
       </div>
     </button>
