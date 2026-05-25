@@ -13,6 +13,59 @@ import { useWsDispatch } from '@app/hooks/useWsDispatch'
 import { useAuth } from '@app/shared/model/auth.context'
 import { buildResetPasswordLoginHref, getResetTokenFromLocation } from './public-auth'
 
+export function AuthShellLoadingState() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      data-testid="auth-shell-loading"
+      style={{
+        display: 'flex',
+        minHeight: '100vh',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#f6f8fb',
+        color: '#172033',
+        padding: '24px',
+      }}
+    >
+      <div
+        style={{
+          width: 'min(100%, 420px)',
+          border: '1px solid #d8dee9',
+          borderRadius: '8px',
+          background: '#ffffff',
+          boxShadow: '0 18px 42px rgba(31, 41, 55, 0.08)',
+          padding: '24px',
+          textAlign: 'left',
+        }}
+      >
+        <p
+          style={{
+            margin: 0,
+            fontSize: '18px',
+            fontWeight: 700,
+            lineHeight: 1.35,
+          }}
+        >
+          Checking your sign-in
+        </p>
+        <p
+          style={{
+            margin: '10px 0 0',
+            color: '#516070',
+            fontSize: '14px',
+            lineHeight: 1.55,
+          }}
+        >
+          We are confirming your session before opening the workspace. If this takes more than a
+          moment, refresh the page or sign in again.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function useInitNavigation() {
   const loadOrgs = useNavigationStore((s) => s.loadOrgs)
   const loadContextFeatures = useContextFeaturesStore((s) => s.load)
@@ -77,19 +130,7 @@ export const Route = createRootRoute({
 
     // Gate protected routes until auth completes (token refresh in progress)
     if (isLoading || !isAuthenticated) {
-      return (
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            height: '100vh',
-            color: '#888',
-          }}
-        >
-          Loading…
-        </div>
-      )
+      return <AuthShellLoadingState />
     }
 
     return (
