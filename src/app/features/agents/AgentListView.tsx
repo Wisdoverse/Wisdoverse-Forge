@@ -37,10 +37,10 @@ const STATUS_FILTERS: { value: AgentStatusFilter; label: string }[] = [
 ]
 
 const RUNTIME_FILTERS: { value: AgentRuntimeFilter; label: string }[] = [
-  { value: 'all', label: 'All Runtimes' },
-  { value: 'container', label: 'Container CLI' },
-  { value: 'host', label: 'Host CLI' },
-  { value: 'provider', label: 'Provider' },
+  { value: 'all', label: 'All agents' },
+  { value: 'container', label: 'Managed workspace' },
+  { value: 'host', label: 'This computer' },
+  { value: 'provider', label: 'Text only' },
 ]
 
 const SORT_OPTIONS: { value: AgentSortKey; label: string }[] = [
@@ -121,7 +121,7 @@ export function AgentListView() {
                 Agent Fleet
               </h2>
               <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Container, Host CLI, and provider-backed agents available for tasks.
+                Agents that can receive work. Choose one by where the work should happen.
               </p>
             </div>
             <p className="shrink-0 text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
@@ -157,11 +157,11 @@ export function AgentListView() {
               </div>
               <div className="max-w-sm space-y-1">
                 <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-                  Deploy Your First Agent
+                  Create Your First Agent
                 </p>
                 <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-                  Agents can run in containers or through a provider prompt. Connect an LLM provider
-                  in Settings first, then create the agent here.
+                  Start with a connected model for text-only work, or connect this computer when the
+                  task needs local files and commands.
                 </p>
               </div>
               <button
@@ -244,8 +244,8 @@ function buildLocalEnrollCommand(
 
   return [
     'agentforge agents enroll-local \\',
-    '  --tool codex \\',
-    '  --name "Host Codex" \\',
+    '  --tool <tool-name> \\',
+    '  --name "Local Agent" \\',
     `  --project ${projectArg} \\`,
     '  --cwd "$PWD" \\',
     '  --shell-format bash',
@@ -288,15 +288,15 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
               aria-hidden="true"
             />
             <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              Connect Host CLI
+              Connect a Local Agent
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Add a local machine as a managed agent for this project.
+            Use this when work should run on your computer and still be tracked here.
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-apple-blue/[0.08] px-2 py-1 text-[10px] font-semibold text-apple-blue">
-          Managed
+          Local
         </span>
       </div>
 
@@ -350,15 +350,9 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
       </pre>
 
       <div className="mt-3 grid gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-        {commandReady ? (
-          <>
-            <p>Run this from the folder where the agent should work.</p>
-            <p>The command prints the sidecar block for the selected shell.</p>
-            <p>The platform will show the machine as a managed Host CLI agent.</p>
-          </>
-        ) : (
-          <p>Select a project first so the copied command is ready to run.</p>
-        )}
+        <p>1. Install the Forge command on the computer that will do the work.</p>
+        <p>2. Replace &lt;tool-name&gt; with the tool you already use there.</p>
+        <p>3. Run the command from the folder this agent should work in.</p>
       </div>
 
       <button
