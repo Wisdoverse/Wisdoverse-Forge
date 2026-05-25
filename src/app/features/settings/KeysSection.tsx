@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { CheckCircle2, KeyRound } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
@@ -17,10 +18,10 @@ function formatDate(dateStr: string | null): string {
   })
 }
 
-const PLATFORM_KEY_SETUP_STEPS = [
-  { label: 'Name the use', value: 'Use a label like CI deploy or billing sync.' },
-  { label: 'Create once', value: 'The full key appears only immediately after creation.' },
-  { label: 'Store safely', value: 'Put the copied key in the target script or secret manager.' },
+const API_KEY_EMPTY_STEPS = [
+  'Create a key only for a trusted script, CI job, or integration.',
+  'Use a name that tells the team where the key will live.',
+  'Copy the new key into a password manager or CI secret before closing the banner.',
 ]
 
 // ============================================================================
@@ -109,6 +110,9 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
           <p className="mb-1 text-ui-caption font-semibold">
             Platform API key created — copy it now, it won&apos;t be shown again
           </p>
+          <p className="mb-2 text-ui-caption text-apple-blue/80">
+            Save it in your password manager or CI secret store before dismissing this banner.
+          </p>
           <code className="break-all font-mono text-ui-caption">{keyValue}</code>
         </div>
         <div className="flex shrink-0 gap-2">
@@ -156,69 +160,36 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="mt-3 rounded-card border border-black/[0.06] bg-black/[0.015] p-4 dark:border-white/[0.08] dark:bg-white/[0.025]"
+      className="mt-3 rounded-card border border-black/[0.08] bg-white p-3 dark:border-white/[0.1] dark:bg-[#2c2c2e]"
     >
-      <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
-        <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Platform key setup path
-        </div>
-        <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
-          {PLATFORM_KEY_SETUP_STEPS.map((step) => (
-            <div
-              key={step.label}
-              className="min-w-0 rounded-md bg-black/[0.025] px-2 py-1.5 dark:bg-white/[0.04]"
-            >
-              <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
-                {step.label}
-              </span>
-              <span className="mt-0.5 block text-ui-caption text-foreground-light dark:text-foreground-dark">
-                {step.value}
-              </span>
-            </div>
-          ))}
-        </div>
+      <label htmlFor="platform-key-name" className={uiStyles.label}>
+        Key name
+      </label>
+      <div className="flex items-center gap-2">
+        <input
+          id="platform-key-name"
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. production deploy pipeline"
+          autoFocus
+          className={cn(uiStyles.input, 'min-w-0 flex-1')}
+        />
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={saving}
+          className={uiStyles.secondaryButton}
+        >
+          Cancel
+        </button>
+        <button type="submit" disabled={saving || !name.trim()} className={uiStyles.primaryButton}>
+          {saving ? 'Creating...' : 'Create'}
+        </button>
       </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="min-w-0 flex-1">
-          <label htmlFor={nameInputId} className={uiStyles.label}>
-            Key name <span className="text-red-500">*</span>
-          </label>
-          <p
-            id={nameHelpId}
-            className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
-          >
-            Name where this key will be used so it is easy to revoke later.
-          </p>
-          <input
-            id={nameInputId}
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. CI deploy"
-            autoFocus
-            className={cn(uiStyles.input, 'w-full')}
-            aria-describedby={nameHelpId}
-          />
-        </div>
-        <div className="flex shrink-0 justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={saving}
-            className={uiStyles.secondaryButton}
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving || !name.trim()}
-            className={uiStyles.primaryButton}
-          >
-            {saving ? 'Creating...' : 'Create'}
-          </button>
-        </div>
-      </div>
+      <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+        Name the exact place this key will be used so it is easy to revoke later.
+      </p>
     </form>
   )
 }
@@ -302,14 +273,7 @@ export function KeysSection() {
             Loading keys…
           </div>
         ) : apiKeys.length === 0 ? (
-          <div className="px-4 py-6 text-center">
-            <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No platform API keys yet
-            </p>
-            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Create a platform key only when scripts or integrations need Forge API access
-            </p>
-          </div>
+          <PlatformKeyEmptyState onCreate={() => setShowForm(true)} />
         ) : (
           <table className={uiStyles.table}>
             <thead className={uiStyles.tableHead}>
@@ -330,5 +294,56 @@ export function KeysSection() {
         )}
       </div>
     </div>
+  )
+}
+
+function PlatformKeyEmptyState({ onCreate }: { onCreate: () => void }) {
+  return (
+    <section
+      data-testid="platform-key-empty-state"
+      className="px-4 py-6"
+      aria-labelledby="platform-key-empty-title"
+    >
+      <div className="mx-auto flex max-w-2xl flex-col gap-3">
+        <div className="flex items-start gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-apple-blue/10 text-apple-blue">
+            <KeyRound size={17} strokeWidth={2.15} aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h3
+              id="platform-key-empty-title"
+              className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark"
+            >
+              No platform API keys yet
+            </h3>
+            <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
+              Create one only when another tool needs to call Forge without a signed-in user.
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {API_KEY_EMPTY_STEPS.map((step) => (
+            <div
+              key={step}
+              className="flex min-h-16 items-start gap-2 rounded-lg bg-black/[0.025] px-3 py-2 dark:bg-white/[0.05]"
+            >
+              <CheckCircle2
+                size={14}
+                strokeWidth={2.15}
+                className="mt-0.5 shrink-0 text-apple-green"
+                aria-hidden="true"
+              />
+              <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                {step}
+              </span>
+            </div>
+          ))}
+        </div>
+        <button type="button" onClick={onCreate} className={cn(uiStyles.primaryButton, 'w-fit')}>
+          <span>+</span>
+          <span>Create Platform Key</span>
+        </button>
+      </div>
+    </section>
   )
 }
