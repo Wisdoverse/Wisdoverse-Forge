@@ -9,6 +9,12 @@ interface CreateTeamFormProps {
   saving: boolean
 }
 
+const TEAM_SETUP_STEPS = [
+  'Name the group people already recognize.',
+  'Create the team before adding projects.',
+  'Open Team Members after creation to invite people.',
+]
+
 export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps) {
   const [name, setName] = useState('')
   const [submitAttempted, setSubmitAttempted] = useState(false)
@@ -38,55 +44,43 @@ export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps
         'bg-black/[0.015] dark:bg-white/[0.025]'
       )}
     >
-      <div
-        id={statusId}
-        data-testid="create-team-status"
-        aria-live="polite"
-        className={cn(
-          'mb-3 rounded-card border px-3 py-2',
-          isReady
-            ? 'border-apple-green/25 bg-apple-green/10'
-            : 'border-apple-blue/20 bg-apple-blue/[0.04]'
-        )}
-      >
-        <p className="text-ui-button font-semibold text-foreground-light dark:text-foreground-dark">
-          {isReady ? 'Ready to Create Team' : 'Next: Name the Team'}
+      <div className="mb-4 border-l-2 border-apple-blue/40 pl-3">
+        <p className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+          Team setup path
         </p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {isReady
-            ? 'Create this team, then add its projects and members.'
-            : 'Use a short name people recognize, such as Frontend or Platform.'}
+          Use teams for people who share project access and operating responsibility.
         </p>
+        <ol className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {TEAM_SETUP_STEPS.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
       </div>
 
-      {visibleError && (
-        <div className={cn(uiStyles.error, 'mb-3')} role="alert" aria-live="polite">
-          {visibleError}
-        </div>
-      )}
-
       <div className="mb-3">
-        <label htmlFor={nameInputId} className={uiStyles.label}>
-          Team Name
+        <label htmlFor="team-name" className={uiStyles.label}>
+          Team Name *
         </label>
         <input
-          id={nameInputId}
-          name="teamName"
+          id="team-name"
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Frontend"
+          aria-describedby="team-name-help"
           autoFocus
           aria-invalid={visibleError !== null}
           aria-describedby={`${statusId}${visibleError ? ` ${errorId}` : ''}`}
           className={uiStyles.input}
         />
-        {visibleError && (
-          <p id={errorId} className="mt-1 text-ui-caption text-apple-red">
-            {visibleError}
-          </p>
-        )}
-        {trimmedName && (
+        <p
+          id="team-name-help"
+          className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+        >
+          Pick a name teammates will recognize in project lists and access dialogs.
+        </p>
+        {name.trim() && (
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
             Slug: {slugifyName(name)}
           </p>
