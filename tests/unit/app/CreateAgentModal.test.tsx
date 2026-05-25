@@ -186,12 +186,63 @@ describe('CreateAgentModal', () => {
     })
     expect(screen.getByText(/codex container worker/i)).toBeInTheDocument()
 
+    fireEvent.click(screen.getByRole('radio', { name: /local cli/i }))
+    expect(screen.getByText(/codex local worker/i)).toBeInTheDocument()
+    expect(screen.getByText('Run the join command')).toBeInTheDocument()
+
     fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
     fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'google' } })
 
     await waitFor(() => {
       expect(screen.getByText(/google prompt worker/i)).toBeInTheDocument()
     })
+  })
+
+  test('enrolls a Local CLI agent and shows the join command', async () => {
+    const enrollLocalAgent = vi.fn().mockResolvedValue({
+      ok: true,
+      agent: {
+        id: 'a-local',
+        name: 'Laptop Worker',
+        status: 'offline',
+        createdAt: Date.now(),
+        lastActivity: Date.now(),
+        cliTool: 'codex',
+        runtimeId: 'host-a-local',
+      },
+      enrollment: {
+        agentId: 'a-local',
+        runtimeId: 'host-a-local',
+        cliTool: 'codex',
+        env: { AGENT_ID: 'a-local' },
+        shellExports: "export AGENT_ID='a-local'\nagentforge-sidecar",
+        sidecarCommand: 'agentforge-sidecar',
+        serverUrl: 'https://forge.example.com',
+      },
+    })
+    useAgentsStore.setState({ enrollLocalAgent } as never)
+
+    render(<CreateAgentModal />)
+
+    fireEvent.click(screen.getByRole('radio', { name: /local cli/i }))
+    fireEvent.change(screen.getByRole('combobox', { name: /local cli/i }), {
+      target: { value: 'codex' },
+    })
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
+    fireEvent.change(screen.getByLabelText(/local working directory/i), {
+      target: { value: '/Users/me/project' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+
+    await waitFor(() => expect(enrollLocalAgent).toHaveBeenCalledTimes(1))
+    expect(enrollLocalAgent.mock.calls[0][0]).toMatchObject({
+      name: 'Laptop Worker',
+      cliTool: 'codex',
+      cwd: '/Users/me/project',
+    })
+    expect(await screen.findByLabelText(/join command/i)).toHaveValue(
+      "export AGENT_ID='a-local'\nagentforge-sidecar"
+    )
   })
 
   test('defaults to Provider+Prompt when a verified provider exists', async () => {

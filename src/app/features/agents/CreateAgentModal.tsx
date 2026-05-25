@@ -1,14 +1,24 @@
 import { useForm } from 'react-hook-form'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bug, ClipboardCheck, Code2, Plus, Search, type LucideIcon } from 'lucide-react'
+import {
+  Bug,
+  Check,
+  ClipboardCheck,
+  Code2,
+  Copy,
+  Plus,
+  Search,
+  type LucideIcon,
+} from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { useAgentsStore } from '@app/shared/model/agents.store'
 import { useNavigationStore } from '@app/entities/navigation'
 import { useSettingsStore } from '@app/shared/model/settings.store'
+import type { LocalAgentEnrollmentResponse } from '@app/shared/api/legacy/AgentAPI'
 import type { LlmProviderConfig } from '@app/shared/api/legacy/settingsApi'
 import type { CliTool } from '@shared/types'
 
-type AgentKind = 'cli' | 'provider'
+type AgentKind = 'cli' | 'local-cli' | 'provider'
 
 interface CreateAgentFormData {
   name: string
@@ -130,6 +140,18 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
     }
   }
 
+  if (kind === 'local-cli') {
+    return {
+      title: `${cliToolLabel(cliTool)} local worker`,
+      detail: 'Best when the CLI already runs on your computer and this platform should manage it.',
+      items: [
+        { label: 'Execution', value: 'Local CLI' },
+        { label: 'Files', value: 'Your local folder' },
+        { label: 'Before use', value: 'Run the join command' },
+      ],
+    }
+  }
+
   return {
     title: `${providerLabel(provider)} prompt worker`,
     detail:
@@ -157,14 +179,23 @@ function buildDefaultValues(provider: LlmProviderConfig | null): CreateAgentForm
 }
 
 export function CreateAgentModal() {
-  const { createModalOpen, setCreateModalOpen, createAgent, loading, error, setError } =
-    useAgentsStore()
+  const {
+    createModalOpen,
+    setCreateModalOpen,
+    createAgent,
+    enrollLocalAgent,
+    loading,
+    error,
+    setError,
+  } = useAgentsStore()
   const providers = useSettingsStore((s) => s.providers)
   const selectedProjectId = useNavigationStore((s) => s.selectedProjectId)
   const projectsByTeam = useNavigationStore((s) => s.projects)
   const groups = useNavigationStore((s) => s.agentGroups)
   const createAgentGroup = useNavigationStore((s) => s.createAgentGroup)
   const [creatingGroup, setCreatingGroup] = useState(false)
+  const [localEnrollment, setLocalEnrollment] = useState<LocalAgentEnrollmentResponse | null>(null)
+  const [copiedCommand, setCopiedCommand] = useState(false)
   const verifiedProvider = useMemo(
     () =>
       providers.find((provider) => provider.isEnabled && provider.lastTestStatus === 'passed') ??
@@ -180,7 +211,7 @@ export function CreateAgentModal() {
   const kind = watch('kind')
   const provider = watch('provider')
   const cliTool = watch('cliTool')
-  const groupId = watch('groupId')
+  const cwd = watch('cwd')
   const runtimeFit = runtimeFitFor(kind, cliTool, provider)
   const selectedProject = selectedProjectId
     ? (Object.values(projectsByTeam)
@@ -209,6 +240,8 @@ export function CreateAgentModal() {
 
     reset(defaultValues)
     setSelectedTemplateId(null)
+    setLocalEnrollment(null)
+    setCopiedCommand(false)
     setError(null)
   }, [createModalOpen, defaultValues, reset, setError])
 
@@ -223,6 +256,16 @@ export function CreateAgentModal() {
     if (defaultModel) setValue('model', defaultModel)
   }, [provider, setValue, verifiedProvider])
 
+  useEffect(() => {
+    if (kind === 'local-cli' && cwd === DEFAULT_AGENT_CWD) {
+      setValue('cwd', '')
+      return
+    }
+    if (kind === 'cli' && !cwd) {
+      setValue('cwd', DEFAULT_AGENT_CWD)
+    }
+  }, [cwd, kind, setValue])
+
   if (!createModalOpen) return null
 
   async function handleFormSubmit(data: CreateAgentFormData) {
@@ -232,7 +275,6 @@ export function CreateAgentModal() {
     }
     const base = {
       name: data.name.trim(),
-      cwd: data.cwd || undefined,
       workspaceId: selectedProject?.workspaceId,
       projectId: selectedProjectId ?? undefined,
       groupId: data.groupId || undefined,
@@ -249,8 +291,20 @@ export function CreateAgentModal() {
         model: data.model.trim(),
         systemPrompt: data.systemPrompt.trim() || undefined,
       })
+    } else if (data.kind === 'local-cli') {
+      const enrollment = await enrollLocalAgent({
+        name: data.name.trim(),
+        cliTool: data.cliTool,
+        cwd: data.cwd.trim() || undefined,
+        workspaceId: selectedProject?.workspaceId,
+        projectId: selectedProjectId ?? undefined,
+      })
+      if (enrollment) {
+        setLocalEnrollment(enrollment)
+        setCopiedCommand(false)
+      }
     } else {
-      await createAgent({ ...base, kind: 'cli', cliTool: data.cliTool })
+      await createAgent({ ...base, kind: 'cli', cliTool: data.cliTool, cwd: data.cwd || undefined })
     }
   }
 
@@ -284,6 +338,26 @@ export function CreateAgentModal() {
   function handleClose() {
     setCreateModalOpen(false)
     setError(null)
+    setLocalEnrollment(null)
+    setCopiedCommand(false)
+  }
+
+  async function handleCopyCommand() {
+    const command = localEnrollment?.enrollment?.shellExports
+    if (!command || !navigator.clipboard?.writeText) return
+    try {
+      await navigator.clipboard.writeText(command)
+      setCopiedCommand(true)
+    } catch {
+      setCopiedCommand(false)
+    }
+  }
+
+  function handleCreateAnother() {
+    setLocalEnrollment(null)
+    setCopiedCommand(false)
+    setSelectedTemplateId(null)
+    reset(defaultValues)
   }
 
   return (
@@ -308,7 +382,7 @@ export function CreateAgentModal() {
             id="create-agent-title"
             className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark"
           >
-            New Agent
+            {localEnrollment ? 'Local Agent Join' : 'New Agent'}
           </h2>
           <button
             type="button"
@@ -326,360 +400,408 @@ export function CreateAgentModal() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="flex flex-col gap-4">
-          <div>
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Role template
-              </span>
-              <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {kind === 'provider' ? 'Prompt ready' : 'Name only for Container CLI'}
-              </span>
-            </div>
-            <div
-              role="group"
-              aria-label="Agent role templates"
-              className="grid gap-2 sm:grid-cols-2"
-            >
-              {AGENT_ROLE_TEMPLATES.map((template) => (
-                <button
-                  key={template.id}
-                  type="button"
-                  onClick={() => applyRoleTemplate(template)}
-                  aria-pressed={selectedTemplateId === template.id}
-                  className={cn(
-                    'flex min-h-16 items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors',
-                    selectedTemplateId === template.id
-                      ? 'border-apple-blue/40 bg-apple-blue/10 text-foreground-light dark:text-foreground-dark'
-                      : 'border-black/[0.08] bg-black/[0.02] text-foreground-light hover:bg-black/[0.04] dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.07]'
-                  )}
-                >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-apple-blue shadow-sm dark:bg-black/20">
-                    <template.Icon size={15} strokeWidth={2.25} aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-ui-button font-semibold">{template.label}</span>
-                    <span className="block truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      {template.summary}
-                    </span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label
-              htmlFor="agent-name"
-              className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
-            >
-              Name
-            </label>
-            <input
-              id="agent-name"
-              {...register('name', { required: true })}
-              className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-              placeholder="e.g. Frontend Agent…"
-              autoFocus
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-              Agent kind
-            </label>
-            <div className="flex gap-2" role="radiogroup" aria-label="Agent kind">
-              <label
-                className={cn(
-                  'flex-1 cursor-pointer rounded-full px-4 py-2 text-center text-ui-button font-medium transition-transform active:scale-95',
-                  kind === 'cli'
-                    ? 'bg-apple-blue text-white'
-                    : 'border border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark'
-                )}
-              >
-                <input type="radio" value="cli" {...register('kind')} className="sr-only" />
-                Container CLI
-              </label>
-              <label
-                className={cn(
-                  'flex-1 cursor-pointer rounded-full px-4 py-2 text-center text-ui-button font-medium transition-transform active:scale-95',
-                  kind === 'provider'
-                    ? 'bg-apple-blue text-white'
-                    : 'border border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark'
-                )}
-              >
-                <input type="radio" value="provider" {...register('kind')} className="sr-only" />
-                Provider + Prompt
-              </label>
-            </div>
-            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              {kind === 'cli'
-                ? 'Runs claude/codex/gemini/opencode inside a container.'
-                : 'Calls the LLM provider directly — no container, no terminal.'}
-            </p>
-          </div>
-
-          <section
-            data-testid="agent-runtime-fit"
-            className="rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                  Runtime fit
-                </p>
-                <p className="mt-0.5 text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
-                  {runtimeFit.title}
-                </p>
-              </div>
-              <span className="shrink-0 rounded-full bg-apple-blue/10 px-2 py-0.5 text-ui-caption font-medium text-apple-blue">
-                {kind === 'cli' ? 'File work' : 'Prompt work'}
-              </span>
-            </div>
-            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              {runtimeFit.detail}
-            </p>
-            <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
-              {runtimeFit.items.map((item) => (
-                <div
-                  key={item.label}
-                  className="min-w-0 rounded-md bg-white px-2 py-1.5 dark:bg-black/20"
-                >
-                  <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
-                    {item.label}
-                  </span>
-                  <span className="mt-0.5 block truncate text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
-                    {item.value}
-                  </span>
+        {localEnrollment ? (
+          <div className="flex flex-col gap-4">
+            <div className="rounded-lg border border-black/[0.08] bg-surface-pearl p-4 dark:border-white/[0.1] dark:bg-white/[0.04]">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                    Managed agent
+                  </div>
+                  <div className="mt-1 text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
+                    {localEnrollment.agent?.name ?? 'Local agent'}
+                  </div>
                 </div>
-              ))}
-            </div>
-          </section>
-
-          <section
-            data-testid="agent-work-readiness"
-            className={cn(
-              'rounded-lg border px-3 py-3',
-              selectedProject
-                ? 'border-apple-green/25 bg-apple-green/10'
-                : 'border-apple-orange/30 bg-apple-orange/10'
-            )}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                  Where this agent will work
-                </p>
-                <p className="mt-0.5 text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
-                  {selectedProject ? 'Project Ready' : 'Choose a Project First'}
-                </p>
-              </div>
-              <span
-                className={cn(
-                  'shrink-0 rounded-full px-2 py-0.5 text-ui-caption font-medium',
-                  selectedProject
-                    ? 'bg-apple-green/15 text-apple-green'
-                    : 'bg-apple-orange/15 text-apple-orange'
-                )}
-              >
-                {selectedProject ? 'Ready' : 'Next step'}
-              </span>
-            </div>
-
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              <div className="min-w-0 rounded-md bg-white px-2 py-1.5 dark:bg-black/20">
-                <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
-                  Primary Project
-                </span>
-                <span className="mt-0.5 block truncate text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
-                  {selectedProject?.name ?? 'No project selected'}
+                <span className="rounded-full border border-apple-green/20 bg-white px-2.5 py-1 text-ui-caption text-apple-green dark:bg-white/[0.04]">
+                  Local CLI
                 </span>
               </div>
-              <div className="min-w-0 rounded-md bg-white px-2 py-1.5 dark:bg-black/20">
-                <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
-                  Work Lane
-                </span>
-                <span className="mt-0.5 block truncate text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
-                  {selectedGroup?.name ??
-                    (selectedProject ? 'Choose or create one below' : 'Pick a project first')}
-                </span>
-              </div>
+              <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                Copy this command and run it on the machine where the CLI is installed. The agent
+                will appear online after the sidecar starts.
+              </p>
             </div>
 
-            <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              {selectedProject
-                ? 'Tasks default to this project. Pick a work lane when you want board tasks to route to this agent.'
-                : 'Close this dialog, select a project in the sidebar, then open New Agent again. You can still create a general agent, but it will not be connected to a project work lane yet.'}
-            </p>
-          </section>
-
-          {kind === 'cli' && (
             <div>
               <label
-                htmlFor="agent-cli-tool"
+                htmlFor="local-agent-command"
                 className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
               >
-                Container CLI
+                Join command
               </label>
-              <select
-                id="agent-cli-tool"
-                {...register('cliTool')}
-                className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-              >
-                {CLI_TOOLS.map((tool) => (
-                  <option key={tool.value} value={tool.value}>
-                    {tool.label}
-                  </option>
-                ))}
-              </select>
+              <textarea
+                id="local-agent-command"
+                readOnly
+                value={localEnrollment.enrollment?.shellExports ?? ''}
+                rows={8}
+                className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+              />
             </div>
-          )}
 
-          {kind === 'provider' && (
-            <>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleCreateAnother}
+                className="rounded-full bg-surface-pearl px-4 py-2 text-ui-button font-medium text-foreground-light ring-1 ring-black/[0.04] transition-transform active:scale-95 dark:bg-white/[0.06] dark:text-foreground-dark"
+              >
+                Create another
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCopyCommand()}
+                className="inline-flex items-center gap-2 rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
+              >
+                {copiedCommand ? (
+                  <Check size={14} strokeWidth={2.25} aria-hidden="true" />
+                ) : (
+                  <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
+                )}
+                {copiedCommand ? 'Copied' : 'Copy command'}
+              </button>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="rounded-full bg-apple-gray-5 px-4 py-2 text-ui-button font-medium text-foreground-light transition-transform active:scale-95 dark:bg-white/[0.06] dark:text-foreground-dark"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit(handleFormSubmit)} className="flex flex-col gap-4">
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                  Role template
+                </span>
+                <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  {kind === 'provider' ? 'Prompt ready' : 'Name seeds CLI agents'}
+                </span>
+              </div>
+              <div
+                role="group"
+                aria-label="Agent role templates"
+                className="grid gap-2 sm:grid-cols-2"
+              >
+                {AGENT_ROLE_TEMPLATES.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    onClick={() => applyRoleTemplate(template)}
+                    aria-pressed={selectedTemplateId === template.id}
+                    className={cn(
+                      'flex min-h-16 items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors',
+                      selectedTemplateId === template.id
+                        ? 'border-apple-blue/40 bg-apple-blue/10 text-foreground-light dark:text-foreground-dark'
+                        : 'border-black/[0.08] bg-black/[0.02] text-foreground-light hover:bg-black/[0.04] dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.07]'
+                    )}
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-apple-blue shadow-sm dark:bg-black/20">
+                      <template.Icon size={15} strokeWidth={2.25} aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-ui-button font-semibold">{template.label}</span>
+                      <span className="block truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
+                        {template.summary}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="agent-name"
+                className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
+              >
+                Name
+              </label>
+              <input
+                id="agent-name"
+                {...register('name', { required: true })}
+                className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                placeholder="e.g. Frontend Agent…"
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                Agent kind
+              </label>
+              <div className="flex gap-2" role="radiogroup" aria-label="Agent kind">
+                <label
+                  className={cn(
+                    'flex-1 cursor-pointer rounded-full px-4 py-2 text-center text-ui-button font-medium transition-transform active:scale-95',
+                    kind === 'cli'
+                      ? 'bg-apple-blue text-white'
+                      : 'border border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark'
+                  )}
+                >
+                  <input type="radio" value="cli" {...register('kind')} className="sr-only" />
+                  Container CLI
+                </label>
+                <label
+                  className={cn(
+                    'flex-1 cursor-pointer rounded-full px-4 py-2 text-center text-ui-button font-medium transition-transform active:scale-95',
+                    kind === 'local-cli'
+                      ? 'bg-apple-blue text-white'
+                      : 'border border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark'
+                  )}
+                >
+                  <input type="radio" value="local-cli" {...register('kind')} className="sr-only" />
+                  Local CLI
+                </label>
+                <label
+                  className={cn(
+                    'flex-1 cursor-pointer rounded-full px-4 py-2 text-center text-ui-button font-medium transition-transform active:scale-95',
+                    kind === 'provider'
+                      ? 'bg-apple-blue text-white'
+                      : 'border border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark'
+                  )}
+                >
+                  <input type="radio" value="provider" {...register('kind')} className="sr-only" />
+                  Provider + Prompt
+                </label>
+              </div>
+              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                {kind === 'cli'
+                  ? 'Runs claude/codex/gemini/opencode inside a container.'
+                  : kind === 'local-cli'
+                    ? 'Runs a CLI on your machine while this platform manages identity and tasks.'
+                    : 'Calls the LLM provider directly — no container, no terminal.'}
+              </p>
+            </div>
+
+            <section
+              data-testid="agent-runtime-fit"
+              className="rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                    Runtime fit
+                  </p>
+                  <p className="mt-0.5 text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
+                    {runtimeFit.title}
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-full bg-apple-blue/10 px-2 py-0.5 text-ui-caption font-medium text-apple-blue">
+                  {kind === 'cli'
+                    ? 'File work'
+                    : kind === 'local-cli'
+                      ? 'Local work'
+                      : 'Prompt work'}
+                </span>
+              </div>
+              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                {runtimeFit.detail}
+              </p>
+              <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
+                {runtimeFit.items.map((item) => (
+                  <div
+                    key={item.label}
+                    className="min-w-0 rounded-md bg-white px-2 py-1.5 dark:bg-black/20"
+                  >
+                    <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                      {item.label}
+                    </span>
+                    <span className="mt-0.5 block truncate text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+                      {item.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <div>
+              <div className="mb-1 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                Primary Project
+              </div>
+              <div className="w-full rounded-[18px] border border-black/[0.08] bg-white px-4 py-2 text-ui-body text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark">
+                {selectedProject?.name ?? 'No primary project'}
+              </div>
+              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                {selectedProject
+                  ? kind === 'local-cli'
+                    ? 'Tasks default to this project. Local filesystem access stays on the joined machine.'
+                    : 'Tasks default to this project. Container access is the selected project workspace.'
+                  : kind === 'local-cli'
+                    ? 'Tasks can still be assigned later. Local filesystem access stays on the joined machine.'
+                    : 'Tasks can still be assigned later. Container access uses the default workspace.'}
+              </p>
+            </div>
+
+            {kind !== 'provider' && (
               <div>
                 <label
-                  htmlFor="agent-provider"
+                  htmlFor="agent-cli-tool"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  Provider
+                  {kind === 'local-cli' ? 'Local CLI' : 'Container CLI'}
                 </label>
                 <select
-                  id="agent-provider"
-                  {...register('provider')}
+                  id="agent-cli-tool"
+                  {...register('cliTool')}
                   className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                 >
-                  {PROVIDERS.map((p) => (
-                    <option key={p.value} value={p.value}>
-                      {p.label}
+                  {CLI_TOOLS.map((tool) => (
+                    <option key={tool.value} value={tool.value}>
+                      {tool.label}
                     </option>
                   ))}
                 </select>
               </div>
-              <div>
-                <label
-                  htmlFor="agent-model"
-                  className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
-                >
-                  Model
-                </label>
-                <input
-                  id="agent-model"
-                  {...register('model', { required: true })}
-                  className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                  placeholder="e.g. claude-sonnet-4-6…"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="systemPrompt"
-                  className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
-                >
-                  System prompt
-                </label>
-                <textarea
-                  id="systemPrompt"
-                  {...register('systemPrompt')}
-                  rows={4}
-                  placeholder="e.g. You are a concise, Pythonic code reviewer…"
-                  className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                />
-              </div>
-            </>
-          )}
+            )}
 
-          {kind === 'cli' && (
-            <div>
-              <label
-                htmlFor="agent-cwd"
-                className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
-              >
-                Working Directory
-              </label>
-              <input
-                id="agent-cwd"
-                {...register('cwd')}
-                className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                placeholder={DEFAULT_AGENT_CWD}
-              />
-              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                /workspace is the shared workspace mount and may contain multiple projects. Primary
-                Project sets default context; it is not a private user directory.
-              </p>
-            </div>
-          )}
-
-          {selectedProjectId && (
-            <div>
-              <label
-                htmlFor="agent-group"
-                className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
-              >
-                Work Lane
-              </label>
-              {groups.length > 0 ? (
-                <>
+            {kind === 'provider' && (
+              <>
+                <div>
+                  <label
+                    htmlFor="agent-provider"
+                    className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
+                  >
+                    Provider
+                  </label>
                   <select
-                    id="agent-group"
-                    {...register('groupId')}
+                    id="agent-provider"
+                    {...register('provider')}
                     className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                   >
-                    <option value="">No work lane yet</option>
-                    {groups.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.name}
+                    {PROVIDERS.map((p) => (
+                      <option key={p.value} value={p.value}>
+                        {p.label}
                       </option>
                     ))}
                   </select>
-                  <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                    Choose the lane this agent should listen to for board tasks.
-                  </p>
-                </>
-              ) : (
-                <div>
-                  <button
-                    type="button"
-                    onClick={handleCreateDefaultGroup}
-                    disabled={creatingGroup}
-                    className={cn(
-                      'flex h-10 w-full items-center justify-center gap-2 rounded-full px-4 text-ui-button font-medium transition-transform active:scale-95',
-                      'border border-black/[0.08] bg-white text-apple-blue hover:bg-apple-blue/5',
-                      'dark:bg-white/[0.06] dark:text-foreground-dark dark:hover:bg-white/[0.1]',
-                      creatingGroup && 'cursor-not-allowed opacity-60'
-                    )}
-                  >
-                    <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-                    {creatingGroup ? 'Creating…' : 'Create Default Work Lane'}
-                  </button>
-                  <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                    This creates the first lane for this project so agents can receive board tasks.
-                  </p>
                 </div>
-              )}
-            </div>
-          )}
+                <div>
+                  <label
+                    htmlFor="agent-model"
+                    className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
+                  >
+                    Model
+                  </label>
+                  <input
+                    id="agent-model"
+                    {...register('model', { required: true })}
+                    className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                    placeholder="e.g. claude-sonnet-4-6…"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="systemPrompt"
+                    className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
+                  >
+                    System prompt
+                  </label>
+                  <textarea
+                    id="systemPrompt"
+                    {...register('systemPrompt')}
+                    rows={4}
+                    placeholder="e.g. You are a concise, Pythonic code reviewer…"
+                    className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                  />
+                </div>
+              </>
+            )}
 
-          <div className="flex justify-end gap-2 mt-2">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="rounded-full bg-surface-pearl px-4 py-2 text-ui-button font-medium text-foreground-light ring-1 ring-black/[0.04] transition-transform active:scale-95 dark:bg-white/[0.06] dark:text-foreground-dark"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className={cn(
-                'rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white',
-                'transition-transform hover:bg-apple-blue-focus active:scale-95',
-                loading && 'opacity-50 cursor-not-allowed'
-              )}
-            >
-              {loading ? 'Creating…' : 'Create Agent'}
-            </button>
-          </div>
-        </form>
+            {kind !== 'provider' && (
+              <div>
+                <label
+                  htmlFor="agent-cwd"
+                  className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
+                >
+                  {kind === 'local-cli' ? 'Local working directory' : 'Working Directory'}
+                </label>
+                <input
+                  id="agent-cwd"
+                  {...register('cwd')}
+                  className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                  placeholder={kind === 'local-cli' ? '/Users/me/projects/app' : DEFAULT_AGENT_CWD}
+                />
+                <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  {kind === 'local-cli'
+                    ? 'Leave blank to use the folder where you run the join command.'
+                    : '/workspace is the shared workspace mount and may contain multiple projects. Primary Project sets default context; it is not a private user directory.'}
+                </p>
+              </div>
+            )}
+
+            {selectedProjectId && (
+              <div>
+                <label
+                  htmlFor="agent-group"
+                  className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
+                >
+                  Task Group
+                </label>
+                {groups.length > 0 ? (
+                  <>
+                    <select
+                      id="agent-group"
+                      {...register('groupId')}
+                      className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                    >
+                      <option value="">No task group</option>
+                      {groups.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                      A task group is the work lane this agent listens to for board tasks.
+                    </p>
+                  </>
+                ) : (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={handleCreateDefaultGroup}
+                      disabled={creatingGroup}
+                      className={cn(
+                        'flex h-10 w-full items-center justify-center gap-2 rounded-full px-4 text-ui-button font-medium transition-transform active:scale-95',
+                        'border border-black/[0.08] bg-white text-apple-blue hover:bg-apple-blue/5',
+                        'dark:bg-white/[0.06] dark:text-foreground-dark dark:hover:bg-white/[0.1]',
+                        creatingGroup && 'cursor-not-allowed opacity-60'
+                      )}
+                    >
+                      <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
+                      {creatingGroup ? 'Creating…' : 'Create Task Group'}
+                    </button>
+                    <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                      This creates the first work lane so the agent can receive tasks.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 mt-2">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="rounded-full bg-surface-pearl px-4 py-2 text-ui-button font-medium text-foreground-light ring-1 ring-black/[0.04] transition-transform active:scale-95 dark:bg-white/[0.06] dark:text-foreground-dark"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className={cn(
+                  'rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white',
+                  'transition-transform hover:bg-apple-blue-focus active:scale-95',
+                  loading && 'opacity-50 cursor-not-allowed'
+                )}
+              >
+                {loading ? 'Creating…' : 'Create Agent'}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   )
