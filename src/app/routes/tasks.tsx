@@ -13,11 +13,23 @@ const TimelineView = lazy(() =>
   import('@app/widgets/views/TimelineView').then((m) => ({ default: m.TimelineView }))
 )
 
-function ViewLoadingFallback() {
+export function TaskViewLoadingFallback({ viewName }: { viewName: string }) {
   return (
-    <div className="flex h-full items-center justify-center">
-      <div className="animate-pulse text-ui-body text-secondary-light dark:text-secondary-dark">
-        Loading…
+    <div
+      data-testid="task-view-loading"
+      role="status"
+      aria-live="polite"
+      className="flex h-full min-h-64 items-center justify-center px-4 text-center"
+    >
+      <div className="flex max-w-sm flex-col items-center gap-2">
+        <div className="h-2 w-2 animate-pulse rounded-full bg-apple-blue" aria-hidden="true" />
+        <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+          Opening {viewName}
+        </p>
+        <p className="text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
+          This can take a few seconds the first time. The task board is still available from the
+          view switcher.
+        </p>
       </div>
     </div>
   )
@@ -38,7 +50,7 @@ export const Route = createRoute({
     if (viewMode === 'timeline')
       return (
         <div data-testid="page-tasks" className="h-full">
-          <Suspense fallback={<ViewLoadingFallback />}>
+          <Suspense fallback={<TaskViewLoadingFallback viewName="Timeline view" />}>
             <TimelineView />
           </Suspense>
         </div>
@@ -46,7 +58,7 @@ export const Route = createRoute({
     if (viewMode === '3d')
       return (
         <div data-testid="page-tasks" className="h-full">
-          <Suspense fallback={<ViewLoadingFallback />}>
+          <Suspense fallback={<TaskViewLoadingFallback viewName="3D workshop" />}>
             <Workshop3DView />
           </Suspense>
         </div>
