@@ -525,10 +525,8 @@ test.describe('React App Smoke Tests', () => {
       await expect(input).toBeHidden({ timeout: 3000 })
     })
 
-    test('CmdK button in top bar opens palette', async ({ page }) => {
-      // The button text is ⌘K (unicode char)
-      const cmdkBtn = page.locator('[data-testid="top-bar"] button', { hasText: '\u2318K' })
-      await cmdkBtn.click()
+    test('top bar search button opens command palette', async ({ page }) => {
+      await page.getByTestId('top-bar-command-search').click()
 
       await expect(page.locator('input[placeholder="Search commands..."]')).toBeVisible({
         timeout: 5000,
