@@ -74,7 +74,7 @@ function preview(overrides: Partial<ContextPreviewResponse> = {}): ContextPrevie
 }
 
 describe('InjectionPreviewModal', () => {
-  test('renders capability summary and preview sections', () => {
+  test('renders a beginner-readable review before publishing context', () => {
     render(
       <InjectionPreviewModal
         isOpen
@@ -84,13 +84,32 @@ describe('InjectionPreviewModal', () => {
       />
     )
 
-    expect(screen.getByRole('dialog', { name: 'Context injection preview' })).toBeDefined()
-    expect(screen.getByText('claude')).toBeDefined()
-    expect(screen.getByText('container')).toBeDefined()
-    expect(screen.getByText('budget_truncated')).toBeDefined()
-    expect(screen.getByText('Items to inject')).toBeDefined()
-    expect(screen.getByText('Suggested but unselected')).toBeDefined()
-    expect(screen.getByText('Previously pinned')).toBeDefined()
+    expect(screen.getByRole('dialog', { name: 'Review context before publishing' })).toBeDefined()
+    expect(
+      screen.getByText(/saved notes and skill instructions the agent will see next/i)
+    ).toBeDefined()
+    expect(screen.getByText('2 items selected · Context limit: 1,200 tokens')).toBeDefined()
+    expect(screen.getByText('Agent will use')).toBeDefined()
+    expect(screen.getByText('Claude')).toBeDefined()
+    expect(screen.getByText('Work location')).toBeDefined()
+    expect(screen.getByText('Container workspace')).toBeDefined()
+    expect(screen.getByText('Limits applied')).toBeDefined()
+    expect(
+      screen.getByText('Some matches were left out to stay within the context limit')
+    ).toBeDefined()
+    expect(screen.getByText('Will be included')).toBeDefined()
+    expect(
+      screen.getByText('Checked items will be shared with the agent when you publish.')
+    ).toBeDefined()
+    expect(screen.getByText('Optional matches')).toBeDefined()
+    expect(
+      screen.getByText('These may help, but they stay out unless you choose them.')
+    ).toBeDefined()
+    expect(screen.getByText('Pinned for later')).toBeDefined()
+    expect(screen.getAllByText('Saved note').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Project').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Internal').length).toBeGreaterThan(0)
+    expect(screen.getByText('About 120 context tokens')).toBeDefined()
   })
 
   test('submits removed default items and pinned suggested items', async () => {
@@ -101,11 +120,15 @@ describe('InjectionPreviewModal', () => {
 
     await userEvent
       .setup()
-      .click(screen.getByRole('checkbox', { name: 'Select Release rollback memory' }))
+      .click(screen.getByRole('checkbox', { name: 'Remove Release rollback memory from context' }))
     const suggested = screen.getByText('Pinned migration note').closest('div')
     expect(suggested).not.toBeNull()
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Pin Pinned migration note' }))
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Publish with context' }))
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Keep Pinned migration note pinned' }))
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Publish with selected context' }))
 
     expect(onConfirm).toHaveBeenCalledWith({
       pinnedIds: ['memory-3'],
