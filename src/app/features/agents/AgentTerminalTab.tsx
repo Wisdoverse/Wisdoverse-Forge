@@ -250,11 +250,13 @@ interface KeyToolbarProps {
 
 function KeyToolbar({ onKeys, disabled }: KeyToolbarProps) {
   const [collapsed, setCollapsed] = useState(false)
+  const toggleLabel = collapsed ? 'Show virtual keyboard' : 'Hide virtual keyboard'
+  const keyboardHint = disabled ? 'Connect terminal to use keys' : 'Shortcut keys send to terminal'
 
   return (
     <div
       className={cn(
-        'flex items-center gap-1.5 px-2 py-1.5',
+        'flex items-center gap-1.5 px-2 py-1.5 min-h-10',
         'border-t border-white/5 bg-[#161629]'
       )}
     >
@@ -262,46 +264,59 @@ function KeyToolbar({ onKeys, disabled }: KeyToolbarProps) {
         type="button"
         onClick={() => setCollapsed((c) => !c)}
         className={cn(
-          'w-6 h-6 flex items-center justify-center rounded shrink-0',
+          'h-7 min-w-[92px] flex items-center justify-center gap-1.5 rounded px-2 shrink-0',
           'text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors'
         )}
-        aria-label="Toggle keyboard"
+        aria-label={toggleLabel}
+        title={toggleLabel}
       >
-        <ChevronLeft size={12} className={cn('transition-transform', collapsed && 'rotate-180')} />
+        <ChevronLeft
+          size={12}
+          aria-hidden="true"
+          className={cn('transition-transform', collapsed && 'rotate-180')}
+        />
+        <span className="text-[11px] font-medium">Keyboard</span>
       </button>
 
       {!collapsed && (
-        <div className="flex items-center gap-1 overflow-x-auto flex-1">
-          {KEY_GROUPS.map((group, gi) => (
-            <div key={gi} className="flex items-center gap-0.5 shrink-0">
-              {group.map((key, ki) => {
-                const wide = key.className?.includes('key-wide')
-                const danger = key.className?.includes('key-danger')
-                return (
-                  <button
-                    key={`${gi}-${ki}`}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => onKeys(key.keys)}
-                    title={key.label}
-                    className={cn(
-                      'h-[26px] px-1.5 rounded border font-mono text-[11px]',
-                      'whitespace-nowrap transition-colors select-none',
-                      wide ? 'min-w-[52px]' : 'min-w-[32px]',
-                      danger
-                        ? 'text-red-400 border-red-400/20 hover:bg-red-400/10 hover:border-red-400/30'
-                        : 'text-white/60 border-white/10 bg-white/[0.04] hover:bg-white/10 hover:border-white/15 hover:text-white/85',
-                      'disabled:opacity-40 disabled:cursor-not-allowed'
-                    )}
-                  >
-                    {key.label}
-                  </button>
-                )
-              })}
-              {gi < KEY_GROUPS.length - 1 && <div className="w-px h-4 bg-white/10 mx-1 shrink-0" />}
-            </div>
-          ))}
-        </div>
+        <>
+          <span className="hidden shrink-0 text-[10px] text-white/35 lg:inline">
+            {keyboardHint}
+          </span>
+          <div className="flex items-center gap-1 overflow-x-auto flex-1">
+            {KEY_GROUPS.map((group, gi) => (
+              <div key={gi} className="flex items-center gap-0.5 shrink-0">
+                {group.map((key, ki) => {
+                  const wide = key.className?.includes('key-wide')
+                  const danger = key.className?.includes('key-danger')
+                  return (
+                    <button
+                      key={`${gi}-${ki}`}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => onKeys(key.keys)}
+                      title={key.label}
+                      className={cn(
+                        'h-[26px] px-1.5 rounded border font-mono text-[11px]',
+                        'whitespace-nowrap transition-colors select-none',
+                        wide ? 'min-w-[52px]' : 'min-w-[32px]',
+                        danger
+                          ? 'text-red-400 border-red-400/20 hover:bg-red-400/10 hover:border-red-400/30'
+                          : 'text-white/60 border-white/10 bg-white/[0.04] hover:bg-white/10 hover:border-white/15 hover:text-white/85',
+                        'disabled:opacity-40 disabled:cursor-not-allowed'
+                      )}
+                    >
+                      {key.label}
+                    </button>
+                  )
+                })}
+                {gi < KEY_GROUPS.length - 1 && (
+                  <div className="w-px h-4 bg-white/10 mx-1 shrink-0" />
+                )}
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   )
