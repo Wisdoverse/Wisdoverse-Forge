@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent, type MouseEvent } from 'react'
 import {
   Copy,
+  FolderPlus,
   FolderOpen,
   Hash,
   ListPlus,
   Pencil,
+  PlusCircle,
   Settings,
   Trash2,
   Users,
@@ -70,6 +72,15 @@ interface ProjectMenuItemProps {
   onClick: () => void
 }
 
+interface EmptyTreeHintProps {
+  title: string
+  detail: string
+  actionLabel: string
+  Icon: LucideIcon
+  onAction?: () => void
+  testId: string
+}
+
 const TEAM_MENU_SIZE = { width: 190, height: 108 }
 const PROJECT_MENU_SIZE = { width: 280, height: 456 }
 
@@ -112,6 +123,48 @@ function ProjectMenuItem({ Icon, label, detail, tone = 'default', onClick }: Pro
         ) : null}
       </span>
     </button>
+  )
+}
+
+function EmptyTreeHint({ title, detail, actionLabel, Icon, onAction, testId }: EmptyTreeHintProps) {
+  return (
+    <div
+      data-testid={testId}
+      className={cn(
+        'mx-2 my-1 rounded-lg border px-2.5 py-2',
+        'border-black/[0.06] bg-black/[0.02] dark:border-white/[0.08] dark:bg-white/[0.04]'
+      )}
+    >
+      <div className="flex min-w-0 items-start gap-2">
+        <Icon
+          size={15}
+          strokeWidth={2}
+          aria-hidden="true"
+          className="mt-0.5 shrink-0 text-apple-blue"
+        />
+        <div className="min-w-0">
+          <p className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+            {title}
+          </p>
+          <p className="mt-0.5 text-ui-caption leading-snug text-secondary-light dark:text-secondary-dark">
+            {detail}
+          </p>
+        </div>
+      </div>
+      {onAction ? (
+        <button
+          type="button"
+          className={cn(
+            'mt-2 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-ui-caption font-medium',
+            'text-apple-blue hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35'
+          )}
+          onClick={onAction}
+        >
+          <PlusCircle size={13} strokeWidth={2} aria-hidden="true" />
+          {actionLabel}
+        </button>
+      ) : null}
+    </div>
   )
 }
 
@@ -200,9 +253,14 @@ export function ProjectTree({
 
   if (teams.length === 0) {
     return (
-      <p className="px-4 py-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
-        No teams yet
-      </p>
+      <EmptyTreeHint
+        testId="project-tree-empty-teams"
+        Icon={Users}
+        title="Create a team first"
+        detail="Teams group projects and people. Add one, then create a project inside it."
+        actionLabel="Open Team Settings"
+        onAction={onNavigate ? () => onNavigate('/settings/teams') : undefined}
+      />
     )
   }
 
@@ -363,9 +421,14 @@ export function ProjectTree({
             {expanded && (
               <div className="ml-4 flex flex-col gap-0.5">
                 {teamProjects.length === 0 ? (
-                  <p className="px-2 py-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                    No projects
-                  </p>
+                  <EmptyTreeHint
+                    testId={`team-${team.id}-empty-projects`}
+                    Icon={FolderPlus}
+                    title="Add this team's first project"
+                    detail="Projects hold tasks, agents, and work lanes for the team."
+                    actionLabel="Open Project Settings"
+                    onAction={onNavigate ? () => onNavigate('/settings/projects') : undefined}
+                  />
                 ) : (
                   teamProjects.map((project) => (
                     <button
