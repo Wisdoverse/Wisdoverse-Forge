@@ -138,8 +138,7 @@ export function GettingStartedView() {
         title: t('gettingStarted.steps.runtime.title'),
         detail: runtimeSettings
           ? t('gettingStarted.steps.runtime.ready', {
-              runtime: runtimeSettings.defaultRuntime,
-              cli: runtimeSettings.defaultCliTool,
+              location: workLocationLabel(runtimeSettings.defaultRuntime, t),
             })
           : t('gettingStarted.steps.runtime.empty'),
         why: t('gettingStarted.steps.runtime.why'),
@@ -159,7 +158,9 @@ export function GettingStartedView() {
           : cliExecutionAgent
             ? t('gettingStarted.steps.provider.cliReady', {
                 name: cliExecutionAgent.name,
-                runtime: isHostCliAgent(cliExecutionAgent) ? 'Host CLI' : 'Container CLI',
+                location: isHostCliAgent(cliExecutionAgent)
+                  ? t('gettingStarted.workLocations.local')
+                  : t('gettingStarted.workLocations.managed'),
               })
             : providers.length > 0
               ? t('gettingStarted.steps.provider.needsTest')
@@ -419,6 +420,19 @@ function summarizeTasks(tasks: TaskSummary[]): TaskSnapshot {
     completed,
     artifacts,
     appliedSkills,
+  }
+}
+
+function workLocationLabel(runtime: string, t: (key: string) => string): string {
+  switch (runtime) {
+    case 'container':
+      return t('gettingStarted.workLocations.managed')
+    case 'cli':
+      return t('gettingStarted.workLocations.local')
+    case 'api':
+      return t('gettingStarted.workLocations.textOnly')
+    default:
+      return t('gettingStarted.workLocations.ready')
   }
 }
 
