@@ -48,9 +48,9 @@ describe('Routing', () => {
     expect(await screen.findByTestId('page-settings')).toBeDefined()
   })
 
-  test('redirects / to /tasks', async () => {
+  test('redirects / to the first-run start path', async () => {
     const router = createTestRouter(createMemoryHistory({ initialEntries: ['/'] }))
     render(<RouterProvider router={router} />)
-    expect(await screen.findByTestId('page-tasks')).toBeDefined()
+    expect(await screen.findByTestId('page-start')).toBeDefined()
   })
 })

@@ -17,7 +17,7 @@ export function createTestRouter(history: MemoryHistory) {
     getParentRoute: () => rootRoute,
     path: '/',
     beforeLoad: () => {
-      throw redirect({ to: '/tasks' })
+      throw redirect({ to: '/start' })
     },
   })
 
