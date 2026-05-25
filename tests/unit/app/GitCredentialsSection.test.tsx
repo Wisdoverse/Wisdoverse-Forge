@@ -40,71 +40,30 @@ afterEach(() => {
 })
 
 describe('GitCredentialsSection', () => {
-  test('explains the empty repository token setup in user-facing language', async () => {
+  test('guides first-time git credential setup before saving a token', async () => {
     render(<GitCredentialsSection />)
 
-    await waitFor(() => expect(loadGitCredentialsMock).toHaveBeenCalled())
-    expect(screen.getByRole('heading', { name: /repository access tokens/i })).toBeDefined()
-    expect(screen.getByText(/connect github or gitlab/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: /add repository token/i })).toBeDefined()
-    expect(screen.getByText('No repository access tokens yet')).toBeDefined()
-    expect(
-      screen.getByText(/before assigning work that needs private repository access/i)
-    ).toBeDefined()
-  })
+    expect(await screen.findByText('No git credentials configured')).toBeDefined()
 
-  test('labels saved tokens by provider, address, date, and removal action', async () => {
-    const savedCredential: GitCredential = {
-      id: 'credential-1',
-      provider: 'github',
-      host: null,
-      createdAt: '2026-05-01T12:00:00.000Z',
-      updatedAt: '2026-05-01T12:00:00.000Z',
-    }
-    useSettingsStore.setState({ gitCredentials: [savedCredential] })
+    fireEvent.click(screen.getByRole('button', { name: /add token/i }))
 
-    render(<GitCredentialsSection />)
+    expect(screen.getByText('Git access setup path')).toBeDefined()
+    expect(screen.getByText('Choose Git host')).toBeDefined()
+    expect(screen.getByText('Paste token')).toBeDefined()
+    expect(screen.getByText(/repository access/i)).toBeDefined()
+    expect(screen.getByText(/leave this empty for github.com or gitlab.com/i)).toBeDefined()
 
-    const table = await screen.findByRole('table', { name: /repository access tokens/i })
-    expect(within(table).getByText('Git provider')).toBeDefined()
-    expect(within(table).getByText('Address')).toBeDefined()
-    expect(within(table).getByText('Added on')).toBeDefined()
-    expect(within(table).getByText('GitHub')).toBeDefined()
-    expect(within(table).getByText('Default cloud address')).toBeDefined()
+    const saveButton = screen.getByRole('button', { name: /save credential/i })
+    expect(saveButton).toBeDisabled()
 
-    const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /remove github repository token/i }))
-    await user.click(
-      screen.getByRole('button', { name: /confirm removing github repository token/i })
-    )
-
-    expect(deleteGitCredentialMock).toHaveBeenCalledWith('credential-1')
-  })
-
-  test('collects provider, token, and optional self-hosted address before saving', async () => {
-    const user = userEvent.setup()
-    render(<GitCredentialsSection />)
-
-    await user.click(await screen.findByRole('button', { name: /add repository token/i }))
-
-    expect(screen.getByLabelText(/git provider/i)).toBeDefined()
-    expect(screen.getByText(/choose where the repository is hosted/i)).toBeDefined()
-    expect(screen.getByLabelText(/access token/i)).toBeDefined()
-    expect(screen.getByText(/it will not be shown again after saving/i)).toBeDefined()
-    expect(screen.getByLabelText(/self-hosted git address/i)).toBeDefined()
-    expect(screen.getByText(/leave blank for github.com or gitlab.com/i)).toBeDefined()
-
-    await user.selectOptions(screen.getByLabelText(/git provider/i), 'gitlab')
-    await user.type(screen.getByLabelText(/access token/i), 'glpat-example')
-    await user.type(screen.getByLabelText(/self-hosted git address/i), 'gitlab.company.com')
-    await user.click(screen.getByRole('button', { name: /save token/i }))
+    fireEvent.change(screen.getByLabelText(/^token/i), {
+      target: { value: 'ghp_example_token' },
+    })
+    expect(saveButton).toBeEnabled()
+    fireEvent.click(saveButton)
 
     await waitFor(() =>
-      expect(saveGitCredentialMock).toHaveBeenCalledWith(
-        'gitlab',
-        'glpat-example',
-        'gitlab.company.com'
-      )
+      expect(saveGitCredentialMock).toHaveBeenCalledWith('github', 'ghp_example_token', undefined)
     )
   })
 })
