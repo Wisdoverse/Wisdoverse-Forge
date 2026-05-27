@@ -34,6 +34,63 @@ function asRecord(value: unknown): Record<string, unknown> {
   return {}
 }
 
+function messageDetail(body: Record<string, unknown>): string | null {
+  const detail =
+    (typeof body.error === 'string' && body.error.trim()) ||
+    (typeof body.message === 'string' && body.message.trim()) ||
+    null
+  return detail || null
+}
+
+function isAbortError(error: unknown): boolean {
+  return (
+    error !== null &&
+    typeof error === 'object' &&
+    'name' in error &&
+    (error as { name?: unknown }).name === 'AbortError'
+  )
+}
+
+export function chatStreamHttpErrorMessage(
+  status: number,
+  body: Record<string, unknown> = {}
+): string {
+  const detail = messageDetail(body)
+  const suffix = detail ? ` Details: ${detail}` : ''
+  const statusText = `Code: ${status}.`
+
+  if (status === 401) {
+    return `Sign in again, then resend the message. The chat request was not authorized. ${statusText}${suffix}`
+  }
+  if (status === 403) {
+    return `You do not have access to this agent or workspace. Ask an admin to check your role. ${statusText}${suffix}`
+  }
+  if (status === 404) {
+    return `This agent could not be found. Refresh the Agents page and pick an active agent. ${statusText}${suffix}`
+  }
+  if (status === 409) {
+    return `The agent is busy or the conversation changed. Wait a moment, then try again. ${statusText}${suffix}`
+  }
+  if (status === 429) {
+    return `The provider is rate limiting requests. Wait a moment, then resend the message. ${statusText}${suffix}`
+  }
+  if (status >= 500) {
+    return `The chat service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+  }
+
+  return `The chat request could not be sent. Check the selected agent and try again. ${statusText}${suffix}`
+}
+
+function chatStreamRequestErrorMessage(error: unknown): string {
+  if (isAbortError(error)) return ''
+  return 'The chat request could not reach the server. Check your connection, then resend the message.'
+}
+
+function chatStreamReadErrorMessage(error: unknown): string {
+  if (isAbortError(error)) return ''
+  return 'The chat stream stopped before the reply finished. Resend the message after the agent reconnects.'
+}
+
 /** React hook: `send(content)` streams LLM reply; `abort()` cancels it. */
 export function useChatStream(agentId: string) {
   const onUserMessage = useChatStore((s) => s.onUserMessage)
@@ -61,24 +118,21 @@ export function useChatStream(agentId: string) {
       try {
         resp = await api.streamPrompt(agentId, content, controller.signal)
       } catch (e) {
-        if ((e as Error).name !== 'AbortError') {
-          onStreamError((e as Error).message || 'stream request failed')
-        }
+        const message = chatStreamRequestErrorMessage(e)
+        if (message) onStreamError(message)
         return
       }
 
       if (!resp.ok) {
         const body = (await resp.json().catch(() => ({}))) as Record<string, unknown>
-        const msg =
-          (typeof body.error === 'string' && body.error) ||
-          (typeof body.message === 'string' && body.message) ||
-          `HTTP ${resp.status}`
-        onStreamError(msg)
+        onStreamError(chatStreamHttpErrorMessage(resp.status, body))
         return
       }
 
       if (!resp.body) {
-        onStreamError('no response body')
+        onStreamError(
+          'The chat response was empty. Refresh the page and try again; if it repeats, check that the agent is online.'
+        )
         return
       }
 
@@ -93,9 +147,8 @@ export function useChatStream(agentId: string) {
         try {
           chunk = await reader.read()
         } catch (e) {
-          if ((e as Error).name !== 'AbortError') {
-            onStreamError((e as Error).message || 'stream read failed')
-          }
+          const message = chatStreamReadErrorMessage(e)
+          if (message) onStreamError(message)
           return
         }
         if (chunk.done) break
