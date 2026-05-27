@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Menu, Moon, Sun } from 'lucide-react'
+import { Menu, Moon, Search, Sun } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { useTheme } from '@app/shared/model/theme.context'
 import type { ViewMode, GroupBy } from '@app/shared/model/board.types'
@@ -132,14 +132,19 @@ export function TopBar({
             <Moon size={15} strokeWidth={2} aria-hidden="true" />
           )}
         </button>
-        <button
-          type="button"
-          onClick={onCmdK}
-          className="hidden rounded-full bg-white px-3 py-1.5 text-ui-caption text-secondary-light transition-colors hover:text-foreground-light active:scale-95 dark:bg-white/[0.06] dark:text-secondary-dark dark:hover:text-foreground-dark sm:block"
-          title="Command palette"
-        >
-          ⌘K
-        </button>
+        {onCmdK && (
+          <button
+            type="button"
+            data-testid="top-bar-command-search"
+            onClick={onCmdK}
+            aria-label="Search commands and pages"
+            className="hidden items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 py-1.5 text-ui-caption font-medium text-secondary-light transition-colors hover:text-foreground-light active:scale-95 dark:bg-white/[0.06] dark:text-secondary-dark dark:hover:text-foreground-dark sm:flex"
+            title="Search commands and pages"
+          >
+            <Search size={14} strokeWidth={2} aria-hidden="true" />
+            <span>Search</span>
+          </button>
+        )}
 
         {showTaskControls && (
           <button
