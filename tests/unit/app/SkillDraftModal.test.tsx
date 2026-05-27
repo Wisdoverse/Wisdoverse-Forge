@@ -79,4 +79,37 @@ describe('SkillDraftModal', () => {
       )
     })
   })
+
+  test('guides the user through required draft fields before publishing', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <SkillDraftModal
+        open
+        task={completedTask}
+        artifacts={[{ name: 'summary.md', mimeType: 'text/markdown', data: 'Done' }]}
+        onClose={() => {}}
+      />
+    )
+
+    expect(screen.getByText(/check 3 things before publishing/i)).toBeDefined()
+
+    await user.clear(screen.getByLabelText(/^name$/i))
+    await user.click(screen.getByRole('button', { name: /publish skill/i }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Name this skill before publishing it.')
+    expect(screen.getByLabelText(/^name$/i)).toHaveFocus()
+
+    await user.type(screen.getByLabelText(/^name$/i), 'migration-review')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+    await user.clear(screen.getByLabelText(/^content$/i))
+    await user.click(screen.getByRole('button', { name: /publish skill/i }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Keep or rewrite the reusable instructions before publishing.'
+    )
+    expect(screen.getByLabelText(/^content$/i)).toHaveFocus()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
 })

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, CheckCircle2, LibraryBig, Users, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
@@ -26,12 +26,16 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
   const [createdSkill, setCreatedSkill] = useState<Skill | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fieldError, setFieldError] = useState<'name' | 'content' | null>(null)
+  const nameInputRef = useRef<HTMLInputElement>(null)
+  const contentInputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     if (!open) return
     setForm(initialForm)
     setCreatedSkill(null)
     setError(null)
+    setFieldError(null)
   }, [initialForm, open])
 
   if (!open) return null
@@ -41,16 +45,21 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
     const name = form.name.trim()
     const content = form.content.trim()
     if (!name) {
-      setError('Name is required')
+      setError('Name this skill before publishing it.')
+      setFieldError('name')
+      nameInputRef.current?.focus()
       return
     }
     if (!content) {
-      setError('Content is required')
+      setError('Keep or rewrite the reusable instructions before publishing.')
+      setFieldError('content')
+      contentInputRef.current?.focus()
       return
     }
 
     setSubmitting(true)
     setError(null)
+    setFieldError(null)
     try {
       const skill = await createSkill({
         name,
@@ -63,6 +72,14 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
       setError(err instanceof Error ? err.message : 'Failed to create skill')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  function updateField(field: keyof DraftForm, value: string) {
+    setForm((current) => ({ ...current, [field]: value }))
+    if (field === fieldError) {
+      setError(null)
+      setFieldError(null)
     }
   }
 
@@ -102,12 +119,20 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
           </button>
         </div>
 
-        {error && <div className={uiStyles.error}>{error}</div>}
+        {error && (
+          <div id="skill-draft-error" role="alert" className={uiStyles.error}>
+            {error}
+          </div>
+        )}
 
         {createdSkill ? (
           <SkillPublishedState skill={createdSkill} onClose={onClose} />
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div className="rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-caption text-apple-blue">
+              Check 3 things before publishing: the name is recognizable, the trigger words match
+              future work, and the instructions can stand alone without this task open.
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label htmlFor="skill-draft-name" className={uiStyles.label}>
@@ -115,12 +140,25 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                 </label>
                 <input
                   id="skill-draft-name"
+                  ref={nameInputRef}
+                  name="skillDraftName"
+                  autoComplete="off"
                   value={form.name}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, name: event.target.value }))
+                  onChange={(event) => updateField('name', event.target.value)}
+                  aria-invalid={fieldError === 'name'}
+                  aria-describedby={
+                    fieldError === 'name'
+                      ? 'skill-draft-name-help skill-draft-error'
+                      : 'skill-draft-name-help'
                   }
                   className={uiStyles.input}
                 />
+                <p
+                  id="skill-draft-name-help"
+                  className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+                >
+                  Use a short name people will understand in the skill list.
+                </p>
               </div>
               <div>
                 <label htmlFor="skill-draft-trigger" className={uiStyles.label}>
@@ -128,12 +166,19 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                 </label>
                 <input
                   id="skill-draft-trigger"
+                  name="skillDraftTriggerPattern"
+                  autoComplete="off"
                   value={form.triggerPattern}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, triggerPattern: event.target.value }))
-                  }
+                  onChange={(event) => updateField('triggerPattern', event.target.value)}
+                  aria-describedby="skill-draft-trigger-help"
                   className={cn(uiStyles.input, 'font-mono')}
                 />
+                <p
+                  id="skill-draft-trigger-help"
+                  className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+                >
+                  Optional. Keep the words future users are likely to search.
+                </p>
               </div>
             </div>
 
@@ -143,12 +188,19 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
               </label>
               <input
                 id="skill-draft-description"
+                name="skillDraftDescription"
+                autoComplete="off"
                 value={form.description}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, description: event.target.value }))
-                }
+                onChange={(event) => updateField('description', event.target.value)}
+                aria-describedby="skill-draft-description-help"
                 className={uiStyles.input}
               />
+              <p
+                id="skill-draft-description-help"
+                className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+              >
+                Optional. Say what this reusable instruction helps people do.
+              </p>
             </div>
 
             <div>
@@ -157,12 +209,25 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
               </label>
               <textarea
                 id="skill-draft-content"
+                ref={contentInputRef}
+                name="skillDraftContent"
+                autoComplete="off"
                 value={form.content}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, content: event.target.value }))
+                onChange={(event) => updateField('content', event.target.value)}
+                aria-invalid={fieldError === 'content'}
+                aria-describedby={
+                  fieldError === 'content'
+                    ? 'skill-draft-content-help skill-draft-error'
+                    : 'skill-draft-content-help'
                 }
                 className="min-h-64 w-full resize-y rounded-[18px] border border-black/[0.08] bg-white px-3 py-2 font-mono text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70"
               />
+              <p
+                id="skill-draft-content-help"
+                className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+              >
+                Required. Remove task-specific details and keep only reusable instructions.
+              </p>
             </div>
 
             <div className="flex justify-end gap-2 pt-1">
@@ -170,7 +235,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                 Cancel
               </button>
               <button type="submit" disabled={submitting} className={uiStyles.primaryButton}>
-                {submitting ? 'Publishing...' : 'Publish skill'}
+                {submitting ? 'Publishing…' : 'Publish Skill'}
               </button>
             </div>
           </form>
