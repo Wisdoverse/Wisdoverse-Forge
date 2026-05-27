@@ -61,6 +61,131 @@ export function normalizeSettingsSection(value: unknown): SettingsSection | null
   return SETTINGS_SECTION_ALIASES[normalized] ?? null
 }
 
+type SettingsErrorArea =
+  | 'providers'
+  | 'apiKeys'
+  | 'gitCredentials'
+  | 'sshKeys'
+  | 'resourceProfiles'
+  | 'runtime'
+
+type SettingsErrorAction = 'load' | 'save' | 'delete' | 'create' | 'revoke' | 'update'
+
+const SETTINGS_AREA_LABELS: Record<SettingsErrorArea, string> = {
+  providers: 'provider settings',
+  apiKeys: 'platform API keys',
+  gitCredentials: 'Git credentials',
+  sshKeys: 'SSH keys',
+  resourceProfiles: 'resource profiles',
+  runtime: 'runtime settings',
+}
+
+const SETTINGS_ITEM_LABELS: Record<SettingsErrorArea, string> = {
+  providers: 'provider',
+  apiKeys: 'platform API key',
+  gitCredentials: 'Git credential',
+  sshKeys: 'SSH key',
+  resourceProfiles: 'resource profile',
+  runtime: 'runtime setting',
+}
+
+function settingsActionPhrase(area: SettingsErrorArea, action: SettingsErrorAction): string {
+  const areaLabel = SETTINGS_AREA_LABELS[area]
+  const itemLabel = SETTINGS_ITEM_LABELS[area]
+  switch (action) {
+    case 'load':
+      return `load ${areaLabel}`
+    case 'save':
+      return `save the ${itemLabel}`
+    case 'delete':
+      return `delete the ${itemLabel}`
+    case 'create':
+      return `create the ${itemLabel}`
+    case 'revoke':
+      return `revoke the ${itemLabel}`
+    case 'update':
+      return `update ${areaLabel}`
+  }
+}
+
+function statusFromSettingsError(error: unknown): number | null {
+  if (error && typeof error === 'object' && 'statusCode' in error) {
+    const statusCode = (error as { statusCode?: unknown }).statusCode
+    if (typeof statusCode === 'number') return statusCode
+  }
+
+  const message = settingsErrorDetail(error)
+  const match = message?.match(/\b(?:HTTP|Server error \()? ?(\d{3})\b/)
+  return match ? Number(match[1]) : null
+}
+
+function settingsErrorDetail(error: unknown): string | null {
+  if (typeof error === 'string' && error.trim()) return error.trim()
+  if (error instanceof Error && error.message.trim()) return error.message.trim()
+  if (error && typeof error === 'object' && 'error' in error) {
+    const value = (error as { error?: unknown }).error
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  if (error && typeof error === 'object' && 'message' in error) {
+    const value = (error as { message?: unknown }).message
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return null
+}
+
+function isRawSettingsFailure(detail: string | null): boolean {
+  if (!detail) return true
+  return (
+    /^HTTP \d{3}/i.test(detail) ||
+    /^Server error \(\d{3}\)$/i.test(detail) ||
+    /^Network error$/i.test(detail) ||
+    /^Failed to fetch$/i.test(detail)
+  )
+}
+
+export function settingsActionErrorMessage(
+  area: SettingsErrorArea,
+  action: SettingsErrorAction,
+  error?: unknown
+): string {
+  const actionPhrase = settingsActionPhrase(area, action)
+  const status = statusFromSettingsError(error)
+  const detail = settingsErrorDetail(error)
+  const suffix = !isRawSettingsFailure(detail) ? ` Details: ${detail}` : ''
+
+  if (!status) {
+    if (!isRawSettingsFailure(detail)) {
+      return `Settings could not ${actionPhrase}. Review the message and try again.${suffix}`
+    }
+    return `Settings could not ${actionPhrase} because the browser could not reach the server. Check your connection and try again.${suffix}`
+  }
+
+  const statusText = `Code: ${status}.`
+  if (status === 401) {
+    return `Sign in again, then ${actionPhrase}. ${statusText}${suffix}`
+  }
+  if (status === 403) {
+    return `You do not have permission to ${actionPhrase}. Ask an admin to update your role. ${statusText}${suffix}`
+  }
+  if (status === 404) {
+    return `The settings service for ${SETTINGS_AREA_LABELS[area]} is not available. Refresh after the backend is deployed. ${statusText}${suffix}`
+  }
+  if (status === 409) {
+    return `This setting changed or already exists. Refresh the list, review the current value, then try again. ${statusText}${suffix}`
+  }
+  if (status === 422) {
+    return `Check the required fields for ${SETTINGS_ITEM_LABELS[area]}, then try again. ${statusText}${suffix}`
+  }
+  if (status === 429) {
+    return `The settings service is busy. Wait a moment, then ${actionPhrase}. ${statusText}${suffix}`
+  }
+  if (status >= 500) {
+    return `The settings service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+  }
+
+  return `Settings could not ${actionPhrase}. Refresh the page and try again. ${statusText}${suffix}`
+}
+
 interface SettingsState {
   // Navigation
   activeSection: SettingsSection
@@ -170,8 +295,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       const providers = await getSettingsApi().getProviders()
       set({ providers, providersLoading: false })
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load providers'
-      set({ providersLoading: false, providersError: message })
+      set({
+        providersLoading: false,
+        providersError: settingsActionErrorMessage('providers', 'load', err),
+      })
     }
   },
 
@@ -182,8 +309,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       set((state) => ({ providers: [...state.providers, provider] }))
       return provider
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to save provider'
-      set({ providersError: message })
+      set({ providersError: settingsActionErrorMessage('providers', 'save', err) })
       return null
     }
   },
@@ -195,8 +321,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       set((state) => ({ providers: state.providers.filter((p) => p.id !== id) }))
       return true
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete provider'
-      set({ providersError: message })
+      set({ providersError: settingsActionErrorMessage('providers', 'delete', err) })
       return false
     }
   },
@@ -211,8 +336,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       const apiKeys = await getSettingsApi().getApiKeys()
       set({ apiKeys, keysLoading: false })
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load API keys'
-      set({ keysLoading: false, keysError: message })
+      set({ keysLoading: false, keysError: settingsActionErrorMessage('apiKeys', 'load', err) })
     }
   },
 
@@ -223,8 +347,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       set((state) => ({ apiKeys: [result.apiKey, ...state.apiKeys] }))
       return result
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create API key'
-      set({ keysError: message })
+      set({ keysError: settingsActionErrorMessage('apiKeys', 'create', err) })
       return null
     }
   },
@@ -236,8 +359,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       set((state) => ({ apiKeys: state.apiKeys.filter((k) => k.id !== id) }))
       return true
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to revoke API key'
-      set({ keysError: message })
+      set({ keysError: settingsActionErrorMessage('apiKeys', 'revoke', err) })
       return false
     }
   },
@@ -252,7 +374,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     if (result.ok) {
       set({ gitCredentials: result.credentials, gitCredentialsLoading: false })
     } else {
-      set({ gitCredentialsLoading: false, gitCredentialsError: 'Failed to load git credentials' })
+      set({
+        gitCredentialsLoading: false,
+        gitCredentialsError: settingsActionErrorMessage('gitCredentials', 'load', result),
+      })
     }
   },
 
@@ -267,7 +392,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       }
       return true
     } else {
-      set({ gitCredentialsError: result.error ?? 'Failed to save git credential' })
+      set({
+        gitCredentialsError: settingsActionErrorMessage('gitCredentials', 'save', result.error),
+      })
       return false
     }
   },
@@ -281,7 +408,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       }))
       return true
     } else {
-      set({ gitCredentialsError: result.error ?? 'Failed to delete git credential' })
+      set({
+        gitCredentialsError: settingsActionErrorMessage('gitCredentials', 'delete', result.error),
+      })
       return false
     }
   },
@@ -296,7 +425,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     if (result.ok) {
       set({ sshKeys: result.keys, sshKeysLoading: false })
     } else {
-      set({ sshKeysLoading: false, sshKeysError: 'Failed to load SSH keys' })
+      set({
+        sshKeysLoading: false,
+        sshKeysError: settingsActionErrorMessage('sshKeys', 'load', result),
+      })
     }
   },
 
@@ -308,7 +440,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       set((state) => ({ sshKeys: [...state.sshKeys, key] }))
       return true
     } else {
-      set({ sshKeysError: result.error ?? 'Failed to create SSH key' })
+      set({ sshKeysError: settingsActionErrorMessage('sshKeys', 'create', result.error) })
       return false
     }
   },
@@ -320,7 +452,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       set((state) => ({ sshKeys: state.sshKeys.filter((k) => k.id !== id) }))
       return true
     } else {
-      set({ sshKeysError: result.error ?? 'Failed to delete SSH key' })
+      set({ sshKeysError: settingsActionErrorMessage('sshKeys', 'delete', result.error) })
       return false
     }
   },
@@ -335,8 +467,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       const profiles = await getAgentApi().getResourceProfiles()
       set({ resourceProfiles: profiles, resourceProfilesLoading: false })
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load resource profiles'
-      set({ resourceProfilesLoading: false, resourceProfilesError: message })
+      set({
+        resourceProfilesLoading: false,
+        resourceProfilesError: settingsActionErrorMessage('resourceProfiles', 'load', err),
+      })
     }
   },
 
@@ -350,8 +484,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       const settings = await getSettingsApi().getRuntimeSettings()
       set({ runtimeSettings: settings, runtimeLoading: false })
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load runtime settings'
-      set({ runtimeLoading: false, runtimeError: message })
+      set({
+        runtimeLoading: false,
+        runtimeError: settingsActionErrorMessage('runtime', 'load', err),
+      })
     }
   },
 
@@ -362,8 +498,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       set({ runtimeSettings: updated })
       return true
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update runtime settings'
-      set({ runtimeError: message })
+      set({ runtimeError: settingsActionErrorMessage('runtime', 'update', err) })
       return false
     }
   },
