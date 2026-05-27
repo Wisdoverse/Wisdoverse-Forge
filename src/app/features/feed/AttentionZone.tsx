@@ -12,8 +12,11 @@ export function AttentionZone({ items, onApprove, onView }: AttentionZoneProps) 
   return (
     <div data-testid="attention-zone" className="bg-apple-red/[0.04] rounded-lg p-3 mb-3">
       <div className="text-[9px] font-semibold text-apple-red tracking-wide mb-2">
-        NEEDS ATTENTION
+        ACTION NEEDED
       </div>
+      <p className="mb-2 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+        These items are waiting for a decision, missing access, or a quick review.
+      </p>
       {items.map((item) => (
         <div
           key={item.id}
@@ -31,13 +34,13 @@ export function AttentionZone({ items, onApprove, onView }: AttentionZoneProps) 
               onClick={() => onApprove?.(item.id)}
               className="text-[9px] font-medium px-2.5 py-1 rounded-badge bg-apple-blue text-white"
             >
-              Approve
+              Approve now
             </button>
             <button
               onClick={() => onView?.(item.id)}
               className="text-[9px] font-medium px-2.5 py-1 rounded-badge bg-black/[0.04] dark:bg-white/[0.06]"
             >
-              View
+              Review details
             </button>
           </div>
         </div>
