@@ -172,11 +172,14 @@ describe('SkillsView', () => {
     })
 
     await user.click(screen.getAllByRole('button', { name: /new skill/i })[0])
+    expect(screen.getByText(/check before creating/i)).toBeDefined()
+    expect(screen.getByText('Safe to share')).toBeDefined()
+
     await user.type(screen.getByLabelText(/^skill name$/i), 'frontend-review')
-    await user.type(screen.getByLabelText(/^what it helps with$/i), 'Review frontend flows')
-    await user.type(screen.getByLabelText(/^when to suggest it$/i), 'frontend')
+    await user.type(screen.getByLabelText(/^short description$/i), 'Review frontend flows')
+    await user.type(screen.getByLabelText(/^use when$/i), 'frontend')
     await user.type(
-      screen.getByLabelText(/^instructions for the agent$/i),
+      screen.getByLabelText(/^reusable instructions$/i),
       'Check UI states and regressions'
     )
     await user.click(screen.getByRole('button', { name: /create skill/i }))

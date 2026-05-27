@@ -16,6 +16,15 @@ const emptyForm = {
   content: '',
 }
 
+const SKILL_REVIEW_POINTS = [
+  { label: 'Repeatable', value: 'Use this for work your team expects to repeat.' },
+  {
+    label: 'Safe to share',
+    value: 'Leave out tokens, private notes, and one-time project details.',
+  },
+  { label: 'Agent ready', value: 'Write steps an agent can follow without extra context.' },
+]
+
 export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
   const createSkill = useSkillsStore((state) => state.createSkill)
   const [form, setForm] = useState(emptyForm)
@@ -47,11 +56,11 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
     const content = form.content.trim()
 
     if (!name) {
-      setError('Enter a skill name.')
+      setError('Skill name is required')
       return
     }
     if (!content) {
-      setError('Add the instructions agents should follow.')
+      setError('Reusable instructions are required')
       return
     }
 
@@ -97,13 +106,14 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
           'rounded-card border border-black/[0.08] bg-white p-5 dark:border-white/[0.1] dark:bg-[#2c2c2e]'
         )}
       >
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 id="create-skill-title" className={uiStyles.sectionTitle}>
-              New Skill
+              New reusable skill
             </h2>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Save repeatable instructions so agents can reuse them on similar work.
+              Save instructions your agents can reuse on future tasks. Keep it general and safe
+              enough for the workspace.
             </p>
           </div>
           <button
@@ -148,7 +158,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
 
           <div>
             <label htmlFor="skill-description" className={uiStyles.label}>
-              What it helps with
+              Short description
             </label>
             <input
               id="skill-description"
@@ -167,23 +177,51 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
 
           <div>
             <label htmlFor="skill-trigger" className={uiStyles.label}>
-              When to suggest it
+              Use when
             </label>
+            <p
+              id="skill-trigger-help"
+              className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+            >
+              Short phrase that tells agents when this skill fits.
+            </p>
             <input
               id="skill-trigger"
               value={form.triggerPattern}
               onChange={(event) => updateField('triggerPattern', event.target.value)}
               className={cn(uiStyles.input, 'font-mono')}
-              placeholder="Optional word such as release or billing"
+              placeholder="e.g. frontend review"
+              aria-describedby="skill-trigger-help"
             />
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Leave blank if users should choose this skill manually.
             </p>
           </div>
 
+          <div className="rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]">
+            <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+              Check before creating
+            </div>
+            <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
+              {SKILL_REVIEW_POINTS.map((point) => (
+                <div
+                  key={point.label}
+                  className="min-w-0 rounded-md bg-white px-2 py-1.5 dark:bg-black/20"
+                >
+                  <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                    {point.label}
+                  </span>
+                  <span className="mt-0.5 block text-ui-caption text-foreground-light dark:text-foreground-dark">
+                    {point.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div>
             <label htmlFor="skill-content" className={uiStyles.label}>
-              Instructions for the agent
+              Reusable instructions
             </label>
             <textarea
               id="skill-content"
@@ -193,7 +231,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
               className={cn(
                 'min-h-36 w-full resize-y rounded-[18px] border border-black/[0.08] bg-white px-3 py-2 font-mono text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
               )}
-              placeholder="Write the steps, checks, and limits the agent should follow."
+              placeholder="Steps the agent should follow when this skill is selected"
             />
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Plain steps work best. Include what success should look like.
