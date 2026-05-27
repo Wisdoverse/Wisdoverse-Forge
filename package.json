@@ -54,6 +54,7 @@
     "migrate:prod": "cargo run --manifest-path rust/Cargo.toml --bin agentforge-server -- --migrate-only",
     "migrate:down": "node scripts/rust-migrate-unsupported.mjs down",
     "migrate:status": "node scripts/rust-migrate-unsupported.mjs status",
+    "pr:summary": "node scripts/pr-status-summary.mjs",
     "fsd:check": "node scripts/check-fsd-boundaries.mjs",
     "lint": "npm run fsd:check && eslint shared scripts src/app",
     "lint:fix": "eslint shared scripts src/app --fix",
