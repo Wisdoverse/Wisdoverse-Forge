@@ -53,9 +53,21 @@ export function HistoryTab({ task }: HistoryTabProps) {
       <div className="space-y-3">
         <AgentCheckIn task={task} />
 
+        <section
+          data-testid="task-updates-guide"
+          className="rounded-lg border border-apple-blue/15 bg-apple-blue/[0.055] px-3 py-2.5 dark:border-apple-blue/25 dark:bg-apple-blue/[0.09]"
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-apple-blue">
+            What to check now
+          </p>
+          <p className="mt-1 text-[11px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+            {taskUpdateGuide(task)}
+          </p>
+        </section>
+
         <section className="space-y-2">
           <p className="text-[10px] font-medium uppercase text-secondary-light dark:text-secondary-dark">
-            Lifecycle
+            Task story
           </p>
           {events.map((event) => (
             <div
@@ -81,11 +93,11 @@ export function HistoryTab({ task }: HistoryTabProps) {
         <section className="space-y-2">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] font-medium uppercase text-secondary-light dark:text-secondary-dark">
-              Execution log
+              Run attempts
             </p>
             {loading && (
               <span className="text-[10px] text-secondary-light dark:text-secondary-dark">
-                Loading
+                Loading attempts
               </span>
             )}
           </div>
@@ -96,7 +108,8 @@ export function HistoryTab({ task }: HistoryTabProps) {
           )}
           {!loading && !error && runs.length === 0 && (
             <div className="rounded-lg border border-dashed border-black/[0.1] px-3 py-2 text-xs text-secondary-light dark:border-white/[0.12] dark:text-secondary-dark">
-              Execution attempts appear here after the task is dispatched to an agent.
+              Attempts appear after an agent starts work. If this stays empty, check that an agent
+              is assigned and the task was started.
             </div>
           )}
           {runs.map((run) => (
@@ -143,7 +156,7 @@ function AgentCheckIn({ task }: { task: TaskSummary }) {
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-medium uppercase text-secondary-light dark:text-secondary-dark">
-            Agent check-in
+            Current status
           </p>
           <p className="mt-0.5 text-xs font-semibold text-foreground-light dark:text-foreground-dark">
             {checkIn.title}
@@ -180,7 +193,7 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
     run.cliTool ??
     run.providerName ??
     run.runtimeKind ??
-    (run.maxContextTokens ? 'runtime' : 'unknown runtime')
+    (run.maxContextTokens ? 'configured worker' : 'unknown worker')
   const finished = run.finishedAt ? formatRelativeTime(run.finishedAt) : 'Still running'
 
   return (
@@ -188,14 +201,14 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-xs font-medium text-foreground-light dark:text-foreground-dark">
-            {run.status} run on {runtime}
+            Attempt {readableRunStatus(run.status)}
           </p>
           <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-            Started {formatRelativeTime(run.startedAt)} · {finished}
+            Started {formatRelativeTime(run.startedAt)} · {finished} · Work method: {runtime}
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-black/[0.05] px-2 py-0.5 text-[10px] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-          {run.id.slice(0, 8)}
+          Ref {run.id.slice(0, 8)}
         </span>
       </div>
     </div>
@@ -215,8 +228,8 @@ function taskCheckIn(task: TaskSummary): {
     case 'backlog':
       return task.assignedAgentName
         ? {
-            title: `${agentName} is ready for dispatch`,
-            detail: 'Queue the task when the runtime is ready to claim the work.',
+            title: `${agentName} is ready to start`,
+            detail: 'Start the task when you are ready for the agent to begin.',
             tone: 'default',
             Icon: Send,
           }
@@ -228,8 +241,8 @@ function taskCheckIn(task: TaskSummary): {
           }
     case 'queued':
       return {
-        title: `${agentName} is waiting for a runtime slot`,
-        detail: 'The task is queued and will move to active work when execution starts.',
+        title: `${agentName} is waiting to start`,
+        detail: 'Nothing is needed yet. The task will move to active work when an agent begins.',
         tone: 'default',
         Icon: Clock3,
       }
@@ -238,8 +251,8 @@ function taskCheckIn(task: TaskSummary): {
         title: `${agentName} is working at ${task.progress}%`,
         detail:
           task.progress >= 80
-            ? 'Prepare to review the handoff once artifacts arrive.'
-            : 'Progress is active; watch for blockers or owner-input requests.',
+            ? 'Prepare to review the result when the task finishes.'
+            : 'Progress is active. Watch for requests that need your decision.',
         tone: 'default',
         Icon: CircleDot,
       }
@@ -252,18 +265,18 @@ function taskCheckIn(task: TaskSummary): {
       }
     case 'completed':
       return {
-        title: `${agentName} completed the handoff`,
+        title: `${agentName} finished the task`,
         detail:
           artifactCount > 0
-            ? `${artifactCount} artifact${artifactCount === 1 ? '' : 's'} ready for review.`
+            ? `${artifactCount} result item${artifactCount === 1 ? '' : 's'} ready to review.`
             : 'Review the outcome and decide whether reusable learning should be drafted.',
         tone: 'success',
         Icon: CheckCircle2,
       }
     case 'failed':
       return {
-        title: `${agentName} hit a run failure`,
-        detail: task.error ?? 'Inspect the execution log before retrying this task.',
+        title: `${agentName} could not finish`,
+        detail: task.error ?? 'Read the latest attempt before retrying this task.',
         tone: 'danger',
         Icon: XCircle,
       }
@@ -310,7 +323,7 @@ function taskHistoryEvents(task: TaskSummary): { id: string; title: string; deta
     events.push({
       id: 'assigned',
       title: `Assigned to ${task.assignedAgentName}`,
-      detail: task.assignedTo ? `Agent ${task.assignedTo.slice(0, 8)}` : 'Assignment recorded',
+      detail: 'This agent is responsible for the next step.',
     })
   }
 
@@ -325,15 +338,18 @@ function taskHistoryEvents(task: TaskSummary): { id: string; title: string; deta
   if (task.state === 'blocked') {
     events.push({
       id: 'blocked',
-      title: 'Task is blocked',
-      detail: task.blockedHint ?? task.blockedReason ?? 'No blocker detail provided',
+      title: 'Needs your input',
+      detail:
+        task.blockedHint ??
+        task.blockedReason ??
+        'No details were provided. Review the task actions before continuing.',
     })
   }
 
   if (task.state === 'failed') {
     events.push({
       id: 'failed',
-      title: 'Run failed',
+      title: 'Work stopped',
       detail: task.error ?? `Updated ${formatRelativeTime(task.updatedAt)}`,
     })
   }
@@ -349,4 +365,33 @@ function taskHistoryEvents(task: TaskSummary): { id: string; title: string; deta
   }
 
   return events
+}
+
+function taskUpdateGuide(task: TaskSummary): string {
+  switch (task.state) {
+    case 'backlog':
+      return task.assignedAgentName
+        ? 'The task has an agent. Start it when the brief is ready.'
+        : 'Choose an agent first, then start the task.'
+    case 'queued':
+      return 'The task is waiting to begin. Check back if it stays here longer than expected.'
+    case 'working':
+      return 'The agent is working. Watch for requests that need your decision, then review the result when it finishes.'
+    case 'blocked':
+      return 'The task needs your input. Read the reason, decide what to provide, then approve or update the task.'
+    case 'completed':
+      return 'Open Results next. Confirm the answer matches the brief before reusing the work.'
+    case 'failed':
+      return 'Read the latest attempt, fix the cause if you can, then retry or create a clearer follow-up task.'
+    case 'canceled':
+      return 'No one is working on this task now. Reopen it or create follow-up work if it still matters.'
+  }
+}
+
+function readableRunStatus(status: string): string {
+  return status
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
 }
