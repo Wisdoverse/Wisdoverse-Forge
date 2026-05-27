@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { AuditLogView } from '@app/features/governance/AuditLogView'
 import { orchestrationApi } from '@app/shared/api/orchestration'
 
@@ -70,6 +70,30 @@ afterEach(() => {
 })
 
 describe('AuditLogView', () => {
+  test('starts from common audit views for first-time users', async () => {
+    render(<AuditLogView />)
+
+    await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
+    expect(screen.getByText('Start with what you need to check')).toBeDefined()
+    expect(screen.getByText('Protected subjects')).toBeDefined()
+
+    const quickViews = screen.getByRole('group', { name: /common audit views/i })
+    fireEvent.click(within(quickViews).getByRole('button', { name: /skill decisions/i }))
+
+    await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(2))
+    expect(within(quickViews).getByRole('button', { name: /skill decisions/i })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    expect(fetchGovernanceAudit).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        eventPrefix: 'governance.context.skill.',
+        itemKind: 'skill',
+        redactSecrets: true,
+      })
+    )
+  })
+
   test('renders raw IDs only for visible subjects and sends filters', async () => {
     render(<AuditLogView />)
 
