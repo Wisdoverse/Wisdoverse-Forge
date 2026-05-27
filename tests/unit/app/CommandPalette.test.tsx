@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, cleanup } from '@testing-library/react'
 import { CommandPalette } from '@app/features/cmdk/CommandPalette'
 
 afterEach(cleanup)
@@ -7,9 +7,10 @@ afterEach(cleanup)
 describe('CommandPalette', () => {
   test('renders when open', () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
-    expect(screen.getByText('Find a page or action')).toBeDefined()
-    expect(screen.getByText(/type what you want to do/i)).toBeDefined()
-    expect(screen.getByPlaceholderText(/search pages and actions/i)).toBeDefined()
+    expect(screen.getByPlaceholderText(/search/i)).toBeDefined()
+    expect(screen.getByText('Command discovery path')).toBeDefined()
+    expect(screen.getByText(/use tasks when you want to plan or inspect work/i)).toBeDefined()
+    expect(screen.getByText(/use settings when setup/i)).toBeDefined()
   })
 
   test('does not render when closed', () => {
@@ -49,5 +50,16 @@ describe('CommandPalette', () => {
       expect(screen.getByText('No matching page or action')).toBeDefined()
     })
     expect(screen.getByText(/try a simpler word/i)).toBeDefined()
+  })
+
+  test('suggests common workflow terms when search has no matches', () => {
+    render(<CommandPalette isOpen={true} onClose={() => {}} />)
+
+    fireEvent.change(screen.getByPlaceholderText(/search commands/i), {
+      target: { value: 'missing workflow' },
+    })
+
+    expect(screen.getByText('No commands found')).toBeDefined()
+    expect(screen.getByText(/try tasks, inbox, agents, skills, or settings/i)).toBeDefined()
   })
 })
