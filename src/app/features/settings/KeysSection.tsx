@@ -17,6 +17,12 @@ function formatDate(dateStr: string | null): string {
   })
 }
 
+const PLATFORM_KEY_SETUP_STEPS = [
+  { label: 'Name the use', value: 'Use a label like CI deploy or billing sync.' },
+  { label: 'Create once', value: 'The full key appears only immediately after creation.' },
+  { label: 'Store safely', value: 'Put the copied key in the target script or secret manager.' },
+]
+
 // ============================================================================
 // Key Row
 // ============================================================================
@@ -134,14 +140,8 @@ interface CreateKeyFormProps {
 
 function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
   const [name, setName] = useState('')
-  const [submitAttempted, setSubmitAttempted] = useState(false)
-  const nameInputId = 'platform-key-name'
-  const statusId = 'platform-key-form-status'
-  const errorId = 'platform-key-name-error'
-  const trimmedName = name.trim()
-  const isReady = Boolean(trimmedName)
-  const visibleError =
-    submitAttempted && !isReady ? 'Name this platform API key before creating it.' : null
+  const nameInputId = 'platform-api-key-name'
+  const nameHelpId = 'platform-api-key-name-help'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -154,70 +154,70 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="mt-3">
-      <div
-        id={statusId}
-        data-testid="platform-key-form-status"
-        aria-live="polite"
-        className={cn(
-          'mb-3 rounded-card border px-3 py-2',
-          isReady
-            ? 'border-apple-green/25 bg-apple-green/10'
-            : 'border-apple-blue/20 bg-apple-blue/[0.04]'
-        )}
-      >
-        <p className="text-ui-button font-semibold text-foreground-light dark:text-foreground-dark">
-          {isReady ? 'Ready to Create Key' : 'Next: Name the Platform Key'}
-        </p>
-        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {isReady
-            ? 'Create this key, then copy it before closing the one-time key banner.'
-            : 'Use a name that tells future admins where this key will be used.'}
-        </p>
+    <form
+      onSubmit={handleSubmit}
+      className="mt-3 rounded-card border border-black/[0.06] bg-black/[0.015] p-4 dark:border-white/[0.08] dark:bg-white/[0.025]"
+    >
+      <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
+        <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+          Platform key setup path
+        </div>
+        <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
+          {PLATFORM_KEY_SETUP_STEPS.map((step) => (
+            <div
+              key={step.label}
+              className="min-w-0 rounded-md bg-black/[0.025] px-2 py-1.5 dark:bg-white/[0.04]"
+            >
+              <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                {step.label}
+              </span>
+              <span className="mt-0.5 block text-ui-caption text-foreground-light dark:text-foreground-dark">
+                {step.value}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {visibleError && (
-        <div className={cn(uiStyles.error, 'mb-3')} role="alert" aria-live="polite">
-          {visibleError}
-        </div>
-      )}
-
-      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
-        <div className="min-w-0">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="min-w-0 flex-1">
           <label htmlFor={nameInputId} className={uiStyles.label}>
-            Key Name
+            Key name <span className="text-red-500">*</span>
           </label>
+          <p
+            id={nameHelpId}
+            className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+          >
+            Name where this key will be used so it is easy to revoke later.
+          </p>
           <input
             id={nameInputId}
-            name="platformKeyName"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. CI job or integration…"
+            placeholder="e.g. CI deploy"
             autoFocus
-            autoComplete="off"
-            spellCheck={false}
-            aria-invalid={visibleError !== null}
-            aria-describedby={`${statusId}${visibleError ? ` ${errorId}` : ''}`}
-            className={cn(uiStyles.input, 'min-w-0')}
+            className={cn(uiStyles.input, 'w-full')}
+            aria-describedby={nameHelpId}
           />
-          {visibleError && (
-            <p id={errorId} className="mt-1 text-ui-caption text-apple-red">
-              {visibleError}
-            </p>
-          )}
         </div>
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={saving}
-          className={uiStyles.secondaryButton}
-        >
-          Cancel
-        </button>
-        <button type="submit" disabled={saving} className={uiStyles.primaryButton}>
-          {saving ? 'Creating…' : 'Create'}
-        </button>
+        <div className="flex shrink-0 justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            className={uiStyles.secondaryButton}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={saving || !name.trim()}
+            className={uiStyles.primaryButton}
+          >
+            {saving ? 'Creating...' : 'Create'}
+          </button>
+        </div>
       </div>
     </form>
   )
