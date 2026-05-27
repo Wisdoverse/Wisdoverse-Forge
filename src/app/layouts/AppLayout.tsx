@@ -78,6 +78,10 @@ export function AppLayout({
   const selectedProjectId = useNavigationStore((s) => s.selectedProjectId)
   const selectProject = useNavigationStore((s) => s.selectProject)
   const agentGroups = useNavigationStore((s) => s.agentGroups)
+  const selectedTaskGroup = useMemo(
+    () => agentGroups.find((group) => group.id === selectedGroupId) ?? null,
+    [agentGroups, selectedGroupId]
+  )
 
   const taskProjectOptions = useMemo<TaskProjectOption[]>(
     () =>
@@ -262,7 +266,13 @@ export function AppLayout({
         agents={participants.map((p) => ({ id: p.agentId, name: p.name, status: p.status }))}
         projects={taskProjectOptions}
         selectedProjectId={selectedProjectId}
+        selectedTaskGroupId={selectedGroupId}
+        selectedTaskGroupName={selectedTaskGroup?.name ?? null}
         onProjectChange={selectProject}
+        onOpenTaskRouting={() => {
+          setTaskFormOpen(false)
+          handleNavigate('/agents')
+        }}
         onSubmit={async (data) => {
           if (!data.projectId) {
             throw new Error('Choose a project before creating a task.')
