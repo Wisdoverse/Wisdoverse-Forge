@@ -222,6 +222,84 @@ impl HostCliIdentity {
     }
 }
 
+/// Aggregate root for the Agent bounded context. Loaded by
+/// `AgentRepository::find_aggregate` for write-side operations (added in Task 4.3).
+#[derive(Debug, Clone)]
+pub(crate) struct AgentAggregate {
+    pub(crate) id: Uuid,
+    pub(crate) runtime_kind: RuntimeKind,
+    pub(crate) cli_tool: Option<String>,
+    pub(crate) container_id: Option<String>,
+    pub(crate) runtime_id: Option<String>,
+    pub(crate) workspace_id: Uuid,
+    pub(crate) organization_id: Uuid,
+    pub(crate) user_id: Uuid,
+    pub(crate) status: AgentStatus,
+}
+
+impl AgentAggregate {
+    pub(crate) fn runtime_kind(&self) -> RuntimeKind {
+        self.runtime_kind
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_test(kind: RuntimeKind, cli_tool: Option<&str>, container_id: Option<&str>) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            runtime_kind: kind,
+            cli_tool: cli_tool.map(str::to_string),
+            container_id: container_id.map(str::to_string),
+            runtime_id: None,
+            workspace_id: Uuid::new_v4(),
+            organization_id: Uuid::new_v4(),
+            user_id: Uuid::new_v4(),
+            status: AgentStatus::Idle,
+        }
+    }
+}
+
+/// Typestate wrapper proving an agent is container-backed.
+#[derive(Debug)]
+pub(crate) struct ContainerAgent(AgentAggregate);
+
+/// Rejection returned when a lifecycle operation requires a container-backed
+/// agent but the aggregate belongs to a different runtime kind.
+#[derive(Debug)]
+pub(crate) enum LifecycleRejection {
+    HostCli,
+    Api,
+}
+
+impl ContainerAgent {
+    pub(crate) fn try_from(agent: AgentAggregate) -> Result<Self, LifecycleRejection> {
+        match agent.runtime_kind {
+            RuntimeKind::Container => Ok(Self(agent)),
+            RuntimeKind::Cli => Err(LifecycleRejection::HostCli),
+            RuntimeKind::Api => Err(LifecycleRejection::Api),
+        }
+    }
+
+    pub(crate) fn inner(&self) -> &AgentAggregate {
+        &self.0
+    }
+}
+
+impl LifecycleRejection {
+    pub(crate) fn into_app_error(self, action: &str) -> AppError {
+        let msg = match self {
+            Self::HostCli => format!(
+                "Host CLI agent: the platform does not manage the local container lifecycle. \
+                 {action} the sidecar on the operator machine using the enrollment script."
+            ),
+            Self::Api => format!(
+                "API/provider agent has no container to {}.",
+                action.to_lowercase()
+            ),
+        };
+        ErrorKind::Validation(msg).into()
+    }
+}
+
 /// Typed aggregate factory for creating new agents.
 ///
 /// Replaces the open-shape `CreateAgentParams` for new code paths. Three
@@ -1497,6 +1575,31 @@ mod tests {
         assert!(!dbg.contains(id.hmac_secret()), "hmac_secret leaked: {dbg}");
         assert!(!dbg.contains(id.nats_connect_password()), "nats_password leaked: {dbg}");
         assert!(dbg.contains("<redacted>"));
+    }
+
+    #[test]
+    fn container_agent_try_from_only_accepts_container_kind() {
+        let container = AgentAggregate::for_test(RuntimeKind::Container, Some("codex"), None);
+        assert!(ContainerAgent::try_from(container).is_ok());
+
+        let host_cli = AgentAggregate::for_test(RuntimeKind::Cli, Some("codex"), None);
+        match ContainerAgent::try_from(host_cli) {
+            Err(LifecycleRejection::HostCli) => (),
+            other => panic!("expected HostCli rejection, got {other:?}"),
+        }
+
+        let api = AgentAggregate::for_test(RuntimeKind::Api, None, None);
+        match ContainerAgent::try_from(api) {
+            Err(LifecycleRejection::Api) => (),
+            other => panic!("expected Api rejection, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lifecycle_rejection_into_app_error_carries_i18n_key() {
+        let err = LifecycleRejection::HostCli.into_app_error("Restart");
+        let msg = format!("{err}");
+        assert!(msg.contains("Host CLI"), "msg: {msg}");
     }
 
     #[test]
