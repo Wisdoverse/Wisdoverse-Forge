@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { GitCredentialsSection } from '@app/features/settings/GitCredentialsSection'
 import { useSettingsStore } from '@app/shared/model/settings.store'
+import type { GitCredential } from '@app/shared/api/legacy/AgentAPI'
 
 const loadGitCredentialsMock = vi.fn().mockResolvedValue(undefined)
 const saveGitCredentialMock = vi.fn().mockResolvedValue(true)
@@ -26,6 +28,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  vi.restoreAllMocks()
   useSettingsStore.setState({
     gitCredentials: [],
     gitCredentialsLoading: false,
@@ -37,45 +40,64 @@ afterEach(() => {
 })
 
 describe('GitCredentialsSection', () => {
-  test('keeps save available and explains the missing token', async () => {
+  test('explains the empty repository token setup in user-facing language', async () => {
     render(<GitCredentialsSection />)
 
-    fireEvent.click(screen.getByRole('button', { name: /add token/i }))
-
-    expect(screen.getByTestId('git-credential-form-status')).toHaveTextContent(
-      /next: paste access token/i
-    )
-    const saveButton = screen.getByRole('button', { name: /save credential/i })
-    expect(saveButton).toBeEnabled()
-
-    fireEvent.click(saveButton)
-
+    await waitFor(() => expect(loadGitCredentialsMock).toHaveBeenCalled())
+    expect(screen.getByRole('heading', { name: /repository access tokens/i })).toBeDefined()
+    expect(screen.getByText(/connect github or gitlab/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: /add repository token/i })).toBeDefined()
+    expect(screen.getByText('No repository access tokens yet')).toBeDefined()
     expect(
-      screen.getAllByText('Paste an access token before saving this credential.').length
-    ).toBeGreaterThan(0)
-    expect(saveGitCredentialMock).not.toHaveBeenCalled()
-    expect(screen.getByLabelText(/token/i)).toHaveFocus()
-
-    fireEvent.change(screen.getByLabelText(/token/i), { target: { value: 'ghp-example' } })
-
-    expect(screen.getByTestId('git-credential-form-status')).toHaveTextContent(/ready to save/i)
-    fireEvent.click(saveButton)
-
-    await waitFor(() =>
-      expect(saveGitCredentialMock).toHaveBeenCalledWith('github', 'ghp-example', undefined)
-    )
+      screen.getByText(/before assigning work that needs private repository access/i)
+    ).toBeDefined()
   })
 
-  test('passes a self-hosted GitLab host when provided', async () => {
+  test('labels saved tokens by provider, address, date, and removal action', async () => {
+    const savedCredential: GitCredential = {
+      id: 'credential-1',
+      provider: 'github',
+      host: null,
+      createdAt: '2026-05-01T12:00:00.000Z',
+      updatedAt: '2026-05-01T12:00:00.000Z',
+    }
+    useSettingsStore.setState({ gitCredentials: [savedCredential] })
+
     render(<GitCredentialsSection />)
 
-    fireEvent.click(screen.getByRole('button', { name: /add token/i }))
-    fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'gitlab' } })
-    fireEvent.change(screen.getByLabelText(/token/i), { target: { value: 'glpat-example' } })
-    fireEvent.change(screen.getByLabelText(/custom host/i), {
-      target: { value: 'gitlab.company.com' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /save credential/i }))
+    const table = await screen.findByRole('table', { name: /repository access tokens/i })
+    expect(within(table).getByText('Git provider')).toBeDefined()
+    expect(within(table).getByText('Address')).toBeDefined()
+    expect(within(table).getByText('Added on')).toBeDefined()
+    expect(within(table).getByText('GitHub')).toBeDefined()
+    expect(within(table).getByText('Default cloud address')).toBeDefined()
+
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /remove github repository token/i }))
+    await user.click(
+      screen.getByRole('button', { name: /confirm removing github repository token/i })
+    )
+
+    expect(deleteGitCredentialMock).toHaveBeenCalledWith('credential-1')
+  })
+
+  test('collects provider, token, and optional self-hosted address before saving', async () => {
+    const user = userEvent.setup()
+    render(<GitCredentialsSection />)
+
+    await user.click(await screen.findByRole('button', { name: /add repository token/i }))
+
+    expect(screen.getByLabelText(/git provider/i)).toBeDefined()
+    expect(screen.getByText(/choose where the repository is hosted/i)).toBeDefined()
+    expect(screen.getByLabelText(/access token/i)).toBeDefined()
+    expect(screen.getByText(/it will not be shown again after saving/i)).toBeDefined()
+    expect(screen.getByLabelText(/self-hosted git address/i)).toBeDefined()
+    expect(screen.getByText(/leave blank for github.com or gitlab.com/i)).toBeDefined()
+
+    await user.selectOptions(screen.getByLabelText(/git provider/i), 'gitlab')
+    await user.type(screen.getByLabelText(/access token/i), 'glpat-example')
+    await user.type(screen.getByLabelText(/self-hosted git address/i), 'gitlab.company.com')
+    await user.click(screen.getByRole('button', { name: /save token/i }))
 
     await waitFor(() =>
       expect(saveGitCredentialMock).toHaveBeenCalledWith(

@@ -86,7 +86,7 @@ function CredentialRow({ credential, onDelete }: CredentialRowProps) {
       </td>
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {credential.host ?? 'default'}
+          {credential.host ?? 'Default cloud address'}
         </span>
       </td>
       <td className={uiStyles.tableCell}>
@@ -98,9 +98,14 @@ function CredentialRow({ credential, onDelete }: CredentialRowProps) {
         <button
           type="button"
           onClick={handleDelete}
+          aria-label={
+            confirming
+              ? `Confirm removing ${PROVIDER_LABELS[credential.provider]} repository token`
+              : `Remove ${PROVIDER_LABELS[credential.provider]} repository token`
+          }
           className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
         >
-          {confirming ? 'Confirm?' : 'Delete'}
+          {confirming ? 'Remove token?' : 'Remove'}
         </button>
       </td>
     </tr>
@@ -212,14 +217,12 @@ function AddCredentialForm({
       )}
 
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {/* Provider */}
         <div>
-          <label htmlFor={providerInputId} className={uiStyles.label}>
-            Provider
+          <label htmlFor="git-credential-provider" className={uiStyles.label}>
+            Git provider
           </label>
           <select
-            id={providerInputId}
-            name="provider"
+            id="git-credential-provider"
             value={form.provider}
             onChange={(e) => setForm({ ...form, provider: e.target.value as GitProvider })}
             className={cn(uiStyles.select, 'w-full')}
@@ -230,57 +233,57 @@ function AddCredentialForm({
               </option>
             ))}
           </select>
+          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Choose where the repository is hosted.
+          </p>
         </div>
 
-        {/* Token */}
         <div>
-          <label htmlFor={tokenInputId} className={uiStyles.label}>
-            Token <span className="text-red-500">*</span>
+          <label htmlFor="git-credential-token" className={uiStyles.label}>
+            Access token <span className="text-red-500">*</span>
           </label>
           <input
-            id={tokenInputId}
+            id="git-credential-token"
             type="password"
             name="token"
             value={form.token}
             onChange={(e) => setForm({ ...form, token: e.target.value })}
-            placeholder="Paste access token…"
-            autoComplete="off"
-            spellCheck={false}
-            aria-invalid={visibleError !== null && readiness.fieldId === tokenInputId}
-            aria-describedby={`${formStatusId}${
-              visibleError !== null && readiness.fieldId === tokenInputId ? ` ${tokenErrorId}` : ''
-            }`}
+            placeholder="Paste a repository access token"
+            aria-describedby="git-credential-token-help"
+            required
             className={uiStyles.input}
           />
-          {visibleError !== null && readiness.fieldId === tokenInputId && (
-            <p id={tokenErrorId} className="mt-1 text-ui-caption text-apple-red">
-              {visibleError}
-            </p>
-          )}
+          <p
+            id="git-credential-token-help"
+            className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+          >
+            Paste a token that can read the repositories your agents need. It will not be shown
+            again after saving.
+          </p>
         </div>
 
-        {/* Custom host (optional, for self-hosted) */}
         <div className="sm:col-span-2">
-          <label htmlFor={hostInputId} className={uiStyles.label}>
-            Custom Host{' '}
+          <label htmlFor="git-credential-host" className={uiStyles.label}>
+            Self-hosted Git address{' '}
             <span className="text-secondary-light dark:text-secondary-dark font-normal">
-              (optional, for self-hosted)
+              (optional)
             </span>
           </label>
           <input
-            id={hostInputId}
+            id="git-credential-host"
             type="text"
             name="host"
             value={form.host}
             onChange={(e) => setForm({ ...form, host: e.target.value })}
-            placeholder="e.g. gitlab.company.com…"
-            autoComplete="off"
-            spellCheck={false}
+            placeholder="e.g. gitlab.company.com"
+            aria-describedby="git-credential-host-help"
             className={uiStyles.input}
           />
-          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Leave this blank for github.com or gitlab.com. Add it only for a company-hosted Git
-            server.
+          <p
+            id="git-credential-host-help"
+            className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+          >
+            Leave blank for github.com or gitlab.com.
           </p>
         </div>
       </div>
@@ -294,8 +297,12 @@ function AddCredentialForm({
         >
           Cancel
         </button>
-        <button type="submit" disabled={saving} className={uiStyles.primaryButton}>
-          {saving ? 'Saving…' : 'Save Credential'}
+        <button
+          type="submit"
+          disabled={saving || !form.token.trim()}
+          className={uiStyles.primaryButton}
+        >
+          {saving ? 'Saving...' : 'Save token'}
         </button>
       </div>
     </form>
@@ -337,9 +344,9 @@ export function GitCredentialsSection() {
   const canAddMore = existingProviders.length < 2
 
   const tableHeaders: { label: string; className?: string }[] = [
-    { label: 'Provider' },
-    { label: 'Host' },
-    { label: 'Added' },
+    { label: 'Git provider' },
+    { label: 'Address' },
+    { label: 'Added on' },
     { label: '', className: 'w-20' },
   ]
 
@@ -348,9 +355,10 @@ export function GitCredentialsSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Git Credentials</h2>
+          <h2 className={uiStyles.sectionTitle}>Repository access tokens</h2>
           <p className={uiStyles.sectionDescription}>
-            Personal access tokens for GitHub and GitLab
+            Connect GitHub or GitLab so agents can clone and update repositories when a task needs
+            code access.
           </p>
         </div>
         {!showForm && canAddMore && (
@@ -360,7 +368,7 @@ export function GitCredentialsSection() {
             className={uiStyles.primaryButton}
           >
             <span>+</span>
-            <span>Add Token</span>
+            <span>Add repository token</span>
           </button>
         )}
       </div>
@@ -372,21 +380,22 @@ export function GitCredentialsSection() {
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {gitCredentialsLoading && gitCredentials.length === 0 ? (
           <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading credentials…
+            Loading repository access tokens...
           </div>
         ) : gitCredentials.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No git credentials configured
+              No repository access tokens yet
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Add a personal access token to enable git operations in agents
+              Add a GitHub or GitLab token before assigning work that needs private repository
+              access.
             </p>
           </div>
         ) : (
           <>
             {gitCredentials.length > 0 && (
-              <table className={uiStyles.table}>
+              <table className={uiStyles.table} aria-label="Repository access tokens">
                 <thead className={uiStyles.tableHead}>
                   <tr>
                     {tableHeaders.map((h) => (
