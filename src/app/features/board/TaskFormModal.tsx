@@ -85,6 +85,12 @@ const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
   },
 ]
 
+const AGENT_READY_BRIEF_POINTS = [
+  { label: 'Result', value: 'The visible change or decision you need.' },
+  { label: 'Boundary', value: 'Where the agent should work and what to avoid.' },
+  { label: 'Proof', value: 'The check, screenshot, or output that proves it is done.' },
+]
+
 interface TaskFormModalProps {
   isOpen: boolean
   onClose: () => void
@@ -427,6 +433,26 @@ export function TaskFormModal({
                   </span>
                 </button>
               ))}
+            </div>
+            <div className="mt-3 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]">
+              <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                Agent-ready brief
+              </div>
+              <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
+                {AGENT_READY_BRIEF_POINTS.map((point) => (
+                  <div
+                    key={point.label}
+                    className="min-w-0 rounded-md bg-white px-2 py-1.5 dark:bg-black/20"
+                  >
+                    <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                      {point.label}
+                    </span>
+                    <span className="mt-0.5 block text-ui-caption text-foreground-light dark:text-foreground-dark">
+                      {point.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
