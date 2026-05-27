@@ -54,11 +54,19 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
   const resultArtifacts = taskResultArtifacts(task.result)
   const contextCounts = normalizedContextCounts(task.contextCounts)
   const showContextBadge = contextCounts.total > 0
+  const hasAssignee = Boolean(task.assignedAgentName || task.assignedTo)
   const canPublish =
     task.state === 'backlog' ||
     task.state === 'queued' ||
     (task.state === 'blocked' && task.blockedReason === 'waiting_agent')
   const compact = displayMode === 'compact'
+  const nextStep = compact
+    ? null
+    : taskNextStep(task, {
+        canOpenPublishPreview: canPublish && Boolean(onPublish),
+        hasAssignee,
+        resultCount: resultArtifacts.length,
+      })
 
   function trackPressStart(e: PointerEvent<HTMLDivElement> | MouseEvent<HTMLDivElement>) {
     if (e.button !== 0) return
@@ -188,10 +196,19 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
         </p>
       )}
 
+      {nextStep && (
+        <p
+          data-testid="task-next-step"
+          className="mb-1.5 line-clamp-2 text-ui-caption text-secondary-light dark:text-secondary-dark"
+        >
+          {nextStep}
+        </p>
+      )}
+
       <div className="flex items-center justify-between gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-        {task.assignedAgentName ? (
+        {hasAssignee ? (
           <span className="truncate font-medium text-foreground-light dark:text-foreground-dark">
-            {task.assignedAgentName}
+            {task.assignedAgentName ?? 'Assigned agent'}
           </span>
         ) : (
           <span>No assignee</span>
@@ -247,6 +264,50 @@ function normalizedContextCounts(counts?: TaskContextCounts): TaskContextCounts 
 function nonNegativeCount(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return 0
   return Math.max(0, Math.trunc(value))
+}
+
+interface TaskNextStepOptions {
+  canOpenPublishPreview: boolean
+  hasAssignee: boolean
+  resultCount: number
+}
+
+function taskNextStep(task: TaskSummary, options: TaskNextStepOptions): string | null {
+  switch (task.state) {
+    case 'backlog':
+      if (!options.hasAssignee) {
+        return options.canOpenPublishPreview
+          ? 'Choose an agent, then preview and publish.'
+          : 'Choose an agent before this task can start.'
+      }
+      return options.canOpenPublishPreview
+        ? 'Preview context, then publish when ready.'
+        : 'Open details to finish preparing this task.'
+    case 'queued':
+      return options.hasAssignee
+        ? 'Waiting for the assigned agent to start.'
+        : 'Waiting for an available agent to pick this up.'
+    case 'working':
+      return 'Open details for live output and recent updates.'
+    case 'blocked':
+      if (task.blockedHint) return null
+      if (task.blockedReason === 'waiting_agent') {
+        return 'Attach or free an agent, then publish again.'
+      }
+      return 'Open details to see what is blocking this task.'
+    case 'failed':
+      return task.error
+        ? 'Open details, fix the error, then retry.'
+        : 'Open details, review the failure, then retry.'
+    case 'completed':
+      return options.resultCount > 0
+        ? 'Open details to review the result files.'
+        : 'Open details to review the final answer.'
+    case 'canceled':
+      return 'Open details to see why it was canceled.'
+    default:
+      return null
+  }
 }
 
 function formatContextCountsLabel(counts: TaskContextCounts): string {

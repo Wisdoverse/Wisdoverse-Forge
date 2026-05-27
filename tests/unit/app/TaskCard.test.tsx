@@ -29,6 +29,13 @@ describe('TaskCard', () => {
     expect(screen.getByText('Claude-2')).toBeDefined()
   })
 
+  test('does not call a task unassigned when only the agent id is loaded', () => {
+    render(<TaskCard task={{ ...mockTask, assignedAgentName: undefined }} />)
+
+    expect(screen.getByText('Assigned agent')).toBeDefined()
+    expect(screen.queryByText('No assignee')).toBeNull()
+  })
+
   test('shows progress bar for working state', () => {
     render(<TaskCard task={mockTask} />)
     expect(screen.getByTestId('progress-bar')).toBeDefined()
@@ -71,6 +78,71 @@ describe('TaskCard', () => {
   test('does not show progress for backlog tasks', () => {
     render(<TaskCard task={{ ...mockTask, state: 'backlog', progress: 0 }} />)
     expect(screen.queryByTestId('progress-bar')).toBeNull()
+  })
+
+  test('shows a beginner next step for unassigned backlog tasks', () => {
+    const onPublish = vi.fn()
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'backlog',
+          assignedTo: undefined,
+          assignedAgentName: undefined,
+          progress: 0,
+        }}
+        onPublish={onPublish}
+      />
+    )
+
+    expect(screen.getByTestId('task-next-step').textContent).toBe(
+      'Choose an agent, then preview and publish.'
+    )
+  })
+
+  test('shows a recovery next step for failed tasks', () => {
+    render(
+      <TaskCard
+        task={{ ...mockTask, state: 'failed', error: 'Rate limit exceeded: 429 from provider' }}
+      />
+    )
+
+    expect(screen.getByTestId('task-next-step').textContent).toBe(
+      'Open details, fix the error, then retry.'
+    )
+  })
+
+  test('does not duplicate server-provided blocked guidance', () => {
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'blocked',
+          blockedReason: 'waiting_agent',
+          blockedHint: 'Waiting for an available agent.',
+        }}
+      />
+    )
+
+    expect(screen.getByTestId('task-blocked-hint-task-1')).toBeDefined()
+    expect(screen.queryByTestId('task-next-step')).toBeNull()
+  })
+
+  test('hides beginner next steps in compact mode', () => {
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'backlog',
+          assignedTo: undefined,
+          assignedAgentName: undefined,
+          progress: 0,
+        }}
+        displayMode="compact"
+      />
+    )
+
+    expect(screen.queryByTestId('task-next-step')).toBeNull()
   })
 
   test('shows error preview for failed tasks', () => {
