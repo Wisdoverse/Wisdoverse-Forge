@@ -71,6 +71,16 @@ type SkillsResponse = {
   skills?: ApiSkill[]
   installedSkills?: InstalledSkill[]
   data?: ApiSkill[] | { skills?: ApiSkill[]; installedSkills?: InstalledSkill[] }
+  error?: { message?: string } | string
+  message?: string
+}
+
+type SkillAction = 'load' | 'create'
+
+class SkillUserFacingError extends Error {}
+
+function userFacingError(message: string): SkillUserFacingError {
+  return new SkillUserFacingError(message)
 }
 
 // ============================================================================
@@ -121,6 +131,81 @@ function extractSkillsPayload(data: SkillsResponse): {
   }
 }
 
+function errorDetail(data: SkillsResponse | Record<string, unknown>): string | null {
+  if (typeof data.error === 'string' && data.error.trim()) return data.error.trim()
+  if (
+    data.error &&
+    typeof data.error === 'object' &&
+    'message' in data.error &&
+    typeof data.error.message === 'string' &&
+    data.error.message.trim()
+  ) {
+    return data.error.message.trim()
+  }
+  if (typeof data.message === 'string' && data.message.trim()) return data.message.trim()
+  return null
+}
+
+async function readErrorPayload(res: Response): Promise<Record<string, unknown>> {
+  return ((await res.json().catch(() => ({}))) ?? {}) as Record<string, unknown>
+}
+
+export function skillHttpErrorMessage(
+  action: SkillAction,
+  status: number,
+  data: Record<string, unknown> = {}
+): string {
+  const detail = errorDetail(data)
+  const suffix = detail ? ` Details: ${detail}` : ''
+  const statusText = `Code: ${status}.`
+  const actionText = action === 'create' ? 'create the skill' : 'load skills'
+
+  if (status === 401) {
+    return `Sign in again, then ${actionText}. ${statusText}${suffix}`
+  }
+  if (status === 403) {
+    return action === 'create'
+      ? `You do not have permission to create workspace skills. Ask an admin to update your role. ${statusText}${suffix}`
+      : `You do not have permission to view workspace skills. Ask an admin to update your role. ${statusText}${suffix}`
+  }
+  if (status === 404) {
+    return `The skills service is not available from this page. Refresh after the backend is deployed. ${statusText}${suffix}`
+  }
+  if (status === 409) {
+    return `A skill with this name or trigger may already exist. Review the existing skills, then try again. ${statusText}${suffix}`
+  }
+  if (status === 422) {
+    return `Check the skill name, trigger pattern, and content, then try again. ${statusText}${suffix}`
+  }
+  if (status === 429) {
+    return `The skills service is busy. Wait a moment, then ${actionText}. ${statusText}${suffix}`
+  }
+  if (status >= 500) {
+    return `The skills service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+  }
+
+  return action === 'create'
+    ? `The skill could not be created. Review the fields and try again. ${statusText}${suffix}`
+    : `Skills could not load. Refresh the page and try again. ${statusText}${suffix}`
+}
+
+function skillNetworkErrorMessage(action: SkillAction): string {
+  return action === 'create'
+    ? 'The skill could not be created because the browser could not reach the server. Check your connection and try again.'
+    : 'Skills could not load because the browser could not reach the server. Check your connection and refresh the page.'
+}
+
+function skillResponseErrorMessage(
+  action: SkillAction,
+  data: SkillsResponse | Record<string, unknown>
+): string {
+  const detail = errorDetail(data)
+  if (detail) return detail
+  return action === 'create'
+    ? 'The skill could not be created. Review the fields and try again.'
+    : 'Skills could not load. Refresh the page and try again.'
+}
+
 export const useSkillsStore = create<SkillsState>((set, get) => ({
   ...initialState,
 
@@ -148,11 +233,13 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
         },
       })
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`)
+        throw userFacingError(
+          skillHttpErrorMessage('load', res.status, await readErrorPayload(res))
+        )
       }
       const data = (await res.json()) as SkillsResponse
       if (!data.ok) {
-        throw new Error('Server returned ok: false')
+        throw userFacingError(skillResponseErrorMessage('load', data))
       }
       const payload = extractSkillsPayload(data)
       set({
@@ -160,45 +247,56 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
         installedSkills: payload.installedSkills,
         loading: false,
       })
-    } catch {
-      set({ loading: false, error: 'Failed to load skills' })
+    } catch (err) {
+      set({
+        loading: false,
+        error: err instanceof SkillUserFacingError ? err.message : skillNetworkErrorMessage('load'),
+      })
     }
   },
 
   createSkill: async (input) => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('af:auth:access') : null
-    const res = await fetch('/api/v1/skills', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({
-        name: input.name,
-        description: input.description || undefined,
-        trigger_pattern: input.trigger_pattern || undefined,
-        content: input.content,
-      }),
-    })
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('af:auth:access') : null
+      const res = await fetch('/api/v1/skills', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          name: input.name,
+          description: input.description || undefined,
+          trigger_pattern: input.trigger_pattern || undefined,
+          content: input.content,
+        }),
+      })
 
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`)
-    }
+      if (!res.ok) {
+        throw userFacingError(
+          skillHttpErrorMessage('create', res.status, await readErrorPayload(res))
+        )
+      }
 
-    const data = (await res.json()) as {
-      ok: boolean
-      data?: ApiSkill
-      error?: { message?: string }
-    }
-    if (!data.ok || !data.data) {
-      throw new Error(data.error?.message ?? 'Failed to create skill')
-    }
+      const data = (await res.json()) as {
+        ok: boolean
+        data?: ApiSkill
+        error?: { message?: string }
+        message?: string
+      }
+      if (!data.ok || !data.data) {
+        throw userFacingError(skillResponseErrorMessage('create', data))
+      }
 
-    const skill = normalizeSkill(data.data)
-    set((state) => ({
-      skills: [...state.skills, skill].sort((a, b) => a.name.localeCompare(b.name)),
-    }))
-    return skill
+      const skill = normalizeSkill(data.data)
+      set((state) => ({
+        skills: [...state.skills, skill].sort((a, b) => a.name.localeCompare(b.name)),
+      }))
+      return skill
+    } catch (err) {
+      if (err instanceof SkillUserFacingError) throw err
+      throw new Error(skillNetworkErrorMessage('create'))
+    }
   },
 
   reset: () => set(initialState),
