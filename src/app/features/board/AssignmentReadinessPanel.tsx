@@ -113,13 +113,26 @@ export function AssignmentReadinessPanel({
         />
       </div>
 
-      {participants.length > 0 && (
+      {participants.length === 0 && !loading ? (
+        <div
+          data-testid="assignment-readiness-empty"
+          className="mt-2 rounded-lg border border-dashed border-apple-blue/25 bg-apple-blue/[0.04] px-3 py-2"
+        >
+          <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+            Connect an agent before dispatch
+          </p>
+          <p className="mt-0.5 text-ui-caption leading-snug text-secondary-light dark:text-secondary-dark">
+            Open Agents / Task Routing, choose this work lane, then attach an available agent. Until
+            then, backlog tasks cannot leave this lane.
+          </p>
+        </div>
+      ) : participants.length > 0 ? (
         <div className="mt-2 flex gap-2 overflow-x-auto pb-0.5">
           {participants.map((participant) => (
             <ParticipantChip key={participant.agentId} participant={participant} />
           ))}
         </div>
-      )}
+      ) : null}
     </section>
   )
 }
