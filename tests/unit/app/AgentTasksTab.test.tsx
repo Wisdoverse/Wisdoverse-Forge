@@ -34,6 +34,23 @@ function makeTask(overrides: Partial<TaskSummary>): TaskSummary {
 }
 
 describe('AgentTasksTab', () => {
+  test('guides users when no tasks have reached the agent', async () => {
+    getTasksByAgentMock.mockResolvedValue([])
+
+    render(<AgentTasksTab agentId="agent-1" />)
+
+    const emptyState = await screen.findByTestId('agent-tasks-empty')
+    expect(within(emptyState).getByText('No tasks have reached this agent yet')).toBeDefined()
+    expect(
+      within(emptyState).getByText(
+        'Tasks appear here after work is routed to this agent or to a work lane it can receive.'
+      )
+    ).toBeDefined()
+    expect(within(emptyState).getByText('Open Tasks')).toBeDefined()
+    expect(within(emptyState).getByText('Check the work lane routing')).toBeDefined()
+    expect(within(emptyState).getByText('Use Needs action after tasks arrive')).toBeDefined()
+  })
+
   test('summarizes an agent task load', async () => {
     getTasksByAgentMock.mockResolvedValue([
       makeTask({ id: 'working', state: 'working', params: { task: 'Build API', message: '' } }),
@@ -128,6 +145,11 @@ describe('AgentTasksTab', () => {
     await waitFor(() => {
       expect(screen.getByTestId('agent-tasks-filter-empty')).toBeDefined()
     })
+    expect(screen.getByText("Try All or clear the search to see this agent's tasks.")).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }))
+
+    expect(screen.getByText('Build frontend')).toBeDefined()
   })
 
   test('shows beginner next steps when the agent has no assigned tasks', async () => {

@@ -65,6 +65,24 @@ const TASK_FILTERS: { value: AgentTaskFilter; label: string }[] = [
   { value: 'completed', label: 'Done' },
 ]
 
+const AGENT_TASK_EMPTY_STEPS: { title: string; description: string; Icon: LucideIcon }[] = [
+  {
+    title: 'Open Tasks',
+    description: 'Create work and send it to this agent or its work lane.',
+    Icon: ListFilter,
+  },
+  {
+    title: 'Check the work lane routing',
+    description: 'Make sure new work is assigned to a lane this agent can receive.',
+    Icon: CircleDot,
+  },
+  {
+    title: 'Use Needs action after tasks arrive',
+    description: 'Blocked or failed work will appear there so you know what needs help.',
+    Icon: AlertTriangle,
+  },
+]
+
 export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
   const [tasks, setTasks] = useState<TaskSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -109,6 +127,10 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
   // Group tasks by state for compact rendering. STATE_ORDER puts active work
   // (working/queued/backlog/blocked) above terminal states (completed/failed/canceled).
   const grouped = useMemo(() => groupTasksByState(visibleTasks), [visibleTasks])
+  const resetTaskFilters = () => {
+    setFilter('all')
+    setQuery('')
+  }
 
   if (loading) {
     return (
@@ -144,18 +166,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
   }
 
   if (tasks.length === 0) {
-    return (
-      <div
-        data-testid="agent-tasks-empty"
-        className={cn(
-          'bg-white dark:bg-[#2c2c2e] rounded-xl px-4 py-6',
-          'border border-black/[0.08] dark:border-white/[0.1]',
-          'text-center text-ui-body text-secondary-light dark:text-secondary-dark'
-        )}
-      >
-        This agent has no assigned tasks yet. Assign a task to this agent to track the work here.
-      </div>
-    )
+    return <AgentTasksEmptyState />
   }
 
   return (
@@ -282,16 +293,73 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
           )
         })
       ) : (
-        <div
-          data-testid="agent-tasks-filter-empty"
-          className={cn(
-            'rounded-xl border border-dashed border-black/[0.1] bg-white px-4 py-6',
-            'text-center text-ui-body text-secondary-light dark:border-white/[0.12] dark:bg-[#2c2c2e] dark:text-secondary-dark'
-          )}
-        >
-          Nothing matches this view. Clear the search or choose All.
-        </div>
+        <AgentTasksFilterEmptyState onReset={resetTaskFilters} />
       )}
+    </div>
+  )
+}
+
+function AgentTasksEmptyState() {
+  return (
+    <section
+      data-testid="agent-tasks-empty"
+      className={cn(
+        'rounded-xl border border-black/[0.08] bg-white px-4 py-5 dark:border-white/[0.1] dark:bg-[#2c2c2e]',
+        'text-foreground-light dark:text-foreground-dark'
+      )}
+    >
+      <div className="mb-4 flex items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-apple-blue/10 text-apple-blue">
+          <ListFilter size={17} strokeWidth={2.15} aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-ui-section font-semibold">No tasks have reached this agent yet</h3>
+          <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
+            Tasks appear here after work is routed to this agent or to a work lane it can receive.
+          </p>
+        </div>
+      </div>
+      <ol className="grid gap-2 sm:grid-cols-3">
+        {AGENT_TASK_EMPTY_STEPS.map(({ title, description, Icon }) => (
+          <li key={title} className="rounded-lg bg-black/[0.03] p-3 dark:bg-white/[0.04]">
+            <div className="mb-2 flex items-center gap-2 text-foreground-light dark:text-foreground-dark">
+              <Icon size={14} strokeWidth={2.2} className="shrink-0 text-apple-blue" />
+              <p className="text-ui-caption font-semibold">{title}</p>
+            </div>
+            <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {description}
+            </p>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
+
+function AgentTasksFilterEmptyState({ onReset }: { onReset: () => void }) {
+  return (
+    <div
+      data-testid="agent-tasks-filter-empty"
+      className={cn(
+        'rounded-xl border border-dashed border-black/[0.1] bg-white px-4 py-5',
+        'text-center text-ui-body text-secondary-light dark:border-white/[0.12] dark:bg-[#2c2c2e] dark:text-secondary-dark'
+      )}
+    >
+      <p className="font-medium text-foreground-light dark:text-foreground-dark">
+        No tasks match this view.
+      </p>
+      <p className="mt-1 text-ui-caption">Try All or clear the search to see this agent's tasks.</p>
+      <button
+        type="button"
+        onClick={onReset}
+        className={cn(
+          'mt-3 inline-flex h-8 items-center justify-center rounded-lg px-3 text-ui-caption font-medium',
+          'bg-apple-blue text-white transition-colors hover:bg-apple-blue/90',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35'
+        )}
+      >
+        Clear filters
+      </button>
     </div>
   )
 }
