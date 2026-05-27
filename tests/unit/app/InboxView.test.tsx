@@ -38,6 +38,11 @@ describe('InboxView', () => {
   test('shows empty state when no notifications', () => {
     render(<InboxView />)
     expect(screen.getByText(/all caught up/i)).toBeDefined()
+    expect(screen.getByText('Inbox triage path')).toBeDefined()
+    expect(screen.getByText(/start with needs action/i)).toBeDefined()
+    expect(
+      screen.getByText(/use credentials when an agent needs access reconnected/i)
+    ).toBeDefined()
   })
 
   test('renders notification items', () => {
@@ -221,6 +226,29 @@ describe('InboxView', () => {
     expect(screen.getByText('Blocked deployment')).toBeDefined()
     expect(screen.getByText('Credential expired')).toBeDefined()
     expect(screen.queryByText('Completed cleanup')).toBeNull()
+
+    await user.click(screen.getByTestId('inbox-filter-credentials'))
+    expect(screen.getByText('Credential expired')).toBeDefined()
+  })
+
+  test('explains what to try when a filter has no notifications', async () => {
+    useFeedStore.getState().addNotification({
+      id: 'n-completed',
+      type: 'completed',
+      taskId: 't-done',
+      taskTitle: 'Completed cleanup',
+      message: 'Ready for review',
+      read: true,
+      timestamp: Date.now(),
+    })
+
+    render(<InboxView />)
+
+    await userEvent.setup().click(screen.getByTestId('inbox-filter-credentials'))
+
+    expect(screen.getByTestId('inbox-filter-empty')).toBeDefined()
+    expect(screen.getByText(/try all for the full history/i)).toBeDefined()
+    expect(screen.getByText(/needs action for items that still need a response/i)).toBeDefined()
   })
 
   test('explains an empty filtered lane and lets the user return to all updates', async () => {
