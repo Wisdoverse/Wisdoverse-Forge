@@ -72,24 +72,12 @@ function PasswordChangeForm() {
     setError(null)
     setSuccess(false)
 
-    if (!hasCurrentPassword) {
-      setError('Enter your current password first.')
+    if (form.newPassword !== form.confirmPassword) {
+      setError('The two new passwords do not match. Re-enter them and try again.')
       return
     }
-    if (!hasNewPassword) {
-      setError('Enter a new password first.')
-      return
-    }
-    if (!newPasswordIsLongEnough) {
+    if (form.newPassword.length < 8) {
       setError('Use at least 8 characters for the new password.')
-      return
-    }
-    if (!hasConfirmation) {
-      setError('Confirm the new password before saving.')
-      return
-    }
-    if (!passwordsMatch) {
-      setError('Make the confirmation match the new password.')
       return
     }
 
@@ -99,7 +87,7 @@ function PasswordChangeForm() {
       setSuccess(true)
       setForm(DEFAULT_PW_FORM)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to change password')
+      setError(err instanceof Error ? err.message : 'Password was not changed. Try again.')
     } finally {
       setSaving(false)
     }
@@ -119,13 +107,13 @@ function PasswordChangeForm() {
         </div>
       )}
       {success && (
-        <div
-          role="status"
-          className="rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue"
-        >
-          Password changed successfully
+        <div className="rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
+          Password changed. Use the new password the next time you sign in.
         </div>
       )}
+      <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+        Enter your current password, then choose a new password with at least 8 characters.
+      </p>
       <div className="grid grid-cols-1 gap-3">
         <div>
           <label htmlFor="account-current-password" className={uiStyles.label}>
@@ -203,7 +191,7 @@ function PasswordChangeForm() {
           disabled={!canSubmitPasswordChange}
           className={uiStyles.primaryButton}
         >
-          {saving ? 'Saving...' : 'Change Password'}
+          {saving ? 'Saving...' : 'Update Password'}
         </button>
       </div>
     </form>
@@ -239,7 +227,13 @@ function OrgRenameForm() {
     // Only re-run on org switch, not on every name update from the store
   }, [orgId])
 
-  if (!currentOrg) return null
+  if (!currentOrg) {
+    return (
+      <div className="rounded-card border border-black/[0.08] bg-black/[0.02] px-3 py-2 text-ui-body text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark">
+        Select an organization from the sidebar before changing organization settings.
+      </div>
+    )
+  }
 
   const canEdit = currentOrg.role === 'owner' || currentOrg.role === 'admin'
   const saving = pendingOrgIds.has(currentOrg.id)
@@ -289,12 +283,15 @@ function OrgRenameForm() {
       {error && <div className={uiStyles.error}>{error}</div>}
       {success && (
         <div className="rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
-          Organization renamed successfully
+          Organization name updated. Teammates will see the new name in navigation.
         </div>
       )}
       <div>
-        <label className={uiStyles.label}>Organization Name</label>
+        <label htmlFor="account-organization-name" className={uiStyles.label}>
+          Organization Name
+        </label>
         <input
+          id="account-organization-name"
           type="text"
           value={name}
           onChange={(e) => {
@@ -305,6 +302,9 @@ function OrgRenameForm() {
           disabled={!canEdit || saving}
           className={inputClass}
         />
+        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          This changes the display name only. Projects, teams, and permissions stay where they are.
+        </p>
         {!canEdit && (
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
             Only owners and admins can rename this organization.
@@ -318,7 +318,7 @@ function OrgRenameForm() {
             disabled={saving || !dirty || !valid}
             className={uiStyles.primaryButton}
           >
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? 'Saving...' : 'Save Organization Name'}
           </button>
         </div>
       )}
