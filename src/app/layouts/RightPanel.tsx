@@ -40,12 +40,17 @@ export function RightPanel({ collapsed, onToggle, children, variant = 'side' }: 
       ) : (
         <>
           <div className="flex items-center justify-between px-4 py-3 border-b border-black/[0.04] dark:border-white/[0.04]">
-            <span className="text-[13px] font-semibold text-foreground-light dark:text-foreground-dark">
-              Activity
-            </span>
+            <div className="min-w-0">
+              <h2 className="text-[13px] font-semibold text-foreground-light dark:text-foreground-dark">
+                Live task updates
+              </h2>
+              <p className="mt-0.5 truncate text-[10px] text-secondary-light dark:text-secondary-dark">
+                Agent progress, blockers, and finished work
+              </p>
+            </div>
             <button
               onClick={onToggle}
-              aria-label="Hide activity panel"
+              aria-label="Hide live task updates panel"
               className="w-6 h-6 flex items-center justify-center rounded-md text-secondary-light dark:text-secondary-dark hover:bg-black/[0.06] dark:hover:bg-white/[0.08] hover:text-foreground-light dark:hover:text-foreground-dark transition-colors"
             >
               <X size={14} strokeWidth={2} />
