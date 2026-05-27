@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Inbox as InboxIcon } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Inbox as InboxIcon, RefreshCw } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 import { orchestrationApi } from '@app/shared/api/orchestration'
 import { useFeedStore, type Notification } from '@app/shared/model/feed.store'
@@ -10,11 +10,19 @@ import { InboxItem } from './InboxItem'
 
 type InboxFilter = 'all' | 'unread' | 'needs-action' | 'credentials'
 
-const FILTERS: { id: InboxFilter; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'unread', label: 'Unread' },
-  { id: 'needs-action', label: 'Needs action' },
-  { id: 'credentials', label: 'Credentials' },
+const FILTERS: { id: InboxFilter; label: string; empty: string }[] = [
+  { id: 'all', label: 'All', empty: 'No notifications match this view.' },
+  { id: 'unread', label: 'Unread', empty: 'Nothing new is waiting for you.' },
+  {
+    id: 'needs-action',
+    label: 'Needs action',
+    empty: 'No blockers, failures, or expired credentials need action right now.',
+  },
+  {
+    id: 'credentials',
+    label: 'Credentials',
+    empty: 'No credentials need reconnecting right now.',
+  },
 ]
 
 export function InboxView() {
@@ -22,9 +30,18 @@ export function InboxView() {
   const setSelectedTask = useBoardStore((s) => s.setSelectedTask)
   const navigate = useNavigate()
   const [activeFilter, setActiveFilter] = useState<InboxFilter>('all')
+  const [loadError, setLoadError] = useState(false)
   const unreadCount = notifications.filter((n) => !n.read).length
   const orderedNotifications = useMemo(
     () => [...notifications].sort((a, b) => b.timestamp - a.timestamp),
+    [notifications]
+  )
+  const needsActionCount = useMemo(
+    () => notifications.filter((notification) => isActionNotification(notification)).length,
+    [notifications]
+  )
+  const credentialCount = useMemo(
+    () => notifications.filter((notification) => notification.type === 'credential_expired').length,
     [notifications]
   )
   const filteredNotifications = useMemo(
@@ -44,9 +61,20 @@ export function InboxView() {
       ),
     [notifications]
   )
+  const nextStepNotification = useMemo(
+    () =>
+      orderedNotifications.find((notification) => notification.type === 'credential_expired') ??
+      orderedNotifications.find((notification) => notification.type === 'blocked') ??
+      orderedNotifications.find((notification) => notification.type === 'failed') ??
+      orderedNotifications.find((notification) => !notification.read) ??
+      orderedNotifications[0],
+    [orderedNotifications]
+  )
+  const activeFilterConfig = FILTERS.find((filter) => filter.id === activeFilter) ?? FILTERS[0]
 
-  useEffect(() => {
+  const loadNotifications = useCallback(() => {
     let cancelled = false
+    setLoadError(false)
     orchestrationApi
       .fetchInboxNotifications()
       .then((items) => {
@@ -54,12 +82,16 @@ export function InboxView() {
         items.forEach((item) => addNotification(item))
       })
       .catch((error) => {
+        if (cancelled) return
         console.warn('Failed to load inbox notifications', error)
+        setLoadError(true)
       })
     return () => {
       cancelled = true
     }
   }, [addNotification])
+
+  useEffect(() => loadNotifications(), [loadNotifications])
 
   function handleOpenNotification(notification: (typeof notifications)[number]) {
     markRead(notification.id)
@@ -96,6 +128,22 @@ export function InboxView() {
             Agent updates, task completions, and system alerts will show up here.
           </p>
         </div>
+        {loadError && (
+          <div
+            role="alert"
+            className="rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red"
+          >
+            Could not load older notifications. New updates will still appear here.
+            <button
+              type="button"
+              onClick={loadNotifications}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30"
+            >
+              <RefreshCw size={14} aria-hidden="true" />
+              Try Again
+            </button>
+          </div>
+        )}
       </div>
     )
   }
@@ -103,6 +151,57 @@ export function InboxView() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-black/[0.06] px-4 py-3 dark:border-white/[0.06]">
+        <header className="mb-3">
+          <h1 className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark">
+            Inbox
+          </h1>
+          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Start with blockers and expired credentials. Completed work can wait until review time.
+          </p>
+        </header>
+        {nextStepNotification && (
+          <div
+            data-testid="inbox-next-step"
+            className="mb-3 rounded-card border border-black/[0.08] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.03]"
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+                  Do This Next
+                </p>
+                <p className="mt-0.5 text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+                  {nextStepTitle(nextStepNotification)}
+                </p>
+                <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  {nextStepDescription(nextStepNotification, needsActionCount, credentialCount)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleOpenNotification(nextStepNotification)}
+                className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+              >
+                {nextStepActionLabel(nextStepNotification)}
+              </button>
+            </div>
+          </div>
+        )}
+        {loadError && (
+          <div
+            role="alert"
+            className="mb-3 flex flex-col gap-2 rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red sm:flex-row sm:items-center sm:justify-between"
+          >
+            <span>Could not load older notifications. New updates will still appear here.</span>
+            <button
+              type="button"
+              onClick={loadNotifications}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30"
+            >
+              <RefreshCw size={14} aria-hidden="true" />
+              Try Again
+            </button>
+          </div>
+        )}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -124,7 +223,7 @@ export function InboxView() {
               onClick={handleMarkAllRead}
               className="rounded-full px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
             >
-              Mark All Read
+              Mark All As Read
             </button>
           )}
         </div>
@@ -141,6 +240,7 @@ export function InboxView() {
                 type="button"
                 data-testid={`inbox-filter-${filter.id}`}
                 aria-pressed={selected}
+                aria-label={`Filter by ${filter.label.toLowerCase()} notifications`}
                 onClick={() => setActiveFilter(filter.id)}
                 className={cn(
                   'flex min-h-8 items-center gap-1.5 rounded-md px-2.5 py-1 text-ui-button font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
@@ -174,13 +274,32 @@ export function InboxView() {
         ) : (
           <div
             data-testid="inbox-filter-empty"
-            className="flex h-full items-center justify-center px-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark"
+            className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center"
           >
-            No notifications in this view.
+            <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+              {activeFilterConfig.empty}
+            </p>
+            {activeFilter !== 'all' && (
+              <button
+                type="button"
+                onClick={() => setActiveFilter('all')}
+                className="rounded-full px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+              >
+                Show All Notifications
+              </button>
+            )}
           </div>
         )}
       </div>
     </div>
+  )
+}
+
+function isActionNotification(notification: Notification): boolean {
+  return (
+    notification.type === 'blocked' ||
+    notification.type === 'failed' ||
+    notification.type === 'credential_expired'
   )
 }
 
@@ -191,12 +310,62 @@ function matchesFilter(notification: Notification, filter: InboxFilter): boolean
     case 'unread':
       return !notification.read
     case 'needs-action':
-      return (
-        notification.type === 'blocked' ||
-        notification.type === 'failed' ||
-        notification.type === 'credential_expired'
-      )
+      return isActionNotification(notification)
     case 'credentials':
       return notification.type === 'credential_expired'
+  }
+}
+
+function nextStepTitle(notification: Notification): string {
+  switch (notification.type) {
+    case 'credential_expired':
+      return 'Reconnect a credential before more agent work starts'
+    case 'blocked':
+      return 'Review the blocker that is stopping work'
+    case 'failed':
+      return 'Review the failed task before retrying'
+    case 'completed':
+      return 'Review the latest completed result when you have time'
+    case 'assigned':
+      return 'Open the newest assignment'
+    case 'mentioned':
+      return 'Open the newest mention'
+  }
+}
+
+function nextStepDescription(
+  notification: Notification,
+  needsActionCount: number,
+  credentialCount: number
+): string {
+  if (notification.type === 'credential_expired') {
+    return credentialCount === 1
+      ? 'One credential needs reconnecting. Fixing it keeps future agent runs from failing.'
+      : `${credentialCount} credentials need reconnecting. Start here because access problems can block new runs.`
+  }
+
+  if (notification.type === 'blocked' || notification.type === 'failed') {
+    return needsActionCount === 1
+      ? 'This is the only item that needs action. Open it and decide the next owner step.'
+      : `${needsActionCount} items need action. Start with the newest blocker or failure first.`
+  }
+
+  return 'There are no urgent blockers. Open this update only if you need to review the latest work.'
+}
+
+function nextStepActionLabel(notification: Notification): string {
+  switch (notification.type) {
+    case 'credential_expired':
+      return 'Open Settings'
+    case 'blocked':
+      return 'Open Blocked Task'
+    case 'failed':
+      return 'Open Failed Task'
+    case 'completed':
+      return 'Open Result'
+    case 'assigned':
+      return 'Open Assignment'
+    case 'mentioned':
+      return 'Open Mention'
   }
 }
