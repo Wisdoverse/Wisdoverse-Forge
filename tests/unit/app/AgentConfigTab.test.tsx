@@ -65,14 +65,29 @@ describe('AgentConfigTab', () => {
     expect(save).not.toBeDisabled()
   })
 
+  it('explains prompt editing in beginner language', () => {
+    render(<AgentConfigTab agentId="a1" />)
+    const prompt = screen.getByLabelText(/system prompt/i)
+
+    expect(
+      screen.getByText(/start from a template or write everyday instructions/i)
+    ).toBeInTheDocument()
+    expect(prompt).toHaveAccessibleDescription(/tell this agent the outcome/i)
+    expect(screen.getByRole('status')).toHaveTextContent(/this agent already has a prompt profile/i)
+  })
+
   it('applies a prompt template and can reset the edit', () => {
     render(<AgentConfigTab agentId="a1" />)
-    fireEvent.click(screen.getByRole('button', { name: /review/i }))
+    const reviewTemplate = screen.getByRole('button', { name: /review/i })
+    expect(reviewTemplate).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(reviewTemplate)
 
     expect((screen.getByLabelText(/system prompt/i) as HTMLTextAreaElement).value).toContain(
       'code review agent'
     )
+    expect(reviewTemplate).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('Unsaved')).toBeDefined()
+    expect(screen.getByRole('status')).toHaveTextContent(/unsaved changes/i)
 
     fireEvent.click(screen.getByRole('button', { name: /reset/i }))
     expect(screen.getByLabelText(/system prompt/i)).toHaveValue('old prompt')
@@ -86,6 +101,20 @@ describe('AgentConfigTab', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
     await waitFor(() => expect(updateAgentSystemPrompt).toHaveBeenCalledWith('a1', 'new prompt'))
+  })
+
+  it('shows a plain-language save failure message', async () => {
+    updateAgentSystemPrompt.mockResolvedValue(false)
+    render(<AgentConfigTab agentId="a1" />)
+    fireEvent.change(screen.getByLabelText(/system prompt/i), {
+      target: { value: 'new prompt' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/prompt profile was not saved/i)
+    )
   })
 
   it('empty string clears the prompt (sent as "" to backend)', async () => {
