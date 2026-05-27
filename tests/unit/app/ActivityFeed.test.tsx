@@ -8,23 +8,27 @@ beforeEach(() => useFeedStore.getState().reset())
 
 describe('ActivityFeed', () => {
   test('renders agent status bar', () => {
-    useFeedStore.getState().setAgents([{ id: 'a1', name: 'Claude-1', status: 'working' }])
+    useFeedStore.getState().setAgents([{ id: 'a1', name: 'Agent One', status: 'working' }])
     render(<ActivityFeed />)
     expect(screen.getByTestId('agent-status-bar')).toBeDefined()
-    expect(screen.getByText('Claude-1')).toBeDefined()
+    expect(screen.getByText('Agent One')).toBeDefined()
   })
 
   test('renders attention zone when blocked tasks exist', () => {
     useFeedStore.getState().addAttentionItem({
       id: 't1',
       taskTitle: 'Deploy staging',
-      agentName: 'GPT-1',
+      agentName: 'Agent Two',
       reason: 'Needs SSH key',
       timestamp: Date.now(),
     })
     render(<ActivityFeed />)
     expect(screen.getByTestId('attention-zone')).toBeDefined()
     expect(screen.getByText('Deploy staging')).toBeDefined()
+    expect(screen.getByText('ACTION NEEDED')).toBeDefined()
+    expect(screen.getByText(/waiting for a decision/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: /approve now/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /review details/i })).toBeDefined()
   })
 
   test('hides attention zone when no blocked tasks', () => {
@@ -36,7 +40,7 @@ describe('ActivityFeed', () => {
     useFeedStore.getState().addFeedItem({
       id: '1',
       type: 'task.completed',
-      agentName: 'Claude-1',
+      agentName: 'Agent One',
       taskTitle: 'Fix auth',
       detail: '2 files changed',
       timestamp: Date.now(),
@@ -45,22 +49,22 @@ describe('ActivityFeed', () => {
     expect(screen.getByText('Fix auth')).toBeDefined()
   })
 
-  test('summarizes managed agent operations', () => {
+  test('summarizes current work with beginner guidance', () => {
     useFeedStore.getState().setAgents([
-      { id: 'a1', name: 'Claude-1', status: 'working' },
-      { id: 'a2', name: 'Codex Host', status: 'blocked' },
+      { id: 'a1', name: 'Agent One', status: 'working' },
+      { id: 'a2', name: 'Agent Two', status: 'blocked' },
     ])
     useFeedStore.getState().addAttentionItem({
       id: 't1',
       taskTitle: 'Deploy staging',
-      agentName: 'Codex Host',
+      agentName: 'Agent Two',
       reason: 'Needs SSH key',
       timestamp: Date.now(),
     })
     useFeedStore.getState().addFeedItem({
       id: '1',
       type: 'task.failed',
-      agentName: 'Codex Host',
+      agentName: 'Agent Two',
       taskTitle: 'Deploy staging',
       detail: 'SSH key rejected',
       timestamp: Date.now(),
@@ -68,7 +72,7 @@ describe('ActivityFeed', () => {
     useFeedStore.getState().addFeedItem({
       id: '2',
       type: 'task.completed',
-      agentName: 'Claude-1',
+      agentName: 'Agent One',
       taskTitle: 'Fix auth',
       detail: '2 files changed',
       timestamp: Date.now(),
@@ -77,14 +81,20 @@ describe('ActivityFeed', () => {
     render(<ActivityFeed />)
 
     const summary = screen.getByTestId('feed-ops-summary')
-    expect(within(summary).getByText('Agent operations')).toBeDefined()
+    expect(within(summary).getByText('Current work')).toBeDefined()
+    expect(within(summary).getByText(/start with anything that needs action/i)).toBeDefined()
+    expect(screen.getByTestId('feed-review-guide')).toBeDefined()
+    expect(screen.getByText('Check order')).toBeDefined()
+    expect(screen.getByText(/handle needs action first/i)).toBeDefined()
     expect(within(screen.getByTestId('feed-metric-working')).getByText('Working')).toBeDefined()
     expect(within(screen.getByTestId('feed-metric-working')).getByText('1')).toBeDefined()
     expect(
       within(screen.getByTestId('feed-metric-needs-action')).getByText('Needs action')
     ).toBeDefined()
     expect(within(screen.getByTestId('feed-metric-needs-action')).getByText('3')).toBeDefined()
-    expect(within(screen.getByTestId('feed-metric-updates')).getByText('Updates')).toBeDefined()
+    expect(
+      within(screen.getByTestId('feed-metric-updates')).getByText('Recent updates')
+    ).toBeDefined()
     expect(within(screen.getByTestId('feed-metric-updates')).getByText('2')).toBeDefined()
     expect(within(screen.getByTestId('feed-metric-completed')).getByText('Completed')).toBeDefined()
   })
@@ -93,7 +103,7 @@ describe('ActivityFeed', () => {
     useFeedStore.getState().addFeedItem({
       id: '1',
       type: 'task.failed',
-      agentName: 'Codex Host',
+      agentName: 'Agent Two',
       taskTitle: 'Deploy staging',
       detail: 'SSH key rejected',
       timestamp: Date.now(),
@@ -101,7 +111,7 @@ describe('ActivityFeed', () => {
     useFeedStore.getState().addFeedItem({
       id: '2',
       type: 'task.progress',
-      agentName: 'Claude-1',
+      agentName: 'Agent One',
       taskTitle: 'Fix auth',
       detail: 'Editing tests',
       timestamp: Date.now(),
@@ -109,7 +119,7 @@ describe('ActivityFeed', () => {
     useFeedStore.getState().addFeedItem({
       id: '3',
       type: 'task.completed',
-      agentName: 'Claude-1',
+      agentName: 'Agent One',
       taskTitle: 'Ship patch',
       detail: 'Merged cleanly',
       timestamp: Date.now(),
@@ -134,7 +144,7 @@ describe('ActivityFeed', () => {
     useFeedStore.getState().addFeedItem({
       id: '1',
       type: 'task.progress',
-      agentName: 'Claude-1',
+      agentName: 'Agent One',
       taskTitle: 'Fix auth',
       detail: 'Editing tests',
       timestamp: Date.now(),
@@ -144,11 +154,13 @@ describe('ActivityFeed', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /completed\s*0/i }))
     expect(screen.getByText(/no updates in this view/i)).toBeDefined()
+    expect(screen.getByText(/choose all to see every recent update/i)).toBeDefined()
     expect(screen.queryByText('Fix auth')).toBeNull()
   })
 
   test('shows empty state when no feed items', () => {
     render(<ActivityFeed />)
     expect(screen.getByText(/quiet so far/i)).toBeDefined()
+    expect(screen.getByText(/start a task or wait for an assigned agent/i)).toBeDefined()
   })
 })
