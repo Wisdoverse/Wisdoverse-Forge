@@ -180,6 +180,37 @@ describe('SkillsView', () => {
     )
   })
 
+  test('guides users through required skill fields before create', async () => {
+    const user = userEvent.setup()
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ok: true, data: [] }),
+    })
+
+    render(<SkillsView />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/create your first skill/i)).toBeDefined()
+    })
+
+    await user.click(screen.getAllByRole('button', { name: /new skill/i })[0])
+    await user.click(screen.getByRole('button', { name: /create skill/i }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Name this skill before creating it.')
+    expect(screen.getByLabelText(/^name$/i)).toHaveFocus()
+
+    await user.type(screen.getByLabelText(/^name$/i), 'frontend-review')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /create skill/i }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Add the instructions this skill should apply.'
+    )
+    expect(screen.getByLabelText(/^content$/i)).toHaveFocus()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   test('shows loading state while fetching', () => {
     useSkillsStore.setState({ loading: true })
     render(<SkillsView />)
