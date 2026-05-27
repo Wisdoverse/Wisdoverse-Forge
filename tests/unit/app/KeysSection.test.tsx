@@ -1,25 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { KeysSection } from '@app/features/settings'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { KeysSection } from '@app/features/settings/KeysSection'
 import { useSettingsStore } from '@app/shared/model/settings.store'
-import type { CreateApiKeyResult } from '@app/shared/api/legacy/settingsApi'
-
-const createdKey: CreateApiKeyResult = {
-  key: 'forge_key_example',
-  apiKey: {
-    id: 'key-1',
-    orgId: 'org-1',
-    userId: 'user-1',
-    name: 'CI job',
-    keyPrefix: 'forge_',
-    createdAt: '2026-05-24T08:00:00Z',
-    lastUsedAt: null,
-    expiresAt: null,
-  },
-}
 
 const loadApiKeysMock = vi.fn().mockResolvedValue(undefined)
-const createApiKeyMock = vi.fn().mockResolvedValue(createdKey)
+const createApiKeyMock = vi.fn()
 const revokeApiKeyMock = vi.fn().mockResolvedValue(true)
 const originalLoadApiKeys = useSettingsStore.getState().loadApiKeys
 const originalCreateApiKey = useSettingsStore.getState().createApiKey
@@ -28,10 +13,17 @@ const originalRevokeApiKey = useSettingsStore.getState().revokeApiKey
 beforeEach(() => {
   loadApiKeysMock.mockClear()
   createApiKeyMock.mockClear()
+  createApiKeyMock.mockResolvedValue({
+    key: 'af_test_plaintext_key',
+    apiKey: {
+      id: 'api-key-1',
+      name: 'CI deploy',
+      keyPrefix: 'af_test',
+      createdAt: '2026-05-25T00:00:00.000Z',
+      lastUsedAt: null,
+    },
+  })
   revokeApiKeyMock.mockClear()
-  loadApiKeysMock.mockResolvedValue(undefined)
-  createApiKeyMock.mockResolvedValue(createdKey)
-  revokeApiKeyMock.mockResolvedValue(true)
   useSettingsStore.setState({
     apiKeys: [],
     keysLoading: false,
@@ -56,31 +48,28 @@ afterEach(() => {
 })
 
 describe('KeysSection', () => {
-  test('keeps platform key creation actionable and explains a missing name', async () => {
+  test('guides platform API key creation before showing the one-time key', async () => {
     render(<KeysSection />)
+
+    expect(await screen.findByText('No platform API keys yet')).toBeDefined()
 
     fireEvent.click(screen.getByRole('button', { name: /create platform key/i }))
 
-    const status = screen.getByTestId('platform-key-form-status')
-    expect(within(status).getByText('Next: Name the Platform Key')).toBeInTheDocument()
+    expect(screen.getByText('Platform key setup path')).toBeDefined()
+    expect(screen.getByText('Name the use')).toBeDefined()
+    expect(screen.getByText(/appears only immediately after creation/i)).toBeDefined()
+    expect(screen.getByText('Store safely')).toBeDefined()
+    expect(screen.getByText(/easy to revoke later/i)).toBeDefined()
+
     const createButton = screen.getByRole('button', { name: /^create$/i })
-    expect(createButton).not.toBeDisabled()
+    expect(createButton).toBeDisabled()
 
+    fireEvent.change(screen.getByLabelText(/^key name/i), { target: { value: 'CI deploy' } })
+    expect(createButton).toBeEnabled()
     fireEvent.click(createButton)
 
-    expect(createApiKeyMock).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'Name this platform API key before creating it.'
-    )
-    const nameInput = screen.getByLabelText(/key name/i)
-    expect(nameInput).toHaveFocus()
-
-    fireEvent.change(nameInput, { target: { value: ' CI job ' } })
-
-    expect(within(status).getByText('Ready to Create Key')).toBeInTheDocument()
-    fireEvent.click(createButton)
-
-    await waitFor(() => expect(createApiKeyMock).toHaveBeenCalledWith('CI job'))
-    await waitFor(() => expect(screen.getByText('forge_key_example')).toBeInTheDocument())
+    await waitFor(() => expect(createApiKeyMock).toHaveBeenCalledWith('CI deploy'))
+    expect(await screen.findByText(/copy it now/i)).toBeDefined()
+    expect(screen.getByText('af_test_plaintext_key')).toBeDefined()
   })
 })
