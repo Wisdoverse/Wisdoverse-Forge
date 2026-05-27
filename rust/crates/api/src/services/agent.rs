@@ -6,8 +6,8 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::agent::{
-    AgentCliToolSelection, AgentCollaboratorPermission, AgentCommandSubject, AgentLifecycle, AgentListPage, AgentName,
-    AgentPermissionProjection, AgentStatusTransition, agent_permission_projection,
+    AgentAggregate, AgentCliToolSelection, AgentCollaboratorPermission, AgentCommandSubject, AgentLifecycle,
+    AgentListPage, AgentName, AgentPermissionProjection, AgentStatusTransition, agent_permission_projection,
 };
 pub(crate) use crate::domain::agent::{
     agent_container_status_response, agent_data_response, agent_delete_response, agent_enrollment_response,
@@ -64,6 +64,14 @@ impl AgentService {
     /// Get a single agent by ID.
     pub async fn get(&self, scope: &TenantScope, id: AgentId) -> AppResult<Agent> {
         self.repo.find_by_id(scope, id).await
+    }
+
+    /// Load the write-side aggregate root for lifecycle and enrollment services.
+    ///
+    /// Delegates to `AgentRepository::find_aggregate` so callers do not need a
+    /// direct reference to the repository.
+    pub(crate) async fn find_aggregate(&self, scope: &TenantScope, id: Uuid) -> AppResult<AgentAggregate> {
+        self.repo.find_aggregate(scope, id).await
     }
 
     /// Get a single agent by ID enriched with owner + project names.

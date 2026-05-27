@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use crate::domain::agent::{
     AgentContainerEnvInput, AgentContainerEnvPolicy, AgentContainerImagePolicy, AgentContainerLifecyclePolicy,
-    AgentContainerRuntimePolicy, AgentContainerStartOutcome,
+    AgentContainerRuntimePolicy, AgentContainerStartOutcome, ContainerAgent,
 };
 use crate::domain::context::{ContextFeature, ContextFeatureFlags};
 use crate::repositories::agent::AgentRepository;
@@ -110,6 +110,12 @@ impl AgentContainerControlService {
 
     pub(crate) async fn start(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<AgentContainerStartOutcome> {
         let docker = self.docker.as_ref().ok_or_else(AgentContainerRuntimePolicy::control_docker_unavailable)?;
+        // Typestate check: reject host_cli/api agents before any Docker I/O.
+        let aggregate = self.agents.find_aggregate(scope, agent_id.as_uuid()).await?;
+        ContainerAgent::try_from(aggregate).map_err(|r| r.into_app_error("Start"))?;
+        // Load the full Agent entity for the data-rich container provisioning path.
+        // AgentAggregate only carries identity columns; cli_tool/model/cwd/name
+        // come from the full row.
         let agent = self.agents.get(scope, agent_id).await?;
 
         if let Some(container_id) = &agent.container_id {
@@ -254,8 +260,11 @@ impl AgentContainerControlService {
 
     pub(crate) async fn stop(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<()> {
         let docker = self.docker.as_ref().ok_or_else(AgentContainerRuntimePolicy::control_docker_unavailable)?;
-        let agent = self.agents.get(scope, agent_id).await?;
-        let container_id = AgentContainerLifecyclePolicy::running_container_id(agent.container_id.as_deref())?;
+        let aggregate = self.agents.find_aggregate(scope, agent_id.as_uuid()).await?;
+        let container = ContainerAgent::try_from(aggregate)
+            .map_err(|r| r.into_app_error("Stop"))?;
+        let inner = container.inner();
+        let container_id = AgentContainerLifecyclePolicy::running_container_id(inner.container_id.as_deref())?;
 
         docker.stop_container(container_id, 30).await.map_err(AgentContainerRuntimePolicy::stop_container_failed)?;
 
