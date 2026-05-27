@@ -74,12 +74,14 @@ describe('ContextTab', () => {
     render(<ContextTab taskId="task-1" loadContext={async () => context({ runs: [] })} />)
 
     const emptyState = await screen.findByTestId('context-empty-state')
+    expect(within(emptyState).getByText('No context has been applied yet')).toBeDefined()
     expect(
-      within(emptyState).getByText('Context will appear after useful run activity')
+      within(emptyState).getByText(/Context appears here after an agent run uses saved memories/i)
     ).toBeDefined()
-    expect(within(emptyState).getByText(/has not applied memories, skills, evidence/)).toBeDefined()
-    expect(within(emptyState).getByText(/Run or update the task brief/)).toBeDefined()
-    expect(within(emptyState).getByText(/Return here after completion/)).toBeDefined()
+    expect(
+      within(emptyState).getByText(/Publish or run the task so Forge can choose memories/i)
+    ).toBeDefined()
+    expect(within(emptyState).getByText(/Use feedback on applied items/i)).toBeDefined()
   })
 
   test('renders applied context, candidates, evidence, and provenance', async () => {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, Clock3, ListChecks } from 'lucide-react'
+import { CheckCircle2, Info } from 'lucide-react'
 import { orchestrationApi } from '@app/shared/api/orchestration'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { ContextAppliedList } from './ContextAppliedList'
@@ -22,6 +22,12 @@ interface ContextTabProps {
     label: ContextFeedbackLabel
   ) => Promise<ContextFeedbackOutcome>
 }
+
+const EMPTY_CONTEXT_STEPS = [
+  'Publish or run the task so Forge can choose memories and skills.',
+  'Open suggested memory updates after a run to keep useful context for next time.',
+  'Use feedback on applied items so future runs learn what helped.',
+]
 
 export function ContextTab({
   taskId,
@@ -112,49 +118,7 @@ export function ContextTab({
   }
 
   if (!context || isEmptyContext(context)) {
-    return (
-      <div className="py-5" data-testid="context-empty-state">
-        <div className="rounded-lg border border-black/[0.08] bg-apple-gray-6/70 p-4 dark:border-white/[0.08] dark:bg-white/[0.035]">
-          <div className="flex items-start gap-3">
-            <Clock3
-              size={18}
-              strokeWidth={2.15}
-              className="mt-0.5 shrink-0 text-apple-blue"
-              aria-hidden="true"
-            />
-            <div>
-              <p className="text-sm font-semibold text-foreground-light dark:text-foreground-dark">
-                Context will appear after useful run activity
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-secondary-light dark:text-secondary-dark">
-                The agent has not applied memories, skills, evidence, or review candidates for this
-                task yet.
-              </p>
-            </div>
-          </div>
-          <div className="mt-3 grid gap-2 text-xs text-secondary-light dark:text-secondary-dark sm:grid-cols-2">
-            <div className="flex items-start gap-2 rounded-lg bg-white px-2.5 py-2 dark:bg-white/[0.04]">
-              <ListChecks
-                size={14}
-                strokeWidth={2.15}
-                className="mt-0.5 shrink-0 text-apple-blue"
-                aria-hidden="true"
-              />
-              <span>Run or update the task brief if the agent needs more instructions.</span>
-            </div>
-            <div className="flex items-start gap-2 rounded-lg bg-white px-2.5 py-2 dark:bg-white/[0.04]">
-              <CheckCircle2
-                size={14}
-                strokeWidth={2.15}
-                className="mt-0.5 shrink-0 text-apple-green"
-                aria-hidden="true"
-              />
-              <span>Return here after completion to review reusable context and evidence.</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
+    return <ContextEmptyState />
   }
 
   return (
@@ -231,6 +195,54 @@ export function ContextTab({
         </section>
       )}
     </div>
+  )
+}
+
+function ContextEmptyState() {
+  return (
+    <section
+      className="py-6"
+      data-testid="context-empty-state"
+      aria-labelledby="context-empty-title"
+    >
+      <div className="mx-auto flex max-w-2xl flex-col gap-3">
+        <div className="flex items-start gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-apple-blue/10 text-apple-blue">
+            <Info size={17} strokeWidth={2.15} aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h3
+              id="context-empty-title"
+              className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark"
+            >
+              No context has been applied yet
+            </h3>
+            <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
+              Context appears here after an agent run uses saved memories, reusable skills, or
+              evidence for this task.
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {EMPTY_CONTEXT_STEPS.map((step) => (
+            <div
+              key={step}
+              className="flex min-h-16 items-start gap-2 rounded-lg bg-apple-gray-6/70 px-3 py-2 dark:bg-white/[0.035]"
+            >
+              <CheckCircle2
+                size={14}
+                strokeWidth={2.15}
+                className="mt-0.5 shrink-0 text-apple-green"
+                aria-hidden="true"
+              />
+              <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                {step}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   )
 }
 
