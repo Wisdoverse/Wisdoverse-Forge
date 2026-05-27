@@ -5,7 +5,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use agentforge_core::{AgentId, AgentStatus, AppError, AppResult, CliToolKind, ErrorKind};
+use agentforge_core::{AgentId, AgentStatus, AppError, AppResult, CliToolKind, ErrorKind, RuntimeKind, TenantScope};
 use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -219,6 +219,176 @@ impl HostCliIdentity {
 
     pub(crate) fn nats_connect_password(&self) -> &str {
         &self.nats_connect_password
+    }
+}
+
+/// Typed aggregate factory for creating new agents.
+///
+/// Replaces the open-shape `CreateAgentParams` for new code paths. Three
+/// constructors encode invariants that differ across runtime surfaces:
+/// - [`container`](NewAgent::container): Docker-managed Container CLI agent.
+/// - [`host_cli`](NewAgent::host_cli): Host-enrolled CLI agent (carries `HostCliIdentity`).
+/// - [`api`](NewAgent::api): Provider-backed API agent (requires provider + model).
+#[derive(Debug, Clone)]
+pub(crate) struct NewAgent {
+    runtime_kind: RuntimeKind,
+    cli_tool: Option<&'static str>,
+    name: Option<String>,
+    model: Option<String>,
+    provider: Option<String>,
+    cwd: Option<String>,
+    workspace_id: Uuid,
+    project_id: Option<Uuid>,
+    system_prompt: Option<String>,
+    runtime_id: Option<String>,
+    hmac_secret: Option<String>,
+    nats_connect_password: Option<String>,
+    initial_status: AgentStatus,
+}
+
+impl NewAgent {
+    pub(crate) fn container(
+        scope: &TenantScope,
+        cli_tool: CliToolKind,
+        name: Option<&str>,
+        model: Option<&str>,
+        cwd: Option<&str>,
+        workspace_id: Uuid,
+        project_id: Option<Uuid>,
+        system_prompt: Option<&str>,
+    ) -> AppResult<Self> {
+        let _ = scope;
+        AgentName::validate(name)?;
+        Ok(Self {
+            runtime_kind: RuntimeKind::Container,
+            cli_tool: Some(cli_tool.as_str()),
+            name: name.map(str::to_string),
+            model: model.map(str::to_string),
+            provider: None,
+            cwd: cwd.map(str::to_string),
+            workspace_id,
+            project_id,
+            system_prompt: system_prompt.map(str::to_string),
+            runtime_id: None,
+            hmac_secret: None,
+            nats_connect_password: None,
+            initial_status: AgentStatus::Idle,
+        })
+    }
+
+    pub(crate) fn host_cli(
+        scope: &TenantScope,
+        cli_tool: CliToolKind,
+        identity: HostCliIdentity,
+        name: Option<&str>,
+        model: Option<&str>,
+        cwd: Option<&str>,
+        workspace_id: Uuid,
+        project_id: Option<Uuid>,
+    ) -> AppResult<Self> {
+        let _ = scope;
+        AgentName::validate(name)?;
+        Ok(Self {
+            runtime_kind: RuntimeKind::Cli,
+            cli_tool: Some(cli_tool.as_str()),
+            name: name.map(str::to_string),
+            model: model.map(str::to_string),
+            provider: None,
+            cwd: cwd.map(str::to_string),
+            workspace_id,
+            project_id,
+            system_prompt: None,
+            runtime_id: Some(identity.runtime_id().to_string()),
+            hmac_secret: Some(identity.hmac_secret().to_string()),
+            nats_connect_password: Some(identity.nats_connect_password().to_string()),
+            initial_status: AgentStatus::Offline,
+        })
+    }
+
+    pub(crate) fn api(
+        scope: &TenantScope,
+        provider: &str,
+        model: &str,
+        name: Option<&str>,
+        system_prompt: Option<&str>,
+        workspace_id: Uuid,
+        project_id: Option<Uuid>,
+    ) -> AppResult<Self> {
+        let _ = scope;
+        AgentName::validate(name)?;
+        if provider.trim().is_empty() {
+            return Err(ErrorKind::Validation("provider is required for API runtime agent".into()).into());
+        }
+        if model.trim().is_empty() {
+            return Err(ErrorKind::Validation("model is required for API runtime agent".into()).into());
+        }
+        Ok(Self {
+            runtime_kind: RuntimeKind::Api,
+            cli_tool: None,
+            name: name.map(str::to_string),
+            model: Some(model.to_string()),
+            provider: Some(provider.to_string()),
+            cwd: None,
+            workspace_id,
+            project_id,
+            system_prompt: system_prompt.map(str::to_string),
+            runtime_id: None,
+            hmac_secret: None,
+            nats_connect_password: None,
+            initial_status: AgentStatus::Idle,
+        })
+    }
+
+    pub(crate) fn runtime_kind(&self) -> RuntimeKind {
+        self.runtime_kind
+    }
+
+    pub(crate) fn cli_tool(&self) -> Option<&str> {
+        self.cli_tool
+    }
+
+    pub(crate) fn runtime_id(&self) -> Option<&str> {
+        self.runtime_id.as_deref()
+    }
+
+    pub(crate) fn hmac_secret(&self) -> Option<&str> {
+        self.hmac_secret.as_deref()
+    }
+
+    pub(crate) fn nats_connect_password(&self) -> Option<&str> {
+        self.nats_connect_password.as_deref()
+    }
+
+    pub(crate) fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    pub(crate) fn model(&self) -> Option<&str> {
+        self.model.as_deref()
+    }
+
+    pub(crate) fn provider(&self) -> Option<&str> {
+        self.provider.as_deref()
+    }
+
+    pub(crate) fn cwd(&self) -> Option<&str> {
+        self.cwd.as_deref()
+    }
+
+    pub(crate) fn workspace_id(&self) -> Uuid {
+        self.workspace_id
+    }
+
+    pub(crate) fn project_id(&self) -> Option<Uuid> {
+        self.project_id
+    }
+
+    pub(crate) fn system_prompt(&self) -> Option<&str> {
+        self.system_prompt.as_deref()
+    }
+
+    pub(crate) fn initial_status(&self) -> AgentStatus {
+        self.initial_status
     }
 }
 
@@ -1262,6 +1432,50 @@ mod tests {
 
         assert_eq!(env.get("OPENAI_API_KEY").map(String::as_str), Some("sk-test"));
         assert!(!env.contains_key("ANTHROPIC_API_KEY"));
+    }
+
+    fn test_tenant_scope() -> TenantScope {
+        crate::test_support::tenant_scope()
+    }
+
+    #[test]
+    fn new_agent_container_validates_inputs() {
+        let scope = test_tenant_scope();
+        let ok = NewAgent::container(
+            &scope, CliToolKind::Codex, Some("My Agent"), None, None,
+            Uuid::new_v4(), None, None,
+        );
+        assert!(ok.is_ok());
+
+        // Name >255 chars rejected
+        let long = "x".repeat(256);
+        let err = NewAgent::container(
+            &scope, CliToolKind::Codex, Some(&long), None, None,
+            Uuid::new_v4(), None, None,
+        );
+        assert!(err.is_err());
+    }
+
+    #[test]
+    fn new_agent_host_cli_carries_identity_and_kind() {
+        let scope = test_tenant_scope();
+        let identity = HostCliIdentity::generate();
+        let expected_runtime_id = identity.runtime_id().to_string();
+        let na = NewAgent::host_cli(
+            &scope, CliToolKind::Codex, identity, None, None, None,
+            Uuid::new_v4(), None,
+        ).unwrap();
+        assert_eq!(na.runtime_kind(), RuntimeKind::Cli);
+        assert_eq!(na.runtime_id(), Some(expected_runtime_id.as_str()));
+        assert_eq!(na.cli_tool(), Some("codex"));
+    }
+
+    #[test]
+    fn new_agent_api_rejects_empty_model() {
+        let scope = test_tenant_scope();
+        assert!(NewAgent::api(
+            &scope, "anthropic", "", None, None, Uuid::new_v4(), None
+        ).is_err());
     }
 
     #[test]
