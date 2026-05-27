@@ -59,6 +59,12 @@ const DEFAULT_FORM: AddProviderForm = {
   baseUrl: '',
 }
 
+const PROVIDER_SETUP_STEPS = [
+  { label: 'Choose provider', value: 'Select the service that will run model requests.' },
+  { label: 'Paste key', value: 'Use the provider key from that account. It is stored encrypted.' },
+  { label: 'Save, then test', value: 'Run Test before creating Provider + Prompt agents.' },
+]
+
 const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
   {
     provider: 'anthropic',
@@ -674,20 +680,14 @@ function AddProviderFormPanel({
   const modelInputId = 'provider-form-model'
   const displayNameInputId = 'provider-form-display-name'
   const apiKeyInputId = 'provider-form-api-key'
+  const apiKeyHelpId = 'provider-form-api-key-help'
   const baseUrlInputId = 'provider-form-base-url'
-  const readiness = providerFormReadiness({
-    form,
-    needsApiKey,
-    needsBaseUrl,
-    modelInputId,
-    apiKeyInputId,
-    baseUrlInputId,
-  })
-  const visibleError = submitAttempted && !readiness.ready ? readiness.error : null
-  const formStatusId = 'provider-form-status'
-  const modelErrorId = 'provider-form-model-error'
-  const apiKeyErrorId = 'provider-form-api-key-error'
-  const baseUrlErrorId = 'provider-form-base-url-error'
+  const baseUrlHelpId = 'provider-form-base-url-help'
+  const canSubmit = Boolean(
+    form.model.trim() &&
+    (!needsApiKey || form.apiKey.trim()) &&
+    (!needsBaseUrl || form.baseUrl.trim())
+  )
 
   function handleProviderChange(provider: LlmProvider) {
     const info = providerOptions.find((p) => p.provider === provider)
@@ -725,47 +725,26 @@ function AddProviderFormPanel({
       )}
       noValidate
     >
-      <div
-        id={formStatusId}
-        data-testid="provider-form-status"
-        aria-live="polite"
-        className={cn(
-          'mb-3 rounded-lg border px-3 py-2',
-          readiness.ready
-            ? 'border-apple-green/25 bg-apple-green/10'
-            : 'border-apple-blue/20 bg-apple-blue/[0.04]'
-        )}
-      >
-        <div className="flex items-center gap-2">
-          {readiness.ready ? (
-            <CheckCircle2
-              size={16}
-              strokeWidth={2.25}
-              className="shrink-0 text-apple-green"
-              aria-hidden="true"
-            />
-          ) : (
-            <AlertTriangle
-              size={16}
-              strokeWidth={2.25}
-              className="shrink-0 text-apple-blue"
-              aria-hidden="true"
-            />
-          )}
-          <p className="text-ui-button font-semibold text-foreground-light dark:text-foreground-dark">
-            {readiness.title}
-          </p>
+      <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
+        <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+          Provider setup path
         </div>
-        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {readiness.detail}
-        </p>
+        <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
+          {PROVIDER_SETUP_STEPS.map((step) => (
+            <div
+              key={step.label}
+              className="min-w-0 rounded-md bg-black/[0.025] px-2 py-1.5 dark:bg-white/[0.04]"
+            >
+              <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                {step.label}
+              </span>
+              <span className="mt-0.5 block text-ui-caption text-foreground-light dark:text-foreground-dark">
+                {step.value}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
-
-      {visibleError && (
-        <div className={cn(uiStyles.error, 'mb-3')} role="alert" aria-live="polite">
-          {visibleError}
-        </div>
-      )}
 
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {/* Provider */}
@@ -903,6 +882,12 @@ function AddProviderFormPanel({
           <label htmlFor={apiKeyInputId} className={uiStyles.label}>
             API Key {needsApiKey && <span className="text-red-500">*</span>}
           </label>
+          <p
+            id={apiKeyHelpId}
+            className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+          >
+            Paste the secret key from your provider account. It is hidden after saving.
+          </p>
           <input
             id={apiKeyInputId}
             type="password"
@@ -919,6 +904,7 @@ function AddProviderFormPanel({
                 : ''
             }`}
             className={uiStyles.input}
+            aria-describedby={apiKeyHelpId}
           />
           {visibleError !== null && readiness.fieldId === apiKeyInputId && (
             <p id={apiKeyErrorId} className="mt-1 text-ui-caption text-apple-red">
@@ -932,6 +918,12 @@ function AddProviderFormPanel({
           <label htmlFor={baseUrlInputId} className={uiStyles.label}>
             Base URL {needsBaseUrl && <span className="text-red-500">*</span>}
           </label>
+          <p
+            id={baseUrlHelpId}
+            className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+          >
+            Only change this for a local model server or OpenAI-compatible gateway.
+          </p>
           <input
             id={baseUrlInputId}
             type="url"
@@ -947,6 +939,7 @@ function AddProviderFormPanel({
                 : ''
             }`}
             className={uiStyles.input}
+            aria-describedby={baseUrlHelpId}
           />
           {visibleError !== null && readiness.fieldId === baseUrlInputId && (
             <p id={baseUrlErrorId} className="mt-1 text-ui-caption text-apple-red">

@@ -137,6 +137,10 @@ describe('ProvidersSection', () => {
 
     fireEvent.click(within(nextStep).getByRole('button', { name: /add provider/i }))
 
+    expect(screen.getByText('Provider setup path')).toBeDefined()
+    expect(screen.getByText('Paste key')).toBeDefined()
+    expect(screen.getByText(/stored encrypted/i)).toBeDefined()
+    expect(screen.getByText('Save, then test')).toBeDefined()
     expect(screen.getByLabelText(/^provider$/i)).toBeDefined()
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/next: paste api key/i)
     const saveButton = screen.getByRole('button', { name: /save provider/i })
