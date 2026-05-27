@@ -11,7 +11,7 @@ vi.mock('@app/entities/agent-group', () => ({
     getGroups: vi.fn().mockResolvedValue([]),
     createGroup: vi.fn().mockResolvedValue({
       id: 'group-new',
-      name: 'Default Task Group',
+      name: 'Default Work Lane',
       projectId: 'p1',
     }),
   },
@@ -32,7 +32,7 @@ beforeEach(() => {
   vi.mocked(agentGroupApi.getGroups).mockResolvedValue([])
   vi.mocked(agentGroupApi.createGroup).mockResolvedValue({
     id: 'group-new',
-    name: 'Default Task Group',
+    name: 'Default Work Lane',
     projectId: 'p1',
   })
   useAgentsStore.setState({
@@ -56,6 +56,10 @@ describe('CreateAgentModal', () => {
     expect(screen.getByLabelText(/working directory/i)).toBeInTheDocument()
     expect(screen.getByText(/shared workspace mount/i)).toBeInTheDocument()
     expect(screen.getAllByText(/primary project/i).length).toBeGreaterThan(0)
+    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/choose a project first/i)
+    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
+      /select a project in the sidebar/i
+    )
     expect(screen.queryByLabelText(/^provider$/i)).toBeNull()
     expect(screen.queryByLabelText(/^model$/i)).toBeNull()
   })
@@ -81,6 +85,7 @@ describe('CreateAgentModal', () => {
     render(<CreateAgentModal />)
 
     expect(screen.getByText('Platform')).toBeInTheDocument()
+    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/project ready/i)
     expect(screen.getByText(/tasks default to this project/i)).toBeInTheDocument()
   })
 
@@ -115,7 +120,7 @@ describe('CreateAgentModal', () => {
     })
   })
 
-  test('creates and selects a task group for the selected project', async () => {
+  test('creates and selects a work lane for the selected project', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
     useNavigationStore.setState({
@@ -136,16 +141,17 @@ describe('CreateAgentModal', () => {
     })
 
     render(<CreateAgentModal />)
-    fireEvent.click(await screen.findByRole('button', { name: /create task group/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /create default work lane/i }))
 
     await waitFor(() =>
       expect(agentGroupApi.createGroup).toHaveBeenCalledWith({
         projectId: 'p1',
-        name: 'Default Task Group',
-        description: 'This task group is a work lane where agents can receive board tasks.',
+        name: 'Default Work Lane',
+        description: 'This work lane lets agents receive board tasks.',
       })
     )
-    expect(screen.getByRole('combobox', { name: /task group/i })).toHaveValue('group-new')
+    expect(screen.getByRole('combobox', { name: /work lane/i })).toHaveValue('group-new')
+    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/default work lane/i)
 
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'CLI Worker' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
