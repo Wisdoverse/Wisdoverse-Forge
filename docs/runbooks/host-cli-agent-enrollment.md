@@ -27,18 +27,32 @@ release pipeline has validated artifacts for it.
 Run this from the local directory where the agent should work. Replace
 `<project-id>` with the project selected in the web UI.
 
+For macOS or Linux Terminal:
+
 ```bash
 agentforge agents enroll-local \
   --tool codex \
   --name "Host Codex" \
   --project <project-id> \
-  --cwd "$PWD"
+  --cwd "$PWD" \
+  --shell-format bash
 ```
 
-The command returns shell exports plus `agentforge-sidecar`. Run that block in
-the local directory that should receive tasks. The platform will then see
-heartbeats, assign tasks through NATS, and receive signed result evidence from
-that sidecar.
+For Windows PowerShell:
+
+```powershell
+agentforge agents enroll-local `
+  --tool codex `
+  --name "Host Codex" `
+  --project <project-id> `
+  --cwd "$($PWD.Path)" `
+  --shell-format powershell
+```
+
+The command returns the environment variables plus `agentforge-sidecar` in the
+selected shell syntax. Run that returned block in the local directory that
+should receive tasks. The platform will then see heartbeats, assign tasks
+through NATS, and receive signed result evidence from that sidecar.
 
 ## Verify
 
