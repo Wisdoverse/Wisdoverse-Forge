@@ -1,4 +1,13 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  MessageSquareText,
+  Play,
+  RotateCcw,
+  Trash2,
+  type LucideIcon,
+} from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { isHostCliAgent, useAgentsStore, type AgentInfo } from '@app/shared/model/agents.store'
 
@@ -23,6 +32,14 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
   const hostCli = isHostCliAgent(agent)
   const canStartContainer = Boolean(agent.cliTool && !agent.containerId && !hostCli)
   const canRestartContainer = Boolean(agent.cliTool && agent.containerId && !hostCli)
+  const messageInputId = `agent-message-${agent.id}`
+  const messageHelpId = `agent-message-help-${agent.id}`
+  const controlSummary = getControlSummary(agent, {
+    canStartContainer,
+    canRestartContainer,
+    hostCli,
+  })
+  const ControlSummaryIcon = controlSummary.Icon
 
   async function handleSendPrompt() {
     if (sending) return
@@ -59,40 +76,56 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Error display */}
       {error && (
-        <div className="rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red">
-          {error}
+        <div
+          role="alert"
+          className="flex gap-3 rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
+        >
+          <AlertTriangle size={16} strokeWidth={2} aria-hidden="true" className="mt-0.5 shrink-0" />
+          <div className="flex flex-col gap-1">
+            <span className="font-medium">Action did not finish</span>
+            <span>{error}. Check the agent status, then try the same action again.</span>
+          </div>
         </div>
       )}
 
-      {/* Prompt input */}
       <div
         className={cn(
           'rounded-card border border-black/[0.08] bg-white p-6 dark:border-white/[0.1] dark:bg-[#2a2a2c]',
-          'flex flex-col gap-2'
+          'flex flex-col gap-3'
         )}
       >
-        <label
-          htmlFor={promptInputId}
-          className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
-        >
-          Send Prompt
-        </label>
+        <div className="flex items-start gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-apple-blue/10 text-apple-blue">
+            <MessageSquareText size={18} strokeWidth={2} aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <label
+              htmlFor={messageInputId}
+              className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark"
+            >
+              Send a Message
+            </label>
+            <p
+              id={messageHelpId}
+              className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+            >
+              Use this for one short instruction or question. For tracked work, create a task so the
+              result and evidence are easier to review.
+            </p>
+          </div>
+        </div>
         <textarea
-          id={promptInputId}
-          name="agentPrompt"
+          id={messageInputId}
           value={prompt}
           onChange={(e) => {
             setPrompt(e.target.value)
             if (promptError) setPromptError(null)
           }}
           rows={3}
+          aria-describedby={messageHelpId}
           className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-          placeholder="Enter a prompt for this agent…"
-          autoComplete="off"
-          aria-invalid={promptError !== null}
-          aria-describedby={`${promptHelpId}${promptError ? ` ${promptErrorId}` : ''}`}
+          placeholder="Example: Check the latest run and tell me the next safe step."
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
               e.preventDefault()
@@ -121,112 +154,288 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
               sending && 'opacity-50 cursor-not-allowed'
             )}
           >
-            {sending ? 'Sending…' : 'Send'}
+            {sending ? 'Sending…' : 'Send Message'}
           </button>
         </div>
       </div>
 
-      {/* Action buttons */}
-      <div className="flex gap-2">
-        {/* Start / Restart */}
-        {(canStartContainer || canRestartContainer) && (
-          <div className="flex-1">
-            {canStartContainer ? (
-              <button
-                type="button"
-                onClick={handleStart}
-                disabled={starting}
-                className={cn(
-                  'w-full rounded-full px-3 py-2 text-ui-button font-medium',
-                  'border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#2a2a2c]',
-                  'text-apple-blue hover:bg-apple-blue/5 transition-transform active:scale-95',
-                  starting && 'opacity-50 cursor-not-allowed'
-                )}
-              >
-                {starting ? 'Starting…' : 'Start Agent'}
-              </button>
-            ) : confirmRestart ? (
-              <div
-                className={cn(
-                  'flex items-center gap-2 px-3 py-2 rounded-xl',
-                  'border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#2a2a2c]'
-                )}
-              >
-                <span className="flex-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  Restart this agent?
-                </span>
-                <button
-                  type="button"
-                  onClick={handleRestart}
-                  className="rounded-full bg-apple-blue px-3 py-1.5 text-ui-button font-medium text-white hover:bg-apple-blue-focus"
-                >
-                  Confirm
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmRestart(false)}
-                  className="rounded-full bg-apple-gray-5 px-2.5 py-1 text-ui-button font-medium text-foreground-light dark:bg-white/[0.06] dark:text-foreground-dark"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setConfirmRestart(true)}
-                className={cn(
-                  'w-full rounded-full px-3 py-2 text-ui-button font-medium',
-                  'border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#2a2a2c]',
-                  'text-apple-blue hover:bg-apple-blue/5 transition-transform active:scale-95'
-                )}
-              >
-                Restart Agent
-              </button>
-            )}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-start gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-apple-green/10 text-apple-green">
+            <ControlSummaryIcon size={18} strokeWidth={2} aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h3 className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
+              {controlSummary.title}
+            </h3>
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {controlSummary.detail}
+            </p>
           </div>
-        )}
+        </div>
 
-        {/* Delete */}
-        <div className="flex-1">
+        <div className="grid gap-3 md:grid-cols-2">
+          {!canStartContainer && !canRestartContainer && (
+            <ActionInfo
+              icon={CheckCircle2}
+              title="No recovery action needed"
+              detail="Do not restart anything unless work stops updating. Use Tasks for work that needs a clear result."
+            />
+          )}
+
+          {(canStartContainer || canRestartContainer) && (
+            <>
+              {canStartContainer ? (
+                <ActionCard
+                  icon={Play}
+                  title="Start the container"
+                  detail="Use this when the agent has no running container yet. Starting can take a short moment."
+                >
+                  <button
+                    type="button"
+                    onClick={handleStart}
+                    disabled={starting}
+                    className={cn(
+                      'rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white',
+                      'transition-transform hover:bg-apple-blue-focus active:scale-95',
+                      starting && 'opacity-50 cursor-not-allowed'
+                    )}
+                  >
+                    {starting ? 'Starting…' : 'Start Agent'}
+                  </button>
+                </ActionCard>
+              ) : confirmRestart ? (
+                <ConfirmAction
+                  tone="blue"
+                  icon={RotateCcw}
+                  title="Restart this agent?"
+                  detail="Use restart only when the terminal or task updates are stuck. Active work may stop and need to be sent again."
+                  confirmLabel="Restart Now"
+                  cancelLabel="Keep Running"
+                  onConfirm={handleRestart}
+                  onCancel={() => setConfirmRestart(false)}
+                />
+              ) : (
+                <ActionCard
+                  icon={RotateCcw}
+                  title="Recover a stuck agent"
+                  detail="Restart only after checking Tasks or Terminal and seeing no new progress."
+                >
+                  <button
+                    type="button"
+                    onClick={() => setConfirmRestart(true)}
+                    className={cn(
+                      'rounded-full border border-black/[0.08] px-4 py-2 text-ui-button font-medium',
+                      'text-apple-blue transition-transform hover:bg-apple-blue/5 active:scale-95',
+                      'dark:border-white/[0.1]'
+                    )}
+                  >
+                    Restart Agent
+                  </button>
+                </ActionCard>
+              )}
+            </>
+          )}
+
           {confirmDelete ? (
-            <div
-              className={cn(
-                'flex items-center gap-2 px-3 py-2 rounded-xl',
-                'border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#2a2a2c]'
-              )}
-            >
-              <span className="flex-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Delete permanently?
-              </span>
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="rounded-full bg-apple-red px-2.5 py-1 text-ui-button font-medium text-white hover:bg-apple-red/90"
-              >
-                Delete
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(false)}
-                className="rounded-full bg-apple-gray-5 px-2.5 py-1 text-ui-button font-medium text-foreground-light dark:bg-white/[0.06] dark:text-foreground-dark"
-              >
-                Cancel
-              </button>
-            </div>
+            <ConfirmAction
+              tone="red"
+              icon={Trash2}
+              title="Delete this agent?"
+              detail="This removes the agent from future work. Existing task history is not a replacement plan, so delete only when you are done with this agent."
+              confirmLabel="Delete Permanently"
+              cancelLabel="Keep Agent"
+              onConfirm={handleDelete}
+              onCancel={() => setConfirmDelete(false)}
+            />
           ) : (
-            <button
-              type="button"
-              onClick={() => setConfirmDelete(true)}
-              className={cn(
-                'w-full rounded-full px-3 py-2 text-ui-button font-medium',
-                'border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#2a2a2c]',
-                'text-apple-red hover:bg-apple-red/5 transition-colors'
-              )}
+            <ActionCard
+              icon={Trash2}
+              title="Remove this agent"
+              detail="Use this only when replacing the agent or cleaning up one you no longer need."
             >
-              Delete Agent
-            </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                className={cn(
+                  'rounded-full border border-black/[0.08] px-4 py-2 text-ui-button font-medium',
+                  'text-apple-red transition-colors hover:bg-apple-red/5 dark:border-white/[0.1]'
+                )}
+              >
+                Delete Agent
+              </button>
+            </ActionCard>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+interface ControlSummaryOptions {
+  canStartContainer: boolean
+  canRestartContainer: boolean
+  hostCli: boolean
+}
+
+function getControlSummary(
+  agent: AgentInfo,
+  { canStartContainer, canRestartContainer, hostCli }: ControlSummaryOptions
+): { title: string; detail: string; Icon: LucideIcon } {
+  if (canStartContainer) {
+    return {
+      title: 'Container needs to be started',
+      detail: 'Start the agent before sending container-based work or opening a terminal.',
+      Icon: Play,
+    }
+  }
+
+  if (canRestartContainer) {
+    return {
+      title: 'Container controls',
+      detail: 'Most agents do not need manual recovery. Restart only when progress has stopped.',
+      Icon: RotateCcw,
+    }
+  }
+
+  if (hostCli) {
+    return {
+      title: 'Local agent controls',
+      detail:
+        'This agent runs on an enrolled machine. Start or stop the local sidecar on that machine; use this page for messages and cleanup.',
+      Icon: CheckCircle2,
+    }
+  }
+
+  if (agent.cliTool) {
+    return {
+      title: 'Agent controls',
+      detail: 'The runtime looks ready. Use messages for quick help and Tasks for tracked work.',
+      Icon: CheckCircle2,
+    }
+  }
+
+  return {
+    title: 'Provider agent controls',
+    detail:
+      'This agent replies through its provider setup. Use messages for quick help and Tasks for tracked work.',
+    Icon: CheckCircle2,
+  }
+}
+
+interface ActionCardProps {
+  icon: LucideIcon
+  title: string
+  detail: string
+  children: ReactNode
+}
+
+function ActionCard({ icon: Icon, title, detail, children }: ActionCardProps) {
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2a2a2c]">
+      <div className="flex items-start gap-3">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+          <Icon size={16} strokeWidth={2} aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <h4 className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+            {title}
+          </h4>
+          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            {detail}
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap justify-end gap-2">{children}</div>
+    </div>
+  )
+}
+
+interface ActionInfoProps {
+  icon: LucideIcon
+  title: string
+  detail: string
+}
+
+function ActionInfo({ icon: Icon, title, detail }: ActionInfoProps) {
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2a2a2c]">
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-apple-green/10 text-apple-green">
+        <Icon size={16} strokeWidth={2} aria-hidden="true" />
+      </span>
+      <div className="min-w-0">
+        <h4 className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+          {title}
+        </h4>
+        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {detail}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+interface ConfirmActionProps {
+  tone: 'blue' | 'red'
+  icon: LucideIcon
+  title: string
+  detail: string
+  confirmLabel: string
+  cancelLabel: string
+  onConfirm: () => void | Promise<void>
+  onCancel: () => void
+}
+
+function ConfirmAction({
+  tone,
+  icon: Icon,
+  title,
+  detail,
+  confirmLabel,
+  cancelLabel,
+  onConfirm,
+  onCancel,
+}: ConfirmActionProps) {
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2a2a2c]">
+      <div className="flex items-start gap-3">
+        <span
+          className={cn(
+            'flex size-8 shrink-0 items-center justify-center rounded-full',
+            tone === 'red' ? 'bg-apple-red/10 text-apple-red' : 'bg-apple-blue/10 text-apple-blue'
+          )}
+        >
+          <Icon size={16} strokeWidth={2} aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <h4 className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+            {title}
+          </h4>
+          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            {detail}
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-full bg-apple-gray-5 px-3 py-1.5 text-ui-button font-medium text-foreground-light dark:bg-white/[0.06] dark:text-foreground-dark"
+        >
+          {cancelLabel}
+        </button>
+        <button
+          type="button"
+          onClick={() => void onConfirm()}
+          className={cn(
+            'rounded-full px-3 py-1.5 text-ui-button font-medium text-white',
+            tone === 'red'
+              ? 'bg-apple-red hover:bg-apple-red/90'
+              : 'bg-apple-blue hover:bg-apple-blue-focus'
+          )}
+        >
+          {confirmLabel}
+        </button>
       </div>
     </div>
   )
