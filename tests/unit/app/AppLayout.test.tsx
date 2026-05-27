@@ -248,6 +248,7 @@ describe('AppLayout', () => {
       target: { value: 'Project-scoped task' },
     })
     await waitFor(() => expect(createButton).toBeEnabled())
+    expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain('Work Lane Ready')
     fireEvent.click(createButton)
 
     await waitFor(() =>
@@ -276,12 +277,14 @@ describe('AppLayout', () => {
     fireEvent.change(screen.getByPlaceholderText(/what needs to be done/i), {
       target: { value: 'Initialize project board' },
     })
-    await waitFor(() => expect(createButton).toBeEnabled())
-    fireEvent.click(createButton)
-
     await waitFor(() =>
-      expect(screen.getByText(/select a task group before creating a task/i)).toBeDefined()
+      expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain(
+        'Create a Work Lane First'
+      )
     )
+    expect(screen.getByText(/agents listen to work lanes/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: /open task routing/i })).toBeDefined()
+    expect(createButton).toBeDisabled()
     expect(mockCreateGroup).not.toHaveBeenCalled()
     expect(mockCreateTask).not.toHaveBeenCalled()
     expect(useBoardStore.getState().selectedGroupId).toBeNull()

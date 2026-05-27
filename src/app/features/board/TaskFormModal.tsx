@@ -92,7 +92,10 @@ interface TaskFormModalProps {
   agents?: { id: string; name: string; status: string }[]
   projects?: TaskProjectOption[]
   selectedProjectId?: string | null
+  selectedTaskGroupId?: string | null
+  selectedTaskGroupName?: string | null
   onProjectChange?: (projectId: string) => void | Promise<void>
+  onOpenTaskRouting?: () => void
 }
 
 export function TaskFormModal({
@@ -102,7 +105,10 @@ export function TaskFormModal({
   agents = [],
   projects = [],
   selectedProjectId = null,
+  selectedTaskGroupId = null,
+  selectedTaskGroupName = null,
   onProjectChange,
+  onOpenTaskRouting,
 }: TaskFormModalProps) {
   const {
     register,
@@ -127,6 +133,8 @@ export function TaskFormModal({
   const dialogRef = useRef<HTMLDivElement>(null)
   const projectId = watch('projectId')
   const selectedProject = projects.find((project) => project.id === projectId)
+  const projectSelectionSettled = Boolean(projectId && selectedProjectId === projectId)
+  const workLaneReady = Boolean(projectSelectionSettled && selectedTaskGroupId)
   const assignableAgents = agents.filter((agent) => agentCanTakeTask(agent.status))
   const projectGroups = useMemo(() => groupProjectsByTeam(projects), [projects])
   const projectField = register('projectId', {
@@ -159,6 +167,10 @@ export function TaskFormModal({
     setSubmitError(null)
     if (!data.projectId) {
       setSubmitError('Choose a project before creating a task.')
+      return
+    }
+    if (!selectedTaskGroupId) {
+      setSubmitError('Create a work lane before creating a task.')
       return
     }
     try {
@@ -318,6 +330,55 @@ export function TaskFormModal({
           </div>
         )}
 
+        {selectedProject && (
+          <div
+            data-testid="task-work-lane-readiness"
+            className={cn(
+              'mb-4 rounded-lg border px-3 py-3 text-ui-caption',
+              workLaneReady
+                ? 'border-apple-blue/20 bg-apple-blue/10 text-foreground-light dark:text-foreground-dark'
+                : 'border-apple-orange/20 bg-apple-orange/10 text-apple-orange'
+            )}
+          >
+            <div className="flex gap-2">
+              {workLaneReady ? (
+                <FolderKanban
+                  size={15}
+                  strokeWidth={2}
+                  className="mt-0.5 shrink-0"
+                  aria-hidden="true"
+                />
+              ) : (
+                <AlertTriangle
+                  size={15}
+                  strokeWidth={2}
+                  className="mt-0.5 shrink-0"
+                  aria-hidden="true"
+                />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold">
+                  {workLaneReady ? 'Work Lane Ready' : 'Create a Work Lane First'}
+                </p>
+                <p className="mt-0.5 text-secondary-light dark:text-secondary-dark">
+                  {workLaneReady
+                    ? `${selectedTaskGroupName ?? 'Selected work lane'} will receive this task.`
+                    : 'Agents listen to work lanes. Open Task Routing, create a lane, then return to Tasks.'}
+                </p>
+              </div>
+            </div>
+            {!workLaneReady && onOpenTaskRouting && (
+              <button
+                type="button"
+                onClick={onOpenTaskRouting}
+                className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-apple-orange/30 bg-white px-3 text-ui-button font-medium text-apple-orange transition-colors hover:bg-apple-orange/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-orange/35 dark:bg-white/[0.06]"
+              >
+                Open Task Routing
+              </button>
+            )}
+          </div>
+        )}
+
         {submitError && (
           <div
             role="alert"
@@ -462,7 +523,13 @@ export function TaskFormModal({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || selectingProject || projects.length === 0 || !projectId}
+              disabled={
+                isSubmitting ||
+                selectingProject ||
+                projects.length === 0 ||
+                !projectId ||
+                !selectedTaskGroupId
+              }
               aria-busy={isSubmitting || selectingProject}
               className="rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
             >
