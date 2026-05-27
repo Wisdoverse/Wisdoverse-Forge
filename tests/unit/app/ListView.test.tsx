@@ -43,7 +43,9 @@ describe('ListView', () => {
 
   test('shows empty state when no tasks', () => {
     render(<ListView />)
-    expect(screen.getByText(/no tasks/i)).toBeDefined()
+    expect(screen.getByTestId('list-empty-state')).toBeDefined()
+    expect(screen.getByText(/create one small task/i)).toBeDefined()
+    expect(screen.getByText(/proof you expect the agent to return/i)).toBeDefined()
   })
 
   test('summarizes task work register across lifecycle states', () => {
@@ -91,10 +93,15 @@ describe('ListView', () => {
     render(<ListView />)
 
     expect(screen.getByTestId('list-work-register')).toBeDefined()
+    expect(screen.getByTestId('list-next-step')).toHaveTextContent(
+      /Start with 1 task needing action/
+    )
+    expect(screen.getByText(/Open the blocked or failed work first/i)).toBeDefined()
     expect(within(screen.getByTestId('list-metric-active')).getByText('1')).toBeDefined()
     expect(within(screen.getByTestId('list-metric-backlog')).getByText('1')).toBeDefined()
     expect(within(screen.getByTestId('list-metric-attention')).getByText('1')).toBeDefined()
     expect(within(screen.getByTestId('list-metric-completed')).getByText('1')).toBeDefined()
+    expect(screen.getByText(/Resolve blocker: Waiting on approval/i)).toBeDefined()
   })
 
   test('filters task list by attention state and search', () => {
@@ -138,7 +145,9 @@ describe('ListView', () => {
     })
     expect(screen.getByTestId('list-filter-empty')).toBeDefined()
 
-    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }))
+    expect(screen.getByText(/Show all tasks first/i)).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: /show all tasks/i }))
     expect(screen.getByText('Build settings')).toBeDefined()
   })
 })
