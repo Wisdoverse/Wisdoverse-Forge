@@ -50,15 +50,24 @@ export function SkillsView() {
     [catalogSkills.length, stats]
   )
   const hasCatalogSkills = catalogSkills.length > 0
+  const toolbarStatus = skillToolbarStatus({
+    visibleCount: visibleSkills.length,
+    totalCount: catalogSkills.length,
+    searchQuery,
+    filter: skillFilter,
+    loading,
+    error,
+  })
 
   return (
     <div className="flex h-full flex-col">
       {/* Toolbar */}
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-black/[0.06] px-4 py-3 dark:border-white/[0.06] sm:px-6">
-        <p className="min-w-0 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {visibleSkills.length === 0
-            ? ''
-            : `${visibleSkills.length} skill${visibleSkills.length === 1 ? '' : 's'}`}
+        <p
+          aria-live="polite"
+          className="min-w-0 truncate text-ui-caption text-secondary-light dark:text-secondary-dark"
+        >
+          {toolbarStatus}
         </p>
         <div className="flex min-w-0 items-center gap-2">
           <label htmlFor="skill-search" className="sr-only">
@@ -224,6 +233,30 @@ function summarizeSkills(skills: Skill[]) {
     },
     { total: 0, installed: 0, available: 0, cliScoped: 0 }
   )
+}
+
+function skillToolbarStatus({
+  visibleCount,
+  totalCount,
+  searchQuery,
+  filter,
+  loading,
+  error,
+}: {
+  visibleCount: number
+  totalCount: number
+  searchQuery: string
+  filter: SkillFilter
+  loading: boolean
+  error: string | null
+}) {
+  if (loading) return 'Checking skills'
+  if (error) return 'Skills need attention'
+  if (visibleCount > 0) return `${visibleCount} skill${visibleCount === 1 ? '' : 's'}`
+  if (totalCount === 0) return 'No skills yet'
+  if (searchQuery.trim()) return 'No skills match search'
+  if (filter !== 'all') return 'No skills match filter'
+  return 'No skills to show'
 }
 
 function SkillStat({
