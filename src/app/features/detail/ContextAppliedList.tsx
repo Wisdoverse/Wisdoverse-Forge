@@ -34,9 +34,14 @@ export function ContextAppliedList({
 
   return (
     <section className="space-y-2" data-testid={`context-applied-${kind}`}>
-      <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
-        {title}
-      </h3>
+      <div>
+        <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
+          {title}
+        </h3>
+        <p className="mt-0.5 text-[11px] text-secondary-light dark:text-secondary-dark">
+          These items were added to the agent's working context for this run.
+        </p>
+      </div>
       <div className="space-y-2">
         {items.map((item) => (
           <AppliedContextCard
@@ -67,6 +72,7 @@ function AppliedContextCard({
   const [contentError, setContentError] = useState<string | null>(null)
   const Icon = item.itemKind === 'skill' ? Workflow : Brain
   const content = expandedContent ?? item.contentPreview
+  const showMoreLabel = loadingContent ? 'Loading full memory…' : 'Show full memory'
 
   async function showMore() {
     if (!item.contentTruncated || item.itemKind !== 'memory') {
@@ -78,8 +84,8 @@ function AppliedContextCard({
     try {
       const result = await onReadMemoryContent(item.itemId)
       setExpandedContent(result.content)
-    } catch (err) {
-      setContentError(err instanceof Error ? err.message : 'Could not load full content')
+    } catch {
+      setContentError('Full context could not load. Try again or check the source memory.')
     } finally {
       setLoadingContent(false)
     }
@@ -95,7 +101,7 @@ function AppliedContextCard({
     >
       <div className="flex items-start gap-2">
         <div className="mt-0.5 w-6 h-6 rounded-md bg-white dark:bg-white/[0.06] flex items-center justify-center text-apple-blue shrink-0">
-          <Icon size={14} strokeWidth={2} />
+          <Icon size={14} strokeWidth={2} aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -114,12 +120,20 @@ function AppliedContextCard({
               type="button"
               onClick={showMore}
               disabled={loadingContent}
-              className="mt-1 text-[10px] font-medium text-apple-blue hover:underline disabled:opacity-60"
+              aria-label={`${showMoreLabel} for ${item.title}`}
+              title={
+                loadingContent ? 'Loading the full memory text.' : 'Open the full memory text.'
+              }
+              className="mt-1 text-[10px] font-medium text-apple-blue hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-wait disabled:opacity-60"
             >
-              {loadingContent ? 'Loading' : 'Show more'}
+              {showMoreLabel}
             </button>
           )}
-          {contentError && <p className="mt-1 text-[10px] text-apple-red">{contentError}</p>}
+          {contentError && (
+            <p role="alert" className="mt-1 text-[10px] text-apple-red">
+              {contentError}
+            </p>
+          )}
         </div>
       </div>
 
@@ -133,7 +147,9 @@ function AppliedContextCard({
       </div>
 
       {item.degradationReason && (
-        <p className="text-[10px] text-apple-orange">Degraded: {item.degradationReason}</p>
+        <p className="text-[10px] text-apple-orange">
+          Limited context: {item.degradationReason}. Review before relying on it.
+        </p>
       )}
 
       <FeedbackControls item={item} onRecord={onRecordFeedback} />

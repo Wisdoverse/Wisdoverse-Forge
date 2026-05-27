@@ -77,7 +77,11 @@ describe('ContextTab', () => {
   })
 
   test('renders applied context, candidates, evidence, and provenance', async () => {
-    const memory = applied({ itemId: 'memory-1', title: 'Prod deploy memory' })
+    const memory = applied({
+      itemId: 'memory-1',
+      title: 'Prod deploy memory',
+      degradationReason: 'source snapshot was shortened',
+    })
     const skill = applied({
       itemId: 'skill-1',
       itemKind: 'skill',
@@ -165,7 +169,9 @@ describe('ContextTab', () => {
 
     expect(await screen.findByTestId('context-tab')).toBeDefined()
     expect(screen.getByText('Applied memories')).toBeDefined()
+    expect(screen.getAllByText(/added to the agent's working context/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Prod deploy memory').length).toBeGreaterThan(0)
+    expect(screen.getByText(/limited context: source snapshot was shortened/i)).toBeDefined()
     expect(screen.getByText('Applied skills')).toBeDefined()
     expect(screen.getByText('Release checklist')).toBeDefined()
     expect(screen.getByText('Suggested memory updates')).toBeDefined()
@@ -206,10 +212,40 @@ describe('ContextTab', () => {
     expect(await screen.findByText('Short preview...')).toBeDefined()
     expect(readMemoryContent).not.toHaveBeenCalled()
 
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Show more' }))
+    await userEvent.setup().click(screen.getByRole('button', { name: /show full memory/i }))
 
     expect(readMemoryContent).toHaveBeenCalledWith('memory-1')
     expect(await screen.findByText('Full memory content loaded on demand.')).toBeDefined()
+  })
+
+  test('shows a beginner-safe message when full memory content fails to load', async () => {
+    const readMemoryContent = vi.fn(async () => {
+      throw new Error('raw backend failure')
+    })
+
+    render(
+      <ContextTab
+        taskId="task-1"
+        loadContext={async () =>
+          context({
+            appliedItems: [
+              applied({
+                itemId: 'memory-1',
+                contentPreview: 'Short preview...',
+                contentTruncated: true,
+              }),
+            ],
+          })
+        }
+        readMemoryContent={readMemoryContent}
+      />
+    )
+
+    await screen.findByText('Short preview...')
+    await userEvent.setup().click(screen.getByRole('button', { name: /show full memory/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/full context could not load/i)
+    expect(screen.queryByText('raw backend failure')).toBeNull()
   })
 
   test('submits feedback without a page reload', async () => {
