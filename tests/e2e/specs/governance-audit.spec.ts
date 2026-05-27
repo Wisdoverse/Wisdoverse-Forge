@@ -113,13 +113,13 @@ test.describe('Governance audit log', () => {
       hiddenSkillHash.slice(0, 10)
     )
     await expect(page.getByTestId('governance-audit-redacted')).toBeVisible()
-    await expect(page.getByText('Hidden raw IDs')).toBeVisible()
+    await expect(page.getByText('Protected subjects')).toBeVisible()
 
     await page
       .getByTestId('governance-audit-filter-event-type')
       .fill('governance.context.skill.reviewed')
     await page.getByTestId('governance-audit-filter-item-kind').selectOption('skill')
-    await page.getByRole('button', { name: 'Filter' }).click()
+    await page.getByRole('button', { name: 'Apply filters' }).click()
 
     await expect(page.getByTestId('governance-audit-row')).toHaveCount(1)
     await expect(page.getByTestId('governance-audit-view')).toContainText(
@@ -129,7 +129,7 @@ test.describe('Governance audit log', () => {
     const download = page.waitForEvent('download')
     await page.getByTestId('governance-audit-export').click()
     await download
-    await expect(page.getByText('1 rows exported')).toBeVisible()
+    await expect(page.getByText('1 audit event exported')).toBeVisible()
   })
 })
 
