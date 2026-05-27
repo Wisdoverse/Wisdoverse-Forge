@@ -1,6 +1,7 @@
 import { describe, test, expect, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { RouterProvider, createMemoryHistory } from '@tanstack/react-router'
+import { TaskViewLoadingFallback } from '@app/routes/tasks'
 import { createTestRouter } from './test-helpers'
 
 afterEach(cleanup)
@@ -16,6 +17,15 @@ describe('Routing', () => {
     const router = createTestRouter(createMemoryHistory({ initialEntries: ['/tasks'] }))
     render(<RouterProvider router={router} />)
     expect(await screen.findByTestId('page-tasks')).toBeDefined()
+  })
+
+  test('explains lazy task view loading for first-time users', () => {
+    render(<TaskViewLoadingFallback viewName="3D workshop" />)
+
+    expect(screen.getByTestId('task-view-loading')).toBeDefined()
+    expect(screen.getByText('Opening 3D workshop')).toBeDefined()
+    expect(screen.getByText(/can take a few seconds the first time/i)).toBeDefined()
+    expect(screen.getByText(/task board is still available/i)).toBeDefined()
   })
 
   test('renders inbox page at /inbox', async () => {
