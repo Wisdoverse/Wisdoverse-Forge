@@ -17,6 +17,13 @@ const ROLE_OPTIONS: Array<{ value: ResourceMemberRole; label: string }> = [
   { value: 'member', label: 'Member' },
 ]
 
+const ROLE_DESCRIPTIONS: Record<ResourceMemberRole, string> = {
+  owner: 'Full control, including member and settings changes.',
+  admin: 'Can manage this resource and help other members.',
+  maintainer: 'Can keep day-to-day work moving without full ownership.',
+  member: 'Can view and work in this resource.',
+}
+
 const ROLE_TONE: Record<ResourceMemberRole, string> = {
   owner: 'border-apple-blue/30 bg-apple-blue/10 text-apple-blue',
   admin: 'border-apple-blue/20 bg-apple-blue/10 text-apple-blue',
@@ -54,6 +61,7 @@ export function ResourceMembersModal({
   const [loading, setLoading] = useState(true)
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [confirmRemoveUserId, setConfirmRemoveUserId] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -120,6 +128,7 @@ export function ResourceMembersModal({
       setMembers((prev) => [...prev.filter((item) => item.userId !== member.userId), member])
       setSelectedUserId('')
       setSelectedRole('member')
+      setConfirmRemoveUserId(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add member')
     } finally {
@@ -149,12 +158,28 @@ export function ResourceMembersModal({
     try {
       await removeMember(member.userId)
       setMembers((prev) => prev.filter((item) => item.userId !== member.userId))
+      setConfirmRemoveUserId(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to remove member')
     } finally {
       setBusyKey(null)
     }
   }
+
+  const selectedCandidate = candidateUsers.find((user) => user.id === selectedUserId) ?? null
+  const addStatusId = 'resource-members-add-status'
+  const roleHelpId = 'resource-members-role-help'
+  const addStatus = loading
+    ? 'Loading members before changes are available.'
+    : busyKey === 'add'
+      ? 'Adding member…'
+      : candidateUsers.length === 0
+        ? 'Everyone in the organization already has access.'
+        : filteredCandidateUsers.length === 0
+          ? 'No people match this search. Clear the search to see available members.'
+          : selectedCandidate
+            ? `Ready to add ${selectedCandidate.username || selectedCandidate.email} as ${roleLabel(selectedRole)}.`
+            : 'Choose a person before adding them.'
 
   return (
     <div
@@ -219,6 +244,15 @@ export function ResourceMembersModal({
           )}
 
           <div className="rounded-card border border-black/[0.08] bg-black/[0.015] p-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
+            <div className="mb-3">
+              <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+                Add Existing Organization Members
+              </p>
+              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                Search for a person, choose their role, then add them to this{' '}
+                {resourceLabel.toLowerCase()}. Roles can be changed later.
+              </p>
+            </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_auto_auto]">
               <div className="relative">
                 <Search
@@ -234,8 +268,9 @@ export function ResourceMembersModal({
                   onChange={(event) => setMemberFilter(event.target.value)}
                   disabled={loading || candidateUsers.length === 0}
                   aria-label="Filter organization members"
+                  aria-describedby={addStatusId}
                   autoComplete="off"
-                  placeholder="Filter org members…"
+                  placeholder="Search people by name or email…"
                   className={cn(uiStyles.input, 'min-w-0 pl-8')}
                 />
               </div>
@@ -245,6 +280,7 @@ export function ResourceMembersModal({
                 onChange={(event) => setSelectedUserId(event.target.value)}
                 disabled={loading || busyKey === 'add' || filteredCandidateUsers.length === 0}
                 aria-label="Select member to add"
+                aria-describedby={addStatusId}
                 className={cn(uiStyles.select, 'min-w-0')}
               >
                 <option value="">
@@ -252,7 +288,7 @@ export function ResourceMembersModal({
                     ? 'No available org members'
                     : filteredCandidateUsers.length === 0
                       ? 'No matching org members'
-                      : 'Select org member'}
+                      : 'Choose a person'}
                 </option>
                 {filteredCandidateUsers.map((user) => (
                   <option key={user.id} value={user.id}>
@@ -266,6 +302,7 @@ export function ResourceMembersModal({
                 onChange={(event) => setSelectedRole(event.target.value as ResourceMemberRole)}
                 disabled={loading || busyKey === 'add'}
                 aria-label="New member role"
+                aria-describedby={roleHelpId}
                 className={uiStyles.select}
               >
                 {ROLE_OPTIONS.map((role) => (
@@ -279,11 +316,28 @@ export function ResourceMembersModal({
                 onClick={() => void handleAddMember()}
                 disabled={!selectedUserId || loading || busyKey === 'add'}
                 aria-busy={busyKey === 'add'}
+                aria-describedby={addStatusId}
                 className={uiStyles.primaryButton}
               >
                 <UserPlus size={14} strokeWidth={2} aria-hidden="true" />
                 <span>{busyKey === 'add' ? 'Adding…' : 'Add'}</span>
               </button>
+            </div>
+            <div className="mt-2 space-y-1">
+              <p
+                id={addStatusId}
+                role="status"
+                aria-live="polite"
+                className="text-ui-caption text-secondary-light dark:text-secondary-dark"
+              >
+                {addStatus}
+              </p>
+              <p
+                id={roleHelpId}
+                className="text-ui-caption text-secondary-light dark:text-secondary-dark"
+              >
+                {roleLabel(selectedRole)}: {ROLE_DESCRIPTIONS[selectedRole]}
+              </p>
             </div>
           </div>
 
@@ -372,16 +426,41 @@ export function ResourceMembersModal({
                           </option>
                         ))}
                       </select>
-                      <button
-                        type="button"
-                        onClick={() => void handleRemoveMember(member)}
-                        disabled={busyKey !== null}
-                        aria-label={`Remove ${member.username || member.email}`}
-                        title="Remove"
-                        className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-lg text-secondary-light transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                      >
-                        <Trash2 size={14} strokeWidth={2} aria-hidden="true" />
-                      </button>
+                      {confirmRemoveUserId === member.userId ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="hidden text-ui-caption text-apple-red sm:inline">
+                            Remove?
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => void handleRemoveMember(member)}
+                            disabled={busyKey !== null}
+                            aria-label={`Confirm remove ${member.username || member.email}`}
+                            className="inline-flex h-8 items-center justify-center rounded-lg bg-apple-red px-2 text-ui-caption font-medium text-white transition-colors hover:bg-apple-red/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {busyKey === `remove:${member.userId}` ? 'Removing…' : 'Remove'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmRemoveUserId(null)}
+                            disabled={busyKey !== null}
+                            className="inline-flex h-8 items-center justify-center rounded-lg px-2 text-ui-caption font-medium text-secondary-light transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/40 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/5"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmRemoveUserId(member.userId)}
+                          disabled={busyKey !== null}
+                          aria-label={`Remove ${member.username || member.email}`}
+                          title="Remove"
+                          className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-lg text-secondary-light transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                        >
+                          <Trash2 size={14} strokeWidth={2} aria-hidden="true" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))
