@@ -24,12 +24,31 @@ function BillingNotConfigured() {
         <CreditCard size={20} strokeWidth={2} aria-hidden="true" />
       </div>
       <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-        Billing is not turned on
+        Billing is not ready yet
       </h2>
       <p className="max-w-sm text-ui-body text-secondary-light dark:text-secondary-dark">
-        Ask an administrator to enable billing before you change plans, review usage limits, or view
-        invoices.
+        Plans, payments, and invoices will appear here after a workspace owner connects the billing
+        provider for this deployment.
       </p>
+      <div className="mt-2 grid w-full max-w-lg gap-2 text-left sm:grid-cols-3">
+        <BillingSetupHint
+          label="What this means"
+          value="You do not need to change anything here."
+        />
+        <BillingSetupHint label="Who can fix it" value="Ask a workspace owner or administrator." />
+        <BillingSetupHint label="Next step" value="Return here after billing is connected." />
+      </div>
+    </div>
+  )
+}
+
+function BillingSetupHint({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-card border border-black/[0.08] bg-white/70 px-3 py-2 dark:border-white/[0.1] dark:bg-white/[0.04]">
+      <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+        {label}
+      </p>
+      <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">{value}</p>
     </div>
   )
 }
@@ -123,7 +142,7 @@ export function BillingPage() {
       </header>
 
       <section>
-        <h2 className={uiStyles.groupLabel}>Current Plan</h2>
+        <h3 className={uiStyles.groupLabel}>Plan and payment</h3>
         <PlanCard
           plan={plan}
           subscription={subscription}
@@ -137,7 +156,7 @@ export function BillingPage() {
 
       {(usageLoading || usage.length > 0) && (
         <section>
-          <h2 className={uiStyles.groupLabel}>Usage</h2>
+          <h3 className={uiStyles.groupLabel}>Usage this period</h3>
           <UsageMeter metrics={usage} loading={usageLoading} />
         </section>
       )}

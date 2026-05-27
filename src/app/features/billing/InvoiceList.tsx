@@ -36,26 +36,22 @@ function statusConfig(status: InvoiceStatus): {
       }
     case 'open':
       return {
-        label: 'Payment open',
-        description: 'Payment may still be due.',
+        label: 'Payment due',
         color: 'bg-apple-blue/10 text-apple-blue',
       }
     case 'void':
       return {
         label: 'Canceled',
-        description: 'This invoice will not be collected.',
         color: 'text-secondary-light bg-black/5 dark:bg-white/5 dark:text-secondary-dark',
       }
     case 'draft':
       return {
-        label: 'Draft',
-        description: 'This invoice is still being prepared.',
+        label: 'Preparing',
         color: 'text-secondary-light bg-black/5 dark:bg-white/5 dark:text-secondary-dark',
       }
     case 'uncollectible':
       return {
-        label: 'Needs review',
-        description: 'Ask an administrator to review payment status.',
+        label: 'Payment failed',
         color: 'bg-apple-red/10 text-apple-red',
       }
   }
@@ -74,14 +70,9 @@ interface InvoiceListProps {
 export function InvoiceList({ invoices, loading, error }: InvoiceListProps) {
   return (
     <div>
-      <div className="mb-4">
-        <h2 className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark">
-          Invoice History
-        </h2>
-        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Invoices appear after billing is enabled and charges are created.
-        </p>
-      </div>
+      <h2 className="mb-4 text-ui-title font-semibold text-foreground-light dark:text-foreground-dark">
+        Invoices and receipts
+      </h2>
 
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {loading && (
@@ -108,10 +99,10 @@ export function InvoiceList({ invoices, loading, error }: InvoiceListProps) {
         {!loading && !error && invoices.length === 0 && (
           <div className="px-6 py-8 text-center">
             <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              No invoices yet.
+              No invoices have been created yet
             </p>
-            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Nothing needs to be downloaded until the first charge is created.
+            <p className="mx-auto mt-1 max-w-sm text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Receipts and payment links will appear here after the first billing cycle.
             </p>
           </div>
         )}
@@ -124,7 +115,7 @@ export function InvoiceList({ invoices, loading, error }: InvoiceListProps) {
                 <th className={uiStyles.tableHeaderCell}>Invoice</th>
                 <th className={uiStyles.tableHeaderCell}>Status</th>
                 <th className={cn(uiStyles.tableHeaderCell, 'text-right')}>Amount</th>
-                <th className={cn(uiStyles.tableHeaderCell, 'text-right')}>Record</th>
+                <th className={cn(uiStyles.tableHeaderCell, 'text-right')}>Receipt</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[rgb(var(--border))]">
@@ -182,7 +173,7 @@ export function InvoiceList({ invoices, loading, error }: InvoiceListProps) {
                           rel="noopener noreferrer"
                           className="text-ui-caption text-apple-blue hover:underline"
                         >
-                          Download PDF
+                          Download
                         </a>
                       ) : inv.hostedInvoiceUrl ? (
                         <a
@@ -191,7 +182,7 @@ export function InvoiceList({ invoices, loading, error }: InvoiceListProps) {
                           rel="noopener noreferrer"
                           className="text-ui-caption text-apple-blue hover:underline"
                         >
-                          View Invoice
+                          Open
                         </a>
                       ) : (
                         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
