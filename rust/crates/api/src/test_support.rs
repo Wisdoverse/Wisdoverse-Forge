@@ -92,6 +92,7 @@ fn test_app_config(database_url: &str) -> AppConfig {
         smtp_password: None,
         smtp_from: None,
         smtp_secure: false,
+        allow_plaintext_host_nats: false,
     }
 }
 

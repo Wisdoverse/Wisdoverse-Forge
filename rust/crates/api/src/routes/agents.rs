@@ -11,6 +11,7 @@
 //! - `POST   /api/v1/agents/:id/prompt/interrupt` — cancel in-flight SSE stream
 
 use axum::extract::{Path, Query, State};
+use axum::response::IntoResponse;
 use axum::routing::{get, patch, post};
 use axum::{Json, Router};
 use futures::StreamExt;
@@ -21,6 +22,7 @@ use agentforge_auth::AuthUser;
 use agentforge_core::{AgentId, AgentStatus, AppResult};
 
 use crate::health::AppState;
+use crate::middleware::IdempotencyKey;
 use crate::services::agent::{
     AgentService, CreateAgentParams, agent_data_response, agent_delete_response, agent_enrollment_response,
     agent_git_status_response, agent_list_response, agent_messages_deleted_response, agent_messages_response,
@@ -197,15 +199,23 @@ async fn create_agent(
 
 /// `POST /api/v1/agents/local-enroll` — create a managed Host CLI agent and
 /// return the one-time sidecar environment needed on the local machine.
+///
+/// Requires an `Idempotency-Key` header (1–256 characters). The same key
+/// within its 24-hour window returns the original response without creating a
+/// second agent. The response carries `Cache-Control: no-store` and
+/// `Pragma: no-cache` to prevent credentials from being cached in proxies or
+/// browser history.
 async fn enroll_local_agent(
     State(state): State<AppState>,
     auth: AuthUser,
+    IdempotencyKey(key): IdempotencyKey,
     Json(req): Json<EnrollLocalAgentRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<axum::response::Response> {
     let service = make_host_enrollment_service(&state);
     let (agent, enrollment) = service
         .enroll(
             &auth.scope,
+            &key,
             HostAgentEnrollmentInput {
                 name: req.name.as_deref(),
                 model: req.model.as_deref(),
@@ -216,7 +226,16 @@ async fn enroll_local_agent(
             },
         )
         .await?;
-    Ok(Json(agent_enrollment_response(agent, enrollment)))
+    let mut response = Json(agent_enrollment_response(agent, enrollment)).into_response();
+    response.headers_mut().insert(
+        axum::http::header::CACHE_CONTROL,
+        axum::http::HeaderValue::from_static("no-store"),
+    );
+    response.headers_mut().insert(
+        axum::http::header::PRAGMA,
+        axum::http::HeaderValue::from_static("no-cache"),
+    );
+    Ok(response)
 }
 
 /// `PATCH /api/v1/agents/:id/status` — update agent status with state machine validation.

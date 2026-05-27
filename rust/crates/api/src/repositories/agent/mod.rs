@@ -11,13 +11,13 @@ pub(crate) use mcp::{McpAgentInsertRecord, McpAgentRepository};
 pub use message::MessageRepository;
 pub use workspace::AgentWorkspaceRepository;
 
-use agentforge_core::{AgentId, AgentStatus, AppResult, RuntimeKind, TenantScope};
+use agentforge_core::{AgentId, AgentStatus, AppError, AppResult, ErrorKind, RuntimeKind, TenantScope};
 use agentforge_db::entities::{Agent, AgentCollaborator};
+use anyhow::anyhow;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::json;
-use sqlx::FromRow;
-use sqlx::PgPool;
+use sqlx::{FromRow, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::domain::agent::{AgentAggregate, AgentRepositoryPolicy, NewAgent};
@@ -280,14 +280,30 @@ impl AgentRepository {
     /// single database transaction so that either both succeed or neither does.
     /// Container and API agents produce no audit event from this path.
     ///
-    /// This is the new canonical creation path. `create(CreateAgentParams)` is
-    /// kept for backward compatibility until Task 6.1 migrates both call sites.
+    /// This is a thin wrapper around [`create_aggregate_in_tx`] that manages its
+    /// own transaction. When the caller needs to compose this INSERT with other
+    /// writes in the same transaction (e.g. enrollment idempotency record), use
+    /// `create_aggregate_in_tx` directly and commit the outer transaction.
     pub async fn create_aggregate(&self, scope: &TenantScope, new: NewAgent) -> AppResult<Uuid> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.pool.begin().await.map_err(AppError::from)?;
+        let id = self.create_aggregate_in_tx(&mut tx, scope, new).await?;
+        tx.commit().await.map_err(AppError::from)?;
+        Ok(id)
+    }
 
-        // For host-cli agents the PK is derived from the UUIDv7 embedded in
-        // runtime_id ("host-<uuid>").  For all other runtime kinds a fresh
-        // UUIDv7 is generated so the caller has a stable ID immediately.
+    /// Variant of [`create_aggregate`] that participates in the caller's
+    /// transaction. The caller is responsible for committing or rolling back
+    /// the transaction.
+    ///
+    /// For host-cli agents the PK is derived from the UUIDv7 embedded in
+    /// `runtime_id` ("host-<uuid>"). For all other runtime kinds a fresh
+    /// UUIDv7 is generated so the caller has a stable ID immediately.
+    pub async fn create_aggregate_in_tx(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        scope: &TenantScope,
+        new: NewAgent,
+    ) -> AppResult<Uuid> {
         let id = new
             .runtime_id()
             .and_then(|rid| rid.strip_prefix("host-"))
@@ -325,8 +341,9 @@ impl AgentRepository {
         .bind(new.runtime_id())
         .bind(new.hmac_secret())
         .bind(new.nats_connect_password())
-        .execute(&mut *tx)
-        .await?;
+        .execute(&mut **tx)
+        .await
+        .map_err(AppError::from)?;
 
         if new.runtime_kind() == RuntimeKind::Cli {
             let payload = json!({
@@ -342,12 +359,43 @@ impl AgentRepository {
             .bind(scope.org_id().as_uuid())
             .bind(id)
             .bind(payload)
-            .execute(&mut *tx)
-            .await?;
+            .execute(&mut **tx)
+            .await
+            .map_err(AppError::from)?;
         }
 
-        tx.commit().await?;
         Ok(id)
+    }
+
+    /// Fetch the `hmac_secret` and `nats_connect_password` stored on a Host CLI
+    /// agent row. These columns are excluded from [`AgentListItem`] via
+    /// `#[serde(skip_serializing)]` so they are never returned in list/get
+    /// responses; use this method when the enrollment service needs to rebuild
+    /// the env block for an idempotent replay.
+    ///
+    /// Returns `(hmac_secret, nats_connect_password)`.
+    pub async fn fetch_host_cli_credentials(
+        &self,
+        scope: &TenantScope,
+        id: Uuid,
+    ) -> AppResult<(String, String)> {
+        let row: Option<(Option<String>, Option<String>)> = sqlx::query_as(
+            "SELECT hmac_secret, nats_connect_password FROM agents
+             WHERE id = $1 AND organization_id = $2",
+        )
+        .bind(id)
+        .bind(scope.org_id().as_uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(AppError::from)?;
+
+        match row {
+            Some((Some(h), Some(p))) => Ok((h, p)),
+            Some(_) => Err(AppError::from(ErrorKind::Internal(anyhow!(
+                "Host CLI agent is missing stored credentials (hmac_secret or nats_connect_password)"
+            )))),
+            None => Err(AgentRepositoryPolicy::agent_uuid_not_found(id)),
+        }
     }
 
     /// Load the write-side aggregate root for a single agent (tenant-scoped).
@@ -455,40 +503,6 @@ impl AgentRepository {
         .bind(id.as_uuid())
         .bind(scope.org_id().as_uuid())
         .bind(container_id)
-        .bind(hmac_secret)
-        .bind(nats_connect_password)
-        .fetch_optional(&self.pool)
-        .await?
-        .ok_or_else(|| AgentRepositoryPolicy::agent_not_found(id))
-    }
-
-    /// Enroll an externally started Host CLI runtime. It receives the same
-    /// per-agent NATS and HMAC credentials as a spawned container, but keeps
-    /// `container_id` empty so Docker lifecycle actions do not target it.
-    pub async fn set_host_runtime(
-        &self,
-        scope: &TenantScope,
-        id: AgentId,
-        runtime_id: &str,
-        hmac_secret: &str,
-        nats_connect_password: &str,
-    ) -> AppResult<Agent> {
-        sqlx::query_as::<_, Agent>(
-            r#"UPDATE agents
-                  SET container_id          = NULL,
-                      runtime_id            = $3,
-                      hmac_secret           = $4,
-                      nats_connect_password = $5,
-                      status                = 'offline',
-                      started_at            = COALESCE(started_at, NOW()),
-                      ended_at              = NULL,
-                      updated_at            = NOW()
-                WHERE id = $1 AND organization_id = $2
-                RETURNING *"#,
-        )
-        .bind(id.as_uuid())
-        .bind(scope.org_id().as_uuid())
-        .bind(runtime_id)
         .bind(hmac_secret)
         .bind(nats_connect_password)
         .fetch_optional(&self.pool)

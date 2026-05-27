@@ -390,6 +390,15 @@ pub struct AppConfig {
     pub smtp_from: Option<String>,
     #[serde(default = "default_false")]
     pub smtp_secure: bool,
+
+    /// Permit Host CLI enrollment over a plaintext `nats://` URL.
+    ///
+    /// By default (`false`) the enrollment service rejects any NATS URL that
+    /// does not start with `tls://`. Set `ALLOW_PLAINTEXT_HOST_NATS=true` only
+    /// in isolated development environments where a TLS NATS server is not
+    /// available. Production MUST keep this unset or `false`.
+    #[serde(default = "default_false")]
+    pub allow_plaintext_host_nats: bool,
 }
 
 impl AppConfig {
@@ -663,6 +672,7 @@ mod tests {
             smtp_password: None,
             smtp_from: None,
             smtp_secure: false,
+            allow_plaintext_host_nats: false,
         };
         assert!(cfg.is_production());
     }
@@ -981,6 +991,7 @@ mod tests {
             smtp_password: Some(SecretString::from("smtp-supersecret".to_string())),
             smtp_from: Some("Wisdoverse Forge <noreply@example.com>".to_string()),
             smtp_secure: true,
+            allow_plaintext_host_nats: false,
         };
         let dbg = format!("{cfg:?}");
         for needle in [
