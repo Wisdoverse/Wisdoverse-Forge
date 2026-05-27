@@ -16,6 +16,22 @@ function formatMemory(memoryMb: number): string {
   return `${memoryMb} MB`
 }
 
+function formatCpu(cpu: number): string {
+  return `${cpu} ${cpu === 1 ? 'core' : 'cores'}`
+}
+
+function describeProfile(profile: ResourceProfileOption): string {
+  if (profile.cpu <= 1 && profile.memoryMb <= 2048) {
+    return 'Best for short chats, planning, and small file edits.'
+  }
+
+  if (profile.cpu <= 2 && profile.memoryMb <= 4096) {
+    return 'Good default for everyday coding and review tasks.'
+  }
+
+  return 'Use for larger builds, long searches, or heavy project work.'
+}
+
 // ============================================================================
 // Profile Row
 // ============================================================================
@@ -34,12 +50,12 @@ function ProfileRow({ profile }: ProfileRowProps) {
       </td>
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {profile.cpu} {profile.cpu === 1 ? 'core' : 'cores'}
+          {describeProfile(profile)}
         </span>
       </td>
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {formatMemory(profile.memoryMb)}
+          {formatCpu(profile.cpu)} power · {formatMemory(profile.memoryMb)} memory
         </span>
       </td>
     </tr>
@@ -59,9 +75,9 @@ export function ResourcesSection() {
   }, [loadResourceProfiles])
 
   const tableHeaders: { label: string }[] = [
-    { label: 'Profile' },
-    { label: 'CPU' },
-    { label: 'Memory' },
+    { label: 'Agent size' },
+    { label: 'Best for' },
+    { label: 'Computer limit' },
   ]
 
   return (
@@ -69,21 +85,23 @@ export function ResourcesSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Resource Profiles</h2>
+          <h2 className={uiStyles.sectionTitle}>Agent Sizes</h2>
           <p className={uiStyles.sectionDescription}>
-            Available CPU and memory configurations for agent containers
+            Choose how much computer power an agent gets when it starts work.
           </p>
         </div>
       </div>
 
       {/* Error */}
-      {resourceProfilesError && <div className={uiStyles.error}>{resourceProfilesError}</div>}
+      {resourceProfilesError && (
+        <div className={uiStyles.error}>Could not load agent sizes. Try refreshing this page.</div>
+      )}
 
       {/* Info note */}
       <div className={cn(uiStyles.note, 'mb-4')}>
         <p>
-          Resource profiles are defined by the platform administrator. Select a profile when
-          creating an agent to control container resource limits.
+          Pick the smallest size that fits the job. Small sizes are cheaper and faster to start;
+          larger sizes help when an agent needs to build, search, or inspect a bigger project.
         </p>
       </div>
 
@@ -91,15 +109,16 @@ export function ResourcesSection() {
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {resourceProfilesLoading && resourceProfiles.length === 0 ? (
           <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading profiles...
+            Loading agent sizes...
           </div>
         ) : resourceProfiles.length === 0 ? (
           <div className="px-4 py-6 text-center">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No resource profiles available
+              No agent sizes available
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Contact your administrator to configure resource profiles
+              Ask an admin to add at least one default size before creating agents that work with
+              files.
             </p>
           </div>
         ) : (
