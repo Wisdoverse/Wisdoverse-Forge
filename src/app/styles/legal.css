@@ -80,6 +80,18 @@
   color: var(--color-text-primary);
 }
 
+.legal-heading {
+  min-width: 0;
+}
+
+.legal-summary {
+  margin-top: 4px;
+  margin-bottom: 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 18px;
+}
+
 .legal-title-icon {
   display: flex;
   align-items: center;
