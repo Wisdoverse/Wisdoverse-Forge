@@ -85,53 +85,130 @@ interface AddSshKeyFormProps {
 function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
   const [label, setLabel] = useState('')
   const [publicKey, setPublicKey] = useState('')
+  const [submitAttempted, setSubmitAttempted] = useState(false)
+  const labelInputId = 'ssh-key-label'
+  const publicKeyInputId = 'ssh-key-public-key'
+  const statusId = 'ssh-key-form-status'
+  const errorId = 'ssh-key-form-error'
+  const trimmedLabel = label.trim()
+  const trimmedPublicKey = publicKey.trim()
+  const missingField = !trimmedLabel ? 'label' : !trimmedPublicKey ? 'publicKey' : null
+  const isReady = missingField === null
+  const visibleError =
+    submitAttempted && missingField === 'label'
+      ? 'Name this SSH key before saving it.'
+      : submitAttempted && missingField === 'publicKey'
+        ? 'Paste the public SSH key before saving it.'
+        : null
+  const readinessTitle =
+    missingField === 'label'
+      ? 'Next: Name the SSH Key'
+      : missingField === 'publicKey'
+        ? 'Next: Paste the Public Key'
+        : 'Ready to Add SSH Key'
+  const readinessDetail =
+    missingField === 'label'
+      ? 'Use a name that helps you recognize where this key lives, such as Laptop or CI runner.'
+      : missingField === 'publicKey'
+        ? 'Paste the public key only. It usually starts with ssh-ed25519, ssh-rsa, or ecdsa-sha2.'
+        : 'Add this key, then use a small agent task to confirm repository access.'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!label.trim() || !publicKey.trim()) return
-    await onSave(label.trim(), publicKey.trim())
+    setSubmitAttempted(true)
+    if (!isReady) {
+      document.getElementById(missingField === 'label' ? labelInputId : publicKeyInputId)?.focus()
+      return
+    }
+    await onSave(trimmedLabel, trimmedPublicKey)
   }
 
   return (
     <form
       onSubmit={handleSubmit}
+      noValidate
       className={cn(
         'border-t border-black/[0.06] p-4 dark:border-white/[0.08]',
         'bg-black/[0.015] dark:bg-white/[0.025]'
       )}
     >
+      <div
+        id={statusId}
+        data-testid="ssh-key-form-status"
+        aria-live="polite"
+        className={cn(
+          'mb-3 rounded-card border px-3 py-2',
+          isReady
+            ? 'border-apple-green/25 bg-apple-green/10'
+            : 'border-apple-blue/20 bg-apple-blue/[0.04]'
+        )}
+      >
+        <p className="text-ui-button font-semibold text-foreground-light dark:text-foreground-dark">
+          {readinessTitle}
+        </p>
+        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {readinessDetail}
+        </p>
+      </div>
+
+      {visibleError && (
+        <div className={cn(uiStyles.error, 'mb-3')} role="alert" aria-live="polite">
+          {visibleError}
+        </div>
+      )}
+
       <div className="flex flex-col gap-3 mb-3">
         {/* Label */}
         <div>
-          <label className={uiStyles.label}>
+          <label htmlFor={labelInputId} className={uiStyles.label}>
             Label <span className="text-red-500">*</span>
           </label>
           <input
+            id={labelInputId}
+            name="sshKeyLabel"
             type="text"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="e.g. My Laptop Key"
+            placeholder="e.g. My Laptop Key…"
             autoFocus
-            required
+            autoComplete="off"
+            spellCheck={false}
+            aria-invalid={visibleError !== null && missingField === 'label'}
+            aria-describedby={`${statusId}${visibleError !== null && missingField === 'label' ? ` ${errorId}` : ''}`}
             className={uiStyles.input}
           />
+          {visibleError !== null && missingField === 'label' && (
+            <p id={errorId} className="mt-1 text-ui-caption text-apple-red">
+              {visibleError}
+            </p>
+          )}
         </div>
 
         {/* Public Key */}
         <div>
-          <label className={uiStyles.label}>
+          <label htmlFor={publicKeyInputId} className={uiStyles.label}>
             Public Key <span className="text-red-500">*</span>
           </label>
           <textarea
+            id={publicKeyInputId}
+            name="sshPublicKey"
             value={publicKey}
             onChange={(e) => setPublicKey(e.target.value)}
-            placeholder="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... user@host"
-            required
+            placeholder="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA… user@host"
+            autoComplete="off"
+            spellCheck={false}
+            aria-invalid={visibleError !== null && missingField === 'publicKey'}
+            aria-describedby={`${statusId}${visibleError !== null && missingField === 'publicKey' ? ` ${errorId}` : ''}`}
             rows={6}
             className={cn(
               'w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-3 py-2 font-mono text-ui-caption text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
             )}
           />
+          {visibleError !== null && missingField === 'publicKey' && (
+            <p id={errorId} className="mt-1 text-ui-caption text-apple-red">
+              {visibleError}
+            </p>
+          )}
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
             Paste the public key used by agent containers for git operations.
           </p>
@@ -147,12 +224,8 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
         >
           Cancel
         </button>
-        <button
-          type="submit"
-          disabled={saving || !label.trim() || !publicKey.trim()}
-          className={uiStyles.primaryButton}
-        >
-          {saving ? 'Saving...' : 'Add SSH Key'}
+        <button type="submit" disabled={saving} className={uiStyles.primaryButton}>
+          {saving ? 'Saving…' : 'Add SSH Key'}
         </button>
       </div>
     </form>
@@ -219,7 +292,7 @@ export function SshKeysSection() {
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {sshKeysLoading && sshKeys.length === 0 ? (
           <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading SSH keys...
+            Loading SSH keys…
           </div>
         ) : sshKeys.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center">
