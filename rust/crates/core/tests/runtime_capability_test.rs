@@ -67,6 +67,23 @@ fn legacy_runtime_kind_string_parses_to_canonical_variant() {
     assert_eq!(parsed.as_str(), "container");
 }
 
+#[test]
+fn parse_legacy_rejects_invented_aliases() {
+    // rev1 spec invented these; rev2 forbids them.
+    assert!(RuntimeKind::parse_legacy("host_cli").is_err());
+    assert!(RuntimeKind::parse_legacy("host-cli").is_err());
+    assert!(RuntimeKind::parse_legacy("provider").is_err());
+    assert!(RuntimeKind::parse_legacy("container-cli").is_err());
+}
+
+#[test]
+fn parse_legacy_accepts_canonical_only() {
+    assert_eq!(RuntimeKind::parse_legacy("container").unwrap(), RuntimeKind::Container);
+    assert_eq!(RuntimeKind::parse_legacy("cli").unwrap(),       RuntimeKind::Cli);
+    assert_eq!(RuntimeKind::parse_legacy("api").unwrap(),       RuntimeKind::Api);
+    assert_eq!(RuntimeKind::parse_legacy(" CLI ").unwrap(),     RuntimeKind::Cli);
+}
+
 #[sqlx::test(migrations = false)]
 async fn runtime_kind_sqlx_roundtrip(pool: PgPool) -> sqlx::Result<()> {
     // `sqlx::test` provisions a fresh isolated database per test, so a regular
