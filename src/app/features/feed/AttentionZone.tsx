@@ -10,9 +10,12 @@ export function AttentionZone({ items, onApprove, onView }: AttentionZoneProps) 
   if (items.length === 0) return null
 
   return (
-    <div data-testid="attention-zone" className="bg-apple-red/[0.04] rounded-lg p-3 mb-3">
-      <div className="text-[9px] font-semibold text-apple-red tracking-wide mb-2">
-        ACTION NEEDED
+    <div data-testid="attention-zone" className="mb-3 rounded-lg bg-apple-red/[0.04] p-3">
+      <div className="mb-2">
+        <div className="text-[10px] font-semibold text-apple-red">Needs your decision</div>
+        <p className="mt-0.5 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+          Review each request before approving so the agent can continue safely.
+        </p>
       </div>
       <p className="mb-2 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
         These items are waiting for a decision, missing access, or a quick review.
@@ -20,27 +23,29 @@ export function AttentionZone({ items, onApprove, onView }: AttentionZoneProps) 
       {items.map((item) => (
         <div
           key={item.id}
-          className="bg-white dark:bg-[#2c2c2e] rounded-[10px] p-3 shadow-card dark:shadow-card-dark border-l-[3px] border-l-apple-red mb-2 last:mb-0"
+          className="mb-2 rounded-[10px] border-l-[3px] border-l-apple-red bg-white p-3 shadow-card last:mb-0 dark:bg-[#2c2c2e] dark:shadow-card-dark"
         >
-          <div className="flex justify-between items-center">
-            <span className="text-xs font-semibold">{item.taskTitle}</span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="min-w-0 truncate text-xs font-semibold">{item.taskTitle}</span>
             <span className="text-[9px] text-apple-red">{formatTime(item.timestamp)}</span>
           </div>
-          <div className="text-[10px] text-secondary-light dark:text-secondary-dark mt-1">
-            {item.agentName} — {item.reason}
+          <div className="mt-1 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+            {item.agentName} is waiting: {item.reason}
           </div>
-          <div className="flex gap-2 mt-2">
+          <div className="mt-2 flex flex-wrap gap-2">
             <button
-              onClick={() => onApprove?.(item.id)}
-              className="text-[9px] font-medium px-2.5 py-1 rounded-badge bg-apple-blue text-white"
+              type="button"
+              onClick={() => onView?.(item.id)}
+              className="rounded-badge bg-black/[0.04] px-2.5 py-1 text-[9px] font-medium dark:bg-white/[0.06]"
             >
-              Approve now
+              Review request
             </button>
             <button
-              onClick={() => onView?.(item.id)}
-              className="text-[9px] font-medium px-2.5 py-1 rounded-badge bg-black/[0.04] dark:bg-white/[0.06]"
+              type="button"
+              onClick={() => onApprove?.(item.id)}
+              className="rounded-badge bg-apple-blue px-2.5 py-1 text-[9px] font-medium text-white"
             >
-              Review details
+              Approve request
             </button>
           </div>
         </div>
