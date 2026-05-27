@@ -95,7 +95,7 @@ export function EditableTeamRow({
               onChange={(e) => setDescription(e.target.value)}
               disabled={saving}
               aria-label="Team description"
-              placeholder="Description"
+              placeholder="What this team owns"
               className={uiStyles.input}
             />
             <div className="flex justify-end gap-1">
