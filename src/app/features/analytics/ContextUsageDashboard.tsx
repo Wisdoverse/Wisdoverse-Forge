@@ -10,6 +10,21 @@ interface ContextUsageDashboardProps {
 
 const percent = (value: number): string => `${Math.round(value * 100)}%`
 
+const EMPTY_TOP_USEFUL = {
+  title: 'No useful context yet',
+  detail: 'Helpful items appear after users mark applied context as useful.',
+}
+
+const EMPTY_NEEDS_REVIEW = {
+  title: 'No review signals',
+  detail: 'Items show here when feedback says context may be outdated, incorrect, or sensitive.',
+}
+
+const EMPTY_STALE = {
+  title: 'No stale context',
+  detail: 'Nothing has crossed the stale threshold for this workspace.',
+}
+
 function relativeAge(timestamp: string): string {
   const value = Date.parse(timestamp)
   if (Number.isNaN(value)) return 'unknown'
@@ -30,14 +45,21 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
             Snapshot refreshed {data ? relativeAge(data.lastRefreshedAt) : 'when data is available'}
           </p>
+          <p className="mt-1 max-w-2xl text-ui-body text-secondary-light dark:text-secondary-dark">
+            Use this panel to keep context that helps work finish and review items that may be
+            outdated, incorrect, or too sensitive before agents reuse them.
+          </p>
         </div>
         {data?.isStale && (
           <div
             data-testid="context-usage-stale-banner"
-            className="inline-flex items-center gap-2 rounded-full border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
+            className="inline-flex max-w-xl items-center gap-2 rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
           >
             <AlertTriangle size={14} strokeWidth={2} aria-hidden="true" />
-            <span>Snapshot older than {data.staleAfterHours}h</span>
+            <span>
+              Snapshot is older than {data.staleAfterHours}h. Refresh analytics before acting on
+              these numbers.
+            </span>
           </div>
         )}
       </div>
@@ -46,24 +68,28 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
         <StatCard
           title="Applied"
           value={data?.summary.appliedCount ?? 0}
+          subtitle="Times context was added to agent work."
           loading={loading}
           accent="blue"
         />
         <StatCard
           title="Success"
           value={data ? percent(data.summary.successRate) : '0%'}
+          subtitle="Completed work after context was used."
           loading={loading}
           accent="blue"
         />
         <StatCard
           title="Useful"
           value={data?.summary.feedbackUsefulCount ?? 0}
+          subtitle="Times users marked the context helpful."
           loading={loading}
           accent="blue"
         />
         <StatCard
           title="Needs Review"
           value={data?.summary.feedbackNegativeCount ?? 0}
+          subtitle="Signals to check before reuse."
           loading={loading}
           accent="red"
         />
@@ -73,26 +99,29 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
         <UsageList
           testId="context-usage-top-useful"
           title="Top useful"
+          description="Keep these available; users marked them helpful after use."
           icon="useful"
           items={data?.topUseful ?? []}
           loading={loading}
-          empty="No useful context yet"
+          empty={EMPTY_TOP_USEFUL}
         />
         <UsageList
           testId="context-usage-needs-review"
           title="Needs review"
+          description="Check these before reuse because feedback says they may be unsafe or wrong."
           icon="review"
           items={data?.needsReview ?? []}
           loading={loading}
-          empty="No review signals"
+          empty={EMPTY_NEEDS_REVIEW}
         />
         <UsageList
           testId="context-usage-stale-items"
           title="Stale"
+          description="Verify these before agents rely on them again."
           icon="stale"
           items={data?.staleItems ?? []}
           loading={loading}
-          empty="No stale context"
+          empty={EMPTY_STALE}
         />
       </div>
     </section>
@@ -102,6 +131,7 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
 function UsageList({
   testId,
   title,
+  description,
   icon,
   items,
   loading,
@@ -109,10 +139,14 @@ function UsageList({
 }: {
   testId: string
   title: string
+  description: string
   icon: 'useful' | 'review' | 'stale'
   items: ContextUsageItem[]
   loading: boolean
-  empty: string
+  empty: {
+    title: string
+    detail: string
+  }
 }) {
   const Icon = icon === 'useful' ? CheckCircle2 : icon === 'review' ? ShieldAlert : Clock3
 
@@ -121,20 +155,26 @@ function UsageList({
       data-testid={testId}
       className="rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2c2c2e]"
     >
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-3 flex items-start gap-2">
         <Icon
           size={15}
           strokeWidth={2}
           className={cn(
+            'mt-0.5 shrink-0',
             icon === 'useful' && 'text-apple-blue',
             icon === 'review' && 'text-apple-red',
             icon === 'stale' && 'text-secondary-light dark:text-secondary-dark'
           )}
           aria-hidden="true"
         />
-        <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          {title}
-        </p>
+        <div className="min-w-0">
+          <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+            {title}
+          </p>
+          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            {description}
+          </p>
+        </div>
       </div>
 
       {loading ? (
@@ -143,8 +183,11 @@ function UsageList({
           <div className="h-14 animate-pulse rounded-card bg-black/[0.04] dark:bg-white/[0.05]" />
         </div>
       ) : items.length === 0 ? (
-        <div className="flex h-28 items-center justify-center text-ui-body text-secondary-light dark:text-secondary-dark">
-          {empty}
+        <div className="flex min-h-28 flex-col justify-center gap-1 text-ui-body text-secondary-light dark:text-secondary-dark">
+          <p className="font-medium text-foreground-light dark:text-foreground-dark">
+            {empty.title}
+          </p>
+          <p>{empty.detail}</p>
         </div>
       ) : (
         <div className="space-y-2">
