@@ -22,39 +22,11 @@ const PROVIDER_LABELS: Record<GitProvider, string> = {
   gitlab: 'GitLab',
 }
 
-interface CredentialFormReadiness {
-  ready: boolean
-  title: string
-  detail: string
-  error: string | null
-  fieldId: string | null
-}
-
-function credentialFormReadiness({
-  token,
-  tokenInputId,
-}: {
-  token: string
-  tokenInputId: string
-}): CredentialFormReadiness {
-  if (!token.trim()) {
-    return {
-      ready: false,
-      title: 'Next: Paste Access Token',
-      detail: 'Paste a token from GitHub or GitLab so agents can clone and push repositories.',
-      error: 'Paste an access token before saving this credential.',
-      fieldId: tokenInputId,
-    }
-  }
-
-  return {
-    ready: true,
-    title: 'Ready to Save',
-    detail: 'Save this token, then use a small agent task to confirm repository access.',
-    error: null,
-    fieldId: null,
-  }
-}
+const GIT_CREDENTIAL_SETUP_STEPS = [
+  { label: 'Choose Git host', value: 'Pick where the repositories live.' },
+  { label: 'Paste token', value: 'Use a personal access token with repository access.' },
+  { label: 'Leave host blank', value: 'Only enter a host for self-hosted GitHub or GitLab.' },
+]
 
 // ============================================================================
 // Credential Row
@@ -142,14 +114,11 @@ function AddCredentialForm({
   saving,
 }: AddCredentialFormProps) {
   const [form, setForm] = useState<AddCredentialFormState>(DEFAULT_FORM)
-  const [submitAttempted, setSubmitAttempted] = useState(false)
   const providerInputId = 'git-credential-provider'
   const tokenInputId = 'git-credential-token'
+  const tokenHelpId = 'git-credential-token-help'
   const hostInputId = 'git-credential-host'
-  const formStatusId = 'git-credential-form-status'
-  const tokenErrorId = 'git-credential-token-error'
-  const readiness = credentialFormReadiness({ token: form.token, tokenInputId })
-  const visibleError = submitAttempted && !readiness.ready ? readiness.error : null
+  const hostHelpId = 'git-credential-host-help'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -174,47 +143,26 @@ function AddCredentialForm({
       )}
       noValidate
     >
-      <div
-        id={formStatusId}
-        data-testid="git-credential-form-status"
-        aria-live="polite"
-        className={cn(
-          'mb-3 rounded-lg border px-3 py-2',
-          readiness.ready
-            ? 'border-apple-green/25 bg-apple-green/10'
-            : 'border-apple-blue/20 bg-apple-blue/[0.04]'
-        )}
-      >
-        <div className="flex items-center gap-2">
-          {readiness.ready ? (
-            <CheckCircle2
-              size={16}
-              strokeWidth={2.25}
-              className="shrink-0 text-apple-green"
-              aria-hidden="true"
-            />
-          ) : (
-            <AlertTriangle
-              size={16}
-              strokeWidth={2.25}
-              className="shrink-0 text-apple-blue"
-              aria-hidden="true"
-            />
-          )}
-          <p className="text-ui-button font-semibold text-foreground-light dark:text-foreground-dark">
-            {readiness.title}
-          </p>
+      <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
+        <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+          Git access setup path
         </div>
-        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {readiness.detail}
-        </p>
+        <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
+          {GIT_CREDENTIAL_SETUP_STEPS.map((step) => (
+            <div
+              key={step.label}
+              className="min-w-0 rounded-md bg-black/[0.025] px-2 py-1.5 dark:bg-white/[0.04]"
+            >
+              <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                {step.label}
+              </span>
+              <span className="mt-0.5 block text-ui-caption text-foreground-light dark:text-foreground-dark">
+                {step.value}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
-
-      {visibleError && (
-        <div className={cn(uiStyles.error, 'mb-3')} role="alert" aria-live="polite">
-          {visibleError}
-        </div>
-      )}
 
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
@@ -222,7 +170,7 @@ function AddCredentialForm({
             Git provider
           </label>
           <select
-            id="git-credential-provider"
+            id={providerInputId}
             value={form.provider}
             onChange={(e) => setForm({ ...form, provider: e.target.value as GitProvider })}
             className={cn(uiStyles.select, 'w-full')}
@@ -242,6 +190,12 @@ function AddCredentialForm({
           <label htmlFor="git-credential-token" className={uiStyles.label}>
             Access token <span className="text-red-500">*</span>
           </label>
+          <p
+            id={tokenHelpId}
+            className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+          >
+            Paste a personal access token from the selected Git service. It is hidden after saving.
+          </p>
           <input
             id="git-credential-token"
             type="password"
@@ -252,6 +206,7 @@ function AddCredentialForm({
             aria-describedby="git-credential-token-help"
             required
             className={uiStyles.input}
+            aria-describedby={tokenHelpId}
           />
           <p
             id="git-credential-token-help"
@@ -269,6 +224,12 @@ function AddCredentialForm({
               (optional)
             </span>
           </label>
+          <p
+            id={hostHelpId}
+            className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+          >
+            Leave this empty for github.com or gitlab.com.
+          </p>
           <input
             id="git-credential-host"
             type="text"
@@ -278,6 +239,7 @@ function AddCredentialForm({
             placeholder="e.g. gitlab.company.com"
             aria-describedby="git-credential-host-help"
             className={uiStyles.input}
+            aria-describedby={hostHelpId}
           />
           <p
             id="git-credential-host-help"
