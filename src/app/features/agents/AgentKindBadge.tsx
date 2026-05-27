@@ -8,17 +8,17 @@ interface AgentKindBadgeProps {
   className?: string
 }
 
-// Runtime wording mirrors the create/enrollment paths so operators can quickly
-// tell whether Docker lifecycle actions apply.
+// Badge titles describe the user's choice, while protocol names stay inside
+// the API/store layer.
 export function AgentKindBadge({ cliTool, runtimeKind, className }: AgentKindBadgeProps) {
   const isHost = runtimeKind === 'host-cli'
   const isContainer = Boolean(cliTool) && !isHost
   const label = isHost ? 'Host CLI' : isContainer ? 'Container' : 'Provider'
   const title = isHost
-    ? 'Runs a local CLI through an enrolled sidecar'
+    ? 'Runs on an enrolled computer. Use it when work should stay on that machine.'
     : isContainer
-      ? 'Runs the in-container CLI (claude/codex/gemini/opencode)'
-      : 'Calls the LLM provider directly — no container'
+      ? 'Runs in a managed workspace that can edit files, run commands, and collect evidence.'
+      : 'Handles text-only tasks with a connected model. It does not open workspace files.'
 
   return (
     <span
