@@ -264,7 +264,7 @@ impl AdminRolePolicy {
     pub(crate) fn require_admin(auth_role: &str) -> AppResult<()> {
         match auth_role {
             "owner" | "admin" => Ok(()),
-            _ => Err(ErrorKind::Forbidden.into()),
+            _ => Err(ErrorKind::Forbidden("forbidden".into()).into()),
         }
     }
 }
@@ -299,7 +299,7 @@ impl AdminBulkDeletePolicy {
             ErrorKind::Unprocessable(msg) => format!("unprocessable entity: {msg}"),
             ErrorKind::Conflict(msg) => format!("conflict: {msg}"),
             ErrorKind::Unauthorized => "unauthorized".to_string(),
-            ErrorKind::Forbidden => "forbidden".to_string(),
+            ErrorKind::Forbidden(_) => "forbidden".to_string(),
             ErrorKind::Unavailable(msg) => format!("service unavailable: {msg}"),
             ErrorKind::Internal(_) => "delete failed".to_string(),
         }

@@ -26,8 +26,8 @@ pub enum ErrorKind {
     #[error("unauthorized")]
     Unauthorized,
 
-    #[error("forbidden")]
-    Forbidden,
+    #[error("forbidden: {0}")]
+    Forbidden(String),
 
     #[error("conflict: {0}")]
     Conflict(String),
@@ -95,7 +95,7 @@ impl IntoResponse for AppError {
             ErrorKind::Validation(_) => (StatusCode::BAD_REQUEST, "VALIDATION_ERROR"),
             ErrorKind::Unprocessable(_) => (StatusCode::UNPROCESSABLE_ENTITY, "UNPROCESSABLE_ENTITY"),
             ErrorKind::Unauthorized => (StatusCode::UNAUTHORIZED, "UNAUTHORIZED"),
-            ErrorKind::Forbidden => (StatusCode::FORBIDDEN, "FORBIDDEN"),
+            ErrorKind::Forbidden(_) => (StatusCode::FORBIDDEN, "FORBIDDEN"),
             ErrorKind::Conflict(_) => (StatusCode::CONFLICT, "CONFLICT"),
             ErrorKind::Unavailable(_) => (StatusCode::SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE"),
             ErrorKind::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR"),
@@ -183,7 +183,7 @@ mod tests {
 
     #[tokio::test]
     async fn forbidden_error_response() {
-        let err = AppError::from(ErrorKind::Forbidden);
+        let err = AppError::from(ErrorKind::Forbidden("forbidden".into()));
         let (status, body) = response_to_json(err.into_response()).await;
 
         assert_eq!(status, StatusCode::FORBIDDEN);
@@ -256,7 +256,7 @@ mod tests {
             ErrorKind::Validation("x".into()),
             ErrorKind::Unprocessable("x".into()),
             ErrorKind::Unauthorized,
-            ErrorKind::Forbidden,
+            ErrorKind::Forbidden("forbidden".into()),
             ErrorKind::Conflict("x".into()),
         ];
         for kind in kinds {
@@ -268,7 +268,7 @@ mod tests {
                     | ErrorKind::Validation(_)
                     | ErrorKind::Unprocessable(_)
                     | ErrorKind::Unauthorized
-                    | ErrorKind::Forbidden
+                    | ErrorKind::Forbidden(_)
                     | ErrorKind::Conflict(_)
                     | ErrorKind::Unavailable(_)
             ));

@@ -101,7 +101,7 @@ impl ContextTenantPolicy {
     }
 
     fn forbidden() -> AppError {
-        ErrorKind::Forbidden.into()
+        ErrorKind::Forbidden("forbidden".into()).into()
     }
 }
 
@@ -292,7 +292,7 @@ pub(crate) struct ContextFeedbackPolicy;
 
 impl ContextFeedbackPolicy {
     pub(crate) fn inaccessible_feedback_target() -> AppError {
-        ErrorKind::Forbidden.into()
+        ErrorKind::Forbidden("forbidden".into()).into()
     }
 
     pub(crate) fn ensure_run_terminal(status: &str) -> AppResult<()> {
@@ -699,7 +699,7 @@ impl ContextSelfApprovalRejection {
     }
 
     pub(crate) fn into_app_error(self) -> AppError {
-        ErrorKind::Forbidden.into()
+        ErrorKind::Forbidden("forbidden".into()).into()
     }
 }
 
@@ -1206,7 +1206,7 @@ mod tests {
 
     #[test]
     fn context_feedback_policy_requires_terminal_runs_and_applies_revoke_thresholds() {
-        assert!(matches!(ContextFeedbackPolicy::inaccessible_feedback_target().kind, ErrorKind::Forbidden));
+        assert!(matches!(ContextFeedbackPolicy::inaccessible_feedback_target().kind, ErrorKind::Forbidden(_)));
         assert!(ContextFeedbackPolicy::ensure_run_terminal("completed").is_ok());
         assert!(ContextFeedbackPolicy::ensure_run_terminal("failed").is_ok());
         assert!(ContextFeedbackPolicy::ensure_run_terminal("canceled").is_ok());
@@ -1471,7 +1471,7 @@ mod tests {
         assert_eq!(payload["item_kind"], "memory");
         assert_eq!(payload["reason"], "self_approval_wider_scope");
         assert_eq!(payload["scope_kind"], "project");
-        assert!(matches!(rejection.into_app_error().kind, ErrorKind::Forbidden));
+        assert!(matches!(rejection.into_app_error().kind, ErrorKind::Forbidden(_)));
     }
 
     #[test]
@@ -1677,7 +1677,7 @@ mod tests {
         assert!(ContextFeaturePolicy::missing_override_allows_deployment_default(&ErrorKind::NotFound(
             "context.preview.enabled".into()
         )));
-        assert!(!ContextFeaturePolicy::missing_override_allows_deployment_default(&ErrorKind::Forbidden));
+        assert!(!ContextFeaturePolicy::missing_override_allows_deployment_default(&ErrorKind::Forbidden("forbidden".into())));
     }
 
     #[test]
@@ -1690,12 +1690,12 @@ mod tests {
         assert_eq!(ContextTenantPolicy::required_workspace(&scope).unwrap(), workspace_id);
         assert!(matches!(
             ContextTenantPolicy::required_workspace(&missing_workspace).unwrap_err().kind,
-            ErrorKind::Forbidden
+            ErrorKind::Forbidden(_)
         ));
         assert!(ContextTenantPolicy::ensure_resource_belongs_to_scope(true).is_ok());
         assert!(matches!(
             ContextTenantPolicy::ensure_resource_belongs_to_scope(false).unwrap_err().kind,
-            ErrorKind::Forbidden
+            ErrorKind::Forbidden(_)
         ));
     }
 

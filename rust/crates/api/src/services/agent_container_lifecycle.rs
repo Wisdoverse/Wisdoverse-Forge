@@ -9,8 +9,8 @@ use agentforge_platform::{ContainerState, DockerClient};
 use sqlx::PgPool;
 
 use crate::domain::agent::{
-    AgentContainerLifecyclePolicy, AgentContainerRuntimePolicy, AgentContainerRuntimeState, AgentRestartPlan,
-    ContainerAgent,
+    AgentContainerLifecyclePolicy, AgentContainerRuntimePolicy, AgentContainerRuntimeState, AgentOwnerPolicy,
+    AgentRestartPlan, ContainerAgent,
 };
 use crate::repositories::agent::AgentRepository;
 use crate::services::agent::AgentService;
@@ -30,9 +30,11 @@ impl AgentContainerLifecycleService {
     }
 
     pub async fn restart(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<()> {
-        // Typestate check fires first so host_cli/api agents get a typed 422
-        // rejection before we probe docker availability.
+        // Owner check fires FIRST so non-owner intra-org callers get a uniform
+        // 403 that does NOT disclose the runtime kind. The typestate check (which
+        // would 422 with runtime-kind info) comes after.
         let aggregate = self.agents.find_aggregate(scope, agent_id.as_uuid()).await?;
+        AgentOwnerPolicy::require_owner(scope.user_id().as_uuid(), aggregate.user_id())?;
         let container = ContainerAgent::try_from(aggregate)
             .map_err(|r| r.into_app_error("Restart"))?;
         let docker = self.docker.as_ref().ok_or_else(AgentContainerRuntimePolicy::lifecycle_docker_unavailable)?;
@@ -83,7 +85,9 @@ impl AgentContainerLifecycleService {
     }
 
     pub async fn resume(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<()> {
+        // Owner check before typestate check — same ordering as restart.
         let aggregate = self.agents.find_aggregate(scope, agent_id.as_uuid()).await?;
+        AgentOwnerPolicy::require_owner(scope.user_id().as_uuid(), aggregate.user_id())?;
         let container = ContainerAgent::try_from(aggregate)
             .map_err(|r| r.into_app_error("Resume"))?;
         let inner = container.inner();

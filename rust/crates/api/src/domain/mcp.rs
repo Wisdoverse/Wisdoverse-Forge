@@ -112,7 +112,7 @@ pub(crate) fn app_error_message(err: AppError) -> String {
         ErrorKind::NotFound(message) => format!("not found: {message}"),
         ErrorKind::Conflict(message) => format!("conflict: {message}"),
         ErrorKind::Unauthorized => "unauthorized".to_string(),
-        ErrorKind::Forbidden => "forbidden".to_string(),
+        ErrorKind::Forbidden(_) => "forbidden".to_string(),
         ErrorKind::Unavailable(message) => format!("service unavailable: {message}"),
         ErrorKind::Internal(message) => format!("internal error: {message}"),
     }

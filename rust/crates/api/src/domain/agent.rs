@@ -242,6 +242,11 @@ impl AgentAggregate {
         self.runtime_kind
     }
 
+    /// Owner (creator) of this agent. Used by lifecycle ACL checks.
+    pub(crate) fn user_id(&self) -> Uuid {
+        self.user_id
+    }
+
     #[cfg(test)]
     pub(crate) fn for_test(kind: RuntimeKind, cli_tool: Option<&str>, container_id: Option<&str>) -> Self {
         Self {
@@ -1065,6 +1070,28 @@ impl AgentRepositoryPolicy {
 
     pub(crate) fn collaborator_not_found(agent_id: AgentId, user_id: Uuid) -> AppError {
         ErrorKind::NotFound(format!("collaborator {user_id} on agent {agent_id}")).into()
+    }
+}
+
+/// Policy that enforces per-agent owner access control.
+///
+/// The check prevents intra-org callers who are NOT the agent owner from
+/// executing lifecycle mutations. Returning 403 (not 404) is deliberate:
+/// the caller is already authenticated within the same org and the agent
+/// UUID has been validated by the tenant-scoped DB fetch, so the caller
+/// knows the agent exists. Returning 403 does not disclose the runtime kind.
+pub struct AgentOwnerPolicy;
+
+impl AgentOwnerPolicy {
+    /// Return `Ok(())` when the caller is the agent owner, or a uniform 403
+    /// `AppError` that does NOT disclose the agent's runtime kind.
+    ///
+    /// `caller_user_id` is taken from `TenantScope::user_id()`.
+    pub fn require_owner(caller_user_id: Uuid, owner_id: Uuid) -> AppResult<()> {
+        if caller_user_id == owner_id {
+            return Ok(());
+        }
+        Err(ErrorKind::Forbidden("operation not permitted on this agent".into()).into())
     }
 }
 

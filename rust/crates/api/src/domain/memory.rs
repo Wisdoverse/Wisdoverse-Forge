@@ -118,7 +118,7 @@ impl MemoryAccessPolicy {
     }
 
     pub(crate) fn forbidden() -> AppError {
-        ErrorKind::Forbidden.into()
+        ErrorKind::Forbidden("forbidden".into()).into()
     }
 }
 
@@ -301,7 +301,7 @@ impl MemoryMutationAccessPolicy {
     }
 
     pub(crate) fn ensure_manager_authorized(can_manage: bool) -> AppResult<()> {
-        if can_manage { Ok(()) } else { Err(ErrorKind::Forbidden.into()) }
+        if can_manage { Ok(()) } else { Err(ErrorKind::Forbidden("forbidden".into()).into()) }
     }
 }
 
@@ -779,7 +779,7 @@ mod tests {
         assert!(MemoryMutationAccessPolicy::ensure_manager_authorized(true).is_ok());
         assert!(matches!(
             MemoryMutationAccessPolicy::ensure_manager_authorized(false).unwrap_err().kind,
-            ErrorKind::Forbidden
+            ErrorKind::Forbidden(_)
         ));
     }
 
@@ -798,7 +798,7 @@ mod tests {
         assert_eq!(MemoryAccessPolicy::required_workspace(&scope).unwrap(), workspace_id);
         assert!(matches!(
             MemoryAccessPolicy::required_workspace(&missing_workspace).unwrap_err().kind,
-            ErrorKind::Forbidden
+            ErrorKind::Forbidden(_)
         ));
         let item_id = MemoryItemId::new();
         assert!(matches!(
@@ -812,7 +812,7 @@ mod tests {
         assert!(MemoryAccessPolicy::ensure_resource_belongs_to_scope(true).is_ok());
         assert!(matches!(
             MemoryAccessPolicy::ensure_resource_belongs_to_scope(false).unwrap_err().kind,
-            ErrorKind::Forbidden
+            ErrorKind::Forbidden(_)
         ));
     }
 

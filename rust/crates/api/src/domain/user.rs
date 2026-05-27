@@ -68,7 +68,7 @@ impl UserAccessPolicy {
     }
 
     fn forbidden() -> AppError {
-        ErrorKind::Forbidden.into()
+        ErrorKind::Forbidden("forbidden".into()).into()
     }
 }
 
@@ -234,7 +234,7 @@ pub(crate) fn auth_error_response_contract(
         ErrorKind::Unauthorized => {
             AuthErrorResponseContract::new(401, "UNAUTHORIZED", unauthorized_message.unwrap_or("Unauthorized"))
         }
-        ErrorKind::Forbidden => AuthErrorResponseContract::new(403, "FORBIDDEN", "Forbidden"),
+        ErrorKind::Forbidden(_) => AuthErrorResponseContract::new(403, "FORBIDDEN", "Forbidden"),
         ErrorKind::Validation(message) => AuthErrorResponseContract::new(400, "VALIDATION_ERROR", message.clone()),
         ErrorKind::Unprocessable(message) => {
             AuthErrorResponseContract::new(422, "UNPROCESSABLE_ENTITY", message.clone())
@@ -529,7 +529,7 @@ mod tests {
         let target = UserId::new();
 
         assert!(UserAccessPolicy::ensure_self_profile(actor, actor).is_ok());
-        assert!(matches!(UserAccessPolicy::ensure_self_profile(actor, target).unwrap_err().kind, ErrorKind::Forbidden));
+        assert!(matches!(UserAccessPolicy::ensure_self_profile(actor, target).unwrap_err().kind, ErrorKind::Forbidden(_)));
     }
 
     #[test]
