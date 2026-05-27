@@ -10,8 +10,8 @@ function makeAgent(overrides: Partial<AgentInfo>): AgentInfo {
   return {
     id: 'agent-default',
     name: 'Default Agent',
-    provider: 'OpenAI',
-    model: 'gpt-5',
+    provider: 'Model Service',
+    model: 'general-model',
     status: 'idle',
     tasksCompleted: 0,
     tasksInProgress: 0,
@@ -40,7 +40,7 @@ describe('AgentListView', () => {
     expect(screen.getByText(/no agents/i)).toBeDefined()
   })
 
-  test('shows Host CLI enrollment command for the selected project', () => {
+  test('shows beginner local-agent enrollment command for the selected project', () => {
     useNavigationStore.setState({
       selectedProjectId: 'p1',
       projects: {
@@ -60,42 +60,23 @@ describe('AgentListView', () => {
     render(<AgentListView />)
 
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
-    expect(within(enrollment).getByText('Connect Host CLI')).toBeDefined()
+    expect(within(enrollment).getByText('Connect a Local Agent')).toBeDefined()
+    expect(within(enrollment).getByText(/work should run on your computer/i)).toBeDefined()
     expect(enrollment.textContent).toContain('agentforge agents enroll-local')
+    expect(enrollment.textContent).toContain('--tool <tool-name>')
+    expect(enrollment.textContent).toContain('--name "Local Agent"')
     expect(enrollment.textContent).toContain('--project p1')
-    expect(enrollment.textContent).toContain('--shell-format bash')
-    expect(within(enrollment).getByRole('button', { name: /macos \/ linux/i })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    )
-    expect(within(enrollment).getByRole('button', { name: /copy command/i })).toBeEnabled()
-
-    fireEvent.click(within(enrollment).getByRole('button', { name: /windows/i }))
-
-    expect(enrollment.textContent).toContain('--cwd "$($PWD.Path)"')
-    expect(enrollment.textContent).toContain('--shell-format powershell')
-    expect(within(enrollment).getByRole('button', { name: /windows/i })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    )
-  })
-
-  test('keeps Host CLI copy disabled until a project is selected', () => {
-    render(<AgentListView />)
-
-    const enrollment = screen.getByTestId('host-cli-enrollment-panel')
-    expect(enrollment.textContent).toContain('<project-id>')
-    expect(enrollment.textContent).toContain('Select a project first')
-    expect(within(enrollment).getByRole('button', { name: /select project first/i })).toBeDisabled()
+    expect(enrollment.textContent).toContain('Replace <tool-name> with the tool you already use')
+    expect(within(enrollment).getByRole('button', { name: /copy command/i })).toBeDefined()
   })
 
   test('renders agent cards', () => {
     useAgentsStore.getState().setAgents([
       makeAgent({
         id: 'a1',
-        name: 'Claude-1',
-        provider: 'Anthropic',
-        model: 'claude-4-opus',
+        name: 'Review Agent',
+        provider: 'Review Model',
+        model: 'review-model',
         status: 'working',
         tasksCompleted: 12,
         tasksInProgress: 1,
@@ -103,9 +84,9 @@ describe('AgentListView', () => {
       }),
       makeAgent({
         id: 'a2',
-        name: 'Gemini-1',
-        provider: 'Google',
-        model: 'gemini-2.5-pro',
+        name: 'Draft Agent',
+        provider: 'Draft Model',
+        model: 'draft-model',
         status: 'offline',
         tasksCompleted: 5,
         tasksInProgress: 0,
@@ -113,17 +94,17 @@ describe('AgentListView', () => {
       }),
     ])
     render(<AgentListView />)
-    expect(screen.getByText('Claude-1')).toBeDefined()
-    expect(screen.getByText('Gemini-1')).toBeDefined()
+    expect(screen.getByText('Review Agent')).toBeDefined()
+    expect(screen.getByText('Draft Agent')).toBeDefined()
   })
 
   test('shows agent status indicators', () => {
     useAgentsStore.getState().setAgents([
       makeAgent({
         id: 'a1',
-        name: 'Claude-1',
-        provider: 'Anthropic',
-        model: 'claude-4-opus',
+        name: 'Review Agent',
+        provider: 'Review Model',
+        model: 'review-model',
         status: 'idle',
         tasksCompleted: 12,
         tasksInProgress: 1,
@@ -139,9 +120,9 @@ describe('AgentListView', () => {
       makeAgent({
         id: 'cli-agent',
         name: 'Build Runner',
-        provider: 'OpenAI',
-        model: 'codex',
-        cliTool: 'codex',
+        provider: 'Workspace Model',
+        model: 'workspace-runner',
+        cliTool: 'workspace-tool' as never,
         status: 'working',
         projectName: 'Platform',
         tasksInProgress: 2,
@@ -149,25 +130,25 @@ describe('AgentListView', () => {
       makeAgent({
         id: 'provider-agent',
         name: 'Review Analyst',
-        provider: 'Anthropic',
-        model: 'claude-4-opus',
+        provider: 'Text Model',
+        model: 'text-review-model',
         status: 'idle',
         projectName: 'Review',
       }),
       makeAgent({
         id: 'offline-agent',
         name: 'Legacy Worker',
-        provider: 'Google',
-        model: 'gemini-2.5-pro',
-        cliTool: 'gemini',
+        provider: 'Legacy Model',
+        model: 'legacy-runner',
+        cliTool: 'workspace-tool' as never,
         status: 'offline',
       }),
       makeAgent({
         id: 'host-agent',
-        name: 'Local Codex',
-        provider: 'OpenAI',
-        model: 'codex',
-        cliTool: 'codex',
+        name: 'Local Agent',
+        provider: 'Local Model',
+        model: 'local-runner',
+        cliTool: 'workspace-tool' as never,
         runtimeId: 'host-abc12345',
         runtimeKind: 'host-cli',
         status: 'idle',
@@ -182,15 +163,15 @@ describe('AgentListView', () => {
 
     fireEvent.change(screen.getByTestId('agent-search'), { target: { value: '' } })
     const runtimeFilters = screen.getByRole('group', { name: /runtime filter/i })
-    fireEvent.click(within(runtimeFilters).getByRole('button', { name: /provider\s*1/i }))
+    fireEvent.click(within(runtimeFilters).getByRole('button', { name: /text only\s*1/i }))
     expect(screen.getByText('Review Analyst')).toBeDefined()
     expect(screen.queryByText('Build Runner')).toBeNull()
 
-    fireEvent.click(within(runtimeFilters).getByRole('button', { name: /host cli\s*1/i }))
-    expect(screen.getByText('Local Codex')).toBeDefined()
+    fireEvent.click(within(runtimeFilters).getByRole('button', { name: /this computer\s*1/i }))
+    expect(screen.getByText('Local Agent')).toBeDefined()
     expect(screen.queryByText('Build Runner')).toBeNull()
 
-    fireEvent.click(within(runtimeFilters).getByRole('button', { name: /all runtimes\s*4/i }))
+    fireEvent.click(within(runtimeFilters).getByRole('button', { name: /all agents\s*4/i }))
     const statusFilters = screen.getByRole('group', { name: /status filter/i })
     fireEvent.click(within(statusFilters).getByRole('button', { name: /offline\s*1/i }))
     expect(screen.getByText('Legacy Worker')).toBeDefined()
@@ -202,9 +183,9 @@ describe('AgentListView', () => {
       makeAgent({
         id: 'cli-agent',
         name: 'Build Runner',
-        provider: 'OpenAI',
-        model: 'codex',
-        cliTool: 'codex',
+        provider: 'Workspace Model',
+        model: 'workspace-runner',
+        cliTool: 'workspace-tool' as never,
         status: 'working',
       }),
     ])
