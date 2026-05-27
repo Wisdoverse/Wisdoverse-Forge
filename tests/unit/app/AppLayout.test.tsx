@@ -111,7 +111,9 @@ describe('AppLayout', () => {
     expect(screen.getByTestId('top-bar')).toBeDefined()
     expect(screen.getByTestId('main-content')).toBeDefined()
     // Right panel defaults to collapsed — assert the reveal affordance instead
-    expect(screen.getByLabelText(/show activity panel/i)).toBeDefined()
+    const revealButton = screen.getByRole('button', { name: /show activity panel/i })
+    expect(revealButton).toBeDefined()
+    expect(within(revealButton).getByText('Activity')).toBeDefined()
   })
 
   test('sidebar has navigation items', () => {
