@@ -20,13 +20,14 @@ export function TurnItem({ turn }: { turn: Turn }) {
         <div className="flex gap-2 items-start">
           <div
             className={cn(
-              'w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5',
+              'min-w-10 h-6 rounded-full px-2 flex items-center justify-center shrink-0 mt-0.5',
               'bg-apple-blue/12 text-apple-blue text-[10px] font-semibold'
             )}
           >
-            U
+            You
           </div>
           <div
+            aria-label="Your message"
             className={cn(
               'flex-1 px-3 py-2 rounded-xl text-xs leading-relaxed',
               'bg-apple-blue/8 dark:bg-apple-blue/12',
@@ -40,7 +41,7 @@ export function TurnItem({ turn }: { turn: Turn }) {
 
       {/* Tool calls */}
       {turn.toolCalls.length > 0 && (
-        <div className="ml-8 flex flex-col gap-1.5">
+        <div aria-label="Tools used by the agent" className="ml-12 flex flex-col gap-1.5">
           {turn.toolCalls.map((call) => (
             <ToolCallDetail key={call.toolUseId} call={call} />
           ))}
@@ -52,14 +53,15 @@ export function TurnItem({ turn }: { turn: Turn }) {
         <div className="flex gap-2 items-start">
           <div
             className={cn(
-              'w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5',
+              'min-w-10 h-6 rounded-full px-2 flex items-center justify-center shrink-0 mt-0.5',
               'bg-black/5 dark:bg-white/10 text-secondary-light dark:text-secondary-dark',
               'text-[10px] font-semibold'
             )}
           >
-            A
+            Agent
           </div>
           <div
+            aria-label="Agent response"
             className={cn(
               'flex-1 px-3 py-2 rounded-xl text-xs leading-relaxed',
               'bg-black/[0.04] dark:bg-white/[0.06]',
