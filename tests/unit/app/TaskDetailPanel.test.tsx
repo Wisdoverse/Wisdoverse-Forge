@@ -216,6 +216,36 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByRole('button', { name: /review skill candidates/i })).toBeDefined()
   })
 
+  test('guides beginner review on the result tab', async () => {
+    render(
+      <TaskDetailPanel
+        task={{
+          ...mockTask,
+          state: 'completed',
+          progress: 100,
+          result: [
+            {
+              name: 'summary.md',
+              mimeType: 'text/markdown',
+              data: 'Updated migration plan and validation notes.',
+            },
+          ],
+          completedAt: new Date().toISOString(),
+        }}
+        onClose={() => {}}
+      />
+    )
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /result/i }))
+
+    expect(screen.getByTestId('task-result-review-guide')).toBeDefined()
+    expect(screen.getByText(/review the result before closing/i)).toBeDefined()
+    expect(screen.getByText(/compare with the brief/i)).toBeDefined()
+    expect(screen.getByText(/1 result artifact attached for review/i)).toBeDefined()
+    expect(screen.getByText(/accept the result, draft reusable learning/i)).toBeDefined()
+    expect(screen.getByText(/if it does not answer the brief/i)).toBeDefined()
+  })
+
   test('shows available agents as selectable handoff cards', async () => {
     useContextFeaturesStore.setState({ governance: true, preview: true, injection: true })
     orchestrationApiMock.getParticipants.mockResolvedValue([

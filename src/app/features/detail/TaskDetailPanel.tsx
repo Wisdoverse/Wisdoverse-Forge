@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bot, CheckCircle2, RotateCcw, Send, X } from 'lucide-react'
+import { Bot, CheckCircle2, ListChecks, RotateCcw, Send, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import {
   orchestrationApi,
@@ -205,8 +205,12 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
         {contextVisible && activeTab === 'context' && <ContextTab taskId={task.id} />}
         {activeTab === 'result' && hasResult && (
           <div className="py-3 space-y-3">
+            <ResultReviewGuide task={task} artifactCount={resultArtifacts.length} />
             {resultArtifacts.map((artifact, i) => (
-              <div key={i} className="rounded-lg bg-apple-gray-6 dark:bg-white/[0.04] p-3">
+              <div
+                key={i}
+                className="rounded-lg border border-black/[0.06] bg-white p-3 dark:border-white/[0.08] dark:bg-white/[0.04]"
+              >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-medium text-foreground-light dark:text-foreground-dark">
                     {artifact.name}
@@ -215,6 +219,11 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                     {artifact.mimeType}
                   </span>
                 </div>
+                <p className="mb-2 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+                  Use this result as evidence for the task outcome. If it does not answer the brief,
+                  go back to Work and decide whether to retry, add context, or create a follow-up
+                  task.
+                </p>
                 <pre className="text-xs text-foreground-light dark:text-foreground-dark whitespace-pre-wrap break-words font-mono leading-relaxed max-h-[300px] overflow-y-auto">
                   {artifact.data}
                 </pre>
@@ -363,6 +372,79 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
         artifacts={resultArtifacts}
         onClose={() => setSkillDraftOpen(false)}
       />
+    </div>
+  )
+}
+
+function ResultReviewGuide({ task, artifactCount }: { task: TaskSummary; artifactCount: number }) {
+  const completed = task.state === 'completed'
+  return (
+    <section
+      data-testid="task-result-review-guide"
+      className="rounded-lg border border-black/[0.08] bg-white p-3 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
+    >
+      <div className="mb-3 flex items-start gap-2">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-apple-blue/10 text-apple-blue">
+          <ListChecks size={15} strokeWidth={2.2} aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
+            Review the result before closing
+          </h3>
+          <p className="mt-1 text-[11px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+            {completed
+              ? 'The task is marked done. Confirm the result matches the brief before you rely on it.'
+              : 'A result is attached, but the task is not fully done yet. Check it before deciding the next step.'}
+          </p>
+        </div>
+      </div>
+      <div className="grid">
+        <ResultReviewStep
+          number="1"
+          title="Compare with the brief"
+          detail={`Expected work: ${task.params.task}`}
+        />
+        <ResultReviewStep
+          number="2"
+          title="Check the evidence"
+          detail={`${artifactCount} result artifact${artifactCount === 1 ? '' : 's'} attached for review.`}
+        />
+        <ResultReviewStep
+          number="3"
+          title="Choose the next action"
+          detail={
+            completed
+              ? 'Accept the result, draft reusable learning, or create a follow-up task if something is missing.'
+              : 'Use Work or Updates to decide whether the agent needs more input.'
+          }
+        />
+      </div>
+    </section>
+  )
+}
+
+function ResultReviewStep({
+  number,
+  title,
+  detail,
+}: {
+  number: string
+  title: string
+  detail: string
+}) {
+  return (
+    <div className="flex gap-2 border-t border-black/[0.06] py-2 first:border-t-0 first:pt-0 last:pb-0 dark:border-white/[0.08]">
+      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-black/[0.04] text-[10px] font-semibold text-apple-blue dark:bg-white/[0.06]">
+        {number}
+      </span>
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold text-foreground-light dark:text-foreground-dark">
+          {title}
+        </p>
+        <p className="mt-0.5 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+          {detail}
+        </p>
+      </div>
     </div>
   )
 }
