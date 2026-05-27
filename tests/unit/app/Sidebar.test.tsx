@@ -155,14 +155,16 @@ describe('Sidebar', () => {
 
     expect(menu).toHaveAttribute('role', 'menu')
     expect(menu).toHaveAttribute('aria-label', 'Project X project menu')
-    expect(menuScope.getByText('Team Alpha / proj-x')).toBeInTheDocument()
-    expect(menuScope.getByRole('menuitem', { name: /open project/i })).toBeInTheDocument()
-    expect(menuScope.getByRole('menuitem', { name: /new task/i })).toBeInTheDocument()
-    expect(menuScope.getByRole('menuitem', { name: /manage access/i })).toBeInTheDocument()
-    expect(menuScope.getByRole('menuitem', { name: /configure project/i })).toBeInTheDocument()
-    expect(menuScope.getByRole('menuitem', { name: /project settings/i })).toBeInTheDocument()
-    expect(menuScope.getByRole('menuitem', { name: /copy project id/i })).toBeInTheDocument()
-    expect(menuScope.getByRole('menuitem', { name: /copy slug/i })).toBeInTheDocument()
+    expect(menuScope.getByText('Team Alpha team · link name proj-x')).toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /open project board/i })).toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /create task here/i })).toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /share project/i })).toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /rename project/i })).toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /all project settings/i })).toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /copy support id/i })).toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /copy link name/i })).toBeInTheDocument()
+    expect(menuScope.getByText(/use when an admin asks/i)).toBeInTheDocument()
+    expect(menuScope.getByText(/appears in project links/i)).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /delete project/i })).toBeInTheDocument()
   })
 
@@ -205,10 +207,10 @@ describe('Sidebar', () => {
     fireEvent.contextMenu(screen.getByTestId('project-p1'))
 
     expect(screen.getByRole('menu', { name: /project x project menu/i })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /open project/i })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /copy project id/i })).toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: /manage access/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: /configure project/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /open project board/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /copy support id/i })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /share project/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /rename project/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /delete project/i })).not.toBeInTheDocument()
   })
 
@@ -218,7 +220,7 @@ describe('Sidebar', () => {
 
     render(<Sidebar activePath="/agents" onNavigate={onNavigate} />)
     fireEvent.contextMenu(screen.getByTestId('project-p1'))
-    fireEvent.click(screen.getByRole('menuitem', { name: /open project/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /open project board/i }))
 
     await waitFor(() => expect(useNavigationStore.getState().selectedProjectId).toBe('p1'))
     expect(onNavigate).toHaveBeenCalledWith('/tasks')
@@ -236,9 +238,25 @@ describe('Sidebar', () => {
       />
     )
     fireEvent.contextMenu(screen.getByTestId('project-p1'))
-    fireEvent.click(screen.getByRole('menuitem', { name: /new task/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /create task here/i }))
 
     await waitFor(() => expect(onCreateTaskForProject).toHaveBeenCalledWith('p1'))
+  })
+
+  it('copies project menu values with visible beginner feedback', async () => {
+    seedProjectTree()
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy support id/i }))
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('p1'))
+    expect(screen.getByTestId('project-copy-status')).toHaveTextContent('Project support ID copied')
   })
 
   it('configures team name from context menu', async () => {
@@ -295,7 +313,7 @@ describe('Sidebar', () => {
 
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
     fireEvent.contextMenu(screen.getByTestId('project-p1'))
-    fireEvent.click(screen.getByRole('menuitem', { name: /configure project/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /rename project/i }))
     fireEvent.change(screen.getByLabelText(/project name/i), {
       target: { value: 'Renamed Project' },
     })
