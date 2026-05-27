@@ -1,23 +1,37 @@
+import type { ReactNode } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 
 const REPO_URL = 'https://github.com/Wisdoverse/wisdoverse-forge'
+const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'development'
 
 export function AboutSection() {
   return (
     <div className="space-y-6" data-testid="settings-about">
       <div>
-        <h2 className={uiStyles.sectionTitle}>About</h2>
-        <p className={uiStyles.sectionDescription}>Build info for this Wisdoverse Forge install</p>
+        <h2 className={uiStyles.sectionTitle}>About Wisdoverse Forge</h2>
+        <p className={uiStyles.sectionDescription}>
+          Check what you are using before asking for help or reporting an issue.
+        </p>
       </div>
 
       <div>
-        <h3 className={uiStyles.groupLabel}>Application</h3>
-        <div className={cn(uiStyles.card, 'divide-y divide-[rgb(var(--border))]')}>
-          <Row label="Name" value="Wisdoverse Forge" />
-          <Row label="Version" value={__APP_VERSION__} valueTestId="settings-about-version" />
+        <h3 className={uiStyles.groupLabel}>Install details</h3>
+        <dl className={cn(uiStyles.card, 'divide-y divide-[rgb(var(--border))]')}>
           <Row
-            label="Source"
+            label="Product name"
+            description="Use this name when sharing screenshots or asking for support."
+            value="Wisdoverse Forge"
+          />
+          <Row
+            label="Version"
+            description="Share this number when something looks wrong after an update."
+            value={APP_VERSION}
+            valueTestId="settings-about-version"
+          />
+          <Row
+            label="Project page"
+            description="Open the public page for releases, issues, and contribution details."
             value={
               <a
                 href={REPO_URL}
@@ -25,11 +39,11 @@ export function AboutSection() {
                 rel="noreferrer"
                 className="text-apple-blue hover:underline"
               >
-                github.com/Wisdoverse/wisdoverse-forge
+                Open project page
               </a>
             }
           />
-        </div>
+        </dl>
       </div>
     </div>
   )
@@ -37,22 +51,31 @@ export function AboutSection() {
 
 function Row({
   label,
+  description,
   value,
   valueTestId,
 }: {
   label: string
-  value: React.ReactNode
+  description: string
+  value: ReactNode
   valueTestId?: string
 }) {
   return (
-    <div className="flex items-center justify-between px-4 py-3">
-      <span className="text-ui-body text-secondary-light dark:text-secondary-dark">{label}</span>
-      <span
+    <div className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+      <dt>
+        <span className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+          {label}
+        </span>
+        <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {description}
+        </p>
+      </dt>
+      <dd
         data-testid={valueTestId}
-        className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark"
+        className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark sm:text-right"
       >
         {value}
-      </span>
+      </dd>
     </div>
   )
 }
