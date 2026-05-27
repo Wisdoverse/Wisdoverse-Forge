@@ -19,6 +19,15 @@ interface DraftForm {
   content: string
 }
 
+const SKILL_REVIEW_POINTS = [
+  { label: 'Reusable rule', value: 'Keep only instructions future work should repeat.' },
+  {
+    label: 'No secrets',
+    value: 'Remove tokens, customer data, one-time paths, and private notes.',
+  },
+  { label: 'Next owner', value: 'After publishing, choose the agents that should use it.' },
+]
+
 export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftModalProps) {
   const createSkill = useSkillsStore((state) => state.createSkill)
   const initialForm = useMemo(() => buildSkillDraft(task, artifacts), [artifacts, task])
@@ -45,15 +54,11 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
     const name = form.name.trim()
     const content = form.content.trim()
     if (!name) {
-      setError('Name this skill before publishing it.')
-      setFieldError('name')
-      nameInputRef.current?.focus()
+      setError('Skill name is required')
       return
     }
     if (!content) {
-      setError('Keep or rewrite the reusable instructions before publishing.')
-      setFieldError('content')
-      contentInputRef.current?.focus()
+      setError('Reusable instructions are required')
       return
     }
 
@@ -105,8 +110,8 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
               Draft reusable skill
             </h2>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Review the extracted instructions before publishing them to the workspace skill
-              library.
+              Turn this completed task into reusable instructions. Review what should repeat before
+              publishing it to the workspace skill library.
             </p>
           </div>
           <button
@@ -136,7 +141,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label htmlFor="skill-draft-name" className={uiStyles.label}>
-                  Name
+                  Skill name
                 </label>
                 <input
                   id="skill-draft-name"
@@ -162,8 +167,14 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
               </div>
               <div>
                 <label htmlFor="skill-draft-trigger" className={uiStyles.label}>
-                  Trigger Pattern
+                  Use when
                 </label>
+                <p
+                  id="skill-draft-trigger-help"
+                  className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+                >
+                  Short phrase that tells agents when this skill fits.
+                </p>
                 <input
                   id="skill-draft-trigger"
                   name="skillDraftTriggerPattern"
@@ -172,6 +183,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                   onChange={(event) => updateField('triggerPattern', event.target.value)}
                   aria-describedby="skill-draft-trigger-help"
                   className={cn(uiStyles.input, 'font-mono')}
+                  aria-describedby="skill-draft-trigger-help"
                 />
                 <p
                   id="skill-draft-trigger-help"
@@ -184,7 +196,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
 
             <div>
               <label htmlFor="skill-draft-description" className={uiStyles.label}>
-                Description
+                Short description
               </label>
               <input
                 id="skill-draft-description"
@@ -203,9 +215,30 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
               </p>
             </div>
 
+            <div className="rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]">
+              <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                Check before publishing
+              </div>
+              <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
+                {SKILL_REVIEW_POINTS.map((point) => (
+                  <div
+                    key={point.label}
+                    className="min-w-0 rounded-md bg-white px-2 py-1.5 dark:bg-black/20"
+                  >
+                    <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                      {point.label}
+                    </span>
+                    <span className="mt-0.5 block text-ui-caption text-foreground-light dark:text-foreground-dark">
+                      {point.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div>
               <label htmlFor="skill-draft-content" className={uiStyles.label}>
-                Content
+                Reusable instructions
               </label>
               <textarea
                 id="skill-draft-content"
