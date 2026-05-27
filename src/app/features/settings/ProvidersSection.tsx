@@ -36,6 +36,14 @@ interface ProviderNextStep {
   actionLabel?: string
 }
 
+interface ProviderFormReadiness {
+  ready: boolean
+  title: string
+  detail: string
+  error: string | null
+  fieldId: string | null
+}
+
 const PROVIDER_FILTERS: { id: ProviderFilter; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'ready', label: 'Ready' },
@@ -187,6 +195,60 @@ function providerNeedsApiKey(provider: LlmProvider, info?: ProviderInfo): boolea
 
 function providerNeedsBaseUrl(provider: LlmProvider, info?: ProviderInfo): boolean {
   return provider === 'openai_compatible' && !info?.defaultBaseUrl
+}
+
+function providerFormReadiness({
+  form,
+  needsApiKey,
+  needsBaseUrl,
+  modelInputId,
+  apiKeyInputId,
+  baseUrlInputId,
+}: {
+  form: AddProviderForm
+  needsApiKey: boolean
+  needsBaseUrl: boolean
+  modelInputId: string
+  apiKeyInputId: string
+  baseUrlInputId: string
+}): ProviderFormReadiness {
+  if (!form.model.trim()) {
+    return {
+      ready: false,
+      title: 'Next: Add Model',
+      detail: 'Choose a model from the list or keep the suggested default.',
+      error: 'Add a model before saving this provider.',
+      fieldId: modelInputId,
+    }
+  }
+
+  if (needsApiKey && !form.apiKey.trim()) {
+    return {
+      ready: false,
+      title: 'Next: Paste API Key',
+      detail: 'Paste the key from your provider account. It will be stored as a secret.',
+      error: 'Add the API key before saving this provider.',
+      fieldId: apiKeyInputId,
+    }
+  }
+
+  if (needsBaseUrl && !form.baseUrl.trim()) {
+    return {
+      ready: false,
+      title: 'Next: Add Base URL',
+      detail: 'Paste the HTTPS endpoint for your OpenAI-compatible service.',
+      error: 'Add the Base URL before saving this provider.',
+      fieldId: baseUrlInputId,
+    }
+  }
+
+  return {
+    ready: true,
+    title: 'Ready to Save',
+    detail: 'Save this provider, then run Test so agents can use it safely.',
+    error: null,
+    fieldId: null,
+  }
 }
 
 function providerConnectionState(provider: LlmProviderConfig): ProviderFilter {
@@ -599,6 +661,7 @@ function AddProviderFormPanel({
   saving,
 }: AddProviderFormProps) {
   const [form, setForm] = useState<AddProviderForm>(DEFAULT_FORM)
+  const [submitAttempted, setSubmitAttempted] = useState(false)
 
   const providerOptions =
     supportedProviders.length > 0 ? supportedProviders : FALLBACK_SUPPORTED_PROVIDERS
@@ -612,14 +675,23 @@ function AddProviderFormPanel({
   const displayNameInputId = 'provider-form-display-name'
   const apiKeyInputId = 'provider-form-api-key'
   const baseUrlInputId = 'provider-form-base-url'
-  const canSubmit = Boolean(
-    form.model.trim() &&
-    (!needsApiKey || form.apiKey.trim()) &&
-    (!needsBaseUrl || form.baseUrl.trim())
-  )
+  const readiness = providerFormReadiness({
+    form,
+    needsApiKey,
+    needsBaseUrl,
+    modelInputId,
+    apiKeyInputId,
+    baseUrlInputId,
+  })
+  const visibleError = submitAttempted && !readiness.ready ? readiness.error : null
+  const formStatusId = 'provider-form-status'
+  const modelErrorId = 'provider-form-model-error'
+  const apiKeyErrorId = 'provider-form-api-key-error'
+  const baseUrlErrorId = 'provider-form-base-url-error'
 
   function handleProviderChange(provider: LlmProvider) {
     const info = providerOptions.find((p) => p.provider === provider)
+    setSubmitAttempted(false)
     setForm({
       ...DEFAULT_FORM,
       provider,
@@ -630,7 +702,11 @@ function AddProviderFormPanel({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!canSubmit) return
+    setSubmitAttempted(true)
+    if (!readiness.ready) {
+      if (readiness.fieldId) document.getElementById(readiness.fieldId)?.focus()
+      return
+    }
     await onSave({
       provider: form.provider,
       displayName: form.displayName || selectedProvider?.displayName || form.provider,
@@ -647,7 +723,50 @@ function AddProviderFormPanel({
         'border-t border-black/[0.06] p-4 dark:border-white/[0.08]',
         'bg-black/[0.015] dark:bg-white/[0.025]'
       )}
+      noValidate
     >
+      <div
+        id={formStatusId}
+        data-testid="provider-form-status"
+        aria-live="polite"
+        className={cn(
+          'mb-3 rounded-lg border px-3 py-2',
+          readiness.ready
+            ? 'border-apple-green/25 bg-apple-green/10'
+            : 'border-apple-blue/20 bg-apple-blue/[0.04]'
+        )}
+      >
+        <div className="flex items-center gap-2">
+          {readiness.ready ? (
+            <CheckCircle2
+              size={16}
+              strokeWidth={2.25}
+              className="shrink-0 text-apple-green"
+              aria-hidden="true"
+            />
+          ) : (
+            <AlertTriangle
+              size={16}
+              strokeWidth={2.25}
+              className="shrink-0 text-apple-blue"
+              aria-hidden="true"
+            />
+          )}
+          <p className="text-ui-button font-semibold text-foreground-light dark:text-foreground-dark">
+            {readiness.title}
+          </p>
+        </div>
+        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {readiness.detail}
+        </p>
+      </div>
+
+      {visibleError && (
+        <div className={cn(uiStyles.error, 'mb-3')} role="alert" aria-live="polite">
+          {visibleError}
+        </div>
+      )}
+
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {/* Provider */}
         <div>
@@ -685,8 +804,19 @@ function AddProviderFormPanel({
                 placeholder={selectedProvider?.defaultModel ?? 'e.g. llama3…'}
                 list={models.length > 0 ? modelListId : undefined}
                 autoComplete="off"
+                aria-invalid={visibleError !== null && readiness.fieldId === modelInputId}
+                aria-describedby={`${formStatusId}${
+                  visibleError !== null && readiness.fieldId === modelInputId
+                    ? ` ${modelErrorId}`
+                    : ''
+                }`}
                 className={uiStyles.input}
               />
+              {visibleError !== null && readiness.fieldId === modelInputId && (
+                <p id={modelErrorId} className="mt-1 text-ui-caption text-apple-red">
+                  {visibleError}
+                </p>
+              )}
               {models.length > 0 && (
                 <datalist id={modelListId}>
                   {models.map((m) => (
@@ -698,30 +828,56 @@ function AddProviderFormPanel({
               )}
             </>
           ) : models.length > 0 ? (
-            <select
-              id={modelInputId}
-              name="model"
-              value={form.model}
-              onChange={(e) => setForm({ ...form, model: e.target.value })}
-              className={cn(uiStyles.select, 'w-full')}
-            >
-              {models.map((m) => (
-                <option key={m.model} value={m.model}>
-                  {m.displayName}
-                </option>
-              ))}
-            </select>
+            <>
+              <select
+                id={modelInputId}
+                name="model"
+                value={form.model}
+                onChange={(e) => setForm({ ...form, model: e.target.value })}
+                aria-invalid={visibleError !== null && readiness.fieldId === modelInputId}
+                aria-describedby={`${formStatusId}${
+                  visibleError !== null && readiness.fieldId === modelInputId
+                    ? ` ${modelErrorId}`
+                    : ''
+                }`}
+                className={cn(uiStyles.select, 'w-full')}
+              >
+                {models.map((m) => (
+                  <option key={m.model} value={m.model}>
+                    {m.displayName}
+                  </option>
+                ))}
+              </select>
+              {visibleError !== null && readiness.fieldId === modelInputId && (
+                <p id={modelErrorId} className="mt-1 text-ui-caption text-apple-red">
+                  {visibleError}
+                </p>
+              )}
+            </>
           ) : (
-            <input
-              id={modelInputId}
-              type="text"
-              name="model"
-              value={form.model}
-              onChange={(e) => setForm({ ...form, model: e.target.value })}
-              placeholder="e.g. llama3…"
-              autoComplete="off"
-              className={uiStyles.input}
-            />
+            <>
+              <input
+                id={modelInputId}
+                type="text"
+                name="model"
+                value={form.model}
+                onChange={(e) => setForm({ ...form, model: e.target.value })}
+                placeholder="e.g. llama3…"
+                autoComplete="off"
+                aria-invalid={visibleError !== null && readiness.fieldId === modelInputId}
+                aria-describedby={`${formStatusId}${
+                  visibleError !== null && readiness.fieldId === modelInputId
+                    ? ` ${modelErrorId}`
+                    : ''
+                }`}
+                className={uiStyles.input}
+              />
+              {visibleError !== null && readiness.fieldId === modelInputId && (
+                <p id={modelErrorId} className="mt-1 text-ui-caption text-apple-red">
+                  {visibleError}
+                </p>
+              )}
+            </>
           )}
         </div>
 
@@ -754,11 +910,21 @@ function AddProviderFormPanel({
             value={form.apiKey}
             onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
             placeholder={needsApiKey ? 'sk-…' : 'not required…'}
-            required={needsApiKey}
             autoComplete="off"
             spellCheck={false}
+            aria-invalid={visibleError !== null && readiness.fieldId === apiKeyInputId}
+            aria-describedby={`${formStatusId}${
+              visibleError !== null && readiness.fieldId === apiKeyInputId
+                ? ` ${apiKeyErrorId}`
+                : ''
+            }`}
             className={uiStyles.input}
           />
+          {visibleError !== null && readiness.fieldId === apiKeyInputId && (
+            <p id={apiKeyErrorId} className="mt-1 text-ui-caption text-apple-red">
+              {visibleError}
+            </p>
+          )}
         </div>
 
         {/* Base URL (optional) */}
@@ -773,10 +939,20 @@ function AddProviderFormPanel({
             value={form.baseUrl}
             onChange={(e) => setForm({ ...form, baseUrl: e.target.value })}
             placeholder={`${baseUrlPlaceholder(form.provider, selectedProvider)}…`}
-            required={needsBaseUrl}
             autoComplete="off"
+            aria-invalid={visibleError !== null && readiness.fieldId === baseUrlInputId}
+            aria-describedby={`${formStatusId}${
+              visibleError !== null && readiness.fieldId === baseUrlInputId
+                ? ` ${baseUrlErrorId}`
+                : ''
+            }`}
             className={uiStyles.input}
           />
+          {visibleError !== null && readiness.fieldId === baseUrlInputId && (
+            <p id={baseUrlErrorId} className="mt-1 text-ui-caption text-apple-red">
+              {visibleError}
+            </p>
+          )}
         </div>
       </div>
 
@@ -789,7 +965,7 @@ function AddProviderFormPanel({
         >
           Cancel
         </button>
-        <button type="submit" disabled={saving || !canSubmit} className={uiStyles.primaryButton}>
+        <button type="submit" disabled={saving} className={uiStyles.primaryButton}>
           {saving ? 'Saving…' : 'Save Provider'}
         </button>
       </div>

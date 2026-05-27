@@ -138,7 +138,31 @@ describe('ProvidersSection', () => {
     fireEvent.click(within(nextStep).getByRole('button', { name: /add provider/i }))
 
     expect(screen.getByLabelText(/^provider$/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: /save provider/i })).toBeDisabled()
+    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/next: paste api key/i)
+    const saveButton = screen.getByRole('button', { name: /save provider/i })
+    expect(saveButton).toBeEnabled()
+
+    fireEvent.click(saveButton)
+
+    expect(
+      screen.getAllByText('Add the API key before saving this provider.').length
+    ).toBeGreaterThan(0)
+    expect(saveProviderMock).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText(/api key/i), { target: { value: 'sk-test' } })
+
+    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/ready to save/i)
+    fireEvent.click(saveButton)
+
+    await waitFor(() =>
+      expect(saveProviderMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-20250514',
+          apiKey: 'sk-test',
+        })
+      )
+    )
   })
 
   test('does not treat disabled-only providers as ready', async () => {
@@ -167,7 +191,8 @@ describe('ProvidersSection', () => {
     fireEvent.click(within(nextStep).getByRole('button', { name: /add provider/i }))
 
     expect(screen.getByText('Local Disabled')).toBeDefined()
-    expect(screen.getByRole('button', { name: /save provider/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /save provider/i })).toBeEnabled()
+    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/next: paste api key/i)
   })
 
   test('runs a provider test from the provider row', async () => {
