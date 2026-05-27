@@ -181,6 +181,38 @@ impl AgentRepository {
         Ok(rows)
     }
 
+    /// List agents with owner + project names joined in, optionally filtered by
+    /// `runtime_kind`. When `kind` is `None` this delegates to `list_with_owner`.
+    ///
+    /// Used by the CQRS read-side `AgentQueryService::find_by_runtime_kind`.
+    pub async fn list_with_owner_filtered(
+        &self,
+        scope: &TenantScope,
+        kind: Option<RuntimeKind>,
+        limit: i64,
+        offset: i64,
+    ) -> AppResult<Vec<AgentListItem>> {
+        match kind {
+            Some(k) => {
+                let query = format!(
+                    "{AGENT_ENRICHED_SELECT}\n\
+                     WHERE a.organization_id = $1 AND a.runtime_kind = $2\n\
+                     ORDER BY a.created_at DESC\n\
+                     LIMIT $3 OFFSET $4"
+                );
+                let rows = sqlx::query_as::<_, AgentListItem>(&query)
+                    .bind(scope.org_id().as_uuid())
+                    .bind(k)
+                    .bind(limit)
+                    .bind(offset)
+                    .fetch_all(&self.pool)
+                    .await?;
+                Ok(rows)
+            }
+            None => self.list_with_owner(scope, limit, offset).await,
+        }
+    }
+
     /// Get a single agent by ID (tenant-scoped).
     pub async fn find_by_id(&self, scope: &TenantScope, id: AgentId) -> AppResult<Agent> {
         sqlx::query_as::<_, Agent>("SELECT * FROM agents WHERE id = $1 AND organization_id = $2")
