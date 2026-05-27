@@ -175,6 +175,53 @@ fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\"'\"'"))
 }
 
+#[derive(Clone)]
+pub(crate) struct HostCliIdentity {
+    agent_id: Uuid,
+    runtime_id: String,
+    hmac_secret: String,
+    nats_connect_password: String,
+}
+
+impl std::fmt::Debug for HostCliIdentity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HostCliIdentity")
+            .field("agent_id", &self.agent_id)
+            .field("runtime_id", &self.runtime_id)
+            .field("hmac_secret", &"<redacted>")
+            .field("nats_connect_password", &"<redacted>")
+            .finish()
+    }
+}
+
+impl HostCliIdentity {
+    pub(crate) fn generate() -> Self {
+        let agent_id = Uuid::now_v7();
+        Self {
+            runtime_id: format!("host-{agent_id}"),
+            hmac_secret: Uuid::new_v4().to_string(),
+            nats_connect_password: Uuid::new_v4().to_string(),
+            agent_id,
+        }
+    }
+
+    pub(crate) fn agent_id(&self) -> Uuid {
+        self.agent_id
+    }
+
+    pub(crate) fn runtime_id(&self) -> &str {
+        &self.runtime_id
+    }
+
+    pub(crate) fn hmac_secret(&self) -> &str {
+        &self.hmac_secret
+    }
+
+    pub(crate) fn nats_connect_password(&self) -> &str {
+        &self.nats_connect_password
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PoolStatusProjection {
     docker_available: bool,
@@ -1215,6 +1262,27 @@ mod tests {
 
         assert_eq!(env.get("OPENAI_API_KEY").map(String::as_str), Some("sk-test"));
         assert!(!env.contains_key("ANTHROPIC_API_KEY"));
+    }
+
+    #[test]
+    fn host_cli_identity_uses_full_uuid_v7() {
+        let id = HostCliIdentity::generate();
+        assert!(id.runtime_id().starts_with("host-"), "got: {}", id.runtime_id());
+        // Full UUID after the prefix (36 chars), not 8.
+        assert_eq!(id.runtime_id().len(), "host-".len() + 36);
+        // UUIDv7 has version bits set
+        assert_eq!(id.agent_id().get_version_num(), 7);
+        assert!(!id.hmac_secret().is_empty());
+        assert!(!id.nats_connect_password().is_empty());
+    }
+
+    #[test]
+    fn host_cli_identity_debug_redacts_secrets() {
+        let id = HostCliIdentity::generate();
+        let dbg = format!("{id:?}");
+        assert!(!dbg.contains(id.hmac_secret()), "hmac_secret leaked: {dbg}");
+        assert!(!dbg.contains(id.nats_connect_password()), "nats_password leaked: {dbg}");
+        assert!(dbg.contains("<redacted>"));
     }
 
     #[test]
