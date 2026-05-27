@@ -64,53 +64,10 @@ const SCOPE_KIND_OPTIONS: { value: ScopeKindFilter; label: string }[] = [
   { value: 'user', label: 'User' },
 ]
 
-const COMMON_EVENT_TYPES = [
-  'governance.context.feedback.recorded',
-  'governance.context.skill.approved',
-  'governance.context.skill.reviewed',
-  'governance.context.memory.updated',
-  'governance.context.memory.rejected',
-]
-
-const QUICK_AUDIT_FILTERS: {
-  label: string
-  filters: Partial<FilterState>
-}[] = [
-  {
-    label: 'Recent Context',
-    filters: {
-      eventPrefix: DEFAULT_FILTERS.eventPrefix,
-      eventType: '',
-      itemKind: 'all',
-      scopeKind: 'all',
-      scopeId: '',
-      userId: '',
-    },
-  },
-  {
-    label: 'Feedback',
-    filters: {
-      eventPrefix: DEFAULT_FILTERS.eventPrefix,
-      eventType: 'governance.context.feedback.recorded',
-      itemKind: 'all',
-    },
-  },
-  {
-    label: 'Skill Changes',
-    filters: {
-      eventPrefix: 'governance.context.skill.',
-      eventType: '',
-      itemKind: 'skill',
-    },
-  },
-  {
-    label: 'Memory Changes',
-    filters: {
-      eventPrefix: 'governance.context.memory.',
-      eventType: '',
-      itemKind: 'memory',
-    },
-  },
+const AUDIT_REVIEW_STEPS = [
+  'Start with the default context events.',
+  'Narrow by item or scope only after you see too many rows.',
+  'Keep Redact secrets on before exporting evidence.',
 ]
 
 const INPUT_CLASS =
@@ -193,33 +150,27 @@ export function AuditLogView() {
         onSubmit={submitFilters}
         className="shrink-0 border-b border-black/[0.06] px-4 py-3 dark:border-white/[0.06] sm:px-6"
       >
-        <div
-          data-testid="governance-audit-filter-guide"
-          className="mb-3 rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-caption text-apple-blue"
+        <section
+          data-testid="governance-audit-review-path"
+          className="mb-3 rounded-card border border-black/[0.08] bg-white px-3 py-2.5 dark:border-white/[0.1] dark:bg-[#2c2c2e]"
         >
-          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-            <p>
-              Start broad. Leave Event Type, Scope ID, and User ID empty unless you copied a value
-              from another screen.
-            </p>
-            <div
-              role="group"
-              aria-label="Common audit filters"
-              className="flex max-w-full gap-1 overflow-x-auto"
-            >
-              {QUICK_AUDIT_FILTERS.map((preset) => (
-                <button
-                  key={preset.label}
-                  type="button"
-                  onClick={() => applyQuickFilter(preset.filters)}
-                  className="h-8 shrink-0 rounded-full border border-apple-blue/20 bg-white/80 px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:bg-black/20 dark:hover:bg-black/30"
-                >
-                  {preset.label}
-                </button>
-              ))}
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] lg:items-start">
+            <div>
+              <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+                Audit review path
+              </p>
+              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                Use this page to find who changed governed context, what changed, and whether the
+                exported evidence is safe to share.
+              </p>
             </div>
+            <ol className="list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {AUDIT_REVIEW_STEPS.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
           </div>
-        </div>
+        </section>
 
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_160px_160px_160px_auto]">
           <Field label="Event family">
@@ -434,17 +385,14 @@ export function AuditLogView() {
                   </tr>
                 ) : entries.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center">
-                      <div
-                        data-testid="governance-audit-empty"
-                        className="mx-auto max-w-md space-y-1"
-                      >
+                    <td colSpan={7} className="px-4 py-12 text-center text-secondary-light">
+                      <div className="mx-auto max-w-sm">
                         <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-                          No audit records match this view
+                          No governance audit events
                         </p>
-                        <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                          Clear Exact event, choose All areas, or widen the date range if you
-                          expected to see a recent change.
+                        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                          Clear narrow filters or increase the limit if you expected recent
+                          approvals, rejections, or exports.
                         </p>
                       </div>
                     </td>

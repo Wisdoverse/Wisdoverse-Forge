@@ -74,6 +74,9 @@ describe('AuditLogView', () => {
     render(<AuditLogView />)
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
+    expect(screen.getByTestId('governance-audit-review-path')).toBeDefined()
+    expect(screen.getByText('Audit review path')).toBeDefined()
+    expect(screen.getByText(/keep redact secrets on/i)).toBeDefined()
     expect(screen.getAllByTestId('governance-audit-row')).toHaveLength(2)
     expect(screen.getByText('Records')).toBeDefined()
     expect(screen.getAllByText('Changed item').length).toBeGreaterThan(0)
@@ -103,7 +106,7 @@ describe('AuditLogView', () => {
     )
   })
 
-  test('explains an empty audit view in plain language', async () => {
+  test('explains how to recover from an empty audit result', async () => {
     fetchGovernanceAudit.mockResolvedValueOnce({
       entries: [],
       query: {
@@ -116,10 +119,7 @@ describe('AuditLogView', () => {
 
     render(<AuditLogView />)
 
-    await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
-    expect(screen.getByTestId('governance-audit-empty').textContent).toContain(
-      'No audit records match this view'
-    )
-    expect(screen.getByTestId('governance-audit-empty').textContent).toContain('Clear Exact event')
+    expect(await screen.findByText('No governance audit events')).toBeDefined()
+    expect(screen.getByText(/clear narrow filters or increase the limit/i)).toBeDefined()
   })
 })
