@@ -221,6 +221,10 @@ describe('AppLayout', () => {
 
     await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
     const briefGroup = screen.getByRole('group', { name: /task brief templates/i })
+    expect(screen.getByText(/agent-ready brief/i)).toBeDefined()
+    expect(screen.getByText('Result')).toBeDefined()
+    expect(screen.getByText(/visible change or decision/i)).toBeDefined()
+
     fireEvent.click(within(briefGroup).getByRole('button', { name: /bug/i }))
 
     expect(screen.getByPlaceholderText(/what needs to be done/i)).toHaveValue(
