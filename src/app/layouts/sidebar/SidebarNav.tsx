@@ -26,22 +26,77 @@ interface NavItem {
   id: string
   Icon: IconComponent
   labelKey: string
+  description: string
   path: string
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'start', Icon: BookOpenCheck, labelKey: 'nav.start', path: '/start' },
-  { id: 'tasks', Icon: CheckSquare, labelKey: 'nav.tasks', path: '/tasks' },
-  { id: 'inbox', Icon: Inbox, labelKey: 'nav.inbox', path: '/inbox' },
-  { id: 'context', Icon: ClipboardCheck, labelKey: 'nav.context', path: '/context' },
-  { id: 'agents', Icon: Bot, labelKey: 'nav.agents', path: '/agents' },
-  { id: 'skills', Icon: Zap, labelKey: 'nav.skills', path: '/skills' },
-  { id: 'analytics', Icon: BarChart3, labelKey: 'nav.analytics', path: '/analytics' },
+  {
+    id: 'start',
+    Icon: BookOpenCheck,
+    labelKey: 'nav.start',
+    description: 'follow the setup checklist',
+    path: '/start',
+  },
+  {
+    id: 'tasks',
+    Icon: CheckSquare,
+    labelKey: 'nav.tasks',
+    description: 'create and review agent work',
+    path: '/tasks',
+  },
+  {
+    id: 'inbox',
+    Icon: Inbox,
+    labelKey: 'nav.inbox',
+    description: 'review items needing attention',
+    path: '/inbox',
+  },
+  {
+    id: 'context',
+    Icon: ClipboardCheck,
+    labelKey: 'nav.context',
+    description: 'approve reusable knowledge',
+    path: '/context',
+  },
+  {
+    id: 'agents',
+    Icon: Bot,
+    labelKey: 'nav.agents',
+    description: 'create and manage workers',
+    path: '/agents',
+  },
+  {
+    id: 'skills',
+    Icon: Zap,
+    labelKey: 'nav.skills',
+    description: 'reuse proven work steps',
+    path: '/skills',
+  },
+  {
+    id: 'analytics',
+    Icon: BarChart3,
+    labelKey: 'nav.analytics',
+    description: 'review usage and outcomes',
+    path: '/analytics',
+  },
 ]
 
 const BOTTOM_ITEMS: NavItem[] = [
-  { id: 'billing', Icon: CreditCard, labelKey: 'nav.billing', path: '/billing' },
-  { id: 'settings', Icon: Settings, labelKey: 'nav.settings', path: '/settings' },
+  {
+    id: 'billing',
+    Icon: CreditCard,
+    labelKey: 'nav.billing',
+    description: 'review plan and invoices',
+    path: '/billing',
+  },
+  {
+    id: 'settings',
+    Icon: Settings,
+    labelKey: 'nav.settings',
+    description: 'configure workspace, runtime, and access',
+    path: '/settings',
+  },
 ]
 
 interface SidebarNavProps {
@@ -72,6 +127,7 @@ export function SidebarNav({
   function renderItem(item: NavItem) {
     const active = activePath.startsWith(item.path)
     const label = t(item.labelKey)
+    const accessibleLabel = `${label}: ${item.description}`
     const Icon = item.Icon
     const badgeCount = item.id === 'context' ? pendingContextCount : 0
     return (
@@ -79,6 +135,8 @@ export function SidebarNav({
         key={item.id}
         data-testid={`sidebar-nav-${item.id}`}
         onClick={() => onNavigate(item.path)}
+        aria-label={accessibleLabel}
+        aria-current={active ? 'page' : undefined}
         className={cn(
           'relative flex items-center gap-2.5 rounded-lg transition-colors',
           expanded ? 'px-2.5 py-1.5 w-full' : 'w-9 h-9 justify-center',
@@ -86,7 +144,7 @@ export function SidebarNav({
             ? 'bg-apple-blue/10 text-apple-blue shadow-[inset_0_0_0_1px_rgba(0,102,204,0.24)]'
             : 'text-foreground-light/80 dark:text-foreground-dark/80 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-foreground-light dark:hover:text-foreground-dark'
         )}
-        title={label}
+        title={accessibleLabel}
       >
         <Icon size={16} strokeWidth={2} className="flex-shrink-0" />
         {expanded && <span className="truncate text-ui-body font-medium">{label}</span>}
@@ -119,16 +177,24 @@ export function SidebarNav({
       className={cn('flex flex-col gap-0.5', expanded ? 'px-2 pb-2' : 'px-1.5 pb-2 items-center')}
     >
       {BOTTOM_ITEMS.map(renderItem)}
-      {isAdmin && renderItem({ id: 'admin', Icon: Shield, labelKey: 'nav.admin', path: '/admin' })}
+      {isAdmin &&
+        renderItem({
+          id: 'admin',
+          Icon: Shield,
+          labelKey: 'nav.admin',
+          description: 'manage organizations, users, and system health',
+          path: '/admin',
+        })}
       <button
         data-testid="sidebar-nav-logout"
         onClick={handleLogout}
+        aria-label="Logout: sign out of this workspace"
         className={cn(
           'flex items-center gap-2.5 rounded-lg transition-colors',
           expanded ? 'px-2.5 py-1.5 w-full' : 'w-9 h-9 justify-center',
           'text-foreground-light/80 dark:text-foreground-dark/80 hover:bg-red-500/10 hover:text-red-500'
         )}
-        title={t('nav.logout')}
+        title="Logout: sign out of this workspace"
       >
         <LogOut size={16} strokeWidth={2} className="flex-shrink-0" />
         {expanded && <span className="truncate text-ui-body font-medium">{t('nav.logout')}</span>}
