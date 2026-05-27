@@ -11,6 +11,12 @@ interface CreateProjectFormProps {
   saving: boolean
 }
 
+const PROJECT_SETUP_STEPS = [
+  'Choose the team that owns the work.',
+  'Name the project after the product, repo, or work area.',
+  'Open Project Members after creation if access differs from the team.',
+]
+
 export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreateProjectFormProps) {
   const [name, setName] = useState('')
   const [teamId, setTeamId] = useState(teams[0]?.id ?? '')
@@ -68,54 +74,44 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
         'bg-black/[0.015] dark:bg-white/[0.025]'
       )}
     >
-      <div
-        id={statusId}
-        data-testid="create-project-status"
-        aria-live="polite"
-        className={cn(
-          'mb-3 rounded-card border px-3 py-2',
-          isReady
-            ? 'border-apple-green/25 bg-apple-green/10'
-            : 'border-apple-blue/20 bg-apple-blue/[0.04]'
-        )}
-      >
-        <p className="text-ui-button font-semibold text-foreground-light dark:text-foreground-dark">
-          {readinessTitle}
+      <div className="mb-4 border-l-2 border-apple-blue/40 pl-3">
+        <p className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+          Project setup path
         </p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {readinessDetail}
+          Use projects for the work areas where agents receive tasks and evidence.
         </p>
+        <ol className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {PROJECT_SETUP_STEPS.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
       </div>
-
-      {visibleError && (
-        <div className={cn(uiStyles.error, 'mb-3')} role="alert" aria-live="polite">
-          {visibleError}
-        </div>
-      )}
 
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <label htmlFor={nameInputId} className={uiStyles.label}>
-            Project Name
+          <label htmlFor="project-name" className={uiStyles.label}>
+            Project Name *
           </label>
           <input
-            id={nameInputId}
-            name="projectName"
+            id="project-name"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Web App"
+            aria-describedby="project-name-help"
             autoFocus
             aria-invalid={errorField === 'name'}
             aria-describedby={`${statusId}${errorField === 'name' ? ` ${errorId}` : ''}`}
             className={inputClass}
           />
-          {errorField === 'name' && (
-            <p id={errorId} className="mt-1 text-ui-caption text-apple-red">
-              {visibleError}
-            </p>
-          )}
-          {trimmedName && (
+          <p
+            id="project-name-help"
+            className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+          >
+            Pick the name users will look for when assigning tasks.
+          </p>
+          {name.trim() && (
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Slug: {slugifyName(name)}
             </p>
@@ -123,22 +119,16 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
         </div>
 
         <div>
-          <label htmlFor={hasTeams ? teamSelectId : undefined} className={uiStyles.label}>
-            Team
+          <label htmlFor="project-team" className={uiStyles.label}>
+            Team *
           </label>
-          {!hasTeams ? (
-            <p
-              id={teamSelectId}
-              tabIndex={-1}
-              aria-describedby={errorField === 'team' ? errorId : undefined}
-              className="py-1.5 text-ui-caption text-secondary-light dark:text-secondary-dark"
-            >
+          {teams.length === 0 ? (
+            <p className="py-1.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
               No teams — create a team first
             </p>
           ) : (
             <select
-              id={teamSelectId}
-              name="teamId"
+              id="project-team"
               value={teamId}
               onChange={(e) => setTeamId(e.target.value)}
               aria-invalid={errorField === 'team'}
