@@ -89,12 +89,16 @@ describe('Sidebar', () => {
       projects: {},
     })
 
-    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    const onNavigate = vi.fn()
+    render(<Sidebar activePath="/tasks" onNavigate={onNavigate} />)
 
     expect(screen.getByTestId('sidebar')).toBeInTheDocument()
     expect(screen.getByText('My Org')).toBeInTheDocument()
     expect(screen.getByTestId('sidebar-nav-tasks')).toBeInTheDocument()
     expect(screen.getByTestId('sidebar-nav-agents')).toBeInTheDocument()
+    expect(screen.getByTestId('project-tree-empty-teams')).toHaveTextContent('Create a team first')
+    fireEvent.click(screen.getByRole('button', { name: /open team settings/i }))
+    expect(onNavigate).toHaveBeenCalledWith('/settings/teams')
   })
 
   it('renders collapsed sidebar with only icons', () => {
@@ -135,6 +139,36 @@ describe('Sidebar', () => {
 
     expect(screen.getByText('Team Alpha')).toBeInTheDocument()
     expect(screen.getByText('Project X')).toBeInTheDocument()
+  })
+
+  it('guides users to create a project when a team is empty', () => {
+    useNavigationStore.setState({
+      orgs: [{ id: 'org1', name: 'Org', slug: 'org', plan: 'pro', role: 'owner' }],
+      selectedOrgId: 'org1',
+      sidebarExpanded: true,
+      teams: [
+        {
+          id: 't1',
+          orgId: 'org1',
+          name: 'Team Alpha',
+          slug: 'team-alpha',
+          visibility: 'open',
+          description: '',
+        },
+      ],
+      projects: { t1: [] },
+      expandedTeams: ['t1'],
+      selectedProjectId: null,
+    })
+    const onNavigate = vi.fn()
+
+    render(<Sidebar activePath="/tasks" onNavigate={onNavigate} />)
+
+    expect(screen.getByTestId('team-t1-empty-projects')).toHaveTextContent(
+      "Add this team's first project"
+    )
+    fireEvent.click(screen.getByRole('button', { name: /open project settings/i }))
+    expect(onNavigate).toHaveBeenCalledWith('/settings/projects')
   })
 
   it('opens project context menu on right click', () => {
