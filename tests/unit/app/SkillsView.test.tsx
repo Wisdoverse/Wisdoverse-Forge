@@ -46,20 +46,26 @@ describe('SkillsView', () => {
     expect(screen.getAllByRole('button', { name: /new skill/i }).length).toBeGreaterThan(0)
   })
 
-  test('guides first-time users through the skill form fields', async () => {
+  test('fills a skill draft from a common starting point', async () => {
     const user = userEvent.setup()
     render(<SkillsView />)
 
     await user.click(screen.getAllByRole('button', { name: /new skill/i })[0])
+    const templates = screen.getByRole('group', { name: /skill templates/i })
+    await user.click(within(templates).getByRole('button', { name: /release notes/i }))
 
-    expect(screen.getByText(/reuse them on similar work/i)).toBeDefined()
-    expect(screen.getByLabelText(/^skill name$/i)).toBeDefined()
-    expect(screen.getByText(/short name people can recognize/i)).toBeDefined()
-    expect(screen.getByLabelText(/^what it helps with$/i)).toBeDefined()
-    expect(screen.getByLabelText(/^when to suggest it$/i)).toBeDefined()
-    expect(screen.getByText(/choose this skill manually/i)).toBeDefined()
-    expect(screen.getByLabelText(/^instructions for the agent$/i)).toBeDefined()
-    expect(screen.getByText(/what success should look like/i)).toBeDefined()
+    expect(within(templates).getByRole('button', { name: /release notes/i })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    expect(screen.getByLabelText(/^name$/i)).toHaveValue('release-notes')
+    expect(screen.getByLabelText(/^description$/i)).toHaveValue(
+      'Draft release notes from accepted work'
+    )
+    expect(screen.getByLabelText(/^trigger pattern$/i)).toHaveValue('release')
+    expect((screen.getByLabelText(/^content$/i) as HTMLTextAreaElement).value).toContain(
+      'Group user-facing updates'
+    )
   })
 
   test('shows empty state after load with no skills', async () => {
