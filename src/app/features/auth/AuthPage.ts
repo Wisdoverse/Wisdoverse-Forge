@@ -96,7 +96,7 @@ export class AuthPage {
     const verified = urlParams.get('verified')
     if (verified === 'true') {
       window.history.replaceState({}, '', window.location.pathname)
-      this.showSuccessToast('Email verified successfully! You can now log in.')
+      this.showSuccessToast('Email verified. Sign in with your email and password.')
     }
 
     // Handle SSO error after render
@@ -137,11 +137,17 @@ export class AuthPage {
         <div class="auth-header">
           <div class="auth-logo">&#9881;</div>
           <h1 class="auth-title">Wisdoverse Forge</h1>
-          <p class="auth-subtitle">AI Agent Platform</p>
+          <p class="auth-subtitle">Team workspace access</p>
+          <p class="auth-intro">
+            Sign in to manage agents, tasks, evidence, and team settings from one workspace.
+          </p>
+          <p class="auth-intro auth-intro-secondary">
+            New here? Create an account first. Already invited? Sign in with your email.
+          </p>
         </div>
         <div class="auth-tabs">
-          <button class="auth-tab active" data-tab="login">Login</button>
-          <button class="auth-tab" data-tab="register">Register</button>
+          <button class="auth-tab active" data-tab="login">Sign in</button>
+          <button class="auth-tab" data-tab="register">Create account</button>
         </div>
         <div class="auth-tab-indicator"></div>
         <div class="auth-error" id="auth-error"></div>
@@ -178,7 +184,7 @@ export class AuthPage {
               justify-content: center; gap: 8px; transition: all 0.2s;
             ">
               <span style="font-size: 18px;">${getSsoIcon(p.icon || p.name)}</span>
-              <span>${p.displayName} 登录</span>
+              <span>Continue with ${p.displayName}</span>
             </button>
           `
             )
@@ -186,7 +192,7 @@ export class AuthPage {
         </div>
         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
           <div style="flex: 1; height: 1px; background: rgba(58, 58, 90, 0.5);"></div>
-          <span style="color: #64748b; font-size: 13px;">或使用邮箱</span>
+          <span style="color: #64748b; font-size: 13px;">or use your email address</span>
           <div style="flex: 1; height: 1px; background: rgba(58, 58, 90, 0.5);"></div>
         </div>
       </div>
@@ -196,15 +202,18 @@ export class AuthPage {
   private renderLoginForm(): string {
     return `
       <form class="auth-form" id="login-form">
+        <p class="auth-form-note">
+          Use the email your workspace admin invited. After sign in, you will land on your task board.
+        </p>
         <div class="auth-field">
-          <label class="auth-label" for="login-email">Email</label>
+          <label class="auth-label" for="login-email">Email address</label>
           <input class="auth-input" id="login-email" type="email" placeholder="name@example.com" autocomplete="email" required>
         </div>
         <div class="auth-field">
           <label class="auth-label" for="login-password">Password</label>
           <div class="auth-password-wrap">
-            <input class="auth-input" id="login-password" type="password" placeholder="Enter password" autocomplete="current-password" required>
-            <button type="button" class="auth-password-toggle" data-target="login-password" aria-label="Toggle password visibility">
+            <input class="auth-input" id="login-password" type="password" placeholder="Your account password" autocomplete="current-password" required>
+            <button type="button" class="auth-password-toggle" data-target="login-password" aria-label="Show or hide password">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
           </div>
@@ -212,14 +221,14 @@ export class AuthPage {
         <div class="auth-remember">
           <label class="auth-remember-label">
             <input type="checkbox" id="login-remember" class="auth-remember-check">
-            <span class="auth-remember-text">Remember me</span>
+            <span class="auth-remember-text">Keep me signed in on this device</span>
           </label>
         </div>
         <button class="auth-submit" type="submit" id="login-submit">
-          <span class="auth-submit-text">Login</span>
+          <span class="auth-submit-text">Sign in</span>
           <span class="auth-submit-spinner" hidden></span>
         </button>
-        <a href="#" class="auth-back-link" id="forgot-password-link">Forgot password?</a>
+        <a href="#" class="auth-back-link" id="forgot-password-link">I cannot access my password</a>
       </form>
     `
   }
@@ -227,19 +236,23 @@ export class AuthPage {
   private renderRegisterForm(): string {
     return `
       <form class="auth-form" id="register-form" style="display:none">
+        <p class="auth-form-note">
+          Create your first workspace account. You can invite teammates and connect agents after you get in.
+        </p>
         <div class="auth-field">
-          <label class="auth-label" for="register-email">Email</label>
+          <label class="auth-label" for="register-email">Email address</label>
           <input class="auth-input" id="register-email" type="email" placeholder="name@example.com" autocomplete="email" required>
+          <span class="auth-hint">We use this for verification, password reset, and workspace alerts.</span>
         </div>
         <div class="auth-field">
-          <label class="auth-label" for="register-username">Username <span class="auth-optional">(optional)</span></label>
-          <input class="auth-input" id="register-username" type="text" placeholder="Your display name" autocomplete="username">
+          <label class="auth-label" for="register-username">Display name <span class="auth-optional">(optional)</span></label>
+          <input class="auth-input" id="register-username" type="text" placeholder="What teammates should see" autocomplete="username">
         </div>
         <div class="auth-field">
-          <label class="auth-label" for="register-password">Password</label>
+          <label class="auth-label" for="register-password">Create a password</label>
           <div class="auth-password-wrap">
-            <input class="auth-input" id="register-password" type="password" placeholder="Create password" autocomplete="new-password" required>
-            <button type="button" class="auth-password-toggle" data-target="register-password" aria-label="Toggle password visibility">
+            <input class="auth-input" id="register-password" type="password" placeholder="At least 12 characters" autocomplete="new-password" required>
+            <button type="button" class="auth-password-toggle" data-target="register-password" aria-label="Show or hide password">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
           </div>
@@ -248,15 +261,15 @@ export class AuthPage {
             <span class="auth-strength-text"></span>
           </div>
           <div class="auth-password-rules">
-            <span class="auth-rule" data-rule="length">12+ characters</span>
-            <span class="auth-rule" data-rule="upper">Uppercase</span>
-            <span class="auth-rule" data-rule="lower">Lowercase</span>
-            <span class="auth-rule" data-rule="number">Number</span>
-            <span class="auth-rule" data-rule="special">Special char</span>
+            <span class="auth-rule" data-rule="length">12 characters</span>
+            <span class="auth-rule" data-rule="upper">uppercase letter</span>
+            <span class="auth-rule" data-rule="lower">lowercase letter</span>
+            <span class="auth-rule" data-rule="number">number</span>
+            <span class="auth-rule" data-rule="special">symbol</span>
           </div>
         </div>
         <button class="auth-submit" type="submit" id="register-submit">
-          <span class="auth-submit-text">Create Account</span>
+          <span class="auth-submit-text">Create account and continue</span>
           <span class="auth-submit-spinner" hidden></span>
         </button>
       </form>
@@ -385,7 +398,7 @@ export class AuthPage {
     const rememberMe =
       this.container?.querySelector<HTMLInputElement>('#login-remember')?.checked ?? false
     if (!email || !password) {
-      this.setError('Please fill in all fields')
+      this.setError('Enter your email address and password to sign in.')
       return
     }
     this.setLoading('login-submit', true)
@@ -398,7 +411,9 @@ export class AuthPage {
       this.setError('')
       this.showVerificationBanner(email)
     } else {
-      this.setError(result.error || 'Login failed')
+      this.setError(
+        result.error || 'We could not sign you in. Check your email and password, then try again.'
+      )
       this.shakeCard()
     }
   }
@@ -408,7 +423,7 @@ export class AuthPage {
     const password = this.getInput('register-password')
     const username = this.getInput('register-username') || undefined
     if (!email || !password) {
-      this.setError('Please fill in all required fields')
+      this.setError('Enter an email address and password to create your account.')
       return
     }
     this.setLoading('register-submit', true)
@@ -424,7 +439,9 @@ export class AuthPage {
         this.showVerificationPending(email)
       }
     } else {
-      this.setError(result.error || 'Registration failed')
+      this.setError(
+        result.error || 'We could not create the account yet. Check the fields and try again.'
+      )
       this.shakeCard()
     }
   }
@@ -460,9 +477,9 @@ export class AuthPage {
         </svg>
       </div>
       <div class="auth-verify-banner-content">
-        <div class="auth-verify-banner-title">邮箱尚未验证</div>
-        <div class="auth-verify-banner-text">请检查 <strong id="verify-email-display"></strong> 的收件箱，点击验证链接后即可登录。</div>
-        <button type="button" class="auth-verify-banner-resend" id="verify-resend-btn">重新发送验证邮件</button>
+        <div class="auth-verify-banner-title">Check your email first</div>
+        <div class="auth-verify-banner-text">We sent a verification link to <strong id="verify-email-display"></strong>. Open it, then come back and sign in.</div>
+        <button type="button" class="auth-verify-banner-resend" id="verify-resend-btn">Send verification email again</button>
       </div>
     `
 
@@ -479,20 +496,20 @@ export class AuthPage {
     resendBtn?.addEventListener('click', async () => {
       if (!resendBtn || resendBtn.disabled) return
       resendBtn.disabled = true
-      resendBtn.textContent = '发送中...'
+      resendBtn.textContent = 'Sending...'
       try {
         await this.authManager.resendVerification(email)
-        resendBtn.textContent = '✓ 已发送，请查收邮箱'
+        resendBtn.textContent = 'Sent. Check your inbox.'
         resendBtn.classList.add('sent')
         setTimeout(() => {
           resendBtn.disabled = false
-          resendBtn.textContent = '重新发送验证邮件'
+          resendBtn.textContent = 'Send verification email again'
           resendBtn.classList.remove('sent')
         }, 60000)
       } catch (err) {
         console.error('[AuthPage] Failed to resend verification email:', err)
         resendBtn.disabled = false
-        resendBtn.textContent = '发送失败，点击重试'
+        resendBtn.textContent = 'Could not send. Try again.'
       }
     })
   }
@@ -569,10 +586,10 @@ export class AuthPage {
 
     if (metCount <= 2) {
       fill.className = 'auth-strength-fill weak'
-      text.textContent = 'Weak'
+      text.textContent = 'Keep adding details'
     } else if (metCount <= 3) {
       fill.className = 'auth-strength-fill fair'
-      text.textContent = 'Fair'
+      text.textContent = 'Almost there'
     } else if (metCount === 4) {
       fill.className = 'auth-strength-fill good'
       text.textContent = 'Good'
@@ -593,21 +610,21 @@ export class AuthPage {
     container.innerHTML = `
       <div style="text-align: center; padding: 40px 20px;">
         <div style="font-size: 48px; margin-bottom: 16px;">📧</div>
-        <h2 style="color: #818cf8; margin: 0 0 16px; font-size: 20px; font-weight: 600;">验证您的邮箱</h2>
+        <h2 style="color: #818cf8; margin: 0 0 16px; font-size: 20px; font-weight: 600;">Check your email</h2>
         <p style="color: #94a3b8; margin: 0 0 24px; line-height: 1.6; font-size: 14px;">
-          验证邮件已发送到<br/>
+          We sent a verification link to<br/>
           <strong id="verify-email-target" style="color: #e2e8f0;"></strong>
         </p>
         <p style="color: #64748b; font-size: 13px; margin: 0 0 24px;">
-          请查看您的邮箱并点击验证链接完成注册。
+          Open that email to finish creating your account. You can sign in after verification.
         </p>
         <button id="resend-btn" style="
           background: transparent; border: 1px solid rgba(58, 58, 90, 0.8); color: #818cf8;
           padding: 10px 24px; border-radius: 8px; cursor: pointer; font-size: 14px;
           margin-bottom: 16px; transition: all 0.2s; font-weight: 500;
-        ">重新发送验证邮件</button>
+        ">Send verification email again</button>
         <br/>
-        <a href="#" id="back-to-login" style="color: #64748b; font-size: 13px; text-decoration: none; transition: color 0.2s;">返回登录</a>
+        <a href="#" id="back-to-login" style="color: #64748b; font-size: 13px; text-decoration: none; transition: color 0.2s;">Back to sign in</a>
       </div>
     `
     const emailTarget = container.querySelector('#verify-email-target')
@@ -616,17 +633,17 @@ export class AuthPage {
     const resendBtn = container.querySelector('#resend-btn') as HTMLButtonElement
     resendBtn?.addEventListener('click', async () => {
       resendBtn.disabled = true
-      resendBtn.textContent = '发送中...'
+      resendBtn.textContent = 'Sending...'
       try {
         await this.authManager.resendVerification(email)
-        resendBtn.textContent = '已发送 (60秒后可重试)'
+        resendBtn.textContent = 'Sent. Try again in 60s'
         setTimeout(() => {
           resendBtn.disabled = false
-          resendBtn.textContent = '重新发送验证邮件'
+          resendBtn.textContent = 'Send verification email again'
         }, 60000)
       } catch (error) {
         resendBtn.disabled = false
-        resendBtn.textContent = '重新发送验证邮件'
+        resendBtn.textContent = 'Send verification email again'
         console.error('Resend failed:', error)
       }
     })
@@ -662,26 +679,26 @@ export class AuthPage {
 
     container.innerHTML = `
       <form class="auth-form" id="forgot-form">
-        <h2 class="auth-form-heading">Forgot Password</h2>
-        <p class="auth-form-desc">Enter your email and we'll send a password reset link.</p>
+        <h2 class="auth-form-heading">Reset your password</h2>
+        <p class="auth-form-desc">Enter your account email. If it matches an account, we will email a reset link.</p>
         <div class="auth-field">
-          <label class="auth-label" for="forgot-email">Email</label>
+          <label class="auth-label" for="forgot-email">Email address</label>
           <input class="auth-input" id="forgot-email" type="email" placeholder="name@example.com" autocomplete="email" required>
         </div>
         <div class="auth-error" id="forgot-error"></div>
         <button class="auth-submit" type="submit" id="forgot-submit">
-          <span class="auth-submit-text">Send Reset Link</span>
+          <span class="auth-submit-text">Email me a reset link</span>
           <span class="auth-submit-spinner" hidden></span>
         </button>
-        <a href="#" class="auth-back-link" id="back-to-login-from-forgot">&larr; Back to Login</a>
+        <a href="#" class="auth-back-link" id="back-to-login-from-forgot">&larr; Back to sign in</a>
       </form>
       <div class="auth-form" id="forgot-success" style="display:none">
         <div class="auth-form-icon">&#x1F4E7;</div>
-        <h2 class="auth-form-heading">Check Your Email</h2>
-        <p class="auth-form-desc">If an account exists for <strong class="auth-email-masked" id="forgot-email-masked"></strong>, you'll receive a reset link.</p>
-        <p class="auth-check-spam">Check your spam folder if you don't see it.</p>
+        <h2 class="auth-form-heading">Check your inbox</h2>
+        <p class="auth-form-desc">If an account exists for <strong class="auth-email-masked" id="forgot-email-masked"></strong>, you will receive a reset link.</p>
+        <p class="auth-check-spam">Open the email and follow the link. Check spam if it is not in your inbox.</p>
         <p class="auth-cooldown" id="forgot-cooldown"></p>
-        <a href="#" class="auth-back-link" id="back-to-login-from-success">&larr; Back to Login</a>
+        <a href="#" class="auth-back-link" id="back-to-login-from-success">&larr; Back to sign in</a>
       </div>
     `
 
@@ -714,19 +731,20 @@ export class AuthPage {
         // Start 60s cooldown
         let remaining = 60
         const cooldownEl = container.querySelector('#forgot-cooldown') as HTMLElement
-        cooldownEl.textContent = `Resend available in ${remaining}s`
+        cooldownEl.textContent = `You can request another email in ${remaining}s`
         cooldownTimer = setInterval(() => {
           remaining--
           if (remaining <= 0) {
             if (cooldownTimer) clearInterval(cooldownTimer)
             cooldownEl.textContent = ''
           } else {
-            cooldownEl.textContent = `Resend available in ${remaining}s`
+            cooldownEl.textContent = `You can request another email in ${remaining}s`
           }
         }, 1000)
       } catch (error) {
         this.setLoading('forgot-submit', false)
-        errorDiv.textContent = (error as Error).message || 'Failed to send reset email'
+        errorDiv.textContent =
+          (error as Error).message || 'We could not send the reset email. Try again in a moment.'
         errorDiv.style.display = ''
       }
     })
@@ -756,13 +774,13 @@ export class AuthPage {
 
     container.innerHTML = `
       <form class="auth-form" id="reset-form">
-        <h2 class="auth-form-heading">Set New Password</h2>
-        <p class="auth-form-desc">Choose a strong password for your account.</p>
+        <h2 class="auth-form-heading">Choose a new password</h2>
+        <p class="auth-form-desc">This only changes your Wisdoverse Forge account password.</p>
         <div class="auth-field">
-          <label class="auth-label" for="reset-password">New Password</label>
+          <label class="auth-label" for="reset-password">New password</label>
           <div class="auth-password-wrap">
             <input class="auth-input" id="reset-password" type="password" placeholder="At least 12 characters" autocomplete="new-password" required>
-            <button type="button" class="auth-password-toggle" data-target="reset-password" aria-label="Toggle password visibility">
+            <button type="button" class="auth-password-toggle" data-target="reset-password" aria-label="Show or hide password">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
           </div>
@@ -771,33 +789,33 @@ export class AuthPage {
             <span class="auth-strength-text"></span>
           </div>
           <div class="auth-password-rules">
-            <span class="auth-rule" data-rule="length">12+ characters</span>
-            <span class="auth-rule" data-rule="upper">Uppercase</span>
-            <span class="auth-rule" data-rule="lower">Lowercase</span>
-            <span class="auth-rule" data-rule="number">Number</span>
-            <span class="auth-rule" data-rule="special">Special char</span>
+            <span class="auth-rule" data-rule="length">12 characters</span>
+            <span class="auth-rule" data-rule="upper">uppercase letter</span>
+            <span class="auth-rule" data-rule="lower">lowercase letter</span>
+            <span class="auth-rule" data-rule="number">number</span>
+            <span class="auth-rule" data-rule="special">symbol</span>
           </div>
         </div>
         <div class="auth-field">
-          <label class="auth-label" for="reset-confirm">Confirm Password</label>
+          <label class="auth-label" for="reset-confirm">Confirm new password</label>
           <div class="auth-password-wrap">
-            <input class="auth-input" id="reset-confirm" type="password" placeholder="Re-enter password" autocomplete="new-password" required>
-            <button type="button" class="auth-password-toggle" data-target="reset-confirm" aria-label="Toggle password visibility">
+            <input class="auth-input" id="reset-confirm" type="password" placeholder="Type the same password again" autocomplete="new-password" required>
+            <button type="button" class="auth-password-toggle" data-target="reset-confirm" aria-label="Show or hide password">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
           </div>
         </div>
         <div class="auth-error" id="reset-error"></div>
         <button class="auth-submit" type="submit" id="reset-submit">
-          <span class="auth-submit-text">Reset Password</span>
+          <span class="auth-submit-text">Save new password</span>
           <span class="auth-submit-spinner" hidden></span>
         </button>
       </form>
       <div class="auth-form" id="reset-success" style="display:none">
         <div class="auth-form-icon">${iconSuccess}</div>
-        <h2 class="auth-form-heading">Password Reset Successfully</h2>
-        <p class="auth-form-desc">Redirecting to login in <span class="auth-countdown" id="reset-countdown">5</span>s...</p>
-        <button class="auth-submit" id="go-to-login">Go to Login</button>
+        <h2 class="auth-form-heading">Password updated</h2>
+        <p class="auth-form-desc">Return to sign in with the new password in <span class="auth-countdown" id="reset-countdown">5</span>s.</p>
+        <button class="auth-submit" id="go-to-login">Sign in now</button>
       </div>
     `
 
@@ -820,13 +838,13 @@ export class AuthPage {
       errorDiv.style.display = 'none'
 
       if (password !== confirm) {
-        errorDiv.textContent = 'Passwords do not match'
+        errorDiv.textContent = 'The two passwords do not match.'
         errorDiv.style.display = ''
         this.shakeCard()
         return
       }
       if (password.length < 12) {
-        errorDiv.textContent = 'Password must be at least 12 characters'
+        errorDiv.textContent = 'Use at least 12 characters for the new password.'
         errorDiv.style.display = ''
         this.shakeCard()
         return
@@ -860,7 +878,8 @@ export class AuthPage {
           navigateToLogin()
         })
       } catch (error) {
-        errorDiv.textContent = (error as Error).message || 'Reset failed — link may have expired'
+        errorDiv.textContent =
+          (error as Error).message || 'We could not update the password. The link may have expired.'
         errorDiv.style.display = ''
         this.setLoading('reset-submit', false)
         this.shakeCard()
