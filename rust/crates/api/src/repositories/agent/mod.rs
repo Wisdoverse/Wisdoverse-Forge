@@ -11,7 +11,7 @@ pub(crate) use mcp::{McpAgentInsertRecord, McpAgentRepository};
 pub use message::MessageRepository;
 pub use workspace::AgentWorkspaceRepository;
 
-use agentforge_core::{AgentId, AgentStatus, AppResult, TenantScope};
+use agentforge_core::{AgentId, AgentStatus, AppResult, RuntimeKind, TenantScope};
 use agentforge_db::entities::{Agent, AgentCollaborator};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -37,6 +37,7 @@ pub struct AgentListItem {
     pub model: Option<String>,
     pub provider: Option<String>,
     pub cli_tool: Option<String>,
+    pub runtime_kind: RuntimeKind,
     pub system_prompt: Option<String>,
     pub container_id: Option<String>,
     pub cli_session_id: Option<String>,
@@ -106,6 +107,7 @@ const AGENT_ENRICHED_SELECT: &str = r#"SELECT
     a.model,
     a.provider,
     a.cli_tool,
+    a.runtime_kind,
     a.system_prompt,
     a.container_id,
     a.cli_session_id,
@@ -519,6 +521,7 @@ mod tests {
             model: Some("claude".into()),
             provider: Some("anthropic".into()),
             cli_tool: Some("claude".into()),
+            runtime_kind: RuntimeKind::Container,
             system_prompt: None,
             container_id: Some("c-123".into()),
             cli_session_id: Some("cli-42".into()),
