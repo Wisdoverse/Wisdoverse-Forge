@@ -61,13 +61,16 @@ describe('AgentTasksTab', () => {
     render(<AgentTasksTab agentId="agent-1" />)
 
     const summary = await screen.findByTestId('agent-task-workload')
-    expect(within(summary).getByText('Agent task load')).toBeDefined()
+    expect(within(summary).getByText('What this agent is handling')).toBeDefined()
+    expect(within(summary).getByText('Needs help')).toBeDefined()
     expect(within(screen.getByTestId('agent-task-metric-active')).getByText('2')).toBeDefined()
     expect(within(screen.getByTestId('agent-task-metric-backlog')).getByText('1')).toBeDefined()
     expect(
       within(screen.getByTestId('agent-task-metric-needs-action')).getByText('2')
     ).toBeDefined()
     expect(within(screen.getByTestId('agent-task-metric-completed')).getByText('1')).toBeDefined()
+    expect(screen.getByText('Needs help: Needs SSH key')).toBeDefined()
+    expect(screen.getByText('Stopped because: Import failed')).toBeDefined()
   })
 
   test('filters and searches tasks inside the agent profile', async () => {
@@ -95,7 +98,7 @@ describe('AgentTasksTab', () => {
 
     await screen.findByText('Deploy service')
     const filters = screen.getByTestId('agent-task-filter-group')
-    fireEvent.click(within(filters).getByRole('button', { name: /needs action\s*1/i }))
+    fireEvent.click(within(filters).getByRole('button', { name: /needs help\s*1/i }))
 
     expect(screen.getByText('Deploy service')).toBeDefined()
     expect(screen.queryByText('Build frontend')).toBeNull()
@@ -120,10 +123,22 @@ describe('AgentTasksTab', () => {
     render(<AgentTasksTab agentId="agent-1" />)
 
     await screen.findByText('Build frontend')
-    fireEvent.click(screen.getByRole('button', { name: /completed\s*0/i }))
+    fireEvent.click(screen.getByRole('button', { name: /done\s*0/i }))
 
     await waitFor(() => {
       expect(screen.getByTestId('agent-tasks-filter-empty')).toBeDefined()
     })
+  })
+
+  test('shows beginner next steps when the agent has no assigned tasks', async () => {
+    getTasksByAgentMock.mockResolvedValue([])
+
+    render(<AgentTasksTab agentId="agent-1" />)
+
+    expect(
+      await screen.findByText(
+        'This agent has no assigned tasks yet. Assign a task to this agent to track the work here.'
+      )
+    ).toBeDefined()
   })
 })
