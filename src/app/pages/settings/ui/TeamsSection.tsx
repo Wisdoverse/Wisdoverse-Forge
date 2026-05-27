@@ -117,9 +117,10 @@ export function TeamsSection() {
     <div>
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Teams</h2>
+          <h2 className={uiStyles.sectionTitle}>Teams and access groups</h2>
           <p className={uiStyles.sectionDescription}>
-            {teams.length} {teams.length === 1 ? 'team' : 'teams'} in this organization
+            {teams.length} {teams.length === 1 ? 'team groups people' : 'teams group people'} and
+            projects inside this organization
           </p>
         </div>
         {!showForm && canCreateTeam && teams.length > 0 && (
@@ -128,8 +129,8 @@ export function TeamsSection() {
             onClick={() => setShowForm(true)}
             className={uiStyles.primaryButton}
           >
-            <Users size={14} strokeWidth={2} aria-hidden="true" />
-            <span>New Team</span>
+            <Plus size={14} strokeWidth={2} aria-hidden="true" />
+            <span>Create team</span>
           </button>
         )}
       </div>
@@ -142,29 +143,23 @@ export function TeamsSection() {
             Loading teams…
           </div>
         ) : !user?.orgId ? (
-          <WorkspaceEmptyState
-            icon={<ShieldAlert size={18} strokeWidth={2} aria-hidden="true" />}
-            title={emptyTeamTitle}
-            description={emptyTeamDescription}
-          />
+          <div className="px-4 py-6 text-center">
+            <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+              Choose an organization first
+            </p>
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Teams belong to an organization. Select or create one before adding people.
+            </p>
+          </div>
         ) : teams.length === 0 && !showForm ? (
-          <WorkspaceEmptyState
-            icon={<Users size={18} strokeWidth={2} aria-hidden="true" />}
-            title={emptyTeamTitle}
-            description={emptyTeamDescription}
-            action={
-              canCreateTeam ? (
-                <button
-                  type="button"
-                  onClick={() => setShowForm(true)}
-                  className={uiStyles.primaryButton}
-                >
-                  <Users size={14} strokeWidth={2} aria-hidden="true" />
-                  <span>New Team</span>
-                </button>
-              ) : null
-            }
-          />
+          <div className="px-4 py-6 text-center">
+            <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+              Create your first team
+            </p>
+            <p className="mx-auto mt-1 max-w-sm text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Teams group people, projects, and access rules so everyone knows where to work.
+            </p>
+          </div>
         ) : (
           teams.map((team) => (
             <EditableTeamRow
