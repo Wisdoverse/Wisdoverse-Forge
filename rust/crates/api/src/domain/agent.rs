@@ -149,10 +149,6 @@ impl HostAgentEnrollmentPolicy {
             })
     }
 
-    pub(crate) fn runtime_id(agent_id: Uuid) -> String {
-        format!("host-{}", &agent_id.to_string()[..8])
-    }
-
     pub(crate) fn env_map(env: Vec<String>) -> BTreeMap<String, String> {
         env.into_iter()
             .filter_map(|entry| {
@@ -225,6 +221,7 @@ impl HostCliIdentity {
 /// Aggregate root for the Agent bounded context. Loaded by
 /// `AgentRepository::find_aggregate` for write-side operations (added in Task 4.3).
 #[derive(Debug, Clone, sqlx::FromRow)]
+#[allow(dead_code)]
 pub struct AgentAggregate {
     pub(crate) id: Uuid,
     pub(crate) runtime_kind: RuntimeKind,
@@ -296,34 +293,30 @@ impl LifecycleRejection {
                 "errors.agent.lifecycle.restart_host_cli",
                 "Host CLI agent: restart the sidecar from your machine using the enrollment script.".to_string(),
             ),
-            (Self::Api, "Restart") => (
-                "errors.agent.lifecycle.restart_api",
-                "API/provider agent has no container to restart.".to_string(),
-            ),
+            (Self::Api, "Restart") => {
+                ("errors.agent.lifecycle.restart_api", "API/provider agent has no container to restart.".to_string())
+            }
             (Self::HostCli, "Start") => (
                 "errors.agent.lifecycle.start_host_cli",
                 "Host CLI agent: start the sidecar from your machine using the enrollment script.".to_string(),
             ),
-            (Self::Api, "Start") => (
-                "errors.agent.lifecycle.start_api",
-                "API/provider agent has no container to start.".to_string(),
-            ),
+            (Self::Api, "Start") => {
+                ("errors.agent.lifecycle.start_api", "API/provider agent has no container to start.".to_string())
+            }
             (Self::HostCli, "Stop") => (
                 "errors.agent.lifecycle.stop_host_cli",
                 "Host CLI agent: stop the sidecar from your machine.".to_string(),
             ),
-            (Self::Api, "Stop") => (
-                "errors.agent.lifecycle.stop_api",
-                "API/provider agent has no container to stop.".to_string(),
-            ),
+            (Self::Api, "Stop") => {
+                ("errors.agent.lifecycle.stop_api", "API/provider agent has no container to stop.".to_string())
+            }
             (Self::HostCli, "Resume") => (
                 "errors.agent.lifecycle.start_host_cli",
                 "Host CLI agent: start the sidecar from your machine using the enrollment script.".to_string(),
             ),
-            (Self::Api, "Resume") => (
-                "errors.agent.lifecycle.start_api",
-                "API/provider agent has no container to start.".to_string(),
-            ),
+            (Self::Api, "Resume") => {
+                ("errors.agent.lifecycle.start_api", "API/provider agent has no container to start.".to_string())
+            }
             (Self::HostCli, _) => (
                 "errors.agent.lifecycle.restart_host_cli",
                 format!(
@@ -793,13 +786,6 @@ pub(crate) enum AgentRestartPlan {
 pub(crate) struct AgentContainerLifecyclePolicy;
 
 impl AgentContainerLifecyclePolicy {
-    pub(crate) fn ensure_container_backed(cli_tool: Option<&str>) -> AppResult<()> {
-        if cli_tool.is_none() {
-            return Err(ErrorKind::Validation("agent is not container-backed".into()).into());
-        }
-        Ok(())
-    }
-
     pub(crate) fn restart_container_id(container_id: Option<&str>) -> AppResult<&str> {
         container_id.ok_or_else(|| ErrorKind::Validation("agent has no container".into()).into())
     }
@@ -1166,9 +1152,7 @@ mod tests {
     }
 
     #[test]
-    fn agent_container_lifecycle_policy_validates_container_backing_and_ids() {
-        assert!(AgentContainerLifecyclePolicy::ensure_container_backed(Some("claude")).is_ok());
-        assert!(AgentContainerLifecyclePolicy::ensure_container_backed(None).is_err());
+    fn agent_container_lifecycle_policy_validates_container_ids() {
         assert_eq!(AgentContainerLifecyclePolicy::restart_container_id(Some("ctr-1")).unwrap(), "ctr-1");
         assert!(AgentContainerLifecyclePolicy::restart_container_id(None).is_err());
         assert_eq!(AgentContainerLifecyclePolicy::resume_container_id(Some("ctr-2")).unwrap(), "ctr-2");
@@ -1521,13 +1505,6 @@ mod tests {
     }
 
     #[test]
-    fn host_agent_runtime_id_is_stable_and_prefixed() {
-        let agent_id = Uuid::parse_str("11111111-2222-3333-4444-555555555555").unwrap();
-
-        assert_eq!(HostAgentEnrollmentPolicy::runtime_id(agent_id), "host-11111111");
-    }
-
-    #[test]
     fn plain_text_prompt_rejects_unsupported_shapes() {
         assert!(PlainTextAgentPrompt::new("hello", None).is_ok());
         assert!(PlainTextAgentPrompt::new("   ", None).is_err());
@@ -1588,18 +1565,13 @@ mod tests {
     #[test]
     fn new_agent_container_validates_inputs() {
         let scope = test_tenant_scope();
-        let ok = NewAgent::container(
-            &scope, CliToolKind::Codex, Some("My Agent"), None, None,
-            Uuid::new_v4(), None, None,
-        );
+        let ok =
+            NewAgent::container(&scope, CliToolKind::Codex, Some("My Agent"), None, None, Uuid::new_v4(), None, None);
         assert!(ok.is_ok());
 
         // Name >255 chars rejected
         let long = "x".repeat(256);
-        let err = NewAgent::container(
-            &scope, CliToolKind::Codex, Some(&long), None, None,
-            Uuid::new_v4(), None, None,
-        );
+        let err = NewAgent::container(&scope, CliToolKind::Codex, Some(&long), None, None, Uuid::new_v4(), None, None);
         assert!(err.is_err());
     }
 
@@ -1608,10 +1580,8 @@ mod tests {
         let scope = test_tenant_scope();
         let identity = HostCliIdentity::generate();
         let expected_runtime_id = identity.runtime_id().to_string();
-        let na = NewAgent::host_cli(
-            &scope, CliToolKind::Codex, identity, None, None, None,
-            Uuid::new_v4(), None,
-        ).unwrap();
+        let na =
+            NewAgent::host_cli(&scope, CliToolKind::Codex, identity, None, None, None, Uuid::new_v4(), None).unwrap();
         assert_eq!(na.runtime_kind(), RuntimeKind::Cli);
         assert_eq!(na.runtime_id(), Some(expected_runtime_id.as_str()));
         assert_eq!(na.cli_tool(), Some("codex"));
@@ -1620,9 +1590,7 @@ mod tests {
     #[test]
     fn new_agent_api_rejects_empty_model() {
         let scope = test_tenant_scope();
-        assert!(NewAgent::api(
-            &scope, "anthropic", "", None, None, Uuid::new_v4(), None
-        ).is_err());
+        assert!(NewAgent::api(&scope, "anthropic", "", None, None, Uuid::new_v4(), None).is_err());
     }
 
     #[test]
@@ -1682,13 +1650,13 @@ mod tests {
     fn lifecycle_rejection_all_actions_emit_validation_with_code() {
         let cases = [
             (LifecycleRejection::HostCli, "Restart", "errors.agent.lifecycle.restart_host_cli"),
-            (LifecycleRejection::Api,     "Restart", "errors.agent.lifecycle.restart_api"),
-            (LifecycleRejection::HostCli, "Start",   "errors.agent.lifecycle.start_host_cli"),
-            (LifecycleRejection::Api,     "Start",   "errors.agent.lifecycle.start_api"),
-            (LifecycleRejection::HostCli, "Stop",    "errors.agent.lifecycle.stop_host_cli"),
-            (LifecycleRejection::Api,     "Stop",    "errors.agent.lifecycle.stop_api"),
-            (LifecycleRejection::HostCli, "Resume",  "errors.agent.lifecycle.start_host_cli"),
-            (LifecycleRejection::Api,     "Resume",  "errors.agent.lifecycle.start_api"),
+            (LifecycleRejection::Api, "Restart", "errors.agent.lifecycle.restart_api"),
+            (LifecycleRejection::HostCli, "Start", "errors.agent.lifecycle.start_host_cli"),
+            (LifecycleRejection::Api, "Start", "errors.agent.lifecycle.start_api"),
+            (LifecycleRejection::HostCli, "Stop", "errors.agent.lifecycle.stop_host_cli"),
+            (LifecycleRejection::Api, "Stop", "errors.agent.lifecycle.stop_api"),
+            (LifecycleRejection::HostCli, "Resume", "errors.agent.lifecycle.start_host_cli"),
+            (LifecycleRejection::Api, "Resume", "errors.agent.lifecycle.start_api"),
         ];
         for (rejection, action, expected_code) in cases {
             let err = rejection.into_app_error(action);

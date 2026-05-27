@@ -79,9 +79,9 @@ fn parse_legacy_rejects_invented_aliases() {
 #[test]
 fn parse_legacy_accepts_canonical_only() {
     assert_eq!(RuntimeKind::parse_legacy("container").unwrap(), RuntimeKind::Container);
-    assert_eq!(RuntimeKind::parse_legacy("cli").unwrap(),       RuntimeKind::Cli);
-    assert_eq!(RuntimeKind::parse_legacy("api").unwrap(),       RuntimeKind::Api);
-    assert_eq!(RuntimeKind::parse_legacy(" CLI ").unwrap(),     RuntimeKind::Cli);
+    assert_eq!(RuntimeKind::parse_legacy("cli").unwrap(), RuntimeKind::Cli);
+    assert_eq!(RuntimeKind::parse_legacy("api").unwrap(), RuntimeKind::Api);
+    assert_eq!(RuntimeKind::parse_legacy(" CLI ").unwrap(), RuntimeKind::Cli);
 }
 
 #[sqlx::test(migrations = false)]
@@ -89,9 +89,7 @@ async fn runtime_kind_sqlx_roundtrip(pool: PgPool) -> sqlx::Result<()> {
     // `sqlx::test` provisions a fresh isolated database per test, so a regular
     // `CREATE TABLE` is safe and avoids the per-connection scope of
     // `TEMP TABLE` (the pool may hand out different connections).
-    sqlx::query("CREATE TABLE tmp_runtime_kind (id INT PRIMARY KEY, rk TEXT NOT NULL)")
-        .execute(&pool)
-        .await?;
+    sqlx::query("CREATE TABLE tmp_runtime_kind (id INT PRIMARY KEY, rk TEXT NOT NULL)").execute(&pool).await?;
 
     for &kind in &[RuntimeKind::Container, RuntimeKind::Cli, RuntimeKind::Api] {
         sqlx::query("INSERT INTO tmp_runtime_kind (id, rk) VALUES ($1, $2)")
