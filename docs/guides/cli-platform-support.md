@@ -96,6 +96,11 @@ Recommended order:
 5. Log in or configure the API URL.
 6. Run the specific workflow command, such as `agentforge agents enroll-local`.
 
+Commands that print follow-up shell blocks must support both POSIX shells and
+Windows PowerShell. For Host CLI enrollment, use `--shell-format bash` on macOS
+or Linux and `--shell-format powershell` on Windows so the returned
+`agentforge-sidecar` launch block can be pasted into the same shell.
+
 Source builds are still supported for contributors, but they are not the
 primary operator path.
 

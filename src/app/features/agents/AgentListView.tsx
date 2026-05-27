@@ -1,6 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { ArrowDownUp, Bot, Check, Copy, Plus, Search, ShieldCheck, Terminal } from 'lucide-react'
+import {
+  ArrowDownUp,
+  Bot,
+  Check,
+  Copy,
+  Laptop,
+  Monitor,
+  Plus,
+  Search,
+  ShieldCheck,
+  Terminal,
+} from 'lucide-react'
 import {
   isHostCliAgent,
   useAgentsStore,
@@ -16,6 +27,7 @@ import { CreateAgentModal } from './CreateAgentModal'
 type AgentStatusFilter = 'all' | AgentStatus
 type AgentRuntimeFilter = 'all' | 'container' | 'host' | 'provider'
 type AgentSortKey = 'name' | 'status' | 'active' | 'success'
+type HostCliPlatform = 'posix' | 'windows'
 
 const STATUS_FILTERS: { value: AgentStatusFilter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -38,6 +50,26 @@ const SORT_OPTIONS: { value: AgentSortKey; label: string }[] = [
   { value: 'success', label: 'Success Rate' },
 ]
 
+const HOST_CLI_PLATFORMS: {
+  value: HostCliPlatform
+  label: string
+  detail: string
+  Icon: typeof Laptop
+}[] = [
+  {
+    value: 'posix',
+    label: 'macOS / Linux',
+    detail: 'Terminal, bash, zsh',
+    Icon: Laptop,
+  },
+  {
+    value: 'windows',
+    label: 'Windows',
+    detail: 'PowerShell',
+    Icon: Monitor,
+  },
+]
+
 export function AgentListView() {
   const { agents, selectAgent, setCreateModalOpen, loadAgents, loading } = useAgentsStore()
   const selectedProjectId = useNavigationStore((state) => state.selectedProjectId)
@@ -45,10 +77,6 @@ export function AgentListView() {
   const [statusFilter, setStatusFilter] = useState<AgentStatusFilter>('all')
   const [runtimeFilter, setRuntimeFilter] = useState<AgentRuntimeFilter>('all')
   const [sortKey, setSortKey] = useState<AgentSortKey>('name')
-  const localEnrollCommand = useMemo(
-    () => buildLocalEnrollCommand(selectedProjectId),
-    [selectedProjectId]
-  )
   const statusCounts = useMemo(() => countByStatus(agents), [agents])
   const runtimeCounts = useMemo(() => countByRuntime(agents), [agents])
   const filteredAgents = useMemo(
@@ -188,10 +216,7 @@ export function AgentListView() {
         </section>
 
         <aside className="space-y-4 xl:sticky xl:top-0 xl:self-start">
-          <HostCliEnrollmentPanel
-            command={localEnrollCommand}
-            selectedProjectId={selectedProjectId}
-          />
+          <HostCliEnrollmentPanel selectedProjectId={selectedProjectId} />
           <AgentGroupsPanel />
         </aside>
       </div>
@@ -201,29 +226,44 @@ export function AgentListView() {
   )
 }
 
-function buildLocalEnrollCommand(selectedProjectId: string | null): string {
+function buildLocalEnrollCommand(
+  selectedProjectId: string | null,
+  platform: HostCliPlatform
+): string {
   const projectArg = selectedProjectId ?? '<project-id>'
+  if (platform === 'windows') {
+    return [
+      'agentforge agents enroll-local `',
+      '  --tool codex `',
+      '  --name "Host Codex" `',
+      `  --project ${projectArg} \``,
+      '  --cwd "$($PWD.Path)" `',
+      '  --shell-format powershell',
+    ].join('\n')
+  }
+
   return [
     'agentforge agents enroll-local \\',
     '  --tool codex \\',
     '  --name "Host Codex" \\',
     `  --project ${projectArg} \\`,
-    '  --cwd "$PWD"',
+    '  --cwd "$PWD" \\',
+    '  --shell-format bash',
   ].join('\n')
 }
 
-function HostCliEnrollmentPanel({
-  command,
-  selectedProjectId,
-}: {
-  command: string
-  selectedProjectId: string | null
-}) {
+function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: string | null }) {
+  const [platform, setPlatform] = useState<HostCliPlatform>('posix')
   const [copied, setCopied] = useState(false)
+  const command = useMemo(
+    () => buildLocalEnrollCommand(selectedProjectId, platform),
+    [platform, selectedProjectId]
+  )
   const projectLabel = selectedProjectId ?? 'Select a project'
+  const commandReady = Boolean(selectedProjectId)
 
   async function handleCopyCommand() {
-    if (!navigator.clipboard?.writeText) return
+    if (!commandReady || !navigator.clipboard?.writeText) return
     try {
       await navigator.clipboard.writeText(command)
       setCopied(true)
@@ -260,9 +300,47 @@ function HostCliEnrollmentPanel({
         </span>
       </div>
 
+      <div className="mt-4">
+        <p className="mb-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+          Local machine
+        </p>
+        <div role="group" aria-label="Host CLI platform" className="grid grid-cols-2 gap-2">
+          {HOST_CLI_PLATFORMS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={platform === option.value}
+              onClick={() => {
+                setPlatform(option.value)
+                setCopied(false)
+              }}
+              className={cn(
+                'flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
+                platform === option.value
+                  ? 'border-apple-blue/45 bg-apple-blue/[0.08] text-apple-blue'
+                  : 'border-black/[0.08] bg-white text-foreground-light hover:border-apple-blue/30 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark'
+              )}
+            >
+              <option.Icon size={15} strokeWidth={2.15} aria-hidden="true" />
+              <span className="min-w-0">
+                <span className="block truncate text-ui-button font-medium">{option.label}</span>
+                <span className="block truncate text-[10px] text-secondary-light dark:text-secondary-dark">
+                  {option.detail}
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="mt-3 flex items-center gap-2 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.04]">
-        <ShieldCheck size={15} strokeWidth={2.1} className="shrink-0 text-apple-green" />
-        <p className="min-w-0 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
+        <ShieldCheck
+          size={15}
+          strokeWidth={2.1}
+          className="shrink-0 text-apple-green"
+          aria-hidden="true"
+        />
+        <p className="min-w-0 text-ui-caption text-secondary-light dark:text-secondary-dark">
           Project: <span className="font-mono">{projectLabel}</span>
         </p>
       </div>
@@ -272,22 +350,34 @@ function HostCliEnrollmentPanel({
       </pre>
 
       <div className="mt-3 grid gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-        <p>Platform CLI enrolls the agent identity.</p>
-        <p>The local sidecar sends heartbeats, task results, and evidence.</p>
-        <p>Container actions stay hidden for Host CLI agents.</p>
+        {commandReady ? (
+          <>
+            <p>Run this from the folder where the agent should work.</p>
+            <p>The command prints the sidecar block for the selected shell.</p>
+            <p>The platform will show the machine as a managed Host CLI agent.</p>
+          </>
+        ) : (
+          <p>Select a project first so the copied command is ready to run.</p>
+        )}
       </div>
 
       <button
         type="button"
         onClick={() => void handleCopyCommand()}
-        className="mt-4 inline-flex h-9 w-full items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-apple-blue/35 hover:text-apple-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+        disabled={!commandReady}
+        className={cn(
+          'mt-4 inline-flex h-9 w-full items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark',
+          commandReady
+            ? 'hover:border-apple-blue/35 hover:text-apple-blue'
+            : 'cursor-not-allowed opacity-60'
+        )}
       >
         {copied ? (
           <Check size={14} strokeWidth={2.25} aria-hidden="true" />
         ) : (
           <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
         )}
-        <span>{copied ? 'Copied' : 'Copy command'}</span>
+        <span>{commandReady ? (copied ? 'Copied' : 'Copy Command') : 'Select Project First'}</span>
       </button>
     </section>
   )
