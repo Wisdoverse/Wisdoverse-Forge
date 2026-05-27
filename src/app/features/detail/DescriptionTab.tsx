@@ -29,6 +29,7 @@ export function DescriptionTab({
   const contextTotal = task.contextCounts?.total ?? 0
   const canReview = task.state === 'completed' || task.state === 'failed'
   const nextAction = nextActionForTask(task, resultArtifacts.length, contextTotal)
+  const assignment = assignmentSummary(task)
 
   return (
     <div className="space-y-3 py-3" data-testid="task-work-review">
@@ -65,8 +66,19 @@ export function DescriptionTab({
 
       <ReviewSection title="Assignment" Icon={MessageSquare}>
         <div className="space-y-1.5 text-xs">
-          <ReviewRow label="Agent" value={task.assignedAgentName ?? 'Unassigned'} />
+          <ReviewRow label="Agent" value={assignment.label} muted={!assignment.hasAgent} />
           <ReviewRow label="State" value={stateLabel(task.state)} />
+          <p
+            data-testid="task-assignment-guidance"
+            className={cn(
+              'rounded-lg px-2 py-1.5 leading-relaxed',
+              assignment.hasAgent
+                ? 'bg-apple-blue/10 text-foreground-light dark:text-foreground-dark'
+                : 'bg-apple-orange/10 text-apple-orange'
+            )}
+          >
+            {assignment.detail}
+          </p>
           {task.blockedHint && (
             <p className="rounded-lg bg-apple-red/10 px-2 py-1.5 text-apple-red">
               {task.blockedHint}
@@ -200,14 +212,22 @@ function ReviewSection({
   )
 }
 
-function ReviewRow({ label, value }: { label: string; value: string }) {
+function ReviewRow({
+  label,
+  value,
+  muted = false,
+}: {
+  label: string
+  value: string
+  muted?: boolean
+}) {
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-secondary-light dark:text-secondary-dark">{label}</span>
       <span
         className={cn(
           'min-w-0 truncate text-right font-medium',
-          value === 'Unassigned'
+          muted
             ? 'text-secondary-light dark:text-secondary-dark'
             : 'text-foreground-light dark:text-foreground-dark'
         )}
@@ -216,6 +236,32 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
       </span>
     </div>
   )
+}
+
+function assignmentSummary(task: TaskSummary): {
+  label: string
+  detail: string
+  hasAgent: boolean
+} {
+  if (task.assignedAgentName) {
+    return {
+      label: task.assignedAgentName,
+      detail: 'This agent owns the next run for this task.',
+      hasAgent: true,
+    }
+  }
+  if (task.assignedTo) {
+    return {
+      label: 'Assigned agent',
+      detail: 'An agent is assigned, but its display name has not loaded yet.',
+      hasAgent: true,
+    }
+  }
+  return {
+    label: 'Needs agent',
+    detail: 'Choose an agent before this task can leave the backlog.',
+    hasAgent: false,
+  }
 }
 
 function stateLabel(state: TaskSummary['state']): string {
