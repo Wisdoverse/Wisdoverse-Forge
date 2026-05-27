@@ -20,7 +20,7 @@ use sqlx::FromRow;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::agent::{AgentRepositoryPolicy, NewAgent};
+use crate::domain::agent::{AgentAggregate, AgentRepositoryPolicy, NewAgent};
 
 /// Enriched agent row with owner and project info joined in.
 ///
@@ -316,6 +316,25 @@ impl AgentRepository {
 
         tx.commit().await?;
         Ok(id)
+    }
+
+    /// Load the write-side aggregate root for a single agent (tenant-scoped).
+    ///
+    /// Returns typed `runtime_kind`, `cli_tool`, `container_id`, `runtime_id`,
+    /// and identity columns so lifecycle and enrollment services can operate on
+    /// a fully typed aggregate instead of the raw `Agent` DB entity.
+    pub async fn find_aggregate(&self, scope: &TenantScope, id: Uuid) -> AppResult<AgentAggregate> {
+        sqlx::query_as::<_, AgentAggregate>(
+            "SELECT id, runtime_kind, cli_tool, container_id, runtime_id,
+                    workspace_id, organization_id, user_id, status
+             FROM agents
+             WHERE id = $1 AND organization_id = $2",
+        )
+        .bind(id)
+        .bind(scope.org_id().as_uuid())
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or_else(|| AgentRepositoryPolicy::agent_uuid_not_found(id))
     }
 
     /// Update agent fields (name, model, provider, system_prompt). Only non-None values are updated.

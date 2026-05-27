@@ -224,8 +224,8 @@ impl HostCliIdentity {
 
 /// Aggregate root for the Agent bounded context. Loaded by
 /// `AgentRepository::find_aggregate` for write-side operations (added in Task 4.3).
-#[derive(Debug, Clone)]
-pub(crate) struct AgentAggregate {
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct AgentAggregate {
     pub(crate) id: Uuid,
     pub(crate) runtime_kind: RuntimeKind,
     pub(crate) cli_tool: Option<String>,
@@ -238,7 +238,7 @@ pub(crate) struct AgentAggregate {
 }
 
 impl AgentAggregate {
-    pub(crate) fn runtime_kind(&self) -> RuntimeKind {
+    pub fn runtime_kind(&self) -> RuntimeKind {
         self.runtime_kind
     }
 
