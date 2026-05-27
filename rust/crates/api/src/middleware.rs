@@ -129,9 +129,10 @@ where
             .filter(|s| !s.is_empty() && s.len() <= 256)
             .map(|s| IdempotencyKey(s.to_string()))
             .ok_or_else(|| {
-                AppError::from(ErrorKind::Validation(
-                    "Idempotency-Key header is required and must be 1–256 characters".into(),
-                ))
+                AppError::from(ErrorKind::ValidationWithCode {
+                    code: "errors.agent.enroll.missing_idempotency_key",
+                    message: "Idempotency-Key header is required and must be 1–256 characters".into(),
+                })
             })
     }
 }
@@ -188,6 +189,19 @@ mod idempotency_tests {
         let req = Request::builder().body(()).unwrap();
         let (mut parts, _) = req.into_parts();
         let err = IdempotencyKey::from_request_parts(&mut parts, &()).await.unwrap_err();
-        assert!(matches!(err.kind, ErrorKind::Validation(_)));
+        assert!(matches!(err.kind, ErrorKind::ValidationWithCode { .. }));
+    }
+
+    #[tokio::test]
+    async fn idempotency_key_rejection_carries_i18n_code() {
+        let req = Request::builder().body(()).unwrap();
+        let (mut parts, _) = req.into_parts();
+        let err = IdempotencyKey::from_request_parts(&mut parts, &()).await.unwrap_err();
+        match err.kind {
+            ErrorKind::ValidationWithCode { code, .. } => {
+                assert_eq!(code, "errors.agent.enroll.missing_idempotency_key");
+            }
+            other => panic!("expected ValidationWithCode, got {other:?}"),
+        }
     }
 }

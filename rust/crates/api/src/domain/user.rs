@@ -235,7 +235,13 @@ pub(crate) fn auth_error_response_contract(
             AuthErrorResponseContract::new(401, "UNAUTHORIZED", unauthorized_message.unwrap_or("Unauthorized"))
         }
         ErrorKind::Forbidden(_) => AuthErrorResponseContract::new(403, "FORBIDDEN", "Forbidden"),
+        ErrorKind::ForbiddenWithCode { message, .. } => {
+            AuthErrorResponseContract::new(403, "FORBIDDEN", message.clone())
+        }
         ErrorKind::Validation(message) => AuthErrorResponseContract::new(400, "VALIDATION_ERROR", message.clone()),
+        ErrorKind::ValidationWithCode { message, .. } => {
+            AuthErrorResponseContract::new(400, "VALIDATION_ERROR", message.clone())
+        }
         ErrorKind::Unprocessable(message) => {
             AuthErrorResponseContract::new(422, "UNPROCESSABLE_ENTITY", message.clone())
         }

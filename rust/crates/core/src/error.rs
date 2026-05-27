@@ -20,6 +20,16 @@ pub enum ErrorKind {
     #[error("validation error: {0}")]
     Validation(String),
 
+    /// Validation error that carries an i18n code for the client.
+    ///
+    /// `code` must be a dotted key matching a path in the frontend locale
+    /// files (e.g. `"errors.agent.lifecycle.restart_host_cli"`).
+    /// The client resolves the human-readable title/detail from the i18n
+    /// catalogue; `message` is the English fallback for API consumers
+    /// that do not implement i18n lookup.
+    #[error("validation error: {message}")]
+    ValidationWithCode { code: &'static str, message: String },
+
     #[error("unprocessable entity: {0}")]
     Unprocessable(String),
 
@@ -28,6 +38,13 @@ pub enum ErrorKind {
 
     #[error("forbidden: {0}")]
     Forbidden(String),
+
+    /// Forbidden error that carries an i18n code for the client.
+    ///
+    /// Same contract as [`ValidationWithCode`]: `code` is the dotted i18n
+    /// key, `message` is the English fallback.
+    #[error("forbidden: {message}")]
+    ForbiddenWithCode { code: &'static str, message: String },
 
     #[error("conflict: {0}")]
     Conflict(String),
@@ -90,12 +107,16 @@ impl std::fmt::Display for AppError {
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let (status, code) = match &self.kind {
+        // Determine HTTP status and a stable type-level code for standard variants.
+        // ValidationWithCode / ForbiddenWithCode carry their own i18n code instead.
+        let (status, type_code) = match &self.kind {
             ErrorKind::NotFound(_) => (StatusCode::NOT_FOUND, "NOT_FOUND"),
             ErrorKind::Validation(_) => (StatusCode::BAD_REQUEST, "VALIDATION_ERROR"),
+            ErrorKind::ValidationWithCode { .. } => (StatusCode::BAD_REQUEST, "VALIDATION_ERROR"),
             ErrorKind::Unprocessable(_) => (StatusCode::UNPROCESSABLE_ENTITY, "UNPROCESSABLE_ENTITY"),
             ErrorKind::Unauthorized => (StatusCode::UNAUTHORIZED, "UNAUTHORIZED"),
             ErrorKind::Forbidden(_) => (StatusCode::FORBIDDEN, "FORBIDDEN"),
+            ErrorKind::ForbiddenWithCode { .. } => (StatusCode::FORBIDDEN, "FORBIDDEN"),
             ErrorKind::Conflict(_) => (StatusCode::CONFLICT, "CONFLICT"),
             ErrorKind::Unavailable(_) => (StatusCode::SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE"),
             ErrorKind::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR"),
@@ -107,20 +128,31 @@ impl IntoResponse for AppError {
                 tracing::error!(error = %err, "internal server error");
             }
             other => {
-                tracing::debug!(error = %other, code = code, "client error");
+                tracing::debug!(error = %other, code = type_code, "client error");
             }
         }
 
-        let body = json!({
-            "ok": false,
-            "error": {
-                "code": code,
-                "message": match &self.kind {
-                    ErrorKind::Internal(_) => "Internal server error".to_string(),
-                    other => other.to_string(),
-                }
-            }
-        });
+        // Build the response body.  ValidationWithCode / ForbiddenWithCode emit
+        // the i18n dotted key as `code` so the frontend can look up localised
+        // copy.  All other variants keep the existing stable type-level code.
+        let body = match &self.kind {
+            ErrorKind::ValidationWithCode { code, message } => json!({
+                "ok": false,
+                "error": { "code": *code, "message": message }
+            }),
+            ErrorKind::ForbiddenWithCode { code, message } => json!({
+                "ok": false,
+                "error": { "code": *code, "message": message }
+            }),
+            ErrorKind::Internal(_) => json!({
+                "ok": false,
+                "error": { "code": type_code, "message": "Internal server error" }
+            }),
+            other => json!({
+                "ok": false,
+                "error": { "code": type_code, "message": other.to_string() }
+            }),
+        };
 
         (status, Json(body)).into_response()
     }
@@ -254,9 +286,11 @@ mod tests {
         let kinds = vec![
             ErrorKind::NotFound("x".into()),
             ErrorKind::Validation("x".into()),
+            ErrorKind::ValidationWithCode { code: "errors.agent.lifecycle.restart_host_cli", message: "x".into() },
             ErrorKind::Unprocessable("x".into()),
             ErrorKind::Unauthorized,
             ErrorKind::Forbidden("forbidden".into()),
+            ErrorKind::ForbiddenWithCode { code: "errors.agent.lifecycle.not_permitted", message: "x".into() },
             ErrorKind::Conflict("x".into()),
         ];
         for kind in kinds {
@@ -266,12 +300,42 @@ mod tests {
                 err.kind,
                 ErrorKind::NotFound(_)
                     | ErrorKind::Validation(_)
+                    | ErrorKind::ValidationWithCode { .. }
                     | ErrorKind::Unprocessable(_)
                     | ErrorKind::Unauthorized
                     | ErrorKind::Forbidden(_)
+                    | ErrorKind::ForbiddenWithCode { .. }
                     | ErrorKind::Conflict(_)
                     | ErrorKind::Unavailable(_)
             ));
         }
+    }
+
+    #[tokio::test]
+    async fn validation_with_code_emits_i18n_code() {
+        let err = AppError::from(ErrorKind::ValidationWithCode {
+            code: "errors.agent.lifecycle.restart_host_cli",
+            message: "Restart the sidecar from your machine.".into(),
+        });
+        let (status, body) = response_to_json(err.into_response()).await;
+
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(body["ok"], false);
+        assert_eq!(body["error"]["code"], "errors.agent.lifecycle.restart_host_cli");
+        assert_eq!(body["error"]["message"], "Restart the sidecar from your machine.");
+    }
+
+    #[tokio::test]
+    async fn forbidden_with_code_emits_i18n_code() {
+        let err = AppError::from(ErrorKind::ForbiddenWithCode {
+            code: "errors.agent.lifecycle.not_permitted",
+            message: "operation not permitted on this agent".into(),
+        });
+        let (status, body) = response_to_json(err.into_response()).await;
+
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_eq!(body["ok"], false);
+        assert_eq!(body["error"]["code"], "errors.agent.lifecycle.not_permitted");
+        assert_eq!(body["error"]["message"], "operation not permitted on this agent");
     }
 }

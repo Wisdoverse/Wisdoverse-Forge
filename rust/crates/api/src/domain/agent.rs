@@ -291,17 +291,52 @@ impl ContainerAgent {
 
 impl LifecycleRejection {
     pub(crate) fn into_app_error(self, action: &str) -> AppError {
-        let msg = match self {
-            Self::HostCli => format!(
-                "Host CLI agent: the platform does not manage the local container lifecycle. \
-                 {action} the sidecar on the operator machine using the enrollment script."
+        let (code, message) = match (self, action) {
+            (Self::HostCli, "Restart") => (
+                "errors.agent.lifecycle.restart_host_cli",
+                "Host CLI agent: restart the sidecar from your machine using the enrollment script.".to_string(),
             ),
-            Self::Api => format!(
-                "API/provider agent has no container to {}.",
-                action.to_lowercase()
+            (Self::Api, "Restart") => (
+                "errors.agent.lifecycle.restart_api",
+                "API/provider agent has no container to restart.".to_string(),
+            ),
+            (Self::HostCli, "Start") => (
+                "errors.agent.lifecycle.start_host_cli",
+                "Host CLI agent: start the sidecar from your machine using the enrollment script.".to_string(),
+            ),
+            (Self::Api, "Start") => (
+                "errors.agent.lifecycle.start_api",
+                "API/provider agent has no container to start.".to_string(),
+            ),
+            (Self::HostCli, "Stop") => (
+                "errors.agent.lifecycle.stop_host_cli",
+                "Host CLI agent: stop the sidecar from your machine.".to_string(),
+            ),
+            (Self::Api, "Stop") => (
+                "errors.agent.lifecycle.stop_api",
+                "API/provider agent has no container to stop.".to_string(),
+            ),
+            (Self::HostCli, "Resume") => (
+                "errors.agent.lifecycle.start_host_cli",
+                "Host CLI agent: start the sidecar from your machine using the enrollment script.".to_string(),
+            ),
+            (Self::Api, "Resume") => (
+                "errors.agent.lifecycle.start_api",
+                "API/provider agent has no container to start.".to_string(),
+            ),
+            (Self::HostCli, _) => (
+                "errors.agent.lifecycle.restart_host_cli",
+                format!(
+                    "Host CLI agent: the platform does not manage the local container lifecycle. \
+                     {action} the sidecar on the operator machine using the enrollment script."
+                ),
+            ),
+            (Self::Api, _) => (
+                "errors.agent.lifecycle.restart_api",
+                format!("API/provider agent has no container to {}.", action.to_lowercase()),
             ),
         };
-        ErrorKind::Validation(msg).into()
+        ErrorKind::ValidationWithCode { code, message }.into()
     }
 }
 
@@ -1086,12 +1121,19 @@ impl AgentOwnerPolicy {
     /// Return `Ok(())` when the caller is the agent owner, or a uniform 403
     /// `AppError` that does NOT disclose the agent's runtime kind.
     ///
+    /// The error carries the i18n code `errors.agent.lifecycle.not_permitted`
+    /// so the frontend can display a localised message from the catalogue.
+    ///
     /// `caller_user_id` is taken from `TenantScope::user_id()`.
     pub fn require_owner(caller_user_id: Uuid, owner_id: Uuid) -> AppResult<()> {
         if caller_user_id == owner_id {
             return Ok(());
         }
-        Err(ErrorKind::Forbidden("operation not permitted on this agent".into()).into())
+        Err(ErrorKind::ForbiddenWithCode {
+            code: "errors.agent.lifecycle.not_permitted",
+            message: "operation not permitted on this agent".into(),
+        }
+        .into())
     }
 }
 
@@ -1627,6 +1669,54 @@ mod tests {
         let err = LifecycleRejection::HostCli.into_app_error("Restart");
         let msg = format!("{err}");
         assert!(msg.contains("Host CLI"), "msg: {msg}");
+
+        // Must carry the structured i18n code, not the old Validation(String) variant.
+        assert!(
+            matches!(&err.kind, ErrorKind::ValidationWithCode { code, .. } if *code == "errors.agent.lifecycle.restart_host_cli"),
+            "expected ValidationWithCode with restart_host_cli code, got: {:?}",
+            err.kind
+        );
+    }
+
+    #[test]
+    fn lifecycle_rejection_all_actions_emit_validation_with_code() {
+        let cases = [
+            (LifecycleRejection::HostCli, "Restart", "errors.agent.lifecycle.restart_host_cli"),
+            (LifecycleRejection::Api,     "Restart", "errors.agent.lifecycle.restart_api"),
+            (LifecycleRejection::HostCli, "Start",   "errors.agent.lifecycle.start_host_cli"),
+            (LifecycleRejection::Api,     "Start",   "errors.agent.lifecycle.start_api"),
+            (LifecycleRejection::HostCli, "Stop",    "errors.agent.lifecycle.stop_host_cli"),
+            (LifecycleRejection::Api,     "Stop",    "errors.agent.lifecycle.stop_api"),
+            (LifecycleRejection::HostCli, "Resume",  "errors.agent.lifecycle.start_host_cli"),
+            (LifecycleRejection::Api,     "Resume",  "errors.agent.lifecycle.start_api"),
+        ];
+        for (rejection, action, expected_code) in cases {
+            let err = rejection.into_app_error(action);
+            match &err.kind {
+                ErrorKind::ValidationWithCode { code, .. } => {
+                    assert_eq!(*code, expected_code, "action={action}");
+                }
+                other => panic!("expected ValidationWithCode for action={action}, got: {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn agent_owner_policy_require_owner_returns_forbidden_with_code() {
+        let owner = Uuid::new_v4();
+        let other = Uuid::new_v4();
+
+        // Owner passes.
+        assert!(AgentOwnerPolicy::require_owner(owner, owner).is_ok());
+
+        // Non-owner gets ForbiddenWithCode with the i18n key.
+        let err = AgentOwnerPolicy::require_owner(other, owner).unwrap_err();
+        match &err.kind {
+            ErrorKind::ForbiddenWithCode { code, .. } => {
+                assert_eq!(*code, "errors.agent.lifecycle.not_permitted");
+            }
+            other => panic!("expected ForbiddenWithCode, got: {other:?}"),
+        }
     }
 
     #[test]

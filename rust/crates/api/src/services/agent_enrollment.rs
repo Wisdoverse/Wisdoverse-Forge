@@ -87,12 +87,13 @@ impl HostAgentEnrollmentService {
 
         // 2. TLS gate.
         if !nats_base_url.starts_with("tls://") && !self.settings.allow_plaintext_host_nats {
-            return Err(ErrorKind::Validation(
-                "errors.agent.enroll.plaintext_nats_blocked: Host CLI enrollment requires a \
-                 tls:// NATS URL. Configure NATS_AGENT_URL to use tls://, or set \
-                 ALLOW_PLAINTEXT_HOST_NATS=true to permit plaintext (dev/test only)."
+            return Err(ErrorKind::ValidationWithCode {
+                code: "errors.agent.enroll.plaintext_nats_blocked",
+                message: "Host CLI enrollment requires a tls:// NATS URL. Configure \
+                          NATS_AGENT_URL to use tls://, or set ALLOW_PLAINTEXT_HOST_NATS=true \
+                          to permit plaintext (dev/test only)."
                     .into(),
-            )
+            }
             .into());
         }
 
