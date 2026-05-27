@@ -158,6 +158,18 @@
   text-transform: uppercase;
 }
 
+.auth-intro {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-text-secondary);
+  margin: 12px 0 0;
+}
+
+.auth-intro-secondary {
+  color: var(--color-text-muted);
+  margin-top: 6px;
+}
+
 /* Tabs */
 .auth-tabs {
   display: flex;
@@ -298,6 +310,13 @@
   margin-top: 20px;
 }
 
+.auth-form-note {
+  margin: 0 0 18px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
 .auth-field {
   margin-bottom: 18px;
 }
@@ -422,7 +441,7 @@
   font-size: 12px;
   line-height: 16px;
   font-weight: var(--font-semibold);
-  min-width: 44px;
+  min-width: 112px;
   text-align: right;
 }
 
