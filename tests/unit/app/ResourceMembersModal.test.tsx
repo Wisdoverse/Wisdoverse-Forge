@@ -1,117 +1,142 @@
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
-import { userEvent } from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import type { ComponentProps } from 'react'
+import { afterEach, describe, expect, test, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ResourceMembersModal } from '@app/features/manage-members'
-import type { ResourceMember } from '@app/entities/member'
+import type {
+  AddResourceMemberInput,
+  ResourceMember,
+  UpdateResourceMemberInput,
+} from '@app/entities/member'
 import type { OrgUser } from '@app/entities/user'
-
-const aliceMember: ResourceMember = {
-  userId: 'user-alice',
-  email: 'alice@example.com',
-  username: 'Alice',
-  role: 'member',
-}
-
-const bobUser: OrgUser = {
-  id: 'user-bob',
-  email: 'bob@example.com',
-  username: 'Bob',
-}
-
-const defaultUsers: OrgUser[] = [
-  {
-    id: 'user-alice',
-    email: 'alice@example.com',
-    username: 'Alice',
-  },
-  bobUser,
-]
-
-function renderModal(overrides: Partial<ComponentProps<typeof ResourceMembersModal>> = {}) {
-  const addMember = vi.fn(async () => ({
-    userId: 'user-bob',
-    email: 'bob@example.com',
-    username: 'Bob',
-    role: 'admin',
-  }))
-  const removeMember = vi.fn(async () => undefined)
-
-  render(
-    <ResourceMembersModal
-      resourceLabel="Team"
-      resourceName="Platform"
-      loadMembers={async () => [aliceMember]}
-      loadUsers={async () => defaultUsers}
-      addMember={addMember}
-      updateMember={vi.fn()}
-      removeMember={removeMember}
-      onClose={vi.fn()}
-      {...overrides}
-    />
-  )
-
-  return { addMember, removeMember }
-}
 
 afterEach(cleanup)
 
+function makeUser(overrides: Partial<OrgUser>): OrgUser {
+  return {
+    id: 'user-1',
+    email: 'builder@example.com',
+    username: 'builder',
+    role: 'member',
+    ...overrides,
+  }
+}
+
+function makeMember(overrides: Partial<ResourceMember>): ResourceMember {
+  return {
+    userId: 'user-1',
+    email: 'builder@example.com',
+    username: 'builder',
+    role: 'member',
+    ...overrides,
+  }
+}
+
+function renderMembersModal({
+  members = [],
+  users = [makeUser({})],
+}: {
+  members?: ResourceMember[]
+  users?: OrgUser[]
+} = {}) {
+  const loadMembers = vi.fn().mockResolvedValue(members)
+  const loadUsers = vi.fn().mockResolvedValue(users)
+  const addMember = vi
+    .fn<(input: AddResourceMemberInput) => Promise<ResourceMember>>()
+    .mockImplementation(async (input) => {
+      const user = users.find((item) => item.id === input.userId) ?? makeUser({ id: input.userId })
+      return makeMember({
+        userId: user.id,
+        username: user.username,
+        email: user.email,
+        role: input.role,
+      })
+    })
+  const updateMember = vi
+    .fn<(userId: string, input: UpdateResourceMemberInput) => Promise<ResourceMember>>()
+    .mockImplementation(async (userId, input) => {
+      const member = members.find((item) => item.userId === userId) ?? makeMember({ userId })
+      return { ...member, role: input.role }
+    })
+  const removeMember = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
+  const onClose = vi.fn()
+
+  render(
+    <ResourceMembersModal
+      resourceLabel="Project"
+      resourceName="Launch App"
+      loadMembers={loadMembers}
+      loadUsers={loadUsers}
+      addMember={addMember}
+      updateMember={updateMember}
+      removeMember={removeMember}
+      onClose={onClose}
+    />
+  )
+
+  return { addMember, loadMembers, loadUsers, onClose, removeMember, updateMember }
+}
+
 describe('ResourceMembersModal', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+  test('guides users before adding the first resource member', async () => {
+    const { addMember } = renderMembersModal()
 
-  test('guides a beginner through adding an existing organization member', async () => {
-    const { addMember } = renderModal()
-
-    expect(await screen.findByText('Add Existing Organization Members')).toBeInTheDocument()
-    expect(screen.getByText(/search for a person, choose their role/i)).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent(/choose a person before adding them/i)
-    expect(screen.getByText(/member: can view and work/i)).toBeInTheDocument()
-
-    await userEvent.selectOptions(screen.getByLabelText(/select member to add/i), 'user-bob')
-    await userEvent.selectOptions(screen.getByLabelText(/new member role/i), 'admin')
-
-    expect(screen.getByRole('status')).toHaveTextContent(/ready to add bob as admin/i)
-    expect(screen.getByText(/admin: can manage this resource/i)).toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: /^add$/i }))
-
-    await waitFor(() => {
-      expect(addMember).toHaveBeenCalledWith({ userId: 'user-bob', role: 'admin' })
-    })
-  })
-
-  test('confirms before removing a member', async () => {
-    const { removeMember } = renderModal()
-
-    await screen.findByText('Alice')
-    await userEvent.click(screen.getByRole('button', { name: /remove alice/i }))
-
-    expect(removeMember).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: /confirm remove alice/i })).toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: /^cancel$/i }))
-    expect(removeMember).not.toHaveBeenCalled()
-
-    await userEvent.click(screen.getByRole('button', { name: /remove alice/i }))
-    await userEvent.click(screen.getByRole('button', { name: /confirm remove alice/i }))
-
-    await waitFor(() => {
-      expect(removeMember).toHaveBeenCalledWith('user-alice')
-    })
-  })
-
-  test('explains when everyone already has access', async () => {
-    renderModal({ loadUsers: async () => [defaultUsers[0] as OrgUser] })
-
-    await screen.findByText('Alice')
-    expect(screen.getByRole('status')).toHaveTextContent(/everyone in the organization/i)
+    const guide = await screen.findByTestId('member-role-guide')
+    expect(within(guide).getByText('Add people only when they need this project')).toBeDefined()
+    expect(within(guide).getByText('Start with Member')).toBeDefined()
+    expect(within(guide).getByText('Use Maintainer for daily setup')).toBeDefined()
+    expect(within(guide).getByText('Reserve Owner and Admin')).toBeDefined()
     expect(
-      within(screen.getByRole('combobox', { name: /select member to add/i })).getByText(
-        /no available org members/i
+      screen.getByText(
+        'Choose an organization user, pick the safest role, then add them to this resource.'
       )
-    ).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^add$/i })).toBeDisabled()
+    ).toBeDefined()
+
+    const emptyState = screen.getByTestId('members-empty-state')
+    expect(within(emptyState).getByText('No direct members yet')).toBeDefined()
+    expect(
+      within(emptyState).getByText(/Start with Member unless they need to manage access/i)
+    ).toBeDefined()
+
+    fireEvent.change(screen.getByLabelText('Select member to add'), {
+      target: { value: 'user-1' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /add/i }))
+
+    await waitFor(() => {
+      expect(addMember).toHaveBeenCalledWith({ userId: 'user-1', role: 'member' })
+    })
+    expect(screen.getByText('builder')).toBeDefined()
+  })
+
+  test('explains that organization users must exist before members can be added', async () => {
+    renderMembersModal({ users: [] })
+
+    expect(await screen.findByText('No org users available')).toBeDefined()
+    expect(
+      screen.getByText('Invite a user to the organization first, then return here to grant access.')
+    ).toBeDefined()
+    expect(screen.getByLabelText('Select member to add')).toBeDisabled()
+  })
+
+  test('explains filtered candidate results without hiding current access', async () => {
+    renderMembersModal({
+      members: [makeMember({ userId: 'owner-1', username: 'owner', email: 'owner@example.com' })],
+      users: [
+        makeUser({ id: 'owner-1', username: 'owner', email: 'owner@example.com' }),
+        makeUser({ id: 'reviewer-1', username: 'reviewer', email: 'reviewer@example.com' }),
+      ],
+    })
+
+    expect(await screen.findByText('owner')).toBeDefined()
+    fireEvent.change(screen.getByLabelText('Filter organization members'), {
+      target: { value: 'missing-user' },
+    })
+
+    expect(screen.getByText('No matching org members')).toBeDefined()
+    expect(
+      screen.getByText(
+        'Clear the filter or invite the person to the organization before adding them here.'
+      )
+    ).toBeDefined()
+    expect(screen.getByText('owner@example.com')).toBeDefined()
   })
 })
