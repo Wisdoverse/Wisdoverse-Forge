@@ -1,123 +1,101 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { UserManagement } from '@app/features/admin/UserManagement'
 import { useAdminStore, type AdminUser } from '@app/shared/model/admin.store'
 
-const loadUsersMock = vi.fn().mockResolvedValue(undefined)
-const updateUserRoleMock = vi.fn()
-const originalLoadUsers = useAdminStore.getState().loadUsers
-const originalUpdateUserRole = useAdminStore.getState().updateUserRole
+const originalAdminState = useAdminStore.getState()
 
-const adminUser: AdminUser = {
-  id: 'user-admin',
-  email: 'ada@example.com',
-  displayName: 'Ada Lovelace',
+const mockUser: AdminUser = {
+  id: 'user-1',
+  email: 'alex@example.com',
+  displayName: 'Alex Operator',
   role: 'admin',
   status: 'active',
-  createdAt: '2026-01-01T00:00:00.000Z',
+  createdAt: '2026-05-01T12:00:00.000Z',
   lastLoginAt: null,
-  sessionsCount: 3,
+  sessionsCount: 2,
 }
-
-const operatorUser: AdminUser = {
-  id: 'user-operator',
-  email: 'grace@example.com',
-  displayName: 'Grace Hopper',
-  role: 'operator',
-  status: 'active',
-  createdAt: '2026-01-02T00:00:00.000Z',
-  lastLoginAt: null,
-  sessionsCount: 5,
-}
-
-beforeEach(() => {
-  loadUsersMock.mockClear()
-  updateUserRoleMock.mockReset()
-  updateUserRoleMock.mockImplementation(async (id: string, role: string) => {
-    useAdminStore.setState((state) => ({
-      users: state.users.map((user) => (user.id === id ? { ...user, role } : user)),
-    }))
-    return true
-  })
-  useAdminStore.setState({
-    users: [adminUser, operatorUser],
-    usersTotal: 2,
-    usersPage: 1,
-    usersLoading: false,
-    usersError: null,
-    userSearch: '',
-    loadUsers: loadUsersMock,
-    updateUserRole: updateUserRoleMock,
-  })
-})
 
 afterEach(() => {
   cleanup()
-  vi.clearAllMocks()
-  useAdminStore.setState({
-    users: [],
-    usersTotal: 0,
-    usersPage: 1,
-    usersLoading: false,
-    usersError: null,
-    userSearch: '',
-    loadUsers: originalLoadUsers,
-    updateUserRole: originalUpdateUserRole,
-  })
+  useAdminStore.setState(originalAdminState, true)
+  vi.restoreAllMocks()
 })
 
 describe('UserManagement', () => {
-  test('shows searchable users with visible role meanings and edit actions', async () => {
-    render(<UserManagement />)
-
-    await waitFor(() => expect(loadUsersMock).toHaveBeenCalledWith(1))
-    expect(screen.getByRole('searchbox', { name: /search users by name or email/i })).toBeDefined()
-    expect(screen.getByText('2 total users. Review access before changing a role.')).toBeDefined()
-    expect(screen.getByText('Can manage users, settings, and system configuration.')).toBeDefined()
-    expect(
-      screen.getByText('Can run daily workspace operations without changing admin settings.')
-    ).toBeDefined()
-    expect(screen.getByRole('button', { name: /edit role for ada lovelace/i })).toBeDefined()
-    expect(screen.getByRole('button', { name: /edit role for grace hopper/i })).toBeDefined()
-  })
-
-  test('guides a role edit before saving and confirms the updated access', async () => {
-    render(<UserManagement />)
-
-    fireEvent.click(await screen.findByRole('button', { name: /edit role for ada lovelace/i }))
-
-    const roleSelect = screen.getByRole('combobox', { name: /role for ada lovelace/i })
-    const saveButton = screen.getByRole('button', { name: /save role for ada lovelace/i })
-
-    expect(screen.getByText('Choose a different role before saving.')).toBeDefined()
-    expect(saveButton).toBeDisabled()
-
-    fireEvent.change(roleSelect, { target: { value: 'viewer' } })
-
-    expect(screen.getByText('Ready to save Viewer access.')).toBeDefined()
-    expect(saveButton).toBeEnabled()
-
-    fireEvent.click(saveButton)
-
-    await waitFor(() => expect(updateUserRoleMock).toHaveBeenCalledWith('user-admin', 'viewer'))
-    expect(await screen.findByText('Ada Lovelace now has Viewer access.')).toBeDefined()
-    expect(screen.getByRole('button', { name: /edit role for ada lovelace/i })).toBeDefined()
-  })
-
-  test('keeps the editor open with a clear error when saving fails', async () => {
-    updateUserRoleMock.mockResolvedValue(false)
-
-    render(<UserManagement />)
-
-    fireEvent.click(await screen.findByRole('button', { name: /edit role for grace hopper/i }))
-    fireEvent.change(screen.getByRole('combobox', { name: /role for grace hopper/i }), {
-      target: { value: 'admin' },
+  test('shows user access in plain language', async () => {
+    const loadUsers = vi.fn()
+    useAdminStore.setState({
+      ...originalAdminState,
+      users: [
+        mockUser,
+        { ...mockUser, id: 'user-2', role: 'viewer', status: 'inactive', sessionsCount: 0 },
+      ],
+      usersTotal: 2,
+      usersPage: 1,
+      usersLoading: false,
+      usersError: null,
+      userSearch: '',
+      loadUsers,
     })
-    fireEvent.click(screen.getByRole('button', { name: /save role for grace hopper/i }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Role could not be saved. Check your permissions and try again.'
-    )
-    expect(screen.getByRole('combobox', { name: /role for grace hopper/i })).toBeDefined()
+    render(<UserManagement />)
+
+    await waitFor(() => expect(loadUsers).toHaveBeenCalledWith(1))
+    expect(screen.getByText('User access')).toBeDefined()
+    expect(screen.getByText(/Change access only when their job changes/i)).toBeDefined()
+    expect(screen.getByText('Person')).toBeDefined()
+    expect(screen.getByText('Access level')).toBeDefined()
+    expect(screen.getByText('Sign-in status')).toBeDefined()
+    expect(screen.getByText('Active sessions')).toBeDefined()
+    expect(screen.getByText('Full access')).toBeDefined()
+    expect(screen.getByText('View only')).toBeDefined()
+    expect(screen.getByText('Can sign in')).toBeDefined()
+    expect(screen.getByText('Access paused')).toBeDefined()
+    expect(screen.getByText('2 active')).toBeDefined()
+    expect(screen.getByText('No active sessions')).toBeDefined()
+  })
+
+  test('explains an empty user search result', () => {
+    useAdminStore.setState({
+      ...originalAdminState,
+      users: [],
+      usersTotal: 0,
+      usersPage: 1,
+      usersLoading: false,
+      usersError: null,
+      userSearch: 'missing@example.com',
+      loadUsers: vi.fn(),
+    })
+
+    render(<UserManagement />)
+
+    expect(screen.getByText('No users match this view')).toBeDefined()
+    expect(screen.getByText(/New teammates appear here after they are invited/i)).toBeDefined()
+  })
+
+  test('keeps role values stable while using friendly labels', async () => {
+    const user = userEvent.setup()
+    const updateUserRole = vi.fn().mockResolvedValue(true)
+    useAdminStore.setState({
+      ...originalAdminState,
+      users: [mockUser],
+      usersTotal: 1,
+      usersPage: 1,
+      usersLoading: false,
+      usersError: null,
+      userSearch: '',
+      loadUsers: vi.fn(),
+      updateUserRole,
+    })
+
+    render(<UserManagement />)
+
+    await user.click(screen.getByTitle('Change what this user can do'))
+    fireEvent.change(screen.getByLabelText('Access level'), { target: { value: 'operator' } })
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(updateUserRole).toHaveBeenCalledWith('user-1', 'operator'))
   })
 })
