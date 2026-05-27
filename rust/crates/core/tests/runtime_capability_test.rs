@@ -1,4 +1,5 @@
 use agentforge_core::{CliToolKind, RuntimeCapability, RuntimeKind};
+use sqlx::PgPool;
 
 #[test]
 fn cli_tool_kind_serializes_and_deserializes_all_known_variants() {
@@ -64,4 +65,30 @@ fn legacy_runtime_kind_string_parses_to_canonical_variant() {
 
     assert_eq!(parsed, RuntimeKind::Container);
     assert_eq!(parsed.as_str(), "container");
+}
+
+#[sqlx::test(migrations = false)]
+async fn runtime_kind_sqlx_roundtrip(pool: PgPool) -> sqlx::Result<()> {
+    // `sqlx::test` provisions a fresh isolated database per test, so a regular
+    // `CREATE TABLE` is safe and avoids the per-connection scope of
+    // `TEMP TABLE` (the pool may hand out different connections).
+    sqlx::query("CREATE TABLE tmp_runtime_kind (id INT PRIMARY KEY, rk TEXT NOT NULL)")
+        .execute(&pool)
+        .await?;
+
+    for &kind in &[RuntimeKind::Container, RuntimeKind::Cli, RuntimeKind::Api] {
+        sqlx::query("INSERT INTO tmp_runtime_kind (id, rk) VALUES ($1, $2)")
+            .bind(kind as i32)
+            .bind(kind)
+            .execute(&pool)
+            .await?;
+
+        let row: (i32, RuntimeKind) = sqlx::query_as("SELECT id, rk FROM tmp_runtime_kind WHERE id = $1")
+            .bind(kind as i32)
+            .fetch_one(&pool)
+            .await?;
+
+        assert_eq!(row.1, kind);
+    }
+    Ok(())
 }

@@ -120,6 +120,31 @@ impl FromStr for RuntimeKind {
     }
 }
 
+impl sqlx::Type<sqlx::Postgres> for RuntimeKind {
+    fn type_info() -> sqlx::postgres::PgTypeInfo {
+        <&str as sqlx::Type<sqlx::Postgres>>::type_info()
+    }
+    fn compatible(ty: &sqlx::postgres::PgTypeInfo) -> bool {
+        <&str as sqlx::Type<sqlx::Postgres>>::compatible(ty)
+    }
+}
+
+impl<'q> sqlx::Encode<'q, sqlx::Postgres> for RuntimeKind {
+    fn encode_by_ref(
+        &self,
+        buf: &mut sqlx::postgres::PgArgumentBuffer,
+    ) -> Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
+        <&str as sqlx::Encode<sqlx::Postgres>>::encode_by_ref(&self.as_str(), buf)
+    }
+}
+
+impl<'r> sqlx::Decode<'r, sqlx::Postgres> for RuntimeKind {
+    fn decode(value: sqlx::postgres::PgValueRef<'r>) -> Result<Self, sqlx::error::BoxDynError> {
+        let raw: &str = <&str as sqlx::Decode<sqlx::Postgres>>::decode(value)?;
+        Self::parse_legacy(raw).map_err(|e| Box::new(e) as sqlx::error::BoxDynError)
+    }
+}
+
 /// Immutable capability snapshot recorded for a run or provider call.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RuntimeCapability {
