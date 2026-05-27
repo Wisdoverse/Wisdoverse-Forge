@@ -547,13 +547,15 @@ test.describe('React App Smoke Tests', () => {
     })
 
     test('settings page shows provider configuration nav', async ({ page }) => {
-      // Settings was refactored into a sub-nav — "Appearance" / "About" sections
-      // were replaced with AI (Providers, API Keys), Developer (Git, SSH, etc.),
-      // and User (Account, Teams, Projects) groupings.
+      // Settings uses task-first labels so first-time operators can find setup
+      // paths without knowing internal provider, credential, or runtime terms.
       await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible({ timeout: 5000 })
-      await expect(page.getByRole('button', { name: 'Providers', exact: true })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Model Services', exact: true })).toBeVisible()
       await expect(
-        page.getByRole('button', { name: 'Platform API Keys', exact: true })
+        page.getByRole('button', { name: 'Platform Access Keys', exact: true })
+      ).toBeVisible()
+      await expect(
+        page.getByRole('button', { name: 'Agent Work Setup', exact: true })
       ).toBeVisible()
       await expect(page.getByRole('button', { name: 'Account', exact: true })).toBeVisible()
       await screenshot(page, '21-settings-page')
