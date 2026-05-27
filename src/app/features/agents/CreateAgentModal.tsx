@@ -180,12 +180,14 @@ export function CreateAgentModal() {
   const kind = watch('kind')
   const provider = watch('provider')
   const cliTool = watch('cliTool')
+  const groupId = watch('groupId')
   const runtimeFit = runtimeFitFor(kind, cliTool, provider)
   const selectedProject = selectedProjectId
     ? (Object.values(projectsByTeam)
         .flat()
         .find((project) => project.id === selectedProjectId) ?? null)
     : null
+  const selectedGroup = groups.find((group) => group.id === groupId) ?? null
 
   const dialogRef = useRef<HTMLDivElement>(null)
 
@@ -254,9 +256,7 @@ export function CreateAgentModal() {
 
   async function handleCreateDefaultGroup() {
     if (!selectedProjectId) {
-      setError(
-        'Select a project before creating a task group. Projects keep the work lanes agents can listen to.'
-      )
+      setError('Select a project before creating a work lane. Work lanes belong to one project.')
       return
     }
 
@@ -264,12 +264,12 @@ export function CreateAgentModal() {
     setError(null)
     try {
       const group = await createAgentGroup(selectedProjectId, {
-        name: 'Default Task Group',
-        description: 'This task group is a work lane where agents can receive board tasks.',
+        name: 'Default Work Lane',
+        description: 'This work lane lets agents receive board tasks.',
       })
       setValue('groupId', group.id, { shouldDirty: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create task group')
+      setError(err instanceof Error ? err.message : 'Failed to create work lane')
     } finally {
       setCreatingGroup(false)
     }
@@ -456,19 +456,62 @@ export function CreateAgentModal() {
             </div>
           </section>
 
-          <div>
-            <div className="mb-1 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-              Primary Project
+          <section
+            data-testid="agent-work-readiness"
+            className={cn(
+              'rounded-lg border px-3 py-3',
+              selectedProject
+                ? 'border-apple-green/25 bg-apple-green/10'
+                : 'border-apple-orange/30 bg-apple-orange/10'
+            )}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                  Where this agent will work
+                </p>
+                <p className="mt-0.5 text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
+                  {selectedProject ? 'Project Ready' : 'Choose a Project First'}
+                </p>
+              </div>
+              <span
+                className={cn(
+                  'shrink-0 rounded-full px-2 py-0.5 text-ui-caption font-medium',
+                  selectedProject
+                    ? 'bg-apple-green/15 text-apple-green'
+                    : 'bg-apple-orange/15 text-apple-orange'
+                )}
+              >
+                {selectedProject ? 'Ready' : 'Next step'}
+              </span>
             </div>
-            <div className="w-full rounded-[18px] border border-black/[0.08] bg-white px-4 py-2 text-ui-body text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark">
-              {selectedProject?.name ?? 'No primary project'}
+
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <div className="min-w-0 rounded-md bg-white px-2 py-1.5 dark:bg-black/20">
+                <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                  Primary Project
+                </span>
+                <span className="mt-0.5 block truncate text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+                  {selectedProject?.name ?? 'No project selected'}
+                </span>
+              </div>
+              <div className="min-w-0 rounded-md bg-white px-2 py-1.5 dark:bg-black/20">
+                <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                  Work Lane
+                </span>
+                <span className="mt-0.5 block truncate text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+                  {selectedGroup?.name ??
+                    (selectedProject ? 'Choose or create one below' : 'Pick a project first')}
+                </span>
+              </div>
             </div>
-            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+
+            <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
               {selectedProject
-                ? 'Tasks default to this project. Container access is the selected project workspace.'
-                : 'Tasks can still be assigned later. Container access uses the default workspace.'}
+                ? 'Tasks default to this project. Pick a work lane when you want board tasks to route to this agent.'
+                : 'Close this dialog, select a project in the sidebar, then open New Agent again. You can still create a general agent, but it will not be connected to a project work lane yet.'}
             </p>
-          </div>
+          </section>
 
           {kind === 'cli' && (
             <div>
@@ -572,7 +615,7 @@ export function CreateAgentModal() {
                 htmlFor="agent-group"
                 className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
               >
-                Task Group
+                Work Lane
               </label>
               {groups.length > 0 ? (
                 <>
@@ -581,7 +624,7 @@ export function CreateAgentModal() {
                     {...register('groupId')}
                     className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                   >
-                    <option value="">No task group</option>
+                    <option value="">No work lane yet</option>
                     {groups.map((g) => (
                       <option key={g.id} value={g.id}>
                         {g.name}
@@ -589,7 +632,7 @@ export function CreateAgentModal() {
                     ))}
                   </select>
                   <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                    A task group is the work lane this agent listens to for board tasks.
+                    Choose the lane this agent should listen to for board tasks.
                   </p>
                 </>
               ) : (
@@ -606,10 +649,10 @@ export function CreateAgentModal() {
                     )}
                   >
                     <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-                    {creatingGroup ? 'Creating…' : 'Create Task Group'}
+                    {creatingGroup ? 'Creating…' : 'Create Default Work Lane'}
                   </button>
                   <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                    This creates the first work lane so the agent can receive tasks.
+                    This creates the first lane for this project so agents can receive board tasks.
                   </p>
                 </div>
               )}
