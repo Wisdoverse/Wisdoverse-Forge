@@ -43,6 +43,6 @@ humantime.workspace = true
 [dev-dependencies]
 tempfile = "3"
 wiremock = "0.6"
-similar-asserts = "1"
+similar-asserts = "2"
 tokio = { workspace = true, features = ["test-util", "macros"] }
 temp-env.workspace = true
