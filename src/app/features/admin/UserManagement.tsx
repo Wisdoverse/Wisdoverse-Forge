@@ -6,6 +6,25 @@ import { useAdminStore, type AdminUser } from '@app/shared/model/admin.store'
 const ROLE_OPTIONS = ['admin', 'operator', 'viewer'] as const
 type Role = (typeof ROLE_OPTIONS)[number]
 
+const ROLE_DETAILS: Record<Role, { label: string; description: string }> = {
+  admin: {
+    label: 'Admin',
+    description: 'Can manage users, settings, and system configuration.',
+  },
+  operator: {
+    label: 'Operator',
+    description: 'Can run daily workspace operations without changing admin settings.',
+  },
+  viewer: {
+    label: 'Viewer',
+    description: 'Can read workspace information without making changes.',
+  },
+}
+
+function normalizeRole(role: string): Role {
+  return ROLE_OPTIONS.includes(role as Role) ? (role as Role) : 'viewer'
+}
+
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
   try {
@@ -20,6 +39,7 @@ function formatDate(iso: string | null): string {
 }
 
 function RoleBadge({ role }: { role: string }) {
+  const normalizedRole = normalizeRole(role)
   const colors: Record<string, string> = {
     admin: 'bg-apple-blue/10 text-apple-blue',
     operator: 'bg-apple-blue/[0.07] text-apple-blue',
@@ -29,10 +49,10 @@ function RoleBadge({ role }: { role: string }) {
     <span
       className={cn(
         'inline-flex items-center rounded-full px-2 py-0.5 text-ui-caption font-medium',
-        colors[role] ?? colors.viewer
+        colors[normalizedRole]
       )}
     >
-      {role}
+      {ROLE_DETAILS[normalizedRole].label}
     </span>
   )
 }
@@ -60,21 +80,47 @@ function StatusBadge({ status }: { status: AdminUser['status'] }) {
 
 function UserRow({ user }: { user: AdminUser }) {
   const [editing, setEditing] = useState(false)
-  const [selectedRole, setSelectedRole] = useState<Role>(
-    (ROLE_OPTIONS.includes(user.role as Role) ? user.role : 'viewer') as Role
-  )
+  const [selectedRole, setSelectedRole] = useState<Role>(normalizeRole(user.role))
   const [saving, setSaving] = useState(false)
+  const [roleError, setRoleError] = useState<string | null>(null)
+  const [roleFeedback, setRoleFeedback] = useState<string | null>(null)
   const updateUserRole = useAdminStore((s) => s.updateUserRole)
+  const currentRole = normalizeRole(user.role)
+  const selectedRoleDetails = ROLE_DETAILS[selectedRole]
+  const roleChanged = selectedRole !== currentRole
+  const editStatus = saving
+    ? `Saving ${selectedRoleDetails.label} access...`
+    : roleChanged
+      ? `Ready to save ${selectedRoleDetails.label} access.`
+      : 'Choose a different role before saving.'
+
+  useEffect(() => {
+    if (!editing) setSelectedRole(currentRole)
+  }, [currentRole, editing])
 
   async function handleSave() {
-    if (selectedRole === user.role) {
-      setEditing(false)
+    if (!roleChanged) {
+      setRoleFeedback('Choose a different role before saving.')
       return
     }
     setSaving(true)
+    setRoleError(null)
+    setRoleFeedback(null)
     const ok = await updateUserRole(user.id, selectedRole)
     setSaving(false)
-    if (ok) setEditing(false)
+    if (ok) {
+      setEditing(false)
+      setRoleFeedback(`${user.displayName} now has ${selectedRoleDetails.label} access.`)
+      return
+    }
+    setRoleError('Role could not be saved. Check your permissions and try again.')
+  }
+
+  function handleCancel() {
+    setSelectedRole(currentRole)
+    setRoleError(null)
+    setRoleFeedback(null)
+    setEditing(false)
   }
 
   return (
@@ -91,46 +137,80 @@ function UserRow({ user }: { user: AdminUser }) {
       </td>
       <td className={uiStyles.tableCell}>
         {editing ? (
-          <div className="flex items-center gap-2">
+          <div className="grid min-w-[260px] gap-2">
             <select
+              aria-label={`Role for ${user.displayName}`}
               value={selectedRole}
-              onChange={(e) => setSelectedRole(e.target.value as Role)}
+              onChange={(e) => {
+                setSelectedRole(e.target.value as Role)
+                setRoleError(null)
+                setRoleFeedback(null)
+              }}
               className={cn(uiStyles.select, 'h-8 text-ui-caption')}
             >
               {ROLE_OPTIONS.map((r) => (
                 <option key={r} value={r}>
-                  {r}
+                  {ROLE_DETAILS[r].label}
                 </option>
               ))}
             </select>
-            <button
-              type="button"
-              onClick={() => void handleSave()}
-              disabled={saving}
-              className="text-ui-caption text-apple-blue hover:underline disabled:opacity-50"
+            <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {selectedRoleDetails.description}
+            </p>
+            <p
+              aria-live="polite"
+              className="text-ui-caption text-secondary-light dark:text-secondary-dark"
             >
-              {saving ? 'Saving...' : 'Save'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditing(false)}
-              className="text-ui-caption text-secondary-light hover:underline dark:text-secondary-dark"
-            >
-              Cancel
-            </button>
+              {editStatus}
+            </p>
+            {roleError && (
+              <p role="alert" className="text-ui-caption text-red-600 dark:text-red-400">
+                {roleError}
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void handleSave()}
+                disabled={saving || !roleChanged}
+                aria-label={`Save role for ${user.displayName}`}
+                className={cn(uiStyles.primaryButton, 'h-8 px-3 text-ui-caption')}
+              >
+                {saving ? 'Saving...' : 'Save Role'}
+              </button>
+              <button
+                type="button"
+                onClick={handleCancel}
+                className={cn(uiStyles.secondaryButton, 'h-8 px-3 text-ui-caption')}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="group flex items-center gap-1.5"
-            title="Click to edit role"
-          >
-            <RoleBadge role={user.role} />
-            <span className="text-ui-caption text-secondary-light opacity-0 transition-opacity group-hover:opacity-100 dark:text-secondary-dark">
-              edit
-            </span>
-          </button>
+          <div className="grid gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                setRoleError(null)
+                setRoleFeedback(null)
+                setEditing(true)
+              }}
+              className="flex w-fit items-center gap-2"
+              aria-label={`Edit role for ${user.displayName}`}
+            >
+              <RoleBadge role={user.role} />
+              <span className="text-ui-caption text-apple-blue">Edit role</span>
+            </button>
+            <p className="max-w-[260px] text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {ROLE_DETAILS[currentRole].description}
+            </p>
+            {roleFeedback && (
+              <p role="status" className="text-ui-caption text-apple-blue">
+                {roleFeedback}
+              </p>
+            )}
+          </div>
         )}
       </td>
       <td className={uiStyles.tableCell}>
@@ -184,22 +264,30 @@ export function UserManagement() {
       <div className={uiStyles.sectionHeader}>
         <div>
           <h2 className={uiStyles.sectionTitle}>Users</h2>
-          <p className={uiStyles.sectionDescription}>{usersTotal} total users</p>
+          <p className={uiStyles.sectionDescription}>
+            {usersTotal} total users. Review access before changing a role.
+          </p>
         </div>
       </div>
 
       {/* Search */}
-      <form onSubmit={handleSearch} className="mb-4 flex gap-2">
-        <input
-          type="text"
-          value={userSearch}
-          onChange={(e) => setUserSearch(e.target.value)}
-          placeholder="Search by email or name..."
-          className={cn(uiStyles.input, 'min-w-0 flex-1')}
-        />
-        <button type="submit" className={uiStyles.primaryButton}>
-          Search
-        </button>
+      <form onSubmit={handleSearch} className="mb-4 space-y-2">
+        <div className="flex gap-2">
+          <input
+            type="search"
+            value={userSearch}
+            onChange={(e) => setUserSearch(e.target.value)}
+            placeholder="Search by email or name..."
+            aria-label="Search users by name or email"
+            className={cn(uiStyles.input, 'min-w-0 flex-1')}
+          />
+          <button type="submit" className={uiStyles.primaryButton}>
+            Search Users
+          </button>
+        </div>
+        <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+          Search by name or email. Leave it blank to show everyone.
+        </p>
       </form>
 
       {/* Error */}
@@ -212,9 +300,12 @@ export function UserManagement() {
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">Loading...</p>
           </div>
         ) : users.length === 0 ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center justify-center gap-1 py-12 text-center">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No users found
+              No users found.
+            </p>
+            <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Try another name or clear the search box.
             </p>
           </div>
         ) : (
