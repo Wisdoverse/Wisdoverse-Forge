@@ -75,9 +75,15 @@ describe('AuditLogView', () => {
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
     expect(screen.getAllByTestId('governance-audit-row')).toHaveLength(2)
+    expect(screen.getByText('Records')).toBeDefined()
+    expect(screen.getAllByText('Changed item').length).toBeGreaterThan(0)
+    expect(screen.getByText('Changed by')).toBeDefined()
+    expect(screen.getByText('Verification')).toBeDefined()
     expect(screen.getByTestId('governance-audit-raw-item-id').textContent).toContain('11111111')
     expect(screen.getByTestId('governance-audit-subject-hash').textContent).toContain('f9f0b5b53a')
-    expect(screen.getByTestId('governance-audit-redacted')).toBeDefined()
+    expect(screen.getByTestId('governance-audit-redacted').textContent).toContain('Protected')
+    expect(screen.getByText('Not checked')).toBeDefined()
+    expect(screen.getByText('Verified')).toBeDefined()
 
     fireEvent.change(screen.getByTestId('governance-audit-filter-event-type'), {
       target: { value: 'governance.context.skill.approved' },
@@ -85,7 +91,7 @@ describe('AuditLogView', () => {
     fireEvent.change(screen.getByTestId('governance-audit-filter-item-kind'), {
       target: { value: 'skill' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Filter' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Apply filters' }))
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(2))
     expect(fetchGovernanceAudit).toHaveBeenLastCalledWith(
@@ -97,28 +103,23 @@ describe('AuditLogView', () => {
     )
   })
 
-  test('shows beginner filter guidance and applies common audit filters', async () => {
+  test('explains an empty audit view in plain language', async () => {
+    fetchGovernanceAudit.mockResolvedValueOnce({
+      entries: [],
+      query: {
+        eventPrefix: 'governance.context.',
+        limit: 50,
+        offset: 0,
+        redacted: true,
+      },
+    })
+
     render(<AuditLogView />)
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
-
-    const guide = screen.getByTestId('governance-audit-filter-guide')
-    expect(guide).toHaveTextContent('Start broad')
-    expect(screen.getByRole('button', { name: 'Refresh audit events' })).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Export audit events' })).toBeDefined()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Skill Changes' }))
-
-    await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(2))
-    expect(fetchGovernanceAudit).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        eventPrefix: 'governance.context.skill.',
-        itemKind: 'skill',
-      })
+    expect(screen.getByTestId('governance-audit-empty').textContent).toContain(
+      'No audit records match this view'
     )
-    expect(screen.getByTestId('governance-audit-filter-event-prefix')).toHaveValue(
-      'governance.context.skill.'
-    )
-    expect(screen.getByTestId('governance-audit-filter-item-kind')).toHaveValue('skill')
+    expect(screen.getByTestId('governance-audit-empty').textContent).toContain('Clear Exact event')
   })
 })

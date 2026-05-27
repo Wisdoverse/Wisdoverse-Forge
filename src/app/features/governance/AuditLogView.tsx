@@ -56,8 +56,8 @@ const ITEM_KIND_OPTIONS: { value: ItemKindFilter; label: string }[] = [
 ]
 
 const SCOPE_KIND_OPTIONS: { value: ScopeKindFilter; label: string }[] = [
-  { value: 'all', label: 'All scopes' },
-  { value: 'org', label: 'Org' },
+  { value: 'all', label: 'All areas' },
+  { value: 'org', label: 'Organization' },
   { value: 'workspace', label: 'Workspace' },
   { value: 'team', label: 'Team' },
   { value: 'project', label: 'Project' },
@@ -179,7 +179,7 @@ export function AuditLogView() {
       link.click()
       URL.revokeObjectURL(url)
       setData(response)
-      setExportStatus(`${response.entries.length} rows exported`)
+      setExportStatus(`${response.entries.length} records exported`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to export governance audit')
     } finally {
@@ -222,11 +222,7 @@ export function AuditLogView() {
         </div>
 
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_160px_160px_160px_auto]">
-          <Field
-            label="Event prefix"
-            help="Use the default for context events, or leave blank to search all audit events."
-            helpId="governance-audit-event-prefix-help"
-          >
+          <Field label="Event family">
             <input
               data-testid="governance-audit-filter-event-prefix"
               name="eventPrefix"
@@ -237,11 +233,7 @@ export function AuditLogView() {
               className={INPUT_CLASS}
             />
           </Field>
-          <Field
-            label="Event type"
-            help="Optional. Pick a common event or paste an exact event type."
-            helpId="governance-audit-event-type-help"
-          >
+          <Field label="Exact event">
             <input
               data-testid="governance-audit-filter-event-type"
               name="eventType"
@@ -259,7 +251,7 @@ export function AuditLogView() {
               ))}
             </datalist>
           </Field>
-          <Field label="Item" help="Optional. Filter to memory or skill records.">
+          <Field label="Changed item">
             <select
               data-testid="governance-audit-filter-item-kind"
               name="itemKind"
@@ -274,7 +266,7 @@ export function AuditLogView() {
               ))}
             </select>
           </Field>
-          <Field label="Scope" help="Optional. Narrow to a workspace, project, team, or user.">
+          <Field label="Area">
             <select
               data-testid="governance-audit-filter-scope-kind"
               name="scopeKind"
@@ -289,7 +281,7 @@ export function AuditLogView() {
               ))}
             </select>
           </Field>
-          <Field label="Limit" help="Show 1-200 rows.">
+          <Field label="Record limit">
             <input
               type="number"
               name="limit"
@@ -309,7 +301,7 @@ export function AuditLogView() {
               className="inline-flex h-9 items-center gap-2 rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Search size={15} aria-hidden="true" />
-              Filter
+              Apply filters
             </button>
             <button
               type="button"
@@ -337,33 +329,23 @@ export function AuditLogView() {
         </div>
 
         <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_180px_180px_auto]">
-          <Field
-            label="Scope ID"
-            help="Optional. Paste an ID only when you already know the workspace, project, team, or user."
-            helpId="governance-audit-scope-id-help"
-          >
+          <Field label="Area ID">
             <input
               value={filters.scopeId}
               name="scopeId"
               autoComplete="off"
               onChange={(event) => updateFilter('scopeId', event.target.value)}
-              placeholder="UUID…"
-              aria-describedby="governance-audit-scope-id-help"
+              placeholder="Optional ID…"
               className={INPUT_CLASS}
             />
           </Field>
-          <Field
-            label="User ID"
-            help="Optional. Leave blank to include system and all users."
-            helpId="governance-audit-user-id-help"
-          >
+          <Field label="Changed by user ID">
             <input
               value={filters.userId}
               name="userId"
               autoComplete="off"
               onChange={(event) => updateFilter('userId', event.target.value)}
-              placeholder="UUID…"
-              aria-describedby="governance-audit-user-id-help"
+              placeholder="Optional user ID…"
               className={INPUT_CLASS}
             />
           </Field>
@@ -395,7 +377,7 @@ export function AuditLogView() {
               onChange={(event) => updateFilter('redactSecrets', event.target.checked)}
               className="mb-2 h-4 w-4 rounded border-black/20 text-apple-blue focus:ring-apple-blue"
             />
-            <span className="pb-2">Redact secrets</span>
+            <span className="pb-2">Hide secrets before export</span>
           </label>
         </div>
       </form>
@@ -419,10 +401,14 @@ export function AuditLogView() {
         )}
 
         <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Metric label="Rows" value={entries.length} />
-          <Metric label="Prefix" value={data?.query.eventPrefix ?? filters.eventPrefix} compact />
-          <Metric label="Hidden raw IDs" value={hiddenRawIds} />
-          <Metric label="Redacted rows" value={redactedRows} />
+          <Metric label="Records" value={entries.length} />
+          <Metric
+            label="Event family"
+            value={data?.query.eventPrefix ?? filters.eventPrefix}
+            compact
+          />
+          <Metric label="Private IDs" value={hiddenRawIds} />
+          <Metric label="Protected rows" value={redactedRows} />
         </div>
 
         <div className="overflow-hidden rounded-card border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#2c2c2e]">
@@ -431,25 +417,36 @@ export function AuditLogView() {
               <thead className="border-b border-black/[0.06] bg-black/[0.025] text-ui-caption text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.03] dark:text-secondary-dark">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Time</th>
-                  <th className="px-4 py-3 font-semibold">Event</th>
-                  <th className="px-4 py-3 font-semibold">Subject</th>
-                  <th className="px-4 py-3 font-semibold">Scope</th>
-                  <th className="px-4 py-3 font-semibold">Actor</th>
-                  <th className="px-4 py-3 font-semibold">Integrity</th>
-                  <th className="px-4 py-3 font-semibold">Details</th>
+                  <th className="px-4 py-3 font-semibold">Change</th>
+                  <th className="px-4 py-3 font-semibold">Changed item</th>
+                  <th className="px-4 py-3 font-semibold">Area</th>
+                  <th className="px-4 py-3 font-semibold">Changed by</th>
+                  <th className="px-4 py-3 font-semibold">Verification</th>
+                  <th className="px-4 py-3 font-semibold">Change details</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5 dark:divide-white/10">
                 {loading ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-12 text-center text-secondary-light">
-                      Loading audit events…
+                      Loading audit records…
                     </td>
                   </tr>
                 ) : entries.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center text-secondary-light">
-                      No governance audit events
+                    <td colSpan={7} className="px-4 py-12 text-center">
+                      <div
+                        data-testid="governance-audit-empty"
+                        className="mx-auto max-w-md space-y-1"
+                      >
+                        <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+                          No audit records match this view
+                        </p>
+                        <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                          Clear Exact event, choose All areas, or widen the date range if you
+                          expected to see a recent change.
+                        </p>
+                      </div>
                     </td>
                   </tr>
                 ) : (
@@ -478,7 +475,7 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
           {entry.eventType}
         </div>
         <div className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {entry.itemKind ?? 'unknown'} · {entry.resourceType}
+          {entry.itemKind ?? 'hidden item'} · {entry.resourceType}
         </div>
       </td>
       <td className="w-72 px-4 py-3">
@@ -501,19 +498,19 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
             className="mt-2 inline-flex items-center gap-1 rounded-full bg-black/[0.04] px-2 py-0.5 text-ui-caption font-medium text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark"
           >
             <EyeOff size={12} aria-hidden="true" />
-            Redacted
+            Protected
           </div>
         )}
       </td>
       <td className="w-56 px-4 py-3">
-        <div className="font-medium">{entry.scopeKind ?? 'unknown'}</div>
+        <div className="font-medium">{entry.scopeKind ?? 'hidden area'}</div>
         <div className="mt-1 truncate font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {entry.scopeId ?? 'unknown'}
+          {entry.scopeId ?? 'not shared'}
         </div>
       </td>
       <td className="w-48 px-4 py-3">
         <span className="block truncate font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {entry.actorUserId ?? 'system'}
+          {entry.actorUserId ?? 'System'}
         </span>
       </td>
       <td className="w-44 px-4 py-3">
@@ -553,18 +550,18 @@ function TamperBadge({ status }: { status: GovernanceAuditTamperStatus }) {
     valid: {
       Icon: ShieldCheck,
       className: 'bg-apple-blue/10 text-apple-blue',
-      label: 'Valid',
+      label: 'Verified',
     },
     invalid: {
       Icon: ShieldAlert,
       className: 'bg-apple-red/10 text-apple-red',
-      label: 'Invalid',
+      label: 'Needs review',
     },
     not_configured: {
       Icon: ShieldQuestion,
       className:
         'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
-      label: 'Not configured',
+      label: 'Not checked',
     },
   }[status]
   return (
