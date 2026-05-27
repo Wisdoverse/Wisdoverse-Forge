@@ -26,6 +26,85 @@ function toolsToBars(tools: { tool: string; count: number }[]): BarPoint[] {
   }))
 }
 
+interface AnalyticsGuidance {
+  title: string
+  detail: string
+  action: string
+  tone: 'ready' | 'watch' | 'attention'
+}
+
+function buildAnalyticsGuidance({
+  totalAgents,
+  onlineAgents,
+  workingAgents,
+  offlineAgents,
+  totalEvents,
+  topToolName,
+  topToolSuccessRate,
+}: {
+  totalAgents: number
+  onlineAgents: number
+  workingAgents: number
+  offlineAgents: number
+  totalEvents: number
+  topToolName?: string
+  topToolSuccessRate?: number
+}): AnalyticsGuidance {
+  if (totalAgents === 0) {
+    return {
+      title: 'Create or connect an agent first',
+      detail: 'No agents are reporting status yet, so this page cannot show real work patterns.',
+      action: 'Open Agents, add one agent, then run a small task to generate the first signals.',
+      tone: 'attention',
+    }
+  }
+
+  if (offlineAgents > 0) {
+    return {
+      title: 'Bring offline agents back before judging work',
+      detail: `${offlineAgents} of ${totalAgents} agents are offline, which can make activity look lower than it really is.`,
+      action: 'Open Agents and reconnect or restart the offline agents, then refresh this page.',
+      tone: 'attention',
+    }
+  }
+
+  if (totalEvents === 0) {
+    return {
+      title: 'Start a task to create activity data',
+      detail: `${onlineAgents} agent${onlineAgents === 1 ? ' is' : 's are'} online, but no work updates were recorded in this time range.`,
+      action: 'Create one simple task, wait for it to finish, then return here to read the trend.',
+      tone: 'watch',
+    }
+  }
+
+  if (topToolName && typeof topToolSuccessRate === 'number' && topToolSuccessRate < 70) {
+    return {
+      title: `Review ${topToolName} failures first`,
+      detail: `The busiest tool completed cleanly only ${topToolSuccessRate}% of the time in this range.`,
+      action:
+        'Open recent task results and check the failed tool steps before assigning more work.',
+      tone: 'attention',
+    }
+  }
+
+  if (workingAgents > 0) {
+    return {
+      title: 'Work is running now',
+      detail: `${workingAgents} agent${workingAgents === 1 ? ' is' : 's are'} working and recent activity is being recorded.`,
+      action:
+        'Wait for the current tasks to finish, then compare instructions sent with replies received.',
+      tone: 'ready',
+    }
+  }
+
+  return {
+    title: 'Agents are ready for the next task',
+    detail: `${onlineAgents} agent${onlineAgents === 1 ? ' is' : 's are'} online and this range has recorded activity.`,
+    action: 'Use the activity and tool sections below to choose what to improve next.',
+    tone: 'ready',
+  }
+}
+
 export function AnalyticsDashboard() {
   const {
     dateRange,
@@ -50,6 +129,16 @@ export function AnalyticsDashboard() {
 
   const topTool = tools[0]
   const topToolRate = topTool ? Math.round(topTool.successRate * 100) : 0
+  const totalEvents = summary?.totalEvents ?? 0
+  const guidance = buildAnalyticsGuidance({
+    totalAgents: agentStats.total,
+    onlineAgents: agentStats.online,
+    workingAgents: agentStats.working,
+    offlineAgents: agentStats.offline,
+    totalEvents,
+    topToolName: topTool?.tool,
+    topToolSuccessRate: topTool ? topToolRate : undefined,
+  })
 
   return (
     <div className="flex h-full flex-col">
@@ -83,18 +172,15 @@ export function AnalyticsDashboard() {
           </div>
         )}
 
+        <AnalyticsNextStepPanel guidance={guidance} loading={loading} />
+
         {/* Agent status section */}
         <section className="mb-6">
           <h2 className="mb-3 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            Agents
+            Agent availability
           </h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatCard
-              title="Total Agents"
-              value={agentStats.total}
-              loading={loading}
-              accent="blue"
-            />
+            <StatCard title="All agents" value={agentStats.total} loading={loading} accent="blue" />
             <StatCard
               title="Online"
               value={agentStats.online}
@@ -114,29 +200,24 @@ export function AnalyticsDashboard() {
         {/* Event metrics */}
         <section className="mb-6">
           <h2 className="mb-3 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            Activity
+            Work activity
           </h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <StatCard title="All updates" value={totalEvents} loading={loading} accent="blue" />
             <StatCard
-              title="Total Events"
-              value={summary?.totalEvents ?? 0}
-              loading={loading}
-              accent="blue"
-            />
-            <StatCard
-              title="Tool Calls"
+              title="Tool steps"
               value={summary?.toolCalls ?? 0}
               loading={loading}
               accent="blue"
             />
             <StatCard
-              title="Prompts"
+              title="Instructions sent"
               value={summary?.prompts ?? 0}
               loading={loading}
               accent="blue"
             />
             <StatCard
-              title="Responses"
+              title="Replies received"
               value={summary?.responses ?? 0}
               loading={loading}
               accent="blue"
@@ -150,7 +231,7 @@ export function AnalyticsDashboard() {
           <div className="rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2c2c2e]">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Hourly Activity
+                Activity by hour
               </p>
             </div>
             {loading ? (
@@ -169,7 +250,7 @@ export function AnalyticsDashboard() {
           {/* Top tools */}
           <div className="rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2c2c2e]">
             <p className="mb-3 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-              Top Tools
+              Tools used most
             </p>
             {loading ? (
               <div className="h-20 animate-pulse rounded-card bg-black/[0.04] dark:bg-white/[0.05]" />
@@ -221,9 +302,9 @@ export function AnalyticsDashboard() {
         {!loading && topTool && (
           <div className="mt-4">
             <StatCard
-              title="Most Used Tool"
+              title="Busiest tool"
               value={topTool.tool}
-              subtitle={`${topTool.count} calls · ${topToolRate}% success rate`}
+              subtitle={`${topTool.count} uses, ${topToolRate}% completed cleanly`}
               accent="blue"
             />
           </div>
@@ -232,6 +313,59 @@ export function AnalyticsDashboard() {
         {contextAnalyticsEnabled && <ContextUsageDashboard data={contextUsage} loading={loading} />}
       </div>
     </div>
+  )
+}
+
+function AnalyticsNextStepPanel({
+  guidance,
+  loading,
+}: {
+  guidance: AnalyticsGuidance
+  loading: boolean
+}) {
+  const toneClasses = {
+    ready:
+      'border-apple-blue/20 bg-apple-blue/10 text-apple-blue dark:border-apple-blue/30 dark:bg-apple-blue/15',
+    watch:
+      'border-black/[0.08] bg-black/[0.03] text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.06] dark:text-foreground-dark',
+    attention: 'border-apple-red/20 bg-apple-red/10 text-apple-red',
+  } satisfies Record<AnalyticsGuidance['tone'], string>
+
+  return (
+    <section
+      data-testid="analytics-next-step"
+      className="mb-6 rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2c2c2e]"
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-ui-caption font-medium uppercase text-secondary-light dark:text-secondary-dark">
+            What to check next
+          </p>
+          {loading ? (
+            <div className="mt-3 h-16 max-w-xl animate-pulse rounded-card bg-black/[0.04] dark:bg-white/[0.05]" />
+          ) : (
+            <>
+              <h2 className="mt-1 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+                {guidance.title}
+              </h2>
+              <p className="mt-1 max-w-2xl text-ui-body text-secondary-light dark:text-secondary-dark">
+                {guidance.detail}
+              </p>
+            </>
+          )}
+        </div>
+        {!loading && (
+          <div
+            className={cn(
+              'max-w-sm rounded-card border px-3 py-2 text-ui-caption font-medium',
+              toneClasses[guidance.tone]
+            )}
+          >
+            {guidance.action}
+          </div>
+        )}
+      </div>
+    </section>
   )
 }
 
