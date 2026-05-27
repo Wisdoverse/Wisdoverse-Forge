@@ -14,23 +14,36 @@ export function AgentGroupSelector({
   selectedProjectId,
   onSelectGroup,
 }: AgentGroupSelectorProps) {
+  const disabledHelp = !selectedProjectId
+    ? 'Choose a project before selecting a work lane.'
+    : groups.length === 0
+      ? 'Create a work lane in Agents > Task Routing before assigning tasks.'
+      : null
+  const selectTitle = disabledHelp ?? 'Choose the work lane where new tasks will go.'
+
   return (
-    <div className="hidden items-center gap-1 rounded-full border border-black/[0.08] bg-white p-0.5 dark:border-white/[0.1] dark:bg-white/[0.06] md:flex">
+    <div className="hidden items-center gap-2 rounded-full border border-black/[0.08] bg-white p-0.5 pl-3 dark:border-white/[0.1] dark:bg-white/[0.06] md:flex">
+      <span className="shrink-0 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+        Work lane
+      </span>
       <select
-        aria-label="Task group"
+        aria-label="Work lane for new tasks"
+        title={selectTitle}
         value={selectedGroupId ?? ''}
         onChange={(event) => {
           if (event.target.value) onSelectGroup(event.target.value)
         }}
         disabled={!selectedProjectId || groups.length === 0}
         className={cn(
-          'h-8 min-w-36 rounded-full bg-transparent px-3 text-ui-caption outline-none',
+          'h-8 min-w-40 rounded-full bg-transparent px-3 text-ui-caption outline-none',
           'text-foreground-light dark:text-foreground-dark',
           'disabled:cursor-not-allowed disabled:text-secondary-light dark:disabled:text-secondary-dark'
         )}
       >
-        {!selectedProjectId && <option value="">No project</option>}
-        {selectedProjectId && groups.length === 0 && <option value="">No work lanes yet</option>}
+        {!selectedProjectId && <option value="">Choose a project first</option>}
+        {selectedProjectId && groups.length === 0 && (
+          <option value="">Create a work lane first</option>
+        )}
         {groups.map((group) => (
           <option key={group.id} value={group.id}>
             {group.name}
