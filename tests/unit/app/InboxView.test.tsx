@@ -56,6 +56,7 @@ describe('InboxView', () => {
     expect(item.getAttribute('data-template')).toBe('task-lifecycle')
     expect(screen.getByText('Blocked task')).toBeDefined()
     expect(screen.getByText('Review blocker')).toBeDefined()
+    expect(screen.getByText(/provide the requested input/i)).toBeDefined()
   })
 
   test('loads persisted failed owner notifications', async () => {
@@ -82,6 +83,66 @@ describe('InboxView', () => {
     expect(screen.getByText('Deploy production')).toBeDefined()
   })
 
+  test('summarizes the safest next action for beginner triage', () => {
+    const store = useFeedStore.getState()
+    store.addNotification({
+      id: 'n1',
+      type: 'completed',
+      taskId: 't1',
+      taskTitle: 'Generate report',
+      message: 'Ready for review',
+      read: false,
+      timestamp: Date.now() - 1000,
+    })
+    store.addNotification({
+      id: 'n2',
+      type: 'blocked',
+      taskId: 't2',
+      taskTitle: 'Deploy staging',
+      message: 'Waiting for SSH access',
+      read: false,
+      timestamp: Date.now(),
+    })
+
+    render(<InboxView />)
+
+    const nextStep = screen.getByTestId('inbox-next-step')
+    expect(nextStep).toHaveTextContent('Do This Next')
+    expect(nextStep).toHaveTextContent('Review the blocker that is stopping work')
+    expect(nextStep).toHaveTextContent('This is the only item that needs action')
+    expect(screen.getByRole('button', { name: /open blocked task/i })).toBeDefined()
+  })
+
+  test('prioritizes expired credentials because they can block future runs', () => {
+    const store = useFeedStore.getState()
+    store.addNotification({
+      id: 'n1',
+      type: 'blocked',
+      taskId: 't1',
+      taskTitle: 'Blocked deployment',
+      message: 'Waiting for input',
+      read: false,
+      timestamp: Date.now(),
+    })
+    store.addNotification({
+      id: 'n2',
+      type: 'credential_expired',
+      taskId: 'credential:codex',
+      taskTitle: 'Credential expired',
+      message: 'Reconnect runtime access',
+      taskHref: '/settings',
+      read: false,
+      timestamp: Date.now() - 1000,
+    })
+
+    render(<InboxView />)
+
+    const nextStep = screen.getByTestId('inbox-next-step')
+    expect(nextStep).toHaveTextContent('Reconnect a credential before more agent work starts')
+    expect(nextStep).toHaveTextContent('keeps future agent runs from failing')
+    expect(screen.getByRole('button', { name: /open settings/i })).toBeDefined()
+  })
+
   test('shows unread count', () => {
     const store = useFeedStore.getState()
     store.addNotification({
@@ -105,6 +166,7 @@ describe('InboxView', () => {
     render(<InboxView />)
     // Badge now reads "N new" instead of just the number
     expect(screen.getByTestId('unread-count').textContent).toMatch(/^1\s*new$/)
+    expect(screen.getByRole('button', { name: /mark all as read/i })).toBeDefined()
   })
 
   test('filters notifications by triage lane', async () => {
@@ -159,6 +221,44 @@ describe('InboxView', () => {
     expect(screen.getByText('Blocked deployment')).toBeDefined()
     expect(screen.getByText('Credential expired')).toBeDefined()
     expect(screen.queryByText('Completed cleanup')).toBeNull()
+  })
+
+  test('explains an empty filtered lane and lets the user return to all updates', async () => {
+    useFeedStore.getState().addNotification({
+      id: 'n1',
+      type: 'completed',
+      taskId: 't1',
+      taskTitle: 'Completed cleanup',
+      message: 'Ready for review',
+      read: true,
+      timestamp: Date.now(),
+    })
+
+    render(<InboxView />)
+
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('inbox-filter-credentials'))
+
+    expect(screen.getByTestId('inbox-filter-empty')).toHaveTextContent(
+      'No credentials need reconnecting right now.'
+    )
+
+    await user.click(screen.getByRole('button', { name: /show all notifications/i }))
+
+    expect(screen.getByText('Completed cleanup')).toBeDefined()
+  })
+
+  test('shows a recoverable message when older notifications cannot load', async () => {
+    orchestrationApiMock.fetchInboxNotifications.mockRejectedValue(new Error('offline'))
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    render(<InboxView />)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Could not load older notifications')
+    expect(screen.getByRole('button', { name: /try again/i })).toBeDefined()
+
+    warnSpy.mockRestore()
   })
 
   test('opens linked task notifications and marks them read', async () => {
