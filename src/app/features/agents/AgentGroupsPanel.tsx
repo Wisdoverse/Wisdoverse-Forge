@@ -528,6 +528,9 @@ function RoutingMetric({
 }
 
 function RoutedTaskRow({ task }: { task: TaskSummary }) {
+  const assignment = routedTaskAssignment(task)
+  const nextStep = routedTaskNextStep(task)
+
   return (
     <li
       data-testid="task-routing-row"
@@ -548,7 +551,7 @@ function RoutedTaskRow({ task }: { task: TaskSummary }) {
           </p>
         </div>
         <p className="mt-1 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {task.assignedAgentName || task.assignedTo || 'Unassigned'} · {task.priority} priority
+          {assignment} · {nextStep}
         </p>
       </div>
       <span className="shrink-0 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
@@ -556,6 +559,33 @@ function RoutedTaskRow({ task }: { task: TaskSummary }) {
       </span>
     </li>
   )
+}
+
+function routedTaskAssignment(task: TaskSummary): string {
+  if (task.assignedAgentName) return task.assignedAgentName
+  if (task.assignedTo) return 'Assigned agent'
+  return 'Needs agent'
+}
+
+function routedTaskNextStep(task: TaskSummary): string {
+  switch (task.state) {
+    case 'backlog':
+      return task.assignedTo || task.assignedAgentName
+        ? 'Ready to queue'
+        : 'Assign an agent before dispatch'
+    case 'queued':
+      return 'Waiting for runtime pickup'
+    case 'working':
+      return 'Monitor live progress'
+    case 'blocked':
+      return task.blockedHint ?? 'Resolve blocker'
+    case 'failed':
+      return task.error ?? 'Review failure and retry'
+    case 'completed':
+      return 'Review completed handoff'
+    case 'canceled':
+      return 'Stopped before completion'
+  }
 }
 
 function summarizeGroupTasks(tasks: TaskSummary[]): {
