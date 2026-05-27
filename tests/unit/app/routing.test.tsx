@@ -1,7 +1,7 @@
 import { describe, test, expect, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { RouterProvider, createMemoryHistory } from '@tanstack/react-router'
-import { TaskViewLoadingFallback } from '@app/routes/tasks'
+import { AuthShellLoadingState } from '@app/routes/__root'
 import { createTestRouter } from './test-helpers'
 
 afterEach(cleanup)
@@ -62,5 +62,11 @@ describe('Routing', () => {
     const router = createTestRouter(createMemoryHistory({ initialEntries: ['/'] }))
     render(<RouterProvider router={router} />)
     expect(await screen.findByTestId('page-start')).toBeDefined()
+  })
+
+  test('explains the protected route sign-in check while auth is loading', () => {
+    render(<AuthShellLoadingState />)
+    expect(screen.getByRole('status')).toHaveTextContent('Checking your sign-in')
+    expect(screen.getByRole('status')).toHaveTextContent('refresh the page or sign in again')
   })
 })
