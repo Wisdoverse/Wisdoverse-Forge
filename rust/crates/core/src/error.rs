@@ -9,6 +9,8 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use serde_json::json;
 
+use crate::RuntimeCapabilityError;
+
 /// Domain-level error kinds.
 #[derive(Debug, thiserror::Error)]
 pub enum ErrorKind {
@@ -60,6 +62,22 @@ impl From<sqlx::Error> for AppError {
         match err {
             sqlx::Error::RowNotFound => Self { kind: ErrorKind::NotFound("record not found".to_string()) },
             other => Self { kind: ErrorKind::Internal(anyhow::Error::from(other)) },
+        }
+    }
+}
+
+impl From<RuntimeCapabilityError> for AppError {
+    fn from(err: RuntimeCapabilityError) -> Self {
+        let msg = err.to_string();
+        match err {
+            RuntimeCapabilityError::UnknownCliTool { .. }
+            | RuntimeCapabilityError::UnknownRuntimeKind { .. } => {
+                Self { kind: ErrorKind::Validation(msg) }
+            }
+            RuntimeCapabilityError::MaxContextTokensZero { .. } => {
+                // Internal invariant violation — not caused by user input.
+                Self { kind: ErrorKind::Internal(anyhow::anyhow!("{msg}")) }
+            }
         }
     }
 }
@@ -194,6 +212,34 @@ mod tests {
 
         assert_eq!(status, StatusCode::NOT_FOUND);
         assert_eq!(body["error"]["code"], "NOT_FOUND");
+    }
+
+    #[test]
+    fn runtime_capability_error_maps_to_validation() {
+        let err = RuntimeCapabilityError::UnknownRuntimeKind { raw: "host_cli".into() };
+        let app: AppError = err.into();
+        match app.kind {
+            ErrorKind::Validation(msg) => assert!(
+                msg.contains("host_cli"),
+                "expected message to contain 'host_cli', got: {msg}"
+            ),
+            other => panic!("expected ErrorKind::Validation, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn max_context_tokens_zero_does_not_map_to_validation() {
+        use crate::RuntimeKind;
+        let err = RuntimeCapabilityError::MaxContextTokensZero { runtime_kind: RuntimeKind::Container };
+        let app: AppError = err.into();
+        assert!(
+            !matches!(app.kind, ErrorKind::Validation(_)),
+            "MaxContextTokensZero is an internal invariant violation and must not map to Validation/400"
+        );
+        assert!(
+            matches!(app.kind, ErrorKind::Internal(_)),
+            "MaxContextTokensZero must map to Internal/500"
+        );
     }
 
     #[test]
