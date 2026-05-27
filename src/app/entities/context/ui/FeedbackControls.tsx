@@ -6,12 +6,42 @@ import type {
   ContextFeedbackOutcome,
 } from '@shared/types/context'
 
-const FEEDBACK_OPTIONS: { label: ContextFeedbackLabel; text: string }[] = [
-  { label: 'useful', text: 'Useful' },
-  { label: 'stale', text: 'Stale' },
-  { label: 'wrong', text: 'Wrong' },
-  { label: 'too_sensitive', text: 'Sensitive' },
-  { label: 'do_not_use_again', text: 'Do not use' },
+const FEEDBACK_OPTIONS: {
+  label: ContextFeedbackLabel
+  text: string
+  description: string
+  confirmation: string
+}[] = [
+  {
+    label: 'useful',
+    text: 'Useful',
+    description: 'Keep recommending context like this.',
+    confirmation: 'future runs will prefer context like this.',
+  },
+  {
+    label: 'stale',
+    text: 'Outdated',
+    description: 'The information is old and should be checked before reuse.',
+    confirmation: 'future runs will treat this item as needing review.',
+  },
+  {
+    label: 'wrong',
+    text: 'Incorrect',
+    description: 'The information is wrong for this task.',
+    confirmation: 'future runs will avoid trusting this item.',
+  },
+  {
+    label: 'too_sensitive',
+    text: 'Too sensitive',
+    description: 'This should not be shared broadly.',
+    confirmation: 'future runs will handle this item more carefully.',
+  },
+  {
+    label: 'do_not_use_again',
+    text: 'Do not use again',
+    description: 'Stop selecting this item for future runs.',
+    confirmation: 'future runs will avoid this item.',
+  },
 ]
 
 interface FeedbackControlsProps {
@@ -26,6 +56,9 @@ export function FeedbackControls({ item, onRecord, onRecorded }: FeedbackControl
   )
   const [pending, setPending] = useState<ContextFeedbackLabel | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const selectedOption = selected
+    ? FEEDBACK_OPTIONS.find((option) => option.label === selected)
+    : null
 
   async function record(label: ContextFeedbackLabel) {
     const previous = selected
@@ -37,7 +70,7 @@ export function FeedbackControls({ item, onRecord, onRecorded }: FeedbackControl
       onRecorded?.(label)
     } catch (err) {
       setSelected(previous)
-      setError(err instanceof Error ? err.message : 'Feedback failed')
+      setError(err instanceof Error ? err.message : 'Could not save feedback. Try again.')
     } finally {
       setPending(null)
     }
@@ -45,6 +78,14 @@ export function FeedbackControls({ item, onRecord, onRecorded }: FeedbackControl
 
   return (
     <div className="space-y-1.5">
+      <div>
+        <p className="text-[10px] font-medium text-foreground-light dark:text-foreground-dark">
+          Was this context helpful?
+        </p>
+        <p className="mt-0.5 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+          Your answer helps future runs choose safer, more useful context.
+        </p>
+      </div>
       <div className="flex flex-wrap gap-1" aria-label={`Feedback for ${item.title}`}>
         {FEEDBACK_OPTIONS.map((option) => (
           <button
@@ -52,6 +93,7 @@ export function FeedbackControls({ item, onRecord, onRecorded }: FeedbackControl
             type="button"
             disabled={pending !== null}
             onClick={() => record(option.label)}
+            title={option.description}
             className={cn(
               'rounded-full px-2 py-1 text-ui-caption font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
               selected === option.label
@@ -64,6 +106,11 @@ export function FeedbackControls({ item, onRecord, onRecorded }: FeedbackControl
           </button>
         ))}
       </div>
+      {selectedOption && !pending && (
+        <p className="text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+          Saved: {selectedOption.confirmation}
+        </p>
+      )}
       {error && <p className="text-ui-caption text-apple-red">{error}</p>}
     </div>
   )
