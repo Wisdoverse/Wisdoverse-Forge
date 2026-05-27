@@ -32,6 +32,23 @@ describe('ChatComposer', () => {
     expect(onSend).not.toHaveBeenCalled()
   })
 
+  it('guides the user when Send is clicked without a message', () => {
+    const onSend = vi.fn()
+    render(<ChatComposer onSend={onSend} onAbort={() => {}} streaming={false} disabled={false} />)
+
+    const textarea = screen.getByRole('textbox')
+    fireEvent.click(screen.getByRole('button', { name: /send/i }))
+
+    expect(onSend).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Write a message before sending it to this agent.'
+    )
+    expect(textarea).toHaveFocus()
+
+    fireEvent.change(textarea, { target: { value: 'review the latest task' } })
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('shows Stop button when streaming and triggers onAbort', () => {
     const onAbort = vi.fn()
     render(<ChatComposer onSend={() => {}} onAbort={onAbort} streaming={true} disabled={false} />)
@@ -40,9 +57,20 @@ describe('ChatComposer', () => {
   })
 
   it('disables textarea + Send button when disabled', () => {
-    render(<ChatComposer onSend={() => {}} onAbort={() => {}} streaming={false} disabled={true} />)
+    render(
+      <ChatComposer
+        onSend={() => {}}
+        onAbort={() => {}}
+        streaming={false}
+        disabled={true}
+        disabledReason="This agent is offline. Start it before sending a message."
+      />
+    )
     expect(screen.getByRole('textbox')).toBeDisabled()
     expect(screen.getByRole('button', { name: /send/i })).toBeDisabled()
+    expect(
+      screen.getByText('This agent is offline. Start it before sending a message.')
+    ).toBeVisible()
   })
 
   it('textarea is disabled while streaming', () => {

@@ -45,6 +45,11 @@ export function ChatView({ agentId }: ChatViewProps) {
   const agent = useAgentsStore((s) => s.agents.find((a) => a.id === agentId))
   const isProviderAgent = agent != null && !agent.cliTool
   const offline = agent?.status === 'offline'
+  const composerDisabledReason = offline
+    ? 'This agent is offline. Start it before sending a message.'
+    : messagesLoading
+      ? 'Loading earlier messages. You can send once loading finishes.'
+      : undefined
   const [conversationFilter, setConversationFilter] = useState<ConversationFilter>('all')
   const [conversationSearch, setConversationSearch] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -385,6 +390,7 @@ export function ChatView({ agentId }: ChatViewProps) {
           onAbort={abort}
           streaming={streaming}
           disabled={offline || messagesLoading || streaming}
+          disabledReason={composerDisabledReason}
         />
       )}
     </div>
