@@ -82,6 +82,14 @@ interface AdminState {
   loadHealth: () => Promise<void>
 }
 
+type AdminResource = 'users' | 'organizations' | 'health'
+
+class AdminUserFacingError extends Error {}
+
+function userFacingError(message: string): AdminUserFacingError {
+  return new AdminUserFacingError(message)
+}
+
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -98,6 +106,73 @@ async function adminFetch(path: string, init?: RequestInit): Promise<Response> {
       ...(init?.headers as Record<string, string> | undefined),
     },
   })
+}
+
+function adminResourceLabel(resource: AdminResource): string {
+  switch (resource) {
+    case 'users':
+      return 'user list'
+    case 'organizations':
+      return 'organization list'
+    case 'health':
+      return 'system health'
+  }
+}
+
+function adminErrorDetail(data: Record<string, unknown>): string | null {
+  if (typeof data.error === 'string' && data.error.trim()) return data.error.trim()
+  if (
+    data.error &&
+    typeof data.error === 'object' &&
+    'message' in data.error &&
+    typeof data.error.message === 'string' &&
+    data.error.message.trim()
+  ) {
+    return data.error.message.trim()
+  }
+  if (typeof data.message === 'string' && data.message.trim()) return data.message.trim()
+  return null
+}
+
+async function readAdminErrorPayload(res: Response): Promise<Record<string, unknown>> {
+  return ((await res.json().catch(() => ({}))) ?? {}) as Record<string, unknown>
+}
+
+export function adminHttpErrorMessage(
+  resource: AdminResource,
+  status: number,
+  data: Record<string, unknown> = {}
+): string {
+  const label = adminResourceLabel(resource)
+  const detail = adminErrorDetail(data)
+  const suffix = detail ? ` Details: ${detail}` : ''
+  const statusText = `Code: ${status}.`
+
+  if (status === 401) {
+    return `Sign in again, then reload the ${label}. ${statusText}${suffix}`
+  }
+  if (status === 403) {
+    return `You do not have permission to view admin ${label}. Ask an owner to update your admin role. ${statusText}${suffix}`
+  }
+  if (status === 404) {
+    return `The admin ${label} endpoint is not available. Refresh after the backend is deployed. ${statusText}${suffix}`
+  }
+  if (status === 429) {
+    return `The admin service is busy. Wait a moment, then reload the ${label}. ${statusText}${suffix}`
+  }
+  if (status >= 500) {
+    return `The admin service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+  }
+
+  return `The admin ${label} could not load. Refresh the page and try again. ${statusText}${suffix}`
+}
+
+function adminNetworkErrorMessage(resource: AdminResource): string {
+  return `The admin ${adminResourceLabel(resource)} could not load because the browser could not reach the server. Check your connection and refresh the page.`
+}
+
+function adminErrorMessage(err: unknown, resource: AdminResource): string {
+  return err instanceof AdminUserFacingError ? err.message : adminNetworkErrorMessage(resource)
 }
 
 // ============================================================================
@@ -137,14 +212,14 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       if (userSearch) params.set('search', userSearch)
       const res = await adminFetch(`/api/v1/admin/users?${params.toString()}`)
       if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string }
-        throw new Error(body.error ?? `HTTP ${res.status}`)
+        throw userFacingError(
+          adminHttpErrorMessage('users', res.status, await readAdminErrorPayload(res))
+        )
       }
       const data = (await res.json()) as { users: AdminUser[]; total: number; page: number }
       set({ users: data.users, usersTotal: data.total, usersPage: data.page, usersLoading: false })
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load users'
-      set({ usersLoading: false, usersError: message })
+      set({ usersLoading: false, usersError: adminErrorMessage(err, 'users') })
     }
   },
 
@@ -184,14 +259,14 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     try {
       const res = await adminFetch('/api/v1/admin/orgs')
       if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string }
-        throw new Error(body.error ?? `HTTP ${res.status}`)
+        throw userFacingError(
+          adminHttpErrorMessage('organizations', res.status, await readAdminErrorPayload(res))
+        )
       }
       const data = (await res.json()) as { orgs: AdminOrg[] }
       set({ orgs: data.orgs, orgsLoading: false })
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load organizations'
-      set({ orgsLoading: false, orgsError: message })
+      set({ orgsLoading: false, orgsError: adminErrorMessage(err, 'organizations') })
     }
   },
 
@@ -204,12 +279,15 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     try {
       // Use admin-authed call to get detailed health info
       const res = await adminFetch('/api/v1/health')
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) {
+        throw userFacingError(
+          adminHttpErrorMessage('health', res.status, await readAdminErrorPayload(res))
+        )
+      }
       const data = (await res.json()) as SystemHealth
       set({ health: data, healthLoading: false })
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load health status'
-      set({ healthLoading: false, healthError: message })
+      set({ healthLoading: false, healthError: adminErrorMessage(err, 'health') })
     }
   },
 }))
