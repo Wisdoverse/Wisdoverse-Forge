@@ -46,6 +46,22 @@ describe('SkillsView', () => {
     expect(screen.getAllByRole('button', { name: /new skill/i }).length).toBeGreaterThan(0)
   })
 
+  test('guides first-time users through the skill form fields', async () => {
+    const user = userEvent.setup()
+    render(<SkillsView />)
+
+    await user.click(screen.getAllByRole('button', { name: /new skill/i })[0])
+
+    expect(screen.getByText(/reuse them on similar work/i)).toBeDefined()
+    expect(screen.getByLabelText(/^skill name$/i)).toBeDefined()
+    expect(screen.getByText(/short name people can recognize/i)).toBeDefined()
+    expect(screen.getByLabelText(/^what it helps with$/i)).toBeDefined()
+    expect(screen.getByLabelText(/^when to suggest it$/i)).toBeDefined()
+    expect(screen.getByText(/choose this skill manually/i)).toBeDefined()
+    expect(screen.getByLabelText(/^instructions for the agent$/i)).toBeDefined()
+    expect(screen.getByText(/what success should look like/i)).toBeDefined()
+  })
+
   test('shows empty state after load with no skills', async () => {
     render(<SkillsView />)
     await waitFor(() => {
@@ -156,10 +172,13 @@ describe('SkillsView', () => {
     })
 
     await user.click(screen.getAllByRole('button', { name: /new skill/i })[0])
-    await user.type(screen.getByLabelText(/^name$/i), 'frontend-review')
-    await user.type(screen.getByLabelText(/^description$/i), 'Review frontend flows')
-    await user.type(screen.getByLabelText(/^trigger pattern$/i), 'frontend')
-    await user.type(screen.getByLabelText(/^content$/i), 'Check UI states and regressions')
+    await user.type(screen.getByLabelText(/^skill name$/i), 'frontend-review')
+    await user.type(screen.getByLabelText(/^what it helps with$/i), 'Review frontend flows')
+    await user.type(screen.getByLabelText(/^when to suggest it$/i), 'frontend')
+    await user.type(
+      screen.getByLabelText(/^instructions for the agent$/i),
+      'Check UI states and regressions'
+    )
     await user.click(screen.getByRole('button', { name: /create skill/i }))
 
     await waitFor(() => {

@@ -47,15 +47,11 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
     const content = form.content.trim()
 
     if (!name) {
-      setError('Name this skill before creating it.')
-      setFieldError('name')
-      nameInputRef.current?.focus()
+      setError('Enter a skill name.')
       return
     }
     if (!content) {
-      setError('Add the instructions this skill should apply.')
-      setFieldError('content')
-      contentInputRef.current?.focus()
+      setError('Add the instructions agents should follow.')
       return
     }
 
@@ -102,9 +98,14 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
         )}
       >
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 id="create-skill-title" className={uiStyles.sectionTitle}>
-            New Skill
-          </h2>
+          <div className="min-w-0">
+            <h2 id="create-skill-title" className={uiStyles.sectionTitle}>
+              New Skill
+            </h2>
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Save repeatable instructions so agents can reuse them on similar work.
+            </p>
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -129,7 +130,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <label htmlFor="skill-name" className={uiStyles.label}>
-              Name
+              Skill name
             </label>
             <input
               id="skill-name"
@@ -137,32 +138,24 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
               value={form.name}
               onChange={(event) => updateField('name', event.target.value)}
               className={uiStyles.input}
-              placeholder="frontend-review"
-              aria-invalid={fieldError === 'name'}
-              aria-describedby={
-                fieldError === 'name' ? 'skill-name-help create-skill-error' : 'skill-name-help'
-              }
+              placeholder="e.g. release-review"
               autoFocus
             />
-            <p
-              id="skill-name-help"
-              className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
-            >
-              Use a short name people can recognize when selecting skills.
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Use a short name people can recognize later.
             </p>
           </div>
 
           <div>
             <label htmlFor="skill-description" className={uiStyles.label}>
-              Description
+              What it helps with
             </label>
             <input
               id="skill-description"
               value={form.description}
               onChange={(event) => updateField('description', event.target.value)}
               className={uiStyles.input}
-              placeholder="What this skill helps with"
-              aria-describedby="skill-description-help"
+              placeholder="Short summary shown in the skill list"
             />
             <p
               id="skill-description-help"
@@ -174,27 +167,23 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
 
           <div>
             <label htmlFor="skill-trigger" className={uiStyles.label}>
-              Trigger Pattern
+              When to suggest it
             </label>
             <input
               id="skill-trigger"
               value={form.triggerPattern}
               onChange={(event) => updateField('triggerPattern', event.target.value)}
               className={cn(uiStyles.input, 'font-mono')}
-              placeholder="frontend, review, release"
-              aria-describedby="skill-trigger-help"
+              placeholder="Optional word such as release or billing"
             />
-            <p
-              id="skill-trigger-help"
-              className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
-            >
-              Optional. Add words that should suggest this skill.
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Leave blank if users should choose this skill manually.
             </p>
           </div>
 
           <div>
             <label htmlFor="skill-content" className={uiStyles.label}>
-              Content
+              Instructions for the agent
             </label>
             <textarea
               id="skill-content"
@@ -204,19 +193,10 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
               className={cn(
                 'min-h-36 w-full resize-y rounded-[18px] border border-black/[0.08] bg-white px-3 py-2 font-mono text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
               )}
-              placeholder="Check the user path first. List blockers before suggestions."
-              aria-invalid={fieldError === 'content'}
-              aria-describedby={
-                fieldError === 'content'
-                  ? 'skill-content-help create-skill-error'
-                  : 'skill-content-help'
-              }
+              placeholder="Write the steps, checks, and limits the agent should follow."
             />
-            <p
-              id="skill-content-help"
-              className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
-            >
-              Required. Write the instructions the agent should apply when this skill is selected.
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Plain steps work best. Include what success should look like.
             </p>
           </div>
 
