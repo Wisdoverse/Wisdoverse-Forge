@@ -129,6 +129,18 @@ describe('AppLayout', () => {
     expect(screen.getByText('3D')).toBeDefined()
   })
 
+  test('top bar labels the command search entry for beginners', () => {
+    render(<MemoryRouter />)
+
+    const searchButton = screen.getByTestId('top-bar-command-search')
+    expect(searchButton).toHaveAccessibleName('Search commands and pages')
+    expect(screen.getByText('Search')).toBeDefined()
+
+    fireEvent.click(searchButton)
+
+    expect(screen.getByPlaceholderText('Search commands...')).toBeDefined()
+  })
+
   test('does not expose task group creation from the Tasks top bar', async () => {
     seedProjectNavigation('p1')
     useNavigationStore.setState({ agentGroups: [] })
