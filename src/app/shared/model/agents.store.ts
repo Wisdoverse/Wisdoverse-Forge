@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { CliTool, ManagedAgent } from '@shared/types'
 import { getAgentApi } from '@app/shared/api/legacy'
-import { extractApiError } from '@app/shared/api/legacy/AgentAPI'
+import { extractApiError, type LocalAgentEnrollmentResponse } from '@app/shared/api/legacy/AgentAPI'
 
 export type AgentStatus = 'working' | 'idle' | 'offline'
 export type AgentRuntimeKind = 'container-cli' | 'host-cli' | 'provider'
@@ -67,6 +67,14 @@ interface AgentsState {
       | { kind: 'provider'; provider: string; model: string; systemPrompt?: string }
     )
   ) => Promise<boolean>
+  enrollLocalAgent: (options: {
+    name: string
+    cliTool: CliTool
+    model?: string
+    cwd?: string
+    workspaceId?: string
+    projectId?: string
+  }) => Promise<LocalAgentEnrollmentResponse | null>
   deleteAgent: (id: string) => Promise<boolean>
   updateAgentSystemPrompt: (id: string, systemPrompt: string | null) => Promise<boolean>
   sendPrompt: (id: string, prompt: string) => Promise<boolean>
@@ -226,6 +234,38 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
       console.error('createAgent failed:', err)
       set({ loading: false, error: err instanceof Error ? err.message : 'Failed to create agent' })
       return false
+    }
+  },
+
+  enrollLocalAgent: async (options) => {
+    set({ loading: true, error: null })
+    try {
+      const api = getAgentApi()
+      const result = await api.enrollLocalAgent({
+        name: options.name,
+        cliTool: options.cliTool,
+        model: options.model,
+        cwd: options.cwd,
+        workspaceId: options.workspaceId,
+        projectId: options.projectId,
+      })
+      if (result.ok && result.agent && result.enrollment) {
+        const newAgent = managedToAgentInfo(result.agent)
+        set((state) => ({
+          agents: [...state.agents, newAgent],
+          loading: false,
+        }))
+        return result
+      }
+      set({ loading: false, error: extractApiError(result, 'Failed to enroll local agent') })
+      return null
+    } catch (err) {
+      console.error('enrollLocalAgent failed:', err)
+      set({
+        loading: false,
+        error: err instanceof Error ? err.message : 'Failed to enroll local agent',
+      })
+      return null
     }
   },
 

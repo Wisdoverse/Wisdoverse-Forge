@@ -46,6 +46,22 @@ export interface StartAgentResponse extends ApiErrorFields {
   status?: string
 }
 
+export interface HostAgentEnrollment {
+  agentId: string
+  runtimeId: string
+  cliTool: CliTool
+  env: Record<string, string>
+  shellExports: string
+  sidecarCommand: string
+  serverUrl?: string | null
+}
+
+export interface LocalAgentEnrollmentResponse extends ApiErrorFields {
+  ok: boolean
+  agent?: ManagedAgent
+  enrollment?: HostAgentEnrollment
+}
+
 /**
  * Extract a human-readable error message from any API error response.
  * Priority: details.reason > message > error code > fallback.
@@ -182,6 +198,15 @@ export interface CreateAgentOptions {
   systemPrompt?: string
 }
 
+export interface LocalAgentEnrollmentOptions {
+  name?: string
+  cliTool: CliTool
+  model?: string
+  cwd?: string
+  workspaceId?: string
+  projectId?: string
+}
+
 /**
  * Create an AgentAPI instance bound to a specific API URL
  * Optionally accepts an auth header provider for authenticated requests
@@ -264,6 +289,33 @@ export function createAgentAPI(
         return await response.json()
       } catch (e) {
         console.error('Error creating agent:', e)
+        return { ok: false, error: 'Network error' }
+      }
+    },
+
+    /**
+     * Enroll a local CLI process as a managed agent and return the one-time
+     * sidecar environment the operator can run on that machine.
+     */
+    async enrollLocalAgent(
+      opts: LocalAgentEnrollmentOptions
+    ): Promise<LocalAgentEnrollmentResponse> {
+      try {
+        const response = await fetchFn(`${apiUrl}/agents/local-enroll`, {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({
+            name: opts.name,
+            cliTool: opts.cliTool,
+            model: opts.model,
+            cwd: opts.cwd,
+            workspaceId: opts.workspaceId,
+            projectId: opts.projectId,
+          }),
+        })
+        return await response.json()
+      } catch (e) {
+        console.error('Error enrolling local agent:', e)
         return { ok: false, error: 'Network error' }
       }
     },
