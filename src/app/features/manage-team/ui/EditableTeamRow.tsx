@@ -185,21 +185,39 @@ export function EditableTeamRow({
           </>
         )}
         {canDelete && (
-          <button
-            type="button"
-            onClick={() => void handleDelete()}
-            disabled={saving}
-            aria-label={confirmingDelete ? `Confirm delete ${team.name}` : `Delete ${team.name}`}
-            title={confirmingDelete ? 'Confirm delete' : 'Delete'}
-            className={cn(
-              'flex h-8 touch-manipulation items-center justify-center rounded-lg text-ui-button transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:cursor-not-allowed disabled:opacity-50',
-              confirmingDelete
-                ? 'w-auto bg-apple-red px-2 text-ui-caption font-semibold text-white hover:bg-apple-red/90'
-                : 'w-8 text-secondary-light hover:bg-apple-red/10 hover:text-apple-red dark:text-secondary-dark dark:hover:bg-apple-red/10 dark:hover:text-apple-red'
+          <>
+            {confirmingDelete && (
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(false)}
+                disabled={saving}
+                aria-label={`Keep ${team.name}`}
+                title="Keep team"
+                className="flex h-8 touch-manipulation items-center justify-center rounded-lg px-2 text-ui-caption font-medium text-secondary-light transition-colors hover:bg-black/5 hover:text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/5 dark:hover:text-foreground-dark"
+              >
+                Keep
+              </button>
             )}
-          >
-            {confirmingDelete ? 'Confirm' : <Trash2 size={14} strokeWidth={2} aria-hidden="true" />}
-          </button>
+            <button
+              type="button"
+              onClick={() => void handleDelete()}
+              disabled={saving}
+              aria-label={confirmingDelete ? `Delete team ${team.name}` : `Delete ${team.name}`}
+              title={confirmingDelete ? 'Delete team' : 'Delete'}
+              className={cn(
+                'flex h-8 touch-manipulation items-center justify-center rounded-lg text-ui-button transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:cursor-not-allowed disabled:opacity-50',
+                confirmingDelete
+                  ? 'w-auto whitespace-nowrap bg-apple-red px-2 text-ui-caption font-semibold text-white hover:bg-apple-red/90'
+                  : 'w-8 text-secondary-light hover:bg-apple-red/10 hover:text-apple-red dark:text-secondary-dark dark:hover:bg-apple-red/10 dark:hover:text-apple-red'
+              )}
+            >
+              {confirmingDelete ? (
+                'Delete team'
+              ) : (
+                <Trash2 size={14} strokeWidth={2} aria-hidden="true" />
+              )}
+            </button>
+          </>
         )}
       </div>
     </div>
