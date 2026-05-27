@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Sparkles, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSkillsStore } from '@app/shared/model/skills.store'
@@ -16,18 +16,49 @@ const emptyForm = {
   content: '',
 }
 
-const SKILL_REVIEW_POINTS = [
-  { label: 'Repeatable', value: 'Use this for work your team expects to repeat.' },
+const skillTemplates = [
   {
-    label: 'Safe to share',
-    value: 'Leave out tokens, private notes, and one-time project details.',
+    id: 'review',
+    label: 'Review checklist',
+    description: 'Review before handoff',
+    form: {
+      name: 'review-checklist',
+      description: 'Check work before handoff',
+      triggerPattern: 'review',
+      content:
+        'Check what changed.\nList risks, missing tests, and the next safe action.\nKeep the answer short and link evidence when available.',
+    },
   },
-  { label: 'Agent ready', value: 'Write steps an agent can follow without extra context.' },
+  {
+    id: 'release',
+    label: 'Release notes',
+    description: 'Draft a clear summary',
+    form: {
+      name: 'release-notes',
+      description: 'Draft release notes from accepted work',
+      triggerPattern: 'release',
+      content:
+        'Summarize what changed.\nGroup user-facing updates, fixes, and risks.\nCall out any setup or migration step before publishing.',
+    },
+  },
+  {
+    id: 'incident',
+    label: 'Incident notes',
+    description: 'Capture facts and next steps',
+    form: {
+      name: 'incident-notes',
+      description: 'Record incident facts and recovery steps',
+      triggerPattern: 'incident',
+      content:
+        'Record the current impact, suspected cause, and timeline.\nList the safest next action.\nSeparate confirmed facts from assumptions.',
+    },
+  },
 ]
 
 export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
   const createSkill = useSkillsStore((state) => state.createSkill)
   const [form, setForm] = useState(emptyForm)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [fieldError, setFieldError] = useState<'name' | 'content' | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -37,6 +68,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
   useEffect(() => {
     if (!open) return
     setForm(emptyForm)
+    setSelectedTemplateId(null)
     setError(null)
     setFieldError(null)
 
@@ -56,11 +88,11 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
     const content = form.content.trim()
 
     if (!name) {
-      setError('Skill name is required')
+      setError('Add a skill name first')
       return
     }
     if (!content) {
-      setError('Reusable instructions are required')
+      setError('Add the instructions the agent should follow')
       return
     }
 
@@ -82,12 +114,10 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
     }
   }
 
-  function updateField(field: keyof typeof emptyForm, value: string) {
-    setForm((current) => ({ ...current, [field]: value }))
-    if (field === fieldError) {
-      setError(null)
-      setFieldError(null)
-    }
+  function applyTemplate(template: (typeof skillTemplates)[number]) {
+    setForm(template.form)
+    setSelectedTemplateId(template.id)
+    setError(null)
   }
 
   return (
@@ -138,6 +168,46 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <section aria-labelledby="skill-template-title" className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Sparkles
+                size={14}
+                strokeWidth={2.25}
+                className="text-apple-blue"
+                aria-hidden="true"
+              />
+              <h3
+                id="skill-template-title"
+                className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark"
+              >
+                Common starting points
+              </h3>
+            </div>
+            <div role="group" aria-label="Skill templates" className="grid gap-2 sm:grid-cols-3">
+              {skillTemplates.map((template) => (
+                <button
+                  key={template.id}
+                  type="button"
+                  aria-pressed={selectedTemplateId === template.id}
+                  onClick={() => applyTemplate(template)}
+                  className={cn(
+                    'rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
+                    selectedTemplateId === template.id
+                      ? 'border-apple-blue/45 bg-apple-blue/[0.08]'
+                      : 'border-black/[0.08] bg-white hover:border-apple-blue/35 dark:border-white/[0.1] dark:bg-white/[0.04]'
+                  )}
+                >
+                  <span className="block truncate text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+                    {template.label}
+                  </span>
+                  <span className="mt-0.5 block text-ui-caption text-secondary-light dark:text-secondary-dark">
+                    {template.description}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+
           <div>
             <label htmlFor="skill-name" className={uiStyles.label}>
               Skill name
@@ -177,7 +247,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
 
           <div>
             <label htmlFor="skill-trigger" className={uiStyles.label}>
-              Use when
+              Trigger Word
             </label>
             <p
               id="skill-trigger-help"
@@ -187,11 +257,11 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
             </p>
             <input
               id="skill-trigger"
+              aria-label="Trigger Pattern"
               value={form.triggerPattern}
               onChange={(event) => updateField('triggerPattern', event.target.value)}
               className={cn(uiStyles.input, 'font-mono')}
-              placeholder="e.g. frontend review"
-              aria-describedby="skill-trigger-help"
+              placeholder="e.g. review or release"
             />
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Leave blank if users should choose this skill manually.
@@ -221,11 +291,11 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
 
           <div>
             <label htmlFor="skill-content" className={uiStyles.label}>
-              Reusable instructions
+              Agent instructions
             </label>
             <textarea
               id="skill-content"
-              ref={contentInputRef}
+              aria-label="Content"
               value={form.content}
               onChange={(event) => updateField('content', event.target.value)}
               className={cn(
