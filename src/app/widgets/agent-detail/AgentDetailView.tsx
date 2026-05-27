@@ -21,12 +21,6 @@ const AgentTerminalTab = lazy(() =>
   import('@app/features/agents/AgentTerminalTab').then((m) => ({ default: m.AgentTerminalTab }))
 )
 
-const PROVIDER_GRADIENTS: Record<string, string> = {
-  Anthropic: 'bg-[#f5f5f7] text-[#1d1d1f] dark:bg-white/[0.08] dark:text-white',
-  Google: 'bg-[#f5f5f7] text-[#1d1d1f] dark:bg-white/[0.08] dark:text-white',
-  OpenAI: 'bg-[#f5f5f7] text-[#1d1d1f] dark:bg-white/[0.08] dark:text-white',
-}
-
 const STATUS_COLORS: Record<AgentStatus, string> = {
   working: 'bg-[#1d1d1f] dark:bg-white',
   idle: 'bg-[#7a7a7a]',
@@ -39,11 +33,8 @@ const STATUS_LABELS: Record<AgentStatus, string> = {
   offline: 'Offline',
 }
 
-function defaultGradient(provider: string): string {
-  return (
-    PROVIDER_GRADIENTS[provider] ??
-    'bg-[#f5f5f7] text-[#1d1d1f] dark:bg-white/[0.08] dark:text-white'
-  )
+function defaultGradient(): string {
+  return 'bg-[#f5f5f7] text-[#1d1d1f] dark:bg-white/[0.08] dark:text-white'
 }
 
 type Tab = 'overview' | 'tasks' | 'history' | 'terminal' | 'plugins' | 'config'
@@ -57,9 +48,8 @@ interface AgentNextStep {
   actionLabel?: string
 }
 
-// Terminal attach is only available for platform-managed containers. Host CLI
-// agents are still task-managed through sidecar/NATS, but their local terminal
-// stays on the enrolled machine.
+// Live console attach is only available for platform-managed work environments.
+// Local CLI agents keep their command window on the enrolled machine.
 function tabsFor(agent: AgentInfo): { id: Tab; label: string }[] {
   const isCli = Boolean(agent.cliTool)
   const hasTerminal = isCli && !isHostCliAgent(agent)
@@ -67,7 +57,7 @@ function tabsFor(agent: AgentInfo): { id: Tab; label: string }[] {
     { id: 'overview', label: 'Overview' },
     { id: 'tasks', label: 'Tasks' },
     { id: 'history', label: isCli ? 'History' : 'Chat' },
-    ...(hasTerminal ? [{ id: 'terminal' as Tab, label: 'Terminal' }] : []),
+    ...(hasTerminal ? [{ id: 'terminal' as Tab, label: 'Console' }] : []),
     { id: 'plugins', label: 'Plugins' },
     { id: 'config', label: 'Config' },
   ]
@@ -85,22 +75,18 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
       />
       {hostCli ? (
         <p>
-          Host CLI agents run on the enrolled machine. The platform manages identity, task
-          assignment, heartbeats, and result evidence; filesystem access remains the local directory
-          where the sidecar runs.
+          Local CLI agents run on the enrolled machine. Forge tracks identity, task assignment,
+          status checks, and results while file access stays in that local working folder.
         </p>
       ) : agent.cliTool ? (
         <p>
-          /workspace is mounted from the shared workspace and may include multiple projects. Primary
-          Project only sets default task context. Only Container CLI agents use this mount; Provider
-          + Prompt agents do not access files directly. Use a separate workspace for strict
-          filesystem isolation.
+          This agent works inside the shared workspace. The Primary Project only sets the default
+          task context, so create a separate workspace when a project needs strict file isolation.
         </p>
       ) : (
         <p>
-          Provider + Prompt agents do not mount /workspace or read files directly. Primary Project
-          only sets default task context. Use a Container CLI agent when filesystem tools are
-          required.
+          Prompt-only agents do not open workspace files directly. Use a workspace tool agent when a
+          task needs file edits, command-line tools, or repository checks.
         </p>
       )}
     </div>
@@ -161,7 +147,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
           className={cn(
             'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
             'border border-black/[0.08] text-ui-body font-semibold select-none dark:border-white/[0.1]',
-            defaultGradient(agent.provider)
+            defaultGradient()
           )}
         >
           {agent.provider.charAt(0).toUpperCase()}
@@ -245,10 +231,10 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
                 label="Runtime"
                 value={
                   isHostCliAgent(agent)
-                    ? `Host CLI · ${agent.cliTool ?? 'unknown'}`
+                    ? `Local CLI · ${agent.cliTool ?? 'unknown'}`
                     : agent.cliTool
-                      ? `Container CLI · ${agent.cliTool}`
-                      : `${agent.provider} provider`
+                      ? `Workspace tools · ${agent.cliTool}`
+                      : `${agent.provider} prompt`
                 }
               />
               <DetailRow label="Status" value={agent.status} />
@@ -259,10 +245,10 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
               <DetailRow label="Primary Project" value={agent.projectName ?? 'None'} />
               <DetailRow label="Working Directory" value={agent.cwd ?? 'Not applicable'} />
               <DetailRow
-                label={isHostCliAgent(agent) ? 'Runtime ID' : 'Container'}
+                label={isHostCliAgent(agent) ? 'Local connection' : 'Work environment'}
                 value={
                   isHostCliAgent(agent)
-                    ? (agent.runtimeId ?? 'Pending sidecar')
+                    ? (agent.runtimeId ?? 'Waiting for local connection')
                     : (agent.containerId?.slice(0, 12) ??
                       (agent.cliTool ? 'Pending' : 'Not applicable'))
                 }
@@ -290,7 +276,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
                 'text-center text-ui-body text-secondary-light dark:text-secondary-dark'
               )}
             >
-              Loading terminal…
+              Loading console...
             </div>
           }
         >
@@ -325,9 +311,9 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
   if (agent.status === 'offline') {
     if (hostCli) {
       return {
-        title: 'Reconnect the Local Sidecar',
+        title: 'Reconnect the Local Agent',
         detail:
-          'Start the sidecar on the enrolled machine. This agent cannot receive new work until heartbeats resume.',
+          'Start the local connection on the enrolled machine. This agent cannot receive new work until Forge sees it online again.',
         success: 'The status changes from Offline to Idle or Working.',
         ready: false,
       }
@@ -335,13 +321,12 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
 
     if (hasContainerTerminal) {
       return {
-        title: 'Start the Container Runtime',
-        detail:
-          'Open Terminal and start the agent container before assigning new work to this agent.',
+        title: 'Start the Work Environment',
+        detail: 'Open Console and start the agent work environment before assigning new work.',
         success: 'The agent returns to Idle and can receive tasks.',
         ready: false,
         targetTab: 'terminal',
-        actionLabel: 'Open Terminal',
+        actionLabel: 'Open Console',
       }
     }
 
@@ -368,7 +353,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
     return {
       title: 'Assign a First Safe Task',
       detail: hostCli
-        ? 'Use Tasks to send a small, low-risk task. The terminal stays on the enrolled machine while Forge tracks results.'
+        ? 'Use Tasks to send a small, low-risk task. The command window stays on the enrolled machine while Forge tracks results.'
         : 'Use Tasks to send a small, low-risk task. Leave it unassigned if any ready agent can pick it up.',
       success: 'A task appears as Queued or Working for this agent.',
       ready: true,
@@ -479,17 +464,15 @@ function AssignmentFitCard({
       : 'Unavailable until restarted or reconnected'
   const hostCli = isHostCliAgent(agent)
   const runtime = hostCli
-    ? `${agent.cliTool ?? 'Host'} CLI on enrolled machine`
+    ? `${agent.cliTool ?? 'Local'} CLI on enrolled machine`
     : agent.cliTool
-      ? `${agent.cliTool} Container CLI`
-      : `${agent.provider} provider`
+      ? `${agent.cliTool} workspace tools`
+      : `${agent.provider} prompt`
   const credential = hostCli
     ? 'Uses credentials and tools installed on the enrolled machine.'
-    : agent.cliTool === 'codex'
-      ? 'Container CLI OAuth status is checked in Runtime settings.'
-      : agent.cliTool
-        ? 'Container credentials are injected when the agent starts.'
-        : 'Provider API key readiness comes from Settings providers.'
+    : agent.cliTool
+      ? 'Tool credentials are checked when the work environment starts.'
+      : 'Provider key readiness comes from Settings providers.'
 
   return (
     <section
@@ -616,12 +599,12 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
     >
       <div className="flex flex-col gap-1">
         <span className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-          No container is running
+          Work environment is stopped
         </span>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {agent.cliTool
-            ? `${agent.cliTool} is ready to start.`
-            : 'This agent has no container CLI.'}
+            ? 'Start it before assigning work that needs files or command-line tools.'
+            : 'This agent does not use a workspace tool environment.'}
         </span>
       </div>
       {error && (
@@ -637,10 +620,10 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
           className={cn(
             'rounded-full px-4 py-2 text-ui-button font-medium',
             'bg-apple-blue text-white hover:bg-apple-blue/90 transition-colors',
-            starting && 'opacity-50 cursor-not-allowed'
+            starting && 'opacity-50'
           )}
         >
-          {starting ? 'Starting…' : 'Start Agent'}
+          {starting ? 'Starting...' : 'Start Work Environment'}
         </button>
       )}
     </div>
