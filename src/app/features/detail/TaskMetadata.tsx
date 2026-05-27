@@ -41,6 +41,9 @@ interface TaskMetadataProps {
 }
 
 export function TaskMetadata({ task }: TaskMetadataProps) {
+  const hasAssignee = Boolean(task.assignedAgentName || task.assignedTo)
+  const guidance = taskMetadataGuidance(task, hasAssignee)
+
   return (
     <div className="flex flex-col gap-3 py-3">
       {/* Badges row */}
@@ -66,11 +69,25 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
       {/* Assignee */}
       <div className="flex items-center justify-between text-xs">
         <span className="text-secondary-light dark:text-secondary-dark">Assigned to</span>
-        {task.assignedAgentName ? (
-          <span className="font-medium text-apple-purple">{task.assignedAgentName}</span>
+        {hasAssignee ? (
+          <span className="font-medium text-apple-purple">
+            {task.assignedAgentName ?? 'Assigned agent'}
+          </span>
         ) : (
           <span className="text-secondary-light dark:text-secondary-dark">Unassigned</span>
         )}
+      </div>
+
+      <div
+        data-testid="task-metadata-guidance"
+        className="space-y-1 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.04]"
+      >
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-secondary-light dark:text-secondary-dark">
+          What this status means
+        </p>
+        <p className="text-xs leading-relaxed text-foreground-light dark:text-foreground-dark">
+          {guidance}
+        </p>
       </div>
 
       {/* Progress */}
@@ -98,4 +115,31 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
       </div>
     </div>
   )
+}
+
+function taskMetadataGuidance(task: TaskSummary, hasAssignee: boolean): string {
+  switch (task.state) {
+    case 'backlog':
+      return hasAssignee
+        ? 'This task is prepared but not started. Preview the context and publish it when ready.'
+        : 'This task is still a draft. Assign an agent before it can start.'
+    case 'queued':
+      return hasAssignee
+        ? 'The task is waiting for the assigned agent to pick it up.'
+        : 'The task is waiting for an available agent to be attached.'
+    case 'working':
+      return 'An agent is working now. Watch progress here and check Updates for recent activity.'
+    case 'blocked':
+      return task.blockedHint
+        ? task.blockedHint
+        : 'The task needs attention before work can continue. Check Updates for the blocker.'
+    case 'completed':
+      return 'The task is finished. Review the Result tab or the final answer before closing the loop.'
+    case 'failed':
+      return 'The task stopped before finishing. Read the error, fix the cause, then retry.'
+    case 'canceled':
+      return 'The task was stopped intentionally. Open Updates to see the last recorded activity.'
+    default:
+      return 'Open Updates to review the latest task activity.'
+  }
 }
