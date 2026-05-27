@@ -106,9 +106,9 @@ describe('GettingStartedView', () => {
       providers: [
         {
           id: 'provider-1',
-          provider: 'openai',
-          displayName: 'OpenAI',
-          model: 'gpt-5.4',
+          provider: 'model-service',
+          displayName: 'Model Service',
+          model: 'general-model',
           isEnabled: true,
           isDefault: true,
           lastTestStatus: 'passed',
@@ -117,12 +117,12 @@ describe('GettingStartedView', () => {
       runtimeSettings: {
         defaultRuntime: 'container',
         availableRuntimes: ['container', 'api'],
-        defaultCliTool: 'codex',
-        availableCliTools: ['codex', 'claude'],
+        defaultCliTool: 'workspace-tool',
+        availableCliTools: ['workspace-tool', 'review-tool'],
         cliToolDetails: [
           {
-            cliTool: 'codex',
-            image: 'agentforge-agent:codex',
+            cliTool: 'workspace-tool',
+            image: 'agentforge-agent:workspace-tool',
             version: '1.0.0',
             imagePresent: true,
             versionSource: 'docker-label',
@@ -135,8 +135,8 @@ describe('GettingStartedView', () => {
         {
           id: 'agent-1',
           name: 'Starter Agent',
-          provider: 'openai',
-          model: 'gpt-5.4',
+          provider: 'model-service',
+          model: 'general-model',
           status: 'idle',
           tasksCompleted: 0,
           tasksInProgress: 0,
@@ -167,8 +167,8 @@ describe('GettingStartedView', () => {
 
     expect(await screen.findByTestId('page-start')).toBeDefined()
     expect(screen.getAllByText('Launch Project').length).toBeGreaterThan(0)
-    expect(screen.getByText(/container runtime with codex/i)).toBeDefined()
-    expect(screen.getByText('OpenAI')).toBeDefined()
+    expect(screen.getByText(/managed workspace is ready for agent work/i)).toBeDefined()
+    expect(screen.getByText('Model Service')).toBeDefined()
     expect(screen.getByText('Starter Agent')).toBeDefined()
     expect(await screen.findByText('100%')).toBeDefined()
     expect(screen.getByText('Ready to run work')).toBeDefined()
@@ -186,22 +186,22 @@ describe('GettingStartedView', () => {
 
     expect(await screen.findByText('Do this next')).toBeDefined()
     expect(screen.getAllByText(/A project gives tasks a clear home/i).length).toBeGreaterThan(0)
-    fireEvent.click(await screen.findByRole('button', { name: /add provider/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /add model service/i }))
 
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/providers' })
   })
 
-  test('accepts a Host CLI agent as the execution credential', async () => {
+  test('accepts a local agent as work access', async () => {
     useSettingsStore.setState({
       runtimeSettings: {
         defaultRuntime: 'container',
         availableRuntimes: ['container'],
-        defaultCliTool: 'codex',
-        availableCliTools: ['codex'],
+        defaultCliTool: 'workspace-tool',
+        availableCliTools: ['workspace-tool'],
         cliToolDetails: [
           {
-            cliTool: 'codex',
-            image: 'agentforge-agent:codex',
+            cliTool: 'workspace-tool',
+            image: 'agentforge-agent:workspace-tool',
             version: '1.0.0',
             imagePresent: true,
             versionSource: 'docker-label',
@@ -214,10 +214,10 @@ describe('GettingStartedView', () => {
       agents: [
         {
           id: 'host-agent',
-          name: 'Local Codex',
-          provider: 'OpenAI',
-          model: 'codex',
-          cliTool: 'codex',
+          name: 'Local Agent',
+          provider: 'local-model',
+          model: 'local-runner',
+          cliTool: 'workspace-tool',
           runtimeId: 'host-abc12345',
           runtimeKind: 'host-cli',
           status: 'idle',
@@ -230,7 +230,7 @@ describe('GettingStartedView', () => {
 
     render(<GettingStartedView />)
 
-    expect(await screen.findByText('Local Codex is connected through Host CLI.')).toBeDefined()
+    expect(await screen.findByText('Local Agent can run work from this computer.')).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: /review agents/i }))
     expect(navigateMock).toHaveBeenCalledWith({ to: '/agents' })
   })
@@ -266,12 +266,12 @@ describe('GettingStartedView', () => {
       runtimeSettings: {
         defaultRuntime: 'container',
         availableRuntimes: ['container'],
-        defaultCliTool: 'codex',
-        availableCliTools: ['codex'],
+        defaultCliTool: 'workspace-tool',
+        availableCliTools: ['workspace-tool'],
         cliToolDetails: [
           {
-            cliTool: 'codex',
-            image: 'agentforge-agent:codex',
+            cliTool: 'workspace-tool',
+            image: 'agentforge-agent:workspace-tool',
             version: '1.0.0',
             imagePresent: true,
             versionSource: 'docker-label',
@@ -281,9 +281,9 @@ describe('GettingStartedView', () => {
       providers: [
         {
           id: 'provider-1',
-          provider: 'openai',
-          displayName: 'OpenAI',
-          model: 'gpt-5.4',
+          provider: 'model-service',
+          displayName: 'Model Service',
+          model: 'general-model',
           isEnabled: true,
           isDefault: true,
         } as any,
@@ -294,8 +294,8 @@ describe('GettingStartedView', () => {
         {
           id: 'agent-1',
           name: 'Starter Agent',
-          provider: 'openai',
-          model: 'gpt-5.4',
+          provider: 'model-service',
+          model: 'general-model',
           status: 'idle',
           tasksCompleted: 0,
           tasksInProgress: 0,
@@ -306,15 +306,13 @@ describe('GettingStartedView', () => {
 
     render(<GettingStartedView />)
 
-    expect(
-      await screen.findByText('Run Test on a provider before creating an agent.')
-    ).toBeDefined()
+    expect(await screen.findByText('Test the model service before assigning work.')).toBeDefined()
     expect(screen.getByText('Do this next')).toBeDefined()
     expect(
-      screen.getAllByText(/An agent needs either a tested provider key/i).length
+      screen.getAllByText(/Agents need either a tested model service/i).length
     ).toBeGreaterThan(0)
     expect(screen.queryByText('100%')).toBeNull()
-    const [testProviderButton] = screen.getAllByRole('button', { name: /test provider/i })
+    const [testProviderButton] = screen.getAllByRole('button', { name: /test model service/i })
     expect(testProviderButton).toBeDefined()
     fireEvent.click(testProviderButton!)
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/providers' })
@@ -323,7 +321,7 @@ describe('GettingStartedView', () => {
   test('routes runtime setup directly to runtime settings', async () => {
     render(<GettingStartedView />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /check runtime/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /choose work location/i }))
 
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/runtime' })
   })
