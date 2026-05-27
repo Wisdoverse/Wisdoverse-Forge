@@ -59,7 +59,7 @@ function tabsFor(agent: AgentInfo): { id: Tab; label: string }[] {
     { id: 'history', label: isCli ? 'History' : 'Chat' },
     ...(hasTerminal ? [{ id: 'terminal' as Tab, label: 'Console' }] : []),
     { id: 'plugins', label: 'Plugins' },
-    { id: 'config', label: 'Config' },
+    { id: 'config', label: 'Instructions' },
   ]
 }
 
@@ -75,18 +75,21 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
       />
       {hostCli ? (
         <p>
-          Local CLI agents run on the enrolled machine. Forge tracks identity, task assignment,
-          status checks, and results while file access stays in that local working folder.
+          Local CLI agents run on the enrolled computer. Forge sends tasks, checks the connection,
+          and saves evidence here; files stay in the folder where that computer is running the
+          sidecar.
         </p>
       ) : agent.cliTool ? (
         <p>
-          This agent works inside the shared workspace. The Primary Project only sets the default
-          task context, so create a separate workspace when a project needs strict file isolation.
+          This agent can work in the shared workspace folder, which can include several projects.
+          The selected project only chooses the default place for new tasks. Use a separate
+          workspace when files must be kept apart.
         </p>
       ) : (
         <p>
-          Prompt-only agents do not open workspace files directly. Use a workspace tool agent when a
-          task needs file edits, command-line tools, or repository checks.
+          Provider-backed agents answer through the model provider and do not open workspace files
+          by themselves. Choose a local or container CLI agent when the task must inspect or edit
+          files.
         </p>
       )}
     </div>
@@ -212,7 +215,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
             <StatCard label="Tasks Done" value={String(agent.tasksCompleted)} />
             <StatCard label="In Progress" value={String(agent.tasksInProgress)} />
             <StatCard label="Success Rate" value={`${ratePercent}%`} />
-            <StatCard label="Provider" value={agent.provider} />
+            <StatCard label="Model service" value={agent.provider} />
           </div>
 
           {/* Agent info */}
@@ -228,29 +231,32 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
             </span>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-ui-caption">
               <DetailRow
-                label="Runtime"
+                label="How it runs"
                 value={
                   isHostCliAgent(agent)
                     ? `Local CLI · ${agent.cliTool ?? 'unknown'}`
                     : agent.cliTool
-                      ? `Workspace tools · ${agent.cliTool}`
-                      : `${agent.provider} prompt`
+                      ? `Container workspace · ${agent.cliTool}`
+                      : `${agent.provider} model provider`
                 }
               />
               <DetailRow label="Status" value={agent.status} />
               <DetailRow
-                label="Workspace Access"
+                label="Workspace it can use"
                 value={agent.workspaceName ?? 'Default workspace'}
               />
-              <DetailRow label="Primary Project" value={agent.projectName ?? 'None'} />
-              <DetailRow label="Working Directory" value={agent.cwd ?? 'Not applicable'} />
               <DetailRow
-                label={isHostCliAgent(agent) ? 'Local connection' : 'Work environment'}
+                label="Default project for tasks"
+                value={agent.projectName ?? 'Choose when assigning work'}
+              />
+              <DetailRow label="Working folder" value={agent.cwd ?? 'Not needed for this agent'} />
+              <DetailRow
+                label={isHostCliAgent(agent) ? 'Local connection' : 'Managed workspace'}
                 value={
                   isHostCliAgent(agent)
-                    ? (agent.runtimeId ?? 'Waiting for local connection')
+                    ? (agent.runtimeId ?? 'Waiting for sidecar')
                     : (agent.containerId?.slice(0, 12) ??
-                      (agent.cliTool ? 'Pending' : 'Not applicable'))
+                      (agent.cliTool ? 'Waiting to start' : 'Not needed'))
                 }
               />
             </div>
@@ -311,9 +317,9 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
   if (agent.status === 'offline') {
     if (hostCli) {
       return {
-        title: 'Reconnect the Local Agent',
+        title: 'Reconnect the local computer',
         detail:
-          'Start the local connection on the enrolled machine. This agent cannot receive new work until Forge sees it online again.',
+          'Open the computer where this local agent was connected and start the sidecar again. This agent cannot receive new work until the connection returns.',
         success: 'The status changes from Offline to Idle or Working.',
         ready: false,
       }
@@ -321,8 +327,8 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
 
     if (hasContainerTerminal) {
       return {
-        title: 'Start the Work Environment',
-        detail: 'Open Console and start the agent work environment before assigning new work.',
+        title: 'Start the managed workspace',
+        detail: 'Open Terminal, then start this agent so it can receive tasks.',
         success: 'The agent returns to Idle and can receive tasks.',
         ready: false,
         targetTab: 'terminal',
@@ -331,8 +337,9 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
     }
 
     return {
-      title: 'Reconnect Before Assigning Work',
-      detail: 'This provider-backed agent is offline. Check provider setup before sending work.',
+      title: 'Fix setup before sending work',
+      detail:
+        'This provider-backed agent is offline. Check the model provider setup before sending work.',
       success: 'The agent returns to Idle and can receive tasks.',
       ready: false,
     }
@@ -351,7 +358,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
 
   if (agent.status === 'idle') {
     return {
-      title: 'Assign a First Safe Task',
+      title: 'Send a small first task',
       detail: hostCli
         ? 'Use Tasks to send a small, low-risk task. The command window stays on the enrolled machine while Forge tracks results.'
         : 'Use Tasks to send a small, low-risk task. Leave it unassigned if any ready agent can pick it up.',
@@ -464,15 +471,17 @@ function AssignmentFitCard({
       : 'Unavailable until restarted or reconnected'
   const hostCli = isHostCliAgent(agent)
   const runtime = hostCli
-    ? `${agent.cliTool ?? 'Local'} CLI on enrolled machine`
+    ? `${agent.cliTool ?? 'Local'} CLI on enrolled computer`
     : agent.cliTool
-      ? `${agent.cliTool} workspace tools`
-      : `${agent.provider} prompt`
+      ? `${agent.cliTool} container workspace`
+      : `${agent.provider} model provider`
   const credential = hostCli
-    ? 'Uses credentials and tools installed on the enrolled machine.'
-    : agent.cliTool
-      ? 'Tool credentials are checked when the work environment starts.'
-      : 'Provider key readiness comes from Settings providers.'
+    ? 'Uses the accounts and tools installed on the enrolled computer.'
+    : agent.cliTool === 'codex'
+      ? 'Container sign-in status is checked in Runtime settings.'
+      : agent.cliTool
+        ? 'Container access is added when the agent starts.'
+        : 'Model provider key readiness is checked in Settings providers.'
 
   return (
     <section
@@ -519,7 +528,7 @@ function AssignmentFitCard({
               : 'No recent task updates'
           }
         />
-        <ProfileSummaryRow label="Runtime" value={runtime} />
+        <ProfileSummaryRow label="How it runs" value={runtime} />
         <ProfileSummaryRow
           label="Skills"
           value={
@@ -528,7 +537,7 @@ function AssignmentFitCard({
               : 'Attach and review skills from task context'
           }
         />
-        <ProfileSummaryRow label="Credentials" value={credential} />
+        <ProfileSummaryRow label="Access setup" value={credential} />
       </div>
     </section>
   )
@@ -599,12 +608,12 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
     >
       <div className="flex flex-col gap-1">
         <span className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-          Work environment is stopped
+          No managed workspace is running
         </span>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {agent.cliTool
-            ? 'Start it before assigning work that needs files or command-line tools.'
-            : 'This agent does not use a workspace tool environment.'}
+            ? `${agent.cliTool} is ready to start in its managed workspace.`
+            : 'This agent does not need a managed workspace.'}
         </span>
       </div>
       {error && (
@@ -623,7 +632,7 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
             starting && 'opacity-50'
           )}
         >
-          {starting ? 'Starting...' : 'Start Work Environment'}
+          {starting ? 'Starting…' : 'Start agent workspace'}
         </button>
       )}
     </div>

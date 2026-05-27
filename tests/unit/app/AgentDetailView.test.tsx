@@ -89,7 +89,7 @@ describe('AgentDetailView', () => {
     expect(screen.getByRole('button', { name: 'History' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Console' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Plugins' })).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Config' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Instructions' })).toBeDefined()
   })
 
   test('alternate workspace tool agent still shows the Console tab', () => {
@@ -105,8 +105,8 @@ describe('AgentDetailView', () => {
         onBack={() => {}}
       />
     )
-    expect(screen.getByText('Console')).toBeDefined()
-    expect(screen.getByText('Pending')).toBeDefined()
+    expect(screen.getByText('Terminal')).toBeDefined()
+    expect(screen.getByText('Waiting to start')).toBeDefined()
   })
 
   test('prompt agent hides Console and labels chat as Chat', () => {
@@ -120,11 +120,11 @@ describe('AgentDetailView', () => {
 
   test('Host CLI agent is managed without container terminal actions', () => {
     render(<AgentDetailView agent={hostCliAgent} onBack={() => {}} />)
-    expect(screen.getByText('Host CLI')).toBeDefined()
+    expect(screen.getAllByText(/Local CLI/).length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: 'History' })).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Console' })).toBeNull()
     expect(screen.getByText('host-aabbccdd')).toBeDefined()
-    expect(screen.getByText(/run on the enrolled machine/i)).toBeDefined()
+    expect(screen.getAllByText(/run on the enrolled computer/i).length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: /start agent/i })).toBeNull()
   })
 
@@ -143,6 +143,7 @@ describe('AgentDetailView', () => {
     render(<AgentDetailView agent={containerAgent} onBack={() => {}} />)
     expect(screen.getByText('12')).toBeDefined()
     expect(screen.getByText('98%')).toBeDefined()
+    expect(screen.getByText('Model service')).toBeDefined()
   })
 
   test('foregrounds assignment fit on the agent profile', () => {
@@ -163,7 +164,7 @@ describe('AgentDetailView', () => {
 
     expect(screen.getByTestId('agent-next-step')).toBeDefined()
     expect(screen.getByText('Ready')).toBeDefined()
-    expect(screen.getByText('Assign a First Safe Task')).toBeDefined()
+    expect(screen.getByText('Send a small first task')).toBeDefined()
     expect(screen.getByRole('button', { name: /open tasks/i })).toBeDefined()
   })
 
@@ -196,38 +197,41 @@ describe('AgentDetailView', () => {
       />
     )
 
-    expect(screen.getByText('Start the Work Environment')).toBeDefined()
-    fireEvent.click(screen.getByRole('button', { name: /open console/i }))
-    expect(screen.getByText('Work environment is stopped')).toBeDefined()
-    expect(screen.getByText(/start it before assigning work/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: /start work environment/i })).toBeDefined()
+    expect(screen.getByText('Start the managed workspace')).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /open terminal/i }))
+    expect(screen.getByText('No managed workspace is running')).toBeDefined()
+    expect(screen.getByRole('button', { name: /start agent workspace/i })).toBeDefined()
   })
 
   test('guides offline Host CLI agents back to the local connection', () => {
     render(<AgentDetailView agent={{ ...hostCliAgent, status: 'offline' }} onBack={() => {}} />)
 
-    expect(screen.getByText('Reconnect the Local Agent')).toBeDefined()
-    expect(screen.getByText(/Start the local connection on the enrolled machine/i)).toBeDefined()
-    expect(screen.queryByRole('button', { name: /open console/i })).toBeNull()
+    expect(screen.getByText('Reconnect the local computer')).toBeDefined()
+    expect(screen.getByText(/start the sidecar again/i)).toBeDefined()
+    expect(screen.queryByRole('button', { name: /open terminal/i })).toBeNull()
   })
 
   test('explains workspace access and primary project context', () => {
     render(<AgentDetailView agent={{ ...containerAgent, cwd: '/workspace' }} onBack={() => {}} />)
-    expect(screen.getByText('Working Directory')).toBeDefined()
-    expect(screen.getByText('Workspace Access')).toBeDefined()
+    expect(screen.getByText('Working folder')).toBeDefined()
+    expect(screen.getAllByText('How it runs').length).toBeGreaterThan(0)
+    expect(screen.getByText('Workspace it can use')).toBeDefined()
     expect(screen.getByText('Engineering')).toBeDefined()
-    expect(screen.getByText('Primary Project')).toBeDefined()
+    expect(screen.getByText('Default project for tasks')).toBeDefined()
     expect(screen.getByText('Platform')).toBeDefined()
-    expect(screen.getByText(/works inside the shared workspace/i)).toBeDefined()
-    expect(screen.getByText(/strict file isolation/i)).toBeDefined()
+    expect(screen.getByText(/can include several projects/i)).toBeDefined()
+    expect(screen.getByText(/default place for new tasks/i)).toBeDefined()
+    expect(screen.getByText(/files must be kept apart/i)).toBeDefined()
   })
 
-  test('explains prompt agents do not open workspace files directly', () => {
+  test('explains provider-backed agents do not open workspace files', () => {
     render(<AgentDetailView agent={providerAgent} onBack={() => {}} />)
-    expect(screen.getByText('Working Directory')).toBeDefined()
-    expect(screen.getAllByText('Not applicable').length).toBeGreaterThan(0)
-    expect(screen.getByText(/do not open workspace files directly/i)).toBeDefined()
-    expect(screen.getByText(/use a workspace tool agent/i)).toBeDefined()
+    expect(screen.getByText('Working folder')).toBeDefined()
+    expect(screen.getAllByText('Not needed for this agent').length).toBeGreaterThan(0)
+    expect(screen.getByText(/do not open workspace files by themselves/i)).toBeDefined()
+    expect(
+      screen.getByText(/choose a local or container cli agent when the task must inspect or edit/i)
+    ).toBeDefined()
   })
 
   test('shows back button', () => {
