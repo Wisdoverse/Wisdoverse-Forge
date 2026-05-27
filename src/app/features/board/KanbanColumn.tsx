@@ -44,6 +44,37 @@ const COLUMN_CONFIG: Record<string, { label: string; dot: string; surface: strin
   },
 }
 
+const COLUMN_EMPTY_STATE: Record<string, { title: string; detail: string }> = {
+  backlog: {
+    title: 'No draft tasks',
+    detail: 'Use quick add below to write the first clear task brief.',
+  },
+  queued: {
+    title: 'Nothing queued',
+    detail: 'Assigned tasks wait here after dispatch and before a runtime starts.',
+  },
+  working: {
+    title: 'No active runs',
+    detail: 'Running work appears here once an agent starts the task.',
+  },
+  blocked: {
+    title: 'No blockers',
+    detail: 'Tasks needing owner input or missing details will collect here.',
+  },
+  done: {
+    title: 'Nothing ready for review',
+    detail: 'Completed tasks move here so you can check results and reusable learning.',
+  },
+  failed: {
+    title: 'No failed runs',
+    detail: 'If a run fails, open the card here to inspect the error and retry path.',
+  },
+  canceled: {
+    title: 'No canceled tasks',
+    detail: 'Canceled work stays here so the board keeps its history visible.',
+  },
+}
+
 interface KanbanColumnProps {
   columnId: string
   tasks: TaskSummary[]
@@ -99,17 +130,34 @@ export function KanbanColumn({
             displayMode={displayMode}
           />
         ))}
-        {tasks.length === 0 && (
-          <div className="rounded-lg border border-dashed border-black/10 px-3 py-4 text-center text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark">
-            No tasks
-          </div>
-        )}
+        {tasks.length === 0 && <ColumnEmptyState columnId={columnId} label={config.label} />}
       </div>
       {/* Quick-add only on backlog. Other columns reflect dispatcher state and
           can't accept manual inserts — promote a backlog task by dragging instead. */}
       {columnId === 'backlog' && (
         <QuickCreate columnId={columnId} onSubmit={(title, col) => onQuickCreate?.(title, col)} />
       )}
+    </div>
+  )
+}
+
+function ColumnEmptyState({ columnId, label }: { columnId: string; label: string }) {
+  const emptyState = COLUMN_EMPTY_STATE[columnId] ?? {
+    title: `No ${label.toLowerCase()} tasks`,
+    detail: 'Tasks will appear here when they reach this board step.',
+  }
+
+  return (
+    <div
+      data-testid={`kanban-empty-${columnId}`}
+      className="rounded-lg border border-dashed border-black/10 px-3 py-4 text-center dark:border-white/10"
+    >
+      <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+        {emptyState.title}
+      </p>
+      <p className="mt-1 text-ui-caption leading-snug text-secondary-light dark:text-secondary-dark">
+        {emptyState.detail}
+      </p>
     </div>
   )
 }
