@@ -85,7 +85,7 @@ function cliToolToProvider(cliTool?: CliTool): string {
   }
 }
 
-function managedToAgentInfo(agent: ManagedAgent): AgentInfo {
+export function managedToAgentInfo(agent: ManagedAgent): AgentInfo {
   // Rolling-deploy fallback: use server-sent runtimeKind when available; otherwise
   // derive from cliTool + runtimeId for backward compat with old server responses.
   const derivedRuntimeKind: AgentRuntimeKind =
