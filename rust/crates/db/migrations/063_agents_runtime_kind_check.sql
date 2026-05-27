@@ -22,6 +22,6 @@ ALTER TABLE agents
     CHECK (
         (runtime_kind = 'container' AND cli_tool IS NOT NULL)
         OR (runtime_kind = 'cli'    AND cli_tool IS NOT NULL AND container_id IS NULL)
-        OR (runtime_kind = 'api'    AND cli_tool IS NULL)
+        OR (runtime_kind = 'api'    AND cli_tool IS NULL    AND container_id IS NULL)
     ) NOT VALID;
 ALTER TABLE agents VALIDATE CONSTRAINT agents_runtime_kind_invariants;

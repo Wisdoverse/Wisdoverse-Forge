@@ -107,10 +107,10 @@ async fn try_insert_agent(
 /// ```sql
 /// (runtime_kind = 'container' AND cli_tool IS NOT NULL)
 /// OR (runtime_kind = 'cli'    AND cli_tool IS NOT NULL AND container_id IS NULL)
-/// OR (runtime_kind = 'api'    AND cli_tool IS NULL)
+/// OR (runtime_kind = 'api'    AND cli_tool IS NULL    AND container_id IS NULL)
 /// ```
-/// Note: the `api` branch only constrains `cli_tool IS NULL`; `container_id`
-/// is unconstrained for `api` rows in this CHECK.
+/// The `api` branch constrains both `cli_tool IS NULL` and `container_id IS NULL`;
+/// any non-NULL `container_id` on an `api` row is rejected.
 #[sqlx::test(migrations = "../db/migrations")]
 async fn invariants_reject_invalid_combos(pool: PgPool) {
     let (org_id, ws_id, user_id) = seed_org_workspace_user(&pool).await;
@@ -159,7 +159,7 @@ async fn invariants_reject_invalid_combos(pool: PgPool) {
     );
 
     // -----------------------------------------------------------------------
-    // api — valid: cli_tool NULL (container_id is not constrained by this CHECK)
+    // api — valid: cli_tool NULL, container_id NULL
     // -----------------------------------------------------------------------
     assert!(
         ok("api", None, None).await.is_ok(),
@@ -171,6 +171,13 @@ async fn invariants_reject_invalid_combos(pool: PgPool) {
     assert!(
         e.contains("agents_runtime_kind_invariants"),
         "api + cli_tool=some should violate invariants; got: {e}"
+    );
+
+    // api — invalid: container_id NOT NULL (violates joint invariant)
+    let e = err("api", None, Some("ctr-should-fail")).await.unwrap_err();
+    assert!(
+        e.contains("agents_runtime_kind_invariants"),
+        "api + cli_tool=NULL + container_id=some should violate invariants; got: {e}"
     );
 
     // -----------------------------------------------------------------------
