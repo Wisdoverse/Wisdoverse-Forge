@@ -13,16 +13,7 @@ import type {
   LlmProviderKey,
   WorkspaceProject,
 } from '@shared/types'
-import type {
-  ApiErrorFields,
-  ResourceProfileOption,
-  UserSshKey,
-  GitCredential,
-  GitProvider,
-} from '@app/shared/api/agent-api-types'
-
-// Shared infrastructure types — used internally and re-exported for consumers.
-export {
+import {
   extractApiError,
   type ApiErrorFields,
   type AuthHeaderProvider,
@@ -31,6 +22,18 @@ export {
   type GitCredential,
   type GitProvider,
 } from '@app/shared/api/agent-api-types'
+
+// Re-export shared infrastructure types for consumers that imported them from
+// this module before they were extracted to `agent-api-types`.
+export {
+  extractApiError,
+  type ApiErrorFields,
+  type AuthHeaderProvider,
+  type ResourceProfileOption,
+  type UserSshKey,
+  type GitCredential,
+  type GitProvider,
+}
 
 export interface AgentFlags {
   skipPermissions?: boolean
