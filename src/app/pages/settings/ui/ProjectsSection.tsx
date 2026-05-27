@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { type ReactNode, useCallback, useEffect, useState } from 'react'
+import { FolderKanban, ShieldAlert, Users } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAuth } from '@app/shared/model/auth.context'
@@ -24,6 +24,22 @@ export function ProjectsSection() {
   const [saving, setSaving] = useState(false)
   const [membersProject, setMembersProject] = useState<NavProject | null>(null)
   const projectCreatableTeams = teams.filter((team) => team.canCreateProject !== false)
+  const hasTeams = teams.length > 0
+  const canCreateProject = projectCreatableTeams.length > 0
+  const projectEmptyTitle = !user?.orgId
+    ? 'Choose an organization first'
+    : !hasTeams
+      ? 'Create a team before adding projects'
+      : canCreateProject
+        ? 'Create your first project'
+        : 'Ask a team admin to let you create projects'
+  const projectEmptyDescription = !user?.orgId
+    ? 'Projects belong to teams inside an organization. Switch to one before setting up work.'
+    : !hasTeams
+      ? 'Projects live inside teams. Open Teams first, create one team, then come back here.'
+      : canCreateProject
+        ? 'Projects keep tasks, agents, and members together for one area of work.'
+        : 'You can see teams, but none of them allow you to create projects yet.'
 
   const loadOrgUsers = useCallback(() => userApi.getUsers(), [])
 
@@ -129,13 +145,13 @@ export function ProjectsSection() {
             across {teams.length} {teams.length === 1 ? 'team' : 'teams'}
           </p>
         </div>
-        {!showForm && projectCreatableTeams.length > 0 && (
+        {!showForm && canCreateProject && projectsWithTeam.length > 0 && (
           <button
             type="button"
             onClick={() => setShowForm(true)}
             className={uiStyles.primaryButton}
           >
-            <Plus size={14} strokeWidth={2} aria-hidden="true" />
+            <FolderKanban size={14} strokeWidth={2} aria-hidden="true" />
             <span>New Project</span>
           </button>
         )}
@@ -149,20 +165,35 @@ export function ProjectsSection() {
             Loading projects…
           </div>
         ) : !user?.orgId ? (
-          <div className="px-4 py-6 text-center">
-            <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No organization found
-            </p>
-          </div>
+          <WorkspaceEmptyState
+            icon={<ShieldAlert size={18} strokeWidth={2} aria-hidden="true" />}
+            title={projectEmptyTitle}
+            description={projectEmptyDescription}
+          />
         ) : projectsWithTeam.length === 0 && !showForm ? (
-          <div className="px-4 py-6 text-center">
-            <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No projects yet
-            </p>
-            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Create a project to start organizing your agents
-            </p>
-          </div>
+          <WorkspaceEmptyState
+            icon={
+              hasTeams ? (
+                <FolderKanban size={18} strokeWidth={2} aria-hidden="true" />
+              ) : (
+                <Users size={18} strokeWidth={2} aria-hidden="true" />
+              )
+            }
+            title={projectEmptyTitle}
+            description={projectEmptyDescription}
+            action={
+              canCreateProject ? (
+                <button
+                  type="button"
+                  onClick={() => setShowForm(true)}
+                  className={uiStyles.primaryButton}
+                >
+                  <FolderKanban size={14} strokeWidth={2} aria-hidden="true" />
+                  <span>New Project</span>
+                </button>
+              ) : null
+            }
+          />
         ) : (
           projectsWithTeam.map(({ project, teamName }) => (
             <EditableProjectRow
@@ -198,6 +229,38 @@ export function ProjectsSection() {
           onClose={() => setMembersProject(null)}
         />
       )}
+    </div>
+  )
+}
+
+function WorkspaceEmptyState({
+  icon,
+  title,
+  description,
+  action,
+}: {
+  icon: ReactNode
+  title: string
+  description: string
+  action?: ReactNode
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">
+      <div
+        className="flex h-10 w-10 items-center justify-center rounded-lg bg-black/[0.03] text-secondary-light ring-1 ring-black/5 dark:bg-white/[0.05] dark:text-secondary-dark dark:ring-white/10"
+        aria-hidden="true"
+      >
+        {icon}
+      </div>
+      <div className="max-w-md">
+        <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+          {title}
+        </p>
+        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {description}
+        </p>
+      </div>
+      {action}
     </div>
   )
 }
