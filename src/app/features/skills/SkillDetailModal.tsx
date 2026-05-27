@@ -11,9 +11,12 @@ interface SkillDetailModalProps {
 
 export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
   const { t } = useTranslation()
-  // Derive a rough version from the marketplace field or show fallback
   const version = skill.marketplace ? `${skill.marketplace}` : t('skills.detail.versionLatest')
   const author = skill.pluginAuthor || t('skills.detail.unknownAuthor')
+  const source = skill.plugin || t('skills.detail.unknownSource')
+  const cliLabel = skill.cliTool
+    ? t('skills.detail.cliFit', { tool: cliToolLabel(skill.cliTool) })
+    : t('skills.detail.allAgentsFit')
 
   function handleBackdropClick(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) onClose()
@@ -41,7 +44,7 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
               {skill.name}
             </h2>
             <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-              {skill.plugin} · {author} · {version}
+              {t('skills.detail.subtitle')}
             </p>
           </div>
 
@@ -57,41 +60,61 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
 
         {/* Body */}
         <div className="flex flex-col gap-4 px-5 py-4">
-          {/* Status + Container CLI (see docs/architecture/glossary.md) */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className={cn(skill.installed ? uiStyles.activeBadge : uiStyles.badge)}>
               {skill.installed
-                ? t('skills.detail.statusInstalled')
-                : t('skills.detail.statusNotInstalled')}
+                ? t('skills.detail.statusReady')
+                : t('skills.detail.statusNeedsInstall')}
             </span>
-            {skill.cliTool && (
-              <span
-                className={uiStyles.activeBadge}
-                title={t('skills.detail.containerCliTooltip', { tool: skill.cliTool })}
-              >
-                {skill.cliTool}
-              </span>
-            )}
+            <span
+              className={uiStyles.badge}
+              title={
+                skill.cliTool
+                  ? t('skills.detail.containerCliTooltip', { tool: cliToolLabel(skill.cliTool) })
+                  : t('skills.detail.allAgentsTooltip')
+              }
+            >
+              {cliLabel}
+            </span>
           </div>
 
-          {/* Description */}
-          {skill.description && (
-            <div className="flex flex-col gap-1">
-              <span className="text-ui-caption font-semibold uppercase text-secondary-light dark:text-secondary-dark">
-                {t('skills.detail.descriptionHeading')}
-              </span>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <SkillMeta label={t('skills.detail.sourceLabel')} value={source} />
+            <SkillMeta label={t('skills.detail.authorLabel')} value={author} />
+            <SkillMeta label={t('skills.detail.versionLabel')} value={version} />
+          </div>
+
+          <section className="flex flex-col gap-1">
+            <h3 className="text-ui-caption font-semibold uppercase text-secondary-light dark:text-secondary-dark">
+              {t('skills.detail.descriptionHeading')}
+            </h3>
+            <p className="text-ui-body text-foreground-light dark:text-foreground-dark">
+              {skill.description || t('skills.detail.noDescription')}
+            </p>
+          </section>
+
+          {skill.triggerPattern && (
+            <section className="flex flex-col gap-1 rounded-card border border-black/[0.08] px-3 py-2 dark:border-white/[0.08]">
+              <h3 className="text-ui-caption font-semibold text-secondary-light dark:text-secondary-dark">
+                {t('skills.detail.triggerHeading')}
+              </h3>
               <p className="text-ui-body text-foreground-light dark:text-foreground-dark">
-                {skill.description}
+                {t('skills.detail.triggerHelper')}
               </p>
-            </div>
+              <code className="mt-1 w-fit max-w-full rounded-full bg-black/[0.04] px-2 py-0.5 font-mono text-[11px] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+                {skill.triggerPattern}
+              </code>
+            </section>
           )}
 
-          {/* Skill content / README preview */}
-          {skill.content && (
-            <div className="flex flex-col gap-1">
-              <span className="text-ui-caption font-semibold uppercase text-secondary-light dark:text-secondary-dark">
-                {t('skills.detail.detailsHeading')}
-              </span>
+          <section className="flex flex-col gap-1">
+            <h3 className="text-ui-caption font-semibold uppercase text-secondary-light dark:text-secondary-dark">
+              {t('skills.detail.detailsHeading')}
+            </h3>
+            <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {t('skills.detail.detailsHelper')}
+            </p>
+            {skill.content ? (
               <pre
                 className={cn(
                   'whitespace-pre-wrap font-mono text-ui-caption',
@@ -102,8 +125,10 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
               >
                 {skill.content}
               </pre>
-            </div>
-          )}
+            ) : (
+              <div className={uiStyles.note}>{t('skills.detail.noContent')}</div>
+            )}
+          </section>
         </div>
 
         {/* Footer */}
@@ -115,4 +140,34 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
       </div>
     </div>
   )
+}
+
+function SkillMeta({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-card bg-black/[0.025] px-3 py-2 dark:bg-white/[0.04]">
+      <div className="text-ui-caption text-secondary-light dark:text-secondary-dark">{label}</div>
+      <div className="mt-1 truncate text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+        {value}
+      </div>
+    </div>
+  )
+}
+
+function cliToolLabel(tool: string): string {
+  switch (tool) {
+    case 'claude':
+      return 'Claude Code'
+    case 'codex':
+      return 'Codex CLI'
+    case 'gemini':
+      return 'Gemini CLI'
+    case 'opencode':
+      return 'OpenCode'
+    default:
+      return tool
+        .split(/[_-]+/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ')
+  }
 }
