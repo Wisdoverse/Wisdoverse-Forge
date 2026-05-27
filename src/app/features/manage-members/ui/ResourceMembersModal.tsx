@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Search, ShieldCheck, Trash2, UserPlus, Users, X } from 'lucide-react'
+import {
+  Info,
+  Search,
+  ShieldCheck,
+  Trash2,
+  UserPlus,
+  Users,
+  X,
+  type LucideIcon,
+} from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import type {
@@ -31,6 +40,28 @@ const ROLE_TONE: Record<ResourceMemberRole, string> = {
   member:
     'border-black/10 bg-black/[0.03] text-secondary-light dark:border-white/10 dark:bg-white/[0.05] dark:text-secondary-dark',
 }
+
+const MEMBER_ROLE_GUIDANCE: {
+  title: string
+  description: string
+  Icon: LucideIcon
+}[] = [
+  {
+    title: 'Start with Member',
+    description: 'Use this for people who only need normal access to this team or project.',
+    Icon: Users,
+  },
+  {
+    title: 'Use Maintainer for daily setup',
+    description: 'Maintainers can help with routine work without owning access decisions.',
+    Icon: ShieldCheck,
+  },
+  {
+    title: 'Reserve Owner and Admin',
+    description: 'Give these roles only to people who should manage access for others.',
+    Icon: Info,
+  },
+]
 
 interface ResourceMembersModalProps {
   resourceLabel: 'Team' | 'Project'
@@ -118,6 +149,18 @@ export function ResourceMembersModal({
       setSelectedUserId('')
     }
   }, [filteredCandidateUsers, selectedUserId])
+
+  const candidateStatus = useMemo(
+    () =>
+      describeCandidateStatus({
+        loading,
+        query: memberFilter,
+        users,
+        candidateUsers,
+        filteredCandidateUsers,
+      }),
+    [candidateUsers, filteredCandidateUsers, loading, memberFilter, users]
+  )
 
   async function handleAddMember() {
     if (!selectedUserId) return
@@ -243,6 +286,8 @@ export function ResourceMembersModal({
             </div>
           )}
 
+          <MemberRoleGuide resourceLabel={resourceLabel} />
+
           <div className="rounded-card border border-black/[0.08] bg-black/[0.015] p-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
             <div className="mb-3">
               <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
@@ -283,13 +328,7 @@ export function ResourceMembersModal({
                 aria-describedby={addStatusId}
                 className={cn(uiStyles.select, 'min-w-0')}
               >
-                <option value="">
-                  {candidateUsers.length === 0
-                    ? 'No available org members'
-                    : filteredCandidateUsers.length === 0
-                      ? 'No matching org members'
-                      : 'Choose a person'}
-                </option>
+                <option value="">{candidateStatus.selectLabel}</option>
                 {filteredCandidateUsers.map((user) => (
                   <option key={user.id} value={user.id}>
                     {user.username} ({user.email})
@@ -323,22 +362,12 @@ export function ResourceMembersModal({
                 <span>{busyKey === 'add' ? 'Adding…' : 'Add'}</span>
               </button>
             </div>
-            <div className="mt-2 space-y-1">
-              <p
-                id={addStatusId}
-                role="status"
-                aria-live="polite"
-                className="text-ui-caption text-secondary-light dark:text-secondary-dark"
-              >
-                {addStatus}
-              </p>
-              <p
-                id={roleHelpId}
-                className="text-ui-caption text-secondary-light dark:text-secondary-dark"
-              >
-                {roleLabel(selectedRole)}: {ROLE_DESCRIPTIONS[selectedRole]}
-              </p>
-            </div>
+            <p
+              data-testid="member-candidate-status"
+              className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark"
+            >
+              {candidateStatus.detail}
+            </p>
           </div>
 
           <div className="overflow-hidden rounded-card border border-black/[0.08] bg-white dark:border-white/[0.08] dark:bg-black/10">
@@ -367,14 +396,24 @@ export function ResourceMembersModal({
                   Loading members…
                 </div>
               ) : members.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 px-4 py-10 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
+                <div
+                  data-testid="members-empty-state"
+                  className="flex flex-col items-center gap-2 px-4 py-10 text-center text-ui-body text-secondary-light dark:text-secondary-dark"
+                >
                   <div
                     className="flex h-9 w-9 items-center justify-center rounded-lg bg-black/[0.03] text-secondary-light dark:bg-white/[0.05] dark:text-secondary-dark"
                     aria-hidden="true"
                   >
                     <Users size={17} strokeWidth={2} />
                   </div>
-                  <span>No members yet</span>
+                  <span className="font-medium text-foreground-light dark:text-foreground-dark">
+                    No direct members yet
+                  </span>
+                  <p className="max-w-md text-ui-caption">
+                    Add an organization user above to give them direct access to this{' '}
+                    {resourceLabel.toLowerCase()}. Start with Member unless they need to manage
+                    access.
+                  </p>
                 </div>
               ) : (
                 members.map((member) => (
@@ -471,6 +510,84 @@ export function ResourceMembersModal({
       </div>
     </div>
   )
+}
+
+function MemberRoleGuide({ resourceLabel }: { resourceLabel: 'Team' | 'Project' }) {
+  return (
+    <section
+      data-testid="member-role-guide"
+      className="rounded-card border border-black/[0.08] bg-white p-3 dark:border-white/[0.08] dark:bg-black/10"
+    >
+      <div className="mb-3">
+        <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+          Access setup
+        </p>
+        <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+          Add people only when they need this {resourceLabel.toLowerCase()}
+        </h3>
+        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          Only organization users can be added here. Invite the person to the organization first if
+          they do not appear in the list.
+        </p>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        {MEMBER_ROLE_GUIDANCE.map(({ title, description, Icon }) => (
+          <div key={title} className="rounded-lg bg-black/[0.03] p-3 dark:bg-white/[0.04]">
+            <div className="mb-2 flex items-center gap-2 text-foreground-light dark:text-foreground-dark">
+              <Icon size={14} strokeWidth={2.2} className="shrink-0 text-apple-blue" />
+              <p className="text-ui-caption font-semibold">{title}</p>
+            </div>
+            <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {description}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function describeCandidateStatus({
+  loading,
+  query,
+  users,
+  candidateUsers,
+  filteredCandidateUsers,
+}: {
+  loading: boolean
+  query: string
+  users: OrgUser[]
+  candidateUsers: OrgUser[]
+  filteredCandidateUsers: OrgUser[]
+}): { selectLabel: string; detail: string } {
+  if (loading) {
+    return {
+      selectLabel: 'Loading org members',
+      detail: 'Loading organization users and current access.',
+    }
+  }
+  if (users.length === 0) {
+    return {
+      selectLabel: 'No org users available',
+      detail: 'Invite a user to the organization first, then return here to grant access.',
+    }
+  }
+  if (candidateUsers.length === 0) {
+    return {
+      selectLabel: 'Everyone already has access',
+      detail: 'Every organization user is already listed below for this resource.',
+    }
+  }
+  if (query.trim() && filteredCandidateUsers.length === 0) {
+    return {
+      selectLabel: 'No matching org members',
+      detail: 'Clear the filter or invite the person to the organization before adding them here.',
+    }
+  }
+  return {
+    selectLabel: 'Select org member',
+    detail: 'Choose an organization user, pick the safest role, then add them to this resource.',
+  }
 }
 
 function roleValue(role: string): ResourceMemberRole {
