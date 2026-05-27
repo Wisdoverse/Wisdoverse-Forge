@@ -73,6 +73,23 @@ const SENSITIVITIES: Array<{ value: ContextSensitivity; label: string }> = [
   { value: 'secret_detected', label: 'Secret detected' },
 ]
 
+const APPROVAL_PATH_STEPS = [
+  'Open the candidate and read the source preview.',
+  'Approve only reusable context, and choose the smallest safe scope.',
+  'Reject anything outdated, unsafe, or unclear.',
+]
+
+const APPROVE_CHECKLIST = [
+  'Source run is complete and still relevant.',
+  'Scope is no wider than the people who need it.',
+  'Sensitivity and redaction match the content.',
+]
+
+const REJECT_CHECKLIST = [
+  'Reject when the candidate is wrong, duplicated, unsafe, or too narrow to reuse.',
+  'Add a short reason so the next operator knows what happened.',
+]
+
 export function ApprovalQueueView() {
   const { subscribe } = useWebSocket()
   const pendingCandidateCount = useContextStore((s) => s.pendingCandidateCount)
@@ -215,6 +232,27 @@ export function ApprovalQueueView() {
           </button>
         </section>
 
+        <section
+          data-testid="context-approval-path"
+          className="rounded-card border border-black/[0.08] bg-white p-3 dark:border-white/[0.1] dark:bg-white/[0.04]"
+        >
+          <div className="grid gap-3 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)] md:items-start">
+            <div>
+              <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+                Approval path
+              </p>
+              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                Decide whether a memory or skill should become reusable context for future work.
+              </p>
+            </div>
+            <ol className="list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {APPROVAL_PATH_STEPS.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
         <section className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
           <SegmentedFilter
             label="State"
@@ -268,6 +306,9 @@ export function ApprovalQueueView() {
               <p className="mt-2 text-ui-section font-medium">No candidates match these filters</p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 New candidates appear here from completed task runs.
+              </p>
+              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                Switch State to All or clear item and scope filters if you expected older decisions.
               </p>
             </div>
           ) : (
@@ -476,6 +517,7 @@ function DecisionPanel({
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <div className="flex-1 space-y-4 overflow-auto px-4 py-4">
             <CandidateMiniSummary candidate={candidate} />
+            <DecisionChecklist approving={approving} />
 
             {approving ? (
               <>
@@ -661,6 +703,25 @@ function CandidateMiniSummary({ candidate }: { candidate: ContextCandidateSummar
         </p>
       )}
     </div>
+  )
+}
+
+function DecisionChecklist({ approving }: { approving: boolean }) {
+  const items = approving ? APPROVE_CHECKLIST : REJECT_CHECKLIST
+  return (
+    <section
+      data-testid="context-decision-checklist"
+      className="rounded-card border border-black/[0.08] bg-white px-3 py-2.5 dark:border-white/[0.1] dark:bg-white/[0.04]"
+    >
+      <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+        {approving ? 'Approve only when' : 'Reject when'}
+      </p>
+      <ol className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ol>
+    </section>
   )
 }
 
