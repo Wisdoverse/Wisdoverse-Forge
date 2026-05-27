@@ -415,6 +415,16 @@ function DecisionPanel({
   const canApprove =
     candidate.source_available &&
     (!requiresScopeId || (form.scopeId.trim().length > 0 && form.confirmExpansion))
+  const approvalStatusId = `context-approval-status-${candidate.id}`
+  const approvalStatus = !candidate.source_available
+    ? 'This item cannot be approved because the source run is unavailable.'
+    : !requiresScopeId
+      ? 'Ready to approve for your own account.'
+      : !form.scopeId.trim()
+        ? `Enter the ${form.scopeKind} ID before approving.`
+        : !form.confirmExpansion
+          ? `Confirm this ${form.scopeKind} can reuse this context before approving.`
+          : `Ready to approve for this ${form.scopeKind}.`
 
   function updateForm<K extends keyof ApprovalFormState>(key: K, value: ApprovalFormState[K]) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -469,6 +479,11 @@ function DecisionPanel({
 
             {approving ? (
               <>
+                <div className="rounded-card bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
+                  Choose who can reuse this context. User is the safest choice. Team or project
+                  approval shares it more broadly and needs the exact ID.
+                </div>
+
                 {!candidate.source_available && (
                   <div className="flex items-start gap-2 rounded-card bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red">
                     <AlertTriangle
@@ -508,7 +523,7 @@ function DecisionPanel({
                       value={form.scopeId}
                       onChange={(event) => updateForm('scopeId', event.target.value)}
                       className={fieldClassName}
-                      placeholder={`${form.scopeKind}-uuid`}
+                      placeholder={`Paste the ${form.scopeKind} ID here…`}
                       name="scopeId"
                       autoComplete="off"
                       data-testid="context-approval-scope-id"
@@ -516,7 +531,7 @@ function DecisionPanel({
                   </Field>
                 )}
 
-                <Field label="TTL">
+                <Field label="Expiration (optional)">
                   <input
                     type="datetime-local"
                     value={form.ttlLocal}
@@ -547,7 +562,7 @@ function DecisionPanel({
                     value={form.reason}
                     onChange={(event) => updateForm('reason', event.target.value)}
                     className={cn(fieldClassName, 'min-h-20 resize-y py-2')}
-                    placeholder="Approval note…"
+                    placeholder="Why is this safe to reuse?"
                     name="approvalNote"
                   />
                 </Field>
@@ -567,7 +582,7 @@ function DecisionPanel({
                     <Checkbox
                       checked={form.confirmExpansion}
                       onChange={(checked) => updateForm('confirmExpansion', checked)}
-                      label={`Confirm ${form.scopeKind} scope expansion`}
+                      label={`Confirm this ${form.scopeKind} can reuse this context`}
                     />
                   )}
                 </div>
@@ -578,7 +593,7 @@ function DecisionPanel({
                   value={rejectReason}
                   onChange={(event) => setRejectReason(event.target.value)}
                   className={cn(fieldClassName, 'min-h-32 resize-y py-2')}
-                  placeholder="Reason…"
+                  placeholder="Why should this not be saved for reuse?"
                   name="rejectReason"
                   data-testid="context-reject-reason"
                 />
@@ -586,30 +601,43 @@ function DecisionPanel({
             )}
           </div>
 
-          <div className="flex items-center justify-end gap-2 border-t border-black/[0.06] px-4 py-3 dark:border-white/[0.06]">
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex h-9 items-center justify-center rounded-full px-3 text-ui-button font-medium text-secondary-light transition-colors hover:bg-black/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:text-secondary-dark dark:hover:bg-white/[0.08]"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading || (approving && !canApprove)}
-              data-testid={approving ? 'context-approval-submit' : 'context-reject-submit'}
-              className={cn(
-                'inline-flex h-9 items-center justify-center gap-2 rounded-full px-3 text-ui-button font-semibold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:bg-black/20 disabled:text-black/45 dark:disabled:bg-white/10 dark:disabled:text-white/35',
-                approving
-                  ? 'bg-apple-blue hover:bg-apple-blue-focus'
-                  : 'bg-apple-red hover:bg-apple-red/90'
-              )}
-            >
-              {loading ? (
-                <Loader2 size={15} strokeWidth={2} className="animate-spin" aria-hidden="true" />
-              ) : null}
-              <span>{approving ? 'Approve candidate' : 'Reject candidate'}</span>
-            </button>
+          <div className="flex flex-col gap-2 border-t border-black/[0.06] px-4 py-3 dark:border-white/[0.06]">
+            {approving && (
+              <p
+                id={approvalStatusId}
+                role="status"
+                aria-live="polite"
+                className="text-ui-caption text-secondary-light dark:text-secondary-dark"
+              >
+                {approvalStatus}
+              </p>
+            )}
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex h-9 items-center justify-center rounded-full px-3 text-ui-button font-medium text-secondary-light transition-colors hover:bg-black/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:text-secondary-dark dark:hover:bg-white/[0.08]"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading || (approving && !canApprove)}
+                aria-describedby={approving ? approvalStatusId : undefined}
+                data-testid={approving ? 'context-approval-submit' : 'context-reject-submit'}
+                className={cn(
+                  'inline-flex h-9 items-center justify-center gap-2 rounded-full px-3 text-ui-button font-semibold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:bg-black/20 disabled:text-black/45 dark:disabled:bg-white/10 dark:disabled:text-white/35',
+                  approving
+                    ? 'bg-apple-blue hover:bg-apple-blue-focus'
+                    : 'bg-apple-red hover:bg-apple-red/90'
+                )}
+              >
+                {loading ? (
+                  <Loader2 size={15} strokeWidth={2} className="animate-spin" aria-hidden="true" />
+                ) : null}
+                <span>{approving ? 'Approve candidate' : 'Reject candidate'}</span>
+              </button>
+            </div>
           </div>
         </form>
       </aside>
