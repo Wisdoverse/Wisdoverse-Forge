@@ -38,7 +38,7 @@ const mockTask = {
   method: 'tasks/send',
   params: { task: 'Refactor database migration', message: 'Update the schema for v2' },
   assignedTo: 'agent-1',
-  assignedAgentName: 'Claude-2',
+  assignedAgentName: 'Agent Two',
   priority: 'high' as const,
   progress: 67,
   createdAt: new Date(Date.now() - 7200000).toISOString(),
@@ -53,7 +53,7 @@ describe('TaskDetailPanel', () => {
 
   test('shows task metadata', () => {
     render(<TaskDetailPanel task={mockTask} onClose={() => {}} />)
-    expect(screen.getAllByText('Claude-2').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Agent Two').length).toBeGreaterThan(0)
     expect(screen.getByText('High')).toBeDefined()
     expect(screen.getAllByText('67%').length).toBeGreaterThan(0)
   })
@@ -76,7 +76,15 @@ describe('TaskDetailPanel', () => {
   })
 
   test('summarizes agent check-ins in task updates', async () => {
-    orchestrationApiMock.getTaskRuns.mockResolvedValue([])
+    orchestrationApiMock.getTaskRuns.mockResolvedValue([
+      {
+        id: 'run-1234567890',
+        taskId: 'task-1',
+        status: 'in_progress',
+        cliTool: 'desktop app',
+        startedAt: new Date(Date.now() - 60000).toISOString(),
+      },
+    ])
 
     render(
       <TaskDetailPanel
@@ -93,13 +101,21 @@ describe('TaskDetailPanel', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: /updates/i }))
 
     expect(await screen.findByTestId('task-agent-check-in')).toBeDefined()
-    expect(screen.getByText('Agent check-in')).toBeDefined()
-    expect(screen.getByText(/claude-2 needs owner input/i)).toBeDefined()
+    expect(screen.getByText('Current status')).toBeDefined()
+    expect(screen.getByTestId('task-updates-guide')).toBeDefined()
+    expect(screen.getByText('What to check now')).toBeDefined()
+    expect(screen.getAllByText(/needs your input/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/approve or update the task/i)).toBeDefined()
+    expect(screen.getByText('Task story')).toBeDefined()
+    expect(screen.getByText('Run attempts')).toBeDefined()
+    expect(await screen.findByText('Attempt In Progress')).toBeDefined()
+    expect(screen.getByText(/work method: desktop app/i)).toBeDefined()
+    expect(screen.getByText(/ref run-1234/i)).toBeDefined()
     expect(screen.getAllByText(/waiting for api credentials/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
   })
 
-  test('shows completed handoff readiness in task updates', async () => {
+  test('shows completed result readiness in task updates', async () => {
     orchestrationApiMock.getTaskRuns.mockResolvedValue([])
 
     render(
@@ -118,8 +134,9 @@ describe('TaskDetailPanel', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: /updates/i }))
 
     expect(await screen.findByTestId('task-agent-check-in')).toBeDefined()
-    expect(screen.getByText(/claude-2 completed the handoff/i)).toBeDefined()
-    expect(screen.getByText(/1 artifact ready for review/i)).toBeDefined()
+    expect(screen.getByText(/agent two finished the task/i)).toBeDefined()
+    expect(screen.getByText(/1 result item ready to review/i)).toBeDefined()
+    expect(screen.getByText(/open results next/i)).toBeDefined()
     expect(screen.getAllByText('Completed').length).toBeGreaterThan(0)
   })
 
@@ -156,7 +173,7 @@ describe('TaskDetailPanel', () => {
         task={{
           ...mockTask,
           state: 'failed',
-          error: 'Runtime exited before producing a result',
+          error: 'Worker stopped before producing a result',
         }}
         onClose={() => {}}
       />
@@ -254,7 +271,7 @@ describe('TaskDetailPanel', () => {
         agentId: 'agent-1',
         name: 'Builder Agent',
         status: 'available',
-        capabilities: ['codex', 'rust'],
+        capabilities: ['implementation', 'review'],
       },
       {
         id: 'participant-2',
@@ -280,7 +297,7 @@ describe('TaskDetailPanel', () => {
     expect(await screen.findByText('Available agents')).toBeDefined()
     expect(screen.getByText('Builder Agent')).toBeDefined()
     expect(screen.getByText('Review Agent')).toBeDefined()
-    expect(screen.getByText('codex, rust')).toBeDefined()
+    expect(screen.getByText('implementation, review')).toBeDefined()
     expect(screen.getByText('2 ready')).toBeDefined()
 
     await userEvent.setup().click(screen.getByRole('button', { name: /review agent/i }))
