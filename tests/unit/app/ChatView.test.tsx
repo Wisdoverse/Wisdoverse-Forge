@@ -110,7 +110,22 @@ describe('ChatView', () => {
     render(<ChatView agentId={providerAgent.id} />)
 
     expect(screen.getByTestId('provider-agent-chat-banner')).toBeInTheDocument()
-    expect(screen.getByText('No conversation history yet')).toBeInTheDocument()
+    expect(screen.getByTestId('conversation-empty-state')).toBeInTheDocument()
+    expect(screen.getByText('Start by asking this agent')).toBeInTheDocument()
+    expect(screen.getByText('Ask for one outcome at a time.')).toBeInTheDocument()
+  })
+
+  test('guides empty Container CLI history toward routed work', () => {
+    useAgentsStore.setState({ agents: [cliAgent] })
+    seedChatState({ turns: [] })
+
+    render(<ChatView agentId={cliAgent.id} />)
+
+    expect(screen.getByTestId('conversation-empty-state')).toBeInTheDocument()
+    expect(screen.getByText('No agent updates yet')).toBeInTheDocument()
+    expect(
+      screen.getByText('Open Tasks and route work to this agent or its lane.')
+    ).toBeInTheDocument()
   })
 
   test('summarizes provider conversation handoff and filters updates', () => {
@@ -157,6 +172,7 @@ describe('ChatView', () => {
       target: { value: 'missing-term' },
     })
     expect(screen.getByTestId('conversation-filter-empty')).toBeInTheDocument()
+    expect(screen.getByText('Try All, Attention, or a shorter search term.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /clear filters/i }))
     expect(screen.getByText('Settings page shipped')).toBeInTheDocument()
   })
