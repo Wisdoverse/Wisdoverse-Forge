@@ -26,19 +26,19 @@ interface SectionItem {
 }
 
 const SECTIONS: SectionItem[] = [
-  { id: 'providers', label: 'Providers', group: 'AI' },
-  { id: 'keys', label: 'Platform API Keys', group: 'Developer' },
-  { id: 'git-credentials', label: 'Git Credentials', group: 'Developer' },
-  { id: 'ssh-keys', label: 'SSH Keys', group: 'Developer' },
-  { id: 'resources', label: 'Resources', group: 'Developer' },
-  { id: 'runtime', label: 'Runtime', group: 'Developer' },
-  { id: 'account', label: 'Account', group: 'User' },
-  { id: 'teams', label: 'Teams', group: 'User' },
-  { id: 'projects', label: 'Projects', group: 'User' },
-  { id: 'about', label: 'About', group: 'System' },
+  { id: 'providers', label: 'Model Services', group: 'Models' },
+  { id: 'keys', label: 'Platform Access Keys', group: 'Work Setup' },
+  { id: 'git-credentials', label: 'Code Repository Access', group: 'Work Setup' },
+  { id: 'ssh-keys', label: 'SSH Access Keys', group: 'Work Setup' },
+  { id: 'resources', label: 'Work Capacity', group: 'Work Setup' },
+  { id: 'runtime', label: 'Agent Work Setup', group: 'Work Setup' },
+  { id: 'account', label: 'Account', group: 'People' },
+  { id: 'teams', label: 'Team Members', group: 'People' },
+  { id: 'projects', label: 'Projects', group: 'People' },
+  { id: 'about', label: 'About', group: 'Product Info' },
 ]
 
-const GROUPS = ['AI', 'Developer', 'User', 'System']
+const GROUPS = ['Models', 'Work Setup', 'People', 'Product Info']
 
 // ============================================================================
 // Content router
