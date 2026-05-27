@@ -68,6 +68,14 @@ const initialState = {
   error: null as string | null,
 }
 
+export function analyticsUnavailableMessage(): string {
+  return 'Analytics could not load live activity. Refresh after the API is healthy. If this is a new workspace, run an agent task first so there is activity to report.'
+}
+
+export function analyticsNetworkErrorMessage(): string {
+  return 'Analytics could not reach the server. Check your connection, then refresh the dashboard.'
+}
+
 export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
   ...initialState,
 
@@ -143,11 +151,23 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
           : get().contextUsage
         : null
 
-      set({ summary, tools, hourly, agentStats, contextUsage, loading: false })
-    } catch (err) {
+      const hasPrimaryDataSource = [summaryRes, toolsRes, activityRes, agentsRes].some(
+        (result) => result.status === 'fulfilled' && result.value.ok
+      )
+
+      set({
+        summary,
+        tools,
+        hourly,
+        agentStats,
+        contextUsage,
+        loading: false,
+        error: hasPrimaryDataSource ? null : analyticsUnavailableMessage(),
+      })
+    } catch {
       set({
         loading: false,
-        error: err instanceof Error ? err.message : 'Failed to load analytics',
+        error: analyticsNetworkErrorMessage(),
       })
     }
   },
