@@ -25,10 +25,11 @@ describe('ActivityFeed', () => {
     render(<ActivityFeed />)
     expect(screen.getByTestId('attention-zone')).toBeDefined()
     expect(screen.getByText('Deploy staging')).toBeDefined()
-    expect(screen.getByText('ACTION NEEDED')).toBeDefined()
-    expect(screen.getByText(/waiting for a decision/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: /approve now/i })).toBeDefined()
-    expect(screen.getByRole('button', { name: /review details/i })).toBeDefined()
+    expect(screen.getByText('Needs your decision')).toBeDefined()
+    expect(screen.getByText(/review each request before approving/i)).toBeDefined()
+    expect(screen.getByText('GPT-1 is waiting: Needs SSH key')).toBeDefined()
+    expect(screen.getByRole('button', { name: /review request/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /approve request/i })).toBeDefined()
   })
 
   test('hides attention zone when no blocked tasks', () => {
