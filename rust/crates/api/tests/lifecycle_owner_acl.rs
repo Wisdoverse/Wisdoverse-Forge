@@ -11,10 +11,7 @@
 use agentforge_api::{
     domain::agent::{AgentOwnerPolicy, HostCliIdentity, NewAgent},
     repositories::agent::AgentRepository,
-    services::{
-        agent::AgentService,
-        agent_container_lifecycle::AgentContainerLifecycleService,
-    },
+    services::{agent::AgentService, agent_container_lifecycle::AgentContainerLifecycleService},
 };
 use agentforge_core::{AgentId, CliToolKind, ErrorKind, OrgId, TenantScope, UserId};
 use sqlx::PgPool;
@@ -85,15 +82,9 @@ fn owner_policy_denies_different_user() {
     let owner = Uuid::new_v4();
     let caller = Uuid::new_v4();
     let err = AgentOwnerPolicy::require_owner(caller, owner).expect_err("must be forbidden");
-    assert!(
-        matches!(err.kind, ErrorKind::Forbidden(_)),
-        "expected Forbidden, got: {:?}", err.kind
-    );
+    assert!(matches!(err.kind, ErrorKind::Forbidden(_) | ErrorKind::ForbiddenWithCode { .. }), "expected Forbidden, got: {:?}", err.kind);
     let msg = format!("{}", err.kind);
-    assert!(
-        msg.contains("operation not permitted"),
-        "message must say 'operation not permitted', got: {msg}"
-    );
+    assert!(msg.contains("operation not permitted"), "message must say 'operation not permitted', got: {msg}");
 }
 
 #[test]
@@ -138,23 +129,13 @@ async fn restart_by_non_owner_intra_org_returns_forbidden_before_runtime_kind_ch
 
     // docker = None: we must never reach the docker guard — the owner check fires first.
     let svc = AgentContainerLifecycleService::new(repo, None);
-    let err = svc.restart(&other_scope, AgentId::from(agent_id)).await
-        .expect_err("non-owner restart must fail");
+    let err = svc.restart(&other_scope, AgentId::from(agent_id)).await.expect_err("non-owner restart must fail");
 
     let msg = format!("{}", err);
-    assert!(
-        matches!(err.kind, ErrorKind::Forbidden(_)),
-        "expected Forbidden(403), got kind: {:?}", err.kind
-    );
-    assert!(
-        msg.contains("operation not permitted"),
-        "body must say 'operation not permitted', got: {msg}"
-    );
+    assert!(matches!(err.kind, ErrorKind::Forbidden(_) | ErrorKind::ForbiddenWithCode { .. }), "expected Forbidden(403), got kind: {:?}", err.kind);
+    assert!(msg.contains("operation not permitted"), "body must say 'operation not permitted', got: {msg}");
     // Critically: must NOT disclose the runtime kind.
-    assert!(
-        !msg.contains("Host CLI"),
-        "body must NOT disclose runtime kind 'Host CLI', got: {msg}"
-    );
+    assert!(!msg.contains("Host CLI"), "body must NOT disclose runtime kind 'Host CLI', got: {msg}");
 }
 
 /// Owner can still call restart (error is docker-unavailable, not 403/422).
@@ -179,15 +160,11 @@ async fn restart_by_owner_passes_acl_check(pool: PgPool) {
     let agent_id = repo.create_aggregate(&owner_scope, new_agent).await.expect("create agent");
 
     let svc = AgentContainerLifecycleService::new(repo, None);
-    let err = svc.restart(&owner_scope, AgentId::from(agent_id)).await
-        .expect_err("restart must fail for other reason");
+    let err = svc.restart(&owner_scope, AgentId::from(agent_id)).await.expect_err("restart must fail for other reason");
 
     // Owner passes the ACL check. The failure must be runtime-kind (LifecycleRejection),
     // NOT a Forbidden error.
-    assert!(
-        !matches!(err.kind, ErrorKind::Forbidden(_)),
-        "owner must not get Forbidden; got: {:?}", err.kind
-    );
+    assert!(!matches!(err.kind, ErrorKind::Forbidden(_) | ErrorKind::ForbiddenWithCode { .. }), "owner must not get Forbidden; got: {:?}", err.kind);
 }
 
 // ---------------------------------------------------------------------------
@@ -219,18 +196,11 @@ async fn resume_by_non_owner_intra_org_returns_forbidden_before_runtime_kind_che
     let agent_id = repo.create_aggregate(&owner_scope, new_agent).await.expect("create agent");
 
     let svc = AgentContainerLifecycleService::new(repo, None);
-    let err = svc.resume(&other_scope, AgentId::from(agent_id)).await
-        .expect_err("non-owner resume must fail");
+    let err = svc.resume(&other_scope, AgentId::from(agent_id)).await.expect_err("non-owner resume must fail");
 
     let msg = format!("{}", err);
-    assert!(
-        matches!(err.kind, ErrorKind::Forbidden(_)),
-        "expected Forbidden(403), got kind: {:?}", err.kind
-    );
-    assert!(
-        !msg.contains("Host CLI"),
-        "body must NOT disclose runtime kind 'Host CLI', got: {msg}"
-    );
+    assert!(matches!(err.kind, ErrorKind::Forbidden(_) | ErrorKind::ForbiddenWithCode { .. }), "expected Forbidden(403), got kind: {:?}", err.kind);
+    assert!(!msg.contains("Host CLI"), "body must NOT disclose runtime kind 'Host CLI', got: {msg}");
 }
 
 // ---------------------------------------------------------------------------
@@ -261,18 +231,11 @@ async fn delete_by_non_owner_intra_org_returns_forbidden(pool: PgPool) {
     let agent_id = repo.create_aggregate(&owner_scope, new_agent).await.expect("create agent");
 
     let svc = AgentService::new(repo);
-    let err = svc.delete(&other_scope, AgentId::from(agent_id)).await
-        .expect_err("non-owner delete must fail");
+    let err = svc.delete(&other_scope, AgentId::from(agent_id)).await.expect_err("non-owner delete must fail");
 
     let msg = format!("{}", err);
-    assert!(
-        matches!(err.kind, ErrorKind::Forbidden(_)),
-        "expected Forbidden(403), got kind: {:?}", err.kind
-    );
-    assert!(
-        msg.contains("operation not permitted"),
-        "body must say 'operation not permitted', got: {msg}"
-    );
+    assert!(matches!(err.kind, ErrorKind::Forbidden(_) | ErrorKind::ForbiddenWithCode { .. }), "expected Forbidden(403), got kind: {:?}", err.kind);
+    assert!(msg.contains("operation not permitted"), "body must say 'operation not permitted', got: {msg}");
 }
 
 /// Owner can delete their own agent.
@@ -296,8 +259,7 @@ async fn delete_by_owner_succeeds(pool: PgPool) {
     let agent_id = repo.create_aggregate(&owner_scope, new_agent).await.expect("create agent");
 
     let svc = AgentService::new(repo);
-    svc.delete(&owner_scope, AgentId::from(agent_id)).await
-        .expect("owner delete must succeed");
+    svc.delete(&owner_scope, AgentId::from(agent_id)).await.expect("owner delete must succeed");
 }
 
 // ---------------------------------------------------------------------------
@@ -333,11 +295,11 @@ async fn restart_cross_org_returns_not_found(pool: PgPool) {
     let agent_id = repo.create_aggregate(&scope_a, new_agent).await.expect("create agent");
 
     let svc = AgentContainerLifecycleService::new(repo, None);
-    let err = svc.restart(&scope_b, AgentId::from(agent_id)).await
-        .expect_err("cross-org restart must fail");
+    let err = svc.restart(&scope_b, AgentId::from(agent_id)).await.expect_err("cross-org restart must fail");
 
     assert!(
         matches!(err.kind, ErrorKind::NotFound(_)),
-        "cross-org access must return NotFound(404), got: {:?}", err.kind
+        "cross-org access must return NotFound(404), got: {:?}",
+        err.kind
     );
 }
