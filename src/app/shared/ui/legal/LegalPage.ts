@@ -60,9 +60,14 @@ export class LegalPage {
     container.innerHTML = `
       <div class="legal-container">
         <div class="legal-header">
-          <div class="legal-title">
-            <span class="legal-title-icon">${LEGAL_ICON_SVG}</span>
-            <span>Legal</span>
+          <div class="legal-heading">
+            <div class="legal-title">
+              <span class="legal-title-icon">${LEGAL_ICON_SVG}</span>
+              <span>Legal</span>
+            </div>
+            <p class="legal-summary">
+              Review what you agree to and how your workspace data is handled.
+            </p>
           </div>
           <button class="legal-close" title="Close">&times;</button>
         </div>
