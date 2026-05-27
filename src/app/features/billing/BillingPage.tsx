@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { CreditCard } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
@@ -24,11 +24,11 @@ function BillingNotConfigured() {
         <CreditCard size={20} strokeWidth={2} aria-hidden="true" />
       </div>
       <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-        Billing not configured
+        Billing is not turned on
       </h2>
       <p className="max-w-sm text-ui-body text-secondary-light dark:text-secondary-dark">
-        Stripe integration is not enabled on this deployment. Contact your administrator to set up
-        billing.
+        Ask an administrator to enable billing before you change plans, review usage limits, or view
+        invoices.
       </p>
     </div>
   )
@@ -39,6 +39,8 @@ function BillingNotConfigured() {
 // ============================================================================
 
 export function BillingPage() {
+  const [billingAction, setBillingAction] = useState<'checkout' | 'portal' | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const {
     subscription,
     plan,
@@ -59,19 +61,45 @@ export function BillingPage() {
   }, [loadAll])
 
   const handleUpgrade = async () => {
-    if (!plan) return
-    const url = await createCheckout({
-      planId: plan.id,
-      billingCycle: 'monthly',
-      successUrl: window.location.href,
-      cancelUrl: window.location.href,
-    })
-    if (url) window.location.href = url
+    if (!plan) {
+      setActionError('A paid plan must be available before checkout can open.')
+      return
+    }
+
+    setActionError(null)
+    setBillingAction('checkout')
+    try {
+      const url = await createCheckout({
+        planId: plan.id,
+        billingCycle: 'monthly',
+        successUrl: window.location.href,
+        cancelUrl: window.location.href,
+      })
+      if (url) {
+        window.location.href = url
+        return
+      }
+      setActionError('Checkout did not open. Try again or ask an administrator to check billing.')
+    } finally {
+      setBillingAction(null)
+    }
   }
 
   const handleManage = async () => {
-    const url = await openPortal()
-    if (url) window.open(url, '_blank', 'noopener,noreferrer')
+    setActionError(null)
+    setBillingAction('portal')
+    try {
+      const url = await openPortal()
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer')
+        return
+      }
+      setActionError(
+        'Billing management did not open. Try again or ask an administrator to check access.'
+      )
+    } finally {
+      setBillingAction(null)
+    }
   }
 
   if (billingNotConfigured) {
@@ -84,27 +112,36 @@ export function BillingPage() {
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6">
-      {/* Current Plan */}
+      <header>
+        <h1 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+          Billing
+        </h1>
+        <p className="mt-1 max-w-2xl text-ui-body text-secondary-light dark:text-secondary-dark">
+          Review the current plan, watch the limits that can block work, and open invoices when
+          finance needs a record.
+        </p>
+      </header>
+
       <section>
-        <h3 className={uiStyles.groupLabel}>Current Plan</h3>
+        <h2 className={uiStyles.groupLabel}>Current Plan</h2>
         <PlanCard
           plan={plan}
           subscription={subscription}
           loading={subscriptionLoading}
+          actionPending={billingAction}
+          actionError={actionError}
           onUpgrade={() => void handleUpgrade()}
           onManage={() => void handleManage()}
         />
       </section>
 
-      {/* Usage */}
       {(usageLoading || usage.length > 0) && (
         <section>
-          <h3 className={uiStyles.groupLabel}>Usage</h3>
+          <h2 className={uiStyles.groupLabel}>Usage</h2>
           <UsageMeter metrics={usage} loading={usageLoading} />
         </section>
       )}
 
-      {/* Invoices */}
       <section>
         <InvoiceList invoices={invoices} loading={invoicesLoading} error={invoicesError} />
       </section>

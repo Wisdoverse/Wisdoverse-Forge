@@ -12,20 +12,63 @@ function formatNumber(n: number): string {
   return String(n)
 }
 
-function metricLabel(metric: string): string {
+function readableMetric(metric: string): string {
+  return metric
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+function metricCopy(metric: string): { label: string; description: string; highAction: string } {
   switch (metric.toLowerCase()) {
     case 'agents':
-      return 'Agents'
+      return {
+        label: 'Agents',
+        description: 'Managed work actors your team can run.',
+        highAction: 'Archive unused agents or upgrade before creating more.',
+      }
     case 'events':
-      return 'Events'
+      return {
+        label: 'Activity events',
+        description: 'Run updates, audit records, and timeline messages.',
+        highAction: 'Export old records or plan for more capacity.',
+      }
     case 'tokens':
-      return 'Tokens'
+      return {
+        label: 'AI usage',
+        description: 'Text processed by connected model providers.',
+        highAction: 'Review busy agents or upgrade before more runs are blocked.',
+      }
     default:
-      return metric.charAt(0).toUpperCase() + metric.slice(1)
+      return {
+        label: readableMetric(metric),
+        description: 'Usage tracked by this plan.',
+        highAction: 'Review this limit before starting more work.',
+      }
   }
 }
 
-function barColor(pct: number): string {
+function usageStatus(pct: number, hasLimit: boolean): { label: string; color: string } {
+  if (!hasLimit) {
+    return {
+      label: 'No limit set',
+      color: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
+    }
+  }
+  if (pct >= 100) return { label: 'Limit reached', color: 'bg-apple-red/10 text-apple-red' }
+  if (pct >= 90) return { label: 'Almost full', color: 'bg-apple-red/10 text-apple-red' }
+  if (pct >= 80) {
+    return {
+      label: 'Getting close',
+      color: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
+    }
+  }
+  return { label: 'Plenty left', color: 'bg-apple-blue/10 text-apple-blue' }
+}
+
+function barColor(pct: number, hasLimit: boolean): string {
+  if (!hasLimit) return 'bg-[#86868b]'
   if (pct >= 90) return 'bg-apple-red'
   if (pct >= 80) return 'bg-[#86868b]'
   return 'bg-apple-blue'
@@ -40,15 +83,33 @@ interface MeterProps {
 }
 
 function Meter({ metric }: MeterProps) {
-  const pct = Math.min(100, Math.round(metric.percentUsed))
-  const isHigh = pct >= 80
+  const hasLimit = metric.limit > 0
+  const pct = hasLimit ? Math.max(0, Math.min(100, Math.round(metric.percentUsed))) : 0
+  const copy = metricCopy(metric.metric)
+  const status = usageStatus(pct, hasLimit)
+  const isHigh = hasLimit && pct >= 80
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex min-h-[144px] flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-          {metricLabel(metric.metric)}
+        <span className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
+          {copy.label}
         </span>
+        <span
+          className={cn(
+            'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-ui-caption font-medium',
+            status.color
+          )}
+        >
+          {status.label}
+        </span>
+      </div>
+
+      <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+        {copy.description}
+      </p>
+
+      <div className="mt-auto flex items-center justify-between gap-3">
         <span
           className={cn(
             'text-ui-caption',
@@ -57,18 +118,29 @@ function Meter({ metric }: MeterProps) {
               : 'text-secondary-light dark:text-secondary-dark'
           )}
         >
-          {formatNumber(metric.current)} / {formatNumber(metric.limit)}
+          {hasLimit
+            ? `${formatNumber(metric.current)} / ${formatNumber(metric.limit)}`
+            : `${formatNumber(metric.current)} used`}
         </span>
+        {hasLimit && (
+          <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+            {pct}% used
+          </span>
+        )}
       </div>
+
       <div className="h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
         <div
-          className={cn('h-full rounded-full transition-all', barColor(pct))}
-          style={{ width: `${pct}%` }}
+          className={cn('h-full rounded-full transition-all', barColor(pct, hasLimit))}
+          style={{ width: hasLimit ? `${pct}%` : '100%' }}
         />
       </div>
-      <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-        {pct}% used
-      </span>
+
+      {isHigh && (
+        <p className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+          {copy.highAction}
+        </p>
+      )}
     </div>
   )
 }
