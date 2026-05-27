@@ -16,12 +16,12 @@ interface SectionItem {
 }
 
 const SECTIONS: SectionItem[] = [
-  { id: 'users', label: 'Users', group: 'Management' },
+  { id: 'users', label: 'User access', group: 'Management' },
   { id: 'organizations', label: 'Organizations', group: 'Management' },
-  { id: 'health', label: 'System Health', group: 'Infrastructure' },
+  { id: 'health', label: 'Service health', group: 'System status' },
 ]
 
-const GROUPS = ['Management', 'Infrastructure']
+const GROUPS = ['Management', 'System status']
 
 // ============================================================================
 // Content router
@@ -51,7 +51,7 @@ export function AdminLayout() {
     <div className="flex h-full flex-col overflow-hidden md:flex-row">
       <div className="shrink-0 border-b border-black/[0.06] px-4 py-3 dark:border-white/[0.06] md:hidden">
         <label htmlFor="admin-section-picker" className={uiStyles.label}>
-          Section
+          Admin area
         </label>
         <select
           id="admin-section-picker"
@@ -80,7 +80,7 @@ export function AdminLayout() {
         )}
       >
         <h1 className="mb-4 px-2 text-ui-caption font-semibold uppercase text-secondary-light dark:text-secondary-dark">
-          Admin
+          Admin console
         </h1>
 
         {GROUPS.map((group) => {
@@ -97,6 +97,7 @@ export function AdminLayout() {
                     key={item.id}
                     type="button"
                     onClick={() => setActiveSection(item.id)}
+                    aria-current={isActive ? 'page' : undefined}
                     className={cn(
                       'w-full rounded-full px-3 py-1.5 text-left text-ui-button transition-colors',
                       isActive
