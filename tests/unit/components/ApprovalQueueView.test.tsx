@@ -141,18 +141,24 @@ describe('ApprovalQueueView', () => {
     await userEvent.setup().click(screen.getByTestId('context-approve-candidate-1'))
     const dialog = screen.getByRole('dialog', { name: /approve prod deploy memory/i })
 
+    expect(within(dialog).getByText(/choose who can reuse this context/i)).toBeInTheDocument()
     await userEvent
       .setup()
       .selectOptions(within(dialog).getByTestId('context-approval-scope-kind'), 'team')
+    expect(within(dialog).getByRole('status')).toHaveTextContent(/enter the team id/i)
     await userEvent.setup().type(screen.getByTestId('context-approval-scope-id'), 'team-1')
-    await userEvent.setup().type(within(dialog).getByLabelText('TTL'), '2030-01-01T12:00')
+    expect(within(dialog).getByRole('status')).toHaveTextContent(/confirm this team/i)
+    await userEvent.setup().type(within(dialog).getByLabelText(/expiration/i), '2030-01-01T12:00')
     await userEvent
       .setup()
       .selectOptions(within(dialog).getByLabelText('Sensitivity'), 'confidential')
     await userEvent.setup().type(within(dialog).getByLabelText('Note'), 'Approved for team reuse')
-    await userEvent
-      .setup()
-      .click(within(dialog).getByRole('checkbox', { name: 'Confirm team scope expansion' }))
+    await userEvent.setup().click(
+      within(dialog).getByRole('checkbox', {
+        name: 'Confirm this team can reuse this context',
+      })
+    )
+    expect(within(dialog).getByRole('status')).toHaveTextContent(/ready to approve for this team/i)
     await userEvent.setup().click(screen.getByTestId('context-approval-submit'))
 
     await waitFor(() => {
@@ -177,6 +183,7 @@ describe('ApprovalQueueView', () => {
 
     await userEvent.setup().click(screen.getByTestId('context-reject-candidate-1'))
     const dialog = screen.getByRole('dialog', { name: /reject prod deploy memory/i })
+    expect(within(dialog).getByPlaceholderText(/why should this not be saved/i)).toBeInTheDocument()
     await userEvent.setup().type(within(dialog).getByTestId('context-reject-reason'), 'Too broad')
     await userEvent.setup().click(screen.getByTestId('context-reject-submit'))
 
