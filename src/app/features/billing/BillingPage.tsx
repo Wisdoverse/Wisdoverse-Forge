@@ -7,6 +7,12 @@ import { PlanCard } from './PlanCard'
 import { UsageMeter } from './UsageMeter'
 import { InvoiceList } from './InvoiceList'
 
+const BILLING_SETUP_STEPS = [
+  'Ask an owner to enable billing for this deployment.',
+  'Keep payment provider keys in deployment secrets, not in this browser.',
+  'Refresh this page after the deployment has restarted.',
+]
+
 // ============================================================================
 // Not configured state
 // ============================================================================
@@ -27,29 +33,72 @@ function BillingNotConfigured() {
         Billing is not ready yet
       </h2>
       <p className="max-w-sm text-ui-body text-secondary-light dark:text-secondary-dark">
-        Plans, payments, and invoices will appear here after a workspace owner connects the billing
-        provider for this deployment.
+        Billing is not enabled on this deployment yet. Nothing can be charged from this page until
+        an administrator connects the payment provider.
       </p>
-      <div className="mt-2 grid w-full max-w-lg gap-2 text-left sm:grid-cols-3">
-        <BillingSetupHint
-          label="What this means"
-          value="You do not need to change anything here."
-        />
-        <BillingSetupHint label="Who can fix it" value="Ask a workspace owner or administrator." />
-        <BillingSetupHint label="Next step" value="Return here after billing is connected." />
+      <div className="mt-2 max-w-sm text-left">
+        <p className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+          Billing setup path
+        </p>
+        <ol className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {BILLING_SETUP_STEPS.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
       </div>
     </div>
   )
 }
 
-function BillingSetupHint({ label, value }: { label: string; value: string }) {
+interface BillingCheckpointProps {
+  hasSubscription: boolean
+  usageCount: number
+  invoicesCount: number
+}
+
+function BillingCheckpoint({ hasSubscription, usageCount, invoicesCount }: BillingCheckpointProps) {
+  const checkpoints = [
+    {
+      label: 'Plan',
+      value: hasSubscription ? 'Subscription is active or managed' : 'No paid subscription yet',
+    },
+    {
+      label: 'Usage',
+      value: usageCount > 0 ? `${usageCount} usage areas visible` : 'No usage reported yet',
+    },
+    {
+      label: 'Invoices',
+      value: invoicesCount > 0 ? `${invoicesCount} invoice records` : 'No invoices yet',
+    },
+  ]
+
   return (
-    <div className="rounded-card border border-black/[0.08] bg-white/70 px-3 py-2 dark:border-white/[0.1] dark:bg-white/[0.04]">
-      <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
-        {label}
-      </p>
-      <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">{value}</p>
-    </div>
+    <section
+      aria-label="Billing checkpoint"
+      className="rounded-lg border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
+    >
+      <div className="flex flex-col gap-1">
+        <h2 className={uiStyles.sectionTitle}>Billing checkpoint</h2>
+        <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
+          Check the plan, usage, and invoices before changing billing settings.
+        </p>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        {checkpoints.map((checkpoint) => (
+          <div
+            key={checkpoint.label}
+            className="rounded-md bg-black/[0.025] px-3 py-2 dark:bg-white/[0.04]"
+          >
+            <span className="block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+              {checkpoint.label}
+            </span>
+            <span className="mt-0.5 block text-ui-caption text-foreground-light dark:text-foreground-dark">
+              {checkpoint.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -131,16 +180,13 @@ export function BillingPage() {
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6">
-      <header>
-        <h1 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-          Billing
-        </h1>
-        <p className="mt-1 max-w-2xl text-ui-body text-secondary-light dark:text-secondary-dark">
-          Review the current plan, watch the limits that can block work, and open invoices when
-          finance needs a record.
-        </p>
-      </header>
+      <BillingCheckpoint
+        hasSubscription={Boolean(subscription)}
+        usageCount={usage.length}
+        invoicesCount={invoices.length}
+      />
 
+      {/* Current Plan */}
       <section>
         <h3 className={uiStyles.groupLabel}>Plan and payment</h3>
         <PlanCard

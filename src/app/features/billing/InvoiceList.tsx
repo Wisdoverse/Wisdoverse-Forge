@@ -104,6 +104,9 @@ export function InvoiceList({ invoices, loading, error }: InvoiceListProps) {
             <p className="mx-auto mt-1 max-w-sm text-ui-caption text-secondary-light dark:text-secondary-dark">
               Receipts and payment links will appear here after the first billing cycle.
             </p>
+            <p className="mx-auto mt-1 max-w-sm text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Invoices appear after checkout or a billing portal change creates a charge.
+            </p>
           </div>
         )}
 

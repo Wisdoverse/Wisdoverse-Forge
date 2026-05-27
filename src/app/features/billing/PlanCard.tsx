@@ -94,7 +94,7 @@ export function PlanCard({
   }
 
   const badge = subscription ? statusBadge(subscription.status) : null
-  const priceLabel = plan ? formatCurrency(plan.price.monthly, plan.price.currency) : '$0'
+  const canUpgrade = Boolean(plan)
 
   return (
     <div className={cn(uiStyles.cardPadded, 'flex flex-col gap-4')}>
@@ -128,11 +128,26 @@ export function PlanCard({
               'No paid plan is active yet. You can keep working until the team needs more capacity.'}
           </p>
 
-          {badge && (
+          {!plan && !subscription && (
+            <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
+              No paid plan is attached yet. An administrator must publish a billing plan before
+              checkout is available.
+            </p>
+          )}
+
+          {subscription && (
             <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
               {badge.description}
             </p>
           )}
+
+          <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            {subscription
+              ? 'Use the billing portal to update payment methods, invoices, or cancellation.'
+              : canUpgrade
+                ? 'Upgrade opens checkout in this browser. Review the plan before continuing.'
+                : 'Ask an owner or administrator to make a plan available.'}
+          </p>
         </div>
 
         <div className="flex shrink-0 flex-col gap-2 sm:items-end">
@@ -141,8 +156,13 @@ export function PlanCard({
               Manage billing
             </button>
           ) : (
-            <button type="button" onClick={onUpgrade} className={uiStyles.primaryButton}>
-              Choose plan
+            <button
+              type="button"
+              onClick={onUpgrade}
+              disabled={!canUpgrade}
+              className={uiStyles.primaryButton}
+            >
+              Upgrade plan
             </button>
           )}
         </div>
