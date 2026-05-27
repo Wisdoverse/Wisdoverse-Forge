@@ -22,6 +22,8 @@ Canonical terminology used in UI labels, API docs, runbooks, and metrics. Keep t
 | **API (direct LLM calls)**   | `runtime = api` — used by provider+prompt agents; no CLI involved at all.                                              |
 | **Container (Docker)**       | `runtime = container` — default. Container CLI runs inside a Docker container managed by the platform.                 |
 
+> The DB column `agents.runtime_kind` and the Rust enum `agentforge_core::RuntimeKind` use the values in the "DB value" column above. See `docs/superpowers/specs/2026-05-27-host-cli-enrollment-design.md` for the discriminator design.
+
 ## UI copy rules
 
 - **Always qualify "CLI"** in UI strings. Prefer "Container CLI" or "Platform CLI" (or a more specific runtime label) over bare "CLI".

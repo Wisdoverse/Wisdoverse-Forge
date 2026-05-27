@@ -161,6 +161,7 @@ dependencies = [
  "serde_json",
  "serde_norway",
  "similar-asserts",
+ "sqlx",
  "tabwriter",
  "temp-env",
  "tempfile",
