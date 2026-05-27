@@ -96,4 +96,29 @@ describe('AuditLogView', () => {
       })
     )
   })
+
+  test('shows beginner filter guidance and applies common audit filters', async () => {
+    render(<AuditLogView />)
+
+    await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
+
+    const guide = screen.getByTestId('governance-audit-filter-guide')
+    expect(guide).toHaveTextContent('Start broad')
+    expect(screen.getByRole('button', { name: 'Refresh audit events' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Export audit events' })).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Skill Changes' }))
+
+    await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(2))
+    expect(fetchGovernanceAudit).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        eventPrefix: 'governance.context.skill.',
+        itemKind: 'skill',
+      })
+    )
+    expect(screen.getByTestId('governance-audit-filter-event-prefix')).toHaveValue(
+      'governance.context.skill.'
+    )
+    expect(screen.getByTestId('governance-audit-filter-item-kind')).toHaveValue('skill')
+  })
 })
