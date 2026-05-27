@@ -15,11 +15,12 @@ use agentforge_core::{AgentId, AgentStatus, AppResult, RuntimeKind, TenantScope}
 use agentforge_db::entities::{Agent, AgentCollaborator};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
+use serde_json::json;
 use sqlx::FromRow;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::agent::AgentRepositoryPolicy;
+use crate::domain::agent::{AgentRepositoryPolicy, NewAgent};
 
 /// Enriched agent row with owner and project info joined in.
 ///
@@ -236,6 +237,85 @@ impl AgentRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(Into::into)
+    }
+
+    /// Create a new agent from a typed [`NewAgent`] aggregate factory, atomically
+    /// writing the `agent.enrolled` audit event for host CLI agents.
+    ///
+    /// Returns the UUID that was assigned to the new agent row.
+    ///
+    /// The INSERT and (for `RuntimeKind::Cli`) the events INSERT run inside a
+    /// single database transaction so that either both succeed or neither does.
+    /// Container and API agents produce no audit event from this path.
+    ///
+    /// This is the new canonical creation path. `create(CreateAgentParams)` is
+    /// kept for backward compatibility until Task 6.1 migrates both call sites.
+    pub async fn create_aggregate(&self, scope: &TenantScope, new: NewAgent) -> AppResult<Uuid> {
+        let mut tx = self.pool.begin().await?;
+
+        // For host-cli agents the PK is derived from the UUIDv7 embedded in
+        // runtime_id ("host-<uuid>").  For all other runtime kinds a fresh
+        // UUIDv7 is generated so the caller has a stable ID immediately.
+        let id = new
+            .runtime_id()
+            .and_then(|rid| rid.strip_prefix("host-"))
+            .and_then(|tail| Uuid::parse_str(tail).ok())
+            .unwrap_or_else(Uuid::now_v7);
+
+        let status_str = new.initial_status().to_string();
+
+        sqlx::query(
+            r#"INSERT INTO agents (
+                   id, organization_id, workspace_id, user_id,
+                   name, model, provider, cli_tool, cwd, project_id,
+                   status, system_prompt,
+                   runtime_kind, runtime_id, hmac_secret, nats_connect_password
+               ) VALUES (
+                   $1, $2, $3, $4,
+                   $5, $6, $7, $8, $9, $10,
+                   $11::agent_status, $12,
+                   $13, $14, $15, $16
+               )"#,
+        )
+        .bind(id)
+        .bind(scope.org_id().as_uuid())
+        .bind(new.workspace_id())
+        .bind(scope.user_id().as_uuid())
+        .bind(new.name())
+        .bind(new.model())
+        .bind(new.provider())
+        .bind(new.cli_tool())
+        .bind(new.cwd())
+        .bind(new.project_id())
+        .bind(&status_str)
+        .bind(new.system_prompt())
+        .bind(new.runtime_kind().to_string())
+        .bind(new.runtime_id())
+        .bind(new.hmac_secret())
+        .bind(new.nats_connect_password())
+        .execute(&mut *tx)
+        .await?;
+
+        if new.runtime_kind() == RuntimeKind::Cli {
+            let payload = json!({
+                "runtime_kind": "cli",
+                "cli_tool": new.cli_tool(),
+                "project_id": new.project_id(),
+                "actor_user_id": scope.user_id().as_uuid(),
+            });
+            sqlx::query(
+                r#"INSERT INTO events (organization_id, agent_id, event_type, payload)
+                   VALUES ($1, $2, 'agent.enrolled', $3)"#,
+            )
+            .bind(scope.org_id().as_uuid())
+            .bind(id)
+            .bind(payload)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        tx.commit().await?;
+        Ok(id)
     }
 
     /// Update agent fields (name, model, provider, system_prompt). Only non-None values are updated.

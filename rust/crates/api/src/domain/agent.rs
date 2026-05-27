@@ -176,7 +176,7 @@ fn shell_quote(value: &str) -> String {
 }
 
 #[derive(Clone)]
-pub(crate) struct HostCliIdentity {
+pub struct HostCliIdentity {
     agent_id: Uuid,
     runtime_id: String,
     hmac_secret: String,
@@ -195,7 +195,7 @@ impl std::fmt::Debug for HostCliIdentity {
 }
 
 impl HostCliIdentity {
-    pub(crate) fn generate() -> Self {
+    pub fn generate() -> Self {
         let agent_id = Uuid::now_v7();
         Self {
             runtime_id: format!("host-{agent_id}"),
@@ -205,19 +205,19 @@ impl HostCliIdentity {
         }
     }
 
-    pub(crate) fn agent_id(&self) -> Uuid {
+    pub fn agent_id(&self) -> Uuid {
         self.agent_id
     }
 
-    pub(crate) fn runtime_id(&self) -> &str {
+    pub fn runtime_id(&self) -> &str {
         &self.runtime_id
     }
 
-    pub(crate) fn hmac_secret(&self) -> &str {
+    pub fn hmac_secret(&self) -> &str {
         &self.hmac_secret
     }
 
-    pub(crate) fn nats_connect_password(&self) -> &str {
+    pub fn nats_connect_password(&self) -> &str {
         &self.nats_connect_password
     }
 }
@@ -308,7 +308,7 @@ impl LifecycleRejection {
 /// - [`host_cli`](NewAgent::host_cli): Host-enrolled CLI agent (carries `HostCliIdentity`).
 /// - [`api`](NewAgent::api): Provider-backed API agent (requires provider + model).
 #[derive(Debug, Clone)]
-pub(crate) struct NewAgent {
+pub struct NewAgent {
     runtime_kind: RuntimeKind,
     cli_tool: Option<&'static str>,
     name: Option<String>,
@@ -325,7 +325,7 @@ pub(crate) struct NewAgent {
 }
 
 impl NewAgent {
-    pub(crate) fn container(
+    pub fn container(
         scope: &TenantScope,
         cli_tool: CliToolKind,
         name: Option<&str>,
@@ -354,7 +354,7 @@ impl NewAgent {
         })
     }
 
-    pub(crate) fn host_cli(
+    pub fn host_cli(
         scope: &TenantScope,
         cli_tool: CliToolKind,
         identity: HostCliIdentity,
@@ -383,7 +383,7 @@ impl NewAgent {
         })
     }
 
-    pub(crate) fn api(
+    pub fn api(
         scope: &TenantScope,
         provider: &str,
         model: &str,
@@ -417,55 +417,55 @@ impl NewAgent {
         })
     }
 
-    pub(crate) fn runtime_kind(&self) -> RuntimeKind {
+    pub fn runtime_kind(&self) -> RuntimeKind {
         self.runtime_kind
     }
 
-    pub(crate) fn cli_tool(&self) -> Option<&str> {
+    pub fn cli_tool(&self) -> Option<&str> {
         self.cli_tool
     }
 
-    pub(crate) fn runtime_id(&self) -> Option<&str> {
+    pub fn runtime_id(&self) -> Option<&str> {
         self.runtime_id.as_deref()
     }
 
-    pub(crate) fn hmac_secret(&self) -> Option<&str> {
+    pub fn hmac_secret(&self) -> Option<&str> {
         self.hmac_secret.as_deref()
     }
 
-    pub(crate) fn nats_connect_password(&self) -> Option<&str> {
+    pub fn nats_connect_password(&self) -> Option<&str> {
         self.nats_connect_password.as_deref()
     }
 
-    pub(crate) fn name(&self) -> Option<&str> {
+    pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }
 
-    pub(crate) fn model(&self) -> Option<&str> {
+    pub fn model(&self) -> Option<&str> {
         self.model.as_deref()
     }
 
-    pub(crate) fn provider(&self) -> Option<&str> {
+    pub fn provider(&self) -> Option<&str> {
         self.provider.as_deref()
     }
 
-    pub(crate) fn cwd(&self) -> Option<&str> {
+    pub fn cwd(&self) -> Option<&str> {
         self.cwd.as_deref()
     }
 
-    pub(crate) fn workspace_id(&self) -> Uuid {
+    pub fn workspace_id(&self) -> Uuid {
         self.workspace_id
     }
 
-    pub(crate) fn project_id(&self) -> Option<Uuid> {
+    pub fn project_id(&self) -> Option<Uuid> {
         self.project_id
     }
 
-    pub(crate) fn system_prompt(&self) -> Option<&str> {
+    pub fn system_prompt(&self) -> Option<&str> {
         self.system_prompt.as_deref()
     }
 
-    pub(crate) fn initial_status(&self) -> AgentStatus {
+    pub fn initial_status(&self) -> AgentStatus {
         self.initial_status
     }
 }
