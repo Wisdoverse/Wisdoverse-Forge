@@ -107,7 +107,7 @@ export function EditableProjectRow({
               onChange={(e) => setDescription(e.target.value)}
               disabled={saving}
               aria-label="Project description"
-              placeholder="Description"
+              placeholder="What work belongs here"
               className={uiStyles.input}
             />
             <div className="flex justify-end gap-1">
