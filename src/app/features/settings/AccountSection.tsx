@@ -29,17 +29,67 @@ function PasswordChangeForm() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
+  const hasCurrentPassword = form.currentPassword.trim().length > 0
+  const hasNewPassword = form.newPassword.length > 0
+  const hasConfirmation = form.confirmPassword.length > 0
+  const newPasswordIsLongEnough = form.newPassword.length >= 8
+  const passwordsMatch = hasConfirmation && form.newPassword === form.confirmPassword
+  const passwordChecks = [
+    {
+      id: 'current-password',
+      met: hasCurrentPassword,
+      label: 'Enter your current password.',
+    },
+    {
+      id: 'new-password-length',
+      met: newPasswordIsLongEnough,
+      label: 'Use at least 8 characters for the new password.',
+    },
+    {
+      id: 'confirm-password',
+      met: passwordsMatch,
+      label: hasConfirmation
+        ? 'Make the confirmation match the new password.'
+        : 'Confirm the new password.',
+    },
+  ]
+  const firstMissingStep = passwordChecks.find((check) => !check.met)
+  const canSubmitPasswordChange = !saving && !firstMissingStep
+  const passwordStatus = saving
+    ? 'Saving your new password...'
+    : firstMissingStep
+      ? `Next: ${firstMissingStep.label}`
+      : 'Ready to update your password.'
+
+  function updateField(field: keyof PasswordFormState, value: string) {
+    setForm((current) => ({ ...current, [field]: value }))
+    setError(null)
+    setSuccess(false)
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     setSuccess(false)
 
-    if (form.newPassword !== form.confirmPassword) {
-      setError('New passwords do not match')
+    if (!hasCurrentPassword) {
+      setError('Enter your current password first.')
       return
     }
-    if (form.newPassword.length < 8) {
-      setError('New password must be at least 8 characters')
+    if (!hasNewPassword) {
+      setError('Enter a new password first.')
+      return
+    }
+    if (!newPasswordIsLongEnough) {
+      setError('Use at least 8 characters for the new password.')
+      return
+    }
+    if (!hasConfirmation) {
+      setError('Confirm the new password before saving.')
+      return
+    }
+    if (!passwordsMatch) {
+      setError('Make the confirmation match the new password.')
       return
     }
 
@@ -59,56 +109,98 @@ function PasswordChangeForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      {error && <div className={uiStyles.error}>{error}</div>}
+      <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+        Use this only when you know the current password. After saving, sign in with the new
+        password next time.
+      </p>
+      {error && (
+        <div role="alert" className={uiStyles.error}>
+          {error}
+        </div>
+      )}
       {success && (
-        <div className="rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
+        <div
+          role="status"
+          className="rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue"
+        >
           Password changed successfully
         </div>
       )}
       <div className="grid grid-cols-1 gap-3">
         <div>
-          <label className={uiStyles.label}>Current Password</label>
+          <label htmlFor="account-current-password" className={uiStyles.label}>
+            Current Password
+          </label>
           <input
+            id="account-current-password"
             type="password"
             value={form.currentPassword}
-            onChange={(e) => setForm({ ...form, currentPassword: e.target.value })}
+            onChange={(e) => updateField('currentPassword', e.target.value)}
             required
             autoComplete="current-password"
             className={inputClass}
+            aria-describedby="password-change-status"
           />
         </div>
         <div>
-          <label className={uiStyles.label}>New Password</label>
+          <label htmlFor="account-new-password" className={uiStyles.label}>
+            New Password
+          </label>
           <input
+            id="account-new-password"
             type="password"
             value={form.newPassword}
-            onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
+            onChange={(e) => updateField('newPassword', e.target.value)}
             required
             autoComplete="new-password"
             className={inputClass}
+            aria-describedby="password-change-status password-change-checks"
           />
         </div>
         <div>
-          <label className={uiStyles.label}>Confirm New Password</label>
+          <label htmlFor="account-confirm-password" className={uiStyles.label}>
+            Confirm New Password
+          </label>
           <input
+            id="account-confirm-password"
             type="password"
             value={form.confirmPassword}
-            onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+            onChange={(e) => updateField('confirmPassword', e.target.value)}
             required
             autoComplete="new-password"
             className={inputClass}
+            aria-describedby="password-change-status password-change-checks"
           />
         </div>
       </div>
-      <div className="flex justify-end">
+      <div
+        id="password-change-checks"
+        className="grid gap-1 rounded-card border border-black/[0.06] bg-black/[0.02] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.03]"
+      >
+        {passwordChecks.map((check) => (
+          <p
+            key={check.id}
+            className={cn(
+              'text-ui-caption',
+              check.met ? 'text-apple-blue' : 'text-secondary-light dark:text-secondary-dark'
+            )}
+          >
+            {check.met ? 'Done: ' : 'Needed: '}
+            {check.label}
+          </p>
+        ))}
+      </div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p
+          id="password-change-status"
+          aria-live="polite"
+          className="text-ui-caption text-secondary-light dark:text-secondary-dark"
+        >
+          {passwordStatus}
+        </p>
         <button
           type="submit"
-          disabled={
-            saving ||
-            !form.currentPassword.trim() ||
-            !form.newPassword.trim() ||
-            !form.confirmPassword.trim()
-          }
+          disabled={!canSubmitPasswordChange}
           className={uiStyles.primaryButton}
         >
           {saving ? 'Saving...' : 'Change Password'}
