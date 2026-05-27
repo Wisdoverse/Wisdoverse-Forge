@@ -112,7 +112,16 @@ impl AgentContainerControlService {
         let docker = self.docker.as_ref().ok_or_else(AgentContainerRuntimePolicy::control_docker_unavailable)?;
         // Typestate check: reject host_cli/api agents before any Docker I/O.
         let aggregate = self.agents.find_aggregate(scope, agent_id.as_uuid()).await?;
-        ContainerAgent::try_from(aggregate).map_err(|r| r.into_app_error("Start"))?;
+        let kind = aggregate.runtime_kind();
+        ContainerAgent::try_from(aggregate).map_err(|r| {
+            metrics::counter!(
+                "agents_lifecycle_rejected_total",
+                "runtime_kind" => kind.as_str(),
+                "action" => "start"
+            )
+            .increment(1);
+            r.into_app_error("Start")
+        })?;
         // Load the full Agent entity for the data-rich container provisioning path.
         // AgentAggregate only carries identity columns; cli_tool/model/cwd/name
         // come from the full row.
@@ -261,8 +270,16 @@ impl AgentContainerControlService {
     pub(crate) async fn stop(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<()> {
         let docker = self.docker.as_ref().ok_or_else(AgentContainerRuntimePolicy::control_docker_unavailable)?;
         let aggregate = self.agents.find_aggregate(scope, agent_id.as_uuid()).await?;
-        let container = ContainerAgent::try_from(aggregate)
-            .map_err(|r| r.into_app_error("Stop"))?;
+        let kind = aggregate.runtime_kind();
+        let container = ContainerAgent::try_from(aggregate).map_err(|r| {
+            metrics::counter!(
+                "agents_lifecycle_rejected_total",
+                "runtime_kind" => kind.as_str(),
+                "action" => "stop"
+            )
+            .increment(1);
+            r.into_app_error("Stop")
+        })?;
         let inner = container.inner();
         let container_id = AgentContainerLifecyclePolicy::running_container_id(inner.container_id.as_deref())?;
 

@@ -103,6 +103,7 @@ impl HostAgentEnrollmentService {
 
         // 3. Idempotency fast path.
         if let Some(existing_id) = idem.lookup(org_id, user_id, idempotency_key).await? {
+            metrics::counter!("agents_idempotency_replay_total").increment(1);
             let agent = self
                 .agents
                 .find_with_owner_by_id(scope, AgentId::from(existing_id))
@@ -136,6 +137,12 @@ impl HostAgentEnrollmentService {
         let id = self.agents.create_aggregate_in_tx(&mut tx, scope, new_agent).await?;
         EnrollmentIdempotencyRepository::store_in_tx(&mut tx, org_id, user_id, idempotency_key, id).await?;
         tx.commit().await.map_err(AppError::from)?;
+
+        metrics::counter!(
+            "agents_enrolled_total",
+            "cli_tool" => cli_tool_str.to_string()
+        )
+        .increment(1);
 
         let agent = self.agents.find_with_owner_by_id(scope, AgentId::from(id)).await?;
         let enrollment = self.build_enrollment_view(&agent, &identity, &nats_base_url);

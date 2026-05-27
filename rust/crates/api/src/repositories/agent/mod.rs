@@ -285,9 +285,15 @@ impl AgentRepository {
     /// writes in the same transaction (e.g. enrollment idempotency record), use
     /// `create_aggregate_in_tx` directly and commit the outer transaction.
     pub async fn create_aggregate(&self, scope: &TenantScope, new: NewAgent) -> AppResult<Uuid> {
+        let runtime_kind = new.runtime_kind();
         let mut tx = self.pool.begin().await.map_err(AppError::from)?;
         let id = self.create_aggregate_in_tx(&mut tx, scope, new).await?;
         tx.commit().await.map_err(AppError::from)?;
+        metrics::counter!(
+            "agents_created_total",
+            "runtime_kind" => runtime_kind.as_str()
+        )
+        .increment(1);
         Ok(id)
     }
 
@@ -343,7 +349,15 @@ impl AgentRepository {
         .bind(new.nats_connect_password())
         .execute(&mut **tx)
         .await
-        .map_err(AppError::from)?;
+        .map_err(|e| {
+            if let sqlx::Error::Database(ref db_err) = e {
+                let msg = db_err.message();
+                if msg.contains("agents_runtime_kind_check") || msg.contains("agents_runtime_kind_invariants") {
+                    metrics::counter!("agents_check_constraint_violations_total").increment(1);
+                }
+            }
+            AppError::from(e)
+        })?;
 
         if new.runtime_kind() == RuntimeKind::Cli {
             let payload = json!({

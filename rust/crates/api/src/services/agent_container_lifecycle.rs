@@ -35,8 +35,16 @@ impl AgentContainerLifecycleService {
         // would 422 with runtime-kind info) comes after.
         let aggregate = self.agents.find_aggregate(scope, agent_id.as_uuid()).await?;
         AgentOwnerPolicy::require_owner(scope.user_id().as_uuid(), aggregate.user_id())?;
-        let container = ContainerAgent::try_from(aggregate)
-            .map_err(|r| r.into_app_error("Restart"))?;
+        let kind = aggregate.runtime_kind();
+        let container = ContainerAgent::try_from(aggregate).map_err(|r| {
+            metrics::counter!(
+                "agents_lifecycle_rejected_total",
+                "runtime_kind" => kind.as_str(),
+                "action" => "restart"
+            )
+            .increment(1);
+            r.into_app_error("Restart")
+        })?;
         let docker = self.docker.as_ref().ok_or_else(AgentContainerRuntimePolicy::lifecycle_docker_unavailable)?;
         let inner = container.inner();
         let container_id = AgentContainerLifecyclePolicy::restart_container_id(inner.container_id.as_deref())?;
@@ -88,8 +96,16 @@ impl AgentContainerLifecycleService {
         // Owner check before typestate check — same ordering as restart.
         let aggregate = self.agents.find_aggregate(scope, agent_id.as_uuid()).await?;
         AgentOwnerPolicy::require_owner(scope.user_id().as_uuid(), aggregate.user_id())?;
-        let container = ContainerAgent::try_from(aggregate)
-            .map_err(|r| r.into_app_error("Resume"))?;
+        let kind = aggregate.runtime_kind();
+        let container = ContainerAgent::try_from(aggregate).map_err(|r| {
+            metrics::counter!(
+                "agents_lifecycle_rejected_total",
+                "runtime_kind" => kind.as_str(),
+                "action" => "resume"
+            )
+            .increment(1);
+            r.into_app_error("Resume")
+        })?;
         let inner = container.inner();
         let container_id = AgentContainerLifecyclePolicy::resume_container_id(inner.container_id.as_deref())?;
 
