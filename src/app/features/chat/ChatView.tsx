@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   Bot,
+  CheckCircle2,
+  ListChecks,
   MessageCircle,
   Search,
   Terminal,
@@ -29,6 +31,27 @@ const CONVERSATION_FILTERS: { value: ConversationFilter; label: string }[] = [
   { value: 'tool', label: 'Tool' },
   { value: 'attention', label: 'Attention' },
 ]
+
+const PROVIDER_EMPTY_COPY = {
+  title: 'Start by asking this agent',
+  detail: 'Send a short request below when you need planning, review, or a direct answer.',
+  steps: [
+    'Ask for one outcome at a time.',
+    'Use Attention after a reply to find blockers.',
+    'Clear chat only when old context is no longer useful.',
+  ],
+}
+
+const CLI_EMPTY_COPY = {
+  title: 'No agent updates yet',
+  detail:
+    'Updates appear after this Container CLI agent receives work or reports terminal progress.',
+  steps: [
+    'Open Tasks and route work to this agent or its lane.',
+    'Use Attention once work starts to find blockers.',
+    'Refresh if the runtime just came online.',
+  ],
+}
 
 export function ChatView({ agentId }: ChatViewProps) {
   const turns = useChatStore((s) => s.turns)
@@ -109,6 +132,11 @@ export function ChatView({ agentId }: ChatViewProps) {
   )
   const hasActiveConversationFilter =
     conversationSearch.trim().length > 0 || conversationFilter !== 'all'
+
+  function resetConversationFilters() {
+    setConversationFilter('all')
+    setConversationSearch('')
+  }
 
   if (currentLoading && (isProviderAgent ? messages.length === 0 : turns.length === 0)) {
     return (
@@ -309,22 +337,22 @@ export function ChatView({ agentId }: ChatViewProps) {
         <div className="flex flex-col gap-4 p-4">
           {isProviderAgent ? (
             messages.length === 0 ? (
-              <div className="text-sm text-secondary-light text-center">
-                No conversation history yet
-              </div>
+              <ConversationEmptyState
+                copy={PROVIDER_EMPTY_COPY}
+                offline={offline}
+                testId="conversation-empty-state"
+              />
             ) : visibleMessages.length === 0 ? (
               <div
                 data-testid="conversation-filter-empty"
                 className="flex flex-col items-center gap-2 text-center text-sm text-secondary-light"
               >
                 <span>No conversation updates match the current filters.</span>
+                <span>Try All, Attention, or a shorter search term.</span>
                 {hasActiveConversationFilter && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setConversationFilter('all')
-                      setConversationSearch('')
-                    }}
+                    onClick={resetConversationFilters}
                     className="rounded-full bg-apple-blue/10 px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
                   >
                     Clear filters
@@ -356,22 +384,22 @@ export function ChatView({ agentId }: ChatViewProps) {
               ))
             )
           ) : turns.length === 0 ? (
-            <div className="text-sm text-secondary-light text-center">
-              No conversation history yet
-            </div>
+            <ConversationEmptyState
+              copy={CLI_EMPTY_COPY}
+              offline={offline}
+              testId="conversation-empty-state"
+            />
           ) : visibleTurns.length === 0 ? (
             <div
               data-testid="conversation-filter-empty"
               className="flex flex-col items-center gap-2 text-center text-sm text-secondary-light"
             >
               <span>No conversation updates match the current filters.</span>
+              <span>Try All, Attention, or a shorter search term.</span>
               {hasActiveConversationFilter && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setConversationFilter('all')
-                    setConversationSearch('')
-                  }}
+                  onClick={resetConversationFilters}
                   className="rounded-full bg-apple-blue/10 px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
                 >
                   Clear filters
@@ -392,6 +420,57 @@ export function ChatView({ agentId }: ChatViewProps) {
           disabled={offline || messagesLoading || streaming}
           disabledReason={composerDisabledReason}
         />
+      )}
+    </div>
+  )
+}
+
+function ConversationEmptyState({
+  copy,
+  offline,
+  testId,
+}: {
+  copy: typeof PROVIDER_EMPTY_COPY
+  offline: boolean
+  testId: string
+}) {
+  return (
+    <div data-testid={testId} className="mx-auto flex max-w-xl flex-col gap-3 py-4 text-left">
+      <div className="flex items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-apple-blue/10 text-apple-blue">
+          <ListChecks size={17} strokeWidth={2.15} aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+            {copy.title}
+          </p>
+          <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
+            {copy.detail}
+          </p>
+        </div>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        {copy.steps.map((step) => (
+          <div
+            key={step}
+            className="flex min-h-16 items-start gap-2 rounded-lg bg-black/[0.025] px-3 py-2 dark:bg-white/[0.05]"
+          >
+            <CheckCircle2
+              size={14}
+              strokeWidth={2.15}
+              className="mt-0.5 shrink-0 text-apple-green"
+              aria-hidden="true"
+            />
+            <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {step}
+            </span>
+          </div>
+        ))}
+      </div>
+      {offline && (
+        <p className="rounded-lg bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
+          This agent is offline, so new updates will appear after the runtime is available.
+        </p>
       )}
     </div>
   )
