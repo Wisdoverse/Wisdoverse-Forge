@@ -292,8 +292,8 @@ describe('BoardView', () => {
     expect(screen.getByText('Production incident')).toBeDefined()
     expect(screen.queryByText('Copy review')).toBeNull()
 
-    fireEvent.click(within(toolbar).getByRole('button', { name: /all priority\s*2/i }))
-    fireEvent.click(within(toolbar).getByRole('button', { name: /^assigned\s*1$/i }))
+    fireEvent.click(within(toolbar).getByRole('button', { name: /all priorities\s*2/i }))
+    fireEvent.click(within(toolbar).getByRole('button', { name: /^has agent\s*1$/i }))
     expect(screen.queryByText('Production incident')).toBeNull()
     expect(screen.getByText('Copy review')).toBeDefined()
   })
