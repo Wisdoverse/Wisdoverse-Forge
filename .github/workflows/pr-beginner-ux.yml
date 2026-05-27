@@ -1,0 +1,30 @@
+name: PR Beginner UX
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-beginner-ux-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '24'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  beginner-ux:
+    name: Beginner UX / Operator Path
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: ./.github/actions/setup-node-cache
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          install: 'false'
+      - name: Check PR body
+        run: node scripts/check-pr-beginner-ux.mjs --event "$GITHUB_EVENT_PATH"
