@@ -75,11 +75,11 @@ export function RuntimeSection() {
     try {
       const response = await getAgentApi().getCliAuthProxyStatus()
       setCliStatuses(response.ok ? response.statuses : [])
-      if (!response.ok) setCliStatusError('Could not load Container CLI credential status')
+      if (!response.ok) setCliStatusError('Could not load local tool sign-in status')
     } catch (err) {
       setCliStatuses([])
       setCliStatusError(
-        err instanceof Error ? err.message : 'Could not load Container CLI credential status'
+        err instanceof Error ? err.message : 'Could not load local tool sign-in status'
       )
     } finally {
       setCliStatusLoading(false)
@@ -92,7 +92,9 @@ export function RuntimeSection() {
       setParticipants(await orchestrationApi.getParticipants('all'))
     } catch (err) {
       setParticipants([])
-      setParticipantsError(err instanceof Error ? err.message : 'Could not load agent heartbeats')
+      setParticipantsError(
+        err instanceof Error ? err.message : 'Could not load agent online status'
+      )
     }
   }, [])
 
@@ -151,7 +153,7 @@ export function RuntimeSection() {
     try {
       const result = await getAgentApi().startCliAuthProxyLogin(provider)
       if (!result.ok || !result.url) {
-        setCliStatusError(result.error ?? 'Could not start Container CLI authorization')
+        setCliStatusError(result.error ?? 'Could not start local tool sign-in')
         return
       }
       window.open(result.url, '_blank', 'noopener,noreferrer')
@@ -203,13 +205,13 @@ export function RuntimeSection() {
                 <AlertTriangle size={17} strokeWidth={2.25} className="text-apple-orange" />
               )}
               <h3 className={uiStyles.sectionTitle}>
-                {runtimeReady ? 'Runtime ready for agent work' : 'Runtime needs attention'}
+                {runtimeReady ? 'Work setup ready for agents' : 'Work setup needs attention'}
               </h3>
             </div>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
               {runtimeSettings
-                ? `${runtimeSettings.availableRuntimes.length} runtime option${runtimeSettings.availableRuntimes.length === 1 ? '' : 's'}, ${runtimeSettings.availableCliTools.length} Container CLI option${runtimeSettings.availableCliTools.length === 1 ? '' : 's'}, ${connectedCredentialCount} connected CLI credential${connectedCredentialCount === 1 ? '' : 's'}, ${participants.length} agent heartbeat source${participants.length === 1 ? '' : 's'}.`
-                : 'The API has not returned runtime settings yet.'}
+                ? `${runtimeSettings.availableRuntimes.length} work location${runtimeSettings.availableRuntimes.length === 1 ? '' : 's'}, ${runtimeSettings.availableCliTools.length} local tool choice${runtimeSettings.availableCliTools.length === 1 ? '' : 's'}, ${connectedCredentialCount} connected sign-in${connectedCredentialCount === 1 ? '' : 's'}, ${participants.length} online agent signal${participants.length === 1 ? '' : 's'}.`
+                : 'The setup check has not loaded yet.'}
             </p>
           </div>
           <button
@@ -224,38 +226,38 @@ export function RuntimeSection() {
               className={cn(cliStatusLoading && 'animate-spin')}
               aria-hidden="true"
             />
-            <span>{cliStatusLoading ? 'Refreshing' : 'Refresh status'}</span>
+            <span>{cliStatusLoading ? 'Refreshing' : 'Refresh'}</span>
           </button>
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-4">
           <RuntimeReadinessMetric
-            label="Default runtime"
+            label="Default work location"
             value={runtimeSettings ? runtimeLabel(runtimeSettings.defaultRuntime) : 'Unknown'}
             ready={Boolean(
               runtimeSettings?.availableRuntimes.includes(runtimeSettings.defaultRuntime)
             )}
           />
           <RuntimeReadinessMetric
-            label="CLI versions"
+            label="Local tools"
             value={
               cliToolDetails.length > 0
                 ? `${reportedVersionCount}/${cliToolDetails.length} reported`
-                : 'No CLI image metadata'
+                : 'No tool details'
             }
             ready={cliToolDetails.length > 0 && reportedVersionCount === cliToolDetails.length}
           />
           <RuntimeReadinessMetric
-            label="Last heartbeat"
-            value={latestHeartbeat ? formatRelativeTime(latestHeartbeat) : 'No agent heartbeat'}
+            label="Last online signal"
+            value={latestHeartbeat ? formatRelativeTime(latestHeartbeat) : 'No online signal'}
             ready={Boolean(latestHeartbeat)}
           />
           <RuntimeReadinessMetric
-            label="Credential state"
+            label="Sign-in state"
             value={
               cliStatuses.length > 0
                 ? `${connectedCredentialCount}/${cliStatuses.length} connected`
-                : 'No CLI OAuth providers'
+                : 'No sign-in providers'
             }
             ready={cliStatuses.length === 0 || disconnectedCredentials.length === 0}
           />
@@ -278,7 +280,7 @@ export function RuntimeSection() {
           <div className="mt-4 space-y-2" data-testid="runtime-cli-versions">
             <div className="flex items-center justify-between gap-2">
               <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Container CLI images
+                Local work tools
               </p>
               <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {reportedVersionCount} version{reportedVersionCount === 1 ? '' : 's'} reported
@@ -342,11 +344,11 @@ export function RuntimeSection() {
                   aria-hidden="true"
                 />
                 <h4 className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
-                  Launch checklist
+                  Work setup checklist
                 </h4>
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Resolve warnings here before assigning Container CLI work.
+                Clear the warnings here before assigning work to agents that use local tools.
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-ui-caption font-medium tabular-nums text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
@@ -382,7 +384,7 @@ export function RuntimeSection() {
           </div>
         ) : (
           <>
-            {/* Default Runtime */}
+            {/* Default work location */}
             <SettingRow
               label={t('settings.runtime.defaultRuntimeLabel')}
               description={t('settings.runtime.defaultRuntimeDescription')}
@@ -401,7 +403,7 @@ export function RuntimeSection() {
               </select>
             </SettingRow>
 
-            {/* Default Container CLI */}
+            {/* Default local work tool */}
             <SettingRow
               label={t('settings.runtime.defaultContainerCliLabel')}
               description={t('settings.runtime.defaultContainerCliDescription')}
@@ -420,7 +422,7 @@ export function RuntimeSection() {
               </select>
             </SettingRow>
 
-            {/* Read-only: Available Runtimes */}
+            {/* Read-only: available work locations */}
             <SettingRow
               label={t('settings.runtime.availableRuntimesLabel')}
               description={t('settings.runtime.availableRuntimesDescription')}
@@ -434,7 +436,7 @@ export function RuntimeSection() {
               </div>
             </SettingRow>
 
-            {/* Read-only: Available Container CLIs */}
+            {/* Read-only: available local tools */}
             <SettingRow
               label={t('settings.runtime.availableContainerClisLabel')}
               description={t('settings.runtime.availableContainerClisDescription')}
@@ -500,18 +502,18 @@ function RuntimeNextStepPanel({
             </p>
           </div>
           <h3 className="mt-1 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            {allReady ? 'Ready to Launch Agents' : item?.title}
+            {allReady ? 'Ready to start agent work' : item?.title}
           </h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
             {allReady
-              ? 'Runtime defaults, CLI images, credentials, and agent heartbeat signals are ready.'
+              ? 'The work location, local tools, sign-ins, and online agent signals are ready.'
               : item?.detail}
           </p>
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
             Success:{' '}
             {allReady
               ? 'Open Agents, create or select an agent, then assign work from Tasks.'
-              : 'This warning disappears from the launch checklist.'}
+              : 'This warning disappears from the work setup checklist.'}
           </p>
         </div>
         {!allReady && item?.action && item.actionLabel && (
@@ -639,11 +641,11 @@ function CredentialStatusRow({
 }) {
   const detail = status.connected
     ? status.lastRefresh
-      ? `Last refreshed ${formatRelativeTime(status.lastRefresh)}`
-      : 'Stored credential is usable'
+      ? `Last checked ${formatRelativeTime(status.lastRefresh)}`
+      : 'Sign-in is ready'
     : status.revokeReason || status.revokedAt
-      ? 'Reconnect before starting new Container CLI agents'
-      : 'No stored OAuth credential'
+      ? 'Reconnect before starting new agents that use this tool'
+      : 'No saved sign-in'
 
   return (
     <div className="flex flex-col gap-2 rounded-lg bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04] sm:flex-row sm:items-center sm:justify-between">
@@ -694,11 +696,11 @@ function runtimeLaunchChecklistItems(
     return [
       {
         id: 'runtime-api',
-        title: 'Runtime API',
-        detail: 'Runtime settings have not loaded yet. Refresh after the Rust API is reachable.',
+        title: 'Work setup status',
+        detail: 'The setup check has not loaded yet. Refresh after the service is reachable.',
         ready: false,
         action: 'refresh',
-        actionLabel: 'Refresh Status',
+        actionLabel: 'Refresh',
       },
     ]
   }
@@ -710,12 +712,12 @@ function runtimeLaunchChecklistItems(
     runtimeSettings.availableCliTools.includes(runtimeSettings.defaultCliTool)
   items.push({
     id: 'defaults',
-    title: 'Execution defaults',
+    title: 'Default work choice',
     detail: defaultRuntimeReady
       ? `${runtimeLabel(runtimeSettings.defaultRuntime)} with ${cliToolLabel(
           runtimeSettings.defaultCliTool
-        )} is selectable for new agents.`
-      : 'Choose defaults that are present in the available runtime and Container CLI lists.',
+        )} is selected for new agents.`
+      : 'Choose a work location and local tool that are both available.',
     ready: defaultRuntimeReady,
   })
 
@@ -728,25 +730,25 @@ function runtimeLaunchChecklistItems(
     runtimeSettings.cliToolDetails.length > 0 &&
     missingImages.length === 0 &&
     reportedVersionCount === runtimeSettings.cliToolDetails.length
-  let imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} Container CLI versions reported.`
+  let imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} local tool versions reported.`
   if (runtimeSettings.availableCliTools.length === 0) {
-    imageDetail = 'Build or enable Container CLI images so CLI-backed agents can start.'
+    imageDetail = 'Enable at least one local work tool before assigning local-tool agents.'
   } else if (runtimeSettings.cliToolDetails.length === 0) {
-    imageDetail = 'No Container CLI image metadata has been reported yet.'
+    imageDetail = 'No local tool details have been reported yet.'
   } else if (missingImages.length > 0) {
-    imageDetail = `${missingImages.length} Container CLI image${
+    imageDetail = `${missingImages.length} local tool package${
       missingImages.length === 1 ? '' : 's'
-    } could not be inspected. Run make update-agents or make build-agent-all, then refresh.`
+    } could not be checked. Rebuild the agent tool packages, then refresh.`
   } else if (reportedVersionCount !== runtimeSettings.cliToolDetails.length) {
-    imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} Container CLI versions reported. Rebuild missing images with CLI_VERSION labels.`
+    imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} local tool versions reported. Rebuild the packages that do not report a version.`
   }
   items.push({
     id: 'images',
-    title: 'CLI image inventory',
+    title: 'Local tool setup',
     detail: imageDetail,
     ready: imageInventoryReady,
     action: imageInventoryReady ? undefined : 'refresh',
-    actionLabel: imageInventoryReady ? undefined : 'Refresh Status',
+    actionLabel: imageInventoryReady ? undefined : 'Refresh',
   })
 
   const connectedCredentialCount = cliStatuses.filter((status) => status.connected).length
@@ -754,18 +756,18 @@ function runtimeLaunchChecklistItems(
   const credentialReady = !cliStatusError && (!disconnectedCredential || cliStatuses.length === 0)
   items.push({
     id: 'credentials',
-    title: 'CLI credentials',
+    title: 'Local tool sign-ins',
     detail: cliStatusError
-      ? 'Credential status could not be checked. Refresh after the API is healthy.'
+      ? 'Sign-in status could not be checked. Refresh after the service is healthy.'
       : cliStatuses.length === 0
-        ? 'No CLI OAuth providers require connection.'
+        ? 'No local tool sign-ins are required.'
         : disconnectedCredential
-          ? `${connectedCredentialCount}/${cliStatuses.length} credentials connected. Reconnect ${disconnectedCredential.displayName} before starting new CLI agents.`
-          : `${connectedCredentialCount}/${cliStatuses.length} credentials connected.`,
+          ? `${connectedCredentialCount}/${cliStatuses.length} sign-ins connected. Reconnect ${disconnectedCredential.displayName} before starting new local-tool agents.`
+          : `${connectedCredentialCount}/${cliStatuses.length} sign-ins connected.`,
     ready: credentialReady,
     action: cliStatusError ? 'refresh' : disconnectedCredential ? 'connect' : undefined,
     actionLabel: cliStatusError
-      ? 'Refresh Status'
+      ? 'Refresh'
       : disconnectedCredential
         ? `Connect ${disconnectedCredential.displayName}`
         : undefined,
@@ -774,23 +776,23 @@ function runtimeLaunchChecklistItems(
 
   items.push({
     id: 'heartbeats',
-    title: 'Agent heartbeat',
+    title: 'Agent online signal',
     detail: participantsError
-      ? 'Agent heartbeat status could not be checked. Refresh after orchestration is healthy.'
+      ? 'Agent online status could not be checked. Refresh after the service is healthy.'
       : latestHeartbeat
-        ? `Latest agent heartbeat ${formatRelativeTime(latestHeartbeat)}.`
-        : 'No agent heartbeat has been observed yet. Start or wake an agent runtime, then refresh.',
+        ? `Latest online signal ${formatRelativeTime(latestHeartbeat)}.`
+        : 'No online signal has been seen yet. Start or wake an agent, then refresh.',
     ready: !participantsError && Boolean(latestHeartbeat),
     action: participantsError || !latestHeartbeat ? 'refresh' : undefined,
-    actionLabel: participantsError || !latestHeartbeat ? 'Refresh Status' : undefined,
+    actionLabel: participantsError || !latestHeartbeat ? 'Refresh' : undefined,
   })
 
   return items
 }
 
 function versionSourceLabel(source: string, imagePresent: boolean): string {
-  if (source === 'docker-label') return 'image found'
-  if (source === 'image-tag') return imagePresent ? 'tag fallback' : 'not inspected'
+  if (source === 'docker-label') return 'ready'
+  if (source === 'image-tag') return imagePresent ? 'version from tag' : 'not checked'
   return 'not reported'
 }
 
