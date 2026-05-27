@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { CreateAgentModal } from '@app/features/agents/CreateAgentModal'
-import { useAgentsStore } from '@app/shared/model/agents.store'
+import { useAgentsStore } from '@app/entities/agent'
 import { useNavigationStore } from '@app/entities/navigation'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import { agentGroupApi } from '@app/entities/agent-group'

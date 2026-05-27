@@ -13,21 +13,28 @@ import type {
   LlmProviderKey,
   WorkspaceProject,
 } from '@shared/types'
+import type {
+  ApiErrorFields,
+  ResourceProfileOption,
+  UserSshKey,
+  GitCredential,
+  GitProvider,
+} from '@app/shared/api/agent-api-types'
+
+// Shared infrastructure types — used internally and re-exported for consumers.
+export {
+  extractApiError,
+  type ApiErrorFields,
+  type AuthHeaderProvider,
+  type ResourceProfileOption,
+  type UserSshKey,
+  type GitCredential,
+  type GitProvider,
+} from '@app/shared/api/agent-api-types'
 
 export interface AgentFlags {
   skipPermissions?: boolean
   chrome?: boolean
-}
-
-/**
- * Standardized error fields returned by the server's error-handler plugin.
- * All API responses may include these when ok=false.
- */
-export interface ApiErrorFields {
-  error?: string
-  message?: string
-  details?: { reason?: string; issues?: Array<{ path: string; message: string }> }
-  requestId?: string
 }
 
 export interface CreateAgentResponse extends ApiErrorFields {
@@ -60,30 +67,6 @@ export interface LocalAgentEnrollmentResponse extends ApiErrorFields {
   ok: boolean
   agent?: ManagedAgent
   enrollment?: HostAgentEnrollment
-}
-
-/**
- * Extract a human-readable error message from any API error response.
- * Priority: details.reason > message > error code > fallback.
- */
-export function extractApiError(data: ApiErrorFields, fallback = 'Unknown error'): string {
-  const rawError = (data as Record<string, unknown>).error
-  const nestedError =
-    rawError && typeof rawError === 'object' && !Array.isArray(rawError)
-      ? (rawError as Record<string, unknown>)
-      : null
-  const nestedMessage =
-    typeof nestedError?.message === 'string'
-      ? nestedError.message
-      : typeof nestedError?.code === 'string'
-        ? nestedError.code
-        : undefined
-  return (
-    data.details?.reason ||
-    data.message ||
-    (typeof rawError === 'string' ? rawError : nestedMessage) ||
-    fallback
-  )
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -175,8 +158,6 @@ export interface ServerInfoResponse {
   cwd?: string
   error?: string
 }
-
-export type AuthHeaderProvider = () => Record<string, string>
 
 /**
  * Options for `createAgent`. Replaces the legacy 9-positional-arg signature
@@ -296,14 +277,18 @@ export function createAgentAPI(
     /**
      * Enroll a local CLI process as a managed agent and return the one-time
      * sidecar environment the operator can run on that machine.
+     *
+     * Sends an `Idempotency-Key` header so the server can safely deduplicate
+     * retried enrollment requests within the idempotency window.
      */
     async enrollLocalAgent(
       opts: LocalAgentEnrollmentOptions
     ): Promise<LocalAgentEnrollmentResponse> {
       try {
+        const idempotencyKey = crypto.randomUUID()
         const response = await fetchFn(`${apiUrl}/agents/local-enroll`, {
           method: 'POST',
-          headers: headers(),
+          headers: headers({ 'Idempotency-Key': idempotencyKey }),
           body: JSON.stringify({
             name: opts.name,
             cliTool: opts.cliTool,
@@ -1263,17 +1248,6 @@ export function createAgentAPI(
 
 export type AgentAPI = ReturnType<typeof createAgentAPI>
 
-// ============================================================================
-// Resource Profile Types (frontend-friendly subset)
-// ============================================================================
-
-export interface ResourceProfileOption {
-  id: string
-  name: string
-  cpu: number
-  memoryMb: number
-}
-
 export type { WorkspaceProject }
 
 // ============================================================================
@@ -1326,19 +1300,8 @@ export interface CreateUserLlmConfigInput {
   isDefault?: boolean
 }
 
-// ============================================================================
-// User SSH Key Types
-// ============================================================================
-
-export interface UserSshKey {
-  id: string
-  label: string
-  fingerprint: string
-  keyType: string
-  publicKey: string
-  createdAt: string
-  updatedAt: string
-}
+// UserSshKey, GitProvider, GitCredential — re-exported at top from
+// '@app/shared/api/agent-api-types' to keep shared layer imports FSD-compliant.
 
 export interface UserSshKeysResponse {
   ok: boolean
@@ -1355,20 +1318,6 @@ export interface CreateUserSshKeyInput {
   label: string
   publicKey?: string
   privateKey?: string
-}
-
-// ============================================================================
-// Git Credential Types
-// ============================================================================
-
-export type GitProvider = 'gitlab' | 'github'
-
-export interface GitCredential {
-  id: string
-  provider: GitProvider
-  host: string | null
-  createdAt: string
-  updatedAt: string
 }
 
 export interface GitCredentialsResponse {

@@ -13,6 +13,18 @@ import type { CliTool } from './tools.js'
 /** Status of a managed agent */
 export type AgentStatus = 'idle' | 'working' | 'waiting' | 'attention' | 'offline'
 
+/**
+ * Canonical runtime kind discriminator for a managed agent.
+ *
+ * - 'container' — runs inside a managed workspace container.
+ * - 'cli'       — enrolled on an operator machine (host CLI / sidecar).
+ * - 'api'       — provider+prompt agent with no container.
+ *
+ * Optional for one release cycle to support rolling deploys where old server
+ * responses do not yet send this field.
+ */
+export type AgentRuntimeKind = 'container' | 'cli' | 'api'
+
 /** A managed agent */
 export interface ManagedAgent {
   /** Our internal ID (UUID) */
@@ -53,6 +65,11 @@ export interface ManagedAgent {
   groupRole?: GroupRole
   /** CLI tool used for this agent */
   cliTool?: CliTool
+  /**
+   * Runtime kind discriminator. Optional for one release cycle; required next
+   * release. Frontend derives from cliTool + runtimeId when absent.
+   */
+  runtimeKind?: AgentRuntimeKind
   /** Provider key for provider+prompt agents. CLI agents: null. */
   provider?: string | null
   /** Model name for provider+prompt agents. CLI agents: null. */

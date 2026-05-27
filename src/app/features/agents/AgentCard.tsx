@@ -1,5 +1,5 @@
 import { cn } from '@app/shared/lib/utils'
-import { isHostCliAgent, type AgentInfo, type AgentStatus } from '@app/shared/model/agents.store'
+import { isHostCliAgent, type AgentInfo, type AgentStatus } from '@app/entities/agent'
 import { AgentKindBadge } from './AgentKindBadge'
 
 const PROVIDER_GRADIENTS: Record<string, string> = {

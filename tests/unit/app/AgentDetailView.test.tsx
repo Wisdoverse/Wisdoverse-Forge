@@ -57,7 +57,7 @@ const hostCliAgent = {
   name: 'Local Tool Agent',
   containerId: undefined,
   runtimeId: 'host-aabbccdd',
-  runtimeKind: 'host-cli' as const,
+  runtimeKind: 'cli' as const,
   cwd: '/home/operator/project',
 }
 

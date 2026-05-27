@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { AgentCard } from '@app/features/agents/AgentCard'
-import type { AgentInfo } from '@app/shared/model/agents.store'
+import type { AgentInfo } from '@app/entities/agent'
 
 afterEach(cleanup)
 
@@ -15,7 +15,7 @@ const mockAgent: AgentInfo = {
   tasksInProgress: 0,
   successRate: 0.92,
   cliTool: 'codex',
-  runtimeKind: 'container-cli',
+  runtimeKind: 'container',
   workspaceName: 'Platform',
   projectName: 'Console',
 }

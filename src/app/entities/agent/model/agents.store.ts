@@ -1,37 +1,12 @@
 import { create } from 'zustand'
 import type { CliTool, ManagedAgent } from '@shared/types'
 import { getAgentApi } from '@app/shared/api/legacy'
-import { extractApiError, type LocalAgentEnrollmentResponse } from '@app/shared/api/legacy/AgentAPI'
+import { extractApiError, type LocalAgentEnrollmentResponse } from '../api/AgentAPI'
+import type { AgentInfo, AgentRuntimeKind, AgentStatus } from './types'
+import { isHostCliAgent } from './runtime-kind'
 
-export type AgentStatus = 'working' | 'idle' | 'offline'
-export type AgentRuntimeKind = 'container-cli' | 'host-cli' | 'provider'
-
-export interface AgentInfo {
-  id: string
-  name: string
-  provider: string
-  model: string
-  status: AgentStatus
-  tasksCompleted: number
-  tasksInProgress: number
-  successRate: number
-  currentTask?: string
-  cliTool?: CliTool
-  runtimeId?: string
-  runtimeKind?: AgentRuntimeKind
-  cwd?: string
-  containerId?: string
-  workspaceId?: string
-  workspaceName?: string
-  projectId?: string
-  projectName?: string
-  /** Provider+prompt agents only. `null` when unset. Not present for CLI-tool agents. */
-  systemPrompt?: string | null
-}
-
-export function isHostCliAgent(agent: Pick<AgentInfo, 'runtimeKind' | 'runtimeId'>): boolean {
-  return agent.runtimeKind === 'host-cli' || agent.runtimeId?.startsWith('host-') === true
-}
+export type { AgentInfo, AgentRuntimeKind, AgentStatus }
+export { isHostCliAgent }
 
 interface AgentsState {
   agents: AgentInfo[]
@@ -111,11 +86,11 @@ function cliToolToProvider(cliTool?: CliTool): string {
 }
 
 function managedToAgentInfo(agent: ManagedAgent): AgentInfo {
-  const runtimeKind: AgentRuntimeKind = agent.cliTool
-    ? agent.runtimeId?.startsWith('host-')
-      ? 'host-cli'
-      : 'container-cli'
-    : 'provider'
+  // Rolling-deploy fallback: use server-sent runtimeKind when available; otherwise
+  // derive from cliTool + runtimeId for backward compat with old server responses.
+  const derivedRuntimeKind: AgentRuntimeKind =
+    agent.runtimeKind ??
+    (agent.cliTool ? (agent.runtimeId?.startsWith('host-') ? 'cli' : 'container') : 'api')
 
   return {
     id: agent.id,
@@ -130,7 +105,7 @@ function managedToAgentInfo(agent: ManagedAgent): AgentInfo {
     successRate: 0,
     cliTool: agent.cliTool,
     runtimeId: agent.runtimeId ?? undefined,
-    runtimeKind,
+    runtimeKind: derivedRuntimeKind,
     cwd: agent.cwd,
     containerId: agent.containerId,
     workspaceId: agent.workspaceId,

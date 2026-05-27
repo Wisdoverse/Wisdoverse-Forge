@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from 'vitest'
-import { useAgentsStore } from '@app/shared/model/agents.store'
+import { useAgentsStore } from '@app/entities/agent'
 
 beforeEach(() => useAgentsStore.getState().reset())
 
