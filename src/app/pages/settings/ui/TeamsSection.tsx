@@ -119,7 +119,7 @@ export function TeamsSection() {
             className={uiStyles.primaryButton}
           >
             <Plus size={14} strokeWidth={2} aria-hidden="true" />
-            <span>Create team</span>
+            <span>New Team</span>
           </button>
         )}
       </div>
@@ -143,10 +143,14 @@ export function TeamsSection() {
         ) : teams.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center">
             <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              Create your first team
+              {canCreateTeam
+                ? 'Create a team first'
+                : 'Ask an owner or admin to create the first team'}
             </p>
             <p className="mx-auto mt-1 max-w-sm text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Teams group people, projects, and access rules so everyone knows where to work.
+              {canCreateTeam
+                ? 'Teams group projects and decide who can manage work. Start with one team, then add projects inside it.'
+                : 'Only owners and admins can create teams. You can work here after someone adds a team for you.'}
             </p>
           </div>
         ) : (
