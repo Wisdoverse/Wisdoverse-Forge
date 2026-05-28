@@ -85,9 +85,12 @@ When an alert fires, refer to the matching runbook:
 
 ## Dashboards
 
-The repository does not ship a Grafana JSON dashboard. Operators are expected
-to build their own per-deployment dashboard from the metrics listed above.
-A reference dashboard skeleton has the following panels:
+The repository ships a Grafana dashboard for the agents-runtime SLOs at
+`ops/grafana/dashboards/agents-runtime.json` (see [Agents Runtime
+SLOs](#agents-runtime-slos) below for import steps). For metrics outside that
+scope, operators are expected to build their own per-deployment dashboard from
+the metrics listed above. A reference dashboard skeleton has the following
+panels:
 
 - Request rate, error rate, p50/p95/p99 latency per route.
 - Active WebSocket connections and outbound buffer depth distribution.
