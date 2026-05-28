@@ -8,7 +8,7 @@ use agentforge_api::{
     repositories::agent::AgentRepository,
     services::agent_query::AgentQueryService,
 };
-use agentforge_core::{CliToolKind, OrgId, RuntimeKind, TenantScope, UserId};
+use agentforge_core::{CliToolKind, RuntimeKind, TenantScope};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -50,7 +50,7 @@ async fn seed_org_workspace_user(pool: &PgPool) -> (Uuid, Uuid, Uuid) {
 }
 
 fn make_scope(org_id: Uuid, user_id: Uuid) -> TenantScope {
-    TenantScope::new(OrgId::from(org_id), UserId::from(user_id))
+    agentforge_api::test_support::tenant_scope_for_ids(org_id, user_id)
 }
 
 // ---------------------------------------------------------------------------
