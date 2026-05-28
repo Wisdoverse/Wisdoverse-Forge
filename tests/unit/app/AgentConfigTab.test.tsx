@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AgentConfigTab } from '@app/features/agents/AgentConfigTab'
-import { useAgentsStore } from '@app/shared/model/agents.store'
+import { useAgentsStore } from '@app/entities/agent'
 
 afterEach(cleanup)
 

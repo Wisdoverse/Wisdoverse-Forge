@@ -1,10 +1,10 @@
 import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { AgentListView } from '@app/features/agents/AgentListView'
-import { useAgentsStore } from '@app/shared/model/agents.store'
+import { useAgentsStore } from '@app/entities/agent'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useNavigationStore } from '@app/entities/navigation'
-import type { AgentInfo } from '@app/shared/model/agents.store'
+import type { AgentInfo } from '@app/entities/agent'
 
 function makeAgent(overrides: Partial<AgentInfo>): AgentInfo {
   return {
@@ -150,7 +150,7 @@ describe('AgentListView', () => {
         model: 'local-runner',
         cliTool: 'workspace-tool' as never,
         runtimeId: 'host-abc12345',
-        runtimeKind: 'host-cli',
+        runtimeKind: 'cli',
         status: 'idle',
       }),
     ])

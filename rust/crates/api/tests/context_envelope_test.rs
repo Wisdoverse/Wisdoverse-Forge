@@ -116,8 +116,8 @@ async fn seed_envelope(pool: &PgPool) -> EnvelopeSeed {
         .await
         .expect("seed project member");
     sqlx::query(
-        "INSERT INTO agents (id, organization_id, workspace_id, project_id, user_id, name, cli_tool, status)
-         VALUES ($1, $2, $3, $4, $5, 'claude-agent', 'claude', 'idle')",
+        "INSERT INTO agents (id, organization_id, workspace_id, project_id, user_id, name, cli_tool, status, runtime_kind)
+         VALUES ($1, $2, $3, $4, $5, 'claude-agent', 'claude', 'idle', 'container')",
     )
     .bind(agent_id)
     .bind(org_id)
@@ -229,8 +229,8 @@ async fn context_envelope_rejects_cross_tenant_agent_fetch(pool: PgPool) {
         .await
         .expect("seed other workspace");
     sqlx::query(
-        "INSERT INTO agents (id, organization_id, workspace_id, user_id, name, cli_tool, status)
-         VALUES ($1, $2, $3, $4, 'other-agent', 'claude', 'idle')",
+        "INSERT INTO agents (id, organization_id, workspace_id, user_id, name, cli_tool, status, runtime_kind)
+         VALUES ($1, $2, $3, $4, 'other-agent', 'claude', 'idle', 'container')",
     )
     .bind(other_agent)
     .bind(other_org)

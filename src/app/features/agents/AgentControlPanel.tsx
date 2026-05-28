@@ -9,7 +9,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
-import { isHostCliAgent, useAgentsStore, type AgentInfo } from '@app/shared/model/agents.store'
+import { isHostCliAgent, useAgentsStore, type AgentInfo } from '@app/entities/agent'
 
 interface AgentControlPanelProps {
   agent: AgentInfo

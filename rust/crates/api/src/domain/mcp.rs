@@ -108,11 +108,13 @@ pub(crate) fn parse_optional_uuid(value: Option<&Value>) -> Result<Option<Uuid>,
 pub(crate) fn app_error_message(err: AppError) -> String {
     match err.kind {
         ErrorKind::Validation(message) => format!("validation error: {message}"),
+        ErrorKind::ValidationWithCode { message, .. } => format!("validation error: {message}"),
         ErrorKind::Unprocessable(message) => format!("unprocessable entity: {message}"),
         ErrorKind::NotFound(message) => format!("not found: {message}"),
         ErrorKind::Conflict(message) => format!("conflict: {message}"),
         ErrorKind::Unauthorized => "unauthorized".to_string(),
-        ErrorKind::Forbidden => "forbidden".to_string(),
+        ErrorKind::Forbidden(_) => "forbidden".to_string(),
+        ErrorKind::ForbiddenWithCode { .. } => "forbidden".to_string(),
         ErrorKind::Unavailable(message) => format!("service unavailable: {message}"),
         ErrorKind::Internal(message) => format!("internal error: {message}"),
     }

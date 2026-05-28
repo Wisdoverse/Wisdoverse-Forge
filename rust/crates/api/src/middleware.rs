@@ -89,3 +89,119 @@ pub fn catch_panic_layer() -> CatchPanicLayer<JsonPanicResponse> {
 // and `apply_deprecation_headers`. The legacy nav surface is now just
 // "the nav surface" — canonical reads, no sunset date. See the P4
 // merge commit for history.
+
+// ---------------------------------------------------------------------------
+// IdempotencyKey extractor
+// ---------------------------------------------------------------------------
+
+use agentforge_core::{AppError, ErrorKind};
+use axum::extract::FromRequestParts;
+use axum::http::request::Parts;
+
+/// Axum extractor for the `Idempotency-Key` request header.
+///
+/// Required on mutating endpoints that support idempotent replay.  Returns a
+/// `400 VALIDATION_ERROR` when the header is absent, empty, or longer than 256
+/// bytes.
+///
+/// # Usage
+///
+/// ```ignore
+/// async fn enroll(idempotency: IdempotencyKey, ...) -> AppResult<Json<EnrollResponse>> {
+///     let key: &str = &idempotency.0;
+///     // pass key to the idempotency store before executing the action
+/// }
+/// ```
+#[derive(Debug)]
+pub struct IdempotencyKey(pub String);
+
+impl<S> FromRequestParts<S> for IdempotencyKey
+where
+    S: Send + Sync,
+{
+    type Rejection = AppError;
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        parts
+            .headers
+            .get("idempotency-key")
+            .and_then(|v| v.to_str().ok())
+            .filter(|s| !s.is_empty() && s.len() <= 256)
+            .map(|s| IdempotencyKey(s.to_string()))
+            .ok_or_else(|| {
+                AppError::from(ErrorKind::ValidationWithCode {
+                    code: "errors.agent.enroll.missing_idempotency_key",
+                    message: "Idempotency-Key header is required and must be 1–256 characters".into(),
+                })
+            })
+    }
+}
+
+#[cfg(test)]
+mod idempotency_tests {
+    use super::*;
+    use axum::http::Request;
+
+    #[tokio::test]
+    async fn idempotency_key_extractor_reads_header() {
+        let req = Request::builder().header("Idempotency-Key", "abc-123").body(()).unwrap();
+        let (mut parts, _) = req.into_parts();
+        let key = IdempotencyKey::from_request_parts(&mut parts, &()).await.unwrap();
+        assert_eq!(key.0, "abc-123");
+    }
+
+    #[tokio::test]
+    async fn idempotency_key_extractor_rejects_missing() {
+        let req = Request::builder().body(()).unwrap();
+        let (mut parts, _) = req.into_parts();
+        let res = IdempotencyKey::from_request_parts(&mut parts, &()).await;
+        assert!(res.is_err());
+    }
+
+    #[tokio::test]
+    async fn idempotency_key_extractor_rejects_empty() {
+        let req = Request::builder().header("Idempotency-Key", "").body(()).unwrap();
+        let (mut parts, _) = req.into_parts();
+        let res = IdempotencyKey::from_request_parts(&mut parts, &()).await;
+        assert!(res.is_err());
+    }
+
+    #[tokio::test]
+    async fn idempotency_key_extractor_rejects_oversized() {
+        let big = "x".repeat(257);
+        let req = Request::builder().header("Idempotency-Key", big.as_str()).body(()).unwrap();
+        let (mut parts, _) = req.into_parts();
+        let res = IdempotencyKey::from_request_parts(&mut parts, &()).await;
+        assert!(res.is_err());
+    }
+
+    #[tokio::test]
+    async fn idempotency_key_extractor_accepts_exactly_256_chars() {
+        let exact = "a".repeat(256);
+        let req = Request::builder().header("Idempotency-Key", exact.as_str()).body(()).unwrap();
+        let (mut parts, _) = req.into_parts();
+        let key = IdempotencyKey::from_request_parts(&mut parts, &()).await.unwrap();
+        assert_eq!(key.0.len(), 256);
+    }
+
+    #[tokio::test]
+    async fn idempotency_key_rejection_is_validation_error() {
+        let req = Request::builder().body(()).unwrap();
+        let (mut parts, _) = req.into_parts();
+        let err = IdempotencyKey::from_request_parts(&mut parts, &()).await.unwrap_err();
+        assert!(matches!(err.kind, ErrorKind::ValidationWithCode { .. }));
+    }
+
+    #[tokio::test]
+    async fn idempotency_key_rejection_carries_i18n_code() {
+        let req = Request::builder().body(()).unwrap();
+        let (mut parts, _) = req.into_parts();
+        let err = IdempotencyKey::from_request_parts(&mut parts, &()).await.unwrap_err();
+        match err.kind {
+            ErrorKind::ValidationWithCode { code, .. } => {
+                assert_eq!(code, "errors.agent.enroll.missing_idempotency_key");
+            }
+            other => panic!("expected ValidationWithCode, got {other:?}"),
+        }
+    }
+}

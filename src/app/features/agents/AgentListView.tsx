@@ -17,7 +17,7 @@ import {
   useAgentsStore,
   type AgentInfo,
   type AgentStatus,
-} from '@app/shared/model/agents.store'
+} from '@app/entities/agent'
 import { useNavigationStore } from '@app/entities/navigation'
 import { cn } from '@app/shared/lib/utils'
 import { AgentCard } from './AgentCard'

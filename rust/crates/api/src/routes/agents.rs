@@ -11,6 +11,7 @@
 //! - `POST   /api/v1/agents/:id/prompt/interrupt` — cancel in-flight SSE stream
 
 use axum::extract::{Path, Query, State};
+use axum::response::IntoResponse;
 use axum::routing::{get, patch, post};
 use axum::{Json, Router};
 use futures::StreamExt;
@@ -18,9 +19,10 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
-use agentforge_core::{AgentId, AgentStatus, AppResult};
+use agentforge_core::{AgentId, AgentStatus, AppResult, RuntimeKind};
 
 use crate::health::AppState;
+use crate::middleware::IdempotencyKey;
 use crate::services::agent::{
     AgentService, CreateAgentParams, agent_data_response, agent_delete_response, agent_enrollment_response,
     agent_git_status_response, agent_list_response, agent_messages_deleted_response, agent_messages_response,
@@ -46,6 +48,7 @@ fn default_limit() -> i64 {
 
 /// Request body for creating an agent.
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CreateAgentRequest {
     pub name: Option<String>,
     pub model: Option<String>,
@@ -70,11 +73,17 @@ pub struct CreateAgentRequest {
     /// both camelCase (frontend) and snake_case (API clients) to be accepted.
     #[serde(default, alias = "systemPrompt")]
     pub system_prompt: Option<String>,
+    /// Explicit runtime kind override (`container` | `cli` | `api`). Accepts the
+    /// camelCase alias `runtimeKind` from frontend/API clients. Unknown values
+    /// (such as the legacy `host_cli` slug) are rejected at parse time.
+    #[serde(default, alias = "runtimeKind")]
+    pub runtime_kind: Option<RuntimeKind>,
 }
 
 /// Request body for enrolling a Host CLI agent that runs outside the platform
 /// Docker runtime but is still managed by the remote control plane.
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EnrollLocalAgentRequest {
     pub name: Option<String>,
     pub model: Option<String>,
@@ -197,15 +206,23 @@ async fn create_agent(
 
 /// `POST /api/v1/agents/local-enroll` — create a managed Host CLI agent and
 /// return the one-time sidecar environment needed on the local machine.
+///
+/// Requires an `Idempotency-Key` header (1–256 characters). The same key
+/// within its 24-hour window returns the original response without creating a
+/// second agent. The response carries `Cache-Control: no-store` and
+/// `Pragma: no-cache` to prevent credentials from being cached in proxies or
+/// browser history.
 async fn enroll_local_agent(
     State(state): State<AppState>,
     auth: AuthUser,
+    IdempotencyKey(key): IdempotencyKey,
     Json(req): Json<EnrollLocalAgentRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<axum::response::Response> {
     let service = make_host_enrollment_service(&state);
     let (agent, enrollment) = service
         .enroll(
             &auth.scope,
+            &key,
             HostAgentEnrollmentInput {
                 name: req.name.as_deref(),
                 model: req.model.as_deref(),
@@ -216,7 +233,10 @@ async fn enroll_local_agent(
             },
         )
         .await?;
-    Ok(Json(agent_enrollment_response(agent, enrollment)))
+    let mut response = Json(agent_enrollment_response(agent, enrollment)).into_response();
+    response.headers_mut().insert(axum::http::header::CACHE_CONTROL, axum::http::HeaderValue::from_static("no-store"));
+    response.headers_mut().insert(axum::http::header::PRAGMA, axum::http::HeaderValue::from_static("no-cache"));
+    Ok(response)
 }
 
 /// `PATCH /api/v1/agents/:id/status` — update agent status with state machine validation.
@@ -725,5 +745,79 @@ mod tests {
     fn messages_query_custom_limit() {
         let q: MessagesQuery = serde_json::from_str(r#"{"limit": 100}"#).unwrap();
         assert_eq!(q.limit, 100);
+    }
+
+    // --- strict-parse: CreateAgentRequest ---
+
+    #[test]
+    fn create_request_rejects_legacy_runtime_kind_alias() {
+        // "host_cli" is not a valid RuntimeKind literal (canonical: container|cli|api).
+        let json = r#"{"cliTool": "codex", "runtimeKind": "host_cli"}"#;
+        let r: Result<CreateAgentRequest, _> = serde_json::from_str(json);
+        assert!(r.is_err(), "expected parse error for runtimeKind=host_cli");
+    }
+
+    #[test]
+    fn create_request_rejects_unknown_fields() {
+        let json = r#"{"cliTool": "codex", "rogue": "value"}"#;
+        let r: Result<CreateAgentRequest, _> = serde_json::from_str(json);
+        assert!(r.is_err(), "expected parse error for unknown field 'rogue'");
+    }
+
+    #[test]
+    fn create_request_accepts_canonical_runtime_kind_container() {
+        let json = r#"{"runtimeKind": "container", "cliTool": "codex"}"#;
+        let r: Result<CreateAgentRequest, _> = serde_json::from_str(json);
+        assert!(r.is_ok(), "expected ok for runtimeKind=container");
+        assert_eq!(r.unwrap().runtime_kind, Some(RuntimeKind::Container));
+    }
+
+    #[test]
+    fn create_request_accepts_canonical_runtime_kind_cli() {
+        let json = r#"{"runtimeKind": "cli", "cliTool": "claude"}"#;
+        let r: Result<CreateAgentRequest, _> = serde_json::from_str(json);
+        assert!(r.is_ok(), "expected ok for runtimeKind=cli");
+        assert_eq!(r.unwrap().runtime_kind, Some(RuntimeKind::Cli));
+    }
+
+    #[test]
+    fn create_request_accepts_canonical_runtime_kind_api() {
+        let json = r#"{"runtimeKind": "api", "provider": "anthropic"}"#;
+        let r: Result<CreateAgentRequest, _> = serde_json::from_str(json);
+        assert!(r.is_ok(), "expected ok for runtimeKind=api");
+        assert_eq!(r.unwrap().runtime_kind, Some(RuntimeKind::Api));
+    }
+
+    #[test]
+    fn create_request_runtime_kind_absent_is_none() {
+        let json = r#"{"cliTool": "codex"}"#;
+        let r: CreateAgentRequest = serde_json::from_str(json).unwrap();
+        assert!(r.runtime_kind.is_none());
+    }
+
+    #[test]
+    fn create_request_snake_case_runtime_kind_accepted() {
+        // snake_case field name (runtime_kind) is also accepted since it is the
+        // canonical serde field name, not an alias.
+        let json = r#"{"runtime_kind": "container"}"#;
+        let r: Result<CreateAgentRequest, _> = serde_json::from_str(json);
+        assert!(r.is_ok(), "expected ok for snake_case runtime_kind");
+        assert_eq!(r.unwrap().runtime_kind, Some(RuntimeKind::Container));
+    }
+
+    // --- strict-parse: EnrollLocalAgentRequest ---
+
+    #[test]
+    fn enroll_request_rejects_unknown_fields() {
+        let json = r#"{"cliTool": "codex", "rogue": "value"}"#;
+        let r: Result<EnrollLocalAgentRequest, _> = serde_json::from_str(json);
+        assert!(r.is_err(), "expected parse error for unknown field 'rogue'");
+    }
+
+    #[test]
+    fn enroll_request_valid_fields_still_accepted() {
+        let json = r#"{"cliTool": "codex", "name": "my-host-agent"}"#;
+        let r: Result<EnrollLocalAgentRequest, _> = serde_json::from_str(json);
+        assert!(r.is_ok(), "expected ok for valid enroll payload");
     }
 }

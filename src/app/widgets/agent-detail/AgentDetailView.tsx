@@ -6,7 +6,7 @@ import {
   useAgentsStore,
   type AgentInfo,
   type AgentStatus,
-} from '@app/shared/model/agents.store'
+} from '@app/entities/agent'
 import { AgentConfigTab } from '@app/features/agents/AgentConfigTab'
 import { AgentControlPanel } from '@app/features/agents/AgentControlPanel'
 import { AgentKindBadge } from '@app/features/agents/AgentKindBadge'

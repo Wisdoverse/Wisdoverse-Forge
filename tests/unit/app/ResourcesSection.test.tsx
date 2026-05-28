@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { ResourcesSection } from '@app/features/settings/ResourcesSection'
-import type { ResourceProfileOption } from '@app/shared/api/legacy/AgentAPI'
+import type { ResourceProfileOption } from '@app/entities/agent'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 
 const loadResourceProfilesMock = vi.fn().mockResolvedValue(undefined)

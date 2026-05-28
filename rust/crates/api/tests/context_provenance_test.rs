@@ -118,8 +118,8 @@ async fn seed_context(pool: &PgPool) -> ContextSeed {
         [(agent_id, org_id, workspace_id, owner_id), (other_agent_id, other_org_id, other_workspace_id, other_user_id)]
     {
         sqlx::query(
-            "INSERT INTO agents (id, organization_id, workspace_id, user_id, cli_tool, status)
-             VALUES ($1, $2, $3, $4, 'codex', 'idle')",
+            "INSERT INTO agents (id, organization_id, workspace_id, user_id, cli_tool, status, runtime_kind)
+             VALUES ($1, $2, $3, $4, 'codex', 'idle', 'container')",
         )
         .bind(agent_id)
         .bind(org)

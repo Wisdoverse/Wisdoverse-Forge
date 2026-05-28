@@ -12,6 +12,7 @@ pub mod context_preview;
 pub mod context_resolver;
 pub mod credential;
 pub mod dev_environment;
+pub mod enrollment_idempotency;
 pub mod favorite;
 pub mod feature_flag;
 pub mod governance_audit;

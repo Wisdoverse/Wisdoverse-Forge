@@ -4,7 +4,7 @@
 //! rules with repositories, infrastructure clients, and HTTP route DTOs.
 
 pub(crate) mod admin;
-pub(crate) mod agent;
+pub mod agent;
 pub(crate) mod agent_workspace;
 pub(crate) mod attachment;
 pub(crate) mod auth;

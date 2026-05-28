@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { Bot, Power, RefreshCw } from 'lucide-react'
 import * as THREE from 'three'
-import { useAgentsStore, type AgentInfo, type AgentStatus } from '@app/shared/model/agents.store'
+import { useAgentsStore, type AgentInfo, type AgentStatus } from '@app/entities/agent'
 
 type AgentSceneObject = {
   group: THREE.Group
