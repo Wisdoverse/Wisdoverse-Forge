@@ -1,5 +1,5 @@
-import { type ReactNode, useCallback, useEffect, useState } from 'react'
-import { ShieldAlert, Users } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { Plus } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAuth } from '@app/shared/model/auth.context'
@@ -17,17 +17,6 @@ export function TeamsSection() {
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [membersTeam, setMembersTeam] = useState<NavTeam | null>(null)
-  const emptyTeamTitle = !user?.orgId
-    ? 'Choose an organization first'
-    : canCreateTeam
-      ? 'Create a team first'
-      : 'Ask an owner or admin to create the first team'
-  const emptyTeamDescription = !user?.orgId
-    ? 'Teams belong to an organization. Switch to one before adding projects or agents.'
-    : canCreateTeam
-      ? 'Teams group projects and decide who can manage work. Start with one team, then add projects inside it.'
-      : 'Only owners and admins can create teams. You can work here after someone adds a team for you.'
-
   const loadOrgUsers = useCallback(() => userApi.getUsers(), [])
 
   const loadTeams = useCallback(async () => {
@@ -193,38 +182,6 @@ export function TeamsSection() {
           onClose={() => setMembersTeam(null)}
         />
       )}
-    </div>
-  )
-}
-
-function WorkspaceEmptyState({
-  icon,
-  title,
-  description,
-  action,
-}: {
-  icon: ReactNode
-  title: string
-  description: string
-  action?: ReactNode
-}) {
-  return (
-    <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">
-      <div
-        className="flex h-10 w-10 items-center justify-center rounded-lg bg-black/[0.03] text-secondary-light ring-1 ring-black/5 dark:bg-white/[0.05] dark:text-secondary-dark dark:ring-white/10"
-        aria-hidden="true"
-      >
-        {icon}
-      </div>
-      <div className="max-w-md">
-        <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-          {title}
-        </p>
-        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {description}
-        </p>
-      </div>
-      {action}
     </div>
   )
 }

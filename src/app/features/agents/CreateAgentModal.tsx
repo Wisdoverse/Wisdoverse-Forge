@@ -218,8 +218,6 @@ export function CreateAgentModal() {
         .flat()
         .find((project) => project.id === selectedProjectId) ?? null)
     : null
-  const selectedGroup = groups.find((group) => group.id === groupId) ?? null
-
   const dialogRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {

@@ -104,10 +104,12 @@ const SCOPE_KIND_OPTIONS: { value: ScopeKindFilter; label: string }[] = [
   { value: 'user', label: 'User' },
 ]
 
-const AUDIT_REVIEW_STEPS = [
-  'Start with the default context events.',
-  'Narrow by item or scope only after you see too many rows.',
-  'Keep Redact secrets on before exporting evidence.',
+const COMMON_EVENT_TYPES = [
+  'governance.context.feedback.recorded',
+  'governance.context.skill.approved',
+  'governance.context.skill.reviewed',
+  'governance.context.memory.updated',
+  'governance.context.memory.rejected',
 ]
 
 const INPUT_CLASS =
@@ -305,7 +307,6 @@ export function AuditLogView() {
               aria-label="Refresh audit events"
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-ui-button text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
               title="Refresh audit events"
-              aria-label="Refresh audit events"
             >
               <RefreshCw size={15} className={cn(loading && 'animate-spin')} aria-hidden="true" />
             </button>
@@ -317,7 +318,6 @@ export function AuditLogView() {
               aria-label="Export audit events"
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-ui-button text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
               title="Export audit events"
-              aria-label="Export audit events"
             >
               <Download size={15} aria-hidden="true" />
             </button>
