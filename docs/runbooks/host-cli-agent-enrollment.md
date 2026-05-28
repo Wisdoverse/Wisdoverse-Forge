@@ -22,6 +22,48 @@ Supported operator platforms are Linux x86_64, Linux ARM64, macOS Apple Silicon,
 macOS Intel, and Windows x86_64. Windows ARM64 is a secondary target until the
 release pipeline has validated artifacts for it.
 
+## Verify the sidecar binary (recommended)
+
+Before running `agentforge-sidecar` from a release artifact, verify its
+Sigstore signature to confirm it was built and signed by the official release
+pipeline and has not been tampered with.
+
+**Prerequisites:**
+
+1. Install `cosign` (one-time, any platform):
+   <https://docs.sigstore.dev/cosign/installation/>
+2. Download the artifact **and** its companion `.sig.bundle` from the same
+   GitHub release page. Both files must match.
+
+**Verify:**
+
+For macOS or Linux:
+
+```bash
+agentforge verify --tag v1.2.3 ./agentforge-sidecar-linux-amd64
+```
+
+For Windows (PowerShell):
+
+```powershell
+agentforge verify --tag v1.2.3 .\agentforge-sidecar-windows-amd64.exe
+```
+
+Successful output:
+
+```
+verified: ./agentforge-sidecar-linux-amd64 (tag v1.2.3, repo Wisdoverse/Wisdoverse-Forge)
+```
+
+**If verification fails:** Do not run the artifact. Re-download both the
+artifact and its `.sig.bundle` from the official release page at
+`https://github.com/Wisdoverse/Wisdoverse-Forge/releases/tag/v1.2.3` and
+retry. If it still fails, file a security issue before using the binary.
+
+Each release also publishes an SBOM as `<artifact>.sbom.json` (CycloneDX
+format) for downstream supply-chain audit. Download it from the same release
+page if you need it for your compliance workflow.
+
 ## Enroll
 
 Run this from the local directory where the agent should work. Replace
