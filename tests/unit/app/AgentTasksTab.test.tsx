@@ -158,9 +158,7 @@ describe('AgentTasksTab', () => {
     render(<AgentTasksTab agentId="agent-1" />)
 
     expect(
-      await screen.findByText(
-        'This agent has no assigned tasks yet. Assign a task to this agent to track the work here.'
-      )
+      await screen.findByText('No tasks have reached this agent yet')
     ).toBeDefined()
   })
 })

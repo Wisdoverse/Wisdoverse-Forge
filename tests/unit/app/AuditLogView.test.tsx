@@ -98,11 +98,9 @@ describe('AuditLogView', () => {
     render(<AuditLogView />)
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
-    expect(screen.getByTestId('governance-audit-review-path')).toBeDefined()
-    expect(screen.getByText('Audit review path')).toBeDefined()
-    expect(screen.getByText(/keep redact secrets on/i)).toBeDefined()
+    expect(screen.getByText(/Hide secrets before export/i)).toBeDefined()
     expect(screen.getAllByTestId('governance-audit-row')).toHaveLength(2)
-    expect(screen.getByText('Records')).toBeDefined()
+    expect(screen.getByText('Change')).toBeDefined()
     expect(screen.getAllByText('Changed item').length).toBeGreaterThan(0)
     expect(screen.getByText('Changed by')).toBeDefined()
     expect(screen.getByText('Verification')).toBeDefined()
@@ -143,7 +141,7 @@ describe('AuditLogView', () => {
 
     render(<AuditLogView />)
 
-    expect(await screen.findByText('No governance audit events')).toBeDefined()
-    expect(screen.getByText(/clear narrow filters or increase the limit/i)).toBeDefined()
+    expect(await screen.findByText('No audit events in this view')).toBeDefined()
+    expect(screen.getByText(/Try All governance events or widen the time range/i)).toBeDefined()
   })
 })

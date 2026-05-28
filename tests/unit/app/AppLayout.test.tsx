@@ -140,7 +140,7 @@ describe('AppLayout', () => {
 
     fireEvent.click(searchButton)
 
-    expect(screen.getByPlaceholderText('Search commands...')).toBeDefined()
+    expect(screen.getByPlaceholderText(/search commands/i)).toBeDefined()
   })
 
   test('does not expose task group creation from the Tasks top bar', async () => {
