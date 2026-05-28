@@ -17,6 +17,22 @@ function formatMemory(memoryMb: number): string {
   return `${memoryMb} MB`
 }
 
+function formatCpu(cpu: number): string {
+  return `${cpu} ${cpu === 1 ? 'core' : 'cores'}`
+}
+
+function describeProfile(profile: ResourceProfileOption): string {
+  if (profile.cpu <= 1 && profile.memoryMb <= 2048) {
+    return 'Best for short chats, planning, and small file edits.'
+  }
+
+  if (profile.cpu <= 2 && profile.memoryMb <= 4096) {
+    return 'Good default for everyday coding and review tasks.'
+  }
+
+  return 'Use for larger builds, long searches, or heavy project work.'
+}
+
 function resourceProfileUseCase(profile: ResourceProfileOption): string {
   if (profile.cpu <= 1 && profile.memoryMb <= 2048) {
     return 'Light reviews, docs, and short commands'

@@ -145,11 +145,11 @@ interface CreateKeyFormProps {
 function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
   const [name, setName] = useState('')
   const nameInputId = 'platform-api-key-name'
-  const nameHelpId = 'platform-api-key-name-help'
+  const trimmedName = name.trim()
+  const isReady = Boolean(trimmedName)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setSubmitAttempted(true)
     if (!isReady) {
       document.getElementById(nameInputId)?.focus()
       return

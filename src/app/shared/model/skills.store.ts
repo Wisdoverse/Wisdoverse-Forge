@@ -295,7 +295,7 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
       return skill
     } catch (err) {
       if (err instanceof SkillUserFacingError) throw err
-      throw new Error(skillNetworkErrorMessage('create'))
+      throw new Error(skillNetworkErrorMessage('create'), { cause: err })
     }
   },
 

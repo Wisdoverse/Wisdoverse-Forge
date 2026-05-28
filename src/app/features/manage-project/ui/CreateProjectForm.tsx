@@ -36,16 +36,6 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
         : 'Enter a project name before creating it.'
       : null
   const errorField = visibleError === null ? null : missingTeam ? 'team' : 'name'
-  const readinessTitle = missingTeam
-    ? 'Next: Create a Team First'
-    : trimmedName
-      ? 'Ready to Create Project'
-      : 'Next: Name the Project'
-  const readinessDetail = missingTeam
-    ? 'Every project belongs to a team so access and ownership stay clear.'
-    : trimmedName
-      ? 'Create this project, then add agents and tasks to it.'
-      : 'Use a name people recognize, such as the product, repo, or customer.'
 
   useEffect(() => {
     if (!teamId && teams[0]) {
@@ -99,7 +89,6 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Web App"
-            aria-describedby="project-name-help"
             autoFocus
             aria-invalid={errorField === 'name'}
             aria-describedby={`${statusId}${errorField === 'name' ? ` ${errorId}` : ''}`}

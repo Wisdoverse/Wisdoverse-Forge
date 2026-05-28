@@ -37,21 +37,25 @@ function statusConfig(status: InvoiceStatus): {
     case 'open':
       return {
         label: 'Payment due',
+        description: 'Pay this invoice to keep your plan active.',
         color: 'bg-apple-blue/10 text-apple-blue',
       }
     case 'void':
       return {
         label: 'Canceled',
+        description: 'This invoice was voided and no payment is needed.',
         color: 'text-secondary-light bg-black/5 dark:bg-white/5 dark:text-secondary-dark',
       }
     case 'draft':
       return {
         label: 'Preparing',
+        description: 'This invoice is still being prepared.',
         color: 'text-secondary-light bg-black/5 dark:bg-white/5 dark:text-secondary-dark',
       }
     case 'uncollectible':
       return {
         label: 'Payment failed',
+        description: 'Update your payment method to resolve this invoice.',
         color: 'bg-apple-red/10 text-apple-red',
       }
   }

@@ -96,10 +96,23 @@ interface AddSshKeyFormProps {
 function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
   const [label, setLabel] = useState('')
   const [publicKey, setPublicKey] = useState('')
+  const [submitAttempted, setSubmitAttempted] = useState(false)
   const labelInputId = 'ssh-key-label'
   const labelHelpId = 'ssh-key-label-help'
   const publicKeyInputId = 'ssh-public-key'
   const publicKeyHelpId = 'ssh-public-key-help'
+  const statusId = 'ssh-key-form-status'
+  const errorId = 'ssh-key-form-error'
+  const trimmedLabel = label.trim()
+  const trimmedPublicKey = publicKey.trim()
+  const missingField = !trimmedLabel ? 'label' : !trimmedPublicKey ? 'publicKey' : null
+  const isReady = missingField === null
+  const visibleError =
+    submitAttempted && missingField === 'label'
+      ? 'Name this SSH key before saving it.'
+      : submitAttempted && missingField === 'publicKey'
+        ? 'Paste the public SSH key before saving it.'
+        : null
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -158,14 +171,12 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="e.g. GitHub deploy key"
-            aria-describedby="ssh-key-label-help"
             autoFocus
             autoComplete="off"
             spellCheck={false}
             aria-invalid={visibleError !== null && missingField === 'label'}
-            aria-describedby={`${statusId}${visibleError !== null && missingField === 'label' ? ` ${errorId}` : ''}`}
+            aria-describedby={`${statusId}${visibleError !== null && missingField === 'label' ? ` ${errorId}` : ''} ${labelHelpId}`}
             className={uiStyles.input}
-            aria-describedby={labelHelpId}
           />
           <p
             id="ssh-key-label-help"
@@ -190,7 +201,6 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
             value={publicKey}
             onChange={(e) => setPublicKey(e.target.value)}
             placeholder="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... user@host"
-            aria-describedby="ssh-key-public-help"
             required
             rows={6}
             className={cn(

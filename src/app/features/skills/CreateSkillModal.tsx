@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Sparkles, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
@@ -15,6 +15,15 @@ const emptyForm = {
   triggerPattern: '',
   content: '',
 }
+
+const SKILL_REVIEW_POINTS = [
+  { label: 'Repeatable', value: 'Use this for work your team expects to repeat.' },
+  {
+    label: 'Safe to share',
+    value: 'Leave out tokens, private notes, and one-time project details.',
+  },
+  { label: 'Agent ready', value: 'Write steps an agent can follow without extra context.' },
+]
 
 const skillTemplates = [
   {
@@ -63,7 +72,6 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
   const [fieldError, setFieldError] = useState<'name' | 'content' | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
-  const contentInputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -81,6 +89,14 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
   }, [onClose, open])
 
   if (!open) return null
+
+  function updateField(field: keyof typeof emptyForm, value: string) {
+    setForm((current) => ({ ...current, [field]: value }))
+    if (field === fieldError) {
+      setError(null)
+      setFieldError(null)
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
