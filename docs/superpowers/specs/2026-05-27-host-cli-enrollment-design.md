@@ -851,11 +851,11 @@ Deferred to follow-up PRs, tracked in `docs/issues/` (or the project's issue tra
 - **Telemetry dashboards split by runtime kind** (SRE C7) — separate observability initiative.
 - **Sum-type `AgentRuntime` with per-variant VO fields** (DDD C1) — represents Container/HostCli/Api as `enum` variants carrying their own data; ambitious refactor, separate phase.
 - **Parallel typestate `EnrolledHostCli` for NATS-bound operations** (DDD C6) — applies the ContainerAgent pattern to the messaging boundary; separate hardening.
-- **NATS subject namespacing by runtime kind** (Platform C7) — `events.ingest.container.<uuid>` vs `events.ingest.cli.<uuid>` and matching subject-pattern in the callout; defense-in-depth at the messaging layer.
+- **NATS subject namespacing by runtime kind** (Platform C7) — `events.ingest.container.<uuid>` vs `events.ingest.cli.<uuid>` and matching subject-pattern in the callout; defense-in-depth at the messaging layer. Design locked in [`docs/architecture/nats-subjects.md`](../../architecture/nats-subjects.md).
 - **Hot-path serde benchmark + zero-copy `Decode`** (Architect C7) — measure `parse` cost on the agent-list endpoint and optimize if measurable.
 - **Sidecar binary supply-chain hardening** (Platform C2) — Sigstore/cosign signatures, SBOM, `agentforge --verify` flag. Cross-cutting; separate program of work.
 - **Migration manifest with SHA-256 checksum verification** (Platform C6) — supply-chain hardening at the DB-migration layer; cross-cutting.
-- **HMAC envelope schema + replay window specification** (Platform C4) — sidecar handshake protocol is a stated non-goal of this redesign; tracked separately.
+- **HMAC envelope schema + replay window specification** (Platform C4) — sidecar handshake protocol is a stated non-goal of this redesign; tracked separately. Design locked in [`docs/security/hmac-envelope.md`](../../security/hmac-envelope.md).
 - **Re-organizing the orchestrator's `runtime_capabilities` table** to flatten or align with the agents-side enum (cross-aggregate refactor; deliberate non-goal here).
 
 ## 15. Review Decisions (audit trail)
