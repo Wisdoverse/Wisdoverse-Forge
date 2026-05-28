@@ -12,15 +12,15 @@ The Rust API and orchestrator emit Prometheus metrics through
 `metrics_exporter_prometheus`. The default scrape endpoint is `/metrics` on
 the orchestrator. The relevant metric families are:
 
-| SLI                       | Metric                                                                    | Definition                                                                         |
-| ------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| API availability          | `http_requests_total{status=~"5..",service="api"}`                        | `1 - (5xx requests / total requests)` over a rolling window.                       |
-| API latency (p95)         | `http_request_duration_seconds{service="api",quantile="0.95"}`            | Histogram quantile across all routes; excludes WebSocket upgrades and SSE streams. |
-| Orchestrator success rate | `task_runs_completed_total{status="success"} / task_runs_completed_total` | Fraction of completed task runs that ended without an error status.                |
-| Workflow start latency    | `temporal_workflow_start_seconds{quantile="0.95"}`                        | Time from `start_workflow` accepted to the workflow worker picking it up.          |
-| NATS event delivery       | `nats_messages_delivered_total / nats_messages_published_total`           | Fraction of events successfully delivered to a consumer.                           |
-| DB pool saturation        | `sqlx_connection_pool_in_use / sqlx_connection_pool_size`                 | Average over the SLO window.                                                       |
-| WebSocket fanout backlog  | `ws_outbound_buffer_depth{quantile="0.99"}`                               | Backlog depth at the 99th percentile per connection.                               |
+| SLI                       | Metric                                                                                                                            | Definition                                                                                                                                                   |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| API availability          | `http_requests_total{status=~"5..",service="api"}`                                                                                | `1 - (5xx requests / total requests)` over a rolling window.                                                                                                 |
+| API latency (p95)         | `histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{path=~"/api/v1/agents.*", method="POST"}[5m])))` | p95 over the agents-runtime write paths, computed from the histogram `_bucket` series (labels `method`/`path`); excludes WebSocket upgrades and SSE streams. |
+| Orchestrator success rate | `task_runs_completed_total{status="success"} / task_runs_completed_total`                                                         | Fraction of completed task runs that ended without an error status.                                                                                          |
+| Workflow start latency    | `temporal_workflow_start_seconds{quantile="0.95"}`                                                                                | Time from `start_workflow` accepted to the workflow worker picking it up.                                                                                    |
+| NATS event delivery       | `nats_messages_delivered_total / nats_messages_published_total`                                                                   | Fraction of events successfully delivered to a consumer.                                                                                                     |
+| DB pool saturation        | `sqlx_connection_pool_in_use / sqlx_connection_pool_size`                                                                         | Average over the SLO window.                                                                                                                                 |
+| WebSocket fanout backlog  | `ws_outbound_buffer_depth{quantile="0.99"}`                                                                                       | Backlog depth at the 99th percentile per connection.                                                                                                         |
 
 ## SLO Targets
 
