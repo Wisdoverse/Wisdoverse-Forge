@@ -121,8 +121,8 @@ async fn seed_context_approval(pool: &PgPool) -> ContextApprovalSeed {
     .expect("seed project");
 
     sqlx::query(
-        "INSERT INTO agents (id, organization_id, workspace_id, user_id, cli_tool, status)
-         VALUES ($1, $2, $3, $4, 'codex', 'idle')",
+        "INSERT INTO agents (id, organization_id, workspace_id, user_id, cli_tool, status, runtime_kind)
+         VALUES ($1, $2, $3, $4, 'codex', 'idle', 'container')",
     )
     .bind(agent_id)
     .bind(org_id)
