@@ -1,26 +1,9 @@
 # Wisdoverse Forge
 
-Wisdoverse Forge is a self-hosted governed AI workbench for teams.
-
-It turns work into auditable tasks, runs, and evidence; operates AI agent
-runtimes through isolated sessions and workflows; and provides the foundation
-for reusable context, memory, skills, permissions, and runtime-aware execution
-across LLMs and Container CLIs.
-
-The product focus is repeatable, governed work rather than a developer-only
-kanban or a single-vendor memory store. Wisdoverse Forge is designed so the same kind
-of task can be done again with approved context, visible provenance, and
-revocable reuse.
+Wisdoverse Forge turns team work into auditable tasks, runs, and evidence — operated by AI agents inside isolated container, host-CLI, or provider runtimes under one governed control plane.
 
 > [!WARNING]
-> Wisdoverse Forge is an engineering preview for trusted self-hosted environments. The
-> active backend is Rust-owned; legacy TypeScript server paths are not part of
-> the current runtime.
->
-> The proofed runtime boundary is documented in
-> [Runtime Validation](docs/runbooks/runtime-validation.md). README-visible
-> capabilities outside that boundary remain preview work until the runbook lists
-> a validation path for them.
+> Wisdoverse Forge is a low-key engineering preview for trusted self-hosted environments. The active backend is Rust-owned; legacy TypeScript server paths are not part of the current runtime. Capabilities outside the [Runtime Validation](docs/runbooks/runtime-validation.md) boundary remain preview work.
 
 ## Running Wisdoverse Forge
 
@@ -28,162 +11,99 @@ revocable reuse.
 
 - Docker and Docker Compose v2
 - Node.js 24+
-- Make
-- Git
-- Enough local resources for PostgreSQL, Redis, NATS, Temporal, and
-  Docker-backed agent sessions
+- Make, Git
+- Resources for PostgreSQL, Redis, NATS, Temporal, and Docker-backed agent containers
 
-### Product and Documentation Standard
+### Option 1. Implement your own service
 
-Wisdoverse Forge treats operators as first-time users unless a section is
-explicitly marked as advanced. Product flows, CLI commands, and docs should
-start with the simplest safe path, state prerequisites before commands, explain
-the expected result, and keep implementation details behind validation or
-troubleshooting sections.
+Point your coding agent at the spec:
 
-CLI and local-agent workflows are supported product surfaces. The Platform CLI
-and local sidecar release policy must cover mainstream Linux, macOS, and Windows
-operator environments. See [CLI Platform Support](docs/guides/cli-platform-support.md)
-for supported targets, artifact expectations, and beginner-first CLI standards.
+> Implement a Wisdoverse Forge-compatible service according to `SPEC.md` (and the protocol contracts in `shared/types/`). Match the runtime boundary documented in `docs/runbooks/runtime-validation.md`.
 
-### Option 1. Build a compatible service
+### Option 2. Run this reference implementation
 
-Use the service contract as the implementation target:
+Tell your coding agent to set up this repository against your machine:
 
-> Implement a Wisdoverse Forge-compatible service according to `SPEC.md`.
+> Set up Wisdoverse Forge from `docs/guides/getting-started.md`. Run `npm install`, then `make quickstart-local`, then `npm run dev`. Open `http://localhost:4002`, register the first account, add a provider in Settings, and create an agent from the Start page. If a single-host VPS deployment is needed, follow the prebuilt-image path `make quickstart-selfhost-pull DOMAIN=<domain>` from the same guide.
 
-### Option 2. Run this implementation
+For Host CLI enrollment (operator-managed CLI joins the platform), follow `docs/runbooks/host-cli-agent-enrollment.md`. For the migration 062-065 `runtime_kind` discriminator deployment, follow `docs/runbooks/migration-062-runtime-kind.md`.
 
-Start with [Getting Started](docs/guides/getting-started.md), then use the
-[Configuration Guide](docs/guides/configuration.md) and
-[Deployment Guide](docs/guides/deployment.md) for environment variables, Compose
-profiles, and production topology.
+### Option 3. Work on this repository
 
-For a clean local trial, the first commands are:
+Brief the agent with the repository contracts before editing:
 
-```bash
-npm install
-make quickstart-local
-npm run dev
-```
+> Work on Wisdoverse Forge from repository truth. Read `AGENTS.md`, `SPEC.md`, `CLAUDE.md`, `docs/README.md`, `docs/architecture/ddd-contract.md`, and `CONTRIBUTING.md` before changing code. Keep backend changes in `rust/`, frontend changes in `src/app/` (Feature-Sliced Design layers) and `shared/`, and deployment changes in `docker/` plus the matching runbook. Run `npm run fsd:check`, `npm run lint`, `npm run typecheck`, and `cd rust && make ci` against any change. Use `gh` for GitHub PRs and `glab` for GitLab.
 
-Then open `http://localhost:4002`, register the first account, and use the
-in-app Start page to add a provider and create an agent.
-
-For a single-host self-contained deployment, use the prebuilt-image path. This
-is the recommended first VPS path because it avoids compiling Rust and frontend
-assets on the server:
-
-```bash
-make quickstart-selfhost-pull DOMAIN=forge.example.com
-```
-
-Use the default `DOMAIN=localhost` for a private trial. Public domains use
-automatic HTTPS through Caddy when DNS points at the host and ports `80`/`443`
-are reachable.
-
-If `80` or `443` is already occupied on the host, pass alternate public ports:
-
-```bash
-make quickstart-selfhost-pull DOMAIN=localhost HTTP_PORT=18080 HTTPS_PORT=18443
-```
-
-Then open `https://localhost:18443`.
-
-Run `make beginner-audit` to verify the self-host bootstrap path without
-starting or modifying the main stack. Release validation can add
-`BEGINNER_AUDIT_FLAGS="--pull-images --local-smoke --live --provider"` with a
-real provider key and public `BASE_URL`; if the domain is behind a CDN, set
-`BEGINNER_ORIGIN_IP` to verify the source VPS directly. After a provider has
-already been added and tested in Settings, set `BEGINNER_USE_EXISTING_PROVIDER=1`
-to verify the Provider + Prompt path without re-entering the key.
-For a keyless local-model path, run Ollama separately, set `OLLAMA_BASE_URL`
-in `docker/.env`, then add the `ollama` provider in Settings without an API key.
-
-Use `make quickstart-selfhost` when you intentionally want to build the server
-and frontend images from source on the host.
-
-### Option 3. Work on this repository with an AI agent
-
-Start the agent with the repository contracts:
-
-> Work on Wisdoverse Forge from repository truth. Read `AGENTS.md`, `SPEC.md`,
-> `docs/README.md`, and `CONTRIBUTING.md` before editing. Keep backend changes in
-> `rust/`, frontend changes in `src/app` and `shared/`, and deployment changes in
-> `docker/` plus the relevant runbook.
+---
 
 ## What It Provides
 
-- Rust API and WebSocket gateway for work state, agent lifecycle, auth,
-  telemetry, and the internal MCP bridge
-- Rust orchestrator and Temporal workflow runtime
-- Three first-class agent runtimes governed by `agents.runtime_kind`
-  (`container | cli | api`):
-  - **Container Runtime** - platform-spawned Docker container running a
-    Container CLI (claude / codex / gemini / opencode) plus the sidecar
-  - **Host CLI Runtime** - operator-managed CLI on the operator's machine that
-    enrolls into the platform via the sidecar and NATS, with idempotent
-    enrollment and an atomic `agent.enrolled` audit event
-  - **API Runtime** - provider-backed prompt agent (Anthropic / OpenAI /
-    Google) with no shell and no container
-- DB-enforced agent runtime invariants via `CHECK` constraints on
-  `(runtime_kind, cli_tool, container_id)`; lifecycle endpoints reject
-  cross-kind operations with operator-facing i18n error messages
-- Task, run, review, event, and evidence surfaces for governed execution
-- Skills, plugins, prompts, credentials, and runtime configuration primitives
-- Per-agent NATS auth via callout with HMAC-signed result envelopes, per-agent
-  scoped pub/sub permissions, and zero shared agent credentials
-- PostgreSQL (with online-safe migration patterns), Redis, NATS, MinIO, and
-  Docker runtime integrations
-- React/Vite/Three.js browser UI under strict Feature-Sliced Design boundaries
-  (app -> pages -> widgets -> features -> entities -> shared), gated by
-  `npm run fsd:check`
-- Rust Platform CLI (`agentforge`) with `migrate doctor` pre-flight,
-  `agents enroll-local` host-CLI enrollment, and standard ops subcommands
-- Multi-locale operator UI (English + Chinese) with i18n error codes for every
-  user-facing rejection
+- **Rust API + WebSocket gateway** for work state, agent lifecycle, auth, telemetry, internal MCP bridge
+- **Rust orchestrator + Temporal workflow runtime**
+- **Three first-class agent runtimes** governed by `agents.runtime_kind` (`container | cli | api`) with DB CHECK invariants on `(runtime_kind, cli_tool, container_id)`:
+  - **Container Runtime** — platform-spawned Docker container running a Container CLI (`claude` / `codex` / `gemini` / `opencode`) plus sidecar
+  - **Host CLI Runtime** — operator-managed CLI on the operator's machine that enrolls via sidecar and NATS, idempotent (`Idempotency-Key`), atomic `agent.enrolled` audit event
+  - **API Runtime** — provider-backed prompt agent (Anthropic / OpenAI / Google) with no shell, no container
+- **Task, run, review, event, evidence surfaces** for governed execution
+- **Skills, plugins, prompts, credentials, runtime configuration primitives**
+- **Per-agent NATS auth via callout** with HMAC-signed result envelopes, per-agent scoped pub/sub permissions, zero shared agent credentials
+- **PostgreSQL + Redis + NATS + MinIO + Docker** integrations with online-safe migration patterns
+- **React/Vite/Three.js browser UI** under strict Feature-Sliced Design boundaries (`app → pages → widgets → features → entities → shared`), gated by `npm run fsd:check`
+- **Rust Platform CLI (`agentforge`)** with `migrate doctor` pre-flight, `agents enroll-local` host-CLI enrollment, ops subcommands
+- **Multi-locale operator UI** (English + Chinese) with i18n error codes on every user-facing rejection
 
-## Current Preview Boundaries
+## Repository Map (for agents)
 
-The validated `prod-ext` contract covers the Rust API, WebSocket/NATS realtime
-fanout, Rust orchestrator, Temporal workflow execution, PostgreSQL/Redis/NATS
-health, and a browser-to-sidecar orchestration task path with task evidence.
-
-The following surfaces are still preview placeholders and should not be
-represented as complete product capabilities:
-
-- Per-agent git status from `GET /api/v1/agents/:id/git`
-- Voice transcription through `POST /api/v1/voice/transcribe`
+```
+rust/                  Rust workspace (active backend)
+  crates/core/         Shared domain types, errors, RuntimeKind, CliToolKind
+  crates/db/           SQLx pool + migrations
+  crates/auth/         JWT + Argon2 + auth middleware
+  crates/infra/        Redis + NATS clients
+  crates/api/          Axum routes / services / repositories / WS gateway / MCP bridge
+                       (route → service → domain → repository layering enforced
+                        by tests/route_ddd_boundary_test.rs)
+  crates/platform/     Docker, security policy, warm pool
+  crates/jobs/         PostgreSQL task queue
+  crates/llm/          Multi-provider LLM gateway
+  crates/orchestrator/ Temporal workflow logic
+  crates/cli/          Platform CLI library
+  bins/server/         Main API binary
+  bins/orchestrator/   Orchestrator service binary
+  bins/sidecar/        Agent container sidecar
+  bins/cli/            `agentforge` operator CLI
+src/                   React/Vite/Three.js frontend
+  app/entities/        Domain types + specifications + stores (FSD entity layer)
+  app/features/        User workflows (FSD feature layer)
+  app/widgets/         Composed view surfaces (FSD widget layer)
+  app/pages/           Route-level surfaces (FSD page layer)
+  app/shared/          Cross-slice utilities, i18n, generated clients
+shared/                Cross-stack TypeScript contracts + generated proto output
+hooks/                 Agent container hook relay
+docker/                Dockerfiles + Compose files (dev / prod / external profiles)
+tests/                 Vitest + Playwright suites
+docs/                  Architecture, runbooks, guides, specs
+```
 
 ## Documentation
 
-- [SPEC.md](SPEC.md) - language-agnostic service contract
-- [docs/README.md](docs/README.md) - documentation map and truth hierarchy
-- [Architecture Overview](docs/architecture/overview.md) - runtime topology and
-  data flow
-- [DDD Layer Contract](docs/architecture/ddd-contract.md) - route/service/domain/repository rules
-- [Aggregate Catalog](docs/architecture/aggregate-catalog.md) - DDD aggregates and modules
-- [Architecture Decision Records](docs/adr/) - durable record of cross-cutting decisions
-- [Threat Model](docs/security/threat-model.md) - STRIDE per trust boundary
-- [Observability and SLOs](docs/runbooks/observability-slo.md) - SLIs, SLOs, alerts
-- [Versioning Policy](docs/versioning.md) - API versioning and release policy
-- [Runtime Validation](docs/runbooks/runtime-validation.md) - current proofed
-  runtime boundary and commands
-- [Getting Started](docs/guides/getting-started.md) - local setup path
-- [Host CLI Enrollment](docs/runbooks/host-cli-agent-enrollment.md) - operator
-  guide for joining a local CLI process to the platform
-- [Migration 062 Runbook](docs/runbooks/migration-062-runtime-kind.md) -
-  pre-flight, validation, and recovery playbook for the `runtime_kind`
-  discriminator migration sequence (062/063/064/065)
-- [CLI Platform Support](docs/guides/cli-platform-support.md) - Platform CLI,
-  local sidecar, and multi-platform release expectations
-- [Contributing](CONTRIBUTING.md) - workflow, validation, and PR expectations
-- [Code of Conduct](CODE_OF_CONDUCT.md) - community standards
-- [Security Policy](SECURITY.md) - vulnerability disclosure
+- [SPEC.md](SPEC.md) — language-agnostic service contract
+- [AGENTS.md](AGENTS.md) — symlink to `CLAUDE.md`, the agent entrypoint
+- [docs/README.md](docs/README.md) — documentation map and truth hierarchy
+- [Architecture Overview](docs/architecture/overview.md) — runtime topology and data flow
+- [DDD Layer Contract](docs/architecture/ddd-contract.md) — route / service / domain / repository rules
+- [Aggregate Catalog](docs/architecture/aggregate-catalog.md) — DDD aggregates and modules
+- [Threat Model](docs/security/threat-model.md) — STRIDE per trust boundary
+- [Observability and SLOs](docs/runbooks/observability-slo.md) — SLIs, SLOs, alerts
+- [Host CLI Enrollment](docs/runbooks/host-cli-agent-enrollment.md) — operator guide for local CLI joins
+- [Migration 062 Runbook](docs/runbooks/migration-062-runtime-kind.md) — `runtime_kind` migration sequence (062/063/064/065)
+- [Runtime Validation](docs/runbooks/runtime-validation.md) — current proofed runtime boundary
+- [CLI Platform Support](docs/guides/cli-platform-support.md) — Platform CLI + sidecar multi-platform expectations
+- [Versioning Policy](docs/versioning.md) — API versioning and release policy
+- [Contributing](CONTRIBUTING.md) — workflow, validation, and PR expectations
+- [Code of Conduct](CODE_OF_CONDUCT.md) — community standards
+- [Security Policy](SECURITY.md) — vulnerability disclosure
 
 ## License
 
-Wisdoverse Forge is licensed under the Wisdoverse Forge Business Source License
-1.1 (`LicenseRef-Wisdoverse-Forge-BSL-1.1`). Each version changes to the Apache
-License, Version 2.0 four years after that version is first made publicly
-available by Wisdoverse. See [LICENSE](LICENSE) for the full terms.
+Wisdoverse Forge is licensed under the Wisdoverse Forge Business Source License 1.1 (`LicenseRef-Wisdoverse-Forge-BSL-1.1`). Each version changes to the Apache License, Version 2.0 four years after that version is first made publicly available by Wisdoverse. See [LICENSE](LICENSE) for the full terms.
