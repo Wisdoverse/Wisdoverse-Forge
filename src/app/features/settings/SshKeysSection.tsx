@@ -187,7 +187,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
         </div>
 
         <div>
-          <label htmlFor="ssh-key-public" className={uiStyles.label}>
+          <label htmlFor="ssh-public-key" className={uiStyles.label}>
             Public key text <span className="text-red-500">*</span>
           </label>
           <p

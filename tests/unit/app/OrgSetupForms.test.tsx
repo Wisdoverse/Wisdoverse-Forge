@@ -36,7 +36,7 @@ describe('organization setup forms', () => {
 
     expect(screen.getByText('Team setup path')).toBeDefined()
     expect(screen.getByText(/create the team before adding projects/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: /create team/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /create team/i })).not.toBeDisabled()
 
     fireEvent.change(screen.getByLabelText(/^team name/i), {
       target: { value: ' Platform Ops ' },
@@ -55,7 +55,7 @@ describe('organization setup forms', () => {
 
     expect(screen.getByText('Project setup path')).toBeDefined()
     expect(screen.getByText(/choose the team that owns the work/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: /create project/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /create project/i })).not.toBeDisabled()
 
     fireEvent.change(screen.getByLabelText(/^project name/i), {
       target: { value: ' Customer Portal ' },
@@ -75,7 +75,7 @@ describe('organization setup forms', () => {
       target: { value: 'Back Office' },
     })
 
-    expect(screen.getByText(/no teams/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: /create project/i })).toBeDisabled()
+    expect(screen.getByText(/No teams/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: /create project/i })).not.toBeDisabled()
   })
 })

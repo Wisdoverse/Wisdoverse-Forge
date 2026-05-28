@@ -13,7 +13,7 @@ use agentforge_api::{
     repositories::agent::AgentRepository,
     services::{agent::AgentService, agent_container_lifecycle::AgentContainerLifecycleService},
 };
-use agentforge_core::{AgentId, CliToolKind, ErrorKind, OrgId, TenantScope, UserId};
+use agentforge_core::{AgentId, CliToolKind, ErrorKind, TenantScope};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -64,7 +64,7 @@ async fn seed_extra_user(pool: &PgPool, _org_id: Uuid) -> Uuid {
 }
 
 fn make_scope(org_id: Uuid, user_id: Uuid) -> TenantScope {
-    TenantScope::new(OrgId::from(org_id), UserId::from(user_id))
+    agentforge_api::test_support::tenant_scope_for_ids(org_id, user_id)
 }
 
 // ---------------------------------------------------------------------------

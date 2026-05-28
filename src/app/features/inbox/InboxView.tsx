@@ -124,6 +124,22 @@ export function InboxView() {
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-apple-blue/10 text-apple-blue">
           <InboxIcon size={26} strokeWidth={1.75} aria-hidden="true" />
         </div>
+        {loadError && (
+          <div
+            role="alert"
+            className="w-full flex flex-col gap-2 rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red sm:flex-row sm:items-center sm:justify-between"
+          >
+            <span>Could not load older notifications. New updates will still appear here.</span>
+            <button
+              type="button"
+              onClick={loadNotifications}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30"
+            >
+              <RefreshCw size={14} aria-hidden="true" />
+              Try Again
+            </button>
+          </div>
+        )}
         <div className="space-y-1">
           <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
             You're all caught up
@@ -266,10 +282,23 @@ export function InboxView() {
             data-testid="inbox-filter-empty"
             className="flex h-full flex-col items-center justify-center px-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark"
           >
-            <p>No notifications in this view.</p>
+            <p>
+              {FILTERS.find((f) => f.id === activeFilter)?.empty ??
+                'No notifications in this view.'}
+            </p>
             <p className="mt-1 max-w-sm text-ui-caption">
               Try All for the full history, or Needs action for items that still need a response.
             </p>
+            {activeFilter !== 'all' && (
+              <button
+                type="button"
+                aria-label="Show all notifications"
+                onClick={() => setActiveFilter('all')}
+                className="mt-2 rounded-full px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+              >
+                Show all
+              </button>
+            )}
           </div>
         )}
       </div>

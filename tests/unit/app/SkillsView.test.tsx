@@ -58,8 +58,8 @@ describe('SkillsView', () => {
       'aria-pressed',
       'true'
     )
-    expect(screen.getByLabelText(/^name$/i)).toHaveValue('release-notes')
-    expect(screen.getByLabelText(/^description$/i)).toHaveValue(
+    expect(screen.getByLabelText(/^skill name$/i)).toHaveValue('release-notes')
+    expect(screen.getByLabelText(/^short description$/i)).toHaveValue(
       'Draft release notes from accepted work'
     )
     expect(screen.getByLabelText(/^trigger pattern$/i)).toHaveValue('release')
@@ -183,9 +183,9 @@ describe('SkillsView', () => {
 
     await user.type(screen.getByLabelText(/^skill name$/i), 'frontend-review')
     await user.type(screen.getByLabelText(/^short description$/i), 'Review frontend flows')
-    await user.type(screen.getByLabelText(/^use when$/i), 'frontend')
+    await user.type(screen.getByLabelText(/^trigger pattern$/i), 'frontend')
     await user.type(
-      screen.getByLabelText(/^reusable instructions$/i),
+      screen.getByLabelText(/^content$/i),
       'Check UI states and regressions'
     )
     await user.click(screen.getByRole('button', { name: /create skill/i }))
@@ -225,9 +225,9 @@ describe('SkillsView', () => {
     await user.click(screen.getByRole('button', { name: /create skill/i }))
 
     expect(screen.getByRole('alert')).toHaveTextContent('Name this skill before creating it.')
-    expect(screen.getByLabelText(/^name$/i)).toHaveFocus()
+    expect(screen.getByLabelText(/^skill name$/i)).toHaveFocus()
 
-    await user.type(screen.getByLabelText(/^name$/i), 'frontend-review')
+    await user.type(screen.getByLabelText(/^skill name$/i), 'frontend-review')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /create skill/i }))

@@ -47,8 +47,8 @@ describe('Billing beginner guidance', () => {
 
     render(<BillingPage />)
 
-    expect(screen.getByText('Billing is not turned on')).toBeInTheDocument()
-    expect(screen.getByText(/Ask an administrator to enable billing/i)).toBeInTheDocument()
+    expect(screen.getByText('Billing is not ready yet')).toBeInTheDocument()
+    expect(screen.getByText(/Billing is not enabled on this deployment yet/i)).toBeInTheDocument()
     expect(screen.queryByText(/integration/i)).not.toBeInTheDocument()
   })
 
@@ -64,15 +64,12 @@ describe('Billing beginner guidance', () => {
 
     expect(screen.getByText('Team Plan')).toBeInTheDocument()
     expect(screen.getByText('$29')).toBeInTheDocument()
-    expect(screen.getByText('Payment needs attention')).toBeInTheDocument()
+    expect(screen.getByText('Payment due')).toBeInTheDocument()
     expect(
-      screen.getByText(/Update the payment method before access is interrupted/i)
+      screen.getByText(/Update your payment method to keep the plan active/i)
     ).toBeDefined()
-    expect(
-      screen.getByText(/Open billing management to update payment details and avoid blocked work/i)
-    ).toBeDefined()
-    expect(screen.getByRole('button', { name: /open billing management/i })).toHaveTextContent(
-      'Manage Billing'
+    expect(screen.getByRole('button', { name: /manage billing/i })).toHaveTextContent(
+      'Manage billing'
     )
   })
 
@@ -83,7 +80,7 @@ describe('Billing beginner guidance', () => {
     expect(screen.getByText('$0')).toBeInTheDocument()
     expect(screen.getByText(/No paid plan is active yet/i)).toBeInTheDocument()
     expect(screen.getByText(/Upgrade when your team needs more agents/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /upgrade plan/i })).toHaveTextContent('Upgrade Plan')
+    expect(screen.getByRole('button', { name: /upgrade plan/i })).toHaveTextContent('Upgrade plan')
   })
 
   test('translates usage metrics into plain-language capacity signals', () => {
@@ -129,16 +126,16 @@ describe('Billing beginner guidance', () => {
 
     render(<InvoiceList invoices={invoices} />)
 
-    expect(screen.getByText(/Invoices appear after billing is enabled/i)).toBeInTheDocument()
+    expect(screen.getByText(/Invoices appear after checkout/i)).toBeInTheDocument()
     expect(screen.getByText('Paid')).toBeInTheDocument()
     expect(screen.getByText('No action needed.')).toBeInTheDocument()
-    expect(screen.getByText('Payment open')).toBeInTheDocument()
-    expect(screen.getByText('Payment may still be due.')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /download pdf/i })).toHaveAttribute(
+    expect(screen.getByText('Payment due')).toBeInTheDocument()
+    expect(screen.getByText('Pay this invoice to keep your plan active.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /download/i })).toHaveAttribute(
       'href',
       'https://billing.example.test/inv-100.pdf'
     )
-    expect(screen.getByRole('link', { name: /view invoice/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /open/i })).toHaveAttribute(
       'href',
       'https://billing.example.test/inv-open'
     )
@@ -147,8 +144,8 @@ describe('Billing beginner guidance', () => {
   test('keeps invoice empty and error states actionable', () => {
     const { rerender } = render(<InvoiceList invoices={[]} />)
 
-    expect(screen.getByText('No invoices yet.')).toBeInTheDocument()
-    expect(screen.getByText(/Nothing needs to be downloaded/i)).toBeInTheDocument()
+    expect(screen.getByText('No invoices have been created yet')).toBeInTheDocument()
+    expect(screen.getByText(/Receipts and payment links/i)).toBeInTheDocument()
 
     rerender(<InvoiceList invoices={[]} error="Could not load invoices" />)
 

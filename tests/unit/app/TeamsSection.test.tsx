@@ -51,9 +51,9 @@ describe('TeamsSection', () => {
     await waitFor(() => expect(getTeams).toHaveBeenCalledWith('org-1'))
     expect(screen.getByText('Teams and access groups')).toBeDefined()
     expect(screen.getByText(/teams group people and projects/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Create team' })).toBeDefined()
-    expect(screen.getByText('Create your first team')).toBeDefined()
-    expect(screen.getByText(/Teams group people, projects, and access rules/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: 'New Team' })).toBeDefined()
+    expect(screen.getByText('Create a team first')).toBeDefined()
+    expect(screen.getByText(/Teams group projects and decide who can manage work/i)).toBeDefined()
   })
 
   test('guides users to choose an organization before creating teams', () => {

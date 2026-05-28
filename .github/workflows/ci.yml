@@ -188,8 +188,14 @@ jobs:
       DATABASE_URL: postgres://agentforge@localhost:5432/agentforge_test
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Install protobuf compiler
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Install protobuf compiler and mold linker
+        run: |
+          sudo apt-get update
+          # mold: memory-efficient linker that prevents SIGSEGV on large Rust
+          # test binaries (linker OOM on debug-profile crate graphs). Installed
+          # alongside protobuf-compiler to avoid a second apt-get update round.
+          sudo apt-get install -y protobuf-compiler mold
+          echo "RUSTFLAGS=-C link-arg=-fuse-ld=mold" >> $GITHUB_ENV
       - name: Install Rust toolchain
         working-directory: rust
         run: |

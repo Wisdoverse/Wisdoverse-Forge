@@ -115,6 +115,12 @@ export function InvoiceList({ invoices, loading, error }: InvoiceListProps) {
         )}
 
         {!loading && !error && invoices.length > 0 && (
+          <p className="px-4 pb-2 pt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Invoices appear after checkout or a billing portal change creates a charge.
+          </p>
+        )}
+
+        {!loading && !error && invoices.length > 0 && (
           <table className={uiStyles.table}>
             <thead className={uiStyles.tableHead}>
               <tr>

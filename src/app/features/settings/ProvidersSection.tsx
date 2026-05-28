@@ -955,18 +955,27 @@ function AddProviderFormPanel({
         </div>
       </div>
 
-      <div className="flex gap-2 justify-end">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={saving}
-          className={uiStyles.secondaryButton}
+      <div className="flex items-center justify-between gap-2">
+        <p
+          id={formStatusId}
+          data-testid="provider-form-status"
+          className="text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          Cancel
-        </button>
-        <button type="submit" disabled={saving} className={uiStyles.primaryButton}>
-          {saving ? 'Saving…' : 'Save Provider'}
-        </button>
+          {readiness.title}
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            className={uiStyles.secondaryButton}
+          >
+            Cancel
+          </button>
+          <button type="submit" disabled={saving} className={uiStyles.primaryButton}>
+            {saving ? 'Saving…' : 'Save Provider'}
+          </button>
+        </div>
       </div>
     </form>
   )

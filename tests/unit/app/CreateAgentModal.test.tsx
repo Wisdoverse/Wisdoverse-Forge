@@ -57,9 +57,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText(/shared workspace mount/i)).toBeInTheDocument()
     expect(screen.getAllByText(/primary project/i).length).toBeGreaterThan(0)
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/choose a project first/i)
-    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
-      /select a project in the sidebar/i
-    )
+    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/select a project in the sidebar/i)
     expect(screen.queryByLabelText(/^provider$/i)).toBeNull()
     expect(screen.queryByLabelText(/^model$/i)).toBeNull()
   })
@@ -141,7 +139,7 @@ describe('CreateAgentModal', () => {
     })
 
     render(<CreateAgentModal />)
-    fireEvent.click(await screen.findByRole('button', { name: /create default work lane/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /create task group/i }))
 
     await waitFor(() =>
       expect(agentGroupApi.createGroup).toHaveBeenCalledWith({
@@ -150,8 +148,8 @@ describe('CreateAgentModal', () => {
         description: 'This work lane lets agents receive board tasks.',
       })
     )
-    expect(screen.getByRole('combobox', { name: /work lane/i })).toHaveValue('group-new')
-    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/default work lane/i)
+    expect(screen.getByRole('combobox', { name: /task group/i })).toHaveValue('group-new')
+    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/project ready/i)
 
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'CLI Worker' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
