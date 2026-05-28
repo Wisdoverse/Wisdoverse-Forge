@@ -138,6 +138,32 @@ impl HostAgentEnrollmentPolicy {
             .ok_or_else(|| ErrorKind::Validation("cliTool is required for Host CLI enrollment".into()).into())
     }
 
+    /// Returned when a non-`tls://` NATS URL is presented during Host CLI
+    /// enrollment and `allow_plaintext_host_nats` is not set.
+    pub(crate) fn plaintext_nats_blocked_error() -> AppError {
+        ErrorKind::ValidationWithCode {
+            code: "errors.agent.enroll.plaintext_nats_blocked",
+            message: "Host CLI enrollment requires a tls:// NATS URL. Configure \
+                      NATS_AGENT_URL to use tls://, or set ALLOW_PLAINTEXT_HOST_NATS=true \
+                      to permit plaintext (dev/test only)."
+                .into(),
+        }
+        .into()
+    }
+
+    /// Returned when the `cli_tool` value supplied at enrollment cannot be
+    /// mapped to a known [`CliToolKind`].
+    pub(crate) fn unknown_cli_tool_error(cli_tool: &str) -> AppError {
+        ErrorKind::Validation(format!("unknown cli_tool: {cli_tool}")).into()
+    }
+
+    /// Returned during an idempotent replay when the existing agent row is
+    /// missing its `runtime_id` column (should not happen in production; guards
+    /// against schema drift or corrupt inserts).
+    pub(crate) fn missing_runtime_id_on_replay() -> AppError {
+        ErrorKind::Internal(anyhow::anyhow!("Host CLI agent missing runtime_id on replay")).into()
+    }
+
     pub(crate) fn require_nats_base_url(agent_url: Option<&str>, backend_url: Option<&str>) -> AppResult<String> {
         AgentContainerEnvPolicy::pick_nats_base_url(agent_url, backend_url)
             .filter(|url| !url.trim().is_empty())
@@ -1091,6 +1117,33 @@ impl AgentRepositoryPolicy {
 
     pub(crate) fn collaborator_not_found(agent_id: AgentId, user_id: Uuid) -> AppError {
         ErrorKind::NotFound(format!("collaborator {user_id} on agent {agent_id}")).into()
+    }
+
+    /// Returned when an idempotent replay finds an agent row that is missing its
+    /// stored `hmac_secret` or `nats_connect_password` columns.
+    pub(crate) fn missing_host_cli_credentials() -> AppError {
+        ErrorKind::Internal(anyhow::anyhow!(
+            "Host CLI agent is missing stored credentials (hmac_secret or nats_connect_password)"
+        ))
+        .into()
+    }
+}
+
+/// Idempotency-Key header policy.
+///
+/// Encodes the validation contract for the `Idempotency-Key` HTTP header so that
+/// the error shape is owned by the domain layer rather than inline in `middleware.rs`.
+pub(crate) struct IdempotencyKeyPolicy;
+
+impl IdempotencyKeyPolicy {
+    /// Error returned when the `Idempotency-Key` header is absent, empty, or
+    /// longer than 256 bytes.
+    pub(crate) fn missing_header_error() -> AppError {
+        ErrorKind::ValidationWithCode {
+            code: "errors.agent.enroll.missing_idempotency_key",
+            message: "Idempotency-Key header is required and must be 1–256 characters".into(),
+        }
+        .into()
     }
 }
 

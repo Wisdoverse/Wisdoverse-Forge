@@ -11,9 +11,8 @@ pub(crate) use mcp::{McpAgentInsertRecord, McpAgentRepository};
 pub use message::MessageRepository;
 pub use workspace::AgentWorkspaceRepository;
 
-use agentforge_core::{AgentId, AgentStatus, AppError, AppResult, ErrorKind, RuntimeKind, TenantScope};
+use agentforge_core::{AgentId, AgentStatus, AppError, AppResult, RuntimeKind, TenantScope};
 use agentforge_db::entities::{Agent, AgentCollaborator};
-use anyhow::anyhow;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::json;
@@ -401,9 +400,7 @@ impl AgentRepository {
 
         match row {
             Some((Some(h), Some(p))) => Ok((h, p)),
-            Some(_) => Err(AppError::from(ErrorKind::Internal(anyhow!(
-                "Host CLI agent is missing stored credentials (hmac_secret or nats_connect_password)"
-            )))),
+            Some(_) => Err(AgentRepositoryPolicy::missing_host_cli_credentials()),
             None => Err(AgentRepositoryPolicy::agent_uuid_not_found(id)),
         }
     }

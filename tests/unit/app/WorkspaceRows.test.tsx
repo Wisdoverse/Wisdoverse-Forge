@@ -44,13 +44,13 @@ describe('workspace management rows', () => {
 
     expect(onDelete).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: 'Keep Website Launch' })).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Delete project Website Launch' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Confirm delete Website Launch' })).toBeDefined()
 
     fireEvent.click(screen.getByRole('button', { name: 'Keep Website Launch' }))
-    expect(screen.queryByRole('button', { name: 'Delete project Website Launch' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Confirm delete Website Launch' })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete Website Launch' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Delete project Website Launch' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete Website Launch' }))
 
     await waitFor(() => expect(onDelete).toHaveBeenCalledWith(project))
   })
@@ -70,13 +70,13 @@ describe('workspace management rows', () => {
 
     expect(onDelete).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: 'Keep Product Team' })).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Delete team Product Team' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Confirm delete Product Team' })).toBeDefined()
 
     fireEvent.click(screen.getByRole('button', { name: 'Keep Product Team' }))
-    expect(screen.queryByRole('button', { name: 'Delete team Product Team' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Confirm delete Product Team' })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete Product Team' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Delete team Product Team' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete Product Team' }))
 
     await waitFor(() => expect(onDelete).toHaveBeenCalledWith('team-1'))
   })

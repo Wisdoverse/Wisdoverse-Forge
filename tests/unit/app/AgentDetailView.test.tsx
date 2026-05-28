@@ -105,7 +105,6 @@ describe('AgentDetailView', () => {
         onBack={() => {}}
       />
     )
-    expect(screen.getByText('Terminal')).toBeDefined()
     expect(screen.getByText('Waiting to start')).toBeDefined()
   })
 
@@ -198,7 +197,7 @@ describe('AgentDetailView', () => {
     )
 
     expect(screen.getByText('Start the managed workspace')).toBeDefined()
-    fireEvent.click(screen.getByRole('button', { name: /open terminal/i }))
+    fireEvent.click(screen.getByRole('button', { name: /open console/i }))
     expect(screen.getByText('No managed workspace is running')).toBeDefined()
     expect(screen.getByRole('button', { name: /start agent workspace/i })).toBeDefined()
   })

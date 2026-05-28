@@ -112,7 +112,11 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
             Team *
           </label>
           {teams.length === 0 ? (
-            <p className="py-1.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            <p
+              id="create-project-team"
+              tabIndex={-1}
+              className="py-1.5 text-ui-caption text-secondary-light dark:text-secondary-dark"
+            >
               No teams — create a team first
             </p>
           ) : (
@@ -131,26 +135,44 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
               ))}
             </select>
           )}
-          {errorField === 'team' && (
-            <p id={errorId} className="mt-1 text-ui-caption text-apple-red">
-              {visibleError}
-            </p>
-          )}
         </div>
       </div>
 
-      <div className="flex gap-2 justify-end">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={saving}
-          className={uiStyles.secondaryButton}
+      {visibleError && errorField === 'name' && (
+        <p id={errorId} role="alert" className="text-ui-caption text-apple-red">
+          {visibleError}
+        </p>
+      )}
+      {visibleError && errorField === 'team' && (
+        <p role="alert" className="text-ui-caption text-apple-red">
+          {visibleError}
+        </p>
+      )}
+      <div className="flex items-center justify-between gap-2">
+        <p
+          id={statusId}
+          data-testid="create-project-status"
+          className="text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          Cancel
-        </button>
-        <button type="submit" disabled={saving} className={uiStyles.primaryButton}>
-          {saving ? 'Creating…' : 'Create Project'}
-        </button>
+          {isReady
+            ? 'Ready to Create Project'
+            : missingTeam
+              ? 'Next: Create a Team First'
+              : 'Next: Name the Project'}
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            className={uiStyles.secondaryButton}
+          >
+            Cancel
+          </button>
+          <button type="submit" disabled={saving} className={uiStyles.primaryButton}>
+            {saving ? 'Creating…' : 'Create Project'}
+          </button>
+        </div>
       </div>
     </form>
   )

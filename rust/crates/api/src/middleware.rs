@@ -94,9 +94,11 @@ pub fn catch_panic_layer() -> CatchPanicLayer<JsonPanicResponse> {
 // IdempotencyKey extractor
 // ---------------------------------------------------------------------------
 
-use agentforge_core::{AppError, ErrorKind};
+use agentforge_core::AppError;
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
+
+use crate::domain::agent::IdempotencyKeyPolicy;
 
 /// Axum extractor for the `Idempotency-Key` request header.
 ///
@@ -128,18 +130,14 @@ where
             .and_then(|v| v.to_str().ok())
             .filter(|s| !s.is_empty() && s.len() <= 256)
             .map(|s| IdempotencyKey(s.to_string()))
-            .ok_or_else(|| {
-                AppError::from(ErrorKind::ValidationWithCode {
-                    code: "errors.agent.enroll.missing_idempotency_key",
-                    message: "Idempotency-Key header is required and must be 1–256 characters".into(),
-                })
-            })
+            .ok_or_else(IdempotencyKeyPolicy::missing_header_error)
     }
 }
 
 #[cfg(test)]
 mod idempotency_tests {
     use super::*;
+    use agentforge_core::ErrorKind;
     use axum::http::Request;
 
     #[tokio::test]
