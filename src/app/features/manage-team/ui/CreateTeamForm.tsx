@@ -68,7 +68,6 @@ export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Frontend"
-          aria-describedby="team-name-help"
           autoFocus
           aria-invalid={visibleError !== null}
           aria-describedby={`${statusId}${visibleError ? ` ${errorId}` : ''}`}

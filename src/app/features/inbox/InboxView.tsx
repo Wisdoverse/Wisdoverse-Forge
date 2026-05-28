@@ -76,8 +76,6 @@ export function InboxView() {
       orderedNotifications[0],
     [orderedNotifications]
   )
-  const activeFilterConfig = FILTERS.find((filter) => filter.id === activeFilter) ?? FILTERS[0]
-
   const loadNotifications = useCallback(() => {
     let cancelled = false
     setLoadError(false)
@@ -297,6 +295,60 @@ function matchesFilter(notification: Notification, filter: InboxFilter): boolean
       return isActionNotification(notification)
     case 'credentials':
       return notification.type === 'credential_expired'
+  }
+}
+
+function nextStepTitle(notification: Notification): string {
+  switch (notification.type) {
+    case 'credential_expired':
+      return 'Reconnect a credential before more agent work starts'
+    case 'blocked':
+      return 'Review the blocker that is stopping work'
+    case 'failed':
+      return 'Review the failed task before retrying'
+    case 'completed':
+      return 'Review the latest completed result when you have time'
+    case 'assigned':
+      return 'Open the newest assignment'
+    case 'mentioned':
+      return 'Open the newest mention'
+  }
+}
+
+function nextStepDescription(
+  notification: Notification,
+  needsActionCount: number,
+  credentialCount: number
+): string {
+  if (notification.type === 'credential_expired') {
+    return credentialCount === 1
+      ? 'One credential needs reconnecting. Fixing it keeps future agent runs from failing.'
+      : `${credentialCount} credentials need reconnecting. Start here because access problems can block new runs.`
+  }
+
+  if (notification.type === 'blocked' || notification.type === 'failed') {
+    return needsActionCount === 1
+      ? 'This is the only item that needs action. Open it and decide the next owner step.'
+      : `${needsActionCount} items need action. Start with the newest blocker or failure first.`
+  }
+
+  return 'There are no urgent blockers. Open this update only if you need to review the latest work.'
+}
+
+function nextStepActionLabel(notification: Notification): string {
+  switch (notification.type) {
+    case 'credential_expired':
+      return 'Open Settings'
+    case 'blocked':
+      return 'Open Blocked Task'
+    case 'failed':
+      return 'Open Failed Task'
+    case 'completed':
+      return 'Open Result'
+    case 'assigned':
+      return 'Open Assignment'
+    case 'mentioned':
+      return 'Open Mention'
   }
 }
 

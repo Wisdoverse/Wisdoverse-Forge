@@ -30,7 +30,6 @@ function PasswordChangeForm() {
   const [success, setSuccess] = useState(false)
 
   const hasCurrentPassword = form.currentPassword.trim().length > 0
-  const hasNewPassword = form.newPassword.length > 0
   const hasConfirmation = form.confirmPassword.length > 0
   const newPasswordIsLongEnough = form.newPassword.length >= 8
   const passwordsMatch = hasConfirmation && form.newPassword === form.confirmPassword

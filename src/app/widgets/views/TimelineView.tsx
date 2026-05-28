@@ -7,7 +7,7 @@ const TIMELINE_STEPS = [
 ]
 
 function drawTimeline(canvas: HTMLCanvasElement): void {
-  let ctx: CanvasRenderingContext2D | null = null
+  let ctx: CanvasRenderingContext2D | null
   try {
     ctx = canvas.getContext('2d')
   } catch {

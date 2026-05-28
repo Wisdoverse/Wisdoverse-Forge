@@ -47,6 +47,7 @@ function statusBadge(status: SubscriptionStatus): {
     case 'past_due':
       return {
         label: 'Payment due',
+        description: 'Update your payment method to keep the plan active.',
         color: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
       }
     case 'canceled':
@@ -56,7 +57,35 @@ function statusBadge(status: SubscriptionStatus): {
         color: 'bg-apple-red/10 text-apple-red',
       }
     case 'unpaid':
-      return { label: 'Payment needed', color: 'bg-apple-red/10 text-apple-red' }
+      return {
+        label: 'Payment needed',
+        description: 'Resolve the outstanding balance to restore access.',
+        color: 'bg-apple-red/10 text-apple-red',
+      }
+  }
+}
+
+function nextStep(plan: BillingPlan | null, subscription: BillingSubscription | null): string {
+  if (!subscription) {
+    return plan
+      ? 'Upgrade only when your team needs this paid capacity.'
+      : 'Start here. Upgrade when your team needs more agents, history, or AI usage.'
+  }
+
+  if (subscription.cancelAtPeriodEnd) {
+    return `The plan will stop on ${formatDate(subscription.currentPeriodEnd)}. Manage billing to resume it before that date.`
+  }
+
+  switch (subscription.status) {
+    case 'active':
+      return 'No action needed now. Manage billing for receipts, payment details, or cancellation.'
+    case 'trialing':
+      return `The trial runs until ${formatDate(subscription.currentPeriodEnd)}. Check usage before it ends.`
+    case 'past_due':
+    case 'unpaid':
+      return 'Update your payment method now. Unpaid plans lose access when the retry window closes.'
+    case 'canceled':
+      return 'Upgrade to start a new plan.'
   }
 }
 
@@ -80,7 +109,7 @@ export function PlanCard({
   onUpgrade,
   onManage,
   loading,
-  actionPending,
+  actionPending: _actionPending,
   actionError,
 }: PlanCardProps) {
   if (loading) {
@@ -95,6 +124,7 @@ export function PlanCard({
 
   const badge = subscription ? statusBadge(subscription.status) : null
   const canUpgrade = Boolean(plan)
+  const priceLabel = plan ? formatCurrency(plan.price.monthly, plan.price.currency) : '$0'
 
   return (
     <div className={cn(uiStyles.cardPadded, 'flex flex-col gap-4')}>
@@ -135,7 +165,7 @@ export function PlanCard({
             </p>
           )}
 
-          {subscription && (
+          {subscription && badge && (
             <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
               {badge.description}
             </p>
