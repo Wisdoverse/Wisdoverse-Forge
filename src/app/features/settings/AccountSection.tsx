@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAuth } from '@app/shared/model/auth.context'
@@ -66,7 +66,7 @@ function PasswordChangeForm() {
     setSuccess(false)
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
     setSuccess(false)
@@ -240,7 +240,7 @@ function OrgRenameForm() {
   const dirty = trimmed !== currentOrg.name
   const valid = trimmed.length >= 1 && trimmed.length <= 100
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!currentOrg || !dirty || !valid || saving) return
     // Capture the org id at submit time. If the user switches orgs mid-save,

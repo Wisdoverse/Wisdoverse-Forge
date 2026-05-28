@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import type { NavTeam } from '@app/entities/team'
@@ -43,7 +43,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
     }
   }, [teamId, teams])
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setSubmitAttempted(true)
     if (!isReady) {

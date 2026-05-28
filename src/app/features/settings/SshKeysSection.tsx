@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
@@ -114,7 +114,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
         ? 'Paste the public SSH key before saving it.'
         : null
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setSubmitAttempted(true)
     if (!isReady) {
