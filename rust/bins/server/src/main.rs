@@ -24,7 +24,7 @@ use agentforge_jobs::{
     SqlxHmacSecretLookup, SqlxNatsConnectPasswordLookup, SqlxParticipantLookup, SqlxTaskWriter,
 };
 use anyhow::{Result, anyhow};
-use metrics_exporter_prometheus::PrometheusBuilder;
+use metrics_exporter_prometheus::{Matcher, PrometheusBuilder};
 use secrecy::{ExposeSecret, SecretString};
 use tokio::signal;
 use tokio::sync::{RwLock, watch};
@@ -84,13 +84,27 @@ async fn main() -> Result<()> {
     // `install_recorder` registers a global `metrics::Recorder`, so every
     // `metrics::counter!` / `metrics::gauge!` call feeds into the same handle
     // we hand to the `/metrics` scrape route.
+    //
+    // Override the histogram buckets for `http_request_duration_seconds` with
+    // SLO-aligned bounds so `histogram_quantile(0.95, ...)` resolves
+    // meaningfully near each agents-runtime budget (500ms create, 800ms
+    // enroll, 2s container restart). Without explicit buckets the exporter
+    // falls back to a generic default that does not straddle these thresholds.
     let prometheus_handle = Arc::new(
-        PrometheusBuilder::new().install_recorder().map_err(|err| anyhow!("install prometheus recorder: {err}"))?,
+        PrometheusBuilder::new()
+            .set_buckets_for_metric(
+                Matcher::Full("http_request_duration_seconds".to_owned()),
+                &agentforge_api::observability::http_metrics::HTTP_DURATION_BUCKETS,
+            )
+            .map_err(|err| anyhow!("configure http_request_duration_seconds buckets: {err}"))?
+            .install_recorder()
+            .map_err(|err| anyhow!("install prometheus recorder: {err}"))?,
     );
 
     // Register metric descriptions so dashboards have series present from the
     // first scrape even before traffic or a background sweep fires.
     agentforge_jobs::register_metrics();
+    agentforge_api::observability::register_http_metrics();
     agentforge_api::services::cli_auth_proxy::register_cli_auth_proxy_metrics();
     agentforge_api::services::usage_analytics::register_usage_analytics_metrics();
 

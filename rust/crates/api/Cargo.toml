@@ -52,5 +52,6 @@ test-support = ["agentforge-llm/test-support"]
 [dev-dependencies]
 bcrypt = "0.19"
 http = "1"
+metrics-util.workspace = true
 agentforge-llm = { workspace = true, features = ["test-support"] }
 agentforge-api = { path = ".", features = ["test-support"] }

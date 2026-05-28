@@ -12,6 +12,7 @@ pub mod gateway;
 pub mod health;
 pub mod mcp;
 pub mod middleware;
+pub mod observability;
 pub mod repositories;
 pub mod router;
 pub mod routes;

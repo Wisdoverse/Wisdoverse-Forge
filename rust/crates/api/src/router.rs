@@ -141,6 +141,13 @@ pub fn create_router(state: AppState) -> Router {
         .with_state(state.clone())
         // Make JwtManager available to the AuthUser extractor via request extensions
         .layer(Extension(state.jwt.clone()))
+        // HTTP request metrics (http_requests_total / http_request_duration_seconds).
+        // Applied to the routed Router so `MatchedPath` is populated, letting the
+        // middleware label by the matched route template (e.g.
+        // `/api/v1/agents/{id}/restart`) instead of the raw URI — this is what the
+        // agents-runtime SLO alert rules and Grafana panels query. Unmatched URIs
+        // (404s, SPA fallback) collapse into a single `<unmatched>` series.
+        .layer(axum::middleware::from_fn(crate::observability::track_http_metrics))
         // Middleware (applied bottom-up, so CatchPanic wraps everything)
         .layer(middleware::cors_layer(state.config.is_production(), state.config.cors_origin.as_deref()))
         .layer(middleware::trace_layer())
