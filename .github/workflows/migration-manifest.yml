@@ -1,33 +1,42 @@
 name: Migration Manifest
 
-# Runs whenever a PR touches a migration file. Regenerates the SHA-256 manifest
-# from the committed *.sql files and fails if it differs from MANIFEST.sha256.
+# Runs whenever a PR touches a migration file in any crate that ships an
+# embedded migration set. Regenerates the SHA-256 manifest from the committed
+# *.sql files and fails if it differs from that crate's MANIFEST.sha256.
 #
-# To fix a failing check locally:
-#   cd rust/crates/db/migrations
+# To fix a failing check locally, regenerate the manifest for the crate that
+# changed, e.g.:
+#   cd rust/crates/db/migrations           # or rust/crates/orchestrator/migrations
 #   sha256sum *.sql > MANIFEST.sha256
-#   git add MANIFEST.sha256 && git commit -m "chore(db): update migration manifest"
+#   git add MANIFEST.sha256 && git commit -m "chore: update migration manifest"
 
 on:
   pull_request:
     paths:
       - 'rust/crates/db/migrations/**'
+      - 'rust/crates/orchestrator/migrations/**'
 
 jobs:
   verify:
     name: Verify MANIFEST.sha256
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir:
+          - rust/crates/db/migrations
+          - rust/crates/orchestrator/migrations
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Regenerate and compare manifest
         run: |
-          cd rust/crates/db/migrations
+          cd "${{ matrix.dir }}"
           sha256sum *.sql | sort > /tmp/manifest.computed
           sort MANIFEST.sha256 > /tmp/manifest.committed
           if ! diff -u /tmp/manifest.committed /tmp/manifest.computed; then
-            echo "::error file=rust/crates/db/migrations/MANIFEST.sha256::MANIFEST.sha256 does not match migrations/*.sql contents"
-            echo "::error::Run: cd rust/crates/db/migrations && sha256sum *.sql > MANIFEST.sha256"
+            echo "::error file=${{ matrix.dir }}/MANIFEST.sha256::MANIFEST.sha256 does not match ${{ matrix.dir }}/*.sql contents"
+            echo "::error::Run: cd ${{ matrix.dir }} && sha256sum *.sql > MANIFEST.sha256"
             exit 1
           fi
-          echo "MANIFEST.sha256 is up to date."
+          echo "${{ matrix.dir }}/MANIFEST.sha256 is up to date."

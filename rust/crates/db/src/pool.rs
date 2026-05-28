@@ -40,6 +40,12 @@ pub async fn check_health(pool: &PgPool) -> bool {
     }
 }
 
+/// Embedded `MANIFEST.sha256` for this crate's migrations.
+///
+/// Lives next to the migration files so it travels with the binary and is
+/// checked against [`MIGRATION_SOURCES`] on startup via [`verify_manifest`].
+const MIGRATION_MANIFEST: &str = include_str!("../migrations/MANIFEST.sha256");
+
 /// Embedded migration SQL sources used for manifest verification.
 ///
 /// Each tuple is `(filename, sql_content)`. The list is populated at compile
@@ -142,7 +148,7 @@ const MIGRATION_SOURCES: &[(&str, &str)] = &[
 ///
 /// This is safe to call on every startup — already-applied migrations are skipped.
 pub async fn run_migrations(pool: &PgPool) -> Result<(), RunMigrationsError> {
-    verify_manifest(MIGRATION_SOURCES)?;
+    verify_manifest(MIGRATION_MANIFEST, MIGRATION_SOURCES)?;
     sqlx::migrate!("./migrations").run(pool).await?;
     Ok(())
 }

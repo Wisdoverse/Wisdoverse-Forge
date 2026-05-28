@@ -366,12 +366,135 @@ jobs:
           cache-to: type=gha,mode=max,scope=agent-${{ matrix.tool }}
 
   # ===========================================================================
+  # Cross-platform operator binaries (Platform CLI + sidecar)
+  #
+  # The server / orchestrator / sidecar ship as ghcr.io container images, but
+  # Host CLI runtime operators need DOWNLOADABLE, SIGNED binaries for their own
+  # machines (see docs/guides/cli-platform-support.md and
+  # docs/runbooks/host-cli-agent-enrollment.md).
+  #
+  # This job cross-builds the two operator binaries:
+  #   - `agentforge`          (Platform CLI, bin name `agentforge`, crate rust/bins/cli)
+  #   - `agentforge-sidecar`  (bin name `agentforge-sidecar`, crate rust/bins/sidecar)
+  # for the Tier-1 platform matrix and uploads each as a per-target artifact.
+  # `github-release` then attaches them to the release as
+  #   agentforge-<os>-<arch>[.exe]  and  agentforge-sidecar-<os>-<arch>[.exe]
+  # — exactly the names `release-supply-chain.yml` globs and `agentforge verify`
+  # / the runbook reference (e.g. `agentforge-sidecar-linux-amd64`).
+  #
+  # release-supply-chain.yml triggers on `release: published`, which only fires
+  # AFTER github-release runs, so the signing loop always finds these files.
+  #
+  # TODO(#NNN): add aarch64-pc-windows-msvc (Tier 2) once a validated Windows
+  #             ARM64 CI runner + signer is available (see cli-platform-support.md).
+  # ===========================================================================
+
+  release-binaries:
+    name: Build ${{ matrix.os_label }}-${{ matrix.arch_label }} binaries
+    needs: [validate, quality-gate]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            os_label: linux
+            arch_label: amd64
+            ext: ''
+          - runner: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            os_label: linux
+            arch_label: arm64
+            ext: ''
+            linker_pkg: gcc-aarch64-linux-gnu
+            linker: aarch64-linux-gnu-gcc
+          - runner: macos-latest
+            target: x86_64-apple-darwin
+            os_label: macos
+            arch_label: amd64
+            ext: ''
+          - runner: macos-latest
+            target: aarch64-apple-darwin
+            os_label: macos
+            arch_label: arm64
+            ext: ''
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            os_label: windows
+            arch_label: amd64
+            ext: '.exe'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install protobuf compiler (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Install protobuf compiler (macOS)
+        if: runner.os == 'macOS'
+        run: brew install protobuf
+
+      - name: Install protobuf compiler (Windows)
+        if: runner.os == 'Windows'
+        run: choco install protoc -y
+
+      - name: Install aarch64 cross linker
+        if: matrix.linker_pkg != ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.linker_pkg }}
+
+      - name: Install Rust toolchain with target
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup target add ${{ matrix.target }} --toolchain stable
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: rust
+          key: ${{ matrix.target }}
+
+      - name: Build release binaries
+        working-directory: rust
+        shell: bash
+        env:
+          # aarch64-linux needs an explicit cross linker; native targets use the
+          # default. CARGO_TARGET_<TARGET>_LINKER is the canonical override.
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: ${{ matrix.linker }}
+        run: |
+          cargo build --release --target ${{ matrix.target }} \
+            --bin agentforge --bin agentforge-sidecar
+
+      - name: Stage and rename release assets
+        working-directory: rust
+        shell: bash
+        run: |
+          mkdir -p ../release-binaries
+          OS='${{ matrix.os_label }}'
+          ARCH='${{ matrix.arch_label }}'
+          EXT='${{ matrix.ext }}'
+          SRC="target/${{ matrix.target }}/release"
+          cp "$SRC/agentforge$EXT"         "../release-binaries/agentforge-$OS-$ARCH$EXT"
+          cp "$SRC/agentforge-sidecar$EXT" "../release-binaries/agentforge-sidecar-$OS-$ARCH$EXT"
+          ls -lh ../release-binaries/
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-binaries-${{ matrix.os_label }}-${{ matrix.arch_label }}
+          path: release-binaries/*
+          retention-days: 7
+          if-no-files-found: error
+
+  # ===========================================================================
   # GitHub Release
   # ===========================================================================
 
   github-release:
     name: Create GitHub Release
-    needs: [validate, build, publish-npm, publish-docker, publish-agent-images]
+    needs: [validate, build, release-binaries, publish-npm, publish-docker, publish-agent-images]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -383,6 +506,19 @@ jobs:
         with:
           name: release-artifacts
           path: release-artifacts/
+      # All per-target binary artifacts share the `release-binaries-*` prefix;
+      # merge them into one directory for the release upload + SHA256SUMS.
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: release-binaries-*
+          merge-multiple: true
+          path: release-binaries/
+      - name: Generate SHA256SUMS for binaries
+        run: |
+          cd release-binaries
+          ls -lh
+          sha256sum agentforge-* > SHA256SUMS
+          cat SHA256SUMS
       - name: Generate changelog
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
@@ -403,6 +539,8 @@ jobs:
           generate_release_notes: true
           files: |
             release-artifacts/*.tgz
+            release-binaries/agentforge-*
+            release-binaries/SHA256SUMS
 
   notify:
     name: Notify
