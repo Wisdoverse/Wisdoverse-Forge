@@ -23,10 +23,11 @@ use crate::routes;
 
 /// Build the top-level Axum router with all routes and middleware.
 ///
-/// Middleware is applied bottom-up:
+/// Middleware is applied bottom-up (last `.layer()` call = outermost):
 /// 1. CORS (innermost)
 /// 2. Tracing
-/// 3. CatchPanic (outermost — catches panics from all inner layers)
+/// 3. CatchPanic (converts handler panics into a synthesized 500 Response)
+/// 4. HTTP metrics (outermost — so the synthesized 500 is counted; see below)
 pub fn create_router(state: AppState) -> Router {
     let attachment_upload_body_limit = usize::try_from(state.config.storage_max_file_size)
         .unwrap_or(usize::MAX.saturating_sub(1024 * 1024))
@@ -141,15 +142,32 @@ pub fn create_router(state: AppState) -> Router {
         .with_state(state.clone())
         // Make JwtManager available to the AuthUser extractor via request extensions
         .layer(Extension(state.jwt.clone()))
-        // HTTP request metrics (http_requests_total / http_request_duration_seconds).
-        // Applied to the routed Router so `MatchedPath` is populated, letting the
-        // middleware label by the matched route template (e.g.
-        // `/api/v1/agents/{id}/restart`) instead of the raw URI — this is what the
-        // agents-runtime SLO alert rules and Grafana panels query. Unmatched URIs
-        // (404s, SPA fallback) collapse into a single `<unmatched>` series.
-        .layer(axum::middleware::from_fn(crate::observability::track_http_metrics))
-        // Middleware (applied bottom-up, so CatchPanic wraps everything)
+        // Inner middleware (applied bottom-up): CORS, then tracing, then
+        // CatchPanic wraps both.
         .layer(middleware::cors_layer(state.config.is_production(), state.config.cors_origin.as_deref()))
         .layer(middleware::trace_layer())
         .layer(middleware::catch_panic_layer())
+        // HTTP request metrics (http_requests_total / http_request_duration_seconds).
+        //
+        // Applied LAST so it is the OUTERMOST layer — it wraps `catch_panic_layer`.
+        // Ordering is load-bearing two ways:
+        //
+        //  1. Panic accounting. Tower/Axum layers run bottom-up, so on the
+        //     request path this layer runs first and `catch_panic_layer` runs
+        //     just inside it. A panicking handler therefore unwinds *up to*
+        //     CatchPanic, which converts the panic into a synthesized 500
+        //     `Response`, and that 500 then flows back out through this layer's
+        //     `next.run(req).await` as a normal value — so it is counted as
+        //     `http_requests_total{status="500"}`. If this layer were inside
+        //     CatchPanic, the unwind would tear through its own
+        //     `next.run().await` and the recording code would never execute,
+        //     making panic-induced 500s invisible to the metric (the bug this
+        //     fixes). See `observability::http_metrics` for the ordering test.
+        //  2. MatchedPath. This still wraps the routed `Router`, so
+        //     `MatchedPath` is populated and the `path` label is the matched
+        //     route template (e.g. `/api/v1/agents/{id}/restart`) — what the
+        //     agents-runtime SLO alert rules and Grafana panels query. Unmatched
+        //     URIs (404s, SPA fallback) collapse into a single `<unmatched>`
+        //     series.
+        .layer(axum::middleware::from_fn(crate::observability::track_http_metrics))
 }
