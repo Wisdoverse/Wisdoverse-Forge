@@ -845,7 +845,12 @@ Per PM C3, the work is **2–3 weeks** of engineering, not 1. Composition:
 
 ## 14. Out of Scope (future work)
 
-Deferred to follow-up PRs, tracked in `docs/issues/` (or the project's issue tracker):
+> **Tracking:** every item below now has a GitHub issue, indexed in
+> [`host-cli-enrollment-deferred-tracking.md`](host-cli-enrollment-deferred-tracking.md).
+> Several have already shipped (manifest #454, cosign #452, dashboards #451,
+> deprecation/postmortem #453, design specs #450).
+
+Deferred to follow-up PRs, tracked per the index above:
 
 - **Admin UI filter on `runtime_kind`** + the admin-projection field (PM C4) — ship as bundle.
 - **Telemetry dashboards split by runtime kind** (SRE C7) — separate observability initiative.
