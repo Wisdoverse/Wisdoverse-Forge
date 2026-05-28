@@ -55,8 +55,10 @@ Break-glass is **not** justified for:
    If anything other than `pass` or `skipping` remains, **stop** — fix the
    check first. Break-glass never merges a red PR.
 
-2. Confirm the PR body has a complete Beginner UX / Operator Path section (the
-   `Beginner UX / Operator Path` check enforces this).
+2. Confirm the PR body has a complete Beginner UX / Operator Path section. The
+   PR template asks for this (advisory `Beginner UX / Operator Path` check); it
+   is not one of the 15 required status checks, so confirm it by hand before
+   merging.
 
 3. Merge with the admin bypass:
 

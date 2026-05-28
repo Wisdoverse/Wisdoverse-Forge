@@ -6,6 +6,31 @@
 //! crate ([`crate::pool`]) and the orchestrator both call
 //! [`verify_manifest`] with their own manifest content and migration set.
 //!
+//! # What this actually guarantees
+//!
+//! This check detects two specific failure modes:
+//!
+//! 1. **A migration file changed without its `MANIFEST.sha256` entry being
+//!    updated.** This is caught at PR time by `migration-manifest.yml` (which
+//!    recomputes the manifest from the committed `.sql` files and fails the
+//!    check on any difference) and again at process startup by
+//!    [`verify_manifest`] before any migration runs.
+//! 2. **Accidental drift** between the embedded migration set and the manifest
+//!    — for example, adding a `.sql` file but forgetting to regenerate the
+//!    manifest, or removing a file the manifest still lists.
+//!
+//! # What this does NOT guarantee
+//!
+//! Both the migration `.sql` files and `MANIFEST.sha256` are `include_str!`-
+//! embedded at compile time, so an attacker who can recompile the binary can
+//! edit a migration, regenerate the manifest, rebuild, and the check will pass
+//! against the tampered set — the binary self-attests. This check therefore
+//! does **not** provide post-build integrity against an adversary with build
+//! access. For that the manifest would need to be signed against an external
+//! trust root (a separate, currently-untracked piece of work). The real
+//! protection here is the PR-time CI diff plus startup staleness detection,
+//! not cryptographic supply-chain integrity of a shipped binary.
+//!
 //! # Operator path
 //!
 //! When this check fails at startup the process exits before running any
