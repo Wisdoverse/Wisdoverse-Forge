@@ -9,5 +9,6 @@ pub mod health;
 pub mod migrate;
 pub mod prelude;
 pub mod root;
+pub mod verify;
 pub mod version;
 pub mod whoami;
