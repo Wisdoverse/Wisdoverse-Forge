@@ -60,6 +60,7 @@ pub async fn run(args: Vec<String>) -> i32 {
         }
         Some(cmd::root::Subcommand::Api(a)) => cmd::api::run(a, &ctx, &mut stdout, &mut stderr).await,
         Some(cmd::root::Subcommand::Migrate(a)) => cmd::migrate::dispatch(a).await,
+        Some(cmd::root::Subcommand::Verify(a)) => cmd::verify::run(a, &mut stdout),
         Some(cmd::root::Subcommand::Health) => cmd::health::run(&ctx, &mut stdout).await,
         Some(cmd::root::Subcommand::Whoami) => cmd::whoami::run(&ctx, &mut stdout).await,
         Some(cmd::root::Subcommand::Version) => cmd::version::run(&info, &ctx, &mut stdout, &mut stderr).await,

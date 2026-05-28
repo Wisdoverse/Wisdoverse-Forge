@@ -28,6 +28,8 @@ pub enum Subcommand {
     Api(crate::cmd::api::ApiArgs),
     /// Operator migration utilities (connects directly to PostgreSQL)
     Migrate(crate::cmd::migrate::MigrateArgs),
+    /// Verify a release artifact against its Sigstore cosign bundle.
+    Verify(crate::cmd::verify::VerifyArgs),
     Health,
     Whoami,
     Version,
@@ -123,6 +125,7 @@ impl Cli {
                     MigrateSubcommand::Doctor(_) => "migrate/doctor".into(),
                 }
             }
+            Some(Subcommand::Verify(_)) => "verify".into(),
             Some(Subcommand::Health) => "health".into(),
             Some(Subcommand::Whoami) => "whoami".into(),
             Some(Subcommand::Version) => "version".into(),

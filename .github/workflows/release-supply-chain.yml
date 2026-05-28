@@ -1,0 +1,134 @@
+# =============================================================================
+# Release Supply Chain — sign artifacts + generate SBOMs
+#
+# Triggers: GitHub release published, workflow_dispatch (manual re-run).
+# This workflow is purely additive to the main release pipeline. It runs
+# after a release is published and uploads signatures + SBOMs as additional
+# release assets.
+#
+# Signing uses Sigstore keyless cosign (OIDC, no long-lived keys). The OIDC
+# identity is bound to this workflow file at the pushed release tag, so any
+# artifact signed by a fork, a different workflow, or a different tag will
+# fail `agentforge verify`.
+#
+# SBOMs are generated in CycloneDX JSON format by syft (Anchore) and uploaded
+# alongside `.sig.bundle` files. Downstream operators can run:
+#
+#   agentforge verify --tag v1.2.3 ./agentforge-sidecar-linux-amd64
+#
+# See docs/runbooks/host-cli-agent-enrollment.md for the full operator path.
+# =============================================================================
+
+name: Release Supply Chain (sign + SBOM)
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to sign (e.g. v1.2.3)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+  packages: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  sign-and-sbom:
+    name: Sign release artifacts + generate SBOM
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Resolve release tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.event.release.tag_name }}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "## Supply-chain run for $TAG" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Install syft
+        uses: anchore/sbom-action/download-syft@v0
+
+      - name: Download release artifacts
+        run: |
+          mkdir -p release-artifacts
+          gh release download "${{ steps.tag.outputs.tag }}" \
+            --dir release-artifacts \
+            --pattern '*' \
+            --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List downloaded artifacts
+        run: ls -lh release-artifacts/
+
+      - name: Generate SBOM for each artifact
+        run: |
+          cd release-artifacts
+          for f in agentforge-sidecar-* agentforge-*; do
+            [ -f "$f" ] || continue
+            # Skip files already produced by earlier steps in a re-run.
+            case "$f" in
+              *.sbom.json|*.sig.bundle) continue ;;
+            esac
+            echo "Generating SBOM for $f"
+            syft "$f" -o cyclonedx-json="${f}.sbom.json"
+          done
+
+      - name: Cosign keyless sign each artifact and SBOM
+        env:
+          COSIGN_EXPERIMENTAL: '1'
+        run: |
+          cd release-artifacts
+          for f in agentforge-sidecar-* agentforge-* *.sbom.json; do
+            [ -f "$f" ] || continue
+            # Don't sign existing bundles — that produces double-wrap artefacts.
+            case "$f" in
+              *.sig.bundle) continue ;;
+            esac
+            echo "Signing $f"
+            cosign sign-blob --yes "$f" \
+              --bundle "${f}.sig.bundle"
+          done
+
+      - name: Upload signatures and SBOMs to release
+        run: |
+          cd release-artifacts
+          shopt -s nullglob
+          bundles=(*.sig.bundle)
+          sboms=(*.sbom.json)
+          if [ ${#bundles[@]} -eq 0 ] && [ ${#sboms[@]} -eq 0 ]; then
+            echo "No signatures or SBOMs to upload — skipping."
+            exit 0
+          fi
+          gh release upload "${{ steps.tag.outputs.tag }}" \
+            "${bundles[@]}" "${sboms[@]}" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "### Artifacts signed" >> "$GITHUB_STEP_SUMMARY"
+          ls release-artifacts/*.sig.bundle 2>/dev/null | while read -r f; do
+            echo "- \`$(basename "$f")\`" >> "$GITHUB_STEP_SUMMARY"
+          done || true
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### SBOMs generated (CycloneDX JSON)" >> "$GITHUB_STEP_SUMMARY"
+          ls release-artifacts/*.sbom.json 2>/dev/null | while read -r f; do
+            echo "- \`$(basename "$f")\`" >> "$GITHUB_STEP_SUMMARY"
+          done || true
