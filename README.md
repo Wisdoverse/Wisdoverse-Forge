@@ -117,11 +117,31 @@ Start the agent with the repository contracts:
 - Rust API and WebSocket gateway for work state, agent lifecycle, auth,
   telemetry, and the internal MCP bridge
 - Rust orchestrator and Temporal workflow runtime
-- Docker-backed container CLI sessions with sidecars and hooks
+- Three first-class agent runtimes governed by `agents.runtime_kind`
+  (`container | cli | api`):
+  - **Container Runtime** - platform-spawned Docker container running a
+    Container CLI (claude / codex / gemini / opencode) plus the sidecar
+  - **Host CLI Runtime** - operator-managed CLI on the operator's machine that
+    enrolls into the platform via the sidecar and NATS, with idempotent
+    enrollment and an atomic `agent.enrolled` audit event
+  - **API Runtime** - provider-backed prompt agent (Anthropic / OpenAI /
+    Google) with no shell and no container
+- DB-enforced agent runtime invariants via `CHECK` constraints on
+  `(runtime_kind, cli_tool, container_id)`; lifecycle endpoints reject
+  cross-kind operations with operator-facing i18n error messages
 - Task, run, review, event, and evidence surfaces for governed execution
 - Skills, plugins, prompts, credentials, and runtime configuration primitives
-- PostgreSQL, Redis, NATS, MinIO, and Docker runtime integrations
-- React/Vite/Three.js browser UI plus a Rust platform CLI
+- Per-agent NATS auth via callout with HMAC-signed result envelopes, per-agent
+  scoped pub/sub permissions, and zero shared agent credentials
+- PostgreSQL (with online-safe migration patterns), Redis, NATS, MinIO, and
+  Docker runtime integrations
+- React/Vite/Three.js browser UI under strict Feature-Sliced Design boundaries
+  (app -> pages -> widgets -> features -> entities -> shared), gated by
+  `npm run fsd:check`
+- Rust Platform CLI (`agentforge`) with `migrate doctor` pre-flight,
+  `agents enroll-local` host-CLI enrollment, and standard ops subcommands
+- Multi-locale operator UI (English + Chinese) with i18n error codes for every
+  user-facing rejection
 
 ## Current Preview Boundaries
 
@@ -150,6 +170,11 @@ represented as complete product capabilities:
 - [Runtime Validation](docs/runbooks/runtime-validation.md) - current proofed
   runtime boundary and commands
 - [Getting Started](docs/guides/getting-started.md) - local setup path
+- [Host CLI Enrollment](docs/runbooks/host-cli-agent-enrollment.md) - operator
+  guide for joining a local CLI process to the platform
+- [Migration 062 Runbook](docs/runbooks/migration-062-runtime-kind.md) -
+  pre-flight, validation, and recovery playbook for the `runtime_kind`
+  discriminator migration sequence (062/063/064/065)
 - [CLI Platform Support](docs/guides/cli-platform-support.md) - Platform CLI,
   local sidecar, and multi-platform release expectations
 - [Contributing](CONTRIBUTING.md) - workflow, validation, and PR expectations
