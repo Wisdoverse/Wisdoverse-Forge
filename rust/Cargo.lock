@@ -214,8 +214,10 @@ version = "0.1.0"
 dependencies = [
  "agentforge-core",
  "chrono",
+ "hex",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "sqlx",
  "thiserror 2.0.18",
  "tracing",
