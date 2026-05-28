@@ -288,6 +288,7 @@ name = "agentforge-orchestrator"
 version = "0.1.0"
 dependencies = [
  "agentforge-core",
+ "agentforge-db",
  "anyhow",
  "async-trait",
  "axum 0.8.9",
