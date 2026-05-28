@@ -91,6 +91,12 @@ fn parse_manifest(manifest: &str) -> Result<HashMap<String, String>, ManifestErr
         }
         map.insert(name, hash);
     }
+    // An empty manifest would make verification vacuously pass against any
+    // migration set (including an empty one), so reject it explicitly. Both
+    // real manifests are non-empty, so this changes nothing for valid input.
+    if map.is_empty() {
+        return Err(ManifestError::MalformedManifest("manifest is empty".into()));
+    }
     Ok(map)
 }
 
@@ -152,33 +158,90 @@ mod tests {
     /// verifier against realistic content.
     const DB_MANIFEST: &str = include_str!("../migrations/MANIFEST.sha256");
 
+    /// SHA-256 hex digest of `content`, matching what `verify_manifest` hashes.
+    fn sha256_hex(content: &str) -> String {
+        let mut h = Sha256::new();
+        h.update(content.as_bytes());
+        hex::encode(h.finalize())
+    }
+
+    /// One `sha256sum`-format line: `<64-hex>  <name>` (two spaces).
+    fn manifest_line(content: &str, name: &str) -> String {
+        format!("{}  {}", sha256_hex(content), name)
+    }
+
     #[test]
     fn manifest_parses_without_error() {
         let map = parse_manifest(DB_MANIFEST).expect("parse MANIFEST.sha256");
         assert!(!map.is_empty(), "manifest must not be empty");
     }
 
+    /// A manifest with no entries must not vacuously pass: `parse_manifest`
+    /// rejects it so `verify_manifest("", &[])` (and any empty manifest) is an
+    /// error rather than `Ok(())`.
     #[test]
-    fn detects_hash_mismatch() {
-        let files = vec![("000_legacy_prepare.sql", "tampered content")];
-        let err = verify_manifest(DB_MANIFEST, &files).unwrap_err();
+    fn rejects_empty_manifest() {
+        let err = verify_manifest("", &[]).unwrap_err();
         assert!(
-            matches!(err, ManifestError::HashMismatch { .. })
-                || matches!(err, ManifestError::MissingFile(_))
-                || matches!(err, ManifestError::UnlistedFile(_)),
-            "unexpected error variant: {err}"
+            matches!(err, ManifestError::MalformedManifest(_)),
+            "empty manifest must be MalformedManifest, got: {err}"
+        );
+
+        // Whitespace-only is also empty after line trimming.
+        let err = verify_manifest("\n  \n", &[("a.sql", "x")]).unwrap_err();
+        assert!(
+            matches!(err, ManifestError::MalformedManifest(_)),
+            "whitespace-only manifest must be MalformedManifest, got: {err}"
         );
     }
 
+    /// Self-contained: manifest pins the hash of `"x"` for `a.sql`, but the
+    /// source content is tampered — exactly one variant (`HashMismatch`) must
+    /// fire, with no ambiguity from missing/unlisted files.
+    #[test]
+    fn detects_hash_mismatch() {
+        let manifest = manifest_line("x", "a.sql");
+        let files = [("a.sql", "tampered")];
+        let err = verify_manifest(&manifest, &files).unwrap_err();
+        assert!(
+            matches!(err, ManifestError::HashMismatch { ref file, .. } if file == "a.sql"),
+            "expected exactly HashMismatch for a.sql, got: {err}"
+        );
+    }
+
+    /// Self-contained: the manifest lists only `a.sql` (matching content), but
+    /// the source set also contains `b.sql` — exactly `UnlistedFile(b.sql)`
+    /// must fire.
     #[test]
     fn detects_unlisted_file() {
-        let files = vec![("999_phantom.sql", "SELECT 1;")];
-        let err = verify_manifest(DB_MANIFEST, &files).unwrap_err();
-        // Either UnlistedFile (phantom not in manifest) or MissingFile (manifest
-        // entries not in provided list) may surface first. Both indicate divergence.
+        let manifest = manifest_line("x", "a.sql");
+        let files = [("a.sql", "x"), ("b.sql", "y")];
+        let err = verify_manifest(&manifest, &files).unwrap_err();
         assert!(
-            matches!(err, ManifestError::UnlistedFile(_)) || matches!(err, ManifestError::MissingFile(_)),
-            "unexpected error variant: {err}"
+            matches!(err, ManifestError::UnlistedFile(ref name) if name == "b.sql"),
+            "expected exactly UnlistedFile(b.sql), got: {err}"
         );
+    }
+
+    /// Self-contained: the manifest lists `a.sql` + `b.sql` (matching content
+    /// for both), but the source set is missing `b.sql` — exactly
+    /// `MissingFile(b.sql)` must fire.
+    #[test]
+    fn detects_missing_file() {
+        let manifest = format!("{}\n{}", manifest_line("x", "a.sql"), manifest_line("y", "b.sql"));
+        let files = [("a.sql", "x")];
+        let err = verify_manifest(&manifest, &files).unwrap_err();
+        assert!(
+            matches!(err, ManifestError::MissingFile(ref name) if name == "b.sql"),
+            "expected exactly MissingFile(b.sql), got: {err}"
+        );
+    }
+
+    /// A correct manifest over a self-contained source set verifies cleanly.
+    #[test]
+    fn accepts_matching_manifest() {
+        let manifest = format!("{}\n{}", manifest_line("x", "a.sql"), manifest_line("y", "b.sql"));
+        let files = [("a.sql", "x"), ("b.sql", "y")];
+        verify_manifest(&manifest, &files).expect("matching manifest must verify");
     }
 }

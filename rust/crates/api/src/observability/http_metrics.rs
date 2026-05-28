@@ -26,12 +26,22 @@
 //!
 //! ## Layer ordering
 //!
-//! [`MatchedPath`] is inserted into the request extensions by the router only
-//! once a route has been matched. A `from_fn(track_http_metrics)` layer
-//! therefore reads `Some(MatchedPath)` so long as it is applied to the router
-//! *after* the routes are defined (i.e. it wraps the routed service). See
-//! `crate::router::create_router` for the wiring and the unit test below for
-//! the ordering guarantee.
+//! [`MatchedPath`] is inserted into the request extensions by the router once a
+//! route has been matched. A `from_fn(track_http_metrics)` layer applied via
+//! `Router::layer()` wraps each routed endpoint *after* that insertion, so it
+//! reads `Some(MatchedPath)` — including the full `/api/v1/...` nest prefix for
+//! nested routers (see `records_nest_prefixed_route_template`).
+//!
+//! This layer must also sit **outside** the catch-panic layer. Tower/Axum
+//! layers run bottom-up, so when the metrics layer is applied last (outermost),
+//! a panicking handler unwinds only as far as the inner catch-panic layer,
+//! which converts the panic into a synthesized `500` `Response`. That `500`
+//! then returns normally through the metrics layer's `next.run().await` and is
+//! counted as `http_requests_total{status="500"}`. If the metrics layer were
+//! *inside* catch-panic, the unwind would tear through its own `next.run().await`
+//! and the panic-induced 500 would never be recorded. See
+//! `crate::router::create_router` for the wiring and `counts_panic_induced_500`
+//! below for the ordering guarantee.
 
 use std::time::Instant;
 
@@ -136,19 +146,51 @@ mod tests {
     /// closure, so every `metrics::counter!` / `histogram!` the middleware
     /// emits is captured by `recorder` rather than the global no-op.
     fn run_request_capturing(uri: &str) -> (StatusCode, Snapshot) {
+        run_request_capturing_on(router(), uri)
+    }
+
+    /// Like [`run_request_capturing`] but drives the supplied router, so tests
+    /// can exercise alternate wirings (nesting, catch-panic) against the same
+    /// thread-local-recorder capture machinery.
+    fn run_request_capturing_on(app: Router, uri: &str) -> (StatusCode, Snapshot) {
         let recorder = DebuggingRecorder::new();
         let snapshotter = recorder.snapshotter();
         let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("current-thread runtime");
 
         let status = metrics::with_local_recorder(&recorder, || {
             rt.block_on(async {
-                let app = router();
                 let res = app.oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap()).await.unwrap();
                 res.status()
             })
         });
 
         (status, snapshotter.snapshot())
+    }
+
+    /// True if `http_requests_total` was recorded once with the given
+    /// `method` / `path` / `status` label triple.
+    fn counter_present(
+        snapshot: &[(CompositeKey, Option<metrics::Unit>, Option<metrics::SharedString>, DebugValue)],
+        method: &str,
+        path: &str,
+        status: &str,
+    ) -> bool {
+        let key = CompositeKey::new(
+            MetricKind::Counter,
+            Key::from_parts(
+                "http_requests_total",
+                vec![
+                    Label::new("method", method.to_owned()),
+                    Label::new("path", path.to_owned()),
+                    Label::new("status", status.to_owned()),
+                ],
+            ),
+        );
+        snapshot
+            .iter()
+            .find(|(k, _, _, _)| k == &key)
+            .map(|(_, _, _, v)| matches!(v, DebugValue::Counter(n) if *n >= 1))
+            .unwrap_or(false)
     }
 
     /// The middleware must label by the matched route TEMPLATE, not the raw
@@ -252,5 +294,107 @@ mod tests {
             !rendered.contains("http_request_duration_seconds{quantile="),
             "metric must render as a histogram, not a summary:\n{rendered}"
         );
+    }
+
+    /// GAP A: the `path` label must carry the FULL nested route template,
+    /// including the `/api/v1` nest prefix — that prefix is load-bearing for
+    /// every agents-runtime SLO alert regex (`path=~"/api/v1/agents.*"`,
+    /// `path="/api/v1/agents"`, …) and Grafana panel in
+    /// `ops/prometheus/agents-runtime.yml`. The earlier flat-router tests only
+    /// proved templating, not that the nest prefix survives.
+    ///
+    /// This mirrors production: the metrics layer is applied via
+    /// `Router::layer()` on the OUTER router that holds the `.nest("/api/v1", …)`,
+    /// exactly as `crate::router::create_router` wires it.
+    #[test]
+    fn records_nest_prefixed_route_template() {
+        let app = Router::new()
+            .nest("/api/v1", Router::new().route("/agents/{id}/restart", get(ok_handler)))
+            .layer(axum::middleware::from_fn(track_http_metrics));
+
+        let (status, snapshot) = run_request_capturing_on(app, "/api/v1/agents/42/restart");
+        assert_eq!(status, StatusCode::OK);
+        let snapshot = snapshot.into_vec();
+
+        // The recorded path label must be the full nested template WITH prefix.
+        assert!(
+            counter_present(&snapshot, "GET", "/api/v1/agents/{id}/restart", "200"),
+            "counter must carry path=\"/api/v1/agents/{{id}}/restart\" (with nest prefix); got: {:?}",
+            snapshot
+                .iter()
+                .filter_map(|(k, _, _, _)| k.key().labels().find(|l| l.key() == "path").map(|l| l.value().to_owned()))
+                .collect::<Vec<_>>()
+        );
+
+        // NOT the prefix-stripped template the inner router alone would yield.
+        let stripped = snapshot.iter().any(|(k, _, _, _)| {
+            k.key().name() == "http_requests_total"
+                && k.key().labels().any(|l| l.key() == "path" && l.value() == "/agents/{id}/restart")
+        });
+        assert!(!stripped, "path label must include the /api/v1 nest prefix, not the inner-only template");
+
+        // NOT the raw, id-bearing URI (cardinality explosion + breaks SLO regex).
+        let raw = snapshot.iter().any(|(k, _, _, _)| {
+            k.key().labels().any(|l| l.key() == "path" && l.value() == "/api/v1/agents/42/restart")
+        });
+        assert!(!raw, "path label must be the route template, not the raw URI");
+    }
+
+    /// Panic accounting: a handler that `panic!()`s, wrapped (in production
+    /// order) with `catch_panic_layer` INSIDE the metrics layer, must surface a
+    /// 500 to the metrics layer's `next.run().await` so it is counted as
+    /// `http_requests_total{status="500"}`.
+    ///
+    /// If the metrics layer were inside CatchPanic the unwind would tear through
+    /// its own `next.run().await` and the 500 would never be recorded — the bug
+    /// `crate::router::create_router`'s layer ordering fixes. This test pins the
+    /// ordering: metrics is applied LAST (outermost) so it wraps CatchPanic.
+    #[test]
+    fn counts_panic_induced_500() {
+        async fn panic_handler() -> &'static str {
+            panic!("boom from handler");
+        }
+
+        // Same nesting order as production: inner middleware (CatchPanic) is
+        // applied first, the metrics layer is applied last so it is OUTERMOST.
+        let app = Router::new()
+            .route("/panic", get(panic_handler))
+            .layer(crate::middleware::catch_panic_layer())
+            .layer(axum::middleware::from_fn(track_http_metrics));
+
+        let (status, snapshot) = run_request_capturing_on(app, "/panic");
+        // CatchPanic converted the panic into a synthesized 500 Response.
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        let snapshot = snapshot.into_vec();
+
+        // The synthesized 500 must have flowed back through the metrics layer
+        // and been counted — proving the layer is OUTSIDE CatchPanic.
+        assert!(
+            counter_present(&snapshot, "GET", "/panic", "500"),
+            "panic-induced 500 must be counted as http_requests_total{{status=\"500\"}}; got: {:?}",
+            snapshot
+                .iter()
+                .filter(|(k, _, _, _)| k.key().name() == "http_requests_total")
+                .map(|(k, _, _, _)| k.key().labels().map(|l| format!("{}={}", l.key(), l.value())).collect::<Vec<_>>())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// Companion to [`counts_panic_induced_500`]: an explicit
+    /// `StatusCode::INTERNAL_SERVER_ERROR` response (no panic) is also recorded
+    /// as `status="500"`. Together they cover both the synthesized and the
+    /// returned 500 paths.
+    #[test]
+    fn counts_explicit_500_response() {
+        async fn err_handler() -> StatusCode {
+            StatusCode::INTERNAL_SERVER_ERROR
+        }
+
+        let app = Router::new().route("/err", get(err_handler)).layer(axum::middleware::from_fn(track_http_metrics));
+
+        let (status, snapshot) = run_request_capturing_on(app, "/err");
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        let snapshot = snapshot.into_vec();
+        assert!(counter_present(&snapshot, "GET", "/err", "500"), "explicit 500 must be counted with status=\"500\"");
     }
 }
