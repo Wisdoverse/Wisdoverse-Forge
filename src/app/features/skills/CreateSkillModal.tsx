@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Sparkles, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
@@ -99,7 +99,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
     }
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const name = form.name.trim()
     const content = form.content.trim()

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { slugifyName } from '@app/shared/lib/slugify'
@@ -25,7 +25,7 @@ export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps
   const isReady = Boolean(trimmedName)
   const visibleError = submitAttempted && !isReady ? 'Enter a team name before creating it.' : null
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setSubmitAttempted(true)
     if (!isReady) {

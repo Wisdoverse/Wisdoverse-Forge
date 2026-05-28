@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Check, Pencil, Trash2, Users, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
@@ -33,7 +33,7 @@ export function EditableTeamRow({
     setError(null)
   }
 
-  async function handleSave(e: React.FormEvent) {
+  async function handleSave(e: FormEvent) {
     e.preventDefault()
     const trimmedName = name.trim()
     if (!trimmedName) {

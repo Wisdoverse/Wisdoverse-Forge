@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
@@ -153,7 +153,7 @@ function AddCredentialForm({
   const hostHelpId = 'git-credential-host-help'
   const readiness = credentialFormReadiness({ token: form.token, tokenInputId })
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!readiness.ready) {
       if (readiness.fieldId) document.getElementById(readiness.fieldId)?.focus()
