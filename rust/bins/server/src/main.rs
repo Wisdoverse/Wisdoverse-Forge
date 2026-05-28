@@ -89,7 +89,9 @@ async fn main() -> Result<()> {
     // SLO-aligned bounds so `histogram_quantile(0.95, ...)` resolves
     // meaningfully near each agents-runtime budget (500ms create, 800ms
     // enroll, 2s container restart). Without explicit buckets the exporter
-    // falls back to a generic default that does not straddle these thresholds.
+    // renders this metric as a Prometheus summary (quantiles) instead of a
+    // histogram, so no `_bucket{le=...}` series exist and the dashboard's
+    // histogram_quantile() / SLO _bucket rate queries return nothing.
     let prometheus_handle = Arc::new(
         PrometheusBuilder::new()
             .set_buckets_for_metric(
