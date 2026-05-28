@@ -99,22 +99,22 @@ describe('SkillDraftModal', () => {
 
     expect(screen.getByText(/check 3 things before publishing/i)).toBeDefined()
 
-    await user.clear(screen.getByLabelText(/^name$/i))
+    await user.clear(screen.getByLabelText(/^skill name$/i))
     await user.click(screen.getByRole('button', { name: /publish skill/i }))
 
     expect(screen.getByRole('alert')).toHaveTextContent('Name this skill before publishing it.')
-    expect(screen.getByLabelText(/^name$/i)).toHaveFocus()
+    expect(screen.getByLabelText(/^skill name$/i)).toHaveFocus()
 
-    await user.type(screen.getByLabelText(/^name$/i), 'migration-review')
+    await user.type(screen.getByLabelText(/^skill name$/i), 'migration-review')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 
-    await user.clear(screen.getByLabelText(/^content$/i))
+    await user.clear(screen.getByLabelText(/^reusable instructions$/i))
     await user.click(screen.getByRole('button', { name: /publish skill/i }))
 
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Keep or rewrite the reusable instructions before publishing.'
     )
-    expect(screen.getByLabelText(/^content$/i)).toHaveFocus()
+    expect(screen.getByLabelText(/^reusable instructions$/i)).toHaveFocus()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })
