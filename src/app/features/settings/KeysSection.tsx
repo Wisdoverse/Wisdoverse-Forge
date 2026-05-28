@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { CheckCircle2, KeyRound } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
@@ -148,7 +148,7 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
   const trimmedName = name.trim()
   const isReady = Boolean(trimmedName)
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!isReady) {
       document.getElementById(nameInputId)?.focus()

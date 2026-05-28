@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAdminStore, type AdminUser } from '@app/shared/model/admin.store'
@@ -247,7 +247,7 @@ export function UserManagement() {
     void loadUsers(1)
   }, [loadUsers])
 
-  function handleSearch(e: React.FormEvent<HTMLFormElement>) {
+  function handleSearch(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     void loadUsers(1)
   }
