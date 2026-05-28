@@ -6,6 +6,7 @@ license-file.workspace = true
 
 [dependencies]
 agentforge-core.workspace = true
+agentforge-db.workspace = true
 axum.workspace = true
 tokio.workspace = true
 serde.workspace = true
