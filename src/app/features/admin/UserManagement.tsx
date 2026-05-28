@@ -18,6 +18,25 @@ const ROLE_HELP: Record<Role, string> = {
   viewer: 'Can review information without changing it.',
 }
 
+const ROLE_DETAILS: Record<Role, { label: string; description: string }> = {
+  admin: {
+    label: 'Admin',
+    description: 'Can manage users, settings, and system configuration.',
+  },
+  operator: {
+    label: 'Operator',
+    description: 'Can run daily workspace operations without changing admin settings.',
+  },
+  viewer: {
+    label: 'Viewer',
+    description: 'Can read workspace information without making changes.',
+  },
+}
+
+function normalizeRole(role: string): Role {
+  return ROLE_OPTIONS.includes(role as Role) ? (role as Role) : 'viewer'
+}
+
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
   try {
@@ -42,7 +61,7 @@ function RoleBadge({ role }: { role: string }) {
     <span
       className={cn(
         'inline-flex items-center rounded-full px-2 py-0.5 text-ui-caption font-medium',
-        colors[normalizedRole]
+        colors[knownRole]
       )}
     >
       {ROLE_LABELS[knownRole]}
@@ -72,7 +91,6 @@ function UserRow({ user }: { user: AdminUser }) {
   const [selectedRole, setSelectedRole] = useState<Role>(normalizeRole(user.role))
   const [saving, setSaving] = useState(false)
   const [roleError, setRoleError] = useState<string | null>(null)
-  const [roleFeedback, setRoleFeedback] = useState<string | null>(null)
   const updateUserRole = useAdminStore((s) => s.updateUserRole)
   const currentRole = normalizeRole(user.role)
   const selectedRoleDetails = ROLE_DETAILS[selectedRole]
@@ -89,17 +107,14 @@ function UserRow({ user }: { user: AdminUser }) {
 
   async function handleSave() {
     if (!roleChanged) {
-      setRoleFeedback('Choose a different role before saving.')
       return
     }
     setSaving(true)
     setRoleError(null)
-    setRoleFeedback(null)
     const ok = await updateUserRole(user.id, selectedRole)
     setSaving(false)
     if (ok) {
       setEditing(false)
-      setRoleFeedback(`${user.displayName} now has ${selectedRoleDetails.label} access.`)
       return
     }
     setRoleError('Role could not be saved. Check your permissions and try again.')
@@ -108,7 +123,6 @@ function UserRow({ user }: { user: AdminUser }) {
   function handleCancel() {
     setSelectedRole(currentRole)
     setRoleError(null)
-    setRoleFeedback(null)
     setEditing(false)
   }
 
@@ -133,10 +147,8 @@ function UserRow({ user }: { user: AdminUser }) {
               onChange={(e) => {
                 setSelectedRole(e.target.value as Role)
                 setRoleError(null)
-                setRoleFeedback(null)
               }}
               className={cn(uiStyles.select, 'h-8 text-ui-caption')}
-              aria-label="Access level"
             >
               {ROLE_OPTIONS.map((r) => (
                 <option key={r} value={r}>

@@ -138,6 +138,7 @@ interface ServiceRowProps extends ServiceDefinition {
 
 function ServiceRow({ name, supportName, description, impact, action, health }: ServiceRowProps) {
   const status: ServiceStatus = health?.status ?? 'unknown'
+  const hasIssue = status !== 'up'
   const responseTime = health?.latencyMs !== undefined ? `${health.latencyMs} ms response` : null
 
   return (
@@ -194,7 +195,7 @@ function ServiceRow({ name, supportName, description, impact, action, health }: 
 
 function OverallBanner({
   status,
-  attentionCount,
+  attentionCount: _attentionCount,
 }: {
   status: OverallStatus
   attentionCount: number
@@ -243,19 +244,6 @@ function OverallBanner({
   )
 }
 
-function formatUptime(seconds: number): string {
-  if (seconds < 60) {
-    const rounded = Math.round(seconds)
-    return `${rounded} ${rounded === 1 ? 'second' : 'seconds'}`
-  }
-  if (seconds < 3600) {
-    const rounded = Math.round(seconds / 60)
-    return `${rounded} ${rounded === 1 ? 'minute' : 'minutes'}`
-  }
-  const rounded = Math.round(seconds / 3600)
-  return `${rounded} ${rounded === 1 ? 'hour' : 'hours'}`
-}
-
 // ============================================================================
 // SystemHealth
 // ============================================================================
@@ -270,33 +258,7 @@ export function SystemHealth() {
     return () => clearInterval(interval)
   }, [loadHealth])
 
-  const services = [
-    {
-      key: 'database',
-      name: 'Data storage',
-      description: 'Keeps accounts, tasks, and settings available',
-    },
-    {
-      key: 'redis',
-      name: 'Fast cache',
-      description: 'Speeds up screens and short-lived status updates',
-    },
-    {
-      key: 'nats',
-      name: 'Agent message channel',
-      description: 'Moves live updates between agents and the app',
-    },
-    {
-      key: 'platform',
-      name: 'Agent runtime',
-      description: 'Starts and manages the containers that run agents',
-    },
-    {
-      key: 'bullmq',
-      name: 'Background work queue',
-      description: 'Runs queued jobs and maintenance work',
-    },
-  ] as const
+  const attentionCount = health ? countAttentionServices(health) : 0
 
   return (
     <div>

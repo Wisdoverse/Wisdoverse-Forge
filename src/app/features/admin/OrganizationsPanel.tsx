@@ -16,6 +16,51 @@ function formatDate(iso: string): string {
   }
 }
 
+const PLAN_DETAILS: Record<string, { label: string; description: string }> = {
+  free: {
+    label: 'Free',
+    description: 'Limited capacity; useful for evaluation and small teams.',
+  },
+  pro: {
+    label: 'Pro',
+    description: 'Production-grade limits and support for growing teams.',
+  },
+  enterprise: {
+    label: 'Enterprise',
+    description: 'Custom limits and dedicated support for large deployments.',
+  },
+}
+
+function planDescription(plan: string): string {
+  return PLAN_DETAILS[plan]?.description ?? 'Plan details are not available yet.'
+}
+
+function organizationReadiness(org: AdminOrg): {
+  label: string
+  tone: string
+  nextStep: string
+} {
+  if (org.membersCount <= 0) {
+    return {
+      label: 'Needs members',
+      tone: 'text-apple-red',
+      nextStep: 'Invite at least one member so someone can use this organization.',
+    }
+  }
+  if (org.teamsCount <= 0) {
+    return {
+      label: 'Needs a team',
+      tone: 'text-secondary-light dark:text-secondary-dark',
+      nextStep: 'Create a team so members have a place to organize projects.',
+    }
+  }
+  return {
+    label: 'Ready to use',
+    tone: 'text-apple-blue',
+    nextStep: 'Members can create projects and start work from their teams.',
+  }
+}
+
 function PlanBadge({ plan }: { plan: string }) {
   const details = PLAN_DETAILS[plan] ?? {
     label: plan || 'Unknown',
@@ -132,18 +177,6 @@ export function OrganizationsPanel() {
     void loadOrgs()
   }, [loadOrgs])
 
-  const totalMembers = orgs.reduce((total, org) => total + org.membersCount, 0)
-  const totalTeams = orgs.reduce((total, org) => total + org.teamsCount, 0)
-  const organizationsNeedingSetup = orgs.filter(
-    (org) => org.membersCount <= 0 || org.teamsCount <= 0
-  ).length
-  const summary =
-    orgs.length === 0
-      ? 'No organizations are visible yet.'
-      : organizationsNeedingSetup === 0
-        ? 'All organizations have members and teams.'
-        : `${organizationsNeedingSetup} ${organizationsNeedingSetup === 1 ? 'organization needs' : 'organizations need'} setup before teams can use them.`
-
   return (
     <div>
       <div className={uiStyles.sectionHeader}>
@@ -198,32 +231,67 @@ export function OrganizationsPanel() {
                     key={org.id}
                     className="border-b border-black/[0.06] transition-colors hover:bg-black/[0.02] dark:border-white/[0.08] dark:hover:bg-white/[0.02]"
                   >
-                    {org.membersCount}
-                  </td>
-                  <td
-                    className={cn(
-                      uiStyles.tableCell,
-                      'text-ui-body tabular-nums text-foreground-light dark:text-foreground-dark'
-                    )}
-                  >
-                    {org.teamsCount}
-                  </td>
-                  <td
-                    className={cn(
-                      uiStyles.tableCell,
-                      'text-ui-caption text-secondary-light dark:text-secondary-dark'
-                    )}
-                  >
-                    {formatDate(org.createdAt)}
-                  </td>
-                  <td className={uiStyles.tableCell}>
-                    <span className="inline-flex items-center gap-1.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      <CalendarDays size={12} strokeWidth={2} aria-hidden="true" />
-                      Review access when membership or teams change.
-                    </span>
-                  </td>
-                </tr>
-              ))}
+                    <td className={uiStyles.tableCell}>
+                      <div>
+                        <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+                          {org.name}
+                        </p>
+                        <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                          Organization URL name: {org.slug}
+                        </p>
+                      </div>
+                    </td>
+                    <td className={uiStyles.tableCell}>
+                      <div className="grid gap-1">
+                        <PlanBadge plan={org.plan} />
+                        <p className="max-w-[220px] text-ui-caption text-secondary-light dark:text-secondary-dark">
+                          {planDescription(org.plan)}
+                        </p>
+                      </div>
+                    </td>
+                    <td
+                      className={cn(
+                        uiStyles.tableCell,
+                        'text-ui-body tabular-nums text-foreground-light dark:text-foreground-dark'
+                      )}
+                    >
+                      {org.membersCount}
+                    </td>
+                    <td
+                      className={cn(
+                        uiStyles.tableCell,
+                        'text-ui-body tabular-nums text-foreground-light dark:text-foreground-dark'
+                      )}
+                    >
+                      {org.teamsCount}
+                    </td>
+                    <td className={uiStyles.tableCell}>
+                      <div className="max-w-[260px]">
+                        <p className={cn('text-ui-body font-medium', readiness.tone)}>
+                          {readiness.label}
+                        </p>
+                        <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                          {readiness.nextStep}
+                        </p>
+                      </div>
+                    </td>
+                    <td
+                      className={cn(
+                        uiStyles.tableCell,
+                        'text-ui-caption text-secondary-light dark:text-secondary-dark'
+                      )}
+                    >
+                      {formatDate(org.createdAt)}
+                    </td>
+                    <td className={uiStyles.tableCell}>
+                      <span className="inline-flex items-center gap-1.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                        <CalendarDays size={12} strokeWidth={2} aria-hidden="true" />
+                        Review access when membership or teams change.
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         )}

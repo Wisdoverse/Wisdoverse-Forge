@@ -26,13 +26,6 @@ const ROLE_OPTIONS: Array<{ value: ResourceMemberRole; label: string }> = [
   { value: 'member', label: 'Member' },
 ]
 
-const ROLE_DESCRIPTIONS: Record<ResourceMemberRole, string> = {
-  owner: 'Full control, including member and settings changes.',
-  admin: 'Can manage this resource and help other members.',
-  maintainer: 'Can keep day-to-day work moving without full ownership.',
-  member: 'Can view and work in this resource.',
-}
-
 const ROLE_TONE: Record<ResourceMemberRole, string> = {
   owner: 'border-apple-blue/30 bg-apple-blue/10 text-apple-blue',
   admin: 'border-apple-blue/20 bg-apple-blue/10 text-apple-blue',
@@ -209,20 +202,8 @@ export function ResourceMembersModal({
     }
   }
 
-  const selectedCandidate = candidateUsers.find((user) => user.id === selectedUserId) ?? null
   const addStatusId = 'resource-members-add-status'
   const roleHelpId = 'resource-members-role-help'
-  const addStatus = loading
-    ? 'Loading members before changes are available.'
-    : busyKey === 'add'
-      ? 'Adding member…'
-      : candidateUsers.length === 0
-        ? 'Everyone in the organization already has access.'
-        : filteredCandidateUsers.length === 0
-          ? 'No people match this search. Clear the search to see available members.'
-          : selectedCandidate
-            ? `Ready to add ${selectedCandidate.username || selectedCandidate.email} as ${roleLabel(selectedRole)}.`
-            : 'Choose a person before adding them.'
 
   return (
     <div

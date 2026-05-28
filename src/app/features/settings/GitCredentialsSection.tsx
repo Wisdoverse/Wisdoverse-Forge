@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
@@ -27,6 +26,40 @@ const GIT_CREDENTIAL_SETUP_STEPS = [
   { label: 'Paste token', value: 'Use a personal access token with repository access.' },
   { label: 'Leave host blank', value: 'Only enter a host for self-hosted GitHub or GitLab.' },
 ]
+
+interface CredentialFormReadiness {
+  ready: boolean
+  title: string
+  detail: string
+  error: string | null
+  fieldId: string | null
+}
+
+function credentialFormReadiness({
+  token,
+  tokenInputId,
+}: {
+  token: string
+  tokenInputId: string
+}): CredentialFormReadiness {
+  if (!token.trim()) {
+    return {
+      ready: false,
+      title: 'Next: Paste Access Token',
+      detail: 'Paste a token from GitHub or GitLab so agents can clone and push repositories.',
+      error: 'Paste an access token before saving this credential.',
+      fieldId: tokenInputId,
+    }
+  }
+
+  return {
+    ready: true,
+    title: 'Ready to Save',
+    detail: 'Save this token, then use a small agent task to confirm repository access.',
+    error: null,
+    fieldId: null,
+  }
+}
 
 // ============================================================================
 // Credential Row
@@ -117,12 +150,11 @@ function AddCredentialForm({
   const providerInputId = 'git-credential-provider'
   const tokenInputId = 'git-credential-token'
   const tokenHelpId = 'git-credential-token-help'
-  const hostInputId = 'git-credential-host'
   const hostHelpId = 'git-credential-host-help'
+  const readiness = credentialFormReadiness({ token: form.token, tokenInputId })
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setSubmitAttempted(true)
     if (!readiness.ready) {
       if (readiness.fieldId) document.getElementById(readiness.fieldId)?.focus()
       return
@@ -203,7 +235,6 @@ function AddCredentialForm({
             value={form.token}
             onChange={(e) => setForm({ ...form, token: e.target.value })}
             placeholder="Paste a repository access token"
-            aria-describedby="git-credential-token-help"
             required
             className={uiStyles.input}
             aria-describedby={tokenHelpId}
@@ -237,7 +268,6 @@ function AddCredentialForm({
             value={form.host}
             onChange={(e) => setForm({ ...form, host: e.target.value })}
             placeholder="e.g. gitlab.company.com"
-            aria-describedby="git-credential-host-help"
             className={uiStyles.input}
             aria-describedby={hostHelpId}
           />

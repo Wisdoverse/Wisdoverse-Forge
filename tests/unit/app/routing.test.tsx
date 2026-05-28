@@ -2,6 +2,7 @@ import { describe, test, expect, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { RouterProvider, createMemoryHistory } from '@tanstack/react-router'
 import { AuthShellLoadingState } from '@app/routes/__root'
+import { TaskViewLoadingFallback } from '@app/routes/tasks'
 import { createTestRouter } from './test-helpers'
 
 afterEach(cleanup)

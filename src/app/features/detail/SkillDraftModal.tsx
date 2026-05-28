@@ -183,7 +183,6 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                   onChange={(event) => updateField('triggerPattern', event.target.value)}
                   aria-describedby="skill-draft-trigger-help"
                   className={cn(uiStyles.input, 'font-mono')}
-                  aria-describedby="skill-draft-trigger-help"
                 />
                 <p
                   id="skill-draft-trigger-help"

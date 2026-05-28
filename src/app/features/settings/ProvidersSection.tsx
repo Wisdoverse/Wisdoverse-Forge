@@ -683,11 +683,19 @@ function AddProviderFormPanel({
   const apiKeyHelpId = 'provider-form-api-key-help'
   const baseUrlInputId = 'provider-form-base-url'
   const baseUrlHelpId = 'provider-form-base-url-help'
-  const canSubmit = Boolean(
-    form.model.trim() &&
-    (!needsApiKey || form.apiKey.trim()) &&
-    (!needsBaseUrl || form.baseUrl.trim())
-  )
+  const readiness = providerFormReadiness({
+    form,
+    needsApiKey,
+    needsBaseUrl,
+    modelInputId,
+    apiKeyInputId,
+    baseUrlInputId,
+  })
+  const visibleError = submitAttempted && !readiness.ready ? readiness.error : null
+  const formStatusId = 'provider-form-status'
+  const modelErrorId = 'provider-form-model-error'
+  const apiKeyErrorId = 'provider-form-api-key-error'
+  const baseUrlErrorId = 'provider-form-base-url-error'
 
   function handleProviderChange(provider: LlmProvider) {
     const info = providerOptions.find((p) => p.provider === provider)
@@ -902,9 +910,8 @@ function AddProviderFormPanel({
               visibleError !== null && readiness.fieldId === apiKeyInputId
                 ? ` ${apiKeyErrorId}`
                 : ''
-            }`}
+            } ${apiKeyHelpId}`}
             className={uiStyles.input}
-            aria-describedby={apiKeyHelpId}
           />
           {visibleError !== null && readiness.fieldId === apiKeyInputId && (
             <p id={apiKeyErrorId} className="mt-1 text-ui-caption text-apple-red">
@@ -937,9 +944,8 @@ function AddProviderFormPanel({
               visibleError !== null && readiness.fieldId === baseUrlInputId
                 ? ` ${baseUrlErrorId}`
                 : ''
-            }`}
+            } ${baseUrlHelpId}`}
             className={uiStyles.input}
-            aria-describedby={baseUrlHelpId}
           />
           {visibleError !== null && readiness.fieldId === baseUrlInputId && (
             <p id={baseUrlErrorId} className="mt-1 text-ui-caption text-apple-red">
