@@ -99,6 +99,41 @@ A reference dashboard skeleton has the following panels:
 Dashboard URLs and credentials live in the operator's private infra repo, not
 in this repository.
 
+## Agents Runtime SLOs
+
+Added 2026-05-28, wired by PR chore/dashboards-slo-alerts. Counters emitted by
+the agents-runtime service (#447).
+
+| Endpoint                           | p95 SLO | Success SLO | Window | Alert rules                                                       |
+| ---------------------------------- | ------- | ----------- | ------ | ----------------------------------------------------------------- |
+| `POST /api/v1/agents`              | < 500ms | > 99.5%     | 28d    | `AgentCreateP95Slow`, `AgentCreateSuccessRatioBelowSLO`           |
+| `POST /api/v1/agents/local-enroll` | < 800ms | > 99.5%     | 28d    | `HostCliEnrollP95Slow`, `HostCliEnrollSuccessRatioBelowSLO`       |
+| `POST /api/v1/agents/:id/restart`  | < 2s    | > 99.0%     | 28d    | `ContainerRestartP95Slow`, `ContainerRestartSuccessRatioBelowSLO` |
+
+DB invariant and replay burst alerts also fire immediately without a `for:`
+window:
+
+| Alert                                     | Trigger                                                       | Severity |
+| ----------------------------------------- | ------------------------------------------------------------- | -------- |
+| `AgentsCheckConstraintViolation`          | Any `agents_check_constraint_violations_total` increase in 5m | critical |
+| `HostCliEnrollmentIdempotencyReplayBurst` | `agents_idempotency_replay_total` rate > 5/s for 5m           | warning  |
+
+Alert rules file: `ops/prometheus/agents-runtime.yml`
+
+Dashboard: `ops/grafana/dashboards/agents-runtime.json` (uid `agents-runtime`)
+
+Import the dashboard via **Grafana → Dashboards → Import → Upload JSON file**.
+The dashboard uses the `$datasource` template variable; select your Prometheus
+data source on import.
+
+### Tuning thresholds
+
+If the p95 or success-ratio alerts fire too frequently during normal operation,
+adjust the `for:` window (latency alerts) or the ratio threshold (success
+alerts) in `ops/prometheus/agents-runtime.yml` and redeploy the Prometheus
+rules. Do not loosen the 28-day success SLO below 99.0% without recording the
+change in your deployment config.
+
 ## Logs
 
 The API and orchestrator emit structured JSON logs via `tracing`. The default
