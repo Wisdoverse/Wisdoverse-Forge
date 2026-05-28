@@ -1,14 +1,41 @@
-//! Supply-chain integrity check for database migration files.
+//! Migration manifest verification for embedded `.sql` migration sets.
 //!
-//! Compares every `.sql` file in the embedded `migrations/` directory against
-//! the committed `MANIFEST.sha256`. A mismatch means a file was altered after
-//! the manifest was generated — which is a signal of unintended or malicious
-//! tampering between PR merge and deployment.
+//! Compares every `.sql` file embedded by `sqlx::migrate!()` against a
+//! committed `MANIFEST.sha256` (a `sha256sum`-format list of `<hash>  <file>`
+//! lines). This is reused by any crate that embeds migrations — the database
+//! crate ([`crate::pool`]) and the orchestrator both call
+//! [`verify_manifest`] with their own manifest content and migration set.
+//!
+//! # What this actually guarantees
+//!
+//! This check detects two specific failure modes:
+//!
+//! 1. **A migration file changed without its `MANIFEST.sha256` entry being
+//!    updated.** This is caught at PR time by `migration-manifest.yml` (which
+//!    recomputes the manifest from the committed `.sql` files and fails the
+//!    check on any difference) and again at process startup by
+//!    [`verify_manifest`] before any migration runs.
+//! 2. **Accidental drift** between the embedded migration set and the manifest
+//!    — for example, adding a `.sql` file but forgetting to regenerate the
+//!    manifest, or removing a file the manifest still lists.
+//!
+//! # What this does NOT guarantee
+//!
+//! Both the migration `.sql` files and `MANIFEST.sha256` are `include_str!`-
+//! embedded at compile time, so an attacker who can recompile the binary can
+//! edit a migration, regenerate the manifest, rebuild, and the check will pass
+//! against the tampered set — the binary self-attests. This check therefore
+//! does **not** provide post-build integrity against an adversary with build
+//! access. For that the manifest would need to be signed against an external
+//! trust root (a separate, currently-untracked piece of work). The real
+//! protection here is the PR-time CI diff plus startup staleness detection,
+//! not cryptographic supply-chain integrity of a shipped binary.
 //!
 //! # Operator path
 //!
 //! When this check fails at startup the process exits before running any
-//! migration. To recover:
+//! migration. To recover, regenerate the manifest for the crate whose
+//! migrations changed and commit it, e.g. for the database crate:
 //!
 //! ```text
 //! cd rust/crates/db/migrations
@@ -17,19 +44,13 @@
 //! ```
 //!
 //! The CI workflow `migration-manifest.yml` runs the same comparison on every
-//! PR that touches `rust/crates/db/migrations/`, so a stale manifest fails CI
-//! before it can reach a deployment.
+//! PR that touches `rust/crates/db/migrations/` or
+//! `rust/crates/orchestrator/migrations/`, so a stale manifest fails CI before
+//! it can reach a deployment.
 
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use thiserror::Error;
-
-/// Embedded manifest content at compile time.
-///
-/// The manifest lives next to the migration files so it travels with the
-/// binary. Any post-build tampering with the `.sql` sources would be detected
-/// on the next startup via [`verify_manifest`].
-const MANIFEST: &str = include_str!("../migrations/MANIFEST.sha256");
 
 /// Errors from manifest verification.
 #[derive(Debug, Error)]
@@ -52,13 +73,13 @@ pub enum ManifestError {
     MalformedManifest(String),
 }
 
-/// Parse `MANIFEST.sha256` into a `filename -> expected_hex_hash` map.
+/// Parse a `MANIFEST.sha256` string into a `filename -> expected_hex_hash` map.
 ///
 /// Each line must be `<64-hex-chars>  <filename>` (two spaces, as produced by
 /// `sha256sum`).
-fn parse_manifest() -> Result<HashMap<String, String>, ManifestError> {
+fn parse_manifest(manifest: &str) -> Result<HashMap<String, String>, ManifestError> {
     let mut map = HashMap::new();
-    for line in MANIFEST.lines() {
+    for line in manifest.lines() {
         if line.trim().is_empty() {
             continue;
         }
@@ -73,20 +94,22 @@ fn parse_manifest() -> Result<HashMap<String, String>, ManifestError> {
     Ok(map)
 }
 
-/// Verify every migration file in `migration_files` against `MANIFEST.sha256`.
+/// Verify every migration file in `migration_files` against `manifest`.
 ///
-/// `migration_files` is a slice of `(filename, sql_content)` pairs that
-/// represents all `.sql` files embedded by `sqlx::migrate!()`. The function:
+/// `manifest` is the `sha256sum`-format `MANIFEST.sha256` content (typically
+/// `include_str!`-embedded by the calling crate). `migration_files` is a slice
+/// of `(filename, sql_content)` pairs that represents all `.sql` files embedded
+/// by `sqlx::migrate!()` for that crate. The function:
 ///
-/// 1. Parses the embedded manifest.
+/// 1. Parses the supplied manifest.
 /// 2. Hashes each provided file and compares against the manifest entry.
 /// 3. Checks that no file exists in the manifest without a corresponding entry
 ///    in `migration_files`, and vice-versa.
 ///
 /// Returns `Ok(())` if all files match. Returns the first error encountered
 /// otherwise.
-pub fn verify_manifest(migration_files: &[(&str, &str)]) -> Result<(), ManifestError> {
-    let expected = parse_manifest()?;
+pub fn verify_manifest(manifest: &str, migration_files: &[(&str, &str)]) -> Result<(), ManifestError> {
+    let expected = parse_manifest(manifest)?;
 
     // Build an actual map: filename -> sha256 of provided content.
     let mut actual: HashMap<String, String> = HashMap::new();
@@ -125,16 +148,20 @@ pub fn verify_manifest(migration_files: &[(&str, &str)]) -> Result<(), ManifestE
 mod tests {
     use super::*;
 
+    /// The database crate's committed manifest, used to exercise the parser and
+    /// verifier against realistic content.
+    const DB_MANIFEST: &str = include_str!("../migrations/MANIFEST.sha256");
+
     #[test]
     fn manifest_parses_without_error() {
-        let map = parse_manifest().expect("parse MANIFEST.sha256");
+        let map = parse_manifest(DB_MANIFEST).expect("parse MANIFEST.sha256");
         assert!(!map.is_empty(), "manifest must not be empty");
     }
 
     #[test]
     fn detects_hash_mismatch() {
         let files = vec![("000_legacy_prepare.sql", "tampered content")];
-        let err = verify_manifest(&files).unwrap_err();
+        let err = verify_manifest(DB_MANIFEST, &files).unwrap_err();
         assert!(
             matches!(err, ManifestError::HashMismatch { .. })
                 || matches!(err, ManifestError::MissingFile(_))
@@ -146,7 +173,7 @@ mod tests {
     #[test]
     fn detects_unlisted_file() {
         let files = vec![("999_phantom.sql", "SELECT 1;")];
-        let err = verify_manifest(&files).unwrap_err();
+        let err = verify_manifest(DB_MANIFEST, &files).unwrap_err();
         // Either UnlistedFile (phantom not in manifest) or MissingFile (manifest
         // entries not in provided list) may surface first. Both indicate divergence.
         assert!(

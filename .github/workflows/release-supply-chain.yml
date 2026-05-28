@@ -3,13 +3,24 @@
 #
 # Triggers: GitHub release published, workflow_dispatch (manual re-run).
 # This workflow is purely additive to the main release pipeline. It runs
-# after a release is published and uploads signatures + SBOMs as additional
-# release assets.
+# after a release is published — by which point `release.yml`'s
+# `release-binaries` job has already attached the cross-platform
+# `agentforge-*` and `agentforge-sidecar-*` binaries to the release — and
+# uploads signatures + SBOMs as additional release assets.
 #
 # Signing uses Sigstore keyless cosign (OIDC, no long-lived keys). The OIDC
-# identity is bound to this workflow file at the pushed release tag, so any
+# identity is bound to this workflow file AT THE RELEASE TAG REF, so any
 # artifact signed by a fork, a different workflow, or a different tag will
 # fail `agentforge verify`.
+#
+# IMPORTANT — workflow_dispatch identity constraint:
+#   `agentforge verify` (rust/crates/cli/src/cmd/verify.rs) requires the Fulcio
+#   cert subject to end with `@refs/tags/<tag>`. A workflow_dispatch run from a
+#   branch would otherwise produce `@refs/heads/<branch>` and fail verification.
+#   To keep both trigger paths identical, manual runs REQUIRE a `tag` input and
+#   `actions/checkout` checks out that exact tag ref, so the OIDC claim is
+#   always `@refs/tags/<tag>`. Re-runs therefore only work against a real,
+#   already-published tag — never an arbitrary branch.
 #
 # SBOMs are generated in CycloneDX JSON format by syft (Anchore) and uploaded
 # alongside `.sig.bundle` files. Downstream operators can run:
@@ -27,7 +38,11 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag to sign (e.g. v1.2.3)'
+        # Must be an already-published release tag (e.g. v1.2.3). The run checks
+        # out this exact tag ref so the cosign OIDC identity is bound to
+        # `@refs/tags/<tag>`, matching `agentforge verify`. A branch ref would
+        # produce a signature that fails verification.
+        description: 'Published release tag to sign (e.g. v1.2.3)'
         required: true
         type: string
 
@@ -45,7 +60,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Check out the EXACT release tag ref on both trigger paths so the cosign
+      # Fulcio OIDC identity is `...release-supply-chain.yml@refs/tags/<tag>`,
+      # which is what `agentforge verify` pins. On workflow_dispatch the `tag`
+      # input supplies the ref; on `release: published` the published tag does.
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: refs/tags/${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.release.tag_name }}
 
       - name: Resolve release tag
         id: tag
@@ -59,10 +80,10 @@ jobs:
           echo "## Supply-chain run for $TAG" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
 
       - name: Install syft
-        uses: anchore/sbom-action/download-syft@v0
+        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
 
       - name: Download release artifacts
         run: |
