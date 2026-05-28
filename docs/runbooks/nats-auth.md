@@ -189,3 +189,8 @@ If the API crashes between steps 1 and 2, an orphaned JWT lives at most 15 min (
 - `rust/crates/api/src/services/auth_callout/` — worker, JWT, XKey, perms, kick.
 - `rust/crates/api/src/routes/containers.rs` — per-agent NATS_URL interpolation.
 - `rust/crates/api/src/repositories/agent.rs` — `set_container` / `clear_container` atomic lifecycle.
+
+## Related design docs
+
+- [HMAC Envelope](../security/hmac-envelope.md) — signed result envelope schema + replay window.
+- [NATS Subject Namespacing](../architecture/nats-subjects.md) — planned subject discriminator by runtime_kind.
