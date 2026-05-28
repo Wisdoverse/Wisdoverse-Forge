@@ -5,11 +5,13 @@
 
 pub mod entities;
 pub mod inbox_notifications;
+pub mod manifest;
 pub mod pool;
 
 // Convenient re-exports
 pub use entities::*;
-pub use pool::{check_health, create_pool, run_migrations};
+pub use manifest::{ManifestError, verify_manifest};
+pub use pool::{RunMigrationsError, check_health, create_pool, run_migrations};
 
 /// Crate version from Cargo.toml.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

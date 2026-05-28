@@ -13,3 +13,9 @@ uuid.workspace = true
 chrono.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
+sha2.workspace = true
+hex.workspace = true
+
+[dev-dependencies]
+sha2.workspace = true
+hex.workspace = true
