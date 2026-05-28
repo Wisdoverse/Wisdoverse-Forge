@@ -87,8 +87,7 @@ impl From<RuntimeCapabilityError> for AppError {
     fn from(err: RuntimeCapabilityError) -> Self {
         let msg = err.to_string();
         match err {
-            RuntimeCapabilityError::UnknownCliTool { .. }
-            | RuntimeCapabilityError::UnknownRuntimeKind { .. } => {
+            RuntimeCapabilityError::UnknownCliTool { .. } | RuntimeCapabilityError::UnknownRuntimeKind { .. } => {
                 Self { kind: ErrorKind::Validation(msg) }
             }
             RuntimeCapabilityError::MaxContextTokensZero { .. } => {
@@ -257,10 +256,9 @@ mod tests {
         let err = RuntimeCapabilityError::UnknownRuntimeKind { raw: "host_cli".into() };
         let app: AppError = err.into();
         match app.kind {
-            ErrorKind::Validation(msg) => assert!(
-                msg.contains("host_cli"),
-                "expected message to contain 'host_cli', got: {msg}"
-            ),
+            ErrorKind::Validation(msg) => {
+                assert!(msg.contains("host_cli"), "expected message to contain 'host_cli', got: {msg}")
+            }
             other => panic!("expected ErrorKind::Validation, got: {other:?}"),
         }
     }
@@ -274,10 +272,7 @@ mod tests {
             !matches!(app.kind, ErrorKind::Validation(_)),
             "MaxContextTokensZero is an internal invariant violation and must not map to Validation/400"
         );
-        assert!(
-            matches!(app.kind, ErrorKind::Internal(_)),
-            "MaxContextTokensZero must map to Internal/500"
-        );
+        assert!(matches!(app.kind, ErrorKind::Internal(_)), "MaxContextTokensZero must map to Internal/500");
     }
 
     #[test]

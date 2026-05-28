@@ -5,10 +5,7 @@
 //! Tests run against a fresh database with all migrations applied via
 //! `#[sqlx::test(migrations = "../db/migrations")]`.
 
-use agentforge_api::{
-    domain::agent::NewAgent,
-    repositories::agent::AgentRepository,
-};
+use agentforge_api::{domain::agent::NewAgent, repositories::agent::AgentRepository};
 use agentforge_core::{CliToolKind, OrgId, RuntimeKind, TenantScope, UserId};
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -70,17 +67,8 @@ async fn find_aggregate_returns_typed_runtime_kind(pool: PgPool) {
     let scope = make_scope(org_id, user_id);
     let repo = AgentRepository::new(pool.clone());
 
-    let new_agent = NewAgent::container(
-        &scope,
-        CliToolKind::Codex,
-        Some("a"),
-        None,
-        None,
-        workspace_id,
-        None,
-        None,
-    )
-    .unwrap();
+    let new_agent =
+        NewAgent::container(&scope, CliToolKind::Codex, Some("a"), None, None, workspace_id, None, None).unwrap();
     let id = repo.create_aggregate(&scope, new_agent).await.unwrap();
 
     let agg = repo.find_aggregate(&scope, id).await.unwrap();
@@ -97,17 +85,8 @@ async fn find_aggregate_404s_cross_org(pool: PgPool) {
     let scope_b = make_scope(org_b, user_b);
     let repo = AgentRepository::new(pool.clone());
 
-    let new_agent = NewAgent::container(
-        &scope_a,
-        CliToolKind::Codex,
-        Some("a"),
-        None,
-        None,
-        workspace_a,
-        None,
-        None,
-    )
-    .unwrap();
+    let new_agent =
+        NewAgent::container(&scope_a, CliToolKind::Codex, Some("a"), None, None, workspace_a, None, None).unwrap();
     let id = repo.create_aggregate(&scope_a, new_agent).await.unwrap();
 
     let res = repo.find_aggregate(&scope_b, id).await;

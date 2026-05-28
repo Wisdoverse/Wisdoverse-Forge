@@ -388,11 +388,7 @@ impl AgentRepository {
     /// the env block for an idempotent replay.
     ///
     /// Returns `(hmac_secret, nats_connect_password)`.
-    pub async fn fetch_host_cli_credentials(
-        &self,
-        scope: &TenantScope,
-        id: Uuid,
-    ) -> AppResult<(String, String)> {
+    pub async fn fetch_host_cli_credentials(&self, scope: &TenantScope, id: Uuid) -> AppResult<(String, String)> {
         let row: Option<(Option<String>, Option<String>)> = sqlx::query_as(
             "SELECT hmac_secret, nats_connect_password FROM agents
              WHERE id = $1 AND organization_id = $2",
@@ -417,14 +413,12 @@ impl AgentRepository {
     /// The query is scoped by `organization_id` so a cross-org lookup returns
     /// `NotFound` (404) rather than leaking whether the UUID exists.
     pub async fn fetch_owner_id(&self, scope: &TenantScope, id: Uuid) -> AppResult<Uuid> {
-        let row: Option<(Uuid,)> = sqlx::query_as(
-            "SELECT user_id FROM agents WHERE id = $1 AND organization_id = $2",
-        )
-        .bind(id)
-        .bind(scope.org_id().as_uuid())
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(AppError::from)?;
+        let row: Option<(Uuid,)> = sqlx::query_as("SELECT user_id FROM agents WHERE id = $1 AND organization_id = $2")
+            .bind(id)
+            .bind(scope.org_id().as_uuid())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(AppError::from)?;
 
         row.map(|(uid,)| uid).ok_or_else(|| AgentRepositoryPolicy::agent_uuid_not_found(id))
     }

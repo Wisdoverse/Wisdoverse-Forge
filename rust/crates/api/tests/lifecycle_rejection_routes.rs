@@ -74,17 +74,9 @@ async fn restart_on_host_cli_returns_error_with_host_cli_message(pool: PgPool) {
     let repo = AgentRepository::new(pool.clone());
 
     let identity = HostCliIdentity::generate();
-    let new_agent = NewAgent::host_cli(
-        &scope,
-        CliToolKind::Codex,
-        identity,
-        Some("hcli-restart"),
-        None,
-        None,
-        workspace_id,
-        None,
-    )
-    .expect("build host-cli NewAgent");
+    let new_agent =
+        NewAgent::host_cli(&scope, CliToolKind::Codex, identity, Some("hcli-restart"), None, None, workspace_id, None)
+            .expect("build host-cli NewAgent");
 
     let id = repo.create_aggregate(&scope, new_agent).await.expect("create host-cli agent");
 
@@ -94,10 +86,7 @@ async fn restart_on_host_cli_returns_error_with_host_cli_message(pool: PgPool) {
 
     let err = res.expect_err("restart on host_cli must be rejected");
     let msg = format!("{err}");
-    assert!(
-        msg.contains("Host CLI"),
-        "error message must mention 'Host CLI', got: {msg}"
-    );
+    assert!(msg.contains("Host CLI"), "error message must mention 'Host CLI', got: {msg}");
 }
 
 // ---------------------------------------------------------------------------
@@ -111,16 +100,9 @@ async fn restart_on_api_agent_returns_error_with_api_message(pool: PgPool) {
     let scope = make_scope(org_id, user_id);
     let repo = AgentRepository::new(pool.clone());
 
-    let new_agent = NewAgent::api(
-        &scope,
-        "anthropic",
-        "claude-sonnet-4-6",
-        Some("api-restart"),
-        None,
-        workspace_id,
-        None,
-    )
-    .expect("build api NewAgent");
+    let new_agent =
+        NewAgent::api(&scope, "anthropic", "claude-sonnet-4-6", Some("api-restart"), None, workspace_id, None)
+            .expect("build api NewAgent");
 
     let id = repo.create_aggregate(&scope, new_agent).await.expect("create api agent");
 
@@ -129,10 +111,7 @@ async fn restart_on_api_agent_returns_error_with_api_message(pool: PgPool) {
 
     let err = res.expect_err("restart on api agent must be rejected");
     let msg = format!("{err}");
-    assert!(
-        msg.contains("API"),
-        "error message must mention 'API', got: {msg}"
-    );
+    assert!(msg.contains("API"), "error message must mention 'API', got: {msg}");
 }
 
 // ---------------------------------------------------------------------------
@@ -147,17 +126,9 @@ async fn resume_on_host_cli_returns_error_with_host_cli_message(pool: PgPool) {
     let repo = AgentRepository::new(pool.clone());
 
     let identity = HostCliIdentity::generate();
-    let new_agent = NewAgent::host_cli(
-        &scope,
-        CliToolKind::Claude,
-        identity,
-        Some("hcli-resume"),
-        None,
-        None,
-        workspace_id,
-        None,
-    )
-    .expect("build host-cli NewAgent");
+    let new_agent =
+        NewAgent::host_cli(&scope, CliToolKind::Claude, identity, Some("hcli-resume"), None, None, workspace_id, None)
+            .expect("build host-cli NewAgent");
 
     let id = repo.create_aggregate(&scope, new_agent).await.expect("create host-cli agent");
 
@@ -166,10 +137,7 @@ async fn resume_on_host_cli_returns_error_with_host_cli_message(pool: PgPool) {
 
     let err = res.expect_err("resume on host_cli must be rejected");
     let msg = format!("{err}");
-    assert!(
-        msg.contains("Host CLI"),
-        "error message must mention 'Host CLI', got: {msg}"
-    );
+    assert!(msg.contains("Host CLI"), "error message must mention 'Host CLI', got: {msg}");
 }
 
 // ---------------------------------------------------------------------------
@@ -183,16 +151,9 @@ async fn resume_on_api_agent_returns_error_with_api_message(pool: PgPool) {
     let scope = make_scope(org_id, user_id);
     let repo = AgentRepository::new(pool.clone());
 
-    let new_agent = NewAgent::api(
-        &scope,
-        "anthropic",
-        "claude-sonnet-4-6",
-        Some("api-resume"),
-        None,
-        workspace_id,
-        None,
-    )
-    .expect("build api NewAgent");
+    let new_agent =
+        NewAgent::api(&scope, "anthropic", "claude-sonnet-4-6", Some("api-resume"), None, workspace_id, None)
+            .expect("build api NewAgent");
 
     let id = repo.create_aggregate(&scope, new_agent).await.expect("create api agent");
 
@@ -201,10 +162,7 @@ async fn resume_on_api_agent_returns_error_with_api_message(pool: PgPool) {
 
     let err = res.expect_err("resume on api agent must be rejected");
     let msg = format!("{err}");
-    assert!(
-        msg.contains("API"),
-        "error message must mention 'API', got: {msg}"
-    );
+    assert!(msg.contains("API"), "error message must mention 'API', got: {msg}");
 }
 
 // ---------------------------------------------------------------------------
@@ -242,12 +200,6 @@ async fn restart_on_container_agent_passes_typestate_check(pool: PgPool) {
     // LifecycleRejection.
     let err = res.expect_err("restart without docker must fail");
     let msg = format!("{err}");
-    assert!(
-        !msg.contains("Host CLI"),
-        "container agent must not produce a Host CLI rejection, got: {msg}"
-    );
-    assert!(
-        !msg.contains("API/provider"),
-        "container agent must not produce an API rejection, got: {msg}"
-    );
+    assert!(!msg.contains("Host CLI"), "container agent must not produce a Host CLI rejection, got: {msg}");
+    assert!(!msg.contains("API/provider"), "container agent must not produce an API rejection, got: {msg}");
 }

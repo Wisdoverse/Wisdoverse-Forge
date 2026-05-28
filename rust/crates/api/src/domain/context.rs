@@ -1677,7 +1677,9 @@ mod tests {
         assert!(ContextFeaturePolicy::missing_override_allows_deployment_default(&ErrorKind::NotFound(
             "context.preview.enabled".into()
         )));
-        assert!(!ContextFeaturePolicy::missing_override_allows_deployment_default(&ErrorKind::Forbidden("forbidden".into())));
+        assert!(!ContextFeaturePolicy::missing_override_allows_deployment_default(&ErrorKind::Forbidden(
+            "forbidden".into()
+        )));
     }
 
     #[test]

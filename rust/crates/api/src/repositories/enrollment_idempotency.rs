@@ -15,12 +15,7 @@ impl EnrollmentIdempotencyRepository {
 
     /// Returns the previously-enrolled `agent_id` if the (org_id, user_id, key)
     /// triple is present and not expired.
-    pub async fn lookup(
-        &self,
-        org_id: Uuid,
-        user_id: Uuid,
-        key: &str,
-    ) -> AppResult<Option<Uuid>> {
+    pub async fn lookup(&self, org_id: Uuid, user_id: Uuid, key: &str) -> AppResult<Option<Uuid>> {
         let row: Option<(Uuid,)> = sqlx::query_as(
             "SELECT agent_id FROM enrollment_idempotency
              WHERE org_id = $1 AND user_id = $2 AND key = $3 AND expires_at > NOW()",

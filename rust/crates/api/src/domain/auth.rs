@@ -164,7 +164,10 @@ mod tests {
             AuthContextSwitchPolicy::ensure_workspace_in_org(false).unwrap_err().kind,
             ErrorKind::Forbidden(_)
         ));
-        assert!(matches!(AuthContextSwitchPolicy::ensure_team_readable(false).unwrap_err().kind, ErrorKind::Forbidden(_)));
+        assert!(matches!(
+            AuthContextSwitchPolicy::ensure_team_readable(false).unwrap_err().kind,
+            ErrorKind::Forbidden(_)
+        ));
         assert!(matches!(
             AuthContextSwitchPolicy::ensure_project_readable(false).unwrap_err().kind,
             ErrorKind::Forbidden(_)

@@ -104,24 +104,18 @@ impl HostAgentEnrollmentService {
         // 3. Idempotency fast path.
         if let Some(existing_id) = idem.lookup(org_id, user_id, idempotency_key).await? {
             metrics::counter!("agents_idempotency_replay_total").increment(1);
-            let agent = self
-                .agents
-                .find_with_owner_by_id(scope, AgentId::from(existing_id))
-                .await?;
+            let agent = self.agents.find_with_owner_by_id(scope, AgentId::from(existing_id)).await?;
             let enrollment = self.rebuild_enrollment_view(scope, &agent, existing_id, &nats_base_url).await?;
             return Ok((agent, enrollment));
         }
 
         // 4. Cold path.
-        let workspace_scope = self
-            .workspaces
-            .resolve_workspace_mount_scope(org_id, input.workspace_id, input.project_id)
-            .await?;
+        let workspace_scope =
+            self.workspaces.resolve_workspace_mount_scope(org_id, input.workspace_id, input.project_id).await?;
 
         let identity = HostCliIdentity::generate();
-        let cli_kind = CliToolKind::parse_legacy(cli_tool_str).map_err(|_| {
-            AppError::from(ErrorKind::Validation(format!("unknown cli_tool: {cli_tool_str}")))
-        })?;
+        let cli_kind = CliToolKind::parse_legacy(cli_tool_str)
+            .map_err(|_| AppError::from(ErrorKind::Validation(format!("unknown cli_tool: {cli_tool_str}"))))?;
         let new_agent = NewAgent::host_cli(
             scope,
             cli_kind,
@@ -200,8 +194,7 @@ impl HostAgentEnrollmentService {
             AppError::from(ErrorKind::Internal(anyhow!("Host CLI agent missing runtime_id on replay")))
         })?;
 
-        let (hmac_secret, nats_connect_password) =
-            self.agents.fetch_host_cli_credentials(scope, id).await?;
+        let (hmac_secret, nats_connect_password) = self.agents.fetch_host_cli_credentials(scope, id).await?;
 
         let env = AgentContainerEnvPolicy::build(AgentContainerEnvInput {
             agent_id: agent.id,

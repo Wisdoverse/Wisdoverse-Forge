@@ -16,10 +16,8 @@ pub struct DoctorOpts {
 }
 
 pub async fn run(pool: PgPool, opts: DoctorOpts) -> Result<()> {
-    let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM agents")
-        .fetch_one(&pool)
-        .await
-        .context("counting agents")?;
+    let count: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM agents").fetch_one(&pool).await.context("counting agents")?;
     println!("agents row count: {}", count.0);
 
     if !opts.force && count.0 > opts.max_row_count {
@@ -61,9 +59,7 @@ pub async fn run(pool: PgPool, opts: DoctorOpts) -> Result<()> {
         println!("agents.runtime_kind column not yet present (062 has not run)");
     }
 
-    let pg_version: (String,) = sqlx::query_as("SHOW server_version")
-        .fetch_one(&pool)
-        .await?;
+    let pg_version: (String,) = sqlx::query_as("SHOW server_version").fetch_one(&pool).await?;
     println!("postgres server version: {}", pg_version.0);
 
     println!("migrate doctor: OK");

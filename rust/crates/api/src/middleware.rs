@@ -94,9 +94,9 @@ pub fn catch_panic_layer() -> CatchPanicLayer<JsonPanicResponse> {
 // IdempotencyKey extractor
 // ---------------------------------------------------------------------------
 
+use agentforge_core::{AppError, ErrorKind};
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
-use agentforge_core::{AppError, ErrorKind};
 
 /// Axum extractor for the `Idempotency-Key` request header.
 ///

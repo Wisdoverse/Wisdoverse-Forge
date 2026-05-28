@@ -54,10 +54,7 @@ async fn seed_org_workspace_user(pool: &PgPool) -> (Uuid, Uuid, Uuid) {
 #[sqlx::test(migrations = "../db/migrations")]
 async fn lookup_returns_none_for_unknown_key(pool: PgPool) {
     let repo = EnrollmentIdempotencyRepository::new(pool);
-    let r = repo
-        .lookup(Uuid::new_v4(), Uuid::new_v4(), "missing")
-        .await
-        .unwrap();
+    let r = repo.lookup(Uuid::new_v4(), Uuid::new_v4(), "missing").await.unwrap();
     assert!(r.is_none());
 }
 
@@ -79,9 +76,7 @@ async fn store_and_lookup_roundtrip(pool: PgPool) {
 
     let repo = EnrollmentIdempotencyRepository::new(pool.clone());
     let mut tx = pool.begin().await.unwrap();
-    EnrollmentIdempotencyRepository::store_in_tx(&mut tx, org_id, user_id, "key-1", agent_id)
-        .await
-        .unwrap();
+    EnrollmentIdempotencyRepository::store_in_tx(&mut tx, org_id, user_id, "key-1", agent_id).await.unwrap();
     tx.commit().await.unwrap();
 
     let got = repo.lookup(org_id, user_id, "key-1").await.unwrap();
@@ -105,15 +100,11 @@ async fn duplicate_store_is_idempotent(pool: PgPool) {
     .unwrap();
 
     let mut tx = pool.begin().await.unwrap();
-    EnrollmentIdempotencyRepository::store_in_tx(&mut tx, org_id, user_id, "k", agent_id)
-        .await
-        .unwrap();
+    EnrollmentIdempotencyRepository::store_in_tx(&mut tx, org_id, user_id, "k", agent_id).await.unwrap();
     tx.commit().await.unwrap();
 
     // Second store with same key is a no-op (ON CONFLICT DO NOTHING).
     let mut tx2 = pool.begin().await.unwrap();
-    EnrollmentIdempotencyRepository::store_in_tx(&mut tx2, org_id, user_id, "k", agent_id)
-        .await
-        .unwrap();
+    EnrollmentIdempotencyRepository::store_in_tx(&mut tx2, org_id, user_id, "k", agent_id).await.unwrap();
     tx2.commit().await.unwrap();
 }

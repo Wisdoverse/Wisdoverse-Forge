@@ -535,7 +535,10 @@ mod tests {
         let target = UserId::new();
 
         assert!(UserAccessPolicy::ensure_self_profile(actor, actor).is_ok());
-        assert!(matches!(UserAccessPolicy::ensure_self_profile(actor, target).unwrap_err().kind, ErrorKind::Forbidden(_)));
+        assert!(matches!(
+            UserAccessPolicy::ensure_self_profile(actor, target).unwrap_err().kind,
+            ErrorKind::Forbidden(_)
+        ));
     }
 
     #[test]

@@ -72,27 +72,18 @@ async fn create_host_cli_emits_atomic_audit_event(pool: PgPool) {
 
     let repo = AgentRepository::new(pool.clone());
     let identity = HostCliIdentity::generate();
-    let new_agent = NewAgent::host_cli(
-        &scope,
-        CliToolKind::Codex,
-        identity,
-        Some("hcli"),
-        None,
-        None,
-        workspace_id,
-        None,
-    )
-    .expect("build host-cli NewAgent");
+    let new_agent =
+        NewAgent::host_cli(&scope, CliToolKind::Codex, identity, Some("hcli"), None, None, workspace_id, None)
+            .expect("build host-cli NewAgent");
 
     let id = repo.create_aggregate(&scope, new_agent).await.expect("create_aggregate");
 
-    let count: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM events WHERE event_type = 'agent.enrolled' AND agent_id = $1",
-    )
-    .bind(id)
-    .fetch_one(&pool)
-    .await
-    .expect("count enrolled events");
+    let count: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM events WHERE event_type = 'agent.enrolled' AND agent_id = $1")
+            .bind(id)
+            .fetch_one(&pool)
+            .await
+            .expect("count enrolled events");
 
     assert_eq!(count.0, 1, "expected exactly one agent.enrolled event for host-cli");
 }
@@ -105,17 +96,9 @@ async fn create_host_cli_enrolled_event_payload_contains_expected_fields(pool: P
 
     let repo = AgentRepository::new(pool.clone());
     let identity = HostCliIdentity::generate();
-    let new_agent = NewAgent::host_cli(
-        &scope,
-        CliToolKind::Claude,
-        identity,
-        Some("hcli-payload"),
-        None,
-        None,
-        workspace_id,
-        None,
-    )
-    .expect("build host-cli NewAgent");
+    let new_agent =
+        NewAgent::host_cli(&scope, CliToolKind::Claude, identity, Some("hcli-payload"), None, None, workspace_id, None)
+            .expect("build host-cli NewAgent");
 
     let id = repo.create_aggregate(&scope, new_agent).await.expect("create_aggregate");
 
@@ -129,11 +112,7 @@ async fn create_host_cli_enrolled_event_payload_contains_expected_fields(pool: P
     let payload = row.0;
     assert_eq!(payload["runtime_kind"], "cli", "runtime_kind must be 'cli'");
     assert_eq!(payload["cli_tool"], "claude", "cli_tool must match");
-    assert_eq!(
-        payload["actor_user_id"],
-        serde_json::json!(user_id),
-        "actor_user_id must match the scope user"
-    );
+    assert_eq!(payload["actor_user_id"], serde_json::json!(user_id), "actor_user_id must match the scope user");
 }
 
 /// Container agents must not emit any events from create_aggregate.
@@ -143,17 +122,8 @@ async fn create_container_does_not_emit_enrolled_event(pool: PgPool) {
     let scope = make_scope(org_id, user_id);
 
     let repo = AgentRepository::new(pool.clone());
-    let new_agent = NewAgent::container(
-        &scope,
-        CliToolKind::Codex,
-        Some("c1"),
-        None,
-        None,
-        workspace_id,
-        None,
-        None,
-    )
-    .expect("build container NewAgent");
+    let new_agent = NewAgent::container(&scope, CliToolKind::Codex, Some("c1"), None, None, workspace_id, None, None)
+        .expect("build container NewAgent");
 
     let id = repo.create_aggregate(&scope, new_agent).await.expect("create_aggregate");
 
@@ -173,16 +143,9 @@ async fn create_api_agent_does_not_emit_event(pool: PgPool) {
     let scope = make_scope(org_id, user_id);
 
     let repo = AgentRepository::new(pool.clone());
-    let new_agent = NewAgent::api(
-        &scope,
-        "anthropic",
-        "claude-sonnet-4-6",
-        Some("api-agent"),
-        None,
-        workspace_id,
-        None,
-    )
-    .expect("build api NewAgent");
+    let new_agent =
+        NewAgent::api(&scope, "anthropic", "claude-sonnet-4-6", Some("api-agent"), None, workspace_id, None)
+            .expect("build api NewAgent");
 
     let id = repo.create_aggregate(&scope, new_agent).await.expect("create_aggregate");
 
@@ -203,17 +166,9 @@ async fn create_aggregate_returns_correct_agent_id(pool: PgPool) {
 
     let repo = AgentRepository::new(pool.clone());
     let identity = HostCliIdentity::generate();
-    let new_agent = NewAgent::host_cli(
-        &scope,
-        CliToolKind::Claude,
-        identity,
-        Some("id-check"),
-        None,
-        None,
-        workspace_id,
-        None,
-    )
-    .expect("build host-cli NewAgent");
+    let new_agent =
+        NewAgent::host_cli(&scope, CliToolKind::Claude, identity, Some("id-check"), None, None, workspace_id, None)
+            .expect("build host-cli NewAgent");
 
     let id = repo.create_aggregate(&scope, new_agent).await.expect("create_aggregate");
 

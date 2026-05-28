@@ -110,28 +110,15 @@ async fn list_with_owner_returns_runtime_kind(pool: PgPool) {
 
     assert_eq!(items.len(), 3, "expected 3 agents, got {}", items.len());
 
-    let find = |id: Uuid| {
-        items
-            .iter()
-            .find(|a| a.id == id)
-            .unwrap_or_else(|| panic!("agent {id} not found in list"))
-    };
+    let find = |id: Uuid| items.iter().find(|a| a.id == id).unwrap_or_else(|| panic!("agent {id} not found in list"));
 
-    assert_eq!(
-        find(cli_agent_id).runtime_kind,
-        RuntimeKind::Cli,
-        "cli agent must have RuntimeKind::Cli"
-    );
+    assert_eq!(find(cli_agent_id).runtime_kind, RuntimeKind::Cli, "cli agent must have RuntimeKind::Cli");
     assert_eq!(
         find(container_agent_id).runtime_kind,
         RuntimeKind::Container,
         "container agent must have RuntimeKind::Container"
     );
-    assert_eq!(
-        find(api_agent_id).runtime_kind,
-        RuntimeKind::Api,
-        "api agent must have RuntimeKind::Api"
-    );
+    assert_eq!(find(api_agent_id).runtime_kind, RuntimeKind::Api, "api agent must have RuntimeKind::Api");
 }
 
 // ---------------------------------------------------------------------------
@@ -167,9 +154,5 @@ async fn find_with_owner_by_id_returns_runtime_kind(pool: PgPool) {
         .await
         .expect("find_with_owner_by_id");
 
-    assert_eq!(
-        item.runtime_kind,
-        RuntimeKind::Cli,
-        "find_with_owner_by_id must return RuntimeKind::Cli for cli agent"
-    );
+    assert_eq!(item.runtime_kind, RuntimeKind::Cli, "find_with_owner_by_id must return RuntimeKind::Cli for cli agent");
 }

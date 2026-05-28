@@ -88,16 +88,8 @@ async fn finds_only_matching_kind(pool: PgPool) {
     let _ = repo
         .create_aggregate(
             &scope,
-            NewAgent::api(
-                &scope,
-                "anthropic",
-                "claude-sonnet-4-6",
-                Some("api-agent"),
-                None,
-                workspace_id,
-                None,
-            )
-            .expect("build api NewAgent"),
+            NewAgent::api(&scope, "anthropic", "claude-sonnet-4-6", Some("api-agent"), None, workspace_id, None)
+                .expect("build api NewAgent"),
         )
         .await
         .expect("create api agent");
@@ -123,40 +115,20 @@ async fn finds_only_matching_kind(pool: PgPool) {
 
     let svc = AgentQueryService::from_pool(pool);
 
-    let containers = svc
-        .find_by_runtime_kind(&scope, RuntimeKind::Container, 100, 0)
-        .await
-        .expect("find containers");
-    let apis = svc
-        .find_by_runtime_kind(&scope, RuntimeKind::Api, 100, 0)
-        .await
-        .expect("find api agents");
-    let clis = svc
-        .find_by_runtime_kind(&scope, RuntimeKind::Cli, 100, 0)
-        .await
-        .expect("find cli agents");
+    let containers = svc.find_by_runtime_kind(&scope, RuntimeKind::Container, 100, 0).await.expect("find containers");
+    let apis = svc.find_by_runtime_kind(&scope, RuntimeKind::Api, 100, 0).await.expect("find api agents");
+    let clis = svc.find_by_runtime_kind(&scope, RuntimeKind::Cli, 100, 0).await.expect("find cli agents");
 
-    assert!(
-        !containers.is_empty(),
-        "expected at least one container agent"
-    );
+    assert!(!containers.is_empty(), "expected at least one container agent");
     assert!(!apis.is_empty(), "expected at least one api agent");
     assert!(!clis.is_empty(), "expected at least one cli agent");
 
     assert!(
-        containers
-            .iter()
-            .all(|a| a.runtime_kind == RuntimeKind::Container),
+        containers.iter().all(|a| a.runtime_kind == RuntimeKind::Container),
         "all container results must have RuntimeKind::Container"
     );
-    assert!(
-        apis.iter().all(|a| a.runtime_kind == RuntimeKind::Api),
-        "all api results must have RuntimeKind::Api"
-    );
-    assert!(
-        clis.iter().all(|a| a.runtime_kind == RuntimeKind::Cli),
-        "all cli results must have RuntimeKind::Cli"
-    );
+    assert!(apis.iter().all(|a| a.runtime_kind == RuntimeKind::Api), "all api results must have RuntimeKind::Api");
+    assert!(clis.iter().all(|a| a.runtime_kind == RuntimeKind::Cli), "all cli results must have RuntimeKind::Cli");
 }
 
 /// Results must be tenant-scoped: agents from a different organization must
@@ -177,17 +149,8 @@ async fn results_are_tenant_scoped(pool: PgPool) {
     let _ = repo
         .create_aggregate(
             &scope_a,
-            NewAgent::container(
-                &scope_a,
-                CliToolKind::Claude,
-                Some("org-a-agent"),
-                None,
-                None,
-                ws_a,
-                None,
-                None,
-            )
-            .expect("build NewAgent for org A"),
+            NewAgent::container(&scope_a, CliToolKind::Claude, Some("org-a-agent"), None, None, ws_a, None, None)
+                .expect("build NewAgent for org A"),
         )
         .await
         .expect("create org-A agent");
@@ -195,37 +158,19 @@ async fn results_are_tenant_scoped(pool: PgPool) {
     let _ = repo
         .create_aggregate(
             &scope_b,
-            NewAgent::container(
-                &scope_b,
-                CliToolKind::Claude,
-                Some("org-b-agent"),
-                None,
-                None,
-                ws_b,
-                None,
-                None,
-            )
-            .expect("build NewAgent for org B"),
+            NewAgent::container(&scope_b, CliToolKind::Claude, Some("org-b-agent"), None, None, ws_b, None, None)
+                .expect("build NewAgent for org B"),
         )
         .await
         .expect("create org-B agent");
 
     let svc = AgentQueryService::from_pool(pool);
 
-    let result_a = svc
-        .find_by_runtime_kind(&scope_a, RuntimeKind::Container, 100, 0)
-        .await
-        .expect("query org A");
+    let result_a = svc.find_by_runtime_kind(&scope_a, RuntimeKind::Container, 100, 0).await.expect("query org A");
 
     // Org A's results must not include any agent belonging to org B.
-    assert!(
-        result_a.iter().all(|a| a.organization_id == org_a),
-        "org-A query must not return org-B agents"
-    );
-    assert!(
-        !result_a.is_empty(),
-        "org-A must see its own container agent"
-    );
+    assert!(result_a.iter().all(|a| a.organization_id == org_a), "org-A query must not return org-B agents");
+    assert!(!result_a.is_empty(), "org-A must see its own container agent");
 }
 
 /// When there are no agents of the requested kind the service must return an
@@ -256,13 +201,7 @@ async fn returns_empty_vec_when_no_match(pool: PgPool) {
         .expect("create container agent");
 
     let svc = AgentQueryService::from_pool(pool);
-    let apis = svc
-        .find_by_runtime_kind(&scope, RuntimeKind::Api, 100, 0)
-        .await
-        .expect("find api agents");
+    let apis = svc.find_by_runtime_kind(&scope, RuntimeKind::Api, 100, 0).await.expect("find api agents");
 
-    assert!(
-        apis.is_empty(),
-        "expected empty result when no api agents exist"
-    );
+    assert!(apis.is_empty(), "expected empty result when no api agents exist");
 }

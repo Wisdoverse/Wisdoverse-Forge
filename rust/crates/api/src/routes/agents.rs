@@ -234,14 +234,8 @@ async fn enroll_local_agent(
         )
         .await?;
     let mut response = Json(agent_enrollment_response(agent, enrollment)).into_response();
-    response.headers_mut().insert(
-        axum::http::header::CACHE_CONTROL,
-        axum::http::HeaderValue::from_static("no-store"),
-    );
-    response.headers_mut().insert(
-        axum::http::header::PRAGMA,
-        axum::http::HeaderValue::from_static("no-cache"),
-    );
+    response.headers_mut().insert(axum::http::header::CACHE_CONTROL, axum::http::HeaderValue::from_static("no-store"));
+    response.headers_mut().insert(axum::http::header::PRAGMA, axum::http::HeaderValue::from_static("no-cache"));
     Ok(response)
 }
 

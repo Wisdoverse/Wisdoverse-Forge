@@ -82,7 +82,11 @@ fn owner_policy_denies_different_user() {
     let owner = Uuid::new_v4();
     let caller = Uuid::new_v4();
     let err = AgentOwnerPolicy::require_owner(caller, owner).expect_err("must be forbidden");
-    assert!(matches!(err.kind, ErrorKind::Forbidden(_) | ErrorKind::ForbiddenWithCode { .. }), "expected Forbidden, got: {:?}", err.kind);
+    assert!(
+        matches!(err.kind, ErrorKind::Forbidden(_) | ErrorKind::ForbiddenWithCode { .. }),
+        "expected Forbidden, got: {:?}",
+        err.kind
+    );
     let msg = format!("{}", err.kind);
     assert!(msg.contains("operation not permitted"), "message must say 'operation not permitted', got: {msg}");
 }
@@ -132,7 +136,11 @@ async fn restart_by_non_owner_intra_org_returns_forbidden_before_runtime_kind_ch
     let err = svc.restart(&other_scope, AgentId::from(agent_id)).await.expect_err("non-owner restart must fail");
 
     let msg = format!("{}", err);
-    assert!(matches!(err.kind, ErrorKind::Forbidden(_) | ErrorKind::ForbiddenWithCode { .. }), "expected Forbidden(403), got kind: {:?}", err.kind);
+    assert!(
+        matches!(err.kind, ErrorKind::Forbidden(_) | ErrorKind::ForbiddenWithCode { .. }),
+        "expected Forbidden(403), got kind: {:?}",
+        err.kind
+    );
     assert!(msg.contains("operation not permitted"), "body must say 'operation not permitted', got: {msg}");
     // Critically: must NOT disclose the runtime kind.
     assert!(!msg.contains("Host CLI"), "body must NOT disclose runtime kind 'Host CLI', got: {msg}");
@@ -164,7 +172,11 @@ async fn restart_by_owner_passes_acl_check(pool: PgPool) {
 
     // Owner passes the ACL check. The failure must be runtime-kind (LifecycleRejection),
     // NOT a Forbidden error.
-    assert!(!matches!(err.kind, ErrorKind::Forbidden(_) | ErrorKind::ForbiddenWithCode { .. }), "owner must not get Forbidden; got: {:?}", err.kind);
+    assert!(
+        !matches!(err.kind, ErrorKind::Forbidden(_) | ErrorKind::ForbiddenWithCode { .. }),
+        "owner must not get Forbidden; got: {:?}",
+        err.kind
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -199,7 +211,11 @@ async fn resume_by_non_owner_intra_org_returns_forbidden_before_runtime_kind_che
     let err = svc.resume(&other_scope, AgentId::from(agent_id)).await.expect_err("non-owner resume must fail");
 
     let msg = format!("{}", err);
-    assert!(matches!(err.kind, ErrorKind::Forbidden(_) | ErrorKind::ForbiddenWithCode { .. }), "expected Forbidden(403), got kind: {:?}", err.kind);
+    assert!(
+        matches!(err.kind, ErrorKind::Forbidden(_) | ErrorKind::ForbiddenWithCode { .. }),
+        "expected Forbidden(403), got kind: {:?}",
+        err.kind
+    );
     assert!(!msg.contains("Host CLI"), "body must NOT disclose runtime kind 'Host CLI', got: {msg}");
 }
 
@@ -234,7 +250,11 @@ async fn delete_by_non_owner_intra_org_returns_forbidden(pool: PgPool) {
     let err = svc.delete(&other_scope, AgentId::from(agent_id)).await.expect_err("non-owner delete must fail");
 
     let msg = format!("{}", err);
-    assert!(matches!(err.kind, ErrorKind::Forbidden(_) | ErrorKind::ForbiddenWithCode { .. }), "expected Forbidden(403), got kind: {:?}", err.kind);
+    assert!(
+        matches!(err.kind, ErrorKind::Forbidden(_) | ErrorKind::ForbiddenWithCode { .. }),
+        "expected Forbidden(403), got kind: {:?}",
+        err.kind
+    );
     assert!(msg.contains("operation not permitted"), "body must say 'operation not permitted', got: {msg}");
 }
 

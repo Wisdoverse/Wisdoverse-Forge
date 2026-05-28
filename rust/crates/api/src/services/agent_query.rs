@@ -20,9 +20,7 @@ pub struct AgentQueryService {
 impl AgentQueryService {
     /// Build a service backed by the given connection pool.
     pub fn from_pool(pool: PgPool) -> Self {
-        Self {
-            repo: AgentRepository::new(pool),
-        }
+        Self { repo: AgentRepository::new(pool) }
     }
 
     /// Return all agents whose `runtime_kind` matches `kind`, ordered by
@@ -37,8 +35,6 @@ impl AgentQueryService {
         limit: i64,
         offset: i64,
     ) -> AppResult<Vec<AgentListItem>> {
-        self.repo
-            .list_with_owner_filtered(scope, Some(kind), limit, offset)
-            .await
+        self.repo.list_with_owner_filtered(scope, Some(kind), limit, offset).await
     }
 }

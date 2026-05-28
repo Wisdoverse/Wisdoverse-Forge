@@ -153,25 +153,16 @@ async fn invariants_reject_invalid_combos(pool: PgPool) {
 
     // cli — invalid: cli_tool NULL
     let e = err("cli", None, None).await.unwrap_err();
-    assert!(
-        e.contains("agents_runtime_kind_invariants"),
-        "cli + cli_tool=NULL should violate invariants; got: {e}"
-    );
+    assert!(e.contains("agents_runtime_kind_invariants"), "cli + cli_tool=NULL should violate invariants; got: {e}");
 
     // -----------------------------------------------------------------------
     // api — valid: cli_tool NULL, container_id NULL
     // -----------------------------------------------------------------------
-    assert!(
-        ok("api", None, None).await.is_ok(),
-        "api + cli_tool=NULL + container_id=NULL should be accepted"
-    );
+    assert!(ok("api", None, None).await.is_ok(), "api + cli_tool=NULL + container_id=NULL should be accepted");
 
     // api — invalid: cli_tool NOT NULL (violates joint invariant)
     let e = err("api", Some("claude"), None).await.unwrap_err();
-    assert!(
-        e.contains("agents_runtime_kind_invariants"),
-        "api + cli_tool=some should violate invariants; got: {e}"
-    );
+    assert!(e.contains("agents_runtime_kind_invariants"), "api + cli_tool=some should violate invariants; got: {e}");
 
     // api — invalid: container_id NOT NULL (violates joint invariant)
     let e = err("api", None, Some("ctr-should-fail")).await.unwrap_err();
@@ -184,10 +175,7 @@ async fn invariants_reject_invalid_combos(pool: PgPool) {
     // bogus enum value — rejected by agents_runtime_kind_check
     // -----------------------------------------------------------------------
     let e = err("bogus_kind", None, None).await.unwrap_err();
-    assert!(
-        e.contains("agents_runtime_kind_check"),
-        "unknown runtime_kind should violate enum check; got: {e}"
-    );
+    assert!(e.contains("agents_runtime_kind_check"), "unknown runtime_kind should violate enum check; got: {e}");
 }
 
 // ---------------------------------------------------------------------------
@@ -208,31 +196,13 @@ async fn unique_runtime_id_partial_index(pool: PgPool) {
     let shared_runtime_id = format!("host-{}", Uuid::new_v4());
 
     // First host-cli agent with a runtime_id — should succeed.
-    let first = try_insert_agent(
-        &pool,
-        org_id,
-        ws_id,
-        user_id,
-        "cli",
-        Some("claude"),
-        None,
-        Some(&shared_runtime_id),
-    )
-    .await;
+    let first =
+        try_insert_agent(&pool, org_id, ws_id, user_id, "cli", Some("claude"), None, Some(&shared_runtime_id)).await;
     assert!(first.is_ok(), "first cli agent with runtime_id should be inserted; got: {:?}", first);
 
     // Second host-cli agent with the same runtime_id — must be rejected.
-    let second = try_insert_agent(
-        &pool,
-        org_id,
-        ws_id,
-        user_id,
-        "cli",
-        Some("claude"),
-        None,
-        Some(&shared_runtime_id),
-    )
-    .await;
+    let second =
+        try_insert_agent(&pool, org_id, ws_id, user_id, "cli", Some("claude"), None, Some(&shared_runtime_id)).await;
     let e = second.unwrap_err();
     assert!(
         e.contains("uq_agents_runtime_id") || e.contains("unique"),
