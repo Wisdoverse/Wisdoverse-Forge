@@ -42,8 +42,9 @@ pub async fn check_health(pool: &PgPool) -> bool {
 
 /// Embedded `MANIFEST.sha256` for this crate's migrations.
 ///
-/// Lives next to the migration files so it travels with the binary and is
-/// checked against [`MIGRATION_SOURCES`] on startup via [`verify_manifest`].
+/// Embedded alongside the migration SQL and checked against
+/// [`MIGRATION_SOURCES`] at startup to catch manifest/source drift. See
+/// [`crate::manifest`] for the exact (and explicitly limited) guarantee.
 const MIGRATION_MANIFEST: &str = include_str!("../migrations/MANIFEST.sha256");
 
 /// Embedded migration SQL sources used for manifest verification.

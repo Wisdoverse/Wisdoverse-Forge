@@ -100,13 +100,31 @@ jobs:
 
       - name: Generate SBOM for each artifact
         run: |
+          set -euo pipefail
+          shopt -s nullglob
           cd release-artifacts
-          for f in agentforge-sidecar-* agentforge-*; do
-            [ -f "$f" ] || continue
-            # Skip files already produced by earlier steps in a re-run.
+          # Collect the release binaries we expect to attest. A single
+          # `agentforge-*` glob already covers the `agentforge-sidecar-*`
+          # binaries (they share the prefix), so there are no duplicates. Build
+          # outputs from an earlier re-run (.sbom.json / .sig.bundle) are
+          # excluded so a re-run never treats its own products as signable input.
+          signables=()
+          for f in agentforge-*; do
             case "$f" in
               *.sbom.json|*.sig.bundle) continue ;;
             esac
+            [ -f "$f" ] || continue
+            signables+=("$f")
+          done
+          # Fail closed: a release with zero matching binaries must NOT pass with
+          # a green check (the #452 bug class — with no matches an unguarded
+          # `for f in <glob>` iterates the literal glob string and every
+          # iteration is skipped, so the job exits 0 having signed nothing).
+          if [ ${#signables[@]} -eq 0 ]; then
+            echo "::error::No agentforge-* release binaries found for tag ${{ steps.tag.outputs.tag }} — refusing green run with nothing signed"
+            exit 1
+          fi
+          for f in "${signables[@]}"; do
             echo "Generating SBOM for $f"
             syft "$f" -o cyclonedx-json="${f}.sbom.json"
           done
@@ -115,13 +133,32 @@ jobs:
         env:
           COSIGN_EXPERIMENTAL: '1'
         run: |
+          set -euo pipefail
+          shopt -s nullglob
           cd release-artifacts
-          for f in agentforge-sidecar-* agentforge-* *.sbom.json; do
-            [ -f "$f" ] || continue
-            # Don't sign existing bundles — that produces double-wrap artefacts.
+          # Sign the release binaries plus their freshly-generated SBOMs. The
+          # `agentforge-*` glob also matches `agentforge-*.sbom.json`, which the
+          # `*.sbom.json` glob matches again, so dedupe by tracking seen names —
+          # otherwise the same blob would be signed twice. Existing .sig.bundle
+          # files are excluded so a re-run never double-wraps a signature.
+          declare -A seen=()
+          signables=()
+          for f in agentforge-* *.sbom.json; do
             case "$f" in
               *.sig.bundle) continue ;;
             esac
+            [ -f "$f" ] || continue
+            [ -n "${seen[$f]:-}" ] && continue
+            seen[$f]=1
+            signables+=("$f")
+          done
+          # Fail closed: nothing to sign means the release would ship UNSIGNED
+          # behind a green check. Refuse rather than pass vacuously.
+          if [ ${#signables[@]} -eq 0 ]; then
+            echo "::error::No agentforge-* release binaries or SBOMs found for tag ${{ steps.tag.outputs.tag }} — refusing green run with nothing signed"
+            exit 1
+          fi
+          for f in "${signables[@]}"; do
             echo "Signing $f"
             cosign sign-blob --yes "$f" \
               --bundle "${f}.sig.bundle"
@@ -129,13 +166,16 @@ jobs:
 
       - name: Upload signatures and SBOMs to release
         run: |
-          cd release-artifacts
+          set -euo pipefail
           shopt -s nullglob
+          cd release-artifacts
           bundles=(*.sig.bundle)
           sboms=(*.sbom.json)
+          # Fail closed: an empty upload set means the signing steps produced
+          # nothing, so the release would ship unsigned behind a green check.
           if [ ${#bundles[@]} -eq 0 ] && [ ${#sboms[@]} -eq 0 ]; then
-            echo "No signatures or SBOMs to upload — skipping."
-            exit 0
+            echo "::error::No signatures or SBOMs to upload for tag ${{ steps.tag.outputs.tag }} — refusing green run with nothing signed"
+            exit 1
           fi
           gh release upload "${{ steps.tag.outputs.tag }}" \
             "${bundles[@]}" "${sboms[@]}" --clobber
