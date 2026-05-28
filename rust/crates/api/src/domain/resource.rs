@@ -312,7 +312,7 @@ impl ResourceOrganizationPolicy {
         if scope.org_id().as_uuid() == org_id {
             return Ok(());
         }
-        Err(ErrorKind::Forbidden.into())
+        Err(ErrorKind::Forbidden("forbidden".into()).into())
     }
 }
 
@@ -336,7 +336,7 @@ impl ResourcePermissionPolicy {
     }
 
     fn ensure_allowed(allowed: bool) -> AppResult<()> {
-        if allowed { Ok(()) } else { Err(ErrorKind::Forbidden.into()) }
+        if allowed { Ok(()) } else { Err(ErrorKind::Forbidden("forbidden".into()).into()) }
     }
 }
 
@@ -609,19 +609,19 @@ mod tests {
         assert!(ResourcePermissionPolicy::ensure_can_manage_org(true).is_ok());
         assert!(matches!(
             ResourcePermissionPolicy::ensure_can_manage_org(false).unwrap_err().kind,
-            ErrorKind::Forbidden
+            ErrorKind::Forbidden(_)
         ));
         assert!(matches!(
             ResourcePermissionPolicy::ensure_can_manage_team(false).unwrap_err().kind,
-            ErrorKind::Forbidden
+            ErrorKind::Forbidden(_)
         ));
         assert!(matches!(
             ResourcePermissionPolicy::ensure_can_create_project(false).unwrap_err().kind,
-            ErrorKind::Forbidden
+            ErrorKind::Forbidden(_)
         ));
         assert!(matches!(
             ResourcePermissionPolicy::ensure_can_manage_project(false).unwrap_err().kind,
-            ErrorKind::Forbidden
+            ErrorKind::Forbidden(_)
         ));
     }
 

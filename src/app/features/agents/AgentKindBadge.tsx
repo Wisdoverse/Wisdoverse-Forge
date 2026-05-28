@@ -1,6 +1,6 @@
 import { cn } from '@app/shared/lib/utils'
 import type { CliTool } from '@shared/types'
-import type { AgentRuntimeKind } from '@app/shared/model/agents.store'
+import type { AgentRuntimeKind } from '@app/entities/agent'
 
 interface AgentKindBadgeProps {
   cliTool?: CliTool
@@ -11,7 +11,7 @@ interface AgentKindBadgeProps {
 // Badge titles describe the user's choice, while protocol names stay inside
 // the API/store layer.
 export function AgentKindBadge({ cliTool, runtimeKind, className }: AgentKindBadgeProps) {
-  const isHost = runtimeKind === 'host-cli'
+  const isHost = runtimeKind === 'cli'
   const isContainer = Boolean(cliTool) && !isHost
   const label = isHost ? 'Host CLI' : isContainer ? 'Container' : 'Provider'
   const title = isHost

@@ -6,8 +6,9 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::agent::{
-    AgentCliToolSelection, AgentCollaboratorPermission, AgentCommandSubject, AgentLifecycle, AgentListPage, AgentName,
-    AgentPermissionProjection, AgentStatusTransition, agent_permission_projection,
+    AgentAggregate, AgentCliToolSelection, AgentCollaboratorPermission, AgentCommandSubject, AgentLifecycle,
+    AgentListPage, AgentName, AgentOwnerPolicy, AgentPermissionProjection, AgentStatusTransition,
+    agent_permission_projection,
 };
 pub(crate) use crate::domain::agent::{
     agent_container_status_response, agent_data_response, agent_delete_response, agent_enrollment_response,
@@ -64,6 +65,14 @@ impl AgentService {
     /// Get a single agent by ID.
     pub async fn get(&self, scope: &TenantScope, id: AgentId) -> AppResult<Agent> {
         self.repo.find_by_id(scope, id).await
+    }
+
+    /// Load the write-side aggregate root for lifecycle and enrollment services.
+    ///
+    /// Delegates to `AgentRepository::find_aggregate` so callers do not need a
+    /// direct reference to the repository.
+    pub(crate) async fn find_aggregate(&self, scope: &TenantScope, id: Uuid) -> AppResult<AgentAggregate> {
+        self.repo.find_aggregate(scope, id).await
     }
 
     /// Get a single agent by ID enriched with owner + project names.
@@ -134,7 +143,13 @@ impl AgentService {
     }
 
     /// Delete an agent.
+    ///
+    /// Enforces owner-only access: intra-org callers who are not the agent owner
+    /// receive a uniform 403 that does not disclose the agent's runtime kind.
+    /// Cross-org access returns 404 (existing behavior via the tenant-scoped fetch).
     pub async fn delete(&self, scope: &TenantScope, id: AgentId) -> AppResult<()> {
+        let owner_id = self.repo.fetch_owner_id(scope, id.as_uuid()).await?;
+        AgentOwnerPolicy::require_owner(scope.user_id().as_uuid(), owner_id)?;
         self.repo.delete(scope, id).await
     }
 

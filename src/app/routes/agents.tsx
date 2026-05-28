@@ -1,6 +1,6 @@
 import { createRoute } from '@tanstack/react-router'
 import { Route as rootRoute } from './__root'
-import { useAgentsStore } from '@app/shared/model/agents.store'
+import { useAgentsStore } from '@app/entities/agent'
 import { AgentListView } from '@app/features/agents/AgentListView'
 import { AgentDetailView } from '@app/widgets/agent-detail/AgentDetailView'
 

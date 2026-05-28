@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { AgentControlPanel } from '@app/features/agents/AgentControlPanel'
-import { useAgentsStore, type AgentInfo } from '@app/shared/model/agents.store'
+import { useAgentsStore, type AgentInfo } from '@app/entities/agent'
 
 const sendPromptMock = vi.fn()
 const startAgentMock = vi.fn()

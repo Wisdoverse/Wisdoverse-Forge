@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { SshKeysSection } from '@app/features/settings/SshKeysSection'
 import { useSettingsStore } from '@app/shared/model/settings.store'
-import type { UserSshKey } from '@app/shared/api/legacy/AgentAPI'
+import type { UserSshKey } from '@app/entities/agent'
 
 const loadSshKeysMock = vi.fn().mockResolvedValue(undefined)
 const createSshKeyMock = vi.fn().mockResolvedValue(true)

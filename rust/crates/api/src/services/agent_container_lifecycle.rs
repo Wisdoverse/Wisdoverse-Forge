@@ -9,18 +9,19 @@ use agentforge_platform::{ContainerState, DockerClient};
 use sqlx::PgPool;
 
 use crate::domain::agent::{
-    AgentContainerLifecyclePolicy, AgentContainerRuntimePolicy, AgentContainerRuntimeState, AgentRestartPlan,
+    AgentContainerLifecyclePolicy, AgentContainerRuntimePolicy, AgentContainerRuntimeState, AgentOwnerPolicy,
+    AgentRestartPlan, ContainerAgent,
 };
 use crate::repositories::agent::AgentRepository;
 use crate::services::agent::AgentService;
 
-pub(crate) struct AgentContainerLifecycleService {
+pub struct AgentContainerLifecycleService {
     agents: AgentService,
     docker: Option<Arc<DockerClient>>,
 }
 
 impl AgentContainerLifecycleService {
-    pub(crate) fn new(agents: AgentRepository, docker: Option<Arc<DockerClient>>) -> Self {
+    pub fn new(agents: AgentRepository, docker: Option<Arc<DockerClient>>) -> Self {
         Self { agents: AgentService::new(agents), docker }
     }
 
@@ -28,12 +29,25 @@ impl AgentContainerLifecycleService {
         Self::new(AgentRepository::new(pool), docker)
     }
 
-    pub(crate) async fn restart(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<()> {
+    pub async fn restart(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<()> {
+        // Owner check fires FIRST so non-owner intra-org callers get a uniform
+        // 403 that does NOT disclose the runtime kind. The typestate check (which
+        // would 422 with runtime-kind info) comes after.
+        let aggregate = self.agents.find_aggregate(scope, agent_id.as_uuid()).await?;
+        AgentOwnerPolicy::require_owner(scope.user_id().as_uuid(), aggregate.user_id())?;
+        let kind = aggregate.runtime_kind();
+        let container = ContainerAgent::try_from(aggregate).map_err(|r| {
+            metrics::counter!(
+                "agents_lifecycle_rejected_total",
+                "runtime_kind" => kind.as_str(),
+                "action" => "restart"
+            )
+            .increment(1);
+            r.into_app_error("Restart")
+        })?;
         let docker = self.docker.as_ref().ok_or_else(AgentContainerRuntimePolicy::lifecycle_docker_unavailable)?;
-        let agent = self.agents.get(scope, agent_id).await?;
-
-        AgentContainerLifecyclePolicy::ensure_container_backed(agent.cli_tool.as_deref())?;
-        let container_id = AgentContainerLifecyclePolicy::restart_container_id(agent.container_id.as_deref())?;
+        let inner = container.inner();
+        let container_id = AgentContainerLifecyclePolicy::restart_container_id(inner.container_id.as_deref())?;
 
         let container_info = match docker.inspect_container(container_id).await {
             Ok(info) => info,
@@ -78,9 +92,22 @@ impl AgentContainerLifecycleService {
         Ok(())
     }
 
-    pub(crate) async fn resume(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<()> {
-        let agent = self.agents.get(scope, agent_id).await?;
-        let container_id = AgentContainerLifecyclePolicy::resume_container_id(agent.container_id.as_deref())?;
+    pub async fn resume(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<()> {
+        // Owner check before typestate check — same ordering as restart.
+        let aggregate = self.agents.find_aggregate(scope, agent_id.as_uuid()).await?;
+        AgentOwnerPolicy::require_owner(scope.user_id().as_uuid(), aggregate.user_id())?;
+        let kind = aggregate.runtime_kind();
+        let container = ContainerAgent::try_from(aggregate).map_err(|r| {
+            metrics::counter!(
+                "agents_lifecycle_rejected_total",
+                "runtime_kind" => kind.as_str(),
+                "action" => "resume"
+            )
+            .increment(1);
+            r.into_app_error("Resume")
+        })?;
+        let inner = container.inner();
+        let container_id = AgentContainerLifecyclePolicy::resume_container_id(inner.container_id.as_deref())?;
 
         if let Some(docker) = &self.docker {
             docker.start_container(container_id).await.map_err(AgentContainerRuntimePolicy::resume_failed)?;

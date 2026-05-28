@@ -196,7 +196,7 @@ impl OrchestrationRepositoryPolicy {
     }
 
     pub(crate) fn forbidden() -> AppError {
-        ErrorKind::Forbidden.into()
+        ErrorKind::Forbidden("forbidden".into()).into()
     }
 
     pub(crate) fn ensure_exists_or_forbidden(exists: bool) -> AppResult<()> {
@@ -1776,12 +1776,12 @@ mod tests {
         assert_eq!(OrchestrationRepositoryPolicy::required_workspace(&scope).unwrap(), workspace_id);
         assert!(matches!(
             OrchestrationRepositoryPolicy::required_workspace(&missing_workspace).unwrap_err().kind,
-            ErrorKind::Forbidden
+            ErrorKind::Forbidden(_)
         ));
         assert!(OrchestrationRepositoryPolicy::ensure_exists_or_forbidden(true).is_ok());
         assert!(matches!(
             OrchestrationRepositoryPolicy::ensure_exists_or_forbidden(false).unwrap_err().kind,
-            ErrorKind::Forbidden
+            ErrorKind::Forbidden(_)
         ));
     }
 

@@ -268,7 +268,7 @@ async fn conflict_error_returns_409() {
 #[tokio::test]
 async fn forbidden_error_returns_403() {
     async fn forbidden_handler() -> Result<String, AppError> {
-        Err(ErrorKind::Forbidden.into())
+        Err(ErrorKind::Forbidden("forbidden".into()).into())
     }
 
     let app = Router::new().route("/err", get(forbidden_handler));
@@ -420,7 +420,7 @@ async fn all_error_kinds_produce_correct_status_codes() {
         (ErrorKind::NotFound("x".into()), StatusCode::NOT_FOUND, "NOT_FOUND"),
         (ErrorKind::Validation("x".into()), StatusCode::BAD_REQUEST, "VALIDATION_ERROR"),
         (ErrorKind::Unauthorized, StatusCode::UNAUTHORIZED, "UNAUTHORIZED"),
-        (ErrorKind::Forbidden, StatusCode::FORBIDDEN, "FORBIDDEN"),
+        (ErrorKind::Forbidden("forbidden".into()), StatusCode::FORBIDDEN, "FORBIDDEN"),
         (ErrorKind::Conflict("x".into()), StatusCode::CONFLICT, "CONFLICT"),
         (ErrorKind::Unavailable("x".into()), StatusCode::SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE"),
     ];

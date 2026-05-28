@@ -92,6 +92,7 @@ fn test_app_config(database_url: &str) -> AppConfig {
         smtp_password: None,
         smtp_from: None,
         smtp_secure: false,
+        allow_plaintext_host_nats: false,
     }
 }
 
@@ -317,8 +318,8 @@ pub async fn seed_provider_agent(pool: &PgPool, provider: &str, model: &str) -> 
 pub async fn seed_cli_agent(pool: &PgPool, org_id: Uuid, user_id: Uuid, cli_tool: &str) -> AgentId {
     let agent_id = Uuid::new_v4();
     sqlx::query(
-        "INSERT INTO agents (id, organization_id, workspace_id, user_id, cli_tool, status)
-         VALUES ($1, $2, $2, $3, $4, 'idle')",
+        "INSERT INTO agents (id, organization_id, workspace_id, user_id, cli_tool, status, runtime_kind)
+         VALUES ($1, $2, $2, $3, $4, 'idle', 'container')",
     )
     .bind(agent_id)
     .bind(org_id)

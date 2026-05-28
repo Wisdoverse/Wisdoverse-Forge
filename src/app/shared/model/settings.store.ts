@@ -13,7 +13,7 @@ import type {
   GitProvider,
   UserSshKey,
   ResourceProfileOption,
-} from '@app/shared/api/legacy/AgentAPI'
+} from '@app/shared/api/agent-api-types'
 import { getSettingsApi, getAgentApi } from '@app/shared/api/legacy'
 
 // ============================================================================

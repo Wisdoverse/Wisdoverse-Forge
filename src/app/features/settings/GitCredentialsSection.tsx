@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
-import type { GitCredential, GitProvider } from '@app/shared/api/legacy/AgentAPI'
+import type { GitCredential, GitProvider } from '@app/entities/agent'
 
 // ============================================================================
 // Helpers

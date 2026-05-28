@@ -105,7 +105,7 @@ impl ContextPreviewAccessPolicy {
     }
 
     fn forbidden() -> AppError {
-        ErrorKind::Forbidden.into()
+        ErrorKind::Forbidden("forbidden".into()).into()
     }
 }
 

@@ -101,18 +101,18 @@ async fn org_member_is_read_only_until_granted_team_or_project_role(pool: PgPool
         .require_project_creator(&scope(org_id, owner_id), TeamId::from(other_team_id))
         .await
         .expect_err("org owner cannot create projects in another org's team");
-    assert!(matches!(cross_team_err.kind, ErrorKind::Forbidden));
+    assert!(matches!(cross_team_err.kind, ErrorKind::Forbidden(_)));
     let cross_project_err = permission
         .require_project_manager(&scope(org_id, owner_id), ProjectId::from(other_project_id))
         .await
         .expect_err("org owner cannot manage another org's project");
-    assert!(matches!(cross_project_err.kind, ErrorKind::Forbidden));
+    assert!(matches!(cross_project_err.kind, ErrorKind::Forbidden(_)));
 
     let err = permission
         .require_team_manager(&scope(org_id, member_id), TeamId::from(team_id))
         .await
         .expect_err("plain org member cannot manage team");
-    assert!(matches!(err.kind, ErrorKind::Forbidden));
+    assert!(matches!(err.kind, ErrorKind::Forbidden(_)));
 
     sqlx::query("INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, 'admin')")
         .bind(team_id)
@@ -130,7 +130,7 @@ async fn org_member_is_read_only_until_granted_team_or_project_role(pool: PgPool
         .require_project_manager(&scope(org_id, project_member_id), ProjectId::from(project_id))
         .await
         .expect_err("plain org member cannot manage project");
-    assert!(matches!(project_err.kind, ErrorKind::Forbidden));
+    assert!(matches!(project_err.kind, ErrorKind::Forbidden(_)));
 
     sqlx::query("INSERT INTO project_members (project_id, user_id, role) VALUES ($1, $2, 'maintainer')")
         .bind(project_id)
@@ -198,7 +198,7 @@ async fn team_and_project_member_management_requires_resource_manager(pool: PgPo
         .add_team_member(&scope(org_id, member_id), org_id, TeamId::from(team_id), other_member_id, Some("maintainer"))
         .await
         .expect_err("plain org member cannot grant team membership");
-    assert!(matches!(forbidden.kind, ErrorKind::Forbidden));
+    assert!(matches!(forbidden.kind, ErrorKind::Forbidden(_)));
 
     let team_member = service
         .add_team_member(&scope(org_id, owner_id), org_id, TeamId::from(team_id), member_id, Some("editor"))

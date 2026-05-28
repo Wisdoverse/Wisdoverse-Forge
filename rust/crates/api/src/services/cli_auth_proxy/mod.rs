@@ -1148,6 +1148,7 @@ mod tests {
             smtp_password: None,
             smtp_from: None,
             smtp_secure: false,
+            allow_plaintext_host_nats: false,
         };
         let client = agentforge_infra::RedisClient::new(&cfg).await;
         let store = StateStore::Redis(Arc::new(RwLock::new(client)));

@@ -8,7 +8,7 @@ afterEach(() => {
 
 describe('AgentKindBadge', () => {
   test('explains local-machine agents without implementation details', () => {
-    render(<AgentKindBadge cliTool={'workspace-tool' as never} runtimeKind="host-cli" />)
+    render(<AgentKindBadge cliTool={'workspace-tool' as never} runtimeKind="cli" />)
 
     const badge = screen.getByText('Host CLI')
     expect(badge).toHaveAttribute(

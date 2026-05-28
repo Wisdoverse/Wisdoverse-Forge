@@ -81,7 +81,7 @@ pub struct AuthContextSwitchPolicy;
 
 impl AuthContextSwitchPolicy {
     pub fn missing_org_membership() -> AppError {
-        ErrorKind::Forbidden.into()
+        ErrorKind::Forbidden("forbidden".into()).into()
     }
 
     pub fn ensure_workspace_in_org(exists_in_org: bool) -> AppResult<()> {
@@ -162,12 +162,15 @@ mod tests {
         assert!(AuthContextSwitchPolicy::ensure_workspace_in_org(true).is_ok());
         assert!(matches!(
             AuthContextSwitchPolicy::ensure_workspace_in_org(false).unwrap_err().kind,
-            ErrorKind::Forbidden
+            ErrorKind::Forbidden(_)
         ));
-        assert!(matches!(AuthContextSwitchPolicy::ensure_team_readable(false).unwrap_err().kind, ErrorKind::Forbidden));
+        assert!(matches!(
+            AuthContextSwitchPolicy::ensure_team_readable(false).unwrap_err().kind,
+            ErrorKind::Forbidden(_)
+        ));
         assert!(matches!(
             AuthContextSwitchPolicy::ensure_project_readable(false).unwrap_err().kind,
-            ErrorKind::Forbidden
+            ErrorKind::Forbidden(_)
         ));
         assert!(matches!(
             AuthContextSwitchPolicy::token_creation_failed("bad").kind,

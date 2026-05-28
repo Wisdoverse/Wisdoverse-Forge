@@ -506,6 +506,63 @@ export const zh: TranslationKeys = {
     downloadError: '下载失败：{{message}}',
     rateLimited: '请求过于频繁，请等待 {{seconds}} 秒',
     quotaExceeded: '{{resource}} 配额已用尽',
+    agent: {
+      lifecycle: {
+        restart_host_cli: {
+          title: '请在本机重启 sidecar',
+          detail: '平台不管理本地 sidecar。请在操作员机器上重新运行注册脚本。',
+        },
+        restart_api: {
+          title: '没有可重启的容器',
+          detail: '该 Agent 直接调用 LLM 服务商。再发送一次 prompt 即可。',
+        },
+        start_host_cli: {
+          title: '请在本机启动 sidecar',
+          detail: '在操作员机器上重新运行注册脚本以启动 sidecar。',
+        },
+        start_api: {
+          title: '没有可启动的容器',
+          detail: '服务商 Agent 没有 shell 可启动。',
+        },
+        stop_host_cli: {
+          title: '请在本机停止 sidecar',
+          detail: '平台无法远程停止 sidecar。请在操作员机器上停止该进程。',
+        },
+        stop_api: {
+          title: '没有可停止的容器',
+          detail: '服务商 Agent 没有 shell 可停止。',
+        },
+        not_permitted: {
+          title: '无权操作该 Agent',
+          detail: '你只能管理你拥有的 Agent。如需访问请联系 Agent 所有者。',
+        },
+      },
+      create: {
+        missing_cli_tool_for_container: {
+          title: '请选择一个 CLI 工具',
+          detail: '基于容器的 Agent 需要一个 Container CLI：claude、codex、gemini 或 opencode。',
+        },
+        api_cannot_have_cli_tool: {
+          title: '服务商 Agent 不能有 CLI 工具',
+          detail: '请移除 CLI 工具，或将运行时改为 "容器 (Docker)"。',
+        },
+        missing_cli_tool_for_host_cli: {
+          title: '请选择一个 CLI 工具',
+          detail: 'Host CLI 注册需要一个 Container CLI：claude、codex、gemini 或 opencode。',
+        },
+      },
+      enroll: {
+        missing_idempotency_key: {
+          title: '缺少 Idempotency-Key 请求头',
+          detail: '请在 `Idempotency-Key` 请求头中带上一个新的 UUID 后重试。',
+        },
+        plaintext_nats_blocked: {
+          title: 'Host CLI 不允许使用明文 NATS',
+          detail:
+            '请将 `NATS_AGENT_URL` 设为 `tls://`，或设置组织策略 `allow_plaintext_host_nats=true` 后再试。',
+        },
+      },
+    },
   },
 
   // =========================================================================

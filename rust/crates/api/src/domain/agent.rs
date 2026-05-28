@@ -5,7 +5,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use agentforge_core::{AgentId, AgentStatus, AppError, AppResult, CliToolKind, ErrorKind};
+use agentforge_core::{AgentId, AgentStatus, AppError, AppResult, CliToolKind, ErrorKind, RuntimeKind, TenantScope};
 use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -149,10 +149,6 @@ impl HostAgentEnrollmentPolicy {
             })
     }
 
-    pub(crate) fn runtime_id(agent_id: Uuid) -> String {
-        format!("host-{}", &agent_id.to_string()[..8])
-    }
-
     pub(crate) fn env_map(env: Vec<String>) -> BTreeMap<String, String> {
         env.into_iter()
             .filter_map(|entry| {
@@ -173,6 +169,338 @@ impl HostAgentEnrollmentPolicy {
 
 fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\"'\"'"))
+}
+
+#[derive(Clone)]
+pub struct HostCliIdentity {
+    agent_id: Uuid,
+    runtime_id: String,
+    hmac_secret: String,
+    nats_connect_password: String,
+}
+
+impl std::fmt::Debug for HostCliIdentity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HostCliIdentity")
+            .field("agent_id", &self.agent_id)
+            .field("runtime_id", &self.runtime_id)
+            .field("hmac_secret", &"<redacted>")
+            .field("nats_connect_password", &"<redacted>")
+            .finish()
+    }
+}
+
+impl HostCliIdentity {
+    pub fn generate() -> Self {
+        let agent_id = Uuid::now_v7();
+        Self {
+            runtime_id: format!("host-{agent_id}"),
+            hmac_secret: Uuid::new_v4().to_string(),
+            nats_connect_password: Uuid::new_v4().to_string(),
+            agent_id,
+        }
+    }
+
+    pub fn agent_id(&self) -> Uuid {
+        self.agent_id
+    }
+
+    pub fn runtime_id(&self) -> &str {
+        &self.runtime_id
+    }
+
+    pub fn hmac_secret(&self) -> &str {
+        &self.hmac_secret
+    }
+
+    pub fn nats_connect_password(&self) -> &str {
+        &self.nats_connect_password
+    }
+}
+
+/// Aggregate root for the Agent bounded context. Loaded by
+/// `AgentRepository::find_aggregate` for write-side operations (added in Task 4.3).
+#[derive(Debug, Clone, sqlx::FromRow)]
+#[allow(dead_code)]
+pub struct AgentAggregate {
+    pub(crate) id: Uuid,
+    pub(crate) runtime_kind: RuntimeKind,
+    pub(crate) cli_tool: Option<String>,
+    pub(crate) container_id: Option<String>,
+    pub(crate) runtime_id: Option<String>,
+    pub(crate) workspace_id: Uuid,
+    pub(crate) organization_id: Uuid,
+    pub(crate) user_id: Uuid,
+    pub(crate) status: AgentStatus,
+}
+
+impl AgentAggregate {
+    pub fn runtime_kind(&self) -> RuntimeKind {
+        self.runtime_kind
+    }
+
+    /// Owner (creator) of this agent. Used by lifecycle ACL checks.
+    pub(crate) fn user_id(&self) -> Uuid {
+        self.user_id
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_test(kind: RuntimeKind, cli_tool: Option<&str>, container_id: Option<&str>) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            runtime_kind: kind,
+            cli_tool: cli_tool.map(str::to_string),
+            container_id: container_id.map(str::to_string),
+            runtime_id: None,
+            workspace_id: Uuid::new_v4(),
+            organization_id: Uuid::new_v4(),
+            user_id: Uuid::new_v4(),
+            status: AgentStatus::Idle,
+        }
+    }
+}
+
+/// Typestate wrapper proving an agent is container-backed.
+#[derive(Debug)]
+pub(crate) struct ContainerAgent(AgentAggregate);
+
+/// Rejection returned when a lifecycle operation requires a container-backed
+/// agent but the aggregate belongs to a different runtime kind.
+#[derive(Debug)]
+pub(crate) enum LifecycleRejection {
+    HostCli,
+    Api,
+}
+
+impl ContainerAgent {
+    pub(crate) fn try_from(agent: AgentAggregate) -> Result<Self, LifecycleRejection> {
+        match agent.runtime_kind {
+            RuntimeKind::Container => Ok(Self(agent)),
+            RuntimeKind::Cli => Err(LifecycleRejection::HostCli),
+            RuntimeKind::Api => Err(LifecycleRejection::Api),
+        }
+    }
+
+    pub(crate) fn inner(&self) -> &AgentAggregate {
+        &self.0
+    }
+}
+
+impl LifecycleRejection {
+    pub(crate) fn into_app_error(self, action: &str) -> AppError {
+        let (code, message) = match (self, action) {
+            (Self::HostCli, "Restart") => (
+                "errors.agent.lifecycle.restart_host_cli",
+                "Host CLI agent: restart the sidecar from your machine using the enrollment script.".to_string(),
+            ),
+            (Self::Api, "Restart") => {
+                ("errors.agent.lifecycle.restart_api", "API/provider agent has no container to restart.".to_string())
+            }
+            (Self::HostCli, "Start") => (
+                "errors.agent.lifecycle.start_host_cli",
+                "Host CLI agent: start the sidecar from your machine using the enrollment script.".to_string(),
+            ),
+            (Self::Api, "Start") => {
+                ("errors.agent.lifecycle.start_api", "API/provider agent has no container to start.".to_string())
+            }
+            (Self::HostCli, "Stop") => (
+                "errors.agent.lifecycle.stop_host_cli",
+                "Host CLI agent: stop the sidecar from your machine.".to_string(),
+            ),
+            (Self::Api, "Stop") => {
+                ("errors.agent.lifecycle.stop_api", "API/provider agent has no container to stop.".to_string())
+            }
+            (Self::HostCli, "Resume") => (
+                "errors.agent.lifecycle.start_host_cli",
+                "Host CLI agent: start the sidecar from your machine using the enrollment script.".to_string(),
+            ),
+            (Self::Api, "Resume") => {
+                ("errors.agent.lifecycle.start_api", "API/provider agent has no container to start.".to_string())
+            }
+            (Self::HostCli, _) => (
+                "errors.agent.lifecycle.restart_host_cli",
+                format!(
+                    "Host CLI agent: the platform does not manage the local container lifecycle. \
+                     {action} the sidecar on the operator machine using the enrollment script."
+                ),
+            ),
+            (Self::Api, _) => (
+                "errors.agent.lifecycle.restart_api",
+                format!("API/provider agent has no container to {}.", action.to_lowercase()),
+            ),
+        };
+        ErrorKind::ValidationWithCode { code, message }.into()
+    }
+}
+
+/// Typed aggregate factory for creating new agents.
+///
+/// Replaces the open-shape `CreateAgentParams` for new code paths. Three
+/// constructors encode invariants that differ across runtime surfaces:
+/// - [`container`](NewAgent::container): Docker-managed Container CLI agent.
+/// - [`host_cli`](NewAgent::host_cli): Host-enrolled CLI agent (carries `HostCliIdentity`).
+/// - [`api`](NewAgent::api): Provider-backed API agent (requires provider + model).
+#[derive(Debug, Clone)]
+pub struct NewAgent {
+    runtime_kind: RuntimeKind,
+    cli_tool: Option<&'static str>,
+    name: Option<String>,
+    model: Option<String>,
+    provider: Option<String>,
+    cwd: Option<String>,
+    workspace_id: Uuid,
+    project_id: Option<Uuid>,
+    system_prompt: Option<String>,
+    runtime_id: Option<String>,
+    hmac_secret: Option<String>,
+    nats_connect_password: Option<String>,
+    initial_status: AgentStatus,
+}
+
+impl NewAgent {
+    pub fn container(
+        scope: &TenantScope,
+        cli_tool: CliToolKind,
+        name: Option<&str>,
+        model: Option<&str>,
+        cwd: Option<&str>,
+        workspace_id: Uuid,
+        project_id: Option<Uuid>,
+        system_prompt: Option<&str>,
+    ) -> AppResult<Self> {
+        let _ = scope;
+        AgentName::validate(name)?;
+        Ok(Self {
+            runtime_kind: RuntimeKind::Container,
+            cli_tool: Some(cli_tool.as_str()),
+            name: name.map(str::to_string),
+            model: model.map(str::to_string),
+            provider: None,
+            cwd: cwd.map(str::to_string),
+            workspace_id,
+            project_id,
+            system_prompt: system_prompt.map(str::to_string),
+            runtime_id: None,
+            hmac_secret: None,
+            nats_connect_password: None,
+            initial_status: AgentStatus::Idle,
+        })
+    }
+
+    pub fn host_cli(
+        scope: &TenantScope,
+        cli_tool: CliToolKind,
+        identity: HostCliIdentity,
+        name: Option<&str>,
+        model: Option<&str>,
+        cwd: Option<&str>,
+        workspace_id: Uuid,
+        project_id: Option<Uuid>,
+    ) -> AppResult<Self> {
+        let _ = scope;
+        AgentName::validate(name)?;
+        Ok(Self {
+            runtime_kind: RuntimeKind::Cli,
+            cli_tool: Some(cli_tool.as_str()),
+            name: name.map(str::to_string),
+            model: model.map(str::to_string),
+            provider: None,
+            cwd: cwd.map(str::to_string),
+            workspace_id,
+            project_id,
+            system_prompt: None,
+            runtime_id: Some(identity.runtime_id().to_string()),
+            hmac_secret: Some(identity.hmac_secret().to_string()),
+            nats_connect_password: Some(identity.nats_connect_password().to_string()),
+            initial_status: AgentStatus::Offline,
+        })
+    }
+
+    pub fn api(
+        scope: &TenantScope,
+        provider: &str,
+        model: &str,
+        name: Option<&str>,
+        system_prompt: Option<&str>,
+        workspace_id: Uuid,
+        project_id: Option<Uuid>,
+    ) -> AppResult<Self> {
+        let _ = scope;
+        AgentName::validate(name)?;
+        if provider.trim().is_empty() {
+            return Err(ErrorKind::Validation("provider is required for API runtime agent".into()).into());
+        }
+        if model.trim().is_empty() {
+            return Err(ErrorKind::Validation("model is required for API runtime agent".into()).into());
+        }
+        Ok(Self {
+            runtime_kind: RuntimeKind::Api,
+            cli_tool: None,
+            name: name.map(str::to_string),
+            model: Some(model.to_string()),
+            provider: Some(provider.to_string()),
+            cwd: None,
+            workspace_id,
+            project_id,
+            system_prompt: system_prompt.map(str::to_string),
+            runtime_id: None,
+            hmac_secret: None,
+            nats_connect_password: None,
+            initial_status: AgentStatus::Idle,
+        })
+    }
+
+    pub fn runtime_kind(&self) -> RuntimeKind {
+        self.runtime_kind
+    }
+
+    pub fn cli_tool(&self) -> Option<&str> {
+        self.cli_tool
+    }
+
+    pub fn runtime_id(&self) -> Option<&str> {
+        self.runtime_id.as_deref()
+    }
+
+    pub fn hmac_secret(&self) -> Option<&str> {
+        self.hmac_secret.as_deref()
+    }
+
+    pub fn nats_connect_password(&self) -> Option<&str> {
+        self.nats_connect_password.as_deref()
+    }
+
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    pub fn model(&self) -> Option<&str> {
+        self.model.as_deref()
+    }
+
+    pub fn provider(&self) -> Option<&str> {
+        self.provider.as_deref()
+    }
+
+    pub fn cwd(&self) -> Option<&str> {
+        self.cwd.as_deref()
+    }
+
+    pub fn workspace_id(&self) -> Uuid {
+        self.workspace_id
+    }
+
+    pub fn project_id(&self) -> Option<Uuid> {
+        self.project_id
+    }
+
+    pub fn system_prompt(&self) -> Option<&str> {
+        self.system_prompt.as_deref()
+    }
+
+    pub fn initial_status(&self) -> AgentStatus {
+        self.initial_status
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -458,13 +786,6 @@ pub(crate) enum AgentRestartPlan {
 pub(crate) struct AgentContainerLifecyclePolicy;
 
 impl AgentContainerLifecyclePolicy {
-    pub(crate) fn ensure_container_backed(cli_tool: Option<&str>) -> AppResult<()> {
-        if cli_tool.is_none() {
-            return Err(ErrorKind::Validation("agent is not container-backed".into()).into());
-        }
-        Ok(())
-    }
-
     pub(crate) fn restart_container_id(container_id: Option<&str>) -> AppResult<&str> {
         container_id.ok_or_else(|| ErrorKind::Validation("agent has no container".into()).into())
     }
@@ -773,6 +1094,35 @@ impl AgentRepositoryPolicy {
     }
 }
 
+/// Policy that enforces per-agent owner access control.
+///
+/// The check prevents intra-org callers who are NOT the agent owner from
+/// executing lifecycle mutations. Returning 403 (not 404) is deliberate:
+/// the caller is already authenticated within the same org and the agent
+/// UUID has been validated by the tenant-scoped DB fetch, so the caller
+/// knows the agent exists. Returning 403 does not disclose the runtime kind.
+pub struct AgentOwnerPolicy;
+
+impl AgentOwnerPolicy {
+    /// Return `Ok(())` when the caller is the agent owner, or a uniform 403
+    /// `AppError` that does NOT disclose the agent's runtime kind.
+    ///
+    /// The error carries the i18n code `errors.agent.lifecycle.not_permitted`
+    /// so the frontend can display a localised message from the catalogue.
+    ///
+    /// `caller_user_id` is taken from `TenantScope::user_id()`.
+    pub fn require_owner(caller_user_id: Uuid, owner_id: Uuid) -> AppResult<()> {
+        if caller_user_id == owner_id {
+            return Ok(());
+        }
+        Err(ErrorKind::ForbiddenWithCode {
+            code: "errors.agent.lifecycle.not_permitted",
+            message: "operation not permitted on this agent".into(),
+        }
+        .into())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -802,9 +1152,7 @@ mod tests {
     }
 
     #[test]
-    fn agent_container_lifecycle_policy_validates_container_backing_and_ids() {
-        assert!(AgentContainerLifecyclePolicy::ensure_container_backed(Some("claude")).is_ok());
-        assert!(AgentContainerLifecyclePolicy::ensure_container_backed(None).is_err());
+    fn agent_container_lifecycle_policy_validates_container_ids() {
         assert_eq!(AgentContainerLifecyclePolicy::restart_container_id(Some("ctr-1")).unwrap(), "ctr-1");
         assert!(AgentContainerLifecyclePolicy::restart_container_id(None).is_err());
         assert_eq!(AgentContainerLifecyclePolicy::resume_container_id(Some("ctr-2")).unwrap(), "ctr-2");
@@ -1157,13 +1505,6 @@ mod tests {
     }
 
     #[test]
-    fn host_agent_runtime_id_is_stable_and_prefixed() {
-        let agent_id = Uuid::parse_str("11111111-2222-3333-4444-555555555555").unwrap();
-
-        assert_eq!(HostAgentEnrollmentPolicy::runtime_id(agent_id), "host-11111111");
-    }
-
-    #[test]
     fn plain_text_prompt_rejects_unsupported_shapes() {
         assert!(PlainTextAgentPrompt::new("hello", None).is_ok());
         assert!(PlainTextAgentPrompt::new("   ", None).is_err());
@@ -1215,6 +1556,135 @@ mod tests {
 
         assert_eq!(env.get("OPENAI_API_KEY").map(String::as_str), Some("sk-test"));
         assert!(!env.contains_key("ANTHROPIC_API_KEY"));
+    }
+
+    fn test_tenant_scope() -> TenantScope {
+        crate::test_support::tenant_scope()
+    }
+
+    #[test]
+    fn new_agent_container_validates_inputs() {
+        let scope = test_tenant_scope();
+        let ok =
+            NewAgent::container(&scope, CliToolKind::Codex, Some("My Agent"), None, None, Uuid::new_v4(), None, None);
+        assert!(ok.is_ok());
+
+        // Name >255 chars rejected
+        let long = "x".repeat(256);
+        let err = NewAgent::container(&scope, CliToolKind::Codex, Some(&long), None, None, Uuid::new_v4(), None, None);
+        assert!(err.is_err());
+    }
+
+    #[test]
+    fn new_agent_host_cli_carries_identity_and_kind() {
+        let scope = test_tenant_scope();
+        let identity = HostCliIdentity::generate();
+        let expected_runtime_id = identity.runtime_id().to_string();
+        let na =
+            NewAgent::host_cli(&scope, CliToolKind::Codex, identity, None, None, None, Uuid::new_v4(), None).unwrap();
+        assert_eq!(na.runtime_kind(), RuntimeKind::Cli);
+        assert_eq!(na.runtime_id(), Some(expected_runtime_id.as_str()));
+        assert_eq!(na.cli_tool(), Some("codex"));
+    }
+
+    #[test]
+    fn new_agent_api_rejects_empty_model() {
+        let scope = test_tenant_scope();
+        assert!(NewAgent::api(&scope, "anthropic", "", None, None, Uuid::new_v4(), None).is_err());
+    }
+
+    #[test]
+    fn host_cli_identity_uses_full_uuid_v7() {
+        let id = HostCliIdentity::generate();
+        assert!(id.runtime_id().starts_with("host-"), "got: {}", id.runtime_id());
+        // Full UUID after the prefix (36 chars), not 8.
+        assert_eq!(id.runtime_id().len(), "host-".len() + 36);
+        // UUIDv7 has version bits set
+        assert_eq!(id.agent_id().get_version_num(), 7);
+        assert!(!id.hmac_secret().is_empty());
+        assert!(!id.nats_connect_password().is_empty());
+    }
+
+    #[test]
+    fn host_cli_identity_debug_redacts_secrets() {
+        let id = HostCliIdentity::generate();
+        let dbg = format!("{id:?}");
+        assert!(!dbg.contains(id.hmac_secret()), "hmac_secret leaked: {dbg}");
+        assert!(!dbg.contains(id.nats_connect_password()), "nats_password leaked: {dbg}");
+        assert!(dbg.contains("<redacted>"));
+    }
+
+    #[test]
+    fn container_agent_try_from_only_accepts_container_kind() {
+        let container = AgentAggregate::for_test(RuntimeKind::Container, Some("codex"), None);
+        assert!(ContainerAgent::try_from(container).is_ok());
+
+        let host_cli = AgentAggregate::for_test(RuntimeKind::Cli, Some("codex"), None);
+        match ContainerAgent::try_from(host_cli) {
+            Err(LifecycleRejection::HostCli) => (),
+            other => panic!("expected HostCli rejection, got {other:?}"),
+        }
+
+        let api = AgentAggregate::for_test(RuntimeKind::Api, None, None);
+        match ContainerAgent::try_from(api) {
+            Err(LifecycleRejection::Api) => (),
+            other => panic!("expected Api rejection, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lifecycle_rejection_into_app_error_carries_i18n_key() {
+        let err = LifecycleRejection::HostCli.into_app_error("Restart");
+        let msg = format!("{err}");
+        assert!(msg.contains("Host CLI"), "msg: {msg}");
+
+        // Must carry the structured i18n code, not the old Validation(String) variant.
+        assert!(
+            matches!(&err.kind, ErrorKind::ValidationWithCode { code, .. } if *code == "errors.agent.lifecycle.restart_host_cli"),
+            "expected ValidationWithCode with restart_host_cli code, got: {:?}",
+            err.kind
+        );
+    }
+
+    #[test]
+    fn lifecycle_rejection_all_actions_emit_validation_with_code() {
+        let cases = [
+            (LifecycleRejection::HostCli, "Restart", "errors.agent.lifecycle.restart_host_cli"),
+            (LifecycleRejection::Api, "Restart", "errors.agent.lifecycle.restart_api"),
+            (LifecycleRejection::HostCli, "Start", "errors.agent.lifecycle.start_host_cli"),
+            (LifecycleRejection::Api, "Start", "errors.agent.lifecycle.start_api"),
+            (LifecycleRejection::HostCli, "Stop", "errors.agent.lifecycle.stop_host_cli"),
+            (LifecycleRejection::Api, "Stop", "errors.agent.lifecycle.stop_api"),
+            (LifecycleRejection::HostCli, "Resume", "errors.agent.lifecycle.start_host_cli"),
+            (LifecycleRejection::Api, "Resume", "errors.agent.lifecycle.start_api"),
+        ];
+        for (rejection, action, expected_code) in cases {
+            let err = rejection.into_app_error(action);
+            match &err.kind {
+                ErrorKind::ValidationWithCode { code, .. } => {
+                    assert_eq!(*code, expected_code, "action={action}");
+                }
+                other => panic!("expected ValidationWithCode for action={action}, got: {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn agent_owner_policy_require_owner_returns_forbidden_with_code() {
+        let owner = Uuid::new_v4();
+        let other = Uuid::new_v4();
+
+        // Owner passes.
+        assert!(AgentOwnerPolicy::require_owner(owner, owner).is_ok());
+
+        // Non-owner gets ForbiddenWithCode with the i18n key.
+        let err = AgentOwnerPolicy::require_owner(other, owner).unwrap_err();
+        match &err.kind {
+            ErrorKind::ForbiddenWithCode { code, .. } => {
+                assert_eq!(*code, "errors.agent.lifecycle.not_permitted");
+            }
+            other => panic!("expected ForbiddenWithCode, got: {other:?}"),
+        }
     }
 
     #[test]

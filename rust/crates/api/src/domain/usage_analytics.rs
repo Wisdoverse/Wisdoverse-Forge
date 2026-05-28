@@ -21,7 +21,7 @@ impl ContextUsageAccessPolicy {
     }
 
     fn forbidden() -> AppError {
-        ErrorKind::Forbidden.into()
+        ErrorKind::Forbidden("forbidden".into()).into()
     }
 }
 
@@ -169,7 +169,7 @@ mod tests {
         assert_eq!(ContextUsageAccessPolicy::required_workspace(&scope).unwrap(), workspace_id);
         assert!(matches!(
             ContextUsageAccessPolicy::required_workspace(&missing_workspace).unwrap_err().kind,
-            ErrorKind::Forbidden
+            ErrorKind::Forbidden(_)
         ));
     }
 

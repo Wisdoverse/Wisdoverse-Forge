@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { ClaudeEvent } from '@shared/types/events'
 import type { AgentMessageRow } from '@shared/types'
 import { getAgentApi } from '@app/shared/api/legacy'
-import { extractApiError } from '@app/shared/api/legacy/AgentAPI'
+import { extractApiError } from '@app/shared/api/agent-api-types'
 
 // ============================================================================
 // Types

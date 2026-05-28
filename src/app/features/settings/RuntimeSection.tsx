@@ -7,7 +7,7 @@ import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import { getAgentApi } from '@app/shared/api/legacy'
 import { orchestrationApi, type ParticipantSummary } from '@app/shared/api/orchestration'
-import type { CliAuthProxyStatusEntry } from '@app/shared/api/legacy/AgentAPI'
+import type { CliAuthProxyStatusEntry } from '@app/entities/agent'
 import type { RuntimeSettings, RuntimeType, CliTool } from '@app/shared/api/legacy/settingsApi'
 
 // ============================================================================
