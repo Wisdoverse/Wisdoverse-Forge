@@ -13,8 +13,7 @@
 
 use std::collections::BTreeMap;
 
-use agentforge_core::{AgentId, AppConfig, AppError, AppResult, CliToolKind, ErrorKind, TenantScope};
-use anyhow::anyhow;
+use agentforge_core::{AgentId, AppConfig, AppError, AppResult, CliToolKind, TenantScope};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -50,6 +49,7 @@ struct HostAgentEnrollmentSettings {
 pub(crate) struct HostAgentEnrollmentService {
     pool: PgPool,
     agents: AgentRepository,
+    idempotency: EnrollmentIdempotencyRepository,
     workspaces: AgentWorkspaceService,
     settings: HostAgentEnrollmentSettings,
 }
@@ -58,6 +58,7 @@ impl HostAgentEnrollmentService {
     pub(crate) fn from_runtime(pool: PgPool, config: &AppConfig, context_features: ContextFeatureFlags) -> Self {
         Self {
             agents: AgentRepository::new(pool.clone()),
+            idempotency: EnrollmentIdempotencyRepository::new(pool.clone()),
             workspaces: AgentWorkspaceService::from_pool(pool.clone()),
             settings: HostAgentEnrollmentSettings {
                 nats_agent_url: config.nats_agent_url.clone(),
@@ -87,22 +88,14 @@ impl HostAgentEnrollmentService {
 
         // 2. TLS gate.
         if !nats_base_url.starts_with("tls://") && !self.settings.allow_plaintext_host_nats {
-            return Err(ErrorKind::ValidationWithCode {
-                code: "errors.agent.enroll.plaintext_nats_blocked",
-                message: "Host CLI enrollment requires a tls:// NATS URL. Configure \
-                          NATS_AGENT_URL to use tls://, or set ALLOW_PLAINTEXT_HOST_NATS=true \
-                          to permit plaintext (dev/test only)."
-                    .into(),
-            }
-            .into());
+            return Err(HostAgentEnrollmentPolicy::plaintext_nats_blocked_error());
         }
 
         let org_id = scope.org_id().as_uuid();
         let user_id = scope.user_id().as_uuid();
-        let idem = EnrollmentIdempotencyRepository::new(self.pool.clone());
 
         // 3. Idempotency fast path.
-        if let Some(existing_id) = idem.lookup(org_id, user_id, idempotency_key).await? {
+        if let Some(existing_id) = self.idempotency.lookup(org_id, user_id, idempotency_key).await? {
             metrics::counter!("agents_idempotency_replay_total").increment(1);
             let agent = self.agents.find_with_owner_by_id(scope, AgentId::from(existing_id)).await?;
             let enrollment = self.rebuild_enrollment_view(scope, &agent, existing_id, &nats_base_url).await?;
@@ -115,7 +108,7 @@ impl HostAgentEnrollmentService {
 
         let identity = HostCliIdentity::generate();
         let cli_kind = CliToolKind::parse_legacy(cli_tool_str)
-            .map_err(|_| AppError::from(ErrorKind::Validation(format!("unknown cli_tool: {cli_tool_str}"))))?;
+            .map_err(|_| HostAgentEnrollmentPolicy::unknown_cli_tool_error(cli_tool_str))?;
         let new_agent = NewAgent::host_cli(
             scope,
             cli_kind,
@@ -190,9 +183,8 @@ impl HostAgentEnrollmentService {
         id: Uuid,
         nats_base_url: &str,
     ) -> AppResult<HostAgentEnrollment> {
-        let runtime_id = agent.runtime_id.clone().ok_or_else(|| {
-            AppError::from(ErrorKind::Internal(anyhow!("Host CLI agent missing runtime_id on replay")))
-        })?;
+        let runtime_id =
+            agent.runtime_id.clone().ok_or_else(HostAgentEnrollmentPolicy::missing_runtime_id_on_replay)?;
 
         let (hmac_secret, nats_connect_password) = self.agents.fetch_host_cli_credentials(scope, id).await?;
 

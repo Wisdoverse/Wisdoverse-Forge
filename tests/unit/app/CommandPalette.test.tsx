@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach } from 'vitest'
-import { fireEvent, render, screen, cleanup } from '@testing-library/react'
+import { fireEvent, render, screen, cleanup, waitFor } from '@testing-library/react'
 import { CommandPalette } from '@app/features/cmdk/CommandPalette'
 
 afterEach(cleanup)
@@ -37,7 +37,7 @@ describe('CommandPalette', () => {
   test('searches beginner descriptions and shows an empty state', async () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
 
-    const input = screen.getByPlaceholderText(/search pages and actions/i)
+    const input = screen.getByPlaceholderText(/search commands/i)
     fireEvent.change(input, { target: { value: 'alerts' } })
 
     await waitFor(() => {
@@ -47,9 +47,9 @@ describe('CommandPalette', () => {
     fireEvent.change(input, { target: { value: 'zzzzzz' } })
 
     await waitFor(() => {
-      expect(screen.getByText('No matching page or action')).toBeDefined()
+      expect(screen.getByText('No commands found')).toBeDefined()
     })
-    expect(screen.getByText(/try a simpler word/i)).toBeDefined()
+    expect(screen.getByText(/try tasks, inbox, agents, skills, or settings/i)).toBeDefined()
   })
 
   test('suggests common workflow terms when search has no matches', () => {

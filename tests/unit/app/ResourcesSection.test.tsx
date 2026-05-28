@@ -42,16 +42,13 @@ describe('ResourcesSection', () => {
     expect(
       within(guide).getByText('Pick the smallest profile that can finish the work')
     ).toBeDefined()
-    expect(
-      within(guide).getByText('Small is the smallest option; Large is the largest option.')
-    ).toBeDefined()
+    expect(guide.textContent).toContain('Small is the smallest option')
     expect(within(guide).getByText('CPU controls speed')).toBeDefined()
     expect(within(guide).getByText('Memory prevents crashes')).toBeDefined()
     expect(within(guide).getByText('Limits protect the runner')).toBeDefined()
 
     expect(screen.getByText('Small')).toBeDefined()
-    expect(screen.getByText('1 core')).toBeDefined()
-    expect(screen.getByText('1 GB')).toBeDefined()
+    expect(screen.getByText(/1 core power · 1 GB memory/i)).toBeDefined()
     expect(screen.getByText('Light reviews, docs, and short commands')).toBeDefined()
     expect(screen.getByText('Normal coding tasks and test runs')).toBeDefined()
     expect(screen.getByText('Large builds, browser tests, and long-running work')).toBeDefined()

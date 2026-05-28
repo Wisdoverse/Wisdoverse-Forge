@@ -188,3 +188,32 @@ sqlx-macros-core = { path = "third_party/sqlx-macros-core-nomysql" }
 [profile.release]
 codegen-units = 16
 strip = "symbols"
+
+# -----------------------------------------------------------------------------
+# Dev / test profiles — tuned to prevent linker SIGSEGV on large test binaries.
+#
+# Problem: debug-profile Rust builds with deep transitive crate graphs (e.g.
+# memory_items_governance_test) exhaust linker virtual memory on standard CI
+# runners, causing ld/ld.lld SIGSEGV.
+#
+# Tier 1 — debuginfo reduction (30-60% smaller binaries, faster + cheaper link)
+#   `debug = "line-tables-only"` emits only line-number DWARF instead of full
+#   type/variable info. `gdb` / `lldb` still lands on the right line; flamegraph
+#   and perf still get symbol+line data. Only variable-inspection in a debugger
+#   is degraded — acceptable for a CI test profile.
+#
+# Tier 3 — split-debuginfo=unpacked (Linux)
+#   Debuginfo is emitted into separate .dwo files so the linker never has to
+#   carry the full DWARF in-memory during the link step. Cuts peak linker RSS
+#   by ~20-40% on top of Tier 1.
+#
+# Together these two tiers are the FAANG-standard first line of defence before
+# reaching for a different linker (mold, installed in CI via the workflow step).
+# -----------------------------------------------------------------------------
+[profile.dev]
+debug = "line-tables-only"
+split-debuginfo = "unpacked"
+
+[profile.test]
+debug = "line-tables-only"
+split-debuginfo = "unpacked"

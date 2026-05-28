@@ -72,6 +72,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
   const [fieldError, setFieldError] = useState<'name' | 'content' | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
+  const contentInputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -92,7 +93,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
 
   function updateField(field: keyof typeof emptyForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }))
-    if (field === fieldError) {
+    if (field === fieldError || field === 'name' || field === 'content') {
       setError(null)
       setFieldError(null)
     }
@@ -104,11 +105,13 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
     const content = form.content.trim()
 
     if (!name) {
-      setError('Add a skill name first')
+      setError('Name this skill before creating it.')
+      nameInputRef.current?.focus()
       return
     }
     if (!content) {
-      setError('Add the instructions the agent should follow')
+      setError('Add the instructions this skill should apply.')
+      contentInputRef.current?.focus()
       return
     }
 
@@ -311,6 +314,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
             </label>
             <textarea
               id="skill-content"
+              ref={contentInputRef}
               aria-label="Content"
               value={form.content}
               onChange={(event) => updateField('content', event.target.value)}

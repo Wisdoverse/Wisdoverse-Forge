@@ -54,11 +54,13 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
     const name = form.name.trim()
     const content = form.content.trim()
     if (!name) {
-      setError('Skill name is required')
+      setError('Name this skill before publishing it.')
+      nameInputRef.current?.focus()
       return
     }
     if (!content) {
-      setError('Reusable instructions are required')
+      setError('Keep or rewrite the reusable instructions before publishing.')
+      contentInputRef.current?.focus()
       return
     }
 
@@ -82,7 +84,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
 
   function updateField(field: keyof DraftForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }))
-    if (field === fieldError) {
+    if (field === fieldError || field === 'name' || field === 'content') {
       setError(null)
       setFieldError(null)
     }

@@ -93,8 +93,8 @@ describe('UserManagement', () => {
     render(<UserManagement />)
 
     await user.click(screen.getByTitle('Change what this user can do'))
-    fireEvent.change(screen.getByLabelText('Access level'), { target: { value: 'operator' } })
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.change(screen.getByRole('combobox', { name: /role for alex operator/i }), { target: { value: 'operator' } })
+    await user.click(screen.getByRole('button', { name: /save role/i }))
 
     await waitFor(() => expect(updateUserRole).toHaveBeenCalledWith('user-1', 'operator'))
   })

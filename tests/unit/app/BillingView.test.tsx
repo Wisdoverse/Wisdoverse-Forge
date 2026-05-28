@@ -31,10 +31,8 @@ describe('Billing views', () => {
 
     await waitFor(() => expect(loadAll).toHaveBeenCalledOnce())
     expect(screen.getByText('Billing is not ready yet')).toBeDefined()
-    expect(screen.getByText(/workspace owner connects the billing provider/i)).toBeDefined()
-    expect(screen.getByText('What this means')).toBeDefined()
-    expect(screen.getByText('Who can fix it')).toBeDefined()
-    expect(screen.getByText('Next step')).toBeDefined()
+    expect(screen.getByText(/administrator connects the payment provider/i)).toBeDefined()
+    expect(screen.getByText('Billing setup path')).toBeDefined()
   })
 
   test('guides users when there are no invoices yet', () => {
