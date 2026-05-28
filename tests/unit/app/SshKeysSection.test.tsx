@@ -42,21 +42,21 @@ describe('SshKeysSection', () => {
   test('guides first-time SSH key setup and saves only after required fields are filled', async () => {
     render(<SshKeysSection />)
 
-    expect(await screen.findByText('No SSH keys yet')).toBeDefined()
+    expect(await screen.findByText('No repository SSH keys yet')).toBeDefined()
 
-    fireEvent.click(screen.getByRole('button', { name: /add key/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add ssh key/i }))
 
     expect(screen.getByText('SSH key setup path')).toBeDefined()
     expect(screen.getByText('Paste public key')).toBeDefined()
-    expect(screen.getByText(/starts with ssh-ed25519 or ssh-rsa/i)).toBeDefined()
+    expect(screen.getAllByText(/starts with ssh-ed25519 or ssh-rsa/i).length).toBeGreaterThan(0)
     expect(screen.getByText('Keep private key private')).toBeDefined()
-    expect(screen.getByText(/do not paste a private key block/i)).toBeDefined()
+    expect(screen.getAllByText(/never paste a private key/i).length).toBeGreaterThan(0)
 
-    const saveButton = screen.getByRole('button', { name: /add ssh key/i })
+    const saveButton = screen.getByRole('button', { name: /save ssh key/i })
     expect(saveButton).toBeDisabled()
 
-    fireEvent.change(screen.getByLabelText(/^label/i), { target: { value: 'Work laptop' } })
-    fireEvent.change(screen.getByLabelText(/^public key/i), {
+    fireEvent.change(screen.getByLabelText(/^key name/i), { target: { value: 'Work laptop' } })
+    fireEvent.change(screen.getByLabelText(/^public key text/i), {
       target: { value: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAexample user@host' },
     })
     expect(saveButton).toBeEnabled()
