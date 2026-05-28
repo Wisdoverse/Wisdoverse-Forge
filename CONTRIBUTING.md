@@ -78,6 +78,21 @@ Every PR should include:
 - migration, environment, or rollout notes when runtime behavior changes,
 - documentation updates for any changed API, runtime, deployment path, or contributor workflow.
 
+### Merge requirements
+
+`main` is protected by a GitHub ruleset: all 15 status checks must be green, one
+approving review is required, and force-push / branch deletion / non-linear
+history are blocked. Merges go through `gh pr merge --squash --delete-branch`
+once those conditions are met.
+
+The Repository Admin role holds a `pull_request`-scoped bypass actor for
+**break-glass merges only** — an admin may waive the one-approval requirement
+(never the status checks, never the PR itself) when a second reviewer is
+genuinely unavailable. This is governed by
+[docs/runbooks/break-glass-merge.md](docs/runbooks/break-glass-merge.md); every
+break-glass merge must leave the documented audit comment. Direct pushes to
+`main` are not permitted for anyone, including admins.
+
 ## User Experience Standard
 
 Build and document features for first-time operators, not only professional
