@@ -45,11 +45,7 @@ pub enum ManifestError {
 
     /// A migration file's actual SHA-256 differs from the manifest entry.
     #[error("SHA-256 mismatch for {file}: expected {expected}, got {actual}")]
-    HashMismatch {
-        file: String,
-        expected: String,
-        actual: String,
-    },
+    HashMismatch { file: String, expected: String, actual: String },
 
     /// The manifest file itself is malformed (wrong line format).
     #[error("malformed MANIFEST.sha256 line: {0:?}")]
@@ -67,16 +63,8 @@ fn parse_manifest() -> Result<HashMap<String, String>, ManifestError> {
             continue;
         }
         let mut parts = line.splitn(2, "  ");
-        let hash = parts
-            .next()
-            .ok_or_else(|| ManifestError::MalformedManifest(line.to_string()))?
-            .trim()
-            .to_string();
-        let name = parts
-            .next()
-            .ok_or_else(|| ManifestError::MalformedManifest(line.to_string()))?
-            .trim()
-            .to_string();
+        let hash = parts.next().ok_or_else(|| ManifestError::MalformedManifest(line.to_string()))?.trim().to_string();
+        let name = parts.next().ok_or_else(|| ManifestError::MalformedManifest(line.to_string()))?.trim().to_string();
         if hash.len() != 64 || name.is_empty() {
             return Err(ManifestError::MalformedManifest(line.to_string()));
         }
@@ -117,7 +105,7 @@ pub fn verify_manifest(migration_files: &[(&str, &str)]) -> Result<(), ManifestE
                     file: name.clone(),
                     expected: exp_hash.clone(),
                     actual: act_hash.clone(),
-                })
+                });
             }
             _ => {}
         }
@@ -162,8 +150,7 @@ mod tests {
         // Either UnlistedFile (phantom not in manifest) or MissingFile (manifest
         // entries not in provided list) may surface first. Both indicate divergence.
         assert!(
-            matches!(err, ManifestError::UnlistedFile(_))
-                || matches!(err, ManifestError::MissingFile(_)),
+            matches!(err, ManifestError::UnlistedFile(_)) || matches!(err, ManifestError::MissingFile(_)),
             "unexpected error variant: {err}"
         );
     }

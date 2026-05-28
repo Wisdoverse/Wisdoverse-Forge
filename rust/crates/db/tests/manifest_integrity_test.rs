@@ -51,8 +51,7 @@ fn manifest_matches_migration_files() {
             continue;
         }
         let name = path.file_name().unwrap().to_string_lossy().to_string();
-        let bytes = fs::read(&path)
-            .unwrap_or_else(|e| panic!("failed to read {}: {e}", path.display()));
+        let bytes = fs::read(&path).unwrap_or_else(|e| panic!("failed to read {}: {e}", path.display()));
         let mut h = Sha256::new();
         h.update(&bytes);
         actual.insert(name, format!("{:x}", h.finalize()));
@@ -62,9 +61,7 @@ fn manifest_matches_migration_files() {
     for (name, exp) in &expected {
         match actual.get(name) {
             None => panic!("MANIFEST.sha256 lists '{name}' but the file does not exist in migrations/"),
-            Some(act) if act != exp => panic!(
-                "SHA-256 mismatch for '{name}':\n  manifest : {exp}\n  on-disk  : {act}"
-            ),
+            Some(act) if act != exp => panic!("SHA-256 mismatch for '{name}':\n  manifest : {exp}\n  on-disk  : {act}"),
             _ => {}
         }
     }
@@ -72,8 +69,9 @@ fn manifest_matches_migration_files() {
     // Every .sql file must have a manifest entry.
     for name in actual.keys() {
         if !expected.contains_key(name) {
-            panic!("'{name}' exists in migrations/ but is not listed in MANIFEST.sha256 — run: cd rust/crates/db/migrations && sha256sum *.sql > MANIFEST.sha256");
+            panic!(
+                "'{name}' exists in migrations/ but is not listed in MANIFEST.sha256 — run: cd rust/crates/db/migrations && sha256sum *.sql > MANIFEST.sha256"
+            );
         }
     }
 }
-
