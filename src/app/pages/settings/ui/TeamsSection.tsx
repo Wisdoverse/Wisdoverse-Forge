@@ -112,7 +112,7 @@ export function TeamsSection() {
             projects inside this organization
           </p>
         </div>
-        {!showForm && canCreateTeam && teams.length > 0 && (
+        {!showForm && canCreateTeam && (
           <button
             type="button"
             onClick={() => setShowForm(true)}
