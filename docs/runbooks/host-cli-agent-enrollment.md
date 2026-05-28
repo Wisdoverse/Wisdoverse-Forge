@@ -54,6 +54,12 @@ selected shell syntax. Run that returned block in the local directory that
 should receive tasks. The platform will then see heartbeats, assign tasks
 through NATS, and receive signed result evidence from that sidecar.
 
+The `agentforge agents enroll-local` command generates an `Idempotency-Key`
+header automatically. If you re-run the same command within 24 hours, the
+platform returns the same agent rather than creating a duplicate. To force a
+fresh enrollment, pass `--idempotency-key <new-uuid>` or wait for the 24-hour
+window to expire.
+
 ## Verify
 
 After the sidecar starts:
@@ -64,9 +70,21 @@ After the sidecar starts:
 4. Confirm the agent status changes after the first heartbeat.
 5. Assign a small task and check that task updates and evidence return to the
    platform.
+6. (Optional) Confirm the platform recorded the enrollment as Host CLI:
+   - Web UI: the agent's detail page shows the "Host CLI" badge.
+   - DB: `SELECT runtime_kind FROM agents WHERE id = '<agent-id>';` returns 'cli'.
+   - Audit: `SELECT * FROM events WHERE agent_id = '<agent-id>' AND event_type = 'agent.enrolled';`
+     should return one row with your user_id and source IP.
 
 If the agent stays offline, check that the local machine can reach the API and
 `NATS_AGENT_URL`, then rerun the sidecar command from the enrollment output.
+
+## Network
+
+Host CLI enrollment requires `NATS_AGENT_URL` to use TLS (`tls://`) by default.
+If your deployment runs NATS without TLS (lab/sandbox only), an organization
+admin must set the policy flag `allow_plaintext_host_nats = true` before
+enrollment will succeed. Production deployments should never set this flag.
 
 ## Revoke
 

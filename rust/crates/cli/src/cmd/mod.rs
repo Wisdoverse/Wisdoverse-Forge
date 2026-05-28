@@ -6,6 +6,7 @@ pub mod config;
 pub mod events;
 pub mod groups;
 pub mod health;
+pub mod migrate;
 pub mod prelude;
 pub mod root;
 pub mod version;

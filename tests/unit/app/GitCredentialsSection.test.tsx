@@ -3,7 +3,7 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event'
 import { GitCredentialsSection } from '@app/features/settings/GitCredentialsSection'
 import { useSettingsStore } from '@app/shared/model/settings.store'
-import type { GitCredential } from '@app/shared/api/legacy/AgentAPI'
+import type { GitCredential } from '@app/entities/agent'
 
 const loadGitCredentialsMock = vi.fn().mockResolvedValue(undefined)
 const saveGitCredentialMock = vi.fn().mockResolvedValue(true)

@@ -20,7 +20,7 @@ import {
   taskResultArtifacts,
   type TaskSummary,
 } from '@app/shared/api/orchestration'
-import { isHostCliAgent, useAgentsStore } from '@app/shared/model/agents.store'
+import { isHostCliAgent, useAgentsStore } from '@app/entities/agent'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import { useSkillsStore } from '@app/shared/model/skills.store'

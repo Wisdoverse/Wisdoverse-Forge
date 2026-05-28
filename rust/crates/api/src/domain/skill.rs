@@ -136,7 +136,7 @@ impl SkillAccessPolicy {
     }
 
     pub(crate) fn forbidden() -> AppError {
-        ErrorKind::Forbidden.into()
+        ErrorKind::Forbidden("forbidden".into()).into()
     }
 }
 
@@ -180,7 +180,7 @@ impl SkillCreateStatePolicy {
     pub(crate) fn resolve(state: Option<SkillState>, can_publish_active: bool) -> AppResult<SkillState> {
         let state = state.unwrap_or(SkillState::Active);
         if state == SkillState::Active && !can_publish_active {
-            return Err(ErrorKind::Forbidden.into());
+            return Err(ErrorKind::Forbidden("forbidden".into()).into());
         }
         Ok(state)
     }
@@ -772,7 +772,7 @@ impl SkillBoundaryMutationRejection {
     }
 
     pub(crate) fn into_app_error(self) -> AppError {
-        ErrorKind::Forbidden.into()
+        ErrorKind::Forbidden("forbidden".into()).into()
     }
 }
 
@@ -794,7 +794,7 @@ pub(crate) struct SkillBoundaryAccessPolicy;
 impl SkillBoundaryAccessPolicy {
     pub(crate) fn ensure_allowed(exists_outside_request_boundary: bool) -> AppResult<()> {
         if exists_outside_request_boundary {
-            return Err(ErrorKind::Forbidden.into());
+            return Err(ErrorKind::Forbidden("forbidden".into()).into());
         }
         Ok(())
     }
@@ -842,7 +842,7 @@ impl SkillMutationAccessPolicy {
     }
 
     pub(crate) fn ensure_manager_authorized(can_manage: bool) -> AppResult<()> {
-        if can_manage { Ok(()) } else { Err(ErrorKind::Forbidden.into()) }
+        if can_manage { Ok(()) } else { Err(ErrorKind::Forbidden("forbidden".into()).into()) }
     }
 }
 
@@ -965,12 +965,12 @@ mod tests {
         assert_eq!(SkillAccessPolicy::required_workspace(&scope).unwrap(), workspace_id);
         assert!(matches!(
             SkillAccessPolicy::required_workspace(&missing_workspace).unwrap_err().kind,
-            ErrorKind::Forbidden
+            ErrorKind::Forbidden(_)
         ));
         assert!(SkillAccessPolicy::ensure_resource_belongs_to_scope(true).is_ok());
         assert!(matches!(
             SkillAccessPolicy::ensure_resource_belongs_to_scope(false).unwrap_err().kind,
-            ErrorKind::Forbidden
+            ErrorKind::Forbidden(_)
         ));
     }
 
@@ -1233,7 +1233,7 @@ mod tests {
         assert!(SkillMutationAccessPolicy::ensure_manager_authorized(true).is_ok());
         assert!(matches!(
             SkillMutationAccessPolicy::ensure_manager_authorized(false).unwrap_err().kind,
-            ErrorKind::Forbidden
+            ErrorKind::Forbidden(_)
         ));
     }
 
@@ -1253,13 +1253,13 @@ mod tests {
         assert_eq!(payload["attempted_skill_id"], skill_id.to_string());
         assert_eq!(payload["reason"], "outside_request_boundary");
         assert_eq!(payload["workspace_id"], workspace_id.as_uuid().to_string());
-        assert!(matches!(rejection.into_app_error().kind, ErrorKind::Forbidden));
+        assert!(matches!(rejection.into_app_error().kind, ErrorKind::Forbidden(_)));
     }
 
     #[test]
     fn skill_boundary_access_policy_rejects_outside_boundary_reads() {
         assert!(SkillBoundaryAccessPolicy::ensure_allowed(false).is_ok());
-        assert!(matches!(SkillBoundaryAccessPolicy::ensure_allowed(true).unwrap_err().kind, ErrorKind::Forbidden));
+        assert!(matches!(SkillBoundaryAccessPolicy::ensure_allowed(true).unwrap_err().kind, ErrorKind::Forbidden(_)));
     }
 
     #[test]

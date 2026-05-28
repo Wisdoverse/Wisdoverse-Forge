@@ -99,8 +99,8 @@ async fn seed_base(pool: &PgPool, task_text: &str) -> InjectionSeed {
         .await
         .expect("seed project member");
     sqlx::query(
-        "INSERT INTO agents (id, organization_id, workspace_id, project_id, user_id, name, cli_tool, status)
-         VALUES ($1, $2, $3, $4, $5, 'injection-agent', 'claude', 'idle')",
+        "INSERT INTO agents (id, organization_id, workspace_id, project_id, user_id, name, cli_tool, status, runtime_kind)
+         VALUES ($1, $2, $3, $4, $5, 'injection-agent', 'claude', 'idle', 'container')",
     )
     .bind(agent_id)
     .bind(org_id)

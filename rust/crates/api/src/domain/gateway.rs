@@ -20,7 +20,7 @@ pub(crate) enum WebSocketOriginRejection {
 
 impl WebSocketOriginRejection {
     pub(crate) fn into_app_error(self) -> AppError {
-        ErrorKind::Forbidden.into()
+        ErrorKind::Forbidden("forbidden".into()).into()
     }
 }
 

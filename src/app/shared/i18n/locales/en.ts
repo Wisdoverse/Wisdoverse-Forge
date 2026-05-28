@@ -506,6 +506,68 @@ export const en = {
     downloadError: 'Download failed: {{message}}',
     rateLimited: 'Too many requests. Please wait {{seconds}} seconds.',
     quotaExceeded: 'Quota exceeded for {{resource}}',
+    agent: {
+      lifecycle: {
+        restart_host_cli: {
+          title: 'Restart the sidecar from your machine',
+          detail:
+            'The platform does not manage the local sidecar. Re-run the enrollment shell script on the operator machine.',
+        },
+        restart_api: {
+          title: 'No container to restart',
+          detail:
+            'This agent calls the LLM provider directly. Send a new prompt to invoke the model again.',
+        },
+        start_host_cli: {
+          title: 'Start the sidecar from your machine',
+          detail:
+            'Re-run the enrollment shell script on the operator machine to launch the sidecar.',
+        },
+        start_api: {
+          title: 'No container to start',
+          detail: 'Provider agents have no shell to start.',
+        },
+        stop_host_cli: {
+          title: 'Stop the sidecar from your machine',
+          detail:
+            'The platform cannot stop a remote sidecar. Stop the process on the operator machine.',
+        },
+        stop_api: {
+          title: 'No container to stop',
+          detail: 'Provider agents have no shell to stop.',
+        },
+        not_permitted: {
+          title: 'Operation not permitted on this agent',
+          detail: 'You can manage only agents you own. Contact the agent owner if you need access.',
+        },
+      },
+      create: {
+        missing_cli_tool_for_container: {
+          title: 'Choose a CLI tool',
+          detail:
+            'Container-backed agents need a Container CLI: claude, codex, gemini, or opencode.',
+        },
+        api_cannot_have_cli_tool: {
+          title: 'Provider agent cannot have a CLI tool',
+          detail: 'Remove the CLI tool, or change the runtime to "Container (Docker)".',
+        },
+        missing_cli_tool_for_host_cli: {
+          title: 'Choose a CLI tool',
+          detail: 'Host CLI enrollment needs a Container CLI: claude, codex, gemini, or opencode.',
+        },
+      },
+      enroll: {
+        missing_idempotency_key: {
+          title: 'Idempotency-Key header required',
+          detail: 'Resend with a fresh UUID in the `Idempotency-Key` header.',
+        },
+        plaintext_nats_blocked: {
+          title: 'Plaintext NATS not allowed for Host CLI',
+          detail:
+            'Configure `NATS_AGENT_URL` to use `tls://`, or set the org policy `allow_plaintext_host_nats=true` to permit it.',
+        },
+      },
+    },
   },
 
   // =========================================================================

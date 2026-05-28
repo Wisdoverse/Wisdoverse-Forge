@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import '@app/i18n'
 import { GettingStartedView } from '@app/pages/getting-started'
 import { useNavigationStore } from '@app/entities/navigation'
-import { useAgentsStore } from '@app/shared/model/agents.store'
+import { useAgentsStore } from '@app/entities/agent'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import { useSkillsStore } from '@app/shared/model/skills.store'
 
@@ -219,7 +219,7 @@ describe('GettingStartedView', () => {
           model: 'local-runner',
           cliTool: 'workspace-tool',
           runtimeId: 'host-abc12345',
-          runtimeKind: 'host-cli',
+          runtimeKind: 'cli',
           status: 'idle',
           tasksCompleted: 0,
           tasksInProgress: 0,

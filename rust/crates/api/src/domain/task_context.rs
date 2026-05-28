@@ -16,7 +16,7 @@ impl TaskContextAccessPolicy {
     }
 
     fn forbidden() -> AppError {
-        ErrorKind::Forbidden.into()
+        ErrorKind::Forbidden("forbidden".into()).into()
     }
 }
 
@@ -200,7 +200,7 @@ mod tests {
         assert_eq!(TaskContextAccessPolicy::required_workspace(&scope).unwrap(), workspace_id);
         assert!(matches!(
             TaskContextAccessPolicy::required_workspace(&missing_workspace).unwrap_err().kind,
-            ErrorKind::Forbidden
+            ErrorKind::Forbidden(_)
         ));
     }
 }

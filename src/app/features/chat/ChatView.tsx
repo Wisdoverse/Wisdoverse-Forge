@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { type Turn, useChatStore } from '@app/shared/model/chat.store'
-import { useAgentsStore } from '@app/shared/model/agents.store'
+import { useAgentsStore } from '@app/entities/agent'
 import type { AgentMessageRow } from '@shared/types'
 import { TurnItem } from './TurnItem'
 import { ChatComposer } from './ChatComposer'

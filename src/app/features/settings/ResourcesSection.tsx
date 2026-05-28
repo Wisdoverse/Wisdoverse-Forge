@@ -3,7 +3,7 @@ import { Cpu, HardDrive, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
-import type { ResourceProfileOption } from '@app/shared/api/legacy/AgentAPI'
+import type { ResourceProfileOption } from '@app/entities/agent'
 
 // ============================================================================
 // Helpers

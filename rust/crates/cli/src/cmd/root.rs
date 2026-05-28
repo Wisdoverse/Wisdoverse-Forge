@@ -26,6 +26,8 @@ pub enum Subcommand {
     Events(crate::cmd::events::EventsArgs),
     Groups(crate::cmd::groups::GroupsArgs),
     Api(crate::cmd::api::ApiArgs),
+    /// Operator migration utilities (connects directly to PostgreSQL)
+    Migrate(crate::cmd::migrate::MigrateArgs),
     Health,
     Whoami,
     Version,
@@ -115,6 +117,12 @@ impl Cli {
                 }
             }
             Some(Subcommand::Api(_)) => "api".into(),
+            Some(Subcommand::Migrate(m)) => {
+                use crate::cmd::migrate::MigrateSubcommand;
+                match &m.command {
+                    MigrateSubcommand::Doctor(_) => "migrate/doctor".into(),
+                }
+            }
             Some(Subcommand::Health) => "health".into(),
             Some(Subcommand::Whoami) => "whoami".into(),
             Some(Subcommand::Version) => "version".into(),

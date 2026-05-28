@@ -11,10 +11,10 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
-import { useAgentsStore } from '@app/shared/model/agents.store'
+import { useAgentsStore } from '@app/entities/agent'
 import { useNavigationStore } from '@app/entities/navigation'
 import { useSettingsStore } from '@app/shared/model/settings.store'
-import type { LocalAgentEnrollmentResponse } from '@app/shared/api/legacy/AgentAPI'
+import type { LocalAgentEnrollmentResponse } from '@app/entities/agent'
 import type { LlmProviderConfig } from '@app/shared/api/legacy/settingsApi'
 import type { CliTool } from '@shared/types'
 
