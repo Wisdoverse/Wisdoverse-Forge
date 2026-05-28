@@ -85,18 +85,32 @@ export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps
           </p>
         )}
       </div>
-      <div className="flex gap-2 justify-end">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={saving}
-          className={uiStyles.secondaryButton}
+      {visibleError && (
+        <p id={errorId} role="alert" className="text-ui-caption text-apple-red">
+          {visibleError}
+        </p>
+      )}
+      <div className="flex items-center justify-between gap-2">
+        <p
+          id={statusId}
+          data-testid="create-team-status"
+          className="text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          Cancel
-        </button>
-        <button type="submit" disabled={saving} className={uiStyles.primaryButton}>
-          {saving ? 'Creating…' : 'Create Team'}
-        </button>
+          {isReady ? 'Ready to Create Team' : 'Next: Name the Team'}
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            className={uiStyles.secondaryButton}
+          >
+            Cancel
+          </button>
+          <button type="submit" disabled={saving} className={uiStyles.primaryButton}>
+            {saving ? 'Creating…' : 'Create Team'}
+          </button>
+        </div>
       </div>
     </form>
   )
