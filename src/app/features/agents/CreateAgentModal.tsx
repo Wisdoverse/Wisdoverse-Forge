@@ -613,7 +613,7 @@ export function CreateAgentModal() {
               </div>
             </section>
 
-            <div>
+            <div data-testid="agent-work-readiness">
               <div className="mb-1 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                 Primary Project
               </div>
@@ -623,11 +623,11 @@ export function CreateAgentModal() {
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {selectedProject
                   ? kind === 'local-cli'
-                    ? 'Tasks default to this project. Local filesystem access stays on the joined machine.'
-                    : 'Tasks default to this project. Container access is the selected project workspace.'
+                    ? 'Project ready. Tasks default to this project. Local filesystem access stays on the joined machine.'
+                    : 'Project ready. Tasks default to this project. Container access is the selected project workspace.'
                   : kind === 'local-cli'
-                    ? 'Tasks can still be assigned later. Local filesystem access stays on the joined machine.'
-                    : 'Tasks can still be assigned later. Container access uses the default workspace.'}
+                    ? 'Choose a project first. Tasks can still be assigned later. Select a project in the sidebar before creating.'
+                    : 'Choose a project first. Tasks can still be assigned later. Select a project in the sidebar to set the execution boundary.'}
               </p>
             </div>
 
