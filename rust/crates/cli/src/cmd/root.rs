@@ -30,6 +30,8 @@ pub enum Subcommand {
     Migrate(crate::cmd::migrate::MigrateArgs),
     /// Verify a release artifact against its Sigstore cosign bundle.
     Verify(crate::cmd::verify::VerifyArgs),
+    /// Verify a published container image against its Sigstore cosign signature.
+    VerifyImage(crate::cmd::verify_image::VerifyImageArgs),
     Health,
     Whoami,
     Version,
@@ -126,6 +128,7 @@ impl Cli {
                 }
             }
             Some(Subcommand::Verify(_)) => "verify".into(),
+            Some(Subcommand::VerifyImage(_)) => "verify-image".into(),
             Some(Subcommand::Health) => "health".into(),
             Some(Subcommand::Whoami) => "whoami".into(),
             Some(Subcommand::Version) => "version".into(),

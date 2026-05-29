@@ -10,5 +10,6 @@ pub mod migrate;
 pub mod prelude;
 pub mod root;
 pub mod verify;
+pub mod verify_image;
 pub mod version;
 pub mod whoami;

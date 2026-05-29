@@ -49,5 +49,30 @@ signatures before running artifacts:
 agentforge verify --tag <release-tag> <artifact>
 ```
 
-For the full operator verification path, see
+## Container images
+
+The published `ghcr.io/wisdoverse/wisdoverse-forge` container images — the
+primary shipped artifacts for the container runtime (frontend, `server`,
+`sidecar`, `orchestrator`, `agent-base`, and the `agent-<tool>` images) — are
+signed with Sigstore keyless cosign **by digest** (never by mutable tag) by the
+`publish-images.yml` GitHub Actions workflow. Each signed image also carries a
+SLSA build-provenance attestation tying it to the workflow, commit, and runner
+that built it.
+
+As with binaries, the cosign signing identity is pinned to the official
+`publish-images.yml` workflow in the official repository. An image signed by a
+fork, a different workflow, or a different repository fails verification even if
+the bytes are identical.
+
+Operators MUST verify images before deploying them:
+
+```bash
+# Verify by immutable digest (recommended):
+agentforge verify-image ghcr.io/wisdoverse/wisdoverse-forge/sidecar@sha256:<digest>
+
+# Or by tag (cosign resolves it to a digest first):
+agentforge verify-image ghcr.io/wisdoverse/wisdoverse-forge/sidecar:main
+```
+
+For the full operator verification path (binaries and images), see
 [docs/runbooks/host-cli-agent-enrollment.md](../runbooks/host-cli-agent-enrollment.md).
