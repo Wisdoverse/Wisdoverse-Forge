@@ -270,20 +270,94 @@ impl AgentAggregate {
         self.user_id
     }
 
+    /// Typed sum-type projection of this aggregate's runtime.
+    ///
+    /// Domain branching should go through this instead of matching on
+    /// [`runtime_kind`](AgentAggregate::runtime_kind) plus inspecting nullable
+    /// columns, so illegal field combinations cannot reach lifecycle logic.
+    ///
+    /// The DB CHECK (`agents_runtime_kind_invariants`) already guarantees the
+    /// columns are coherent for the stored `runtime_kind`, so in practice this
+    /// conversion always succeeds. It still handles the impossible case
+    /// explicitly (defense in depth against schema drift or corrupt inserts):
+    /// a `Container`/`Cli` row whose required column is `NULL`, or any row whose
+    /// `cli_tool` slug fails to parse, yields a typed error rather than a panic.
+    pub(crate) fn runtime(&self) -> AppResult<AgentRuntime> {
+        let cli_tool = |label: &str| -> AppResult<CliToolKind> {
+            let raw = self.cli_tool.as_deref().ok_or_else(|| {
+                AppError::from(ErrorKind::Internal(anyhow::anyhow!(
+                    "{label} agent {} is missing cli_tool (DB invariant violated)",
+                    self.id
+                )))
+            })?;
+            CliToolKind::parse_legacy(raw).map_err(|err| {
+                AppError::from(ErrorKind::Internal(anyhow::anyhow!(
+                    "agent {} has unparseable cli_tool {raw:?}: {err}",
+                    self.id
+                )))
+            })
+        };
+
+        match self.runtime_kind {
+            RuntimeKind::Container => Ok(AgentRuntime::Container {
+                cli_tool: cli_tool("Container")?,
+                container_id: self.container_id.clone(),
+            }),
+            RuntimeKind::Cli => {
+                let runtime_id = self.runtime_id.clone().ok_or_else(|| {
+                    AppError::from(ErrorKind::Internal(anyhow::anyhow!(
+                        "Host CLI agent {} is missing runtime_id (DB invariant violated)",
+                        self.id
+                    )))
+                })?;
+                Ok(AgentRuntime::HostCli { cli_tool: cli_tool("Host CLI")?, runtime_id })
+            }
+            RuntimeKind::Api => Ok(AgentRuntime::Api),
+        }
+    }
+
     #[cfg(test)]
     pub(crate) fn for_test(kind: RuntimeKind, cli_tool: Option<&str>, container_id: Option<&str>) -> Self {
+        Self::for_test_full(kind, cli_tool, container_id, None)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_test_full(
+        kind: RuntimeKind,
+        cli_tool: Option<&str>,
+        container_id: Option<&str>,
+        runtime_id: Option<&str>,
+    ) -> Self {
         Self {
             id: Uuid::new_v4(),
             runtime_kind: kind,
             cli_tool: cli_tool.map(str::to_string),
             container_id: container_id.map(str::to_string),
-            runtime_id: None,
+            runtime_id: runtime_id.map(str::to_string),
             workspace_id: Uuid::new_v4(),
             organization_id: Uuid::new_v4(),
             user_id: Uuid::new_v4(),
             status: AgentStatus::Idle,
         }
     }
+}
+
+/// Typed view of an agent's runtime, derived from the normalized aggregate
+/// columns. Makes illegal field combinations unrepresentable in domain code:
+/// a `Container`/`HostCli` value carries a parsed [`CliToolKind`], an `Api`
+/// value carries no `cli_tool` at all, and only `HostCli` carries a
+/// `runtime_id`. The DB stays normalized — this is an in-memory projection
+/// over the flat `AgentAggregate` columns, not a storage change.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum AgentRuntime {
+    /// Docker-managed Container CLI agent. `container_id` is absent until the
+    /// container has been provisioned.
+    Container { cli_tool: CliToolKind, container_id: Option<String> },
+    /// Host-enrolled CLI agent. The sidecar runs on the operator machine, so the
+    /// platform tracks it by `runtime_id` and never owns a container for it.
+    HostCli { cli_tool: CliToolKind, runtime_id: String },
+    /// Provider-backed API agent. Has no Container CLI and no container.
+    Api,
 }
 
 /// Typestate wrapper proving an agent is container-backed.
@@ -300,10 +374,24 @@ pub(crate) enum LifecycleRejection {
 
 impl ContainerAgent {
     pub(crate) fn try_from(agent: AgentAggregate) -> Result<Self, LifecycleRejection> {
-        match agent.runtime_kind {
-            RuntimeKind::Container => Ok(Self(agent)),
-            RuntimeKind::Cli => Err(LifecycleRejection::HostCli),
-            RuntimeKind::Api => Err(LifecycleRejection::Api),
+        // Branch on the typed runtime sum type. Only the `Container` variant is a
+        // valid container-backed agent; `HostCli`/`Api` are rejected with the
+        // matching lifecycle variant.
+        //
+        // `runtime()` only returns `Err` when a stored row violates the DB CHECK
+        // invariants (e.g. a `Container` row with `cli_tool = NULL`). That cannot
+        // change which runtime *family* the row belongs to, so the rejection
+        // decision falls back to `runtime_kind` to keep behavior identical to the
+        // previous tag-only match.
+        match agent.runtime() {
+            Ok(AgentRuntime::Container { .. }) => Ok(Self(agent)),
+            Ok(AgentRuntime::HostCli { .. }) => Err(LifecycleRejection::HostCli),
+            Ok(AgentRuntime::Api) => Err(LifecycleRejection::Api),
+            Err(_) => match agent.runtime_kind {
+                RuntimeKind::Container => Ok(Self(agent)),
+                RuntimeKind::Cli => Err(LifecycleRejection::HostCli),
+                RuntimeKind::Api => Err(LifecycleRejection::Api),
+            },
         }
     }
 
@@ -1665,6 +1753,82 @@ mod tests {
         assert!(!dbg.contains(id.hmac_secret()), "hmac_secret leaked: {dbg}");
         assert!(!dbg.contains(id.nats_connect_password()), "nats_password leaked: {dbg}");
         assert!(dbg.contains("<redacted>"));
+    }
+
+    #[test]
+    fn agent_runtime_projects_container_row() {
+        let agent = AgentAggregate::for_test(RuntimeKind::Container, Some("codex"), Some("ctr-1"));
+        assert_eq!(
+            agent.runtime().unwrap(),
+            AgentRuntime::Container { cli_tool: CliToolKind::Codex, container_id: Some("ctr-1".to_string()) }
+        );
+
+        // A not-yet-started container row has no container_id.
+        let unstarted = AgentAggregate::for_test(RuntimeKind::Container, Some("claude"), None);
+        assert_eq!(
+            unstarted.runtime().unwrap(),
+            AgentRuntime::Container { cli_tool: CliToolKind::Claude, container_id: None }
+        );
+    }
+
+    #[test]
+    fn agent_runtime_projects_host_cli_row() {
+        // Host CLI row: cli_tool + runtime_id set, container_id NULL.
+        let agent = AgentAggregate::for_test_full(RuntimeKind::Cli, Some("codex"), None, Some("host-abc"));
+        assert_eq!(
+            agent.runtime().unwrap(),
+            AgentRuntime::HostCli { cli_tool: CliToolKind::Codex, runtime_id: "host-abc".to_string() }
+        );
+    }
+
+    #[test]
+    fn agent_runtime_projects_api_row() {
+        // API row: cli_tool NULL, no container, no runtime_id.
+        let agent = AgentAggregate::for_test(RuntimeKind::Api, None, None);
+        assert_eq!(agent.runtime().unwrap(), AgentRuntime::Api);
+    }
+
+    #[test]
+    fn agent_runtime_defense_in_depth_rejects_incoherent_rows() {
+        // runtime_kind=Container but cli_tool missing (DB CHECK should prevent this).
+        let bad_container = AgentAggregate::for_test(RuntimeKind::Container, None, Some("ctr-1"));
+        assert!(bad_container.runtime().is_err());
+
+        // runtime_kind=Cli but runtime_id missing.
+        let bad_host_cli = AgentAggregate::for_test_full(RuntimeKind::Cli, Some("codex"), None, None);
+        assert!(bad_host_cli.runtime().is_err());
+
+        // runtime_kind=Cli but cli_tool missing.
+        let bad_host_cli_tool = AgentAggregate::for_test_full(RuntimeKind::Cli, None, None, Some("host-1"));
+        assert!(bad_host_cli_tool.runtime().is_err());
+
+        // Unparseable cli_tool slug.
+        let bad_slug = AgentAggregate::for_test(RuntimeKind::Container, Some("vim"), None);
+        assert!(bad_slug.runtime().is_err());
+    }
+
+    #[test]
+    fn container_agent_try_from_delegates_through_sum_type() {
+        // Container variant accepted via the AgentRuntime::Container branch.
+        let container = AgentAggregate::for_test(RuntimeKind::Container, Some("codex"), Some("ctr-1"));
+        assert!(matches!(container.runtime().unwrap(), AgentRuntime::Container { .. }));
+        assert!(ContainerAgent::try_from(container).is_ok());
+
+        // HostCli/Api are rejected with the same LifecycleRejection variants the
+        // sum type maps them to.
+        let host_cli = AgentAggregate::for_test_full(RuntimeKind::Cli, Some("codex"), None, Some("host-1"));
+        assert!(matches!(host_cli.runtime().unwrap(), AgentRuntime::HostCli { .. }));
+        match ContainerAgent::try_from(host_cli) {
+            Err(LifecycleRejection::HostCli) => (),
+            other => panic!("expected HostCli rejection, got {other:?}"),
+        }
+
+        let api = AgentAggregate::for_test(RuntimeKind::Api, None, None);
+        assert!(matches!(api.runtime().unwrap(), AgentRuntime::Api));
+        match ContainerAgent::try_from(api) {
+            Err(LifecycleRejection::Api) => (),
+            other => panic!("expected Api rejection, got {other:?}"),
+        }
     }
 
     #[test]
