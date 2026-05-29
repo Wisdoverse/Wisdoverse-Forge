@@ -18,8 +18,8 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::agent::{
-    AgentContainerEnvInput, AgentContainerEnvPolicy, AgentName, HostAgentEnrollment, HostAgentEnrollmentPolicy,
-    HostCliIdentity, NewAgent,
+    AgentContainerEnvInput, AgentContainerEnvPolicy, AgentName, EnrolledHostCli, HostAgentEnrollment,
+    HostAgentEnrollmentPolicy, HostCliIdentity, NewAgent,
 };
 use crate::domain::context::{ContextFeature, ContextFeatureFlags};
 use crate::repositories::agent::{AgentListItem, AgentRepository};
@@ -176,6 +176,14 @@ impl HostAgentEnrollmentService {
     /// `hmac_secret` and `nats_connect_password` are stored on the agent row
     /// (not in `AgentListItem` to avoid accidental serialization); this method
     /// fetches them and reassembles the env block.
+    ///
+    /// Credential issuance is gated by the [`EnrolledHostCli`] typestate: the
+    /// aggregate is loaded and validated to be a host-CLI runtime (with its
+    /// `runtime_id` present) BEFORE any NATS/HMAC material is fetched. A
+    /// container/api agent reaching this path (already wrong — replay only keys
+    /// off enrollment idempotency records, which are host-CLI) is now a typed
+    /// rejection instead of a NULL-credential fetch. The validated `runtime_id`
+    /// comes from the typestate, replacing the nullable-column re-read.
     async fn rebuild_enrollment_view(
         &self,
         scope: &TenantScope,
@@ -183,10 +191,19 @@ impl HostAgentEnrollmentService {
         id: Uuid,
         nats_base_url: &str,
     ) -> AppResult<HostAgentEnrollment> {
-        let runtime_id =
-            agent.runtime_id.clone().ok_or_else(HostAgentEnrollmentPolicy::missing_runtime_id_on_replay)?;
+        let aggregate = self.agents.find_aggregate(scope, id).await?;
+        let enrolled = EnrolledHostCli::try_from(aggregate).map_err(|rejection| {
+            metrics::counter!(
+                "agents_host_cli_credential_rejected_total",
+                "runtime_kind" => agent.runtime_kind.as_str()
+            )
+            .increment(1);
+            rejection.into_app_error()
+        })?;
+        let runtime_id = enrolled.runtime_id().to_string();
 
-        let (hmac_secret, nats_connect_password) = self.agents.fetch_host_cli_credentials(scope, id).await?;
+        let (hmac_secret, nats_connect_password) =
+            self.agents.fetch_host_cli_credentials(scope, enrolled.inner().id).await?;
 
         let env = AgentContainerEnvPolicy::build(AgentContainerEnvInput {
             agent_id: agent.id,
@@ -214,5 +231,152 @@ impl HostAgentEnrollmentService {
             sidecar_command: HostAgentEnrollmentPolicy::SIDECAR_COMMAND.to_string(),
             server_url: self.settings.server_url.clone(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::agent::{AgentRuntime, EnrolledHostCli, HostCliRejection};
+    use agentforge_core::ErrorKind;
+
+    /// Seed a minimal (organization + workspace + user) triple.
+    /// Uses workspace_id == org_id (the same UUID trick used project-wide).
+    /// Returns (org_id, workspace_id, user_id).
+    async fn seed_org_workspace_user(pool: &PgPool) -> (Uuid, Uuid, Uuid) {
+        let org_id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, $2, $3)")
+            .bind(org_id)
+            .bind(format!("Test Org {org_id}"))
+            .bind(format!("org-{org_id}"))
+            .execute(pool)
+            .await
+            .expect("seed organization");
+        sqlx::query("INSERT INTO workspaces (id, organization_id, name) VALUES ($1, $1, 'Default')")
+            .bind(org_id)
+            .execute(pool)
+            .await
+            .expect("seed workspace");
+        sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+            .bind(user_id)
+            .bind(format!("u-{user_id}@example.com"))
+            .execute(pool)
+            .await
+            .expect("seed user");
+
+        (org_id, org_id, user_id)
+    }
+
+    /// Build the enrollment service directly from its fields with a `tls://`
+    /// NATS URL so the TLS gate is satisfied without `allow_plaintext_host_nats`.
+    fn service_with_tls_nats(pool: PgPool) -> HostAgentEnrollmentService {
+        HostAgentEnrollmentService {
+            agents: AgentRepository::new(pool.clone()),
+            idempotency: EnrollmentIdempotencyRepository::new(pool.clone()),
+            workspaces: AgentWorkspaceService::from_pool(pool.clone()),
+            settings: HostAgentEnrollmentSettings {
+                nats_agent_url: Some("tls://nats:4222".to_string()),
+                nats_url: None,
+                server_url: Some("https://agentforge.example".to_string()),
+                codex_default_model: "gpt-5.5".to_string(),
+                context_injection_enabled: false,
+                allow_plaintext_host_nats: false,
+            },
+            pool,
+        }
+    }
+
+    /// Parity: enrolling a host-cli agent then replaying the same idempotency
+    /// key returns the SAME agent id, runtime_id, and credential-bearing env.
+    /// The replay path runs through the `EnrolledHostCli` typestate gate.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn host_cli_replay_returns_identical_agent_and_creds(pool: PgPool) {
+        let (org_id, _ws, user_id) = seed_org_workspace_user(&pool).await;
+        let scope = crate::test_support::tenant_scope_for_ids(org_id, user_id);
+        let svc = service_with_tls_nats(pool);
+        let input = HostAgentEnrollmentInput { cli_tool: "codex", ..Default::default() };
+
+        let (cold_agent, cold_view) = svc.enroll(&scope, "key-parity", input).await.expect("cold enroll");
+        let (replay_agent, replay_view) = svc.enroll(&scope, "key-parity", input).await.expect("replay enroll");
+
+        // Same agent, same runtime_id, same credential-bearing NATS env line.
+        assert_eq!(cold_agent.id, replay_agent.id, "replay must not create a new agent");
+        assert_eq!(cold_view.runtime_id, replay_view.runtime_id, "runtime_id parity");
+        assert_eq!(cold_view.env.get("NATS_URL"), replay_view.env.get("NATS_URL"), "credential parity");
+        assert!(
+            replay_view.env.get("NATS_URL").is_some_and(|u| u.starts_with("tls://")),
+            "replay env carries the per-agent tls NATS url, got {:?}",
+            replay_view.env.get("NATS_URL")
+        );
+    }
+
+    /// Defense-in-depth: if a NON-cli agent is reachable via an idempotency
+    /// record (already wrong — replay only ever keys off host-cli enrollments),
+    /// the replay path yields the typed `EnrolledHostCli` rejection (a 422
+    /// ValidationWithCode), NOT a NULL-credential fetch.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn replay_against_non_cli_agent_is_typed_rejection_not_null_creds(pool: PgPool) {
+        let (org_id, ws, user_id) = seed_org_workspace_user(&pool).await;
+        let scope = crate::test_support::tenant_scope_for_ids(org_id, user_id);
+        let repo = AgentRepository::new(pool.clone());
+
+        // Create a CONTAINER agent (no NATS credential columns).
+        let container =
+            NewAgent::container(&scope, CliToolKind::Codex, Some("ctr"), None, None, ws, None, None).unwrap();
+        let container_id = repo.create_aggregate(&scope, container).await.expect("create container agent");
+
+        // Point an idempotency record at the container agent (simulating drift).
+        let mut tx = pool.begin().await.unwrap();
+        EnrollmentIdempotencyRepository::store_in_tx(&mut tx, org_id, user_id, "key-bad", container_id)
+            .await
+            .expect("store idempotency record");
+        tx.commit().await.unwrap();
+
+        let svc = service_with_tls_nats(pool.clone());
+        let input = HostAgentEnrollmentInput { cli_tool: "codex", ..Default::default() };
+        let err = svc.enroll(&scope, "key-bad", input).await.expect_err("non-cli replay must be rejected");
+
+        // Typed rejection (422 ValidationWithCode), not a NULL-credential 500.
+        match &err.kind {
+            ErrorKind::ValidationWithCode { code, .. } => {
+                assert_eq!(*code, "errors.agent.enroll.not_host_cli_container");
+            }
+            other => panic!("expected ValidationWithCode for container agent, got: {other:?}"),
+        }
+
+        // And the typestate gate itself rejects the loaded aggregate directly.
+        let aggregate = repo.find_aggregate(&scope, container_id).await.expect("load aggregate");
+        assert!(matches!(aggregate.runtime().unwrap(), AgentRuntime::Container { .. }));
+        match EnrolledHostCli::try_from(aggregate) {
+            Err(HostCliRejection::Container) => (),
+            other => panic!("expected Container rejection from typestate, got {other:?}"),
+        }
+    }
+
+    /// The typestate gate accepts a real host-cli aggregate loaded from the DB
+    /// and credentials can then be fetched for the validated inner id.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn typestate_accepts_db_loaded_host_cli_and_fetches_creds(pool: PgPool) {
+        let (org_id, ws, user_id) = seed_org_workspace_user(&pool).await;
+        let scope = crate::test_support::tenant_scope_for_ids(org_id, user_id);
+        let repo = AgentRepository::new(pool.clone());
+
+        let identity = HostCliIdentity::generate();
+        let expected_runtime_id = identity.runtime_id().to_string();
+        let new_agent =
+            NewAgent::host_cli(&scope, CliToolKind::Claude, identity, Some("host"), None, None, ws, None).unwrap();
+        let id = repo.create_aggregate(&scope, new_agent).await.expect("create host-cli agent");
+
+        let aggregate = repo.find_aggregate(&scope, id).await.expect("load aggregate");
+        let enrolled = EnrolledHostCli::try_from(aggregate).expect("host-cli accepted by typestate");
+        assert_eq!(enrolled.runtime_id(), expected_runtime_id, "runtime_id from validated variant");
+
+        // Credentials are present for the validated inner id (no NULL fetch).
+        let (hmac, nats_pw) =
+            repo.fetch_host_cli_credentials(&scope, enrolled.inner().id).await.expect("fetch creds for host-cli");
+        assert!(!hmac.is_empty(), "hmac_secret present");
+        assert!(!nats_pw.is_empty(), "nats_connect_password present");
     }
 }
