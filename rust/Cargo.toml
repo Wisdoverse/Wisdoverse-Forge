@@ -131,6 +131,7 @@ config = "0.15"
 
 # Testing
 temp-env = "0.3"
+criterion = { version = "0.5", features = ["html_reports"] }
 tonic-build = "0.12"
 prost-build = "0.14"
 
