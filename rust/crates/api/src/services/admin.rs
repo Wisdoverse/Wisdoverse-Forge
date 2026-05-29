@@ -26,6 +26,7 @@ use crate::services::auth_callout::AuthCalloutService;
 pub(crate) struct AdminAgentListInput<'a> {
     pub(crate) search: Option<&'a str>,
     pub(crate) status: Option<&'a str>,
+    pub(crate) runtime_kind: Option<&'a str>,
     pub(crate) user_id: Option<Uuid>,
     pub(crate) project_id: Option<Uuid>,
     pub(crate) page: i64,
@@ -51,6 +52,7 @@ impl From<AdminAgentRow> for AdminAgentProjection {
             created_at: row.created_at.timestamp_millis(),
             last_activity: row.last_activity.timestamp_millis(),
             runtime_id: row.runtime_id.unwrap_or_default(),
+            runtime_kind: row.runtime_kind,
             container_id: row.container_id,
             events_count: row.events_count,
         }
@@ -138,7 +140,7 @@ impl AdminService {
 
     /// List agents as the admin-console response projection.
     pub(crate) async fn list_agent_page(&self, input: AdminAgentListInput<'_>) -> AppResult<AdminAgentListProjection> {
-        let (filters, page) = filters_from_agent_list_input(input);
+        let (filters, page) = filters_from_agent_list_input(input)?;
         let limit = filters.limit;
         let (rows, total) = self.list_agents(filters).await?;
         let agents = rows.into_iter().map(AdminAgentProjection::from).collect();
@@ -223,20 +225,25 @@ impl AdminService {
 }
 
 /// Build repository filters from the service-level admin list input.
-fn filters_from_agent_list_input(input: AdminAgentListInput<'_>) -> (AdminAgentFilters, i64) {
+///
+/// Returns an error (HTTP 422 via `ErrorKind::Unprocessable`) when the caller
+/// supplies an unknown `runtimeKind` value.
+fn filters_from_agent_list_input(input: AdminAgentListInput<'_>) -> AppResult<(AdminAgentFilters, i64)> {
     let decision = AdminAgentFilterPolicy::from_query(AdminAgentFilterQuery {
         search: input.search,
         status: input.status,
+        runtime_kind: input.runtime_kind,
         page: input.page,
         limit: input.limit,
         sort_by: input.sort_by,
         sort_order: input.sort_order,
-    });
+    })?;
 
-    (
+    Ok((
         AdminAgentFilters {
             search: decision.search,
             status: decision.status,
+            runtime_kind: decision.runtime_kind,
             user_id: input.user_id,
             project_id: input.project_id,
             sort_by: decision.sort_by,
@@ -245,14 +252,14 @@ fn filters_from_agent_list_input(input: AdminAgentListInput<'_>) -> (AdminAgentF
             offset: decision.offset,
         },
         decision.page,
-    )
+    ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::domain::admin::{AdminAgentSort, SortOrder};
-    use agentforge_core::AgentStatus;
+    use agentforge_core::{AgentStatus, ErrorKind, RuntimeKind};
 
     #[test]
     fn admin_role_check_owner() {
@@ -284,38 +291,61 @@ mod tests {
         let (filters, page) = filters_from_agent_list_input(AdminAgentListInput {
             search: Some("  "),
             status: None,
+            runtime_kind: None,
             user_id: None,
             project_id: None,
             page: 4,
             limit: 10,
             sort_by: Some("name"),
             sort_order: Some("asc"),
-        });
+        })
+        .unwrap();
 
         assert_eq!(page, 4);
         assert_eq!(filters.limit, 10);
         assert_eq!(filters.offset, 30);
         assert!(filters.search.is_none());
+        assert!(filters.runtime_kind.is_none());
         assert_eq!(filters.sort_by, AdminAgentSort::Name);
         assert_eq!(filters.sort_order, SortOrder::Asc);
 
         let (filters, page) = filters_from_agent_list_input(AdminAgentListInput {
             search: Some(" user@example.com "),
             status: Some("WORKING"),
+            runtime_kind: Some("cli"),
             user_id: None,
             project_id: None,
             page: 0,
             limit: 500,
             sort_by: None,
             sort_order: Some("nope"),
-        });
+        })
+        .unwrap();
 
         assert_eq!(page, 1);
         assert_eq!(filters.limit, 100);
         assert_eq!(filters.offset, 0);
         assert_eq!(filters.search.as_deref(), Some("user@example.com"));
         assert_eq!(filters.status, Some(AgentStatus::Working));
+        assert_eq!(filters.runtime_kind, Some(RuntimeKind::Cli));
         assert_eq!(filters.sort_order, SortOrder::Desc);
+    }
+
+    #[test]
+    fn admin_agent_list_input_rejects_unknown_runtime_kind() {
+        let err = filters_from_agent_list_input(AdminAgentListInput {
+            search: None,
+            status: None,
+            runtime_kind: Some("host_cli"),
+            user_id: None,
+            project_id: None,
+            page: 1,
+            limit: 25,
+            sort_by: None,
+            sort_order: None,
+        })
+        .expect_err("unknown runtimeKind must surface as an error");
+        assert!(matches!(err.kind, ErrorKind::Unprocessable(_)), "expected 422 Unprocessable, got {err:?}");
     }
 
     #[test]
@@ -337,6 +367,7 @@ mod tests {
             tokens_cumulative: 56789,
             git_status: Some("+3 -1".into()),
             runtime_id: Some("af-deadbeef".into()),
+            runtime_kind: RuntimeKind::Container,
             organization_id: Uuid::nil(),
             project_id: None,
             user_id: Uuid::nil(),
@@ -357,6 +388,7 @@ mod tests {
         assert_eq!(value["lastActivity"], 1_700_000_200_000_i64);
         assert_eq!(value["cwd"], "/workspace/agentforge");
         assert_eq!(value["runtimeId"], "af-deadbeef");
+        assert_eq!(value["runtimeKind"], "container");
         assert_eq!(value["currentTool"], "Edit");
         assert_eq!(value["cliTool"], "claude");
         assert_eq!(value["gitBranch"], "+3 -1");

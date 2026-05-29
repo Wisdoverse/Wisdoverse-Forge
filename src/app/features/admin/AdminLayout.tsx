@@ -3,6 +3,7 @@ import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAdminStore, type AdminSection } from '@app/shared/model/admin.store'
 import { UserManagement } from './UserManagement'
 import { OrganizationsPanel } from './OrganizationsPanel'
+import { AgentsPanel } from './AgentsPanel'
 import { SystemHealth } from './SystemHealth'
 
 // ============================================================================
@@ -18,6 +19,7 @@ interface SectionItem {
 const SECTIONS: SectionItem[] = [
   { id: 'users', label: 'User access', group: 'Management' },
   { id: 'organizations', label: 'Organizations', group: 'Management' },
+  { id: 'agents', label: 'Agents', group: 'Management' },
   { id: 'health', label: 'Service health', group: 'System status' },
 ]
 
@@ -33,6 +35,8 @@ function SectionContent({ section }: { section: AdminSection }) {
       return <UserManagement />
     case 'organizations':
       return <OrganizationsPanel />
+    case 'agents':
+      return <AgentsPanel />
     case 'health':
       return <SystemHealth />
     default:

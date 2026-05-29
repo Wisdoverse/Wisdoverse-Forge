@@ -3,7 +3,7 @@
 //! This module owns pure admin-console policies that are independent of
 //! repositories and HTTP route DTOs.
 
-use agentforge_core::{AgentStatus, AppError, AppResult, ErrorKind};
+use agentforge_core::{AgentStatus, AppError, AppResult, ErrorKind, RuntimeKind};
 use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -48,6 +48,9 @@ pub(crate) struct AdminAgentProjection {
     pub(crate) created_at: i64,
     pub(crate) last_activity: i64,
     pub(crate) runtime_id: String,
+    /// Execution surface discriminator (`"container" | "cli" | "api"`). Lets the
+    /// admin console filter and badge agents by runtime kind.
+    pub(crate) runtime_kind: RuntimeKind,
     pub(crate) container_id: Option<String>,
     pub(crate) events_count: i64,
 }
@@ -192,6 +195,7 @@ pub enum SortOrder {
 pub(crate) struct AdminAgentFilterQuery<'a> {
     pub search: Option<&'a str>,
     pub status: Option<&'a str>,
+    pub runtime_kind: Option<&'a str>,
     pub page: i64,
     pub limit: i64,
     pub sort_by: Option<&'a str>,
@@ -202,6 +206,7 @@ pub(crate) struct AdminAgentFilterQuery<'a> {
 pub(crate) struct AdminAgentFilterDecision {
     pub search: Option<String>,
     pub status: Option<AgentStatus>,
+    pub runtime_kind: Option<RuntimeKind>,
     pub page: i64,
     pub limit: i64,
     pub offset: i64,
@@ -213,21 +218,28 @@ pub(crate) struct AdminAgentFilterDecision {
 pub(crate) struct AdminAgentFilterPolicy;
 
 impl AdminAgentFilterPolicy {
-    pub(crate) fn from_query(query: AdminAgentFilterQuery<'_>) -> AdminAgentFilterDecision {
+    /// Parse the validated admin-agent filter decision from raw query input.
+    ///
+    /// `status` is intentionally lenient (unsupported values are dropped) so the
+    /// frontend's wider status enum never fails the whole request. `runtime_kind`
+    /// is strict: an unknown value is rejected with an `Unprocessable` (HTTP 422)
+    /// error so operators get a clear signal instead of a silently empty list.
+    pub(crate) fn from_query(query: AdminAgentFilterQuery<'_>) -> AppResult<AdminAgentFilterDecision> {
         let page = query.page.max(1);
         let limit = query.limit.clamp(1, 100);
-        AdminAgentFilterDecision {
+        Ok(AdminAgentFilterDecision {
             search: query.search.and_then(|value| {
                 let trimmed = value.trim();
                 (!trimmed.is_empty()).then(|| trimmed.to_string())
             }),
             status: Self::parse_status_filter(query.status),
+            runtime_kind: Self::parse_runtime_kind_filter(query.runtime_kind)?,
             page,
             limit,
             offset: (page - 1) * limit,
             sort_by: Self::parse_sort_by(query.sort_by),
             sort_order: Self::parse_sort_order(query.sort_order),
-        }
+        })
     }
 
     fn parse_status_filter(raw: Option<&str>) -> Option<AgentStatus> {
@@ -236,6 +248,22 @@ impl AdminAgentFilterPolicy {
             "idle" => Some(AgentStatus::Idle),
             "offline" => Some(AgentStatus::Offline),
             _ => None,
+        }
+    }
+
+    /// Strictly parse the optional `runtimeKind` filter. A blank value behaves
+    /// like "no filter"; any other unknown value is rejected with HTTP 422.
+    fn parse_runtime_kind_filter(raw: Option<&str>) -> AppResult<Option<RuntimeKind>> {
+        let Some(value) = raw.map(str::trim).filter(|v| !v.is_empty()) else {
+            return Ok(None);
+        };
+        match RuntimeKind::parse_legacy(value) {
+            Ok(kind) => Ok(Some(kind)),
+            Err(_) => Err(ErrorKind::Unprocessable(format!(
+                "unknown runtimeKind '{value}'; expected one of {}",
+                RuntimeKind::SUPPORTED_SLUGS
+            ))
+            .into()),
         }
     }
 
@@ -365,30 +393,27 @@ mod tests {
         ));
     }
 
+    /// Build a query with the given status; all other fields are unset.
+    fn status_query(status: Option<&str>) -> AdminAgentFilterQuery<'_> {
+        AdminAgentFilterQuery {
+            search: None,
+            status,
+            runtime_kind: None,
+            page: 1,
+            limit: 25,
+            sort_by: None,
+            sort_order: None,
+        }
+    }
+
     #[test]
     fn admin_agent_filter_accepts_supported_statuses() {
         assert_eq!(
-            AdminAgentFilterPolicy::from_query(AdminAgentFilterQuery {
-                search: None,
-                status: Some("working"),
-                page: 1,
-                limit: 25,
-                sort_by: None,
-                sort_order: None,
-            })
-            .status,
+            AdminAgentFilterPolicy::from_query(status_query(Some("working"))).unwrap().status,
             Some(AgentStatus::Working)
         );
         assert_eq!(
-            AdminAgentFilterPolicy::from_query(AdminAgentFilterQuery {
-                search: None,
-                status: Some("WORKING"),
-                page: 1,
-                limit: 25,
-                sort_by: None,
-                sort_order: None,
-            })
-            .status,
+            AdminAgentFilterPolicy::from_query(status_query(Some("WORKING"))).unwrap().status,
             Some(AgentStatus::Working)
         );
     }
@@ -396,15 +421,52 @@ mod tests {
     #[test]
     fn admin_agent_filter_drops_unsupported_statuses() {
         for status in [Some("waiting"), Some("attention"), Some("bogus"), None] {
+            let decision = AdminAgentFilterPolicy::from_query(status_query(status)).unwrap();
+            assert_eq!(decision.status, None);
+        }
+    }
+
+    #[test]
+    fn admin_agent_filter_accepts_canonical_runtime_kinds() {
+        let cases = [
+            (Some("container"), Some(RuntimeKind::Container)),
+            (Some(" CLI "), Some(RuntimeKind::Cli)),
+            (Some("Api"), Some(RuntimeKind::Api)),
+            (Some("   "), None),
+            (None, None),
+        ];
+        for (raw, expected) in cases {
             let decision = AdminAgentFilterPolicy::from_query(AdminAgentFilterQuery {
                 search: None,
-                status,
+                status: None,
+                runtime_kind: raw,
                 page: 1,
                 limit: 25,
                 sort_by: None,
                 sort_order: None,
-            });
-            assert_eq!(decision.status, None);
+            })
+            .expect("valid runtime kind filter");
+            assert_eq!(decision.runtime_kind, expected);
+        }
+    }
+
+    #[test]
+    fn admin_agent_filter_rejects_unknown_runtime_kind_with_422() {
+        for raw in ["host_cli", "docker", "lambda", "bogus"] {
+            let err = AdminAgentFilterPolicy::from_query(AdminAgentFilterQuery {
+                search: None,
+                status: None,
+                runtime_kind: Some(raw),
+                page: 1,
+                limit: 25,
+                sort_by: None,
+                sort_order: None,
+            })
+            .expect_err("unknown runtimeKind must be rejected");
+            assert!(
+                matches!(err.kind, ErrorKind::Unprocessable(ref msg) if msg.contains(raw)),
+                "expected Unprocessable carrying the bad value, got {err:?}"
+            );
         }
     }
 
@@ -425,11 +487,13 @@ mod tests {
             let decision = AdminAgentFilterPolicy::from_query(AdminAgentFilterQuery {
                 search: None,
                 status: None,
+                runtime_kind: None,
                 page: 1,
                 limit: 25,
                 sort_by,
                 sort_order: Some("ASC"),
-            });
+            })
+            .unwrap();
             assert_eq!(decision.sort_by, expected);
             assert_eq!(decision.sort_order, SortOrder::Asc);
         }
@@ -440,11 +504,13 @@ mod tests {
         let decision = AdminAgentFilterPolicy::from_query(AdminAgentFilterQuery {
             search: Some("  "),
             status: None,
+            runtime_kind: None,
             page: 4,
             limit: 10,
             sort_by: Some("name"),
             sort_order: Some("asc"),
-        });
+        })
+        .unwrap();
 
         assert_eq!(decision.search, None);
         assert_eq!(decision.page, 4);
@@ -456,11 +522,13 @@ mod tests {
         let clamped = AdminAgentFilterPolicy::from_query(AdminAgentFilterQuery {
             search: Some(" user@example.com "),
             status: None,
+            runtime_kind: None,
             page: -4,
             limit: 500,
             sort_by: None,
             sort_order: Some("nope"),
-        });
+        })
+        .unwrap();
         assert_eq!(clamped.search.as_deref(), Some("user@example.com"));
         assert_eq!(clamped.page, 1);
         assert_eq!(clamped.limit, 100);
@@ -485,6 +553,7 @@ mod tests {
             created_at: 1_700_000_000_000,
             last_activity: 1_700_000_200_000,
             runtime_id: "af-deadbeef".into(),
+            runtime_kind: RuntimeKind::Container,
             container_id: Some("abc123".into()),
             events_count: 42,
         })
@@ -497,6 +566,7 @@ mod tests {
         assert_eq!(value["lastActivity"], 1_700_000_200_000_i64);
         assert_eq!(value["cwd"], "/workspace/agentforge");
         assert_eq!(value["runtimeId"], "af-deadbeef");
+        assert_eq!(value["runtimeKind"], "container");
         assert_eq!(value["currentTool"], "Edit");
         assert_eq!(value["cliTool"], "claude");
         assert_eq!(value["gitBranch"], "+3 -1");
@@ -524,6 +594,7 @@ mod tests {
                 created_at: 1,
                 last_activity: 2,
                 runtime_id: String::new(),
+                runtime_kind: RuntimeKind::Api,
                 container_id: None,
                 events_count: 1,
             },
