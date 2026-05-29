@@ -64,6 +64,69 @@ Each release also publishes an SBOM as `<artifact>.sbom.json` (CycloneDX
 format) for downstream supply-chain audit. Download it from the same release
 page if you need it for your compliance workflow.
 
+## Verify a container image (recommended for self-hosted deployments)
+
+If you run the platform from the published `ghcr.io` container images instead
+of (or alongside) the standalone binaries, verify each image before deploying
+it. The images are the primary shipped artifacts for the container runtime and
+are signed with Sigstore keyless cosign **by digest** by the official
+`publish-images.yml` workflow. Each also carries a SLSA build-provenance
+attestation.
+
+**Prerequisites:**
+
+1. Install `cosign` (one-time, any platform):
+   <https://docs.sigstore.dev/cosign/installation/>
+2. Know the image you want to run. The security-critical one is the sidecar
+   (`ghcr.io/wisdoverse/wisdoverse-forge/sidecar`); the same path works for
+   `server`, `orchestrator`, the root frontend image, `agent-base`, and the
+   `agent-<tool>` images.
+
+**Verify by digest (recommended — a digest is immutable):**
+
+```bash
+agentforge verify-image ghcr.io/wisdoverse/wisdoverse-forge/sidecar@sha256:<digest>
+```
+
+You can also verify a moving tag; cosign resolves the tag to its current digest
+before checking the signature:
+
+```bash
+agentforge verify-image ghcr.io/wisdoverse/wisdoverse-forge/sidecar:main
+```
+
+To pin the signing identity to one release tag (rejects any other ref):
+
+```bash
+agentforge verify-image \
+  ghcr.io/wisdoverse/wisdoverse-forge/sidecar:v1.2.3 \
+  --ref refs/tags/v1.2.3
+```
+
+Successful output:
+
+```
+verified: ghcr.io/wisdoverse/wisdoverse-forge/sidecar@sha256:<digest> (signed by .github/workflows/publish-images.yml in Wisdoverse/Wisdoverse-Forge)
+```
+
+`agentforge verify-image` fails closed: it accepts a signature **only** from
+the official `publish-images.yml` workflow in the official repository, not "any
+Sigstore signature". An image signed by a fork, a different workflow, or a
+different repository fails even if the bytes are identical.
+
+**If verification fails:** Do not run the image. Re-pull it from
+`ghcr.io/wisdoverse/wisdoverse-forge/...`, confirm the registry and path are
+correct, and retry. If it still fails, file a security issue before deploying.
+
+**SLSA provenance (optional, deeper audit):** Each signed image also has a
+build-provenance attestation recording which workflow, commit, and runner built
+it. Inspect it with the GitHub CLI:
+
+```bash
+gh attestation verify oci://ghcr.io/wisdoverse/wisdoverse-forge/sidecar@sha256:<digest> \
+  --repo Wisdoverse/Wisdoverse-Forge
+```
+
 ## Enroll
 
 Run this from the local directory where the agent should work. Replace
