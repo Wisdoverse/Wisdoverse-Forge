@@ -27,3 +27,8 @@ secrecy.workspace = true
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
 temp-env = { workspace = true }
+criterion = { workspace = true }
+
+[[bench]]
+name = "runtime_kind_decode"
+harness = false
