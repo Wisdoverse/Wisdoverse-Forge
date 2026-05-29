@@ -157,13 +157,6 @@ impl HostAgentEnrollmentPolicy {
         ErrorKind::Validation(format!("unknown cli_tool: {cli_tool}")).into()
     }
 
-    /// Returned during an idempotent replay when the existing agent row is
-    /// missing its `runtime_id` column (should not happen in production; guards
-    /// against schema drift or corrupt inserts).
-    pub(crate) fn missing_runtime_id_on_replay() -> AppError {
-        ErrorKind::Internal(anyhow::anyhow!("Host CLI agent missing runtime_id on replay")).into()
-    }
-
     pub(crate) fn require_nats_base_url(agent_url: Option<&str>, backend_url: Option<&str>) -> AppResult<String> {
         AgentContainerEnvPolicy::pick_nats_base_url(agent_url, backend_url)
             .filter(|url| !url.trim().is_empty())
@@ -444,6 +437,93 @@ impl LifecycleRejection {
             ),
         };
         ErrorKind::ValidationWithCode { code, message }.into()
+    }
+}
+
+/// Typestate proving an agent is an enrolled Host CLI runtime
+/// (`runtime_kind == Cli`) WITH its NATS `runtime_id` present. Host-CLI
+/// credential issuance / re-issuance accepts only this type, so NATS credential
+/// material can never be minted for a container or api aggregate.
+///
+/// This is the messaging-boundary parallel to [`ContainerAgent`] (the Docker
+/// lifecycle boundary): together with the [`AgentRuntime`] sum type it makes a
+/// "host-cli without runtime_id" agent unrepresentable on the credential path.
+#[derive(Debug)]
+pub(crate) struct EnrolledHostCli {
+    agent: AgentAggregate,
+    runtime_id: String,
+}
+
+/// Rejection returned when a credential-issuance operation requires a host-CLI
+/// agent but the aggregate belongs to a different runtime kind, or its row is
+/// incoherent (DB invariant violated).
+#[derive(Debug)]
+pub(crate) enum HostCliRejection {
+    Container,
+    Api,
+    /// The stored row violates the `agents_runtime_kind_invariants` CHECK
+    /// (e.g. a `Cli` row with `runtime_id = NULL`). Should not occur in
+    /// production; mapped to a 500 rather than an operator-facing 4xx.
+    Incoherent(AppError),
+}
+
+impl EnrolledHostCli {
+    pub(crate) fn try_from(agent: AgentAggregate) -> Result<Self, HostCliRejection> {
+        // Branch on the typed runtime sum type (#455). Only the `HostCli`
+        // variant is a valid messaging-boundary agent; `Container`/`Api` are
+        // rejected with the matching variant.
+        //
+        // The `HostCli` variant carries a non-null `runtime_id` by construction,
+        // so we capture it here rather than re-reading the nullable aggregate
+        // column. `runtime()` only returns `Err` for an incoherent stored row
+        // (DB CHECK violated); that maps to `Incoherent` -> 500, since we cannot
+        // safely mint credentials for a row whose invariants are broken.
+        match agent.runtime() {
+            Ok(AgentRuntime::HostCli { runtime_id, .. }) => Ok(Self { agent, runtime_id }),
+            Ok(AgentRuntime::Container { .. }) => Err(HostCliRejection::Container),
+            Ok(AgentRuntime::Api) => Err(HostCliRejection::Api),
+            Err(err) => match agent.runtime_kind {
+                // A `Cli` row that fails `runtime()` is missing required columns
+                // (runtime_id/cli_tool) — refuse to issue creds for it.
+                RuntimeKind::Cli => Err(HostCliRejection::Incoherent(err)),
+                RuntimeKind::Container => Err(HostCliRejection::Container),
+                RuntimeKind::Api => Err(HostCliRejection::Api),
+            },
+        }
+    }
+
+    pub(crate) fn inner(&self) -> &AgentAggregate {
+        &self.agent
+    }
+
+    /// The validated `runtime_id` from the `HostCli` runtime variant.
+    ///
+    /// The typestate guarantees this is present, so callers never have to handle
+    /// the nullable [`AgentAggregate::runtime_id`] column on the credential path.
+    pub(crate) fn runtime_id(&self) -> &str {
+        &self.runtime_id
+    }
+}
+
+impl HostCliRejection {
+    pub(crate) fn into_app_error(self) -> AppError {
+        match self {
+            Self::Container => ErrorKind::ValidationWithCode {
+                code: "errors.agent.enroll.not_host_cli_container",
+                message: "Container agent: NATS credentials are issued for the managed container, \
+                          not through Host CLI enrollment."
+                    .into(),
+            }
+            .into(),
+            Self::Api => ErrorKind::ValidationWithCode {
+                code: "errors.agent.enroll.not_host_cli_api",
+                message: "API/provider agent has no Host CLI sidecar and is not issued NATS credentials.".into(),
+            }
+            .into(),
+            // Preserve the underlying internal error (already a 500) so the
+            // operator sees a generic message and the cause is logged server-side.
+            Self::Incoherent(err) => err,
+        }
     }
 }
 
@@ -1847,6 +1927,84 @@ mod tests {
             Err(LifecycleRejection::Api) => (),
             other => panic!("expected Api rejection, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn enrolled_host_cli_try_from_delegates_through_sum_type() {
+        // HostCli variant (cli_tool + runtime_id present) is accepted and the
+        // typestate captures the validated runtime_id from the sum type.
+        let host_cli = AgentAggregate::for_test_full(RuntimeKind::Cli, Some("codex"), None, Some("host-abc"));
+        assert!(matches!(host_cli.runtime().unwrap(), AgentRuntime::HostCli { .. }));
+        let enrolled = EnrolledHostCli::try_from(host_cli).expect("host-cli accepted");
+        assert_eq!(enrolled.runtime_id(), "host-abc");
+
+        // Container/Api are rejected with the matching HostCliRejection variants.
+        let container = AgentAggregate::for_test(RuntimeKind::Container, Some("codex"), Some("ctr-1"));
+        match EnrolledHostCli::try_from(container) {
+            Err(HostCliRejection::Container) => (),
+            other => panic!("expected Container rejection, got {other:?}"),
+        }
+
+        let api = AgentAggregate::for_test(RuntimeKind::Api, None, None);
+        match EnrolledHostCli::try_from(api) {
+            Err(HostCliRejection::Api) => (),
+            other => panic!("expected Api rejection, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn enrolled_host_cli_runtime_id_comes_from_validated_variant() {
+        let host_cli = AgentAggregate::for_test_full(RuntimeKind::Cli, Some("claude"), None, Some("host-xyz-123"));
+        let enrolled = EnrolledHostCli::try_from(host_cli).expect("host-cli accepted");
+        assert_eq!(enrolled.runtime_id(), "host-xyz-123");
+        // inner() exposes the validated aggregate for credential lookup by id.
+        assert_eq!(enrolled.inner().runtime_kind(), RuntimeKind::Cli);
+    }
+
+    #[test]
+    fn enrolled_host_cli_rejects_incoherent_cli_row_as_internal() {
+        // runtime_kind=Cli but runtime_id missing -> runtime() errors -> Incoherent.
+        let bad = AgentAggregate::for_test_full(RuntimeKind::Cli, Some("codex"), None, None);
+        assert!(bad.runtime().is_err());
+        match EnrolledHostCli::try_from(bad) {
+            Err(HostCliRejection::Incoherent(_)) => (),
+            other => panic!("expected Incoherent rejection, got {other:?}"),
+        }
+
+        // runtime_kind=Cli but cli_tool missing -> also Incoherent.
+        let bad_tool = AgentAggregate::for_test_full(RuntimeKind::Cli, None, None, Some("host-1"));
+        match EnrolledHostCli::try_from(bad_tool) {
+            Err(HostCliRejection::Incoherent(_)) => (),
+            other => panic!("expected Incoherent rejection, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn host_cli_rejection_into_app_error_carries_i18n_codes() {
+        let container_err = HostCliRejection::Container.into_app_error();
+        assert!(
+            matches!(&container_err.kind, ErrorKind::ValidationWithCode { code, .. } if *code == "errors.agent.enroll.not_host_cli_container"),
+            "expected not_host_cli_container code, got: {:?}",
+            container_err.kind
+        );
+
+        let api_err = HostCliRejection::Api.into_app_error();
+        assert!(
+            matches!(&api_err.kind, ErrorKind::ValidationWithCode { code, .. } if *code == "errors.agent.enroll.not_host_cli_api"),
+            "expected not_host_cli_api code, got: {:?}",
+            api_err.kind
+        );
+
+        // Incoherent preserves the underlying internal (500) error rather than
+        // surfacing an operator-facing validation code.
+        let incoherent =
+            AgentAggregate::for_test_full(RuntimeKind::Cli, Some("codex"), None, None).runtime().unwrap_err();
+        let incoherent_err = HostCliRejection::Incoherent(incoherent).into_app_error();
+        assert!(
+            matches!(&incoherent_err.kind, ErrorKind::Internal(_)),
+            "expected Internal error, got: {:?}",
+            incoherent_err.kind
+        );
     }
 
     #[test]
