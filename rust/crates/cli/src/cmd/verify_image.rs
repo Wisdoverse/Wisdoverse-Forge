@@ -191,6 +191,36 @@ mod tests {
     }
 
     #[test]
+    fn identity_regexp_rejects_fork_and_evil_repo() {
+        // Apply the COMPILED regex to attack URLs — guards against a future
+        // edit that accidentally unanchors or broadens the pattern (asserting
+        // the string shape alone would not catch that).
+        let id = identity_regexp(DEFAULT_REPO, None);
+        let re = regex::Regex::new(&id).expect("identity regexp compiles");
+
+        // Legitimate signer (any ref) must match.
+        assert!(re.is_match(
+            "https://github.com/Wisdoverse/Wisdoverse-Forge/.github/workflows/publish-images.yml@refs/heads/main"
+        ));
+        // Different org/repo — must NOT match.
+        assert!(!re.is_match("https://github.com/EVIL/repo/.github/workflows/publish-images.yml@refs/heads/main"));
+        // Same org, attacker repo — must NOT match.
+        assert!(
+            !re.is_match("https://github.com/Wisdoverse/attacker/.github/workflows/publish-images.yml@refs/heads/main")
+        );
+        // Repo-name extension (Wisdoverse-ForgeEvil) — must NOT match.
+        assert!(!re.is_match(
+            "https://github.com/Wisdoverse/Wisdoverse-ForgeEvil/.github/workflows/publish-images.yml@refs/heads/main"
+        ));
+        // Empty ref segment — must NOT match.
+        assert!(!re.is_match("https://github.com/Wisdoverse/Wisdoverse-Forge/.github/workflows/publish-images.yml@"));
+        // A different workflow in the official repo — must NOT match.
+        assert!(
+            !re.is_match("https://github.com/Wisdoverse/Wisdoverse-Forge/.github/workflows/evil.yml@refs/heads/main")
+        );
+    }
+
+    #[test]
     fn cosign_args_pin_identity_and_official_oidc_issuer() {
         let identity = identity_regexp(DEFAULT_REPO, None);
         let args = cosign_args("ghcr.io/wisdoverse/wisdoverse-forge/sidecar@sha256:abc", &identity);

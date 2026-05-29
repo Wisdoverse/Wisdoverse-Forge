@@ -45,5 +45,6 @@ sqlx.workspace = true
 tempfile = "3"
 wiremock = "0.6"
 similar-asserts = "2"
+regex = { workspace = true }
 tokio = { workspace = true, features = ["test-util", "macros"] }
 temp-env.workspace = true
