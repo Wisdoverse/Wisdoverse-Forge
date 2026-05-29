@@ -21,6 +21,27 @@
 #   AGENT_REGISTRY=ghcr.io/wisdoverse/wisdoverse-forge bash scripts/deploy.sh staging main "ghcr.io/wisdoverse/wisdoverse-forge"
 # =============================================================================
 
+# -----------------------------------------------------------------------------
+# Supply-chain hardening (issue #459)
+#
+# Every published image is signed with Sigstore KEYLESS cosign (OIDC, no
+# long-lived keys) BY DIGEST, never by mutable tag — signing a tag is a known
+# anti-pattern because the tag can later be repointed at a different digest.
+# `docker/build-push-action` exposes the pushed manifest digest as
+# `steps.<id>.outputs.digest`; we sign `<image-name>@<digest>`.
+#
+# The cosign Fulcio OIDC identity is bound to THIS workflow file
+# (`publish-images.yml`) at the build ref, so `agentforge verify-image` can
+# pin the expected signer and fail closed on an unexpected identity rather
+# than trusting "any Sigstore signature". See
+# rust/crates/cli/src/cmd/verify_image.rs and
+# docs/runbooks/host-cli-agent-enrollment.md.
+#
+# Each signed image also gets a SLSA build-provenance attestation
+# (actions/attest-build-provenance) keyed to the same digest — GitHub's native
+# SLSA path, verifiable with `gh attestation verify` or cosign.
+# -----------------------------------------------------------------------------
+
 name: Publish Images
 
 on:
@@ -51,6 +72,9 @@ jobs:
       contents: read
       packages: write
       id-token: write
+      # Required for actions/attest-build-provenance to write the SLSA
+      # provenance attestation to the GitHub attestations API.
+      attestations: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -61,6 +85,9 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # Sigstore keyless signer for the per-image cosign sign steps below.
+      # SHA pinned to the same release as release-supply-chain.yml.
+      - uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
 
       - id: image
         run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
@@ -79,7 +106,8 @@ jobs:
             type=sha,prefix=sha-,format=short
             type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-      - uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+      - id: frontend-build
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: .
           file: ./docker/Dockerfile
@@ -89,6 +117,17 @@ jobs:
           labels: ${{ steps.frontend-meta.outputs.labels }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
+      - name: Sign frontend image by digest
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}
+          DIGEST: ${{ steps.frontend-build.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+      - name: Attest frontend build provenance
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}
+          subject-digest: ${{ steps.frontend-build.outputs.digest }}
+          push-to-registry: true
 
       # ---- server ------------------------------------------------------
       - id: server-meta
@@ -104,7 +143,8 @@ jobs:
             type=sha,prefix=sha-,format=short
             type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-      - uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+      - id: server-build
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: ./rust
           file: ./rust/Dockerfile
@@ -113,6 +153,17 @@ jobs:
           labels: ${{ steps.server-meta.outputs.labels }}
           cache-from: type=gha,scope=server
           cache-to: type=gha,mode=max,scope=server
+      - name: Sign server image by digest
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/server
+          DIGEST: ${{ steps.server-build.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+      - name: Attest server build provenance
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/server
+          subject-digest: ${{ steps.server-build.outputs.digest }}
+          push-to-registry: true
 
       # ---- sidecar -----------------------------------------------------
       - id: sidecar-meta
@@ -128,7 +179,8 @@ jobs:
             type=sha,prefix=sha-,format=short
             type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-      - uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+      - id: sidecar-build
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: ./rust
           file: ./rust/Dockerfile.sidecar
@@ -137,6 +189,18 @@ jobs:
           labels: ${{ steps.sidecar-meta.outputs.labels }}
           cache-from: type=gha,scope=sidecar
           cache-to: type=gha,mode=max,scope=sidecar
+      # Security-critical: the sidecar is the container-runtime trust anchor.
+      - name: Sign sidecar image by digest
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/sidecar
+          DIGEST: ${{ steps.sidecar-build.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+      - name: Attest sidecar build provenance
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/sidecar
+          subject-digest: ${{ steps.sidecar-build.outputs.digest }}
+          push-to-registry: true
 
       # ---- orchestrator -----------------------------------------------
       - id: orchestrator-meta
@@ -152,7 +216,8 @@ jobs:
             type=sha,prefix=sha-,format=short
             type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-      - uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+      - id: orchestrator-build
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: ./rust
           file: ./rust/Dockerfile.orchestrator
@@ -161,10 +226,24 @@ jobs:
           labels: ${{ steps.orchestrator-meta.outputs.labels }}
           cache-from: type=gha,scope=orchestrator
           cache-to: type=gha,mode=max,scope=orchestrator
+      - name: Sign orchestrator image by digest
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/orchestrator
+          DIGEST: ${{ steps.orchestrator-build.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+      - name: Attest orchestrator build provenance
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/orchestrator
+          subject-digest: ${{ steps.orchestrator-build.outputs.digest }}
+          push-to-registry: true
 
   publish-agent-base:
     name: Publish agent-base
     runs-on: ubuntu-latest
+    # No `attestations: write`: agent-base relies on buildx `provenance: true`
+    # (written to the registry via `packages: write`) plus the cosign signature
+    # below, not actions/attest-build-provenance.
     permissions:
       contents: read
       packages: write
@@ -179,6 +258,7 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
 
       - id: image
         run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
@@ -196,17 +276,26 @@ jobs:
             type=sha,prefix=sha-,format=short
             type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-      - uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+      - id: agent-base-build
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: .
           file: ./docker/Dockerfile.agent-base
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # buildx already attaches an in-toto SLSA provenance + SBOM
+          # attestation to the image manifest, so we add the cosign signature
+          # here rather than a duplicate actions/attest-build-provenance run.
           sbom: true
           provenance: true
           cache-from: type=gha,scope=agent-base
           cache-to: type=gha,mode=max,scope=agent-base
+      - name: Sign agent-base image by digest
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/agent-base
+          DIGEST: ${{ steps.agent-base-build.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
 
   publish-agent-cli-images:
     name: Publish agent-${{ matrix.tool }}
@@ -239,6 +328,7 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
 
       - id: image
         run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
@@ -300,12 +390,15 @@ jobs:
           cat /tmp/base_tag.env >> "$GITHUB_OUTPUT"
           echo "base_image=$BASE_IMAGE" >> "$GITHUB_OUTPUT"
 
-      - uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+      - id: agent-cli-build
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: .
           file: ./docker/Dockerfile.agent
           push: true
           tags: ${{ steps.refs.outputs.tags }}
+          # buildx already attaches an in-toto SLSA provenance + SBOM
+          # attestation to the image manifest; cosign adds the keyless signature.
           sbom: true
           provenance: true
           labels: |
@@ -317,3 +410,8 @@ jobs:
             CLI_VERSION=${{ steps.cli.outputs.version }}
           cache-from: type=gha,scope=agent-${{ matrix.tool }}
           cache-to: type=gha,mode=max,scope=agent-${{ matrix.tool }}
+      - name: Sign agent-${{ matrix.tool }} image by digest
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/agent-${{ matrix.tool }}
+          DIGEST: ${{ steps.agent-cli-build.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
