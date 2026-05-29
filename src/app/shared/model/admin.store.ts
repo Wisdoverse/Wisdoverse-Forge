@@ -5,7 +5,32 @@ import { getAuthFetch } from '@app/shared/api/legacy'
 // Types
 // ============================================================================
 
-export type AdminSection = 'users' | 'organizations' | 'health'
+export type AdminSection = 'users' | 'organizations' | 'agents' | 'health'
+
+/**
+ * Canonical runtime-kind discriminator. Mirrors `AgentRuntimeKind` from
+ * `@app/entities/agent`, declared locally because the admin store lives in the
+ * `shared` FSD layer and must not import upward from `entities`. Feature code
+ * (e.g. `AgentsPanel`) still imports the canonical specs/labels from the agent
+ * entity.
+ */
+export type AdminAgentRuntimeKind = 'container' | 'cli' | 'api'
+
+/** Runtime-kind filter value for the admin agents view. `'all'` = no filter. */
+export type AdminAgentRuntimeKindFilter = 'all' | AdminAgentRuntimeKind
+
+/** One agent row as returned by `GET /api/v1/admin/agents`. */
+export interface AdminAgent {
+  id: string
+  name: string
+  status: string
+  runtimeKind: AdminAgentRuntimeKind
+  cliTool: string | null
+  ownerUsername: string | null
+  ownerEmail: string | null
+  projectName: string | null
+  lastActivity: number
+}
 
 export interface AdminUser {
   id: string
@@ -64,6 +89,13 @@ interface AdminState {
   orgsLoading: boolean
   orgsError: string | null
 
+  // Agents
+  agents: AdminAgent[]
+  agentsTotal: number
+  agentsLoading: boolean
+  agentsError: string | null
+  agentRuntimeKindFilter: AdminAgentRuntimeKindFilter
+
   // Health
   health: SystemHealth | null
   healthLoading: boolean
@@ -79,10 +111,13 @@ interface AdminState {
 
   loadOrgs: () => Promise<void>
 
+  loadAgents: () => Promise<void>
+  setAgentRuntimeKindFilter: (filter: AdminAgentRuntimeKindFilter) => Promise<void>
+
   loadHealth: () => Promise<void>
 }
 
-type AdminResource = 'users' | 'organizations' | 'health'
+type AdminResource = 'users' | 'organizations' | 'agents' | 'health'
 
 class AdminUserFacingError extends Error {}
 
@@ -114,6 +149,8 @@ function adminResourceLabel(resource: AdminResource): string {
       return 'user list'
     case 'organizations':
       return 'organization list'
+    case 'agents':
+      return 'agent list'
     case 'health':
       return 'system health'
   }
@@ -193,6 +230,12 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   orgsLoading: false,
   orgsError: null,
 
+  agents: [],
+  agentsTotal: 0,
+  agentsLoading: false,
+  agentsError: null,
+  agentRuntimeKindFilter: 'all',
+
   health: null,
   healthLoading: false,
   healthError: null,
@@ -268,6 +311,36 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     } catch (err) {
       set({ orgsLoading: false, orgsError: adminErrorMessage(err, 'organizations') })
     }
+  },
+
+  // ---------------------------------------------------------------------------
+  // Agents
+  // ---------------------------------------------------------------------------
+
+  loadAgents: async () => {
+    const { agentRuntimeKindFilter } = get()
+    set({ agentsLoading: true, agentsError: null })
+    try {
+      const params = new URLSearchParams({ page: '1', limit: '100' })
+      if (agentRuntimeKindFilter !== 'all') {
+        params.set('runtimeKind', agentRuntimeKindFilter)
+      }
+      const res = await adminFetch(`/api/v1/admin/agents?${params.toString()}`)
+      if (!res.ok) {
+        throw userFacingError(
+          adminHttpErrorMessage('agents', res.status, await readAdminErrorPayload(res))
+        )
+      }
+      const data = (await res.json()) as { agents: AdminAgent[]; total: number }
+      set({ agents: data.agents, agentsTotal: data.total, agentsLoading: false })
+    } catch (err) {
+      set({ agentsLoading: false, agentsError: adminErrorMessage(err, 'agents') })
+    }
+  },
+
+  setAgentRuntimeKindFilter: async (filter) => {
+    set({ agentRuntimeKindFilter: filter })
+    await get().loadAgents()
   },
 
   // ---------------------------------------------------------------------------
