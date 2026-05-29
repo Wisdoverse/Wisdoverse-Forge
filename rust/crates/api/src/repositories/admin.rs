@@ -1,6 +1,6 @@
 //! Admin repository — cross-tenant database queries for admin operations.
 
-use agentforge_core::{AgentStatus, AppResult, TenantScope};
+use agentforge_core::{AgentStatus, AppResult, RuntimeKind, TenantScope};
 use agentforge_db::entities::{ImpersonationLog, Organization, User};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -14,6 +14,7 @@ use crate::domain::admin::{AdminAgentSort, AdminRepositoryPolicy, SortOrder};
 pub struct AdminAgentFilters {
     pub search: Option<String>,
     pub status: Option<AgentStatus>,
+    pub runtime_kind: Option<RuntimeKind>,
     pub user_id: Option<Uuid>,
     pub project_id: Option<Uuid>,
     pub sort_by: AdminAgentSort,
@@ -42,6 +43,7 @@ pub struct AdminAgentRow {
     pub tokens_cumulative: i64,
     pub git_status: Option<String>,
     pub runtime_id: Option<String>,
+    pub runtime_kind: RuntimeKind,
     pub organization_id: Uuid,
     pub project_id: Option<Uuid>,
     pub user_id: Uuid,
@@ -72,6 +74,7 @@ const ADMIN_AGENT_SELECT: &str = r#"SELECT
     a.tokens_cumulative,
     a.git_status,
     a.runtime_id,
+    a.runtime_kind,
     a.organization_id,
     a.project_id,
     a.user_id,
@@ -270,6 +273,12 @@ impl AdminRepository {
             add_prefix(builder, &mut has_where);
             builder.push("a.status = ");
             builder.push_bind(status);
+        }
+
+        if let Some(runtime_kind) = filters.runtime_kind {
+            add_prefix(builder, &mut has_where);
+            builder.push("a.runtime_kind = ");
+            builder.push_bind(runtime_kind);
         }
 
         if let Some(user_id) = filters.user_id {
