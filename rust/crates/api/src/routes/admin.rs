@@ -120,13 +120,17 @@ async fn get_stats(State(state): State<AppState>, auth: AuthUser) -> AppResult<J
 // ============================================================================
 
 /// Query parameters for `GET /admin/agents`. Matches the camelCase keys that
-/// `AgentsTable.ts` sends: `search`, `status`, `userId`, `projectId`, `page`,
-/// `limit`, `sortBy`, `sortOrder`.
+/// the admin agents view sends: `search`, `status`, `runtimeKind`, `userId`,
+/// `projectId`, `page`, `limit`, `sortBy`, `sortOrder`.
 ///
 /// `status` is accepted as a free-form string rather than `AgentStatus` so
 /// that the frontend can send values like `"waiting"` / `"attention"` (present
 /// in the UI enum but not yet in the Rust `agent_status` DB type) without the
 /// entire request failing to deserialize.
+///
+/// `runtimeKind` is likewise accepted as a free-form string here; the service
+/// strictly validates it against `RuntimeKind` and returns HTTP 422 for an
+/// unknown value (canonical slugs: `container | cli | api`).
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AdminAgentsQuery {
@@ -134,6 +138,8 @@ pub struct AdminAgentsQuery {
     pub search: Option<String>,
     #[serde(default)]
     pub status: Option<String>,
+    #[serde(default)]
+    pub runtime_kind: Option<String>,
     #[serde(default)]
     pub user_id: Option<Uuid>,
     #[serde(default)]
@@ -153,6 +159,7 @@ impl AdminAgentsQuery {
         AdminAgentListInput {
             search: self.search.as_deref(),
             status: self.status.as_deref(),
+            runtime_kind: self.runtime_kind.as_deref(),
             user_id: self.user_id,
             project_id: self.project_id,
             page: self.page,
@@ -298,6 +305,7 @@ mod tests {
         assert_eq!(query.limit, 25);
         assert!(query.search.is_none());
         assert!(query.status.is_none());
+        assert!(query.runtime_kind.is_none());
         assert!(query.user_id.is_none());
         assert!(query.project_id.is_none());
         assert!(query.sort_by.is_none());
@@ -309,6 +317,7 @@ mod tests {
         let raw = r#"{
             "search": "foo",
             "status": "working",
+            "runtimeKind": "cli",
             "userId": "11111111-1111-1111-1111-111111111111",
             "projectId": "22222222-2222-2222-2222-222222222222",
             "page": 3,
@@ -319,12 +328,19 @@ mod tests {
         let query: AdminAgentsQuery = serde_json::from_str(raw).unwrap();
         assert_eq!(query.search.as_deref(), Some("foo"));
         assert_eq!(query.status.as_deref(), Some("working"));
+        assert_eq!(query.runtime_kind.as_deref(), Some("cli"));
         assert!(query.user_id.is_some());
         assert!(query.project_id.is_some());
         assert_eq!(query.page, 3);
         assert_eq!(query.limit, 50);
         assert_eq!(query.sort_by.as_deref(), Some("lastActivity"));
         assert_eq!(query.sort_order.as_deref(), Some("asc"));
+    }
+
+    #[test]
+    fn admin_agents_query_carries_runtime_kind_into_service_input() {
+        let query: AdminAgentsQuery = serde_json::from_str(r#"{"runtimeKind": "container"}"#).unwrap();
+        assert_eq!(query.as_service_input().runtime_kind, Some("container"));
     }
 
     #[test]
