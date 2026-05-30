@@ -42,6 +42,14 @@ END $$;
 -- Pre-flight invariant assertion. Any row that would later violate the
 -- joint CHECK from 063 must surface NOW, before NOT NULL is set, so an
 -- operator can intervene before 063 hard-locks the constraint.
+--
+-- This predicate MUST stay byte-identical to 063's
+-- `agents_runtime_kind_invariants` CHECK. If it is weaker, an offending row
+-- passes 062 clean and then detonates at 063's `VALIDATE CONSTRAINT`, leaving
+-- a half-applied migration — exactly the failure this assertion exists to
+-- prevent. (The `api` arm previously omitted `container_id IS NULL`, so an
+-- api row with a stale container_id slipped through; a migration dry-run on a
+-- seeded offender caught it — see docs/runbooks/migration-062-runtime-kind.md.)
 DO $$
 DECLARE
     bad_rows INT;
@@ -50,7 +58,7 @@ BEGIN
     WHERE NOT (
         (runtime_kind = 'container' AND cli_tool IS NOT NULL)
         OR (runtime_kind = 'cli'    AND cli_tool IS NOT NULL AND container_id IS NULL)
-        OR (runtime_kind = 'api'    AND cli_tool IS NULL)
+        OR (runtime_kind = 'api'    AND cli_tool IS NULL    AND container_id IS NULL)
     );
     IF bad_rows > 0 THEN
         RAISE EXCEPTION
