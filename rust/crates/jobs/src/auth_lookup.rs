@@ -115,8 +115,11 @@ mod tests {
     async fn returns_identity_for_known_agent() {
         let lookup = FakeLookup::default();
         let agent_id = Uuid::new_v4();
-        lookup.insert(agent_id, Some(identity("secret-uuid-v4", "cli"))).await;
-        assert_eq!(lookup.find_identity(agent_id).await.unwrap(), Some(identity("secret-uuid-v4", "cli")));
+        // Generated, not hard-coded — the value flows into a `password` field,
+        // which a literal would trip CodeQL's hard-coded-credential rule on.
+        let pw = Uuid::new_v4().to_string();
+        lookup.insert(agent_id, Some(identity(&pw, "cli"))).await;
+        assert_eq!(lookup.find_identity(agent_id).await.unwrap(), Some(identity(&pw, "cli")));
     }
 
     #[tokio::test]

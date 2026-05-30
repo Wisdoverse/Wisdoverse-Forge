@@ -290,7 +290,9 @@ async fn callout_forged_connect_succeeds_against_callout_nats() {
     // Known agent fixture: we pre-seed the lookup so the callout
     // handler's `ct_eq_bytes` compare succeeds on the match path.
     let agent_id = Uuid::new_v4();
-    let test_connect_token = "e2e-nats-connect-fixture".to_string();
+    // Generated, not hard-coded — flows into a `password` field, which a
+    // literal would trip CodeQL's hard-coded-credential rule on.
+    let test_connect_token = format!("e2e-{}", Uuid::new_v4());
     let lookup = FakeLookup::default();
     lookup.insert(agent_id, &test_connect_token, "container").await;
 
