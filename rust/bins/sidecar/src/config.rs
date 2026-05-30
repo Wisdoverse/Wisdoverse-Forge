@@ -31,6 +31,13 @@ pub struct SidecarConfig {
     #[serde(default)]
     pub cli_model: Option<String>,
 
+    /// The agent's runtime kind (`container` | `cli` | `api`), used to namespace
+    /// the NATS event-ingest subject (issue #457). Mirrors
+    /// `AGENTFORGE_RUNTIME_KIND`, injected by the platform at container creation
+    /// and enrollment. Unset (older images) → resolved to `container`.
+    #[serde(default)]
+    pub runtime_kind: Option<String>,
+
     /// Organisation the agent belongs to. Set by the platform at container
     /// creation (via `ORG_ID` env var) so the sidecar can embed it in
     /// credential-sync messages. The consumer re-resolves from DB either way,
@@ -70,6 +77,20 @@ impl SidecarConfig {
             return Some(t.clone());
         }
         std::env::var("AGENTFORGE_CLI_TOOL").ok()
+    }
+
+    /// Resolve the runtime kind for event-ingest subject namespacing (#457).
+    ///
+    /// Resolution order mirrors `resolved_cli_tool`: typed config field first,
+    /// then the raw `AGENTFORGE_RUNTIME_KIND` env baked into agent images. The
+    /// value is canonicalised against the supported set; anything unrecognised
+    /// (including unset, i.e. pre-#457 images) resolves to `container` so the
+    /// sidecar always publishes on a valid, grantable subject.
+    pub fn resolved_runtime_kind(&self) -> agentforge_core::RuntimeKind {
+        let raw = self.runtime_kind.clone().or_else(|| std::env::var("AGENTFORGE_RUNTIME_KIND").ok());
+        raw.as_deref()
+            .and_then(|v| agentforge_core::RuntimeKind::parse_legacy(v).ok())
+            .unwrap_or(agentforge_core::RuntimeKind::Container)
     }
 
     pub fn resolved_cli_model(&self) -> Option<String> {
@@ -141,6 +162,44 @@ mod tests {
         assert_eq!(cfg.wal_path.as_deref(), Some("/data/wal"));
         assert_eq!(cfg.heartbeat_interval_secs, 10);
         assert_eq!(cfg.cli_model.as_deref(), Some("gpt-5.4-mini"));
+    }
+
+    #[test]
+    fn test_runtime_kind_resolves_from_field_and_defaults_to_container() {
+        // Explicit field wins and is canonicalised.
+        let cfg = config::Config::builder()
+            .set_override("nats_url", "nats://localhost:4222")
+            .unwrap()
+            .set_override("agent_id", "agent-abc")
+            .unwrap()
+            .set_override("hmac_secret", "secret123")
+            .unwrap()
+            .set_override("runtime_kind", "CLI")
+            .unwrap()
+            .build()
+            .unwrap()
+            .try_deserialize::<SidecarConfig>()
+            .unwrap();
+        assert_eq!(cfg.resolved_runtime_kind(), agentforge_core::RuntimeKind::Cli);
+
+        // An unrecognised value canonicalises to the container default rather
+        // than failing — the sidecar must always publish on a grantable subject.
+        // (Field is set so the env fallback isn't consulted, keeping the test
+        // independent of the ambient process environment.)
+        let cfg = config::Config::builder()
+            .set_override("nats_url", "nats://localhost:4222")
+            .unwrap()
+            .set_override("agent_id", "agent-abc")
+            .unwrap()
+            .set_override("hmac_secret", "secret123")
+            .unwrap()
+            .set_override("runtime_kind", "wat")
+            .unwrap()
+            .build()
+            .unwrap()
+            .try_deserialize::<SidecarConfig>()
+            .unwrap();
+        assert_eq!(cfg.resolved_runtime_kind(), agentforge_core::RuntimeKind::Container);
     }
 
     #[test]

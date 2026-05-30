@@ -8,6 +8,7 @@ pub mod context_envelope;
 pub mod credential_protocol;
 pub mod crypto;
 pub mod error;
+pub mod event_protocol;
 pub mod orchestration_protocol;
 pub mod runtime_capability;
 pub mod tenant;

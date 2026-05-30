@@ -1239,6 +1239,13 @@ impl McpAgentRuntimePolicy {
         let mut env = HashMap::from([
             ("AGENTFORGE_CLI_TOOL".to_string(), cli_tool.to_string()),
             ("AGENTFORGE_GIT_LFS_SKIP".to_string(), "true".to_string()),
+            // #457: pin the sidecar's runtime kind explicitly. These are
+            // Docker-backed agents, which are always `container` kind in the DB.
+            // Making it explicit (rather than relying on the sidecar's default)
+            // keeps the published subject `events.ingest.container.<uuid>` in
+            // lockstep with the kind the auth callout grants from the DB row —
+            // a divergence would get the publish denied by NATS.
+            ("AGENTFORGE_RUNTIME_KIND".to_string(), agentforge_core::RuntimeKind::Container.as_str().to_string()),
         ]);
         if cli_tool == "gemini" {
             env.insert("GEMINI_CLI_NO_RELAUNCH".to_string(), "true".to_string());
@@ -1766,6 +1773,9 @@ mod tests {
         assert_eq!(env.get("AGENTFORGE_CLI_TOOL").map(String::as_str), Some("gemini"));
         assert_eq!(env.get("AGENTFORGE_GIT_LFS_SKIP").map(String::as_str), Some("true"));
         assert_eq!(env.get("GEMINI_CLI_NO_RELAUNCH").map(String::as_str), Some("true"));
+        // #457: Docker-backed agents are always `container` kind, pinned so the
+        // sidecar publishes on the subject the callout grants from the DB row.
+        assert_eq!(env.get("AGENTFORGE_RUNTIME_KIND").map(String::as_str), Some("container"));
     }
 
     #[test]

@@ -23,11 +23,28 @@ pub struct EventPublisher {
     agent_id: String,
     hmac_key: Vec<u8>,
     cli_tool: Option<String>,
+    /// Subject prefix for this agent's event-ingest channel, including the
+    /// #457 runtime-kind namespace, e.g. `events.ingest.cli`. The agent UUID is
+    /// appended per publish.
+    ingest_subject_prefix: String,
 }
 
 impl EventPublisher {
-    pub fn new(client: Client, agent_id: String, hmac_secret: &str, cli_tool: Option<String>) -> Self {
-        Self { client, agent_id, hmac_key: hmac_secret.as_bytes().to_vec(), cli_tool }
+    pub fn new(
+        client: Client,
+        agent_id: String,
+        hmac_secret: &str,
+        cli_tool: Option<String>,
+        runtime_kind: agentforge_core::RuntimeKind,
+    ) -> Self {
+        // #457: publish on the kind-namespaced ingest subject only. The
+        // platform consumer accepts both shapes during migration; the callout
+        // still grants the legacy subject so this is forward-compatible without
+        // double-publishing (the `events` table has no dedup, so emitting both
+        // shapes would double-insert every event).
+        let ingest_subject_prefix =
+            format!("{}.{}", agentforge_core::event_protocol::EVENTS_INGEST_PREFIX, runtime_kind.as_str());
+        Self { client, agent_id, hmac_key: hmac_secret.as_bytes().to_vec(), cli_tool, ingest_subject_prefix }
     }
 
     /// Compute HMAC-SHA256 over `agent_id:timestamp:payload` and return hex string.
@@ -38,14 +55,17 @@ impl EventPublisher {
         hex::encode(mac.finalize().into_bytes())
     }
 
-    /// Publish an event to the `events.ingest.<agent_id>` NATS subject.
+    /// Publish an event to the `events.ingest.<runtime_kind>.<agent_id>` NATS
+    /// subject (issue #457). The HMAC is computed over `agent_id:ts:payload`
+    /// and is independent of the subject, so the platform's signature check is
+    /// unaffected by the namespacing.
     pub async fn publish(
         &self,
         event_type: &str,
         payload: serde_json::Value,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let timestamp = Utc::now().timestamp();
-        let subject = format!("events.ingest.{}", self.agent_id);
+        let subject = format!("{}.{}", self.ingest_subject_prefix, self.agent_id);
 
         let inner_payload = serde_json::json!({
             "event_type": event_type,
@@ -128,6 +148,23 @@ mod tests {
         assert_eq!(sig1, sig2);
         // Signature is a 64-char hex string (256 bits).
         assert_eq!(sig1.len(), 64);
+    }
+
+    #[test]
+    fn publisher_subject_matches_core_namespaced_builder() {
+        // The string the publisher composes (kind-namespaced prefix + agent id)
+        // must be byte-identical to the canonical core builder the platform
+        // parser round-trips against — otherwise a published event would be
+        // dropped as an "unsupported event subject".
+        use agentforge_core::RuntimeKind;
+        use agentforge_core::event_protocol::{EVENTS_INGEST_PREFIX, events_ingest_subject};
+
+        let agent_uuid = uuid::Uuid::parse_str("11111111-2222-3333-4444-555555555555").unwrap();
+        for kind in [RuntimeKind::Container, RuntimeKind::Cli, RuntimeKind::Api] {
+            let prefix = format!("{}.{}", EVENTS_INGEST_PREFIX, kind.as_str());
+            let publisher_subject = format!("{}.{}", prefix, agent_uuid);
+            assert_eq!(publisher_subject, events_ingest_subject(kind, agent_uuid), "mismatch for {kind:?}");
+        }
     }
 
     #[test]

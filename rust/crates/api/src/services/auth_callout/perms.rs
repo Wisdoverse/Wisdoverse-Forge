@@ -13,10 +13,12 @@
 //! `orchestration.assigned.>` (task injection would let a compromised
 //! sidecar hand itself another tenant's task).
 
+use agentforge_core::event_protocol::{events_ingest_legacy_subject, events_ingest_subject};
 use agentforge_core::orchestration_protocol::{
     assignment_consumer_ack_subject_pattern, assignment_consumer_create_subject, assignment_consumer_info_subject,
     assignment_consumer_next_subject,
 };
+use agentforge_core::runtime_capability::RuntimeKind;
 use uuid::Uuid;
 
 use crate::domain::auth_callout::NatsPermissions;
@@ -30,7 +32,12 @@ use crate::domain::auth_callout::NatsPermissions;
 /// Subjects templated with the agent's UUID:
 ///
 /// Publish allow:
-///   - `events.ingest.<uuid>` — hook events the sidecar emits.
+///   - `events.ingest.<kind>.<uuid>` — hook events the sidecar emits, in the
+///     #457 kind-namespaced shape (`kind` is THIS agent's `runtime_kind`, so a
+///     `cli` agent is never granted a `container` subject).
+///   - `events.ingest.<uuid>` — the legacy un-namespaced shape, still granted
+///     while pre-#457 agent containers drain. Both shapes are additive; the
+///     legacy grant is dropped in a later post-observation deploy.
 ///   - `sidecar.<uuid>.heartbeat` — liveness pings.
 ///   - `orchestration.result.<uuid>` — task outcomes.
 ///   - `creds.<uuid>` — Container CLI credential sync (issue #41).
@@ -52,11 +59,14 @@ use crate::domain::auth_callout::NatsPermissions;
 ///     finding).
 ///   - `orchestration.assigned.>` (publish only) — agents must not
 ///     inject tasks into each other's queues.
-pub fn build_agent_permissions(agent_id: Uuid) -> NatsPermissions {
+pub fn build_agent_permissions(agent_id: Uuid, runtime_kind: RuntimeKind) -> NatsPermissions {
     let uuid = agent_id.to_string();
     NatsPermissions {
         pub_allow: vec![
-            format!("events.ingest.{uuid}"),
+            // #457: kind-namespaced event ingest, scoped to THIS agent's kind.
+            events_ingest_subject(runtime_kind, agent_id),
+            // Legacy un-namespaced ingest, retained during the migration window.
+            events_ingest_legacy_subject(agent_id),
             format!("sidecar.{uuid}.heartbeat"),
             format!("orchestration.result.{uuid}"),
             format!("creds.{uuid}"),
@@ -92,7 +102,7 @@ mod tests {
     #[test]
     fn permissions_contain_own_uuid_subjects() {
         let a = uuid_of("11111111-2222-3333-4444-555555555555");
-        let perms = build_agent_permissions(a);
+        let perms = build_agent_permissions(a, RuntimeKind::Container);
         assert!(perms.pub_allow.iter().any(|s| s == "events.ingest.11111111-2222-3333-4444-555555555555"));
         assert!(perms.pub_allow.iter().any(|s| s == "sidecar.11111111-2222-3333-4444-555555555555.heartbeat"));
         assert!(perms.pub_allow.iter().any(|s| s == "orchestration.result.11111111-2222-3333-4444-555555555555"));
@@ -110,7 +120,7 @@ mod tests {
         // JWT must NOT list agent B's subjects in allow.
         let a = uuid_of("11111111-2222-3333-4444-555555555555");
         let b = uuid_of("99999999-aaaa-bbbb-cccc-dddddddddddd");
-        let perms_a = build_agent_permissions(a);
+        let perms_a = build_agent_permissions(a, RuntimeKind::Container);
         let b_str = b.to_string();
         for s in perms_a.pub_allow.iter().chain(perms_a.sub_allow.iter()) {
             if s == "_INBOX.>" {
@@ -125,7 +135,7 @@ mod tests {
         // Structural guard: the per-agent subjects must be exact UUIDs,
         // not `>` or `*`. Wildcards would reintroduce the phase-1 gap.
         let a = uuid_of("11111111-2222-3333-4444-555555555555");
-        let perms = build_agent_permissions(a);
+        let perms = build_agent_permissions(a, RuntimeKind::Container);
         let assignment_ack = assignment_consumer_ack_subject_pattern(a);
         for s in &perms.pub_allow {
             // _INBOX.> is the exception — inbox reply subjects are not
@@ -154,7 +164,7 @@ mod tests {
         // Invariant across every agent. Phase-1 deny-by-omission becomes
         // explicit deny here so a future refactor can't accidentally
         // unlock `broadcast.>` or `$SYS.>` for a single UUID.
-        let perms = build_agent_permissions(uuid_of("11111111-2222-3333-4444-555555555555"));
+        let perms = build_agent_permissions(uuid_of("11111111-2222-3333-4444-555555555555"), RuntimeKind::Container);
         for needle in ["$SYS.>", "broadcast.>"] {
             assert!(perms.pub_deny.iter().any(|s| s == needle), "pub_deny missing {needle}");
             assert!(perms.sub_deny.iter().any(|s| s == needle), "sub_deny missing {needle}");
@@ -167,8 +177,8 @@ mod tests {
         // Static invariant: the deny list is the same shape regardless of
         // which agent we mint perms for. Only the pub/sub allow lists
         // template the UUID.
-        let a = build_agent_permissions(uuid_of("11111111-2222-3333-4444-555555555555"));
-        let b = build_agent_permissions(uuid_of("99999999-aaaa-bbbb-cccc-dddddddddddd"));
+        let a = build_agent_permissions(uuid_of("11111111-2222-3333-4444-555555555555"), RuntimeKind::Container);
+        let b = build_agent_permissions(uuid_of("99999999-aaaa-bbbb-cccc-dddddddddddd"), RuntimeKind::Container);
         assert_eq!(a.pub_deny, b.pub_deny);
         assert_eq!(a.sub_deny, b.sub_deny);
     }
@@ -177,7 +187,7 @@ mod tests {
     fn inbox_subject_is_in_both_allow_lists() {
         // _INBOX.> is required for request/reply round-trips on both
         // directions. Its inclusion is deliberate, not a leak.
-        let perms = build_agent_permissions(uuid_of("11111111-2222-3333-4444-555555555555"));
+        let perms = build_agent_permissions(uuid_of("11111111-2222-3333-4444-555555555555"), RuntimeKind::Container);
         assert!(perms.pub_allow.iter().any(|s| s == "_INBOX.>"));
         assert!(perms.sub_allow.iter().any(|s| s == "_INBOX.>"));
     }
@@ -185,7 +195,7 @@ mod tests {
     #[test]
     fn permissions_allow_publish_on_own_creds_subject() {
         let a = uuid_of("11111111-2222-3333-4444-555555555555");
-        let perms = build_agent_permissions(a);
+        let perms = build_agent_permissions(a, RuntimeKind::Container);
         assert!(
             perms.pub_allow.iter().any(|s| s == "creds.11111111-2222-3333-4444-555555555555"),
             "credential sync publish (issue #41) must be in pub_allow",
@@ -198,7 +208,7 @@ mod tests {
         // subscribe (that would let a rooted container read another tenant's
         // credentials on the shared stream).
         let a = uuid_of("11111111-2222-3333-4444-555555555555");
-        let perms = build_agent_permissions(a);
+        let perms = build_agent_permissions(a, RuntimeKind::Container);
         for s in &perms.sub_allow {
             assert!(!s.starts_with("creds."), "sub_allow leaks creds subject: {s}");
         }
@@ -211,11 +221,60 @@ mod tests {
         // credentials. Guard with explicit cross-agent check.
         let a = uuid_of("11111111-2222-3333-4444-555555555555");
         let b = uuid_of("99999999-aaaa-bbbb-cccc-dddddddddddd");
-        let perms_a = build_agent_permissions(a);
+        let perms_a = build_agent_permissions(a, RuntimeKind::Container);
         let bad = format!("creds.{b}");
         assert!(
             !perms_a.pub_allow.iter().any(|s| s == &bad || s == "creds.>" || s == "creds.*"),
             "agent A's creds pub_allow leaked another agent or a wildcard",
         );
+    }
+
+    #[test]
+    fn namespaced_event_subject_uses_agents_own_kind() {
+        // #457: the kind-namespaced ingest grant carries the agent's own
+        // runtime_kind, not a hard-coded one.
+        let a = uuid_of("11111111-2222-3333-4444-555555555555");
+        for (kind, token) in
+            [(RuntimeKind::Container, "container"), (RuntimeKind::Cli, "cli"), (RuntimeKind::Api, "api")]
+        {
+            let perms = build_agent_permissions(a, kind);
+            let expected = format!("events.ingest.{token}.11111111-2222-3333-4444-555555555555");
+            assert!(
+                perms.pub_allow.iter().any(|s| s == &expected),
+                "missing kind-namespaced ingest grant {expected} for {kind:?}",
+            );
+        }
+    }
+
+    #[test]
+    fn legacy_event_subject_still_granted_during_migration() {
+        // The un-namespaced ingest subject must remain granted so agent
+        // containers built before #457 keep publishing successfully until the
+        // legacy-drop deploy. Verified for every kind.
+        let a = uuid_of("11111111-2222-3333-4444-555555555555");
+        for kind in [RuntimeKind::Container, RuntimeKind::Cli, RuntimeKind::Api] {
+            let perms = build_agent_permissions(a, kind);
+            assert!(
+                perms.pub_allow.iter().any(|s| s == "events.ingest.11111111-2222-3333-4444-555555555555"),
+                "legacy ingest grant dropped for {kind:?} — would break draining containers",
+            );
+        }
+    }
+
+    #[test]
+    fn agent_is_not_granted_other_kinds_event_subjects() {
+        // The security point of #457: a `cli` agent's JWT must NOT carry a
+        // `container`- or `api`-namespaced ingest subject (and vice versa).
+        let a = uuid_of("11111111-2222-3333-4444-555555555555");
+        let perms = build_agent_permissions(a, RuntimeKind::Cli);
+        for forbidden_token in ["container", "api"] {
+            let forbidden = format!("events.ingest.{forbidden_token}.11111111-2222-3333-4444-555555555555");
+            assert!(
+                !perms.pub_allow.iter().any(|s| s == &forbidden),
+                "cli agent was granted another kind's ingest subject: {forbidden}",
+            );
+        }
+        // And never a kind wildcard.
+        assert!(!perms.pub_allow.iter().any(|s| s == "events.ingest.>" || s == "events.ingest.*"));
     }
 }
