@@ -48,6 +48,7 @@ use tokio::sync::watch;
 use uuid::Uuid;
 
 use agentforge_core::AgentStatus;
+use agentforge_core::event_protocol::parse_events_ingest_subject;
 use agentforge_core::orchestration_protocol::SignedEnvelope;
 
 pub const EVENTS_STREAM: &str = "EVENTS";
@@ -367,13 +368,16 @@ where
     }
 }
 
+/// Resolve the publishing agent's UUID from a received ingest subject.
+///
+/// Accepts both the #457 kind-namespaced shape (`events.ingest.<kind>.<uuid>`)
+/// and the legacy shape (`events.ingest.<uuid>`) via the shared core parser,
+/// so the cross-check against the envelope's `agent_id` is stable across the
+/// migration. Anything else is a permanent reject (forged/unsupported subject).
 fn parse_subject_agent_id(subject: &str) -> std::result::Result<Uuid, ConsumeError> {
-    let mut parts = subject.split('.');
-    match (parts.next(), parts.next(), parts.next(), parts.next()) {
-        (Some("events"), Some("ingest"), Some(agent_id), None) => Uuid::parse_str(agent_id)
-            .map_err(|err| ConsumeError::permanent(anyhow!("invalid events.ingest subject {subject}: {err}"))),
-        _ => Err(ConsumeError::permanent(anyhow!("unsupported event subject {subject}"))),
-    }
+    parse_events_ingest_subject(subject)
+        .map(|parsed| parsed.agent_id)
+        .ok_or_else(|| ConsumeError::permanent(anyhow!("unsupported event subject {subject}")))
 }
 
 fn decode_event(target: AgentTarget, envelope: SignedEventEnvelope) -> std::result::Result<DecodedEvent, ConsumeError> {
@@ -707,6 +711,18 @@ impl EventStreamWorker {
             .await
             .context("failed to create event ingest consumer")?;
 
+        metrics::describe_counter!(
+            "agentforge_nats_legacy_subject_received_total",
+            "Count of events received on the pre-#457 un-namespaced subject. \
+             Drains to zero once all agent containers publish kind-namespaced; \
+             the legacy-drop deploy is gated on this reaching and holding zero."
+        );
+        // Materialise the {subject="events.ingest"} series at 0 so dashboards
+        // and the legacy-drop gate observe an explicit zero rather than "no
+        // data". Absent-series would otherwise be indistinguishable from a true
+        // zero, and a `== 0` gate would pass on a dead/never-run consumer.
+        metrics::counter!("agentforge_nats_legacy_subject_received_total", "subject" => "events.ingest").increment(0);
+
         Ok(Self {
             consumer,
             logic: EventConsumer::new(
@@ -754,6 +770,16 @@ impl EventStreamWorker {
 
     async fn process_message(&self, message: async_nats::jetstream::Message) {
         let subject = message.subject.to_string();
+
+        // #457 drain signal: count receipts on the pre-namespacing subject so
+        // operators can confirm the legacy tail has reached zero before the
+        // legacy-drop deploy. Namespaced receipts are the steady state and are
+        // intentionally not counted here.
+        if parse_events_ingest_subject(&subject).is_some_and(|parsed| parsed.is_legacy()) {
+            metrics::counter!("agentforge_nats_legacy_subject_received_total", "subject" => "events.ingest")
+                .increment(1);
+        }
+
         let envelope = match serde_json::from_slice::<SignedEventEnvelope>(&message.payload) {
             Ok(envelope) => envelope,
             Err(err) => {
@@ -793,15 +819,27 @@ mod tests {
     use serde_json::Map;
 
     #[test]
-    fn subject_parser_accepts_ingest_subject() {
+    fn subject_parser_accepts_legacy_ingest_subject() {
         let agent_id = Uuid::now_v7();
         assert_eq!(parse_subject_agent_id(&format!("events.ingest.{agent_id}")).unwrap(), agent_id);
     }
 
     #[test]
+    fn subject_parser_accepts_kind_namespaced_ingest_subject() {
+        // #457: the consumer must resolve the same agent_id from the namespaced
+        // shape so the `subject vs envelope` cross-check still holds.
+        let agent_id = Uuid::now_v7();
+        for kind in ["container", "cli", "api"] {
+            assert_eq!(parse_subject_agent_id(&format!("events.ingest.{kind}.{agent_id}")).unwrap(), agent_id);
+        }
+    }
+
+    #[test]
     fn subject_parser_rejects_other_subjects() {
-        let err = parse_subject_agent_id("events.broadcast.org").unwrap_err();
-        assert!(matches!(err, ConsumeError::Permanent(_)));
+        for bad in ["events.broadcast.org", "events.ingest.bogus.not-a-uuid", "events.ingest.>"] {
+            let err = parse_subject_agent_id(bad).unwrap_err();
+            assert!(matches!(err, ConsumeError::Permanent(_)), "expected permanent reject for {bad}");
+        }
     }
 
     #[test]
