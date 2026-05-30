@@ -20,7 +20,7 @@
 //!        │
 //!        ├── connect_user parses as UUID? ── no → deny(bad_request)
 //!        ▼
-//!   lookup.find_password(agent_id)
+//!   lookup.find_identity(agent_id)
 //!        ├── Err                          → deny(lookup_error)
 //!        ├── Ok(None)                     → deny(agent_unknown)
 //!        └── Ok(Some(expected))
@@ -62,6 +62,7 @@ use secrecy::{ExposeSecret, SecretString};
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
+use agentforge_core::runtime_capability::RuntimeKind;
 use agentforge_jobs::auth_lookup::NatsConnectPasswordLookup;
 
 use crate::domain::auth_callout::CalloutResponse;
@@ -311,9 +312,9 @@ where
         }
     };
 
-    // 4. Look up the expected password.
-    let expected_password: String = match lookup.find_password(agent_id).await {
-        Ok(Some(pw)) => pw,
+    // 4. Look up the expected password and the agent's runtime_kind (one row).
+    let identity = match lookup.find_identity(agent_id).await {
+        Ok(Some(identity)) => identity,
         Ok(None) => {
             return build_deny_response(
                 &request.user_nkey,
@@ -338,7 +339,7 @@ where
     };
 
     // 5. Constant-time compare.
-    if !ct_eq_bytes(request.connect_password.expose_secret().as_bytes(), expected_password.as_bytes()) {
+    if !ct_eq_bytes(request.connect_password.expose_secret().as_bytes(), identity.password.as_bytes()) {
         return build_deny_response(
             &request.user_nkey,
             &request.server_id,
@@ -358,7 +359,13 @@ where
     // did initially) fails with `Claim failed V2 signature verification`
     // because the signing-key registry doesn't exist in server-config
     // mode. Use the callout `issuer_seed` for both inner and outer.
-    let permissions = build_agent_permissions(agent_id);
+    //
+    // #457: namespace the granted ingest subject by the agent's runtime_kind.
+    // An unrecognised stored value degrades to `Container` rather than failing
+    // auth — the legacy ingest grant is always present regardless, so a
+    // surprising kind never breaks the agent's ability to publish.
+    let runtime_kind = RuntimeKind::parse_legacy(&identity.runtime_kind).unwrap_or(RuntimeKind::Container);
+    let permissions = build_agent_permissions(agent_id, runtime_kind);
     let inner_jwt = match jwt::sign_user_jwt(
         &request.user_nkey,
         signing_keys.issuer_seed.expose_secret(),
@@ -443,22 +450,30 @@ mod tests {
 
     // ---- Fake password lookup -------------------------------------------------
 
+    use agentforge_jobs::auth_lookup::AgentNatsIdentity;
+
     #[derive(Clone, Default)]
     struct FakeLookup {
-        /// `None` variant → simulate a DB error on `find_password`.
-        /// Otherwise returns the stored password for matching UUIDs.
+        /// `simulate_error` → simulate a DB error on `find_identity`.
+        /// Otherwise returns the stored (password, runtime_kind) for the UUID.
         inner: Arc<Mutex<FakeLookupInner>>,
     }
 
     #[derive(Default)]
     struct FakeLookupInner {
-        passwords: HashMap<Uuid, String>,
+        identities: HashMap<Uuid, (String, String)>,
         simulate_error: bool,
     }
 
     impl FakeLookup {
+        /// Insert with the default `container` kind (most tests don't care).
         async fn insert(&self, id: Uuid, password: &str) {
-            self.inner.lock().await.passwords.insert(id, password.to_string());
+            self.inner.lock().await.identities.insert(id, (password.to_string(), "container".to_string()));
+        }
+
+        /// Insert with an explicit runtime_kind for #457 grant assertions.
+        async fn insert_with_kind(&self, id: Uuid, password: &str, runtime_kind: &str) {
+            self.inner.lock().await.identities.insert(id, (password.to_string(), runtime_kind.to_string()));
         }
 
         async fn set_error_mode(&self, on: bool) {
@@ -468,12 +483,16 @@ mod tests {
 
     #[async_trait]
     impl NatsConnectPasswordLookup for FakeLookup {
-        async fn find_password(&self, agent_id: Uuid) -> anyhow::Result<Option<String>> {
+        async fn find_identity(&self, agent_id: Uuid) -> anyhow::Result<Option<AgentNatsIdentity>> {
             let guard = self.inner.lock().await;
             if guard.simulate_error {
                 return Err(anyhow::anyhow!("simulated DB error"));
             }
-            Ok(guard.passwords.get(&agent_id).cloned())
+            Ok(guard
+                .identities
+                .get(&agent_id)
+                .cloned()
+                .map(|(password, runtime_kind)| AgentNatsIdentity { password, runtime_kind }))
         }
     }
 
@@ -613,6 +632,46 @@ mod tests {
         let tracked = tracker.take(agent_id).await.expect("tracker has entry");
         assert_eq!(tracked.server_id, fx.server_nkey.public_key());
         assert_eq!(tracked.client_cid, 4242);
+    }
+
+    #[tokio::test]
+    async fn handler_grants_kind_namespaced_and_legacy_ingest_subjects() {
+        // #457 end-to-end: the minted inner User JWT for a `cli` agent must
+        // carry BOTH the kind-namespaced and legacy ingest subjects, and must
+        // NOT carry another kind's ingest subject.
+        let fx = make_fixture();
+        let tracker = ConnectionTracker::new();
+        let lookup = FakeLookup::default();
+
+        let agent_id = Uuid::new_v4();
+        let password = test_password();
+        lookup.insert_with_kind(agent_id, &password, "cli").await;
+
+        let req = build_request_jwt(&fx, &agent_id.to_string(), &password, 7);
+        let resp = handle_auth_request(&lookup, &fx.signing_keys, &tracker, req.as_bytes(), None).await;
+
+        let claims = decode_response_claims(&resp.payload);
+        let inner_jwt = claims["nats"]["jwt"].as_str().expect("nats.jwt is str");
+        let inner = decode_response_claims(inner_jwt.as_bytes());
+        let subjects: Vec<String> = inner["nats"]["pub"]["allow"]
+            .as_array()
+            .expect("pub.allow array")
+            .iter()
+            .filter_map(|v| v.as_str().map(str::to_string))
+            .collect();
+
+        assert!(
+            subjects.contains(&format!("events.ingest.cli.{agent_id}")),
+            "minted JWT missing kind-namespaced ingest grant: {subjects:?}",
+        );
+        assert!(
+            subjects.contains(&format!("events.ingest.{agent_id}")),
+            "minted JWT missing legacy ingest grant: {subjects:?}",
+        );
+        assert!(
+            !subjects.contains(&format!("events.ingest.container.{agent_id}")),
+            "cli agent JWT leaked a container-kind ingest subject: {subjects:?}",
+        );
     }
 
     #[tokio::test]

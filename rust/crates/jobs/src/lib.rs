@@ -40,7 +40,7 @@ pub mod participant_liveness;
 pub mod queue;
 pub mod worker;
 
-pub use auth_lookup::{NatsConnectPasswordLookup, SqlxNatsConnectPasswordLookup};
+pub use auth_lookup::{AgentNatsIdentity, NatsConnectPasswordLookup, SqlxNatsConnectPasswordLookup};
 pub use credential_consumer::{
     AgentOwner, AgentOwnerLookup, CredentialStreamWorker, CredentialWriter, HandleError as CredentialHandleError,
     SqlxAgentOwnerLookup, SqlxHmacSecretLookup as SqlxCredentialHmacSecretLookup, credentials_filter,

@@ -193,4 +193,4 @@ If the API crashes between steps 1 and 2, an orphaned JWT lives at most 15 min (
 ## Related design docs
 
 - [HMAC Envelope](../security/hmac-envelope.md) — signed result envelope schema + replay window.
-- [NATS Subject Namespacing](../architecture/nats-subjects.md) — planned subject discriminator by runtime_kind.
+- [NATS Subject Namespacing](../architecture/nats-subjects.md) — runtime_kind subject discriminator. Phase 1 (`events.ingest.<kind>.<uuid>`) is live: the callout grants each agent BOTH the kind-namespaced and legacy ingest subjects, and the platform exports `agentforge_nats_legacy_subject_received_total`. Operators must keep deploying the control plane **before** agent images, and the legacy-drop deploy is gated on that metric holding at zero.

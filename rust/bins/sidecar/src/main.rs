@@ -34,6 +34,8 @@ async fn main() -> anyhow::Result<()> {
 
     let resolved_cli_tool = cfg.resolved_cli_tool();
     let resolved_cli_model = cfg.resolved_cli_model();
+    let resolved_runtime_kind = cfg.resolved_runtime_kind();
+    tracing::info!(runtime_kind = %resolved_runtime_kind, "Resolved runtime kind for event subject namespacing");
 
     // Initialise components.
     let publisher = publisher::EventPublisher::new(
@@ -41,6 +43,7 @@ async fn main() -> anyhow::Result<()> {
         cfg.agent_id.clone(),
         &cfg.hmac_secret,
         resolved_cli_tool.clone(),
+        resolved_runtime_kind,
     );
     let cmd_handler = commands::CommandHandler::new(nats_client.clone(), cfg.agent_id.clone());
     let wal_instance = wal::Wal::new(cfg.wal_path.as_deref());

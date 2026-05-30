@@ -58,16 +58,51 @@ fn prepare_connection_target(url: &str) -> Option<NatsConnectionTarget> {
     Some(NatsConnectionTarget { server_url, auth })
 }
 
+/// Surface asynchronous NATS connection events as logs.
+///
+/// `client.publish(...)` on a core-NATS subject is fire-and-forget: a
+/// server-side rejection (e.g. a Permissions Violation when a connection
+/// publishes to a subject its JWT did not grant) is delivered out-of-band to
+/// this callback, NOT as a `publish()` error. Without it such a rejection is
+/// invisible. This matters for the #457 event-ingest namespacing: if a
+/// sidecar's published `events.ingest.<kind>.<uuid>` ever diverges from the
+/// kind the auth callout granted, every event would be dropped server-side
+/// with no local signal. Logging the server error makes that condition
+/// debuggable instead of silent.
+async fn log_nats_event(event: async_nats::Event) {
+    match event {
+        async_nats::Event::ServerError(err) => {
+            tracing::error!(%err, "NATS server error (a publish/subscribe may have been rejected — e.g. a subject not granted to this connection)");
+        }
+        async_nats::Event::ClientError(err) => {
+            tracing::warn!(%err, "NATS client error");
+        }
+        async_nats::Event::Disconnected => tracing::warn!("NATS disconnected"),
+        async_nats::Event::Connected => tracing::info!("NATS (re)connected"),
+        other => tracing::debug!(event = ?other, "NATS connection event"),
+    }
+}
+
 pub async fn connect_nats(url: &str) -> Result<async_nats::Client, async_nats::ConnectError> {
     let Some(target) = prepare_connection_target(url) else {
-        return async_nats::connect(url).await;
+        return async_nats::ConnectOptions::new().event_callback(log_nats_event).connect(url).await;
     };
 
     match target.auth {
-        NatsAuth::None => async_nats::connect(target.server_url).await,
-        NatsAuth::Token(token) => async_nats::ConnectOptions::with_token(token).connect(target.server_url).await,
+        NatsAuth::None => {
+            async_nats::ConnectOptions::new().event_callback(log_nats_event).connect(target.server_url).await
+        }
+        NatsAuth::Token(token) => {
+            async_nats::ConnectOptions::with_token(token)
+                .event_callback(log_nats_event)
+                .connect(target.server_url)
+                .await
+        }
         NatsAuth::UserPassword { user, password } => {
-            async_nats::ConnectOptions::with_user_and_password(user, password).connect(target.server_url).await
+            async_nats::ConnectOptions::with_user_and_password(user, password)
+                .event_callback(log_nats_event)
+                .connect(target.server_url)
+                .await
         }
     }
 }
