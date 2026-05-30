@@ -9,14 +9,23 @@ issue so nothing is lost to the spec archive. This table is the index.
 | ------------ | ----------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | DDD C1       | Model `AgentRuntime` as a sum type with per-variant value objects | [#455](https://github.com/Wisdoverse/Wisdoverse-Forge/issues/455) | ✅ closed — PR #470                                                                                           |
 | DDD C6       | `EnrolledHostCli` typestate for NATS-bound operations             | [#456](https://github.com/Wisdoverse/Wisdoverse-Forge/issues/456) | ✅ closed — PR #471                                                                                           |
-| Platform C7  | Namespace NATS subjects by runtime kind                           | [#457](https://github.com/Wisdoverse/Wisdoverse-Forge/issues/457) | open (design shipped #450) — HIGH-risk live-topology change; needs staged dual-subscribe multi-deploy rollout |
+| Platform C7  | Namespace NATS subjects by runtime kind                           | [#457](https://github.com/Wisdoverse/Wisdoverse-Forge/issues/457) | 🟡 phase 1 shipped (`events.ingest`, additive/zero-outage); phase 1b (`orchestration.result`/`assigned`) deferred pending stream-wildcard widening; legacy-drop flip is a later post-observation deploy |
 | Platform C4  | HMAC envelope replay protection                                   | [#458](https://github.com/Wisdoverse/Wisdoverse-Forge/issues/458) | ✅ closed — PR #472 (reconcile found+fixed a real event-ingest verify gap)                                    |
 | Platform C2  | Sidecar binary supply chain — complete operator-verify loop       | [#459](https://github.com/Wisdoverse/Wisdoverse-Forge/issues/459) | ✅ closed — PR #469 (container-image cosign + verify-image)                                                   |
 | Architect C7 | Benchmark `RuntimeKind` serde on the agent-list hot path          | [#460](https://github.com/Wisdoverse/Wisdoverse-Forge/issues/460) | ✅ closed — measured, no action (see below)                                                                   |
 | PM C4        | Admin UI filter + projection field for `runtime_kind`             | [#461](https://github.com/Wisdoverse/Wisdoverse-Forge/issues/461) | ✅ closed — PR #468                                                                                           |
 | Ops          | Staging dry-run of migration 062-065 sequence                     | [#462](https://github.com/Wisdoverse/Wisdoverse-Forge/issues/462) | open — environment-blocked (needs live staging)                                                               |
 
-**6 of 8 closed.** Remaining: **#457** (NATS subject namespacing — held for a dedicated session: rewrites the live pub/sub auth topology + callout permission grants, requires a staged dual-subscribe multi-deploy rollout that cannot be validated inside a PR) and **#462** (environment-blocked on live staging).
+**6 of 8 closed; #457 partially shipped.** Remaining work: **#457 phase 1b**
+(`orchestration.result` / `orchestration.assigned` namespacing — blocked on first
+widening those JetStream stream subjects from single-token `.*` to multi-token
+`.>`, then a later legacy-drop deploy once the
+`agentforge_nats_legacy_subject_received_total` drain metric holds at zero) and
+**#462** (staging dry-run; see migration-062 runbook). #457 **phase 1**
+(`events.ingest`) shipped additively with zero outage: new sidecars publish the
+kind-namespaced subject, the callout grants both shapes kind-scoped, and the
+platform consumer accepts both while counting legacy receipts. See
+`docs/architecture/nats-subjects.md`.
 
 ## Shipped follow-ups (no longer deferred)
 

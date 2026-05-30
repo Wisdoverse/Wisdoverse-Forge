@@ -43,6 +43,7 @@ use uuid::Uuid;
 use agentforge_api::services::auth_callout::{AuthCalloutWorker, ConnectionTracker};
 use agentforge_core::NatsCalloutConfig;
 use agentforge_jobs::NatsConnectPasswordLookup;
+use agentforge_jobs::auth_lookup::AgentNatsIdentity;
 
 /// Best-effort connect helper mirroring the pattern used by
 /// `crates/jobs/tests/orchestration_result_contract.rs`. Returns `None`
@@ -54,12 +55,12 @@ async fn try_connect(url: &str) -> Option<async_nats::Client> {
     }
 }
 
-/// Static password map for the worker's lookup. Mirrors the fake from
+/// Static identity map for the worker's lookup. Mirrors the fake from
 /// `handler.rs` but lives in the integration-test scope so we can plug it
-/// into the real `AuthCalloutWorker::new(...)`.
+/// into the real `AuthCalloutWorker::new(...)`. Stores `(password, runtime_kind)`.
 #[derive(Clone, Default)]
 struct FakeLookup {
-    inner: Arc<Mutex<HashMap<Uuid, String>>>,
+    inner: Arc<Mutex<HashMap<Uuid, AgentNatsIdentity>>>,
 }
 
 impl FakeLookup {
@@ -68,14 +69,17 @@ impl FakeLookup {
     // assertion will pre-seed a known agent here. Quiet the dead-code
     // lint for now so `cargo test` stays warning-free.
     #[allow(dead_code)]
-    async fn insert(&self, id: Uuid, password: &str) {
-        self.inner.lock().await.insert(id, password.to_string());
+    async fn insert(&self, id: Uuid, password: &str, runtime_kind: &str) {
+        self.inner
+            .lock()
+            .await
+            .insert(id, AgentNatsIdentity { password: password.to_string(), runtime_kind: runtime_kind.to_string() });
     }
 }
 
 #[async_trait]
 impl NatsConnectPasswordLookup for FakeLookup {
-    async fn find_password(&self, agent_id: Uuid) -> Result<Option<String>> {
+    async fn find_identity(&self, agent_id: Uuid) -> Result<Option<AgentNatsIdentity>> {
         Ok(self.inner.lock().await.get(&agent_id).cloned())
     }
 }
@@ -288,7 +292,7 @@ async fn callout_forged_connect_succeeds_against_callout_nats() {
     let agent_id = Uuid::new_v4();
     let test_connect_token = "e2e-nats-connect-fixture".to_string();
     let lookup = FakeLookup::default();
-    lookup.insert(agent_id, &test_connect_token).await;
+    lookup.insert(agent_id, &test_connect_token, "container").await;
 
     // URL includes the auth_service creds — `AuthCalloutWorker::new`
     // rewrites them into the AUTH-account URL internally, but it
