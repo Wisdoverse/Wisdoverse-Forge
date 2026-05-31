@@ -19,7 +19,7 @@ use agentforge_core::CliToolKind;
 use agentforge_core::RuntimeKind;
 use agentforge_core::orchestration_protocol::{
     ORCHESTRATION_ASSIGNMENTS_STREAM, RESULT_SUBJECT_PREFIX, SignedEnvelope, TaskAssignment, TaskOutcome, TaskResult,
-    assign_subject, assignment_consumer_name,
+    assign_subject_kind, assignment_consumer_name,
 };
 use anyhow::{Context, Result};
 use async_nats::Client;
@@ -403,6 +403,9 @@ pub struct OrchestrationSubscriber {
     inbox: AssignmentInbox,
     execution_gate: AssignmentExecutionGate,
     result_subject_prefix: String,
+    /// This agent's runtime kind, used to bind the per-agent assignment durable
+    /// to the #457 kind-namespaced filter `orchestration.assigned.<kind>.<uuid>`.
+    runtime_kind: RuntimeKind,
 }
 
 impl OrchestrationSubscriber {
@@ -433,6 +436,7 @@ impl OrchestrationSubscriber {
             // stream is widened, so a result is delayed-not-lost on deploy-order
             // skew — cleaner than emitting two WorkQueue messages per result.
             result_subject_prefix: namespaced_result_prefix(runtime_kind),
+            runtime_kind,
         }
     }
 
@@ -454,7 +458,18 @@ impl OrchestrationSubscriber {
                 return;
             }
         };
-        let subject = assign_subject(agent_id);
+        // #457 phase 1c: bind the per-agent durable to the kind-namespaced
+        // assignment subject. SINGLE filter_subject (NOT filter_subjects plural)
+        // — the singular form keeps the filter token inside the
+        // $JS.API.CONSUMER.CREATE subject, which is the security boundary that
+        // pins this consumer to the agent's OWN subject (the callout grants
+        // exactly that string). create_consumer_on_stream is CreateOrUpdate and
+        // swaps an existing durable's legacy filter to the namespaced one IN
+        // PLACE on nats-server 2.10+ (no delete/recreate; in-flight un-acked
+        // assignments survive). The platform dual-publishes both shapes during
+        // the drain, so an as-yet-unrestarted sidecar still on the legacy filter
+        // keeps receiving the legacy copy.
+        let subject = assign_subject_kind(self.runtime_kind, agent_id);
         let durable = assignment_consumer_name(agent_id);
         let jetstream = jetstream::new(self.client.clone());
 
@@ -1048,6 +1063,7 @@ mod tests {
             message: String::new(),
             priority: "normal".into(),
             context_envelope: None,
+            runtime_kind: None,
         }
     }
 
