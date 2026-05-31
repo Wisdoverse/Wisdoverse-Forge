@@ -21,6 +21,7 @@
 //! only Docker. Notification in this increment is via a structured `warn!` event
 //! + Prometheus metrics (an admin status API + UI are a tracked follow-up).
 
+use std::collections::BTreeMap;
 use std::env;
 use std::sync::Arc;
 use std::time::Duration;
@@ -28,7 +29,42 @@ use std::time::Duration;
 use agentforge_core::CliToolKind;
 use agentforge_platform::DockerClient;
 use agentforge_platform::container::PlatformError;
-use tokio::sync::watch;
+use tokio::sync::{RwLock, watch};
+
+/// Per-tool image-update state, surfaced read-only by `GET /admin/cli-images`.
+#[derive(Debug, Clone, Default)]
+pub struct CliToolImageState {
+    /// `up_to_date` | `updated` | `failed`.
+    pub state: String,
+    pub local_digest: Option<String>,
+    pub remote_digest: Option<String>,
+    pub last_checked_unix: Option<i64>,
+    pub last_updated_unix: Option<i64>,
+    pub last_error: Option<String>,
+}
+
+/// Shared in-memory snapshot of the latest per-tool update state. Written by the
+/// worker each tick, read by the admin status endpoint. Deployment-global
+/// (image state is per host, not per org), so it carries no tenant scope.
+#[derive(Debug, Default)]
+pub struct CliImageUpdateStatus {
+    tools: RwLock<BTreeMap<String, CliToolImageState>>,
+}
+
+impl CliImageUpdateStatus {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// A clone of the current per-tool states (cheap; a handful of tools).
+    pub async fn snapshot(&self) -> BTreeMap<String, CliToolImageState> {
+        self.tools.read().await.clone()
+    }
+
+    async fn record(&self, tool: &str, state: CliToolImageState) {
+        self.tools.write().await.insert(tool.to_string(), state);
+    }
+}
 
 /// Default poll cadence (15 min). CLI publishers ship at most a few times per
 /// week, so this is well clear of registry rate limits while still observing a
@@ -49,27 +85,53 @@ fn pollable_tools() -> impl Iterator<Item = CliToolKind> {
     CliToolKind::ALL.into_iter().filter(|tool| !matches!(tool, CliToolKind::Claude))
 }
 
+/// Canonical pollable tool names (`CliToolKind::ALL` minus `claude`). The single
+/// source of truth shared by the worker's poll loop and the admin status
+/// projection, so the endpoint can never list a tool the worker won't poll.
+pub fn pollable_tool_names() -> Vec<&'static str> {
+    pollable_tools().map(|tool| tool.as_str()).collect()
+}
+
+/// The registry base the updater pulls overlays from (`AGENT_REGISTRY`, else the
+/// built-in GHCR default). Surfaced for the admin status endpoint so operators
+/// see the exact ref source without re-deriving the env convention.
+pub fn configured_registry() -> String {
+    non_empty_env("AGENT_REGISTRY").unwrap_or_else(|| DEFAULT_REGISTRY.to_string())
+}
+
+/// The image tag the updater tracks (`AGENT_CLI_IMAGE_TAG`, else `latest`).
+pub fn configured_image_tag() -> String {
+    non_empty_env("AGENT_CLI_IMAGE_TAG").unwrap_or_else(|| DEFAULT_CLI_IMAGE_TAG.to_string())
+}
+
+/// The cadence the worker will ACTUALLY poll at for a configured value, after
+/// the `MIN_INTERVAL` floor. The single source of truth shared by the worker
+/// (`with_interval`) and the admin status projection, so the panel never
+/// reports a faster cadence than the worker runs.
+pub fn effective_interval_secs(configured_secs: u64) -> u64 {
+    configured_secs.max(MIN_INTERVAL.as_secs())
+}
+
 pub struct CliImageUpdater {
     docker: Arc<DockerClient>,
+    status: Arc<CliImageUpdateStatus>,
     interval: Duration,
 }
 
 impl CliImageUpdater {
-    pub fn new(docker: Arc<DockerClient>) -> Self {
-        Self { docker, interval: DEFAULT_INTERVAL }
+    pub fn new(docker: Arc<DockerClient>, status: Arc<CliImageUpdateStatus>) -> Self {
+        Self { docker, status, interval: DEFAULT_INTERVAL }
     }
 
     pub fn with_interval(mut self, interval: Duration) -> Self {
-        self.interval = if interval < MIN_INTERVAL {
+        if interval < MIN_INTERVAL {
             tracing::warn!(
                 requested_secs = interval.as_secs(),
                 floor_secs = MIN_INTERVAL.as_secs(),
                 "cli image auto-update interval below floor; clamping to avoid hammering the registry"
             );
-            MIN_INTERVAL
-        } else {
-            interval
-        };
+        }
+        self.interval = Duration::from_secs(effective_interval_secs(interval.as_secs()));
         self
     }
 
@@ -92,14 +154,47 @@ impl CliImageUpdater {
     }
 
     /// One poll sweep. Each tool is checked independently — one tool's registry
-    /// hiccup never aborts the others.
+    /// hiccup never aborts the others — and the per-tool result is recorded into
+    /// the shared status snapshot the admin endpoint serves.
     async fn poll_once(&self) {
+        let now = chrono::Utc::now().timestamp();
+        let prior = self.status.snapshot().await;
         for tool in pollable_tools() {
-            if let Err(err) = self.check_and_update(tool).await {
-                tracing::warn!(tool = tool.as_str(), error = %err, "cli image update check failed");
-                metrics::counter!("agentforge_cli_image_pull_total", "tool" => tool.as_str(), "result" => "failed")
-                    .increment(1);
-            }
+            let prev = prior.get(tool.as_str());
+            let state = match self.check_and_update(tool).await {
+                Ok(UpdateOutcome::UpToDate { digest }) => CliToolImageState {
+                    state: "up_to_date".to_string(),
+                    local_digest: Some(digest.clone()),
+                    remote_digest: Some(digest),
+                    last_checked_unix: Some(now),
+                    last_updated_unix: prev.and_then(|p| p.last_updated_unix),
+                    last_error: None,
+                },
+                Ok(UpdateOutcome::Updated { to, .. }) => CliToolImageState {
+                    state: "updated".to_string(),
+                    local_digest: Some(to.clone()),
+                    remote_digest: Some(to),
+                    last_checked_unix: Some(now),
+                    last_updated_unix: Some(now),
+                    last_error: None,
+                },
+                Err(err) => {
+                    tracing::warn!(tool = tool.as_str(), error = %err, "cli image update check failed");
+                    metrics::counter!("agentforge_cli_image_pull_total", "tool" => tool.as_str(), "result" => "failed")
+                        .increment(1);
+                    CliToolImageState {
+                        state: "failed".to_string(),
+                        // carry forward the last-known digests so a transient
+                        // registry blip doesn't blank the operator's view.
+                        local_digest: prev.and_then(|p| p.local_digest.clone()),
+                        remote_digest: prev.and_then(|p| p.remote_digest.clone()),
+                        last_checked_unix: Some(now),
+                        last_updated_unix: prev.and_then(|p| p.last_updated_unix),
+                        last_error: Some(err.to_string()),
+                    }
+                }
+            };
+            self.status.record(tool.as_str(), state).await;
         }
     }
 
@@ -119,7 +214,7 @@ impl CliImageUpdater {
             metrics::counter!("agentforge_cli_image_pull_total", "tool" => tool.as_str(), "result" => "skipped")
                 .increment(1);
             tracing::debug!(tool = tool.as_str(), digest = %remote_digest, "cli image up to date");
-            return Ok(UpdateOutcome::UpToDate);
+            return Ok(UpdateOutcome::UpToDate { digest: remote_digest });
         }
 
         metrics::counter!("agentforge_cli_image_drift_detected_total", "tool" => tool.as_str()).increment(1);
@@ -158,7 +253,7 @@ impl CliImageUpdater {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum UpdateOutcome {
-    UpToDate,
+    UpToDate { digest: String },
     Updated { from: Option<String>, to: String },
 }
 
@@ -188,9 +283,7 @@ pub fn register_metrics() {
 /// `watch-cli-versions.yml` workflow publishes. Registry + tag come from raw env
 /// (matching the Makefile's `AGENT_REGISTRY` / overlay-`:latest` convention).
 fn remote_ref(tool: &str) -> String {
-    let registry = non_empty_env("AGENT_REGISTRY").unwrap_or_else(|| DEFAULT_REGISTRY.to_string());
-    let tag = non_empty_env("AGENT_CLI_IMAGE_TAG").unwrap_or_else(|| DEFAULT_CLI_IMAGE_TAG.to_string());
-    build_remote_ref(&registry, &tag, tool)
+    build_remote_ref(&configured_registry(), &configured_image_tag(), tool)
 }
 
 fn build_remote_ref(registry: &str, tag: &str, tool: &str) -> String {
@@ -245,6 +338,16 @@ mod tests {
         );
         // trailing slash on the registry is normalised
         assert_eq!(build_remote_ref("ghcr.io/org/", "1.2.3", "gemini"), "ghcr.io/org/agent-gemini:1.2.3");
+    }
+
+    #[test]
+    fn effective_interval_floors_below_minimum() {
+        // Below the floor clamps up; at/above passes through. Keeps the
+        // admin-reported cadence in lockstep with the worker's real cadence.
+        assert_eq!(effective_interval_secs(0), MIN_INTERVAL.as_secs());
+        assert_eq!(effective_interval_secs(5), MIN_INTERVAL.as_secs());
+        assert_eq!(effective_interval_secs(MIN_INTERVAL.as_secs()), MIN_INTERVAL.as_secs());
+        assert_eq!(effective_interval_secs(900), 900);
     }
 
     #[test]

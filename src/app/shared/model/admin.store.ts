@@ -5,7 +5,7 @@ import { getAuthFetch } from '@app/shared/api/legacy'
 // Types
 // ============================================================================
 
-export type AdminSection = 'users' | 'organizations' | 'agents' | 'health'
+export type AdminSection = 'users' | 'organizations' | 'agents' | 'health' | 'cli-images'
 
 /**
  * Canonical runtime-kind discriminator. Mirrors `AgentRuntimeKind` from
@@ -72,6 +72,38 @@ export interface SystemHealth {
   version?: string
 }
 
+/**
+ * One Container CLI tool's image-update state, as returned per-tool by
+ * `GET /api/v1/admin/cli-images`. `pending` means the auto-updater has not yet
+ * run a check for this tool (it is off by default).
+ */
+export type CliImageToolState = 'pending' | 'up_to_date' | 'updated' | 'failed'
+
+export interface CliImageTool {
+  tool: string
+  state: CliImageToolState
+  localDigest: string | null
+  remoteDigest: string | null
+  lastCheckedUnix: number | null
+  lastUpdatedUnix: number | null
+  lastError: string | null
+  /**
+   * Agents that currently have an associated container for this tool. A rough
+   * blast-radius hint; it does NOT assert which image digest each live
+   * container booted from.
+   */
+  agentsWithContainer: number
+}
+
+/** Full report from `GET /api/v1/admin/cli-images`. */
+export interface CliImageStatus {
+  autoUpdateEnabled: boolean
+  pollIntervalSecs: number
+  registry: string
+  imageTag: string
+  tools: CliImageTool[]
+}
+
 interface AdminState {
   // Navigation
   activeSection: AdminSection
@@ -101,6 +133,11 @@ interface AdminState {
   healthLoading: boolean
   healthError: string | null
 
+  // CLI agent images
+  cliImages: CliImageStatus | null
+  cliImagesLoading: boolean
+  cliImagesError: string | null
+
   // Actions
   setActiveSection: (section: AdminSection) => void
   setUserSearch: (search: string) => void
@@ -115,9 +152,11 @@ interface AdminState {
   setAgentRuntimeKindFilter: (filter: AdminAgentRuntimeKindFilter) => Promise<void>
 
   loadHealth: () => Promise<void>
+
+  loadCliImages: () => Promise<void>
 }
 
-type AdminResource = 'users' | 'organizations' | 'agents' | 'health'
+type AdminResource = 'users' | 'organizations' | 'agents' | 'health' | 'cli-images'
 
 class AdminUserFacingError extends Error {}
 
@@ -153,6 +192,8 @@ function adminResourceLabel(resource: AdminResource): string {
       return 'agent list'
     case 'health':
       return 'system health'
+    case 'cli-images':
+      return 'CLI agent images'
   }
 }
 
@@ -239,6 +280,10 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   health: null,
   healthLoading: false,
   healthError: null,
+
+  cliImages: null,
+  cliImagesLoading: false,
+  cliImagesError: null,
 
   setActiveSection: (activeSection) => set({ activeSection }),
   setUserSearch: (userSearch) => set({ userSearch }),
@@ -361,6 +406,37 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       set({ health: data, healthLoading: false })
     } catch (err) {
       set({ healthLoading: false, healthError: adminErrorMessage(err, 'health') })
+    }
+  },
+
+  // ---------------------------------------------------------------------------
+  // CLI agent images
+  // ---------------------------------------------------------------------------
+
+  loadCliImages: async () => {
+    set({ cliImagesLoading: true, cliImagesError: null })
+    try {
+      const res = await adminFetch('/api/v1/admin/cli-images')
+      if (!res.ok) {
+        throw userFacingError(
+          adminHttpErrorMessage('cli-images', res.status, await readAdminErrorPayload(res))
+        )
+      }
+      // Validate the `{ ok, data }` envelope before trusting it. A 200 with a
+      // missing/false `ok`, absent `data`, or non-array `tools` must surface as
+      // an error — not render a blank panel that looks like success.
+      const body = (await res.json().catch(() => null)) as {
+        ok?: boolean
+        data?: CliImageStatus
+      } | null
+      if (!body || body.ok === false || !body.data || !Array.isArray(body.data.tools)) {
+        throw userFacingError(
+          adminHttpErrorMessage('cli-images', res.status, (body ?? {}) as Record<string, unknown>)
+        )
+      }
+      set({ cliImages: body.data, cliImagesLoading: false })
+    } catch (err) {
+      set({ cliImagesLoading: false, cliImagesError: adminErrorMessage(err, 'cli-images') })
     }
   },
 }))

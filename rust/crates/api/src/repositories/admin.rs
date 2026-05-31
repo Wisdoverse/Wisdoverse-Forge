@@ -343,6 +343,25 @@ impl AdminRepository {
 
         Ok(AdminStats { total_users, total_agents, total_events, total_organizations })
     }
+
+    /// Count agents that currently have an associated container, grouped by
+    /// `cli_tool`, across ALL organizations. Deployment-global on purpose: the
+    /// CLI image auto-updater status is per host, not per tenant, so this
+    /// intentionally spans orgs (it is only reachable from the admin-gated
+    /// status endpoint). `container_id IS NOT NULL` is the signal that a
+    /// container was provisioned for the agent — a rough blast-radius hint, NOT
+    /// an assertion about which image digest each container booted from.
+    pub async fn container_agent_counts_by_tool(&self) -> AppResult<Vec<(String, i64)>> {
+        let rows = sqlx::query_as::<_, (String, i64)>(
+            "SELECT cli_tool, COUNT(*) \
+             FROM agents \
+             WHERE cli_tool IS NOT NULL AND container_id IS NOT NULL \
+             GROUP BY cli_tool",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
 }
 
 /// System-wide statistics returned by the admin stats endpoint.

@@ -20,6 +20,7 @@ pub mod auth_callout;
 pub mod billing;
 pub mod cli_auth_proxy;
 pub mod cli_credential;
+pub mod cli_image;
 pub mod context;
 pub mod context_envelope;
 pub mod context_feature;
