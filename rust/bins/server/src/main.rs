@@ -320,10 +320,15 @@ async fn main() -> Result<()> {
     // daemon is available, periodically pulls newer `agent-<tool>:latest`
     // overlays so newly spawned agents use the current CLI. Running agents are
     // never touched. Skipped when docker is None (air-gapped / no daemon).
+    // Shared read-only status snapshot the worker writes each tick and the
+    // `GET /admin/cli-images` endpoint reads. Built unconditionally so the
+    // endpoint exists even when the worker is off (it then reports an empty
+    // set), and held in AppState independent of whether the worker spawned.
+    let cli_image_status = Arc::new(agentforge_jobs::CliImageUpdateStatus::new());
     let cli_image_updater_handle = if config.cli_image_auto_update_enabled {
         match docker.clone() {
             Some(client) => {
-                let worker = agentforge_jobs::CliImageUpdater::new(client)
+                let worker = agentforge_jobs::CliImageUpdater::new(client, cli_image_status.clone())
                     .with_interval(std::time::Duration::from_secs(config.cli_image_auto_update_interval_secs));
                 let worker_shutdown = shutdown_rx.clone();
                 Some(tokio::spawn(async move { worker.run(worker_shutdown).await }))
@@ -471,6 +476,7 @@ async fn main() -> Result<()> {
         context_resolver,
         context_features,
         inflight_prompts,
+        cli_image_status,
     };
 
     // CLI auth proxy refresh loop — every 4 hours, refresh tokens older than

@@ -1,0 +1,271 @@
+import { useEffect } from 'react'
+import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
+import {
+  useAdminStore,
+  type CliImageTool,
+  type CliImageToolState,
+} from '@app/shared/model/admin.store'
+
+// ============================================================================
+// Presentation helpers
+// ============================================================================
+
+/** Plain-language label per update state. */
+function stateLabel(state: CliImageToolState): string {
+  switch (state) {
+    case 'up_to_date':
+      return 'Up to date'
+    case 'updated':
+      return 'Just updated'
+    case 'failed':
+      return 'Check failed'
+    case 'pending':
+      return 'Not checked yet'
+  }
+}
+
+function stateTone(state: CliImageToolState): string {
+  if (state === 'failed') return 'bg-apple-red/10 text-apple-red'
+  if (state === 'up_to_date' || state === 'updated') return 'bg-apple-blue/10 text-apple-blue'
+  return 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
+}
+
+function stateDot(state: CliImageToolState): string {
+  if (state === 'failed') return 'bg-apple-red'
+  if (state === 'up_to_date' || state === 'updated') return 'bg-apple-blue'
+  return 'bg-gray-400'
+}
+
+/** `sha256:abcdef…` → `abcdef…` truncated for display. */
+function shortDigest(digest: string | null): string {
+  if (!digest) return '—'
+  const bare = digest.includes(':') ? (digest.split(':').pop() ?? digest) : digest
+  return bare.length > 12 ? `${bare.slice(0, 12)}…` : bare
+}
+
+/** Unix seconds → coarse "x ago" relative to now. */
+function relativeTime(unix: number | null): string {
+  if (!unix) return 'never'
+  const seconds = Math.max(0, Math.floor(Date.now() / 1000) - unix)
+  if (seconds < 60) return 'just now'
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
+  if (seconds < 86_400) return `${Math.floor(seconds / 3600)}h ago`
+  return `${Math.floor(seconds / 86_400)}d ago`
+}
+
+function StateBadge({ state, label }: { state: CliImageToolState; label?: string }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-ui-caption font-medium',
+        stateTone(state)
+      )}
+    >
+      <span className={cn('w-2 h-2 rounded-full flex-shrink-0', stateDot(state))} />
+      {label ?? stateLabel(state)}
+    </span>
+  )
+}
+
+// ============================================================================
+// Tool row
+// ============================================================================
+
+function ToolRow({ tool, enabled }: { tool: CliImageTool; enabled: boolean }) {
+  // `pending` means no check has recorded a result. Distinguish the common
+  // cause — auto-update is off, so nothing will ever check — from "enabled but
+  // the first tick hasn't run yet", so an operator can't read gray "pending" as
+  // "verified fine".
+  const pendingOff = tool.state === 'pending' && !enabled
+  const badgeLabel = pendingOff ? 'Not checked — updates off' : undefined
+
+  return (
+    <div className={cn('grid gap-3 px-4 py-3 sm:grid-cols-[1fr_auto]', uiStyles.row)}>
+      <div className="flex min-w-0 gap-3">
+        <span className={cn('mt-1.5 w-2 h-2 rounded-full flex-shrink-0', stateDot(tool.state))} />
+        <div className="min-w-0">
+          <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+            {tool.tool}
+          </p>
+          <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+            {tool.agentsWithContainer === 1
+              ? '1 agent currently has a container for this tool'
+              : `${tool.agentsWithContainer} agents currently have a container for this tool`}
+          </p>
+          {tool.state === 'pending' ? (
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {enabled
+                ? 'No result yet — the first check has not finished.'
+                : 'This image has never been checked because automatic updates are off.'}
+            </p>
+          ) : (
+            <div className="mt-1 grid gap-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {/* The locally-pulled image the NEXT agent will start from — not
+                  necessarily what already-running agents booted from. */}
+              <span className="font-mono">next-agent image: {shortDigest(tool.localDigest)}</span>
+              <span className="font-mono">
+                latest in registry: {shortDigest(tool.remoteDigest)}
+              </span>
+              <span>last checked {relativeTime(tool.lastCheckedUnix)}</span>
+            </div>
+          )}
+          {tool.state === 'failed' && tool.lastError && (
+            <div className="mt-2 rounded-card border border-apple-red/20 bg-apple-red/[0.04] px-3 py-2">
+              <p className="text-ui-caption text-foreground-light dark:text-foreground-dark">
+                Last check failed. New agents keep the current image until the next check succeeds.
+              </p>
+              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                Reported detail: {tool.lastError}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="flex items-start sm:items-center shrink-0 ml-4">
+        <StateBadge state={tool.state} label={badgeLabel} />
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// Config banner
+// ============================================================================
+
+function ConfigBanner({
+  enabled,
+  intervalSecs,
+  registry,
+  imageTag,
+}: {
+  enabled: boolean
+  intervalSecs: number
+  registry: string
+  imageTag: string
+}) {
+  const intervalLabel =
+    intervalSecs < 120 ? `${intervalSecs}s` : `${Math.round(intervalSecs / 60)} min`
+
+  return (
+    <div
+      className={cn(
+        'mb-6 flex items-start gap-3 rounded-card border px-4 py-3',
+        enabled
+          ? 'border-apple-blue/20 bg-apple-blue/10'
+          : 'border-black/[0.08] bg-black/[0.03] dark:border-white/[0.08] dark:bg-white/[0.03]'
+      )}
+    >
+      <span
+        className={cn('mt-1 w-2.5 h-2.5 rounded-full', enabled ? 'bg-apple-blue' : 'bg-[#86868b]')}
+      />
+      <div className="min-w-0">
+        <p
+          className={cn(
+            'text-ui-body font-medium',
+            enabled ? 'text-apple-blue' : 'text-secondary-light dark:text-secondary-dark'
+          )}
+        >
+          {enabled ? 'Automatic updates are on' : 'Automatic updates are off'}
+        </p>
+        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {enabled
+            ? `This server checks for newer agent images about every ${intervalLabel} and pulls them so new agents start on the latest CLI. Running agents are never interrupted.`
+            : 'New agents keep using the image that was last pulled. Turn on CLI_IMAGE_AUTO_UPDATE_ENABLED in the deployment config to check and pull automatically.'}
+        </p>
+        <p className="mt-1 text-ui-caption font-mono text-secondary-light dark:text-secondary-dark">
+          source: {registry}/agent-&lt;tool&gt;:{imageTag}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// CliImagesPanel
+// ============================================================================
+
+export function CliImagesPanel() {
+  const { cliImages, cliImagesLoading, cliImagesError, loadCliImages } = useAdminStore()
+
+  useEffect(() => {
+    void loadCliImages()
+    const interval = setInterval(() => void loadCliImages(), 30_000)
+    return () => clearInterval(interval)
+  }, [loadCliImages])
+
+  return (
+    <div>
+      <div className={uiStyles.sectionHeader}>
+        <div>
+          <h2 className={uiStyles.sectionTitle}>CLI agent images</h2>
+          <p className={uiStyles.sectionDescription}>
+            Shows whether each Container CLI image (codex, gemini, opencode) is current. Refreshes
+            every 30 seconds.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void loadCliImages()}
+          disabled={cliImagesLoading}
+          className={uiStyles.secondaryButton}
+        >
+          {cliImagesLoading ? 'Checking...' : 'Check now'}
+        </button>
+      </div>
+
+      {cliImagesError && !cliImages && (
+        <div className={uiStyles.error}>
+          Could not load CLI image status. Try Check now again or confirm the API is reachable.
+          <span className="mt-1 block text-ui-caption">{cliImagesError}</span>
+        </div>
+      )}
+
+      {cliImagesLoading && !cliImages && (
+        <div className="flex items-center justify-center py-12">
+          <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
+            Checking CLI image status...
+          </p>
+        </div>
+      )}
+
+      {/* A failed background refresh after a first success leaves stale data on
+          screen. Surface that so the operator never reads minutes-old digests
+          as current. */}
+      {cliImagesError && cliImages && (
+        <div className={cn(uiStyles.error, 'mb-4')}>
+          The status below may be out of date — the latest refresh failed.
+          <span className="mt-1 block text-ui-caption">{cliImagesError}</span>
+        </div>
+      )}
+
+      {cliImages && (
+        <>
+          <ConfigBanner
+            enabled={cliImages.autoUpdateEnabled}
+            intervalSecs={cliImages.pollIntervalSecs}
+            registry={cliImages.registry}
+            imageTag={cliImages.imageTag}
+          />
+
+          <div className={cn(uiStyles.card)}>
+            {cliImages.tools.length === 0 ? (
+              <p className="px-4 py-6 text-ui-body text-secondary-light dark:text-secondary-dark">
+                No pollable CLI tools are configured.
+              </p>
+            ) : (
+              cliImages.tools.map((tool) => (
+                <ToolRow key={tool.tool} tool={tool} enabled={cliImages.autoUpdateEnabled} />
+              ))
+            )}
+          </div>
+
+          <p className="mt-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            “Agents with a container” is a rough hint of how many agents are running for each tool —
+            it does not confirm which exact image each one started from.
+          </p>
+        </>
+      )}
+    </div>
+  )
+}

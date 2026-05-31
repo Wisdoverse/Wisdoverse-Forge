@@ -31,6 +31,9 @@ function resetAdminState() {
     health: null,
     healthLoading: false,
     healthError: null,
+    cliImages: null,
+    cliImagesLoading: false,
+    cliImagesError: null,
   })
 }
 
@@ -87,6 +90,50 @@ describe('useAdminStore loading errors', () => {
 
     expect(useAdminStore.getState().healthError).toBe(
       'The admin service had a server problem. Try again after the backend is healthy. Code: 503. Details: health database unavailable'
+    )
+  })
+
+  test('loads the CLI image status report on success', async () => {
+    authFetchMock.mockResolvedValue(
+      response(200, {
+        ok: true,
+        data: {
+          autoUpdateEnabled: false,
+          pollIntervalSecs: 900,
+          registry: 'ghcr.io/wisdoverse/wisdoverse-forge',
+          imageTag: 'latest',
+          tools: [
+            {
+              tool: 'codex',
+              state: 'pending',
+              localDigest: null,
+              remoteDigest: null,
+              lastCheckedUnix: null,
+              lastUpdatedUnix: null,
+              lastError: null,
+              agentsWithContainer: 0,
+            },
+          ],
+        },
+      })
+    )
+
+    await useAdminStore.getState().loadCliImages()
+
+    const { cliImages, cliImagesError } = useAdminStore.getState()
+    expect(cliImagesError).toBeNull()
+    expect(cliImages?.autoUpdateEnabled).toBe(false)
+    expect(cliImages?.tools).toHaveLength(1)
+    expect(cliImages?.tools[0]?.tool).toBe('codex')
+  })
+
+  test('stores a permission step when CLI image status is forbidden', async () => {
+    authFetchMock.mockResolvedValue(response(403, { error: 'admin only' }))
+
+    await useAdminStore.getState().loadCliImages()
+
+    expect(useAdminStore.getState().cliImagesError).toBe(
+      'You do not have permission to view admin CLI agent images. Ask an owner to update your admin role. Code: 403. Details: admin only'
     )
   })
 
