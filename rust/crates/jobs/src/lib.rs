@@ -29,6 +29,7 @@
 //! ```
 
 pub mod auth_lookup;
+pub mod cli_image_updater;
 pub mod credential_consumer;
 pub mod dependency_reconcile;
 pub mod event_consumer;
@@ -41,6 +42,7 @@ pub mod queue;
 pub mod worker;
 
 pub use auth_lookup::{AgentNatsIdentity, NatsConnectPasswordLookup, SqlxNatsConnectPasswordLookup};
+pub use cli_image_updater::{CliImageUpdater, DEFAULT_INTERVAL as CLI_IMAGE_UPDATE_DEFAULT_INTERVAL};
 pub use credential_consumer::{
     AgentOwner, AgentOwnerLookup, CredentialStreamWorker, CredentialWriter, HandleError as CredentialHandleError,
     SqlxAgentOwnerLookup, SqlxHmacSecretLookup as SqlxCredentialHmacSecretLookup, credentials_filter,
@@ -74,6 +76,7 @@ pub use worker::Worker;
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn register_metrics() {
+    cli_image_updater::register_metrics();
     credential_consumer::register_metrics();
     event_consumer::register_metrics();
     orchestration_metrics::register_metrics();
