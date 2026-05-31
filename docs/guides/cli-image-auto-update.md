@@ -28,7 +28,7 @@ A background worker (`CliImageUpdater`) periodically, for each public CLI tool
    agent uses the new CLI.
 
 > If you pin `CONTAINER_IMAGE_<TOOL>` to a custom registry ref, that ref is
-> *not* auto-updated (a pin is treated as an explicit opt-out); the updater only
+> _not_ auto-updated (a pin is treated as an explicit opt-out); the updater only
 > manages the `agentforge-agent:<tool>` convention ref.
 
 **Running agents are never interrupted** — only the image the next spawn resolves
@@ -52,6 +52,20 @@ is reused (no token is plumbed into the Rust process).
 
 ## Observe
 
+- **Admin status API**: `GET /api/v1/admin/cli-images` (admin-gated) returns a
+  per-tool report — `state` (`pending` | `up_to_date` | `updated` | `failed`),
+  the local and remote manifest digests, last-checked / last-updated timestamps,
+  the last error, and `agentsWithContainer` (a rough per-tool live-container
+  count; it does NOT assert which digest each container booted from). The report
+  also echoes `autoUpdateEnabled`, `pollIntervalSecs`, `registry`, and
+  `imageTag` (JSON is camelCase). Every pollable tool appears even before the
+  first tick (as `pending`); `claude` is never listed.
+
+  ```bash
+  curl -s -H "Authorization: Bearer $ADMIN_JWT" \
+    http://localhost:4003/api/v1/admin/cli-images | jq .
+  ```
+
 - Log: `cli agent image updated tool=codex from=sha256:… to=sha256:…` (warn).
 - Metrics: `agentforge_cli_image_pull_total{tool,result=success|skipped|failed}`,
   `agentforge_cli_image_drift_detected_total{tool}`,
@@ -66,8 +80,6 @@ secret surface for public images.
 
 ## Deferred (follow-ups, not in this increment)
 
-- **Admin status API + UI**: `GET /admin/cli-images` (current vs available digest,
-  per-tool stale-agent count) and a read-only admin panel. Today: logs + metrics.
 - **Manual roll**: `POST /admin/cli-images/{tool}/roll` to drain+respawn running
   agents of one tool onto the new image (operator-initiated; never automatic).
 - **Live WebSocket toast** for admins when an update lands.

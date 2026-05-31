@@ -11,6 +11,7 @@ pub(crate) mod auth;
 pub mod auth_callout;
 pub(crate) mod billing;
 pub(crate) mod cli_auth_proxy;
+pub(crate) mod cli_image;
 pub(crate) mod configuration;
 pub(crate) mod context;
 pub(crate) mod context_envelope;

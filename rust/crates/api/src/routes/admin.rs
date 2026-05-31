@@ -10,6 +10,7 @@
 //! - `POST   /api/v1/admin/impersonate/end`    — end impersonation
 //! - `GET    /api/v1/admin/impersonation-log`  — list impersonation history
 //! - `GET    /api/v1/admin/stats`              — system stats
+//! - `GET    /api/v1/admin/cli-images`         — CLI agent-image updater status
 
 use axum::extract::{Path, Query, State};
 use axum::routing::{get, post};
@@ -25,6 +26,7 @@ use crate::services::admin::{
     AdminAgentListInput, AdminService, admin_agent_detail_response, admin_agent_list_response,
     admin_bulk_delete_response, admin_data_response, admin_delete_response,
 };
+use crate::services::cli_image::cli_image_status_response;
 
 /// Query parameters for paginated admin endpoints.
 #[derive(Deserialize)]
@@ -232,6 +234,16 @@ async fn bulk_delete_admin_agents(
     Ok(Json(admin_bulk_delete_response(results)))
 }
 
+/// `GET /api/v1/admin/cli-images` — read-only status of the CLI agent-image
+/// auto-updater: per-tool image state, local/remote digests, last check/error,
+/// and a rough per-tool live-container count. Deployment-global (no tenant
+/// scope) since image state is per host; admin-gated.
+async fn list_cli_image_status(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
+    AdminService::require_admin(&auth.role)?;
+    let report = state.cli_image_service().status_report().await?;
+    Ok(Json(cli_image_status_response(report)))
+}
+
 /// Build admin routes sub-router.
 pub fn admin_routes() -> Router<AppState> {
     Router::new()
@@ -243,6 +255,7 @@ pub fn admin_routes() -> Router<AppState> {
         .route("/admin/impersonate/end", post(end_impersonation))
         .route("/admin/impersonation-log", get(list_impersonation_log))
         .route("/admin/stats", get(get_stats))
+        .route("/admin/cli-images", get(list_cli_image_status))
 }
 
 #[cfg(test)]
