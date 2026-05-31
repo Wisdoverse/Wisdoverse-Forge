@@ -93,6 +93,12 @@ pub struct AppState {
     /// or server-side interrupt). Held under `std::sync::Mutex` rather than
     /// `tokio::sync::Mutex` so `Drop` can do the cleanup without spawning.
     pub inflight_prompts: Arc<std::sync::Mutex<HashMap<AgentId, tokio::sync::oneshot::Sender<()>>>>,
+    /// Read-only snapshot of the CLI agent-image auto-updater's latest per-tool
+    /// state, served by `GET /admin/cli-images`. Always present (built in
+    /// `main`); the map is empty until the (default-off) worker runs a tick.
+    /// Deployment-global — image state is per host, not per org — so it carries
+    /// no tenant scope.
+    pub cli_image_status: Arc<agentforge_jobs::CliImageUpdateStatus>,
 }
 
 impl AppState {

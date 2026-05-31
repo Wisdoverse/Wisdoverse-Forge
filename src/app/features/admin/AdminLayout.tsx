@@ -5,6 +5,7 @@ import { UserManagement } from './UserManagement'
 import { OrganizationsPanel } from './OrganizationsPanel'
 import { AgentsPanel } from './AgentsPanel'
 import { SystemHealth } from './SystemHealth'
+import { CliImagesPanel } from './CliImagesPanel'
 
 // ============================================================================
 // Sidebar config
@@ -21,6 +22,7 @@ const SECTIONS: SectionItem[] = [
   { id: 'organizations', label: 'Organizations', group: 'Management' },
   { id: 'agents', label: 'Agents', group: 'Management' },
   { id: 'health', label: 'Service health', group: 'System status' },
+  { id: 'cli-images', label: 'CLI agent images', group: 'System status' },
 ]
 
 const GROUPS = ['Management', 'System status']
@@ -39,6 +41,8 @@ function SectionContent({ section }: { section: AdminSection }) {
       return <AgentsPanel />
     case 'health':
       return <SystemHealth />
+    case 'cli-images':
+      return <CliImagesPanel />
     default:
       return null
   }
