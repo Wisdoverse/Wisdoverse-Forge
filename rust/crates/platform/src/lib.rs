@@ -10,6 +10,7 @@
 pub mod container;
 pub mod docker;
 pub mod grpc;
+pub mod image;
 pub mod pool;
 pub mod security;
 pub mod types;
