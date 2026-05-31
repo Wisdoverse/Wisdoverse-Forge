@@ -30,6 +30,15 @@ pub enum PlatformError {
 
     #[error("Internal error: {0}")]
     Internal(String),
+
+    /// Pulling an image from its registry failed (network, auth, or the
+    /// registry rejected the request). Carries the daemon's message.
+    #[error("Image pull failed: {0}")]
+    Pull(String),
+
+    /// A registry/distribution inspect (remote digest lookup, no pull) failed.
+    #[error("Registry inspect failed: {0}")]
+    Registry(String),
 }
 
 impl PlatformError {
