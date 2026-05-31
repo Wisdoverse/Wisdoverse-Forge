@@ -16,7 +16,7 @@
 use agentforge_core::event_protocol::{events_ingest_legacy_subject, events_ingest_subject};
 use agentforge_core::orchestration_protocol::{
     assignment_consumer_ack_subject_pattern, assignment_consumer_create_subject, assignment_consumer_info_subject,
-    assignment_consumer_next_subject,
+    assignment_consumer_next_subject, result_subject, result_subject_kind,
 };
 use agentforge_core::runtime_capability::RuntimeKind;
 use uuid::Uuid;
@@ -39,7 +39,9 @@ use crate::domain::auth_callout::NatsPermissions;
 ///     while pre-#457 agent containers drain. Both shapes are additive; the
 ///     legacy grant is dropped in a later post-observation deploy.
 ///   - `sidecar.<uuid>.heartbeat` — liveness pings.
-///   - `orchestration.result.<uuid>` — task outcomes.
+///   - `orchestration.result.<kind>.<uuid>` — task outcomes, in the #457
+///     kind-namespaced shape (this agent's own `runtime_kind`), plus the legacy
+///     `orchestration.result.<uuid>` retained while pre-#457 containers drain.
 ///   - `creds.<uuid>` — Container CLI credential sync (issue #41).
 ///   - the exact four JetStream subjects needed to create/read/pull/ack the
 ///     sidecar's own durable assignment consumer
@@ -68,7 +70,10 @@ pub fn build_agent_permissions(agent_id: Uuid, runtime_kind: RuntimeKind) -> Nat
             // Legacy un-namespaced ingest, retained during the migration window.
             events_ingest_legacy_subject(agent_id),
             format!("sidecar.{uuid}.heartbeat"),
-            format!("orchestration.result.{uuid}"),
+            // #457 phase 1b: kind-namespaced result, scoped to THIS agent's kind.
+            result_subject_kind(runtime_kind, agent_id),
+            // Legacy un-namespaced result, retained during the migration window.
+            result_subject(agent_id),
             format!("creds.{uuid}"),
             assignment_consumer_create_subject(agent_id),
             assignment_consumer_info_subject(agent_id),
@@ -259,6 +264,47 @@ mod tests {
                 "legacy ingest grant dropped for {kind:?} — would break draining containers",
             );
         }
+    }
+
+    #[test]
+    fn namespaced_result_subject_uses_agents_own_kind() {
+        // #457 phase 1b: the result grant carries the agent's own runtime_kind.
+        let a = uuid_of("11111111-2222-3333-4444-555555555555");
+        for (kind, token) in
+            [(RuntimeKind::Container, "container"), (RuntimeKind::Cli, "cli"), (RuntimeKind::Api, "api")]
+        {
+            let perms = build_agent_permissions(a, kind);
+            let expected = format!("orchestration.result.{token}.11111111-2222-3333-4444-555555555555");
+            assert!(perms.pub_allow.iter().any(|s| s == &expected), "missing namespaced result grant {expected}");
+        }
+    }
+
+    #[test]
+    fn legacy_result_subject_still_granted_during_migration() {
+        let a = uuid_of("11111111-2222-3333-4444-555555555555");
+        for kind in [RuntimeKind::Container, RuntimeKind::Cli, RuntimeKind::Api] {
+            let perms = build_agent_permissions(a, kind);
+            assert!(
+                perms.pub_allow.iter().any(|s| s == "orchestration.result.11111111-2222-3333-4444-555555555555"),
+                "legacy result grant dropped for {kind:?} — would break draining containers",
+            );
+        }
+    }
+
+    #[test]
+    fn agent_is_not_granted_other_kinds_result_subjects() {
+        // A cli agent must never be granted a container/api result subject nor a
+        // result kind-wildcard.
+        let a = uuid_of("11111111-2222-3333-4444-555555555555");
+        let perms = build_agent_permissions(a, RuntimeKind::Cli);
+        for forbidden_token in ["container", "api"] {
+            let forbidden = format!("orchestration.result.{forbidden_token}.11111111-2222-3333-4444-555555555555");
+            assert!(
+                !perms.pub_allow.iter().any(|s| s == &forbidden),
+                "cli agent granted other kind's result: {forbidden}"
+            );
+        }
+        assert!(!perms.pub_allow.iter().any(|s| s == "orchestration.result.>" || s == "orchestration.result.*"));
     }
 
     #[test]

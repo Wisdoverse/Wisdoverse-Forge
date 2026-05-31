@@ -18,6 +18,7 @@ use sha2::Sha256;
 use uuid::Uuid;
 
 use crate::context_envelope::ContextEnvelope;
+use crate::runtime_capability::RuntimeKind;
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -37,19 +38,91 @@ pub fn assign_subject(agent_id: Uuid) -> String {
 }
 
 /// Wildcard subject that matches assignments for every agent.
+///
+/// Multi-token (`.>`) so it captures BOTH the legacy `orchestration.assigned.<uuid>`
+/// (3-token) and the future #457 kind-namespaced `orchestration.assigned.<kind>.<uuid>`
+/// (4-token) shapes. The assigned producer/consumer/grants stay 3-token in
+/// phase 1b; widening only the stream subject now is behaviourally inert (the
+/// only assigned publisher still emits 3-token, which `.>` still captures) and
+/// de-risks the future assigned PR to a pure grant/parser change.
 pub fn assign_subject_wildcard() -> String {
-    format!("{ASSIGN_SUBJECT_PREFIX}.*")
+    format!("{ASSIGN_SUBJECT_PREFIX}.>")
 }
 
-/// NATS subject that carries a completion or failure result for the given agent.
+/// NATS subject that carries a completion or failure result for the given agent
+/// in the legacy (pre-#457) un-namespaced shape: `orchestration.result.<uuid>`.
 pub fn result_subject(agent_id: Uuid) -> String {
     format!("{RESULT_SUBJECT_PREFIX}.{agent_id}")
 }
 
+/// #457 kind-namespaced result subject: `orchestration.result.<kind>.<uuid>`.
+/// This is what current sidecars publish; `kind` is the publishing agent's
+/// own `runtime_kind`.
+pub fn result_subject_kind(kind: RuntimeKind, agent_id: Uuid) -> String {
+    format!("{RESULT_SUBJECT_PREFIX}.{}.{}", kind.as_str(), agent_id)
+}
+
 /// Wildcard subject the backend consumer subscribes to in order to receive
 /// results from every agent in every organization.
+///
+/// Multi-token (`.>`) so it captures BOTH the legacy `orchestration.result.<uuid>`
+/// (3-token) and the #457 namespaced `orchestration.result.<kind>.<uuid>`
+/// (4-token) shapes. Used by BOTH the JetStream stream subjects (streams.rs)
+/// AND the result consumer's filter_subject, so the two cannot drift.
 pub fn result_subject_wildcard() -> String {
-    format!("{RESULT_SUBJECT_PREFIX}.*")
+    format!("{RESULT_SUBJECT_PREFIX}.>")
+}
+
+/// A successfully parsed `orchestration.result` subject (issue #457 phase 1b).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ParsedResultSubject {
+    /// Trailing agent UUID — the result's owning agent regardless of shape, so
+    /// the consumer's subject-vs-envelope/payload cross-checks stay stable.
+    pub agent_id: Uuid,
+    /// `Some(kind)` for the namespaced shape; `None` for the legacy shape.
+    pub runtime_kind: Option<RuntimeKind>,
+}
+
+impl ParsedResultSubject {
+    /// True for the pre-#457 (un-namespaced) shape; drives the legacy-drain metric.
+    pub fn is_legacy(&self) -> bool {
+        self.runtime_kind.is_none()
+    }
+}
+
+/// Parse an `orchestration.result` subject into `(agent_id, runtime_kind?)`,
+/// accepting both the legacy 3-token (`orchestration.result.<uuid>`) and the
+/// #457 namespaced 4-token (`orchestration.result.<kind>.<uuid>`) shapes.
+///
+/// Mirrors `event_protocol::parse_events_ingest_subject`: anything else — wrong
+/// prefix, unknown kind token, non-UUID tail, wildcards, or extra trailing
+/// tokens — returns `None` so the caller rejects it as a forged/unsupported
+/// subject rather than guessing an identity.
+pub fn parse_result_subject(subject: &str) -> Option<ParsedResultSubject> {
+    parse_result_subject_with_prefix(subject, RESULT_SUBJECT_PREFIX)
+}
+
+/// Prefix-relative variant of [`parse_result_subject`]. The result consumer is
+/// generic over `subject_prefix` (integration tests isolate their JetStream
+/// stream under a custom prefix such as `orchestration.result.contract.<id>`),
+/// so the legacy-vs-namespaced shape is detected RELATIVE to `prefix`: the
+/// remainder after `prefix.` is either `<uuid>` (legacy) or `<kind>.<uuid>`
+/// (namespaced).
+pub fn parse_result_subject_with_prefix(subject: &str, prefix: &str) -> Option<ParsedResultSubject> {
+    let rest = subject.strip_prefix(prefix)?.strip_prefix('.')?;
+    let mut tokens = rest.split('.');
+    match (tokens.next(), tokens.next(), tokens.next()) {
+        // legacy: <prefix>.<uuid>
+        (Some(uuid), None, None) => {
+            Some(ParsedResultSubject { agent_id: Uuid::parse_str(uuid).ok()?, runtime_kind: None })
+        }
+        // namespaced: <prefix>.<kind>.<uuid>
+        (Some(kind), Some(uuid), None) => Some(ParsedResultSubject {
+            agent_id: Uuid::parse_str(uuid).ok()?,
+            runtime_kind: Some(RuntimeKind::parse_legacy(kind).ok()?),
+        }),
+        _ => None,
+    }
 }
 
 /// Durable consumer name used by one sidecar to resume its own assignment
@@ -206,9 +279,64 @@ mod tests {
     fn subjects_are_formatted_with_agent_id() {
         let id = Uuid::nil();
         assert_eq!(assign_subject(id), format!("orchestration.assigned.{id}"));
-        assert_eq!(assign_subject_wildcard(), "orchestration.assigned.*");
+        // #457 phase 1b: wildcards widened to multi-token `.>` so they capture
+        // the namespaced 4-token shape (stream subject + consumer filter).
+        assert_eq!(assign_subject_wildcard(), "orchestration.assigned.>");
         assert_eq!(result_subject(id), format!("orchestration.result.{id}"));
-        assert_eq!(result_subject_wildcard(), "orchestration.result.*");
+        assert_eq!(result_subject_wildcard(), "orchestration.result.>");
+    }
+
+    #[test]
+    fn namespaced_result_subject_uses_kind() {
+        let id = Uuid::parse_str("11111111-2222-3333-4444-555555555555").unwrap();
+        assert_eq!(
+            result_subject_kind(RuntimeKind::Cli, id),
+            "orchestration.result.cli.11111111-2222-3333-4444-555555555555"
+        );
+        assert_eq!(
+            result_subject_kind(RuntimeKind::Container, id),
+            "orchestration.result.container.11111111-2222-3333-4444-555555555555"
+        );
+    }
+
+    #[test]
+    fn parse_result_subject_accepts_legacy_and_namespaced() {
+        let id = Uuid::parse_str("11111111-2222-3333-4444-555555555555").unwrap();
+
+        let legacy = parse_result_subject("orchestration.result.11111111-2222-3333-4444-555555555555").unwrap();
+        assert_eq!(legacy.agent_id, id);
+        assert_eq!(legacy.runtime_kind, None);
+        assert!(legacy.is_legacy());
+
+        for (tok, kind) in [("container", RuntimeKind::Container), ("cli", RuntimeKind::Cli), ("api", RuntimeKind::Api)]
+        {
+            let parsed =
+                parse_result_subject(&format!("orchestration.result.{tok}.11111111-2222-3333-4444-555555555555"))
+                    .unwrap();
+            assert_eq!(parsed.agent_id, id);
+            assert_eq!(parsed.runtime_kind, Some(kind));
+            assert!(!parsed.is_legacy());
+        }
+        // round-trip the namespaced builder through the parser
+        let parsed = parse_result_subject(&result_subject_kind(RuntimeKind::Cli, id)).unwrap();
+        assert_eq!(parsed.runtime_kind, Some(RuntimeKind::Cli));
+    }
+
+    #[test]
+    fn parse_result_subject_rejects_bad_shapes() {
+        for bad in [
+            "orchestration.result.bogus.11111111-2222-3333-4444-555555555555", // unknown kind token
+            "orchestration.result.not-a-uuid",
+            "orchestration.result.cli.not-a-uuid",
+            "orchestration.result.cli", // kind but no uuid
+            "orchestration.result.>",
+            "orchestration.result.*",
+            "orchestration.result.cli.*",
+            "orchestration.result.cli.11111111-2222-3333-4444-555555555555.extra",
+            "orchestration.assigned.11111111-2222-3333-4444-555555555555", // wrong prefix
+        ] {
+            assert!(parse_result_subject(bad).is_none(), "should reject {bad}");
+        }
     }
 
     #[test]
