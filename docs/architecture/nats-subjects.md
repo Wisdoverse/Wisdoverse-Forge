@@ -31,9 +31,9 @@ auth-callout. The callout did not consider runtime_kind before #457.
 ## Namespaced shape
 
 ```
-events.ingest.<runtime_kind>.<uuid>          # e.g. events.ingest.cli.<uuid>
-orchestration.result.<runtime_kind>.<uuid>   # phase 1b (not yet shipped)
-orchestration.assigned.<runtime_kind>.<uuid> # phase 1b (not yet shipped)
+events.ingest.<runtime_kind>.<uuid>          # SHIPPED phase 1
+orchestration.result.<runtime_kind>.<uuid>   # SHIPPED phase 1b
+orchestration.assigned.<runtime_kind>.<uuid> # phase 1c (stream pre-widened; producer/consumer/grants still 3-token)
 ```
 
 with `<runtime_kind> ∈ {container, cli, api}`. The subject taxonomy and its
@@ -88,13 +88,57 @@ confirm the consumer is genuinely receiving traffic (non-zero event throughput
 into the `events` table / event-processing metrics) before flipping, so a silent
 consumer outage isn't mistaken for a drained legacy tail.
 
-## Phase 1b — `orchestration.result` / `orchestration.assigned` (DEFERRED)
+## Phase 1b — `orchestration.result` (SHIPPED, #457)
 
-These are intentionally NOT namespaced in #457 phase 1 because their JetStream
-streams use single-token wildcards (`orchestration.result.*`,
-`orchestration.assigned.*`). A 4-token namespaced subject would not match, so
-phase 1b must first widen those stream subjects to `.>` (a stream-config change)
-before the producer/consumer/callout can move. Tracked in
+Unlike `events.ingest`, the `ORCHESTRATION_RESULTS` JetStream stream and its
+consumer filter both used the single-token wildcard `orchestration.result.*`,
+which does not match a 4-token namespaced subject. Phase 1b widens both to `.>`.
+
+What shipped (sidecar → platform result envelope):
+
+1. **Stream + filter widen** — `result_subject_wildcard()` (and
+   `assign_subject_wildcard()`, pre-widened for phase 1c) become `.>`. The same
+   helper feeds both the stream subjects (`streams.rs`) and the result
+   consumer's `filter_subject`, so they cannot drift. `create_or_update_stream`
+   applies this as an **in-place** config update (verified against nats-server
+   2.12; precedent: `CREDENTIALS` already runs WorkQueue + `creds.>`). `.>` is a
+   strict superset of `.*`, so already-stored 3-token messages stay valid.
+2. **Durable filter migration (one-time)** — widening the consumer filter in
+   code is NOT enough: `get_or_create_consumer` returns an EXISTING durable
+   unchanged (empirically verified — the live `orchestration-result-handler`
+   keeps its `.*` filter). So the consumer bootstrap detects a stale filter and
+   **deletes + recreates** the durable. Safe: it is the single shared platform
+   consumer (not per-agent), recreated once at deploy; unacked WorkQueue
+   messages remain for redelivery.
+3. **Callout grant** — each agent is granted BOTH
+   `orchestration.result.<kind>.<uuid>` (its own kind) and the legacy
+   `orchestration.result.<uuid>`; cross-kind isolation as in phase 1.
+4. **Sidecar publish** — namespaced-only (the result has `delivery_id` dedup, so
+   no double-insert risk, but the durable result outbox retries any publish that
+   fails before the stream is widened — a result is delayed, never lost, on
+   deploy-order skew, so dual-publish is unnecessary churn).
+5. **Consumer** — `parse_result_subject` accepts both shapes; the trailing UUID
+   remains the authoritative identity (envelope + payload cross-checks + HMAC).
+   Legacy receipts count as
+   `agentforge_nats_legacy_subject_received_total{subject="orchestration.result"}`,
+   materialised at 0.
+
+Deploy ordering (REQUIRED): control plane before agent images, same as phase 1.
+Legacy-drop for `orchestration.result` is gated on the drain metric holding at
+**present-AND-zero** across a full container turnover — a later post-observation
+deploy, not this PR.
+
+## Phase 1c — `orchestration.assigned` (DEFERRED)
+
+`orchestration.assigned` is the harder, platform → sidecar direction: the
+per-agent JetStream **durable pull-consumer name** (`orch-assignment-<uuid>`),
+its `filter_subject`, and the four `$JS.API.CONSUMER.*` grant subjects all embed
+the agent UUID and the assignment subject, so namespacing it by kind forces a
+per-agent durable recreation coupled to the callout grant strings. Its stream
+subject was **pre-widened to `.>`** in phase 1b (behaviourally inert today —
+the only assigned publisher still emits the 3-token subject, which `.>` still
+captures), so the phase-1c change is a pure additive grant/parser/publish change
+with no stream-config edit. Tracked in
 `docs/superpowers/specs/host-cli-enrollment-deferred-tracking.md`.
 
 ## See also

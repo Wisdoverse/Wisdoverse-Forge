@@ -16,6 +16,7 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use agentforge_core::CliToolKind;
+use agentforge_core::RuntimeKind;
 use agentforge_core::orchestration_protocol::{
     ORCHESTRATION_ASSIGNMENTS_STREAM, RESULT_SUBJECT_PREFIX, SignedEnvelope, TaskAssignment, TaskOutcome, TaskResult,
     assign_subject, assignment_consumer_name,
@@ -412,6 +413,7 @@ impl OrchestrationSubscriber {
         cli_tool: String,
         cli_model: Option<String>,
         wal_path: Option<&str>,
+        runtime_kind: RuntimeKind,
     ) -> Self {
         Self {
             client,
@@ -421,7 +423,16 @@ impl OrchestrationSubscriber {
             cli_model,
             inbox: AssignmentInbox::new(wal_path),
             execution_gate: AssignmentExecutionGate::default(),
-            result_subject_prefix: RESULT_SUBJECT_PREFIX.to_string(),
+            // #457 phase 1b: publish results on the kind-namespaced subject only.
+            // prefix `orchestration.result.<kind>` + ".<uuid>" (appended by
+            // result_subject_for) == orchestration_protocol::result_subject_kind.
+            // The platform consumer accepts both shapes; the callout still grants
+            // the legacy subject so this is forward-compatible. Namespaced-only
+            // (no dual-publish): results have delivery_id dedup, and the durable
+            // result outbox retries any publish that fails before the platform
+            // stream is widened, so a result is delayed-not-lost on deploy-order
+            // skew — cleaner than emitting two WorkQueue messages per result.
+            result_subject_prefix: namespaced_result_prefix(runtime_kind),
         }
     }
 
@@ -785,6 +796,13 @@ fn result_subject_for(prefix: &str, agent_id: uuid::Uuid) -> String {
     format!("{prefix}.{agent_id}")
 }
 
+/// #457 phase 1b: the per-kind result subject prefix this sidecar publishes
+/// under, e.g. `orchestration.result.cli`. Composed with `.<uuid>` (via
+/// `result_subject_for`) it equals `orchestration_protocol::result_subject_kind`.
+fn namespaced_result_prefix(kind: RuntimeKind) -> String {
+    format!("{RESULT_SUBJECT_PREFIX}.{}", kind.as_str())
+}
+
 /// Construct the CLI command for a tool. Non-interactive print modes are used
 /// so the process exits once the task is complete.
 ///
@@ -1001,6 +1019,22 @@ mod tests {
     use uuid::Uuid;
 
     const TEST_HMAC: &str = "sidecar-assignment-contract-hmac";
+
+    #[test]
+    fn namespaced_result_prefix_composes_to_core_builder() {
+        // The subject the sidecar publishes (kind prefix + ".<uuid>") must be
+        // byte-identical to the canonical core builder the platform parser
+        // round-trips against — else a result would be Term-acked as bad_subject.
+        use agentforge_core::orchestration_protocol::result_subject_kind;
+        let id = Uuid::parse_str("11111111-2222-3333-4444-555555555555").unwrap();
+        for kind in [RuntimeKind::Container, RuntimeKind::Cli, RuntimeKind::Api] {
+            assert_eq!(
+                result_subject_for(&namespaced_result_prefix(kind), id),
+                result_subject_kind(kind, id),
+                "mismatch for {kind:?}",
+            );
+        }
+    }
 
     fn sample_assignment() -> TaskAssignment {
         TaskAssignment {
@@ -1407,6 +1441,7 @@ mod tests {
             "fake-cli".to_string(),
             None,
             Some(&wal_path),
+            RuntimeKind::Container,
         )
         .with_result_subject_prefix(&result_prefix);
         let handle = tokio::spawn(async move { subscriber.run(shutdown_rx).await });
@@ -1460,6 +1495,7 @@ mod tests {
             "fake-cli".to_string(),
             None,
             Some(&wal_path),
+            RuntimeKind::Container,
         )
         .with_result_subject_prefix(&result_prefix);
         let handle = tokio::spawn(async move { subscriber.run(shutdown_rx).await });
