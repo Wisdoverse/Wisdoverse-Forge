@@ -32,9 +32,18 @@ pub const RESULT_SUBJECT_PREFIX: &str = "orchestration.result";
 pub const ORCHESTRATION_ASSIGNMENTS_STREAM: &str = "ORCHESTRATION_ASSIGNMENTS";
 pub const DEFAULT_ASSIGNMENT_LEASE_SECS: i64 = 900;
 
-/// NATS subject that carries an assignment for the given agent.
+/// NATS subject that carries an assignment for the given agent in the legacy
+/// (pre-#457) un-namespaced shape: `orchestration.assigned.<uuid>`.
 pub fn assign_subject(agent_id: Uuid) -> String {
     format!("{ASSIGN_SUBJECT_PREFIX}.{agent_id}")
+}
+
+/// #457 phase 1c kind-namespaced assignment subject:
+/// `orchestration.assigned.<kind>.<uuid>` (`kind` = the target agent's
+/// `runtime_kind`). New sidecars bind their per-agent durable to filter this
+/// shape; the platform dual-publishes both shapes during the drain window.
+pub fn assign_subject_kind(kind: RuntimeKind, agent_id: Uuid) -> String {
+    format!("{ASSIGN_SUBJECT_PREFIX}.{}.{}", kind.as_str(), agent_id)
 }
 
 /// Wildcard subject that matches assignments for every agent.
@@ -133,13 +142,34 @@ pub fn assignment_consumer_name(agent_id: Uuid) -> String {
 }
 
 /// Exact JetStream API subject the sidecar publishes when creating or
-/// updating its per-agent durable assignment consumer.
+/// updating its per-agent durable assignment consumer (legacy single filter).
 pub fn assignment_consumer_create_subject(agent_id: Uuid) -> String {
     format!(
         "$JS.API.CONSUMER.CREATE.{}.{}.{}",
         ORCHESTRATION_ASSIGNMENTS_STREAM,
         assignment_consumer_name(agent_id),
         assign_subject(agent_id)
+    )
+}
+
+/// #457 phase 1c: the CONSUMER.CREATE API subject for the SAME per-agent durable
+/// but bound to the kind-namespaced single filter `orchestration.assigned.<kind>.<uuid>`.
+///
+/// The filter token is embedded in the API subject ON PURPOSE: it is the
+/// security boundary. NATS only lets the sidecar create a consumer whose filter
+/// matches the granted subject, so a per-agent grant pins the consumer to the
+/// agent's OWN assignment subject. Do NOT replace this with the filter-LESS
+/// `$JS.API.CONSUMER.CREATE.<stream>.<durable>` form (the shape required by
+/// `filter_subjects` plural) — that was empirically shown to let a rooted
+/// sidecar create a consumer under its own durable name but filtering ANOTHER
+/// agent's subject, draining that agent's WorkQueue assignments. Single filter
+/// only.
+pub fn assignment_consumer_create_subject_kind(kind: RuntimeKind, agent_id: Uuid) -> String {
+    format!(
+        "$JS.API.CONSUMER.CREATE.{}.{}.{}",
+        ORCHESTRATION_ASSIGNMENTS_STREAM,
+        assignment_consumer_name(agent_id),
+        assign_subject_kind(kind, agent_id)
     )
 }
 
@@ -196,6 +226,14 @@ pub struct TaskAssignment {
     pub priority: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub context_envelope: Option<ContextEnvelope>,
+    /// #457 phase 1c: the target agent's `runtime_kind`, threaded at ENQUEUE
+    /// time (both enqueue sites already read the agent row) so the outbox
+    /// publisher can build the kind-namespaced assignment subject without an
+    /// extra `agents` query on the publish hot path. `None` on outbox rows
+    /// written before this change — the publisher falls back to `Container`,
+    /// and the legacy subject (still dual-published) covers old sidecars anyway.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_kind: Option<RuntimeKind>,
 }
 
 /// Outcome emitted by the sidecar once the wrapped CLI exits.
@@ -340,6 +378,31 @@ mod tests {
     }
 
     #[test]
+    fn namespaced_assign_subject_and_create_subject_are_stable() {
+        let id = Uuid::parse_str("11111111-2222-3333-4444-555555555555").unwrap();
+        assert_eq!(
+            assign_subject_kind(RuntimeKind::Cli, id),
+            "orchestration.assigned.cli.11111111-2222-3333-4444-555555555555"
+        );
+        // #457 phase 1c: the namespaced CONSUMER.CREATE grant keeps the durable
+        // name AND embeds the 4-token filter as its trailing tokens — the
+        // single-filter security form. (If this ever became filter-LESS, i.e.
+        // ...CREATE.<stream>.<durable> with no trailing subject, a rooted
+        // sidecar could filter another agent's assignments.)
+        assert_eq!(
+            assignment_consumer_create_subject_kind(RuntimeKind::Cli, id),
+            "$JS.API.CONSUMER.CREATE.ORCHESTRATION_ASSIGNMENTS.orch-assignment-11111111222233334444555555555555.orchestration.assigned.cli.11111111-2222-3333-4444-555555555555"
+        );
+        // The CREATE subject must end with the agent's own uuid (filter present).
+        assert!(assignment_consumer_create_subject_kind(RuntimeKind::Cli, id).ends_with(&id.to_string()));
+        // INFO/NEXT/ACK embed only the (unchanged) durable name, never the filter.
+        assert_eq!(
+            assignment_consumer_info_subject(id),
+            "$JS.API.CONSUMER.INFO.ORCHESTRATION_ASSIGNMENTS.orch-assignment-11111111222233334444555555555555"
+        );
+    }
+
+    #[test]
     fn assignment_consumer_subjects_are_stable() {
         let id = Uuid::parse_str("11111111-2222-3333-4444-555555555555").unwrap();
         assert_eq!(assignment_consumer_name(id), "orch-assignment-11111111222233334444555555555555");
@@ -393,6 +456,7 @@ mod tests {
             message: "Focus on the last 7 days".into(),
             priority: "high".into(),
             context_envelope: None,
+            runtime_kind: Some(RuntimeKind::Cli),
         };
         let round: TaskAssignment = serde_json::from_str(&serde_json::to_string(&msg).unwrap()).unwrap();
         assert_eq!(round, msg);
@@ -442,6 +506,7 @@ mod tests {
             message: String::new(),
             priority: "normal".into(),
             context_envelope: None,
+            runtime_kind: None,
         };
         let key = b"shared-secret";
         let env = SignedEnvelope::sign(key, &assignment.agent_id.to_string(), 123, &assignment).unwrap();

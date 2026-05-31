@@ -575,6 +575,11 @@ impl TaskAssignmentPolicy {
             message,
             priority: snapshot.priority.to_string(),
             context_envelope,
+            // #457 phase 1c: this API-dispatch path does not carry the agent's
+            // runtime_kind; the outbox publisher resolves it from the DB when
+            // None (a cold, low-volume path). The auto-dispatcher
+            // (participant_liveness) populates it inline on its hot path.
+            runtime_kind: None,
         })
     }
 }

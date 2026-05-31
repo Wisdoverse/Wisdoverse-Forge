@@ -33,7 +33,7 @@ auth-callout. The callout did not consider runtime_kind before #457.
 ```
 events.ingest.<runtime_kind>.<uuid>          # SHIPPED phase 1
 orchestration.result.<runtime_kind>.<uuid>   # SHIPPED phase 1b
-orchestration.assigned.<runtime_kind>.<uuid> # phase 1c (stream pre-widened; producer/consumer/grants still 3-token)
+orchestration.assigned.<runtime_kind>.<uuid> # SHIPPED phase 1c (single-filter swap + dual-publish)
 ```
 
 with `<runtime_kind> ∈ {container, cli, api}`. The subject taxonomy and its
@@ -128,18 +128,57 @@ Legacy-drop for `orchestration.result` is gated on the drain metric holding at
 **present-AND-zero** across a full container turnover — a later post-observation
 deploy, not this PR.
 
-## Phase 1c — `orchestration.assigned` (DEFERRED)
+## Phase 1c — `orchestration.assigned` (SHIPPED, #457)
 
-`orchestration.assigned` is the harder, platform → sidecar direction: the
-per-agent JetStream **durable pull-consumer name** (`orch-assignment-<uuid>`),
-its `filter_subject`, and the four `$JS.API.CONSUMER.*` grant subjects all embed
-the agent UUID and the assignment subject, so namespacing it by kind forces a
-per-agent durable recreation coupled to the callout grant strings. Its stream
-subject was **pre-widened to `.>`** in phase 1b (behaviourally inert today —
-the only assigned publisher still emits the 3-token subject, which `.>` still
-captures), so the phase-1c change is a pure additive grant/parser/publish change
-with no stream-config edit. Tracked in
-`docs/superpowers/specs/host-cli-enrollment-deferred-tracking.md`.
+`orchestration.assigned` is the platform → sidecar direction, delivered through a
+**per-agent JetStream durable pull consumer** (`orch-assignment-<uuid>`) whose
+`filter_subject` and `$JS.API.CONSUMER.CREATE` grant embed the assignment
+subject. Its stream subject was pre-widened to `.>` in phase 1b, so no
+stream-config change is needed.
+
+What shipped (additive, zero-outage; legacy-drop is a later deploy):
+
+1. **Single filter, swapped in place.** The sidecar binds its per-agent durable
+   to a SINGLE `filter_subject` = `orchestration.assigned.<kind>.<uuid>` (NOT
+   `filter_subjects` plural). On nats-server 2.10+, `create_consumer_on_stream`
+   (CreateOrUpdate) swaps an existing durable's legacy filter to the namespaced
+   one **in place** — no delete/recreate, in-flight un-acked assignments survive
+   (empirically verified on 2.12). A per-agent durable delete+recreate is unsafe
+   (WorkQueue's no-overlap rule `10100` blocks a parallel durable; an orphaned
+   one keeps draining with no live consumer).
+2. **Single filter is a security boundary — never `filter_subjects` plural.**
+   The `$JS.API.CONSUMER.CREATE.<stream>.<durable>.<filter>` grant embeds the
+   filter token, so NATS only lets a sidecar create a consumer filtering its OWN
+   subject. The multi-filter form needs a **filter-LESS** CREATE grant
+   (`...CREATE.<stream>.<durable>`), which was shown live to let a rooted sidecar
+   create a consumer under its own durable name but filtering ANOTHER agent's
+   subject — draining that agent's WorkQueue assignments. The callout grants both
+   the legacy and namespaced **single-filter** CREATE subjects (kind-scoped);
+   INFO/NEXT/ACK embed only the durable name and are unchanged.
+3. **Platform dual-publishes** each assignment (same `delivery_id`) to BOTH
+   `orchestration.assigned.<uuid>` and `orchestration.assigned.<kind>.<uuid>`.
+   Required because a single-valued consumer filter matches only one shape and
+   the platform can't know which image (legacy/new) an agent runs. The sidecar's
+   `AssignmentInbox` dedups by `delivery_id` **before** the CLI runs, so a
+   consumer that ever matches both executes the task only once. The invariant:
+   ONE stable `delivery_id` per logical assignment across both shapes.
+4. **Kind threading.** `TaskAssignment` carries an optional `runtime_kind`,
+   populated at enqueue time on the hot auto-dispatch path (one indexed lookup in
+   the claim tx); the cold API-dispatch path leaves it `None` and the outbox
+   publisher resolves it once (fallback `Container`).
+
+Deploy ordering: backend (grants both + dual-publishes) before agent images
+(swap to the namespaced filter). Legacy-drop for `orchestration.assigned` is a
+later deploy gated on jsz showing all `orch-assignment-*` durables on namespaced
+filters AND `agentforge_orchestration_assignment_kind_fallback_total` holding at
+zero (a non-zero fallback means a kind couldn't be resolved and an assignment
+would be mis-routed once the legacy copy is dropped).
+
+Known follow-up (pre-existing, not introduced here): if a sidecar's one-shot
+durable bind fails, the subscriber disables assignment intake for the container
+lifetime (no retry/metric). The in-place filter swap is one more thing that can
+transiently fail during rollout; remediation today is to restart the container.
+Tracked for a bounded-retry + bind-error metric follow-up.
 
 ## See also
 

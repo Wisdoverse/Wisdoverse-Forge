@@ -11,6 +11,7 @@
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
+use agentforge_core::RuntimeKind;
 use agentforge_core::orchestration_protocol::{DEFAULT_ASSIGNMENT_LEASE_SECS, TaskAssignment};
 use agentforge_db::entities::{OrchestrationTask, Participant};
 use anyhow::{Context, Result, anyhow};
@@ -533,6 +534,19 @@ async fn claim_next_task_for_participant(
         .fetch_one(&mut *tx)
         .await?;
 
+    // #457 phase 1c: read the agent's runtime_kind so the outbox publisher can
+    // build the kind-namespaced assignment subject. Done here on the enqueue
+    // path (one indexed PK lookup inside the claim tx) rather than on the
+    // publish hot path. NOT NULL post-migration 062. On the (practically
+    // impossible) miss/parse-failure this yields `None`; the publisher then
+    // re-resolves from the DB and, only as a last resort, defaults to Container
+    // (logged + counted there) — this site does NOT itself default.
+    let runtime_kind: Option<String> = sqlx::query_scalar("SELECT runtime_kind FROM agents WHERE id = $1")
+        .bind(agent_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+    let runtime_kind = runtime_kind.and_then(|raw| RuntimeKind::parse_legacy(&raw).ok());
+
     let (task_text, message) = task_instruction(&claimed_task);
     let assignment = TaskAssignment {
         delivery_id: claimed_task.last_assignment_id,
@@ -545,6 +559,7 @@ async fn claim_next_task_for_participant(
         message,
         priority: claimed_task.priority.clone(),
         context_envelope: None,
+        runtime_kind,
     };
     crate::insert_assignment_outbox_in_tx(&mut tx, participant.organization_id.as_uuid(), claimed_task.id, &assignment)
         .await?;
