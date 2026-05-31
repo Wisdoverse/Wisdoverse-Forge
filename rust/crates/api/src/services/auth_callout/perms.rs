@@ -15,8 +15,9 @@
 
 use agentforge_core::event_protocol::{events_ingest_legacy_subject, events_ingest_subject};
 use agentforge_core::orchestration_protocol::{
-    assignment_consumer_ack_subject_pattern, assignment_consumer_create_subject, assignment_consumer_info_subject,
-    assignment_consumer_next_subject, result_subject, result_subject_kind,
+    assignment_consumer_ack_subject_pattern, assignment_consumer_create_subject,
+    assignment_consumer_create_subject_kind, assignment_consumer_info_subject, assignment_consumer_next_subject,
+    result_subject, result_subject_kind,
 };
 use agentforge_core::runtime_capability::RuntimeKind;
 use uuid::Uuid;
@@ -75,7 +76,16 @@ pub fn build_agent_permissions(agent_id: Uuid, runtime_kind: RuntimeKind) -> Nat
             // Legacy un-namespaced result, retained during the migration window.
             result_subject(agent_id),
             format!("creds.{uuid}"),
+            // Legacy single-filter assignment-consumer CREATE (retained during
+            // the #457 phase-1c drain so pre-1c sidecars keep binding).
             assignment_consumer_create_subject(agent_id),
+            // #457 phase 1c: kind-namespaced single-filter CREATE for the SAME
+            // per-agent durable. The filter token is embedded in the API subject
+            // ON PURPOSE — it pins the consumer to this agent's OWN assignment
+            // subject. Do NOT collapse to a filter-less CREATE grant (the
+            // `filter_subjects` plural form): that lets a rooted sidecar filter
+            // another agent's subject and drain its assignments.
+            assignment_consumer_create_subject_kind(runtime_kind, agent_id),
             assignment_consumer_info_subject(agent_id),
             assignment_consumer_next_subject(agent_id),
             assignment_consumer_ack_subject_pattern(agent_id),
@@ -305,6 +315,57 @@ mod tests {
             );
         }
         assert!(!perms.pub_allow.iter().any(|s| s == "orchestration.result.>" || s == "orchestration.result.*"));
+    }
+
+    #[test]
+    fn assignment_create_grant_is_namespaced_and_legacy_single_filter() {
+        // #457 phase 1c: each agent gets BOTH the legacy and the kind-namespaced
+        // single-filter CONSUMER.CREATE grant for its OWN durable.
+        let a = uuid_of("11111111-2222-3333-4444-555555555555");
+        let perms = build_agent_permissions(a, RuntimeKind::Cli);
+        assert!(
+            perms.pub_allow.iter().any(|s| s == &assignment_consumer_create_subject(a)),
+            "legacy assignment-create grant must remain during drain",
+        );
+        assert!(
+            perms.pub_allow.iter().any(|s| s == &assignment_consumer_create_subject_kind(RuntimeKind::Cli, a)),
+            "namespaced assignment-create grant for own kind must be present",
+        );
+    }
+
+    #[test]
+    fn assignment_create_grant_is_not_cross_kind_and_never_filter_less() {
+        // Security: a cli agent must NOT get another kind's assignment-create
+        // grant, and — critically — must NEVER get a FILTER-LESS create grant
+        // (`$JS.API.CONSUMER.CREATE.<stream>.<durable>` with no trailing filter).
+        // The filter-less form is what `filter_subjects` plural needs, and it
+        // lets a rooted sidecar create a consumer under its own durable name but
+        // filtering ANOTHER agent's subject — draining that agent's assignments.
+        let a = uuid_of("11111111-2222-3333-4444-555555555555");
+        let perms = build_agent_permissions(a, RuntimeKind::Cli);
+        for forbidden in [
+            assignment_consumer_create_subject_kind(RuntimeKind::Container, a),
+            assignment_consumer_create_subject_kind(RuntimeKind::Api, a),
+        ] {
+            assert!(
+                !perms.pub_allow.iter().any(|s| s == &forbidden),
+                "cli agent granted other kind's assignment-create: {forbidden}"
+            );
+        }
+        // The filter-less create form: CREATE.<stream>.<durable> with nothing after.
+        let filter_less = format!(
+            "$JS.API.CONSUMER.CREATE.ORCHESTRATION_ASSIGNMENTS.{}",
+            agentforge_core::orchestration_protocol::assignment_consumer_name(a)
+        );
+        assert!(
+            !perms.pub_allow.iter().any(|s| s == &filter_less),
+            "filter-less assignment-create grant present — cross-agent assignment theft vector",
+        );
+        // Every granted assignment-create subject must carry a trailing filter
+        // ending in THIS agent's own uuid.
+        for s in perms.pub_allow.iter().filter(|s| s.starts_with("$JS.API.CONSUMER.CREATE.ORCHESTRATION_ASSIGNMENTS")) {
+            assert!(s.ends_with(&a.to_string()), "assignment-create grant not pinned to own uuid: {s}");
+        }
     }
 
     #[test]
