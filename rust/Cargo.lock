@@ -252,6 +252,7 @@ dependencies = [
  "agentforge-core",
  "agentforge-db",
  "agentforge-infra",
+ "agentforge-platform",
  "anyhow",
  "async-nats",
  "async-trait",
@@ -340,6 +341,7 @@ version = "0.1.0"
 dependencies = [
  "agentforge-core",
  "bollard",
+ "futures-util",
  "prost 0.13.5",
  "prost-build 0.14.3",
  "serde",

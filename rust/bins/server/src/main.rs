@@ -316,6 +316,28 @@ async fn main() -> Result<()> {
         tokio::spawn(async move { worker.run(worker_shutdown).await })
     };
 
+    // CLI agent-image auto-updater — default-OFF. When enabled AND a Docker
+    // daemon is available, periodically pulls newer `agent-<tool>:latest`
+    // overlays so newly spawned agents use the current CLI. Running agents are
+    // never touched. Skipped when docker is None (air-gapped / no daemon).
+    let cli_image_updater_handle = if config.cli_image_auto_update_enabled {
+        match docker.clone() {
+            Some(client) => {
+                let worker = agentforge_jobs::CliImageUpdater::new(client)
+                    .with_interval(std::time::Duration::from_secs(config.cli_image_auto_update_interval_secs));
+                let worker_shutdown = shutdown_rx.clone();
+                Some(tokio::spawn(async move { worker.run(worker_shutdown).await }))
+            }
+            None => {
+                tracing::warn!("cli image auto-updater enabled but Docker unavailable; skipping");
+                None
+            }
+        }
+    } else {
+        tracing::info!("cli image auto-updater disabled (flag off)");
+        None
+    };
+
     // Auth callout worker — mints per-agent User JWTs for every sidecar
     // CONNECT on `$SYS.REQ.USER.AUTH`. Only spawns when NATS is
     // configured; `AppConfig::from_env` already fail-fasted if any
@@ -511,6 +533,12 @@ async fn main() -> Result<()> {
         match handle.await {
             Ok(()) => {}
             Err(err) => tracing::warn!(error = %err, "orchestration metrics worker join failed"),
+        }
+    }
+    if let Some(handle) = cli_image_updater_handle {
+        match handle.await {
+            Ok(()) => {}
+            Err(err) => tracing::warn!(error = %err, "cli image updater join failed"),
         }
     }
     if let Some(handle) = participant_liveness_handle {

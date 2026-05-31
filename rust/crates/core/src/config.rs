@@ -399,6 +399,24 @@ pub struct AppConfig {
     /// available. Production MUST keep this unset or `false`.
     #[serde(default = "default_false")]
     pub allow_plaintext_host_nats: bool,
+
+    /// Deployment-side CLI agent-image auto-updater rollout gate. When `false`
+    /// (default) the backend does not spawn the updater and nothing polls the
+    /// registry. When `true` (and a Docker daemon is available) a background
+    /// worker periodically pulls newer `agent-<tool>:latest` overlays so newly
+    /// spawned agents use the current CLI. Running agents are never touched.
+    #[serde(default = "default_false")]
+    pub cli_image_auto_update_enabled: bool,
+
+    /// How often (seconds) the CLI agent-image auto-updater polls the registry.
+    /// Default 900 (15 min). CLI publishers ship at most a few times per week,
+    /// so this is well clear of registry rate limits.
+    #[serde(default = "default_cli_image_update_interval")]
+    pub cli_image_auto_update_interval_secs: u64,
+}
+
+fn default_cli_image_update_interval() -> u64 {
+    900
 }
 
 impl AppConfig {
@@ -673,6 +691,8 @@ mod tests {
             smtp_from: None,
             smtp_secure: false,
             allow_plaintext_host_nats: false,
+            cli_image_auto_update_enabled: false,
+            cli_image_auto_update_interval_secs: 900,
         };
         assert!(cfg.is_production());
     }
@@ -992,6 +1012,8 @@ mod tests {
             smtp_from: Some("Wisdoverse Forge <noreply@example.com>".to_string()),
             smtp_secure: true,
             allow_plaintext_host_nats: false,
+            cli_image_auto_update_enabled: false,
+            cli_image_auto_update_interval_secs: 900,
         };
         let dbg = format!("{cfg:?}");
         for needle in [
