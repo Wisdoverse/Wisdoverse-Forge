@@ -98,6 +98,7 @@ async fn main() -> anyhow::Result<()> {
                 cli_tool,
                 resolved_cli_model.clone(),
                 cfg.wal_path.as_deref(),
+                resolved_runtime_kind,
             );
             let orch_shutdown = shutdown_rx.clone();
             Some(tokio::spawn(async move {

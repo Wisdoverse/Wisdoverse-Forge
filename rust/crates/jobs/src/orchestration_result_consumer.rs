@@ -29,7 +29,7 @@ use tokio::sync::watch;
 use uuid::Uuid;
 
 use agentforge_core::orchestration_protocol::{
-    RESULT_SUBJECT_PREFIX, SignedEnvelope, TaskOutcome, TaskResult, parse_agent_id_from_subject,
+    RESULT_SUBJECT_PREFIX, SignedEnvelope, TaskOutcome, TaskResult, parse_result_subject_with_prefix,
     result_subject_wildcard,
 };
 use agentforge_db::entities::OrchestrationTask;
@@ -57,9 +57,10 @@ pub fn results_filter() -> String {
 
 /// Build a wildcard filter for a custom result subject prefix. Used by
 /// integration tests to isolate their JetStream stream from the shared
-/// production `orchestration.result.*` work queue.
+/// production `orchestration.result.>` work queue. Multi-token (`.>`) to mirror
+/// production and capture the #457 namespaced 4-token shape under the prefix.
 pub fn results_filter_for(subject_prefix: &str) -> String {
-    format!("{subject_prefix}.*")
+    format!("{subject_prefix}.>")
 }
 
 #[derive(Debug, Clone)]
@@ -165,20 +166,63 @@ where
             .get_stream(&config.stream_name)
             .await
             .with_context(|| format!("failed to open JetStream stream {}", config.stream_name))?;
-        let consumer: PullConsumer = stream
-            .get_or_create_consumer(
-                &config.durable_name,
-                pull::Config {
-                    durable_name: Some(config.durable_name.clone()),
-                    ack_policy: consumer::AckPolicy::Explicit,
-                    ack_wait: Duration::from_secs(ACK_WAIT_SECS),
-                    max_deliver: MAX_DELIVER,
-                    filter_subject: config.filter_subject.clone(),
-                    ..Default::default()
-                },
-            )
+
+        let pull_config = || pull::Config {
+            durable_name: Some(config.durable_name.clone()),
+            ack_policy: consumer::AckPolicy::Explicit,
+            ack_wait: Duration::from_secs(ACK_WAIT_SECS),
+            max_deliver: MAX_DELIVER,
+            filter_subject: config.filter_subject.clone(),
+            ..Default::default()
+        };
+
+        // Bind the durable. get_or_create CREATES it (with our filter) when
+        // absent and RETURNS THE EXISTING ONE UNCHANGED when present — it does
+        // NOT reconcile the filter (confirmed against async-nats 0.47 +
+        // nats-server 2.12). A transient/broker error surfaces here via `?` and
+        // fails the bootstrap loudly (the worker is retried on the next process
+        // start; WorkQueue retention holds messages meanwhile) — it is NEVER
+        // mistaken for "consumer absent" and silently skipped.
+        let mut consumer: PullConsumer = stream
+            .get_or_create_consumer(&config.durable_name, pull_config())
             .await
             .context("failed to create orchestration result consumer")?;
+
+        // #457 phase 1b: if the bound durable carries a stale pre-#457 filter
+        // (e.g. `orchestration.result.*`), it would silently DROP every
+        // namespaced 4-token result — tasks stuck in `working` forever. Widening
+        // the filter requires delete + recreate (get_or_create won't update it).
+        // Safe on this WorkQueue stream: it is the single shared platform
+        // consumer (NOT per-agent), recreated once at deploy; unacked messages
+        // remain in the stream for redelivery to the recreated consumer.
+        let bound_filter = consumer.cached_info().config.filter_subject.clone();
+        if bound_filter != config.filter_subject {
+            tracing::info!(
+                durable = %config.durable_name,
+                old_filter = %bound_filter,
+                new_filter = %config.filter_subject,
+                "migrating orchestration result consumer filter (delete + recreate)"
+            );
+            stream
+                .delete_consumer(&config.durable_name)
+                .await
+                .with_context(|| format!("delete stale durable {} for #457 filter migration", config.durable_name))?;
+            consumer = stream
+                .get_or_create_consumer(&config.durable_name, pull_config())
+                .await
+                .context("recreate orchestration result consumer after #457 filter migration")?;
+        }
+
+        // Post-condition: refuse to start bound to the wrong filter rather than
+        // silently black-holing namespaced results. delayed-and-loud > silent.
+        let final_filter = consumer.cached_info().config.filter_subject.clone();
+        if final_filter != config.filter_subject {
+            return Err(anyhow::anyhow!(
+                "orchestration result consumer bound filter {final_filter:?} != expected {:?}; \
+                 #457 filter migration did not take effect — refusing to start",
+                config.filter_subject
+            ));
+        }
 
         Ok(Self { consumer, lookup, writer, hmac, config })
     }
@@ -286,8 +330,25 @@ where
     W: TaskWriter,
     H: HmacSecretLookup,
 {
-    let subject_agent = parse_agent_id_from_subject(subject, subject_prefix)
-        .ok_or_else(|| HandleError::Unauthorized { reason: "bad_subject", detail: format!("subject {subject}") })?;
+    // #457 phase 1b: accept BOTH the legacy `<prefix>.<uuid>` and the
+    // namespaced `<prefix>.<kind>.<uuid>` shapes. The trailing UUID is the
+    // authoritative identity used by every cross-check below; the kind token is
+    // observability/defense-in-depth, never the trust anchor. Route the reject
+    // through reject_unauthorized so a `bad_subject` Term-drop — newly reachable
+    // for the kind shape — increments the unauthorized counter and is alertable,
+    // not just a warn log (a silent regression here strands results).
+    let parsed = match parse_result_subject_with_prefix(subject, subject_prefix) {
+        Some(parsed) => parsed,
+        None => return reject_unauthorized("bad_subject", format!("subject {subject}")),
+    };
+    let subject_agent = parsed.agent_id;
+    if parsed.is_legacy() {
+        // Drain signal: count receipts on the pre-#457 un-namespaced subject so
+        // the legacy-drop deploy can confirm the tail has reached zero. Shares
+        // the events.ingest metric name, distinguished by the subject label.
+        metrics::counter!("agentforge_nats_legacy_subject_received_total", "subject" => "orchestration.result")
+            .increment(1);
+    }
 
     let envelope: SignedEnvelope = serde_json::from_slice(payload)
         .map_err(|err| HandleError::Unauthorized { reason: "envelope_decode_failed", detail: err.to_string() })?;
@@ -413,12 +474,21 @@ pub fn register_metrics() {
         "agentforge_orchestration_result_apply_seconds",
         "Time spent applying one verified orchestration result to the database"
     );
+    metrics::describe_counter!(
+        "agentforge_nats_legacy_subject_received_total",
+        "Count of messages received on a pre-#457 un-namespaced subject; label = subject. \
+         The legacy-drop deploy is gated on the relevant series holding at zero."
+    );
 
     metrics::counter!("agentforge_orchestration_result_unauthorized_total", "reason" => "none").increment(0);
     metrics::counter!("agentforge_orchestration_result_transient_errors_total", "stage" => "none").increment(0);
     metrics::counter!("agentforge_orchestration_result_ack_errors_total", "kind" => "none").increment(0);
     metrics::counter!("agentforge_orchestration_inbox_duplicate_total").increment(0);
     metrics::histogram!("agentforge_orchestration_result_apply_seconds", "outcome" => "success").record(0.0);
+    // Materialise the orchestration.result drain series at 0 so the legacy-drop
+    // gate distinguishes a true zero from an absent ("no data") series.
+    metrics::counter!("agentforge_nats_legacy_subject_received_total", "subject" => "orchestration.result")
+        .increment(0);
 }
 
 impl SqlxParticipantLookup {
@@ -747,6 +817,43 @@ mod tests {
         assert_eq!(applied.len(), 1);
         assert_eq!(applied[0].0, org_id);
         assert_eq!(applied[0].1, result);
+    }
+
+    #[tokio::test]
+    async fn handle_accepts_kind_namespaced_result_subject() {
+        // #457 phase 1b: a result delivered on the 4-token namespaced subject
+        // (orchestration.result.cli.<uuid>) is accepted and routed identically;
+        // the trailing UUID still drives the envelope/payload cross-checks.
+        use agentforge_core::RuntimeKind;
+        use agentforge_core::orchestration_protocol::result_subject_kind;
+
+        let agent_id = Uuid::now_v7();
+        let org_id = Uuid::now_v7();
+        let lookup = FakeLookup { by_agent: Arc::new(HashMap::from([(agent_id, org_id)])) };
+        let writer = FakeWriter::default();
+        let hmac = FakeHmac::with(agent_id, TEST_HMAC);
+        let result = result_for(agent_id, TaskOutcome::Completed { stdout: "namespaced ok".into() });
+        let subject = result_subject_kind(RuntimeKind::Cli, agent_id);
+        handle_message(&lookup, &writer, &hmac, &subject, &envelope(&result)).await.unwrap();
+        let applied = writer.applied.lock().await;
+        assert_eq!(applied.len(), 1);
+        assert_eq!(applied[0].1, result);
+    }
+
+    #[tokio::test]
+    async fn handle_rejects_unknown_kind_token_in_subject() {
+        // A bogus middle token must be rejected (Term/bad_subject), never
+        // mis-attributed as a legacy uuid or a different shape.
+        let agent_id = Uuid::now_v7();
+        let org_id = Uuid::now_v7();
+        let lookup = FakeLookup { by_agent: Arc::new(HashMap::from([(agent_id, org_id)])) };
+        let writer = FakeWriter::default();
+        let hmac = FakeHmac::with(agent_id, TEST_HMAC);
+        let result = result_for(agent_id, TaskOutcome::Completed { stdout: "x".into() });
+        let subject = format!("orchestration.result.bogus.{agent_id}");
+        let err = handle_message(&lookup, &writer, &hmac, &subject, &envelope(&result)).await.unwrap_err();
+        assert!(err.to_string().contains("bad_subject") || err.to_string().contains("subject"), "err = {err}");
+        assert!(writer.applied.lock().await.is_empty());
     }
 
     #[tokio::test]
