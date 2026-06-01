@@ -7,6 +7,7 @@ import { useContextStore } from '@app/shared/model/context.store'
 
 const navigateMock = vi.fn()
 const logoutMock = vi.fn()
+const authState = vi.hoisted(() => ({ role: 'admin' as string }))
 
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigateMock,
@@ -15,7 +16,7 @@ vi.mock('@tanstack/react-router', () => ({
 vi.mock('@app/shared/model/auth.context', () => ({
   useAuth: () => ({
     authManager: { logout: logoutMock },
-    user: { role: 'admin' },
+    user: { role: authState.role },
     isAuthenticated: true,
     isLoading: false,
   }),
@@ -23,6 +24,7 @@ vi.mock('@app/shared/model/auth.context', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
+  authState.role = 'admin'
   useContextFeaturesStore.setState({
     governance: true,
     preview: false,
@@ -83,5 +85,22 @@ describe('SidebarNav', () => {
 
     expect(logoutMock).toHaveBeenCalledTimes(1)
     expect(navigateMock).toHaveBeenCalledWith({ to: '/login', search: {} })
+  })
+
+  const adminItem = { name: /admin: manage organizations, users, and system health/i }
+
+  test('owners see the admin link (matches the backend require_admin gate)', () => {
+    authState.role = 'owner'
+    render(<SidebarNav expanded={false} activePath="/settings" onNavigate={() => {}} section="secondary" />)
+    expect(screen.getByRole('button', adminItem)).toBeInTheDocument()
+  })
+
+  test('non-admin/owner roles do not see the admin link', () => {
+    for (const role of ['member', 'viewer', 'user']) {
+      authState.role = role
+      render(<SidebarNav expanded={false} activePath="/settings" onNavigate={() => {}} section="secondary" />)
+      expect(screen.queryByRole('button', adminItem)).not.toBeInTheDocument()
+      cleanup()
+    }
   })
 })
