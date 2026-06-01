@@ -25,6 +25,7 @@ pub struct CliImageService {
     status: Arc<CliImageUpdateStatus>,
     auto_update_enabled: bool,
     poll_interval_secs: u64,
+    prune_configured: bool,
 }
 
 impl CliImageService {
@@ -36,12 +37,17 @@ impl CliImageService {
             // Report the EFFECTIVE cadence (post-floor), so the panel never
             // claims a faster poll rate than the worker actually runs.
             poll_interval_secs: effective_interval_secs(config.cli_image_auto_update_interval_secs),
+            // Operator INTENT — surfaced even when the worker never ran a sweep
+            // (e.g. prune on but auto-update off), so a misconfiguration is not
+            // reported as a reassuring "off".
+            prune_configured: config.cli_image_prune_enabled,
         }
     }
 
     /// Build the read-only status report for `GET /admin/cli-images`.
     pub async fn status_report(&self) -> AppResult<CliImageStatusReport> {
         let snapshot = self.status.snapshot().await;
+        let prune = self.status.prune_snapshot().await;
         let counts: BTreeMap<String, i64> = self.repo.container_agent_counts_by_tool().await?.into_iter().collect();
         let tool_names = pollable_tool_names();
 
@@ -53,6 +59,8 @@ impl CliImageService {
             &tool_names,
             &snapshot,
             &counts,
+            self.prune_configured,
+            prune,
         ))
     }
 }

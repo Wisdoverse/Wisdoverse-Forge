@@ -1151,6 +1151,7 @@ mod tests {
             allow_plaintext_host_nats: false,
             cli_image_auto_update_enabled: false,
             cli_image_auto_update_interval_secs: 900,
+            cli_image_prune_enabled: false,
         };
         let client = agentforge_infra::RedisClient::new(&cfg).await;
         let store = StateStore::Redis(Arc::new(RwLock::new(client)));

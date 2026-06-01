@@ -3,6 +3,7 @@ import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import {
   useAdminStore,
+  type CliImagePruneStatus,
   type CliImageTool,
   type CliImageToolState,
 } from '@app/shared/model/admin.store'
@@ -260,11 +261,64 @@ export function CliImagesPanel() {
             )}
           </div>
 
+          <PruneSummaryBlock prune={cliImages.prune} />
+
           <p className="mt-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
             “Agents with a container” is a rough hint of how many agents are running for each tool —
             it does not confirm which exact image each one started from.
           </p>
         </>
+      )}
+    </div>
+  )
+}
+
+function PruneSummaryBlock({ prune }: { prune: CliImagePruneStatus }) {
+  // Three distinct states: off-by-config; configured on but no sweep has run
+  // (commonly auto-update off); configured on and ran.
+  const neverRan = prune.enabled && prune.lastRunUnix === null
+  const hasErrors = prune.enabled && prune.errors > 0
+
+  return (
+    <div className="mt-4 rounded-card border border-black/[0.06] bg-black/[0.02] px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.03]">
+      <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+        Old image cleanup
+      </p>
+      {!prune.enabled && (
+        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          Off. Superseded images are kept until removed manually. Turn on CLI_IMAGE_PRUNE_ENABLED in
+          the deployment config to reclaim their disk automatically.
+        </p>
+      )}
+      {neverRan && (
+        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          On, but no cleanup has run yet. Cleanup runs as part of the update check — confirm
+          CLI_IMAGE_AUTO_UPDATE_ENABLED is on, or wait for the first check to finish.
+        </p>
+      )}
+      {prune.enabled && prune.lastRunUnix !== null && (
+        <>
+          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Superseded agent images are removed automatically after each check, freeing disk. Only
+            unused images for these tools are removed — never an image a container is using.
+          </p>
+          <p className="mt-1 text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
+            Last sweep: {prune.removed} removed · {prune.skippedInUse} still in use ·{' '}
+            {prune.scanned} scanned
+            {prune.errors > 0 ? ` · ${prune.errors} errors` : ''} · checked{' '}
+            {relativeTime(prune.lastRunUnix)}
+          </p>
+        </>
+      )}
+      {hasErrors && prune.lastError && (
+        <div className="mt-2 rounded-card border border-apple-red/20 bg-apple-red/[0.04] px-3 py-2">
+          <p className="text-ui-caption text-foreground-light dark:text-foreground-dark">
+            The last cleanup hit {prune.errors} {prune.errors === 1 ? 'error' : 'errors'}.
+          </p>
+          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Reported detail: {prune.lastError}
+          </p>
+        </div>
       )}
     </div>
   )

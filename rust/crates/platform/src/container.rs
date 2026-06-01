@@ -60,6 +60,13 @@ impl PlatformError {
             }) if message.contains("No such image")
         )
     }
+
+    /// True when Docker rejected an operation with 409 Conflict — e.g. removing
+    /// an image that is still referenced by another tag or a child image. The
+    /// prune path treats this as "leave it" rather than an error.
+    pub fn is_conflict(&self) -> bool {
+        matches!(self, Self::Docker(bollard::errors::Error::DockerResponseServerError { status_code: 409, .. }))
+    }
 }
 
 impl DockerClient {

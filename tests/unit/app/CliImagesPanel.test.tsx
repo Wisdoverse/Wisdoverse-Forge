@@ -39,6 +39,16 @@ function sampleStatus(overrides: Partial<CliImageStatus> = {}): CliImageStatus {
         agentsWithContainer: 0,
       },
     ],
+    prune: {
+      enabled: false,
+      lastRunUnix: null,
+      scanned: 0,
+      removed: 0,
+      skippedInUse: 0,
+      skippedConflict: 0,
+      errors: 0,
+      lastError: null,
+    },
     ...overrides,
   }
 }
@@ -65,6 +75,71 @@ describe('CliImagesPanel', () => {
     expect(screen.getByText('Check failed')).toBeDefined()
     expect(screen.getByText(/registry timeout/)).toBeDefined()
     expect(screen.getByText('2 agents currently have a container for this tool')).toBeDefined()
+  })
+
+  test('shows the prune sweep summary when pruning is enabled', () => {
+    const loadCliImages = vi.fn()
+    useAdminStore.setState({
+      ...originalAdminState,
+      cliImages: sampleStatus({
+        prune: {
+          enabled: true,
+          lastRunUnix: Math.floor(Date.now() / 1000) - 60,
+          scanned: 4,
+          removed: 3,
+          skippedInUse: 1,
+          skippedConflict: 0,
+          errors: 0,
+          lastError: null,
+        },
+      }),
+      cliImagesLoading: false,
+      cliImagesError: null,
+      loadCliImages,
+    })
+
+    render(<CliImagesPanel />)
+    expect(screen.getByText('Old image cleanup')).toBeDefined()
+    expect(screen.getByText(/3 removed/)).toBeDefined()
+    expect(screen.getByText(/1 still in use/)).toBeDefined()
+  })
+
+  test('flags prune configured on but never run (likely auto-update off)', () => {
+    useAdminStore.setState({
+      ...originalAdminState,
+      cliImages: sampleStatus({
+        prune: {
+          enabled: true,
+          lastRunUnix: null,
+          scanned: 0,
+          removed: 0,
+          skippedInUse: 0,
+          skippedConflict: 0,
+          errors: 0,
+          lastError: null,
+        },
+      }),
+      cliImagesLoading: false,
+      cliImagesError: null,
+      loadCliImages: vi.fn(),
+    })
+
+    render(<CliImagesPanel />)
+    expect(screen.getByText(/no cleanup has run yet/i)).toBeDefined()
+    expect(screen.getByText(/CLI_IMAGE_AUTO_UPDATE_ENABLED/)).toBeDefined()
+  })
+
+  test('explains prune is off by default', () => {
+    useAdminStore.setState({
+      ...originalAdminState,
+      cliImages: sampleStatus(),
+      cliImagesLoading: false,
+      cliImagesError: null,
+      loadCliImages: vi.fn(),
+    })
+
+    render(<CliImagesPanel />)
+    expect(screen.getByText(/CLI_IMAGE_PRUNE_ENABLED/)).toBeDefined()
   })
 
   test('explains the off state when auto-update is disabled', () => {
