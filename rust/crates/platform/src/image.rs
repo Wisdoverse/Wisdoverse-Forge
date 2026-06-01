@@ -7,13 +7,45 @@
 //! `HostConfig`, or touch `security.rs`, so the container-creation
 //! defense-in-depth is unaffected.
 
+use std::collections::HashSet;
+
 use bollard::auth::DockerCredentials;
 use bollard::models::ImageInspect;
-use bollard::query_parameters::{CreateImageOptionsBuilder, TagImageOptionsBuilder};
+use bollard::query_parameters::{
+    CreateImageOptionsBuilder, ListContainersOptionsBuilder, ListImagesOptionsBuilder, RemoveImageOptionsBuilder,
+    TagImageOptionsBuilder,
+};
 use futures_util::StreamExt;
 
 use crate::container::PlatformError;
 use crate::docker::DockerClient;
+
+/// A local image reduced to the fields the prune scoping policy needs. The
+/// policy itself (which images are superseded agent overlays) lives in the jobs
+/// worker; this type + its lister stay I/O-only.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalImage {
+    /// Content id, e.g. `sha256:...` — what `remove_image_if_unreferenced` takes
+    /// and what `referenced_image_ids` compares against.
+    pub id: String,
+    /// `repo:tag` strings; empty for a dangling (untagged) image.
+    pub repo_tags: Vec<String>,
+    /// `repo@sha256:...` strings; identify the source repo of a dangling image.
+    pub repo_digests: Vec<String>,
+}
+
+/// Outcome of a single image-removal decision.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RemoveOutcome {
+    /// The image was removed.
+    Removed,
+    /// A running or stopped container still references the image — left intact.
+    SkippedInUse,
+    /// Docker returned 409 (still referenced by another tag / child) — left intact.
+    SkippedConflict,
+    /// The image was already gone.
+    NotFound,
+}
 
 impl DockerClient {
     /// Pull `image_ref` (e.g. `ghcr.io/org/agent-codex:latest`) from its
@@ -76,6 +108,56 @@ impl DockerClient {
     pub async fn tag_image(&self, source_ref: &str, target_repo: &str, target_tag: &str) -> Result<(), PlatformError> {
         let options = TagImageOptionsBuilder::default().repo(target_repo).tag(target_tag).build();
         self.inner().tag_image(source_ref, Some(options)).await.map_err(PlatformError::Docker)
+    }
+
+    /// The set of image content-ids (`sha256:...`) referenced by ANY container,
+    /// running OR stopped (`all=true`). The prune path subtracts this set so an
+    /// image a stopped container could restart from is never removed.
+    pub async fn referenced_image_ids(&self) -> Result<HashSet<String>, PlatformError> {
+        let options = ListContainersOptionsBuilder::default().all(true).build();
+        let containers = self.inner().list_containers(Some(options)).await.map_err(PlatformError::Docker)?;
+        Ok(containers.into_iter().filter_map(|c| c.image_id).collect())
+    }
+
+    /// All top-level local images (`all=false` hides intermediate layers;
+    /// dangling/untagged leaf images are still returned). Scoping to agent
+    /// overlays is the caller's policy, kept out of this I/O wrapper.
+    pub async fn list_local_images(&self) -> Result<Vec<LocalImage>, PlatformError> {
+        let options = ListImagesOptionsBuilder::default().all(false).build();
+        let images = self.inner().list_images(Some(options)).await.map_err(PlatformError::Docker)?;
+        Ok(images
+            .into_iter()
+            .map(|i| LocalImage { id: i.id, repo_tags: i.repo_tags, repo_digests: i.repo_digests })
+            .collect())
+    }
+
+    /// Remove image `id` ONLY if no container references it (`referenced` from
+    /// [`referenced_image_ids`]). `force=false` + `noprune=true` so a shared
+    /// parent layer is never cascade-deleted. A 409 conflict (still tagged /
+    /// has a child) is reported as [`RemoveOutcome::SkippedConflict`], not an
+    /// error — defense-in-depth on top of the unreferenced check.
+    pub async fn remove_image_if_unreferenced(
+        &self,
+        id: &str,
+        referenced: &HashSet<String>,
+    ) -> Result<RemoveOutcome, PlatformError> {
+        if referenced.contains(id) {
+            return Ok(RemoveOutcome::SkippedInUse);
+        }
+        let options = RemoveImageOptionsBuilder::default().force(false).noprune(true).build();
+        match self.inner().remove_image(id, Some(options), None).await {
+            Ok(_) => Ok(RemoveOutcome::Removed),
+            Err(err) => {
+                let platform_err = PlatformError::Docker(err);
+                if platform_err.is_not_found() {
+                    Ok(RemoveOutcome::NotFound)
+                } else if platform_err.is_conflict() {
+                    Ok(RemoveOutcome::SkippedConflict)
+                } else {
+                    Err(platform_err)
+                }
+            }
+        }
     }
 }
 

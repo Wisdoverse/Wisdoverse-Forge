@@ -43,8 +43,9 @@ pub mod worker;
 
 pub use auth_lookup::{AgentNatsIdentity, NatsConnectPasswordLookup, SqlxNatsConnectPasswordLookup};
 pub use cli_image_updater::{
-    CliImageUpdateStatus, CliImageUpdater, CliToolImageState, DEFAULT_INTERVAL as CLI_IMAGE_UPDATE_DEFAULT_INTERVAL,
-    configured_image_tag, configured_registry, effective_interval_secs, pollable_tool_names,
+    CliImagePruneSummary, CliImageUpdateStatus, CliImageUpdater, CliToolImageState,
+    DEFAULT_INTERVAL as CLI_IMAGE_UPDATE_DEFAULT_INTERVAL, configured_image_tag, configured_registry,
+    effective_interval_secs, pollable_tool_names,
 };
 pub use credential_consumer::{
     AgentOwner, AgentOwnerLookup, CredentialStreamWorker, CredentialWriter, HandleError as CredentialHandleError,

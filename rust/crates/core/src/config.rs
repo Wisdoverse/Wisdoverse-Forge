@@ -413,6 +413,15 @@ pub struct AppConfig {
     /// so this is well clear of registry rate limits.
     #[serde(default = "default_cli_image_update_interval")]
     pub cli_image_auto_update_interval_secs: u64,
+
+    /// Prune superseded (dangling) agent overlay images after each updater
+    /// sweep. `false` (default) keeps the destructive image-removal path off.
+    /// Only effective when `cli_image_auto_update_enabled` is also true (prune
+    /// runs inside the updater loop). Image-level only — never touches running
+    /// or stopped containers, and removes only our own dangling overlays that no
+    /// container references.
+    #[serde(default = "default_false")]
+    pub cli_image_prune_enabled: bool,
 }
 
 fn default_cli_image_update_interval() -> u64 {
@@ -693,6 +702,7 @@ mod tests {
             allow_plaintext_host_nats: false,
             cli_image_auto_update_enabled: false,
             cli_image_auto_update_interval_secs: 900,
+            cli_image_prune_enabled: false,
         };
         assert!(cfg.is_production());
     }
@@ -1014,6 +1024,7 @@ mod tests {
             allow_plaintext_host_nats: false,
             cli_image_auto_update_enabled: false,
             cli_image_auto_update_interval_secs: 900,
+            cli_image_prune_enabled: false,
         };
         let dbg = format!("{cfg:?}");
         for needle in [

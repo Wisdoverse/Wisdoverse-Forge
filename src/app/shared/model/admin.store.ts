@@ -95,6 +95,18 @@ export interface CliImageTool {
   agentsWithContainer: number
 }
 
+/** Most recent superseded-image prune sweep (default-off). */
+export interface CliImagePruneStatus {
+  enabled: boolean
+  lastRunUnix: number | null
+  scanned: number
+  removed: number
+  skippedInUse: number
+  skippedConflict: number
+  errors: number
+  lastError: string | null
+}
+
 /** Full report from `GET /api/v1/admin/cli-images`. */
 export interface CliImageStatus {
   autoUpdateEnabled: boolean
@@ -102,6 +114,7 @@ export interface CliImageStatus {
   registry: string
   imageTag: string
   tools: CliImageTool[]
+  prune: CliImagePruneStatus
 }
 
 interface AdminState {

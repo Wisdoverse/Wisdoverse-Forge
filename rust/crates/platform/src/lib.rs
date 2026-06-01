@@ -17,6 +17,7 @@ pub mod types;
 
 pub use container::PlatformError;
 pub use docker::DockerClient;
+pub use image::{LocalImage, RemoveOutcome};
 pub use pool::{ContainerPool, PoolStatus};
 pub use security::{SecurityViolation, validate_security};
 pub use types::*;
