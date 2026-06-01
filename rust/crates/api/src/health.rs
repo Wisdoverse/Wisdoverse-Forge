@@ -99,6 +99,10 @@ pub struct AppState {
     /// Deployment-global — image state is per host, not per org — so it carries
     /// no tenant scope.
     pub cli_image_status: Arc<agentforge_jobs::CliImageUpdateStatus>,
+    /// Single-flight set of tool names with an in-progress `POST
+    /// /admin/cli-images/{tool}/roll`. Prevents two concurrent rolls of the same
+    /// tool (and a roll racing the updater's re-tag). Deployment-global.
+    pub cli_image_roll_inflight: Arc<std::sync::Mutex<std::collections::HashSet<String>>>,
 }
 
 impl AppState {
