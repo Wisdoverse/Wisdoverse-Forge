@@ -2,6 +2,16 @@ import { createRoute, redirect } from '@tanstack/react-router'
 import { Route as rootRoute } from './__root'
 import { AdminLayout } from '@app/features/admin/AdminLayout'
 
+/**
+ * Roles allowed into /admin. Must mirror the backend admin gate
+ * (`AdminService::require_admin`), which accepts `owner` and `admin`. Guarding on
+ * `admin` alone wrongly redirected owners away even though the API grants them
+ * every admin route.
+ */
+export function canAccessAdmin(role: string | undefined): boolean {
+  return role === 'admin' || role === 'owner'
+}
+
 export const Route = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin',
@@ -16,7 +26,7 @@ export const Route = createRoute({
       const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))) as {
         role?: string
       }
-      if (payload.role !== 'admin') throw redirect({ to: '/tasks' })
+      if (!canAccessAdmin(payload.role)) throw redirect({ to: '/tasks' })
     } catch (e) {
       // Re-throw redirect errors
       if (e && typeof e === 'object' && 'to' in e) throw e
