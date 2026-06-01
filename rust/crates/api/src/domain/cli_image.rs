@@ -232,6 +232,12 @@ impl RollReport {
     }
 }
 
+/// 409 error for a concurrent roll of the same tool. The user-visible error
+/// contract lives here in the domain (services must not own `ErrorKind` policy).
+pub(crate) fn roll_in_progress_error(tool: &str) -> AppError {
+    ErrorKind::Conflict(format!("a roll for '{tool}' is already in progress")).into()
+}
+
 /// `{ ok: true, data: <roll report> }` envelope.
 pub(crate) fn cli_image_roll_response(report: RollReport) -> Value {
     json!({ "ok": true, "data": report })

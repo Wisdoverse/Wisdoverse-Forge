@@ -27,7 +27,7 @@
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
-use agentforge_core::{AgentId, AppConfig, AppResult, ErrorKind, OrgId, TenantScope, UserId, WorkspaceId};
+use agentforge_core::{AgentId, AppConfig, AppResult, OrgId, TenantScope, UserId, WorkspaceId};
 use agentforge_platform::DockerClient;
 use sqlx::PgPool;
 
@@ -37,7 +37,9 @@ use crate::services::agent_container_control::AgentContainerControlService;
 use crate::services::auth_callout::AuthCalloutService;
 
 pub use crate::domain::cli_image::{RollAgentResult, RollReport};
-pub(crate) use crate::domain::cli_image::{RollToolPolicy, cli_image_roll_response, client_safe_roll_error};
+pub(crate) use crate::domain::cli_image::{
+    RollToolPolicy, cli_image_roll_response, client_safe_roll_error, roll_in_progress_error,
+};
 
 /// Single-flight guard: holds a tool name in the shared in-flight set for the
 /// duration of a roll and removes it on drop (including on early return / panic).
@@ -50,7 +52,7 @@ impl RollGuard {
     fn acquire(inflight: &Arc<Mutex<HashSet<String>>>, tool: &str) -> AppResult<Self> {
         let mut set = inflight.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         if !set.insert(tool.to_string()) {
-            return Err(ErrorKind::Conflict(format!("a roll for '{tool}' is already in progress")).into());
+            return Err(roll_in_progress_error(tool));
         }
         Ok(Self { inflight: Arc::clone(inflight), tool: tool.to_string() })
     }
