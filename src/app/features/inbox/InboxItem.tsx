@@ -4,6 +4,7 @@ import {
   AtSign,
   CheckCircle2,
   KeyRound,
+  RefreshCw,
   XCircle,
   type LucideIcon,
 } from 'lucide-react'
@@ -82,6 +83,17 @@ const TYPE_CONFIG: Record<
     actionLabel: 'Reconnect credential',
     guidance: 'Reconnect access in settings so agents can keep working.',
     template: 'credential-action',
+  },
+  cli_image_updated: {
+    Icon: RefreshCw,
+    color: 'text-apple-blue',
+    unreadBg: 'bg-apple-blue/[0.04]',
+    dot: 'bg-apple-blue',
+    label: 'CLI image',
+    actionLabel: 'Open CLI images',
+    guidance:
+      'Open Admin → CLI agent images to see the per-tool status. New agents pick up the change automatically.',
+    template: 'task-lifecycle',
   },
 }
 

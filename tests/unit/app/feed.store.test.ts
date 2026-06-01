@@ -108,4 +108,25 @@ describe('Feed Store', () => {
     expect(notifications[0].message).toBe('Still blocked')
     expect(notifications[0].read).toBe(true)
   })
+
+  test('caps retained notifications so distinct-id producers cannot grow unbounded', () => {
+    const store = useFeedStore.getState()
+    // Each distinct id is a separate notification (mirrors per-version CLI image toasts).
+    for (let i = 0; i < 150; i += 1) {
+      store.addNotification({
+        id: `cli-image:codex:updated:sha256:${i}`,
+        type: 'cli_image_updated',
+        taskId: 'cli-image:codex',
+        taskTitle: 'codex agent image updated',
+        message: `version ${i}`,
+        read: false,
+        timestamp: i,
+      })
+    }
+
+    const notifications = useFeedStore.getState().notifications
+    expect(notifications).toHaveLength(100)
+    // Newest is retained at the head; oldest are evicted.
+    expect(notifications[0].id).toBe('cli-image:codex:updated:sha256:149')
+  })
 })

@@ -27,6 +27,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use agentforge_core::CliToolKind;
+use agentforge_core::broadcast_protocol::{ADMIN_CLI_IMAGE_SUBJECT, CLI_IMAGE_UPDATED_EVENT};
 use agentforge_platform::DockerClient;
 use agentforge_platform::container::PlatformError;
 use tokio::sync::{RwLock, watch};
@@ -116,11 +117,23 @@ pub struct CliImageUpdater {
     docker: Arc<DockerClient>,
     status: Arc<CliImageUpdateStatus>,
     interval: Duration,
+    /// Optional NATS client used to publish admin toast frames on the
+    /// `broadcast.admin.cli_image` subject. `None` (the default) makes toast
+    /// emission a no-op — the worker still records status + metrics. Set via
+    /// [`Self::with_event_sink`] when NATS is configured.
+    event_sink: Option<async_nats::Client>,
 }
 
 impl CliImageUpdater {
     pub fn new(docker: Arc<DockerClient>, status: Arc<CliImageUpdateStatus>) -> Self {
-        Self { docker, status, interval: DEFAULT_INTERVAL }
+        Self { docker, status, interval: DEFAULT_INTERVAL, event_sink: None }
+    }
+
+    /// Attach the NATS client the worker publishes admin toast frames to. Pass
+    /// `None` (e.g. NATS not configured) to leave toasts disabled.
+    pub fn with_event_sink(mut self, client: Option<async_nats::Client>) -> Self {
+        self.event_sink = client;
+        self
     }
 
     pub fn with_interval(mut self, interval: Duration) -> Self {
@@ -194,7 +207,31 @@ impl CliImageUpdater {
                     }
                 }
             };
+            // Toast admins only on a real transition, BEFORE recording so the
+            // frame reflects this tick: every landed update, and a failure that
+            // is new or whose error changed. A steady failing tool does NOT
+            // re-toast every tick (that would spam NATS and, with a fixed id,
+            // could mask a later distinct failure).
+            if should_toast(prev, &state) {
+                self.emit_toast(tool.as_str(), &state, now).await;
+            }
             self.status.record(tool.as_str(), state).await;
+        }
+    }
+
+    /// Publish an admin toast frame for `updated`/`failed` transitions. Best
+    /// effort: a publish failure is logged and never affects the update result
+    /// or the status snapshot. No-op when no NATS sink is attached, and silent
+    /// for `up_to_date`/`pending` (those would be noise).
+    async fn emit_toast(&self, tool: &str, state: &CliToolImageState, unix: i64) {
+        let Some(client) = self.event_sink.as_ref() else {
+            return;
+        };
+        let Some(frame) = build_cli_image_frame(tool, state, unix) else {
+            return;
+        };
+        if let Err(err) = client.publish(ADMIN_CLI_IMAGE_SUBJECT, frame.into_bytes().into()).await {
+            tracing::warn!(tool, error = %err, "failed to publish cli image admin toast (non-fatal)");
         }
     }
 
@@ -305,6 +342,63 @@ fn local_runtime_ref(tool: &str) -> String {
     format!("agentforge-agent:{tool}")
 }
 
+/// Whether a recorded per-tool state warrants a toast vs the previous tick.
+/// `updated` always toasts (it is a one-shot landing — the next tick is
+/// `up_to_date`). `failed` toasts only when it is new or the error text changed,
+/// so a steadily-failing tool toasts once per distinct failure, not every tick.
+fn should_toast(prev: Option<&CliToolImageState>, state: &CliToolImageState) -> bool {
+    match state.state.as_str() {
+        "updated" => true,
+        "failed" => {
+            prev.map(|p| p.state.as_str()) != Some("failed")
+                || prev.and_then(|p| p.last_error.as_deref()) != state.last_error.as_deref()
+        }
+        _ => false,
+    }
+}
+
+/// A stable 64-bit discriminator of a failure's error text, so a genuinely
+/// DIFFERENT failure gets a distinct toast id (a fresh unread notification)
+/// rather than silently updating the one the admin already acked.
+fn error_discriminator(err: Option<&str>) -> String {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    err.unwrap_or("").hash(&mut hasher);
+    format!("{:016x}", hasher.finish())
+}
+
+/// Build the admin toast frame for a recorded per-tool state. Returns
+/// `Some(frame_json)` only for the transitions worth toasting (`updated` =
+/// a landed image, `failed` = a check error); `None` for `up_to_date`/`pending`
+/// so steady state is silent. The string is the exact WS envelope the gateway
+/// forwards verbatim and the browser dispatch consumes (`type` + `payload`).
+fn build_cli_image_frame(tool: &str, state: &CliToolImageState, unix: i64) -> Option<String> {
+    if state.state != "updated" && state.state != "failed" {
+        return None;
+    }
+    // Dedup key: a new `updated` digest is a distinct toast; a `failed` key
+    // embeds the error discriminator so a NEW failure surfaces as a fresh unread
+    // toast (the browser dedups by id and preserves the read flag on a match).
+    let event_id = if state.state == "updated" {
+        format!("cli-image:{tool}:updated:{}", state.remote_digest.as_deref().unwrap_or("unknown"))
+    } else {
+        format!("cli-image:{tool}:failed:{}", error_discriminator(state.last_error.as_deref()))
+    };
+    let frame = serde_json::json!({
+        "type": CLI_IMAGE_UPDATED_EVENT,
+        "payload": {
+            "tool": tool,
+            "state": state.state,
+            "localDigest": state.local_digest,
+            "remoteDigest": state.remote_digest,
+            "lastError": state.last_error,
+            "eventId": event_id,
+            "unix": unix,
+        }
+    });
+    Some(frame.to_string())
+}
+
 fn non_empty_env(key: &str) -> Option<String> {
     env::var(key).ok().map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
 }
@@ -338,6 +432,77 @@ mod tests {
         );
         // trailing slash on the registry is normalised
         assert_eq!(build_remote_ref("ghcr.io/org/", "1.2.3", "gemini"), "ghcr.io/org/agent-gemini:1.2.3");
+    }
+
+    fn state(s: &str, remote: Option<&str>, err: Option<&str>) -> CliToolImageState {
+        CliToolImageState {
+            state: s.to_string(),
+            local_digest: remote.map(str::to_string),
+            remote_digest: remote.map(str::to_string),
+            last_checked_unix: Some(1_700_000_000),
+            last_updated_unix: None,
+            last_error: err.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn frame_only_emitted_for_updated_and_failed() {
+        assert!(build_cli_image_frame("codex", &state("up_to_date", Some("sha256:x"), None), 1).is_none());
+        assert!(build_cli_image_frame("codex", &state("pending", None, None), 1).is_none());
+        assert!(build_cli_image_frame("codex", &state("updated", Some("sha256:x"), None), 1).is_some());
+        assert!(build_cli_image_frame("codex", &state("failed", None, Some("boom")), 1).is_some());
+    }
+
+    #[test]
+    fn updated_frame_shape_and_dedup_key() {
+        let raw = build_cli_image_frame("codex", &state("updated", Some("sha256:abc"), None), 1_700_000_123).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        assert_eq!(v["type"], CLI_IMAGE_UPDATED_EVENT);
+        assert_eq!(v["payload"]["tool"], "codex");
+        assert_eq!(v["payload"]["state"], "updated");
+        assert_eq!(v["payload"]["remoteDigest"], "sha256:abc");
+        assert_eq!(v["payload"]["unix"], 1_700_000_123_i64);
+        // updated dedup key embeds the new digest so each version is distinct.
+        assert_eq!(v["payload"]["eventId"], "cli-image:codex:updated:sha256:abc");
+    }
+
+    fn event_id(raw: &str) -> String {
+        let v: serde_json::Value = serde_json::from_str(raw).unwrap();
+        v["payload"]["eventId"].as_str().unwrap().to_string()
+    }
+
+    #[test]
+    fn failed_dedup_key_is_stable_per_error_and_distinct_across_errors() {
+        let raw = build_cli_image_frame("gemini", &state("failed", None, Some("registry timeout")), 1).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        assert_eq!(v["payload"]["state"], "failed");
+        assert_eq!(v["payload"]["lastError"], "registry timeout");
+
+        // Same error → same id (the browser updates the existing toast in place).
+        let again = build_cli_image_frame("gemini", &state("failed", None, Some("registry timeout")), 2).unwrap();
+        assert_eq!(event_id(&raw), event_id(&again));
+        // A DIFFERENT error → a distinct id, so a new failure is a fresh unread toast.
+        let other = build_cli_image_frame("gemini", &state("failed", None, Some("auth revoked")), 3).unwrap();
+        assert_ne!(event_id(&raw), event_id(&other));
+        assert!(event_id(&raw).starts_with("cli-image:gemini:failed:"));
+    }
+
+    #[test]
+    fn should_toast_only_on_real_transitions() {
+        let up = state("up_to_date", Some("sha256:x"), None);
+        let updated = state("updated", Some("sha256:y"), None);
+        let failed_a = state("failed", None, Some("err A"));
+        let failed_b = state("failed", None, Some("err B"));
+
+        // landed update always toasts; steady states never do.
+        assert!(should_toast(Some(&up), &updated));
+        assert!(!should_toast(Some(&updated), &up));
+        assert!(!should_toast(Some(&up), &up));
+
+        // a new failure toasts; the SAME failure next tick does not; a changed error does.
+        assert!(should_toast(Some(&up), &failed_a));
+        assert!(!should_toast(Some(&failed_a), &failed_a));
+        assert!(should_toast(Some(&failed_a), &failed_b));
     }
 
     #[test]
