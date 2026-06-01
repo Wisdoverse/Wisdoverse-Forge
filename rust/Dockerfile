@@ -6,7 +6,7 @@
 # stages do not block on rustup network traffic during every build.
 # Clang + mold linker speed up the final link step 2-5x; they cost ~30s to
 # install but pay back on every rebuild.
-FROM rust:1.95.0-bookworm AS chef
+FROM rust:1.96.0-bookworm AS chef
 RUN apt-get update && apt-get install -y musl-tools protobuf-compiler clang mold && rm -rf /var/lib/apt/lists/*
 RUN cargo install cargo-chef cargo-auditable --locked
 RUN rustup set profile minimal && rustup target add x86_64-unknown-linux-musl
