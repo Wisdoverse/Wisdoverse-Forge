@@ -154,6 +154,19 @@ interface AdminState {
   loadHealth: () => Promise<void>
 
   loadCliImages: () => Promise<void>
+  /**
+   * Live-patch one tool from a `cli_image.updated` WebSocket toast so an open
+   * panel reflects the change immediately instead of waiting for the 30s poll.
+   * No-op when the report has not been loaded yet (the next poll fills it in).
+   */
+  applyCliImageUpdate: (update: {
+    tool: string
+    state: 'updated' | 'failed'
+    localDigest: string | null
+    remoteDigest: string | null
+    lastError: string | null
+    unix: number
+  }) => void
 }
 
 type AdminResource = 'users' | 'organizations' | 'agents' | 'health' | 'cli-images'
@@ -439,4 +452,23 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       set({ cliImagesLoading: false, cliImagesError: adminErrorMessage(err, 'cli-images') })
     }
   },
+
+  applyCliImageUpdate: (update) =>
+    set((s) => {
+      if (!s.cliImages) return {}
+      const tools = s.cliImages.tools.map((t) =>
+        t.tool === update.tool
+          ? {
+              ...t,
+              state: update.state,
+              localDigest: update.localDigest,
+              remoteDigest: update.remoteDigest,
+              lastError: update.lastError,
+              lastCheckedUnix: update.unix,
+              lastUpdatedUnix: update.state === 'updated' ? update.unix : t.lastUpdatedUnix,
+            }
+          : t
+      )
+      return { cliImages: { ...s.cliImages, tools } }
+    }),
 }))

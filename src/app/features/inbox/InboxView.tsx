@@ -341,6 +341,8 @@ function nextStepTitle(notification: Notification): string {
       return 'Open the newest assignment'
     case 'mentioned':
       return 'Open the newest mention'
+    case 'cli_image_updated':
+      return 'Review the latest CLI agent-image update'
   }
 }
 
@@ -378,6 +380,8 @@ function nextStepActionLabel(notification: Notification): string {
       return 'Open Assignment'
     case 'mentioned':
       return 'Open Mention'
+    case 'cli_image_updated':
+      return 'Open CLI Images'
   }
 }
 

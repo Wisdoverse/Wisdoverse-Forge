@@ -187,6 +187,25 @@ mod tests {
         assert!(perms.pub_deny.iter().any(|s| s == "orchestration.assigned.>"), "pub_deny missing task injection deny");
     }
 
+    /// A `broadcast.>` deny entry NATS-covers `subject` (prefix `broadcast.`
+    /// plus at least one more token, which `>` matches).
+    fn broadcast_wildcard_covers(subject: &str) -> bool {
+        subject.strip_prefix("broadcast.").is_some_and(|rest| !rest.is_empty())
+    }
+
+    #[test]
+    fn admin_cli_image_toast_subject_is_denied_for_agents() {
+        // The admin CLI-image toast rides `broadcast.admin.cli_image`. A rooted
+        // sidecar must be able to neither READ it (leak) nor PUBLISH it (spoof a
+        // fake "updated" toast). Both are covered by the `broadcast.>` deny;
+        // pin it so a future grant refactor can't silently expose the subject.
+        use agentforge_core::broadcast_protocol::ADMIN_CLI_IMAGE_SUBJECT;
+        assert!(broadcast_wildcard_covers(ADMIN_CLI_IMAGE_SUBJECT));
+        let perms = build_agent_permissions(uuid_of("11111111-2222-3333-4444-555555555555"), RuntimeKind::Container);
+        assert!(perms.pub_deny.iter().any(|s| s == "broadcast.>"), "agent could spoof the admin toast");
+        assert!(perms.sub_deny.iter().any(|s| s == "broadcast.>"), "agent could read the admin toast");
+    }
+
     #[test]
     fn deny_list_is_identical_for_different_agents() {
         // Static invariant: the deny list is the same shape regardless of
