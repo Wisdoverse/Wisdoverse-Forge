@@ -28,8 +28,8 @@ use std::time::Duration;
 
 use agentforge_core::CliToolKind;
 use agentforge_core::broadcast_protocol::{ADMIN_CLI_IMAGE_SUBJECT, CLI_IMAGE_UPDATED_EVENT};
-use agentforge_platform::DockerClient;
 use agentforge_platform::container::PlatformError;
+use agentforge_platform::{DockerClient, LocalImage, RemoveOutcome};
 use tokio::sync::{RwLock, watch};
 
 /// Per-tool image-update state, surfaced read-only by `GET /admin/cli-images`.
@@ -44,12 +44,30 @@ pub struct CliToolImageState {
     pub last_error: Option<String>,
 }
 
-/// Shared in-memory snapshot of the latest per-tool update state. Written by the
-/// worker each tick, read by the admin status endpoint. Deployment-global
-/// (image state is per host, not per org), so it carries no tenant scope.
+/// Result of the most recent prune sweep, surfaced read-only by the admin
+/// status endpoint. `enabled=false` means the sweep never runs (the default).
+#[derive(Debug, Clone, Default)]
+pub struct CliImagePruneSummary {
+    pub enabled: bool,
+    pub last_run_unix: Option<i64>,
+    /// Candidate superseded agent images considered this sweep.
+    pub scanned: u64,
+    pub removed: u64,
+    /// Left intact because a container still references them.
+    pub skipped_in_use: u64,
+    /// Left intact because Docker returned 409 (still tagged / has a child).
+    pub skipped_conflict: u64,
+    pub errors: u64,
+    pub last_error: Option<String>,
+}
+
+/// Shared in-memory snapshot of the latest per-tool update state + prune result.
+/// Written by the worker each tick, read by the admin status endpoint.
+/// Deployment-global (image state is per host, not per org), so no tenant scope.
 #[derive(Debug, Default)]
 pub struct CliImageUpdateStatus {
     tools: RwLock<BTreeMap<String, CliToolImageState>>,
+    prune: RwLock<CliImagePruneSummary>,
 }
 
 impl CliImageUpdateStatus {
@@ -62,8 +80,17 @@ impl CliImageUpdateStatus {
         self.tools.read().await.clone()
     }
 
+    /// A clone of the latest prune summary.
+    pub async fn prune_snapshot(&self) -> CliImagePruneSummary {
+        self.prune.read().await.clone()
+    }
+
     async fn record(&self, tool: &str, state: CliToolImageState) {
         self.tools.write().await.insert(tool.to_string(), state);
+    }
+
+    async fn record_prune(&self, summary: CliImagePruneSummary) {
+        *self.prune.write().await = summary;
     }
 }
 
@@ -122,17 +149,27 @@ pub struct CliImageUpdater {
     /// emission a no-op — the worker still records status + metrics. Set via
     /// [`Self::with_event_sink`] when NATS is configured.
     event_sink: Option<async_nats::Client>,
+    /// When true, each poll sweep also prunes superseded (dangling) agent
+    /// overlay images. Default `false` — a destructive image-removal path stays
+    /// opt-in. Set via [`Self::with_prune`].
+    prune_enabled: bool,
 }
 
 impl CliImageUpdater {
     pub fn new(docker: Arc<DockerClient>, status: Arc<CliImageUpdateStatus>) -> Self {
-        Self { docker, status, interval: DEFAULT_INTERVAL, event_sink: None }
+        Self { docker, status, interval: DEFAULT_INTERVAL, event_sink: None, prune_enabled: false }
     }
 
     /// Attach the NATS client the worker publishes admin toast frames to. Pass
     /// `None` (e.g. NATS not configured) to leave toasts disabled.
     pub fn with_event_sink(mut self, client: Option<async_nats::Client>) -> Self {
         self.event_sink = client;
+        self
+    }
+
+    /// Enable pruning of superseded agent overlay images after each sweep.
+    pub fn with_prune(mut self, enabled: bool) -> Self {
+        self.prune_enabled = enabled;
         self
     }
 
@@ -217,6 +254,75 @@ impl CliImageUpdater {
             }
             self.status.record(tool.as_str(), state).await;
         }
+
+        // After refreshing every tool, optionally reclaim superseded (dangling)
+        // agent overlay images. Default-off; image-level only (never a
+        // container op), and scoped + reference-guarded so it can never touch a
+        // live image or another stack's layers.
+        if self.prune_enabled {
+            let summary = self.prune_orphans(now).await;
+            self.status.record_prune(summary).await;
+        }
+    }
+
+    /// Reclaim superseded agent overlay images: list local images, keep only
+    /// dangling ones whose source repo is one of OUR pollable-tool GHCR overlays,
+    /// and remove each that no container (running or stopped) references.
+    /// Best-effort + fully self-contained — any error is counted and logged, the
+    /// summary still records, and the next sweep retries.
+    async fn prune_orphans(&self, now: i64) -> CliImagePruneSummary {
+        let mut summary = CliImagePruneSummary { enabled: true, last_run_unix: Some(now), ..Default::default() };
+
+        let images = match self.docker.list_local_images().await {
+            Ok(images) => images,
+            Err(err) => {
+                tracing::warn!(error = %err, "cli image prune: list images failed");
+                summary.errors += 1;
+                summary.last_error = Some(err.to_string());
+                return summary;
+            }
+        };
+        let referenced = match self.docker.referenced_image_ids().await {
+            Ok(set) => set,
+            Err(err) => {
+                // Without the reference set we cannot prove an image is unused —
+                // refuse to remove anything this sweep (fail safe).
+                tracing::warn!(error = %err, "cli image prune: container reference scan failed; skipping removals");
+                summary.errors += 1;
+                summary.last_error = Some(err.to_string());
+                return summary;
+            }
+        };
+
+        let repos = agent_overlay_repos();
+        for image in images.iter().filter(|img| is_prunable_agent_image(img, &repos)) {
+            summary.scanned += 1;
+            match self.docker.remove_image_if_unreferenced(&image.id, &referenced).await {
+                Ok(RemoveOutcome::Removed) => {
+                    summary.removed += 1;
+                    tracing::info!(image_id = %image.id, "cli image prune: removed superseded agent image");
+                }
+                Ok(RemoveOutcome::SkippedInUse) => summary.skipped_in_use += 1,
+                Ok(RemoveOutcome::SkippedConflict) => summary.skipped_conflict += 1,
+                Ok(RemoveOutcome::NotFound) => {}
+                Err(err) => {
+                    tracing::warn!(image_id = %image.id, error = %err, "cli image prune: remove failed (non-fatal)");
+                    summary.errors += 1;
+                    summary.last_error = Some(err.to_string());
+                }
+            }
+        }
+
+        metrics::counter!("agentforge_cli_image_pruned_total").increment(summary.removed);
+        tracing::debug!(
+            scanned = summary.scanned,
+            removed = summary.removed,
+            in_use = summary.skipped_in_use,
+            conflict = summary.skipped_conflict,
+            errors = summary.errors,
+            "cli image prune sweep complete"
+        );
+        summary
     }
 
     /// Publish an admin toast frame for `updated`/`failed` transitions. Best
@@ -309,6 +415,11 @@ pub fn register_metrics() {
         "agentforge_cli_image_pull_duration_seconds",
         "Time to pull + re-tag one updated CLI agent image; label tool"
     );
+    metrics::describe_counter!(
+        "agentforge_cli_image_pruned_total",
+        "Superseded agent overlay images removed by the prune sweep (default-off)"
+    );
+    metrics::counter!("agentforge_cli_image_pruned_total").increment(0);
     for tool in pollable_tools() {
         metrics::counter!("agentforge_cli_image_pull_total", "tool" => tool.as_str(), "result" => "success")
             .increment(0);
@@ -325,6 +436,32 @@ fn remote_ref(tool: &str) -> String {
 
 fn build_remote_ref(registry: &str, tag: &str, tool: &str) -> String {
     format!("{}/agent-{tool}:{tag}", registry.trim_end_matches('/'))
+}
+
+/// The exact GHCR repo prefixes (`<registry>/agent-<tool>`, no tag) for the
+/// pollable tools. The prune scoping matches a dangling image's repo digest
+/// against THIS set, so it can only ever target our own overlays — never the
+/// base image (`agent-base` is not a pollable tool), never `claude`, never
+/// another stack's images.
+fn agent_overlay_repos() -> Vec<String> {
+    let registry = configured_registry();
+    let base = registry.trim_end_matches('/');
+    pollable_tools().map(|tool| format!("{base}/agent-{}", tool.as_str())).collect()
+}
+
+/// Is `image` a superseded agent overlay safe to consider for removal? True only
+/// when it is DANGLING (no repo tags — a current image keeps its
+/// `agentforge-agent:<tool>` / `ghcr…/agent-<tool>:<tag>` tag) AND a repo digest
+/// names one of our pollable-tool overlay repos. Reference-safety (no container
+/// uses it) is enforced separately by `remove_image_if_unreferenced`.
+fn is_prunable_agent_image(image: &LocalImage, agent_repos: &[String]) -> bool {
+    if !image.repo_tags.is_empty() {
+        return false;
+    }
+    image
+        .repo_digests
+        .iter()
+        .any(|digest| digest.rsplit_once('@').is_some_and(|(repo, _)| agent_repos.iter().any(|r| r == repo)))
 }
 
 /// The local image ref the AUTHORITATIVE container-start resolver
@@ -422,6 +559,51 @@ mod tests {
         assert!(!tools.contains(&"claude"), "claude has no public image and must never be pulled");
         assert!(tools.contains(&"codex") && tools.contains(&"gemini") && tools.contains(&"opencode"));
         assert_eq!(tools.len(), 3);
+    }
+
+    fn local_image(tags: &[&str], digests: &[&str]) -> LocalImage {
+        LocalImage {
+            id: "sha256:image".to_string(),
+            repo_tags: tags.iter().map(|s| s.to_string()).collect(),
+            repo_digests: digests.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+
+    #[test]
+    fn prune_scoping_targets_only_dangling_own_overlays() {
+        let repos = vec!["ghcr.io/x/agent-codex".to_string(), "ghcr.io/x/agent-gemini".to_string()];
+
+        // dangling + our overlay repo → prunable.
+        assert!(is_prunable_agent_image(&local_image(&[], &["ghcr.io/x/agent-codex@sha256:old"]), &repos));
+
+        // STILL TAGGED (current image) → never prunable, even if it's ours.
+        assert!(!is_prunable_agent_image(
+            &local_image(&["ghcr.io/x/agent-codex:latest"], &["ghcr.io/x/agent-codex@sha256:cur"]),
+            &repos
+        ));
+        assert!(!is_prunable_agent_image(
+            &local_image(&["agentforge-agent:codex"], &["ghcr.io/x/agent-codex@sha256:cur"]),
+            &repos
+        ));
+
+        // base image is not a pollable tool → never matched.
+        assert!(!is_prunable_agent_image(&local_image(&[], &["ghcr.io/x/agent-base@sha256:b"]), &repos));
+        // claude is not pollable → never matched.
+        assert!(!is_prunable_agent_image(&local_image(&[], &["ghcr.io/x/agent-claude@sha256:c"]), &repos));
+        // another stack's dangling image → never matched.
+        assert!(!is_prunable_agent_image(&local_image(&[], &["docker.io/other/app@sha256:z"]), &repos));
+        // no repo digests (locally-built, unknown origin) → never matched.
+        assert!(!is_prunable_agent_image(&local_image(&[], &[]), &repos));
+    }
+
+    #[test]
+    fn agent_overlay_repos_cover_pollable_tools_only() {
+        // SAFELY env-free assert on the shape: one entry per pollable tool, none for claude/base.
+        let repos = agent_overlay_repos();
+        assert_eq!(repos.len(), pollable_tool_names().len());
+        assert!(repos.iter().all(|r| r.contains("/agent-")));
+        assert!(repos.iter().any(|r| r.ends_with("/agent-codex")));
+        assert!(!repos.iter().any(|r| r.ends_with("/agent-claude") || r.ends_with("/agent-base")));
     }
 
     #[test]

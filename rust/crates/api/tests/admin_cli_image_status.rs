@@ -129,6 +129,11 @@ async fn admin_sees_pending_pollable_tools(pool: PgPool) {
     assert_eq!(names, vec!["codex", "gemini", "opencode"], "claude must never be polled: {body}");
     assert!(tools.iter().all(|t| t["state"] == "pending"), "no tick ran, all pending: {body}");
     assert!(tools.iter().all(|t| t["agentsWithContainer"] == 0), "no containers seeded: {body}");
+
+    // Prune defaults to disabled/zeroed when the (default-off) worker never ran.
+    assert_eq!(body["data"]["prune"]["enabled"], false, "prune off by default: {body}");
+    assert_eq!(body["data"]["prune"]["removed"], 0, "nothing pruned: {body}");
+    assert_eq!(body["data"]["prune"]["lastRunUnix"], serde_json::Value::Null, "no sweep ran: {body}");
 }
 
 /// `agents_with_container` counts agents that have a container, across orgs, and

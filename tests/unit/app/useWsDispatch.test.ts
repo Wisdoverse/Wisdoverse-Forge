@@ -410,6 +410,16 @@ describe('dispatchWsMessage', () => {
             agentsWithContainer: 1,
           },
         ],
+        prune: {
+          enabled: false,
+          lastRunUnix: null,
+          scanned: 0,
+          removed: 0,
+          skippedInUse: 0,
+          skippedConflict: 0,
+          errors: 0,
+          lastError: null,
+        },
       },
     })
 
