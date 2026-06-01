@@ -490,6 +490,7 @@ async fn main() -> Result<()> {
         context_features,
         inflight_prompts,
         cli_image_status,
+        cli_image_roll_inflight: Arc::new(std::sync::Mutex::new(std::collections::HashSet::new())),
     };
 
     // CLI auth proxy refresh loop — every 4 hours, refresh tokens older than

@@ -34,6 +34,9 @@ function resetAdminState() {
     cliImages: null,
     cliImagesLoading: false,
     cliImagesError: null,
+    cliImageRollingTool: null,
+    cliImageRollResult: null,
+    cliImageRollError: null,
   })
 }
 
@@ -145,6 +148,72 @@ describe('useAdminStore loading errors', () => {
     expect(useAdminStore.getState().cliImagesError).toBe(
       'You do not have permission to view admin CLI agent images. Ask an owner to update your admin role. Code: 403. Details: admin only'
     )
+  })
+
+  test('rollCliImage stores the per-agent report and refreshes status on success', async () => {
+    // First call: the roll POST; second call: the loadCliImages refresh.
+    authFetchMock
+      .mockResolvedValueOnce(
+        response(200, {
+          ok: true,
+          data: {
+            tool: 'codex',
+            total: 2,
+            succeeded: 2,
+            failed: 0,
+            skippedBusy: 0,
+            results: [
+              { agentId: 'a1', ok: true },
+              { agentId: 'a2', ok: true },
+            ],
+          },
+        })
+      )
+      .mockResolvedValueOnce(
+        response(200, {
+          ok: true,
+          data: {
+            autoUpdateEnabled: true,
+            pollIntervalSecs: 900,
+            registry: 'ghcr.io/x',
+            imageTag: 'latest',
+            tools: [],
+            prune: {
+              enabled: false,
+              lastRunUnix: null,
+              scanned: 0,
+              removed: 0,
+              skippedInUse: 0,
+              skippedConflict: 0,
+              errors: 0,
+              lastError: null,
+            },
+          },
+        })
+      )
+
+    await useAdminStore.getState().rollCliImage('codex')
+
+    const state = useAdminStore.getState()
+    expect(state.cliImageRollError).toBeNull()
+    expect(state.cliImageRollingTool).toBeNull()
+    expect(state.cliImageRollResult?.tool).toBe('codex')
+    expect(state.cliImageRollResult?.succeeded).toBe(2)
+    // refreshed the status report afterward (second fetch consumed).
+    expect(authFetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  test('rollCliImage surfaces a 409 already-in-progress conflict', async () => {
+    authFetchMock.mockResolvedValue(
+      response(409, { error: "a roll for 'codex' is already in progress" })
+    )
+
+    await useAdminStore.getState().rollCliImage('codex')
+
+    const state = useAdminStore.getState()
+    expect(state.cliImageRollingTool).toBeNull()
+    expect(state.cliImageRollError).toContain('already in progress')
+    expect(state.cliImageRollResult).toBeNull()
   })
 
   test('still loads admin users on success', async () => {
