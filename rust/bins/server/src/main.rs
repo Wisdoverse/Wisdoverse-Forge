@@ -332,7 +332,9 @@ async fn main() -> Result<()> {
                     .with_interval(std::time::Duration::from_secs(config.cli_image_auto_update_interval_secs))
                     // Publish admin toasts on `broadcast.admin.cli_image` when NATS
                     // is configured; None leaves toasts off (status + metrics only).
-                    .with_event_sink(nats.client().cloned());
+                    .with_event_sink(nats.client().cloned())
+                    // Default-off prune of superseded dangling agent overlays.
+                    .with_prune(config.cli_image_prune_enabled);
                 let worker_shutdown = shutdown_rx.clone();
                 Some(tokio::spawn(async move { worker.run(worker_shutdown).await }))
             }
@@ -343,6 +345,14 @@ async fn main() -> Result<()> {
         }
     } else {
         tracing::info!("cli image auto-updater disabled (flag off)");
+        // Surface a likely misconfiguration: prune lives inside the updater
+        // loop, so CLI_IMAGE_PRUNE_ENABLED is inert while auto-update is off.
+        if config.cli_image_prune_enabled {
+            tracing::warn!(
+                "CLI_IMAGE_PRUNE_ENABLED=true has no effect because CLI_IMAGE_AUTO_UPDATE_ENABLED is off; \
+                 prune runs inside the updater loop, which is not spawned"
+            );
+        }
         None
     };
 
