@@ -362,6 +362,38 @@ impl AdminRepository {
         .await?;
         Ok(rows)
     }
+
+    /// Enumerate the RUNNING container agents of one tool across ALL orgs, for
+    /// the admin-gated roll. Deployment-global by design (image state is per
+    /// host). The `runtime_kind = 'container'` filter is CRITICAL — the count
+    /// query omits it, but here it guarantees a cli/api agent with an incidental
+    /// `container_id` is never picked up and stopped. Each row carries the
+    /// agent's OWN org/user/workspace so the roll acts within that agent's real
+    /// tenant scope, never a fabricated-privilege one.
+    pub async fn running_container_agents_by_tool(&self, tool: &str) -> AppResult<Vec<RollTargetRow>> {
+        let rows = sqlx::query_as::<_, RollTargetRow>(
+            "SELECT id, organization_id, user_id, workspace_id, status::text AS status \
+             FROM agents \
+             WHERE cli_tool = $1 AND container_id IS NOT NULL AND runtime_kind = 'container'",
+        )
+        .bind(tool)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+}
+
+/// One roll target: a running container agent plus its OWN tenant axes, so the
+/// roll reconstructs the agent's real scope rather than fabricating privilege.
+/// `status` lets the roll skip a `working` agent (rolling one would interrupt
+/// in-flight work + risk a redelivered assignment double-executing).
+#[derive(Debug, Clone, FromRow)]
+pub struct RollTargetRow {
+    pub id: Uuid,
+    pub organization_id: Uuid,
+    pub user_id: Uuid,
+    pub workspace_id: Option<Uuid>,
+    pub status: String,
 }
 
 /// System-wide statistics returned by the admin stats endpoint.

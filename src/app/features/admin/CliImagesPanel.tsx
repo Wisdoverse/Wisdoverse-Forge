@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import {
   useAdminStore,
   type CliImagePruneStatus,
+  type CliImageRollReport,
   type CliImageTool,
   type CliImageToolState,
 } from '@app/shared/model/admin.store'
@@ -73,7 +74,65 @@ function StateBadge({ state, label }: { state: CliImageToolState; label?: string
 // Tool row
 // ============================================================================
 
-function ToolRow({ tool, enabled }: { tool: CliImageTool; enabled: boolean }) {
+interface RollControl {
+  confirming: boolean
+  rolling: boolean
+  onRequest: () => void
+  onConfirm: () => void
+  onCancel: () => void
+}
+
+function RollButton({ tool, control }: { tool: CliImageTool; control: RollControl }) {
+  // Only offer a roll when there is something to roll.
+  if (tool.agentsWithContainer === 0) return null
+
+  if (control.rolling) {
+    return (
+      <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+        Rolling…
+      </span>
+    )
+  }
+  if (control.confirming) {
+    return (
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={control.onConfirm}
+          className="rounded-full bg-apple-red/10 px-3 py-1 text-ui-caption font-medium text-apple-red"
+        >
+          Interrupt {tool.agentsWithContainer} & roll
+        </button>
+        <button
+          type="button"
+          onClick={control.onCancel}
+          className="text-ui-caption text-secondary-light dark:text-secondary-dark"
+        >
+          Cancel
+        </button>
+      </div>
+    )
+  }
+  return (
+    <button
+      type="button"
+      onClick={control.onRequest}
+      className="rounded-full border border-black/[0.1] px-3 py-1 text-ui-caption font-medium text-foreground-light dark:border-white/[0.12] dark:text-foreground-dark"
+    >
+      Roll onto new image
+    </button>
+  )
+}
+
+function ToolRow({
+  tool,
+  enabled,
+  roll,
+}: {
+  tool: CliImageTool
+  enabled: boolean
+  roll: RollControl
+}) {
   // `pending` means no check has recorded a result. Distinguish the common
   // cause — auto-update is off, so nothing will ever check — from "enabled but
   // the first tick hasn't run yet", so an operator can't read gray "pending" as
@@ -123,8 +182,9 @@ function ToolRow({ tool, enabled }: { tool: CliImageTool; enabled: boolean }) {
           )}
         </div>
       </div>
-      <div className="flex items-start sm:items-center shrink-0 ml-4">
+      <div className="flex flex-col items-end gap-2 shrink-0 ml-4">
         <StateBadge state={tool.state} label={badgeLabel} />
+        <RollButton tool={tool} control={roll} />
       </div>
     </div>
   )
@@ -187,13 +247,34 @@ function ConfigBanner({
 // ============================================================================
 
 export function CliImagesPanel() {
-  const { cliImages, cliImagesLoading, cliImagesError, loadCliImages } = useAdminStore()
+  const {
+    cliImages,
+    cliImagesLoading,
+    cliImagesError,
+    loadCliImages,
+    rollCliImage,
+    cliImageRollingTool,
+    cliImageRollResult,
+    cliImageRollError,
+  } = useAdminStore()
+  const [confirmTool, setConfirmTool] = useState<string | null>(null)
 
   useEffect(() => {
     void loadCliImages()
     const interval = setInterval(() => void loadCliImages(), 30_000)
     return () => clearInterval(interval)
   }, [loadCliImages])
+
+  const rollControlFor = (tool: string): RollControl => ({
+    confirming: confirmTool === tool,
+    rolling: cliImageRollingTool === tool,
+    onRequest: () => setConfirmTool(tool),
+    onCancel: () => setConfirmTool(null),
+    onConfirm: () => {
+      setConfirmTool(null)
+      void rollCliImage(tool)
+    },
+  })
 
   return (
     <div>
@@ -256,10 +337,17 @@ export function CliImagesPanel() {
               </p>
             ) : (
               cliImages.tools.map((tool) => (
-                <ToolRow key={tool.tool} tool={tool} enabled={cliImages.autoUpdateEnabled} />
+                <ToolRow
+                  key={tool.tool}
+                  tool={tool}
+                  enabled={cliImages.autoUpdateEnabled}
+                  roll={rollControlFor(tool.tool)}
+                />
               ))
             )}
           </div>
+
+          <RollResultBlock result={cliImageRollResult} error={cliImageRollError} />
 
           <PruneSummaryBlock prune={cliImages.prune} />
 
@@ -268,6 +356,56 @@ export function CliImagesPanel() {
             it does not confirm which exact image each one started from.
           </p>
         </>
+      )}
+    </div>
+  )
+}
+
+function RollResultBlock({
+  result,
+  error,
+}: {
+  result: CliImageRollReport | null
+  error: string | null
+}) {
+  if (error) {
+    return (
+      <div className={cn(uiStyles.error, 'mt-4')}>
+        The roll could not be started.
+        <span className="mt-1 block text-ui-caption">{error}</span>
+      </div>
+    )
+  }
+  if (!result) return null
+  const failed = result.results.filter((r) => !r.ok)
+  return (
+    <div className="mt-4 rounded-card border border-black/[0.06] bg-black/[0.02] px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.03]">
+      <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+        Last roll: {result.tool}
+      </p>
+      <p className="mt-1 text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
+        {result.succeeded} of {result.total} agents respawned
+        {result.failed > 0 ? ` · ${result.failed} failed` : ''}
+        {result.skippedBusy > 0 ? ` · ${result.skippedBusy} skipped (busy)` : ''}
+      </p>
+      {result.skippedBusy > 0 && (
+        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          Busy agents were left running to avoid interrupting their work — roll again once they are
+          idle.
+        </p>
+      )}
+      {failed.length > 0 && (
+        <div className="mt-2 rounded-card border border-apple-red/20 bg-apple-red/[0.04] px-3 py-2">
+          <p className="text-ui-caption text-foreground-light dark:text-foreground-dark">
+            {failed.length} {failed.length === 1 ? 'agent' : 'agents'} did not respawn and{' '}
+            {failed.length === 1 ? 'is' : 'are'} now stopped — restart from the Agents view.
+          </p>
+          {failed[0]?.error && (
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Reported detail: {failed[0].error}
+            </p>
+          )}
+        </div>
       )}
     </div>
   )
