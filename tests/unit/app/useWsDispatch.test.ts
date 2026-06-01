@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
+import { useAdminStore } from '@app/shared/model/admin.store'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useContextStore } from '@app/shared/model/context.store'
 import { useFeedStore } from '@app/shared/model/feed.store'
@@ -9,6 +10,7 @@ beforeEach(() => {
   useBoardStore.getState().reset()
   useContextStore.getState().reset()
   useFeedStore.getState().reset()
+  useAdminStore.setState({ cliImages: null, cliImagesLoading: false, cliImagesError: null })
   resetContextHandlerDedupeForTests()
   localStorage.clear()
 })
@@ -338,5 +340,143 @@ describe('dispatchWsMessage', () => {
     })
 
     expect(useFeedStore.getState().notifications).toHaveLength(0)
+  })
+
+  it('toasts admins when a CLI agent image is updated and dedups by eventId', () => {
+    const frame = {
+      type: 'cli_image.updated',
+      payload: {
+        tool: 'codex',
+        state: 'updated',
+        localDigest: 'sha256:new',
+        remoteDigest: 'sha256:new',
+        lastError: null,
+        eventId: 'cli-image:codex:updated:sha256:new',
+        unix: 1_700_000_000,
+      },
+    }
+    dispatchWsMessage(frame)
+    dispatchWsMessage(frame) // redelivery must not double-toast
+
+    const notifications = useFeedStore.getState().notifications
+    expect(notifications).toHaveLength(1)
+    expect(notifications[0]).toMatchObject({
+      id: 'cli-image:codex:updated:sha256:new',
+      type: 'cli_image_updated',
+      taskId: 'cli-image:codex',
+      taskHref: '/admin',
+      read: false,
+    })
+    expect(notifications[0].message).toContain('latest CLI')
+  })
+
+  it('toasts a failed CLI image check with the reported error', () => {
+    dispatchWsMessage({
+      type: 'cli_image.updated',
+      payload: {
+        tool: 'gemini',
+        state: 'failed',
+        localDigest: null,
+        remoteDigest: null,
+        lastError: 'registry timeout',
+        eventId: 'cli-image:gemini:failed',
+        unix: 1_700_000_001,
+      },
+    })
+
+    const notifications = useFeedStore.getState().notifications
+    expect(notifications).toHaveLength(1)
+    expect(notifications[0].type).toBe('cli_image_updated')
+    expect(notifications[0].taskTitle).toContain('check failed')
+    expect(notifications[0].message).toContain('registry timeout')
+  })
+
+  it('live-patches an open CLI images panel from the toast', () => {
+    useAdminStore.setState({
+      cliImages: {
+        autoUpdateEnabled: true,
+        pollIntervalSecs: 900,
+        registry: 'ghcr.io/x',
+        imageTag: 'latest',
+        tools: [
+          {
+            tool: 'codex',
+            state: 'up_to_date',
+            localDigest: 'sha256:old',
+            remoteDigest: 'sha256:old',
+            lastCheckedUnix: 1,
+            lastUpdatedUnix: null,
+            lastError: null,
+            agentsWithContainer: 1,
+          },
+        ],
+      },
+    })
+
+    dispatchWsMessage({
+      type: 'cli_image.updated',
+      payload: {
+        tool: 'codex',
+        state: 'updated',
+        localDigest: 'sha256:new',
+        remoteDigest: 'sha256:new',
+        lastError: null,
+        eventId: 'cli-image:codex:updated:sha256:new',
+        unix: 1_700_000_002,
+      },
+    })
+
+    const codex = useAdminStore.getState().cliImages?.tools.find((t) => t.tool === 'codex')
+    expect(codex?.state).toBe('updated')
+    expect(codex?.remoteDigest).toBe('sha256:new')
+    expect(codex?.lastUpdatedUnix).toBe(1_700_000_002)
+    // agentsWithContainer is left untouched (toast carries no count).
+    expect(codex?.agentsWithContainer).toBe(1)
+  })
+
+  it('re-surfaces a distinct CLI image failure as unread after the prior one was read', () => {
+    // First failure, then the admin reads it.
+    dispatchWsMessage({
+      type: 'cli_image.updated',
+      payload: {
+        tool: 'gemini',
+        state: 'failed',
+        lastError: 'registry timeout',
+        eventId: 'cli-image:gemini:failed:aaa',
+        unix: 1,
+      },
+    })
+    useFeedStore.getState().markRead('cli-image:gemini:failed:aaa')
+
+    // A genuinely different failure (different producer-side error key) must be a
+    // NEW unread notification, not silently merged into the read one.
+    dispatchWsMessage({
+      type: 'cli_image.updated',
+      payload: {
+        tool: 'gemini',
+        state: 'failed',
+        lastError: 'auth revoked',
+        eventId: 'cli-image:gemini:failed:bbb',
+        unix: 2,
+      },
+    })
+
+    const notifications = useFeedStore.getState().notifications
+    expect(notifications).toHaveLength(2)
+    const fresh = notifications.find((n) => n.id === 'cli-image:gemini:failed:bbb')
+    expect(fresh?.read).toBe(false)
+    expect(fresh?.message).toContain('auth revoked')
+  })
+
+  it('ignores a cli_image toast for a panel that has not loaded', () => {
+    expect(() =>
+      dispatchWsMessage({
+        type: 'cli_image.updated',
+        payload: { tool: 'codex', state: 'updated', eventId: 'x', unix: 1 },
+      })
+    ).not.toThrow()
+    expect(useAdminStore.getState().cliImages).toBeNull()
+    // still toasts even when the panel was never opened
+    expect(useFeedStore.getState().notifications).toHaveLength(1)
   })
 })

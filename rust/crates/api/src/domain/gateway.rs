@@ -3,6 +3,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
 
+use agentforge_core::broadcast_protocol::ADMIN_CLI_IMAGE_SUBJECT;
 use agentforge_core::{AppError, ErrorKind, TenantScope};
 
 #[derive(Debug, Deserialize)]
@@ -89,6 +90,15 @@ pub(crate) fn subscription_subjects(scope: &TenantScope) -> Vec<String> {
     subjects
 }
 
+/// Audience-scoped subjects this connection should additionally subscribe to,
+/// based on its JWT role. The CLI agent-image toast is delivered on a single
+/// global subject only `owner`/`admin` connections join (mirrors the backend
+/// `AdminService::require_admin` audience). Every agent JWT denies `broadcast.>`,
+/// so a sidecar can neither read nor spoof this subject.
+pub(crate) fn admin_subscription_subjects(role: &str) -> Vec<String> {
+    if role == "owner" || role == "admin" { vec![ADMIN_CLI_IMAGE_SUBJECT.to_string()] } else { Vec::new() }
+}
+
 pub(crate) fn parse_gateway_client_message(text: &str) -> Option<GatewayClientMessage> {
     serde_json::from_str(text).ok()
 }
@@ -170,6 +180,16 @@ mod tests {
                 format!("broadcast.{org_id}.scope.project.{project_id}"),
             ]
         );
+    }
+
+    #[test]
+    fn admin_subjects_gated_to_owner_and_admin() {
+        assert_eq!(admin_subscription_subjects("owner"), vec![ADMIN_CLI_IMAGE_SUBJECT.to_string()]);
+        assert_eq!(admin_subscription_subjects("admin"), vec![ADMIN_CLI_IMAGE_SUBJECT.to_string()]);
+        // every non-admin role gets no admin subject — the toast never leaks.
+        for role in ["member", "viewer", "billing", ""] {
+            assert!(admin_subscription_subjects(role).is_empty(), "role {role} must not join the admin subject");
+        }
     }
 
     #[test]

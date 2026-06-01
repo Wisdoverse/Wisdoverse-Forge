@@ -28,10 +28,10 @@ use agentforge_core::{AppError, OrgId, ProjectId, TeamId, TenantScope, UserId, W
 use agentforge_platform::DockerClient;
 
 use crate::domain::gateway::{
-    GatewayTerminalAttachTarget, WebSocketOriginPolicy, WebSocketOriginRejection, docker_unavailable_message,
-    parse_gateway_client_message, realtime_disconnected_frame, realtime_unavailable_frame, subscription_subjects,
-    terminal_error_frame, terminal_output_frame, terminal_payload_agent_id, terminal_payload_dimension,
-    websocket_unauthorized_error,
+    GatewayTerminalAttachTarget, WebSocketOriginPolicy, WebSocketOriginRejection, admin_subscription_subjects,
+    docker_unavailable_message, parse_gateway_client_message, realtime_disconnected_frame, realtime_unavailable_frame,
+    subscription_subjects, terminal_error_frame, terminal_output_frame, terminal_payload_agent_id,
+    terminal_payload_dimension, websocket_unauthorized_error,
 };
 use crate::health::AppState;
 
@@ -86,21 +86,25 @@ pub async fn ws_handler(
         claims.project_id.map(ProjectId::from),
     );
 
+    // Role drives the audience-scoped admin subscriptions (e.g. the CLI image
+    // toast). Captured here from the verified JWT, never from client input.
+    let role = claims.role;
+
     // Upgrade connection — authentication is done, hand off to async handler
-    Ok(ws.on_upgrade(move |socket| handle_ws(socket, state, scope)))
+    Ok(ws.on_upgrade(move |socket| handle_ws(socket, state, scope, role)))
 }
 
 /// Handle an established WebSocket connection.
 ///
 /// Subscribes to `broadcast.{org_id}` on NATS and forwards messages
 /// to the client. Handles ping/pong and graceful disconnect.
-async fn handle_ws(socket: WebSocket, state: AppState, scope: TenantScope) {
+async fn handle_ws(socket: WebSocket, state: AppState, scope: TenantScope, role: String) {
     let org_id = scope.org_id().as_uuid();
     tracing::info!(org_id = %org_id, "WebSocket connected");
 
     let (mut ws_tx, mut ws_rx) = socket.split();
     let (outbound_tx, mut outbound_rx) = mpsc::unbounded_channel::<String>();
-    let nats_tasks = spawn_nats_forwarders(&state, &scope, outbound_tx.clone());
+    let nats_tasks = spawn_nats_forwarders(&state, &scope, &role, outbound_tx.clone());
     let mut terminals: HashMap<Uuid, TerminalSession> = HashMap::new();
 
     loop {
@@ -146,7 +150,12 @@ async fn handle_ws(socket: WebSocket, state: AppState, scope: TenantScope) {
     tracing::info!(org_id = %org_id, "WebSocket disconnected");
 }
 
-fn spawn_nats_forwarders(state: &AppState, scope: &TenantScope, outbound_tx: OutboundTx) -> Vec<JoinHandle<()>> {
+fn spawn_nats_forwarders(
+    state: &AppState,
+    scope: &TenantScope,
+    role: &str,
+    outbound_tx: OutboundTx,
+) -> Vec<JoinHandle<()>> {
     let Some(client) = state.nats.client().cloned() else {
         let _ = outbound_tx.send(realtime_unavailable_frame());
         return Vec::new();
@@ -154,6 +163,7 @@ fn spawn_nats_forwarders(state: &AppState, scope: &TenantScope, outbound_tx: Out
 
     subscription_subjects(scope)
         .into_iter()
+        .chain(admin_subscription_subjects(role))
         .map(|subject| {
             let client = client.clone();
             let outbound_tx = outbound_tx.clone();
