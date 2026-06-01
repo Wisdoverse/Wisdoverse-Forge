@@ -709,11 +709,15 @@ impl PoolStatusProjection {
 }
 
 pub(crate) fn pool_status_response(projection: PoolStatusProjection) -> Value {
+    // The warm pool (`platform/pool.rs`) is dormant — it is never instantiated
+    // and not in the agent-start path, so every agent cold-starts. Report that
+    // honestly rather than implying an integration is imminent.
     json!({
         "ok": true,
         "data": {
             "docker_available": projection.docker_available,
-            "message": "pool status — warm pool integration pending"
+            "warm_pool_enabled": false,
+            "message": "Warm pool disabled — agents start on demand."
         }
     })
 }

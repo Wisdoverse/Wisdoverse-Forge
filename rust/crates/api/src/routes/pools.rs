@@ -35,5 +35,8 @@ mod tests {
         let response = pool_status_response(PoolStatusProjection::new(true));
         assert_eq!(response["ok"], true);
         assert_eq!(response["data"]["docker_available"], true);
+        // The warm pool is dormant — the projection must report it as disabled,
+        // not "integration pending".
+        assert_eq!(response["data"]["warm_pool_enabled"], false);
     }
 }
