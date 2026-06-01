@@ -6,9 +6,11 @@
 
 use std::collections::BTreeMap;
 
-use agentforge_jobs::{CliImagePruneSummary, CliToolImageState};
+use agentforge_core::{AppError, AppResult, ErrorKind};
+use agentforge_jobs::{CliImagePruneSummary, CliToolImageState, pollable_tool_names};
 use serde::Serialize;
 use serde_json::{Value, json};
+use uuid::Uuid;
 
 /// One pollable Container CLI tool's current image-update state.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -146,9 +148,138 @@ pub(crate) fn cli_image_status_response(report: CliImageStatusReport) -> Value {
     json!({ "ok": true, "data": report })
 }
 
+// ---------------------------------------------------------------------------
+// Operator-initiated roll (POST /admin/cli-images/{tool}/roll)
+// ---------------------------------------------------------------------------
+
+/// Which tools may be rolled. The roll path is destructive (it interrupts
+/// running agents), so the allowlist is asserted in the DOMAIN — once here, and
+/// re-asserted in the service — never trusting only the route.
+pub(crate) struct RollToolPolicy;
+
+impl RollToolPolicy {
+    /// Accept only a canonical pollable tool. `claude` (no public image, never
+    /// auto-managed) and unknown values are rejected with 422 — NOT 404, since
+    /// the route path matched; the value is just not a rollable tool.
+    pub(crate) fn ensure_rollable(tool: &str) -> AppResult<()> {
+        if pollable_tool_names().contains(&tool) {
+            Ok(())
+        } else {
+            Err(ErrorKind::Unprocessable(format!(
+                "'{tool}' is not a rollable CLI tool; expected one of: {}",
+                pollable_tool_names().join(", ")
+            ))
+            .into())
+        }
+    }
+}
+
+/// Per-agent outcome of a roll. `error` is a client-safe message (never an
+/// internal error), present only when `ok` is false.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RollAgentResult {
+    pub agent_id: Uuid,
+    pub ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+impl RollAgentResult {
+    pub(crate) fn ok(agent_id: Uuid) -> Self {
+        Self { agent_id, ok: true, error: None }
+    }
+
+    pub(crate) fn failed(agent_id: Uuid, error: String) -> Self {
+        Self { agent_id, ok: false, error: Some(error) }
+    }
+}
+
+/// Map a roll failure to a CLIENT-SAFE message. The per-agent error is returned
+/// in a `200` report body, so it must not leak internals: an `Internal`
+/// (Docker/anyhow/DB) error collapses to a generic line (the full error is
+/// logged server-side), while typed domain errors keep their operator-facing
+/// message. Mirrors the `AppError::IntoResponse` redaction contract.
+pub(crate) fn client_safe_roll_error(err: &AppError) -> String {
+    match &err.kind {
+        ErrorKind::Internal(_) => "internal error rolling this agent (see server logs)".to_string(),
+        other => other.to_string(),
+    }
+}
+
+/// Result of rolling one tool. `total` is every running container agent found;
+/// `skipped_busy` are working agents intentionally left alone (rolling a busy
+/// agent would interrupt in-flight work and risk a redelivered assignment
+/// double-executing against the fresh container). `succeeded + failed` cover the
+/// idle agents actually rolled, one `RollAgentResult` each. An all-skipped /
+/// empty roll is a successful no-op.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RollReport {
+    pub tool: String,
+    pub total: usize,
+    pub succeeded: usize,
+    pub failed: usize,
+    pub skipped_busy: usize,
+    pub results: Vec<RollAgentResult>,
+}
+
+impl RollReport {
+    pub(crate) fn build(tool: &str, results: Vec<RollAgentResult>, skipped_busy: usize) -> Self {
+        let succeeded = results.iter().filter(|r| r.ok).count();
+        let failed = results.len() - succeeded;
+        Self { tool: tool.to_string(), total: results.len() + skipped_busy, succeeded, failed, skipped_busy, results }
+    }
+}
+
+/// 409 error for a concurrent roll of the same tool. The user-visible error
+/// contract lives here in the domain (services must not own `ErrorKind` policy).
+pub(crate) fn roll_in_progress_error(tool: &str) -> AppError {
+    ErrorKind::Conflict(format!("a roll for '{tool}' is already in progress")).into()
+}
+
+/// `{ ok: true, data: <roll report> }` envelope.
+pub(crate) fn cli_image_roll_response(report: RollReport) -> Value {
+    json!({ "ok": true, "data": report })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn roll_policy_rejects_claude_and_unknown() {
+        assert!(RollToolPolicy::ensure_rollable("codex").is_ok());
+        // claude has no public image and is never auto-managed → not rollable.
+        assert!(RollToolPolicy::ensure_rollable("claude").is_err());
+        assert!(RollToolPolicy::ensure_rollable("nonsense").is_err());
+        assert!(RollToolPolicy::ensure_rollable("").is_err());
+    }
+
+    #[test]
+    fn roll_report_counts_and_empty_is_noop() {
+        let empty = RollReport::build("codex", vec![], 0);
+        assert_eq!((empty.total, empty.succeeded, empty.failed, empty.skipped_busy), (0, 0, 0, 0));
+
+        let a = Uuid::new_v4();
+        let b = Uuid::new_v4();
+        // 2 rolled (1 ok, 1 failed) + 3 skipped-busy → total 5.
+        let report =
+            RollReport::build("codex", vec![RollAgentResult::ok(a), RollAgentResult::failed(b, "boom".into())], 3);
+        assert_eq!((report.total, report.succeeded, report.failed, report.skipped_busy), (5, 1, 1, 3));
+        // error message rides through for the failed agent only.
+        let failed = report.results.iter().find(|r| !r.ok).unwrap();
+        assert_eq!(failed.error.as_deref(), Some("boom"));
+    }
+
+    #[test]
+    fn client_safe_roll_error_redacts_internal_but_keeps_typed() {
+        let internal: AppError = anyhow::anyhow!("docker socket: /var/run/docker.sock EACCES").into();
+        assert_eq!(client_safe_roll_error(&internal), "internal error rolling this agent (see server logs)");
+        // a typed domain error keeps its operator-facing message.
+        let typed: AppError = ErrorKind::Conflict("agent is mid-restart".into()).into();
+        assert!(client_safe_roll_error(&typed).contains("agent is mid-restart"));
+    }
 
     fn state(s: &str) -> CliToolImageState {
         CliToolImageState {

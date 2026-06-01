@@ -107,6 +107,24 @@ export interface CliImagePruneStatus {
   lastError: string | null
 }
 
+/** Per-agent outcome of a roll. */
+export interface RollAgentResult {
+  agentId: string
+  ok: boolean
+  error?: string
+}
+
+/** Result of `POST /api/v1/admin/cli-images/{tool}/roll`. */
+export interface CliImageRollReport {
+  tool: string
+  total: number
+  succeeded: number
+  failed: number
+  /** Working agents intentionally left alone (rolling them would interrupt work). */
+  skippedBusy: number
+  results: RollAgentResult[]
+}
+
 /** Full report from `GET /api/v1/admin/cli-images`. */
 export interface CliImageStatus {
   autoUpdateEnabled: boolean
@@ -151,6 +169,11 @@ interface AdminState {
   cliImagesLoading: boolean
   cliImagesError: string | null
 
+  // CLI image roll (destructive; operator-initiated)
+  cliImageRollingTool: string | null
+  cliImageRollResult: CliImageRollReport | null
+  cliImageRollError: string | null
+
   // Actions
   setActiveSection: (section: AdminSection) => void
   setUserSearch: (search: string) => void
@@ -180,6 +203,12 @@ interface AdminState {
     lastError: string | null
     unix: number
   }) => void
+  /**
+   * Roll the running container agents of one tool onto the new image
+   * (destructive — interrupts running agents). Sets the in-flight tool, then
+   * the per-agent report or an error; refreshes the status report afterward.
+   */
+  rollCliImage: (tool: string) => Promise<void>
 }
 
 type AdminResource = 'users' | 'organizations' | 'agents' | 'health' | 'cli-images'
@@ -310,6 +339,10 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   cliImages: null,
   cliImagesLoading: false,
   cliImagesError: null,
+
+  cliImageRollingTool: null,
+  cliImageRollResult: null,
+  cliImageRollError: null,
 
   setActiveSection: (activeSection) => set({ activeSection }),
   setUserSearch: (userSearch) => set({ userSearch }),
@@ -484,4 +517,29 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       )
       return { cliImages: { ...s.cliImages, tools } }
     }),
+
+  rollCliImage: async (tool) => {
+    // Starting a new roll clears the prior result so a stale report can't read
+    // as the outcome of this attempt.
+    set({ cliImageRollingTool: tool, cliImageRollError: null, cliImageRollResult: null })
+    try {
+      const res = await adminFetch(`/api/v1/admin/cli-images/${encodeURIComponent(tool)}/roll`, {
+        method: 'POST',
+      })
+      const body = (await res.json().catch(() => null)) as {
+        ok?: boolean
+        data?: CliImageRollReport
+      } | null
+      if (!res.ok || !body || body.ok === false || !body.data) {
+        throw userFacingError(
+          adminHttpErrorMessage('cli-images', res.status, (body ?? {}) as Record<string, unknown>)
+        )
+      }
+      set({ cliImageRollingTool: null, cliImageRollResult: body.data })
+      // Roll changed which agents have containers — refresh the status report.
+      await get().loadCliImages()
+    } catch (err) {
+      set({ cliImageRollingTool: null, cliImageRollError: adminErrorMessage(err, 'cli-images') })
+    }
+  },
 }))

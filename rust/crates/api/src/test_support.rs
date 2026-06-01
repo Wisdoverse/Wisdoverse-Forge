@@ -168,6 +168,7 @@ pub async fn app_state_with_mock_provider_and_email_sender(
         context_features: ContextFeatureFlags::all_enabled(),
         inflight_prompts: Arc::new(std::sync::Mutex::new(HashMap::new())),
         cli_image_status: Arc::new(agentforge_jobs::CliImageUpdateStatus::new()),
+        cli_image_roll_inflight: Arc::new(std::sync::Mutex::new(std::collections::HashSet::new())),
     }
 }
 

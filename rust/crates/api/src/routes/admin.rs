@@ -11,6 +11,7 @@
 //! - `GET    /api/v1/admin/impersonation-log`  — list impersonation history
 //! - `GET    /api/v1/admin/stats`              — system stats
 //! - `GET    /api/v1/admin/cli-images`         — CLI agent-image updater status
+//! - `POST   /api/v1/admin/cli-images/:tool/roll` — roll running agents of a tool
 
 use axum::extract::{Path, Query, State};
 use axum::routing::{get, post};
@@ -27,6 +28,7 @@ use crate::services::admin::{
     admin_bulk_delete_response, admin_data_response, admin_delete_response,
 };
 use crate::services::cli_image::cli_image_status_response;
+use crate::services::cli_image_roll::{RollToolPolicy, cli_image_roll_response};
 
 /// Query parameters for paginated admin endpoints.
 #[derive(Deserialize)]
@@ -244,6 +246,25 @@ async fn list_cli_image_status(State(state): State<AppState>, auth: AuthUser) ->
     Ok(Json(cli_image_status_response(report)))
 }
 
+/// `POST /api/v1/admin/cli-images/{tool}/roll` — drain + respawn the running
+/// container agents of one tool onto the freshly re-tagged image. DESTRUCTIVE:
+/// it interrupts running agents (in-flight work surfaces as `agent_lost`).
+/// Admin-gated, operator-initiated, never `claude`. Returns a per-agent report;
+/// a tool that is unknown/claude → 422, a concurrent roll of the same tool →
+/// 409. Cross-org by design (each agent rolled in its own tenant scope).
+async fn roll_cli_image(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(tool): Path<String>,
+) -> AppResult<Json<serde_json::Value>> {
+    AdminService::require_admin(&auth.role)?;
+    // Defense-in-depth: reject claude/unknown at the route too (the service
+    // re-checks). 422, not 404 — the path matched; the tool is just not rollable.
+    RollToolPolicy::ensure_rollable(&tool)?;
+    let report = state.cli_image_roll_service().roll(&tool).await?;
+    Ok(Json(cli_image_roll_response(report)))
+}
+
 /// Build admin routes sub-router.
 pub fn admin_routes() -> Router<AppState> {
     Router::new()
@@ -256,6 +277,7 @@ pub fn admin_routes() -> Router<AppState> {
         .route("/admin/impersonation-log", get(list_impersonation_log))
         .route("/admin/stats", get(get_stats))
         .route("/admin/cli-images", get(list_cli_image_status))
+        .route("/admin/cli-images/{tool}/roll", post(roll_cli_image))
 }
 
 #[cfg(test)]

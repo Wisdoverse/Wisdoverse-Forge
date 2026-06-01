@@ -25,6 +25,7 @@ use crate::services::billing::BillingService;
 use crate::services::cli_auth_proxy::CliAuthProxyService;
 use crate::services::cli_credential::CliCredentialService;
 use crate::services::cli_image::CliImageService;
+use crate::services::cli_image_roll::CliImageRollService;
 use crate::services::context::{ContextApprovalService, ContextFeedbackService};
 use crate::services::context_envelope::ContextEnvelopeService;
 use crate::services::context_feature::ContextFeatureService;
@@ -70,6 +71,18 @@ impl AppState {
 
     pub(crate) fn cli_image_service(&self) -> CliImageService {
         CliImageService::from_runtime(self.pool.clone(), self.cli_image_status.clone(), &self.config)
+    }
+
+    pub(crate) fn cli_image_roll_service(&self) -> CliImageRollService {
+        CliImageRollService::from_runtime(
+            self.pool.clone(),
+            &self.config,
+            self.context_features,
+            self.encryption_key,
+            self.docker.clone(),
+            self.auth_callout.clone(),
+            self.cli_image_roll_inflight.clone(),
+        )
     }
 
     pub(crate) fn agent_service(&self) -> AgentService {

@@ -94,6 +94,35 @@ repo digest names one of our own pollable-tool GHCR overlays
 (`<registry>/agent-<tool>`). The base image and other stacks' images can never
 match. A 409 conflict is treated as "leave it", not an error.
 
+## Operator-initiated roll (staging-gated)
+
+`POST /api/v1/admin/cli-images/{tool}/roll` (admin-gated) drains + respawns the
+running container agents of one tool onto the freshly re-tagged image — for when
+you want existing agents on the new CLI, not just new ones. Unlike the
+auto-updater this DOES touch running agents, so it is operator-initiated and
+never `claude`.
+
+Safety:
+
+- **Idle-only**: an agent in the `working` state is SKIPPED (reported as
+  `skippedBusy`). Rolling a busy agent would interrupt its work and, because the
+  sidecar's dedup WAL is container-local and destroyed with the container, risk a
+  redelivered assignment double-executing. `status` is a best-effort signal, so
+  **soak this on staging before enabling in production.**
+- **Own scope**: each agent is rolled within its own persisted org/user/workspace
+  (the existing tenant-scoped `stop`/`start` enforce every per-org invariant); no
+  privilege is fabricated.
+- **Single-flight**: a second concurrent roll of the same tool returns 409.
+- **Honest partial failure**: a failed respawn leaves that agent stopped; the
+  per-agent result says so and the panel tells the operator to restart it.
+- **Authorization note**: this uses the same admin gate as the other destructive
+  cross-tenant admin endpoints (e.g. `DELETE /admin/agents/{id}`). A
+  platform-admin vs org-admin distinction is a separate, surface-wide hardening.
+
+Result shape: `{ tool, total, succeeded, failed, skippedBusy, results: [{ agentId,
+ok, error? }] }`. `error` is a client-safe message; full errors are logged
+server-side.
+
 ## Shipped follow-ups
 
 - **Live WebSocket toast** for admins when an update lands or a check fails
@@ -101,11 +130,10 @@ match. A 409 conflict is treated as "leave it", not an error.
 - **Pruning superseded images** (`CLI_IMAGE_PRUNE_ENABLED`): each update leaves
   the previous GHCR-ref image dangling; the prune sweep reclaims that disk safely
   (see Security above).
+- **Operator-initiated roll**: see above (staging-gated).
 
 ## Deferred (follow-ups, not in this increment)
 
-- **Manual roll**: `POST /admin/cli-images/{tool}/roll` to drain+respawn running
-  agents of one tool onto the new image (operator-initiated; never automatic).
 - **Warm-pool adoption**: the warm pool (`platform/pool.rs`) is currently dormant
   (not in the agent-start path); when adopted, the updater should drain+rewarm it
   on drift. Until then the `tag_image` re-point is the freshness mechanism.

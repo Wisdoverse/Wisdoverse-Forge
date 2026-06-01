@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { CliImagesPanel } from '@app/features/admin/CliImagesPanel'
 import { useAdminStore, type CliImageStatus } from '@app/shared/model/admin.store'
 
@@ -234,5 +234,74 @@ describe('CliImagesPanel', () => {
     expect(screen.getByText(/Could not load CLI image status/i)).toBeDefined()
     expect(screen.getByText('HTTP 500')).toBeDefined()
     expect(screen.getByRole('button', { name: 'Check now' })).toBeDefined()
+  })
+
+  test('roll requires an explicit confirm before calling rollCliImage', () => {
+    const rollCliImage = vi.fn()
+    useAdminStore.setState({
+      ...originalAdminState,
+      cliImages: sampleStatus(), // codex has 2 agents-with-container; gemini has 0
+      cliImagesLoading: false,
+      cliImagesError: null,
+      loadCliImages: vi.fn(),
+      rollCliImage,
+    })
+
+    render(<CliImagesPanel />)
+
+    // codex (agentsWithContainer=2) offers a roll; gemini (0) does not.
+    const rollButtons = screen.getAllByRole('button', { name: 'Roll onto new image' })
+    expect(rollButtons).toHaveLength(1)
+
+    // First click only arms a destructive confirm — it must NOT roll yet.
+    fireEvent.click(rollButtons[0])
+    expect(rollCliImage).not.toHaveBeenCalled()
+    const confirm = screen.getByRole('button', { name: /Interrupt 2 & roll/ })
+
+    // Confirm fires the roll for the right tool.
+    fireEvent.click(confirm)
+    expect(rollCliImage).toHaveBeenCalledWith('codex')
+  })
+
+  test('shows the last roll result including failed agents', () => {
+    useAdminStore.setState({
+      ...originalAdminState,
+      cliImages: sampleStatus(),
+      cliImagesLoading: false,
+      cliImagesError: null,
+      loadCliImages: vi.fn(),
+      cliImageRollResult: {
+        tool: 'codex',
+        total: 2,
+        succeeded: 1,
+        failed: 1,
+        skippedBusy: 0,
+        results: [
+          { agentId: 'a1', ok: true },
+          { agentId: 'a2', ok: false, error: 'docker unavailable' },
+        ],
+      },
+    })
+
+    render(<CliImagesPanel />)
+    expect(screen.getByText('Last roll: codex')).toBeDefined()
+    expect(screen.getByText(/1 of 2 agents respawned/)).toBeDefined()
+    expect(screen.getByText(/did not respawn and .* now stopped/)).toBeDefined()
+    expect(screen.getByText(/docker unavailable/)).toBeDefined()
+  })
+
+  test('surfaces a roll error', () => {
+    useAdminStore.setState({
+      ...originalAdminState,
+      cliImages: sampleStatus(),
+      cliImagesLoading: false,
+      cliImagesError: null,
+      loadCliImages: vi.fn(),
+      cliImageRollError: 'a roll for this tool is already in progress',
+    })
+
+    render(<CliImagesPanel />)
+    expect(screen.getByText(/The roll could not be started/i)).toBeDefined()
+    expect(screen.getByText(/already in progress/)).toBeDefined()
   })
 })
