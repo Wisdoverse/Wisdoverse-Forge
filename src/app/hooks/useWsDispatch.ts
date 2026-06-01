@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import type { TaskSummary } from '@app/shared/api/orchestration'
+import { useAdminStore } from '@app/shared/model/admin.store'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useFeedStore } from '@app/shared/model/feed.store'
 import { useWebSocket } from '@app/shared/model/websocket.context'
@@ -132,6 +133,11 @@ export function dispatchWsMessage(msg: WsMessage) {
 
     case 'credential:status_update': {
       notifyCredentialOwner(payloadRecord)
+      break
+    }
+
+    case 'cli_image.updated': {
+      handleCliImageUpdate(payloadRecord)
       break
     }
 
@@ -279,6 +285,47 @@ function notifyCredentialOwner(payload: Record<string, unknown> | null) {
     ownerUserId: ownerId,
     read: false,
     timestamp,
+  })
+}
+
+function handleCliImageUpdate(payload: Record<string, unknown> | null) {
+  if (!payload) return
+  const tool = stringField(payload.tool)
+  const state = stringField(payload.state)
+  if (!tool || (state !== 'updated' && state !== 'failed')) return
+
+  const localDigest = stringField(payload.localDigest)
+  const remoteDigest = stringField(payload.remoteDigest)
+  const lastError = stringField(payload.lastError)
+  const unix = numberField(payload.unix) ?? Math.floor(Date.now() / 1000)
+  // The producer's stable dedup key; fall back to a derived one. addNotification
+  // dedups by id, so a redelivered frame updates in place rather than re-toasting.
+  const eventId = stringField(payload.eventId) ?? `cli-image:${tool}:${state}`
+
+  // Live-patch an open admin panel so it reflects the change before the next poll.
+  useAdminStore.getState().applyCliImageUpdate({
+    tool,
+    state,
+    localDigest,
+    remoteDigest,
+    lastError,
+    unix,
+  })
+
+  const display = displayCliTool(tool)
+  useFeedStore.getState().addNotification({
+    id: eventId,
+    type: 'cli_image_updated',
+    taskId: `cli-image:${tool}`,
+    taskTitle:
+      state === 'updated' ? `${display} agent image updated` : `${display} image check failed`,
+    message:
+      state === 'updated'
+        ? `New ${display} agents will start on the latest CLI. Running agents are unaffected.`
+        : `The ${display} image check failed${lastError ? `: ${lastError}` : ''}. New agents keep the current image until it succeeds.`,
+    taskHref: '/admin',
+    read: false,
+    timestamp: unix * 1000,
   })
 }
 

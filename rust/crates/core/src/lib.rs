@@ -3,6 +3,7 @@
 //! This crate provides the foundational types used across all other Wisdoverse Forge crates.
 //! It has no internal crate dependencies, making it the leaf of the dependency graph.
 
+pub mod broadcast_protocol;
 pub mod config;
 pub mod context_envelope;
 pub mod credential_protocol;

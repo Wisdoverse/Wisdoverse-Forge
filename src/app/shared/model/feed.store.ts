@@ -25,7 +25,14 @@ export interface AttentionItem {
 
 export interface Notification {
   id: string
-  type: 'blocked' | 'completed' | 'failed' | 'assigned' | 'mentioned' | 'credential_expired'
+  type:
+    | 'blocked'
+    | 'completed'
+    | 'failed'
+    | 'assigned'
+    | 'mentioned'
+    | 'credential_expired'
+    | 'cli_image_updated'
   taskId: string
   taskTitle: string
   message: string
@@ -36,6 +43,9 @@ export interface Notification {
 }
 
 const MAX_FEED_ITEMS = 100
+// Cap retained notifications. Distinct-id producers (e.g. the per-version CLI
+// image toast) would otherwise grow this list without bound over a long session.
+const MAX_NOTIFICATIONS = 100
 
 interface FeedState {
   feedItems: FeedItem[]
@@ -77,7 +87,7 @@ export const useFeedStore = create<FeedState>((set) => ({
           ),
         }
       }
-      return { notifications: [notification, ...s.notifications] }
+      return { notifications: [notification, ...s.notifications].slice(0, MAX_NOTIFICATIONS) }
     }),
   markRead: (id) =>
     set((s) => ({

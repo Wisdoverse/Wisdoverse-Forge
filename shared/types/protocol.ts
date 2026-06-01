@@ -101,6 +101,21 @@ export type ServerMessage =
     }
   | { type: 'voice_utterance_end' }
   | { type: 'voice_error'; payload: { error: string } }
+  // Admin-only CLI agent-image auto-updater toast. Delivered on the global
+  // `broadcast.admin.cli_image` subject, which only owner/admin connections
+  // subscribe to. Mirrors `CLI_IMAGE_UPDATED_EVENT` in the Rust core.
+  | {
+      type: 'cli_image.updated'
+      payload: {
+        tool: string
+        state: 'updated' | 'failed'
+        localDigest: string | null
+        remoteDigest: string | null
+        lastError: string | null
+        eventId: string
+        unix: number
+      }
+    }
 
 /** Client -> Server messages */
 export type ClientMessage =

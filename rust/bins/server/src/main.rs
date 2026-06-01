@@ -329,7 +329,10 @@ async fn main() -> Result<()> {
         match docker.clone() {
             Some(client) => {
                 let worker = agentforge_jobs::CliImageUpdater::new(client, cli_image_status.clone())
-                    .with_interval(std::time::Duration::from_secs(config.cli_image_auto_update_interval_secs));
+                    .with_interval(std::time::Duration::from_secs(config.cli_image_auto_update_interval_secs))
+                    // Publish admin toasts on `broadcast.admin.cli_image` when NATS
+                    // is configured; None leaves toasts off (status + metrics only).
+                    .with_event_sink(nats.client().cloned());
                 let worker_shutdown = shutdown_rx.clone();
                 Some(tokio::spawn(async move { worker.run(worker_shutdown).await }))
             }
