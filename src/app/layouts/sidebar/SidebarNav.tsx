@@ -115,7 +115,10 @@ export function SidebarNav({
   const { authManager, user } = useAuth()
   const navigate = useNavigate()
   const { t } = useTranslation()
-  const isAdmin = user?.role === 'admin'
+  // Mirror the backend admin gate (`AdminService::require_admin`) and the /admin
+  // route guard: owner AND admin can reach the admin console. Gating the nav link
+  // on `admin` alone hid it from owners who can actually open /admin.
+  const isAdmin = user?.role === 'admin' || user?.role === 'owner'
   const contextGovernanceEnabled = useContextFeaturesStore((s) => s.governance)
   const pendingContextCount = useContextStore((s) => s.pendingCandidateCount)
 
