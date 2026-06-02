@@ -163,8 +163,8 @@ describe('useAdminStore loading errors', () => {
             failed: 0,
             skippedBusy: 0,
             results: [
-              { agentId: 'a1', ok: true },
-              { agentId: 'a2', ok: true },
+              { agentId: 'a1', ok: true, stopped: false },
+              { agentId: 'a2', ok: true, stopped: false },
             ],
           },
         })

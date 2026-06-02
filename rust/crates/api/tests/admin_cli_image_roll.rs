@@ -133,7 +133,7 @@ async fn no_running_agents_is_an_empty_noop(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../db/migrations")]
-async fn seeded_container_agent_is_enumerated_and_attempted(pool: PgPool) {
+async fn idle_agent_to_roll_without_docker_is_one_runtime_error(pool: PgPool) {
     let (org_id, ws, user_id) = seed_admin_org(&pool).await;
     let scope = tenant_scope_for_ids(org_id, user_id);
     let repo = AgentRepository::new(pool.clone());
@@ -141,17 +141,12 @@ async fn seeded_container_agent_is_enumerated_and_attempted(pool: PgPool) {
 
     let jwt = mint_test_jwt(org_id, user_id, "admin");
     let app = test_app_with_mock_provider(pool, "mock", "unused").await;
-    let (status, body) = roll(app, &jwt, "codex").await;
+    let (status, _body) = roll(app, &jwt, "codex").await;
 
-    // The agent is enumerated and attempted; the test harness has no Docker, so
-    // the per-agent roll fails GRACEFULLY (recorded, not a 500).
-    assert_eq!(status, StatusCode::OK, "body: {body}");
-    assert_eq!(body["data"]["total"], 1, "the seeded container agent is enumerated: {body}");
-    assert_eq!(body["data"]["failed"], 1, "no Docker in test → graceful per-agent failure: {body}");
-    let results = body["data"]["results"].as_array().expect("results array");
-    assert_eq!(results.len(), 1);
-    assert_eq!(results[0]["ok"], false);
-    assert!(results[0]["error"].is_string(), "a client-safe error message is present: {body}");
+    // There IS an idle agent to roll but the harness has no Docker runtime, so the
+    // roll fails ONCE with 503 (a clear environment-level error) rather than N
+    // redacted per-agent "internal error" lines.
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
 }
 
 #[sqlx::test(migrations = "../db/migrations")]

@@ -18,8 +18,12 @@
 //! resolves is refreshed. `claude` has no public registry image (built locally
 //! under license), so it is excluded from the poll set. The worker is
 //! deployment-global: it holds no tenant scope and queries no org-scoped table,
-//! only Docker. Notification in this increment is via a structured `warn!` event
-//! + Prometheus metrics (an admin status API + UI are a tracked follow-up).
+//! only Docker. Notification is via a structured `warn!` event, Prometheus
+//! metrics, a read-only admin status API (`GET /admin/cli-images`), and — when
+//! NATS is configured — a live admin WebSocket toast on `broadcast.admin.cli_image`.
+//! The worker can also prune superseded overlays (`with_prune`, default-off).
+//! Warm-pool drain-on-drift remains a tracked follow-up (`platform/pool.rs` is
+//! still dormant).
 
 use std::collections::BTreeMap;
 use std::env;
@@ -594,6 +598,12 @@ mod tests {
         assert!(!is_prunable_agent_image(&local_image(&[], &["docker.io/other/app@sha256:z"]), &repos));
         // no repo digests (locally-built, unknown origin) → never matched.
         assert!(!is_prunable_agent_image(&local_image(&[], &[]), &repos));
+        // a sibling-PREFIXED repo (agent-codextra vs agent-codex) must NOT match —
+        // the scoping is exact-repo equality, not a prefix, so a future fuzzy-match
+        // refactor that broadened the blast radius would fail here.
+        assert!(!is_prunable_agent_image(&local_image(&[], &["ghcr.io/x/agent-codextra@sha256:s"]), &repos));
+        // a malformed repo digest with no `@` → unparseable → never matched.
+        assert!(!is_prunable_agent_image(&local_image(&[], &["ghcr.io/x/agent-codex"]), &repos));
     }
 
     #[test]
