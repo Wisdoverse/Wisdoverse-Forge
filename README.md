@@ -42,6 +42,7 @@ Brief the agent with the repository contracts before editing:
 - **Rust orchestrator + Temporal workflow runtime**
 - **Three first-class agent runtimes** governed by `agents.runtime_kind` (`container | cli | api`) with DB CHECK invariants on `(runtime_kind, cli_tool, container_id)`:
   - **Container Runtime** — platform-spawned Docker container running a Container CLI (`claude` / `codex` / `gemini` / `opencode`) plus sidecar
+    - Default-off CLI agent-image auto-update (`CLI_IMAGE_AUTO_UPDATE_ENABLED`) keeps newly spawned agents on current images without touching running agents; an optional superseded-overlay prune (`CLI_IMAGE_PRUNE_ENABLED`) reclaims dangling agent images, and the admin **CLI Images** panel reports per-tool status and offers an idle-only operator roll
   - **Host CLI Runtime** — operator-managed CLI on the operator's machine that enrolls via sidecar and NATS, idempotent (`Idempotency-Key`), atomic `agent.enrolled` audit event
   - **API Runtime** — provider-backed prompt agent (Anthropic / OpenAI / Google) with no shell, no container
 - **Task, run, review, event, evidence surfaces** for governed execution
@@ -99,6 +100,7 @@ docs/                  Architecture, runbooks, guides, specs
 - [Migration 062 Runbook](docs/runbooks/migration-062-runtime-kind.md) — `runtime_kind` migration sequence (062/063/064/065)
 - [Runtime Validation](docs/runbooks/runtime-validation.md) — current proofed runtime boundary
 - [CLI Platform Support](docs/guides/cli-platform-support.md) — Platform CLI + sidecar multi-platform expectations
+- [CLI Agent Image Auto-Update](docs/guides/cli-image-auto-update.md) — keep agent images current, prune superseded overlays, operator-initiated roll
 - [Versioning Policy](docs/versioning.md) — API versioning and release policy
 - [Contributing](CONTRIBUTING.md) — workflow, validation, and PR expectations
 - [Code of Conduct](CODE_OF_CONDUCT.md) — community standards

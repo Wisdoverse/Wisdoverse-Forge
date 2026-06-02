@@ -112,9 +112,11 @@ export interface RollAgentResult {
   agentId: string
   ok: boolean
   /**
-   * Only meaningful when `ok` is false: `true` = container stopped+removed but
-   * the respawn failed (agent is DOWN — restart it); `false` = the stop failed,
-   * so the agent is STILL RUNNING on the previous image.
+   * Only meaningful when `ok` is false: `true` = container confirmed
+   * stopped+removed but the respawn failed (agent is DOWN — restart it);
+   * `false` = the stop did not complete cleanly, so the post-condition is
+   * UNCONFIRMED (may still be running on the previous image, or already down
+   * from a partial stop) — check the Agents view.
    */
   stopped: boolean
   error?: string

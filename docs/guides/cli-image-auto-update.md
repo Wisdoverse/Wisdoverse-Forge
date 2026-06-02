@@ -100,7 +100,8 @@ match. A 409 conflict is treated as "leave it", not an error.
 running container agents of one tool onto the freshly re-tagged image — for when
 you want existing agents on the new CLI, not just new ones. Unlike the
 auto-updater this DOES touch running agents, so it is operator-initiated and
-never `claude`.
+never `claude`. A roll of one agent = `stop` (removes its container, clears the
+container id) then `start` (recreates it from the resolved, now-updated image).
 
 Safety:
 
@@ -112,16 +113,34 @@ Safety:
 - **Own scope**: each agent is rolled within its own persisted org/user/workspace
   (the existing tenant-scoped `stop`/`start` enforce every per-org invariant); no
   privilege is fabricated.
-- **Single-flight**: a second concurrent roll of the same tool returns 409.
-- **Honest partial failure**: a failed respawn leaves that agent stopped; the
-  per-agent result says so and the panel tells the operator to restart it.
+- **Single-flight**: a second concurrent roll of the same tool returns `409`.
 - **Authorization note**: this uses the same admin gate as the other destructive
   cross-tenant admin endpoints (e.g. `DELETE /admin/agents/{id}`). A
   platform-admin vs org-admin distinction is a separate, surface-wide hardening.
 
+Status codes:
+
+| Code  | When                                                                                                                                                                                                                                                                            |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `200` | Roll completed — all-succeeded, mixed, or an empty/all-skipped no-op (per-agent outcome is in `results`).                                                                                                                                                                       |
+| `503` | The container runtime (Docker) is unavailable on this deployment **and** there is at least one non-busy (idle/offline) agent to roll. Returned **once** for the whole roll, not N identical per-agent errors. When nothing was rollable, you get the empty `200` no-op instead. |
+| `422` | Tool is `claude` or unknown (not in the pollable set).                                                                                                                                                                                                                          |
+| `409` | A roll of the same tool is already in progress.                                                                                                                                                                                                                                 |
+
 Result shape: `{ tool, total, succeeded, failed, skippedBusy, results: [{ agentId,
-ok, error? }] }`. `error` is a client-safe message; full errors are logged
-server-side.
+ok, stopped, error? }] }`. `total` counts every agent considered (rolled +
+skipped). Each `results` entry carries `ok` and a `stopped` boolean; `error` is a
+client-safe message (full errors are logged server-side). On a per-agent failure
+`stopped` tells the operator exactly how far the roll got:
+
+- **Respawn failed** (`ok: false`, `stopped: true`): the container was confirmed
+  stopped + removed but the respawn errored, so **the agent is now down**. Restart
+  it from the Agents view.
+- **Stop did not complete** (`ok: false`, `stopped: false`): the stop itself
+  errored, so the post-condition is **UNCONFIRMED**. `stop` is not atomic
+  (stop → remove → clear container id), so the agent may still be running on the
+  old image **or** may have been brought partway down — either way a clean stop
+  was not confirmed. **Check the Agents view** to see its real state.
 
 ## Shipped follow-ups
 
