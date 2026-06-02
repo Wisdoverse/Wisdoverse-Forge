@@ -161,7 +161,8 @@ is deployment-global and has no tenant scope, because image state is per host.
 Success looks like newly spawned agents picking up the current CLI overlay
 without an operator running `make update-agents` by hand. Confirm status at the
 admin-only `GET /api/v1/admin/cli-images` endpoint, which surfaces the resolved
-`registry`, `image_tag`, poll interval, per-tool digests, and prune counters.
+`registry`, `imageTag`, and `pollIntervalSecs`, plus per-tool digests and prune
+counters (JSON is camelCase).
 `claude` is excluded from the poll set because it has no public registry image.
 
 When `CLI_IMAGE_PRUNE_ENABLED=true`, the prune pass runs inside the updater loop
