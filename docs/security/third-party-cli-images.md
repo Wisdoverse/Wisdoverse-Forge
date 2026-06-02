@@ -67,21 +67,21 @@ What prune removes, and the guard that enforces it:
   The match is exact-repo equality, not a prefix, so a third-party image that
   merely shares a registry path prefix is left alone.
 - **No container — running or stopped — may reference it.** This guard surfaces
-  on the status report as `skipped_in_use`: before any Docker call, an image
+  on the status report as `skippedInUse`: before any Docker call, an image
   whose id is in the set referenced by an existing container is skipped. As
   defense-in-depth, removal still goes through Docker with `force=false` and
   `noprune=true`, so a Docker-side `409 Conflict` (still tagged, has a child
   layer, or in use) is also treated as leave-it and recorded as
-  `skipped_conflict`.
+  `skippedConflict`.
 
 These checks live in `is_prunable_agent_image()`; all must hold for an image to
 be removed. Prune is image-level only and never touches a container's lifecycle.
 
 Success looks like a clean sweep summary on the admin status report
 (`GET /api/v1/admin/cli-images`, admin-only). The `prune` block reports
-`enabled`, `last_run_unix` (populated once a sweep has run), `scanned`,
-`removed`, `skipped_in_use`, `skipped_conflict`, `errors`, and `last_error`. A
-non-zero `skipped_in_use` or `skipped_conflict` is expected and healthy on a
+`enabled`, `lastRunUnix` (populated once a sweep has run), `scanned`,
+`removed`, `skippedInUse`, `skippedConflict`, `errors`, and `lastError`. A
+non-zero `skippedInUse` or `skippedConflict` is expected and healthy on a
 shared host — it is the safety guard declining to remove an image another
 container still references, not a failure. Prune is best-effort: any error is
 counted and logged, the summary still records, and the next sweep retries.
