@@ -14,7 +14,6 @@ chrono.workspace = true
 tracing.workspace = true
 metrics.workspace = true
 config.workspace = true
-validator.workspace = true
 axum = { workspace = true }
 sqlx.workspace = true
 hmac.workspace = true
