@@ -62,7 +62,7 @@ jsonwebtoken = { version = "=10.3.0", default-features = false, features = ["aws
 argon2 = "0.5"
 
 # Validation
-validator = { version = "0.19", features = ["derive"] }
+validator = { version = "0.20", features = ["derive"] }
 regex = "1"
 
 # HTTP client (rustls-tls = no OpenSSL dep, required for musl static builds)
