@@ -372,7 +372,7 @@ impl AdminRepository {
     /// tenant scope, never a fabricated-privilege one.
     pub async fn running_container_agents_by_tool(&self, tool: &str) -> AppResult<Vec<RollTargetRow>> {
         let rows = sqlx::query_as::<_, RollTargetRow>(
-            "SELECT id, organization_id, user_id, workspace_id, status::text AS status \
+            "SELECT id, organization_id, user_id, workspace_id, status \
              FROM agents \
              WHERE cli_tool = $1 AND container_id IS NOT NULL AND runtime_kind = 'container'",
         )
@@ -393,7 +393,7 @@ pub struct RollTargetRow {
     pub organization_id: Uuid,
     pub user_id: Uuid,
     pub workspace_id: Option<Uuid>,
-    pub status: String,
+    pub status: AgentStatus,
 }
 
 /// System-wide statistics returned by the admin stats endpoint.

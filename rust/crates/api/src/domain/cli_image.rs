@@ -181,17 +181,31 @@ impl RollToolPolicy {
 pub struct RollAgentResult {
     pub agent_id: Uuid,
     pub ok: bool,
+    /// Only meaningful when `ok == false`: `true` means the agent's container was
+    /// confirmed stopped+removed but the respawn failed (so it is now DOWN —
+    /// restart it); `false` means the stop itself did not complete cleanly, so the
+    /// post-condition is UNCONFIRMED (the agent may still be running on the
+    /// previous image, or a partial stop may have already brought it down). The
+    /// UI tells the operator to check the Agents view rather than asserting either.
+    pub stopped: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
 
 impl RollAgentResult {
-    pub(crate) fn ok(agent_id: Uuid) -> Self {
-        Self { agent_id, ok: true, error: None }
+    pub(crate) fn respawned(agent_id: Uuid) -> Self {
+        Self { agent_id, ok: true, stopped: false, error: None }
     }
 
-    pub(crate) fn failed(agent_id: Uuid, error: String) -> Self {
-        Self { agent_id, ok: false, error: Some(error) }
+    /// Respawn failed after the container was stopped+removed → agent is now down.
+    pub(crate) fn failed_now_stopped(agent_id: Uuid, error: String) -> Self {
+        Self { agent_id, ok: false, stopped: true, error: Some(error) }
+    }
+
+    /// Stop did not complete cleanly → post-condition unconfirmed (may still be
+    /// running on the previous image, or already down from a partial stop).
+    pub(crate) fn failed_still_running(agent_id: Uuid, error: String) -> Self {
+        Self { agent_id, ok: false, stopped: false, error: Some(error) }
     }
 }
 
@@ -238,6 +252,14 @@ pub(crate) fn roll_in_progress_error(tool: &str) -> AppError {
     ErrorKind::Conflict(format!("a roll for '{tool}' is already in progress")).into()
 }
 
+/// 503 error when the container runtime is unavailable on this deployment. Surfaced
+/// ONCE for the whole roll instead of as N identical per-agent "internal error"
+/// lines, so an operator sees the real (environment-level) cause.
+pub(crate) fn roll_runtime_unavailable_error() -> AppError {
+    ErrorKind::Unavailable("the container runtime is unavailable on this server; no agents were rolled".to_string())
+        .into()
+}
+
 /// `{ ok: true, data: <roll report> }` envelope.
 pub(crate) fn cli_image_roll_response(report: RollReport) -> Value {
     json!({ "ok": true, "data": report })
@@ -263,13 +285,24 @@ mod tests {
 
         let a = Uuid::new_v4();
         let b = Uuid::new_v4();
-        // 2 rolled (1 ok, 1 failed) + 3 skipped-busy → total 5.
-        let report =
-            RollReport::build("codex", vec![RollAgentResult::ok(a), RollAgentResult::failed(b, "boom".into())], 3);
-        assert_eq!((report.total, report.succeeded, report.failed, report.skipped_busy), (5, 1, 1, 3));
-        // error message rides through for the failed agent only.
-        let failed = report.results.iter().find(|r| !r.ok).unwrap();
-        assert_eq!(failed.error.as_deref(), Some("boom"));
+        let c = Uuid::new_v4();
+        // 3 rolled (1 ok, 2 failed) + 3 skipped-busy → total 6.
+        let report = RollReport::build(
+            "codex",
+            vec![
+                RollAgentResult::respawned(a),
+                RollAgentResult::failed_now_stopped(b, "boom".into()),
+                RollAgentResult::failed_still_running(c, "stop failed".into()),
+            ],
+            3,
+        );
+        assert_eq!((report.total, report.succeeded, report.failed, report.skipped_busy), (6, 1, 2, 3));
+        // The two failure modes carry the truthful post-condition: start-fail →
+        // confirmed stopped; stop-fail → unconfirmed (stopped = false).
+        let now_stopped = report.results.iter().find(|r| r.agent_id == b).unwrap();
+        assert!(now_stopped.stopped && now_stopped.error.as_deref() == Some("boom"));
+        let still_running = report.results.iter().find(|r| r.agent_id == c).unwrap();
+        assert!(!still_running.stopped && still_running.error.as_deref() == Some("stop failed"));
     }
 
     #[test]

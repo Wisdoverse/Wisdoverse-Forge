@@ -272,22 +272,27 @@ describe('CliImagesPanel', () => {
       loadCliImages: vi.fn(),
       cliImageRollResult: {
         tool: 'codex',
-        total: 2,
+        total: 3,
         succeeded: 1,
-        failed: 1,
+        failed: 2,
         skippedBusy: 0,
         results: [
-          { agentId: 'a1', ok: true },
-          { agentId: 'a2', ok: false, error: 'docker unavailable' },
+          { agentId: 'a1', ok: true, stopped: false },
+          { agentId: 'a2', ok: false, stopped: true, error: 'respawn failed' },
+          { agentId: 'a3', ok: false, stopped: false, error: 'stop failed' },
         ],
       },
     })
 
     render(<CliImagesPanel />)
     expect(screen.getByText('Last roll: codex')).toBeDefined()
-    expect(screen.getByText(/1 of 2 agents respawned/)).toBeDefined()
+    expect(screen.getByText(/1 of 3 agents respawned/)).toBeDefined()
+    // start-fail → "now stopped"; stop-fail → unconfirmed post-condition (may be
+    // running on the old image OR already down after a partial stop).
     expect(screen.getByText(/did not respawn and .* now stopped/)).toBeDefined()
-    expect(screen.getByText(/docker unavailable/)).toBeDefined()
+    expect(
+      screen.getByText(/could not be stopped cleanly.*may still be running on.*the previous image/s)
+    ).toBeDefined()
   })
 
   test('surfaces a roll error', () => {
