@@ -139,6 +139,37 @@ permit redistribution.
 
 When `MCP_ENABLED=true`, Docker must be available to the Rust API service.
 
+## CLI Agent Image Updater Variables
+
+These variables control the background CLI agent-image auto-updater. When it is
+enabled, a worker periodically pulls newer Container CLI overlay images so newly
+spawned agents start on the current CLI. Running agents are never touched; only
+the image the next spawn resolves is refreshed.
+
+Prerequisites: set `CLI_IMAGE_AUTO_UPDATE_ENABLED=true` and make Docker available
+to the Rust API service (the same requirement as `MCP_ENABLED=true`). The updater
+is deployment-global and has no tenant scope, because image state is per host.
+
+| Variable                              | Default                               | Purpose                                                                                      |
+| ------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `CLI_IMAGE_AUTO_UPDATE_ENABLED`       | `false`                               | Enables the background CLI agent-image auto-updater                                          |
+| `CLI_IMAGE_AUTO_UPDATE_INTERVAL_SECS` | `900`                                 | Registry poll interval in seconds (15 min); clamped to a 60-second minimum                   |
+| `CLI_IMAGE_PRUNE_ENABLED`             | `false`                               | Prunes superseded dangling agent overlays after each sweep; only runs when auto-update is on |
+| `AGENT_REGISTRY`                      | `ghcr.io/wisdoverse/wisdoverse-forge` | Registry base the updater pulls overlays from, as `${AGENT_REGISTRY}/agent-<tool>:<tag>`     |
+| `AGENT_CLI_IMAGE_TAG`                 | `latest`                              | Image tag the updater tracks, used as the `<tag>` in the remote ref above                    |
+
+Success looks like newly spawned agents picking up the current CLI overlay
+without an operator running `make update-agents` by hand. Confirm status at the
+admin-only `GET /api/v1/admin/cli-images` endpoint, which surfaces the resolved
+`registry`, `image_tag`, poll interval, per-tool digests, and prune counters.
+`claude` is excluded from the poll set because it has no public registry image.
+
+When `CLI_IMAGE_PRUNE_ENABLED=true`, the prune pass runs inside the updater loop
+and is image-level only: it removes solely the deployment's own dangling agent
+overlays that no running or stopped container references, and never touches
+containers. See `docs/guides/cli-image-auto-update.md` for the full operator
+guide, including the operator-initiated image roll.
+
 ## Compose-Level Deployment Variables
 
 | Variable                     | Typical Use                                                                                                                  |
