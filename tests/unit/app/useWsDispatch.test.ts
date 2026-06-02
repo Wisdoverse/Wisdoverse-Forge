@@ -444,6 +444,107 @@ describe('dispatchWsMessage', () => {
     expect(codex?.agentsWithContainer).toBe(1)
   })
 
+  it('a failed cli_image toast patches state but does NOT stamp lastUpdatedUnix', () => {
+    useAdminStore.setState({
+      cliImages: {
+        autoUpdateEnabled: true,
+        pollIntervalSecs: 900,
+        registry: 'ghcr.io/x',
+        imageTag: 'latest',
+        tools: [
+          {
+            tool: 'codex',
+            state: 'up_to_date',
+            localDigest: 'sha256:old',
+            remoteDigest: 'sha256:old',
+            lastCheckedUnix: 1,
+            lastUpdatedUnix: 42,
+            lastError: null,
+            agentsWithContainer: 1,
+          },
+        ],
+        prune: {
+          enabled: false,
+          lastRunUnix: null,
+          scanned: 0,
+          removed: 0,
+          skippedInUse: 0,
+          skippedConflict: 0,
+          errors: 0,
+          lastError: null,
+        },
+      },
+    })
+
+    dispatchWsMessage({
+      type: 'cli_image.updated',
+      payload: {
+        tool: 'codex',
+        state: 'failed',
+        localDigest: null,
+        remoteDigest: null,
+        lastError: 'registry timeout',
+        eventId: 'cli-image:codex:failed',
+        unix: 1_700_000_009,
+      },
+    })
+
+    const codex = useAdminStore.getState().cliImages?.tools.find((t) => t.tool === 'codex')
+    expect(codex?.state).toBe('failed')
+    expect(codex?.lastError).toBe('registry timeout')
+    expect(codex?.lastCheckedUnix).toBe(1_700_000_009)
+    // A failed check did NOT update the image → lastUpdatedUnix must be preserved.
+    expect(codex?.lastUpdatedUnix).toBe(42)
+  })
+
+  it('a cli_image toast for an unknown tool leaves the report untouched', () => {
+    const loaded = {
+      autoUpdateEnabled: true,
+      pollIntervalSecs: 900,
+      registry: 'ghcr.io/x',
+      imageTag: 'latest',
+      tools: [
+        {
+          tool: 'codex',
+          state: 'up_to_date' as const,
+          localDigest: 'sha256:old',
+          remoteDigest: 'sha256:old',
+          lastCheckedUnix: 1,
+          lastUpdatedUnix: null,
+          lastError: null,
+          agentsWithContainer: 1,
+        },
+      ],
+      prune: {
+        enabled: false,
+        lastRunUnix: null,
+        scanned: 0,
+        removed: 0,
+        skippedInUse: 0,
+        skippedConflict: 0,
+        errors: 0,
+        lastError: null,
+      },
+    }
+    useAdminStore.setState({ cliImages: loaded })
+
+    dispatchWsMessage({
+      type: 'cli_image.updated',
+      payload: {
+        tool: 'gemini',
+        state: 'updated',
+        remoteDigest: 'sha256:x',
+        eventId: 'e',
+        unix: 5,
+      },
+    })
+
+    // gemini isn't in the report → no row changes; codex is untouched.
+    const codex = useAdminStore.getState().cliImages?.tools.find((t) => t.tool === 'codex')
+    expect(codex?.state).toBe('up_to_date')
+    expect(useAdminStore.getState().cliImages?.tools).toHaveLength(1)
+  })
+
   it('re-surfaces a distinct CLI image failure as unread after the prior one was read', () => {
     // First failure, then the admin reads it.
     dispatchWsMessage({

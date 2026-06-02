@@ -111,6 +111,12 @@ export interface CliImagePruneStatus {
 export interface RollAgentResult {
   agentId: string
   ok: boolean
+  /**
+   * Only meaningful when `ok` is false: `true` = container stopped+removed but
+   * the respawn failed (agent is DOWN — restart it); `false` = the stop failed,
+   * so the agent is STILL RUNNING on the previous image.
+   */
+  stopped: boolean
   error?: string
 }
 

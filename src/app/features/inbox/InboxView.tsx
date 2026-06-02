@@ -5,6 +5,7 @@ import { orchestrationApi } from '@app/shared/api/orchestration'
 import { useFeedStore, type Notification } from '@app/shared/model/feed.store'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useAdminStore } from '@app/shared/model/admin.store'
 import { cn } from '@app/shared/lib/utils'
 import { InboxItem } from './InboxItem'
 
@@ -108,6 +109,11 @@ export function InboxView() {
     } else if (notification.taskHref === '/settings') {
       useSettingsStore.getState().setActiveSection('runtime')
       void navigate({ to: '/settings/$section', params: { section: 'runtime' } })
+    } else if (notification.taskHref === '/admin') {
+      // CLI agent-image toast → open the admin console on the CLI Images panel,
+      // mirroring the /settings runtime-section pattern above.
+      useAdminStore.getState().setActiveSection('cli-images')
+      void navigate({ to: '/admin' })
     }
   }
 

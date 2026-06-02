@@ -27,7 +27,7 @@
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
-use agentforge_core::{AgentId, AppConfig, AppResult, OrgId, TenantScope, UserId, WorkspaceId};
+use agentforge_core::{AgentId, AgentStatus, AppConfig, AppResult, OrgId, TenantScope, UserId, WorkspaceId};
 use agentforge_platform::DockerClient;
 use sqlx::PgPool;
 
@@ -35,10 +35,12 @@ use crate::domain::context::ContextFeatureFlags;
 use crate::repositories::admin::AdminRepository;
 use crate::services::agent_container_control::AgentContainerControlService;
 use crate::services::auth_callout::AuthCalloutService;
+use uuid::Uuid;
 
 pub use crate::domain::cli_image::{RollAgentResult, RollReport};
 pub(crate) use crate::domain::cli_image::{
     RollToolPolicy, cli_image_roll_response, client_safe_roll_error, roll_in_progress_error,
+    roll_runtime_unavailable_error,
 };
 
 /// Single-flight guard: holds a tool name in the shared in-flight set for the
@@ -71,6 +73,9 @@ pub struct CliImageRollService {
     repo: AdminRepository,
     control: AgentContainerControlService,
     inflight: Arc<Mutex<HashSet<String>>>,
+    /// Whether a Docker runtime is wired up. When false, a roll fails ONCE with a
+    /// clear runtime-unavailable error instead of N identical per-agent faults.
+    docker_available: bool,
 }
 
 impl CliImageRollService {
@@ -83,6 +88,7 @@ impl CliImageRollService {
         auth_callout: Option<Arc<AuthCalloutService>>,
         inflight: Arc<Mutex<HashSet<String>>>,
     ) -> Self {
+        let docker_available = docker.is_some();
         Self {
             repo: AdminRepository::new(pool.clone()),
             control: AgentContainerControlService::from_runtime(
@@ -94,6 +100,7 @@ impl CliImageRollService {
                 auth_callout,
             ),
             inflight,
+            docker_available,
         }
     }
 
@@ -108,17 +115,28 @@ impl CliImageRollService {
         // drop regardless of how `roll` returns.
         let _guard = RollGuard::acquire(&self.inflight, tool)?;
 
-        let targets = self.repo.running_container_agents_by_tool(tool).await?;
-        let mut results = Vec::with_capacity(targets.len());
+        // Partition: skip agents with in-flight work — interrupting one risks a
+        // redelivered assignment double-executing against the fresh sidecar (its
+        // dedup WAL is destroyed with the container). Best-effort signal.
+        let mut to_roll = Vec::new();
         let mut skipped_busy = 0usize;
-        for target in targets {
-            // Skip an agent with in-flight work — interrupting it risks a
-            // redelivered assignment double-executing against the fresh sidecar
-            // (its dedup WAL is destroyed with the container). Best-effort.
-            if target.status == "working" {
+        for target in self.repo.running_container_agents_by_tool(tool).await? {
+            if target.status == AgentStatus::Working {
                 skipped_busy += 1;
-                continue;
+            } else {
+                to_roll.push(target);
             }
+        }
+
+        // Only relevant once there is actually an agent to roll: fail ONCE with a
+        // clear environment-level error rather than N identical per-agent
+        // "internal error" lines that read like transient per-agent faults.
+        if !to_roll.is_empty() && !self.docker_available {
+            return Err(roll_runtime_unavailable_error());
+        }
+
+        let mut results = Vec::with_capacity(to_roll.len());
+        for target in to_roll {
             let scope = TenantScope::with_axes(
                 OrgId::from(target.organization_id),
                 UserId::from(target.user_id),
@@ -126,16 +144,7 @@ impl CliImageRollService {
                 None,
                 None,
             );
-            let agent_id = AgentId::from(target.id);
-            let result = match self.roll_one(&scope, agent_id).await {
-                Ok(()) => RollAgentResult::ok(target.id),
-                Err(err) => {
-                    // Full error to the server log; a client-safe message in the report.
-                    tracing::warn!(agent_id = %target.id, tool, error = %err, "cli image roll: agent roll failed");
-                    RollAgentResult::failed(target.id, client_safe_roll_error(&err))
-                }
-            };
-            results.push(result);
+            results.push(self.roll_one(&scope, AgentId::from(target.id), target.id, tool).await);
         }
 
         let report = RollReport::build(tool, results, skipped_busy);
@@ -150,12 +159,26 @@ impl CliImageRollService {
         Ok(report)
     }
 
-    /// Stop (remove container + clear `container_id`) then start (recreate from
-    /// the resolved image) one agent in its own scope.
-    async fn roll_one(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<()> {
-        self.control.stop(scope, agent_id).await?;
-        self.control.start(scope, agent_id).await?;
-        Ok(())
+    /// Stop then start one agent. Reports the post-condition honestly: a stop
+    /// failure leaves the agent in an UNCONFIRMED state — `stop` is not atomic
+    /// (stop → remove → clear container_id), so an error can mean the container
+    /// is still running on the old image OR was already brought down by a
+    /// partial stop. Either way we did not confirm a clean stop, so `stopped` is
+    /// false and the operator is told to check the Agents view. A start failure
+    /// (after a confirmed stop) leaves it down. Full error to the server log; a
+    /// client-safe message in the report.
+    async fn roll_one(&self, scope: &TenantScope, agent_id: AgentId, id: Uuid, tool: &str) -> RollAgentResult {
+        if let Err(err) = self.control.stop(scope, agent_id).await {
+            tracing::warn!(agent_id = %id, tool, error = %err, "cli image roll: stop did not complete cleanly; post-condition unconfirmed");
+            return RollAgentResult::failed_still_running(id, client_safe_roll_error(&err));
+        }
+        match self.control.start(scope, agent_id).await {
+            Ok(_) => RollAgentResult::respawned(id),
+            Err(err) => {
+                tracing::warn!(agent_id = %id, tool, error = %err, "cli image roll: respawn failed; agent now stopped");
+                RollAgentResult::failed_now_stopped(id, client_safe_roll_error(&err))
+            }
+        }
     }
 }
 
