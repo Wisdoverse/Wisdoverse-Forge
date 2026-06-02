@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.23
-FROM rust:1.95.0-bookworm AS chef
+FROM rust:1.96.0-bookworm AS chef
 RUN apt-get update && apt-get install -y musl-tools protobuf-compiler clang mold && rm -rf /var/lib/apt/lists/*
 RUN cargo install cargo-chef cargo-auditable --locked
 RUN rustup set profile minimal && rustup target add x86_64-unknown-linux-musl
