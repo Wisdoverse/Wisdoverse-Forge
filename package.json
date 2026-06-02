@@ -85,7 +85,7 @@
     "react-i18next": "^17.0.7",
     "tailwind-merge": "^3.6.0",
     "three": "^0.184.0",
-    "zustand": "^5.0.13"
+    "zustand": "^5.0.14"
   },
   "overrides": {
     "flatted": ">=3.4.0",
