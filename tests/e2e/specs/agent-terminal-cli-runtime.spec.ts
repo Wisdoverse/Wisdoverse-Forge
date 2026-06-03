@@ -91,8 +91,8 @@ test.describe('Agent detail Terminal tab', () => {
     await openAgents(page, baseURL!)
     await page.locator('[data-testid="agent-card-agent-container-cli"]').click()
 
-    await expect(page.getByRole('button', { name: 'Terminal' })).toBeVisible({ timeout: 5000 })
-    await page.getByRole('button', { name: 'Terminal' }).click()
+    await expect(page.getByRole('button', { name: 'Console' })).toBeVisible({ timeout: 5000 })
+    await page.getByRole('button', { name: 'Console' }).click()
     await expect(page.locator('[data-testid="agent-terminal-tab"]')).toBeVisible({
       timeout: 10_000,
     })
@@ -106,6 +106,6 @@ test.describe('Agent detail Terminal tab', () => {
     await page.locator('[data-testid="agent-card-agent-provider-prompt"]').click()
 
     await expect(page.getByRole('button', { name: 'Chat' })).toBeVisible({ timeout: 5000 })
-    await expect(page.getByRole('button', { name: 'Terminal' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Console' })).toHaveCount(0)
   })
 })
