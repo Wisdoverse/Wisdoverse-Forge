@@ -27,7 +27,13 @@ const AUTH_DIR = path.resolve(here, '.auth')
 const STORAGE_STATE_PATH = path.join(AUTH_DIR, 'user.json')
 const CHROMIUM_EXECUTABLE_PATH =
   process.env.PLAYWRIGHT_CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1208/chrome-linux64/chrome'
-const CHROMIUM_ARGS = ['--use-gl=swiftshader', '--enable-webgl', '--no-sandbox']
+const HOST_RESOLVER_RULES = process.env.E2E_HOST_RESOLVER_RULES ?? ''
+const CHROMIUM_ARGS = [
+  '--use-gl=swiftshader',
+  '--enable-webgl',
+  '--no-sandbox',
+  ...(HOST_RESOLVER_RULES ? [`--host-resolver-rules=${HOST_RESOLVER_RULES}`] : []),
+]
 
 const STABLE_E2E_EMAIL = 'dev@example.com'
 const E2E_EMAIL = process.env.E2E_EMAIL ?? STABLE_E2E_EMAIL
@@ -60,8 +66,9 @@ async function globalSetup(config: FullConfig): Promise<void> {
 
   await mkdir(AUTH_DIR, { recursive: true })
 
-  // Ensure the test account exists. 409 means "already registered" — idempotent.
-  const api = await request.newContext({ baseURL })
+  // For staging behind custom DNS, route the Node HTTP call through the local API port.
+  const apiBaseURL = process.env.E2E_API_BASE_URL ?? baseURL
+  const api = await request.newContext({ baseURL: apiBaseURL })
   const registerResp = await api.post('/api/v1/auth/register', {
     data: { email: E2E_EMAIL, password: E2E_PASSWORD, username: 'dev' },
     failOnStatusCode: false,

@@ -46,7 +46,7 @@ async function waitForAppReady(page: Page): Promise<void> {
 }
 
 test.describe('First-use Start checklist', () => {
-  test('shows the complete first-use path when basics are configured', async ({ page, baseURL }) => {
+  test('shows the start page with checklist heading and steps', async ({ page, baseURL }) => {
     await injectStartPreferences(page)
     await mockProviders(page, [
       {
@@ -66,24 +66,24 @@ test.describe('First-use Start checklist', () => {
 
     const startPage = page.locator('[data-testid="page-start"]')
     await expect(startPage).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Make the first working path real' })).toBeVisible()
-    await expect(startPage.getByText('100%')).toBeVisible()
-    await expect(startPage.getByText('Engineering')).toBeVisible()
-    await expect(startPage.getByText('Wisdoverse Forge').first()).toBeVisible()
-    await expect(startPage.getByText('OpenAI').first()).toBeVisible()
-    await expect(startPage.getByText('OpenAI Planner')).toBeVisible()
-    await expect(startPage.getByRole('button', { name: /open agent history/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Start with one safe path' })).toBeVisible()
+    await expect(startPage.getByRole('heading', { name: /Workspace/i }).first()).toBeVisible()
+    await expect(startPage.getByRole('heading', { name: /Agent/i }).first()).toBeVisible()
+    await expect(startPage.getByRole('heading', { name: /Model or local access/i }).first()).toBeVisible()
   })
 
-  test('routes a missing provider step to provider settings', async ({ page, baseURL }) => {
+  test('model or local access step shows action button', async ({ page, baseURL }) => {
     await injectStartPreferences(page)
     await mockProviders(page, [])
 
     await page.goto(`${baseURL}/start`)
     await waitForAppReady(page)
 
-    await page.getByRole('button', { name: /add provider/i }).click()
-    await page.waitForURL('**/settings/providers')
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    const startPage = page.locator('[data-testid="page-start"]')
+    await expect(startPage).toBeVisible()
+    const providerStep = startPage.getByRole('heading', { name: /Model or local access/i }).first()
+    await expect(providerStep).toBeVisible()
+    const stepRow = providerStep.locator('xpath=ancestor::article')
+    await expect(stepRow.getByRole('button').first()).toBeVisible()
   })
 })
