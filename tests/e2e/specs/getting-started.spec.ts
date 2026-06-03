@@ -1,23 +1,9 @@
-import { test, expect, type Page, type Route } from '../fixtures/app-fixtures'
+import type { Page, Route } from '@playwright/test'
+import { test, expect } from '../fixtures/app-fixtures'
 
 async function injectStartPreferences(page: Page): Promise<void> {
   await page.addInitScript(() => {
-    const payload = btoa(
-      JSON.stringify({
-        sub: 'user-1',
-        email: 'dev@example.com',
-        role: 'admin',
-        exp: Math.floor(Date.now() / 1000) + 3600,
-      })
-    )
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '')
-    localStorage.setItem('af:auth:access', `e2e.${payload}.signature`)
-    localStorage.setItem(
-      'af:auth:user',
-      JSON.stringify({ id: 'user-1', email: 'dev@example.com', name: 'Dev', role: 'admin' })
-    )
+    localStorage.setItem('af:onboarding:completed', 'true')
     localStorage.setItem('af:nav:orgId', 'org-1')
     localStorage.setItem('af:nav:projectId', 'proj-1')
     localStorage.setItem('af:nav:expandedTeams', '["team-1"]')
