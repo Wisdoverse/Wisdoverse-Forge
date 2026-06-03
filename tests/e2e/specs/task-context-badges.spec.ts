@@ -42,17 +42,6 @@ async function setupAndNavigate(page: Page, baseURL: string) {
       writable: true,
     })
 
-    const payload = btoa(
-      JSON.stringify({ sub: 'user-1', exp: Math.floor(Date.now() / 1000) + 3600 })
-    )
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/g, '')
-    localStorage.setItem('af:auth:access', `e2e.${payload}.signature`)
-    localStorage.setItem(
-      'af:auth:user',
-      JSON.stringify({ id: 'user-1', email: 'dev@example.com', name: 'Dev', role: 'admin' })
-    )
     localStorage.setItem('af:onboarding:completed', 'true')
     localStorage.setItem('af:nav:orgId', 'org-1')
     localStorage.setItem('af:nav:projectId', 'proj-1')
