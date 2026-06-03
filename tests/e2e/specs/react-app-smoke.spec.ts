@@ -92,7 +92,11 @@ async function gotoAndWaitForAppReady(page: Page, baseURL: string, path = ''): P
  * nav-loader race was resolved by the fixture, but the upstream vite
  * dev-server flake can still bite under heavy parallelism. The warning
  * is logged so the flake rate stays visible in CI output. */
-async function setupAndNavigate(page: Page, baseURL: string, path = ''): Promise<void> {
+// Default to `/tasks`, not `/`: the `/` index route redirects to `/start`
+// (onboarding landing, App.tsx), so the board-centric smoke suite must navigate
+// to the board route directly. The `/` → `/start` redirect itself is covered by
+// the dedicated routing test.
+async function setupAndNavigate(page: Page, baseURL: string, path = '/tasks'): Promise<void> {
   await injectAuth(page, baseURL)
   await gotoAndWaitForAppReady(page, baseURL, path)
   // Right panel defaults to collapsed (AppLayout.tsx:46) and has no persisted
@@ -185,7 +189,7 @@ test.describe('React App Smoke Tests', () => {
 
     test('right panel shows Activity header', async ({ page }) => {
       await expect(
-        page.locator('[data-testid="right-panel"]').getByText('Activity', { exact: true })
+        page.locator('[data-testid="right-panel"]').getByText('Live task updates', { exact: true })
       ).toBeVisible()
     })
   })
@@ -451,8 +455,8 @@ test.describe('React App Smoke Tests', () => {
 
       const rightPanel = page.locator('[data-testid="right-panel"]')
       await expect(rightPanel).toContainText('Write unit tests for auth module', { timeout: 5000 })
-      await expect(rightPanel).toContainText('Description')
-      await expect(rightPanel).toContainText('History')
+      await expect(rightPanel).toContainText('Work')
+      await expect(rightPanel).toContainText('Updates')
       await screenshot(page, '18-task-detail')
     })
 
@@ -461,8 +465,8 @@ test.describe('React App Smoke Tests', () => {
       await page.waitForTimeout(300)
 
       const rightPanel = page.locator('[data-testid="right-panel"]')
-      await expect(rightPanel.getByText('Block')).toBeVisible({ timeout: 5000 })
-      await expect(rightPanel.getByText('Cancel')).toBeVisible()
+      await expect(rightPanel.getByRole('button', { name: 'Block' })).toBeVisible({ timeout: 5000 })
+      await expect(rightPanel.getByRole('button', { name: 'Cancel' })).toBeVisible()
     })
 
     test('close button closes detail panel and shows activity feed', async ({ page }) => {
@@ -474,7 +478,7 @@ test.describe('React App Smoke Tests', () => {
       await closeBtn.click()
 
       await expect(
-        page.locator('[data-testid="right-panel"]').getByText('Activity', { exact: true })
+        page.locator('[data-testid="right-panel"]').getByText('Current work', { exact: true })
       ).toBeVisible({ timeout: 5000 })
     })
 
@@ -483,12 +487,12 @@ test.describe('React App Smoke Tests', () => {
       await page.waitForTimeout(300)
 
       const rightPanel = page.locator('[data-testid="right-panel"]')
-      const historyTab = rightPanel.getByText('History')
+      const historyTab = rightPanel.getByText('Updates', { exact: true })
       await expect(historyTab).toBeVisible({ timeout: 5000 })
       await historyTab.click()
 
-      // Switch back to Description
-      await rightPanel.getByText('Description').click()
+      // Switch back to Work
+      await rightPanel.getByText('Work', { exact: true }).click()
     })
   })
 
@@ -510,9 +514,9 @@ test.describe('React App Smoke Tests', () => {
     test('command palette shows Navigation, Actions, and Views groups', async ({ page }) => {
       await page.keyboard.press('Control+k')
 
-      await expect(page.getByText('Navigation')).toBeVisible({ timeout: 5000 })
-      await expect(page.getByText('Actions')).toBeVisible()
-      await expect(page.getByText('Views')).toBeVisible()
+      await expect(page.getByText('Go to a page')).toBeVisible({ timeout: 5000 })
+      await expect(page.getByText('Start an action')).toBeVisible()
+      await expect(page.getByText('Change task view')).toBeVisible()
     })
 
     test('clicking outside closes command palette', async ({ page }) => {
@@ -640,7 +644,7 @@ test.describe('React App Smoke Tests', () => {
 
       // Close button carries aria-label="Hide activity panel"; icon is an SVG
       // (lucide X) with no text content, so text-filter locators miss it.
-      await page.getByRole('button', { name: 'Hide activity panel' }).click()
+      await page.getByRole('button', { name: 'Hide live task updates panel' }).click()
 
       // Panel collapses — expand button appears
       await expect(page.locator('[data-testid="right-panel"]')).toBeHidden({ timeout: 3000 })
@@ -696,7 +700,7 @@ test.describe('React App Smoke Tests', () => {
       await expect(sidebar.getByText('Test Org')).toBeVisible({ timeout: 10000 })
       await expect(sidebar.getByText('PROJECTS')).toBeVisible()
       await expect(sidebar.getByText('Engineering')).toBeVisible()
-      await expect(sidebar.getByText('Wisdoverse Forge')).toBeVisible()
+      await expect(sidebar.getByTestId('project-proj-1')).toBeVisible()
       await screenshot(page, '29-sidebar-tree')
     })
   })
@@ -710,10 +714,11 @@ test.describe('React App Smoke Tests', () => {
       // nav loader never auto-selects a project.
       await overrideOrgs(context, [])
 
-      await gotoAndWaitForAppReady(page, baseURL!)
+      // Navigate to the board route directly (`/` redirects to `/start`).
+      await gotoAndWaitForAppReady(page, baseURL!, '/tasks')
 
       await expect(page.locator('[data-testid="board-no-group"]')).toBeVisible({ timeout: 10000 })
-      await expect(page.getByText('Pick a project to get started')).toBeVisible()
+      await expect(page.getByText('Pick a Project to Start')).toBeVisible()
       await screenshot(page, '30-board-no-project')
     })
   })
@@ -779,7 +784,7 @@ test.describe('React App Smoke Tests', () => {
 
       const sidebar = page.locator('[data-testid="sidebar"]')
       // Team-1 is already expanded (pre-seeded in localStorage)
-      await expect(sidebar.getByText('Wisdoverse Forge')).toBeVisible({ timeout: 10000 })
+      await expect(sidebar.getByTestId('project-proj-1')).toBeVisible({ timeout: 10000 })
 
       // Team-2 (Design) should be visible but collapsed
       await expect(sidebar.locator('[data-testid="team-team-2"]')).toBeVisible()
@@ -797,7 +802,7 @@ test.describe('React App Smoke Tests', () => {
       const sidebar = page.locator('[data-testid="sidebar"]')
       // Team-1 is expanded — click to collapse
       await sidebar.locator('[data-testid="team-team-1"]').click()
-      await expect(sidebar.getByText('Wisdoverse Forge')).toBeHidden({ timeout: 3000 })
+      await expect(sidebar.getByTestId('project-proj-1')).toBeHidden({ timeout: 3000 })
     })
 
     test('selected project is highlighted', async ({ page, context, baseURL }) => {
@@ -1049,7 +1054,7 @@ test.describe('React App Smoke Tests', () => {
       await expect(input).toBeVisible({ timeout: 5000 })
 
       // Click the Agents navigation command
-      const agentsCmd = page.locator('[cmdk-item]', { hasText: 'Agents' })
+      const agentsCmd = page.locator('[cmdk-item]:has(span.font-medium:has-text("Agents"))')
       await agentsCmd.click()
 
       await page.waitForURL('**/agents')
@@ -1136,10 +1141,13 @@ test.describe('React App Smoke Tests', () => {
   // 28. Deep Linking / Direct URL ────────────────────────────────────────────
 
   test.describe('28. Client-Side Routing', () => {
-    test('root URL / redirects to /tasks', async ({ page, baseURL }) => {
-      await setupAndNavigate(page, baseURL!)
+    test('root URL / redirects to the onboarding landing (/start)', async ({ page, baseURL }) => {
+      // The `/` index route redirects authenticated users to `/start` (App.tsx).
+      await injectAuth(page, baseURL!)
+      await gotoAndWaitForAppReady(page, baseURL!, '/')
 
-      expect(page.url()).toContain('/tasks')
+      await page.waitForURL('**/start')
+      expect(page.url()).toContain('/start')
     })
 
     test('navigating to each page and back preserves state', async ({ page, baseURL }) => {
@@ -1220,7 +1228,7 @@ test.describe('React App Smoke Tests', () => {
       await setupAndNavigate(page, baseURL!)
 
       const rightPanel = page.locator('[data-testid="right-panel"]')
-      await expect(rightPanel.getByText('Activity', { exact: true })).toBeVisible()
+      await expect(rightPanel.getByRole('heading', { name: 'Live task updates' })).toBeVisible()
     })
   })
 
