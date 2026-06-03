@@ -266,7 +266,7 @@ test.describe.serial('Provider + Prompt Agent UX (#21)', () => {
     await page.getByText('Provider + Prompt').click()
 
     // Provider select should default to 'anthropic' (first in list)
-    const providerSelect = page.locator('select').first()
+    const providerSelect = page.locator('select#agent-provider')
     await expect(providerSelect).toHaveValue('anthropic')
 
     // Fill system prompt
@@ -305,11 +305,19 @@ test.describe.serial('Provider + Prompt Agent UX (#21)', () => {
 
   // 4. Chat tab — ChatComposer renders; Send disabled when empty ─────────────
 
-  test('4. Chat tab renders composer with Send disabled on empty input', async ({
-    page,
-    baseURL,
-  }) => {
+  test('4. Chat tab renders composer; empty input does not send', async ({ page, baseURL }) => {
     await navigateToAgents(page, baseURL!)
+
+    // Spy on the prompt endpoint so we can assert an empty Send is a no-op.
+    let promptCalls = 0
+    await page.route('**/api/v1/agents/*/prompt', (r: Route) => {
+      promptCalls += 1
+      return r.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true }),
+      })
+    })
 
     // Click the provider agent card
     await page.locator('[data-testid="agent-card-agent-prov-1"]').click()
@@ -318,13 +326,16 @@ test.describe.serial('Provider + Prompt Agent UX (#21)', () => {
     await page.getByRole('button', { name: 'Chat' }).click()
 
     // ChatComposer textarea should be visible
-    const composer = page.getByPlaceholder(/Type a message/i)
+    const composer = page.getByPlaceholder(/Ask this agent/i)
     await expect(composer).toBeVisible({ timeout: 5000 })
 
-    // Send button should be disabled when composer is empty
+    // The Send button guards empty input in its click handler (it trims and
+    // returns), so clicking it with an empty composer must NOT fire a prompt.
     const sendBtn = page.getByRole('button', { name: 'Send' })
     await expect(sendBtn).toBeVisible()
-    await expect(sendBtn).toBeDisabled()
+    await sendBtn.click()
+    await page.waitForTimeout(300)
+    expect(promptCalls).toBe(0)
   })
 
   // 5. Cmd/Ctrl+Enter triggers POST /prompt ──────────────────────────────────
@@ -349,7 +360,7 @@ test.describe.serial('Provider + Prompt Agent UX (#21)', () => {
     await page.locator('[data-testid="agent-card-agent-prov-1"]').click()
     await page.getByRole('button', { name: 'Chat' }).click()
 
-    const composer = page.getByPlaceholder(/Type a message/i)
+    const composer = page.getByPlaceholder(/Ask this agent/i)
     await expect(composer).toBeVisible({ timeout: 5000 })
     await composer.fill('ping')
 
