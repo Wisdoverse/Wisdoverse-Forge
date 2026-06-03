@@ -411,7 +411,7 @@ test.describe.serial('Provider + Prompt Agent UX (#21)', () => {
     await page.locator('[data-testid="agent-card-agent-prov-1"]').click()
 
     // Navigate to Config tab
-    await page.getByRole('button', { name: 'Config' }).click()
+    await page.getByRole('button', { name: 'Instructions' }).click()
 
     // Existing system prompt should be pre-filled
     const promptTextarea = page.locator('textarea#config-system-prompt')
