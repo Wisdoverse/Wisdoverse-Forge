@@ -241,6 +241,14 @@ provider API.
   logging provider secrets, encrypted payloads, or decrypted content.
 - Test and manual login flows should use the existing `dev@example.com` account.
   Do not create throwaway debug accounts.
+- This is a public repository. Never write private hostnames, internal domain
+  names, staging URLs, internal GitLab/infrastructure URLs, real operator email
+  addresses, or any other organization-identifying information into code,
+  configuration, commit messages, PR descriptions, issue bodies, documentation,
+  agent instructions, or memory files. Use placeholder domains
+  (`staging.example.com`, `gitlab.example.com`) and `dev@example.com` in all
+  artifacts that leave this machine. When referencing deployment targets in
+  workflow files, read them from repository secrets, not inline literals.
 
 ## Frontend Contracts
 
