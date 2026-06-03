@@ -11,7 +11,7 @@ test.describe('password reset links', () => {
   }) => {
     await page.goto(`/?reset_token=${resetToken}`)
 
-    await expect(page.getByRole('heading', { name: 'Set New Password' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible()
     await expect(page.locator('#reset-password')).toBeVisible()
     await expect(page.locator('#reset-confirm')).toBeVisible()
     await expect(page).toHaveURL(/\/login$/)
@@ -31,9 +31,9 @@ test.describe('password reset links', () => {
     await page.goto(`/?reset_token=${resetToken}`)
     await page.locator('#reset-password').fill(newPassword)
     await page.locator('#reset-confirm').fill(newPassword)
-    await page.getByRole('button', { name: 'Reset Password' }).click()
+    await page.getByRole('button', { name: 'Save new password' }).click()
 
-    await expect(page.getByRole('heading', { name: 'Password Reset Successfully' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Password updated' })).toBeVisible()
     expect(resetRequest).toEqual({ token: resetToken, newPassword })
   })
 
@@ -53,7 +53,7 @@ test.describe('password reset links', () => {
     await page.goto(`/?reset_token=${resetToken}`)
     await page.locator('#reset-password').fill(newPassword)
     await page.locator('#reset-confirm').fill(newPassword)
-    await page.getByRole('button', { name: 'Reset Password' }).click()
+    await page.getByRole('button', { name: 'Save new password' }).click()
 
     await expect(page.locator('#reset-error')).toHaveText('invalid or expired reset token')
   })

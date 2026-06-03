@@ -59,13 +59,13 @@ test.describe('Context injection preview', () => {
       .getByRole('button', { name: 'Publish Implement login flow' })
       .click()
 
-    const dialog = page.getByRole('dialog', { name: 'Context injection preview' })
+    const dialog = page.getByRole('dialog', { name: /review context before publishing/i })
     await expect(dialog).toBeVisible()
     await expect(dialog.getByText('Prod-ext validation memory')).toBeVisible()
     await expect(dialog.getByText('Pinned migration note')).toBeVisible()
-    await dialog.getByRole('checkbox', { name: 'Select Rollback memory' }).click()
-    await dialog.getByRole('button', { name: 'Pin Pinned migration note' }).click()
-    await dialog.getByRole('button', { name: 'Publish with context' }).click()
+    await dialog.getByRole('checkbox', { name: /Rollback memory/ }).click()
+    await dialog.getByRole('button', { name: /Pinned migration note.*pinned/i }).click()
+    await dialog.getByRole('button', { name: 'Publish with selected context' }).click()
 
     await expect(dialog).toBeHidden()
     expect(publishBody).toMatchObject({
@@ -87,8 +87,8 @@ test.describe('Context injection preview', () => {
       .getByRole('button', { name: 'Publish Implement login flow' })
       .click()
 
-    const dialog = page.getByRole('dialog', { name: 'Context injection preview' })
+    const dialog = page.getByRole('dialog', { name: /review context before publishing/i })
     await expect(dialog).toBeVisible()
-    await expect(dialog.getByRole('button', { name: 'Publish with context' })).toBeVisible()
+    await expect(dialog.getByRole('button', { name: 'Publish with selected context' })).toBeVisible()
   })
 })

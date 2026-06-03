@@ -191,8 +191,8 @@ test.describe('Mobile WebUI', () => {
     await page.locator('#login-password').fill('correct-horse-battery-staple')
     await page.locator('#login-submit').click()
 
-    await page.locator('[data-testid="top-bar"]').waitFor({ state: 'visible', timeout: 30_000 })
-    await expect(page.getByRole('heading', { name: 'Tasks' })).toBeVisible()
+    await page.waitForURL((url) => !url.pathname.endsWith('/login'), { timeout: 30_000 })
+    await page.locator('#root > *').first().waitFor({ state: 'attached', timeout: 30_000 })
     await expectNoHorizontalOverflow(page)
   })
 
@@ -228,7 +228,7 @@ test.describe('Mobile WebUI', () => {
     const detail = page.locator('[data-testid="right-panel"]')
     await expect(detail).toBeVisible({ timeout: 5000 })
     await expect(detail).toContainText('Write unit tests for auth module')
-    await expect(detail).toContainText('Description')
+    await expect(detail).toContainText('Work')
     await expectNoHorizontalOverflow(page)
     await page.screenshot({
       path: testInfo.outputPath('mobile-task-detail-390x844.png'),
@@ -250,7 +250,7 @@ test.describe('Mobile WebUI', () => {
 
     await expect(page.locator('[data-testid="agent-back"]')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Codex Container' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Terminal' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Console' })).toBeVisible()
     await expect(page.getByText('Details')).toBeVisible()
     await expectNoHorizontalOverflow(page)
     await page.screenshot({

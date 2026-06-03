@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:4002'
+const HOST_RESOLVER_RULES = process.env.E2E_HOST_RESOLVER_RULES ?? ''
 const STORAGE_STATE = path.resolve(here, '.auth/user.json')
 const SKIP_AUTH_SETUP = process.env.E2E_SKIP_AUTH_SETUP === '1'
 
@@ -84,7 +85,12 @@ export default defineConfig({
           executablePath:
             process.env.PLAYWRIGHT_CHROMIUM_PATH ??
             '/opt/pw-browsers/chromium-1208/chrome-linux64/chrome',
-          args: ['--use-gl=swiftshader', '--enable-webgl', '--no-sandbox'],
+          args: [
+            '--use-gl=swiftshader',
+            '--enable-webgl',
+            '--no-sandbox',
+            ...(HOST_RESOLVER_RULES ? [`--host-resolver-rules=${HOST_RESOLVER_RULES}`] : []),
+          ],
         },
       },
     },

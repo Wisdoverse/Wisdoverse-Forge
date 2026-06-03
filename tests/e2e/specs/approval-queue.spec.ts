@@ -153,10 +153,10 @@ test.describe('Approval queue', () => {
     await expect(dialog).toBeVisible()
     await dialog.getByTestId('context-approval-scope-kind').selectOption('team')
     await dialog.getByTestId('context-approval-scope-id').fill('team-1')
-    await dialog.getByLabel('TTL').fill('2030-01-01T12:00')
+    await dialog.getByLabel('Expiration').fill('2030-01-01T12:00')
     await dialog.getByLabel('Sensitivity').selectOption('confidential')
     await dialog.getByLabel('Note').fill('Approved from queue')
-    await dialog.getByRole('checkbox', { name: 'Confirm team scope expansion' }).check()
+    await dialog.getByRole('checkbox', { name: /Confirm this team can reuse/i }).check()
     await dialog.getByTestId('context-approval-submit').click()
 
     await expect(dialog).toBeHidden()
