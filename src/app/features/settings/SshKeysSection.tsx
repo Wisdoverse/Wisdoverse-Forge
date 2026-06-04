@@ -3,6 +3,7 @@ import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import type { UserSshKey } from '@app/entities/agent'
+import { sshKeysErrorMessage } from './sshKeysErrorMessage'
 
 // ============================================================================
 // Helpers
@@ -302,7 +303,11 @@ export function SshKeysSection() {
       </div>
 
       {/* Error */}
-      {sshKeysError && <div className={uiStyles.error}>{sshKeysError}</div>}
+      {sshKeysError && (
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
+          {sshKeysErrorMessage(sshKeysError)}
+        </div>
+      )}
 
       {/* Table */}
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>

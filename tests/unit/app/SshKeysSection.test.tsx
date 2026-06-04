@@ -98,4 +98,18 @@ describe('SshKeysSection', () => {
 
     expect(deleteSshKeyMock).toHaveBeenCalledWith('ssh-key-1')
   })
+
+  test('shows a beginner recovery step instead of raw SSH key details', async () => {
+    useSettingsStore.setState({
+      sshKeysError: 'Settings could not save SSH key. Details: invalid public key',
+    })
+
+    render(<SshKeysSection />)
+
+    await waitFor(() => expect(loadSshKeysMock).toHaveBeenCalled())
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Repository SSH key could not be saved. Paste only the public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+    )
+    expect(screen.queryByText(/Details: invalid public key/i)).toBeNull()
+  })
 })
