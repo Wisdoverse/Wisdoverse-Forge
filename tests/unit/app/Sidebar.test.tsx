@@ -212,7 +212,8 @@ describe('Sidebar', () => {
     fireEvent.contextMenu(screen.getByTestId('team-t1'))
 
     expect(screen.getByRole('menu', { name: /team alpha team menu/i })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /configure team/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /edit team details/i })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /configure team/i })).not.toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /delete team/i })).toBeInTheDocument()
   })
 
@@ -296,7 +297,7 @@ describe('Sidebar', () => {
     expect(screen.getByTestId('project-copy-status')).toHaveTextContent('Project support ID copied')
   })
 
-  it('configures team name from context menu', async () => {
+  it('edits team name from context menu', async () => {
     seedProjectTree()
     vi.mocked(teamApi.updateTeam).mockResolvedValue({
       id: 't1',
@@ -309,8 +310,9 @@ describe('Sidebar', () => {
 
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
     fireEvent.contextMenu(screen.getByTestId('team-t1'))
-    fireEvent.click(screen.getByRole('menuitem', { name: /configure team/i }))
-    fireEvent.change(screen.getByLabelText(/team name/i), {
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit team details/i }))
+    expect(screen.getByRole('dialog', { name: /edit team details/i })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/team name people see/i), {
       target: { value: 'Renamed Team' },
     })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
@@ -331,8 +333,8 @@ describe('Sidebar', () => {
 
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
     fireEvent.contextMenu(screen.getByTestId('team-t1'))
-    fireEvent.click(screen.getByRole('menuitem', { name: /configure team/i }))
-    fireEvent.change(screen.getByLabelText(/team name/i), {
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit team details/i }))
+    fireEvent.change(screen.getByLabelText(/team name people see/i), {
       target: { value: 'Renamed Team' },
     })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
@@ -352,8 +354,8 @@ describe('Sidebar', () => {
 
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
     fireEvent.contextMenu(screen.getByTestId('team-t1'))
-    fireEvent.click(screen.getByRole('menuitem', { name: /configure team/i }))
-    fireEvent.change(screen.getByLabelText(/team name/i), {
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit team details/i }))
+    fireEvent.change(screen.getByLabelText(/team name people see/i), {
       target: { value: '   ' },
     })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))

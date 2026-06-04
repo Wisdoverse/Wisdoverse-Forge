@@ -578,7 +578,7 @@ export function ProjectTree({
                 className="w-full rounded-md px-2.5 py-1.5 text-left text-ui-caption text-foreground-light hover:bg-black/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
                 onClick={() => openTeamEditor(teamMenu.team)}
               >
-                Configure Team
+                Edit team details
               </button>
             )}
             {canDeleteTeam(teamMenu.team) && (
@@ -704,22 +704,22 @@ export function ProjectTree({
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <button
             type="button"
-            aria-label="Close team configuration"
+            aria-label="Close team details"
             className="absolute inset-0 bg-black/40"
             onClick={() => setTeamEditor(null)}
           />
           <form
             role="dialog"
             aria-modal="true"
-            aria-labelledby="team-config-title"
+            aria-labelledby="team-details-title"
             className="relative w-[360px] rounded-lg bg-white p-5 shadow-xl dark:bg-[#2c2c2e]"
             onSubmit={handleSaveTeam}
           >
             <h2
-              id="team-config-title"
+              id="team-details-title"
               className="mb-4 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark"
             >
-              Configure Team
+              Edit team details
             </h2>
             {teamEditor.error && (
               <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-ui-caption text-red-600 dark:bg-red-900/20 dark:text-red-400">
@@ -730,7 +730,7 @@ export function ProjectTree({
               htmlFor="team-config-name"
               className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
             >
-              Team Name
+              Team name people see
             </label>
             <input
               id="team-config-name"
