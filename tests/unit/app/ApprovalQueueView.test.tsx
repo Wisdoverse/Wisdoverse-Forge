@@ -122,7 +122,7 @@ describe('ApprovalQueueView', () => {
 
     const error = await screen.findByTestId('context-approval-error')
     expect(error.textContent).toContain('candidate changed while you were reviewing it')
-    expect(error.textContent).toContain('Code: 409')
+    expect(error.textContent).not.toContain('Code:')
     expect(error.textContent).not.toContain('409 conflict')
   })
 

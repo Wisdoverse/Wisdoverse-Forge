@@ -204,7 +204,8 @@ describe('CliImagesPanel', () => {
     expect(
       screen.getByText(/do not roll agents from this table until check now succeeds/i)
     ).toBeDefined()
-    expect(screen.getByText('HTTP 401')).toBeDefined()
+    expect(screen.queryByText('HTTP 401')).toBeNull()
+    expect(screen.getByText(/ask an owner to check the admin service and image updater/i)).toBeDefined()
     expect(screen.getByText('codex')).toBeDefined()
   })
 
@@ -234,8 +235,9 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
 
-    expect(screen.getByText(/Could not load CLI image status/i)).toBeDefined()
-    expect(screen.getByText('HTTP 500')).toBeDefined()
+    expect(screen.getByText(/The CLI image status could not load/i)).toBeDefined()
+    expect(screen.queryByText('HTTP 500')).toBeNull()
+    expect(screen.getByText(/choose check now again/i)).toBeDefined()
     expect(screen.getByRole('button', { name: 'Check now' })).toBeDefined()
   })
 

@@ -121,10 +121,11 @@ describe('AgentsPanel', () => {
     render(<AgentsPanel />)
 
     const error = await screen.findByTestId('admin-agents-error')
-    expect(within(error).getByText('HTTP 503')).toBeDefined()
+    expect(within(error).getByText('The admin agents could not load.')).toBeDefined()
+    expect(within(error).queryByText('HTTP 503')).toBeNull()
     expect(
       within(error).getByText(
-        'Refresh after the API is healthy, or confirm this account has admin access.'
+        'Refresh Admin, then try again. If it still fails, ask an owner to check the admin service and your admin role.'
       )
     ).toBeDefined()
   })
@@ -137,7 +138,7 @@ describe('AgentsPanel', () => {
     const emptyState = await screen.findByTestId('admin-agents-empty')
     expect(within(emptyState).getByText(/create the first agent from agents/i)).toBeDefined()
     expect(within(emptyState).getByText(/confirm it becomes idle or working/i)).toBeDefined()
-    expect(within(emptyState).getByText(/refresh after the api is healthy/i)).toBeDefined()
+    expect(within(emptyState).getByText(/refresh admin and check again/i)).toBeDefined()
   })
 
   test('guides admins to clear a runtime filter before assuming an agent is missing', async () => {

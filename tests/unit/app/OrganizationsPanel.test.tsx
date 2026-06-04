@@ -95,10 +95,11 @@ describe('OrganizationsPanel', () => {
     render(<OrganizationsPanel />)
 
     const error = await screen.findByTestId('admin-org-error')
-    expect(within(error).getByText('HTTP 503')).toBeDefined()
+    expect(within(error).getByText('The admin organizations could not load.')).toBeDefined()
+    expect(within(error).queryByText('HTTP 503')).toBeNull()
     expect(
       within(error).getByText(
-        'Refresh after the API is healthy, or confirm this account has admin access.'
+        'Refresh Admin, then try again. If it still fails, ask an owner to check the admin service and your admin role.'
       )
     ).toBeDefined()
   })

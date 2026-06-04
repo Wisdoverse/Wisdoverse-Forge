@@ -297,7 +297,7 @@ export function adminHttpErrorMessage(
     return `You do not have permission to view admin ${label}. Ask an owner to update your admin role.`
   }
   if (status === 404) {
-    return `The admin ${label} is not available. Refresh after the admin service is ready.`
+    return `The admin ${label} is not available. Refresh Admin, then try again. If it is still missing, ask an owner to check the admin service.`
   }
   if (
     status === 409 &&

@@ -8,6 +8,7 @@ import {
   type CliImageTool,
   type CliImageToolState,
 } from '@app/shared/model/admin.store'
+import { CLI_IMAGE_RECOVERY, cliImageStatusErrorMessage } from './adminErrorCopy'
 
 // ============================================================================
 // Presentation helpers
@@ -298,8 +299,8 @@ export function CliImagesPanel() {
 
       {cliImagesError && !cliImages && (
         <div className={uiStyles.error}>
-          Could not load CLI image status. Try Check now again or confirm the API is reachable.
-          <span className="mt-1 block text-ui-caption">{cliImagesError}</span>
+          <p>{cliImageStatusErrorMessage(cliImagesError)}</p>
+          <p className="mt-1 text-ui-caption">{CLI_IMAGE_RECOVERY}</p>
         </div>
       )}
 
@@ -316,9 +317,11 @@ export function CliImagesPanel() {
           as current. */}
       {cliImagesError && cliImages && (
         <div className={cn(uiStyles.error, 'mb-4')}>
-          The status below may be out of date — the latest refresh failed. Do not roll agents from
-          this table until Check now succeeds.
-          <span className="mt-1 block text-ui-caption">{cliImagesError}</span>
+          <p>
+            The status below may be out of date. Do not roll agents from this table until Check now
+            succeeds.
+          </p>
+          <p className="mt-1 text-ui-caption">{CLI_IMAGE_RECOVERY}</p>
         </div>
       )}
 

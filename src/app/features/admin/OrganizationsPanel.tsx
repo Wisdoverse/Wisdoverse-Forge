@@ -3,6 +3,7 @@ import { Building2, CalendarDays, Network, Users, type LucideIcon } from 'lucide
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { type AdminOrg, useAdminStore } from '@app/shared/model/admin.store'
+import { ADMIN_PANEL_RECOVERY, adminPanelLoadErrorMessage } from './adminErrorCopy'
 
 function formatDate(iso: string): string {
   try {
@@ -192,10 +193,8 @@ export function OrganizationsPanel() {
       {/* Error */}
       {orgsError && (
         <div data-testid="admin-org-error" role="alert" className={uiStyles.error}>
-          <p>{orgsError}</p>
-          <p className="mt-1 text-ui-caption">
-            Refresh after the API is healthy, or confirm this account has admin access.
-          </p>
+          <p>{adminPanelLoadErrorMessage(orgsError, 'organizations')}</p>
+          <p className="mt-1 text-ui-caption">{ADMIN_PANEL_RECOVERY}</p>
         </div>
       )}
 

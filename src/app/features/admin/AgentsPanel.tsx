@@ -13,6 +13,7 @@ import {
   runtimeKindLabel,
   runtimeKindShortLabel,
 } from '@app/entities/agent'
+import { ADMIN_PANEL_RECOVERY, adminPanelLoadErrorMessage } from './adminErrorCopy'
 
 // ============================================================================
 // Filter options
@@ -157,7 +158,7 @@ function AgentsEmptyState({ filter }: { filter: AdminAgentRuntimeKindFilter }) {
       </p>
       <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
         {filter === 'all'
-          ? 'Create the first agent from Agents, confirm it becomes Idle or Working, then return here to review it across organizations. Refresh after the API is healthy if you just created one.'
+          ? 'Create the first agent from Agents, confirm it becomes Idle or Working, then return here to review it across organizations. If you just created one, refresh Admin and check again.'
           : `No ${runtimeKindLabel(filter)} agents match this filter. Choose "All runtimes" before assuming the agent is missing.`}
       </p>
     </div>
@@ -216,10 +217,8 @@ export function AgentsPanel() {
 
       {agentsError && (
         <div data-testid="admin-agents-error" role="alert" className={uiStyles.error}>
-          <p>{agentsError}</p>
-          <p className="mt-1 text-ui-caption">
-            Refresh after the API is healthy, or confirm this account has admin access.
-          </p>
+          <p>{adminPanelLoadErrorMessage(agentsError, 'agents')}</p>
+          <p className="mt-1 text-ui-caption">{ADMIN_PANEL_RECOVERY}</p>
         </div>
       )}
 
