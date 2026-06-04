@@ -84,11 +84,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
           <AlertTriangle size={16} strokeWidth={2} aria-hidden="true" className="mt-0.5 shrink-0" />
           <div className="flex flex-col gap-1">
             <span className="font-medium">Action did not finish</span>
-            <span>
-              {error}. Refresh this agent and confirm the latest status before trying once more. For
-              Start or Restart, wait for Idle or Working. If it keeps failing, ask an admin to check
-              your access and agent setup.
-            </span>
+            <span>{agentControlErrorMessage(error)}</span>
           </div>
         </div>
       )}
@@ -377,6 +373,32 @@ function ActionInfo({ icon: Icon, title, detail }: ActionInfoProps) {
       </div>
     </div>
   )
+}
+
+function agentControlErrorMessage(error: string): string {
+  const normalized = error.toLowerCase()
+
+  if (
+    normalized.includes('permission') ||
+    normalized.includes('forbidden') ||
+    /\b403\b/.test(error)
+  ) {
+    return 'You do not have permission to change this agent. Ask an admin to update your access, then try again.'
+  }
+  if (normalized.includes('unauthorized') || /\b401\b/.test(error)) {
+    return 'Sign in again, reopen this agent, then try the action once more.'
+  }
+  if (normalized.includes('conflict') || /\b409\b/.test(error)) {
+    return 'This agent changed while you were working. Refresh this agent, confirm the latest status, then try again.'
+  }
+  if (normalized.includes('rate limit') || /\b429\b/.test(error)) {
+    return 'The agent service is busy. Wait a moment, refresh this agent, then try again.'
+  }
+  if (/\b5\d\d\b/.test(error)) {
+    return 'The agent service is temporarily unavailable. Refresh this agent and try again. If it keeps failing, ask an admin to check agent setup.'
+  }
+
+  return 'Refresh this agent and confirm the latest status before trying once more. For Start or Restart, wait for Idle or Working. If it keeps failing, ask an admin to check your access and agent setup.'
 }
 
 interface ConfirmActionProps {

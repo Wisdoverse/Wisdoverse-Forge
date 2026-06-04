@@ -55,13 +55,15 @@ beforeEach(() => {
 
 describe('AgentControlPanel', () => {
   test('turns action failures into a clear recovery path', () => {
-    useAgentsStore.setState({ error: 'Start request failed' } as never)
+    useAgentsStore.setState({ error: 'HTTP 500: Start request failed' } as never)
 
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
     expect(screen.getByRole('alert')).toHaveTextContent(/refresh this agent/i)
-    expect(screen.getByRole('alert')).toHaveTextContent(/wait for idle or working/i)
-    expect(screen.getByRole('alert')).toHaveTextContent(/ask an admin to check your access/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/agent service is temporarily unavailable/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/ask an admin to check agent setup/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/HTTP 500/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/Start request failed/i)
   })
 
   test('explains quick messages and sends trimmed text', async () => {
