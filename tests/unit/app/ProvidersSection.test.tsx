@@ -211,4 +211,23 @@ describe('ProvidersSection', () => {
     )
     expect(loadProvidersMock).toHaveBeenCalled()
   })
+
+  test('explains provider test failures without raw API text', async () => {
+    settingsApiMock.testProvider.mockResolvedValue({
+      ok: false,
+      error: 'HTTP 403: Forbidden',
+    })
+    render(<ProvidersSection />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /test anthropic review connection/i })
+    )
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Anthropic Review connection test failed. Check that the saved API key is active and allowed to use the selected model, then save and test again.'
+      )
+    )
+    expect(screen.queryByText(/HTTP 403/i)).toBeNull()
+  })
 })
