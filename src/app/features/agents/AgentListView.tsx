@@ -151,7 +151,10 @@ export function AgentListView() {
               <p className="text-ui-body">Loading agents…</p>
             </div>
           ) : agents.length === 0 ? (
-            <div className="flex min-h-72 flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-black/10 px-6 text-center dark:border-white/10">
+            <div
+              data-testid="agent-empty-state"
+              className="flex min-h-72 flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-black/10 px-6 text-center dark:border-white/10"
+            >
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-apple-blue/10 text-apple-blue">
                 <Bot size={28} strokeWidth={1.75} aria-hidden="true" />
               </div>
@@ -160,9 +163,13 @@ export function AgentListView() {
                   Create Your First Agent
                 </p>
                 <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-                  Start with a connected model for text-only work, or connect this computer when the
-                  task needs local files and commands.
+                  Start with Text only when you just need answers. Choose Managed workspace or This
+                  computer only when the task must read files or run commands.
                 </p>
+              </div>
+              <div className="max-w-sm rounded-lg bg-apple-blue/10 px-3 py-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                Success looks like one Idle agent in this list. Then send a small first task before
+                assigning important work.
               </div>
               <button
                 type="button"
