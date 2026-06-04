@@ -578,12 +578,12 @@ function routedTaskNextStep(task: TaskSummary): string {
   switch (task.state) {
     case 'backlog':
       return task.assignedTo || task.assignedAgentName
-        ? 'Ready to queue'
-        : 'Assign an agent before dispatch'
+        ? 'Ready to send'
+        : 'Choose an agent before sending it'
     case 'queued':
       return 'Waiting for an agent to pick it up'
     case 'working':
-      return 'Monitor live progress'
+      return 'Watch live progress'
     case 'blocked':
       return task.blockedHint ?? 'Resolve blocker'
     case 'failed':

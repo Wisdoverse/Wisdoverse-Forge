@@ -67,7 +67,7 @@ describe('AgentGroupsPanel', () => {
         id: 'working-1',
         state: 'working',
         params: { task: 'Wire provider health', message: '' },
-        assignedAgentName: 'Build Runner',
+        assignedAgentName: 'Build Agent',
         progress: 40,
       }),
       makeTask({
@@ -109,9 +109,12 @@ describe('AgentGroupsPanel', () => {
       within(screen.getByTestId('routing-metric-completed')).getByText('1')
     ).toBeInTheDocument()
     expect(screen.getByText('Auth handoff blocked')).toBeInTheDocument()
-    expect(screen.getByText(/needs agent .* assign an agent before dispatch/i)).toBeInTheDocument()
-    expect(screen.getByText(/build runner .* monitor live progress/i)).toBeInTheDocument()
+    expect(screen.getByText(/needs agent .* choose an agent before sending it/i)).toBeInTheDocument()
+    expect(screen.getByText(/build agent .* watch live progress/i)).toBeInTheDocument()
     expect(screen.getByText(/needs agent .* model service is busy/i)).toBeInTheDocument()
+    expect(screen.queryByText(/dispatch/i)).toBeNull()
+    expect(screen.queryByText(/monitor live progress/i)).toBeNull()
+    expect(screen.queryByText(/runner/i)).toBeNull()
     expect(screen.queryByText(/429/)).toBeNull()
     expect(screen.queryByText(/rate limit exceeded/i)).toBeNull()
     expect(screen.queryByText(/from provider/i)).toBeNull()
