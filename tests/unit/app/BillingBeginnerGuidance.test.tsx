@@ -65,9 +65,7 @@ describe('Billing beginner guidance', () => {
     expect(screen.getByText('Team Plan')).toBeInTheDocument()
     expect(screen.getByText('$29')).toBeInTheDocument()
     expect(screen.getByText('Payment due')).toBeInTheDocument()
-    expect(
-      screen.getByText(/Update your payment method to keep the plan active/i)
-    ).toBeDefined()
+    expect(screen.getByText(/Update your payment method to keep the plan active/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /manage billing/i })).toHaveTextContent(
       'Manage billing'
     )
@@ -147,10 +145,19 @@ describe('Billing beginner guidance', () => {
     expect(screen.getByText('No invoices have been created yet')).toBeInTheDocument()
     expect(screen.getByText(/Receipts and payment links/i)).toBeInTheDocument()
 
-    rerender(<InvoiceList invoices={[]} error="Could not load invoices" />)
+    rerender(
+      <InvoiceList
+        invoices={[]}
+        error="Invoices could not be loaded. Ask an owner or billing administrator for access."
+      />
+    )
 
     const alert = screen.getByRole('alert')
-    expect(within(alert).getByText('Could not load invoices')).toBeInTheDocument()
+    expect(
+      within(alert).getByText(
+        'Invoices could not be loaded. Ask an owner or billing administrator for access.'
+      )
+    ).toBeInTheDocument()
     expect(within(alert).getByText(/ask an administrator to check billing access/i)).toBeDefined()
   })
 })

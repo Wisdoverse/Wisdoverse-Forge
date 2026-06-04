@@ -113,8 +113,10 @@ export function BillingPage() {
     subscription,
     plan,
     subscriptionLoading,
+    subscriptionError,
     usage,
     usageLoading,
+    usageError,
     invoices,
     invoicesLoading,
     invoicesError,
@@ -189,6 +191,11 @@ export function BillingPage() {
       {/* Current Plan */}
       <section>
         <h3 className={uiStyles.groupLabel}>Plan and payment</h3>
+        {subscriptionError && (
+          <div role="alert" aria-live="polite" className={cn(uiStyles.error, 'mb-3')}>
+            {subscriptionError}
+          </div>
+        )}
         <PlanCard
           plan={plan}
           subscription={subscription}
@@ -200,10 +207,16 @@ export function BillingPage() {
         />
       </section>
 
-      {(usageLoading || usage.length > 0) && (
+      {(usageLoading || usage.length > 0 || usageError) && (
         <section>
           <h3 className={uiStyles.groupLabel}>Usage this period</h3>
-          <UsageMeter metrics={usage} loading={usageLoading} />
+          {usageError ? (
+            <div role="alert" aria-live="polite" className={uiStyles.error}>
+              {usageError}
+            </div>
+          ) : (
+            <UsageMeter metrics={usage} loading={usageLoading} />
+          )}
         </section>
       )}
 
