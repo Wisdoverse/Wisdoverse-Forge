@@ -166,13 +166,15 @@ export function AgentGroupsPanel() {
   async function handleCreateGroup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!selectedProjectId) {
-      setError('Select a project before creating a task group.')
+      setError(
+        'Select a project from the sidebar first. Work lanes belong to one project so agents know where to look for tasks.'
+      )
       return
     }
 
     const trimmedName = name.trim()
     if (!trimmedName) {
-      setError('Task group name is required.')
+      setError('Name this work lane before creating it. Examples: Intake, Review, or Delivery.')
       return
     }
 
@@ -358,7 +360,8 @@ export function AgentGroupsPanel() {
                     data-testid="task-routing-empty"
                     className="rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark"
                   >
-                    No routed work is loaded for this group yet.
+                    No routed work is loaded for this lane yet. Create a task and choose this lane
+                    so agents know where to pick it up.
                   </p>
                 ) : visibleTasks.length > 0 ? (
                   <ul className="flex flex-col gap-1.5">

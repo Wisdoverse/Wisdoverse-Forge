@@ -165,6 +165,29 @@ describe('AgentGroupsPanel', () => {
     expect(screen.getByText('Build settings page')).toBeInTheDocument()
   })
 
+  test('explains the next step when a work lane has no routed tasks', () => {
+    seedRoutingState([])
+
+    render(<AgentGroupsPanel />)
+
+    const emptyState = screen.getByTestId('task-routing-empty')
+    expect(emptyState).toHaveTextContent('No routed work is loaded for this lane yet')
+    expect(emptyState).toHaveTextContent('Create a task and choose this lane')
+  })
+
+  test('guides blank work lane names with examples', () => {
+    seedRoutingState([])
+
+    render(<AgentGroupsPanel />)
+
+    fireEvent.click(screen.getByRole('button', { name: /^new$/i }))
+    fireEvent.submit(screen.getByRole('button', { name: /create lane/i }).closest('form')!)
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Name this work lane before creating it. Examples: Intake, Review, or Delivery.'
+    )
+  })
+
   test('explains task group creation permission failures with a next step', async () => {
     seedRoutingState([])
     const createAgentGroup = vi.fn().mockRejectedValue(new Error('HTTP 403: Forbidden'))
