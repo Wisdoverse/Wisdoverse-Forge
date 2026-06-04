@@ -126,6 +126,7 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
     expect(screen.getByText(/no cleanup has run yet/i)).toBeDefined()
+    expect(screen.getByText(/ask an owner or admin to confirm/i)).toBeDefined()
     expect(screen.getByText(/CLI_IMAGE_AUTO_UPDATE_ENABLED/)).toBeDefined()
   })
 
@@ -139,6 +140,7 @@ describe('CliImagesPanel', () => {
     })
 
     render(<CliImagesPanel />)
+    expect(screen.getByText(/ask an owner or admin to turn on automatic cleanup/i)).toBeDefined()
     expect(screen.getByText(/CLI_IMAGE_PRUNE_ENABLED/)).toBeDefined()
   })
 
@@ -154,6 +156,7 @@ describe('CliImagesPanel', () => {
     render(<CliImagesPanel />)
 
     expect(screen.getByText('Automatic updates are off')).toBeDefined()
+    expect(screen.getByText(/ask an owner or admin to turn on automatic tool updates/i)).toBeDefined()
     expect(screen.getByText(/CLI_IMAGE_AUTO_UPDATE_ENABLED/)).toBeDefined()
   })
 
