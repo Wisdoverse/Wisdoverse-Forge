@@ -123,4 +123,80 @@ describe('AuthPage beginner guidance', () => {
     expect(bodyText()).toContain('This only changes your Wisdoverse Forge account password.')
     expect(document.querySelector('#reset-submit')?.textContent).toContain('Save new password')
   })
+
+  test('keeps password reset email failures beginner-safe', async () => {
+    const page = new AuthPage(
+      createAuthManager({
+        forgotPassword: vi.fn().mockRejectedValue(new Error('SMTP tenant missing')),
+      })
+    )
+
+    await page.show()
+    document.querySelector<HTMLAnchorElement>('#forgot-password-link')?.click()
+    const emailInput = document.querySelector<HTMLInputElement>('#forgot-email')
+    if (emailInput) emailInput.value = 'operator@example.com'
+    document
+      .querySelector<HTMLFormElement>('#forgot-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushAsyncWork()
+
+    expect(bodyText()).toContain(
+      'Reset email could not be requested. Check the email address, wait a moment, then try again.'
+    )
+    expect(bodyText()).not.toContain('SMTP tenant missing')
+  })
+
+  test('explains expired reset links without showing raw backend text', async () => {
+    const page = new AuthPage(
+      createAuthManager({
+        resetPassword: vi.fn().mockRejectedValue(new Error('invalid or expired token')),
+      }),
+      'login',
+      'reset-token'
+    )
+
+    await page.show()
+    const passwordInput = document.querySelector<HTMLInputElement>('#reset-password')
+    const confirmInput = document.querySelector<HTMLInputElement>('#reset-confirm')
+    if (passwordInput) passwordInput.value = 'LongPassword123!'
+    if (confirmInput) confirmInput.value = 'LongPassword123!'
+    document
+      .querySelector<HTMLFormElement>('#reset-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushAsyncWork()
+
+    expect(bodyText()).toContain(
+      'This reset link may have expired. Request a new reset email, then open the newest link.'
+    )
+    expect(bodyText()).not.toContain('invalid or expired token')
+  })
+
+  test('shows a visible recovery step when verification resend fails', async () => {
+    const page = new AuthPage(
+      createAuthManager({
+        login: vi.fn().mockResolvedValue({
+          ok: false,
+          errorCode: 'EMAIL_NOT_VERIFIED',
+        }),
+        resendVerification: vi.fn().mockRejectedValue(new TypeError('Failed to fetch')),
+      })
+    )
+
+    await page.show()
+    const emailInput = document.querySelector<HTMLInputElement>('#login-email')
+    const passwordInput = document.querySelector<HTMLInputElement>('#login-password')
+    if (emailInput) emailInput.value = 'new@example.com'
+    if (passwordInput) passwordInput.value = 'LongPassword123!'
+    document
+      .querySelector<HTMLFormElement>('#login-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushAsyncWork()
+    document.querySelector<HTMLButtonElement>('#verify-resend-btn')?.click()
+    await flushAsyncWork()
+
+    expect(bodyText()).toContain(
+      'Verification email could not be sent because the browser could not reach the server. Check your connection, then try again.'
+    )
+    expect(bodyText()).not.toContain('Failed to fetch')
+  })
 })

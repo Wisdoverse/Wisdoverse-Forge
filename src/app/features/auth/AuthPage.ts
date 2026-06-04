@@ -7,6 +7,40 @@ import { config } from '@app/shared/config'
 import { iconSuccess } from '@app/shared/ui/icons'
 
 type AuthTab = 'login' | 'register'
+type AuthRecoveryAction = 'resend-verification' | 'forgot-password' | 'reset-password'
+
+function authRecoveryErrorMessage(action: AuthRecoveryAction, error: unknown): string {
+  const detail = error instanceof Error ? error.message.trim() : ''
+  const lowerDetail = detail.toLowerCase()
+  const networkFailed =
+    error instanceof TypeError ||
+    /^failed to fetch$/i.test(detail) ||
+    lowerDetail.includes('network')
+
+  if (networkFailed) {
+    switch (action) {
+      case 'resend-verification':
+        return 'Verification email could not be sent because the browser could not reach the server. Check your connection, then try again.'
+      case 'forgot-password':
+        return 'Reset email could not be requested because the browser could not reach the server. Check your connection, then try again.'
+      case 'reset-password':
+        return 'Password could not be updated because the browser could not reach the server. Check your connection, then try again.'
+    }
+  }
+
+  if (action === 'reset-password') {
+    if (lowerDetail.includes('expired') || lowerDetail.includes('invalid')) {
+      return 'This reset link may have expired. Request a new reset email, then open the newest link.'
+    }
+    return 'Password could not be updated. Check the password rules, then try again.'
+  }
+
+  if (action === 'forgot-password') {
+    return 'Reset email could not be requested. Check the email address, wait a moment, then try again.'
+  }
+
+  return 'Verification email could not be sent. Check that this is the email you used to create the account, then try again.'
+}
 
 /** Get SSO provider icon based on provider name */
 function getSsoIcon(name: string): string {
@@ -480,6 +514,7 @@ export class AuthPage {
         <div class="auth-verify-banner-title">Check your email first</div>
         <div class="auth-verify-banner-text">We sent a verification link to <strong id="verify-email-display"></strong>. Open it, then come back and sign in.</div>
         <button type="button" class="auth-verify-banner-resend" id="verify-resend-btn">Send verification email again</button>
+        <div id="verify-resend-error" class="auth-error" style="display:none; margin:8px 0 0;"></div>
       </div>
     `
 
@@ -493,10 +528,15 @@ export class AuthPage {
 
     // Wire up resend button
     const resendBtn = banner.querySelector<HTMLButtonElement>('#verify-resend-btn')
+    const resendError = banner.querySelector<HTMLDivElement>('#verify-resend-error')
     resendBtn?.addEventListener('click', async () => {
       if (!resendBtn || resendBtn.disabled) return
       resendBtn.disabled = true
       resendBtn.textContent = 'Sending...'
+      if (resendError) {
+        resendError.textContent = ''
+        resendError.style.display = 'none'
+      }
       try {
         await this.authManager.resendVerification(email)
         resendBtn.textContent = 'Sent. Check your inbox.'
@@ -509,7 +549,11 @@ export class AuthPage {
       } catch (err) {
         console.error('[AuthPage] Failed to resend verification email:', err)
         resendBtn.disabled = false
-        resendBtn.textContent = 'Could not send. Try again.'
+        resendBtn.textContent = 'Send verification email again'
+        if (resendError) {
+          resendError.textContent = authRecoveryErrorMessage('resend-verification', err)
+          resendError.style.display = ''
+        }
       }
     })
   }
@@ -623,6 +667,7 @@ export class AuthPage {
           padding: 10px 24px; border-radius: 8px; cursor: pointer; font-size: 14px;
           margin-bottom: 16px; transition: all 0.2s; font-weight: 500;
         ">Send verification email again</button>
+        <p id="resend-error" style="display:none; color:#fca5a5; font-size:13px; margin:0 0 16px;"></p>
         <br/>
         <a href="#" id="back-to-login" style="color: #64748b; font-size: 13px; text-decoration: none; transition: color 0.2s;">Back to sign in</a>
       </div>
@@ -631,9 +676,14 @@ export class AuthPage {
     if (emailTarget) emailTarget.textContent = email
     // Add event listeners
     const resendBtn = container.querySelector('#resend-btn') as HTMLButtonElement
+    const resendError = container.querySelector('#resend-error') as HTMLElement | null
     resendBtn?.addEventListener('click', async () => {
       resendBtn.disabled = true
       resendBtn.textContent = 'Sending...'
+      if (resendError) {
+        resendError.textContent = ''
+        resendError.style.display = 'none'
+      }
       try {
         await this.authManager.resendVerification(email)
         resendBtn.textContent = 'Sent. Try again in 60s'
@@ -644,7 +694,10 @@ export class AuthPage {
       } catch (error) {
         resendBtn.disabled = false
         resendBtn.textContent = 'Send verification email again'
-        console.error('Resend failed:', error)
+        if (resendError) {
+          resendError.textContent = authRecoveryErrorMessage('resend-verification', error)
+          resendError.style.display = ''
+        }
       }
     })
     resendBtn?.addEventListener('mouseenter', () => {
@@ -743,8 +796,7 @@ export class AuthPage {
         }, 1000)
       } catch (error) {
         this.setLoading('forgot-submit', false)
-        errorDiv.textContent =
-          (error as Error).message || 'We could not send the reset email. Try again in a moment.'
+        errorDiv.textContent = authRecoveryErrorMessage('forgot-password', error)
         errorDiv.style.display = ''
       }
     })
@@ -878,8 +930,7 @@ export class AuthPage {
           navigateToLogin()
         })
       } catch (error) {
-        errorDiv.textContent =
-          (error as Error).message || 'We could not update the password. The link may have expired.'
+        errorDiv.textContent = authRecoveryErrorMessage('reset-password', error)
         errorDiv.style.display = ''
         this.setLoading('reset-submit', false)
         this.shakeCard()
