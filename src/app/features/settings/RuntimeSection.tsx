@@ -9,6 +9,7 @@ import { getAgentApi } from '@app/shared/api/legacy'
 import { orchestrationApi, type ParticipantSummary } from '@app/shared/api/orchestration'
 import type { CliAuthProxyStatusEntry } from '@app/entities/agent'
 import type { RuntimeSettings, RuntimeType, CliTool } from '@app/shared/api/legacy/settingsApi'
+import { runtimeErrorMessage } from './runtimeErrorMessages'
 
 // ============================================================================
 // Setting Row
@@ -75,12 +76,10 @@ export function RuntimeSection() {
     try {
       const response = await getAgentApi().getCliAuthProxyStatus()
       setCliStatuses(response.ok ? response.statuses : [])
-      if (!response.ok) setCliStatusError('Could not load local tool sign-in status')
+      if (!response.ok) setCliStatusError(runtimeErrorMessage('loadCliSignIn', response))
     } catch (err) {
       setCliStatuses([])
-      setCliStatusError(
-        err instanceof Error ? err.message : 'Could not load local tool sign-in status'
-      )
+      setCliStatusError(runtimeErrorMessage('loadCliSignIn', err))
     } finally {
       setCliStatusLoading(false)
     }
@@ -92,9 +91,7 @@ export function RuntimeSection() {
       setParticipants(await orchestrationApi.getParticipants('all'))
     } catch (err) {
       setParticipants([])
-      setParticipantsError(
-        err instanceof Error ? err.message : 'Could not load agent online status'
-      )
+      setParticipantsError(runtimeErrorMessage('loadAgentSignals', err))
     }
   }, [])
 
@@ -153,10 +150,12 @@ export function RuntimeSection() {
     try {
       const result = await getAgentApi().startCliAuthProxyLogin(provider)
       if (!result.ok || !result.url) {
-        setCliStatusError(result.error ?? 'Could not start local tool sign-in')
+        setCliStatusError(runtimeErrorMessage('startCliSignIn', result))
         return
       }
       window.open(result.url, '_blank', 'noopener,noreferrer')
+    } catch (err) {
+      setCliStatusError(runtimeErrorMessage('startCliSignIn', err))
     } finally {
       setOpeningProvider(null)
     }
