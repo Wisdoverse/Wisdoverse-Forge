@@ -221,7 +221,7 @@ export function ChatView({ agentId }: ChatViewProps) {
     >
       <span className="font-medium">Text-only model agent</span>
       <span className="text-apple-blue/80">
-        Messages use {modelServiceName}. They do not open workspace files or a terminal.
+        Messages use {modelServiceName}. They do not open workspace files or the live console.
       </span>
     </div>
   ) : null

@@ -90,7 +90,10 @@ describe('ChatView', () => {
     const banner = screen.getByTestId('provider-agent-chat-banner')
     expect(banner).toBeInTheDocument()
     expect(within(banner).getByText(/messages use anthropic/i)).toBeInTheDocument()
-    expect(within(banner).getByText(/do not open workspace files/i)).toBeInTheDocument()
+    expect(
+      within(banner).getByText(/do not open workspace files or the live console/i)
+    ).toBeInTheDocument()
+    expect(banner).not.toHaveTextContent(/terminal/i)
     expect(banner).not.toHaveTextContent(/provider/i)
     expect(screen.getByText('Hello from provider')).toBeInTheDocument()
     await waitFor(() => expect(loadMessages).toHaveBeenCalledWith(providerAgent.id))
