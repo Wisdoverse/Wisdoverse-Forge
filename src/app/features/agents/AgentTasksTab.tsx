@@ -11,6 +11,7 @@ import {
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { orchestrationApi, type TaskState, type TaskSummary } from '@app/shared/api/orchestration'
+import { agentTasksErrorMessage } from './model/taskErrorMessage'
 
 interface AgentTasksTabProps {
   agentId: string
@@ -100,7 +101,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
         if (!cancelled) setTasks(list)
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load tasks')
+        if (!cancelled) setError(agentTasksErrorMessage(err))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -150,6 +151,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
   if (error) {
     return (
       <div
+        role="alert"
         data-testid="agent-tasks-error"
         className={cn(
           'bg-white dark:bg-[#2c2c2e] rounded-xl px-4 py-6',
@@ -157,9 +159,9 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
           'text-center text-ui-body text-apple-red'
         )}
       >
-        <p className="font-medium">Tasks could not be loaded.</p>
+        <p className="font-medium">Agent tasks need attention.</p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Details: {error}
+          {error}
         </p>
       </div>
     )
