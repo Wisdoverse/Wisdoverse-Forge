@@ -3,6 +3,7 @@ import { Sparkles, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSkillsStore } from '@app/shared/model/skills.store'
+import { createSkillErrorMessage } from './model/createSkillErrorMessage'
 
 interface CreateSkillModalProps {
   open: boolean
@@ -127,7 +128,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
       })
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create skill')
+      setError(createSkillErrorMessage(err))
     } finally {
       setSubmitting(false)
     }
