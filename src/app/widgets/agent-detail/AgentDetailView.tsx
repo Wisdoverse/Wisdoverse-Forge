@@ -608,11 +608,11 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
     >
       <div className="flex flex-col gap-1">
         <span className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-          No managed workspace is running
+          Start the managed workspace to open the console
         </span>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {agent.cliTool
-            ? `${agent.cliTool} is ready to start in its managed workspace.`
+            ? `${agent.cliTool} is ready. Start the workspace when you need terminal access.`
             : 'This agent does not need a managed workspace.'}
         </span>
         {agent.cliTool && (

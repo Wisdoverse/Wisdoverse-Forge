@@ -198,7 +198,8 @@ describe('AgentDetailView', () => {
 
     expect(screen.getByText('Start the managed workspace')).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: /open console/i }))
-    expect(screen.getByText('No managed workspace is running')).toBeDefined()
+    expect(screen.getByText('Start the managed workspace to open the console')).toBeDefined()
+    expect(screen.getByText(/start the workspace when you need terminal access/i)).toBeDefined()
     expect(
       screen.getByText(/success looks like the agent status changing to idle or working/i)
     ).toBeDefined()
