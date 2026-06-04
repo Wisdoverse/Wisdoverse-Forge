@@ -5,6 +5,15 @@ import { AgentStatusBar } from '@app/features/feed/AgentStatusBar'
 afterEach(cleanup)
 
 describe('AgentStatusBar', () => {
+  test('guides first-time users when no agents are connected', () => {
+    render(<AgentStatusBar agents={[]} />)
+
+    expect(screen.getByTestId('agent-status-empty')).toBeDefined()
+    expect(
+      screen.getByText(/open agents to create or start one before assigning work/i)
+    ).toBeDefined()
+  })
+
   test('uses readable status labels instead of raw agent state values', () => {
     render(
       <AgentStatusBar
