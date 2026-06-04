@@ -255,7 +255,7 @@ function ConfigBanner({
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {enabled
             ? `This service checks for newer agent tool packages about every ${intervalLabel} and downloads them so new agents start on the latest tool version. Running agents are never interrupted.`
-            : 'New agents keep using the tool package that was last downloaded. Ask an owner or admin to turn on automatic tool updates (CLI_IMAGE_AUTO_UPDATE_ENABLED) in deployment settings so updates are checked and downloaded automatically.'}
+            : 'New agents keep using the tool package that was last downloaded. Ask an owner or admin to turn on automatic tool updates in Admin settings so updates are checked and downloaded automatically.'}
         </p>
         <p className="mt-1 text-ui-caption font-mono text-secondary-light dark:text-secondary-dark">
           source: {registry}/agent-&lt;tool&gt;:{imageTag}
@@ -464,15 +464,13 @@ function PruneSummaryBlock({ prune }: { prune: CliImagePruneStatus }) {
       {!prune.enabled && (
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           Off. Old tool packages are kept until removed manually. Ask an owner or admin to turn on
-          automatic cleanup (CLI_IMAGE_PRUNE_ENABLED) in deployment settings to reclaim disk
-          automatically.
+          automatic cleanup for old tool packages in Admin settings to reclaim disk automatically.
         </p>
       )}
       {neverRan && (
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           On, but no cleanup has run yet. Cleanup runs as part of the update check — ask an owner or
-          admin to confirm CLI_IMAGE_AUTO_UPDATE_ENABLED is on, or wait for the first check to
-          finish.
+          admin to confirm automatic tool updates are on, or wait for the first check to finish.
         </p>
       )}
       {prune.enabled && prune.lastRunUnix !== null && (

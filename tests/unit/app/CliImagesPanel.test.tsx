@@ -127,7 +127,8 @@ describe('CliImagesPanel', () => {
     render(<CliImagesPanel />)
     expect(screen.getByText(/no cleanup has run yet/i)).toBeDefined()
     expect(screen.getByText(/ask an owner or admin to confirm/i)).toBeDefined()
-    expect(screen.getByText(/CLI_IMAGE_AUTO_UPDATE_ENABLED/)).toBeDefined()
+    expect(screen.getByText(/automatic tool updates are on/i)).toBeDefined()
+    expect(screen.queryByText(/CLI_IMAGE_AUTO_UPDATE_ENABLED/)).toBeNull()
   })
 
   test('explains prune is off by default', () => {
@@ -141,7 +142,9 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
     expect(screen.getByText(/ask an owner or admin to turn on automatic cleanup/i)).toBeDefined()
-    expect(screen.getByText(/CLI_IMAGE_PRUNE_ENABLED/)).toBeDefined()
+    expect(screen.getByText(/old tool packages in Admin settings/i)).toBeDefined()
+    expect(screen.queryByText(/CLI_IMAGE_PRUNE_ENABLED/)).toBeNull()
+    expect(screen.queryByText(/deployment settings/i)).toBeNull()
   })
 
   test('explains the off state when auto-update is disabled', () => {
@@ -156,8 +159,12 @@ describe('CliImagesPanel', () => {
     render(<CliImagesPanel />)
 
     expect(screen.getByText('Automatic updates are off')).toBeDefined()
-    expect(screen.getByText(/ask an owner or admin to turn on automatic tool updates/i)).toBeDefined()
-    expect(screen.getByText(/CLI_IMAGE_AUTO_UPDATE_ENABLED/)).toBeDefined()
+    expect(
+      screen.getByText(/ask an owner or admin to turn on automatic tool updates/i)
+    ).toBeDefined()
+    expect(screen.getByText(/turn on automatic tool updates in Admin settings/i)).toBeDefined()
+    expect(screen.queryByText(/CLI_IMAGE_AUTO_UPDATE_ENABLED/)).toBeNull()
+    expect(screen.queryByText(/deployment settings/i)).toBeNull()
   })
 
   test('distinguishes never-checked-because-off from a healthy state', () => {
@@ -208,7 +215,9 @@ describe('CliImagesPanel', () => {
       screen.getByText(/do not restart agents from this table until check now succeeds/i)
     ).toBeDefined()
     expect(screen.queryByText('HTTP 401')).toBeNull()
-    expect(screen.getByText(/ask an owner to check the admin service and agent tool updater/i)).toBeDefined()
+    expect(
+      screen.getByText(/ask an owner to check the admin service and agent tool updater/i)
+    ).toBeDefined()
     expect(screen.getByText('Codex')).toBeDefined()
   })
 
