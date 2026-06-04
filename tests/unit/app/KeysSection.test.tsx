@@ -65,7 +65,28 @@ describe('KeysSection', () => {
     fireEvent.click(within(emptyState).getByRole('button', { name: /create platform key/i }))
 
     expect(screen.getByLabelText(/^key name$/i)).toBeDefined()
-    expect(screen.getByText(/Name the exact place this key will be used/i)).toBeDefined()
+    expect(screen.getByText(/enter a short name first/i)).toBeDefined()
+    expect(screen.getByText(/exact place this key will be used/i)).toBeDefined()
+  })
+
+  test('explains the required key name before creating a platform key', async () => {
+    render(<KeysSection />)
+
+    await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
+    fireEvent.click(screen.getAllByRole('button', { name: /create platform key/i })[0])
+
+    const input = screen.getByLabelText(/^key name$/i)
+    const form = input.closest('form')
+    expect(form).toBeTruthy()
+
+    screen.getByRole('button', { name: /cancel/i }).focus()
+    fireEvent.submit(form!)
+
+    expect(createApiKeyMock).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /name this platform key before creating it/i
+    )
+    expect(input).toHaveFocus()
   })
 
   test('creates a key and shows one-time save guidance', async () => {
