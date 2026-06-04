@@ -8,9 +8,9 @@ import { UsageMeter } from './UsageMeter'
 import { InvoiceList } from './InvoiceList'
 
 const BILLING_SETUP_STEPS = [
-  'Ask an owner to enable billing for this deployment.',
-  'Keep payment provider keys in deployment secrets, not in this browser.',
-  'Refresh this page after the deployment has restarted.',
+  'Ask an owner or admin to turn on billing for this deployment.',
+  'Do not paste payment keys here. Connect billing through deployment settings.',
+  'Refresh this page after the deployment restarts.',
 ]
 
 // ============================================================================
@@ -34,7 +34,7 @@ function BillingNotConfigured() {
       </h2>
       <p className="max-w-sm text-ui-body text-secondary-light dark:text-secondary-dark">
         Billing is not enabled on this deployment yet. Nothing can be charged from this page until
-        an administrator connects the payment provider.
+        an owner or admin connects billing.
       </p>
       <div className="mt-2 max-w-sm text-left">
         <p className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
@@ -149,7 +149,7 @@ export function BillingPage() {
         window.location.href = url
         return
       }
-      setActionError('Checkout did not open. Try again or ask an administrator to check billing.')
+      setActionError('Checkout did not open. Try again or ask an owner or admin to check billing.')
     } finally {
       setBillingAction(null)
     }
@@ -165,7 +165,7 @@ export function BillingPage() {
         return
       }
       setActionError(
-        'Billing management did not open. Try again or ask an administrator to check access.'
+        'Billing management did not open. Try again or ask an owner or admin to check access.'
       )
     } finally {
       setBillingAction(null)

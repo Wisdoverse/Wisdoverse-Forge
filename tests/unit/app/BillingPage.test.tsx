@@ -88,7 +88,7 @@ describe('BillingPage', () => {
 
     expect(await screen.findByText('Billing setup path')).toBeDefined()
     expect(screen.getByText(/nothing can be charged/i)).toBeDefined()
-    expect(screen.getByText(/deployment secrets/i)).toBeDefined()
+    expect(screen.getByText(/do not paste payment keys/i)).toBeDefined()
     await waitFor(() => expect(loadAllMock).toHaveBeenCalled())
   })
 
@@ -98,7 +98,7 @@ describe('BillingPage', () => {
     expect(await screen.findByText('Billing checkpoint')).toBeDefined()
     expect(screen.getAllByText('No paid subscription yet').length).toBeGreaterThan(0)
     expect(screen.getByText(/no paid plan is attached yet/i)).toBeDefined()
-    expect(screen.getByText(/ask an owner or administrator/i)).toBeDefined()
+    expect(screen.getByText(/ask an owner or admin/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /upgrade plan/i })).toBeDisabled()
     expect(screen.getByText(/invoices appear after checkout/i)).toBeDefined()
   })
@@ -127,7 +127,7 @@ describe('BillingPage', () => {
   test('shows plan and usage load errors instead of silently falling back', async () => {
     setBillingState({
       subscriptionError:
-        'Plan and payment could not be loaded. Ask an owner or billing administrator for access.',
+        'Plan and payment could not be loaded. Ask an owner or admin for access.',
       usageError:
         'Usage could not be loaded. The app could not reach the service. Check your connection, then refresh this page.',
     })
@@ -138,7 +138,7 @@ describe('BillingPage', () => {
     expect(screen.getAllByRole('alert')).toHaveLength(2)
     expect(
       screen.getByText(
-        'Plan and payment could not be loaded. Ask an owner or billing administrator for access.'
+        'Plan and payment could not be loaded. Ask an owner or admin for access.'
       )
     ).toBeDefined()
     expect(

@@ -92,7 +92,7 @@ describe('Billing beginner guidance', () => {
     expect(screen.getByText('Agents')).toBeInTheDocument()
     expect(screen.getByText('Almost full')).toBeInTheDocument()
     expect(screen.getByText(/Archive unused agents or upgrade/i)).toBeInTheDocument()
-    expect(screen.getByText('AI usage')).toBeInTheDocument()
+    expect(screen.getByText('AI text usage')).toBeInTheDocument()
     expect(screen.getByText('No limit set')).toBeInTheDocument()
     expect(screen.getByText('1.2K used')).toBeInTheDocument()
   })
@@ -148,16 +148,14 @@ describe('Billing beginner guidance', () => {
     rerender(
       <InvoiceList
         invoices={[]}
-        error="Invoices could not be loaded. Ask an owner or billing administrator for access."
+        error="Invoices could not be loaded. Ask an owner or admin for access."
       />
     )
 
     const alert = screen.getByRole('alert')
     expect(
-      within(alert).getByText(
-        'Invoices could not be loaded. Ask an owner or billing administrator for access.'
-      )
+      within(alert).getByText('Invoices could not be loaded. Ask an owner or admin for access.')
     ).toBeInTheDocument()
-    expect(within(alert).getByText(/ask an administrator to check billing access/i)).toBeDefined()
+    expect(within(alert).getByText(/ask an owner or admin to check billing access/i)).toBeDefined()
   })
 })

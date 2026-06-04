@@ -95,7 +95,7 @@ export function InvoiceList({ invoices, loading, error }: InvoiceListProps) {
           <div role="alert" className="px-6 py-8 text-center">
             <p className="text-ui-body text-apple-red">{error}</p>
             <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Try again later or ask an administrator to check billing access.
+              Try again later or ask an owner or admin to check billing access.
             </p>
           </div>
         )}

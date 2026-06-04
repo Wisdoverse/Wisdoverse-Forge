@@ -69,7 +69,7 @@ function nextStep(plan: BillingPlan | null, subscription: BillingSubscription | 
   if (!subscription) {
     return plan
       ? 'Upgrade only when your team needs this paid capacity.'
-      : 'Start here. Upgrade when your team needs more agents, history, or AI usage.'
+      : 'Start here. Upgrade when your team needs more agents, history, or AI text usage.'
   }
 
   if (subscription.cancelAtPeriodEnd) {
@@ -160,8 +160,8 @@ export function PlanCard({
 
           {!plan && !subscription && (
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No paid plan is attached yet. An administrator must publish a billing plan before
-              checkout is available.
+              No paid plan is attached yet. An owner or admin must make a paid plan available before
+              checkout can open.
             </p>
           )}
 
@@ -176,7 +176,7 @@ export function PlanCard({
               ? 'Use the billing portal to update payment methods, invoices, or cancellation.'
               : canUpgrade
                 ? 'Upgrade opens checkout in this browser. Review the plan before continuing.'
-                : 'Ask an owner or administrator to make a plan available.'}
+                : 'Ask an owner or admin to make a plan available.'}
           </p>
         </div>
 
