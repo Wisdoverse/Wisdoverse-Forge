@@ -143,6 +143,8 @@ export interface CliImageStatus {
   prune: CliImagePruneStatus
 }
 
+export type AdminActionResult = { ok: true } | { ok: false; error: string }
+
 interface AdminState {
   // Navigation
   activeSection: AdminSection
@@ -187,7 +189,7 @@ interface AdminState {
   setUserSearch: (search: string) => void
 
   loadUsers: (page?: number) => Promise<void>
-  updateUserRole: (id: string, role: string) => Promise<boolean>
+  updateUserRole: (id: string, role: string) => Promise<AdminActionResult>
   deleteUser: (id: string) => Promise<boolean>
 
   loadOrgs: () => Promise<void>
@@ -220,6 +222,7 @@ interface AdminState {
 }
 
 type AdminResource = 'users' | 'organizations' | 'agents' | 'health' | 'cli-images'
+type AdminAction = 'update-user-role'
 
 class AdminUserFacingError extends Error {}
 
@@ -316,6 +319,50 @@ function adminErrorMessage(err: unknown, resource: AdminResource): string {
   return err instanceof AdminUserFacingError ? err.message : adminNetworkErrorMessage(resource)
 }
 
+function adminActionHttpErrorMessage(
+  action: AdminAction,
+  status: number,
+  data: Record<string, unknown> = {}
+): string {
+  const detail = adminErrorDetail(data)
+  const suffix = detail ? ` Details: ${detail}` : ''
+  const statusText = `Code: ${status}.`
+
+  if (action === 'update-user-role') {
+    if (status === 401) {
+      return `Sign in again, then save this user's access. ${statusText}${suffix}`
+    }
+    if (status === 403) {
+      return `You do not have permission to change user access. Ask an owner to update your admin role. ${statusText}${suffix}`
+    }
+    if (status === 404) {
+      return `This user could not be found. Refresh the user list, then try again. ${statusText}${suffix}`
+    }
+    if (status === 409) {
+      return `This user changed while you were editing. Refresh the user list, review the current access, then try again. ${statusText}${suffix}`
+    }
+    if (status === 429) {
+      return `The admin service is busy. Wait a moment, then save this user's access again. ${statusText}${suffix}`
+    }
+    if (status >= 500) {
+      return `The admin service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+    }
+  }
+
+  return `User access could not be saved. Refresh the user list and try again. ${statusText}${suffix}`
+}
+
+function adminActionNetworkErrorMessage(action: AdminAction): string {
+  if (action === 'update-user-role') {
+    return "User access could not be saved because the browser could not reach the server. Check your connection, then save this user's access again."
+  }
+  return 'The admin change could not be saved because the browser could not reach the server. Check your connection and try again.'
+}
+
+function adminActionErrorMessage(err: unknown, action: AdminAction): string {
+  return err instanceof AdminUserFacingError ? err.message : adminActionNetworkErrorMessage(action)
+}
+
 // ============================================================================
 // Store
 // ============================================================================
@@ -384,13 +431,21 @@ export const useAdminStore = create<AdminState>((set, get) => ({
         method: 'PUT',
         body: JSON.stringify({ role }),
       })
-      if (!res.ok) return false
+      if (!res.ok) {
+        throw userFacingError(
+          adminActionHttpErrorMessage(
+            'update-user-role',
+            res.status,
+            await readAdminErrorPayload(res)
+          )
+        )
+      }
       set((state) => ({
         users: state.users.map((u) => (u.id === id ? { ...u, role } : u)),
       }))
-      return true
-    } catch {
-      return false
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: adminActionErrorMessage(err, 'update-user-role') }
     }
   },
 

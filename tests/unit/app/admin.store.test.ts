@@ -86,6 +86,18 @@ describe('useAdminStore loading errors', () => {
     )
   })
 
+  test('returns beginner guidance when user access saving is forbidden', async () => {
+    authFetchMock.mockResolvedValue(response(403, { error: 'owner role required' }))
+
+    const result = await useAdminStore.getState().updateUserRole('user-1', 'viewer')
+
+    expect(result).toEqual({
+      ok: false,
+      error:
+        'You do not have permission to change user access. Ask an owner to update your admin role. Code: 403. Details: owner role required',
+    })
+  })
+
   test('stores service recovery guidance when health loading fails', async () => {
     authFetchMock.mockResolvedValue(response(503, { message: 'health database unavailable' }))
 
