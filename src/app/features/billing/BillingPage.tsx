@@ -9,7 +9,7 @@ import { InvoiceList } from './InvoiceList'
 
 const BILLING_SETUP_STEPS = [
   'Ask an owner or admin to turn on billing for this deployment.',
-  'Do not paste payment keys here. Connect billing through deployment settings.',
+  'Do not paste payment keys here. Ask an owner or admin to connect billing in billing settings.',
   'Refresh this page after the deployment restarts.',
 ]
 
