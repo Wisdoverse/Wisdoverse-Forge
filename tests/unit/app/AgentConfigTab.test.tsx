@@ -115,6 +115,10 @@ describe('AgentConfigTab', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(/prompt profile was not saved/i)
     )
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /confirm it is still a provider-backed agent/i
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent(/ask an admin to check your agent access/i)
   })
 
   it('empty string clears the prompt (sent as "" to backend)', async () => {
