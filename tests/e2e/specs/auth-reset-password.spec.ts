@@ -57,4 +57,13 @@ test.describe('password reset links', () => {
 
     await expect(page.locator('#reset-error')).toHaveText('invalid or expired reset token')
   })
+
+  test('shows client-side error when passwords do not match', async ({ page }) => {
+    await page.goto(`/?reset_token=${resetToken}`)
+    await page.locator('#reset-password').fill('Password123!')
+    await page.locator('#reset-confirm').fill('DifferentPassword456!')
+    await page.getByRole('button', { name: 'Save new password' }).click()
+
+    await expect(page.locator('#reset-error')).toHaveText('The two passwords do not match.')
+  })
 })
