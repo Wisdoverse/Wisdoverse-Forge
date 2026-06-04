@@ -79,15 +79,24 @@ describe('ApprovalQueueView', () => {
 
     expect(await screen.findByTestId('context-approval-path')).toBeDefined()
     expect(screen.getByText('Approval path')).toBeDefined()
-    expect(screen.getByText(/choose the smallest safe scope/i)).toBeDefined()
+    expect(screen.getByText(/choose the smallest safe sharing range/i)).toBeDefined()
     expect(await screen.findByText('Use stable credentials')).toBeDefined()
+    expect(screen.getByText('Saved memory')).toBeDefined()
+    expect(screen.getAllByText('User only').length).toBeGreaterThan(0)
+    expect(screen.getByText('Suggested for your own account')).toBeDefined()
+    expect(screen.getByText('Original task available')).toBeDefined()
+    expect(screen.queryByText(/^Workspace /)).toBeNull()
+    expect(screen.queryByText(/^Owner /)).toBeNull()
+    expect(screen.queryByText(/^Run /)).toBeNull()
 
     await userEvent.setup().click(screen.getByTestId('context-approve-candidate-1'))
 
     expect(screen.getByTestId('context-decision-checklist')).toBeDefined()
     expect(screen.getByText('Approve only when')).toBeDefined()
-    expect(screen.getByText(/scope is no wider than the people who need it/i)).toBeDefined()
+    expect(screen.getByText(/sharing range is no wider than the people who need it/i)).toBeDefined()
     expect(screen.getByText(/sensitivity and redaction match the content/i)).toBeDefined()
+    expect(screen.getByText('Who can reuse it')).toBeDefined()
+    expect(screen.getByText(/exact ID from settings/i)).toBeDefined()
   })
 
   test('explains how to recover from empty approval filters', async () => {
@@ -96,8 +105,8 @@ describe('ApprovalQueueView', () => {
     render(<ApprovalQueueView />)
 
     await waitFor(() => expect(listContextCandidates).toHaveBeenCalled())
-    expect(await screen.findByText('No candidates match these filters')).toBeDefined()
-    expect(screen.getByText(/switch state to all or clear item and scope filters/i)).toBeDefined()
+    expect(await screen.findByText('No items match these filters')).toBeDefined()
+    expect(screen.getByText(/switch status to all or clear item and reuse filters/i)).toBeDefined()
   })
 
   test('shows beginner network guidance when the approval queue cannot load', async () => {
@@ -121,7 +130,7 @@ describe('ApprovalQueueView', () => {
     await userEvent.setup().click(screen.getByTestId('context-approval-submit'))
 
     const error = await screen.findByTestId('context-approval-error')
-    expect(error.textContent).toContain('candidate changed while you were reviewing it')
+    expect(error.textContent).toContain('item changed while you were reviewing it')
     expect(error.textContent).not.toContain('Code:')
     expect(error.textContent).not.toContain('409 conflict')
   })

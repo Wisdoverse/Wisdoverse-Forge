@@ -2,11 +2,10 @@ export type ApprovalQueueErrorAction = 'approveCandidate' | 'loadQueue' | 'rejec
 
 const ACTION_FALLBACKS: Record<ApprovalQueueErrorAction, string> = {
   approveCandidate:
-    'The candidate was not approved. Review the scope and source preview, then try again.',
-  loadQueue:
-    'The approval queue could not load. Refresh the queue so you see the latest candidates.',
+    'The item was not approved. Review the sharing range and original task preview, then try again.',
+  loadQueue: 'The approval queue could not load. Refresh the queue so you see the latest items.',
   rejectCandidate:
-    'The candidate was not rejected. Refresh the queue, then try the reject action again.',
+    'The item was not rejected. Refresh the queue, then try the reject action again.',
 }
 
 export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err: unknown): string {
@@ -27,11 +26,11 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   }
 
   if (status === 404) {
-    return 'This candidate was not found. Refresh the queue so you see the latest candidates.'
+    return 'This item was not found. Refresh the queue so you see the latest items.'
   }
 
   if (status === 409) {
-    return 'This candidate changed while you were reviewing it. Refresh the queue, then open it again.'
+    return 'This item changed while you were reviewing it. Refresh the queue, then open it again.'
   }
 
   if (status === 422) {
@@ -102,8 +101,8 @@ function validationMessage(action: ApprovalQueueErrorAction, detail: string): st
   const normalized = detail.toLowerCase()
   if (normalized.includes('scope')) {
     return action === 'loadQueue'
-      ? 'The approval queue could not load. Refresh the queue, then check the selected scope.'
-      : 'Choose the scope and review the source preview, then try again.'
+      ? 'The approval queue could not load. Refresh the queue, then check the selected reuse range.'
+      : 'Choose who can reuse it and review the original task preview, then try again.'
   }
   if (normalized.includes('sensitivity')) {
     return 'Choose the sensitivity level, then try again.'
