@@ -23,21 +23,27 @@ function response(status: number, body: unknown): Response {
 }
 
 describe('skillHttpErrorMessage', () => {
+  function expectBeginnerMessage(actual: string, expected: string): void {
+    expect(actual).toBe(expected)
+    expect(actual).not.toContain('Code:')
+    expect(actual).not.toContain('Details:')
+  }
+
   test('turns unauthorized catalog loads into a sign-in step', () => {
-    expect(skillHttpErrorMessage('load', 401)).toBe('Sign in again, then load skills. Code: 401.')
+    expectBeginnerMessage(skillHttpErrorMessage('load', 401), 'Sign in again, then refresh Skills.')
   })
 
   test('turns create permission failures into an admin role step', () => {
-    expect(skillHttpErrorMessage('create', 403)).toBe(
-      'You do not have permission to create workspace skills. Ask an admin to update your role. Code: 403.'
+    expectBeginnerMessage(
+      skillHttpErrorMessage('create', 403),
+      'You do not have permission to create workspace skills. Ask an admin to update your role.'
     )
   })
 
-  test('keeps validation details as support detail after the operator action', () => {
-    expect(
-      skillHttpErrorMessage('create', 422, { error: { message: 'content is required' } })
-    ).toBe(
-      'Check the skill name, trigger pattern, and content, then try again. Code: 422. Details: content is required'
+  test('turns validation details into a field-specific next step', () => {
+    expectBeginnerMessage(
+      skillHttpErrorMessage('create', 422, { error: { message: 'content is required' } }),
+      'Enter the skill instructions, then try again.'
     )
   })
 })
@@ -49,7 +55,7 @@ describe('useSkillsStore errors', () => {
     await useSkillsStore.getState().loadSkills()
 
     expect(useSkillsStore.getState().error).toBe(
-      'The skills service had a server problem. Try again after the backend is healthy. Code: 503. Details: database unavailable'
+      'The skills service is temporarily unavailable. Ask an admin to check the backend, then refresh Skills.'
     )
   })
 
@@ -72,9 +78,7 @@ describe('useSkillsStore errors', () => {
         trigger_pattern: '[',
         content: 'Review the task',
       })
-    ).rejects.toThrow(
-      'Check the skill name, trigger pattern, and content, then try again. Code: 422. Details: trigger is invalid'
-    )
+    ).rejects.toThrow('Check the trigger pattern, then try again.')
   })
 
   test('throws a connection recovery step when skill creation cannot reach the server', async () => {

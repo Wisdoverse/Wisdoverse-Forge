@@ -5,39 +5,37 @@ const GENERIC_BODY_TEXT = /^(Unauthorized|Forbidden|Not Found|Internal Server Er
 export function feedbackErrorMessage(error?: unknown): string {
   const status = statusFromError(error)
   const detail = status === null || status === 400 || status === 422 ? safeDetail(error) : null
-  const suffix = detail ? ` Details: ${detail}` : ''
 
   if (!status) {
     if (detail) {
-      return `Feedback could not be saved. Review the message and try again.${suffix}`
+      return validationMessage(detail)
     }
     return 'Feedback could not be saved because the browser could not reach the server. Check your connection, then try again.'
   }
 
-  const statusText = `Code: ${status}.`
   if (status === 401) {
-    return `Sign in again, then save this feedback. ${statusText}${suffix}`
+    return 'Sign in again, then save this feedback.'
   }
   if (status === 403) {
-    return `You do not have permission to save feedback for this context. Ask an admin to check your role. ${statusText}${suffix}`
+    return 'You do not have permission to save feedback for this context. Ask an admin to check your role.'
   }
   if (status === 404) {
-    return `This context item could not be found. Refresh the task, then choose the context item again. ${statusText}${suffix}`
+    return 'This context item could not be found. Refresh the task, then choose the context item again.'
   }
   if (status === 409) {
-    return `This context item changed while you were giving feedback. Refresh the task, review the item, then try again. ${statusText}${suffix}`
+    return 'This context item changed while you were giving feedback. Refresh the task, review the item, then try again.'
   }
   if (status === 400 || status === 422) {
-    return `Choose one feedback option for this context item, then try again. ${statusText}${suffix}`
+    return validationMessage(detail)
   }
   if (status === 429) {
-    return `Feedback is busy. Wait a moment, then save this feedback again. ${statusText}${suffix}`
+    return 'Feedback is busy. Wait a moment, then save this feedback again.'
   }
   if (status >= 500) {
-    return `The feedback service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+    return 'Feedback is temporarily unavailable. Ask an admin to check the backend, then refresh the task.'
   }
 
-  return `Feedback could not be saved. Refresh the task and try again. ${statusText}${suffix}`
+  return 'Feedback could not be saved. Refresh the task and try again.'
 }
 
 function statusFromError(error: unknown): number | null {
@@ -120,4 +118,19 @@ function trimDetail(detail: string | null): string | null {
   if (!trimmed || RAW_NETWORK_ERRORS.some((pattern) => pattern.test(trimmed))) return null
   if (GENERIC_BODY_TEXT.test(trimmed)) return null
   return trimmed.length > 180 ? `${trimmed.slice(0, 177)}...` : trimmed
+}
+
+function validationMessage(detail: string | null): string {
+  const normalized = detail?.toLowerCase() ?? ''
+  if (
+    normalized.includes('option') ||
+    normalized.includes('vote') ||
+    normalized.includes('rating')
+  ) {
+    return 'Choose one feedback option for this context item, then try again.'
+  }
+  if (normalized.includes('context')) {
+    return 'Refresh the task, choose the context item again, then save feedback.'
+  }
+  return 'Choose one feedback option for this context item, then try again.'
 }

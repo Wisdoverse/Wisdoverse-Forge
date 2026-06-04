@@ -2,9 +2,16 @@ import { describe, expect, test } from 'vitest'
 import { governanceAuditErrorMessage } from '@app/features/governance/governanceAuditErrorMessages'
 
 describe('governanceAuditErrorMessage', () => {
+  function expectBeginnerMessage(actual: string, expected: string): void {
+    expect(actual).toBe(expected)
+    expect(actual).not.toContain('Code:')
+    expect(actual).not.toContain('Detail:')
+  }
+
   test('turns auth failures into a sign-in instruction', () => {
-    expect(governanceAuditErrorMessage('loadAudit', new Error('401 Unauthorized'))).toBe(
-      'Sign in again, then retry this audit action. Code: 401.'
+    expectBeginnerMessage(
+      governanceAuditErrorMessage('loadAudit', new Error('401 Unauthorized')),
+      'Sign in again, then retry this audit action.'
     )
   })
 
@@ -17,18 +24,18 @@ describe('governanceAuditErrorMessage', () => {
   })
 
   test('gives a clear export conflict recovery step', () => {
-    expect(governanceAuditErrorMessage('exportAudit', new Error('409 conflict'))).toBe(
-      'The audit data changed while export was running. Refresh the audit view, then export again. Code: 409.'
+    expectBeginnerMessage(
+      governanceAuditErrorMessage('exportAudit', new Error('409 conflict')),
+      'The audit data changed while export was running. Refresh the audit view, then export again.'
     )
   })
 
-  test('keeps short validation details after the operator instruction', () => {
-    expect(
+  test('turns validation details into a time range next step', () => {
+    expectBeginnerMessage(
       governanceAuditErrorMessage('loadAudit', {
         error: 'Invalid time range',
-      })
-    ).toBe(
-      'The governance audit could not load. Refresh after the API is healthy, then apply the filters again. Detail: Invalid time range'
+      }),
+      'Choose a valid time range, then apply the audit filters again.'
     )
   })
 })

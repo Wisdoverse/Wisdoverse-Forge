@@ -20,35 +20,34 @@ export function governanceAuditErrorMessage(
   }
 
   if (status === 401) {
-    return 'Sign in again, then retry this audit action. Code: 401.'
+    return 'Sign in again, then retry this audit action.'
   }
 
   if (status === 403) {
-    return 'You do not have permission to view or export governance audit records. Ask an owner or admin to update your role. Code: 403.'
+    return 'You do not have permission to view or export governance audit records. Ask an owner or admin to update your role.'
   }
 
   if (status === 404) {
-    return 'The governance audit endpoint was not found. Refresh after the backend is deployed. Code: 404.'
+    return 'Governance audit is not available from this page. Refresh the audit view, then try again.'
   }
 
   if (status === 409) {
-    return 'The audit data changed while export was running. Refresh the audit view, then export again. Code: 409.'
+    return 'The audit data changed while export was running. Refresh the audit view, then export again.'
   }
 
   if (status === 422) {
-    return 'The audit filters are not valid. Check the event name, IDs, time range, and record limit, then try again. Code: 422.'
+    return validationMessage(action, detail)
   }
 
   if (status === 429) {
-    return 'The server is busy with too many audit requests. Wait a moment, then try again. Code: 429.'
+    return 'Governance audit is busy. Wait a moment, then try again.'
   }
 
   if (status && status >= 500) {
-    return 'The server had a problem while handling governance audit records. Try again after the API is healthy. Code: 5xx.'
+    return 'Governance audit is temporarily unavailable. Ask an owner or admin to check the backend, then refresh the audit view.'
   }
 
-  const suffix = operatorSafeDetail(detail)
-  return suffix ? `${ACTION_FALLBACKS[action]} Detail: ${suffix}` : ACTION_FALLBACKS[action]
+  return validationMessage(action, detail)
 }
 
 function errorDetail(err: unknown): string {
@@ -100,10 +99,19 @@ function isNetworkError(normalizedDetail: string): boolean {
   )
 }
 
-function operatorSafeDetail(detail: string): string {
-  const trimmed = detail.trim()
-  if (!trimmed) return ''
-  if (trimmed.length > 160) return ''
-  if (isNetworkError(trimmed.toLowerCase())) return ''
-  return trimmed
+function validationMessage(action: GovernanceAuditErrorAction, detail: string): string {
+  const normalized = detail.toLowerCase()
+  if (normalized.includes('time')) {
+    return 'Choose a valid time range, then apply the audit filters again.'
+  }
+  if (normalized.includes('limit')) {
+    return 'Choose a smaller record limit, then apply the audit filters again.'
+  }
+  if (normalized.includes('event')) {
+    return 'Check the event name filter, then apply the audit filters again.'
+  }
+  if (normalized.includes('id')) {
+    return 'Check the selected organization, workspace, user, or task ID, then apply the audit filters again.'
+  }
+  return ACTION_FALLBACKS[action]
 }
