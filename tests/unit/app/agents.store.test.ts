@@ -42,6 +42,12 @@ function managedAgent(overrides: Record<string, unknown> = {}) {
   }
 }
 
+function expectBeginnerError(actual: string | null, expected: string): void {
+  expect(actual).toBe(expected)
+  expect(actual).not.toContain('Code:')
+  expect(actual).not.toContain('Details:')
+}
+
 beforeEach(() => {
   useAgentsStore.getState().reset()
   Object.values(agentApiMock).forEach((mock) => mock.mockReset())
@@ -49,21 +55,22 @@ beforeEach(() => {
 
 describe('Agents Store', () => {
   test('turns expired sessions into a sign-in step', () => {
-    expect(agentActionErrorMessage('load', apiError(401, { error: 'token expired' }))).toBe(
-      'Sign in again, then load agents. Code: 401. Details: token expired'
+    expectBeginnerError(
+      agentActionErrorMessage('load', apiError(401, { error: 'token expired' })),
+      'Sign in again, then open Agents and try to load agents again.'
     )
   })
 
   test('turns permission failures into workspace role guidance', () => {
-    expect(
-      agentActionErrorMessage('delete', apiError(403, { message: 'owner role required' }))
-    ).toBe(
-      'You do not have permission to delete the agent. Ask an admin to update your workspace role. Code: 403. Details: owner role required'
+    expectBeginnerError(
+      agentActionErrorMessage('delete', apiError(403, { message: 'owner role required' })),
+      'You do not have permission to delete the agent. Ask an owner or admin to update your workspace role.'
     )
   })
 
   test('turns raw network failures into connection guidance', () => {
-    expect(agentActionErrorMessage('start', 'Network error')).toBe(
+    expectBeginnerError(
+      agentActionErrorMessage('start', 'Network error'),
       'Agent setup could not start the agent because the browser could not reach the server. Check your connection and refresh the page.'
     )
   })
@@ -127,8 +134,9 @@ describe('Agents Store', () => {
 
     await useAgentsStore.getState().loadAgents()
 
-    expect(useAgentsStore.getState().error).toBe(
-      'The agent service had a server problem. Try again after the backend is healthy. Code: 503. Details: database unavailable'
+    expectBeginnerError(
+      useAgentsStore.getState().error,
+      'The agent service is temporarily unavailable. Ask an owner or admin to check the backend, then try again.'
     )
     expect(useAgentsStore.getState().loading).toBe(false)
   })
@@ -147,8 +155,9 @@ describe('Agents Store', () => {
     })
 
     expect(result).toBe(false)
-    expect(useAgentsStore.getState().error).toBe(
-      'Agent setup could not create the agent. Review the message and try again. Details: name is required'
+    expectBeginnerError(
+      useAgentsStore.getState().error,
+      'Name this agent, choose where it should work, then try creating it again.'
     )
   })
 
@@ -170,8 +179,9 @@ describe('Agents Store', () => {
 
     expect(result).toBe(true)
     expect(useAgentsStore.getState().agents).toHaveLength(1)
-    expect(useAgentsStore.getState().error).toBe(
-      'Agent was created, but it could not start yet. It will stay in the list. Check the agent runtime, then start it from the agent card. Details: Docker is not running'
+    expectBeginnerError(
+      useAgentsStore.getState().error,
+      'Agent was created, but it could not start yet. It will stay in the list. Docker is not running on the runner. Ask an owner or admin to start Docker, then start this agent from the card.'
     )
   })
 
@@ -184,7 +194,8 @@ describe('Agents Store', () => {
     })
 
     expect(result).toBeNull()
-    expect(useAgentsStore.getState().error).toBe(
+    expectBeginnerError(
+      useAgentsStore.getState().error,
       'Agent setup could not connect the local agent because the browser could not reach the server. Check your connection and refresh the page.'
     )
   })
@@ -199,8 +210,9 @@ describe('Agents Store', () => {
     const result = await useAgentsStore.getState().sendPrompt('agent-1', 'Start the task')
 
     expect(result).toBe(false)
-    expect(useAgentsStore.getState().error).toBe(
-      'This agent changed while you were working. Refresh the Agents page, review its current status, then try again. Code: 409. Details: agent is already working'
+    expectBeginnerError(
+      useAgentsStore.getState().error,
+      'This agent is already working. Wait for the current work to finish, refresh the Agents page, then try again.'
     )
   })
 })

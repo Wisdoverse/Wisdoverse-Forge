@@ -165,39 +165,110 @@ export function agentActionErrorMessage(action: AgentErrorAction, error?: unknow
   const actionPhrase = agentActionPhrase(action)
   const status = agentErrorStatus(error)
   const detail = agentErrorDetail(error)
-  const suffix = !isRawAgentFailure(detail) ? ` Details: ${detail}` : ''
 
   if (!status) {
     if (!isRawAgentFailure(detail)) {
-      return `Agent setup could not ${actionPhrase}. Review the message and try again.${suffix}`
+      return agentValidationMessage(action, detail)
     }
     return `Agent setup could not ${actionPhrase} because the browser could not reach the server. Check your connection and refresh the page.`
   }
 
-  const statusText = `Code: ${status}.`
   if (status === 401) {
-    return `Sign in again, then ${actionPhrase}. ${statusText}${suffix}`
+    return `Sign in again, then open Agents and try to ${actionPhrase} again.`
   }
   if (status === 403) {
-    return `You do not have permission to ${actionPhrase}. Ask an admin to update your workspace role. ${statusText}${suffix}`
+    return `You do not have permission to ${actionPhrase}. Ask an owner or admin to update your workspace role.`
   }
   if (status === 404) {
-    return `This agent or agent endpoint is not available. Refresh the Agents page, then try again. ${statusText}${suffix}`
+    return 'This agent could not be found. Refresh the Agents page, choose the current agent, then try again.'
   }
   if (status === 409) {
-    return `This agent changed while you were working. Refresh the Agents page, review its current status, then try again. ${statusText}${suffix}`
+    return agentConflictMessage(action, detail)
   }
   if (status === 422) {
-    return `Check the required agent fields, then try again. ${statusText}${suffix}`
+    return agentValidationMessage(action, detail)
   }
   if (status === 429) {
-    return `The agent service is busy. Wait a moment, then ${actionPhrase}. ${statusText}${suffix}`
+    return `The agent service is busy. Wait a moment, then try to ${actionPhrase} again.`
   }
   if (status >= 500) {
-    return `The agent service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+    return agentServerMessage(action)
   }
 
-  return `Agent setup could not ${actionPhrase}. Refresh the page and try again. ${statusText}${suffix}`
+  return `Agent setup could not ${actionPhrase}. Refresh the Agents page, then try again.`
+}
+
+function agentValidationMessage(action: AgentErrorAction, detail: string | null): string {
+  const normalized = detail?.toLowerCase() ?? ''
+
+  if (action === 'create') {
+    if (normalized.includes('name')) {
+      return 'Name this agent, choose where it should work, then try creating it again.'
+    }
+    if (normalized.includes('provider') || normalized.includes('model')) {
+      return 'Choose a tested provider and model, then try creating this agent again.'
+    }
+    if (normalized.includes('workspace') || normalized.includes('project')) {
+      return 'Choose a workspace and project you can access, then try creating this agent again.'
+    }
+  }
+
+  if (action === 'enrollLocal') {
+    return 'Check the local agent name, CLI tool, and workspace, then try connecting it again.'
+  }
+  if (action === 'sendPrompt') {
+    return 'Write one clear instruction and make sure the agent is not already working, then send again.'
+  }
+  if (action === 'updateInstructions') {
+    return 'Check the instruction text, refresh this agent, then save the instructions again.'
+  }
+  if (normalized.includes('runtime') || normalized.includes('docker')) {
+    return agentRuntimeRecoveryMessage(detail)
+  }
+
+  return `Check the agent details, refresh the Agents page, then try to ${agentActionPhrase(action)} again.`
+}
+
+function agentConflictMessage(action: AgentErrorAction, detail: string | null): string {
+  const normalized = detail?.toLowerCase() ?? ''
+  if (normalized.includes('working') || normalized.includes('busy')) {
+    return 'This agent is already working. Wait for the current work to finish, refresh the Agents page, then try again.'
+  }
+  if (action === 'delete') {
+    return 'This agent changed while you were deleting it. Refresh the Agents page, review the current status, then try again.'
+  }
+  return 'This agent changed while you were working. Refresh the Agents page, review its current status, then try again.'
+}
+
+function agentServerMessage(action: AgentErrorAction): string {
+  if (action === 'start' || action === 'restart' || action === 'create') {
+    return 'The agent runtime is temporarily unavailable. Ask an owner or admin to check the backend and runner, then try again.'
+  }
+  return 'The agent service is temporarily unavailable. Ask an owner or admin to check the backend, then try again.'
+}
+
+function agentRuntimeRecoveryMessage(detail: string | null): string {
+  const normalized = detail?.toLowerCase() ?? ''
+  if (normalized.includes('docker')) {
+    return 'Docker is not running on the runner. Ask an owner or admin to start Docker, then start this agent from the agent card.'
+  }
+  return 'The agent runtime is not ready. Ask an owner or admin to check the runtime, then start this agent from the agent card.'
+}
+
+function agentCreatedStartFailureMessage(error?: unknown): string {
+  const detail = agentErrorDetail(error)
+  const normalized = detail?.toLowerCase() ?? ''
+  if (normalized.includes('docker')) {
+    return 'Agent was created, but it could not start yet. It will stay in the list. Docker is not running on the runner. Ask an owner or admin to start Docker, then start this agent from the card.'
+  }
+  if (
+    normalized.includes('runtime') ||
+    normalized.includes('container') ||
+    normalized.includes('image')
+  ) {
+    return 'Agent was created, but it could not start yet. It will stay in the list. Ask an owner or admin to check the agent runtime, then start this agent from the card.'
+  }
+  return 'Agent was created, but it could not start yet. It will stay in the list. Refresh the Agents page, then start this agent from the card after the runtime is ready.'
 }
 
 function mapManagedAgentStatus(status: string): AgentStatus {
@@ -333,7 +404,7 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
               agents: [...state.agents, newAgent],
               loading: false,
               createModalOpen: false,
-              error: `Agent was created, but it could not start yet. It will stay in the list. Check the agent runtime, then start it from the agent card.${isRawAgentFailure(agentErrorDetail(startResult)) ? '' : ` Details: ${agentErrorDetail(startResult)}`}`,
+              error: agentCreatedStartFailureMessage(startResult),
             }))
             return true
           }
