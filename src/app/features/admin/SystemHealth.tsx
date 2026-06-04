@@ -51,11 +51,11 @@ const SERVICE_DEFINITIONS: readonly ServiceDefinition[] = [
   },
   {
     key: 'platform',
-    name: 'Agent Runner',
-    supportName: 'Container platform',
+    name: 'Agent Work Starter',
+    supportName: 'Managed workspace service',
     description: 'Starts and manages agent work sessions.',
-    impact: 'Starting new agent work may fail until the runner is healthy again.',
-    action: 'Check the agent runner before sending new managed workspace work.',
+    impact: 'Starting new agent work may fail until this service is healthy again.',
+    action: 'Check the agent work service before sending new managed workspace work.',
   },
   {
     key: 'bullmq',
