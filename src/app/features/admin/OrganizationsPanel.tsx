@@ -162,9 +162,10 @@ function OrganizationsEmptyState() {
         No organizations are visible yet
       </p>
       <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
-        Create or sync an organization before creating teams, projects, members, or agent work
-        lanes. If you expected data here, confirm your admin access and refresh after the API is
-        healthy.
+        Create or sync one organization first. Success looks like one row with a plan, member count,
+        and team count. Then create teams, projects, members, and agent work lanes inside that
+        organization. If you expected data here, confirm your admin access and refresh after the API
+        is healthy.
       </p>
     </div>
   )

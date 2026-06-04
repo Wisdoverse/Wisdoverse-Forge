@@ -84,9 +84,9 @@ describe('OrganizationsPanel', () => {
 
     const emptyState = screen.getByTestId('admin-org-empty')
     expect(within(emptyState).getByText('No organizations are visible yet')).toBeDefined()
-    expect(
-      within(emptyState).getByText(/Create or sync an organization before creating teams/i)
-    ).toBeDefined()
+    expect(within(emptyState).getByText(/create or sync one organization first/i)).toBeDefined()
+    expect(within(emptyState).getByText(/one row with a plan, member count/i)).toBeDefined()
+    expect(within(emptyState).getByText(/then create teams, projects, members/i)).toBeDefined()
   })
 
   test('adds recovery guidance when organizations fail to load', async () => {
