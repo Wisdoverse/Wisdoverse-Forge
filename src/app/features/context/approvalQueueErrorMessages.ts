@@ -43,7 +43,7 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   }
 
   if (status && status >= 500) {
-    return 'The approval queue is temporarily unavailable. Ask an owner or admin to check the backend, then refresh the queue.'
+    return 'The approval queue is temporarily unavailable. Refresh the queue, then try again. If it still fails, ask an owner or admin to check reusable context setup.'
   }
 
   return validationMessage(action, detail)

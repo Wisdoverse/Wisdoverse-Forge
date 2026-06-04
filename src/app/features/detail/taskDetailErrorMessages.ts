@@ -61,7 +61,7 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
   }
 
   if (status && status >= 500) {
-    return 'Task details are temporarily unavailable. Ask an owner or admin to check the backend, then refresh the task.'
+    return 'Task details are temporarily unavailable. Refresh the task, then try again. If it still fails, ask an owner or admin to check task services.'
   }
 
   return validationMessage(action, detail)

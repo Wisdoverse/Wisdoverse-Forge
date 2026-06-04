@@ -31,6 +31,16 @@ describe('governanceAuditErrorMessage', () => {
     )
   })
 
+  test('turns service failures into an audit setup recovery step', () => {
+    const message = governanceAuditErrorMessage('loadAudit', new Error('HTTP 500'))
+
+    expectBeginnerMessage(
+      message,
+      'Governance audit is temporarily unavailable. Refresh the audit view, then try again. If it still fails, ask an owner or admin to check governance audit setup.'
+    )
+    expect(message).not.toContain('backend')
+  })
+
   test('turns validation details into a time range next step', () => {
     expectBeginnerMessage(
       governanceAuditErrorMessage('loadAudit', {

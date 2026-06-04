@@ -44,7 +44,7 @@ export function governanceAuditErrorMessage(
   }
 
   if (status && status >= 500) {
-    return 'Governance audit is temporarily unavailable. Ask an owner or admin to check the backend, then refresh the audit view.'
+    return 'Governance audit is temporarily unavailable. Refresh the audit view, then try again. If it still fails, ask an owner or admin to check governance audit setup.'
   }
 
   return validationMessage(action, detail)

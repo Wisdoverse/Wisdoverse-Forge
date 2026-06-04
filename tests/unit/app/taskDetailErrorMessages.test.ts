@@ -37,6 +37,16 @@ describe('taskDetailErrorMessage', () => {
     )
   })
 
+  test('turns service failures into a task services recovery step', () => {
+    const message = taskDetailErrorMessage('loadContext', new Error('HTTP 500'))
+
+    expectBeginnerMessage(
+      message,
+      'Task details are temporarily unavailable. Refresh the task, then try again. If it still fails, ask an owner or admin to check task services.'
+    )
+    expect(message).not.toContain('backend')
+  })
+
   test('turns running-task details into a wait step', () => {
     expectBeginnerMessage(
       taskDetailErrorMessage('retryTask', {

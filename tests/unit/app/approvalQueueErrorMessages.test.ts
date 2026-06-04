@@ -31,6 +31,16 @@ describe('approvalQueueErrorMessage', () => {
     )
   })
 
+  test('turns service failures into reusable context setup recovery', () => {
+    const message = approvalQueueErrorMessage('loadQueue', new Error('HTTP 500'))
+
+    expectBeginnerMessage(
+      message,
+      'The approval queue is temporarily unavailable. Refresh the queue, then try again. If it still fails, ask an owner or admin to check reusable context setup.'
+    )
+    expect(message).not.toContain('backend')
+  })
+
   test('turns validation details into a scope next step', () => {
     expectBeginnerMessage(
       approvalQueueErrorMessage('approveCandidate', {

@@ -56,7 +56,7 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
   }
 
   if (status && status >= 500) {
-    return 'The board service is temporarily unavailable. Ask an owner or admin to check the backend, then refresh the board.'
+    return 'The board is temporarily unavailable. Refresh the board, then try again. If it still fails, ask an owner or admin to check task board setup.'
   }
 
   return validationRecovery(action, detail)

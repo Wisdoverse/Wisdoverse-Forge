@@ -30,6 +30,16 @@ describe('boardActionErrorMessage', () => {
     )
   })
 
+  test('turns service failures into a task board setup recovery step', () => {
+    const message = boardActionErrorMessage('loadTasks', new Error('HTTP 500'))
+
+    expectBeginnerMessage(
+      message,
+      'The board is temporarily unavailable. Refresh the board, then try again. If it still fails, ask an owner or admin to check task board setup.'
+    )
+    expect(message).not.toContain('backend')
+  })
+
   test('turns validation details into a concrete field recovery step', () => {
     expectBeginnerMessage(
       boardActionErrorMessage('createTask', {
