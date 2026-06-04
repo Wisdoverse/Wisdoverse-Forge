@@ -2,6 +2,12 @@ import { describe, expect, test } from 'vitest'
 import { createSkillErrorMessage } from '@app/features/skills/model/createSkillErrorMessage'
 
 describe('createSkillErrorMessage', () => {
+  function expectBeginnerMessage(actual: string, expected: string): void {
+    expect(actual).toBe(expected)
+    expect(actual).not.toContain('Code:')
+    expect(actual).not.toContain('Details:')
+  }
+
   test('preserves existing beginner guidance from the skills store', () => {
     const message =
       'The skill could not be created because the browser could not reach the server. Check your connection and try again.'
@@ -13,8 +19,9 @@ describe('createSkillErrorMessage', () => {
     const message =
       'You do not have permission to create workspace skills. Ask an admin to update your role. Code: 403. Details: Forbidden'
 
-    expect(createSkillErrorMessage(new Error(message))).toBe(
-      'You do not have permission to create workspace skills. Ask an admin to update your role. Code: 403.'
+    expectBeginnerMessage(
+      createSkillErrorMessage(new Error(message)),
+      'You do not have permission to create workspace skills. Ask an admin to update your role.'
     )
   })
 
@@ -31,19 +38,18 @@ describe('createSkillErrorMessage', () => {
 
     expect(message).toContain('You do not have permission to create workspace skills')
     expect(message).toContain('Ask an admin')
-    expect(message).toContain('Code: 403.')
+    expect(message).not.toContain('Code:')
     expect(message).not.toContain('API 403')
     expect(message).not.toContain('Forbidden')
   })
 
-  test('keeps useful validation details after the operator action', () => {
+  test('turns validation details into a field-specific next step', () => {
     const message = createSkillErrorMessage(
       new Error('HTTP 422: {"message":"trigger is invalid"}')
     )
 
-    expect(message).toContain('Check the skill name, trigger pattern, and content')
-    expect(message).toContain('Code: 422.')
-    expect(message).toContain('Details: trigger is invalid')
+    expectBeginnerMessage(message, 'Check the trigger pattern, then try again.')
     expect(message).not.toContain('HTTP 422')
+    expect(message).not.toContain('trigger is invalid')
   })
 })

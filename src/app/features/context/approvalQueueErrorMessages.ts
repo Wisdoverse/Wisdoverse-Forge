@@ -19,35 +19,34 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   }
 
   if (status === 401) {
-    return 'Sign in again, then retry this approval queue action. Code: 401.'
+    return 'Sign in again, then retry this approval queue action.'
   }
 
   if (status === 403) {
-    return 'You do not have permission to manage reusable context. Ask an owner or admin to update your role. Code: 403.'
+    return 'You do not have permission to manage reusable context. Ask an owner or admin to update your role.'
   }
 
   if (status === 404) {
-    return 'This candidate was not found. Refresh the queue so you see the latest candidates. Code: 404.'
+    return 'This candidate was not found. Refresh the queue so you see the latest candidates.'
   }
 
   if (status === 409) {
-    return 'This candidate changed while you were reviewing it. Refresh the queue, then open it again. Code: 409.'
+    return 'This candidate changed while you were reviewing it. Refresh the queue, then open it again.'
   }
 
   if (status === 422) {
-    return 'This approval request is missing required information. Check the scope, sensitivity, and confirmation, then try again. Code: 422.'
+    return validationMessage(action, detail)
   }
 
   if (status === 429) {
-    return 'The server is busy with too many approval requests. Wait a moment, then try again. Code: 429.'
+    return 'The approval queue is busy. Wait a moment, then try again.'
   }
 
   if (status && status >= 500) {
-    return 'The server had a problem while handling the approval queue. Try again after the API is healthy. Code: 5xx.'
+    return 'The approval queue is temporarily unavailable. Ask an owner or admin to check the backend, then refresh the queue.'
   }
 
-  const suffix = operatorSafeDetail(detail)
-  return suffix ? `${ACTION_FALLBACKS[action]} Detail: ${suffix}` : ACTION_FALLBACKS[action]
+  return validationMessage(action, detail)
 }
 
 function errorDetail(err: unknown): string {
@@ -99,10 +98,18 @@ function isNetworkError(normalizedDetail: string): boolean {
   )
 }
 
-function operatorSafeDetail(detail: string): string {
-  const trimmed = detail.trim()
-  if (!trimmed) return ''
-  if (trimmed.length > 160) return ''
-  if (isNetworkError(trimmed.toLowerCase())) return ''
-  return trimmed
+function validationMessage(action: ApprovalQueueErrorAction, detail: string): string {
+  const normalized = detail.toLowerCase()
+  if (normalized.includes('scope')) {
+    return action === 'loadQueue'
+      ? 'The approval queue could not load. Refresh the queue, then check the selected scope.'
+      : 'Choose the scope and review the source preview, then try again.'
+  }
+  if (normalized.includes('sensitivity')) {
+    return 'Choose the sensitivity level, then try again.'
+  }
+  if (normalized.includes('confirmation') || normalized.includes('confirm')) {
+    return 'Complete the confirmation step, then try again.'
+  }
+  return ACTION_FALLBACKS[action]
 }

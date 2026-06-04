@@ -18,39 +18,37 @@ export function createSkillErrorMessage(error?: unknown): string {
 
   const status = statusFromDetail(detail)
   const safeDetail = status === null || status === 422 ? safeDetailFromRaw(detail) : null
-  const suffix = safeDetail ? ` Details: ${safeDetail}` : ''
 
   if (!status) {
     if (safeDetail) {
-      return `The skill could not be created. Review the message and try again.${suffix}`
+      return validationMessage(safeDetail)
     }
     return 'The skill could not be created because the browser could not reach the server. Check your connection and try again.'
   }
 
-  const statusText = `Code: ${status}.`
   if (status === 401) {
-    return `Sign in again, then create the skill. ${statusText}${suffix}`
+    return 'Sign in again, then create the skill.'
   }
   if (status === 403) {
-    return `You do not have permission to create workspace skills. Ask an admin to update your role. ${statusText}${suffix}`
+    return 'You do not have permission to create workspace skills. Ask an admin to update your role.'
   }
   if (status === 404) {
-    return `The skills service is not available from this page. Refresh after the backend is deployed. ${statusText}${suffix}`
+    return 'The skills service is not available from this page. Refresh Skills, then try again.'
   }
   if (status === 409) {
-    return `A skill with this name or trigger may already exist. Review the existing skills, then try again. ${statusText}${suffix}`
+    return 'A skill with this name or trigger may already exist. Review the existing skills, then try again.'
   }
   if (status === 422) {
-    return `Check the skill name, trigger pattern, and content, then try again. ${statusText}${suffix}`
+    return validationMessage(safeDetail)
   }
   if (status === 429) {
-    return `The skills service is busy. Wait a moment, then create the skill. ${statusText}${suffix}`
+    return 'The skills service is busy. Wait a moment, then create the skill.'
   }
   if (status >= 500) {
-    return `The skills service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+    return 'The skills service is temporarily unavailable. Ask an admin to check the backend, then refresh Skills.'
   }
 
-  return `The skill could not be created. Review the fields and try again. ${statusText}${suffix}`
+  return 'The skill could not be created. Review the fields and try again.'
 }
 
 function rawDetail(error: unknown): string | null {
@@ -70,10 +68,7 @@ function existingSkillGuidance(detail: string): string | null {
   if (RAW_STATUS_ERRORS.some((pattern) => pattern.test(detail))) return null
   if (RAW_NETWORK_ERRORS.some((pattern) => pattern.test(detail))) return null
   if (!USER_FACING_STARTS.some((start) => detail.startsWith(start))) return null
-  return detail.replace(
-    /\s+Details:\s*(Unauthorized|Forbidden|Not Found|Internal Server Error)\.?$/i,
-    ''
-  )
+  return stripInternalErrorSuffix(detail)
 }
 
 function statusFromDetail(detail: string | null): number | null {
@@ -133,4 +128,26 @@ function trimDetail(detail: string | null): string | null {
   if (!trimmed || RAW_NETWORK_ERRORS.some((pattern) => pattern.test(trimmed))) return null
   if (GENERIC_BODY_TEXT.test(trimmed)) return null
   return trimmed.length > 180 ? `${trimmed.slice(0, 177)}...` : trimmed
+}
+
+function validationMessage(detail: string | null): string {
+  const normalized = detail?.toLowerCase() ?? ''
+  if (normalized.includes('trigger')) {
+    return 'Check the trigger pattern, then try again.'
+  }
+  if (normalized.includes('name')) {
+    return 'Enter a skill name, then try again.'
+  }
+  if (normalized.includes('content') || normalized.includes('instruction')) {
+    return 'Enter the skill instructions, then try again.'
+  }
+  return 'Check the skill name, trigger pattern, and content, then try again.'
+}
+
+function stripInternalErrorSuffix(detail: string): string {
+  return detail
+    .replace(/\s+Code:\s*\d{3}\.?/gi, '')
+    .replace(/\s+Details?:\s*(Unauthorized|Forbidden|Not Found|Internal Server Error)\.?$/i, '')
+    .replace(/\s+Details?:\s*$/i, '')
+    .trim()
 }

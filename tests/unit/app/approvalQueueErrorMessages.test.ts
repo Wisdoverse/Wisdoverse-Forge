@@ -2,9 +2,16 @@ import { describe, expect, test } from 'vitest'
 import { approvalQueueErrorMessage } from '@app/features/context/approvalQueueErrorMessages'
 
 describe('approvalQueueErrorMessage', () => {
+  function expectBeginnerMessage(actual: string, expected: string): void {
+    expect(actual).toBe(expected)
+    expect(actual).not.toContain('Code:')
+    expect(actual).not.toContain('Detail:')
+  }
+
   test('turns auth failures into a sign-in instruction', () => {
-    expect(approvalQueueErrorMessage('loadQueue', new Error('401 Unauthorized'))).toBe(
-      'Sign in again, then retry this approval queue action. Code: 401.'
+    expectBeginnerMessage(
+      approvalQueueErrorMessage('loadQueue', new Error('401 Unauthorized')),
+      'Sign in again, then retry this approval queue action.'
     )
   })
 
@@ -17,18 +24,18 @@ describe('approvalQueueErrorMessage', () => {
   })
 
   test('gives a clear conflict recovery step', () => {
-    expect(approvalQueueErrorMessage('approveCandidate', new Error('409 conflict'))).toBe(
-      'This candidate changed while you were reviewing it. Refresh the queue, then open it again. Code: 409.'
+    expectBeginnerMessage(
+      approvalQueueErrorMessage('approveCandidate', new Error('409 conflict')),
+      'This candidate changed while you were reviewing it. Refresh the queue, then open it again.'
     )
   })
 
-  test('keeps short validation details after the operator instruction', () => {
-    expect(
+  test('turns validation details into a scope next step', () => {
+    expectBeginnerMessage(
       approvalQueueErrorMessage('approveCandidate', {
         error: 'Scope ID is required',
-      })
-    ).toBe(
-      'The candidate was not approved. Review the scope and source preview, then try again. Detail: Scope ID is required'
+      }),
+      'Choose the scope and review the source preview, then try again.'
     )
   })
 })

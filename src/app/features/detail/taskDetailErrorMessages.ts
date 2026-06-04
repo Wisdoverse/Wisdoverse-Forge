@@ -34,38 +34,37 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
   }
 
   if (status === 401) {
-    return 'Sign in again, then retry this task action. Code: 401.'
+    return 'Sign in again, then retry this task action.'
   }
 
   if (status === 403) {
     if (action === 'loadAgents' || action === 'loadContext' || action === 'loadRuns') {
-      return 'You do not have permission to view this task. Ask an owner or admin to update your role. Code: 403.'
+      return 'You do not have permission to view this task. Ask an owner or admin to update your role.'
     }
-    return 'You do not have permission to change this task. Ask an owner or admin to update your role. Code: 403.'
+    return 'You do not have permission to change this task. Ask an owner or admin to update your role.'
   }
 
   if (status === 404) {
-    return 'This task was not found. Refresh the board, then open the task again. Code: 404.'
+    return 'This task was not found. Refresh the board, then open the task again.'
   }
 
   if (status === 409) {
-    return 'This task changed while you were working. Refresh the detail panel, then try again. Code: 409.'
+    return 'This task changed while you were working. Refresh the detail panel, then try again.'
   }
 
   if (status === 422) {
-    return 'This task action is missing required information. Check the task state and selected agent, then try again. Code: 422.'
+    return validationMessage(action, detail)
   }
 
   if (status === 429) {
-    return 'The server is busy with too many task requests. Wait a moment, then try again. Code: 429.'
+    return 'Task actions are busy. Wait a moment, then try again.'
   }
 
   if (status && status >= 500) {
-    return 'The server had a problem while handling this task. Try again after the API is healthy. Code: 5xx.'
+    return 'Task details are temporarily unavailable. Ask an owner or admin to check the backend, then refresh the task.'
   }
 
-  const suffix = operatorSafeDetail(detail)
-  return suffix ? `${ACTION_FALLBACKS[action]} Detail: ${suffix}` : ACTION_FALLBACKS[action]
+  return validationMessage(action, detail)
 }
 
 function errorDetail(err: unknown): string {
@@ -117,10 +116,22 @@ function isNetworkError(normalizedDetail: string): boolean {
   )
 }
 
-function operatorSafeDetail(detail: string): string {
-  const trimmed = detail.trim()
-  if (!trimmed) return ''
-  if (trimmed.length > 160) return ''
-  if (isNetworkError(trimmed.toLowerCase())) return ''
-  return trimmed
+function validationMessage(action: TaskDetailErrorAction, detail: string): string {
+  const normalized = detail.toLowerCase()
+  if (normalized.includes('already running')) {
+    return 'This task is already running. Wait for the current run to finish, then refresh the task.'
+  }
+  if (normalized.includes('agent')) {
+    return 'Choose an available agent, then try again.'
+  }
+  if (normalized.includes('context')) {
+    return 'Review the selected context, then try again.'
+  }
+  if (normalized.includes('approval') || normalized.includes('approve')) {
+    return 'Check that the task is still waiting for approval, then try again.'
+  }
+  if (normalized.includes('publish')) {
+    return 'Review the task details, then publish again.'
+  }
+  return ACTION_FALLBACKS[action]
 }

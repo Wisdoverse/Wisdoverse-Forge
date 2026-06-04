@@ -2,15 +2,23 @@ import { describe, expect, test } from 'vitest'
 import { taskDetailErrorMessage } from '@app/features/detail/taskDetailErrorMessages'
 
 describe('taskDetailErrorMessage', () => {
+  function expectBeginnerMessage(actual: string, expected: string): void {
+    expect(actual).toBe(expected)
+    expect(actual).not.toContain('Code:')
+    expect(actual).not.toContain('Detail:')
+  }
+
   test('turns auth failures into a sign-in instruction', () => {
-    expect(taskDetailErrorMessage('loadContext', new Error('401 Unauthorized'))).toBe(
-      'Sign in again, then retry this task action. Code: 401.'
+    expectBeginnerMessage(
+      taskDetailErrorMessage('loadContext', new Error('401 Unauthorized')),
+      'Sign in again, then retry this task action.'
     )
   })
 
   test('describes read permission failures as view access problems', () => {
-    expect(taskDetailErrorMessage('loadRuns', new Error('HTTP 403'))).toBe(
-      'You do not have permission to view this task. Ask an owner or admin to update your role. Code: 403.'
+    expectBeginnerMessage(
+      taskDetailErrorMessage('loadRuns', new Error('HTTP 403')),
+      'You do not have permission to view this task. Ask an owner or admin to update your role.'
     )
   })
 
@@ -28,13 +36,12 @@ describe('taskDetailErrorMessage', () => {
     )
   })
 
-  test('keeps short validation details after the operator instruction', () => {
-    expect(
+  test('turns running-task details into a wait step', () => {
+    expectBeginnerMessage(
       taskDetailErrorMessage('retryTask', {
         error: 'Task is already running',
-      })
-    ).toBe(
-      'The task was not retried. Refresh the task, then try Retry task again. Detail: Task is already running'
+      }),
+      'This task is already running. Wait for the current run to finish, then refresh the task.'
     )
   })
 })
