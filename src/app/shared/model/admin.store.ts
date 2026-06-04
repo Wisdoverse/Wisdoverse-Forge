@@ -288,27 +288,32 @@ export function adminHttpErrorMessage(
   data: Record<string, unknown> = {}
 ): string {
   const label = adminResourceLabel(resource)
-  const detail = adminErrorDetail(data)
-  const suffix = detail ? ` Details: ${detail}` : ''
-  const statusText = `Code: ${status}.`
+  const detail = adminErrorDetail(data)?.toLowerCase() ?? ''
 
   if (status === 401) {
-    return `Sign in again, then reload the ${label}. ${statusText}${suffix}`
+    return `Sign in again, then open Admin and reload the ${label}.`
   }
   if (status === 403) {
-    return `You do not have permission to view admin ${label}. Ask an owner to update your admin role. ${statusText}${suffix}`
+    return `You do not have permission to view admin ${label}. Ask an owner to update your admin role.`
   }
   if (status === 404) {
-    return `The admin ${label} endpoint is not available. Refresh after the backend is deployed. ${statusText}${suffix}`
+    return `The admin ${label} is not available. Refresh after the admin service is ready.`
+  }
+  if (
+    status === 409 &&
+    resource === 'cli-images' &&
+    (detail.includes('progress') || detail.includes('busy') || detail.includes('running'))
+  ) {
+    return 'A CLI image roll is already in progress. Wait for the current roll to finish, refresh CLI images, then try again.'
   }
   if (status === 429) {
-    return `The admin service is busy. Wait a moment, then reload the ${label}. ${statusText}${suffix}`
+    return `The admin service is busy. Wait a moment, then reload the ${label}.`
   }
   if (status >= 500) {
-    return `The admin service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+    return `The admin service is temporarily unavailable. Ask an owner to check the backend, then reload the ${label}.`
   }
 
-  return `The admin ${label} could not load. Refresh the page and try again. ${statusText}${suffix}`
+  return `The admin ${label} could not load. Refresh Admin, then try again.`
 }
 
 function adminNetworkErrorMessage(resource: AdminResource): string {
@@ -322,34 +327,30 @@ function adminErrorMessage(err: unknown, resource: AdminResource): string {
 function adminActionHttpErrorMessage(
   action: AdminAction,
   status: number,
-  data: Record<string, unknown> = {}
+  _data: Record<string, unknown> = {}
 ): string {
-  const detail = adminErrorDetail(data)
-  const suffix = detail ? ` Details: ${detail}` : ''
-  const statusText = `Code: ${status}.`
-
   if (action === 'update-user-role') {
     if (status === 401) {
-      return `Sign in again, then save this user's access. ${statusText}${suffix}`
+      return "Sign in again, then reopen Admin and save this user's access."
     }
     if (status === 403) {
-      return `You do not have permission to change user access. Ask an owner to update your admin role. ${statusText}${suffix}`
+      return 'You do not have permission to change user access. Ask an owner to update your admin role.'
     }
     if (status === 404) {
-      return `This user could not be found. Refresh the user list, then try again. ${statusText}${suffix}`
+      return 'This user could not be found. Refresh the user list, then choose the current user again.'
     }
     if (status === 409) {
-      return `This user changed while you were editing. Refresh the user list, review the current access, then try again. ${statusText}${suffix}`
+      return 'This user changed while you were editing. Refresh the user list, review the current access, then try again.'
     }
     if (status === 429) {
-      return `The admin service is busy. Wait a moment, then save this user's access again. ${statusText}${suffix}`
+      return "The admin service is busy. Wait a moment, then save this user's access again."
     }
     if (status >= 500) {
-      return `The admin service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+      return "The admin service is temporarily unavailable. Ask an owner to check the backend, then save this user's access again."
     }
   }
 
-  return `User access could not be saved. Refresh the user list and try again. ${statusText}${suffix}`
+  return 'User access could not be saved. Refresh the user list and try again.'
 }
 
 function adminActionNetworkErrorMessage(action: AdminAction): string {

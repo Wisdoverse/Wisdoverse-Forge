@@ -40,6 +40,12 @@ function resetAdminState() {
   })
 }
 
+function expectBeginnerError(actual: string | null, expected: string): void {
+  expect(actual).toBe(expected)
+  expect(actual).not.toContain('Code:')
+  expect(actual).not.toContain('Details:')
+}
+
 beforeEach(() => {
   resetAdminState()
   authFetchMock.mockReset()
@@ -47,20 +53,23 @@ beforeEach(() => {
 
 describe('adminHttpErrorMessage', () => {
   test('turns expired admin auth into a sign-in step', () => {
-    expect(adminHttpErrorMessage('users', 401)).toBe(
-      'Sign in again, then reload the user list. Code: 401.'
+    expectBeginnerError(
+      adminHttpErrorMessage('users', 401),
+      'Sign in again, then open Admin and reload the user list.'
     )
   })
 
   test('turns admin permission failures into an owner role step', () => {
-    expect(adminHttpErrorMessage('organizations', 403)).toBe(
-      'You do not have permission to view admin organization list. Ask an owner to update your admin role. Code: 403.'
+    expectBeginnerError(
+      adminHttpErrorMessage('organizations', 403),
+      'You do not have permission to view admin organization list. Ask an owner to update your admin role.'
     )
   })
 
-  test('keeps backend detail after the operator action', () => {
-    expect(adminHttpErrorMessage('health', 503, { error: { message: 'database down' } })).toBe(
-      'The admin service had a server problem. Try again after the backend is healthy. Code: 503. Details: database down'
+  test('turns server failures into an owner recovery step', () => {
+    expectBeginnerError(
+      adminHttpErrorMessage('health', 503, { error: { message: 'database down' } }),
+      'The admin service is temporarily unavailable. Ask an owner to check the backend, then reload the system health.'
     )
   })
 })
@@ -71,8 +80,9 @@ describe('useAdminStore loading errors', () => {
 
     await useAdminStore.getState().loadUsers()
 
-    expect(useAdminStore.getState().usersError).toBe(
-      'You do not have permission to view admin user list. Ask an owner to update your admin role. Code: 403. Details: owner role required'
+    expectBeginnerError(
+      useAdminStore.getState().usersError,
+      'You do not have permission to view admin user list. Ask an owner to update your admin role.'
     )
   })
 
@@ -94,8 +104,10 @@ describe('useAdminStore loading errors', () => {
     expect(result).toEqual({
       ok: false,
       error:
-        'You do not have permission to change user access. Ask an owner to update your admin role. Code: 403. Details: owner role required',
+        'You do not have permission to change user access. Ask an owner to update your admin role.',
     })
+    expect(result.error).not.toContain('Code:')
+    expect(result.error).not.toContain('Details:')
   })
 
   test('stores service recovery guidance when health loading fails', async () => {
@@ -103,8 +115,9 @@ describe('useAdminStore loading errors', () => {
 
     await useAdminStore.getState().loadHealth()
 
-    expect(useAdminStore.getState().healthError).toBe(
-      'The admin service had a server problem. Try again after the backend is healthy. Code: 503. Details: health database unavailable'
+    expectBeginnerError(
+      useAdminStore.getState().healthError,
+      'The admin service is temporarily unavailable. Ask an owner to check the backend, then reload the system health.'
     )
   })
 
@@ -157,8 +170,9 @@ describe('useAdminStore loading errors', () => {
 
     await useAdminStore.getState().loadCliImages()
 
-    expect(useAdminStore.getState().cliImagesError).toBe(
-      'You do not have permission to view admin CLI agent images. Ask an owner to update your admin role. Code: 403. Details: admin only'
+    expectBeginnerError(
+      useAdminStore.getState().cliImagesError,
+      'You do not have permission to view admin CLI agent images. Ask an owner to update your admin role.'
     )
   })
 
