@@ -206,7 +206,7 @@ function agentValidationMessage(action: AgentErrorAction, detail: string | null)
       return 'Name this agent, choose where it should work, then try creating it again.'
     }
     if (normalized.includes('provider') || normalized.includes('model')) {
-      return 'Choose a tested provider and model, then try creating this agent again.'
+      return 'Choose a tested model service and model, then try creating this agent again.'
     }
     if (normalized.includes('workspace') || normalized.includes('project')) {
       return 'Choose a workspace and project you can access, then try creating this agent again.'

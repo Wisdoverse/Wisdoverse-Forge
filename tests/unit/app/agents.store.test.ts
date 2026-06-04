@@ -75,6 +75,13 @@ describe('Agents Store', () => {
     )
   })
 
+  test('uses model service language for create validation failures', () => {
+    expectBeginnerError(
+      agentActionErrorMessage('create', apiError(422, { message: 'provider and model required' })),
+      'Choose a tested model service and model, then try creating this agent again.'
+    )
+  })
+
   test('initializes with empty agents', () => {
     expect(useAgentsStore.getState().agents).toEqual([])
   })
@@ -181,7 +188,7 @@ describe('Agents Store', () => {
     expect(useAgentsStore.getState().agents).toHaveLength(1)
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Agent was created, but it could not start yet. It will stay in the list. Docker is not running on the runner. Ask an owner or admin to start Docker, then start this agent from the card.'
+      'Agent was created, but it could not start yet. It will stay in the list. The worker host is not ready. Ask an owner or admin to start the worker service, then start this agent from the card.'
     )
   })
 
