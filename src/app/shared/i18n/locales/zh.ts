@@ -52,8 +52,8 @@ export const zh: TranslationKeys = {
     none: '无',
     select: '选择',
     selected: '已选择 {{count}} 项',
-    noResults: '未找到结果',
-    noData: '暂无数据',
+    noResults: '没有匹配结果。可以放宽搜索条件，或清除筛选后再试。',
+    noData: '这里暂时没有内容。可以先创建第一项，或在设置完成后刷新。',
     optional: '可选',
     required: '必填',
   },
@@ -222,7 +222,7 @@ export const zh: TranslationKeys = {
     createAccount: '创建账户',
     fillAllFields: '请填写所有字段',
     fillRequiredFields: '请填写所有必填字段',
-    networkError: '网络错误',
+    networkError: '浏览器暂时连不上服务器。请检查网络后重试。',
   },
 
   // =========================================================================
@@ -234,7 +234,7 @@ export const zh: TranslationKeys = {
     createAgent: '创建会话',
     editAgent: '编辑会话',
     deleteAgent: '删除会话',
-    noAgents: '暂无会话',
+    noAgents: '还没有会话。先创建一个会话，再开始分配任务。',
     agentName: '会话名称',
     projectPath: '项目路径',
     workingDirectory: '工作目录',
@@ -376,7 +376,7 @@ export const zh: TranslationKeys = {
   workshop: {
     title: '工作坊',
     loading: '加载工作坊...',
-    loadError: '工作坊加载失败',
+    loadError: '工作坊无法加载。等会话可用后刷新，再试一次。',
     controls: {
       zoom: '滚动缩放',
       pan: '中键平移',
@@ -489,23 +489,23 @@ export const zh: TranslationKeys = {
   // 错误
   // =========================================================================
   errors: {
-    generic: '发生意外错误',
-    network: '网络错误，请检查您的网络连接',
+    generic: '出现了问题。请重试；如果反复发生，请让管理员检查系统。',
+    network: '浏览器暂时连不上服务器。请检查网络后重试。',
     timeout: '请求超时，请重试',
-    notFound: '未找到 {{resource}}',
-    unauthorized: '您没有权限执行此操作',
-    forbidden: '访问被拒绝',
-    validation: '请检查您的输入',
-    serverError: '服务器错误，请稍后重试',
+    notFound: '未找到 {{resource}}。请刷新页面后重试。',
+    unauthorized: '请重新登录，然后再试一次。',
+    forbidden: '你当前没有权限执行这个操作。请让所有者或管理员更新你的角色。',
+    validation: '请检查高亮字段，然后重试。',
+    serverError: '服务器处理时出现问题。请稍等片刻后重试。',
     connectionLost: '连接断开，正在重连...',
     reconnecting: '重新连接中...',
     reconnected: '连接已恢复',
-    agentError: '会话错误：{{message}}',
-    fileError: '文件错误：{{message}}',
-    uploadError: '上传失败：{{message}}',
-    downloadError: '下载失败：{{message}}',
+    agentError: '会话没有完成这一步。请重试，或先检查会话状态。详情：{{message}}',
+    fileError: '文件无法处理。请检查文件后重试。详情：{{message}}',
+    uploadError: '上传没有完成。请检查文件和网络后重试。详情：{{message}}',
+    downloadError: '下载没有开始。请刷新页面后重试。详情：{{message}}',
     rateLimited: '请求过于频繁，请等待 {{seconds}} 秒',
-    quotaExceeded: '{{resource}} 配额已用尽',
+    quotaExceeded: '{{resource}} 配额已用完。请让所有者提高额度，或释放一些容量。',
     agent: {
       lifecycle: {
         restart_host_cli: {
@@ -689,7 +689,7 @@ export const zh: TranslationKeys = {
       search: '搜索会话...',
       status: '状态',
       actions: '操作',
-      noAgents: '未找到会话',
+      noAgents: '当前视图没有匹配的会话。可以清除搜索，或先创建会话。',
       pause: '暂停',
       resume: '恢复',
       stop: '停止',
@@ -712,7 +712,7 @@ export const zh: TranslationKeys = {
       addUser: '添加用户',
       editUser: '编辑用户',
       deleteUser: '删除用户',
-      noUsers: '未找到用户',
+      noUsers: '当前视图没有匹配的用户。可以清除搜索，或先邀请用户。',
       role: '角色',
       roles: {
         admin: '管理员',

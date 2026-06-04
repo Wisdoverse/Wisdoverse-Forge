@@ -51,8 +51,8 @@ export const en = {
     none: 'None',
     select: 'Select',
     selected: '{{count}} selected',
-    noResults: 'No results found',
-    noData: 'No data available',
+    noResults: 'No matching results. Try a broader search or clear the filters.',
+    noData: 'Nothing to show yet. Create the first item or refresh after setup finishes.',
     optional: 'Optional',
     required: 'Required',
   },
@@ -222,7 +222,7 @@ export const en = {
     createAccount: 'Create Account',
     fillAllFields: 'Please fill in all fields',
     fillRequiredFields: 'Please fill in all required fields',
-    networkError: 'Network error',
+    networkError: 'The browser could not reach the server. Check your connection, then try again.',
   },
 
   // =========================================================================
@@ -234,7 +234,7 @@ export const en = {
     createAgent: 'Create Agent',
     editAgent: 'Edit Agent',
     deleteAgent: 'Delete Agent',
-    noAgents: 'No agents yet',
+    noAgents: 'No agents yet. Create one agent to start assigning work.',
     agentName: 'Agent Name',
     projectPath: 'Project Path',
     workingDirectory: 'Working Directory',
@@ -376,7 +376,7 @@ export const en = {
   workshop: {
     title: 'Workshop',
     loading: 'Loading workshop...',
-    loadError: 'Failed to load workshop',
+    loadError: 'Workshop could not load. Refresh after agents are available, then try again.',
     controls: {
       zoom: 'Scroll to zoom',
       pan: 'Middle-click to pan',
@@ -489,23 +489,28 @@ export const en = {
   // Errors
   // =========================================================================
   errors: {
-    generic: 'An unexpected error occurred',
-    network: 'Network error. Please check your connection.',
+    generic:
+      'Something went wrong. Try again, then ask an owner to check the system if it repeats.',
+    network: 'The browser could not reach the server. Check your connection, then try again.',
     timeout: 'Request timed out. Please try again.',
-    notFound: '{{resource}} not found',
-    unauthorized: 'You are not authorized to perform this action',
-    forbidden: 'Access denied',
-    validation: 'Please check your input',
-    serverError: 'Server error. Please try again later.',
+    notFound: '{{resource}} was not found. Refresh the page, then try again.',
+    unauthorized: 'Sign in again, then retry this action.',
+    forbidden: 'You do not have access for this action. Ask an owner or admin to update your role.',
+    validation: 'Check the highlighted fields, then try again.',
+    serverError: 'The server had a problem. Wait a moment, then try again.',
     connectionLost: 'Connection lost. Reconnecting...',
     reconnecting: 'Reconnecting...',
     reconnected: 'Connection restored',
-    agentError: 'Agent error: {{message}}',
-    fileError: 'File error: {{message}}',
-    uploadError: 'Upload failed: {{message}}',
-    downloadError: 'Download failed: {{message}}',
+    agentError:
+      'The agent could not finish this step. Try again or check the agent status. Detail: {{message}}',
+    fileError: 'The file could not be handled. Check the file, then try again. Detail: {{message}}',
+    uploadError:
+      'The upload did not finish. Check the file and connection, then try again. Detail: {{message}}',
+    downloadError:
+      'The download did not start. Refresh the page, then try again. Detail: {{message}}',
     rateLimited: 'Too many requests. Please wait {{seconds}} seconds.',
-    quotaExceeded: 'Quota exceeded for {{resource}}',
+    quotaExceeded:
+      '{{resource}} quota is used up. Ask an owner to raise the limit or free capacity.',
     agent: {
       lifecycle: {
         restart_host_cli: {
@@ -694,7 +699,8 @@ export const en = {
       search: 'Search agents...',
       status: 'Status',
       actions: 'Actions',
-      noAgents: 'No agents found',
+      noAgents:
+        'No agents match this view. Clear search or check whether agents have been created.',
       pause: 'Pause',
       resume: 'Resume',
       stop: 'Stop',
@@ -717,7 +723,7 @@ export const en = {
       addUser: 'Add User',
       editUser: 'Edit User',
       deleteUser: 'Delete User',
-      noUsers: 'No users found',
+      noUsers: 'No users match this view. Clear search or invite a user first.',
       role: 'Role',
       roles: {
         admin: 'Admin',
