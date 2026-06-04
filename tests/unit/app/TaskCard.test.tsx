@@ -153,7 +153,10 @@ describe('TaskCard', () => {
     )
     const preview = screen.getByTestId('task-error-preview')
     expect(preview).toBeDefined()
-    expect(preview.textContent).toContain('Rate limit exceeded')
+    expect(preview.textContent).toContain('model service is busy')
+    expect(preview.textContent).not.toContain('429')
+    expect(preview.textContent).not.toContain('provider')
+    expect(preview.getAttribute('title')).toBe('Rate limit exceeded: 429 from provider')
   })
 
   test('does not show error preview when state is not failed', () => {
