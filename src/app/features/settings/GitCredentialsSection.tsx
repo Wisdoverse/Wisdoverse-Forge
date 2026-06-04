@@ -23,9 +23,12 @@ const PROVIDER_LABELS: Record<GitProvider, string> = {
 }
 
 const GIT_CREDENTIAL_SETUP_STEPS = [
-  { label: 'Choose Git host', value: 'Pick where the repositories live.' },
-  { label: 'Paste token', value: 'Use a personal access token with repository access.' },
-  { label: 'Leave host blank', value: 'Only enter a host for self-hosted GitHub or GitLab.' },
+  { label: 'Choose Git service', value: 'Pick where the repositories live.' },
+  { label: 'Add access token', value: 'Use a GitHub or GitLab token that can reach the repos.' },
+  {
+    label: 'Address is usually blank',
+    value: 'Only add an address for self-hosted GitHub or GitLab.',
+  },
 ]
 
 interface CredentialFormReadiness {
@@ -48,7 +51,7 @@ function credentialFormReadiness({
       ready: false,
       title: 'Next: Paste Access Token',
       detail: 'Paste a token from GitHub or GitLab so agents can clone and push repositories.',
-      error: 'Paste an access token before saving this credential.',
+      error: 'Paste an access token before saving repository access.',
       fieldId: tokenInputId,
     }
   }
@@ -268,7 +271,7 @@ function AddCredentialForm({
             name="host"
             value={form.host}
             onChange={(e) => setForm({ ...form, host: e.target.value })}
-            placeholder="e.g. gitlab.company.com"
+            placeholder="e.g. gitlab.example.com"
             className={uiStyles.input}
             aria-describedby={hostHelpId}
           />

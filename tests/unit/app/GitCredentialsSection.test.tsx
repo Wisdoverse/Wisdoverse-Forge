@@ -50,10 +50,11 @@ describe('GitCredentialsSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /add repository token/i }))
 
     expect(screen.getByText('Git access setup path')).toBeDefined()
-    expect(screen.getByText('Choose Git host')).toBeDefined()
-    expect(screen.getByText('Paste token')).toBeDefined()
-    expect(screen.getByText(/use a personal access token with repository access/i)).toBeDefined()
+    expect(screen.getByText('Choose Git service')).toBeDefined()
+    expect(screen.getByText('Add access token')).toBeDefined()
+    expect(screen.getByText(/token that can reach the repos/i)).toBeDefined()
     expect(screen.getByText(/leave this empty for github.com or gitlab.com/i)).toBeDefined()
+    expect(screen.getByPlaceholderText('e.g. gitlab.example.com')).toBeDefined()
 
     const saveButton = screen.getByRole('button', { name: /save token/i })
     expect(saveButton).toBeDisabled()
