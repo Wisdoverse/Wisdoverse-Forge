@@ -8,9 +8,9 @@ import { UsageMeter } from './UsageMeter'
 import { InvoiceList } from './InvoiceList'
 
 const BILLING_SETUP_STEPS = [
-  'Ask an owner or admin to turn on billing for this deployment.',
+  'Ask an owner or admin to turn on billing for this workspace.',
   'Do not paste payment keys here. Ask an owner or admin to connect billing in billing settings.',
-  'Refresh this page after the deployment restarts.',
+  'Refresh this page after billing is turned on.',
 ]
 
 // ============================================================================
@@ -33,7 +33,7 @@ function BillingNotConfigured() {
         Billing is not ready yet
       </h2>
       <p className="max-w-sm text-ui-body text-secondary-light dark:text-secondary-dark">
-        Billing is not enabled on this deployment yet. Nothing can be charged from this page until
+        Billing is not enabled for this workspace yet. Nothing can be charged from this page until
         an owner or admin connects billing.
       </p>
       <div className="mt-2 max-w-sm text-left">

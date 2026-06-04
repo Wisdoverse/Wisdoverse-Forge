@@ -48,7 +48,8 @@ describe('Billing beginner guidance', () => {
     render(<BillingPage />)
 
     expect(screen.getByText('Billing is not ready yet')).toBeInTheDocument()
-    expect(screen.getByText(/Billing is not enabled on this deployment yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/Billing is not enabled for this workspace yet/i)).toBeInTheDocument()
+    expect(screen.queryByText(/deployment/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/integration/i)).not.toBeInTheDocument()
   })
 
