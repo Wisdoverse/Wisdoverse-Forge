@@ -46,6 +46,16 @@ beforeEach(() => {
 })
 
 describe('AgentControlPanel', () => {
+  test('turns action failures into a clear recovery path', () => {
+    useAgentsStore.setState({ error: 'Start request failed' } as never)
+
+    render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/refresh this agent/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/wait for idle or working/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/ask an admin to check your access/i)
+  })
+
   test('explains quick messages and sends trimmed text', async () => {
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
