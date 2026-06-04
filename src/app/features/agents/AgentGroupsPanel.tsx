@@ -18,6 +18,7 @@ import { cn } from '@app/shared/lib/utils'
 import { useBoardStore } from '@app/shared/model/board.store'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 import { useNavigationStore } from '@app/entities/navigation'
+import { agentGroupErrorMessage } from './model/agentGroupErrorMessage'
 
 const DEFAULT_GROUP_DESCRIPTION =
   'This task group is a work lane where agents can receive board tasks.'
@@ -187,7 +188,7 @@ export function AgentGroupsPanel() {
       setSelectedTemplateId(null)
       setFormOpen(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create task group.')
+      setError(agentGroupErrorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -476,7 +477,11 @@ export function AgentGroupsPanel() {
             </form>
           )}
 
-          {error && <p className="text-ui-caption text-apple-red">{error}</p>}
+          {error && (
+            <p role="alert" className="text-ui-caption text-apple-red">
+              {error}
+            </p>
+          )}
         </div>
       )}
     </section>

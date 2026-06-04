@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { AgentGroupsPanel } from '@app/features/agents/AgentGroupsPanel'
 import { useNavigationStore } from '@app/entities/navigation'
 import { useBoardStore } from '@app/shared/model/board.store'
@@ -163,5 +163,24 @@ describe('AgentGroupsPanel', () => {
     expect(screen.getByTestId('task-routing-filter-empty')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /^clear$/i }))
     expect(screen.getByText('Build settings page')).toBeInTheDocument()
+  })
+
+  test('explains task group creation permission failures with a next step', async () => {
+    seedRoutingState([])
+    const createAgentGroup = vi.fn().mockRejectedValue(new Error('HTTP 403: Forbidden'))
+    useNavigationStore.setState({ createAgentGroup } as never)
+
+    render(<AgentGroupsPanel />)
+
+    fireEvent.click(screen.getByRole('button', { name: /new/i }))
+    fireEvent.change(screen.getByLabelText(/task group name/i), {
+      target: { value: 'Delivery Lane' },
+    })
+    fireEvent.submit(screen.getByRole('button', { name: /create lane/i }).closest('form')!)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Work lane was not created. Ask a workspace owner or admin to let you manage this project's work lanes."
+    )
+    expect(screen.queryByText(/HTTP 403/i)).toBeNull()
   })
 })
