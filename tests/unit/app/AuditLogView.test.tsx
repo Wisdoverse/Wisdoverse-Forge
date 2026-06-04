@@ -147,6 +147,7 @@ describe('AuditLogView', () => {
 
     expect(await screen.findByText('No audit events in this view')).toBeDefined()
     expect(screen.getByText(/Try All governance events or widen the time range/i)).toBeDefined()
+    expect(screen.getByText(/approve a skill or record context feedback/i)).toBeDefined()
   })
 
   test('shows beginner network guidance when audit records cannot load', async () => {

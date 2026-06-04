@@ -432,7 +432,9 @@ export function AuditLogView() {
                         No audit events in this view
                       </p>
                       <p className="mt-1 text-secondary-light dark:text-secondary-dark">
-                        Try All governance events or widen the time range.
+                        Try All governance events or widen the time range. If this is a new
+                        workspace, approve a skill or record context feedback, then refresh this
+                        view.
                       </p>
                     </td>
                   </tr>
