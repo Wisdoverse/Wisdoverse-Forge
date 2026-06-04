@@ -435,6 +435,9 @@ function TaskFilterButton({
 
 function AgentTaskRow({ task }: { task: TaskSummary }) {
   const showProgress = task.state === 'working' && task.progress > 0
+  const failurePreview =
+    task.state === 'failed' && task.error ? agentTaskFailurePreview(task.error) : null
+
   return (
     <li
       data-testid={`agent-task-row-${task.id}`}
@@ -474,13 +477,13 @@ function AgentTaskRow({ task }: { task: TaskSummary }) {
         </p>
       )}
 
-      {task.state === 'failed' && task.error && (
+      {failurePreview && (
         <p
           data-testid={`agent-task-error-${task.id}`}
           className="line-clamp-1 text-ui-caption text-apple-red"
-          title={task.error}
+          title={failurePreview}
         >
-          Stopped because: {task.error}
+          {failurePreview}
         </p>
       )}
     </li>
@@ -529,6 +532,31 @@ function taskMatchesFilter(task: TaskSummary, filter: AgentTaskFilter, query: st
     task.blockedReason,
     task.error,
   ].some((value) => value?.toLowerCase().includes(normalizedQuery))
+}
+
+function agentTaskFailurePreview(error: string): string {
+  const message = error.trim()
+  if (!message) return 'Stopped before finishing. Open the task for next steps.'
+
+  const lowerMessage = message.toLowerCase()
+  if (lowerMessage.includes('rate limit') || /\b429\b/.test(message)) {
+    return 'Stopped because the model service is busy. Open the task to retry when ready.'
+  }
+  if (lowerMessage.includes('timeout') || lowerMessage.includes('timed out')) {
+    return 'Stopped because the task took too long. Open the task to retry.'
+  }
+  if (
+    lowerMessage.includes('permission') ||
+    lowerMessage.includes('forbidden') ||
+    /\b403\b/.test(message)
+  ) {
+    return 'Stopped because access is missing. Ask an owner or admin for help.'
+  }
+  if (lowerMessage.includes('unauthorized') || /\b401\b/.test(message)) {
+    return 'Stopped because sign-in or service access needs attention.'
+  }
+
+  return 'Stopped before finishing. Open the task for next steps.'
 }
 
 function groupTasksByState(tasks: TaskSummary[]): Partial<Record<TaskState, TaskSummary[]>> {
