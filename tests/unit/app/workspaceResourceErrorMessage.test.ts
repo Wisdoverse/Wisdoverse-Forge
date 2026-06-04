@@ -2,6 +2,12 @@ import { describe, expect, test } from 'vitest'
 import { workspaceResourceErrorMessage } from '@app/shared/lib/workspaceResourceErrorMessage'
 
 describe('workspaceResourceErrorMessage', () => {
+  function expectBeginnerMessage(actual: string, expected: string): void {
+    expect(actual).toBe(expected)
+    expect(actual).not.toContain('Code:')
+    expect(actual).not.toContain('Details:')
+  }
+
   test('turns network failures into connection guidance', () => {
     const message = workspaceResourceErrorMessage('team', 'update', new Error('Failed to fetch'))
 
@@ -13,23 +19,25 @@ describe('workspaceResourceErrorMessage', () => {
   test('maps project permission failures without raw API text', () => {
     const message = workspaceResourceErrorMessage('project', 'delete', new Error('API 403: Forbidden'))
 
-    expect(message).toContain('You do not have permission')
-    expect(message).toContain('Ask an owner or admin')
-    expect(message).toContain('Code: 403.')
+    expectBeginnerMessage(
+      message,
+      'You do not have permission to delete this project. Ask an owner or admin to update your role.'
+    )
     expect(message).not.toContain('API 403')
     expect(message).not.toContain('Forbidden')
   })
 
-  test('keeps useful validation detail for team delete blockers', () => {
+  test('turns team delete blockers into a move-projects step', () => {
     const message = workspaceResourceErrorMessage(
       'team',
       'delete',
       new Error('HTTP 422: {"message":"Move projects first."}')
     )
 
-    expect(message).toContain('This team could not be deleted')
-    expect(message).toContain('Code: 422.')
-    expect(message).toContain('Details: Move projects first.')
+    expectBeginnerMessage(
+      message,
+      "Move or delete this team's projects first, then delete the team again."
+    )
     expect(message).not.toContain('HTTP 422')
   })
 })

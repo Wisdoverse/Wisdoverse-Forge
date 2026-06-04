@@ -12,40 +12,38 @@ export function resourceMemberErrorMessage(
 ): string {
   const status = statusFromResourceMemberError(error)
   const detail = status === null || status === 422 ? safeDetailFromResourceMemberError(error) : null
-  const suffix = detail ? ` Details: ${detail}` : ''
   const resource = resourceLabel.toLowerCase()
 
   if (!status) {
     if (detail) {
-      return `Member access could not ${actionSummary(action, resource)}. Review the message and try again.${suffix}`
+      return validationMessage(action, resource, detail)
     }
     return `Member access could not ${actionSummary(action, resource)} because the browser could not reach the server. Check your connection, then try again.`
   }
 
-  const statusText = `Code: ${status}.`
   if (status === 401) {
-    return `Sign in again, then reopen members for this ${resource}. ${statusText}${suffix}`
+    return `Sign in again, then reopen members for this ${resource}.`
   }
   if (status === 403) {
-    return `You do not have permission to manage members for this ${resource}. Ask an owner or admin to update your role. ${statusText}${suffix}`
+    return `You do not have permission to manage members for this ${resource}. Ask an owner or admin to update your role.`
   }
   if (status === 404) {
-    return `The members service for this ${resource} is not available. Refresh after the backend is deployed or choose another ${resource}. ${statusText}${suffix}`
+    return `Members for this ${resource} are not available. Refresh members or choose another ${resource}.`
   }
   if (status === 409) {
-    return `This membership changed while you were editing. Refresh the members list, review current access, then try again. ${statusText}${suffix}`
+    return 'This membership changed while you were editing. Refresh the members list, review current access, then try again.'
   }
   if (status === 422) {
-    return `${validationMessage(action, resource)} ${statusText}${suffix}`
+    return validationMessage(action, resource, detail)
   }
   if (status === 429) {
-    return `Member access is busy. Wait a moment, then ${retrySummary(action, resource)}. ${statusText}${suffix}`
+    return `Member access is busy. Wait a moment, then ${retrySummary(action, resource)}.`
   }
   if (status >= 500) {
-    return `The members service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+    return 'The members service is temporarily unavailable. Ask an owner or admin to check the backend, then refresh members.'
   }
 
-  return `Member access could not ${actionSummary(action, resource)}. Refresh the members list and try again. ${statusText}${suffix}`
+  return `Member access could not ${actionSummary(action, resource)}. Refresh the members list and try again.`
 }
 
 function actionSummary(action: ResourceMemberErrorAction, resource: string): string {
@@ -74,15 +72,29 @@ function retrySummary(action: ResourceMemberErrorAction, resource: string): stri
   }
 }
 
-function validationMessage(action: ResourceMemberErrorAction, resource: string): string {
+function validationMessage(
+  action: ResourceMemberErrorAction,
+  resource: string,
+  detail?: string | null
+): string {
+  const normalized = detail?.toLowerCase() ?? ''
   switch (action) {
     case 'load':
       return `Members could not load for this ${resource}. Refresh the page and try again.`
     case 'add':
+      if (normalized.includes('role')) {
+        return 'Choose this person and their role, then add them again.'
+      }
       return `Check the selected person and role, then add them again.`
     case 'updateRole':
+      if (normalized.includes('owner')) {
+        return `Choose a different owner first, then change this person's role on this ${resource}.`
+      }
       return `Check the selected role, then save the change again.`
     case 'remove':
+      if (normalized.includes('owner')) {
+        return `Choose a different owner first, then remove this person from this ${resource}.`
+      }
       return `This person could not be removed. Check whether they are the last owner or still required for this ${resource}.`
   }
 }

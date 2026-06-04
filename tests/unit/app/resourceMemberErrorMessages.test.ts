@@ -2,6 +2,12 @@ import { describe, expect, test } from 'vitest'
 import { resourceMemberErrorMessage } from '@app/features/manage-members/model/resourceMemberErrorMessages'
 
 describe('resourceMemberErrorMessage', () => {
+  function expectBeginnerMessage(actual: string, expected: string): void {
+    expect(actual).toBe(expected)
+    expect(actual).not.toContain('Code:')
+    expect(actual).not.toContain('Details:')
+  }
+
   test('turns network failures into reachable next steps', () => {
     const message = resourceMemberErrorMessage('load', 'Project', new Error('Failed to fetch'))
 
@@ -17,8 +23,7 @@ describe('resourceMemberErrorMessage', () => {
       new Error('API 401: {"message":"token expired"}')
     )
 
-    expect(message).toContain('Sign in again')
-    expect(message).toContain('Code: 401.')
+    expectBeginnerMessage(message, 'Sign in again, then reopen members for this team.')
     expect(message).not.toContain('API 401')
   })
 
@@ -27,20 +32,21 @@ describe('resourceMemberErrorMessage', () => {
 
     expect(message).toContain('You do not have permission')
     expect(message).toContain('Ask an owner or admin')
-    expect(message).toContain('Code: 403.')
+    expect(message).not.toContain('Code:')
     expect(message).not.toContain('Forbidden')
   })
 
-  test('keeps safe validation details after the beginner action', () => {
+  test('turns last-owner style remove failures into a clear owner step', () => {
     const message = resourceMemberErrorMessage(
       'remove',
       'Project',
       new Error('API 422: {"message":"Choose a different owner first."}')
     )
 
-    expect(message).toContain('last owner')
-    expect(message).toContain('Code: 422.')
-    expect(message).toContain('Details: Choose a different owner first.')
+    expectBeginnerMessage(
+      message,
+      'Choose a different owner first, then remove this person from this project.'
+    )
     expect(message).not.toContain('API 422')
   })
 })

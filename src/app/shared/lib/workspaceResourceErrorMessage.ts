@@ -12,39 +12,37 @@ export function workspaceResourceErrorMessage(
 ): string {
   const status = statusFromError(error)
   const detail = status === null || status === 400 || status === 422 ? safeDetail(error) : null
-  const suffix = detail ? ` Details: ${detail}` : ''
 
   if (!status) {
     if (detail) {
-      return `${label(resource)} could not ${actionPhrase(action)}. Review the message and try again.${suffix}`
+      return validationMessage(resource, action, detail)
     }
     return `${label(resource)} could not ${actionPhrase(action)} because the browser could not reach the server. Check your connection, then try again.`
   }
 
-  const statusText = `Code: ${status}.`
   if (status === 401) {
-    return `Sign in again, then ${retryPhrase(resource, action)}. ${statusText}${suffix}`
+    return `Sign in again, then reopen Settings and ${retryPhrase(resource, action)}.`
   }
   if (status === 403) {
-    return `You do not have permission to ${actionPhrase(action)} this ${resource}. Ask an owner or admin to update your role. ${statusText}${suffix}`
+    return `You do not have permission to ${permissionAction(action)} this ${resource}. Ask an owner or admin to update your role.`
   }
   if (status === 404) {
-    return `This ${resource} could not be found. Refresh settings, then choose an existing ${resource}. ${statusText}${suffix}`
+    return `This ${resource} could not be found. Refresh Settings, then choose an existing ${resource}.`
   }
   if (status === 409) {
-    return `This ${resource} changed while you were editing. Refresh settings, review the current ${resource}, then try again. ${statusText}${suffix}`
+    return `This ${resource} changed while you were editing. Refresh Settings, review the current ${resource}, then try again.`
   }
   if (status === 400 || status === 422) {
-    return `${validationMessage(resource, action)} ${statusText}${suffix}`
+    return validationMessage(resource, action, detail)
   }
   if (status === 429) {
-    return `Workspace settings are busy. Wait a moment, then ${retryPhrase(resource, action)}. ${statusText}${suffix}`
+    return `Workspace settings are busy. Wait a moment, then ${retryPhrase(resource, action)}.`
   }
   if (status >= 500) {
-    return `Workspace settings had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+    return 'Workspace settings are temporarily unavailable. Ask an owner or admin to check the backend, then refresh Settings.'
   }
 
-  return `${label(resource)} could not ${actionPhrase(action)}. Refresh settings and try again. ${statusText}${suffix}`
+  return `${label(resource)} could not ${actionPhrase(action)}. Refresh Settings and try again.`
 }
 
 function label(resource: WorkspaceResourceKind): string {
@@ -55,6 +53,10 @@ function actionPhrase(action: WorkspaceResourceAction): string {
   return action === 'update' ? 'be saved' : 'be deleted'
 }
 
+function permissionAction(action: WorkspaceResourceAction): string {
+  return action === 'update' ? 'save' : 'delete'
+}
+
 function retryPhrase(resource: WorkspaceResourceKind, action: WorkspaceResourceAction): string {
   if (action === 'update') return `save the ${resource} again`
   return `delete the ${resource} again`
@@ -62,12 +64,28 @@ function retryPhrase(resource: WorkspaceResourceKind, action: WorkspaceResourceA
 
 function validationMessage(
   resource: WorkspaceResourceKind,
-  action: WorkspaceResourceAction
+  action: WorkspaceResourceAction,
+  detail?: string | null
 ): string {
+  const normalized = detail?.toLowerCase() ?? ''
   if (action === 'update') {
+    if (normalized.includes('name')) {
+      return resource === 'team'
+        ? 'Enter a team name, then save again.'
+        : 'Enter a project name, then save again.'
+    }
     return resource === 'team'
       ? 'Check the team name and description, then save again.'
       : 'Check the project name, description, and color, then save again.'
+  }
+  if (resource === 'team' && normalized.includes('project')) {
+    return "Move or delete this team's projects first, then delete the team again."
+  }
+  if (resource === 'project' && normalized.includes('agent')) {
+    return 'Move agents out of this project first, then delete the project again.'
+  }
+  if (resource === 'project' && normalized.includes('task')) {
+    return "Move or finish this project's tasks first, then delete the project again."
   }
   return resource === 'team'
     ? 'This team could not be deleted. Check whether it still owns projects or required access, then try again.'

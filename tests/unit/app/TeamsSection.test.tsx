@@ -74,7 +74,7 @@ describe('TeamsSection', () => {
 
     await waitFor(() => expect(getTeams).toHaveBeenCalledWith('org-1'))
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Workspace teams could not be loaded. The workspace settings service had a server problem. Try again after the backend is healthy.'
+      'Workspace teams could not be loaded. The workspace settings service is temporarily unavailable. Ask an owner or admin to check the backend, then refresh Settings.'
     )
     expect(screen.queryByText('HTTP 500')).toBeNull()
   })
@@ -86,8 +86,10 @@ describe('TeamsSection', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Workspace teams could not be loaded. Ask an owner or admin to update your workspace access. Detail: owner role required'
+      'Workspace teams could not be loaded. Ask an owner or admin to update your workspace access.'
     )
+    expect(alert.textContent).not.toContain('Detail:')
+    expect(alert.textContent).not.toContain('owner role required')
   })
 
   test('turns team creation validation errors into field guidance', async () => {
@@ -101,7 +103,7 @@ describe('TeamsSection', () => {
     fireEvent.change(screen.getByLabelText(/team name/i), { target: { value: 'Design' } })
     fireEvent.click(screen.getByRole('button', { name: 'Create Team' }))
 
-    expect(await screen.findByText(/Check the name and required fields, then try again/i)).toBeDefined()
-    expect(screen.getByText(/team name is required/i)).toBeDefined()
+    expect(await screen.findByText(/Enter a team name, then try again/i)).toBeDefined()
+    expect(screen.queryByText(/team name is required/i)).toBeNull()
   })
 })

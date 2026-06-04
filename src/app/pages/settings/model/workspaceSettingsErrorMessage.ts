@@ -13,7 +13,7 @@ function statusCode(err: unknown): number | null {
   return Number.isFinite(code) ? code : null
 }
 
-function safeErrorDetail(err: unknown): string {
+function errorDetail(err: unknown): string {
   const message = rawErrorMessage(err).trim()
   const match = /\b(?:HTTP|API|Server error|Code:)\s*\(?\d{3}\)?\s*:?\s*(.*)$/is.exec(message)
   const detail = match?.[1]?.trim() ?? ''
@@ -32,7 +32,7 @@ function safeErrorDetail(err: unknown): string {
     // Keep a short server-provided detail below when it was not JSON.
   }
 
-  return detail.length <= 120 ? detail : ''
+  return detail
 }
 
 function isNetworkError(err: unknown): boolean {
@@ -63,36 +63,38 @@ export function workspaceSettingsErrorMessage(
 ): string {
   const base = baseMessage(resource, action)
   const text = rawErrorMessage(err).toLowerCase()
+  const detail = errorDetail(err).toLowerCase()
   const code = statusCode(err)
-  const suffix = safeErrorDetail(err)
-  const detail = suffix ? ` Detail: ${suffix}` : ''
 
   if (code === 401 || text.includes('unauthorized')) {
-    return `${base} Sign in again, then return to Settings.${detail}`
+    return `${base} Sign in again, then return to Settings.`
   }
   if (code === 403 || text.includes('permission') || text.includes('forbidden')) {
-    return `${base} Ask an owner or admin to update your workspace access.${detail}`
+    return `${base} Ask an owner or admin to update your workspace access.`
   }
   if (code === 404 || text.includes('endpoint is not available')) {
-    return `${base} Refresh the page; the organization, team, or project may have changed.${detail}`
+    return `${base} Refresh Settings; the organization, team, or project may have changed.`
   }
   if (code === 409 || text.includes('already exists')) {
     return action === 'create'
-      ? `${base} Use a different name, then try again.${detail}`
-      : `${base} Another setup change is still saving. Wait a moment, then try again.${detail}`
+      ? `${base} Use a different name, then try again.`
+      : `${base} Another setup change is still saving. Wait a moment, then try again.`
   }
   if (code === 422 || text.includes('invalid')) {
-    return `${base} Check the name and required fields, then try again.${detail}`
+    if (detail.includes('name')) {
+      return `${base} Enter a ${resourceLabel(resource)} name, then try again.`
+    }
+    return `${base} Check the name and required fields, then try again.`
   }
   if (code === 429 || text.includes('busy') || text.includes('too many')) {
-    return `${base} Too many setup changes are happening right now. Wait a minute, then try again.${detail}`
+    return `${base} Too many setup changes are happening right now. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
-    return `${base} The workspace settings service had a server problem. Try again after the backend is healthy.${detail}`
+    return `${base} The workspace settings service is temporarily unavailable. Ask an owner or admin to check the backend, then refresh Settings.`
   }
   if (isNetworkError(err)) {
     return `${base} Check your connection, then try again.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner or admin to check the workspace setup.${detail}`
+  return `${base} Try again. If it still fails, ask an owner or admin to check the workspace setup.`
 }

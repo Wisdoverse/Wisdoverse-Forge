@@ -163,7 +163,7 @@ describe('ResourceMembersModal', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain('Sign in again')
-    expect(alert.textContent).toContain('Code: 401.')
+    expect(alert.textContent).not.toContain('Code:')
     expect(alert.textContent).not.toContain('API 401')
     expect(alert.textContent).not.toContain('token expired')
   })
@@ -215,8 +215,9 @@ describe('ResourceMembersModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirm remove builder' }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert.textContent).toContain('last owner')
-    expect(alert.textContent).toContain('Details: Choose a different owner first.')
+    expect(alert.textContent).toContain('Choose a different owner first')
+    expect(alert.textContent).toContain('remove this person from this project')
+    expect(alert.textContent).not.toContain('Details:')
     expect(alert.textContent).not.toContain('API 422')
   })
 })
