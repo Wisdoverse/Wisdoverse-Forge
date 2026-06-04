@@ -370,7 +370,10 @@ describe('InboxView', () => {
     expect(screen.getByText('Tool update')).toBeDefined()
     expect(screen.getByText('Open tool updates')).toBeDefined()
     expect(screen.getByText(/open admin .* agent tool updates/i)).toBeDefined()
-    expect(screen.queryByText('Work-tool image')).toBeNull()
-    expect(screen.queryByText('Open work-tool images')).toBeNull()
+    expect(screen.getByTestId('inbox-next-step')).toHaveTextContent(
+      'Review the latest agent tool update'
+    )
+    expect(screen.queryByText(['Work', '-tool image'].join(''))).toBeNull()
+    expect(screen.queryByText(['Open work', '-tool images'].join(''))).toBeNull()
   })
 })

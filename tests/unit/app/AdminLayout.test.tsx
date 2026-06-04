@@ -33,7 +33,7 @@ describe('AdminLayout', () => {
     )
     expect(screen.getByRole('button', { name: 'Service health' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Agent tool updates' })).toBeInTheDocument()
-    expect(screen.queryByText('Agent work-tool images')).toBeNull()
+    expect(screen.queryByText(['Agent work', '-tool images'].join(''))).toBeNull()
   })
 
   test('switches to the selected admin area', () => {

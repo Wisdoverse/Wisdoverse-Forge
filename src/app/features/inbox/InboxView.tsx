@@ -133,7 +133,7 @@ export function InboxView() {
       useSettingsStore.getState().setActiveSection('runtime')
       void navigate({ to: '/settings/$section', params: { section: 'runtime' } })
     } else if (notification.taskHref === '/admin') {
-      // CLI agent-image toast → open the admin console on the CLI Images panel,
+      // Tool update notifications open the admin console on the tool updates panel,
       // mirroring the /settings runtime-section pattern above.
       useAdminStore.getState().setActiveSection('cli-images')
       void navigate({ to: '/admin' })
@@ -349,7 +349,7 @@ function nextStepTitle(notification: Notification): string {
     case 'mentioned':
       return 'Open the newest mention'
     case 'cli_image_updated':
-      return 'Review the latest CLI agent-image update'
+      return 'Review the latest agent tool update'
   }
 }
 

@@ -259,7 +259,7 @@ function adminResourceLabel(resource: AdminResource): string {
     case 'health':
       return 'system health'
     case 'cli-images':
-      return 'agent work-tool images'
+      return 'agent tool updates'
   }
 }
 
