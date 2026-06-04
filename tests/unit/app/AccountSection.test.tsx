@@ -138,4 +138,43 @@ describe('AccountSection', () => {
       )
     ).toBeDefined()
   })
+
+  test('shows sign-in guidance when password update is not authorized', async () => {
+    changePasswordMock.mockRejectedValue(new Error('HTTP 401: {"message":"token expired"}'))
+    renderAccountSection()
+
+    fireEvent.change(screen.getByLabelText('Current Password'), {
+      target: { value: 'old-password' },
+    })
+    fireEvent.change(screen.getByLabelText('New Password'), {
+      target: { value: 'new-password' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm New Password'), {
+      target: { value: 'new-password' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /update password/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('Sign in again')
+    expect(alert.textContent).toContain('Code: 401.')
+    expect(alert.textContent).not.toContain('HTTP 401')
+    expect(alert.textContent).not.toContain('token expired')
+  })
+
+  test('shows permission guidance when organization rename is denied', async () => {
+    const updateOrg = vi.fn().mockRejectedValue(new Error('API 403: Forbidden'))
+    useNavigationStore.setState({ updateOrg })
+    renderAccountSection()
+
+    fireEvent.change(screen.getByLabelText('Organization Name'), {
+      target: { value: 'Acme Support' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save organization name/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('You do not have permission to rename this organization')
+    expect(alert.textContent).toContain('Ask an owner or admin')
+    expect(alert.textContent).not.toContain('API 403')
+    expect(alert.textContent).not.toContain('Forbidden')
+  })
 })

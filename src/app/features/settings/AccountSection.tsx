@@ -6,6 +6,7 @@ import { useTheme } from '@app/shared/model/theme.context'
 import { useI18n } from '@app/shared/model/i18n.context'
 import { getUserApi } from '@app/shared/api/legacy'
 import { useNavigationStore } from '@app/entities/navigation'
+import { accountErrorMessage } from './accountErrorMessages'
 
 // ============================================================================
 // Password Change Form
@@ -86,7 +87,7 @@ function PasswordChangeForm() {
       setSuccess(true)
       setForm(DEFAULT_PW_FORM)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Password was not changed. Try again.')
+      setError(accountErrorMessage('changePassword', err))
     } finally {
       setSaving(false)
     }
@@ -264,7 +265,7 @@ function OrgRenameForm() {
       }
     } catch (err) {
       if (useNavigationStore.getState().selectedOrgId === submittingOrgId) {
-        setError(err instanceof Error ? err.message : 'Failed to rename organization')
+        setError(accountErrorMessage('renameOrganization', err))
       }
     } finally {
       setPendingOrgIds((prev) => {
@@ -279,7 +280,11 @@ function OrgRenameForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      {error && <div className={uiStyles.error}>{error}</div>}
+      {error && (
+        <div role="alert" className={uiStyles.error}>
+          {error}
+        </div>
+      )}
       {success && (
         <div className="rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
           Organization name updated. Teammates will see the new name in navigation.
