@@ -90,7 +90,7 @@ export function workspaceSettingsErrorMessage(
     return `${base} Too many setup changes are happening right now. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
-    return `${base} The workspace settings service is temporarily unavailable. Ask an owner or admin to check the backend, then refresh Settings.`
+    return `${base} The workspace settings service is temporarily unavailable. Refresh Settings, then try again. If it still fails, ask an owner or admin to check workspace setup.`
   }
   if (isNetworkError(err)) {
     return `${base} Check your connection, then try again.`

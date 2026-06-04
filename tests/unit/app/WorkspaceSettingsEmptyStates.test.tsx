@@ -148,21 +148,21 @@ describe('workspace settings empty states', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain(
-      'Workspace projects could not be loaded. The workspace settings service had a server problem. Try again after the backend is healthy.'
+      'Workspace projects could not be loaded. The workspace settings service is temporarily unavailable. Refresh Settings, then try again. If it still fails, ask an owner or admin to check workspace setup.'
     )
     expect(alert.textContent).not.toContain('HTTP 500')
   })
 
-  it('turns project loading server failures into a backend health step', async () => {
+  it('turns project loading server failures into a workspace setup step', async () => {
     mocks.getTeams.mockRejectedValue(new Error('API 503: {"message":"database unavailable"}'))
 
     render(<ProjectsSection />)
 
     expect(
-      await screen.findByText(/The workspace settings service had a server problem/i)
+      await screen.findByText(/The workspace settings service is temporarily unavailable/i)
     ).toBeInTheDocument()
-    expect(screen.getByText(/Try again after the backend is healthy/i)).toBeInTheDocument()
-    expect(screen.getByText(/database unavailable/i)).toBeInTheDocument()
+    expect(screen.getByText(/ask an owner or admin to check workspace setup/i)).toBeInTheDocument()
+    expect(screen.queryByText(/database unavailable/i)).not.toBeInTheDocument()
   })
 
   it('shows project creation when at least one team allows it', async () => {

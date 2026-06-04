@@ -48,6 +48,16 @@ describe('accountErrorMessage', () => {
     expect(message).not.toContain('Forbidden')
   })
 
+  test('turns account service failures into a retry and owner step', () => {
+    const message = accountErrorMessage('renameOrganization', new Error('HTTP 500'))
+
+    expect(message).toBe(
+      'The organization settings service had a problem. Wait a moment, then try again. If it still fails, ask an owner to check account settings.'
+    )
+    expect(message).not.toContain('HTTP 500')
+    expect(message).not.toContain('backend')
+  })
+
   test('turns organization validation details into a recovery step', () => {
     const message = accountErrorMessage(
       'renameOrganization',

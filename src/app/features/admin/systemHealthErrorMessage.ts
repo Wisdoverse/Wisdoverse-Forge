@@ -33,17 +33,17 @@ export function systemHealthErrorMessage(error: unknown): string {
     return `${base} Ask an owner to give you admin access for service readiness.`
   }
   if (code === 404 || text.includes('endpoint is not available')) {
-    return `${base} Refresh after the backend with the health endpoint is deployed.`
+    return `${base} Refresh after service readiness is available, then choose Check now.`
   }
   if (code === 429 || text.includes('busy') || text.includes('too many')) {
-    return `${base} The admin API is busy. Wait a minute, then choose Check now.`
+    return `${base} Service readiness is busy. Wait a minute, then choose Check now.`
   }
   if (code != null && code >= 500) {
-    return `${base} The admin API is temporarily unavailable. Check the backend service, then choose Check now.`
+    return `${base} Service readiness is temporarily unavailable. Ask an owner to check the admin service, then choose Check now.`
   }
   if (isNetworkError(error)) {
-    return `${base} The browser could not reach the server. Check your connection or API route, then choose Check now.`
+    return `${base} The browser could not reach the service. Check your connection, then choose Check now.`
   }
 
-  return `${base} Choose Check now again. If it still fails, ask an owner to check the admin API.`
+  return `${base} Choose Check now again. If it still fails, ask an owner to check service readiness.`
 }

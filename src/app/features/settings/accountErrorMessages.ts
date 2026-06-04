@@ -22,7 +22,7 @@ export function accountErrorMessage(action: AccountErrorAction, error?: unknown)
     return permissionMessage(action)
   }
   if (status === 404) {
-    return `${serviceLabel(action)} is not available. Refresh after the backend is deployed, then try again.`
+    return `${serviceLabel(action)} is not available. Refresh Settings, then try again.`
   }
   if (status === 409) {
     return conflictMessage(action)
@@ -34,7 +34,7 @@ export function accountErrorMessage(action: AccountErrorAction, error?: unknown)
     return `Account settings are busy. Wait a moment, then ${retryPhrase(action)}.`
   }
   if (status >= 500) {
-    return `${serviceLabel(action)} had a server problem. Try again after the backend is healthy.`
+    return `${serviceLabel(action)} had a problem. Wait a moment, then try again. If it still fails, ask an owner to check account settings.`
   }
 
   return `Account settings could not ${actionPhrase(action)}. Refresh the page and try again.`

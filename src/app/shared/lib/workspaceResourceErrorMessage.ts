@@ -39,7 +39,7 @@ export function workspaceResourceErrorMessage(
     return `Workspace settings are busy. Wait a moment, then ${retryPhrase(resource, action)}.`
   }
   if (status >= 500) {
-    return 'Workspace settings are temporarily unavailable. Ask an owner or admin to check the backend, then refresh Settings.'
+    return 'Workspace settings are temporarily unavailable. Refresh Settings, then try again. If it still fails, ask an owner or admin to check workspace setup.'
   }
 
   return `${label(resource)} could not ${actionPhrase(action)}. Refresh Settings and try again.`

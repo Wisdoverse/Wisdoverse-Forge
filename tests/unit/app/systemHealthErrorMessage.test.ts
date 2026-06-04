@@ -8,15 +8,15 @@ describe('systemHealthErrorMessage', () => {
     )
   })
 
-  test('turns server failures into a backend health next step', () => {
+  test('turns server failures into an admin service next step', () => {
     expect(systemHealthErrorMessage('HTTP 500')).toBe(
-      'Service readiness could not be loaded. The admin API is temporarily unavailable. Check the backend service, then choose Check now.'
+      'Service readiness could not be loaded. Service readiness is temporarily unavailable. Ask an owner to check the admin service, then choose Check now.'
     )
   })
 
   test('turns network failures into a connection next step', () => {
     expect(systemHealthErrorMessage(new TypeError('Failed to fetch'))).toBe(
-      'Service readiness could not be loaded. The browser could not reach the server. Check your connection or API route, then choose Check now.'
+      'Service readiness could not be loaded. The browser could not reach the service. Check your connection, then choose Check now.'
     )
   })
 })

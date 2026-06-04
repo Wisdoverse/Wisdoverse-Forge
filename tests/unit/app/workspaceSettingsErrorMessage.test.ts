@@ -38,7 +38,7 @@ describe('workspaceSettingsErrorMessage', () => {
         'load',
         new Error('API 503: {"message":"database unavailable"}')
       ),
-      'Workspace teams could not be loaded. The workspace settings service is temporarily unavailable. Ask an owner or admin to check the backend, then refresh Settings.'
+      'Workspace teams could not be loaded. The workspace settings service is temporarily unavailable. Refresh Settings, then try again. If it still fails, ask an owner or admin to check workspace setup.'
     )
   })
 

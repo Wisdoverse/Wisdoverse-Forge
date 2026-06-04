@@ -40,4 +40,14 @@ describe('workspaceResourceErrorMessage', () => {
     )
     expect(message).not.toContain('HTTP 422')
   })
+
+  test('turns server failures into a workspace setup recovery step', () => {
+    const message = workspaceResourceErrorMessage('project', 'update', new Error('HTTP 500'))
+
+    expectBeginnerMessage(
+      message,
+      'Workspace settings are temporarily unavailable. Refresh Settings, then try again. If it still fails, ask an owner or admin to check workspace setup.'
+    )
+    expect(message).not.toContain('HTTP 500')
+  })
 })
