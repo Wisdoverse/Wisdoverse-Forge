@@ -98,6 +98,10 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
               <p className="mt-1">
                 Try Tasks, Inbox, Agents, Skills, or Settings to jump to a common workflow.
               </p>
+              <p className="mt-1 text-ui-caption">
+                Clear the search if you are not sure what to type; the full command list will come
+                back.
+              </p>
             </Command.Empty>
 
             <Command.Group

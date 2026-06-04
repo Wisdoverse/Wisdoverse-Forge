@@ -50,6 +50,7 @@ describe('CommandPalette', () => {
       expect(screen.getByText('No commands found')).toBeDefined()
     })
     expect(screen.getByText(/try tasks, inbox, agents, skills, or settings/i)).toBeDefined()
+    expect(screen.getByText(/clear the search if you are not sure what to type/i)).toBeDefined()
   })
 
   test('suggests common workflow terms when search has no matches', () => {
@@ -61,5 +62,6 @@ describe('CommandPalette', () => {
 
     expect(screen.getByText('No commands found')).toBeDefined()
     expect(screen.getByText(/try tasks, inbox, agents, skills, or settings/i)).toBeDefined()
+    expect(screen.getByText(/the full command list will come back/i)).toBeDefined()
   })
 })
