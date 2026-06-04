@@ -47,7 +47,7 @@ describe('CommandPalette', () => {
     fireEvent.change(input, { target: { value: 'zzzzzz' } })
 
     await waitFor(() => {
-      expect(screen.getByText('No commands found')).toBeDefined()
+      expect(screen.getByText('No command matches that search')).toBeDefined()
     })
     expect(screen.getByText(/try tasks, inbox, agents, skills, or settings/i)).toBeDefined()
     expect(screen.getByText(/clear the search if you are not sure what to type/i)).toBeDefined()
@@ -60,7 +60,7 @@ describe('CommandPalette', () => {
       target: { value: 'missing workflow' },
     })
 
-    expect(screen.getByText('No commands found')).toBeDefined()
+    expect(screen.getByText('No command matches that search')).toBeDefined()
     expect(screen.getByText(/try tasks, inbox, agents, skills, or settings/i)).toBeDefined()
     expect(screen.getByText(/the full command list will come back/i)).toBeDefined()
   })

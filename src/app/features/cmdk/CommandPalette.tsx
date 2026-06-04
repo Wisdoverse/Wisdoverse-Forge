@@ -93,7 +93,7 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
           <Command.List className="max-h-80 overflow-y-auto py-2">
             <Command.Empty className="px-4 py-6 text-center text-sm text-secondary-light dark:text-secondary-dark">
               <p className="font-medium text-foreground-light dark:text-foreground-dark">
-                No commands found
+                No command matches that search
               </p>
               <p className="mt-1">
                 Try Tasks, Inbox, Agents, Skills, or Settings to jump to a common workflow.

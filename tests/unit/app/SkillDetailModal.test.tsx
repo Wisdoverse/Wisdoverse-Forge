@@ -77,8 +77,14 @@ describe('SkillDetailModal', () => {
     expect(screen.getByText('Skills library')).toBeInTheDocument()
     expect(screen.getByText('Unknown')).toBeInTheDocument()
     expect(screen.getByText('latest')).toBeInTheDocument()
-    expect(screen.getByText('No summary is available yet.')).toBeInTheDocument()
-    expect(screen.getByText('No reusable instructions have been saved yet.')).toBeInTheDocument()
+    expect(
+      screen.getByText('No summary yet. Review the instructions below before using this skill.')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No reusable instructions have been saved yet. Add instructions before asking agents to use this skill.'
+      )
+    ).toBeInTheDocument()
   })
 
   test('closes from the beginner-friendly done action', () => {

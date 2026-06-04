@@ -24,7 +24,11 @@ describe('beginner error translations', () => {
   test('empty states include a next step', () => {
     expect(en.common.noResults).toContain('clear the filters')
     expect(en.agents.noAgents).toContain('Create one agent')
+    expect(en.skills.detail.noDescription).toContain('Review the instructions')
+    expect(en.skills.detail.noContent).toContain('Add instructions')
     expect(zh.common.noResults).toContain('清除筛选')
     expect(zh.agents.noAgents).toContain('创建一个会话')
+    expect(zh.skills.detail.noDescription).toContain('查看下面的说明')
+    expect(zh.skills.detail.noContent).toContain('先补充说明')
   })
 })
