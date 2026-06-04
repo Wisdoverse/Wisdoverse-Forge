@@ -42,14 +42,16 @@ describe('runtimeErrorMessage', () => {
     )
   })
 
-  test('turns setup service failures into a worker recovery step', () => {
+  test('turns setup service failures into an agent setup recovery step', () => {
     const message = runtimeErrorMessage('loadAgentSignals', new Error('HTTP 500'))
 
     expectBeginnerMessage(
       message,
-      'Agent setup is temporarily unavailable. Refresh this setup check, then try again. If it still fails, ask an owner or admin to check the worker service.'
+      'Agent setup is temporarily unavailable. Refresh this setup check, then try again. If it still fails, ask an owner or admin to check the agent setup service.'
     )
     expect(message).not.toContain('backend')
+    expect(message).not.toContain('worker')
+    expect(message).not.toContain('HTTP 500')
   })
 })
 
