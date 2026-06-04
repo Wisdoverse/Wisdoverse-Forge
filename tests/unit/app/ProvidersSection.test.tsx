@@ -84,24 +84,26 @@ afterEach(() => {
 })
 
 describe('ProvidersSection', () => {
-  test('summarizes provider readiness and filters providers by action state', async () => {
+  test('summarizes model service readiness and filters services by action state', async () => {
     render(<ProvidersSection />)
 
     const readiness = await screen.findByTestId('provider-readiness')
-    expect(within(readiness).getByText(/1\/3 providers ready/i)).toBeDefined()
-    expect(within(readiness).getByText('Default: OpenAI Production')).toBeDefined()
+    expect(within(readiness).getByText(/1\/3 model services ready/i)).toBeDefined()
+    expect(within(readiness).getByText('Default service: OpenAI Production')).toBeDefined()
     const nextStep = screen.getByTestId('provider-next-step')
-    expect(within(nextStep).getByText('Do This Next')).toBeDefined()
-    expect(within(nextStep).getByText('Test Provider Connection')).toBeDefined()
-    expect(screen.getByRole('button', { name: /test openai production connection/i })).toBeDefined()
+    expect(within(nextStep).getByText('Next Step')).toBeDefined()
+    expect(within(nextStep).getByText('Check Model Service Connection')).toBeDefined()
+    expect(
+      screen.getByRole('button', { name: /check openai production connection/i })
+    ).toBeDefined()
     expect(screen.getByText('Anthropic Review')).toBeDefined()
     expect(screen.getByText('Local Lab')).toBeDefined()
 
-    fireEvent.click(within(nextStep).getByRole('button', { name: /show needs test/i }))
+    fireEvent.click(within(nextStep).getByRole('button', { name: /show needs check/i }))
 
-    expect(screen.queryByRole('button', { name: /test openai production connection/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /check openai production connection/i })).toBeNull()
     expect(screen.getByText('Anthropic Review')).toBeDefined()
-    expect(screen.queryByRole('button', { name: /test local lab connection/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /check local lab connection/i })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Disabled' }))
 
@@ -109,51 +111,53 @@ describe('ProvidersSection', () => {
     expect(screen.getByText('Local Lab')).toBeDefined()
   })
 
-  test('searches providers and exposes a clear empty state', async () => {
+  test('searches model services and exposes a clear empty state', async () => {
     render(<ProvidersSection />)
 
-    fireEvent.change(await screen.findByRole('searchbox', { name: /search providers/i }), {
+    fireEvent.change(await screen.findByRole('searchbox', { name: /search model services/i }), {
       target: { value: 'review' },
     })
 
     expect(screen.getByText('Anthropic Review')).toBeDefined()
-    expect(screen.queryByRole('button', { name: /test openai production connection/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /check openai production connection/i })).toBeNull()
 
-    fireEvent.change(screen.getByRole('searchbox', { name: /search providers/i }), {
+    fireEvent.change(screen.getByRole('searchbox', { name: /search model services/i }), {
       target: { value: 'missing-provider' },
     })
 
-    expect(screen.getByText('No providers match this view')).toBeDefined()
+    expect(screen.getByText('No model services match this view')).toBeDefined()
   })
 
-  test('guides an empty provider setup into the add form', async () => {
+  test('guides an empty model service setup into the add form', async () => {
     useSettingsStore.setState({ providers: [] })
 
     render(<ProvidersSection />)
 
     const nextStep = await screen.findByTestId('provider-next-step')
-    expect(within(nextStep).getByText('Add Your First Provider')).toBeDefined()
-    expect(within(nextStep).getByText(/paste the key/i)).toBeDefined()
+    expect(within(nextStep).getByText('Add Your First Model Service')).toBeDefined()
+    expect(within(nextStep).getByText(/paste its key/i)).toBeDefined()
 
-    fireEvent.click(within(nextStep).getByRole('button', { name: /add provider/i }))
+    fireEvent.click(within(nextStep).getByRole('button', { name: /add model service/i }))
 
-    expect(screen.getByText('Provider setup path')).toBeDefined()
-    expect(screen.getByText('Paste key')).toBeDefined()
+    expect(screen.getByText('Model service setup path')).toBeDefined()
+    expect(screen.getByText('Add key')).toBeDefined()
     expect(screen.getByText(/stored encrypted/i)).toBeDefined()
-    expect(screen.getByText('Save, then test')).toBeDefined()
-    expect(screen.getByLabelText(/^provider$/i)).toBeDefined()
-    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/next: paste api key/i)
-    const saveButton = screen.getByRole('button', { name: /save provider/i })
+    expect(screen.getByText('Save, then check')).toBeDefined()
+    expect(screen.getByLabelText(/^model service$/i)).toBeDefined()
+    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
+      /next: paste secret key/i
+    )
+    const saveButton = screen.getByRole('button', { name: /save model service/i })
     expect(saveButton).toBeEnabled()
 
     fireEvent.click(saveButton)
 
     expect(
-      screen.getAllByText('Add the API key before saving this provider.').length
+      screen.getAllByText('Add the secret key before saving this model service.').length
     ).toBeGreaterThan(0)
     expect(saveProviderMock).not.toHaveBeenCalled()
 
-    fireEvent.change(screen.getByLabelText(/api key/i), { target: { value: 'sk-test' } })
+    fireEvent.change(screen.getByLabelText(/secret key/i), { target: { value: 'sk-test' } })
 
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/ready to save/i)
     fireEvent.click(saveButton)
@@ -188,22 +192,24 @@ describe('ProvidersSection', () => {
     render(<ProvidersSection />)
 
     const readiness = await screen.findByTestId('provider-readiness')
-    expect(within(readiness).getByText('Provider setup needs attention')).toBeDefined()
+    expect(within(readiness).getByText('Model service setup needs attention')).toBeDefined()
     const nextStep = screen.getByTestId('provider-next-step')
-    expect(within(nextStep).getByText('Add an Active Provider')).toBeDefined()
+    expect(within(nextStep).getByText('Add an Active Model Service')).toBeDefined()
 
-    fireEvent.click(within(nextStep).getByRole('button', { name: /add provider/i }))
+    fireEvent.click(within(nextStep).getByRole('button', { name: /add model service/i }))
 
     expect(screen.getByText('Local Disabled')).toBeDefined()
-    expect(screen.getByRole('button', { name: /save provider/i })).toBeEnabled()
-    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/next: paste api key/i)
+    expect(screen.getByRole('button', { name: /save model service/i })).toBeEnabled()
+    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
+      /next: paste secret key/i
+    )
   })
 
-  test('runs a provider test from the provider row', async () => {
+  test('runs a connection check from the model service row', async () => {
     render(<ProvidersSection />)
 
     fireEvent.click(
-      await screen.findByRole('button', { name: /test anthropic review connection/i })
+      await screen.findByRole('button', { name: /check anthropic review connection/i })
     )
 
     await waitFor(() =>
@@ -220,12 +226,12 @@ describe('ProvidersSection', () => {
     render(<ProvidersSection />)
 
     fireEvent.click(
-      await screen.findByRole('button', { name: /test anthropic review connection/i })
+      await screen.findByRole('button', { name: /check anthropic review connection/i })
     )
 
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Anthropic Review connection test failed. Check that the saved API key is active and allowed to use the selected model, then save and test again.'
+        'Anthropic Review connection test failed. Check that the saved secret key is active and allowed to use the selected model, then save and check again.'
       )
     )
     expect(screen.queryByText(/HTTP 403/i)).toBeNull()
@@ -242,7 +248,7 @@ describe('ProvidersSection', () => {
 
     await waitFor(() => expect(loadProvidersMock).toHaveBeenCalledTimes(1))
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Provider could not be saved. Check the provider, model, API key, and Base URL, then save again.'
+      'Model service could not be saved. Check the model service, model, secret key, and service address, then save again.'
     )
     expect(screen.queryByText(/Details: API key is required/i)).toBeNull()
   })

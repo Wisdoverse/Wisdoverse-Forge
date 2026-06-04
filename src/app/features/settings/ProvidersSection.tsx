@@ -49,7 +49,7 @@ interface ProviderFormReadiness {
 const PROVIDER_FILTERS: { id: ProviderFilter; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'ready', label: 'Ready' },
-  { id: 'needs-test', label: 'Needs Test' },
+  { id: 'needs-test', label: 'Needs Check' },
   { id: 'disabled', label: 'Disabled' },
 ]
 
@@ -62,9 +62,9 @@ const DEFAULT_FORM: AddProviderForm = {
 }
 
 const PROVIDER_SETUP_STEPS = [
-  { label: 'Choose provider', value: 'Select the service that will run model requests.' },
-  { label: 'Paste key', value: 'Use the provider key from that account. It is stored encrypted.' },
-  { label: 'Save, then test', value: 'Run Test before creating text-only model agents.' },
+  { label: 'Choose service', value: 'Pick the company or local tool that answers messages.' },
+  { label: 'Add key', value: 'Paste the secret key from that service. It is stored encrypted.' },
+  { label: 'Save, then check', value: 'Check the connection before creating agents.' },
 ]
 
 const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
@@ -223,9 +223,9 @@ function providerFormReadiness({
   if (!form.model.trim()) {
     return {
       ready: false,
-      title: 'Next: Add Model',
+      title: 'Next: Choose a Model',
       detail: 'Choose a model from the list or keep the suggested default.',
-      error: 'Add a model before saving this provider.',
+      error: 'Choose a model before saving this model service.',
       fieldId: modelInputId,
     }
   }
@@ -233,9 +233,9 @@ function providerFormReadiness({
   if (needsApiKey && !form.apiKey.trim()) {
     return {
       ready: false,
-      title: 'Next: Paste API Key',
-      detail: 'Paste the key from your provider account. It will be stored as a secret.',
-      error: 'Add the API key before saving this provider.',
+      title: 'Next: Paste Secret Key',
+      detail: 'Paste the key from the model service account. It will be stored as a secret.',
+      error: 'Add the secret key before saving this model service.',
       fieldId: apiKeyInputId,
     }
   }
@@ -243,9 +243,9 @@ function providerFormReadiness({
   if (needsBaseUrl && !form.baseUrl.trim()) {
     return {
       ready: false,
-      title: 'Next: Add Base URL',
-      detail: 'Paste the HTTPS endpoint for your OpenAI-compatible service.',
-      error: 'Add the Base URL before saving this provider.',
+      title: 'Next: Add Service Address',
+      detail: 'Paste the URL for your compatible model service.',
+      error: 'Add the service address before saving this model service.',
       fieldId: baseUrlInputId,
     }
   }
@@ -253,7 +253,7 @@ function providerFormReadiness({
   return {
     ready: true,
     title: 'Ready to Save',
-    detail: 'Save this provider, then run Test so agents can use it safely.',
+    detail: 'Save this model service, then check the connection so agents can use it safely.',
     error: null,
     fieldId: null,
   }
@@ -268,7 +268,7 @@ function providerStatusLabel(provider: LlmProviderConfig): string {
   if (!provider.isEnabled) return 'Disabled'
   if (provider.lastTestStatus === 'passed') return 'Ready'
   if (provider.lastTestStatus === 'failed') return 'Failed'
-  return 'Needs Test'
+  return 'Needs Check'
 }
 
 function providerStatusTone(provider: LlmProviderConfig): string {
@@ -299,52 +299,52 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
 
   if (total === 0) {
     return {
-      title: 'Add Your First Provider',
+      title: 'Add Your First Model Service',
       detail:
-        'A provider gives agents a model to use. Pick a provider, paste the key, save it, then run a connection test.',
-      success: 'At least 1 provider is saved and ready for a test.',
+        'A model service gives agents a model to use. Choose a service, paste its key, save it, then check the connection.',
+      success: 'At least 1 model service is saved and ready for a connection check.',
       ready: false,
       action: 'add-provider',
-      actionLabel: 'Add Provider',
+      actionLabel: 'Add Model Service',
     }
   }
 
   if (needsTestProviders.length > 0) {
     const firstProvider = needsTestProviders[0]
     return {
-      title: 'Test Provider Connection',
-      detail: `Test ${firstProvider.displayName} before assigning work so agent creation does not fail on the first run.`,
-      success: 'The provider shows Ready and can be used by text-only model agents.',
+      title: 'Check Model Service Connection',
+      detail: `Check ${firstProvider.displayName} before assigning work so agent creation does not fail on the first run.`,
+      success: 'The model service shows Ready and can be used by text-only model agents.',
       ready: false,
       action: 'show-needs-test',
-      actionLabel: 'Show Needs Test',
+      actionLabel: 'Show Needs Check',
     }
   }
 
   if (readyProviders.length === 0) {
     return {
-      title: 'Add an Active Provider',
+      title: 'Add an Active Model Service',
       detail:
-        'All saved providers are disabled. Add a working provider so agents have a model to use.',
-      success: 'At least 1 enabled provider is tested and marked Ready.',
+        'All saved model services are disabled. Add a working model service so agents have a model to use.',
+      success: 'At least 1 enabled model service is checked and marked Ready.',
       ready: false,
       action: 'add-provider',
-      actionLabel: 'Add Provider',
+      actionLabel: 'Add Model Service',
     }
   }
 
   if (!defaultProvider && readyProviders.length > 0) {
     return {
-      title: 'Ready Provider Available',
+      title: 'Ready Model Service Available',
       detail: `${readyProviders[0].displayName} is ready. Use it when creating a text-only model agent.`,
-      success: 'New text-only model agents can select a tested provider.',
+      success: 'New text-only model agents can select a checked model service.',
       ready: true,
     }
   }
 
   return {
     title: 'Ready to Create Text-Only Model Agents',
-    detail: `${defaultProvider?.displayName ?? readyProviders[0]?.displayName ?? 'A provider'} is ready for text-only model agents.`,
+    detail: `${defaultProvider?.displayName ?? readyProviders[0]?.displayName ?? 'A model service'} is ready for text-only model agents.`,
     success: 'Open Agents, choose New Agent, then select Text-only model.',
     ready: true,
   }
@@ -472,11 +472,11 @@ function ProviderCard({ providerConfig, onTest, onDelete }: ProviderCardProps) {
           onClick={handleTest}
           disabled={testing || !isEnabled}
           className={uiStyles.secondaryButton}
-          aria-label={`Test ${displayName} connection`}
-          title="Test connection"
+          aria-label={`Check ${displayName} connection`}
+          title="Check connection"
         >
           <Activity className="h-4 w-4" aria-hidden="true" />
-          <span>{testing ? 'Testing' : 'Test'}</span>
+          <span>{testing ? 'Checking' : 'Check'}</span>
         </button>
         <button
           type="button"
@@ -486,7 +486,7 @@ function ProviderCard({ providerConfig, onTest, onDelete }: ProviderCardProps) {
             confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton
           )}
         >
-          {confirming ? 'Confirm?' : 'Delete'}
+          {confirming ? 'Confirm?' : 'Remove'}
         </button>
       </div>
     </div>
@@ -529,32 +529,34 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
               />
             )}
             <h3 className={uiStyles.sectionTitle}>
-              {allReady ? 'Providers ready for agent creation' : 'Provider setup needs attention'}
+              {allReady
+                ? 'Model services ready for agent creation'
+                : 'Model service setup needs attention'}
             </h3>
           </div>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
             {total === 0
-              ? 'Add and test a provider before creating text-only model agents.'
-              : `${ready}/${total} provider${total === 1 ? '' : 's'} ready, ${needsTest} need${
+              ? 'Add and check a model service before creating text-only model agents.'
+              : `${ready}/${total} model service${total === 1 ? '' : 's'} ready, ${needsTest} need${
                   needsTest === 1 ? 's' : ''
-                } a connection test, ${disabled} disabled.`}
+                } a connection check, ${disabled} disabled.`}
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-black/[0.04] px-2.5 py-1 text-ui-caption font-semibold text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-          Default: {defaultProvider?.displayName ?? 'None'}
+          Default service: {defaultProvider?.displayName ?? 'None'}
         </span>
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-4">
         <ProviderReadinessMetric label="Ready" value={String(ready)} ready={ready > 0} />
         <ProviderReadinessMetric
-          label="Needs Test"
+          label="Needs Check"
           value={String(needsTest)}
           ready={needsTest === 0}
         />
         <ProviderReadinessMetric label="Disabled" value={String(disabled)} ready={disabled === 0} />
         <ProviderReadinessMetric
-          label="Default Route"
+          label="Default Service"
           value={defaultProvider?.displayName ?? 'Not Set'}
           ready={Boolean(defaultProvider)}
         />
@@ -601,7 +603,7 @@ function ProviderNextStepPanel({
               />
             )}
             <p className="text-ui-caption font-semibold uppercase text-secondary-light dark:text-secondary-dark">
-              {step.ready ? 'Ready' : 'Do This Next'}
+              {step.ready ? 'Ready' : 'Next Step'}
             </p>
           </div>
           <h3 className="mt-1 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
@@ -740,7 +742,7 @@ function AddProviderFormPanel({
     >
       <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
         <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Provider setup path
+          Model service setup path
         </div>
         <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
           {PROVIDER_SETUP_STEPS.map((step) => (
@@ -760,10 +762,10 @@ function AddProviderFormPanel({
       </div>
 
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {/* Provider */}
+        {/* Model service */}
         <div>
           <label htmlFor={providerInputId} className={uiStyles.label}>
-            Provider
+            Model service
           </label>
           <select
             id={providerInputId}
@@ -876,7 +878,7 @@ function AddProviderFormPanel({
         {/* Display Name */}
         <div>
           <label htmlFor={displayNameInputId} className={uiStyles.label}>
-            Display Name
+            Name in Forge
           </label>
           <input
             id={displayNameInputId}
@@ -884,22 +886,22 @@ function AddProviderFormPanel({
             name="displayName"
             value={form.displayName}
             onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-            placeholder="My Provider…"
+            placeholder="Team model service…"
             autoComplete="off"
             className={uiStyles.input}
           />
         </div>
 
-        {/* API Key */}
+        {/* Secret key */}
         <div>
           <label htmlFor={apiKeyInputId} className={uiStyles.label}>
-            API Key {needsApiKey && <span className="text-red-500">*</span>}
+            Secret key {needsApiKey && <span className="text-red-500">*</span>}
           </label>
           <p
             id={apiKeyHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste the secret key from your provider account. It is hidden after saving.
+            Paste the key from the selected service account. It is hidden after saving.
           </p>
           <input
             id={apiKeyInputId}
@@ -925,16 +927,16 @@ function AddProviderFormPanel({
           )}
         </div>
 
-        {/* Base URL (optional) */}
+        {/* Service address (optional) */}
         <div className="sm:col-span-2">
           <label htmlFor={baseUrlInputId} className={uiStyles.label}>
-            Base URL {needsBaseUrl && <span className="text-red-500">*</span>}
+            Service address {needsBaseUrl && <span className="text-red-500">*</span>}
           </label>
           <p
             id={baseUrlHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Only change this for a local model server or OpenAI-compatible gateway.
+            Only change this for a local model server or compatible model gateway.
           </p>
           <input
             id={baseUrlInputId}
@@ -978,7 +980,7 @@ function AddProviderFormPanel({
             Cancel
           </button>
           <button type="submit" disabled={saving} className={uiStyles.primaryButton}>
-            {saving ? 'Saving…' : 'Save Provider'}
+            {saving ? 'Saving…' : 'Save Model Service'}
           </button>
         </div>
       </div>
@@ -1061,8 +1063,10 @@ export function ProvidersSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Model Providers</h2>
-          <p className={uiStyles.sectionDescription}>Configure AI model providers and API keys</p>
+          <h2 className={uiStyles.sectionTitle}>Model Services</h2>
+          <p className={uiStyles.sectionDescription}>
+            Connect model services so agents can answer messages
+          </p>
         </div>
         {!showForm && (
           <button
@@ -1071,7 +1075,7 @@ export function ProvidersSection() {
             className={uiStyles.primaryButton}
           >
             <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-            <span>Add Provider</span>
+            <span>Add Model Service</span>
           </button>
         )}
       </div>
@@ -1088,7 +1092,7 @@ export function ProvidersSection() {
 
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <label className="relative min-w-0 flex-1">
-          <span className="sr-only">Search Providers</span>
+          <span className="sr-only">Search model services</span>
           <Search
             size={14}
             strokeWidth={2}
@@ -1100,12 +1104,16 @@ export function ProvidersSection() {
             name="provider-search"
             value={providerSearch}
             onChange={(event) => setProviderSearch(event.target.value)}
-            placeholder="Search providers…"
+            placeholder="Search model services…"
             autoComplete="off"
             className={cn(uiStyles.input, 'pl-9')}
           />
         </label>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter providers by status">
+        <div
+          className="flex flex-wrap gap-2"
+          role="group"
+          aria-label="Filter model services by status"
+        >
           {PROVIDER_FILTERS.map((filter) => (
             <button
               key={filter.id}
@@ -1125,28 +1133,28 @@ export function ProvidersSection() {
         </div>
       </div>
 
-      {/* Provider list */}
+      {/* Model service list */}
       <div className={uiStyles.card}>
         {providersLoading && providers.length === 0 ? (
           <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading providers…
+            Loading model services…
           </div>
         ) : providers.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No providers configured
+              No model services connected
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Add a provider to enable AI capabilities
+              Add a model service so text-only model agents can answer.
             </p>
           </div>
         ) : filteredProviders.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No providers match this view
+              No model services match this view
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Clear search or switch filters to review every provider.
+              Clear search or switch filters to review every model service.
             </p>
           </div>
         ) : (

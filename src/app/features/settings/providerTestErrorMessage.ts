@@ -26,13 +26,13 @@ function isNetworkError(error: unknown): boolean {
   )
 }
 
-export function providerTestErrorMessage(error: unknown, providerName = 'Provider'): string {
+export function providerTestErrorMessage(error: unknown, providerName = 'Model service'): string {
   const base = `${providerName} connection test failed.`
   const text = errorText(error).toLowerCase()
   const code = statusCode(error)
 
   if (code === 401 || code === 403 || text.includes('unauthorized') || text.includes('forbidden')) {
-    return `${base} Check that the saved API key is active and allowed to use the selected model, then save and test again.`
+    return `${base} Check that the saved secret key is active and allowed to use the selected model, then save and check again.`
   }
   if (
     code === 400 ||
@@ -41,20 +41,20 @@ export function providerTestErrorMessage(error: unknown, providerName = 'Provide
     text.includes('api key') ||
     text.includes('authentication')
   ) {
-    return `${base} Check the API key, model, and Base URL, then save and test again.`
+    return `${base} Check the secret key, model, and service address, then save and check again.`
   }
   if (code === 404 || text.includes('not found')) {
-    return `${base} The model or provider endpoint was not found. Check the model name and Base URL, then test again.`
+    return `${base} The model or service address was not found. Check the model name and service address, then check again.`
   }
   if (code === 408 || code === 429 || text.includes('rate limit') || text.includes('too many')) {
-    return `${base} The provider is busy or rate limiting tests. Wait a minute, then test again.`
+    return `${base} The model service is busy or limiting checks. Wait a minute, then check again.`
   }
   if (code != null && code >= 500) {
-    return `${base} The provider service or gateway is temporarily unavailable. Try again in a few minutes.`
+    return `${base} The model service or gateway is temporarily unavailable. Try again in a few minutes.`
   }
   if (isNetworkError(error)) {
-    return `${base} The platform could not reach the provider. Check network access and the Base URL, then test again.`
+    return `${base} The platform could not reach the model service. Check network access and the service address, then check again.`
   }
 
-  return `${base} Review the provider settings, then test again.`
+  return `${base} Review the model service settings, then check again.`
 }

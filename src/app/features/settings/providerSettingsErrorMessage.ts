@@ -42,9 +42,9 @@ function actionFromText(text: string): ProviderSettingsAction {
 }
 
 function baseMessage(action: ProviderSettingsAction): string {
-  if (action === 'save') return 'Provider could not be saved.'
-  if (action === 'remove') return 'Provider could not be removed.'
-  return 'Provider settings could not be loaded.'
+  if (action === 'save') return 'Model service could not be saved.'
+  if (action === 'remove') return 'Model service could not be removed.'
+  return 'Model service settings could not be loaded.'
 }
 
 export function providerSettingsErrorMessage(error: unknown): string {
@@ -55,13 +55,13 @@ export function providerSettingsErrorMessage(error: unknown): string {
   const base = baseMessage(action)
 
   if (code === 401 || lower.includes('sign in again') || lower.includes('unauthorized')) {
-    return `${base} Sign in again, then open Settings and try providers again.`
+    return `${base} Sign in again, then open Settings and try model services again.`
   }
   if (code === 403 || lower.includes('permission') || lower.includes('forbidden')) {
-    return `${base} Ask an owner or admin for access to manage model providers.`
+    return `${base} Ask an owner or admin for access to manage model services.`
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
-    return `${base} A provider with this name or configuration already exists. Refresh the list, then choose a different name or remove the old provider first.`
+    return `${base} A model service with this name or setup already exists. Refresh the list, then choose a different name or remove the old service first.`
   }
   if (
     code === 422 ||
@@ -70,17 +70,17 @@ export function providerSettingsErrorMessage(error: unknown): string {
     lower.includes('base url') ||
     lower.includes('invalid provider')
   ) {
-    return `${base} Check the provider, model, API key, and Base URL, then save again.`
+    return `${base} Check the model service, model, secret key, and service address, then save again.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
     return `${base} The service is busy. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
-    return `${base} The provider settings service is temporarily unavailable. Try again. If it still fails, ask an owner to check provider settings.`
+    return `${base} The model service settings page is temporarily unavailable. Try again. If it still fails, ask an owner to check model service settings.`
   }
   if (isNetworkError(error)) {
     return `${base} The app could not reach the service. Check your connection, then try again.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner to check provider settings.`
+  return `${base} Try again. If it still fails, ask an owner to check model service settings.`
 }
