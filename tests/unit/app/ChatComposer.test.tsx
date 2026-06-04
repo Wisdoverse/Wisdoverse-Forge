@@ -32,6 +32,17 @@ describe('ChatComposer', () => {
     expect(onSend).not.toHaveBeenCalled()
   })
 
+  it('shows plain-language starting points for a first message', () => {
+    render(<ChatComposer onSend={() => {}} onAbort={() => {}} streaming={false} disabled={false} />)
+
+    expect(
+      screen.getByText(/ask for a short summary, what is blocked, or the next safe step/i)
+    ).toBeVisible()
+    expect(screen.getByRole('textbox')).toHaveAccessibleDescription(
+      /write one clear instruction or question.*ask for a short summary/i
+    )
+  })
+
   it('guides the user when Send is clicked without a message', () => {
     const onSend = vi.fn()
     render(<ChatComposer onSend={onSend} onAbort={() => {}} streaming={false} disabled={false} />)
@@ -41,7 +52,7 @@ describe('ChatComposer', () => {
 
     expect(onSend).not.toHaveBeenCalled()
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Write a message before sending it to this agent.'
+      'Write a message before sending it to this agent. Try asking for a summary, what is blocked, or the next safe step.'
     )
     expect(textarea).toHaveFocus()
 
