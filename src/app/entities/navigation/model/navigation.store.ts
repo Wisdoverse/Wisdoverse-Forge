@@ -43,6 +43,138 @@ const LS_PROJECT = 'af:nav:projectId'
 const LS_SIDEBAR = 'af:nav:sidebarExpanded'
 const LS_TEAMS = 'af:nav:expandedTeams'
 
+type NavigationErrorArea = 'organizations' | 'teamProjects' | 'workLanes' | 'workLane'
+type NavigationErrorAction = 'load' | 'create'
+
+const NAVIGATION_AREA_LABELS: Record<NavigationErrorArea, string> = {
+  organizations: 'organizations',
+  teamProjects: 'teams and projects',
+  workLanes: 'work lanes',
+  workLane: 'work lane',
+}
+
+function navigationActionPhrase(area: NavigationErrorArea, action: NavigationErrorAction): string {
+  switch (action) {
+    case 'load':
+      return `load ${NAVIGATION_AREA_LABELS[area]}`
+    case 'create':
+      return `create the ${NAVIGATION_AREA_LABELS[area]}`
+  }
+}
+
+function rawNavigationErrorMessage(error: unknown): string | null {
+  if (typeof error === 'string' && error.trim()) return error.trim()
+  if (error instanceof Error && error.message.trim()) return error.message.trim()
+  if (error && typeof error === 'object' && 'error' in error) {
+    const value = (error as { error?: unknown }).error
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  if (error && typeof error === 'object' && 'message' in error) {
+    const value = (error as { message?: unknown }).message
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return null
+}
+
+function detailFromPayload(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null
+  const record = payload as Record<string, unknown>
+  const nestedError = record.error
+  if (nestedError && typeof nestedError === 'object') {
+    const message = (nestedError as { message?: unknown }).message
+    if (typeof message === 'string' && message.trim()) return message.trim()
+  }
+  for (const key of ['error', 'message', 'detail']) {
+    const value = record[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return null
+}
+
+function navigationErrorDetail(error: unknown): string | null {
+  const raw = rawNavigationErrorMessage(error)
+  if (!raw) return null
+
+  const apiMatch = raw.match(/\b(?:API|HTTP)\s+\d{3}:?\s*(.*)$/i)
+  const body = apiMatch?.[1]?.trim()
+  if (body) {
+    try {
+      const parsed = JSON.parse(body) as unknown
+      const detail = detailFromPayload(parsed)
+      if (detail) return detail
+    } catch {
+      return body
+    }
+  }
+
+  return raw
+}
+
+function navigationErrorStatus(error: unknown): number | null {
+  if (error && typeof error === 'object' && 'statusCode' in error) {
+    const statusCode = (error as { statusCode?: unknown }).statusCode
+    if (typeof statusCode === 'number') return statusCode
+  }
+
+  const raw = rawNavigationErrorMessage(error)
+  const match = raw?.match(/\b(?:API|HTTP|Server error \()? ?(\d{3})\b/)
+  return match ? Number(match[1]) : null
+}
+
+function isRawNavigationFailure(detail: string | null): boolean {
+  if (!detail) return true
+  return (
+    /^API \d{3}/i.test(detail) ||
+    /^HTTP \d{3}/i.test(detail) ||
+    /^Server error \(\d{3}\)$/i.test(detail) ||
+    /^Network error$/i.test(detail) ||
+    /^Failed to fetch$/i.test(detail)
+  )
+}
+
+export function navigationActionErrorMessage(
+  area: NavigationErrorArea,
+  action: NavigationErrorAction,
+  error?: unknown
+): string {
+  const actionPhrase = navigationActionPhrase(area, action)
+  const status = navigationErrorStatus(error)
+  const detail = navigationErrorDetail(error)
+  const suffix = !isRawNavigationFailure(detail) ? ` Details: ${detail}` : ''
+
+  if (!status) {
+    if (!isRawNavigationFailure(detail)) {
+      return `Navigation could not ${actionPhrase}. Review the message and try again.${suffix}`
+    }
+    return `Navigation could not ${actionPhrase} because the browser could not reach the server. Check your connection and refresh the page.`
+  }
+
+  const statusText = `Code: ${status}.`
+  if (status === 401) {
+    return `Sign in again, then ${actionPhrase}. ${statusText}${suffix}`
+  }
+  if (status === 403) {
+    return `You do not have permission to ${actionPhrase}. Ask an admin to update your workspace access. ${statusText}${suffix}`
+  }
+  if (status === 404) {
+    return `The navigation endpoint for ${NAVIGATION_AREA_LABELS[area]} is not available. Refresh after the backend is deployed. ${statusText}${suffix}`
+  }
+  if (status === 409) {
+    return `The workspace navigation changed while you were working. Refresh the sidebar, then try again. ${statusText}${suffix}`
+  }
+  if (status === 422) {
+    return `Check the required fields for the ${NAVIGATION_AREA_LABELS[area]}, then try again. ${statusText}${suffix}`
+  }
+  if (status === 429) {
+    return `The workspace service is busy. Wait a moment, then ${actionPhrase}. ${statusText}${suffix}`
+  }
+  if (status >= 500) {
+    return `The workspace navigation service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+  }
+
+  return `Navigation could not ${actionPhrase}. Refresh the page and try again. ${statusText}${suffix}`
+}
+
 function lsGet(key: string): string | null {
   try {
     return localStorage.getItem(key)
@@ -95,7 +227,10 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
         }
       }
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : 'Failed to load orgs', loading: false })
+      set({
+        error: navigationActionErrorMessage('organizations', 'load', err),
+        loading: false,
+      })
     }
   },
 
@@ -113,7 +248,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
       })
       set({ teams, projects: projectMap })
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : 'Failed to load teams' })
+      set({ error: navigationActionErrorMessage('teamProjects', 'load', err) })
     }
   },
 
@@ -216,7 +351,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
         useBoardStore.getState().setSelectedGroupId(null)
       }
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : 'Failed to load groups' })
+      set({ error: navigationActionErrorMessage('workLanes', 'load', err) })
     }
   },
 
@@ -233,7 +368,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
       }
       return group
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : 'Failed to create group' })
+      set({ error: navigationActionErrorMessage('workLane', 'create', err) })
       throw err
     }
   },
