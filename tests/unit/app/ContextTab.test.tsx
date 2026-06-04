@@ -84,6 +84,23 @@ describe('ContextTab', () => {
     expect(within(emptyState).getByText(/Use feedback on applied items/i)).toBeDefined()
   })
 
+  test('shows beginner recovery guidance when task context fails to load', async () => {
+    render(
+      <ContextTab
+        taskId="task-1"
+        loadContext={async () => {
+          throw new Error('HTTP 403')
+        }}
+      />
+    )
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      "Task context could not be loaded. Ask an owner or admin to give you access to this task's context."
+    )
+    expect(alert).not.toHaveTextContent('HTTP 403')
+  })
+
   test('renders applied context, candidates, evidence, and provenance', async () => {
     const memory = applied({
       itemId: 'memory-1',
