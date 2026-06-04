@@ -39,4 +39,29 @@ describe('beginner error translations', () => {
     expect(zh.skills.detail.noDescription).toContain('查看下面的说明')
     expect(zh.skills.detail.noContent).toContain('先补充说明')
   })
+
+  test('local agent join errors avoid request-header and connection-policy jargon', () => {
+    const englishJoin = en.errors.agent.enroll.missing_idempotency_key
+    const englishSecure = en.errors.agent.enroll.plaintext_nats_blocked
+    const chineseJoin = zh.errors.agent.enroll.missing_idempotency_key
+    const chineseSecure = zh.errors.agent.enroll.plaintext_nats_blocked
+
+    expect(englishJoin.title).toContain('Join request needs to be sent again')
+    expect(englishJoin.detail).toContain('Run the agent join step again')
+    expect(englishJoin.title).not.toContain('Idempotency-Key')
+    expect(englishJoin.detail).not.toContain('UUID')
+    expect(englishSecure.detail).toContain('secure connection address')
+    expect(englishSecure.detail).not.toContain('NATS_AGENT_URL')
+    expect(englishSecure.detail).not.toContain('tls://')
+    expect(englishSecure.detail).not.toContain('allow_plaintext')
+
+    expect(chineseJoin.title).toContain('重新发送加入请求')
+    expect(chineseJoin.detail).toContain('重新执行 Agent 加入步骤')
+    expect(chineseJoin.title).not.toContain('Idempotency-Key')
+    expect(chineseJoin.detail).not.toContain('UUID')
+    expect(chineseSecure.detail).toContain('安全连接地址')
+    expect(chineseSecure.detail).not.toContain('NATS_AGENT_URL')
+    expect(chineseSecure.detail).not.toContain('tls://')
+    expect(chineseSecure.detail).not.toContain('allow_plaintext')
+  })
 })

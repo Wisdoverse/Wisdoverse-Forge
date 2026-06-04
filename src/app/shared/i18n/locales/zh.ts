@@ -553,13 +553,13 @@ export const zh: TranslationKeys = {
       },
       enroll: {
         missing_idempotency_key: {
-          title: '缺少 Idempotency-Key 请求头',
-          detail: '请在 `Idempotency-Key` 请求头中带上一个新的 UUID 后重试。',
+          title: '需要重新发送加入请求',
+          detail: '请重新执行 Agent 加入步骤。如果反复出现，请让管理员检查本地 Agent 设置。',
         },
         plaintext_nats_blocked: {
           title: '这台电脑的连接需要安全通道',
           detail:
-            '请将 `NATS_AGENT_URL` 设为 `tls://`，或先设置组织策略 `allow_plaintext_host_nats=true` 后再试。',
+            '请使用本地 Agent 的安全连接地址。如果不确定该填什么，请让管理员检查本地 Agent 连接设置。',
         },
       },
     },

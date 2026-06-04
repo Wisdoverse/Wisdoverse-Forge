@@ -560,13 +560,14 @@ export const en = {
       },
       enroll: {
         missing_idempotency_key: {
-          title: 'Idempotency-Key header required',
-          detail: 'Resend with a fresh UUID in the `Idempotency-Key` header.',
+          title: 'Join request needs to be sent again',
+          detail:
+            'Run the agent join step again. If this repeats, ask an owner to check local agent setup.',
         },
         plaintext_nats_blocked: {
           title: 'Secure connection required for this computer',
           detail:
-            'Configure `NATS_AGENT_URL` to use `tls://`, or set the organization policy `allow_plaintext_host_nats=true` to permit it.',
+            'Use the secure connection address for local agents. If you are not sure what to enter, ask an owner to check local agent connection settings.',
         },
       },
     },
