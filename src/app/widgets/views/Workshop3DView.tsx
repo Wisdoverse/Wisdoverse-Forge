@@ -64,9 +64,9 @@ const STATUS_STYLE: Record<
 }
 
 const EMPTY_STATE_STEPS = [
-  { label: 'Create an agent from Agents', icon: Bot },
-  { label: 'Start or wake the runtime', icon: Power },
-  { label: 'Refresh after the agent checks in', icon: RefreshCw },
+  { label: 'Open Agents and create one if none exists', icon: Bot },
+  { label: 'Start or wake the agent if it is already listed', icon: Power },
+  { label: 'Refresh this view after the agent checks in', icon: RefreshCw },
 ]
 
 export function Workshop3DEmptyState() {
@@ -78,7 +78,8 @@ export function Workshop3DEmptyState() {
       <div>
         <p className="text-sm font-medium leading-5 text-white">No agents in the workshop yet</p>
         <p className="mt-1">
-          Create or wake an agent, then this view will show its live status and activity in 3D.
+          If this is your first agent, create it from Agents. If you already have one, start or wake
+          it there, then refresh this view.
         </p>
       </div>
       <ol className="space-y-2">
