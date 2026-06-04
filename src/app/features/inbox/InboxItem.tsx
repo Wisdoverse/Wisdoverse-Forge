@@ -89,10 +89,10 @@ const TYPE_CONFIG: Record<
     color: 'text-apple-blue',
     unreadBg: 'bg-apple-blue/[0.04]',
     dot: 'bg-apple-blue',
-    label: 'Work-tool image',
-    actionLabel: 'Open work-tool images',
+    label: 'Tool update',
+    actionLabel: 'Open tool updates',
     guidance:
-      'Open Admin → Agent work-tool images to see the per-tool status. New agents pick up the change automatically.',
+      'Open Admin → Agent tool updates to see the per-tool status. New agents pick up the change automatically.',
     template: 'task-lifecycle',
   },
 }

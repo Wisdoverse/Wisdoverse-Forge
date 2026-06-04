@@ -350,4 +350,27 @@ describe('InboxView', () => {
       params: { section: 'runtime' },
     })
   })
+
+  test('renders tool update notifications with the current admin label', () => {
+    useFeedStore.getState().addNotification({
+      id: 'cli-image:codex:updated',
+      type: 'cli_image_updated',
+      taskId: 'cli-image:codex',
+      taskTitle: 'Codex tool package updated',
+      message: 'New agents will use the latest package.',
+      taskHref: '/admin?section=cli-images',
+      read: false,
+      timestamp: Date.now(),
+    })
+
+    render(<InboxView />)
+
+    const item = screen.getByTestId('inbox-notification-cli-image:codex:updated')
+    expect(item.getAttribute('data-template')).toBe('task-lifecycle')
+    expect(screen.getByText('Tool update')).toBeDefined()
+    expect(screen.getByText('Open tool updates')).toBeDefined()
+    expect(screen.getByText(/open admin .* agent tool updates/i)).toBeDefined()
+    expect(screen.queryByText('Work-tool image')).toBeNull()
+    expect(screen.queryByText('Open work-tool images')).toBeNull()
+  })
 })

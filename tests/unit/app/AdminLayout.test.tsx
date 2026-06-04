@@ -32,6 +32,8 @@ describe('AdminLayout', () => {
       'page'
     )
     expect(screen.getByRole('button', { name: 'Service health' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Agent tool updates' })).toBeInTheDocument()
+    expect(screen.queryByText('Agent work-tool images')).toBeNull()
   })
 
   test('switches to the selected admin area', () => {

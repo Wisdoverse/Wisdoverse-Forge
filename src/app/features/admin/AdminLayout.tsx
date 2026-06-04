@@ -22,7 +22,7 @@ const SECTIONS: SectionItem[] = [
   { id: 'organizations', label: 'Organizations', group: 'Management' },
   { id: 'agents', label: 'Agents', group: 'Management' },
   { id: 'health', label: 'Service health', group: 'System status' },
-  { id: 'cli-images', label: 'Agent work-tool images', group: 'System status' },
+  { id: 'cli-images', label: 'Agent tool updates', group: 'System status' },
 ]
 
 const GROUPS = ['Management', 'System status']

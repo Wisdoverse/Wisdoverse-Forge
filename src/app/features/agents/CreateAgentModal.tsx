@@ -419,9 +419,20 @@ export function CreateAgentModal() {
                 </span>
               </div>
               <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Copy this command and run it on the computer where the work tool is installed. The
-                agent will appear online after the connection tool starts.
+                Copy the full command below and run it in the local project folder. The agent will
+                appear online after the connection tool starts.
               </p>
+            </div>
+
+            <div className="rounded-lg border border-black/[0.08] bg-white px-4 py-3 dark:border-white/[0.1] dark:bg-white/[0.04]">
+              <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                What to do next
+              </p>
+              <ol className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                <li>Paste the command into the terminal for this project folder.</li>
+                <li>Keep that terminal open while the agent is working.</li>
+                <li>If you close it, run the same command again to reconnect this agent.</li>
+              </ol>
             </div>
 
             <div>

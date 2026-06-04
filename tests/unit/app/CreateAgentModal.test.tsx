@@ -304,6 +304,10 @@ describe('CreateAgentModal', () => {
     expect(await screen.findByLabelText(/join command/i)).toHaveValue(
       "export AGENT_ID='a-local'\nagentforge-sidecar"
     )
+    expect(screen.getByText('What to do next')).toBeInTheDocument()
+    expect(screen.getByText(/paste the command into the terminal/i)).toBeInTheDocument()
+    expect(screen.getByText(/keep that terminal open/i)).toBeInTheDocument()
+    expect(screen.getByText(/run the same command again to reconnect/i)).toBeInTheDocument()
   })
 
   test('defaults to text-only model when a verified provider exists', async () => {

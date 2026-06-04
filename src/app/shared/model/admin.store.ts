@@ -174,7 +174,7 @@ interface AdminState {
   healthLoading: boolean
   healthError: string | null
 
-  // Agent work-tool images
+  // Agent tool updates
   cliImages: CliImageStatus | null
   cliImagesLoading: boolean
   cliImagesError: string | null
@@ -533,7 +533,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   },
 
   // ---------------------------------------------------------------------------
-  // Agent work-tool images
+  // Agent tool updates
   // ---------------------------------------------------------------------------
 
   loadCliImages: async () => {
