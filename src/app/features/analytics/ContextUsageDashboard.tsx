@@ -10,6 +10,28 @@ interface ContextUsageDashboardProps {
 
 const percent = (value: number): string => `${Math.round(value * 100)}%`
 
+const ITEM_KIND_LABELS: Record<ContextUsageItem['itemKind'], string> = {
+  memory: 'Saved memory',
+  skill: 'Reusable skill',
+}
+
+const RUNTIME_LABELS: Record<string, string> = {
+  api: 'Model service',
+  container: 'Managed workspace',
+  provider: 'Model service',
+  local: 'Local agent',
+  cli: 'Container CLI',
+}
+
+const TASK_KIND_LABELS: Record<string, string> = {
+  chat: 'Chat task',
+  coding: 'Code change',
+  implementation: 'Implementation task',
+  planning: 'Planning task',
+  review: 'Review task',
+  workflow: 'Workflow task',
+}
+
 const EMPTY_TOP_USEFUL = {
   title: 'No useful context yet',
   detail: 'Helpful items appear after users mark applied context as useful.',
@@ -32,6 +54,28 @@ function relativeAge(timestamp: string): string {
   if (seconds < 3600) return `${Math.max(1, Math.floor(seconds / 60))}m ago`
   if (seconds < 86_400) return `${Math.floor(seconds / 3600)}h ago`
   return `${Math.floor(seconds / 86_400)}d ago`
+}
+
+function humanizeMachineValue(value: string): string {
+  const normalized = value
+    .trim()
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+
+  if (!normalized) return 'Unknown'
+
+  return normalized
+    .split(/\s+/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
+}
+
+function runtimeLabel(runtime: string): string {
+  return RUNTIME_LABELS[runtime] ?? humanizeMachineValue(runtime)
+}
+
+function taskKindLabel(taskKind: string): string {
+  return TASK_KIND_LABELS[taskKind] ?? humanizeMachineValue(taskKind)
 }
 
 export function ContextUsageDashboard({ data, loading = false }: ContextUsageDashboardProps) {
@@ -205,6 +249,7 @@ function UsageList({
 
 function UsageItem({ item }: { item: ContextUsageItem }) {
   const Icon = item.itemKind === 'memory' ? Brain : WandSparkles
+  const itemKindLabel = ITEM_KIND_LABELS[item.itemKind]
   const negative = item.feedbackNegativeCount > 0
 
   return (
@@ -230,11 +275,11 @@ function UsageItem({ item }: { item: ContextUsageItem }) {
               {item.itemTitle}
             </p>
             <span className="shrink-0 rounded-full bg-black/[0.04] px-1.5 py-0.5 text-ui-caption text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-              {item.itemKind}
+              {itemKindLabel}
             </span>
           </div>
           <p className="mt-1 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-            {item.agentName} · {item.runtime} · {item.taskKind}
+            {item.agentName} · {runtimeLabel(item.runtime)} · {taskKindLabel(item.taskKind)}
           </p>
         </div>
       </div>
@@ -244,7 +289,7 @@ function UsageItem({ item }: { item: ContextUsageItem }) {
         <Metric label="success" value={percent(item.successRate)} />
         <Metric label="useful" value={item.feedbackUsefulCount} />
         <Metric
-          label="negative"
+          label="review"
           value={item.feedbackNegativeCount}
           className={negative ? 'text-apple-red' : undefined}
         />
