@@ -193,6 +193,7 @@ test.describe('Mobile WebUI', () => {
 
     await page.waitForURL((url) => !url.pathname.endsWith('/login'), { timeout: 30_000 })
     await page.locator('#root > *').first().waitFor({ state: 'attached', timeout: 30_000 })
+    await expect(page).toHaveURL(/\/(tasks|start)/)
     await expectNoHorizontalOverflow(page)
   })
 
