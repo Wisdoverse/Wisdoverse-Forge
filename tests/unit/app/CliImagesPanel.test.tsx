@@ -67,14 +67,14 @@ describe('CliImagesPanel', () => {
     render(<CliImagesPanel />)
 
     await waitFor(() => expect(loadCliImages).toHaveBeenCalledOnce())
-    expect(screen.getByText('Agent work-tool images')).toBeDefined()
+    expect(screen.getByText('Agent tool updates')).toBeDefined()
     expect(screen.getByText('Automatic updates are on')).toBeDefined()
-    expect(screen.getByText('codex')).toBeDefined()
+    expect(screen.getByText('Codex')).toBeDefined()
     expect(screen.getByText('Up to date')).toBeDefined()
     // failed tool surfaces its reported detail
     expect(screen.getByText('Check failed')).toBeDefined()
     expect(screen.getByText(/registry timeout/)).toBeDefined()
-    expect(screen.getByText('2 agents currently have a container for this tool')).toBeDefined()
+    expect(screen.getByText('2 agents are currently using this tool')).toBeDefined()
   })
 
   test('shows the prune sweep summary when pruning is enabled', () => {
@@ -99,7 +99,7 @@ describe('CliImagesPanel', () => {
     })
 
     render(<CliImagesPanel />)
-    expect(screen.getByText('Old image cleanup')).toBeDefined()
+    expect(screen.getByText('Old tool package cleanup')).toBeDefined()
     expect(screen.getByText(/3 removed/)).toBeDefined()
     expect(screen.getByText(/1 still in use/)).toBeDefined()
   })
@@ -184,7 +184,7 @@ describe('CliImagesPanel', () => {
 
     expect(screen.getByText('Not checked — updates off')).toBeDefined()
     expect(
-      screen.getByText('This image has never been checked because automatic updates are off.')
+      screen.getByText('This tool has never been checked because automatic updates are off.')
     ).toBeDefined()
   })
 
@@ -202,11 +202,11 @@ describe('CliImagesPanel', () => {
     // Stale data still renders, but with an explicit out-of-date warning.
     expect(screen.getByText(/may be out of date/i)).toBeDefined()
     expect(
-      screen.getByText(/do not roll agents from this table until check now succeeds/i)
+      screen.getByText(/do not restart agents from this table until check now succeeds/i)
     ).toBeDefined()
     expect(screen.queryByText('HTTP 401')).toBeNull()
-    expect(screen.getByText(/ask an owner to check the admin service and image updater/i)).toBeDefined()
-    expect(screen.getByText('codex')).toBeDefined()
+    expect(screen.getByText(/ask an owner to check the admin service and agent tool updater/i)).toBeDefined()
+    expect(screen.getByText('Codex')).toBeDefined()
   })
 
   test('uses clear loading copy while the first check runs', () => {
@@ -220,7 +220,7 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
 
-    expect(screen.getByText('Checking CLI image status...')).toBeDefined()
+    expect(screen.getByText('Checking agent tool update status...')).toBeDefined()
     expect(screen.getByRole('button', { name: 'Checking...' })).toBeDisabled()
   })
 
@@ -235,7 +235,7 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
 
-    expect(screen.getByText(/The CLI image status could not load/i)).toBeDefined()
+    expect(screen.getByText(/The agent tool update status could not load/i)).toBeDefined()
     expect(screen.queryByText('HTTP 500')).toBeNull()
     expect(screen.getByText(/choose check now again/i)).toBeDefined()
     expect(screen.getByRole('button', { name: 'Check now' })).toBeDefined()
@@ -255,13 +255,13 @@ describe('CliImagesPanel', () => {
     render(<CliImagesPanel />)
 
     // codex (agentsWithContainer=2) offers a roll; gemini (0) does not.
-    const rollButtons = screen.getAllByRole('button', { name: 'Roll onto new image' })
+    const rollButtons = screen.getAllByRole('button', { name: 'Restart on latest tool' })
     expect(rollButtons).toHaveLength(1)
 
     // First click only arms a destructive confirm — it must NOT roll yet.
     fireEvent.click(rollButtons[0])
     expect(rollCliImage).not.toHaveBeenCalled()
-    const confirm = screen.getByRole('button', { name: /Interrupt 2 & roll/ })
+    const confirm = screen.getByRole('button', { name: /Restart 2 agents now/ })
 
     // Confirm fires the roll for the right tool.
     fireEvent.click(confirm)
@@ -290,13 +290,15 @@ describe('CliImagesPanel', () => {
     })
 
     render(<CliImagesPanel />)
-    expect(screen.getByText('Last roll: codex')).toBeDefined()
-    expect(screen.getByText(/1 of 3 agents respawned/)).toBeDefined()
+    expect(screen.getByText('Last restart: Codex')).toBeDefined()
+    expect(screen.getByText(/1 of 3 agents restarted/)).toBeDefined()
     // start-fail → "now stopped"; stop-fail → unconfirmed post-condition (may be
     // running on the old image OR already down after a partial stop).
-    expect(screen.getByText(/did not respawn and .* now stopped/)).toBeDefined()
+    expect(screen.getByText(/did not restart and .* now stopped/)).toBeDefined()
     expect(
-      screen.getByText(/could not be stopped cleanly.*may still be running on.*the previous image/s)
+      screen.getByText(
+        /could not be stopped cleanly.*may still be running on.*the previous tool version/s
+      )
     ).toBeDefined()
   })
 
@@ -311,7 +313,7 @@ describe('CliImagesPanel', () => {
     })
 
     render(<CliImagesPanel />)
-    expect(screen.getByText(/The roll could not be started/i)).toBeDefined()
+    expect(screen.getByText(/The restart could not be started/i)).toBeDefined()
     expect(screen.getByText(/already in progress/)).toBeDefined()
   })
 })
