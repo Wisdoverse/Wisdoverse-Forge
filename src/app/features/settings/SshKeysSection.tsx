@@ -316,7 +316,8 @@ export function SshKeysSection() {
               No repository SSH keys yet
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Add a public key before assigning private repository work that uses SSH access.
+              Add a public key for private repositories that use SSH addresses, such as
+              git@github.com:team/repo.git. Use repository access tokens for HTTPS addresses.
             </p>
           </div>
         ) : (

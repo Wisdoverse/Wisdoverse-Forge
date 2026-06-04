@@ -44,6 +44,8 @@ describe('GitCredentialsSection', () => {
     render(<GitCredentialsSection />)
 
     expect(await screen.findByText('No repository access tokens yet')).toBeDefined()
+    expect(screen.getByText(/use HTTPS addresses/i)).toBeDefined()
+    expect(screen.getByText(/use repository SSH keys/i)).toBeDefined()
 
     fireEvent.click(screen.getByRole('button', { name: /add repository token/i }))
 

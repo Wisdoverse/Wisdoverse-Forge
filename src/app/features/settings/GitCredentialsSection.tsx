@@ -385,8 +385,9 @@ export function GitCredentialsSection() {
               No repository access tokens yet
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Add a GitHub or GitLab token before assigning work that needs private repository
-              access.
+              Add a GitHub or GitLab token for private repositories that use HTTPS addresses, such
+              as https://github.com/team/repo.git. Use repository SSH keys for addresses that start
+              with git@.
             </p>
           </div>
         ) : (

@@ -54,6 +54,8 @@ describe('SshKeysSection', () => {
     render(<SshKeysSection />)
 
     expect(await screen.findByText('No repository SSH keys yet')).toBeDefined()
+    expect(screen.getByText(/use SSH addresses/i)).toBeDefined()
+    expect(screen.getByText(/use repository access tokens for HTTPS/i)).toBeDefined()
 
     fireEvent.click(screen.getByRole('button', { name: /add ssh key/i }))
 
