@@ -175,6 +175,36 @@ function ResourceProfilesEmptyState() {
   )
 }
 
+function ResourceProfilesError({
+  loading,
+  onRetry,
+}: {
+  loading: boolean
+  onRetry: () => Promise<void>
+}) {
+  return (
+    <div role="alert" aria-live="polite" className={cn(uiStyles.error, 'mb-4')}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="font-semibold">Agent sizes could not be loaded.</p>
+          <p className="mt-1">
+            Agent sizes decide how much CPU and memory a container agent can use. Reload this list
+            before creating or changing container agents.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void onRetry()}
+          disabled={loading}
+          className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-apple-red/30 px-3 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/40 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {loading ? 'Reloading...' : 'Reload sizes'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ============================================================================
 // ResourcesSection
 // ============================================================================
@@ -208,7 +238,7 @@ export function ResourcesSection() {
 
       {/* Error */}
       {resourceProfilesError && (
-        <div className={uiStyles.error}>Could not load agent sizes. Try refreshing this page.</div>
+        <ResourceProfilesError loading={resourceProfilesLoading} onRetry={loadResourceProfiles} />
       )}
 
       <ResourceProfileGuide profiles={resourceProfiles} />
