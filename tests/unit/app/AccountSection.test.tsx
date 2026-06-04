@@ -156,7 +156,7 @@ describe('AccountSection', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain('Sign in again')
-    expect(alert.textContent).toContain('Code: 401.')
+    expect(alert.textContent).not.toContain('Code: 401.')
     expect(alert.textContent).not.toContain('HTTP 401')
     expect(alert.textContent).not.toContain('token expired')
   })
@@ -176,5 +176,31 @@ describe('AccountSection', () => {
     expect(alert.textContent).toContain('Ask an owner or admin')
     expect(alert.textContent).not.toContain('API 403')
     expect(alert.textContent).not.toContain('Forbidden')
+  })
+
+  test('shows a password recovery step instead of raw validation details', async () => {
+    changePasswordMock.mockRejectedValue(
+      Object.assign(new Error('HTTP 422'), {
+        statusCode: 422,
+        serverError: 'Current password is incorrect.',
+      })
+    )
+    renderAccountSection()
+
+    fireEvent.change(screen.getByLabelText('Current Password'), {
+      target: { value: 'old-password' },
+    })
+    fireEvent.change(screen.getByLabelText('New Password'), {
+      target: { value: 'new-password' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm New Password'), {
+      target: { value: 'new-password' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /update password/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('The current password did not match this account')
+    expect(alert.textContent).not.toContain('Details:')
+    expect(alert.textContent).not.toContain('HTTP 422')
   })
 })

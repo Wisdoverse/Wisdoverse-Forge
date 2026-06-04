@@ -6,40 +6,38 @@ const GENERIC_BODY_TEXT = /^(Unauthorized|Forbidden|Not Found|Internal Server Er
 
 export function accountErrorMessage(action: AccountErrorAction, error?: unknown): string {
   const status = statusFromAccountError(error)
-  const detail = shouldShowDetail(status) ? safeDetailFromAccountError(error) : null
-  const suffix = detail ? ` Details: ${detail}` : ''
+  const detail = shouldUseDetail(status) ? safeDetailFromAccountError(error) : null
 
   if (!status) {
     if (detail) {
-      return `Account settings could not ${actionPhrase(action)}. Review the message and try again.${suffix}`
+      return validationMessage(action, detail)
     }
     return `Account settings could not ${actionPhrase(action)} because the browser could not reach the server. Check your connection, then try again.`
   }
 
-  const statusText = `Code: ${status}.`
   if (status === 401) {
-    return `Sign in again, then ${retryPhrase(action)}. ${statusText}${suffix}`
+    return `Sign in again, then ${retryPhrase(action)}.`
   }
   if (status === 403) {
-    return `${permissionMessage(action)} ${statusText}${suffix}`
+    return permissionMessage(action)
   }
   if (status === 404) {
-    return `${serviceLabel(action)} is not available. Refresh after the backend is deployed, then try again. ${statusText}${suffix}`
+    return `${serviceLabel(action)} is not available. Refresh after the backend is deployed, then try again.`
   }
   if (status === 409) {
-    return `${conflictMessage(action)} ${statusText}${suffix}`
+    return conflictMessage(action)
   }
   if (status === 422 || status === 400) {
-    return `${validationMessage(action)} ${statusText}${suffix}`
+    return validationMessage(action, detail)
   }
   if (status === 429) {
-    return `Account settings are busy. Wait a moment, then ${retryPhrase(action)}. ${statusText}${suffix}`
+    return `Account settings are busy. Wait a moment, then ${retryPhrase(action)}.`
   }
   if (status >= 500) {
-    return `${serviceLabel(action)} had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+    return `${serviceLabel(action)} had a server problem. Try again after the backend is healthy.`
   }
 
-  return `Account settings could not ${actionPhrase(action)}. Refresh the page and try again. ${statusText}${suffix}`
+  return `Account settings could not ${actionPhrase(action)}. Refresh the page and try again.`
 }
 
 function actionPhrase(action: AccountErrorAction): string {
@@ -70,14 +68,24 @@ function conflictMessage(action: AccountErrorAction): string {
   return 'This organization changed while you were editing. Refresh organization settings, review the current name, then try again.'
 }
 
-function validationMessage(action: AccountErrorAction): string {
+function validationMessage(action: AccountErrorAction, detail?: string | null): string {
+  const normalizedDetail = detail?.toLowerCase() ?? ''
   if (action === 'changePassword') {
+    if (normalizedDetail.includes('current password') || normalizedDetail.includes('incorrect')) {
+      return 'The current password did not match this account. Re-enter the current password, then try again.'
+    }
+    if (normalizedDetail.includes('new password') || normalizedDetail.includes('password')) {
+      return 'Choose a new password that meets the password rules, then try again.'
+    }
     return 'Check the current password and make sure the new password meets the requirements, then try again.'
+  }
+  if (normalizedDetail.includes('already exists') || normalizedDetail.includes('taken')) {
+    return 'That organization name is already in use. Choose a different display name, then try again.'
   }
   return 'Use an organization name between 1 and 100 characters, then try again.'
 }
 
-function shouldShowDetail(status: number | null): boolean {
+function shouldUseDetail(status: number | null): boolean {
   return status === null || status === 400 || status === 422
 }
 

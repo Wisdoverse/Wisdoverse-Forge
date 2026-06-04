@@ -17,12 +17,12 @@ describe('accountErrorMessage', () => {
     )
 
     expect(message).toContain('Sign in again')
-    expect(message).toContain('Code: 401.')
+    expect(message).not.toContain('Code: 401.')
     expect(message).not.toContain('HTTP 401')
     expect(message).not.toContain('token expired')
   })
 
-  test('keeps useful password validation details', () => {
+  test('turns password validation details into a recovery step', () => {
     const error = Object.assign(new Error('HTTP 422: Unprocessable Entity'), {
       statusCode: 422,
       serverError: 'Current password is incorrect.',
@@ -30,9 +30,11 @@ describe('accountErrorMessage', () => {
 
     const message = accountErrorMessage('changePassword', error)
 
-    expect(message).toContain('Check the current password')
-    expect(message).toContain('Code: 422.')
-    expect(message).toContain('Details: Current password is incorrect.')
+    expect(message).toBe(
+      'The current password did not match this account. Re-enter the current password, then try again.'
+    )
+    expect(message).not.toContain('Code: 422.')
+    expect(message).not.toContain('Details:')
     expect(message).not.toContain('HTTP 422')
   })
 
@@ -41,8 +43,23 @@ describe('accountErrorMessage', () => {
 
     expect(message).toContain('You do not have permission to rename this organization')
     expect(message).toContain('Ask an owner or admin')
-    expect(message).toContain('Code: 403.')
+    expect(message).not.toContain('Code: 403.')
     expect(message).not.toContain('API 403')
     expect(message).not.toContain('Forbidden')
+  })
+
+  test('turns organization validation details into a recovery step', () => {
+    const message = accountErrorMessage(
+      'renameOrganization',
+      Object.assign(new Error('HTTP 422'), {
+        statusCode: 422,
+        serverError: 'organization name already exists',
+      })
+    )
+
+    expect(message).toBe(
+      'That organization name is already in use. Choose a different display name, then try again.'
+    )
+    expect(message).not.toContain('Details:')
   })
 })
