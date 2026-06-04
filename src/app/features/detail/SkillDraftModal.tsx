@@ -4,6 +4,7 @@ import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSkillsStore, type Skill } from '@app/shared/model/skills.store'
 import type { TaskResultArtifact, TaskSummary } from '@app/shared/api/orchestration'
+import { skillDraftErrorMessage } from './model/skillDraftErrorMessage'
 
 interface SkillDraftModalProps {
   open: boolean
@@ -76,7 +77,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
       })
       setCreatedSkill(skill)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create skill')
+      setError(skillDraftErrorMessage(err))
     } finally {
       setSubmitting(false)
     }
