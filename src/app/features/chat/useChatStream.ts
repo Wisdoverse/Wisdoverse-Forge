@@ -56,29 +56,35 @@ export function chatStreamHttpErrorMessage(
   body: Record<string, unknown> = {}
 ): string {
   const detail = messageDetail(body)
-  const suffix = detail ? ` Details: ${detail}` : ''
-  const statusText = `Code: ${status}.`
 
   if (status === 401) {
-    return `Sign in again, then resend the message. The chat request was not authorized. ${statusText}${suffix}`
+    return 'Sign in again, then open the agent chat and resend the message.'
   }
   if (status === 403) {
-    return `You do not have access to this agent or workspace. Ask an admin to check your role. ${statusText}${suffix}`
+    return 'You do not have access to this agent or workspace. Ask an owner or admin to update your workspace role.'
   }
   if (status === 404) {
-    return `This agent could not be found. Refresh the Agents page and pick an active agent. ${statusText}${suffix}`
+    return 'This agent could not be found. Refresh the Agents page, choose an active agent, then open chat again.'
   }
   if (status === 409) {
-    return `The agent is busy or the conversation changed. Wait a moment, then try again. ${statusText}${suffix}`
+    return chatStreamConflictMessage(detail)
   }
   if (status === 429) {
-    return `The provider is rate limiting requests. Wait a moment, then resend the message. ${statusText}${suffix}`
+    return 'The provider is limiting messages right now. Wait a moment, then resend the message.'
   }
   if (status >= 500) {
-    return `The chat service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+    return 'The chat service is temporarily unavailable. Ask an owner or admin to check the backend and agent runtime, then resend the message.'
   }
 
-  return `The chat request could not be sent. Check the selected agent and try again. ${statusText}${suffix}`
+  return 'The chat request could not be sent. Refresh the selected agent, then resend the message.'
+}
+
+function chatStreamConflictMessage(detail: string | null): string {
+  const normalized = detail?.toLowerCase() ?? ''
+  if (normalized.includes('busy') || normalized.includes('working')) {
+    return 'This agent is already working. Wait for the current reply to finish, then resend the message.'
+  }
+  return 'This conversation changed while the message was sending. Refresh the chat, review the latest message, then try again.'
 }
 
 function chatStreamRequestErrorMessage(error: unknown): string {

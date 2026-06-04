@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { chatStreamHttpErrorMessage, parseSseFrame } from '@app/features/chat/useChatStream'
 
+function expectBeginnerMessage(actual: string, expected: string): void {
+  expect(actual).toBe(expected)
+  expect(actual).not.toContain('Code:')
+  expect(actual).not.toContain('Details:')
+}
+
 describe('parseSseFrame', () => {
   it('parses message_start frame with JSON data', () => {
     const frame = parseSseFrame(
@@ -49,26 +55,43 @@ describe('parseSseFrame', () => {
 
 describe('chatStreamHttpErrorMessage', () => {
   it('turns auth failures into a clear next step', () => {
-    expect(chatStreamHttpErrorMessage(401)).toBe(
-      'Sign in again, then resend the message. The chat request was not authorized. Code: 401.'
+    expectBeginnerMessage(
+      chatStreamHttpErrorMessage(401),
+      'Sign in again, then open the agent chat and resend the message.'
     )
   })
 
   it('explains missing agent access without exposing raw transport text', () => {
-    expect(chatStreamHttpErrorMessage(404, { message: 'agent missing' })).toBe(
-      'This agent could not be found. Refresh the Agents page and pick an active agent. Code: 404. Details: agent missing'
+    const message = chatStreamHttpErrorMessage(404, { message: 'agent missing' })
+
+    expectBeginnerMessage(
+      message,
+      'This agent could not be found. Refresh the Agents page, choose an active agent, then open chat again.'
+    )
+    expect(message).not.toContain('agent missing')
+  })
+
+  it('turns busy agent conflicts into a wait step', () => {
+    expectBeginnerMessage(
+      chatStreamHttpErrorMessage(409, { message: 'agent is busy' }),
+      'This agent is already working. Wait for the current reply to finish, then resend the message.'
     )
   })
 
   it('turns provider rate limits into an operator action', () => {
-    expect(chatStreamHttpErrorMessage(429)).toBe(
-      'The provider is rate limiting requests. Wait a moment, then resend the message. Code: 429.'
+    expectBeginnerMessage(
+      chatStreamHttpErrorMessage(429),
+      'The provider is limiting messages right now. Wait a moment, then resend the message.'
     )
   })
 
   it('keeps server failures actionable for first-time operators', () => {
-    expect(chatStreamHttpErrorMessage(503, { error: 'service unavailable' })).toBe(
-      'The chat service had a server problem. Try again after the backend is healthy. Code: 503. Details: service unavailable'
+    const message = chatStreamHttpErrorMessage(503, { error: 'service unavailable' })
+
+    expectBeginnerMessage(
+      message,
+      'The chat service is temporarily unavailable. Ask an owner or admin to check the backend and agent runtime, then resend the message.'
     )
+    expect(message).not.toContain('service unavailable')
   })
 })
