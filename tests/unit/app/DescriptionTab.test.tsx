@@ -30,10 +30,15 @@ describe('DescriptionTab', () => {
     render(<DescriptionTab task={{ ...mockTask, assignedTo: 'agent-1' }} />)
 
     expect(screen.getByText('Assigned agent')).toBeDefined()
+    expect(screen.getByText('Ready to send')).toBeDefined()
     expect(screen.getByTestId('task-assignment-guidance').textContent).toBe(
       'An agent is assigned, but its display name has not loaded yet.'
     )
+    expect(screen.getByTestId('task-next-action').textContent).toContain(
+      'Review the brief, then send it to the assigned agent when ready.'
+    )
     expect(screen.queryByText('Unassigned')).toBeNull()
+    expect(screen.queryByText(/dispatch/i)).toBeNull()
   })
 
   test('explains queued tasks without internal runtime language', () => {

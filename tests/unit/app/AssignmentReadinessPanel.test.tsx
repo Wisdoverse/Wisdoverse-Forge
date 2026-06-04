@@ -26,9 +26,10 @@ describe('AssignmentReadinessPanel', () => {
     )
 
     const emptyState = screen.getByTestId('assignment-readiness-empty')
-    expect(within(emptyState).getByText('Connect an agent before dispatch')).toBeDefined()
+    expect(within(emptyState).getByText('Connect an agent before sending work')).toBeDefined()
     expect(within(emptyState).getByText(/Agents \/ Work Lanes/)).toBeDefined()
-    expect(within(emptyState).getByText(/backlog tasks cannot leave this lane/)).toBeDefined()
+    expect(within(emptyState).getByText(/backlog tasks stay in this lane/)).toBeDefined()
+    expect(emptyState.textContent).not.toContain('dispatch')
   })
 
   test('keeps connected agent chips visible when participants are available', () => {

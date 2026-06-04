@@ -30,4 +30,13 @@ describe('KanbanColumn', () => {
     expect(within(emptyState).getByText('No active runs')).toBeDefined()
     expect(within(emptyState).getByText(/once an agent starts the task/i)).toBeDefined()
   })
+
+  test('explains queued tasks without dispatch language', () => {
+    renderColumn('queued')
+
+    const emptyState = screen.getByTestId('kanban-empty-queued')
+    expect(within(emptyState).getByText('Nothing queued')).toBeDefined()
+    expect(within(emptyState).getByText(/until an agent starts them/i)).toBeDefined()
+    expect(emptyState.textContent).not.toContain('dispatch')
+  })
 })

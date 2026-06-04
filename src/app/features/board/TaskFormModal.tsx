@@ -319,8 +319,7 @@ export function TaskFormModal({
               aria-hidden="true"
             />
             <span>
-              No online agents available. Tasks will be queued and dispatched when an agent comes
-              online.
+              No online agents available. New tasks will wait here until an agent comes online.
             </span>
           </div>
         )}

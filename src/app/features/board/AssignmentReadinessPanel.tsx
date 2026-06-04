@@ -119,11 +119,11 @@ export function AssignmentReadinessPanel({
           className="mt-2 rounded-lg border border-dashed border-apple-blue/25 bg-apple-blue/[0.04] px-3 py-2"
         >
           <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
-            Connect an agent before dispatch
+            Connect an agent before sending work
           </p>
           <p className="mt-0.5 text-ui-caption leading-snug text-secondary-light dark:text-secondary-dark">
             Open Agents / Work Lanes, choose this lane, then attach an available agent. Until then,
-            backlog tasks cannot leave this lane.
+            backlog tasks stay in this lane.
           </p>
         </div>
       ) : participants.length > 0 ? (

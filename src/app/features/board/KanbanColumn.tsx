@@ -51,7 +51,7 @@ const COLUMN_EMPTY_STATE: Record<string, { title: string; detail: string }> = {
   },
   queued: {
     title: 'Nothing queued',
-    detail: 'Assigned tasks wait here after dispatch and before an agent starts.',
+    detail: 'Assigned tasks wait here until an agent starts them.',
   },
   working: {
     title: 'No active runs',

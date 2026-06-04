@@ -322,8 +322,8 @@ function nextActionForTask(
     case 'backlog':
       return task.assignedTo || task.assignedAgentName
         ? {
-            title: 'Ready for dispatch',
-            detail: 'Review the brief and queue this task when the assigned agent is available.',
+            title: 'Ready to send',
+            detail: 'Review the brief, then send it to the assigned agent when ready.',
             tone: 'default',
           }
         : {
