@@ -96,6 +96,19 @@ describe('Agents Store', () => {
     expect(message).not.toContain('Docker')
   })
 
+  test('explains local agent validation without CLI jargon', () => {
+    const message = agentActionErrorMessage(
+      'enrollLocal',
+      apiError(422, { message: 'cli tool is required' })
+    )
+
+    expectBeginnerError(
+      message,
+      'Check the local agent name, local tool, and workspace, then try connecting it again.'
+    )
+    expect(message).not.toContain('CLI')
+  })
+
   test('initializes with empty agents', () => {
     expect(useAgentsStore.getState().agents).toEqual([])
   })

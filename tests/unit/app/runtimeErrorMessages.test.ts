@@ -33,13 +33,36 @@ describe('runtimeErrorMessage', () => {
     )
   })
 
-  test('turns provider setup details into a connect step', () => {
+  test('turns model service setup details into a connect step', () => {
+    const message = runtimeErrorMessage('startCliSignIn', {
+      error: 'Provider is not configured',
+    })
+
+    expectBeginnerMessage(message, 'Choose and save a model service first, then try Connect again.')
+    expect(message).not.toContain('provider')
+  })
+
+  test('uses model service setup language for unclear local sign-in validation', () => {
+    const message = runtimeErrorMessage('startCliSignIn', {
+      error: 'setup is incomplete',
+    })
+
     expectBeginnerMessage(
-      runtimeErrorMessage('startCliSignIn', {
-        error: 'Provider is not configured',
-      }),
-      'Choose and save a provider first, then try Connect again.'
+      message,
+      'Check the model service setup and selected local tool, then try Connect again.'
     )
+    expect(message).not.toContain('provider')
+  })
+
+  test('uses model service setup language when local sign-in startup cannot reach service', () => {
+    const message = runtimeErrorMessage('startCliSignIn', new TypeError('Failed to fetch'))
+
+    expectBeginnerMessage(
+      message,
+      'Local tool sign-in did not start. Check the model service setup, then try Connect again. The app could not reach the service. Check your connection, then refresh the page.'
+    )
+    expect(message).not.toContain('provider')
+    expect(message).not.toContain('Failed to fetch')
   })
 
   test('turns setup service failures into an agent setup recovery step', () => {

@@ -214,7 +214,7 @@ function agentValidationMessage(action: AgentErrorAction, detail: string | null)
   }
 
   if (action === 'enrollLocal') {
-    return 'Check the local agent name, CLI tool, and workspace, then try connecting it again.'
+    return 'Check the local agent name, local tool, and workspace, then try connecting it again.'
   }
   if (action === 'sendPrompt') {
     return 'Write one clear instruction and make sure the agent is not already working, then send again.'
