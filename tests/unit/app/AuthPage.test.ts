@@ -124,6 +124,40 @@ describe('AuthPage beginner guidance', () => {
     expect(document.querySelector('#reset-submit')?.textContent).toContain('Save new password')
   })
 
+  test('guides reset-token users when confirmation does not match', async () => {
+    const page = new AuthPage(createAuthManager(), 'login', 'reset-token')
+
+    await page.show()
+    const passwordInput = document.querySelector<HTMLInputElement>('#reset-password')
+    const confirmInput = document.querySelector<HTMLInputElement>('#reset-confirm')
+    if (passwordInput) passwordInput.value = 'LongPassword123!'
+    if (confirmInput) confirmInput.value = 'DifferentPassword123!'
+    document
+      .querySelector<HTMLFormElement>('#reset-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    expect(bodyText()).toContain(
+      'The two passwords do not match. Re-enter both fields, then try again.'
+    )
+  })
+
+  test('guides reset-token users when the new password is too short', async () => {
+    const page = new AuthPage(createAuthManager(), 'login', 'reset-token')
+
+    await page.show()
+    const passwordInput = document.querySelector<HTMLInputElement>('#reset-password')
+    const confirmInput = document.querySelector<HTMLInputElement>('#reset-confirm')
+    if (passwordInput) passwordInput.value = 'short'
+    if (confirmInput) confirmInput.value = 'short'
+    document
+      .querySelector<HTMLFormElement>('#reset-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    expect(bodyText()).toContain(
+      'Use at least 12 characters for the new password. Add a few more characters, then try again.'
+    )
+  })
+
   test('keeps password reset email failures beginner-safe', async () => {
     const page = new AuthPage(
       createAuthManager({

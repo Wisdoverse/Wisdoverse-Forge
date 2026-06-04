@@ -890,13 +890,15 @@ export class AuthPage {
       errorDiv.style.display = 'none'
 
       if (password !== confirm) {
-        errorDiv.textContent = 'The two passwords do not match.'
+        errorDiv.textContent =
+          'The two passwords do not match. Re-enter both fields, then try again.'
         errorDiv.style.display = ''
         this.shakeCard()
         return
       }
       if (password.length < 12) {
-        errorDiv.textContent = 'Use at least 12 characters for the new password.'
+        errorDiv.textContent =
+          'Use at least 12 characters for the new password. Add a few more characters, then try again.'
         errorDiv.style.display = ''
         this.shakeCard()
         return
