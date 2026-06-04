@@ -73,7 +73,7 @@ describe('AgentControlPanel', () => {
     expect(screen.getByLabelText(/send a message/i)).toHaveValue('')
   })
 
-  test('shows start guidance for pending container agents', async () => {
+  test('shows start guidance for pending agent workspaces', async () => {
     render(
       <AgentControlPanel
         agent={{ ...containerAgent, id: 'pending-agent', containerId: undefined }}
@@ -81,8 +81,8 @@ describe('AgentControlPanel', () => {
       />
     )
 
-    expect(screen.getByText('Container needs to be started')).toBeDefined()
-    expect(screen.getByText(/has no running container yet/i)).toBeDefined()
+    expect(screen.getByText('Agent workspace needs to start')).toBeDefined()
+    expect(screen.getByText(/has no running workspace yet/i)).toBeDefined()
 
     fireEvent.click(screen.getByRole('button', { name: /start agent/i }))
 
@@ -91,7 +91,7 @@ describe('AgentControlPanel', () => {
     })
   })
 
-  test('warns before restarting a running container', async () => {
+  test('warns before restarting a running agent workspace', async () => {
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
     fireEvent.click(screen.getByRole('button', { name: /restart agent/i }))

@@ -192,8 +192,8 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
               {canStartContainer ? (
                 <ActionCard
                   icon={Play}
-                  title="Start the container"
-                  detail="Use this when the agent has no running container yet. Starting can take a short moment."
+                  title="Start the agent workspace"
+                  detail="Use this when the agent has no running workspace yet. Starting can take a short moment."
                 >
                   <button
                     type="button"
@@ -288,15 +288,15 @@ function getControlSummary(
 ): { title: string; detail: string; Icon: LucideIcon } {
   if (canStartContainer) {
     return {
-      title: 'Container needs to be started',
-      detail: 'Start the agent before sending container-based work or opening a terminal.',
+      title: 'Agent workspace needs to start',
+      detail: 'Start this agent workspace before sending file work or opening a terminal.',
       Icon: Play,
     }
   }
 
   if (canRestartContainer) {
     return {
-      title: 'Container controls',
+      title: 'Agent workspace controls',
       detail: 'Most agents do not need manual recovery. Restart only when progress has stopped.',
       Icon: RotateCcw,
     }
