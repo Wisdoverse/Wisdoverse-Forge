@@ -193,11 +193,7 @@ function CheckInMetric({ label, value }: { label: string; value: string }) {
 }
 
 function TaskRunRow({ run }: { run: TaskRunSummary }) {
-  const runtime =
-    run.cliTool ??
-    run.providerName ??
-    run.runtimeKind ??
-    (run.maxContextTokens ? 'configured worker' : 'unknown worker')
+  const runSource = runSourceLabel(run)
   const finished = run.finishedAt ? formatRelativeTime(run.finishedAt) : 'Still running'
 
   return (
@@ -208,7 +204,7 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
             Attempt {readableRunStatus(run.status)}
           </p>
           <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-            Started {formatRelativeTime(run.startedAt)} · {finished} · Work method: {runtime}
+            Started {formatRelativeTime(run.startedAt)} · {finished} · Ran with {runSource}
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-black/[0.05] px-2 py-0.5 text-[10px] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
@@ -217,6 +213,24 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
       </div>
     </div>
   )
+}
+
+function runSourceLabel(run: TaskRunSummary): string {
+  if (run.cliTool) return run.cliTool
+  if (run.providerName) return run.providerName
+
+  switch (run.runtimeKind) {
+    case 'container':
+      return 'a managed workspace'
+    case 'cli':
+    case 'host':
+      return 'this computer'
+    case 'api':
+    case 'provider':
+      return 'a model service'
+    default:
+      return run.maxContextTokens ? 'the assigned agent' : 'an agent'
+  }
 }
 
 function taskCheckIn(task: TaskSummary): {

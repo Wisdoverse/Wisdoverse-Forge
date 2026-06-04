@@ -36,6 +36,16 @@ describe('DescriptionTab', () => {
     expect(screen.queryByText('Unassigned')).toBeNull()
   })
 
+  test('explains queued tasks without internal runtime language', () => {
+    render(<DescriptionTab task={{ ...mockTask, state: 'queued', assignedTo: 'agent-1' }} />)
+
+    expect(screen.getByText('Waiting for the agent to start')).toBeDefined()
+    expect(screen.getByTestId('task-next-action').textContent).toContain(
+      'Keep the brief current while the assigned agent picks up the task.'
+    )
+    expect(screen.queryByText(/execution|runtime/i)).toBeNull()
+  })
+
   test('keeps result and context actions available for completed tasks', () => {
     const onOpenResult = vi.fn()
     const onOpenContext = vi.fn()

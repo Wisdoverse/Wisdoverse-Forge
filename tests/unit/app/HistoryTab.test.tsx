@@ -59,4 +59,23 @@ describe('HistoryTab', () => {
       await screen.findByText(/Attempts appear after an agent starts work/i)
     ).toBeInTheDocument()
   })
+
+  test('labels run attempts by agent tool without worker jargon', async () => {
+    getTaskRunsMock.mockResolvedValue([
+      {
+        id: 'run-12345678',
+        taskId: 'task-1',
+        agentId: 'agent-1',
+        status: 'running',
+        startedAt: '2026-04-25T06:06:00Z',
+        runtimeKind: 'container',
+        cliTool: 'codex',
+      },
+    ])
+
+    render(<HistoryTab task={makeTask()} />)
+
+    expect(await screen.findByText(/Ran with codex/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Work method|configured worker|unknown worker|runtime/i)).toBeNull()
+  })
 })

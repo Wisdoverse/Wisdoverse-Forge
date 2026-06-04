@@ -113,7 +113,7 @@ export function DescriptionTab({
         </div>
       </ReviewSection>
 
-      <ReviewSection title="Execution log" Icon={Clock3}>
+      <ReviewSection title="Task progress" Icon={Clock3}>
         <div className="space-y-1.5 text-xs">
           <ReviewRow label="Created" value={formatRelativeTime(task.createdAt)} />
           <ReviewRow label="Updated" value={formatRelativeTime(task.updatedAt)} />
@@ -330,8 +330,8 @@ function nextActionForTask(
           }
     case 'queued':
       return {
-        title: 'Waiting for execution',
-        detail: 'Keep the brief current while the runtime claims the task.',
+        title: 'Waiting for the agent to start',
+        detail: 'Keep the brief current while the assigned agent picks up the task.',
         tone: 'default',
       }
     case 'working':
