@@ -45,7 +45,7 @@ function resourceProfileUseCase(profile: ResourceProfileOption): string {
 
 function summarizeProfileRange(profiles: ResourceProfileOption[]): string {
   if (profiles.length === 0) {
-    return 'Ask an administrator to add at least one agent size before creating managed workspace agents.'
+    return 'Ask an owner or admin to add at least one agent size before creating managed workspace agents.'
   }
   const sorted = [...profiles].sort((a, b) => a.cpu - b.cpu || a.memoryMb - b.memoryMb)
   const smallest = sorted[0]
@@ -162,7 +162,7 @@ function ResourceProfilesEmptyState() {
       </p>
       <div className="mx-auto mt-4 grid max-w-2xl gap-2 text-left sm:grid-cols-3">
         <p className="rounded-lg bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
-          Ask an owner or admin to add agent sizes in deployment settings.
+          Ask an owner or admin to add agent sizes in workspace settings.
         </p>
         <p className="rounded-lg bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
           Start with small, standard, and large options so users can choose safely.

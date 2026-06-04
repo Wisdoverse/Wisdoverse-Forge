@@ -72,7 +72,7 @@ describe('SidebarNav', () => {
 
     expect(
       screen.getByRole('button', {
-        name: /settings: configure workspace, runtime, and access/i,
+        name: /settings: configure workspace, agents, and access/i,
       })
     ).toHaveAttribute('aria-current', 'page')
     expect(
