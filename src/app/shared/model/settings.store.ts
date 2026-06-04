@@ -115,7 +115,7 @@ function statusFromSettingsError(error: unknown): number | null {
   }
 
   const message = settingsErrorDetail(error)
-  const match = message?.match(/\b(?:HTTP|Server error \()? ?(\d{3})\b/)
+  const match = message?.match(/\b(?:API|HTTP|Server error \()? ?(\d{3})\b/)
   return match ? Number(match[1]) : null
 }
 
@@ -136,6 +136,7 @@ function settingsErrorDetail(error: unknown): string | null {
 function isRawSettingsFailure(detail: string | null): boolean {
   if (!detail) return true
   return (
+    /^API \d{3}/i.test(detail) ||
     /^HTTP \d{3}/i.test(detail) ||
     /^Server error \(\d{3}\)$/i.test(detail) ||
     /^Network error$/i.test(detail) ||
@@ -151,39 +152,82 @@ export function settingsActionErrorMessage(
   const actionPhrase = settingsActionPhrase(area, action)
   const status = statusFromSettingsError(error)
   const detail = settingsErrorDetail(error)
-  const suffix = !isRawSettingsFailure(detail) ? ` Details: ${detail}` : ''
 
   if (!status) {
     if (!isRawSettingsFailure(detail)) {
-      return `Settings could not ${actionPhrase}. Review the message and try again.${suffix}`
+      return settingsValidationMessage(area, action, detail)
     }
-    return `Settings could not ${actionPhrase} because the browser could not reach the server. Check your connection and try again.${suffix}`
+    return `Settings could not ${actionPhrase} because the browser could not reach the server. Check your connection and try again.`
   }
 
-  const statusText = `Code: ${status}.`
   if (status === 401) {
-    return `Sign in again, then ${actionPhrase}. ${statusText}${suffix}`
+    return `Sign in again, then open Settings and try to ${actionPhrase} again.`
   }
   if (status === 403) {
-    return `You do not have permission to ${actionPhrase}. Ask an admin to update your role. ${statusText}${suffix}`
+    return `You do not have permission to ${actionPhrase}. Ask an owner or admin to give you access to ${SETTINGS_AREA_LABELS[area]}.`
   }
   if (status === 404) {
-    return `The settings service for ${SETTINGS_AREA_LABELS[area]} is not available. Refresh after the backend is deployed. ${statusText}${suffix}`
+    return `Settings for ${SETTINGS_AREA_LABELS[area]} are not available. Refresh after the settings service is ready.`
   }
   if (status === 409) {
-    return `This setting changed or already exists. Refresh the list, review the current value, then try again. ${statusText}${suffix}`
+    return `This ${SETTINGS_ITEM_LABELS[area]} changed or already exists. Refresh the list, review the current value, then try again.`
   }
   if (status === 422) {
-    return `Check the required fields for ${SETTINGS_ITEM_LABELS[area]}, then try again. ${statusText}${suffix}`
+    return settingsValidationMessage(area, action, detail)
   }
   if (status === 429) {
-    return `The settings service is busy. Wait a moment, then ${actionPhrase}. ${statusText}${suffix}`
+    return `The settings service is busy. Wait a moment, then try to ${actionPhrase} again.`
   }
   if (status >= 500) {
-    return `The settings service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+    return `The settings service is temporarily unavailable. Ask an owner or admin to check the backend, then try to ${actionPhrase} again.`
   }
 
-  return `Settings could not ${actionPhrase}. Refresh the page and try again. ${statusText}${suffix}`
+  return `Settings could not ${actionPhrase}. Refresh Settings, then try again.`
+}
+
+function settingsValidationMessage(
+  area: SettingsErrorArea,
+  action: SettingsErrorAction,
+  detail: string | null
+): string {
+  const normalized = detail?.toLowerCase() ?? ''
+
+  if (area === 'providers') {
+    if (
+      normalized.includes('api key') ||
+      normalized.includes('token') ||
+      normalized.includes('key')
+    ) {
+      return 'Enter the provider API key, choose a model, then save the provider again.'
+    }
+    if (normalized.includes('model')) {
+      return 'Choose a supported model for this provider, then save the provider again.'
+    }
+    return 'Check the provider name, model, and API key, then save the provider again.'
+  }
+
+  if (area === 'apiKeys') {
+    return action === 'load'
+      ? 'Refresh platform API keys. If they still do not load, ask an owner or admin for access.'
+      : 'Name this platform API key, choose the allowed access, then create it again.'
+  }
+
+  if (area === 'gitCredentials') {
+    if (normalized.includes('not configured') || normalized.includes('provider')) {
+      return 'Repository access is not configured yet. Ask an owner or admin to configure the Git provider, then refresh repository tokens.'
+    }
+    return 'Choose the Git provider, add the repository token, then save repository access again.'
+  }
+
+  if (area === 'sshKeys') {
+    return 'Add a label, paste a valid public SSH key, then save the SSH key again.'
+  }
+
+  if (area === 'resourceProfiles') {
+    return 'Ask an owner or admin to add a resource profile, then refresh Settings.'
+  }
+
+  return 'Choose a supported runtime and Container CLI, then save runtime settings again.'
 }
 
 interface SettingsState {

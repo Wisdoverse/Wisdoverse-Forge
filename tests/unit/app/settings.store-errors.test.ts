@@ -44,6 +44,12 @@ function statusError(statusCode: number, message: string): Error & { statusCode:
   return Object.assign(new Error(message), { statusCode })
 }
 
+function expectBeginnerError(actual: string | null, expected: string): void {
+  expect(actual).toBe(expected)
+  expect(actual).not.toContain('Code:')
+  expect(actual).not.toContain('Details:')
+}
+
 beforeEach(() => {
   resetSettingsState()
   Object.values(settingsApiMock).forEach((mock) => mock.mockReset())
@@ -52,27 +58,29 @@ beforeEach(() => {
 
 describe('settingsActionErrorMessage', () => {
   test('turns expired auth into a sign-in step', () => {
-    expect(settingsActionErrorMessage('providers', 'load', statusError(401, 'HTTP 401'))).toBe(
-      'Sign in again, then load provider settings. Code: 401.'
+    expectBeginnerError(
+      settingsActionErrorMessage('providers', 'load', statusError(401, 'HTTP 401')),
+      'Sign in again, then open Settings and try to load provider settings again.'
     )
   })
 
   test('turns permission failures into an admin role step', () => {
-    expect(settingsActionErrorMessage('apiKeys', 'create', statusError(403, 'Forbidden'))).toBe(
-      'You do not have permission to create the platform API key. Ask an admin to update your role. Code: 403. Details: Forbidden'
+    expectBeginnerError(
+      settingsActionErrorMessage('apiKeys', 'create', statusError(403, 'Forbidden')),
+      'You do not have permission to create the platform API key. Ask an owner or admin to give you access to platform API keys.'
     )
   })
 
-  test('keeps field validation details after the operator action', () => {
-    expect(
-      settingsActionErrorMessage('providers', 'save', statusError(422, 'model is required'))
-    ).toBe(
-      'Check the required fields for provider, then try again. Code: 422. Details: model is required'
+  test('turns field validation details into a provider setup step', () => {
+    expectBeginnerError(
+      settingsActionErrorMessage('providers', 'save', statusError(422, 'model is required')),
+      'Choose a supported model for this provider, then save the provider again.'
     )
   })
 
   test('turns raw network errors into connection guidance', () => {
-    expect(settingsActionErrorMessage('sshKeys', 'load', 'Network error')).toBe(
+    expectBeginnerError(
+      settingsActionErrorMessage('sshKeys', 'load', 'Network error'),
       'Settings could not load SSH keys because the browser could not reach the server. Check your connection and try again.'
     )
   })
@@ -86,8 +94,9 @@ describe('useSettingsStore errors', () => {
 
     await useSettingsStore.getState().loadProviders()
 
-    expect(useSettingsStore.getState().providersError).toBe(
-      'The settings service had a server problem. Try again after the backend is healthy. Code: 503.'
+    expectBeginnerError(
+      useSettingsStore.getState().providersError,
+      'The settings service is temporarily unavailable. Ask an owner or admin to check the backend, then try to load provider settings again.'
     )
   })
 
@@ -102,8 +111,9 @@ describe('useSettingsStore errors', () => {
     })
 
     expect(result).toBeNull()
-    expect(useSettingsStore.getState().providersError).toBe(
-      'Check the required fields for provider, then try again. Code: 422. Details: API key is required'
+    expectBeginnerError(
+      useSettingsStore.getState().providersError,
+      'Enter the provider API key, choose a model, then save the provider again.'
     )
   })
 
@@ -112,12 +122,13 @@ describe('useSettingsStore errors', () => {
 
     await useSettingsStore.getState().loadSshKeys()
 
-    expect(useSettingsStore.getState().sshKeysError).toBe(
+    expectBeginnerError(
+      useSettingsStore.getState().sshKeysError,
       'Settings could not load SSH keys because the browser could not reach the server. Check your connection and try again.'
     )
   })
 
-  test('keeps useful git credential details when the API returns one', async () => {
+  test('turns Git credential configuration details into a setup step', async () => {
     agentApiMock.getGitCredentials.mockResolvedValue({
       ok: false,
       credentials: [],
@@ -126,8 +137,9 @@ describe('useSettingsStore errors', () => {
 
     await useSettingsStore.getState().loadGitCredentials()
 
-    expect(useSettingsStore.getState().gitCredentialsError).toBe(
-      'Settings could not load Git credentials. Review the message and try again. Details: Git provider is not configured'
+    expectBeginnerError(
+      useSettingsStore.getState().gitCredentialsError,
+      'Repository access is not configured yet. Ask an owner or admin to configure the Git provider, then refresh repository tokens.'
     )
   })
 })
