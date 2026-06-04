@@ -106,9 +106,10 @@ mod tests {
 
     #[test]
     fn add_ssh_key_request_deserialization() {
-        let req: AddSshKeyRequest =
-            serde_json::from_str(r#"{"name": "My Key", "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 user@host"}"#)
-                .unwrap();
+        let req: AddSshKeyRequest = serde_json::from_str(
+            r#"{"name": "My Key", "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 dev@example.com"}"#,
+        )
+        .unwrap();
         assert_eq!(req.name, "My Key");
         assert!(req.public_key.starts_with("ssh-ed25519"));
     }

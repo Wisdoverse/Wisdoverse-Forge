@@ -1155,7 +1155,7 @@ mod tests {
             organization_id: OrgId::new(),
             user_id: UserId::new(),
             name: "My Key".to_string(),
-            public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 user@host".to_string(),
+            public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 dev@example.com".to_string(),
             fingerprint: "SHA256:abc123".to_string(),
             key_type: "ed25519".to_string(),
             created_at: Utc::now(),
