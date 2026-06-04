@@ -78,11 +78,14 @@ describe('chatStreamHttpErrorMessage', () => {
     )
   })
 
-  it('turns provider rate limits into an operator action', () => {
+  it('turns model service rate limits into an operator action', () => {
+    const message = chatStreamHttpErrorMessage(429)
+
     expectBeginnerMessage(
-      chatStreamHttpErrorMessage(429),
-      'The provider is limiting messages right now. Wait a moment, then resend the message.'
+      message,
+      'The model service is limiting messages right now. Wait a moment, then resend the message.'
     )
+    expect(message).not.toContain('provider')
   })
 
   it('keeps server failures actionable for first-time operators', () => {

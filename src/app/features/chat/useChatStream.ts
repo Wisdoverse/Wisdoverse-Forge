@@ -70,7 +70,7 @@ export function chatStreamHttpErrorMessage(
     return chatStreamConflictMessage(detail)
   }
   if (status === 429) {
-    return 'The provider is limiting messages right now. Wait a moment, then resend the message.'
+    return 'The model service is limiting messages right now. Wait a moment, then resend the message.'
   }
   if (status >= 500) {
     return 'The chat service is temporarily unavailable. Resend the message. If it still fails, ask an owner or admin to check chat and agent setup.'
