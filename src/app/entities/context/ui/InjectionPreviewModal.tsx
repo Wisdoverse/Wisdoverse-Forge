@@ -114,7 +114,10 @@ export function InjectionPreviewModal({
             >
               Review context before publishing
             </h2>
-            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            <p
+              className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+              data-testid="context-fit-summary"
+            >
               {selectedSummary} · {budget}
             </p>
             <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -357,7 +360,7 @@ function PreviewItemRow({
             {item.why}
           </p>
           <div className="mt-2 flex flex-wrap gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            <span>Uses about {item.estimatedTokens} units of agent prompt space</span>
+            <span>Needs about {item.estimatedTokens} context units</span>
             {item.lastUsedAt && <span>Used {formatRelativeTime(item.lastUsedAt)}</span>}
             {item.lastVerifiedAt && <span>Verified {formatRelativeTime(item.lastVerifiedAt)}</span>}
           </div>
@@ -395,8 +398,8 @@ function Badge({ children }: { children: string }) {
 function budgetLabel(capability?: Record<string, unknown>): string {
   const tokens = capability?.max_context_tokens
   return typeof tokens === 'number'
-    ? `Agent prompt space: ${tokens.toLocaleString()} units available`
-    : 'Agent prompt space limit is still loading'
+    ? `Fits in this agent's context (${tokens.toLocaleString()} context units available)`
+    : "Checking this agent's context room"
 }
 
 function stringValue(value: unknown): string | null {
@@ -424,7 +427,7 @@ function degradationSummary(reasons: string[]): string {
 function degradationLabel(reason: string): string {
   switch (reason) {
     case 'budget_truncated':
-      return 'Some matches were left out to stay within the context limit'
+      return 'Some notes will be left out because this agent has limited context room'
     case 'runtime_capability_fallback':
       return 'Using safe defaults because agent setup details were incomplete'
     case 'no_subagents':
