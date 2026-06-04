@@ -69,6 +69,10 @@ describe('CliImagesPanel', () => {
     await waitFor(() => expect(loadCliImages).toHaveBeenCalledOnce())
     expect(screen.getByText('Agent tool updates')).toBeDefined()
     expect(screen.getByText('Automatic updates are on')).toBeDefined()
+    expect(screen.getByText(/Tool package source is managed in Admin settings/i)).toBeDefined()
+    expect(screen.queryByText(/ghcr\.io\/wisdoverse\/wisdoverse-forge/i)).toBeNull()
+    expect(screen.queryByText(/agent-<tool>/i)).toBeNull()
+    expect(screen.queryByText(/^source:/i)).toBeNull()
     expect(screen.getByText('Codex')).toBeDefined()
     expect(screen.getByText('Up to date')).toBeDefined()
     // failed tool surfaces its reported detail

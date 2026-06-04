@@ -217,17 +217,7 @@ function ToolRow({
 // Config banner
 // ============================================================================
 
-function ConfigBanner({
-  enabled,
-  intervalSecs,
-  registry,
-  imageTag,
-}: {
-  enabled: boolean
-  intervalSecs: number
-  registry: string
-  imageTag: string
-}) {
+function ConfigBanner({ enabled, intervalSecs }: { enabled: boolean; intervalSecs: number }) {
   const intervalLabel =
     intervalSecs < 120 ? `${intervalSecs}s` : `${Math.round(intervalSecs / 60)} min`
 
@@ -257,8 +247,8 @@ function ConfigBanner({
             ? `This service checks for newer agent tool packages about every ${intervalLabel} and downloads them so new agents start on the latest tool version. Running agents are never interrupted.`
             : 'New agents keep using the tool package that was last downloaded. Ask an owner or admin to turn on automatic tool updates in Admin settings so updates are checked and downloaded automatically.'}
         </p>
-        <p className="mt-1 text-ui-caption font-mono text-secondary-light dark:text-secondary-dark">
-          source: {registry}/agent-&lt;tool&gt;:{imageTag}
+        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          Tool package source is managed in Admin settings.
         </p>
       </div>
     </div>
@@ -352,8 +342,6 @@ export function CliImagesPanel() {
           <ConfigBanner
             enabled={cliImages.autoUpdateEnabled}
             intervalSecs={cliImages.pollIntervalSecs}
-            registry={cliImages.registry}
-            imageTag={cliImages.imageTag}
           />
 
           <div className={cn(uiStyles.card)}>
