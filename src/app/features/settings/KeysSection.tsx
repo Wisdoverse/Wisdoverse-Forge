@@ -4,6 +4,7 @@ import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import type { ApiKeyRecord } from '@app/shared/api/legacy/settingsApi'
+import { platformKeyErrorMessage } from './platformKeyErrorMessage'
 
 // ============================================================================
 // Helpers
@@ -276,7 +277,11 @@ export function KeysSection() {
       )}
 
       {/* Error */}
-      {keysError && <div className={uiStyles.error}>{keysError}</div>}
+      {keysError && (
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
+          {platformKeyErrorMessage(keysError)}
+        </div>
+      )}
 
       {/* Create form */}
       {showForm && (

@@ -109,4 +109,19 @@ describe('KeysSection', () => {
     expect(screen.getByText(/password manager or CI secret store/i)).toBeDefined()
     expect(screen.getByText('af_test_key_value')).toBeDefined()
   })
+
+  test('shows a beginner recovery step instead of raw platform key details', async () => {
+    useSettingsStore.setState({
+      keysError:
+        'You do not have permission to create the platform API key. Code: 403. Details: Forbidden',
+    })
+
+    render(<KeysSection />)
+
+    await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Platform API key could not be created. Ask an owner or admin for access to manage platform API keys.'
+    )
+    expect(screen.queryByText(/Details: Forbidden/i)).toBeNull()
+  })
 })
