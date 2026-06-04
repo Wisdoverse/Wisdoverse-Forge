@@ -33,6 +33,7 @@ interface SshKeyRowProps {
 
 function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
   const [confirming, setConfirming] = useState(false)
+  const removeWarningId = `ssh-key-remove-warning-${sshKey.id}`
 
   function handleDelete() {
     if (!confirming) {
@@ -74,10 +75,16 @@ function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
               ? `Confirm removing ${sshKey.label} SSH key`
               : `Remove ${sshKey.label} SSH key`
           }
+          aria-describedby={confirming ? removeWarningId : undefined}
           className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
         >
-          {confirming ? 'Remove key?' : 'Remove'}
+          {confirming ? 'Remove key now' : 'Remove'}
         </button>
+        {confirming && (
+          <p id={removeWarningId} className="ml-auto mt-1 max-w-44 text-ui-caption text-apple-red">
+            Removing this key can block agents that use private repositories.
+          </p>
+        )}
       </td>
     </tr>
   )

@@ -11,6 +11,17 @@ const originalLoadSshKeys = useSettingsStore.getState().loadSshKeys
 const originalCreateSshKey = useSettingsStore.getState().createSshKey
 const originalDeleteSshKey = useSettingsStore.getState().deleteSshKey
 
+function sshKey(overrides: Partial<UserSshKey> = {}): UserSshKey {
+  return {
+    id: 'ssh-key-1',
+    label: 'Work laptop',
+    fingerprint: 'SHA256:abc123',
+    keyType: 'ssh-ed25519',
+    createdAt: '2026-05-12T08:00:00.000Z',
+    ...overrides,
+  }
+}
+
 beforeEach(() => {
   loadSshKeysMock.mockClear()
   createSshKeyMock.mockClear()
@@ -68,5 +79,21 @@ describe('SshKeysSection', () => {
         'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAexample user@host'
       )
     )
+  })
+
+  test('explains the impact before removing an SSH key', async () => {
+    useSettingsStore.setState({ sshKeys: [sshKey()] })
+
+    render(<SshKeysSection />)
+
+    await waitFor(() => expect(loadSshKeysMock).toHaveBeenCalledTimes(1))
+    fireEvent.click(screen.getByRole('button', { name: /remove work laptop ssh key/i }))
+
+    expect(deleteSshKeyMock).not.toHaveBeenCalled()
+    expect(screen.getByText(/can block agents that use private repositories/i)).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: /confirm removing work laptop ssh key/i }))
+
+    expect(deleteSshKeyMock).toHaveBeenCalledWith('ssh-key-1')
   })
 })
