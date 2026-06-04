@@ -27,6 +27,7 @@ describe('taskDetailErrorMessage', () => {
 
     expect(message).toContain('Run attempts could not load')
     expect(message).toContain('The browser could not reach the server')
+    expect(message).not.toContain('API')
     expect(message).not.toContain('Failed to fetch')
   })
 

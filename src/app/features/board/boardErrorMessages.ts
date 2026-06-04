@@ -11,7 +11,7 @@ const ACTION_FALLBACKS: Record<BoardErrorAction, string> = {
   createTask: 'The task was not created. Check the project, work lane, and title, then try again.',
   loadReadiness:
     'Agent readiness could not load. Refresh readiness before assigning or publishing work.',
-  loadTasks: 'The task board could not load. Refresh the board after the API is healthy.',
+  loadTasks: 'The task board could not load. Refresh the board, then try again.',
   moveTask: 'The task was moved back because the server did not save the board change.',
   previewContext: 'The context preview could not load. Choose an available agent, then try again.',
   publishTask: 'The task was not published with context. Review the preview, then try again.',

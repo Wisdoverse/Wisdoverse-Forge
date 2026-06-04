@@ -58,6 +58,7 @@ describe('useAnalyticsStore', () => {
     await useAnalyticsStore.getState().load()
 
     expect(useAnalyticsStore.getState().error).toBe(analyticsUnavailableMessage())
+    expect(useAnalyticsStore.getState().error).not.toContain('API')
     expect(useAnalyticsStore.getState().loading).toBe(false)
   })
 

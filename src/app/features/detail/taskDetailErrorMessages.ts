@@ -11,7 +11,7 @@ const ACTION_FALLBACKS: Record<TaskDetailErrorAction, string> = {
   approveTask:
     'The task was not approved. Check that the task is still waiting for approval, then try again.',
   loadAgents: 'Available agents could not load. Refresh this task before assigning it.',
-  loadContext: 'Task context could not load. Refresh the detail panel after the API is healthy.',
+  loadContext: 'Task context could not load. Refresh the detail panel, then try again.',
   loadRuns:
     'Run attempts could not load. Refresh Updates before deciding whether to retry this task.',
   previewContext: 'The context review could not load. Choose an available agent, then try again.',

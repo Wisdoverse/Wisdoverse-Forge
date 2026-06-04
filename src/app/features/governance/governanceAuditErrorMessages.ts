@@ -4,7 +4,7 @@ const ACTION_FALLBACKS: Record<GovernanceAuditErrorAction, string> = {
   exportAudit:
     'The audit export did not finish. Keep secrets hidden, refresh the audit view, then try export again.',
   loadAudit:
-    'The governance audit could not load. Refresh after the API is healthy, then apply the filters again.',
+    'The governance audit could not load. Refresh the audit view, then apply the filters again.',
 }
 
 export function governanceAuditErrorMessage(

@@ -4,7 +4,7 @@ const ACTION_FALLBACKS: Record<ApprovalQueueErrorAction, string> = {
   approveCandidate:
     'The candidate was not approved. Review the scope and source preview, then try again.',
   loadQueue:
-    'The approval queue could not load. Refresh after the API is healthy so you see the latest candidates.',
+    'The approval queue could not load. Refresh the queue so you see the latest candidates.',
   rejectCandidate:
     'The candidate was not rejected. Refresh the queue, then try the reject action again.',
 }

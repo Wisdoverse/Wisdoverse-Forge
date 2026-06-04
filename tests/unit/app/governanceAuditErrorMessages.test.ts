@@ -20,6 +20,7 @@ describe('governanceAuditErrorMessage', () => {
 
     expect(message).toContain('governance audit could not load')
     expect(message).toContain('browser could not reach the server')
+    expect(message).not.toContain('API')
     expect(message).not.toContain('Failed to fetch')
   })
 

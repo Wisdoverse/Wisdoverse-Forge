@@ -20,6 +20,7 @@ describe('boardActionErrorMessage', () => {
 
     expect(message).toContain('Agent readiness could not load')
     expect(message).toContain('The browser could not reach the server')
+    expect(message).not.toContain('API')
     expect(message).not.toContain('Failed to fetch')
   })
 

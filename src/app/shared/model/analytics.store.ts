@@ -69,7 +69,7 @@ const initialState = {
 }
 
 export function analyticsUnavailableMessage(): string {
-  return 'Analytics could not load live activity. Refresh after the API is healthy. If this is a new workspace, run an agent task first so there is activity to report.'
+  return 'Analytics could not load live activity. Refresh the dashboard. If this is a new workspace, run an agent task first so there is activity to report.'
 }
 
 export function analyticsNetworkErrorMessage(): string {
