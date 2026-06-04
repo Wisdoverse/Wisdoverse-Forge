@@ -16,6 +16,7 @@ import { DescriptionTab } from './DescriptionTab'
 import { ContextTab } from './ContextTab'
 import { HistoryTab } from './HistoryTab'
 import { SkillDraftModal } from './SkillDraftModal'
+import { taskDetailErrorMessage } from './taskDetailErrorMessages'
 
 type TabId = 'description' | 'result' | 'context' | 'history'
 
@@ -76,8 +77,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
         setSelectedAgentId((current) => current || items[0]?.agentId || '')
       })
       .catch((err) => {
-        if (!cancelled)
-          setPreviewError(err instanceof Error ? err.message : 'Failed to load agents')
+        if (!cancelled) setPreviewError(taskDetailErrorMessage('loadAgents', err))
       })
     return () => {
       cancelled = true
@@ -93,7 +93,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
     try {
       setPreview(await orchestrationApi.previewContext(task.id, agentId))
     } catch (err) {
-      setPreviewError(err instanceof Error ? err.message : 'Failed to load context preview')
+      setPreviewError(taskDetailErrorMessage('previewContext', err))
     } finally {
       setPreviewLoading(false)
     }
@@ -113,7 +113,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       if (response.ok && response.task) upsertTask(response.task)
       setPreviewOpen(false)
     } catch (err) {
-      setPreviewError(err instanceof Error ? err.message : 'Failed to publish task')
+      setPreviewError(taskDetailErrorMessage('publishTask', err))
     } finally {
       setPublishing(false)
     }
@@ -129,7 +129,9 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
           : await orchestrationApi.approveTask(task.id)
       if (response.ok && response.task) upsertTask(response.task)
     } catch (err) {
-      setRecoveryError(err instanceof Error ? err.message : 'Failed to update task')
+      setRecoveryError(
+        taskDetailErrorMessage(action === 'retry' ? 'retryTask' : 'approveTask', err)
+      )
     } finally {
       setRecoveryAction(null)
     }

@@ -70,6 +70,21 @@ function context(overrides: Partial<TaskContextResponse> = {}): TaskContextRespo
 }
 
 describe('ContextTab', () => {
+  test('shows beginner guidance when task context fails to load', async () => {
+    render(
+      <ContextTab
+        taskId="task-1"
+        loadContext={async () => {
+          throw new Error('401 Unauthorized')
+        }}
+      />
+    )
+
+    expect(await screen.findByText(/sign in again/i)).toBeDefined()
+    expect(screen.getByText(/code: 401/i)).toBeDefined()
+    expect(screen.queryByText(/401 unauthorized/i)).toBeNull()
+  })
+
   test('shows the empty state when no run context exists', async () => {
     render(<ContextTab taskId="task-1" loadContext={async () => context({ runs: [] })} />)
 
