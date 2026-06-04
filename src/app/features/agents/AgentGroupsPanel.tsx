@@ -20,8 +20,7 @@ import type { TaskSummary } from '@app/shared/api/orchestration'
 import { useNavigationStore } from '@app/entities/navigation'
 import { agentGroupErrorMessage } from './model/agentGroupErrorMessage'
 
-const DEFAULT_GROUP_DESCRIPTION =
-  'This task group is a work lane where agents can receive board tasks.'
+const DEFAULT_GROUP_DESCRIPTION = 'This work lane lets agents receive board tasks.'
 
 const TASK_STATE_LABELS: Record<TaskSummary['state'], string> = {
   backlog: 'Backlog',
@@ -217,12 +216,12 @@ export function AgentGroupsPanel() {
               aria-hidden="true"
             />
             <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              Task Routing
+              Work Lanes
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Task groups work like simple lanes: pick one, create tasks, and agents know where to
-            look for work.
+            Work lanes are simple places agents watch for tasks. Create a lane, add agents, then
+            send tasks to it.
           </p>
           {selectedProject && (
             <p className="mt-2 truncate rounded-md bg-black/[0.04] px-2 py-1 text-ui-caption text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
@@ -252,8 +251,7 @@ export function AgentGroupsPanel() {
 
       {!selectedProjectId ? (
         <div className="mt-3 rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark">
-          Select a project from the sidebar first. Each project keeps its own task groups and
-          agents.
+          Select a project from the sidebar first. Each project keeps its own work lanes and agents.
         </div>
       ) : (
         <div className="mt-3 flex flex-col gap-3">
@@ -294,10 +292,10 @@ export function AgentGroupsPanel() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                    Group workload
+                    Lane workload
                   </p>
                   <h3 className="truncate text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-                    {selectedGroup?.name ?? 'Select a task group'}
+                    {selectedGroup?.name ?? 'Select a work lane'}
                   </h3>
                 </div>
                 <span className="shrink-0 rounded-full bg-white px-2 py-1 text-ui-caption font-medium text-secondary-light shadow-sm dark:bg-black/20 dark:text-secondary-dark">
@@ -398,7 +396,7 @@ export function AgentGroupsPanel() {
               </p>
               <div
                 role="group"
-                aria-label="Task group templates"
+                aria-label="Work lane templates"
                 className="grid gap-2 sm:grid-cols-3"
               >
                 {TASK_GROUP_TEMPLATES.map((template) => (
@@ -430,23 +428,23 @@ export function AgentGroupsPanel() {
               </div>
 
               <input
-                aria-label="Task group name"
+                aria-label="Work lane name"
                 name="taskGroupName"
                 autoComplete="off"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 className="h-10 rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                placeholder="Task group name…"
+                placeholder="Work lane name…"
                 disabled={saving}
               />
               <input
-                aria-label="Task group description"
+                aria-label="Work lane description"
                 name="taskGroupDescription"
                 autoComplete="off"
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 className="h-10 rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                placeholder="Describe task routing…"
+                placeholder="What should agents use this lane for?"
                 disabled={saving}
               />
               <div className="flex items-center justify-end gap-2">
@@ -470,7 +468,7 @@ export function AgentGroupsPanel() {
                       setError(null)
                     }}
                     disabled={saving}
-                    aria-label="Cancel task group creation"
+                    aria-label="Cancel work lane creation"
                     className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ui-button text-secondary-light transition-transform hover:bg-black/[0.04] hover:text-foreground-light active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
                   >
                     <X size={14} strokeWidth={2.25} aria-hidden="true" />

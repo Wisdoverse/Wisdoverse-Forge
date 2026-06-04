@@ -274,7 +274,7 @@ export function BoardView() {
           </p>
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
             {selectedProjectId
-              ? 'A task group is the work lane agents listen to. Create one in Agents > Task Routing, then come back here to add work.'
+              ? 'Create a work lane in Agents > Work Lanes, then come back here to add work. Agents watch work lanes for new tasks.'
               : 'Choose a project from the sidebar first. A project keeps tasks, agents, and work lanes together.'}
           </p>
         </div>

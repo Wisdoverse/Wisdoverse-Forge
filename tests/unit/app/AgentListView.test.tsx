@@ -209,7 +209,7 @@ describe('AgentListView', () => {
     expect(screen.getAllByText(/new agent/i).length).toBeGreaterThan(0)
   })
 
-  test('creates a task group from the selected project context', async () => {
+  test('creates a work lane from the selected project context', async () => {
     const createAgentGroup = vi.fn(
       async (projectId: string, input: { name: string; description?: string }) => {
         const group = { id: 'g-new', name: input.name, projectId }
@@ -238,9 +238,9 @@ describe('AgentListView', () => {
 
     render(<AgentListView />)
 
-    expect(screen.getByText('Task Routing')).toBeDefined()
-    expect(screen.getByText(/task groups work like simple lanes/i)).toBeDefined()
-    fireEvent.change(screen.getByLabelText(/task group name/i), {
+    expect(screen.getByText('Work Lanes')).toBeDefined()
+    expect(screen.getByText(/work lanes are simple places agents watch for tasks/i)).toBeDefined()
+    fireEvent.change(screen.getByLabelText(/work lane name/i), {
       target: { value: 'Frontend Delivery' },
     })
     fireEvent.click(screen.getByRole('button', { name: /^create lane$/i }))
@@ -250,7 +250,7 @@ describe('AgentListView', () => {
         'p1',
         expect.objectContaining({
           name: 'Frontend Delivery',
-          description: 'This task group is a work lane where agents can receive board tasks.',
+          description: 'This work lane lets agents receive board tasks.',
         })
       )
     )
@@ -261,7 +261,7 @@ describe('AgentListView', () => {
     )
   })
 
-  test('applies a task group template before creating routing', async () => {
+  test('applies a work lane template before creating routing', async () => {
     const createAgentGroup = vi.fn(
       async (projectId: string, input: { name: string; description?: string }) => {
         const group = { id: 'g-review', name: input.name, projectId }
@@ -290,11 +290,11 @@ describe('AgentListView', () => {
 
     render(<AgentListView />)
 
-    const templates = screen.getByRole('group', { name: /task group templates/i })
+    const templates = screen.getByRole('group', { name: /work lane templates/i })
     fireEvent.click(within(templates).getByRole('button', { name: /review/i }))
 
-    expect(screen.getByLabelText(/task group name/i)).toHaveValue('Review Group')
-    expect((screen.getByLabelText(/task group description/i) as HTMLInputElement).value).toContain(
+    expect(screen.getByLabelText(/work lane name/i)).toHaveValue('Review Group')
+    expect((screen.getByLabelText(/work lane description/i) as HTMLInputElement).value).toContain(
       'release risk'
     )
 

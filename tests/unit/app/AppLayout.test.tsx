@@ -143,13 +143,13 @@ describe('AppLayout', () => {
     expect(screen.getByPlaceholderText(/search commands/i)).toBeDefined()
   })
 
-  test('does not expose task group creation from the Tasks top bar', async () => {
+  test('does not expose work lane creation from the Tasks top bar', async () => {
     seedProjectNavigation('p1')
     useNavigationStore.setState({ agentGroups: [] })
 
     render(<MemoryRouter />)
 
-    expect(screen.queryByRole('button', { name: /new task group/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /new work lane/i })).toBeNull()
     expect(screen.getByRole('combobox', { name: /work lane for new tasks/i })).toBeDisabled()
     expect(mockCreateGroup).not.toHaveBeenCalled()
   })
@@ -279,7 +279,7 @@ describe('AppLayout', () => {
     expect(useNavigationStore.getState().selectedProjectId).toBe('p1')
   })
 
-  test('requires a task group instead of initializing one from New Task', async () => {
+  test('requires a work lane instead of initializing one from New Task', async () => {
     seedProjectNavigation(null)
     mockGetGroups.mockResolvedValue([])
 
@@ -300,8 +300,8 @@ describe('AppLayout', () => {
         'Create a Work Lane First'
       )
     )
-    expect(screen.getByText(/agents listen to work lanes/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: /open task routing/i })).toBeDefined()
+    expect(screen.getByText(/agents watch work lanes for new tasks/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: /open work lanes/i })).toBeDefined()
     expect(createButton).toBeDisabled()
     expect(mockCreateGroup).not.toHaveBeenCalled()
     expect(mockCreateTask).not.toHaveBeenCalled()

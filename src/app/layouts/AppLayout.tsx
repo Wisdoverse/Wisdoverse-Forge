@@ -287,7 +287,7 @@ export function AppLayout({
           }
           if (!groupId) {
             throw new Error(
-              'Select a task group before creating a task. A task group is the work lane agents listen to; create one in Agents > Task Routing.'
+              'Create a work lane before creating a task. Agents watch work lanes for new tasks; create one in Agents > Work Lanes.'
             )
           }
           const response = await orchestrationApi.createTask({

@@ -40,13 +40,14 @@ describe('BoardView', () => {
     expect(screen.getByText(/pick a project to start/i)).toBeDefined()
   })
 
-  test('explains missing task group when a project is selected', () => {
+  test('explains missing work lane when a project is selected', () => {
     useNavigationStore.setState({ selectedProjectId: 'p1' })
 
     render(<BoardView />)
 
     expect(screen.getByText(/create a work lane first/i)).toBeDefined()
-    expect(screen.getByText(/task group is the work lane agents listen to/i)).toBeDefined()
+    expect(screen.getByText(/create a work lane in agents > work lanes/i)).toBeDefined()
+    expect(screen.getByText(/agents watch work lanes for new tasks/i)).toBeDefined()
   })
 
   test('renders task lifecycle columns with correct headers', async () => {

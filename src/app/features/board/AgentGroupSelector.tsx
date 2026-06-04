@@ -17,7 +17,7 @@ export function AgentGroupSelector({
   const disabledHelp = !selectedProjectId
     ? 'Choose a project before selecting a work lane.'
     : groups.length === 0
-      ? 'Create a work lane in Agents > Task Routing before assigning tasks.'
+      ? 'Create a work lane in Agents > Work Lanes before assigning tasks.'
       : null
   const selectTitle = disabledHelp ?? 'Choose the work lane where new tasks will go.'
 

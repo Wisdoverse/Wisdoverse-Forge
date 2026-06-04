@@ -738,7 +738,7 @@ export function CreateAgentModal() {
                   htmlFor="agent-group"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  Task Group
+                  Work lane
                 </label>
                 {groups.length > 0 ? (
                   <>
@@ -747,7 +747,7 @@ export function CreateAgentModal() {
                       {...register('groupId')}
                       className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                     >
-                      <option value="">No task group</option>
+                      <option value="">No work lane</option>
                       {groups.map((g) => (
                         <option key={g.id} value={g.id}>
                           {g.name}
@@ -755,7 +755,7 @@ export function CreateAgentModal() {
                       ))}
                     </select>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      A task group is the work lane this agent listens to for board tasks.
+                      Choose the work lane this agent watches for board tasks.
                     </p>
                   </>
                 ) : (
@@ -772,7 +772,7 @@ export function CreateAgentModal() {
                       )}
                     >
                       <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-                      {creatingGroup ? 'Creating…' : 'Create Task Group'}
+                      {creatingGroup ? 'Creating…' : 'Create Work Lane'}
                     </button>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                       This creates the first work lane so the agent can receive tasks.

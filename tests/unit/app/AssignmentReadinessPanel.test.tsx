@@ -27,7 +27,7 @@ describe('AssignmentReadinessPanel', () => {
 
     const emptyState = screen.getByTestId('assignment-readiness-empty')
     expect(within(emptyState).getByText('Connect an agent before dispatch')).toBeDefined()
-    expect(within(emptyState).getByText(/Agents \/ Task Routing/)).toBeDefined()
+    expect(within(emptyState).getByText(/Agents \/ Work Lanes/)).toBeDefined()
     expect(within(emptyState).getByText(/backlog tasks cannot leave this lane/)).toBeDefined()
   })
 

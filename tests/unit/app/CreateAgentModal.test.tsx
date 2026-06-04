@@ -142,7 +142,7 @@ describe('CreateAgentModal', () => {
     })
 
     render(<CreateAgentModal />)
-    fireEvent.click(await screen.findByRole('button', { name: /create task group/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /create work lane/i }))
 
     await waitFor(() =>
       expect(agentGroupApi.createGroup).toHaveBeenCalledWith({
@@ -151,7 +151,7 @@ describe('CreateAgentModal', () => {
         description: 'This work lane lets agents receive board tasks.',
       })
     )
-    expect(screen.getByRole('combobox', { name: /task group/i })).toHaveValue('group-new')
+    expect(screen.getByRole('combobox', { name: /work lane/i })).toHaveValue('group-new')
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/project ready/i)
 
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'CLI Worker' } })
@@ -186,7 +186,7 @@ describe('CreateAgentModal', () => {
     })
 
     render(<CreateAgentModal />)
-    fireEvent.click(await screen.findByRole('button', { name: /create task group/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /create work lane/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       "Work lane was not created. Ask a workspace owner or admin to let you manage this project's work lanes."

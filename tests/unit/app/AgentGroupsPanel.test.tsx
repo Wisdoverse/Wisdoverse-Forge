@@ -51,7 +51,7 @@ afterEach(() => {
 })
 
 describe('AgentGroupsPanel', () => {
-  test('summarizes the selected task group workload', () => {
+  test('summarizes the selected work lane workload', () => {
     seedRoutingState([
       makeTask({
         id: 'backlog-1',
@@ -188,7 +188,7 @@ describe('AgentGroupsPanel', () => {
     )
   })
 
-  test('explains task group creation permission failures with a next step', async () => {
+  test('explains work lane creation permission failures with a next step', async () => {
     seedRoutingState([])
     const createAgentGroup = vi.fn().mockRejectedValue(new Error('HTTP 403: Forbidden'))
     useNavigationStore.setState({ createAgentGroup } as never)
@@ -196,7 +196,7 @@ describe('AgentGroupsPanel', () => {
     render(<AgentGroupsPanel />)
 
     fireEvent.click(screen.getByRole('button', { name: /new/i }))
-    fireEvent.change(screen.getByLabelText(/task group name/i), {
+    fireEvent.change(screen.getByLabelText(/work lane name/i), {
       target: { value: 'Delivery Lane' },
     })
     fireEvent.submit(screen.getByRole('button', { name: /create lane/i }).closest('form')!)

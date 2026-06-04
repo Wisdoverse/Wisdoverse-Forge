@@ -370,7 +370,7 @@ export function TaskFormModal({
                 <p className="mt-0.5 text-secondary-light dark:text-secondary-dark">
                   {workLaneReady
                     ? `${selectedTaskGroupName ?? 'Selected work lane'} will receive this task.`
-                    : 'Agents listen to work lanes. Open Task Routing, create a lane, then return to Tasks.'}
+                    : 'Agents watch work lanes for new tasks. Open Work Lanes, create a lane, then return to Tasks.'}
                 </p>
               </div>
             </div>
@@ -380,7 +380,7 @@ export function TaskFormModal({
                 onClick={onOpenTaskRouting}
                 className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-apple-orange/30 bg-white px-3 text-ui-button font-medium text-apple-orange transition-colors hover:bg-apple-orange/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-orange/35 dark:bg-white/[0.06]"
               >
-                Open Task Routing
+                Open Work Lanes
               </button>
             )}
           </div>
