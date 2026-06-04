@@ -140,9 +140,10 @@ describe('ProvidersSection', () => {
     fireEvent.click(within(nextStep).getByRole('button', { name: /add model service/i }))
 
     expect(screen.getByText('Model service setup path')).toBeDefined()
-    expect(screen.getByText('Add key')).toBeDefined()
-    expect(screen.getByText(/stored encrypted/i)).toBeDefined()
+    expect(screen.getByText('Add secret key')).toBeDefined()
+    expect(screen.getByText(/saved securely/i)).toBeDefined()
     expect(screen.getByText('Save, then check')).toBeDefined()
+    expect(screen.getByText(/use check before creating agents/i)).toBeDefined()
     expect(screen.getByLabelText(/^model service$/i)).toBeDefined()
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
       /next: paste secret key/i

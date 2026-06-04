@@ -62,9 +62,9 @@ const DEFAULT_FORM: AddProviderForm = {
 }
 
 const PROVIDER_SETUP_STEPS = [
-  { label: 'Choose service', value: 'Pick the company or local tool that answers messages.' },
-  { label: 'Add key', value: 'Paste the secret key from that service. It is stored encrypted.' },
-  { label: 'Save, then check', value: 'Check the connection before creating agents.' },
+  { label: 'Choose service', value: 'Pick the model service agents will use for messages.' },
+  { label: 'Add secret key', value: 'Paste the key from that service. It is saved securely.' },
+  { label: 'Save, then check', value: 'Use Check before creating agents with this service.' },
 ]
 
 const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
