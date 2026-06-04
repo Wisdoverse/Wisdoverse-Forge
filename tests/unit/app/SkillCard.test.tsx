@@ -32,7 +32,7 @@ describe('SkillCard', () => {
     expect(screen.getByText(/^Source:/)).toBeInTheDocument()
     expect(screen.getByText('Workspace skills')).toBeInTheDocument()
     expect(screen.getByText(/by Platform team/i)).toBeInTheDocument()
-    expect(screen.getByText('Trigger: release')).toBeInTheDocument()
+    expect(screen.getByText('Use when: release')).toBeInTheDocument()
   })
 
   test('marks unavailable skills as needing installation before use', () => {

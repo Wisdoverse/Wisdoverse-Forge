@@ -35,7 +35,7 @@ export function SkillCard({ skill, onClick }: SkillCardProps) {
           </span>
           {skill.triggerPattern && (
             <span className="mt-1 inline-flex w-fit max-w-full items-center rounded-full bg-black/[0.04] px-2 py-0.5 font-mono text-[10px] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-              <span className="truncate">Trigger: {skill.triggerPattern}</span>
+              <span className="truncate">Use when: {skill.triggerPattern}</span>
             </span>
           )}
         </div>
