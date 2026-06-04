@@ -9,7 +9,7 @@ import { getAgentApi } from '@app/shared/api/legacy'
 import { orchestrationApi, type ParticipantSummary } from '@app/shared/api/orchestration'
 import type { CliAuthProxyStatusEntry } from '@app/entities/agent'
 import type { RuntimeSettings, RuntimeType, CliTool } from '@app/shared/api/legacy/settingsApi'
-import { runtimeErrorMessage } from './runtimeErrorMessages'
+import { runtimeErrorMessage, runtimeSettingsErrorMessage } from './runtimeErrorMessages'
 
 // ============================================================================
 // Setting Row
@@ -187,7 +187,11 @@ export function RuntimeSection() {
       </div>
 
       {/* Error */}
-      {runtimeError && <div className={uiStyles.error}>{runtimeError}</div>}
+      {runtimeError && (
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
+          {runtimeSettingsErrorMessage(runtimeError)}
+        </div>
+      )}
       {cliStatusError && <div className={uiStyles.error}>{cliStatusError}</div>}
       {participantsError && <div className={uiStyles.error}>{participantsError}</div>}
 

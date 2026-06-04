@@ -207,4 +207,19 @@ describe('RuntimeSection', () => {
     expect(screen.getByText(/owner or admin/i)).toBeDefined()
     expect(screen.queryByText(/403 Forbidden/)).toBeNull()
   })
+
+  test('shows beginner guidance instead of raw runtime setting details', async () => {
+    useSettingsStore.setState({
+      runtimeError:
+        'Check the required fields for runtime setting, then try again. Code: 422. Details: default CLI tool is not available',
+    })
+
+    render(<RuntimeSection />)
+
+    await screen.findByTestId('runtime-launch-checklist')
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Runtime settings could not be saved. Choose an available work location and local tool, then save again.'
+    )
+    expect(screen.queryByText(/Details: default CLI tool is not available/i)).toBeNull()
+  })
 })

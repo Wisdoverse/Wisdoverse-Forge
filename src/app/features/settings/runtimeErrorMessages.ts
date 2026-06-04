@@ -50,6 +50,54 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   return suffix ? `${ACTION_FALLBACKS[action]} Detail: ${suffix}` : ACTION_FALLBACKS[action]
 }
 
+export function runtimeSettingsErrorMessage(err: unknown): string {
+  const detail = errorDetail(err)
+  const normalized = detail.toLowerCase()
+  const status = errorStatus(err, normalized)
+  const base =
+    normalized.includes('update') ||
+    normalized.includes('required fields for runtime setting') ||
+    normalized.includes('default cli tool') ||
+    normalized.includes('default runtime') ||
+    normalized.includes('not available')
+      ? 'Runtime settings could not be saved.'
+      : 'Runtime settings could not be loaded.'
+
+  if (isNetworkError(normalized)) {
+    return `${base} The browser could not reach the server. Check your connection, then refresh Settings.`
+  }
+
+  if (status === 401) {
+    return `${base} Sign in again, then open Settings and try runtime setup again.`
+  }
+
+  if (status === 403) {
+    return `${base} Ask an owner or admin for access to manage runtime setup.`
+  }
+
+  if (status === 404) {
+    return `${base} Refresh after the backend with runtime settings is deployed.`
+  }
+
+  if (status === 409) {
+    return `${base} Runtime setup changed while you were working. Refresh Settings, review the current choices, then try again.`
+  }
+
+  if (status === 422) {
+    return `${base} Choose an available work location and local tool, then save again.`
+  }
+
+  if (status === 429) {
+    return `${base} The server is busy. Wait a minute, then try again.`
+  }
+
+  if (status && status >= 500) {
+    return `${base} The runtime settings service is temporarily unavailable. Ask an owner to check the backend, then try again.`
+  }
+
+  return `${base} Try again. If it still fails, ask an owner to check runtime settings.`
+}
+
 function errorDetail(err: unknown): string {
   if (err instanceof Error) return err.message
   if (typeof err === 'string') return err
