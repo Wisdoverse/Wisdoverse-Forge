@@ -45,7 +45,12 @@ describe('ResourcesSection', () => {
     expect(guide.textContent).toContain('Small is the smallest option')
     expect(within(guide).getByText('CPU controls speed')).toBeDefined()
     expect(within(guide).getByText('Memory prevents crashes')).toBeDefined()
-    expect(within(guide).getByText('Limits protect the runner')).toBeDefined()
+    expect(within(guide).getByText('Agent sizes protect shared work')).toBeDefined()
+    expect(
+      within(guide).getByText('They keep one agent from using all available work capacity.')
+    ).toBeDefined()
+    expect(within(guide).queryByText(/runner/i)).toBeNull()
+    expect(within(guide).queryByText(/machine resources/i)).toBeNull()
 
     expect(screen.getByText('Small')).toBeDefined()
     expect(screen.getByText(/1 core power · 1 GB memory/i)).toBeDefined()

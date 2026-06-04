@@ -74,8 +74,8 @@ const RESOURCE_PROFILE_GUIDANCE: {
     Icon: HardDrive,
   },
   {
-    title: 'Limits protect the runner',
-    description: 'Profiles keep one agent from consuming all machine resources.',
+    title: 'Agent sizes protect shared work',
+    description: 'They keep one agent from using all available work capacity.',
     Icon: ShieldCheck,
   },
 ]
