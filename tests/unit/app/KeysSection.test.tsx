@@ -59,8 +59,8 @@ describe('KeysSection', () => {
 
     expect(within(emptyState).getByText('No platform API keys yet')).toBeDefined()
     expect(within(emptyState).getByText(/another tool needs to call Forge/i)).toBeDefined()
-    expect(within(emptyState).getByText(/trusted script, CI job, or integration/i)).toBeDefined()
-    expect(within(emptyState).getByText(/password manager or CI secret/i)).toBeDefined()
+    expect(within(emptyState).getByText(/trusted automation tool/i)).toBeDefined()
+    expect(within(emptyState).getByText(/safe secret storage/i)).toBeDefined()
 
     fireEvent.click(within(emptyState).getByRole('button', { name: /create platform key/i }))
 
@@ -106,7 +106,7 @@ describe('KeysSection', () => {
 
     await waitFor(() => expect(createApiKeyMock).toHaveBeenCalledWith('Production deploy pipeline'))
     expect(screen.getByText(/copy it now/i)).toBeDefined()
-    expect(screen.getByText(/password manager or CI secret store/i)).toBeDefined()
+    expect(screen.getByText(/password manager or another safe secret store/i)).toBeDefined()
     expect(screen.getByText('af_test_key_value')).toBeDefined()
   })
 

@@ -20,9 +20,9 @@ function formatDate(dateStr: string | null): string {
 }
 
 const API_KEY_EMPTY_STEPS = [
-  'Create a key only for a trusted script, CI job, or integration.',
+  'Create a key only for a trusted automation tool.',
   'Use a name that tells the team where the key will live.',
-  'Copy the new key into a password manager or CI secret before closing the banner.',
+  'Copy the new key into safe secret storage before closing the banner.',
 ]
 
 // ============================================================================
@@ -112,7 +112,8 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
             Platform API key created — copy it now, it won&apos;t be shown again
           </p>
           <p className="mb-2 text-ui-caption text-apple-blue/80">
-            Save it in your password manager or CI secret store before dismissing this banner.
+            Save it in a password manager or another safe secret store before dismissing this
+            banner.
           </p>
           <code className="break-all font-mono text-ui-caption">{keyValue}</code>
         </div>
@@ -256,7 +257,7 @@ export function KeysSection() {
         <div>
           <h2 className={uiStyles.sectionTitle}>Platform API Keys</h2>
           <p className={uiStyles.sectionDescription}>
-            Create tokens for scripts, CI jobs, and external integrations that call Forge APIs
+            Create keys for trusted automation tools that need to call Forge without signing in
           </p>
         </div>
         {!showForm && (
