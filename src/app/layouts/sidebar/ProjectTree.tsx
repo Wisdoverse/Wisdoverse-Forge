@@ -84,6 +84,81 @@ interface EmptyTreeHintProps {
 const TEAM_MENU_SIZE = { width: 190, height: 108 }
 const PROJECT_MENU_SIZE = { width: 280, height: 456 }
 
+type RenameTarget = 'team' | 'project'
+
+function parseApiStatus(error: unknown): { status: number | null; detail: string | null } {
+  if (!(error instanceof Error)) return { status: null, detail: null }
+  const message = error.message.trim()
+  const match = /^API\s+(\d{3}):\s*(.*)$/s.exec(message)
+  if (!match) return { status: null, detail: message || null }
+
+  const status = Number(match[1])
+  const body = match[2]?.trim()
+  if (!body) return { status, detail: null }
+
+  try {
+    const parsed = JSON.parse(body) as unknown
+    if (parsed && typeof parsed === 'object') {
+      const data = parsed as Record<string, unknown>
+      if (typeof data.error === 'string' && data.error.trim()) {
+        return { status, detail: data.error.trim() }
+      }
+      if (typeof data.message === 'string' && data.message.trim()) {
+        return { status, detail: data.message.trim() }
+      }
+    }
+  } catch {
+    // Preserve plain-text server details below.
+  }
+
+  return { status, detail: body }
+}
+
+function renameErrorMessage(target: RenameTarget, error: unknown): string {
+  const label = target === 'team' ? 'team' : 'project'
+  const title = target === 'team' ? 'Team' : 'Project'
+
+  if (
+    error instanceof TypeError ||
+    (error instanceof Error && /^Failed to fetch$/i.test(error.message.trim()))
+  ) {
+    return `${title} name could not be saved because the browser could not reach the server. Check your connection, then save again.`
+  }
+
+  const { status, detail } = parseApiStatus(error)
+  const suffix = detail ? ` Details: ${detail}` : ''
+
+  if (!status) {
+    return `${title} name could not be saved. Refresh the sidebar and try again.${suffix}`
+  }
+
+  const statusText = `Code: ${status}.`
+
+  if (status === 401) {
+    return `Sign in again, then save this ${label} name. ${statusText}${suffix}`
+  }
+  if (status === 403) {
+    return `You do not have permission to rename this ${label}. Ask an owner or admin to update your access. ${statusText}${suffix}`
+  }
+  if (status === 404) {
+    return `This ${label} could not be found. Refresh the sidebar, then try again. ${statusText}${suffix}`
+  }
+  if (status === 409) {
+    return `This ${label} changed while you were editing. Refresh the sidebar, review the current name, then try again. ${statusText}${suffix}`
+  }
+  if (status === 422) {
+    return `Check the ${label} name, then save again. ${statusText}${suffix}`
+  }
+  if (status === 429) {
+    return `The workspace service is busy. Wait a moment, then save this ${label} name again. ${statusText}${suffix}`
+  }
+  if (status >= 500) {
+    return `The workspace service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+  }
+
+  return `${title} name could not be saved. Refresh the sidebar and try again. ${statusText}${suffix}`
+}
+
 function getMenuPosition(
   menu: ContextMenuPosition,
   size: { width: number; height: number } = TEAM_MENU_SIZE
@@ -357,7 +432,7 @@ export function ProjectTree({
         ...teamEditor,
         name,
         saving: false,
-        error: err instanceof Error ? err.message : 'Failed to update team',
+        error: renameErrorMessage('team', err),
       })
     }
   }
@@ -381,7 +456,7 @@ export function ProjectTree({
         ...projectEditor,
         name,
         saving: false,
-        error: err instanceof Error ? err.message : 'Failed to update project',
+        error: renameErrorMessage('project', err),
       })
     }
   }

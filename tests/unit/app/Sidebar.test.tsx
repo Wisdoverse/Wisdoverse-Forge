@@ -323,6 +323,27 @@ describe('Sidebar', () => {
     expect(screen.getByText('Renamed Team')).toBeInTheDocument()
   })
 
+  it('explains team rename permission failures without raw API text', async () => {
+    seedProjectTree()
+    vi.mocked(teamApi.updateTeam).mockRejectedValueOnce(
+      new Error('API 403: {"error":"owner role required"}')
+    )
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /configure team/i }))
+    fireEvent.change(screen.getByLabelText(/team name/i), {
+      target: { value: 'Renamed Team' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(
+      await screen.findByText(/You do not have permission to rename this team/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Ask an owner or admin to update your access/i)).toBeInTheDocument()
+    expect(screen.queryByText(/API 403/i)).not.toBeInTheDocument()
+  })
+
   it('deletes team from context menu', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     seedProjectTree()
@@ -362,6 +383,25 @@ describe('Sidebar', () => {
       })
     )
     expect(screen.getByText('Renamed Project')).toBeInTheDocument()
+  })
+
+  it('explains project rename validation failures without raw API text', async () => {
+    seedProjectTree()
+    vi.mocked(projectApi.updateProject).mockRejectedValueOnce(
+      new Error('API 422: {"message":"project name is required"}')
+    )
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /rename project/i }))
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Renamed Project' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(await screen.findByText(/Check the project name, then save again/i)).toBeInTheDocument()
+    expect(screen.getByText(/project name is required/i)).toBeInTheDocument()
+    expect(screen.queryByText(/API 422/i)).not.toBeInTheDocument()
   })
 
   it('deletes project from context menu', async () => {
