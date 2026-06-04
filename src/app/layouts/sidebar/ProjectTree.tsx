@@ -126,37 +126,49 @@ function renameErrorMessage(target: RenameTarget, error: unknown): string {
   }
 
   const { status, detail } = parseApiStatus(error)
-  const suffix = detail ? ` Details: ${detail}` : ''
 
   if (!status) {
-    return `${title} name could not be saved. Refresh the sidebar and try again.${suffix}`
+    return renameValidationMessage(target, detail)
   }
-
-  const statusText = `Code: ${status}.`
 
   if (status === 401) {
-    return `Sign in again, then save this ${label} name. ${statusText}${suffix}`
+    return `Sign in again, then reopen the sidebar and save this ${label} name.`
   }
   if (status === 403) {
-    return `You do not have permission to rename this ${label}. Ask an owner or admin to update your access. ${statusText}${suffix}`
+    return `You do not have permission to rename this ${label}. Ask an owner or admin to update your access.`
   }
   if (status === 404) {
-    return `This ${label} could not be found. Refresh the sidebar, then try again. ${statusText}${suffix}`
+    return `This ${label} could not be found. Refresh the sidebar, then choose the current ${label} again.`
   }
   if (status === 409) {
-    return `This ${label} changed while you were editing. Refresh the sidebar, review the current name, then try again. ${statusText}${suffix}`
+    return `This ${label} changed while you were editing. Refresh the sidebar, review the current name, then try again.`
   }
   if (status === 422) {
-    return `Check the ${label} name, then save again. ${statusText}${suffix}`
+    return renameValidationMessage(target, detail)
   }
   if (status === 429) {
-    return `The workspace service is busy. Wait a moment, then save this ${label} name again. ${statusText}${suffix}`
+    return `The workspace service is busy. Wait a moment, then save this ${label} name again.`
   }
   if (status >= 500) {
-    return `The workspace service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+    return 'The workspace service is temporarily unavailable. Ask an owner or admin to check the backend, then save again.'
   }
 
-  return `${title} name could not be saved. Refresh the sidebar and try again. ${statusText}${suffix}`
+  return `${title} name could not be saved. Refresh the sidebar and try again.`
+}
+
+function renameValidationMessage(target: RenameTarget, detail: string | null): string {
+  const label = target === 'team' ? 'team' : 'project'
+  const title = target === 'team' ? 'Team' : 'Project'
+  const normalized = detail?.toLowerCase() ?? ''
+
+  if (normalized.includes('name')) {
+    return `Enter a ${label} name, then save again.`
+  }
+  if (normalized.includes('duplicate') || normalized.includes('already')) {
+    return `Choose a different ${label} name, refresh the sidebar, then save again.`
+  }
+
+  return `${title} name could not be saved. Refresh the sidebar and try again.`
 }
 
 function getMenuPosition(

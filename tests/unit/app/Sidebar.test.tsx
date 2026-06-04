@@ -342,6 +342,9 @@ describe('Sidebar', () => {
     ).toBeInTheDocument()
     expect(screen.getByText(/Ask an owner or admin to update your access/i)).toBeInTheDocument()
     expect(screen.queryByText(/API 403/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/owner role required/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Code:/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Details:/i)).not.toBeInTheDocument()
   })
 
   it('deletes team from context menu', async () => {
@@ -399,9 +402,11 @@ describe('Sidebar', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
-    expect(await screen.findByText(/Check the project name, then save again/i)).toBeInTheDocument()
-    expect(screen.getByText(/project name is required/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Enter a project name, then save again/i)).toBeInTheDocument()
+    expect(screen.queryByText(/project name is required/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/API 422/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Code:/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Details:/i)).not.toBeInTheDocument()
   })
 
   it('deletes project from context menu', async () => {

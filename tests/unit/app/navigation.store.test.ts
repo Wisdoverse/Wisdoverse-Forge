@@ -28,6 +28,12 @@ function apiError(status: number, payload: Record<string, unknown> | string): Er
   return new Error(`API ${status}: ${body}`)
 }
 
+function expectBeginnerError(actual: string | null, expected: string): void {
+  expect(actual).toBe(expected)
+  expect(actual).not.toContain('Code:')
+  expect(actual).not.toContain('Details:')
+}
+
 beforeEach(() => {
   useNavigationStore.getState().reset()
   useBoardStore.getState().reset()
@@ -36,27 +42,30 @@ beforeEach(() => {
 
 describe('navigation.store', () => {
   it('turns expired sessions into a sign-in step', () => {
-    expect(
+    expectBeginnerError(
       navigationActionErrorMessage(
         'organizations',
         'load',
         apiError(401, { error: 'token expired' })
-      )
-    ).toBe('Sign in again, then load organizations. Code: 401. Details: token expired')
+      ),
+      'Sign in again, then open the workspace sidebar and try to load organizations again.'
+    )
   })
 
   it('turns permission failures into workspace access guidance', () => {
-    expect(
-      navigationActionErrorMessage('teamProjects', 'load', apiError(403, { message: 'forbidden' }))
-    ).toBe(
-      'You do not have permission to load teams and projects. Ask an admin to update your workspace access. Code: 403. Details: forbidden'
+    expectBeginnerError(
+      navigationActionErrorMessage(
+        'teamProjects',
+        'load',
+        apiError(403, { message: 'forbidden' })
+      ),
+      'You do not have permission to load teams and projects. Ask an owner or admin to update your workspace access.'
     )
   })
 
   it('turns raw network failures into connection guidance', () => {
-    expect(
-      navigationActionErrorMessage('workLanes', 'load', new TypeError('Failed to fetch'))
-    ).toBe(
+    expectBeginnerError(
+      navigationActionErrorMessage('workLanes', 'load', new TypeError('Failed to fetch')),
       'Navigation could not load work lanes because the browser could not reach the server. Check your connection and refresh the page.'
     )
   })
@@ -258,8 +267,9 @@ describe('navigation.store', () => {
 
     await useNavigationStore.getState().loadOrgs()
 
-    expect(useNavigationStore.getState().error).toBe(
-      'The workspace navigation service had a server problem. Try again after the backend is healthy. Code: 503. Details: database unavailable'
+    expectBeginnerError(
+      useNavigationStore.getState().error,
+      'The workspace navigation service is temporarily unavailable. Ask an owner or admin to check the backend, then refresh the sidebar.'
     )
     expect(useNavigationStore.getState().loading).toBe(false)
   })
@@ -269,8 +279,9 @@ describe('navigation.store', () => {
 
     await useNavigationStore.getState().selectOrg('org-denied')
 
-    expect(useNavigationStore.getState().error).toBe(
-      'You do not have permission to load teams and projects. Ask an admin to update your workspace access. Code: 403. Details: missing team access'
+    expectBeginnerError(
+      useNavigationStore.getState().error,
+      'You do not have permission to load teams and projects. Ask an owner or admin to update your workspace access.'
     )
   })
 
@@ -279,7 +290,8 @@ describe('navigation.store', () => {
 
     await useNavigationStore.getState().selectProject('p-offline')
 
-    expect(useNavigationStore.getState().error).toBe(
+    expectBeginnerError(
+      useNavigationStore.getState().error,
       'Navigation could not load work lanes because the browser could not reach the server. Check your connection and refresh the page.'
     )
   })
@@ -296,8 +308,9 @@ describe('navigation.store', () => {
       })
     ).rejects.toThrow('API 422')
 
-    expect(useNavigationStore.getState().error).toBe(
-      'Check the required fields for the work lane, then try again. Code: 422. Details: name is required'
+    expectBeginnerError(
+      useNavigationStore.getState().error,
+      'Name this work lane, choose its project, then create it again.'
     )
   })
 })

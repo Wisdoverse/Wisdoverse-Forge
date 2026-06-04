@@ -140,39 +140,63 @@ export function navigationActionErrorMessage(
   const actionPhrase = navigationActionPhrase(area, action)
   const status = navigationErrorStatus(error)
   const detail = navigationErrorDetail(error)
-  const suffix = !isRawNavigationFailure(detail) ? ` Details: ${detail}` : ''
 
   if (!status) {
     if (!isRawNavigationFailure(detail)) {
-      return `Navigation could not ${actionPhrase}. Review the message and try again.${suffix}`
+      return navigationValidationMessage(area, action, detail)
     }
     return `Navigation could not ${actionPhrase} because the browser could not reach the server. Check your connection and refresh the page.`
   }
 
-  const statusText = `Code: ${status}.`
   if (status === 401) {
-    return `Sign in again, then ${actionPhrase}. ${statusText}${suffix}`
+    return `Sign in again, then open the workspace sidebar and try to ${actionPhrase} again.`
   }
   if (status === 403) {
-    return `You do not have permission to ${actionPhrase}. Ask an admin to update your workspace access. ${statusText}${suffix}`
+    return `You do not have permission to ${actionPhrase}. Ask an owner or admin to update your workspace access.`
   }
   if (status === 404) {
-    return `The navigation endpoint for ${NAVIGATION_AREA_LABELS[area]} is not available. Refresh after the backend is deployed. ${statusText}${suffix}`
+    return `Workspace navigation for ${NAVIGATION_AREA_LABELS[area]} is not available. Refresh after the workspace service is ready.`
   }
   if (status === 409) {
-    return `The workspace navigation changed while you were working. Refresh the sidebar, then try again. ${statusText}${suffix}`
+    return 'The workspace navigation changed while you were working. Refresh the sidebar, review the current teams and projects, then try again.'
   }
   if (status === 422) {
-    return `Check the required fields for the ${NAVIGATION_AREA_LABELS[area]}, then try again. ${statusText}${suffix}`
+    return navigationValidationMessage(area, action, detail)
   }
   if (status === 429) {
-    return `The workspace service is busy. Wait a moment, then ${actionPhrase}. ${statusText}${suffix}`
+    return `The workspace service is busy. Wait a moment, then try to ${actionPhrase} again.`
   }
   if (status >= 500) {
-    return `The workspace navigation service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+    return 'The workspace navigation service is temporarily unavailable. Ask an owner or admin to check the backend, then refresh the sidebar.'
   }
 
-  return `Navigation could not ${actionPhrase}. Refresh the page and try again. ${statusText}${suffix}`
+  return `Navigation could not ${actionPhrase}. Refresh the sidebar, then try again.`
+}
+
+function navigationValidationMessage(
+  area: NavigationErrorArea,
+  action: NavigationErrorAction,
+  detail: string | null
+): string {
+  const normalized = detail?.toLowerCase() ?? ''
+
+  if (area === 'workLane' || area === 'workLanes') {
+    if (normalized.includes('name') || normalized.includes('title')) {
+      return 'Name this work lane, choose its project, then create it again.'
+    }
+    if (normalized.includes('project')) {
+      return 'Choose the project that should hold this work lane, then try again.'
+    }
+    return action === 'create'
+      ? 'Check the work lane name and project, then create it again.'
+      : 'Refresh the selected project, then load work lanes again.'
+  }
+
+  if (area === 'teamProjects') {
+    return 'Choose an organization you can access, refresh the sidebar, then load its teams and projects again.'
+  }
+
+  return `Check the ${NAVIGATION_AREA_LABELS[area]} selection, refresh the sidebar, then try again.`
 }
 
 function lsGet(key: string): string | null {
