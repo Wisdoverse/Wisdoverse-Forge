@@ -111,13 +111,13 @@ describe('Feed Store', () => {
 
   test('caps retained notifications so distinct-id producers cannot grow unbounded', () => {
     const store = useFeedStore.getState()
-    // Each distinct id is a separate notification (mirrors per-version CLI image toasts).
+    // Each distinct id is a separate notification (mirrors per-version CLI tool package toasts).
     for (let i = 0; i < 150; i += 1) {
       store.addNotification({
         id: `cli-image:codex:updated:sha256:${i}`,
         type: 'cli_image_updated',
         taskId: 'cli-image:codex',
-        taskTitle: 'codex agent image updated',
+        taskTitle: 'codex agent tool package updated',
         message: `version ${i}`,
         read: false,
         timestamp: i,

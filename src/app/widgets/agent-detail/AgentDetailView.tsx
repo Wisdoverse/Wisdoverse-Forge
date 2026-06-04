@@ -618,7 +618,7 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
           <span className="max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
             Start the workspace here. Success looks like the agent status changing to Idle or
             Working, then this Console opens a live terminal. If it stays pending, ask an admin to
-            check the managed workspace setup and agent image.
+            check this agent's workspace setup and tool package.
           </span>
         )}
       </div>
@@ -628,7 +628,7 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
           className="rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
         >
           Start did not finish. Check the agent status, then try once more. If it keeps failing, ask
-          an admin to check the managed workspace setup and agent image.
+          an admin to check this agent's workspace setup and tool package.
         </div>
       )}
       {agent.cliTool && (

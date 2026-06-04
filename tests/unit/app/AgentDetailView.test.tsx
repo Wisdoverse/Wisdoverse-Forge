@@ -206,7 +206,7 @@ describe('AgentDetailView', () => {
       screen.getByText(/success looks like the agent status changing to idle or working/i)
     ).toBeDefined()
     expect(
-      screen.getByText(/ask an admin to check the managed workspace setup and agent image/i)
+      screen.getByText(/ask an admin to check this agent's workspace setup and tool package/i)
     ).toBeDefined()
     expect(screen.getByRole('button', { name: /start agent workspace/i })).toBeDefined()
   })
@@ -233,7 +233,9 @@ describe('AgentDetailView', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Start did not finish')
-    expect(alert).toHaveTextContent('ask an admin to check the managed workspace setup and agent image')
+    expect(alert).toHaveTextContent(
+      "ask an admin to check this agent's workspace setup and tool package"
+    )
     expect(alert.textContent).not.toContain('Details:')
     expect(alert.textContent).not.toContain('Docker socket refused')
   })

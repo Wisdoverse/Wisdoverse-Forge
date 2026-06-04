@@ -342,7 +342,7 @@ describe('dispatchWsMessage', () => {
     expect(useFeedStore.getState().notifications).toHaveLength(0)
   })
 
-  it('toasts admins when a CLI agent image is updated and dedups by eventId', () => {
+  it('toasts admins when a CLI agent tool package is updated and dedups by eventId', () => {
     const frame = {
       type: 'cli_image.updated',
       payload: {
@@ -367,10 +367,11 @@ describe('dispatchWsMessage', () => {
       taskHref: '/admin',
       read: false,
     })
-    expect(notifications[0].message).toContain('latest CLI')
+    expect(notifications[0].taskTitle).toContain('agent tool package updated')
+    expect(notifications[0].message).toContain('latest tool package')
   })
 
-  it('toasts a failed CLI image check with the reported error', () => {
+  it('toasts a failed CLI tool package check with the reported error', () => {
     dispatchWsMessage({
       type: 'cli_image.updated',
       payload: {
@@ -387,7 +388,7 @@ describe('dispatchWsMessage', () => {
     const notifications = useFeedStore.getState().notifications
     expect(notifications).toHaveLength(1)
     expect(notifications[0].type).toBe('cli_image_updated')
-    expect(notifications[0].taskTitle).toContain('check failed')
+    expect(notifications[0].taskTitle).toContain('tool package check failed')
     expect(notifications[0].message).toContain('registry timeout')
   })
 

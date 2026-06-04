@@ -318,11 +318,13 @@ function handleCliImageUpdate(payload: Record<string, unknown> | null) {
     type: 'cli_image_updated',
     taskId: `cli-image:${tool}`,
     taskTitle:
-      state === 'updated' ? `${display} agent image updated` : `${display} image check failed`,
+      state === 'updated'
+        ? `${display} agent tool package updated`
+        : `${display} tool package check failed`,
     message:
       state === 'updated'
-        ? `New ${display} agents will start on the latest CLI. Running agents are unaffected.`
-        : `The ${display} image check failed${lastError ? `: ${lastError}` : ''}. New agents keep the current image until it succeeds.`,
+        ? `New ${display} agents will start on the latest tool package. Running agents are unaffected.`
+        : `The ${display} tool package check failed${lastError ? `: ${lastError}` : ''}. New agents keep the current tool package until it succeeds.`,
     taskHref: '/admin',
     read: false,
     timestamp: unix * 1000,
