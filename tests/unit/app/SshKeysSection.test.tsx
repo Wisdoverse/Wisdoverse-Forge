@@ -54,23 +54,26 @@ describe('SshKeysSection', () => {
     render(<SshKeysSection />)
 
     expect(await screen.findByText('No repository SSH keys yet')).toBeDefined()
-    expect(screen.getByText(/use SSH addresses/i)).toBeDefined()
-    expect(screen.getByText(/use repository access tokens for HTTPS/i)).toBeDefined()
+    expect(screen.getByText(/address starts with git@/i)).toBeDefined()
+    expect(screen.getByText(/start with https:\/\//i)).toBeDefined()
 
     fireEvent.click(screen.getByRole('button', { name: /add ssh key/i }))
 
     expect(screen.getByText('SSH key setup path')).toBeDefined()
-    expect(screen.getByText('Paste public key')).toBeDefined()
+    expect(screen.getByText('Paste public key only')).toBeDefined()
     expect(screen.getAllByText(/starts with ssh-ed25519 or ssh-rsa/i).length).toBeGreaterThan(0)
     expect(screen.getByText('Keep private key private')).toBeDefined()
     expect(screen.getAllByText(/never paste a private key/i).length).toBeGreaterThan(0)
+    expect(
+      screen.getByPlaceholderText('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... dev@example.com')
+    ).toBeDefined()
 
     const saveButton = screen.getByRole('button', { name: /save ssh key/i })
     expect(saveButton).toBeDisabled()
 
     fireEvent.change(screen.getByLabelText(/^key name/i), { target: { value: 'Work laptop' } })
     fireEvent.change(screen.getByLabelText(/^public key text/i), {
-      target: { value: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAexample user@host' },
+      target: { value: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAexample dev@example.com' },
     })
     expect(saveButton).toBeEnabled()
     fireEvent.click(saveButton)
@@ -78,7 +81,7 @@ describe('SshKeysSection', () => {
     await waitFor(() =>
       expect(createSshKeyMock).toHaveBeenCalledWith(
         'Work laptop',
-        'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAexample user@host'
+        'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAexample dev@example.com'
       )
     )
   })

@@ -19,7 +19,10 @@ function formatDate(dateStr: string): string {
 
 const SSH_KEY_SETUP_STEPS = [
   { label: 'Name the key', value: 'Use a label you will recognize later.' },
-  { label: 'Paste public key', value: 'Use the line that starts with ssh-ed25519 or ssh-rsa.' },
+  {
+    label: 'Paste public key only',
+    value: 'Use the line that starts with ssh-ed25519 or ssh-rsa.',
+  },
   { label: 'Keep private key private', value: 'Never paste a private key into this form.' },
 ]
 
@@ -208,7 +211,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
             id={publicKeyInputId}
             value={publicKey}
             onChange={(e) => setPublicKey(e.target.value)}
-            placeholder="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... user@host"
+            placeholder="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... dev@example.com"
             required
             rows={6}
             className={cn(
@@ -321,8 +324,9 @@ export function SshKeysSection() {
               No repository SSH keys yet
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Add a public key for private repositories that use SSH addresses, such as
-              git@github.com:team/repo.git. Use repository access tokens for HTTPS addresses.
+              Add a public key for private repositories whose address starts with git@, such as
+              git@github.com:team/repo.git. For addresses that start with https://, use repository
+              access tokens instead.
             </p>
           </div>
         ) : (
