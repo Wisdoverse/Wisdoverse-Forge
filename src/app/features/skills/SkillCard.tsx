@@ -9,11 +9,12 @@ interface SkillCardProps {
 
 export function SkillCard({ skill, onClick }: SkillCardProps) {
   const statusLabel = skill.installed ? 'Ready to reuse' : 'Install to use'
+  const summary = skill.description || 'No summary yet. Open details before using this skill.'
   return (
     <button
       type="button"
       onClick={() => onClick(skill)}
-      aria-label={`${skill.name}. ${statusLabel}. ${skill.description || 'No description available'}`}
+      aria-label={`${skill.name}. ${statusLabel}. ${summary}`}
       className={cn(
         'w-full rounded-lg px-4 py-3 text-left text-ui-button transition-colors',
         'border border-black/[0.08] bg-white hover:border-apple-blue/35 hover:bg-white',
@@ -27,7 +28,7 @@ export function SkillCard({ skill, onClick }: SkillCardProps) {
             {skill.name}
           </span>
           <p className="line-clamp-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            {skill.description || 'No description available'}
+            {summary}
           </p>
           <span className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
             Source: <span>{skill.plugin}</span>

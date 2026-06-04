@@ -41,6 +41,17 @@ describe('SkillCard', () => {
     expect(screen.getByText('Install to use')).toBeInTheDocument()
   })
 
+  test('guides users to details when a skill has no summary', () => {
+    render(<SkillCard skill={{ ...baseSkill, description: '' }} onClick={() => {}} />)
+
+    expect(
+      screen.getByRole('button', {
+        name: /release-review\. ready to reuse\. no summary yet\. open details before using this skill/i,
+      })
+    ).toBeInTheDocument()
+    expect(screen.getByText('No summary yet. Open details before using this skill.')).toBeDefined()
+  })
+
   test('opens the selected skill', () => {
     const onClick = vi.fn()
     render(<SkillCard skill={baseSkill} onClick={onClick} />)
