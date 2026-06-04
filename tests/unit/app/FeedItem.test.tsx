@@ -25,6 +25,14 @@ describe('FeedItem', () => {
         /needs help: builder on update checkout flow\. the task is waiting for someone to clear a blocker/i
       )
     ).toBeDefined()
+    expect(screen.getByText(/next step: open the task and clear the blocker/i)).toBeDefined()
+  })
+
+  test('shows a retry-safe next step for failed task updates', () => {
+    render(<FeedItem item={{ ...baseItem, type: 'task.failed', detail: 'Command exited 1' }} />)
+
+    expect(screen.getByText('Failed')).toBeDefined()
+    expect(screen.getByText(/read the error, then retry after the cause is fixed/i)).toBeDefined()
   })
 
   test('shows waiting and finished labels instead of raw queue status words', () => {

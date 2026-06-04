@@ -57,12 +57,18 @@ const TYPE_COLORS: Record<string, string> = {
   'task.progress': 'bg-apple-blue/12 text-apple-blue',
 }
 
+const NEXT_ACTION_COPY: Record<string, string> = {
+  'task.blocked': 'Next step: open the task and clear the blocker or missing access.',
+  'task.failed': 'Next step: open the task, read the error, then retry after the cause is fixed.',
+}
+
 export function FeedItem({ item }: { item: FeedItemType }) {
   const Icon = TYPE_ICONS[item.type] ?? Circle
   const typeCopy = TYPE_COPY[item.type] ?? {
     label: 'Update',
     description: 'The agent reported a task update.',
   }
+  const nextAction = NEXT_ACTION_COPY[item.type]
 
   return (
     <article
@@ -89,6 +95,11 @@ export function FeedItem({ item }: { item: FeedItemType }) {
         {item.detail && (
           <div className="text-[10px] text-secondary-light dark:text-secondary-dark mt-0.5">
             {item.detail}
+          </div>
+        )}
+        {nextAction && (
+          <div className="mt-1 rounded-md bg-apple-red/[0.06] px-2 py-1 text-[10px] leading-relaxed text-apple-red">
+            {nextAction}
           </div>
         )}
         <div className="text-[9px] text-secondary-light dark:text-secondary-dark mt-0.5">
