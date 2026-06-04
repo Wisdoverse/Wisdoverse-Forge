@@ -68,7 +68,10 @@ describe('ContextEvidenceList', () => {
       screen.getByText(/Final output or status captured from the agent run/i)
     ).toBeInTheDocument()
     expect(screen.getByText('Health check completed successfully.')).toBeInTheDocument()
-    expect(screen.getByText('Technical details')).toBeInTheDocument()
+    expect(
+      screen.getByText(/Most users can rely on the summary above.*sharing evidence with support/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText('Show raw details')).toBeInTheDocument()
   })
 
   test('uses a plain-language fallback for unknown evidence sources', () => {
