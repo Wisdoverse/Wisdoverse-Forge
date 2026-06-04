@@ -14,6 +14,7 @@ import { orchestrationApi } from '@app/shared/api/orchestration'
 import { cn } from '@app/shared/lib/utils'
 import { useWebSocket } from '@app/shared/model/websocket.context'
 import { useContextStore } from '@app/shared/model/context.store'
+import { approvalQueueErrorMessage } from './approvalQueueErrorMessages'
 import type {
   ContextCandidateKind,
   ContextCandidateState,
@@ -120,7 +121,7 @@ export function ApprovalQueueView() {
       setCandidates(queue)
       setPendingCandidateCount(pending.length)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load approval queue')
+      setError(approvalQueueErrorMessage('loadQueue', err))
     } finally {
       setLoading(false)
     }
@@ -177,7 +178,7 @@ export function ApprovalQueueView() {
       handleDecisionComplete(candidate.id, 'approved')
       setActiveDecision(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to approve candidate')
+      setError(approvalQueueErrorMessage('approveCandidate', err))
     } finally {
       setDecisionLoading(false)
     }
@@ -193,7 +194,7 @@ export function ApprovalQueueView() {
       handleDecisionComplete(candidate.id, 'rejected')
       setActiveDecision(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to reject candidate')
+      setError(approvalQueueErrorMessage('rejectCandidate', err))
     } finally {
       setDecisionLoading(false)
     }
