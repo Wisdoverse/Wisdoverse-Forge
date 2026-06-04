@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, Circle, RotateCcw, Search, SlidersHorizontal, Wrench } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { agentPluginErrorMessage } from './model/pluginErrorMessage'
 
 interface AgentPluginRow {
   pluginId: string
@@ -104,6 +105,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
   const [plugins, setPlugins] = useState<PluginItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<PluginFilter>('all')
 
@@ -117,6 +119,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
     let cancelled = false
     setLoading(true)
     setError(null)
+    setActionError(null)
 
     async function load() {
       try {
@@ -141,7 +144,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
           )
         }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load plugins')
+        if (!cancelled) setError(agentPluginErrorMessage('load', err))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -155,6 +158,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
 
   async function toggle(plugin: PluginItem) {
     const next = !plugin.enabled
+    setActionError(null)
     // Optimistic update with saving guard
     setPlugins((prev) =>
       prev.map((p) => (p.id === plugin.id ? { ...p, enabled: next, saving: true } : p))
@@ -170,11 +174,12 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
       )
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setPlugins((prev) => prev.map((p) => (p.id === plugin.id ? { ...p, saving: false } : p)))
-    } catch {
+    } catch (err) {
       // Revert on failure so the UI stays consistent with the server.
       setPlugins((prev) =>
         prev.map((p) => (p.id === plugin.id ? { ...p, enabled: !next, saving: false } : p))
       )
+      setActionError(agentPluginErrorMessage('save', err))
     }
   }
 
@@ -190,10 +195,10 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 text-center">
-        <p className="text-ui-body font-medium text-apple-red">Tools could not be loaded.</p>
+      <div role="alert" className="flex flex-col items-center justify-center py-8 text-center">
+        <p className="text-ui-body font-medium text-apple-red">Agent tools need attention.</p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Details: {error}
+          {error}
         </p>
       </div>
     )
@@ -303,6 +308,15 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
           </span>
         </div>
       </section>
+
+      {actionError ? (
+        <div
+          role="alert"
+          className="rounded-card border border-apple-red/25 bg-apple-red/[0.06] px-4 py-3 text-ui-caption text-apple-red"
+        >
+          {actionError}
+        </div>
+      ) : null}
 
       {visiblePlugins.length === 0 ? (
         <div

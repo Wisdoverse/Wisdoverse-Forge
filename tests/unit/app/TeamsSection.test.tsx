@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { TeamsSection } from '@app/pages/settings/ui/TeamsSection'
 import { teamApi } from '@app/entities/team'
 
@@ -35,6 +35,7 @@ vi.mock('@app/entities/team', () => ({
 }))
 
 const getTeams = vi.mocked(teamApi.getTeams)
+const createTeam = vi.mocked(teamApi.createTeam)
 
 afterEach(() => {
   cleanup()
@@ -64,5 +65,43 @@ describe('TeamsSection', () => {
     expect(getTeams).not.toHaveBeenCalled()
     expect(screen.getByText('Choose an organization first')).toBeDefined()
     expect(screen.getByText(/Select or create one before adding people/i)).toBeDefined()
+  })
+
+  test('shows a beginner recovery step when teams cannot load', async () => {
+    getTeams.mockRejectedValue(new Error('HTTP 500'))
+
+    render(<TeamsSection />)
+
+    await waitFor(() => expect(getTeams).toHaveBeenCalledWith('org-1'))
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Workspace teams could not be loaded. The workspace settings service had a server problem. Try again after the backend is healthy.'
+    )
+    expect(screen.queryByText('HTTP 500')).toBeNull()
+  })
+
+  test('turns team loading permission errors into an owner access step', async () => {
+    getTeams.mockRejectedValue(new Error('API 403: {"error":"owner role required"}'))
+
+    render(<TeamsSection />)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Workspace teams could not be loaded. Ask an owner or admin to update your workspace access. Detail: owner role required'
+    )
+  })
+
+  test('turns team creation validation errors into field guidance', async () => {
+    getTeams.mockResolvedValue([])
+    createTeam.mockRejectedValue(new Error('API 422: {"message":"team name is required"}'))
+
+    render(<TeamsSection />)
+
+    await waitFor(() => expect(getTeams).toHaveBeenCalledWith('org-1'))
+    fireEvent.click(screen.getByRole('button', { name: 'New Team' }))
+    fireEvent.change(screen.getByLabelText(/team name/i), { target: { value: 'Design' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create Team' }))
+
+    expect(await screen.findByText(/Check the name and required fields, then try again/i)).toBeDefined()
+    expect(screen.getByText(/team name is required/i)).toBeDefined()
   })
 })

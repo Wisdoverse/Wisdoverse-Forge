@@ -199,6 +199,12 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Start the managed workspace')).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: /open console/i }))
     expect(screen.getByText('No managed workspace is running')).toBeDefined()
+    expect(
+      screen.getByText(/success looks like the agent status changing to idle or working/i)
+    ).toBeDefined()
+    expect(
+      screen.getByText(/ask an admin to check the container runtime and agent image/i)
+    ).toBeDefined()
     expect(screen.getByRole('button', { name: /start agent workspace/i })).toBeDefined()
   })
 

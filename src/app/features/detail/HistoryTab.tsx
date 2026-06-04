@@ -17,6 +17,7 @@ import {
   type TaskRunSummary,
   type TaskSummary,
 } from '@app/shared/api/orchestration'
+import { taskDetailErrorMessage } from './taskDetailErrorMessages'
 
 interface HistoryTabProps {
   task: TaskSummary
@@ -38,7 +39,7 @@ export function HistoryTab({ task }: HistoryTabProps) {
         if (!cancelled) setRuns(items)
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load task runs')
+        if (!cancelled) setError(taskDetailErrorMessage('loadRuns', err))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -102,7 +103,10 @@ export function HistoryTab({ task }: HistoryTabProps) {
             )}
           </div>
           {error && (
-            <div className="rounded-lg bg-apple-red/10 px-3 py-2 text-xs text-apple-red">
+            <div
+              role="alert"
+              className="rounded-lg bg-apple-red/10 px-3 py-2 text-xs text-apple-red"
+            >
               {error}
             </div>
           )}

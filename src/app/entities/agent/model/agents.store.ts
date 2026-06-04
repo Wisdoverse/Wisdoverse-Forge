@@ -57,6 +57,149 @@ interface AgentsState {
   restartAgent: (id: string) => Promise<boolean>
 }
 
+type AgentErrorAction =
+  | 'load'
+  | 'create'
+  | 'enrollLocal'
+  | 'updateInstructions'
+  | 'delete'
+  | 'sendPrompt'
+  | 'start'
+  | 'restart'
+
+function agentActionPhrase(action: AgentErrorAction): string {
+  switch (action) {
+    case 'load':
+      return 'load agents'
+    case 'create':
+      return 'create the agent'
+    case 'enrollLocal':
+      return 'connect the local agent'
+    case 'updateInstructions':
+      return 'save agent instructions'
+    case 'delete':
+      return 'delete the agent'
+    case 'sendPrompt':
+      return 'send the prompt'
+    case 'start':
+      return 'start the agent'
+    case 'restart':
+      return 'restart the agent'
+  }
+}
+
+function rawAgentErrorMessage(error: unknown): string | null {
+  if (typeof error === 'string' && error.trim()) return error.trim()
+  if (error instanceof Error && error.message.trim()) return error.message.trim()
+  if (error && typeof error === 'object') {
+    const details = (error as { details?: { reason?: unknown } }).details
+    if (typeof details?.reason === 'string' && details.reason.trim()) return details.reason.trim()
+
+    const value = extractApiError(error as Parameters<typeof extractApiError>[0], '')
+    if (value.trim()) return value.trim()
+  }
+  return null
+}
+
+function detailFromPayload(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null
+  const record = payload as Record<string, unknown>
+  const nestedError = record.error
+  if (nestedError && typeof nestedError === 'object' && !Array.isArray(nestedError)) {
+    const message = (nestedError as { message?: unknown }).message
+    if (typeof message === 'string' && message.trim()) return message.trim()
+  }
+  const details = record.details
+  if (details && typeof details === 'object' && !Array.isArray(details)) {
+    const reason = (details as { reason?: unknown }).reason
+    if (typeof reason === 'string' && reason.trim()) return reason.trim()
+  }
+  for (const key of ['message', 'error', 'detail']) {
+    const value = record[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return null
+}
+
+function agentErrorDetail(error: unknown): string | null {
+  const raw = rawAgentErrorMessage(error)
+  if (!raw) return null
+
+  const apiMatch = raw.match(/\b(?:API|HTTP)\s+\d{3}:?\s*(.*)$/i)
+  const body = apiMatch?.[1]?.trim()
+  if (body) {
+    try {
+      const detail = detailFromPayload(JSON.parse(body) as unknown)
+      if (detail) return detail
+    } catch {
+      return body
+    }
+  }
+
+  return raw
+}
+
+function agentErrorStatus(error: unknown): number | null {
+  if (error && typeof error === 'object' && 'statusCode' in error) {
+    const statusCode = (error as { statusCode?: unknown }).statusCode
+    if (typeof statusCode === 'number') return statusCode
+  }
+
+  const raw = rawAgentErrorMessage(error)
+  const match = raw?.match(/\b(?:API|HTTP|Server error \()? ?(\d{3})\b/)
+  return match ? Number(match[1]) : null
+}
+
+function isRawAgentFailure(detail: string | null): boolean {
+  if (!detail) return true
+  return (
+    /^API \d{3}/i.test(detail) ||
+    /^HTTP \d{3}/i.test(detail) ||
+    /^Server error \(\d{3}\)$/i.test(detail) ||
+    /^Network error$/i.test(detail) ||
+    /^Failed to fetch$/i.test(detail)
+  )
+}
+
+export function agentActionErrorMessage(action: AgentErrorAction, error?: unknown): string {
+  const actionPhrase = agentActionPhrase(action)
+  const status = agentErrorStatus(error)
+  const detail = agentErrorDetail(error)
+  const suffix = !isRawAgentFailure(detail) ? ` Details: ${detail}` : ''
+
+  if (!status) {
+    if (!isRawAgentFailure(detail)) {
+      return `Agent setup could not ${actionPhrase}. Review the message and try again.${suffix}`
+    }
+    return `Agent setup could not ${actionPhrase} because the browser could not reach the server. Check your connection and refresh the page.`
+  }
+
+  const statusText = `Code: ${status}.`
+  if (status === 401) {
+    return `Sign in again, then ${actionPhrase}. ${statusText}${suffix}`
+  }
+  if (status === 403) {
+    return `You do not have permission to ${actionPhrase}. Ask an admin to update your workspace role. ${statusText}${suffix}`
+  }
+  if (status === 404) {
+    return `This agent or agent endpoint is not available. Refresh the Agents page, then try again. ${statusText}${suffix}`
+  }
+  if (status === 409) {
+    return `This agent changed while you were working. Refresh the Agents page, review its current status, then try again. ${statusText}${suffix}`
+  }
+  if (status === 422) {
+    return `Check the required agent fields, then try again. ${statusText}${suffix}`
+  }
+  if (status === 429) {
+    return `The agent service is busy. Wait a moment, then ${actionPhrase}. ${statusText}${suffix}`
+  }
+  if (status >= 500) {
+    return `The agent service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+  }
+
+  return `Agent setup could not ${actionPhrase}. Refresh the page and try again. ${statusText}${suffix}`
+}
+
 function mapManagedAgentStatus(status: string): AgentStatus {
   switch (status) {
     case 'working':
@@ -152,11 +295,11 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
       if (result.ok) {
         set({ agents: result.agents.map(managedToAgentInfo), loading: false })
       } else {
-        set({ loading: false, error: 'Failed to load agents' })
+        set({ loading: false, error: agentActionErrorMessage('load', result) })
       }
     } catch (err) {
       console.error('loadAgents failed:', err)
-      set({ loading: false, error: err instanceof Error ? err.message : 'Failed to load agents' })
+      set({ loading: false, error: agentActionErrorMessage('load', err) })
     }
   },
 
@@ -190,7 +333,7 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
               agents: [...state.agents, newAgent],
               loading: false,
               createModalOpen: false,
-              error: `Agent created, but container start failed: ${extractApiError(startResult, 'Failed to start agent')}`,
+              error: `Agent was created, but it could not start yet. It will stay in the list. Check the agent runtime, then start it from the agent card.${isRawAgentFailure(agentErrorDetail(startResult)) ? '' : ` Details: ${agentErrorDetail(startResult)}`}`,
             }))
             return true
           }
@@ -202,12 +345,12 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
         }))
         return true
       } else {
-        set({ loading: false, error: extractApiError(result, 'Failed to create agent') })
+        set({ loading: false, error: agentActionErrorMessage('create', result) })
         return false
       }
     } catch (err) {
       console.error('createAgent failed:', err)
-      set({ loading: false, error: err instanceof Error ? err.message : 'Failed to create agent' })
+      set({ loading: false, error: agentActionErrorMessage('create', err) })
       return false
     }
   },
@@ -232,13 +375,13 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
         }))
         return result
       }
-      set({ loading: false, error: extractApiError(result, 'Failed to enroll local agent') })
+      set({ loading: false, error: agentActionErrorMessage('enrollLocal', result) })
       return null
     } catch (err) {
       console.error('enrollLocalAgent failed:', err)
       set({
         loading: false,
-        error: err instanceof Error ? err.message : 'Failed to enroll local agent',
+        error: agentActionErrorMessage('enrollLocal', err),
       })
       return null
     }
@@ -250,7 +393,7 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
       const api = getAgentApi()
       const result = await api.updateAgent(id, { systemPrompt })
       if (!result.ok) {
-        set({ error: extractApiError(result, 'Failed to update system prompt') })
+        set({ error: agentActionErrorMessage('updateInstructions', result) })
         return false
       }
       // Reload so the cached agent reflects the new value.
@@ -258,7 +401,7 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
       return true
     } catch (err) {
       console.error('updateAgentSystemPrompt failed:', err)
-      set({ error: err instanceof Error ? err.message : 'Failed to update system prompt' })
+      set({ error: agentActionErrorMessage('updateInstructions', err) })
       return false
     }
   },
@@ -275,12 +418,12 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
         }))
         return true
       } else {
-        set({ error: extractApiError(result, 'Failed to delete agent') })
+        set({ error: agentActionErrorMessage('delete', result) })
         return false
       }
     } catch (err) {
       console.error('deleteAgent failed:', err)
-      set({ error: err instanceof Error ? err.message : 'Failed to delete agent' })
+      set({ error: agentActionErrorMessage('delete', err) })
       return false
     }
   },
@@ -295,12 +438,12 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
         get().updateAgentStatus(id, 'working')
         return true
       } else {
-        set({ error: extractApiError(result, 'Failed to send prompt') })
+        set({ error: agentActionErrorMessage('sendPrompt', result) })
         return false
       }
     } catch (err) {
       console.error('sendPrompt failed:', err)
-      set({ error: err instanceof Error ? err.message : 'Failed to send prompt' })
+      set({ error: agentActionErrorMessage('sendPrompt', err) })
       return false
     }
   },
@@ -325,11 +468,11 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
         }))
         return true
       }
-      set({ error: extractApiError(result, 'Failed to start agent') })
+      set({ error: agentActionErrorMessage('start', result) })
       return false
     } catch (err) {
       console.error('startAgent failed:', err)
-      set({ error: err instanceof Error ? err.message : 'Failed to start agent' })
+      set({ error: agentActionErrorMessage('start', err) })
       return false
     }
   },
@@ -343,14 +486,14 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
         get().updateAgentStatus(id, 'idle')
         return true
       } else {
-        const message = extractApiError(result, 'Failed to restart agent')
+        const message = agentActionErrorMessage('restart', result)
         await get().loadAgents()
         set({ error: message })
         return false
       }
     } catch (err) {
       console.error('restartAgent failed:', err)
-      set({ error: err instanceof Error ? err.message : 'Failed to restart agent' })
+      set({ error: agentActionErrorMessage('restart', err) })
       return false
     }
   },

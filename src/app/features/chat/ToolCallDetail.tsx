@@ -115,6 +115,11 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
       {/* Expanded content */}
       {expanded && (
         <div className="px-3 pb-3 flex flex-col gap-2">
+          <div className="rounded-md border border-black/[0.06] bg-white/60 px-3 py-2 text-[11px] leading-relaxed text-secondary-light dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-secondary-dark">
+            This is a read-only record of one step the agent took. Check the result, then decide
+            whether to continue, retry, or ask the agent to explain it.
+          </div>
+
           {call.success === false && (
             <div className="rounded-md border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-[11px] text-apple-red">
               Review this result before relying on the final answer.

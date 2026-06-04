@@ -43,6 +43,10 @@ function promptStats(value: string): PromptStats {
   }
 }
 
+function promptProfileSaveErrorMessage(): string {
+  return 'Prompt profile was not saved. Refresh this agent, confirm it is still a provider-backed agent, then save again. Ask an admin to check your agent access if it keeps failing.'
+}
+
 export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
   const agents = useAgentsStore((s) => s.agents)
   const updateAgentSystemPrompt = useAgentsStore((s) => s.updateAgentSystemPrompt)
@@ -84,7 +88,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
       if (saved) {
         setSavedAt(Date.now())
       } else {
-        setSaveError('Prompt profile was not saved. Check the details and try again.')
+        setSaveError(promptProfileSaveErrorMessage())
       }
     } finally {
       setSaving(false)

@@ -42,6 +42,10 @@ export function TurnItem({ turn }: { turn: Turn }) {
       {/* Tool calls */}
       {turn.toolCalls.length > 0 && (
         <div aria-label="Tools used by the agent" className="ml-12 flex flex-col gap-1.5">
+          <p className="text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+            The agent used tools during this turn. Open a tool to see what it sent and what came
+            back before choosing the next step.
+          </p>
           {turn.toolCalls.map((call) => (
             <ToolCallDetail key={call.toolUseId} call={call} />
           ))}

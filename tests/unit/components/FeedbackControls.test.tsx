@@ -96,4 +96,21 @@ describe('FeedbackControls', () => {
       await screen.findByText('Saved: future runs will handle this item more carefully.')
     ).toBeInTheDocument()
   })
+
+  test('shows recovery guidance when feedback cannot be saved', async () => {
+    const onRecord = vi.fn(async () => {
+      throw new Error('API 403: Forbidden')
+    })
+
+    render(<FeedbackControls item={contextItem()} onRecord={onRecord} />)
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Outdated' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('You do not have permission')
+    expect(alert.textContent).toContain('Ask an admin')
+    expect(alert.textContent).not.toContain('API 403')
+    expect(alert.textContent).not.toContain('Forbidden')
+    expect(screen.getByRole('button', { name: 'Outdated' })).not.toHaveClass('bg-apple-blue')
+  })
 })

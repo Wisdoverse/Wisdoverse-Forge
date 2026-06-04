@@ -5,6 +5,7 @@ import { formatRelativeTime } from '@app/shared/lib/time'
 import { ContextAppliedList } from './ContextAppliedList'
 import { ContextCandidatesList } from './ContextCandidatesList'
 import { ContextEvidenceList } from './ContextEvidenceList'
+import { taskDetailErrorMessage } from './taskDetailErrorMessages'
 import type {
   AppliedContextItem,
   ContextFeedbackLabel,
@@ -48,7 +49,7 @@ export function ContextTab({
         if (!canceled) setContext(nextContext)
       })
       .catch((err) => {
-        if (!canceled) setError(err instanceof Error ? err.message : 'Could not load context')
+        if (!canceled) setError(taskDetailErrorMessage('loadContext', err))
       })
       .finally(() => {
         if (!canceled) setLoading(false)
@@ -112,7 +113,9 @@ export function ContextTab({
   if (error) {
     return (
       <div className="py-8 flex items-center justify-center">
-        <p className="text-xs text-apple-red">{error}</p>
+        <p role="alert" className="text-xs text-apple-red">
+          {error}
+        </p>
       </div>
     )
   }

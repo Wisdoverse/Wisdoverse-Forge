@@ -20,6 +20,9 @@ export function AttentionZone({ items, onApprove, onView }: AttentionZoneProps) 
       <p className="mb-2 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
         These items are waiting for a decision, missing access, or a quick review.
       </p>
+      <p className="mb-2 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+        Approve only after checking the request and confirming the agent can continue safely.
+      </p>
       {items.map((item) => (
         <div
           key={item.id}

@@ -100,7 +100,7 @@ describe('SkillsView', () => {
       expect(screen.getByText('webui-review')).toBeDefined()
     })
     expect(screen.getByText('Review WebUI flows')).toBeDefined()
-    expect(screen.getByText('Trigger: webui')).toBeDefined()
+    expect(screen.getByText('Use when: webui')).toBeDefined()
     expect(screen.getByText('Global skills')).toBeDefined()
     expect(screen.getByText('1 skill')).toBeDefined()
   })
@@ -237,6 +237,38 @@ describe('SkillsView', () => {
     )
     expect(screen.getByLabelText(/^content$/i)).toHaveFocus()
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  test('shows beginner guidance when skill creation is denied', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true, data: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({ message: 'Forbidden' }),
+      })
+
+    render(<SkillsView />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/create your first skill/i)).toBeDefined()
+    })
+
+    await user.click(screen.getAllByRole('button', { name: /new skill/i })[0])
+    await user.type(screen.getByLabelText(/^skill name$/i), 'frontend-review')
+    await user.type(screen.getByLabelText(/^content$/i), 'Check UI states and regressions')
+    await user.click(screen.getByRole('button', { name: /create skill/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('You do not have permission to create workspace skills')
+    expect(alert).toHaveTextContent('Ask an admin')
+    expect(alert).toHaveTextContent('Code: 403.')
+    expect(alert.textContent).not.toContain('API 403')
+    expect(alert.textContent).not.toContain('Forbidden')
   })
 
   test('shows loading state while fetching', () => {

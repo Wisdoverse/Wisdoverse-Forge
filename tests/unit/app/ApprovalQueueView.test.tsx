@@ -32,6 +32,8 @@ vi.mock('@app/shared/api/orchestration', async () => {
 })
 
 const listContextCandidates = vi.mocked(orchestrationApi.listContextCandidates)
+const approveContextCandidate = vi.mocked(orchestrationApi.approveContextCandidate)
+const rejectContextCandidate = vi.mocked(orchestrationApi.rejectContextCandidate)
 
 const candidate: ContextCandidateSummary = {
   id: 'candidate-1',
@@ -56,6 +58,13 @@ beforeEach(() => {
   subscribeMock.mockClear()
   useContextStore.getState().reset()
   listContextCandidates.mockResolvedValue([candidate])
+  approveContextCandidate.mockResolvedValue({
+    candidate: { ...candidate, state: 'approved' },
+    item: null,
+  })
+  rejectContextCandidate.mockResolvedValue({
+    candidate: { ...candidate, state: 'rejected' },
+  })
 })
 
 afterEach(() => {
@@ -89,5 +98,46 @@ describe('ApprovalQueueView', () => {
     await waitFor(() => expect(listContextCandidates).toHaveBeenCalled())
     expect(await screen.findByText('No candidates match these filters')).toBeDefined()
     expect(screen.getByText(/switch state to all or clear item and scope filters/i)).toBeDefined()
+  })
+
+  test('shows beginner network guidance when the approval queue cannot load', async () => {
+    listContextCandidates.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+
+    render(<ApprovalQueueView />)
+
+    const error = await screen.findByTestId('context-approval-error')
+    expect(error.textContent).toContain('approval queue could not load')
+    expect(error.textContent).toContain('browser could not reach the server')
+    expect(error.textContent).not.toMatch(/failed to fetch/i)
+  })
+
+  test('shows beginner conflict guidance when approving fails', async () => {
+    approveContextCandidate.mockRejectedValueOnce(new Error('409 conflict'))
+
+    render(<ApprovalQueueView />)
+
+    await screen.findByText('Use stable credentials')
+    await userEvent.setup().click(screen.getByTestId('context-approve-candidate-1'))
+    await userEvent.setup().click(screen.getByTestId('context-approval-submit'))
+
+    const error = await screen.findByTestId('context-approval-error')
+    expect(error.textContent).toContain('candidate changed while you were reviewing it')
+    expect(error.textContent).toContain('Code: 409')
+    expect(error.textContent).not.toContain('409 conflict')
+  })
+
+  test('shows beginner permission guidance when rejecting fails', async () => {
+    rejectContextCandidate.mockRejectedValueOnce(new Error('403 Forbidden'))
+
+    render(<ApprovalQueueView />)
+
+    await screen.findByText('Use stable credentials')
+    await userEvent.setup().click(screen.getByTestId('context-reject-candidate-1'))
+    await userEvent.setup().click(screen.getByTestId('context-reject-submit'))
+
+    const error = await screen.findByTestId('context-approval-error')
+    expect(error.textContent).toContain('do not have permission')
+    expect(error.textContent).toContain('owner or admin')
+    expect(error.textContent).not.toContain('403 Forbidden')
   })
 })

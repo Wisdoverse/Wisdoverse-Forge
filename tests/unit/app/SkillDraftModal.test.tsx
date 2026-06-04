@@ -117,4 +117,29 @@ describe('SkillDraftModal', () => {
     expect(screen.getByLabelText(/^reusable instructions$/i)).toHaveFocus()
     expect(fetchMock).not.toHaveBeenCalled()
   })
+
+  test('explains publish permission failures without raw API text', async () => {
+    const user = userEvent.setup()
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      json: async () => ({ error: { message: 'Forbidden' } }),
+    })
+
+    render(
+      <SkillDraftModal
+        open
+        task={completedTask}
+        artifacts={[{ name: 'summary.md', mimeType: 'text/markdown', data: 'Done' }]}
+        onClose={() => {}}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /publish skill/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Skill was not published. Ask a workspace owner or admin to let you create workspace skills.'
+    )
+    expect(screen.queryByText(/HTTP 403/i)).toBeNull()
+  })
 })

@@ -144,12 +144,18 @@ interface CreateKeyFormProps {
 
 function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
   const [name, setName] = useState('')
-  const nameInputId = 'platform-api-key-name'
+  const [submitAttempted, setSubmitAttempted] = useState(false)
+  const nameInputId = 'platform-key-name'
+  const nameHelpId = 'platform-key-name-help'
+  const nameErrorId = 'platform-key-name-error'
   const trimmedName = name.trim()
   const isReady = Boolean(trimmedName)
+  const visibleError =
+    submitAttempted && !isReady ? 'Name this platform key before creating it.' : null
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    setSubmitAttempted(true)
     if (!isReady) {
       document.getElementById(nameInputId)?.focus()
       return
@@ -162,17 +168,19 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
       onSubmit={handleSubmit}
       className="mt-3 rounded-card border border-black/[0.08] bg-white p-3 dark:border-white/[0.1] dark:bg-[#2c2c2e]"
     >
-      <label htmlFor="platform-key-name" className={uiStyles.label}>
+      <label htmlFor={nameInputId} className={uiStyles.label}>
         Key name
       </label>
       <div className="flex items-center gap-2">
         <input
-          id="platform-key-name"
+          id={nameInputId}
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. production deploy pipeline"
           autoFocus
+          aria-invalid={visibleError !== null}
+          aria-describedby={`${nameHelpId}${visibleError ? ` ${nameErrorId}` : ''}`}
           className={cn(uiStyles.input, 'min-w-0 flex-1')}
         />
         <button
@@ -187,9 +195,18 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
           {saving ? 'Creating...' : 'Create'}
         </button>
       </div>
-      <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-        Name the exact place this key will be used so it is easy to revoke later.
+      <p
+        id={nameHelpId}
+        className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark"
+      >
+        Enter a short name first. Use the exact place this key will be used so it is easy to revoke
+        later.
       </p>
+      {visibleError && (
+        <p id={nameErrorId} role="alert" className="mt-1 text-ui-caption text-apple-red">
+          {visibleError}
+        </p>
+      )}
     </form>
   )
 }

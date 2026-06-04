@@ -9,7 +9,7 @@ export {
   RUNTIME_KIND_LABELS,
   RUNTIME_KIND_SHORT_LABELS,
 } from './model/runtime-kind'
-export { useAgentsStore } from './model/agents.store'
+export { agentActionErrorMessage, useAgentsStore } from './model/agents.store'
 export { createAgentAPI, extractApiError } from './api/AgentAPI'
 export type {
   AgentAPI,

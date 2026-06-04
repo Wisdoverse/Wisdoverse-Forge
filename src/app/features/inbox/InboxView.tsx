@@ -32,6 +32,29 @@ const INBOX_TRIAGE_STEPS = [
   'Mark items read after the task or setting has been handled.',
 ]
 
+function InboxLoadError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div
+      role="alert"
+      aria-live="polite"
+      className="flex flex-col gap-2 rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red sm:flex-row sm:items-center sm:justify-between"
+    >
+      <span>
+        Saved notifications could not be loaded. New updates will still appear here. Check your
+        connection, then reload the inbox.
+      </span>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30"
+      >
+        <RefreshCw size={14} aria-hidden="true" />
+        Reload inbox
+      </button>
+    </div>
+  )
+}
+
 export function InboxView() {
   const { notifications, addNotification, markRead, markAllRead } = useFeedStore()
   const setSelectedTask = useBoardStore((s) => s.setSelectedTask)
@@ -131,19 +154,8 @@ export function InboxView() {
           <InboxIcon size={26} strokeWidth={1.75} aria-hidden="true" />
         </div>
         {loadError && (
-          <div
-            role="alert"
-            className="w-full flex flex-col gap-2 rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red sm:flex-row sm:items-center sm:justify-between"
-          >
-            <span>Could not load older notifications. New updates will still appear here.</span>
-            <button
-              type="button"
-              onClick={loadNotifications}
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30"
-            >
-              <RefreshCw size={14} aria-hidden="true" />
-              Try Again
-            </button>
+          <div className="w-full">
+            <InboxLoadError onRetry={loadNotifications} />
           </div>
         )}
         <div className="space-y-1">
@@ -198,19 +210,8 @@ export function InboxView() {
           </div>
         )}
         {loadError && (
-          <div
-            role="alert"
-            className="mb-3 flex flex-col gap-2 rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red sm:flex-row sm:items-center sm:justify-between"
-          >
-            <span>Could not load older notifications. New updates will still appear here.</span>
-            <button
-              type="button"
-              onClick={loadNotifications}
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30"
-            >
-              <RefreshCw size={14} aria-hidden="true" />
-              Try Again
-            </button>
+          <div className="mb-3">
+            <InboxLoadError onRetry={loadNotifications} />
           </div>
         )}
         <div className="flex items-center justify-between gap-3">

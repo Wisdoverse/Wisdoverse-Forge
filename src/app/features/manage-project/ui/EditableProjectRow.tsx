@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Check, Pencil, Trash2, Users, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
+import { workspaceResourceErrorMessage } from '@app/shared/lib/workspaceResourceErrorMessage'
 import type { NavProject, UpdateProjectInput } from '@app/entities/project'
 
 interface EditableProjectRowProps {
@@ -51,7 +52,7 @@ export function EditableProjectRow({
       await onUpdate(project, { name: trimmedName, description: description.trim(), color })
       setEditing(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update project')
+      setError(workspaceResourceErrorMessage('project', 'update', err))
     } finally {
       setSaving(false)
     }
@@ -68,7 +69,7 @@ export function EditableProjectRow({
     try {
       await onDelete(project)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete project')
+      setError(workspaceResourceErrorMessage('project', 'delete', err))
       setSaving(false)
       setConfirmingDelete(false)
     }
@@ -84,7 +85,11 @@ export function EditableProjectRow({
         )}
       >
         <div className="flex flex-col gap-2">
-          {error && <div className={uiStyles.error}>{error}</div>}
+          {error && (
+            <div role="alert" className={uiStyles.error}>
+              {error}
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr_1fr_auto] sm:items-start">
             <input
               type="color"
@@ -165,7 +170,11 @@ export function EditableProjectRow({
               project.
             </p>
           )}
-          {error && <p className="mt-1 text-ui-caption text-apple-red">{error}</p>}
+          {error && (
+            <p role="alert" className="mt-1 text-ui-caption text-apple-red">
+              {error}
+            </p>
+          )}
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">

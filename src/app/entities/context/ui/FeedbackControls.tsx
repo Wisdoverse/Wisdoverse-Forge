@@ -5,6 +5,7 @@ import type {
   ContextFeedbackLabel,
   ContextFeedbackOutcome,
 } from '@shared/types/context'
+import { feedbackErrorMessage } from '../model/feedbackErrorMessage'
 
 const FEEDBACK_OPTIONS: {
   label: ContextFeedbackLabel
@@ -70,7 +71,7 @@ export function FeedbackControls({ item, onRecord, onRecorded }: FeedbackControl
       onRecorded?.(label)
     } catch (err) {
       setSelected(previous)
-      setError(err instanceof Error ? err.message : 'Could not save feedback. Try again.')
+      setError(feedbackErrorMessage(err))
     } finally {
       setPending(null)
     }
@@ -111,7 +112,11 @@ export function FeedbackControls({ item, onRecord, onRecorded }: FeedbackControl
           Saved: {selectedOption.confirmation}
         </p>
       )}
-      {error && <p className="text-ui-caption text-apple-red">{error}</p>}
+      {error && (
+        <p role="alert" className="text-ui-caption text-apple-red">
+          {error}
+        </p>
+      )}
     </div>
   )
 }

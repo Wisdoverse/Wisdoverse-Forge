@@ -111,13 +111,13 @@ function UserRow({ user }: { user: AdminUser }) {
     }
     setSaving(true)
     setRoleError(null)
-    const ok = await updateUserRole(user.id, selectedRole)
+    const result = await updateUserRole(user.id, selectedRole)
     setSaving(false)
-    if (ok) {
+    if (result.ok) {
       setEditing(false)
       return
     }
-    setRoleError('Role could not be saved. Check your permissions and try again.')
+    setRoleError(result.error)
   }
 
   function handleCancel() {

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { ResourcesSection } from '@app/features/settings/ResourcesSection'
 import type { ResourceProfileOption } from '@app/entities/agent'
 import { useSettingsStore } from '@app/shared/model/settings.store'
@@ -77,5 +77,22 @@ describe('ResourcesSection', () => {
         'Return here before creating container agents; at least one row means this step is ready.'
       )
     ).toBeDefined()
+  })
+
+  test('shows a beginner retry path when agent sizes cannot load', async () => {
+    useSettingsStore.setState({
+      resourceProfilesError: 'HTTP 500',
+      resourceProfilesLoading: false,
+    })
+
+    render(<ResourcesSection />)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Agent sizes could not be loaded.')
+    expect(alert).toHaveTextContent('Agent sizes decide how much CPU and memory')
+    expect(alert).not.toHaveTextContent('HTTP 500')
+
+    fireEvent.click(screen.getByRole('button', { name: /reload sizes/i }))
+    expect(loadResourceProfilesMock).toHaveBeenCalledTimes(2)
   })
 })

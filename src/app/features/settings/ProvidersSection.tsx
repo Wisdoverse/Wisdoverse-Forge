@@ -11,6 +11,7 @@ import type {
   TestConnectionResult,
 } from '@app/shared/api/legacy/settingsApi'
 import { getSettingsApi } from '@app/shared/api/legacy'
+import { providerTestErrorMessage } from './providerTestErrorMessage'
 
 // ============================================================================
 // Types
@@ -376,7 +377,7 @@ function ProviderCard({ providerConfig, onTest, onDelete }: ProviderCardProps) {
     lastTestStatus === 'passed'
       ? { ok: true, message: 'Connection ready' }
       : lastTestStatus === 'failed'
-        ? { ok: false, message: lastTestErrorMessage || 'Connection failed' }
+        ? { ok: false, message: providerTestErrorMessage(lastTestErrorMessage, displayName) }
         : null
   const visibleTestResult = testResult ?? persistedTestResult
 
@@ -396,12 +397,14 @@ function ProviderCard({ providerConfig, onTest, onDelete }: ProviderCardProps) {
       const result = await onTest(id)
       setTestResult({
         ok: result.ok,
-        message: result.ok ? 'Connection ready' : result.error || 'Connection failed',
+        message: result.ok
+          ? 'Connection ready'
+          : providerTestErrorMessage(result.error, displayName),
       })
     } catch (err) {
       setTestResult({
         ok: false,
-        message: err instanceof Error ? err.message : 'Connection failed',
+        message: providerTestErrorMessage(err, displayName),
       })
     } finally {
       setTesting(false)
@@ -450,6 +453,7 @@ function ProviderCard({ providerConfig, onTest, onDelete }: ProviderCardProps) {
           </div>
           {visibleTestResult && (
             <div
+              role={visibleTestResult.ok ? undefined : 'alert'}
               className={cn(
                 'mt-1 text-ui-caption',
                 visibleTestResult.ok ? 'text-apple-green' : 'text-apple-red'

@@ -157,8 +157,8 @@ function AgentsEmptyState({ filter }: { filter: AdminAgentRuntimeKindFilter }) {
       </p>
       <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
         {filter === 'all'
-          ? 'Agents created by any organization will appear here. Create an agent or refresh after the API is healthy.'
-          : `No ${runtimeKindLabel(filter)} agents match this filter. Choose "All runtimes" to see every agent.`}
+          ? 'Create the first agent from Agents, confirm it becomes Idle or Working, then return here to review it across organizations. Refresh after the API is healthy if you just created one.'
+          : `No ${runtimeKindLabel(filter)} agents match this filter. Choose "All runtimes" before assuming the agent is missing.`}
       </p>
     </div>
   )

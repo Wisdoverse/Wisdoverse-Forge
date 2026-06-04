@@ -283,8 +283,13 @@ describe('InboxView', () => {
     render(<InboxView />)
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Could not load older notifications')
-    expect(screen.getByRole('button', { name: /try again/i })).toBeDefined()
+    expect(alert).toHaveTextContent('Saved notifications could not be loaded')
+    expect(alert).toHaveTextContent('Check your connection, then reload the inbox.')
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /reload inbox/i }))
+    await waitFor(() =>
+      expect(orchestrationApiMock.fetchInboxNotifications).toHaveBeenCalledTimes(2)
+    )
 
     warnSpy.mockRestore()
   })

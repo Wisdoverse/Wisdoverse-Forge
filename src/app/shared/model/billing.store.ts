@@ -45,6 +45,14 @@ interface BillingState {
 // Helpers
 // ============================================================================
 
+type BillingErrorArea = 'subscription' | 'usage' | 'invoices'
+
+const BILLING_AREA_LABEL: Record<BillingErrorArea, string> = {
+  subscription: 'Plan and payment',
+  usage: 'Usage',
+  invoices: 'Invoices',
+}
+
 function isBillingNotConfigured(err: unknown): boolean {
   if (err instanceof Error) {
     const msg = err.message.toLowerCase()
@@ -61,8 +69,54 @@ function isBillingNotConfigured(err: unknown): boolean {
   return false
 }
 
-function extractMessage(err: unknown, fallback: string): string {
-  return err instanceof Error ? err.message : fallback
+function errorText(err: unknown): string {
+  if (err instanceof Error) return err.message
+  return typeof err === 'string' ? err : ''
+}
+
+function statusCode(err: unknown): number | null {
+  const status = (err as { statusCode?: unknown } | null)?.statusCode
+  if (typeof status === 'number' && Number.isFinite(status)) return status
+
+  const match = errorText(err).match(/\b(?:HTTP|API|Server error|Code:)\s*\(?(\d{3})\b/i)
+  if (!match) return null
+  const code = Number.parseInt(match[1] ?? '', 10)
+  return Number.isFinite(code) ? code : null
+}
+
+function isNetworkError(err: unknown): boolean {
+  const text = errorText(err).toLowerCase()
+  return (
+    err instanceof TypeError ||
+    text.includes('failed to fetch') ||
+    text.includes('network') ||
+    text.includes('browser could not reach') ||
+    text.includes('load failed')
+  )
+}
+
+export function billingErrorMessage(err: unknown, area: BillingErrorArea): string {
+  const base = `${BILLING_AREA_LABEL[area]} could not be loaded.`
+  const text = errorText(err).toLowerCase()
+  const code = statusCode(err)
+
+  if (code === 401 || text.includes('sign in again') || text.includes('unauthorized')) {
+    return `${base} Sign in again, then open Billing.`
+  }
+  if (code === 403 || text.includes('permission') || text.includes('forbidden')) {
+    return `${base} Ask an owner or billing administrator for access.`
+  }
+  if (code === 429 || text.includes('busy') || text.includes('too many')) {
+    return `${base} Billing is busy. Wait a minute, then refresh this page.`
+  }
+  if (code != null && code >= 500) {
+    return `${base} The billing service is temporarily unavailable. Ask an administrator to check billing, then refresh this page.`
+  }
+  if (isNetworkError(err)) {
+    return `${base} The browser could not reach the server. Check your connection, then refresh this page.`
+  }
+
+  return `${base} Refresh this page. If it still fails, ask an administrator to check billing.`
 }
 
 // ============================================================================
@@ -104,7 +158,7 @@ export const useBillingStore = create<BillingState>((set) => ({
       } else {
         set({
           subscriptionLoading: false,
-          subscriptionError: extractMessage(err, 'Failed to load subscription'),
+          subscriptionError: billingErrorMessage(err, 'subscription'),
         })
       }
     }
@@ -125,7 +179,7 @@ export const useBillingStore = create<BillingState>((set) => ({
       } else {
         set({
           usageLoading: false,
-          usageError: extractMessage(err, 'Failed to load usage'),
+          usageError: billingErrorMessage(err, 'usage'),
         })
       }
     }
@@ -146,7 +200,7 @@ export const useBillingStore = create<BillingState>((set) => ({
       } else {
         set({
           invoicesLoading: false,
-          invoicesError: extractMessage(err, 'Failed to load invoices'),
+          invoicesError: billingErrorMessage(err, 'invoices'),
         })
       }
     }

@@ -67,9 +67,13 @@ export function ContextEvidenceList({ evidence, revokedItems }: ContextEvidenceL
                 <p className="mt-1 text-[10px] font-medium text-apple-blue">
                   {payloadSummary(item.payload)}
                 </p>
+                <p className="mt-1 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+                  Most users can rely on the summary above. Open the raw details only when checking
+                  an unexpected result or sharing evidence with support.
+                </p>
                 <details className="mt-2 text-[10px] text-secondary-light dark:text-secondary-dark">
                   <summary className="cursor-pointer select-none font-medium text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/30 dark:text-foreground-dark">
-                    Technical details
+                    Show raw details
                   </summary>
                   <pre className="mt-1 max-h-28 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-white/70 p-2 leading-relaxed dark:bg-black/20">
                     {JSON.stringify(item.payload, null, 2)}

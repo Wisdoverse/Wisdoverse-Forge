@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { useNavigationStore } from '@app/entities/navigation'
+import { navigationActionErrorMessage, useNavigationStore } from '@app/entities/navigation'
 import { useBoardStore } from '@app/shared/model/board.store'
 
 vi.mock('@app/entities/organization', () => ({
@@ -23,6 +23,11 @@ import { projectApi } from '@app/entities/project'
 import { agentGroupApi } from '@app/entities/agent-group'
 import { teamApi } from '@app/entities/team'
 
+function apiError(status: number, payload: Record<string, unknown> | string): Error {
+  const body = typeof payload === 'string' ? payload : JSON.stringify(payload)
+  return new Error(`API ${status}: ${body}`)
+}
+
 beforeEach(() => {
   useNavigationStore.getState().reset()
   useBoardStore.getState().reset()
@@ -30,6 +35,32 @@ beforeEach(() => {
 })
 
 describe('navigation.store', () => {
+  it('turns expired sessions into a sign-in step', () => {
+    expect(
+      navigationActionErrorMessage(
+        'organizations',
+        'load',
+        apiError(401, { error: 'token expired' })
+      )
+    ).toBe('Sign in again, then load organizations. Code: 401. Details: token expired')
+  })
+
+  it('turns permission failures into workspace access guidance', () => {
+    expect(
+      navigationActionErrorMessage('teamProjects', 'load', apiError(403, { message: 'forbidden' }))
+    ).toBe(
+      'You do not have permission to load teams and projects. Ask an admin to update your workspace access. Code: 403. Details: forbidden'
+    )
+  })
+
+  it('turns raw network failures into connection guidance', () => {
+    expect(
+      navigationActionErrorMessage('workLanes', 'load', new TypeError('Failed to fetch'))
+    ).toBe(
+      'Navigation could not load work lanes because the browser could not reach the server. Check your connection and refresh the page.'
+    )
+  })
+
   it('loadOrgs fetches and stores orgs, auto-selects first', async () => {
     vi.mocked(organizationApi.getOrgs).mockResolvedValue([
       { id: 'org1', name: 'Org 1', slug: 'org-1', plan: 'pro', role: 'owner' },
@@ -218,5 +249,55 @@ describe('navigation.store', () => {
 
     expect(useNavigationStore.getState().selectedProjectId).toBeNull()
     expect(useBoardStore.getState().selectedGroupId).toBeNull()
+  })
+
+  it('stores beginner guidance when organizations cannot load', async () => {
+    vi.mocked(organizationApi.getOrgs).mockRejectedValue(
+      apiError(503, { error: { message: 'database unavailable' } })
+    )
+
+    await useNavigationStore.getState().loadOrgs()
+
+    expect(useNavigationStore.getState().error).toBe(
+      'The workspace navigation service had a server problem. Try again after the backend is healthy. Code: 503. Details: database unavailable'
+    )
+    expect(useNavigationStore.getState().loading).toBe(false)
+  })
+
+  it('stores beginner guidance when team and project loading is denied', async () => {
+    vi.mocked(teamApi.getTeams).mockRejectedValue(apiError(403, { error: 'missing team access' }))
+
+    await useNavigationStore.getState().selectOrg('org-denied')
+
+    expect(useNavigationStore.getState().error).toBe(
+      'You do not have permission to load teams and projects. Ask an admin to update your workspace access. Code: 403. Details: missing team access'
+    )
+  })
+
+  it('stores connection guidance when work lanes cannot load', async () => {
+    vi.mocked(agentGroupApi.getGroups).mockRejectedValue(new TypeError('Failed to fetch'))
+
+    await useNavigationStore.getState().selectProject('p-offline')
+
+    expect(useNavigationStore.getState().error).toBe(
+      'Navigation could not load work lanes because the browser could not reach the server. Check your connection and refresh the page.'
+    )
+  })
+
+  it('stores field guidance when work lane creation is invalid', async () => {
+    vi.mocked(agentGroupApi.createGroup).mockRejectedValue(
+      apiError(422, { error: 'name is required' })
+    )
+
+    await expect(
+      useNavigationStore.getState().createAgentGroup('p1', {
+        name: '',
+        description: 'Agents in this group can receive tasks from the board.',
+      })
+    ).rejects.toThrow('API 422')
+
+    expect(useNavigationStore.getState().error).toBe(
+      'Check the required fields for the work lane, then try again. Code: 422. Details: name is required'
+    )
   })
 })

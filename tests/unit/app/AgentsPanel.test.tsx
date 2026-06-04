@@ -128,4 +128,25 @@ describe('AgentsPanel', () => {
       )
     ).toBeDefined()
   })
+
+  test('guides admins when no agents exist yet', async () => {
+    useAdminStore.setState({ agents: [], agentsTotal: 0 })
+
+    render(<AgentsPanel />)
+
+    const emptyState = await screen.findByTestId('admin-agents-empty')
+    expect(within(emptyState).getByText(/create the first agent from agents/i)).toBeDefined()
+    expect(within(emptyState).getByText(/confirm it becomes idle or working/i)).toBeDefined()
+    expect(within(emptyState).getByText(/refresh after the api is healthy/i)).toBeDefined()
+  })
+
+  test('guides admins to clear a runtime filter before assuming an agent is missing', async () => {
+    useAdminStore.setState({ agents: [], agentsTotal: 0, agentRuntimeKindFilter: 'cli' })
+
+    render(<AgentsPanel />)
+
+    const emptyState = await screen.findByTestId('admin-agents-empty')
+    expect(within(emptyState).getByText(/choose "all runtimes"/i)).toBeDefined()
+    expect(within(emptyState).getByText(/before assuming the agent is missing/i)).toBeDefined()
+  })
 })

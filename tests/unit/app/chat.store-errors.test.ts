@@ -1,0 +1,87 @@
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { chatErrorMessage } from '@app/shared/model/chat.errors'
+import { useChatStore } from '@app/shared/model/chat.store'
+
+const agentApiMock = vi.hoisted(() => ({
+  fetchMessages: vi.fn(),
+  deleteMessages: vi.fn(),
+}))
+
+vi.mock('@app/shared/api/legacy', () => ({
+  getAgentApi: () => agentApiMock,
+}))
+
+function resetChatState() {
+  useChatStore.setState({
+    turns: [],
+    loading: false,
+    error: null,
+    messages: [],
+    streaming: false,
+    streamingMessageId: null,
+    messagesLoading: false,
+  })
+}
+
+describe('chatErrorMessage', () => {
+  test('maps load permission errors to agent access guidance', () => {
+    expect(chatErrorMessage('load', new Error('HTTP 403'))).toBe(
+      'Conversation history could not be loaded. Ask an owner or admin to give you access to this agent.'
+    )
+  })
+
+  test('maps server errors without exposing transport text', () => {
+    const message = chatErrorMessage('clear', 'Server error (503)')
+
+    expect(message).toBe(
+      'Chat was not cleared. The platform is temporarily unavailable. Try again in a few minutes.'
+    )
+    expect(message).not.toContain('503')
+  })
+})
+
+describe('useChatStore beginner errors', () => {
+  beforeEach(() => {
+    resetChatState()
+    agentApiMock.fetchMessages.mockReset()
+    agentApiMock.deleteMessages.mockReset()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  test('turns failed message loads into retryable guidance', async () => {
+    agentApiMock.fetchMessages.mockResolvedValue({ ok: false, error: 'Server error (503)' })
+
+    await useChatStore.getState().loadMessages('agent-1')
+
+    expect(useChatStore.getState().error).toBe(
+      'Conversation history could not be loaded. The platform is temporarily unavailable. Try again in a few minutes.'
+    )
+    expect(useChatStore.getState().error).not.toContain('503')
+    expect(useChatStore.getState().messagesLoading).toBe(false)
+  })
+
+  test('turns message load network exceptions into connection guidance', async () => {
+    agentApiMock.fetchMessages.mockRejectedValue(new TypeError('Failed to fetch'))
+
+    await useChatStore.getState().loadMessages('agent-1')
+
+    expect(useChatStore.getState().error).toBe(
+      'Conversation history could not be loaded. Check your connection, then try again.'
+    )
+  })
+
+  test('turns clear chat failures into access guidance', async () => {
+    agentApiMock.deleteMessages.mockRejectedValue(new Error('HTTP 403'))
+
+    await useChatStore.getState().clearMessages('agent-1')
+
+    expect(useChatStore.getState().error).toBe(
+      'Chat was not cleared. Ask an owner or admin to give you access to this agent.'
+    )
+    expect(useChatStore.getState().error).not.toContain('HTTP 403')
+  })
+})

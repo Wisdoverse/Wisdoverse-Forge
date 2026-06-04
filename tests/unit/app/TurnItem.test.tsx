@@ -44,6 +44,11 @@ describe('TurnItem', () => {
     )
 
     expect(screen.getByLabelText('Tools used by the agent')).toBeDefined()
+    expect(
+      screen.getByText(
+        /the agent used tools during this turn.*what it sent and what came back before choosing the next step/i
+      )
+    ).toBeDefined()
     expect(screen.getByText('check_deployment')).toBeDefined()
   })
 })

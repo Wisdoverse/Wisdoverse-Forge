@@ -357,7 +357,7 @@ function PreviewItemRow({
             {item.why}
           </p>
           <div className="mt-2 flex flex-wrap gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            <span>About {item.estimatedTokens} context tokens</span>
+            <span>Uses about {item.estimatedTokens} units of agent prompt space</span>
             {item.lastUsedAt && <span>Used {formatRelativeTime(item.lastUsedAt)}</span>}
             {item.lastVerifiedAt && <span>Verified {formatRelativeTime(item.lastVerifiedAt)}</span>}
           </div>
@@ -395,8 +395,8 @@ function Badge({ children }: { children: string }) {
 function budgetLabel(capability?: Record<string, unknown>): string {
   const tokens = capability?.max_context_tokens
   return typeof tokens === 'number'
-    ? `Context limit: ${tokens.toLocaleString()} tokens`
-    : 'Context limit is still loading'
+    ? `Agent prompt space: ${tokens.toLocaleString()} units available`
+    : 'Agent prompt space limit is still loading'
 }
 
 function stringValue(value: unknown): string | null {

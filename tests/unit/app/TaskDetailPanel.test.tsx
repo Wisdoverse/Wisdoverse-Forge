@@ -1,4 +1,4 @@
-import { describe, test, expect, afterEach, vi } from 'vitest'
+import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { TaskDetailPanel } from '@app/features/detail/TaskDetailPanel'
@@ -22,6 +22,17 @@ vi.mock('@app/shared/api/orchestration', async (importOriginal) => {
     ...actual,
     orchestrationApi: orchestrationApiMock,
   }
+})
+
+beforeEach(() => {
+  orchestrationApiMock.updateTask.mockResolvedValue({ ok: true })
+  orchestrationApiMock.cancelTask.mockResolvedValue({ ok: true })
+  orchestrationApiMock.retryTask.mockResolvedValue({ ok: true, task: null })
+  orchestrationApiMock.approveTask.mockResolvedValue({ ok: true, task: null })
+  orchestrationApiMock.getParticipants.mockResolvedValue([])
+  orchestrationApiMock.getTaskRuns.mockResolvedValue([])
+  orchestrationApiMock.previewContext.mockResolvedValue(null)
+  orchestrationApiMock.publishWithContext.mockResolvedValue({ ok: true, task: null })
 })
 
 afterEach(() => {
@@ -189,6 +200,26 @@ describe('TaskDetailPanel', () => {
     })
   })
 
+  test('shows beginner guidance when retry fails', async () => {
+    orchestrationApiMock.retryTask.mockRejectedValueOnce(new Error('409 conflict'))
+
+    render(
+      <TaskDetailPanel
+        task={{
+          ...mockTask,
+          state: 'failed',
+          error: 'Worker stopped before producing a result',
+        }}
+        onClose={() => {}}
+      />
+    )
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /retry task/i }))
+
+    expect(await screen.findByText(/this task changed while you were working/i)).toBeDefined()
+    expect(screen.queryByText(/409 conflict/i)).toBeNull()
+  })
+
   test('approves blocked tasks waiting on human approval', async () => {
     const approvedTask = { ...mockTask, state: 'queued' as const, blockedReason: undefined }
     orchestrationApiMock.approveTask.mockResolvedValue({ ok: true, task: approvedTask })
@@ -212,6 +243,18 @@ describe('TaskDetailPanel', () => {
       id: 'task-1',
       state: 'queued',
     })
+  })
+
+  test('shows beginner guidance when run attempts fail to load', async () => {
+    orchestrationApiMock.getTaskRuns.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+
+    render(<TaskDetailPanel task={mockTask} onClose={() => {}} />)
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /updates/i }))
+
+    expect(await screen.findByText(/run attempts could not load/i)).toBeDefined()
+    expect(screen.getByText(/browser could not reach the server/i)).toBeDefined()
+    expect(screen.queryByText(/failed to fetch/i)).toBeNull()
   })
 
   test('surfaces reusable skill review after completed work', () => {

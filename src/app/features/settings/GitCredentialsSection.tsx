@@ -3,6 +3,7 @@ import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import type { GitCredential, GitProvider } from '@app/entities/agent'
+import { gitCredentialsErrorMessage } from './gitCredentialsErrorMessage'
 
 // ============================================================================
 // Helpers
@@ -366,7 +367,11 @@ export function GitCredentialsSection() {
       </div>
 
       {/* Error */}
-      {gitCredentialsError && <div className={uiStyles.error}>{gitCredentialsError}</div>}
+      {gitCredentialsError && (
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
+          {gitCredentialsErrorMessage(gitCredentialsError)}
+        </div>
+      )}
 
       {/* Table */}
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>

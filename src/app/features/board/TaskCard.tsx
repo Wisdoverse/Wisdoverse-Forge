@@ -314,11 +314,13 @@ function formatContextCountsLabel(counts: TaskContextCounts): string {
   const parts = []
   if (counts.appliedMemories > 0) {
     parts.push(
-      `${counts.appliedMemories} applied ${counts.appliedMemories === 1 ? 'memory' : 'memories'}`
+      `${counts.appliedMemories} saved ${counts.appliedMemories === 1 ? 'note' : 'notes'} added`
     )
   }
   if (counts.appliedSkills > 0) {
-    parts.push(`${counts.appliedSkills} applied ${counts.appliedSkills === 1 ? 'skill' : 'skills'}`)
+    parts.push(
+      `${counts.appliedSkills} skill ${counts.appliedSkills === 1 ? 'instruction' : 'instructions'} added`
+    )
   }
   return parts.join(', ')
 }

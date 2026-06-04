@@ -166,11 +166,7 @@ export function AnalyticsDashboard() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-        {error && (
-          <div className="mb-4 rounded-card border border-apple-red/20 bg-apple-red/10 px-4 py-2 text-ui-body text-apple-red">
-            {error}
-          </div>
-        )}
+        {error && <AnalyticsErrorPanel message={error} loading={loading} onRetry={load} />}
 
         <AnalyticsNextStepPanel guidance={guidance} loading={loading} />
 
@@ -366,6 +362,39 @@ function AnalyticsNextStepPanel({
         )}
       </div>
     </section>
+  )
+}
+
+function AnalyticsErrorPanel({
+  message,
+  loading,
+  onRetry,
+}: {
+  message: string
+  loading: boolean
+  onRetry: () => Promise<void>
+}) {
+  return (
+    <div
+      role="alert"
+      aria-live="polite"
+      className="mb-4 rounded-card border border-apple-red/20 bg-apple-red/10 px-4 py-3 text-apple-red"
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-ui-body font-semibold">Analytics needs attention</p>
+          <p className="mt-1 text-ui-body">{message}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void onRetry()}
+          disabled={loading}
+          className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-apple-red/30 px-3 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/40 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {loading ? 'Refreshing...' : 'Refresh dashboard'}
+        </button>
+      </div>
+    </div>
   )
 }
 

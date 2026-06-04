@@ -37,7 +37,11 @@ beforeEach(() => {
 describe('AgentListView', () => {
   test('shows empty state when no agents', () => {
     render(<AgentListView />)
-    expect(screen.getByText(/no agents/i)).toBeDefined()
+    const emptyState = screen.getByTestId('agent-empty-state')
+    expect(within(emptyState).getByText(/create your first agent/i)).toBeDefined()
+    expect(within(emptyState).getByText(/start with text only/i)).toBeDefined()
+    expect(within(emptyState).getByText(/managed workspace or this computer/i)).toBeDefined()
+    expect(within(emptyState).getByText(/success looks like one idle agent/i)).toBeDefined()
   })
 
   test('shows beginner local-agent enrollment command for the selected project', () => {

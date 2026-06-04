@@ -60,7 +60,7 @@ describe('TaskCard', () => {
     expect(badge).toBeDefined()
     expect(badge.textContent).toContain('2')
     expect(badge.textContent).toContain('1')
-    expect(badge.getAttribute('aria-label')).toBe('2 applied memories, 1 applied skill')
+    expect(badge.getAttribute('aria-label')).toBe('2 saved notes added, 1 skill instruction added')
   })
 
   test('hides context badge when no context has been applied', () => {

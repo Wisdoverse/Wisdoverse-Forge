@@ -6,6 +6,7 @@ import {
   type ComponentHealth,
   type SystemHealth,
 } from '@app/shared/model/admin.store'
+import { systemHealthErrorMessage } from './systemHealthErrorMessage'
 
 // ============================================================================
 // Status badge
@@ -281,9 +282,8 @@ export function SystemHealth() {
 
       {/* Error */}
       {healthError && !health && (
-        <div className={uiStyles.error}>
-          Could not load service readiness. Try Check now again or confirm the API is reachable.
-          <span className="mt-1 block text-ui-caption">{healthError}</span>
+        <div role="alert" className={uiStyles.error}>
+          {systemHealthErrorMessage(healthError)}
         </div>
       )}
 

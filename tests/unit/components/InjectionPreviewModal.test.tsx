@@ -88,7 +88,9 @@ describe('InjectionPreviewModal', () => {
     expect(
       screen.getByText(/saved notes and skill instructions the agent will see next/i)
     ).toBeDefined()
-    expect(screen.getByText('2 items selected · Context limit: 1,200 tokens')).toBeDefined()
+    expect(
+      screen.getByText('2 items selected · Agent prompt space: 1,200 units available')
+    ).toBeDefined()
     expect(screen.getByText('Agent will use')).toBeDefined()
     expect(screen.getByText('Claude')).toBeDefined()
     expect(screen.getByText('Work location')).toBeDefined()
@@ -109,7 +111,7 @@ describe('InjectionPreviewModal', () => {
     expect(screen.getAllByText('Saved note').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Project').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Internal').length).toBeGreaterThan(0)
-    expect(screen.getByText('About 120 context tokens')).toBeDefined()
+    expect(screen.getByText('Uses about 120 units of agent prompt space')).toBeDefined()
   })
 
   test('submits removed default items and pinned suggested items', async () => {

@@ -201,6 +201,9 @@ describe('CliImagesPanel', () => {
 
     // Stale data still renders, but with an explicit out-of-date warning.
     expect(screen.getByText(/may be out of date/i)).toBeDefined()
+    expect(
+      screen.getByText(/do not roll agents from this table until check now succeeds/i)
+    ).toBeDefined()
     expect(screen.getByText('HTTP 401')).toBeDefined()
     expect(screen.getByText('codex')).toBeDefined()
   })

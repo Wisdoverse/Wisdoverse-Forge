@@ -77,7 +77,7 @@ describe('UserManagement', () => {
 
   test('keeps role values stable while using friendly labels', async () => {
     const user = userEvent.setup()
-    const updateUserRole = vi.fn().mockResolvedValue(true)
+    const updateUserRole = vi.fn().mockResolvedValue({ ok: true })
     useAdminStore.setState({
       ...originalAdminState,
       users: [mockUser],
@@ -93,9 +93,44 @@ describe('UserManagement', () => {
     render(<UserManagement />)
 
     await user.click(screen.getByTitle('Change what this user can do'))
-    fireEvent.change(screen.getByRole('combobox', { name: /role for alex operator/i }), { target: { value: 'operator' } })
+    fireEvent.change(screen.getByRole('combobox', { name: /role for alex operator/i }), {
+      target: { value: 'operator' },
+    })
     await user.click(screen.getByRole('button', { name: /save role/i }))
 
     await waitFor(() => expect(updateUserRole).toHaveBeenCalledWith('user-1', 'operator'))
+  })
+
+  test('shows the store recovery step when role saving fails', async () => {
+    const user = userEvent.setup()
+    const updateUserRole = vi.fn().mockResolvedValue({
+      ok: false,
+      error:
+        'You do not have permission to change user access. Ask an owner to update your admin role. Code: 403. Details: owner role required',
+    })
+    useAdminStore.setState({
+      ...originalAdminState,
+      users: [mockUser],
+      usersTotal: 1,
+      usersPage: 1,
+      usersLoading: false,
+      usersError: null,
+      userSearch: '',
+      loadUsers: vi.fn(),
+      updateUserRole,
+    })
+
+    render(<UserManagement />)
+
+    await user.click(screen.getByTitle('Change what this user can do'))
+    fireEvent.change(screen.getByRole('combobox', { name: /role for alex operator/i }), {
+      target: { value: 'operator' },
+    })
+    await user.click(screen.getByRole('button', { name: /save role/i }))
+
+    expect(
+      await screen.findByText(/You do not have permission to change user access/i)
+    ).toBeDefined()
+    expect(screen.getByText(/Ask an owner to update your admin role/i)).toBeDefined()
   })
 })

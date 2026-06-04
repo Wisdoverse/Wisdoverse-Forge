@@ -33,15 +33,30 @@ function makeMember(overrides: Partial<ResourceMember>): ResourceMember {
 function renderMembersModal({
   members = [],
   users = [makeUser({})],
+  loadMembersError,
+  loadUsersError,
+  addMemberError,
+  updateMemberError,
+  removeMemberError,
 }: {
   members?: ResourceMember[]
   users?: OrgUser[]
+  loadMembersError?: unknown
+  loadUsersError?: unknown
+  addMemberError?: unknown
+  updateMemberError?: unknown
+  removeMemberError?: unknown
 } = {}) {
-  const loadMembers = vi.fn().mockResolvedValue(members)
-  const loadUsers = vi.fn().mockResolvedValue(users)
+  const loadMembers = loadMembersError
+    ? vi.fn<() => Promise<ResourceMember[]>>().mockRejectedValue(loadMembersError)
+    : vi.fn<() => Promise<ResourceMember[]>>().mockResolvedValue(members)
+  const loadUsers = loadUsersError
+    ? vi.fn<() => Promise<OrgUser[]>>().mockRejectedValue(loadUsersError)
+    : vi.fn<() => Promise<OrgUser[]>>().mockResolvedValue(users)
   const addMember = vi
     .fn<(input: AddResourceMemberInput) => Promise<ResourceMember>>()
     .mockImplementation(async (input) => {
+      if (addMemberError) throw addMemberError
       const user = users.find((item) => item.id === input.userId) ?? makeUser({ id: input.userId })
       return makeMember({
         userId: user.id,
@@ -53,10 +68,13 @@ function renderMembersModal({
   const updateMember = vi
     .fn<(userId: string, input: UpdateResourceMemberInput) => Promise<ResourceMember>>()
     .mockImplementation(async (userId, input) => {
+      if (updateMemberError) throw updateMemberError
       const member = members.find((item) => item.userId === userId) ?? makeMember({ userId })
       return { ...member, role: input.role }
     })
-  const removeMember = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
+  const removeMember = vi.fn<() => Promise<void>>().mockImplementation(async () => {
+    if (removeMemberError) throw removeMemberError
+  })
   const onClose = vi.fn()
 
   render(
@@ -138,5 +156,67 @@ describe('ResourceMembersModal', () => {
       )
     ).toBeDefined()
     expect(screen.getByText('owner@example.com')).toBeDefined()
+  })
+
+  test('shows beginner guidance when members cannot load', async () => {
+    renderMembersModal({ loadMembersError: new Error('API 401: {"message":"token expired"}') })
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('Sign in again')
+    expect(alert.textContent).toContain('Code: 401.')
+    expect(alert.textContent).not.toContain('API 401')
+    expect(alert.textContent).not.toContain('token expired')
+  })
+
+  test('shows permission guidance when adding a member fails', async () => {
+    renderMembersModal({ addMemberError: new Error('API 403: Forbidden') })
+
+    await screen.findByText('No direct members yet')
+    fireEvent.change(screen.getByLabelText('Select member to add'), {
+      target: { value: 'user-1' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /add/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('You do not have permission')
+    expect(alert.textContent).toContain('Ask an owner or admin')
+    expect(alert.textContent).not.toContain('API 403')
+    expect(alert.textContent).not.toContain('Forbidden')
+  })
+
+  test('shows refresh guidance when role changes conflict', async () => {
+    renderMembersModal({
+      members: [makeMember({})],
+      users: [makeUser({})],
+      updateMemberError: new Error('API 409: {"message":"role already changed"}'),
+    })
+
+    await screen.findByText('builder')
+    fireEvent.change(screen.getByLabelText('Role for builder'), {
+      target: { value: 'admin' },
+    })
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('This membership changed while you were editing')
+    expect(alert.textContent).toContain('Refresh the members list')
+    expect(alert.textContent).not.toContain('API 409')
+    expect(alert.textContent).not.toContain('role already changed')
+  })
+
+  test('explains last-owner style remove failures without raw API text', async () => {
+    renderMembersModal({
+      members: [makeMember({ role: 'owner' })],
+      users: [makeUser({})],
+      removeMemberError: new Error('API 422: {"message":"Choose a different owner first."}'),
+    })
+
+    await screen.findByText('builder')
+    fireEvent.click(screen.getByRole('button', { name: 'Remove builder' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm remove builder' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('last owner')
+    expect(alert.textContent).toContain('Details: Choose a different owner first.')
+    expect(alert.textContent).not.toContain('API 422')
   })
 })

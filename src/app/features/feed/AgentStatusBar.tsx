@@ -35,7 +35,16 @@ const STATUS_COPY: Record<
 }
 
 export function AgentStatusBar({ agents }: { agents: AgentStatus[] }) {
-  if (agents.length === 0) return null
+  if (agents.length === 0) {
+    return (
+      <div
+        data-testid="agent-status-empty"
+        className="rounded-lg bg-black/[0.035] px-3 py-2 text-[10px] leading-relaxed text-secondary-light dark:bg-white/[0.05] dark:text-secondary-dark"
+      >
+        No agents are connected yet. Open Agents to create or start one before assigning work.
+      </div>
+    )
+  }
 
   return (
     <div data-testid="agent-status-bar" className="flex items-center gap-2 flex-wrap">

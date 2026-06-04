@@ -70,6 +70,21 @@ function context(overrides: Partial<TaskContextResponse> = {}): TaskContextRespo
 }
 
 describe('ContextTab', () => {
+  test('shows beginner guidance when task context fails to load', async () => {
+    render(
+      <ContextTab
+        taskId="task-1"
+        loadContext={async () => {
+          throw new Error('401 Unauthorized')
+        }}
+      />
+    )
+
+    expect(await screen.findByText(/sign in again/i)).toBeDefined()
+    expect(screen.getByText(/code: 401/i)).toBeDefined()
+    expect(screen.queryByText(/401 unauthorized/i)).toBeNull()
+  })
+
   test('shows the empty state when no run context exists', async () => {
     render(<ContextTab taskId="task-1" loadContext={async () => context({ runs: [] })} />)
 
@@ -82,6 +97,23 @@ describe('ContextTab', () => {
       within(emptyState).getByText(/Publish or run the task so Forge can choose memories/i)
     ).toBeDefined()
     expect(within(emptyState).getByText(/Use feedback on applied items/i)).toBeDefined()
+  })
+
+  test('shows beginner recovery guidance when task context fails to load', async () => {
+    render(
+      <ContextTab
+        taskId="task-1"
+        loadContext={async () => {
+          throw new Error('HTTP 403')
+        }}
+      />
+    )
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'You do not have permission to view this task. Ask an owner or admin to update your role.'
+    )
+    expect(alert).not.toHaveTextContent('HTTP 403')
   })
 
   test('renders applied context, candidates, evidence, and provenance', async () => {

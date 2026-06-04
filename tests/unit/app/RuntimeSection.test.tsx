@@ -171,4 +171,40 @@ describe('RuntimeSection', () => {
     expect(screen.queryByRole('button', { name: /Connect GitHub/i })).toBeNull()
     expect(screen.getByText(/1\/1 local tool versions reported/i)).toBeDefined()
   })
+
+  test('shows beginner guidance when local tool sign-in status cannot load', async () => {
+    agentApiMock.getCliAuthProxyStatus.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+
+    render(<RuntimeSection />)
+
+    expect(await screen.findByText(/local tool sign-in status could not load/i)).toBeDefined()
+    expect(screen.getByText(/browser could not reach the server/i)).toBeDefined()
+    expect(screen.queryByText(/failed to fetch/i)).toBeNull()
+  })
+
+  test('shows beginner guidance when agent online status cannot load', async () => {
+    orchestrationApiMock.getParticipants.mockRejectedValueOnce(new Error('401 Unauthorized'))
+
+    render(<RuntimeSection />)
+
+    expect(await screen.findByText(/sign in again/i)).toBeDefined()
+    expect(screen.getByText(/code: 401/i)).toBeDefined()
+    expect(screen.queryByText(/401 Unauthorized/)).toBeNull()
+  })
+
+  test('shows beginner guidance when local tool sign-in cannot start', async () => {
+    agentApiMock.startCliAuthProxyLogin.mockResolvedValueOnce({
+      ok: false,
+      error: '403 Forbidden',
+    })
+
+    render(<RuntimeSection />)
+
+    await screen.findByTestId('runtime-launch-checklist')
+    fireEvent.click(screen.getByRole('button', { name: /Connect GitHub/i }))
+
+    expect(await screen.findByText(/do not have permission to manage runtime setup/i)).toBeDefined()
+    expect(screen.getByText(/owner or admin/i)).toBeDefined()
+    expect(screen.queryByText(/403 Forbidden/)).toBeNull()
+  })
 })

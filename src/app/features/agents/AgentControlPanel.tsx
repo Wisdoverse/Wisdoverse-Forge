@@ -84,7 +84,11 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
           <AlertTriangle size={16} strokeWidth={2} aria-hidden="true" className="mt-0.5 shrink-0" />
           <div className="flex flex-col gap-1">
             <span className="font-medium">Action did not finish</span>
-            <span>{error}. Check the agent status, then try the same action again.</span>
+            <span>
+              {error}. Refresh this agent and confirm the latest status before trying once more. For
+              Start or Restart, wait for Idle or Working. If it keeps failing, ask an admin to check
+              your access and the agent runtime.
+            </span>
           </div>
         </div>
       )}

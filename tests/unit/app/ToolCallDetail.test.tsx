@@ -32,6 +32,11 @@ describe('ToolCallDetail', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /show details for shell/i }))
 
+    expect(
+      screen.getByText(
+        /this is a read-only record of one step the agent took.*whether to continue, retry, or ask the agent to explain it/i
+      )
+    ).toBeInTheDocument()
     expect(screen.getByText('What the agent sent')).toBeInTheDocument()
     expect(screen.getByText('Settings or instructions passed into this step.')).toBeInTheDocument()
     expect(screen.getByText('What came back')).toBeInTheDocument()

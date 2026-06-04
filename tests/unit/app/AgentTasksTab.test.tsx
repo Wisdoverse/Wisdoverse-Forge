@@ -90,6 +90,20 @@ describe('AgentTasksTab', () => {
     expect(screen.getByText('Stopped because: Import failed')).toBeDefined()
   })
 
+  test('shows beginner recovery guidance when agent tasks fail to load', async () => {
+    getTasksByAgentMock.mockRejectedValue(new Error('HTTP 403'))
+
+    render(<AgentTasksTab agentId="agent-1" />)
+
+    const alert = await screen.findByRole('alert')
+    expect(within(alert).getByText('Agent tasks need attention.')).toBeDefined()
+    expect(alert.textContent).toContain(
+      'Ask an owner or admin to give you access to this agent or its work lane.'
+    )
+    expect(alert.textContent).not.toContain('HTTP 403')
+    expect(alert.textContent).not.toContain('Details:')
+  })
+
   test('filters and searches tasks inside the agent profile', async () => {
     getTasksByAgentMock.mockResolvedValue([
       makeTask({
@@ -157,8 +171,6 @@ describe('AgentTasksTab', () => {
 
     render(<AgentTasksTab agentId="agent-1" />)
 
-    expect(
-      await screen.findByText('No tasks have reached this agent yet')
-    ).toBeDefined()
+    expect(await screen.findByText('No tasks have reached this agent yet')).toBeDefined()
   })
 })

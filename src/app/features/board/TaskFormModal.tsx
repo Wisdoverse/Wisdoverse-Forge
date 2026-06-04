@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { boardActionErrorMessage } from './boardErrorMessages'
 
 interface TaskFormData {
   projectId: string
@@ -184,7 +185,7 @@ export function TaskFormModal({
       reset()
       onClose()
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to create task')
+      setSubmitError(boardActionErrorMessage('createTask', err))
     }
   }
 
@@ -195,7 +196,7 @@ export function TaskFormModal({
     try {
       await onProjectChange(projectId)
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to select project')
+      setSubmitError(boardActionErrorMessage('selectProject', err))
     } finally {
       setSelectingProject(false)
     }

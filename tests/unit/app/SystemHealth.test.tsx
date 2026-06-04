@@ -72,8 +72,10 @@ describe('SystemHealth', () => {
 
     render(<SystemHealth />)
 
-    expect(screen.getByText(/Could not load service readiness/i)).toBeDefined()
-    expect(screen.getByText('HTTP 500')).toBeDefined()
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Service readiness could not be loaded. The admin API is temporarily unavailable. Check the backend service, then choose Check now.'
+    )
+    expect(screen.queryByText('HTTP 500')).toBeNull()
     expect(screen.getByRole('button', { name: 'Check now' })).toBeDefined()
   })
 })

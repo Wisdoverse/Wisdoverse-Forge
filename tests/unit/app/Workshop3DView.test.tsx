@@ -13,11 +13,15 @@ describe('Workshop3DEmptyState', () => {
     expect(within(emptyState).getByText('No agents in the workshop yet')).toBeDefined()
     expect(
       within(emptyState).getByText(
-        'Create or wake an agent, then this view will show its live status and activity in 3D.'
+        'If this is your first agent, create it from Agents. If you already have one, start or wake it there, then refresh this view.'
       )
     ).toBeDefined()
-    expect(within(emptyState).getByText('Create an agent from Agents')).toBeDefined()
-    expect(within(emptyState).getByText('Start or wake the runtime')).toBeDefined()
-    expect(within(emptyState).getByText('Refresh after the agent checks in')).toBeDefined()
+    expect(within(emptyState).getByText('Open Agents and create one if none exists')).toBeDefined()
+    expect(
+      within(emptyState).getByText('Start or wake the agent if it is already listed')
+    ).toBeDefined()
+    expect(
+      within(emptyState).getByText('Refresh this view after the agent checks in')
+    ).toBeDefined()
   })
 })

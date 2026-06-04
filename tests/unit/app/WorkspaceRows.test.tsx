@@ -80,4 +80,43 @@ describe('workspace management rows', () => {
 
     await waitFor(() => expect(onDelete).toHaveBeenCalledWith('team-1'))
   })
+
+  test('shows beginner guidance when a team save is denied', async () => {
+    const onUpdate = vi.fn().mockRejectedValue(new Error('API 403: Forbidden'))
+
+    render(<EditableTeamRow team={team} onUpdate={onUpdate} onDelete={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Product Team' }))
+    fireEvent.change(screen.getByLabelText('Team name'), {
+      target: { value: 'Product Operators' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save team' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('You do not have permission')
+    expect(alert.textContent).toContain('Ask an owner or admin')
+    expect(alert.textContent).not.toContain('API 403')
+    expect(alert.textContent).not.toContain('Forbidden')
+  })
+
+  test('shows beginner guidance when a project delete is blocked', async () => {
+    const onDelete = vi.fn().mockRejectedValue(new Error('HTTP 422: {"message":"Move agents first."}'))
+
+    render(
+      <EditableProjectRow
+        project={project}
+        teamName="Product"
+        onUpdate={vi.fn().mockResolvedValue(undefined)}
+        onDelete={onDelete}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Website Launch' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete Website Launch' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('This project could not be deleted')
+    expect(alert.textContent).toContain('Details: Move agents first.')
+    expect(alert.textContent).not.toContain('HTTP 422')
+  })
 })

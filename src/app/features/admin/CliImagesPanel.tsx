@@ -316,7 +316,8 @@ export function CliImagesPanel() {
           as current. */}
       {cliImagesError && cliImages && (
         <div className={cn(uiStyles.error, 'mb-4')}>
-          The status below may be out of date — the latest refresh failed.
+          The status below may be out of date — the latest refresh failed. Do not roll agents from
+          this table until Check now succeeds.
           <span className="mt-1 block text-ui-caption">{cliImagesError}</span>
         </div>
       )}
