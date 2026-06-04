@@ -71,7 +71,44 @@ describe('ContextEvidenceList', () => {
     expect(
       screen.getByText(/Most users can rely on the summary above.*sharing evidence with support/i)
     ).toBeInTheDocument()
-    expect(screen.getByText('Show raw details')).toBeInTheDocument()
+    expect(screen.getByText('Show technical details')).toBeInTheDocument()
+    expect(screen.queryByText(/raw details/i)).toBeNull()
+  })
+
+  test('describes tool evidence without API jargon', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            sourceType: 'tool_call',
+            payload: { ok: true },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    expect(screen.getByText('Tool activity')).toBeInTheDocument()
+    expect(
+      screen.getByText('A recorded tool action that helped the agent complete the work.')
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/API record/i)).toBeNull()
+  })
+
+  test('summarizes detailed payloads without implementation field wording', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            payload: { code: 'needs-review', retryable: true },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    expect(screen.getByText('Detailed record with 2 pieces of information.')).toBeInTheDocument()
+    expect(screen.queryByText(/fields/i)).toBeNull()
   })
 
   test('uses a plain-language fallback for unknown evidence sources', () => {

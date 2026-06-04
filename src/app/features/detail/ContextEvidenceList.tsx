@@ -68,12 +68,12 @@ export function ContextEvidenceList({ evidence, revokedItems }: ContextEvidenceL
                   {payloadSummary(item.payload)}
                 </p>
                 <p className="mt-1 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
-                  Most users can rely on the summary above. Open the raw details only when checking
-                  an unexpected result or sharing evidence with support.
+                  Most users can rely on the summary above. Open the technical details only when
+                  checking an unexpected result or sharing evidence with support.
                 </p>
                 <details className="mt-2 text-[10px] text-secondary-light dark:text-secondary-dark">
                   <summary className="cursor-pointer select-none font-medium text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/30 dark:text-foreground-dark">
-                    Show raw details
+                    Show technical details
                   </summary>
                   <pre className="mt-1 max-h-28 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-white/70 p-2 leading-relaxed dark:bg-black/20">
                     {JSON.stringify(item.payload, null, 2)}
@@ -90,7 +90,7 @@ export function ContextEvidenceList({ evidence, revokedItems }: ContextEvidenceL
 
 function evidenceTitle(item: TaskContextEvidence): string {
   if (item.sourceType === 'task_result') return 'Task result'
-  if (item.sourceType === 'tool_call') return 'Tool or API record'
+  if (item.sourceType === 'tool_call') return 'Tool activity'
   if (item.sourceType === 'artifact') return 'Saved artifact'
   if (item.sourceType === 'source_message') return 'Source message'
   return humanizeSourceType(item.sourceType)
@@ -101,7 +101,7 @@ function evidenceDescription(item: TaskContextEvidence): string {
     return 'Final output or status captured from the agent run.'
   }
   if (item.sourceType === 'tool_call') {
-    return 'A tool or API call that helped the agent complete the work.'
+    return 'A recorded tool action that helped the agent complete the work.'
   }
   if (item.sourceType === 'artifact') {
     return 'A file or result saved during the run.'
@@ -130,10 +130,10 @@ function payloadSummary(payload: Record<string, unknown>): string {
 
   const keys = Object.keys(payload)
   if (keys.length > 0) {
-    return `Technical record with ${keys.length} ${keys.length === 1 ? 'field' : 'fields'}.`
+    return `Detailed record with ${keys.length} ${keys.length === 1 ? 'piece' : 'pieces'} of information.`
   }
 
-  return 'Technical evidence was recorded for this run.'
+  return 'Detailed evidence was recorded for this run.'
 }
 
 function firstString(...values: unknown[]): string | null {
