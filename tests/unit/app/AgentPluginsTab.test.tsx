@@ -125,6 +125,49 @@ describe('AgentPluginsTab', () => {
     expect(shellSwitch).toHaveAttribute('aria-checked', 'false')
   })
 
+  test('shows beginner recovery steps when tools cannot be loaded', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+    })
+
+    render(<AgentPluginsTab agentId="agent-1" />)
+
+    const alert = await screen.findByRole('alert')
+    expect(within(alert).getByText('Agent tools need attention.')).toBeDefined()
+    expect(alert.textContent).toContain(
+      'Ask a workspace owner or admin to give you permission for this agent.'
+    )
+    expect(alert.textContent).not.toContain('HTTP 403')
+    expect(alert.textContent).not.toContain('Details:')
+  })
+
+  test('explains failed tool changes and restores the previous switch state', async () => {
+    fetchMock.mockResolvedValueOnce(pluginResponse()).mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+    })
+
+    render(<AgentPluginsTab agentId="agent-1" />)
+
+    const shellSwitch = await screen.findByRole('switch', {
+      name: /turn off shell tools for this agent/i,
+    })
+    expect(shellSwitch).toHaveAttribute('aria-checked', 'true')
+
+    fireEvent.click(shellSwitch)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain(
+      'Tool change was not saved. The switch was returned to its previous setting.'
+    )
+    expect(alert.textContent).toContain(
+      'Ask a workspace owner or admin to give you permission for this agent.'
+    )
+    expect(alert.textContent).not.toContain('HTTP 403')
+    expect(shellSwitch).toHaveAttribute('aria-checked', 'true')
+  })
+
   test('shows beginner next steps when no tools are available', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
