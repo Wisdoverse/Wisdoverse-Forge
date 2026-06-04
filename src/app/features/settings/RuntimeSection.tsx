@@ -213,7 +213,7 @@ export function RuntimeSection() {
             </div>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
               {runtimeSettings
-                ? `${runtimeSettings.availableRuntimes.length} work location${runtimeSettings.availableRuntimes.length === 1 ? '' : 's'}, ${runtimeSettings.availableCliTools.length} local tool choice${runtimeSettings.availableCliTools.length === 1 ? '' : 's'}, ${connectedCredentialCount} connected sign-in${connectedCredentialCount === 1 ? '' : 's'}, ${participants.length} online agent signal${participants.length === 1 ? '' : 's'}.`
+                ? `${runtimeSettings.availableRuntimes.length} place${runtimeSettings.availableRuntimes.length === 1 ? '' : 's'} agents can work, ${runtimeSettings.availableCliTools.length} work tool${runtimeSettings.availableCliTools.length === 1 ? '' : 's'}, ${connectedCredentialCount} account connection${connectedCredentialCount === 1 ? '' : 's'} ready, ${participants.length} agent check-in${participants.length === 1 ? '' : 's'}.`
                 : 'The setup check has not loaded yet.'}
             </p>
           </div>
@@ -235,32 +235,34 @@ export function RuntimeSection() {
 
         <div className="mt-4 grid gap-3 md:grid-cols-4">
           <RuntimeReadinessMetric
-            label="Default work location"
+            label="Default place"
             value={runtimeSettings ? runtimeLabel(runtimeSettings.defaultRuntime) : 'Unknown'}
             ready={Boolean(
               runtimeSettings?.availableRuntimes.includes(runtimeSettings.defaultRuntime)
             )}
           />
           <RuntimeReadinessMetric
-            label="Local tools"
+            label="Work tools"
             value={
               cliToolDetails.length > 0
-                ? `${reportedVersionCount}/${cliToolDetails.length} reported`
-                : 'No tool details'
+                ? `${reportedVersionCount}/${cliToolDetails.length} ready`
+                : 'No tool status yet'
             }
             ready={cliToolDetails.length > 0 && reportedVersionCount === cliToolDetails.length}
           />
           <RuntimeReadinessMetric
-            label="Last online signal"
-            value={latestHeartbeat ? formatRelativeTime(latestHeartbeat) : 'No online signal'}
+            label="Last agent check-in"
+            value={
+              latestHeartbeat ? formatRelativeTime(latestHeartbeat) : 'No agent has checked in'
+            }
             ready={Boolean(latestHeartbeat)}
           />
           <RuntimeReadinessMetric
-            label="Sign-in state"
+            label="Account connections"
             value={
               cliStatuses.length > 0
                 ? `${connectedCredentialCount}/${cliStatuses.length} connected`
-                : 'No sign-in providers'
+                : 'No account connections'
             }
             ready={cliStatuses.length === 0 || disconnectedCredentials.length === 0}
           />
@@ -283,10 +285,10 @@ export function RuntimeSection() {
           <div className="mt-4 space-y-2" data-testid="runtime-cli-versions">
             <div className="flex items-center justify-between gap-2">
               <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Local work tools
+                Work tools
               </p>
               <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {reportedVersionCount} version{reportedVersionCount === 1 ? '' : 's'} reported
+                {reportedVersionCount} tool{reportedVersionCount === 1 ? '' : 's'} ready
               </p>
             </div>
             {cliToolDetails.map((detail) => (
@@ -299,11 +301,14 @@ export function RuntimeSection() {
                     {cliToolLabel(detail.cliTool)}
                   </span>
                   <span className="block truncate text-secondary-light dark:text-secondary-dark">
-                    {detail.version ?? 'Version not reported'}
+                    {detail.version ?? 'Needs package check'}
                   </span>
                 </div>
-                <span className="min-w-0 truncate font-mono text-secondary-light dark:text-secondary-dark">
-                  {detail.image}
+                <span
+                  className="min-w-0 truncate text-secondary-light dark:text-secondary-dark"
+                  title={detail.image}
+                >
+                  {detail.imagePresent ? 'Package found' : 'Package needs rebuild'}
                 </span>
                 <span
                   className={cn(
@@ -347,11 +352,11 @@ export function RuntimeSection() {
                   aria-hidden="true"
                 />
                 <h4 className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
-                  Work setup checklist
+                  Before assigning work
                 </h4>
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Clear the warnings here before assigning work to agents that use local tools.
+                Clear these items before assigning work to agents that need files or commands.
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-ui-caption font-medium tabular-nums text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
@@ -509,14 +514,14 @@ function RuntimeNextStepPanel({
           </h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
             {allReady
-              ? 'The work location, local tools, sign-ins, and online agent signals are ready.'
+              ? 'The default place, work tools, account connections, and agent check-ins are ready.'
               : item?.detail}
           </p>
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
             Success:{' '}
             {allReady
               ? 'Open Agents, create or select an agent, then assign work from Tasks.'
-              : 'This warning disappears from the work setup checklist.'}
+              : 'This warning disappears from the checklist.'}
           </p>
         </div>
         {!allReady && item?.action && item.actionLabel && (
@@ -584,7 +589,7 @@ function RuntimeChecklistRow({
                   : 'bg-apple-orange/15 text-apple-orange'
               )}
             >
-              {item.ready ? 'Ready' : 'Action'}
+              {item.ready ? 'Ready' : 'Needs action'}
             </span>
           </div>
           <p className="mt-1 text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
@@ -645,10 +650,10 @@ function CredentialStatusRow({
   const detail = status.connected
     ? status.lastRefresh
       ? `Last checked ${formatRelativeTime(status.lastRefresh)}`
-      : 'Sign-in is ready'
+      : 'Account connection ready'
     : status.revokeReason || status.revokedAt
-      ? 'Reconnect before starting new agents that use this tool'
-      : 'No saved sign-in'
+      ? 'Reconnect before starting agents that use this tool'
+      : 'No saved account connection'
 
   return (
     <div className="flex flex-col gap-2 rounded-lg bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04] sm:flex-row sm:items-center sm:justify-between">
@@ -699,7 +704,7 @@ function runtimeLaunchChecklistItems(
     return [
       {
         id: 'runtime-api',
-        title: 'Work setup status',
+        title: 'Work setup check',
         detail: 'The setup check has not loaded yet. Refresh after the service is reachable.',
         ready: false,
         action: 'refresh',
@@ -715,12 +720,12 @@ function runtimeLaunchChecklistItems(
     runtimeSettings.availableCliTools.includes(runtimeSettings.defaultCliTool)
   items.push({
     id: 'defaults',
-    title: 'Default work choice',
+    title: 'Default place for new agents',
     detail: defaultRuntimeReady
       ? `${runtimeLabel(runtimeSettings.defaultRuntime)} with ${cliToolLabel(
           runtimeSettings.defaultCliTool
         )} is selected for new agents.`
-      : 'Choose a work location and local tool that are both available.',
+      : 'Choose an available place and work tool.',
     ready: defaultRuntimeReady,
   })
 
@@ -733,21 +738,22 @@ function runtimeLaunchChecklistItems(
     runtimeSettings.cliToolDetails.length > 0 &&
     missingImages.length === 0 &&
     reportedVersionCount === runtimeSettings.cliToolDetails.length
-  let imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} local tool versions reported.`
+  let imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} work tools are ready.`
   if (runtimeSettings.availableCliTools.length === 0) {
-    imageDetail = 'Enable at least one local work tool before assigning local-tool agents.'
+    imageDetail =
+      'Enable at least one work tool before assigning agents that need files or commands.'
   } else if (runtimeSettings.cliToolDetails.length === 0) {
-    imageDetail = 'No local tool details have been reported yet.'
+    imageDetail = 'No work tool package details have been reported yet.'
   } else if (missingImages.length > 0) {
-    imageDetail = `${missingImages.length} local tool package${
+    imageDetail = `${missingImages.length} work tool package${
       missingImages.length === 1 ? '' : 's'
-    } could not be checked. Rebuild the agent tool packages, then refresh.`
+    } could not be checked. Rebuild the agent work-tool packages, then refresh.`
   } else if (reportedVersionCount !== runtimeSettings.cliToolDetails.length) {
-    imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} local tool versions reported. Rebuild the packages that do not report a version.`
+    imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} work tools are ready. Rebuild the packages that still need a package check.`
   }
   items.push({
     id: 'images',
-    title: 'Local tool setup',
+    title: 'Work tool packages',
     detail: imageDetail,
     ready: imageInventoryReady,
     action: imageInventoryReady ? undefined : 'refresh',
@@ -759,14 +765,14 @@ function runtimeLaunchChecklistItems(
   const credentialReady = !cliStatusError && (!disconnectedCredential || cliStatuses.length === 0)
   items.push({
     id: 'credentials',
-    title: 'Local tool sign-ins',
+    title: 'Account connections for work tools',
     detail: cliStatusError
-      ? 'Sign-in status could not be checked. Refresh after the service is healthy.'
+      ? 'Account connection status could not be checked. Refresh after the service is healthy.'
       : cliStatuses.length === 0
-        ? 'No local tool sign-ins are required.'
+        ? 'No account connections are required.'
         : disconnectedCredential
-          ? `${connectedCredentialCount}/${cliStatuses.length} sign-ins connected. Reconnect ${disconnectedCredential.displayName} before starting new local-tool agents.`
-          : `${connectedCredentialCount}/${cliStatuses.length} sign-ins connected.`,
+          ? `${connectedCredentialCount}/${cliStatuses.length} account connections ready. Reconnect ${disconnectedCredential.displayName} before starting agents that use this tool.`
+          : `${connectedCredentialCount}/${cliStatuses.length} account connections ready.`,
     ready: credentialReady,
     action: cliStatusError ? 'refresh' : disconnectedCredential ? 'connect' : undefined,
     actionLabel: cliStatusError
@@ -779,12 +785,12 @@ function runtimeLaunchChecklistItems(
 
   items.push({
     id: 'heartbeats',
-    title: 'Agent online signal',
+    title: 'Agent check-in',
     detail: participantsError
       ? 'Agent online status could not be checked. Refresh after the service is healthy.'
       : latestHeartbeat
-        ? `Latest online signal ${formatRelativeTime(latestHeartbeat)}.`
-        : 'No online signal has been seen yet. Start or wake an agent, then refresh.',
+        ? `Latest agent check-in ${formatRelativeTime(latestHeartbeat)}.`
+        : 'No agent has checked in yet. Start or wake an agent, then refresh.',
     ready: !participantsError && Boolean(latestHeartbeat),
     action: participantsError || !latestHeartbeat ? 'refresh' : undefined,
     actionLabel: participantsError || !latestHeartbeat ? 'Refresh' : undefined,
@@ -795,7 +801,7 @@ function runtimeLaunchChecklistItems(
 
 function versionSourceLabel(source: string, imagePresent: boolean): string {
   if (source === 'docker-label') return 'ready'
-  if (source === 'image-tag') return imagePresent ? 'version from tag' : 'not checked'
+  if (source === 'image-tag') return imagePresent ? 'version found' : 'not checked'
   return 'not reported'
 }
 
