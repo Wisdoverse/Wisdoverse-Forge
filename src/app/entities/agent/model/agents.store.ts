@@ -250,7 +250,7 @@ function agentServerMessage(action: AgentErrorAction): string {
 function agentRuntimeRecoveryMessage(detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('docker')) {
-    return 'The worker host is not ready. Ask an owner or admin to start the worker service, then start this agent from the agent card.'
+    return 'The managed workspace service is not ready. Ask an owner or admin to check agent setup, then start this agent from the agent card.'
   }
   return 'The agent workspace is not ready. Ask an owner or admin to check agent setup, then start this agent from the agent card.'
 }
@@ -259,7 +259,7 @@ function agentCreatedStartFailureMessage(error?: unknown): string {
   const detail = agentErrorDetail(error)
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('docker')) {
-    return 'Agent was created, but it could not start yet. It will stay in the list. The worker host is not ready. Ask an owner or admin to start the worker service, then start this agent from the card.'
+    return 'Agent was created, but it could not start yet. It will stay in the list. The managed workspace service is not ready. Ask an owner or admin to check agent setup, then start this agent from the card.'
   }
   if (
     normalized.includes('runtime') ||

@@ -82,6 +82,20 @@ describe('Agents Store', () => {
     )
   })
 
+  test('explains managed workspace startup failures without worker jargon', () => {
+    const message = agentActionErrorMessage(
+      'start',
+      apiError(422, { message: 'Docker daemon unavailable' })
+    )
+
+    expectBeginnerError(
+      message,
+      'The managed workspace service is not ready. Ask an owner or admin to check agent setup, then start this agent from the agent card.'
+    )
+    expect(message).not.toContain('worker')
+    expect(message).not.toContain('Docker')
+  })
+
   test('initializes with empty agents', () => {
     expect(useAgentsStore.getState().agents).toEqual([])
   })
@@ -188,8 +202,10 @@ describe('Agents Store', () => {
     expect(useAgentsStore.getState().agents).toHaveLength(1)
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Agent was created, but it could not start yet. It will stay in the list. The worker host is not ready. Ask an owner or admin to start the worker service, then start this agent from the card.'
+      'Agent was created, but it could not start yet. It will stay in the list. The managed workspace service is not ready. Ask an owner or admin to check agent setup, then start this agent from the card.'
     )
+    expect(useAgentsStore.getState().error).not.toContain('worker')
+    expect(useAgentsStore.getState().error).not.toContain('Docker')
   })
 
   test('stores connection guidance when local agent enrollment cannot reach the server', async () => {
