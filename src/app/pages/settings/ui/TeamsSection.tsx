@@ -7,6 +7,7 @@ import { ResourceMembersModal } from '@app/features/manage-members'
 import { CreateTeamForm, EditableTeamRow } from '@app/features/manage-team'
 import { userApi } from '@app/entities/user'
 import { teamApi, type NavTeam, type UpdateTeamInput } from '@app/entities/team'
+import { workspaceSettingsErrorMessage } from '../model/workspaceSettingsErrorMessage'
 
 export function TeamsSection() {
   const { user } = useAuth()
@@ -28,7 +29,7 @@ export function TeamsSection() {
       const result = await teamApi.getTeams(orgId)
       setTeams(result)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load teams')
+      setError(workspaceSettingsErrorMessage('team', 'load', err))
     } finally {
       setLoading(false)
     }
@@ -48,7 +49,7 @@ export function TeamsSection() {
       setTeams((prev) => [...prev, team])
       setShowForm(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create team')
+      setError(workspaceSettingsErrorMessage('team', 'create', err))
     } finally {
       setSaving(false)
     }
@@ -124,7 +125,11 @@ export function TeamsSection() {
         )}
       </div>
 
-      {error && <div className={uiStyles.error}>{error}</div>}
+      {error && (
+        <div role="alert" className={uiStyles.error}>
+          {error}
+        </div>
+      )}
 
       <div className={cn(uiStyles.card)}>
         {loading && teams.length === 0 ? (

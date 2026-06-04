@@ -121,12 +121,36 @@ describe('workspace settings empty states', () => {
     expect(screen.queryByRole('button', { name: /new team/i })).not.toBeInTheDocument()
   })
 
+  it('shows beginner recovery guidance when teams fail to load', async () => {
+    mocks.getTeams.mockRejectedValue(new Error('HTTP 403'))
+
+    render(<TeamsSection />)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain(
+      'Workspace teams could not be loaded. Ask an owner or admin to update your workspace access.'
+    )
+    expect(alert.textContent).not.toContain('HTTP 403')
+  })
+
   it('explains that projects need a team before they can be created', async () => {
     render(<ProjectsSection />)
 
     expect(await screen.findByText('Create a team before adding projects')).toBeInTheDocument()
     expect(screen.getByText(/Projects live inside teams/i)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /new project/i })).not.toBeInTheDocument()
+  })
+
+  it('shows beginner recovery guidance when projects fail to load', async () => {
+    mocks.getTeams.mockRejectedValue(new Error('HTTP 500'))
+
+    render(<ProjectsSection />)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain(
+      'Workspace projects could not be loaded. The platform is temporarily unavailable. Try again in a few minutes.'
+    )
+    expect(alert.textContent).not.toContain('HTTP 500')
   })
 
   it('shows project creation when at least one team allows it', async () => {
