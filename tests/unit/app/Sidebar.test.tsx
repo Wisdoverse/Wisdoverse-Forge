@@ -198,9 +198,11 @@ describe('Sidebar', () => {
     expect(menuScope.getByRole('menuitem', { name: /share project/i })).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /rename project/i })).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /all project settings/i })).toBeInTheDocument()
-    expect(menuScope.getByRole('menuitem', { name: /copy support id/i })).toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /copy support reference/i })).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /copy link name/i })).toBeInTheDocument()
-    expect(menuScope.getByText(/use when an admin asks/i)).toBeInTheDocument()
+    expect(menuScope.getByText(/only share this if support asks/i)).toBeInTheDocument()
+    expect(menuScope.queryByText('p1')).not.toBeInTheDocument()
+    expect(menuScope.queryByText(/admin asks/i)).not.toBeInTheDocument()
     expect(menuScope.getByText(/appears in project links/i)).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /delete project/i })).toBeInTheDocument()
   })
@@ -246,7 +248,7 @@ describe('Sidebar', () => {
 
     expect(screen.getByRole('menu', { name: /project x project menu/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /open project board/i })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /copy support id/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /copy support reference/i })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /share project/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /rename project/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /delete project/i })).not.toBeInTheDocument()
@@ -291,10 +293,12 @@ describe('Sidebar', () => {
 
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
     fireEvent.contextMenu(screen.getByTestId('project-p1'))
-    fireEvent.click(screen.getByRole('menuitem', { name: /copy support id/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy support reference/i }))
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('p1'))
-    expect(screen.getByTestId('project-copy-status')).toHaveTextContent('Project support ID copied')
+    expect(screen.getByTestId('project-copy-status')).toHaveTextContent(
+      'Project support reference copied'
+    )
   })
 
   it('edits team name from context menu', async () => {

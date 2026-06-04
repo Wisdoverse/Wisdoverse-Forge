@@ -670,10 +670,13 @@ export function ProjectTree({
             <div className="my-1 h-px bg-black/[0.06] dark:bg-white/[0.08]" />
             <ProjectMenuItem
               Icon={Copy}
-              label="Copy support ID"
-              detail={`${projectMenu.project.id} · use when an admin asks`}
+              label="Copy support reference"
+              detail="Only share this if Support asks for it"
               onClick={() =>
-                void handleCopyProjectValue(projectMenu.project.id, 'Project support ID copied')
+                void handleCopyProjectValue(
+                  projectMenu.project.id,
+                  'Project support reference copied'
+                )
               }
             />
             <ProjectMenuItem
