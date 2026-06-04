@@ -4,10 +4,17 @@ import {
   runtimeSettingsErrorMessage,
 } from '@app/features/settings/runtimeErrorMessages'
 
+function expectBeginnerMessage(actual: string, expected: string): void {
+  expect(actual).toBe(expected)
+  expect(actual).not.toContain('Code:')
+  expect(actual).not.toContain('Detail:')
+}
+
 describe('runtimeErrorMessage', () => {
   test('turns auth failures into a sign-in instruction', () => {
-    expect(runtimeErrorMessage('loadAgentSignals', new Error('401 Unauthorized'))).toBe(
-      'Sign in again, then retry this runtime setup action. Code: 401.'
+    expectBeginnerMessage(
+      runtimeErrorMessage('loadAgentSignals', new Error('401 Unauthorized')),
+      'Sign in again, then open Runtime setup and try this action again.'
     )
   })
 
@@ -20,18 +27,18 @@ describe('runtimeErrorMessage', () => {
   })
 
   test('gives a clear permission step for local sign-in startup', () => {
-    expect(runtimeErrorMessage('startCliSignIn', { error: '403 Forbidden' })).toBe(
-      'You do not have permission to manage runtime setup. Ask an owner or admin to update your role. Code: 403.'
+    expectBeginnerMessage(
+      runtimeErrorMessage('startCliSignIn', { error: '403 Forbidden' }),
+      'You do not have permission to manage runtime setup. Ask an owner or admin to update your role.'
     )
   })
 
-  test('keeps short validation details after the operator instruction', () => {
-    expect(
+  test('turns provider setup details into a connect step', () => {
+    expectBeginnerMessage(
       runtimeErrorMessage('startCliSignIn', {
         error: 'Provider is not configured',
-      })
-    ).toBe(
-      'Local tool sign-in did not start. Check the provider setup, then try Connect again. Detail: Provider is not configured'
+      }),
+      'Choose and save a provider first, then try Connect again.'
     )
   })
 })

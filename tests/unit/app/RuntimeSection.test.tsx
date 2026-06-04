@@ -188,7 +188,8 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     expect(await screen.findByText(/sign in again/i)).toBeDefined()
-    expect(screen.getByText(/code: 401/i)).toBeDefined()
+    expect(screen.queryByText(/code: 401/i)).toBeNull()
+    expect(screen.queryByText(/Code:/i)).toBeNull()
     expect(screen.queryByText(/401 Unauthorized/)).toBeNull()
   })
 

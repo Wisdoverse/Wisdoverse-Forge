@@ -19,35 +19,34 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   }
 
   if (status === 401) {
-    return 'Sign in again, then retry this runtime setup action. Code: 401.'
+    return 'Sign in again, then open Runtime setup and try this action again.'
   }
 
   if (status === 403) {
-    return 'You do not have permission to manage runtime setup. Ask an owner or admin to update your role. Code: 403.'
+    return 'You do not have permission to manage runtime setup. Ask an owner or admin to update your role.'
   }
 
   if (status === 404) {
-    return 'This runtime setup endpoint is not available. Refresh after the backend is deployed. Code: 404.'
+    return 'Runtime setup is not available yet. Refresh after the runtime service is ready.'
   }
 
   if (status === 409) {
-    return 'Runtime setup changed while you were working. Refresh this setup check, then try again. Code: 409.'
+    return 'Runtime setup changed while you were working. Refresh this setup check, review the current status, then try again.'
   }
 
   if (status === 422) {
-    return 'This runtime setup request is missing required information. Check the selected local tool and provider, then try again. Code: 422.'
+    return runtimeValidationMessage(action, detail)
   }
 
   if (status === 429) {
-    return 'The server is busy with too many runtime setup requests. Wait a moment, then try again. Code: 429.'
+    return 'Runtime setup is busy with too many requests. Wait a moment, then try again.'
   }
 
   if (status && status >= 500) {
-    return 'The server had a problem while checking runtime setup. Try again after the API is healthy. Code: 5xx.'
+    return 'Runtime setup is temporarily unavailable. Ask an owner or admin to check the backend and runner, then refresh this setup check.'
   }
 
-  const suffix = operatorSafeDetail(detail)
-  return suffix ? `${ACTION_FALLBACKS[action]} Detail: ${suffix}` : ACTION_FALLBACKS[action]
+  return runtimeValidationMessage(action, detail)
 }
 
 export function runtimeSettingsErrorMessage(err: unknown): string {
@@ -147,10 +146,22 @@ function isNetworkError(normalizedDetail: string): boolean {
   )
 }
 
-function operatorSafeDetail(detail: string): string {
-  const trimmed = detail.trim()
-  if (!trimmed) return ''
-  if (trimmed.length > 160) return ''
-  if (isNetworkError(trimmed.toLowerCase())) return ''
-  return trimmed
+function runtimeValidationMessage(action: RuntimeErrorAction, detail: string): string {
+  const normalized = detail.toLowerCase()
+
+  if (action === 'startCliSignIn') {
+    if (normalized.includes('provider') || normalized.includes('configured')) {
+      return 'Choose and save a provider first, then try Connect again.'
+    }
+    if (normalized.includes('tool') || normalized.includes('cli')) {
+      return 'Choose an available local tool, then try Connect again.'
+    }
+    return 'Check the provider setup and selected local tool, then try Connect again.'
+  }
+
+  if (action === 'loadCliSignIn') {
+    return 'Local tool sign-in status could not load. Refresh this setup check, then connect the local tool again.'
+  }
+
+  return 'Agent online status could not load. Start or wake an agent, then refresh this setup check.'
 }
