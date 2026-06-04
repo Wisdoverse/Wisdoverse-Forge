@@ -15,8 +15,49 @@ mod orchestration;
 mod publisher;
 mod wal;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum InfoCommand {
+    Help,
+    Version,
+}
+
+const SIDECAR_HELP: &str = "\
+Wisdoverse Forge Sidecar
+
+Connects one managed agent to Wisdoverse Forge and forwards work, heartbeats, and results.
+
+Most users should start it by copying the join command from the Agents page.
+
+Usage:
+  agentforge-sidecar
+  agentforge-sidecar --help
+  agentforge-sidecar --version
+
+Required environment when starting manually:
+  AGENT_ID             Agent identifier from the platform
+  NATS_URL             Agent messaging URL
+  HMAC_SECRET          Per-agent signing secret
+
+Optional environment:
+  AGENTFORGE_CLI_TOOL      Work tool to run, such as codex or claude
+  AGENTFORGE_CLI_MODEL     Model override for tools that support one
+  AGENTFORGE_RUNTIME_KIND  container, cli, or api
+  WAL_PATH                 Folder for offline event retry records
+
+Success looks like:
+  The sidecar logs that config loaded, NATS connected, and heartbeats are publishing.
+";
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    if let Some(command) = info_command(std::env::args().skip(1)) {
+        match command {
+            InfoCommand::Help => println!("{SIDECAR_HELP}"),
+            InfoCommand::Version => println!("{}", agentforge_core::VERSION),
+        }
+        return Ok(());
+    }
+
     // Structured JSON logging with env-controlled filter.
     tracing_subscriber::registry()
         .with(EnvFilter::from_default_env().add_directive("info".parse().expect("valid tracing directive")))
@@ -190,4 +231,38 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Sidecar shut down");
     Ok(())
+}
+
+fn info_command<I, S>(args: I) -> Option<InfoCommand>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    args.into_iter().find_map(|arg| match arg.as_ref() {
+        "-h" | "--help" | "help" => Some(InfoCommand::Help),
+        "-V" | "--version" | "version" => Some(InfoCommand::Version),
+        _ => None,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{InfoCommand, info_command};
+
+    #[test]
+    fn detects_help_flags_before_env_config() {
+        assert_eq!(info_command(["--help"]), Some(InfoCommand::Help));
+        assert_eq!(info_command(["help"]), Some(InfoCommand::Help));
+    }
+
+    #[test]
+    fn detects_version_flags_before_env_config() {
+        assert_eq!(info_command(["--version"]), Some(InfoCommand::Version));
+        assert_eq!(info_command(["version"]), Some(InfoCommand::Version));
+    }
+
+    #[test]
+    fn ignores_runtime_args() {
+        assert_eq!(info_command(["--some-runtime-flag"]), None);
+    }
 }
