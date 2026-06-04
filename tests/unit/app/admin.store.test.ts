@@ -69,7 +69,7 @@ describe('adminHttpErrorMessage', () => {
   test('turns server failures into an owner recovery step', () => {
     expectBeginnerError(
       adminHttpErrorMessage('health', 503, { error: { message: 'database down' } }),
-      'The admin service is temporarily unavailable. Ask an owner to check the backend, then reload the system health.'
+      'The admin service is temporarily unavailable. Reload the system health, then try again. If it still fails, ask an owner to check the admin service.'
     )
   })
 })
@@ -117,7 +117,7 @@ describe('useAdminStore loading errors', () => {
 
     expectBeginnerError(
       useAdminStore.getState().healthError,
-      'The admin service is temporarily unavailable. Ask an owner to check the backend, then reload the system health.'
+      'The admin service is temporarily unavailable. Reload the system health, then try again. If it still fails, ask an owner to check the admin service.'
     )
   })
 

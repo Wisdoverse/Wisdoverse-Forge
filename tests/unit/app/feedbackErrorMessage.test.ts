@@ -29,7 +29,7 @@ describe('feedbackErrorMessage', () => {
   test('turns server failures into an admin recovery step', () => {
     expectBeginnerMessage(
       feedbackErrorMessage(new Error('HTTP 503: {"message":"database unavailable"}')),
-      'Feedback is temporarily unavailable. Ask an admin to check the backend, then refresh the task.'
+      'Feedback is temporarily unavailable. Refresh the task, then try again. If it still fails, ask an admin to check feedback setup.'
     )
   })
 })

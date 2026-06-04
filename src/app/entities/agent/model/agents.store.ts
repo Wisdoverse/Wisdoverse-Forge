@@ -242,9 +242,9 @@ function agentConflictMessage(action: AgentErrorAction, detail: string | null): 
 
 function agentServerMessage(action: AgentErrorAction): string {
   if (action === 'start' || action === 'restart' || action === 'create') {
-    return 'The agent runtime is temporarily unavailable. Ask an owner or admin to check the backend and runner, then try again.'
+    return 'The agent runtime is temporarily unavailable. Wait a moment, then try again. If it still fails, ask an owner or admin to check the agent runtime.'
   }
-  return 'The agent service is temporarily unavailable. Ask an owner or admin to check the backend, then try again.'
+  return 'The agent service is temporarily unavailable. Refresh Agents, then try again. If it still fails, ask an owner or admin to check agent setup.'
 }
 
 function agentRuntimeRecoveryMessage(detail: string | null): string {

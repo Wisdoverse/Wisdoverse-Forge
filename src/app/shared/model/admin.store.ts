@@ -310,7 +310,7 @@ export function adminHttpErrorMessage(
     return `The admin service is busy. Wait a moment, then reload the ${label}.`
   }
   if (status >= 500) {
-    return `The admin service is temporarily unavailable. Ask an owner to check the backend, then reload the ${label}.`
+    return `The admin service is temporarily unavailable. Reload the ${label}, then try again. If it still fails, ask an owner to check the admin service.`
   }
 
   return `The admin ${label} could not load. Refresh Admin, then try again.`
@@ -346,7 +346,7 @@ function adminActionHttpErrorMessage(
       return "The admin service is busy. Wait a moment, then save this user's access again."
     }
     if (status >= 500) {
-      return "The admin service is temporarily unavailable. Ask an owner to check the backend, then save this user's access again."
+      return "The admin service is temporarily unavailable. Refresh the user list, then save this user's access again. If it still fails, ask an owner to check the admin service."
     }
   }
 

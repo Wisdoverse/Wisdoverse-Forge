@@ -136,7 +136,7 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'The agent service is temporarily unavailable. Ask an owner or admin to check the backend, then try again.'
+      'The agent service is temporarily unavailable. Refresh Agents, then try again. If it still fails, ask an owner or admin to check agent setup.'
     )
     expect(useAgentsStore.getState().loading).toBe(false)
   })

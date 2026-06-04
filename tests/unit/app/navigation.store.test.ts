@@ -269,7 +269,7 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'The workspace navigation service is temporarily unavailable. Ask an owner or admin to check the backend, then refresh the sidebar.'
+      'The workspace navigation service is temporarily unavailable. Refresh the sidebar, then try again. If it still fails, ask an owner or admin to check workspace navigation.'
     )
     expect(useNavigationStore.getState().loading).toBe(false)
   })

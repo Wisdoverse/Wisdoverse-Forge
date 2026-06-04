@@ -55,7 +55,7 @@ describe('useSkillsStore errors', () => {
     await useSkillsStore.getState().loadSkills()
 
     expect(useSkillsStore.getState().error).toBe(
-      'The skills service is temporarily unavailable. Ask an admin to check the backend, then refresh Skills.'
+      'The skills service is temporarily unavailable. Refresh Skills, then try again. If it still fails, ask an admin to check skill setup.'
     )
   })
 

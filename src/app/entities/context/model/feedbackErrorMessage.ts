@@ -32,7 +32,7 @@ export function feedbackErrorMessage(error?: unknown): string {
     return 'Feedback is busy. Wait a moment, then save this feedback again.'
   }
   if (status >= 500) {
-    return 'Feedback is temporarily unavailable. Ask an admin to check the backend, then refresh the task.'
+    return 'Feedback is temporarily unavailable. Refresh the task, then try again. If it still fails, ask an admin to check feedback setup.'
   }
 
   return 'Feedback could not be saved. Refresh the task and try again.'

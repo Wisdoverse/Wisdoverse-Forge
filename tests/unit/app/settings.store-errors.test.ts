@@ -96,7 +96,7 @@ describe('useSettingsStore errors', () => {
 
     expectBeginnerError(
       useSettingsStore.getState().providersError,
-      'The settings service is temporarily unavailable. Ask an owner or admin to check the backend, then try to load provider settings again.'
+      'The settings service is temporarily unavailable. Refresh Settings, then try to load provider settings again. If it still fails, ask an owner or admin to check Settings.'
     )
   })
 

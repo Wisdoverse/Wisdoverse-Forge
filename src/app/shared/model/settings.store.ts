@@ -179,7 +179,7 @@ export function settingsActionErrorMessage(
     return `The settings service is busy. Wait a moment, then try to ${actionPhrase} again.`
   }
   if (status >= 500) {
-    return `The settings service is temporarily unavailable. Ask an owner or admin to check the backend, then try to ${actionPhrase} again.`
+    return `The settings service is temporarily unavailable. Refresh Settings, then try to ${actionPhrase} again. If it still fails, ask an owner or admin to check Settings.`
   }
 
   return `Settings could not ${actionPhrase}. Refresh Settings, then try again.`

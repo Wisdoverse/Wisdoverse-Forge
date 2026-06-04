@@ -167,7 +167,7 @@ export function navigationActionErrorMessage(
     return `The workspace service is busy. Wait a moment, then try to ${actionPhrase} again.`
   }
   if (status >= 500) {
-    return 'The workspace navigation service is temporarily unavailable. Ask an owner or admin to check the backend, then refresh the sidebar.'
+    return 'The workspace navigation service is temporarily unavailable. Refresh the sidebar, then try again. If it still fails, ask an owner or admin to check workspace navigation.'
   }
 
   return `Navigation could not ${actionPhrase}. Refresh the sidebar, then try again.`
