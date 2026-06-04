@@ -10,7 +10,8 @@ describe('CommandPalette', () => {
     expect(screen.getByPlaceholderText(/search/i)).toBeDefined()
     expect(screen.getByText('Command discovery path')).toBeDefined()
     expect(screen.getByText(/use tasks when you want to plan or inspect work/i)).toBeDefined()
-    expect(screen.getByText(/use settings when setup/i)).toBeDefined()
+    expect(screen.getByText(/use settings when setup, account access/i)).toBeDefined()
+    expect(screen.queryByText(/runtime status/i)).toBeNull()
   })
 
   test('does not render when closed', () => {

@@ -388,7 +388,7 @@ function nextStepActionLabel(notification: Notification): string {
     case 'mentioned':
       return 'Open Mention'
     case 'cli_image_updated':
-      return 'Open CLI Images'
+      return 'Open Tool Updates'
   }
 }
 

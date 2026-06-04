@@ -23,6 +23,7 @@ describe('SystemHealth', () => {
           database: { status: 'up', latencyMs: 12 },
           redis: { status: 'degraded' },
           nats: { status: 'down' },
+          platform: { status: 'degraded' },
         },
       },
       healthLoading: false,
@@ -38,6 +39,10 @@ describe('SystemHealth', () => {
     expect(screen.getByText(/slow screens, delayed updates/i)).toBeDefined()
     expect(screen.getByText('Saved Data')).toBeDefined()
     expect(screen.getByText('Agent Runner')).toBeDefined()
+    expect(
+      screen.getByText(/agent runner before sending new managed workspace work/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/container host/i)).toBeNull()
     expect(screen.getByText('12 ms response')).toBeDefined()
     expect(screen.getByText('Ready')).toBeDefined()
     expect(screen.getAllByText('Needs attention').length).toBeGreaterThan(0)

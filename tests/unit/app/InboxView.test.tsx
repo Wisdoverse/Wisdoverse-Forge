@@ -373,6 +373,8 @@ describe('InboxView', () => {
     expect(screen.getByTestId('inbox-next-step')).toHaveTextContent(
       'Review the latest agent tool update'
     )
+    expect(screen.getAllByRole('button', { name: /open tool updates/i }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: /open cli images/i })).toBeNull()
     expect(screen.queryByText(['Work', '-tool image'].join(''))).toBeNull()
     expect(screen.queryByText(['Open work', '-tool images'].join(''))).toBeNull()
   })

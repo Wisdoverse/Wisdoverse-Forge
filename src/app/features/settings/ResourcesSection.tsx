@@ -162,7 +162,7 @@ function ResourceProfilesEmptyState() {
       </p>
       <div className="mx-auto mt-4 grid max-w-2xl gap-2 text-left sm:grid-cols-3">
         <p className="rounded-lg bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
-          Ask an administrator to add profiles in platform configuration.
+          Ask an owner or admin to add agent sizes in deployment settings.
         </p>
         <p className="rounded-lg bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
           Start with small, standard, and large options so users can choose safely.

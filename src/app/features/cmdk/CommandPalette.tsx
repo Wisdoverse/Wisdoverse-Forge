@@ -40,7 +40,7 @@ const VIEW_COMMANDS = [
 const COMMAND_DISCOVERY_STEPS = [
   'Use Tasks when you want to plan or inspect work.',
   'Use Inbox when something needs your attention.',
-  'Use Settings when setup, credentials, or runtime status is blocking work.',
+  'Use Settings when setup, account access, or agent work status is blocking work.',
 ]
 
 export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProps) {

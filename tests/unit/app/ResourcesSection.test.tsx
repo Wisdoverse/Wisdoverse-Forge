@@ -69,7 +69,7 @@ describe('ResourcesSection', () => {
     ).toBeDefined()
     expect(
       within(emptyState).getByText(
-        'Ask an administrator to add profiles in platform configuration.'
+        'Ask an owner or admin to add agent sizes in deployment settings.'
       )
     ).toBeDefined()
     expect(
