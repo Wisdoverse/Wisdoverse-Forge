@@ -232,7 +232,7 @@ function ConfigBanner({
         </p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {enabled
-            ? `This server checks for newer agent images about every ${intervalLabel} and pulls them so new agents start on the latest CLI. Running agents are never interrupted.`
+            ? `This service checks for newer agent images about every ${intervalLabel} and pulls them so new agents start on the latest CLI. Running agents are never interrupted.`
             : 'New agents keep using the image that was last pulled. Turn on CLI_IMAGE_AUTO_UPDATE_ENABLED in the deployment config to check and pull automatically.'}
         </p>
         <p className="mt-1 text-ui-caption font-mono text-secondary-light dark:text-secondary-dark">
