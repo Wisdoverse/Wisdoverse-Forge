@@ -90,7 +90,7 @@ describe('chatStreamHttpErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'The chat service is temporarily unavailable. Ask an owner or admin to check the backend and agent runtime, then resend the message.'
+      'The chat service is temporarily unavailable. Resend the message. If it still fails, ask an owner or admin to check chat and agent runtime.'
     )
     expect(message).not.toContain('service unavailable')
   })

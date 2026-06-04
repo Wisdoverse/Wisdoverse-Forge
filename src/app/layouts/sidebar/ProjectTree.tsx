@@ -150,7 +150,7 @@ function renameErrorMessage(target: RenameTarget, error: unknown): string {
     return `The workspace service is busy. Wait a moment, then save this ${label} name again.`
   }
   if (status >= 500) {
-    return 'The workspace service is temporarily unavailable. Ask an owner or admin to check the backend, then save again.'
+    return 'The workspace service is temporarily unavailable. Refresh the sidebar, then save again. If it still fails, ask an owner or admin to check workspace setup.'
   }
 
   return `${title} name could not be saved. Refresh the sidebar and try again.`

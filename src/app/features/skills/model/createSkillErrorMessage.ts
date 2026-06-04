@@ -45,7 +45,7 @@ export function createSkillErrorMessage(error?: unknown): string {
     return 'The skills service is busy. Wait a moment, then create the skill.'
   }
   if (status >= 500) {
-    return 'The skills service is temporarily unavailable. Ask an admin to check the backend, then refresh Skills.'
+    return 'The skills service is temporarily unavailable. Refresh Skills, then try again. If it still fails, ask an admin to check skill setup.'
   }
 
   return 'The skill could not be created. Review the fields and try again.'

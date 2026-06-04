@@ -18,7 +18,7 @@ describe('gitCredentialsErrorMessage', () => {
 
   test('turns delete failures into a remove-specific next step', () => {
     expect(gitCredentialsErrorMessage('Settings could not delete Git credential. HTTP 500')).toBe(
-      'Repository token could not be removed. The repository access service is temporarily unavailable. Ask an owner to check the backend, then try again.'
+      'Repository token could not be removed. The repository access service is temporarily unavailable. Try again. If it still fails, ask an owner to check repository access settings.'
     )
   })
 

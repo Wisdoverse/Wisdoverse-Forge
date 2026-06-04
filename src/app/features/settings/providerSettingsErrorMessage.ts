@@ -76,7 +76,7 @@ export function providerSettingsErrorMessage(error: unknown): string {
     return `${base} The server is busy. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
-    return `${base} The provider settings service is temporarily unavailable. Ask an owner to check the backend, then try again.`
+    return `${base} The provider settings service is temporarily unavailable. Try again. If it still fails, ask an owner to check provider settings.`
   }
   if (isNetworkError(error)) {
     return `${base} The browser could not reach the server. Check your connection, then try again.`

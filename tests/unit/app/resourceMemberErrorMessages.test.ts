@@ -49,4 +49,14 @@ describe('resourceMemberErrorMessage', () => {
     )
     expect(message).not.toContain('API 422')
   })
+
+  test('turns service failures into a member access setup step', () => {
+    const message = resourceMemberErrorMessage('load', 'Team', new Error('HTTP 500'))
+
+    expectBeginnerMessage(
+      message,
+      'The members service is temporarily unavailable. Refresh members, then try again. If it still fails, ask an owner or admin to check member access setup.'
+    )
+    expect(message).not.toContain('backend')
+  })
 })

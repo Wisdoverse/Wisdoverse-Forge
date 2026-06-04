@@ -73,7 +73,7 @@ export function chatStreamHttpErrorMessage(
     return 'The provider is limiting messages right now. Wait a moment, then resend the message.'
   }
   if (status >= 500) {
-    return 'The chat service is temporarily unavailable. Ask an owner or admin to check the backend and agent runtime, then resend the message.'
+    return 'The chat service is temporarily unavailable. Resend the message. If it still fails, ask an owner or admin to check chat and agent runtime.'
   }
 
   return 'The chat request could not be sent. Refresh the selected agent, then resend the message.'

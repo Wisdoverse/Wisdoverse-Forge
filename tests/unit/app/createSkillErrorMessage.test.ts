@@ -52,4 +52,14 @@ describe('createSkillErrorMessage', () => {
     expect(message).not.toContain('HTTP 422')
     expect(message).not.toContain('trigger is invalid')
   })
+
+  test('turns service failures into a skill setup recovery step', () => {
+    const message = createSkillErrorMessage(new Error('HTTP 500'))
+
+    expectBeginnerMessage(
+      message,
+      'The skills service is temporarily unavailable. Refresh Skills, then try again. If it still fails, ask an admin to check skill setup.'
+    )
+    expect(message).not.toContain('backend')
+  })
 })

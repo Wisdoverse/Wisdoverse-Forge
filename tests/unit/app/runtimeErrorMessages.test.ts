@@ -41,6 +41,16 @@ describe('runtimeErrorMessage', () => {
       'Choose and save a provider first, then try Connect again.'
     )
   })
+
+  test('turns runtime service failures into a runner recovery step', () => {
+    const message = runtimeErrorMessage('loadAgentSignals', new Error('HTTP 500'))
+
+    expectBeginnerMessage(
+      message,
+      'Runtime setup is temporarily unavailable. Refresh this setup check, then try again. If it still fails, ask an owner or admin to check the runner.'
+    )
+    expect(message).not.toContain('backend')
+  })
 })
 
 describe('runtimeSettingsErrorMessage', () => {
@@ -68,5 +78,15 @@ describe('runtimeSettingsErrorMessage', () => {
     expect(runtimeSettingsErrorMessage(new TypeError('Failed to fetch'))).toBe(
       'Runtime settings could not be loaded. The browser could not reach the server. Check your connection, then refresh Settings.'
     )
+  })
+
+  test('turns runtime settings service failures into a settings recovery step', () => {
+    const message = runtimeSettingsErrorMessage(new Error('HTTP 500'))
+
+    expectBeginnerMessage(
+      message,
+      'Runtime settings could not be loaded. The runtime settings service is temporarily unavailable. Refresh Settings, then try again. If it still fails, ask an owner to check runtime settings.'
+    )
+    expect(message).not.toContain('backend')
   })
 })

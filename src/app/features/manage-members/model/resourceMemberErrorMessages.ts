@@ -40,7 +40,7 @@ export function resourceMemberErrorMessage(
     return `Member access is busy. Wait a moment, then ${retrySummary(action, resource)}.`
   }
   if (status >= 500) {
-    return 'The members service is temporarily unavailable. Ask an owner or admin to check the backend, then refresh members.'
+    return 'The members service is temporarily unavailable. Refresh members, then try again. If it still fails, ask an owner or admin to check member access setup.'
   }
 
   return `Member access could not ${actionSummary(action, resource)}. Refresh the members list and try again.`

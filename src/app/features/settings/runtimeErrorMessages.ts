@@ -43,7 +43,7 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   }
 
   if (status && status >= 500) {
-    return 'Runtime setup is temporarily unavailable. Ask an owner or admin to check the backend and runner, then refresh this setup check.'
+    return 'Runtime setup is temporarily unavailable. Refresh this setup check, then try again. If it still fails, ask an owner or admin to check the runner.'
   }
 
   return runtimeValidationMessage(action, detail)
@@ -75,7 +75,7 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
   }
 
   if (status === 404) {
-    return `${base} Refresh after the backend with runtime settings is deployed.`
+    return `${base} Refresh after runtime settings are available.`
   }
 
   if (status === 409) {
@@ -91,7 +91,7 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
   }
 
   if (status && status >= 500) {
-    return `${base} The runtime settings service is temporarily unavailable. Ask an owner to check the backend, then try again.`
+    return `${base} The runtime settings service is temporarily unavailable. Refresh Settings, then try again. If it still fails, ask an owner to check runtime settings.`
   }
 
   return `${base} Try again. If it still fails, ask an owner to check runtime settings.`
