@@ -318,7 +318,7 @@ export function SystemHealth() {
           {/* Uptime */}
           {health.uptime !== undefined && (
             <p className="mt-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              API has been running for{' '}
+              Service has been running for{' '}
               {health.uptime < 60
                 ? `${Math.round(health.uptime)}s`
                 : health.uptime < 3600

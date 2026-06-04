@@ -43,7 +43,7 @@ describe('SystemHealth', () => {
     expect(screen.getAllByText('Needs attention').length).toBeGreaterThan(0)
     expect(screen.getByText('Unavailable')).toBeDefined()
     expect(screen.getAllByText('Not checked').length).toBeGreaterThan(0)
-    expect(screen.getByText(/API has been running for 2h/i)).toBeDefined()
+    expect(screen.getByText(/Service has been running for 2h/i)).toBeDefined()
   })
 
   test('uses clear loading copy while readiness is being checked', () => {

@@ -165,8 +165,8 @@ function OrganizationsEmptyState() {
       <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
         Create or sync one organization first. Success looks like one row with a plan, member count,
         and team count. Then create teams, projects, members, and agent work lanes inside that
-        organization. If you expected data here, confirm your admin access and refresh after the API
-        is healthy.
+        organization. If you expected data here, confirm your admin access, refresh Admin, and check
+        again.
       </p>
     </div>
   )
