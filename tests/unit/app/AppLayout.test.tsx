@@ -7,6 +7,7 @@ const mockGetParticipants = vi.fn()
 const mockCreateTask = vi.fn()
 const mockGetGroups = vi.fn()
 const mockCreateGroup = vi.fn()
+const routerState = vi.hoisted(() => ({ path: '/tasks' }))
 
 vi.mock('@app/shared/model/auth.context', () => ({
   useAuth: () => ({
@@ -19,7 +20,7 @@ vi.mock('@app/shared/model/auth.context', () => ({
 
 vi.mock('@tanstack/react-router', () => ({
   useRouterState: ({ select }: { select: (s: any) => string }) =>
-    select({ location: { pathname: '/tasks' } }),
+    select({ location: { pathname: routerState.path } }),
   useNavigate: () => vi.fn(),
 }))
 
@@ -41,6 +42,7 @@ vi.mock('@app/entities/agent-group', () => ({
 import { MemoryRouter } from './layout-test-wrapper'
 
 beforeEach(() => {
+  routerState.path = '/tasks'
   useNavigationStore.getState().reset()
   mockGetParticipants.mockResolvedValue([
     { id: 'participant-1', agentId: 'agent-1', name: 'Agent One', status: 'available' },
@@ -141,6 +143,16 @@ describe('AppLayout', () => {
     fireEvent.click(searchButton)
 
     expect(screen.getByPlaceholderText(/search commands/i)).toBeDefined()
+  })
+
+  test('uses beginner-facing settings page metadata', () => {
+    routerState.path = '/settings'
+
+    render(<MemoryRouter />)
+
+    expect(screen.getByText('Settings')).toBeDefined()
+    expect(screen.getByText('Account, model services, and workspace')).toBeDefined()
+    expect(screen.queryByText(/providers/i)).toBeNull()
   })
 
   test('does not expose work lane creation from the Tasks top bar', async () => {
