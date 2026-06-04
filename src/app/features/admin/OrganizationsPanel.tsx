@@ -124,7 +124,7 @@ function OrganizationsGuide({ orgs }: { orgs: AdminOrg[] }) {
           Admin view
         </p>
         <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-          Use organizations to check tenant setup at a glance
+          Use organizations to check people and team setup at a glance
         </h3>
         <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
           {organizationSummary(orgs)}

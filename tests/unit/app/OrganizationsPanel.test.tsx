@@ -55,7 +55,7 @@ describe('OrganizationsPanel', () => {
 
     const guide = await screen.findByTestId('admin-org-guide')
     expect(
-      within(guide).getByText('Use organizations to check tenant setup at a glance')
+      within(guide).getByText('Use organizations to check people and team setup at a glance')
     ).toBeDefined()
     expect(
       within(guide).getByText('8 members and 3 teams are spread across 2 organizations.')

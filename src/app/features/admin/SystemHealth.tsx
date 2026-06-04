@@ -60,10 +60,10 @@ const SERVICE_DEFINITIONS: readonly ServiceDefinition[] = [
   {
     key: 'bullmq',
     name: 'Background Jobs',
-    supportName: 'Job worker',
+    supportName: 'Background job service',
     description: 'Runs delayed and background work outside the main page request.',
     impact: 'Queued work may wait longer before it starts.',
-    action: 'Check workers and retry the job after the queue is healthy.',
+    action: 'Check the background job service, then retry after the queue is healthy.',
   },
 ]
 
