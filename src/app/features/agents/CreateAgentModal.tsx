@@ -135,7 +135,7 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
       detail: 'Best when the task needs repository files, terminal tools, or local CLI sessions.',
       items: [
         { label: 'Work type', value: 'Managed workspace' },
-        { label: 'Files', value: '/workspace mounted' },
+        { label: 'Files', value: 'Project files available' },
         { label: 'Before use', value: 'Workspace must be online' },
       ],
     }
@@ -160,7 +160,7 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
     items: [
       { label: 'Work type', value: 'Text-only model' },
       { label: 'Files', value: 'No file access' },
-      { label: 'Before use', value: 'Provider connection ready' },
+      { label: 'Before use', value: 'Model service checked' },
     ],
   }
 }
@@ -269,7 +269,7 @@ export function CreateAgentModal() {
 
   async function handleFormSubmit(data: CreateAgentFormData) {
     if (!data.name.trim()) {
-      setError('Name this agent before creating it. Example: Review Agent or CLI Worker.')
+      setError('Name this agent before creating it. Example: Review Agent or File Work Agent.')
       return
     }
     const base = {
@@ -280,7 +280,7 @@ export function CreateAgentModal() {
     }
     if (data.kind === 'provider') {
       if (!data.provider || !data.model.trim()) {
-        setError('Choose a provider and model before creating this text-only model agent.')
+        setError('Choose a model service and model before creating this text-only model agent.')
         return
       }
       await createAgent({
@@ -664,7 +664,7 @@ export function CreateAgentModal() {
                     htmlFor="agent-provider"
                     className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                   >
-                    Provider
+                    Model service
                   </label>
                   <select
                     id="agent-provider"
@@ -716,7 +716,7 @@ export function CreateAgentModal() {
                   htmlFor="agent-cwd"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  {kind === 'local-cli' ? 'Local working directory' : 'Working Directory'}
+                  {kind === 'local-cli' ? 'Local project folder' : 'Project files folder'}
                 </label>
                 <input
                   id="agent-cwd"
@@ -727,7 +727,7 @@ export function CreateAgentModal() {
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                   {kind === 'local-cli'
                     ? 'Leave blank to use the folder where you run the join command.'
-                    : '/workspace is the shared workspace mount and may contain multiple projects. Primary Project sets default context; it is not a private user directory.'}
+                    : 'The managed workspace can include several projects. Primary Project sets the default work area; it is not a private user folder.'}
                 </p>
               </div>
             )}

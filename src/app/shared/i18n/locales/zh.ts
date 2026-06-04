@@ -140,7 +140,7 @@ export const zh: TranslationKeys = {
       agent: {
         title: '会话',
         empty: '创建一个文字会话、托管工作区会话，或本机会话。',
-        why: '会话就是接收任务的工作者。先创建一个简单会话即可。',
+        why: '会话会接收任务并返回结果。先创建一个简单会话即可。',
         success: '会话页面里至少能看到一个会话。',
         create: '创建会话',
         review: '打开会话',

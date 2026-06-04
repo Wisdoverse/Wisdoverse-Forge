@@ -140,7 +140,7 @@ export const en = {
       agent: {
         title: 'Agent',
         empty: 'Create a text-only, managed-workspace, or local agent.',
-        why: 'Agents are the workers that receive tasks. Start with one simple agent.',
+        why: 'Agents receive tasks and return results. Start with one simple agent.',
         success: 'At least one agent appears in the Agents page.',
         create: 'Create agent',
         review: 'Open agents',

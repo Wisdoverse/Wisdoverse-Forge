@@ -50,17 +50,17 @@ describe('CreateAgentModal', () => {
     expect(screen.getByRole('radio', { name: /managed workspace/i })).toBeChecked()
     expect(screen.getByTestId('agent-runtime-fit')).toBeInTheDocument()
     expect(screen.getByText(/claude in a managed workspace/i)).toBeInTheDocument()
-    expect(screen.getByText('/workspace mounted')).toBeInTheDocument()
+    expect(screen.getByText('Project files available')).toBeInTheDocument()
     expect(screen.getByText(/workspace must be online/i)).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /managed work tool/i })).toBeInTheDocument()
-    expect(screen.getByLabelText(/working directory/i)).toBeInTheDocument()
-    expect(screen.getByText(/shared workspace mount/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/project files folder/i)).toBeInTheDocument()
+    expect(screen.getByText(/managed workspace can include several projects/i)).toBeInTheDocument()
     expect(screen.getAllByText(/primary project/i).length).toBeGreaterThan(0)
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/choose a project first/i)
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
       /select a project in the sidebar/i
     )
-    expect(screen.queryByLabelText(/^provider$/i)).toBeNull()
+    expect(screen.queryByLabelText(/^model service$/i)).toBeNull()
     expect(screen.queryByLabelText(/^model$/i)).toBeNull()
   })
 
@@ -111,7 +111,7 @@ describe('CreateAgentModal', () => {
     })
 
     render(<CreateAgentModal />)
-    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'CLI Worker' } })
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'File Work Agent' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
     await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
@@ -154,7 +154,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByRole('combobox', { name: /work lane/i })).toHaveValue('group-new')
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/project ready/i)
 
-    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'CLI Worker' } })
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'File Work Agent' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
     await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
@@ -194,17 +194,17 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByText(/HTTP 403/i)).toBeNull()
   })
 
-  test('switching to Text-only model hides work-tool fields and shows Provider/Model', () => {
+  test('switching to Text-only model hides work-tool fields and shows model service fields', () => {
     render(<CreateAgentModal />)
 
     fireEvent.click(screen.getByRole('radio', { name: /text-only model/i }))
 
     expect(screen.getByText(/anthropic text-only model/i)).toBeInTheDocument()
     expect(screen.getByText(/no file access/i)).toBeInTheDocument()
-    expect(screen.getByText(/provider connection ready/i)).toBeInTheDocument()
+    expect(screen.getByText(/model service checked/i)).toBeInTheDocument()
     expect(screen.queryByRole('combobox', { name: /managed work tool/i })).toBeNull()
-    expect(screen.queryByLabelText(/working directory/i)).toBeNull()
-    expect(screen.getByLabelText(/^provider$/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/project files folder|local project folder/i)).toBeNull()
+    expect(screen.getByLabelText(/^model service$/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/^model$/i)).toBeInTheDocument()
   })
 
@@ -216,7 +216,7 @@ describe('CreateAgentModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Name this agent before creating it. Example: Review Agent or CLI Worker.'
+      'Name this agent before creating it. Example: Review Agent or File Work Agent.'
     )
     expect(screen.queryByText('Name is required')).toBeNull()
     expect(createAgent).not.toHaveBeenCalled()
@@ -233,7 +233,7 @@ describe('CreateAgentModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Choose a provider and model before creating this text-only model agent.'
+      'Choose a model service and model before creating this text-only model agent.'
     )
     expect(screen.queryByText('Provider and model are required')).toBeNull()
     expect(createAgent).not.toHaveBeenCalled()
@@ -252,7 +252,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText('Run the join command')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('radio', { name: /text-only model/i }))
-    fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'google' } })
+    fireEvent.change(screen.getByLabelText(/^model service$/i), { target: { value: 'google' } })
 
     await waitFor(() => {
       expect(screen.getByText(/google text-only model/i)).toBeInTheDocument()
@@ -290,7 +290,7 @@ describe('CreateAgentModal', () => {
       target: { value: 'codex' },
     })
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
-    fireEvent.change(screen.getByLabelText(/local working directory/i), {
+    fireEvent.change(screen.getByLabelText(/local project folder/i), {
       target: { value: '/Users/me/project' },
     })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
@@ -328,7 +328,7 @@ describe('CreateAgentModal', () => {
 
     expect(screen.getByRole('radio', { name: /text-only model/i })).toBeChecked()
     expect(screen.queryByRole('combobox', { name: /managed work tool/i })).toBeNull()
-    expect(screen.getByLabelText(/^provider$/i)).toHaveValue('openai')
+    expect(screen.getByLabelText(/^model service$/i)).toHaveValue('openai')
     expect(screen.getByLabelText(/^model$/i)).toHaveValue('gpt-5.5')
 
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
@@ -347,7 +347,7 @@ describe('CreateAgentModal', () => {
     render(<CreateAgentModal />)
 
     fireEvent.click(screen.getByRole('radio', { name: /text-only model/i }))
-    fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'openai' } })
+    fireEvent.change(screen.getByLabelText(/^model service$/i), { target: { value: 'openai' } })
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^model$/i)).toHaveValue('gpt-4o')
@@ -359,14 +359,14 @@ describe('CreateAgentModal', () => {
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
-    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'CLI Worker' } })
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'File Work Agent' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
     await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
     const payload = createAgent.mock.calls[0][0]
     expect(payload).toMatchObject({
       kind: 'cli',
-      name: 'CLI Worker',
+      name: 'File Work Agent',
       cliTool: 'claude',
       cwd: '/workspace',
     })
