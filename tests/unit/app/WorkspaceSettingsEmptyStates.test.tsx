@@ -129,6 +129,17 @@ describe('workspace settings empty states', () => {
     expect(screen.queryByRole('button', { name: /new project/i })).not.toBeInTheDocument()
   })
 
+  it('turns project loading server failures into a backend health step', async () => {
+    mocks.getTeams.mockRejectedValue(new Error('API 503: {"message":"database unavailable"}'))
+
+    render(<ProjectsSection />)
+
+    expect(
+      await screen.findByText(/The workspace settings service had a server problem/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Try again after the backend is healthy/i)).toBeInTheDocument()
+  })
+
   it('shows project creation when at least one team allows it', async () => {
     mocks.getTeams.mockResolvedValue([{ ...teamAlpha, canCreateProject: true }])
     mocks.getProjects.mockResolvedValue([])

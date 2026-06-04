@@ -7,6 +7,7 @@ import { ResourceMembersModal } from '@app/features/manage-members'
 import { CreateTeamForm, EditableTeamRow } from '@app/features/manage-team'
 import { userApi } from '@app/entities/user'
 import { teamApi, type NavTeam, type UpdateTeamInput } from '@app/entities/team'
+import { workspaceSettingsErrorMessage } from './workspaceSettingsErrors'
 
 export function TeamsSection() {
   const { user } = useAuth()
@@ -28,7 +29,7 @@ export function TeamsSection() {
       const result = await teamApi.getTeams(orgId)
       setTeams(result)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load teams')
+      setError(workspaceSettingsErrorMessage('load-teams', err))
     } finally {
       setLoading(false)
     }
@@ -48,7 +49,7 @@ export function TeamsSection() {
       setTeams((prev) => [...prev, team])
       setShowForm(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create team')
+      setError(workspaceSettingsErrorMessage('create-team', err))
     } finally {
       setSaving(false)
     }
