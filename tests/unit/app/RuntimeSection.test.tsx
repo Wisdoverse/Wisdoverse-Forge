@@ -126,7 +126,7 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText('container')).toBeNull()
     expect(screen.queryByText('api')).toBeNull()
     expect(screen.queryByText('codex')).toBeNull()
-    expect(screen.getAllByText(/Rebuild the agent work-tool packages/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Rebuild the agent tool packages/i).length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: /Connect GitHub/i })).toBeDefined()
 
     fireEvent.click(screen.getByRole('button', { name: /Connect GitHub/i }))

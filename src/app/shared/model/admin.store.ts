@@ -214,7 +214,7 @@ interface AdminState {
     unix: number
   }) => void
   /**
-   * Roll the running container agents of one tool onto the new image
+   * Move running managed workspace agents for one tool onto the new tool package
    * (destructive — interrupts running agents). Sets the in-flight tool, then
    * the per-agent report or an error; refreshes the status report afterward.
    */

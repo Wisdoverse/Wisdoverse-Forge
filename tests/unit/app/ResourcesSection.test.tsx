@@ -61,10 +61,10 @@ describe('ResourcesSection', () => {
     render(<ResourcesSection />)
 
     const emptyState = await screen.findByTestId('resource-profiles-empty')
-    expect(within(emptyState).getByText('No resource profiles are available yet')).toBeDefined()
+    expect(within(emptyState).getByText('No agent sizes are available yet')).toBeDefined()
     expect(
       within(emptyState).getByText(
-        'Agents need at least one profile before operators can choose CPU and memory limits.'
+        'Agents need at least one size before users can choose CPU and memory safely.'
       )
     ).toBeDefined()
     expect(
@@ -74,7 +74,7 @@ describe('ResourcesSection', () => {
     ).toBeDefined()
     expect(
       within(emptyState).getByText(
-        'Return here before creating container agents; at least one row means this step is ready.'
+        'Return here before creating managed workspace agents; at least one row means this step is ready.'
       )
     ).toBeDefined()
   })

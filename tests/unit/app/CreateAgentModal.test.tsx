@@ -194,7 +194,7 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByText(/HTTP 403/i)).toBeNull()
   })
 
-  test('switching to Text-only model hides work-tool fields and shows model service fields', () => {
+  test('switching to Text-only model hides work tool fields and shows model service fields', () => {
     render(<CreateAgentModal />)
 
     fireEvent.click(screen.getByRole('radio', { name: /text-only model/i }))

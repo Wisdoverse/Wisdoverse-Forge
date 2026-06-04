@@ -750,7 +750,7 @@ function runtimeLaunchChecklistItems(
   } else if (missingImages.length > 0) {
     imageDetail = `${missingImages.length} work tool package${
       missingImages.length === 1 ? '' : 's'
-    } could not be checked. Rebuild the agent work-tool packages, then refresh.`
+    } could not be checked. Rebuild the agent tool packages, then refresh.`
   } else if (reportedVersionCount !== runtimeSettings.cliToolDetails.length) {
     imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} work tools are ready. Rebuild the packages that still need a package check.`
   }

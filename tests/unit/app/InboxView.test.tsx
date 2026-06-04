@@ -325,7 +325,7 @@ describe('InboxView', () => {
       type: 'credential_expired',
       taskId: 'credential:codex',
       taskTitle: 'Codex credential expired',
-      message: 'Codex work-tool credential expired',
+      message: 'Codex account connection expired',
       taskHref: '/settings',
       read: false,
       timestamp: Date.now(),

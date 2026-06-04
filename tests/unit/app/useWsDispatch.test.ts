@@ -292,7 +292,7 @@ describe('dispatchWsMessage', () => {
     expect(notifications[0].message).toContain('Patch merged')
   })
 
-  it('notifies the credential owner when a work-tool credential expires', () => {
+  it('notifies the credential owner when a tool account expires', () => {
     localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
 
     dispatchWsMessage({
@@ -321,7 +321,8 @@ describe('dispatchWsMessage', () => {
       taskHref: '/settings',
       read: false,
     })
-    expect(notifications[0].message).toContain('Reconnect Codex auth in Settings')
+    expect(notifications[0].message).toContain('Reconnect the Codex account in Settings')
+    expect(notifications[0].message).toContain('managed workspace agents')
   })
 
   it('does not notify other users for credential status updates', () => {

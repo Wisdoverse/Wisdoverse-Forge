@@ -190,7 +190,7 @@ export function AgentTerminalTab({
           <span>Agent status</span>
           <span className="text-white/80">{agentStatus ?? 'unknown'}</span>
           <span>Work tool</span>
-          <span className="text-white/80">{cliTool ?? 'work-tool'}</span>
+          <span className="text-white/80">{cliTool ?? 'work tool'}</span>
           <span>Workspace</span>
           <span className="text-white/80">Pending</span>
         </div>

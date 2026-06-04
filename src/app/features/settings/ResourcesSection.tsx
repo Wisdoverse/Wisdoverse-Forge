@@ -45,7 +45,7 @@ function resourceProfileUseCase(profile: ResourceProfileOption): string {
 
 function summarizeProfileRange(profiles: ResourceProfileOption[]): string {
   if (profiles.length === 0) {
-    return 'Ask an administrator to add at least one profile before creating container agents.'
+    return 'Ask an administrator to add at least one agent size before creating managed workspace agents.'
   }
   const sorted = [...profiles].sort((a, b) => a.cpu - b.cpu || a.memoryMb - b.memoryMb)
   const smallest = sorted[0]
@@ -155,10 +155,10 @@ function ResourceProfilesEmptyState() {
   return (
     <div data-testid="resource-profiles-empty" className="px-4 py-6 text-center">
       <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-        No resource profiles are available yet
+        No agent sizes are available yet
       </p>
       <p className="mx-auto mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
-        Agents need at least one profile before operators can choose CPU and memory limits.
+        Agents need at least one size before users can choose CPU and memory safely.
       </p>
       <div className="mx-auto mt-4 grid max-w-2xl gap-2 text-left sm:grid-cols-3">
         <p className="rounded-lg bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
@@ -168,7 +168,8 @@ function ResourceProfilesEmptyState() {
           Start with small, standard, and large options so users can choose safely.
         </p>
         <p className="rounded-lg bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
-          Return here before creating container agents; at least one row means this step is ready.
+          Return here before creating managed workspace agents; at least one row means this step is
+          ready.
         </p>
       </div>
     </div>
@@ -188,8 +189,8 @@ function ResourceProfilesError({
         <div>
           <p className="font-semibold">Agent sizes could not be loaded.</p>
           <p className="mt-1">
-            Agent sizes decide how much CPU and memory a container agent can use. Reload this list
-            before creating or changing container agents.
+            Agent sizes decide how much CPU and memory a managed workspace agent can use. Reload
+            this list before creating or changing managed workspace agents.
           </p>
         </div>
         <button

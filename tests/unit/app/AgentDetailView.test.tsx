@@ -185,7 +185,7 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Do This Next')).toBeDefined()
   })
 
-  test('guides pending container agents to the Terminal tab', () => {
+  test('guides pending managed workspace agents to the Terminal tab', () => {
     render(
       <AgentDetailView
         agent={{

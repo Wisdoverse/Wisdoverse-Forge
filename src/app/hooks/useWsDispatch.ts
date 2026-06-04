@@ -280,7 +280,7 @@ function notifyCredentialOwner(payload: Record<string, unknown> | null) {
     type: 'credential_expired',
     taskId: `credential:${cliTool}`,
     taskTitle: `${displayName} credential expired`,
-    message: `Reconnect ${displayName} auth in Settings before starting new container agents.`,
+    message: `Reconnect the ${displayName} account in Settings before starting new managed workspace agents.`,
     taskHref: '/settings',
     ownerUserId: ownerId,
     read: false,
