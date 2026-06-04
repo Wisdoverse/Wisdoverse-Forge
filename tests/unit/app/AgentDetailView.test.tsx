@@ -110,6 +110,14 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Waiting to start')).toBeDefined()
   })
 
+  test('shows readable status labels in agent details', () => {
+    render(<AgentDetailView agent={containerAgent} onBack={() => {}} />)
+
+    const statusValues = screen.getAllByText('Idle')
+    expect(statusValues.length).toBeGreaterThan(0)
+    expect(screen.queryByText('idle')).toBeNull()
+  })
+
   test('prompt agent hides Console and labels chat as Chat', () => {
     render(<AgentDetailView agent={providerAgent} onBack={() => {}} />)
     expect(screen.getByRole('button', { name: 'Overview' })).toBeDefined()
@@ -185,7 +193,7 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Do This Next')).toBeDefined()
   })
 
-  test('guides pending managed workspace agents to the Terminal tab', () => {
+  test('guides pending managed workspace agents to the Console tab', () => {
     render(
       <AgentDetailView
         agent={{
@@ -199,15 +207,23 @@ describe('AgentDetailView', () => {
     )
 
     expect(screen.getByText('Start the managed workspace')).toBeDefined()
+    expect(
+      screen.getByText(
+        'Open Console, then start this managed workspace so the agent can receive tasks.'
+      )
+    ).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: /open console/i }))
     expect(screen.getByText('Start the managed workspace to open the console')).toBeDefined()
-    expect(screen.getByText(/start the workspace when you need terminal access/i)).toBeDefined()
+    expect(screen.getByText(/start the workspace when you need live console access/i)).toBeDefined()
     expect(
       screen.getByText(/success looks like the agent status changing to idle or working/i)
     ).toBeDefined()
     expect(
       screen.getByText(/ask an admin to check this agent's workspace setup and tool package/i)
     ).toBeDefined()
+    expect(screen.queryByText(/open terminal/i)).toBeNull()
+    expect(screen.queryByText(/terminal access/i)).toBeNull()
+    expect(screen.queryByText(/live terminal/i)).toBeNull()
     expect(screen.getByRole('button', { name: /start agent workspace/i })).toBeDefined()
   })
 

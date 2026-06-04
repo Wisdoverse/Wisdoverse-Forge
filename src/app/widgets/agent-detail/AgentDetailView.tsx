@@ -239,7 +239,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
                       : `${agent.provider} model service`
                 }
               />
-              <DetailRow label="Status" value={agent.status} />
+              <DetailRow label="Status" value={STATUS_LABELS[agent.status]} />
               <DetailRow
                 label="Workspace it can use"
                 value={agent.workspaceName ?? 'Default workspace'}
@@ -327,7 +327,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
     if (hasContainerTerminal) {
       return {
         title: 'Start the managed workspace',
-        detail: 'Open Terminal, then start this agent so it can receive tasks.',
+        detail: 'Open Console, then start this managed workspace so the agent can receive tasks.',
         success: 'The agent returns to Idle and can receive tasks.',
         ready: false,
         targetTab: 'terminal',
@@ -611,13 +611,13 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
         </span>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {agent.cliTool
-            ? `${agent.cliTool} is ready. Start the workspace when you need terminal access.`
+            ? `${agent.cliTool} is ready. Start the workspace when you need live console access.`
             : 'This agent does not need a managed workspace.'}
         </span>
         {agent.cliTool && (
           <span className="max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
             Start the workspace here. Success looks like the agent status changing to Idle or
-            Working, then this Console opens a live terminal. If it stays pending, ask an admin to
+            Working, then this Console opens for live work. If it stays pending, ask an admin to
             check this agent's workspace setup and tool package.
           </span>
         )}
