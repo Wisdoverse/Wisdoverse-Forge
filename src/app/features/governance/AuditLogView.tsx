@@ -21,6 +21,7 @@ import {
   type GovernanceAuditScopeKind,
   type GovernanceAuditTamperStatus,
 } from '@app/shared/api/orchestration'
+import { governanceAuditErrorMessage } from './governanceAuditErrorMessages'
 
 type ItemKindFilter = 'all' | GovernanceAuditItemKind
 type ScopeKindFilter = 'all' | GovernanceAuditScopeKind
@@ -142,7 +143,7 @@ export function AuditLogView() {
       const response = await orchestrationApi.fetchGovernanceAudit(buildQuery(nextFilters))
       setData(response)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load governance audit')
+      setError(governanceAuditErrorMessage('loadAudit', err))
     } finally {
       setLoading(false)
     }
@@ -186,7 +187,7 @@ export function AuditLogView() {
         `${response.entries.length} audit ${response.entries.length === 1 ? 'event' : 'events'} exported`
       )
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to export governance audit')
+      setError(governanceAuditErrorMessage('exportAudit', err))
     } finally {
       setExporting(false)
     }
