@@ -154,6 +154,9 @@ describe('ChatView', () => {
 
     expect(screen.getByTestId('conversation-handoff-summary')).toBeInTheDocument()
     expect(
+      within(screen.getByTestId('conversation-metric-operator')).getByText('Your messages')
+    ).toBeInTheDocument()
+    expect(
       within(screen.getByTestId('conversation-metric-operator')).getByText('1')
     ).toBeInTheDocument()
     expect(
@@ -164,6 +167,7 @@ describe('ChatView', () => {
     ).toBeInTheDocument()
 
     const filters = screen.getByTestId('conversation-filter-group')
+    expect(within(filters).getByRole('button', { name: /you\s*1/i })).toBeInTheDocument()
     fireEvent.click(within(filters).getByRole('button', { name: /attention\s*1/i }))
     expect(screen.getByText('Billing flow is blocked by a missing secret')).toBeInTheDocument()
     expect(screen.queryByText('Settings page shipped')).toBeNull()

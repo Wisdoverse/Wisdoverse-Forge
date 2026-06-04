@@ -26,7 +26,7 @@ type ConversationFilter = 'all' | 'operator' | 'agent' | 'tool' | 'attention'
 
 const CONVERSATION_FILTERS: { value: ConversationFilter; label: string }[] = [
   { value: 'all', label: 'All' },
-  { value: 'operator', label: 'Operator' },
+  { value: 'operator', label: 'You' },
   { value: 'agent', label: 'Agent' },
   { value: 'tool', label: 'Tool' },
   { value: 'attention', label: 'Attention' },
@@ -251,7 +251,7 @@ export function ChatView({ agentId }: ChatViewProps) {
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <ConversationMetric
             testId="conversation-metric-operator"
-            label="Operator"
+            label="Your messages"
             value={transcriptStats.operator}
             Icon={UserRound}
             tone="operator"
