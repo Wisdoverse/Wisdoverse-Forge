@@ -56,7 +56,7 @@ describe('SidebarNav', () => {
       screen.getByRole('button', { name: /context: approve reusable knowledge/i })
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: /agents: create and manage workers/i })
+      screen.getByRole('button', { name: /agents: create and manage agents/i })
     ).toBeInTheDocument()
   })
 
@@ -72,7 +72,7 @@ describe('SidebarNav', () => {
 
     expect(
       screen.getByRole('button', {
-        name: /settings: configure workspace, agents, and access/i,
+        name: /settings: manage workspace, agents, and access/i,
       })
     ).toHaveAttribute('aria-current', 'page')
     expect(

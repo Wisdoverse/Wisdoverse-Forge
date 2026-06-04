@@ -63,7 +63,7 @@ const NAV_ITEMS: NavItem[] = [
     id: 'agents',
     Icon: Bot,
     labelKey: 'nav.agents',
-    description: 'create and manage workers',
+    description: 'create and manage agents',
     path: '/agents',
   },
   {
@@ -94,7 +94,7 @@ const BOTTOM_ITEMS: NavItem[] = [
     id: 'settings',
     Icon: Settings,
     labelKey: 'nav.settings',
-    description: 'configure workspace, agents, and access',
+    description: 'manage workspace, agents, and access',
     path: '/settings',
   },
 ]
