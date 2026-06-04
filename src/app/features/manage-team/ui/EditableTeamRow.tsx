@@ -5,6 +5,8 @@ import { uiStyles } from '@app/shared/lib/uiStyles'
 import { workspaceResourceErrorMessage } from '@app/shared/lib/workspaceResourceErrorMessage'
 import type { NavTeam, UpdateTeamInput } from '@app/entities/team'
 
+const EMPTY_TEAM_NAME_MESSAGE = 'Enter a team name, then save again.'
+
 interface EditableTeamRowProps {
   team: NavTeam
   onUpdate: (teamId: string, input: UpdateTeamInput) => Promise<void>
@@ -38,7 +40,7 @@ export function EditableTeamRow({
     e.preventDefault()
     const trimmedName = name.trim()
     if (!trimmedName) {
-      setError('Team name is required')
+      setError(EMPTY_TEAM_NAME_MESSAGE)
       return
     }
 
@@ -89,7 +91,15 @@ export function EditableTeamRow({
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-start">
             <input
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                const nextName = e.target.value
+                setName(nextName)
+                if (!nextName.trim()) {
+                  setError(EMPTY_TEAM_NAME_MESSAGE)
+                } else if (error === EMPTY_TEAM_NAME_MESSAGE) {
+                  setError(null)
+                }
+              }}
               disabled={saving}
               autoFocus
               aria-label="Team name"

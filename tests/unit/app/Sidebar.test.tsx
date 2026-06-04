@@ -347,6 +347,22 @@ describe('Sidebar', () => {
     expect(screen.queryByText(/Details:/i)).not.toBeInTheDocument()
   })
 
+  it('guides team rename when the name is empty', async () => {
+    seedProjectTree()
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /configure team/i }))
+    fireEvent.change(screen.getByLabelText(/team name/i), {
+      target: { value: '   ' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(screen.getByText('Enter a team name, then save again.')).toBeInTheDocument()
+    expect(screen.queryByText('Team name is required')).not.toBeInTheDocument()
+    expect(teamApi.updateTeam).not.toHaveBeenCalled()
+  })
+
   it('deletes team from context menu', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     seedProjectTree()
@@ -407,6 +423,22 @@ describe('Sidebar', () => {
     expect(screen.queryByText(/API 422/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Code:/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Details:/i)).not.toBeInTheDocument()
+  })
+
+  it('guides project rename when the name is empty', async () => {
+    seedProjectTree()
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /rename project/i }))
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: '   ' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(screen.getByText('Enter a project name, then save again.')).toBeInTheDocument()
+    expect(screen.queryByText('Project name is required')).not.toBeInTheDocument()
+    expect(projectApi.updateProject).not.toHaveBeenCalled()
   })
 
   it('deletes project from context menu', async () => {

@@ -208,6 +208,37 @@ describe('CreateAgentModal', () => {
     expect(screen.getByLabelText(/^model$/i)).toBeInTheDocument()
   })
 
+  test('guides users to name an agent before creating it', async () => {
+    const createAgent = vi.fn().mockResolvedValue(true)
+    useAgentsStore.setState({ createAgent } as never)
+
+    render(<CreateAgentModal />)
+    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Name this agent before creating it. Example: Review Agent or CLI Worker.'
+    )
+    expect(screen.queryByText('Name is required')).toBeNull()
+    expect(createAgent).not.toHaveBeenCalled()
+  })
+
+  test('guides users to choose provider fields before creating a prompt agent', async () => {
+    const createAgent = vi.fn().mockResolvedValue(true)
+    useAgentsStore.setState({ createAgent } as never)
+
+    render(<CreateAgentModal />)
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Prompt Worker' } })
+    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+    fireEvent.change(screen.getByLabelText(/^model$/i), { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Choose a provider and model before creating this prompt agent.'
+    )
+    expect(screen.queryByText('Provider and model are required')).toBeNull()
+    expect(createAgent).not.toHaveBeenCalled()
+  })
+
   test('updates runtime fit when the operator changes runtime choices', async () => {
     render(<CreateAgentModal />)
 

@@ -431,7 +431,7 @@ export function ProjectTree({
 
     const name = teamEditor.name.trim()
     if (!name) {
-      setTeamEditor({ ...teamEditor, error: 'Team name is required' })
+      setTeamEditor({ ...teamEditor, error: 'Enter a team name, then save again.' })
       return
     }
 
@@ -455,7 +455,7 @@ export function ProjectTree({
 
     const name = projectEditor.name.trim()
     if (!name) {
-      setProjectEditor({ ...projectEditor, error: 'Project name is required' })
+      setProjectEditor({ ...projectEditor, error: 'Enter a project name, then save again.' })
       return
     }
 

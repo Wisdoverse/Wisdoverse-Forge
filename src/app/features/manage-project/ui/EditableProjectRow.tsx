@@ -5,6 +5,8 @@ import { uiStyles } from '@app/shared/lib/uiStyles'
 import { workspaceResourceErrorMessage } from '@app/shared/lib/workspaceResourceErrorMessage'
 import type { NavProject, UpdateProjectInput } from '@app/entities/project'
 
+const EMPTY_PROJECT_NAME_MESSAGE = 'Enter a project name, then save again.'
+
 interface EditableProjectRowProps {
   project: NavProject
   teamName: string
@@ -42,7 +44,7 @@ export function EditableProjectRow({
     e.preventDefault()
     const trimmedName = name.trim()
     if (!trimmedName) {
-      setError('Project name is required')
+      setError(EMPTY_PROJECT_NAME_MESSAGE)
       return
     }
 
@@ -101,7 +103,15 @@ export function EditableProjectRow({
             />
             <input
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                const nextName = e.target.value
+                setName(nextName)
+                if (!nextName.trim()) {
+                  setError(EMPTY_PROJECT_NAME_MESSAGE)
+                } else if (error === EMPTY_PROJECT_NAME_MESSAGE) {
+                  setError(null)
+                }
+              }}
               disabled={saving}
               autoFocus
               aria-label="Project name"
