@@ -8,6 +8,7 @@ import { CreateProjectForm, EditableProjectRow } from '@app/features/manage-proj
 import { projectApi, type NavProject, type UpdateProjectInput } from '@app/entities/project'
 import { teamApi, type NavTeam } from '@app/entities/team'
 import { userApi } from '@app/entities/user'
+import { settingsMembershipErrorMessage } from './settingsMembershipErrorMessage'
 
 interface ProjectWithTeam {
   project: NavProject
@@ -64,7 +65,7 @@ export function ProjectsSection() {
       )
       setProjectsWithTeam(projectResults.flat())
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load projects')
+      setError(settingsMembershipErrorMessage(err, { resource: 'projects', action: 'load' }))
     } finally {
       setLoading(false)
     }
@@ -83,7 +84,7 @@ export function ProjectsSection() {
       setProjectsWithTeam((prev) => [...prev, { project, teamName: team?.name ?? '' }])
       setShowForm(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create project')
+      setError(settingsMembershipErrorMessage(err, { resource: 'projects', action: 'create' }))
     } finally {
       setSaving(false)
     }
@@ -157,7 +158,11 @@ export function ProjectsSection() {
         )}
       </div>
 
-      {error && <div className={uiStyles.error}>{error}</div>}
+      {error && (
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
+          {error}
+        </div>
+      )}
 
       <div className={cn(uiStyles.card)}>
         {loading && projectsWithTeam.length === 0 ? (

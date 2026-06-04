@@ -65,4 +65,16 @@ describe('TeamsSection', () => {
     expect(screen.getByText('Choose an organization first')).toBeDefined()
     expect(screen.getByText(/Select or create one before adding people/i)).toBeDefined()
   })
+
+  test('shows a beginner recovery step when teams cannot load', async () => {
+    getTeams.mockRejectedValue(new Error('HTTP 500'))
+
+    render(<TeamsSection />)
+
+    await waitFor(() => expect(getTeams).toHaveBeenCalledWith('org-1'))
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Teams could not be loaded. The workspace settings service is temporarily unavailable. Ask an owner to check the backend, then try again.'
+    )
+    expect(screen.queryByText('HTTP 500')).toBeNull()
+  })
 })

@@ -154,4 +154,15 @@ describe('workspace settings empty states', () => {
     ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /new project/i })).not.toBeInTheDocument()
   })
+
+  it('shows a beginner recovery step when projects cannot load', async () => {
+    mocks.getTeams.mockRejectedValue(new Error('HTTP 403'))
+
+    render(<ProjectsSection />)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Projects could not be loaded. Ask an owner or admin for access to manage projects.'
+    )
+    expect(screen.queryByText('HTTP 403')).not.toBeInTheDocument()
+  })
 })
