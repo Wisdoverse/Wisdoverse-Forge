@@ -32,35 +32,34 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
   }
 
   if (status === 401) {
-    return 'Sign in again, then retry this board action. Code: 401.'
+    return 'Sign in again, then open the board and try this action again.'
   }
 
   if (status === 403) {
-    return 'You do not have permission to change this board. Ask an owner or admin to update your role. Code: 403.'
+    return 'You do not have permission to change this board. Ask an owner or admin to update your role.'
   }
 
   if (status === 404) {
-    return 'This board item was not found. Refresh the board, then try the action again. Code: 404.'
+    return 'This board item was not found. Refresh the board, then choose the current task again.'
   }
 
   if (status === 409) {
-    return 'The board changed while you were working. Refresh the board so you see the latest tasks, then try again. Code: 409.'
+    return 'The board changed while you were working. Refresh the board so you see the latest tasks, then try again.'
   }
 
   if (status === 422) {
-    return 'The board request is missing required task information. Check the project, work lane, and task title, then try again. Code: 422.'
+    return validationRecovery(action, detail)
   }
 
   if (status === 429) {
-    return 'The server is busy with too many board requests. Wait a moment, then try again. Code: 429.'
+    return 'The board is busy with too many requests. Wait a moment, then try again.'
   }
 
   if (status && status >= 500) {
-    return 'The server had a problem while handling the board. Try again after the API is healthy. Code: 5xx.'
+    return 'The board service is temporarily unavailable. Ask an owner or admin to check the backend, then refresh the board.'
   }
 
-  const suffix = operatorSafeDetail(detail)
-  return suffix ? `${ACTION_FALLBACKS[action]} Detail: ${suffix}` : ACTION_FALLBACKS[action]
+  return validationRecovery(action, detail)
 }
 
 function errorDetail(err: unknown): string {
@@ -112,10 +111,21 @@ function isNetworkError(normalizedDetail: string): boolean {
   )
 }
 
-function operatorSafeDetail(detail: string): string {
-  const trimmed = detail.trim()
-  if (!trimmed) return ''
-  if (trimmed.length > 160) return ''
-  if (isNetworkError(trimmed.toLowerCase())) return ''
-  return trimmed
+function validationRecovery(action: BoardErrorAction, detail: string): string {
+  const normalized = detail.toLowerCase()
+
+  if (normalized.includes('title') || normalized.includes('name')) {
+    return 'Add a task title, choose the project and work lane, then create the task again.'
+  }
+  if (normalized.includes('project')) {
+    return 'Choose a project you can access, then try the board action again.'
+  }
+  if (normalized.includes('lane') || normalized.includes('group')) {
+    return 'Choose a work lane for this project, then try the board action again.'
+  }
+  if (normalized.includes('agent')) {
+    return 'Choose an available agent, then try the board action again.'
+  }
+
+  return ACTION_FALLBACKS[action]
 }

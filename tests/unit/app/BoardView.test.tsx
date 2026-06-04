@@ -71,7 +71,7 @@ describe('BoardView', () => {
 
     const error = await screen.findByTestId('board-error')
     expect(error.textContent).toContain('Sign in again')
-    expect(error.textContent).toContain('Code: 401')
+    expect(error.textContent).not.toContain('Code:')
     expect(error.textContent).not.toContain('401 Unauthorized')
   })
 

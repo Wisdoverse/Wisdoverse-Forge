@@ -1,10 +1,17 @@
 import { describe, expect, test } from 'vitest'
 import { boardActionErrorMessage } from '@app/features/board/boardErrorMessages'
 
+function expectBeginnerMessage(actual: string, expected: string): void {
+  expect(actual).toBe(expected)
+  expect(actual).not.toContain('Code:')
+  expect(actual).not.toContain('Detail:')
+}
+
 describe('boardActionErrorMessage', () => {
   test('turns auth failures into a sign-in instruction', () => {
-    expect(boardActionErrorMessage('loadTasks', new Error('401 Unauthorized'))).toBe(
-      'Sign in again, then retry this board action. Code: 401.'
+    expectBeginnerMessage(
+      boardActionErrorMessage('loadTasks', new Error('401 Unauthorized')),
+      'Sign in again, then open the board and try this action again.'
     )
   })
 
@@ -22,13 +29,12 @@ describe('boardActionErrorMessage', () => {
     )
   })
 
-  test('keeps short validation details after the safe operator instruction', () => {
-    expect(
+  test('turns validation details into a concrete field recovery step', () => {
+    expectBeginnerMessage(
       boardActionErrorMessage('createTask', {
         error: 'Task title is required',
-      })
-    ).toBe(
-      'The task was not created. Check the project, work lane, and title, then try again. Detail: Task title is required'
+      }),
+      'Add a task title, choose the project and work lane, then create the task again.'
     )
   })
 })
