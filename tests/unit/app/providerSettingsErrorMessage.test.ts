@@ -30,7 +30,7 @@ describe('providerSettingsErrorMessage', () => {
 
   test('explains network failures in user-facing terms', () => {
     expect(providerSettingsErrorMessage(new TypeError('Failed to fetch'))).toBe(
-      'Provider settings could not be loaded. The browser could not reach the server. Check your connection, then try again.'
+      'Provider settings could not be loaded. The app could not reach the service. Check your connection, then try again.'
     )
   })
 })

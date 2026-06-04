@@ -122,7 +122,7 @@ function renameErrorMessage(target: RenameTarget, error: unknown): string {
     error instanceof TypeError ||
     (error instanceof Error && /^Failed to fetch$/i.test(error.message.trim()))
   ) {
-    return `${title} name could not be saved because the browser could not reach the server. Check your connection, then save again.`
+    return `${title} name could not be saved because the app could not reach the service. Check your connection, then save again.`
   }
 
   const { status, detail } = parseApiStatus(error)

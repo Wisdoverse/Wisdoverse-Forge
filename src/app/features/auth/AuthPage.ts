@@ -20,11 +20,11 @@ function authRecoveryErrorMessage(action: AuthRecoveryAction, error: unknown): s
   if (networkFailed) {
     switch (action) {
       case 'resend-verification':
-        return 'Verification email could not be sent because the browser could not reach the server. Check your connection, then try again.'
+        return 'Verification email could not be sent because the app could not reach the service. Check your connection, then try again.'
       case 'forgot-password':
-        return 'Reset email could not be requested because the browser could not reach the server. Check your connection, then try again.'
+        return 'Reset email could not be requested because the app could not reach the service. Check your connection, then try again.'
       case 'reset-password':
-        return 'Password could not be updated because the browser could not reach the server. Check your connection, then try again.'
+        return 'Password could not be updated because the app could not reach the service. Check your connection, then try again.'
     }
   }
 

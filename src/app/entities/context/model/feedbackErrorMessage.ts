@@ -10,7 +10,7 @@ export function feedbackErrorMessage(error?: unknown): string {
     if (detail) {
       return validationMessage(detail)
     }
-    return 'Feedback could not be saved because the browser could not reach the server. Check your connection, then try again.'
+    return 'Feedback could not be saved because the app could not reach the service. Check your connection, then try again.'
   }
 
   if (status === 401) {

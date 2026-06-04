@@ -253,7 +253,7 @@ describe('TaskDetailPanel', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: /updates/i }))
 
     expect(await screen.findByText(/run attempts could not load/i)).toBeDefined()
-    expect(screen.getByText(/browser could not reach the server/i)).toBeDefined()
+    expect(screen.getByText(/app could not reach the service/i)).toBeDefined()
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
   })
 

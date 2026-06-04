@@ -30,7 +30,7 @@ describe('platformKeyErrorMessage', () => {
 
   test('explains network failures in user-facing terms', () => {
     expect(platformKeyErrorMessage(new TypeError('Failed to fetch'))).toBe(
-      'Platform API keys could not be loaded. The browser could not reach the server. Check your connection, then try again.'
+      'Platform API keys could not be loaded. The app could not reach the service. Check your connection, then try again.'
     )
   })
 })

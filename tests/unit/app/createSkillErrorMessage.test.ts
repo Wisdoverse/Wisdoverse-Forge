@@ -10,7 +10,7 @@ describe('createSkillErrorMessage', () => {
 
   test('preserves existing beginner guidance from the skills store', () => {
     const message =
-      'The skill could not be created because the browser could not reach the server. Check your connection and try again.'
+      'The skill could not be created because the app could not reach the service. Check your connection and try again.'
 
     expect(createSkillErrorMessage(new Error(message))).toBe(message)
   })
@@ -28,7 +28,7 @@ describe('createSkillErrorMessage', () => {
   test('turns raw network failures into recovery guidance', () => {
     const message = createSkillErrorMessage(new Error('Failed to fetch'))
 
-    expect(message).toContain('browser could not reach the server')
+    expect(message).toContain('app could not reach the service')
     expect(message).toContain('Check your connection')
     expect(message).not.toContain('Failed to fetch')
   })

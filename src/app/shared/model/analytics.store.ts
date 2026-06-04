@@ -73,7 +73,7 @@ export function analyticsUnavailableMessage(): string {
 }
 
 export function analyticsNetworkErrorMessage(): string {
-  return 'Analytics could not reach the server. Check your connection, then refresh the dashboard.'
+  return 'Analytics could not reach the service. Check your connection, then refresh the dashboard.'
 }
 
 export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({

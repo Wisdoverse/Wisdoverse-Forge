@@ -81,7 +81,7 @@ describe('BoardView', () => {
 
     render(<BoardView />)
 
-    expect(await screen.findByText(/the browser could not reach the server/i)).toBeDefined()
+    expect(await screen.findByText(/the app could not reach the service/i)).toBeDefined()
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
   })
 

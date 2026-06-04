@@ -23,7 +23,7 @@ export function createSkillErrorMessage(error?: unknown): string {
     if (safeDetail) {
       return validationMessage(safeDetail)
     }
-    return 'The skill could not be created because the browser could not reach the server. Check your connection and try again.'
+    return 'The skill could not be created because the app could not reach the service. Check your connection and try again.'
   }
 
   if (status === 401) {

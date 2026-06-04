@@ -229,7 +229,7 @@ describe('AuthPage beginner guidance', () => {
     await flushAsyncWork()
 
     expect(bodyText()).toContain(
-      'Verification email could not be sent because the browser could not reach the server. Check your connection, then try again.'
+      'Verification email could not be sent because the app could not reach the service. Check your connection, then try again.'
     )
     expect(bodyText()).not.toContain('Failed to fetch')
   })

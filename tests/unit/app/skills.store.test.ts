@@ -65,7 +65,7 @@ describe('useSkillsStore errors', () => {
     await useSkillsStore.getState().loadSkills()
 
     expect(useSkillsStore.getState().error).toBe(
-      'Skills could not load because the browser could not reach the server. Check your connection and refresh the page.'
+      'Skills could not load because the app could not reach the service. Check your connection and refresh the page.'
     )
   })
 
@@ -90,7 +90,7 @@ describe('useSkillsStore errors', () => {
         content: 'Review the task',
       })
     ).rejects.toThrow(
-      'The skill could not be created because the browser could not reach the server. Check your connection and try again.'
+      'The skill could not be created because the app could not reach the service. Check your connection and try again.'
     )
   })
 })

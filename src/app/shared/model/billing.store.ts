@@ -113,7 +113,7 @@ export function billingErrorMessage(err: unknown, area: BillingErrorArea): strin
     return `${base} The billing service is temporarily unavailable. Ask an administrator to check billing, then refresh this page.`
   }
   if (isNetworkError(err)) {
-    return `${base} The browser could not reach the server. Check your connection, then refresh this page.`
+    return `${base} The app could not reach the service. Check your connection, then refresh this page.`
   }
 
   return `${base} Refresh this page. If it still fails, ask an administrator to check billing.`

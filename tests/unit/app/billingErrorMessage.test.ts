@@ -16,7 +16,7 @@ describe('billingErrorMessage', () => {
 
   test('turns network failures into a connection step', () => {
     expect(billingErrorMessage(new TypeError('Failed to fetch'), 'usage')).toBe(
-      'Usage could not be loaded. The browser could not reach the server. Check your connection, then refresh this page.'
+      'Usage could not be loaded. The app could not reach the service. Check your connection, then refresh this page.'
     )
   })
 

@@ -170,7 +170,7 @@ export function agentActionErrorMessage(action: AgentErrorAction, error?: unknow
     if (!isRawAgentFailure(detail)) {
       return agentValidationMessage(action, detail)
     }
-    return `Agent setup could not ${actionPhrase} because the browser could not reach the server. Check your connection and refresh the page.`
+    return `Agent setup could not ${actionPhrase} because the app could not reach the service. Check your connection and refresh the page.`
   }
 
   if (status === 401) {

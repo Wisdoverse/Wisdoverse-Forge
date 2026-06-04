@@ -15,7 +15,7 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   const status = errorStatus(err, normalized)
 
   if (isNetworkError(normalized)) {
-    return `${ACTION_FALLBACKS[action]} The browser could not reach the server. Check your connection, then refresh the page.`
+    return `${ACTION_FALLBACKS[action]} The app could not reach the service. Check your connection, then refresh the page.`
   }
 
   if (status === 401) {
@@ -63,7 +63,7 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
       : 'Runtime settings could not be loaded.'
 
   if (isNetworkError(normalized)) {
-    return `${base} The browser could not reach the server. Check your connection, then refresh Settings.`
+    return `${base} The app could not reach the service. Check your connection, then refresh Settings.`
   }
 
   if (status === 401) {
@@ -87,7 +87,7 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
   }
 
   if (status === 429) {
-    return `${base} The server is busy. Wait a minute, then try again.`
+    return `${base} The service is busy. Wait a minute, then try again.`
   }
 
   if (status && status >= 500) {

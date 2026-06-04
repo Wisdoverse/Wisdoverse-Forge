@@ -18,7 +18,7 @@ export function resourceMemberErrorMessage(
     if (detail) {
       return validationMessage(action, resource, detail)
     }
-    return `Member access could not ${actionSummary(action, resource)} because the browser could not reach the server. Check your connection, then try again.`
+    return `Member access could not ${actionSummary(action, resource)} because the app could not reach the service. Check your connection, then try again.`
   }
 
   if (status === 401) {

@@ -71,7 +71,7 @@ describe('Agents Store', () => {
   test('turns raw network failures into connection guidance', () => {
     expectBeginnerError(
       agentActionErrorMessage('start', 'Network error'),
-      'Agent setup could not start the agent because the browser could not reach the server. Check your connection and refresh the page.'
+      'Agent setup could not start the agent because the app could not reach the service. Check your connection and refresh the page.'
     )
   })
 
@@ -196,7 +196,7 @@ describe('Agents Store', () => {
     expect(result).toBeNull()
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Agent setup could not connect the local agent because the browser could not reach the server. Check your connection and refresh the page.'
+      'Agent setup could not connect the local agent because the app could not reach the service. Check your connection and refresh the page.'
     )
   })
 

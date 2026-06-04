@@ -73,7 +73,7 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     useAnalyticsStore.setState({
       load,
       error:
-        'Analytics could not reach the server. Check your connection, then refresh the dashboard.',
+        'Analytics could not reach the service. Check your connection, then refresh the dashboard.',
     })
 
     render(<AnalyticsDashboard />)

@@ -107,7 +107,7 @@ describe('ApprovalQueueView', () => {
 
     const error = await screen.findByTestId('context-approval-error')
     expect(error.textContent).toContain('approval queue could not load')
-    expect(error.textContent).toContain('browser could not reach the server')
+    expect(error.textContent).toContain('app could not reach the service')
     expect(error.textContent).not.toMatch(/failed to fetch/i)
   })
 

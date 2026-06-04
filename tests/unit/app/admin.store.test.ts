@@ -92,7 +92,7 @@ describe('useAdminStore loading errors', () => {
     await useAdminStore.getState().loadOrgs()
 
     expect(useAdminStore.getState().orgsError).toBe(
-      'The admin organization list could not load because the browser could not reach the server. Check your connection and refresh the page.'
+      'The admin organization list could not load because the app could not reach the service. Check your connection and refresh the page.'
     )
   })
 

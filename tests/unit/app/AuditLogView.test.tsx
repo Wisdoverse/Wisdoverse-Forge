@@ -157,7 +157,7 @@ describe('AuditLogView', () => {
 
     const error = await screen.findByRole('alert')
     expect(error.textContent).toContain('governance audit could not load')
-    expect(error.textContent).toContain('browser could not reach the server')
+    expect(error.textContent).toContain('app could not reach the service')
     expect(error.textContent).not.toMatch(/failed to fetch/i)
   })
 

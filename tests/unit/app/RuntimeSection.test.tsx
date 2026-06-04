@@ -178,7 +178,7 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     expect(await screen.findByText(/local tool sign-in status could not load/i)).toBeDefined()
-    expect(screen.getByText(/browser could not reach the server/i)).toBeDefined()
+    expect(screen.getByText(/app could not reach the service/i)).toBeDefined()
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
   })
 

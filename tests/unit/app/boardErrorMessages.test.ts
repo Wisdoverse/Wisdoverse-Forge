@@ -19,7 +19,7 @@ describe('boardActionErrorMessage', () => {
     const message = boardActionErrorMessage('loadReadiness', new TypeError('Failed to fetch'))
 
     expect(message).toContain('Agent readiness could not load')
-    expect(message).toContain('The browser could not reach the server')
+    expect(message).toContain('The app could not reach the service')
     expect(message).not.toContain('API')
     expect(message).not.toContain('Failed to fetch')
   })

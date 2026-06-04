@@ -24,7 +24,7 @@ describe('gitCredentialsErrorMessage', () => {
 
   test('turns network failures into a connection step', () => {
     expect(gitCredentialsErrorMessage(new TypeError('Failed to fetch'))).toBe(
-      'Repository access tokens could not be loaded. The browser could not reach the server. Check your connection, then try again.'
+      'Repository access tokens could not be loaded. The app could not reach the service. Check your connection, then try again.'
     )
   })
 })

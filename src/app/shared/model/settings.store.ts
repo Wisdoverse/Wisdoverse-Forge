@@ -157,7 +157,7 @@ export function settingsActionErrorMessage(
     if (!isRawSettingsFailure(detail)) {
       return settingsValidationMessage(area, action, detail)
     }
-    return `Settings could not ${actionPhrase} because the browser could not reach the server. Check your connection and try again.`
+    return `Settings could not ${actionPhrase} because the app could not reach the service. Check your connection and try again.`
   }
 
   if (status === 401) {

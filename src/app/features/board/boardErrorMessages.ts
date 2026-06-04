@@ -12,7 +12,7 @@ const ACTION_FALLBACKS: Record<BoardErrorAction, string> = {
   loadReadiness:
     'Agent readiness could not load. Refresh readiness before assigning or publishing work.',
   loadTasks: 'The task board could not load. Refresh the board, then try again.',
-  moveTask: 'The task was moved back because the server did not save the board change.',
+  moveTask: 'The task was moved back because the board change was not saved.',
   previewContext: 'The context preview could not load. Choose an available agent, then try again.',
   publishTask: 'The task was not published with context. Review the preview, then try again.',
   selectProject: 'The project was not selected. Choose the project again, then create the task.',
@@ -28,7 +28,7 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
   }
 
   if (isNetworkError(normalized)) {
-    return `${ACTION_FALLBACKS[action]} The browser could not reach the server. Check your connection, then refresh the page.`
+    return `${ACTION_FALLBACKS[action]} The app could not reach the service. Check your connection, then refresh the page.`
   }
 
   if (status === 401) {

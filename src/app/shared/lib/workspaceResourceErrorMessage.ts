@@ -17,7 +17,7 @@ export function workspaceResourceErrorMessage(
     if (detail) {
       return validationMessage(resource, action, detail)
     }
-    return `${label(resource)} could not ${actionPhrase(action)} because the browser could not reach the server. Check your connection, then try again.`
+    return `${label(resource)} could not ${actionPhrase(action)} because the app could not reach the service. Check your connection, then try again.`
   }
 
   if (status === 401) {

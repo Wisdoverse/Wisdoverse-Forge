@@ -26,7 +26,7 @@ describe('taskDetailErrorMessage', () => {
     const message = taskDetailErrorMessage('loadRuns', new TypeError('Failed to fetch'))
 
     expect(message).toContain('Run attempts could not load')
-    expect(message).toContain('The browser could not reach the server')
+    expect(message).toContain('The app could not reach the service')
     expect(message).not.toContain('API')
     expect(message).not.toContain('Failed to fetch')
   })

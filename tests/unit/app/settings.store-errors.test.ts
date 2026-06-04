@@ -81,7 +81,7 @@ describe('settingsActionErrorMessage', () => {
   test('turns raw network errors into connection guidance', () => {
     expectBeginnerError(
       settingsActionErrorMessage('sshKeys', 'load', 'Network error'),
-      'Settings could not load SSH keys because the browser could not reach the server. Check your connection and try again.'
+      'Settings could not load SSH keys because the app could not reach the service. Check your connection and try again.'
     )
   })
 })
@@ -124,7 +124,7 @@ describe('useSettingsStore errors', () => {
 
     expectBeginnerError(
       useSettingsStore.getState().sshKeysError,
-      'Settings could not load SSH keys because the browser could not reach the server. Check your connection and try again.'
+      'Settings could not load SSH keys because the app could not reach the service. Check your connection and try again.'
     )
   })
 

@@ -145,7 +145,7 @@ export function navigationActionErrorMessage(
     if (!isRawNavigationFailure(detail)) {
       return navigationValidationMessage(area, action, detail)
     }
-    return `Navigation could not ${actionPhrase} because the browser could not reach the server. Check your connection and refresh the page.`
+    return `Navigation could not ${actionPhrase} because the app could not reach the service. Check your connection and refresh the page.`
   }
 
   if (status === 401) {

@@ -16,7 +16,7 @@ export function governanceAuditErrorMessage(
   const status = errorStatus(err, normalized)
 
   if (isNetworkError(normalized)) {
-    return `${ACTION_FALLBACKS[action]} The browser could not reach the server. Check your connection, then refresh the page.`
+    return `${ACTION_FALLBACKS[action]} The app could not reach the service. Check your connection, then refresh the page.`
   }
 
   if (status === 401) {

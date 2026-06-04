@@ -66,7 +66,7 @@ describe('navigation.store', () => {
   it('turns raw network failures into connection guidance', () => {
     expectBeginnerError(
       navigationActionErrorMessage('workLanes', 'load', new TypeError('Failed to fetch')),
-      'Navigation could not load work lanes because the browser could not reach the server. Check your connection and refresh the page.'
+      'Navigation could not load work lanes because the app could not reach the service. Check your connection and refresh the page.'
     )
   })
 
@@ -292,7 +292,7 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'Navigation could not load work lanes because the browser could not reach the server. Check your connection and refresh the page.'
+      'Navigation could not load work lanes because the app could not reach the service. Check your connection and refresh the page.'
     )
   })
 

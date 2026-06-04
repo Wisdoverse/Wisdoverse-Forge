@@ -11,7 +11,7 @@ describe('workspaceResourceErrorMessage', () => {
   test('turns network failures into connection guidance', () => {
     const message = workspaceResourceErrorMessage('team', 'update', new Error('Failed to fetch'))
 
-    expect(message).toContain('browser could not reach the server')
+    expect(message).toContain('app could not reach the service')
     expect(message).toContain('Check your connection')
     expect(message).not.toContain('Failed to fetch')
   })

@@ -317,7 +317,7 @@ export function adminHttpErrorMessage(
 }
 
 function adminNetworkErrorMessage(resource: AdminResource): string {
-  return `The admin ${adminResourceLabel(resource)} could not load because the browser could not reach the server. Check your connection and refresh the page.`
+  return `The admin ${adminResourceLabel(resource)} could not load because the app could not reach the service. Check your connection and refresh the page.`
 }
 
 function adminErrorMessage(err: unknown, resource: AdminResource): string {
@@ -355,9 +355,9 @@ function adminActionHttpErrorMessage(
 
 function adminActionNetworkErrorMessage(action: AdminAction): string {
   if (action === 'update-user-role') {
-    return "User access could not be saved because the browser could not reach the server. Check your connection, then save this user's access again."
+    return "User access could not be saved because the app could not reach the service. Check your connection, then save this user's access again."
   }
-  return 'The admin change could not be saved because the browser could not reach the server. Check your connection and try again.'
+  return 'The admin change could not be saved because the app could not reach the service. Check your connection and try again.'
 }
 
 function adminActionErrorMessage(err: unknown, action: AdminAction): string {

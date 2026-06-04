@@ -189,8 +189,8 @@ export function skillHttpErrorMessage(
 
 function skillNetworkErrorMessage(action: SkillAction): string {
   return action === 'create'
-    ? 'The skill could not be created because the browser could not reach the server. Check your connection and try again.'
-    : 'Skills could not load because the browser could not reach the server. Check your connection and refresh the page.'
+    ? 'The skill could not be created because the app could not reach the service. Check your connection and try again.'
+    : 'Skills could not load because the app could not reach the service. Check your connection and refresh the page.'
 }
 
 function skillResponseErrorMessage(

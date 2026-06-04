@@ -19,7 +19,7 @@ describe('approvalQueueErrorMessage', () => {
     const message = approvalQueueErrorMessage('loadQueue', new TypeError('Failed to fetch'))
 
     expect(message).toContain('approval queue could not load')
-    expect(message).toContain('browser could not reach the server')
+    expect(message).toContain('app could not reach the service')
     expect(message).not.toContain('API')
     expect(message).not.toContain('Failed to fetch')
   })

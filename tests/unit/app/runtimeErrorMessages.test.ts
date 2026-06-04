@@ -22,7 +22,7 @@ describe('runtimeErrorMessage', () => {
     const message = runtimeErrorMessage('loadCliSignIn', new TypeError('Failed to fetch'))
 
     expect(message).toContain('Local tool sign-in status could not load')
-    expect(message).toContain('browser could not reach the server')
+    expect(message).toContain('app could not reach the service')
     expect(message).not.toContain('Failed to fetch')
   })
 
@@ -76,7 +76,7 @@ describe('runtimeSettingsErrorMessage', () => {
 
   test('explains network failures in user-facing terms', () => {
     expect(runtimeSettingsErrorMessage(new TypeError('Failed to fetch'))).toBe(
-      'Runtime settings could not be loaded. The browser could not reach the server. Check your connection, then refresh Settings.'
+      'Runtime settings could not be loaded. The app could not reach the service. Check your connection, then refresh Settings.'
     )
   })
 

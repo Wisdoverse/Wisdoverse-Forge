@@ -11,7 +11,7 @@ describe('resourceMemberErrorMessage', () => {
   test('turns network failures into reachable next steps', () => {
     const message = resourceMemberErrorMessage('load', 'Project', new Error('Failed to fetch'))
 
-    expect(message).toContain('browser could not reach the server')
+    expect(message).toContain('app could not reach the service')
     expect(message).toContain('Check your connection')
     expect(message).not.toContain('Failed to fetch')
   })

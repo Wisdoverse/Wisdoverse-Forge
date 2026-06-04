@@ -89,7 +89,7 @@ function chatStreamConflictMessage(detail: string | null): string {
 
 function chatStreamRequestErrorMessage(error: unknown): string {
   if (isAbortError(error)) return ''
-  return 'The chat request could not reach the server. Check your connection, then resend the message.'
+  return 'The chat request could not reach the service. Check your connection, then resend the message.'
 }
 
 function chatStreamReadErrorMessage(error: unknown): string {

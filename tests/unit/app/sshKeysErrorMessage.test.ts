@@ -22,7 +22,7 @@ describe('sshKeysErrorMessage', () => {
 
   test('explains network failures in user-facing terms', () => {
     expect(sshKeysErrorMessage(new TypeError('Failed to fetch'))).toBe(
-      'Repository SSH keys could not be loaded. The browser could not reach the server. Check your connection, then try again.'
+      'Repository SSH keys could not be loaded. The app could not reach the service. Check your connection, then try again.'
     )
   })
 })

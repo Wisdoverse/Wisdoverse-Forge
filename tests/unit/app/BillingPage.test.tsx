@@ -129,7 +129,7 @@ describe('BillingPage', () => {
       subscriptionError:
         'Plan and payment could not be loaded. Ask an owner or billing administrator for access.',
       usageError:
-        'Usage could not be loaded. The browser could not reach the server. Check your connection, then refresh this page.',
+        'Usage could not be loaded. The app could not reach the service. Check your connection, then refresh this page.',
     })
 
     render(<BillingPage />)
@@ -143,7 +143,7 @@ describe('BillingPage', () => {
     ).toBeDefined()
     expect(
       screen.getByText(
-        'Usage could not be loaded. The browser could not reach the server. Check your connection, then refresh this page.'
+        'Usage could not be loaded. The app could not reach the service. Check your connection, then refresh this page.'
       )
     ).toBeDefined()
   })
