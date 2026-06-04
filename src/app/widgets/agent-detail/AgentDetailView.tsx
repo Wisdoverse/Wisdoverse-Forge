@@ -615,10 +615,21 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
             ? `${agent.cliTool} is ready to start in its managed workspace.`
             : 'This agent does not need a managed workspace.'}
         </span>
+        {agent.cliTool && (
+          <span className="max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Start the workspace here. Success looks like the agent status changing to Idle or
+            Working, then this Console opens a live terminal. If it stays pending, ask an admin to
+            check the container runtime and agent image.
+          </span>
+        )}
       </div>
       {error && (
-        <div className="rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red">
-          {error}
+        <div
+          role="alert"
+          className="rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
+        >
+          Start did not finish. Check the agent status, then try once more. If it keeps failing, ask
+          an admin to check the container runtime. Details: {error}
         </div>
       )}
       {agent.cliTool && (
