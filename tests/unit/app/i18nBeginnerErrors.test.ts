@@ -9,7 +9,11 @@ describe('beginner error translations', () => {
     expect(en.errors.forbidden).toContain('Ask an owner or admin')
     expect(en.errors.agentError).toContain('check the agent status')
     expect(en.errors.agentError).not.toMatch(/^Agent error:/)
+    expect(en.errors.agentError).not.toContain('Detail:')
+    expect(en.errors.fileError).not.toContain('Detail:')
     expect(en.errors.uploadError).not.toMatch(/^Upload failed:/)
+    expect(en.errors.uploadError).not.toContain('Detail:')
+    expect(en.errors.downloadError).not.toContain('Detail:')
   })
 
   test('Chinese common errors avoid terse technical labels', () => {
@@ -18,7 +22,11 @@ describe('beginner error translations', () => {
     expect(zh.errors.forbidden).toContain('管理员')
     expect(zh.errors.agentError).toContain('检查会话状态')
     expect(zh.errors.agentError).not.toMatch(/^会话错误/)
+    expect(zh.errors.agentError).not.toContain('详情：')
+    expect(zh.errors.fileError).not.toContain('详情：')
     expect(zh.errors.uploadError).not.toMatch(/^上传失败/)
+    expect(zh.errors.uploadError).not.toContain('详情：')
+    expect(zh.errors.downloadError).not.toContain('详情：')
   })
 
   test('empty states include a next step', () => {

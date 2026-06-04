@@ -1,5 +1,6 @@
 import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { useAgentsStore } from '@app/entities/agent'
 import { AgentDetailView } from '@app/widgets/agent-detail/AgentDetailView'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 
@@ -14,6 +15,7 @@ vi.mock('@app/shared/api/orchestration', () => ({
 }))
 
 beforeEach(() => {
+  useAgentsStore.getState().reset()
   getTasksByAgentMock.mockResolvedValue([])
 })
 
@@ -207,6 +209,33 @@ describe('AgentDetailView', () => {
       screen.getByText(/ask an admin to check the container runtime and agent image/i)
     ).toBeDefined()
     expect(screen.getByRole('button', { name: /start agent workspace/i })).toBeDefined()
+  })
+
+  test('shows start failure guidance without raw runtime details', () => {
+    useAgentsStore.setState({
+      error: 'Docker socket refused',
+      startAgent: vi.fn(async () => false),
+    } as never)
+
+    render(
+      <AgentDetailView
+        agent={{
+          ...workspaceToolAgent,
+          id: 'pending-error',
+          status: 'offline',
+          containerId: undefined,
+        }}
+        onBack={() => {}}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /open console/i }))
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent('Start did not finish')
+    expect(alert).toHaveTextContent('ask an admin to check the container runtime and agent image')
+    expect(alert.textContent).not.toContain('Details:')
+    expect(alert.textContent).not.toContain('Docker socket refused')
   })
 
   test('guides offline Host CLI agents back to the local connection', () => {

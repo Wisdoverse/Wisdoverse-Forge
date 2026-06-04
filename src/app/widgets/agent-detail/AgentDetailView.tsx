@@ -629,7 +629,7 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
           className="rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
         >
           Start did not finish. Check the agent status, then try once more. If it keeps failing, ask
-          an admin to check the container runtime. Details: {error}
+          an admin to check the container runtime and agent image.
         </div>
       )}
       {agent.cliTool && (

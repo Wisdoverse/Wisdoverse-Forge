@@ -503,12 +503,10 @@ export const en = {
     reconnecting: 'Reconnecting...',
     reconnected: 'Connection restored',
     agentError:
-      'The agent could not finish this step. Try again or check the agent status. Detail: {{message}}',
-    fileError: 'The file could not be handled. Check the file, then try again. Detail: {{message}}',
-    uploadError:
-      'The upload did not finish. Check the file and connection, then try again. Detail: {{message}}',
-    downloadError:
-      'The download did not start. Refresh the page, then try again. Detail: {{message}}',
+      'The agent could not finish this step. Try again, then check the agent status if it repeats.',
+    fileError: 'The file could not be handled. Check the file, then try again.',
+    uploadError: 'The upload did not finish. Check the file and connection, then try again.',
+    downloadError: 'The download did not start. Refresh the page, then try again.',
     rateLimited: 'Too many requests. Please wait {{seconds}} seconds.',
     quotaExceeded:
       '{{resource}} quota is used up. Ask an owner to raise the limit or free capacity.',
