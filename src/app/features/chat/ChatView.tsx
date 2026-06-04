@@ -210,6 +210,7 @@ export function ChatView({ agentId }: ChatViewProps) {
       </div>
     ) : null
 
+  const modelServiceName = agent?.provider ?? 'the saved model service'
   const providerAgentBanner = isProviderAgent ? (
     <div
       data-testid="provider-agent-chat-banner"
@@ -220,8 +221,7 @@ export function ChatView({ agentId }: ChatViewProps) {
     >
       <span className="font-medium">Text-only model agent</span>
       <span className="text-apple-blue/80">
-        Messages are sent directly to {agent?.provider ?? 'the provider'} without opening workspace
-        files or a terminal.
+        Messages use {modelServiceName}. They do not open workspace files or a terminal.
       </span>
     </div>
   ) : null

@@ -265,10 +265,13 @@ describe('AgentDetailView', () => {
     render(<AgentDetailView agent={providerAgent} onBack={() => {}} />)
     expect(screen.getByText('Working folder')).toBeDefined()
     expect(screen.getAllByText('Not needed for this agent').length).toBeGreaterThan(0)
+    expect(screen.getByText(/answer through the model service/i)).toBeDefined()
     expect(screen.getByText(/do not open workspace files by themselves/i)).toBeDefined()
     expect(
       screen.getByText(/choose an agent on this computer or a managed workspace agent/i)
     ).toBeDefined()
+    expect(screen.getByText(/model service account access is checked in settings/i)).toBeDefined()
+    expect(screen.queryByText(/model provider/i)).toBeNull()
   })
 
   test('shows back button', () => {

@@ -25,6 +25,14 @@ const containerAgent: AgentInfo = {
   projectName: 'Default project',
 }
 
+const textOnlyAgent: AgentInfo = {
+  ...containerAgent,
+  id: 'text-agent',
+  name: 'Text Agent',
+  cliTool: undefined,
+  containerId: undefined,
+}
+
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
@@ -71,6 +79,14 @@ describe('AgentControlPanel', () => {
       expect(sendPromptMock).toHaveBeenCalledWith('agent-1', 'Check the latest run')
     })
     expect(screen.getByLabelText(/send a message/i)).toHaveValue('')
+  })
+
+  test('uses model service language for text-only agents', () => {
+    render(<AgentControlPanel agent={textOnlyAgent} onDeleted={() => {}} />)
+
+    expect(screen.getByText('Text-only model controls')).toBeDefined()
+    expect(screen.getByText(/saved model service/i)).toBeDefined()
+    expect(screen.queryByText(/provider setup/i)).toBeNull()
   })
 
   test('shows start guidance for pending agent workspaces', async () => {

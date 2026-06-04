@@ -86,8 +86,8 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
         </p>
       ) : (
         <p>
-          Text-only model agents answer through the model provider and do not open workspace files
-          by themselves. Choose an agent on this computer or a managed workspace agent when the task
+          Text-only model agents answer through the model service and do not open workspace files by
+          themselves. Choose an agent on this computer or a managed workspace agent when the task
           must inspect or edit files.
         </p>
       )}
@@ -236,7 +236,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
                     ? `This computer · ${agent.cliTool ?? 'unknown'}`
                     : agent.cliTool
                       ? `Managed workspace · ${agent.cliTool}`
-                      : `${agent.provider} model provider`
+                      : `${agent.provider} model service`
                 }
               />
               <DetailRow label="Status" value={agent.status} />
@@ -338,7 +338,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
     return {
       title: 'Fix setup before sending work',
       detail:
-        'This text-only model agent is offline. Check the model provider setup before sending work.',
+        'This text-only model agent is offline. Check the model service account access before sending work.',
       success: 'The agent returns to Idle and can receive tasks.',
       ready: false,
     }
@@ -473,14 +473,14 @@ function AssignmentFitCard({
     ? `${agent.cliTool ?? 'Work tool'} on this computer`
     : agent.cliTool
       ? `${agent.cliTool} managed workspace`
-      : `${agent.provider} model provider`
+      : `${agent.provider} model service`
   const credential = hostCli
     ? 'Uses the accounts and tools installed on the enrolled computer.'
     : agent.cliTool === 'codex'
       ? 'Sign-in status is checked in Agent setup.'
       : agent.cliTool
         ? 'Workspace access is added when the agent starts.'
-        : 'Model provider key readiness is checked in Settings providers.'
+        : 'Model service account access is checked in Settings.'
 
   return (
     <section

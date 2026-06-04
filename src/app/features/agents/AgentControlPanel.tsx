@@ -322,7 +322,7 @@ function getControlSummary(
   return {
     title: 'Text-only model controls',
     detail:
-      'This agent replies through its provider setup. Use messages for quick help and Tasks for tracked work.',
+      'This agent replies through its saved model service. Use messages for quick help and Tasks for tracked work.',
     Icon: CheckCircle2,
   }
 }
