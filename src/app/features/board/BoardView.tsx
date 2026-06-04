@@ -21,6 +21,7 @@ import {
   type BoardFilterCounts,
   type BoardPriorityFilter,
 } from './BoardToolbar'
+import { boardActionErrorMessage } from './boardErrorMessages'
 
 const COLUMN_ORDER: ColumnId[] = [
   'backlog',
@@ -58,6 +59,7 @@ export function BoardView() {
   const [participants, setParticipants] = useState<ParticipantSummary[]>([])
   const [participantsLoading, setParticipantsLoading] = useState(false)
   const [participantsError, setParticipantsError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [priorityFilter, setPriorityFilter] = useState<BoardPriorityFilter>('all')
   const [assigneeFilter, setAssigneeFilter] = useState<BoardAssigneeFilter>('all')
@@ -90,7 +92,7 @@ export function BoardView() {
         if (!cancelled) setTasks(tasks)
       } catch (err) {
         if (!cancelled && showLoading) {
-          setError(err instanceof Error ? err.message : 'Failed to load tasks')
+          setError(boardActionErrorMessage('loadTasks', err))
         }
       } finally {
         if (!cancelled && showLoading) setLoading(false)
@@ -114,7 +116,7 @@ export function BoardView() {
       setParticipants(await orchestrationApi.getParticipants('all'))
     } catch (err) {
       setParticipants([])
-      setParticipantsError(err instanceof Error ? err.message : 'Failed to load agent readiness')
+      setParticipantsError(boardActionErrorMessage('loadReadiness', err))
     } finally {
       if (showLoading) setParticipantsLoading(false)
     }
@@ -168,19 +170,22 @@ export function BoardView() {
     const previousCol = currentCol
 
     // Optimistic update
+    setActionError(null)
     moveTask(taskId, colId)
 
     try {
       await orchestrationApi.updateTask(taskId, { state: newState })
-    } catch {
+    } catch (err) {
       // Rollback on failure
       if (previousCol) moveTask(taskId, previousCol)
+      setActionError(boardActionErrorMessage('moveTask', err))
       console.error('Failed to persist task move')
     }
   }
 
   async function handleQuickCreate(title: string) {
     if (!selectedGroupId) return
+    setActionError(null)
     try {
       const response = await orchestrationApi.createTask({
         groupId: selectedGroupId,
@@ -188,8 +193,11 @@ export function BoardView() {
       })
       if (response.ok && response.task) {
         upsertTask(response.task)
+      } else if (!response.ok) {
+        setActionError(boardActionErrorMessage('createTask', response))
       }
     } catch (err) {
+      setActionError(boardActionErrorMessage('createTask', err))
       console.error('Failed to create task:', err)
     }
   }
@@ -207,7 +215,7 @@ export function BoardView() {
       }
       setPreview(await orchestrationApi.previewContext(task.id, agentId))
     } catch (err) {
-      setPreviewError(err instanceof Error ? err.message : 'Failed to load context preview')
+      setPreviewError(boardActionErrorMessage('previewContext', err))
     } finally {
       setPreviewLoading(false)
     }
@@ -228,7 +236,7 @@ export function BoardView() {
       setPreviewTask(null)
       setPreview(null)
     } catch (err) {
-      setPreviewError(err instanceof Error ? err.message : 'Failed to publish task')
+      setPreviewError(boardActionErrorMessage('publishTask', err))
     } finally {
       setPublishing(false)
     }
@@ -322,6 +330,15 @@ export function BoardView() {
             setAssigneeFilter('all')
           }}
         />
+        {actionError ? (
+          <div
+            data-testid="board-action-error"
+            role="alert"
+            className="rounded-lg border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red"
+          >
+            {actionError}
+          </div>
+        ) : null}
         {hasActiveBoardFilter && filterCounts.visible === 0 ? (
           <div
             data-testid="board-filter-empty"

@@ -63,6 +63,28 @@ describe('BoardView', () => {
     expect(screen.getByText('Canceled')).toBeDefined()
   })
 
+  test('shows beginner sign-in guidance when tasks fail to load', async () => {
+    mockGetTasks.mockRejectedValueOnce(new Error('401 Unauthorized'))
+    useBoardStore.getState().setSelectedGroupId('test-group')
+
+    render(<BoardView />)
+
+    const error = await screen.findByTestId('board-error')
+    expect(error.textContent).toContain('Sign in again')
+    expect(error.textContent).toContain('Code: 401')
+    expect(error.textContent).not.toContain('401 Unauthorized')
+  })
+
+  test('shows beginner network guidance when readiness cannot load', async () => {
+    mockGetParticipants.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    useBoardStore.getState().setSelectedGroupId('test-group')
+
+    render(<BoardView />)
+
+    expect(await screen.findByText(/the browser could not reach the server/i)).toBeDefined()
+    expect(screen.queryByText(/failed to fetch/i)).toBeNull()
+  })
+
   test('shows board-level assignment readiness with agent blockers', async () => {
     mockGetParticipants.mockResolvedValueOnce([
       {
