@@ -20,7 +20,7 @@ const RUNTIME_LABELS: Record<string, string> = {
   container: 'Managed workspace',
   provider: 'Model service',
   local: 'Local agent',
-  cli: 'Container CLI',
+  cli: 'This computer',
 }
 
 const TASK_KIND_LABELS: Record<string, string> = {

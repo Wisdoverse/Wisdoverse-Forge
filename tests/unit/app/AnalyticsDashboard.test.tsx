@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { AnalyticsDashboard } from '@app/features/analytics/AnalyticsDashboard'
 import { useAnalyticsStore } from '@app/shared/model/analytics.store'
+import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
 
 // The dashboard kicks off a `load()` on mount. Stub it so we render
 // synchronously with a curated slice of state.
@@ -18,14 +19,17 @@ beforeEach(() => {
       { hour: 13, count: 8 },
     ],
     agentStats: { total: 3, online: 2, offline: 1, working: 1 },
+    contextUsage: null,
     loading: false,
     error: null,
   })
+  useContextFeaturesStore.getState().reset()
 })
 
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  useContextFeaturesStore.getState().reset()
 })
 
 describe('AnalyticsDashboard · ActivityBarChart', () => {
@@ -83,6 +87,61 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     expect(alert).toHaveTextContent('Check your connection, then refresh the dashboard.')
     fireEvent.click(screen.getByRole('button', { name: /refresh dashboard/i }))
     expect(load).toHaveBeenCalled()
+  })
+
+  test('labels local agent work without container jargon', () => {
+    useContextFeaturesStore.setState({ analytics: true, loaded: true, loading: false })
+    useAnalyticsStore.setState({
+      contextUsage: {
+        lastRefreshedAt: new Date().toISOString(),
+        staleAfterHours: 24,
+        isStale: false,
+        query: {
+          limit: 8,
+          minApplied: 1,
+          staleAfterDays: 30,
+          minSuccessRate: 0.5,
+          negativeRate: 0.25,
+        },
+        summary: {
+          rowCount: 1,
+          distinctItems: 1,
+          distinctAgents: 1,
+          appliedCount: 3,
+          completedCount: 3,
+          successRate: 1,
+          feedbackUsefulCount: 1,
+          feedbackNegativeCount: 0,
+        },
+        topUseful: [
+          {
+            itemId: 'memory-1',
+            itemKind: 'memory',
+            itemTitle: 'Release checklist',
+            taskKind: 'coding',
+            runtime: 'cli',
+            agentId: 'agent-1',
+            agentName: 'Local Agent',
+            appliedCount: 3,
+            completedCount: 3,
+            successRate: 1,
+            feedbackTotalCount: 1,
+            feedbackUsefulCount: 1,
+            feedbackNegativeCount: 0,
+            negativeFeedbackRate: 0,
+            lastUsedAt: new Date().toISOString(),
+          },
+        ],
+        staleItems: [],
+        needsReview: [],
+      },
+    })
+
+    render(<AnalyticsDashboard />)
+
+    const item = screen.getByTestId('context-usage-item')
+    expect(item.textContent).toContain('Local Agent · This computer · Code change')
+    expect(item.textContent).not.toContain('Container CLI')
   })
 
   test('renders the hourly activity chart with axis labels', () => {
