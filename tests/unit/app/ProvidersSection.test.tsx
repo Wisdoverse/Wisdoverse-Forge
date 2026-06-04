@@ -230,4 +230,20 @@ describe('ProvidersSection', () => {
     )
     expect(screen.queryByText(/HTTP 403/i)).toBeNull()
   })
+
+  test('shows a beginner recovery step instead of raw provider setting details', async () => {
+    useSettingsStore.setState({
+      providers: [],
+      providersError:
+        'Check the required fields for provider, then try again. Code: 422. Details: API key is required',
+    })
+
+    render(<ProvidersSection />)
+
+    await waitFor(() => expect(loadProvidersMock).toHaveBeenCalledTimes(1))
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Provider could not be saved. Check the provider, model, API key, and Base URL, then save again.'
+    )
+    expect(screen.queryByText(/Details: API key is required/i)).toBeNull()
+  })
 })

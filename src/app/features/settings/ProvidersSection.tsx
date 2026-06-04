@@ -12,6 +12,7 @@ import type {
 } from '@app/shared/api/legacy/settingsApi'
 import { getSettingsApi } from '@app/shared/api/legacy'
 import { providerTestErrorMessage } from './providerTestErrorMessage'
+import { providerSettingsErrorMessage } from './providerSettingsErrorMessage'
 
 // ============================================================================
 // Types
@@ -1076,7 +1077,11 @@ export function ProvidersSection() {
       </div>
 
       {/* Error */}
-      {providersError && <div className={uiStyles.error}>{providersError}</div>}
+      {providersError && (
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
+          {providerSettingsErrorMessage(providersError)}
+        </div>
+      )}
 
       <ProviderReadinessPanel providers={providers} />
       <ProviderNextStepPanel step={nextStep} onAction={handleNextStepAction} />
