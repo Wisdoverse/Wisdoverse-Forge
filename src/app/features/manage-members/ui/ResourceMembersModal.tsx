@@ -18,6 +18,7 @@ import type {
   UpdateResourceMemberInput,
 } from '@app/entities/member'
 import type { OrgUser } from '@app/entities/user'
+import { resourceMemberErrorMessage } from '../model/resourceMemberErrorMessages'
 
 const ROLE_OPTIONS: Array<{ value: ResourceMemberRole; label: string }> = [
   { value: 'owner', label: 'Owner' },
@@ -100,11 +101,7 @@ export function ResourceMembersModal({
       })
       .catch((err) => {
         if (cancelled) return
-        setError(
-          err instanceof Error
-            ? err.message
-            : `Failed to load ${resourceLabel.toLowerCase()} members`
-        )
+        setError(resourceMemberErrorMessage('load', resourceLabel, err))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -166,7 +163,7 @@ export function ResourceMembersModal({
       setSelectedRole('member')
       setConfirmRemoveUserId(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add member')
+      setError(resourceMemberErrorMessage('add', resourceLabel, err))
     } finally {
       setBusyKey(null)
     }
@@ -181,7 +178,7 @@ export function ResourceMembersModal({
       const updated = await updateMember(member.userId, { role })
       setMembers((prev) => prev.map((item) => (item.userId === member.userId ? updated : item)))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update member role')
+      setError(resourceMemberErrorMessage('updateRole', resourceLabel, err))
     } finally {
       setBusyKey(null)
     }
@@ -196,7 +193,7 @@ export function ResourceMembersModal({
       setMembers((prev) => prev.filter((item) => item.userId !== member.userId))
       setConfirmRemoveUserId(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to remove member')
+      setError(resourceMemberErrorMessage('remove', resourceLabel, err))
     } finally {
       setBusyKey(null)
     }
