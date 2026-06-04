@@ -17,6 +17,7 @@ import { useSettingsStore } from '@app/shared/model/settings.store'
 import type { LocalAgentEnrollmentResponse } from '@app/entities/agent'
 import type { LlmProviderConfig } from '@app/shared/api/legacy/settingsApi'
 import type { CliTool } from '@shared/types'
+import { createAgentWorkLaneErrorMessage } from './model/createAgentWorkLaneErrorMessage'
 
 type AgentKind = 'cli' | 'local-cli' | 'provider'
 
@@ -321,7 +322,7 @@ export function CreateAgentModal() {
       })
       setValue('groupId', group.id, { shouldDirty: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create work lane')
+      setError(createAgentWorkLaneErrorMessage(err))
     } finally {
       setCreatingGroup(false)
     }
@@ -393,7 +394,10 @@ export function CreateAgentModal() {
         </div>
 
         {error && (
-          <div className="mb-4 rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red">
+          <div
+            role="alert"
+            className="mb-4 rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
+          >
             {error}
           </div>
         )}

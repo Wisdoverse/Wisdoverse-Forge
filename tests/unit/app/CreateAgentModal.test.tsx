@@ -57,7 +57,9 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText(/shared workspace mount/i)).toBeInTheDocument()
     expect(screen.getAllByText(/primary project/i).length).toBeGreaterThan(0)
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/choose a project first/i)
-    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/select a project in the sidebar/i)
+    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
+      /select a project in the sidebar/i
+    )
     expect(screen.queryByLabelText(/^provider$/i)).toBeNull()
     expect(screen.queryByLabelText(/^model$/i)).toBeNull()
   })
@@ -65,6 +67,7 @@ describe('CreateAgentModal', () => {
   test('shows selected project as the primary project context', () => {
     useNavigationStore.setState({
       selectedProjectId: 'p1',
+      agentGroups: [],
       projects: {
         t1: [
           {
@@ -160,6 +163,35 @@ describe('CreateAgentModal', () => {
       projectId: 'p1',
       groupId: 'group-new',
     })
+  })
+
+  test('explains work lane creation permission failures without raw API text', async () => {
+    vi.mocked(agentGroupApi.createGroup).mockRejectedValueOnce(new Error('HTTP 403: Forbidden'))
+    useNavigationStore.setState({
+      selectedProjectId: 'p1',
+      agentGroups: [],
+      projects: {
+        t1: [
+          {
+            id: 'p1',
+            teamId: 't1',
+            workspaceId: 'w1',
+            name: 'Platform',
+            slug: 'platform',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+    })
+
+    render(<CreateAgentModal />)
+    fireEvent.click(await screen.findByRole('button', { name: /create task group/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Work lane was not created. Ask a workspace owner or admin to let you manage this project's work lanes."
+    )
+    expect(screen.queryByText(/HTTP 403/i)).toBeNull()
   })
 
   test('switching to Provider+Prompt hides CLI fields and shows Provider/Model', () => {
