@@ -306,13 +306,13 @@ describe('GettingStartedView', () => {
 
     render(<GettingStartedView />)
 
-    expect(await screen.findByText('Test the model service before assigning work.')).toBeDefined()
+    expect(await screen.findByText('Check the model service before assigning work.')).toBeDefined()
     expect(screen.getByText('Do this next')).toBeDefined()
     expect(
-      screen.getAllByText(/Agents need either a tested model service/i).length
+      screen.getAllByText(/Agents need a checked model service/i).length
     ).toBeGreaterThan(0)
     expect(screen.queryByText('100%')).toBeNull()
-    const [testProviderButton] = screen.getAllByRole('button', { name: /test model service/i })
+    const [testProviderButton] = screen.getAllByRole('button', { name: /check model service/i })
     expect(testProviderButton).toBeDefined()
     fireEvent.click(testProviderButton!)
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/providers' })
