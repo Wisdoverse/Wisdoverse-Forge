@@ -15,7 +15,7 @@ export const Route = createRoute({
         <FeatureRouteLoadingState
           testId="context-route-loading"
           title="Checking context review"
-          detail="We are confirming whether context review is enabled for this workspace. If this takes more than a moment, refresh the page or ask an administrator to check setup."
+          detail="We are confirming whether context review is enabled for this workspace. If this takes more than a moment, refresh the page or ask an owner or admin to check workspace setup."
         />
       )
     }
