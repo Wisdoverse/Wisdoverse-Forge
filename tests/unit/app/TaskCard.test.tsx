@@ -156,7 +156,9 @@ describe('TaskCard', () => {
     expect(preview.textContent).toContain('model service is busy')
     expect(preview.textContent).not.toContain('429')
     expect(preview.textContent).not.toContain('provider')
-    expect(preview.getAttribute('title')).toBe('Rate limit exceeded: 429 from provider')
+    expect(preview.getAttribute('title')).toContain('model service is busy')
+    expect(preview.getAttribute('title')).not.toContain('429')
+    expect(preview.getAttribute('title')).not.toContain('provider')
   })
 
   test('does not show error preview when state is not failed', () => {

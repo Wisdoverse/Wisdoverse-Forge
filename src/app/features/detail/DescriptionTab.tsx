@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { taskResultArtifacts, type TaskSummary } from '@app/shared/api/orchestration'
 import { formatRelativeTime } from '@app/shared/lib/time'
+import { taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { cn } from '@app/shared/lib/utils'
 
 interface DescriptionTabProps {
@@ -36,6 +37,7 @@ export function DescriptionTab({
   const canReview = task.state === 'completed' || task.state === 'failed'
   const nextAction = nextActionForTask(task, resultArtifacts.length, contextTotal)
   const assignment = assignmentSummary(task)
+  const failurePreview = task.error ? taskFailurePreview(task.error) : null
 
   return (
     <div className="space-y-3 py-3" data-testid="task-work-review">
@@ -136,8 +138,10 @@ export function DescriptionTab({
               </div>
             </div>
           )}
-          {task.error && (
-            <p className="rounded-lg bg-apple-red/10 px-2 py-1.5 text-apple-red">{task.error}</p>
+          {failurePreview && (
+            <p className="rounded-lg bg-apple-red/10 px-2 py-1.5 text-apple-red">
+              {failurePreview}
+            </p>
           )}
         </div>
       </ReviewSection>
@@ -363,9 +367,7 @@ function nextActionForTask(
     case 'failed':
       return {
         title: 'Triage failure',
-        detail:
-          task.error ??
-          'Inspect the run history, then decide whether to retry or rewrite the brief.',
+        detail: taskFailurePreview(task.error),
         tone: 'warn',
       }
     case 'canceled':

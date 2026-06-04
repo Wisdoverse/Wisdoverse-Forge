@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { cn } from '@app/shared/lib/utils'
+import { taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import {
   orchestrationApi,
   taskResultArtifacts,
@@ -294,7 +295,7 @@ function taskCheckIn(task: TaskSummary): {
     case 'failed':
       return {
         title: `${agentName} could not finish`,
-        detail: task.error ?? 'Read the latest attempt before retrying this task.',
+        detail: taskFailurePreview(task.error),
         tone: 'danger',
         Icon: XCircle,
       }
@@ -368,7 +369,7 @@ function taskHistoryEvents(task: TaskSummary): { id: string; title: string; deta
     events.push({
       id: 'failed',
       title: 'Work stopped',
-      detail: task.error ?? `Updated ${formatRelativeTime(task.updatedAt)}`,
+      detail: taskFailurePreview(task.error),
     })
   }
 

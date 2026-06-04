@@ -74,4 +74,20 @@ describe('DescriptionTab', () => {
     expect(onOpenResult).toHaveBeenCalledOnce()
     expect(onOpenContext).toHaveBeenCalledOnce()
   })
+
+  test('summarizes failed task errors without raw service details', () => {
+    render(
+      <DescriptionTab
+        task={{
+          ...mockTask,
+          state: 'failed',
+          error: 'Rate limit exceeded: 429 from provider',
+        }}
+      />
+    )
+
+    expect(screen.getAllByText(/model service is busy/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/429/)).toBeNull()
+    expect(screen.queryByText(/provider/i)).toBeNull()
+  })
 })

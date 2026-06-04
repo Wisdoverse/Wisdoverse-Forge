@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Bot, CheckCircle2, ListChecks, RotateCcw, Send, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import {
   orchestrationApi,
   taskResultArtifacts,
@@ -37,6 +38,8 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   const canPublishWithContext = useContextFeaturesStore((s) => s.preview && s.injection)
   const resultArtifacts = taskResultArtifacts(task.result)
   const hasResult = resultArtifacts.length > 0
+  const failurePreview =
+    task.state === 'failed' && task.error ? taskFailurePreview(task.error) : null
   const baseTabs = contextVisible ? BASE_TABS : BASE_TABS.filter((tab) => tab.id !== 'context')
   const tabs = hasResult
     ? [baseTabs[0], { id: 'result' as TabId, label: 'Result' }, ...baseTabs.slice(1)]
@@ -188,9 +191,12 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       </div>
 
       {/* Error banner for failed tasks */}
-      {task.state === 'failed' && task.error && (
-        <div className="mt-2 px-3 py-2 rounded-lg bg-apple-red/10 text-apple-red text-xs">
-          {task.error}
+      {failurePreview && (
+        <div
+          data-testid="task-detail-failure-preview"
+          className="mt-2 px-3 py-2 rounded-lg bg-apple-red/10 text-apple-red text-xs"
+        >
+          {failurePreview}
         </div>
       )}
 

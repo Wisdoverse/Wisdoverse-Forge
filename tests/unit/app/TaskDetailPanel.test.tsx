@@ -120,7 +120,7 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByText('Task story')).toBeDefined()
     expect(screen.getByText('Run attempts')).toBeDefined()
     expect(await screen.findByText('Attempt In Progress')).toBeDefined()
-    expect(screen.getByText(/work method: desktop app/i)).toBeDefined()
+    expect(screen.getByText(/ran with desktop app/i)).toBeDefined()
     expect(screen.getByText(/ref run-1234/i)).toBeDefined()
     expect(screen.getAllByText(/waiting for api credentials/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
@@ -198,6 +198,24 @@ describe('TaskDetailPanel', () => {
       id: 'task-1',
       state: 'queued',
     })
+  })
+
+  test('summarizes failed task errors without raw service details', () => {
+    render(
+      <TaskDetailPanel
+        task={{
+          ...mockTask,
+          state: 'failed',
+          error: 'Rate limit exceeded: 429 from provider',
+        }}
+        onClose={() => {}}
+      />
+    )
+
+    const preview = screen.getByTestId('task-detail-failure-preview')
+    expect(preview.textContent).toContain('model service is busy')
+    expect(preview.textContent).not.toContain('429')
+    expect(preview.textContent).not.toContain('provider')
   })
 
   test('shows beginner guidance when retry fails', async () => {

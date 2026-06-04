@@ -78,4 +78,21 @@ describe('HistoryTab', () => {
     expect(await screen.findByText(/Ran with codex/i)).toBeInTheDocument()
     expect(screen.queryByText(/Work method|configured worker|unknown worker|runtime/i)).toBeNull()
   })
+
+  test('summarizes failed task history without raw service details', async () => {
+    getTaskRunsMock.mockResolvedValue([])
+
+    render(
+      <HistoryTab
+        task={makeTask({
+          state: 'failed',
+          error: 'Rate limit exceeded: 429 from provider',
+        })}
+      />
+    )
+
+    expect(await screen.findAllByText(/model service is busy/i)).toHaveLength(2)
+    expect(screen.queryByText(/429/)).toBeNull()
+    expect(screen.queryByText(/provider/i)).toBeNull()
+  })
 })

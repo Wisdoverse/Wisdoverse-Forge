@@ -3,6 +3,7 @@ import { useDraggable } from '@dnd-kit/core'
 import { Brain, Send, WandSparkles } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
+import { taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import {
   taskResultArtifacts,
   type TaskContextCounts,
@@ -68,7 +69,7 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
         resultCount: resultArtifacts.length,
       })
   const failurePreview =
-    task.state === 'failed' && task.error ? formatTaskErrorPreview(task.error) : null
+    task.state === 'failed' && task.error ? taskFailurePreview(task.error) : null
 
   function trackPressStart(e: PointerEvent<HTMLDivElement> | MouseEvent<HTMLDivElement>) {
     if (e.button !== 0) return
@@ -181,7 +182,7 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
         <p
           data-testid="task-error-preview"
           className="mb-1.5 line-clamp-1 text-ui-caption font-medium text-apple-red"
-          title={task.error}
+          title={failurePreview}
         >
           {failurePreview}
         </p>
@@ -310,31 +311,6 @@ function taskNextStep(task: TaskSummary, options: TaskNextStepOptions): string |
     default:
       return null
   }
-}
-
-function formatTaskErrorPreview(error: string): string {
-  const message = error.trim()
-  if (!message) return 'Task failed. Open details to see what happened.'
-
-  const lowerMessage = message.toLowerCase()
-  if (lowerMessage.includes('rate limit') || /\b429\b/.test(message)) {
-    return 'Task paused because the model service is busy. Open details to retry when ready.'
-  }
-  if (lowerMessage.includes('timeout') || lowerMessage.includes('timed out')) {
-    return 'Task took too long to answer. Open details to retry.'
-  }
-  if (
-    lowerMessage.includes('permission') ||
-    lowerMessage.includes('forbidden') ||
-    /\b403\b/.test(message)
-  ) {
-    return 'Task needs permission before it can continue. Open details for next steps.'
-  }
-  if (lowerMessage.includes('unauthorized') || /\b401\b/.test(message)) {
-    return 'Task needs a valid sign-in or service key. Open details for next steps.'
-  }
-
-  return 'Task failed. Open details to see what happened and retry.'
 }
 
 function formatContextCountsLabel(counts: TaskContextCounts): string {
