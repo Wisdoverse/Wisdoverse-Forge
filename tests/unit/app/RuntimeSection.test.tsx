@@ -120,6 +120,12 @@ describe('RuntimeSection', () => {
     expect(nextStep).toHaveTextContent('Work tool packages')
     expect(screen.getByText('Before assigning work')).toBeDefined()
     expect(screen.getByText('2/4 ready')).toBeDefined()
+    expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Text-only model service').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Codex').length).toBeGreaterThan(0)
+    expect(screen.queryByText('container')).toBeNull()
+    expect(screen.queryByText('api')).toBeNull()
+    expect(screen.queryByText('codex')).toBeNull()
     expect(screen.getAllByText(/Rebuild the agent work-tool packages/i).length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: /Connect GitHub/i })).toBeDefined()
 

@@ -118,10 +118,10 @@ export function RuntimeSection() {
     setSaving(false)
   }
 
-  const runtimeLabel = (rt: RuntimeType): string =>
-    t(`settings.runtime.runtimeLabels.${rt}`, { defaultValue: rt })
-  const cliToolLabel = (tool: CliTool): string =>
-    t(`settings.runtime.cliToolLabels.${tool}`, { defaultValue: tool })
+  const runtimeLabel = (rt: RuntimeType | string): string =>
+    t(`settings.runtime.runtimeLabels.${rt}`, { defaultValue: fallbackRuntimeLabel(rt) })
+  const cliToolLabel = (tool: CliTool | string): string =>
+    t(`settings.runtime.cliToolLabels.${tool}`, { defaultValue: fallbackCliToolLabel(tool) })
   const runtimeReady = Boolean(
     runtimeSettings &&
     runtimeSettings.availableRuntimes.length > 0 &&
@@ -275,6 +275,7 @@ export function RuntimeSection() {
                 key={status.provider}
                 status={status}
                 opening={openingProvider === status.provider}
+                cliToolLabel={cliToolLabel}
                 onConnect={() => void connectCliProvider(status.provider)}
               />
             ))}
@@ -438,7 +439,7 @@ export function RuntimeSection() {
               <div className="flex flex-wrap justify-end gap-1.5">
                 {runtimeSettings.availableRuntimes.map((rt) => (
                   <span key={rt} className={uiStyles.badge}>
-                    {rt}
+                    {runtimeLabel(rt)}
                   </span>
                 ))}
               </div>
@@ -452,7 +453,7 @@ export function RuntimeSection() {
               <div className="flex flex-wrap justify-end gap-1.5">
                 {runtimeSettings.availableCliTools.map((tool) => (
                   <span key={tool} className={uiStyles.badge}>
-                    {tool}
+                    {cliToolLabel(tool)}
                   </span>
                 ))}
               </div>
@@ -641,10 +642,12 @@ function RuntimeReadinessMetric({
 function CredentialStatusRow({
   status,
   opening,
+  cliToolLabel,
   onConnect,
 }: {
   status: CliAuthProxyStatusEntry
   opening: boolean
+  cliToolLabel: (tool: string) => string
   onConnect: () => void
 }) {
   const detail = status.connected
@@ -669,7 +672,7 @@ function CredentialStatusRow({
             {status.displayName}
           </span>
           <span className="shrink-0 rounded-full bg-black/[0.05] px-2 py-0.5 text-ui-caption text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-            {status.cliTool}
+            {cliToolLabel(status.cliTool)}
           </span>
         </div>
         <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -803,6 +806,42 @@ function versionSourceLabel(source: string, imagePresent: boolean): string {
   if (source === 'docker-label') return 'ready'
   if (source === 'image-tag') return imagePresent ? 'version found' : 'not checked'
   return 'not reported'
+}
+
+function fallbackRuntimeLabel(runtime: string): string {
+  switch (runtime) {
+    case 'cli':
+      return 'This computer'
+    case 'api':
+      return 'Text-only model service'
+    case 'container':
+      return 'Managed workspace'
+    default:
+      return titleFromSlug(runtime)
+  }
+}
+
+function fallbackCliToolLabel(tool: string): string {
+  switch (tool) {
+    case 'claude':
+      return 'Claude'
+    case 'codex':
+      return 'Codex'
+    case 'gemini':
+      return 'Gemini'
+    case 'opencode':
+      return 'OpenCode'
+    default:
+      return titleFromSlug(tool)
+  }
+}
+
+function titleFromSlug(value: string): string {
+  return value
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
 }
 
 function latestParticipantHeartbeat(participants: ParticipantSummary[]): string | null {
