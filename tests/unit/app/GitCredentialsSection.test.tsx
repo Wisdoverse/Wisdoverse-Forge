@@ -66,4 +66,18 @@ describe('GitCredentialsSection', () => {
       expect(saveGitCredentialMock).toHaveBeenCalledWith('github', 'ghp_example_token', undefined)
     )
   })
+
+  test('shows a beginner recovery step instead of raw git credential details', async () => {
+    useSettingsStore.setState({
+      gitCredentialsError: 'Settings could not save Git credential. Details: invalid token',
+    })
+
+    render(<GitCredentialsSection />)
+
+    await waitFor(() => expect(loadGitCredentialsMock).toHaveBeenCalled())
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Repository token could not be saved. Paste a new token from GitHub or GitLab with repository access, then save again.'
+    )
+    expect(screen.queryByText(/Details: invalid token/i)).toBeNull()
+  })
 })
