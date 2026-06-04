@@ -15,6 +15,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { useBoardStore } from '@app/shared/model/board.store'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 import { useNavigationStore } from '@app/entities/navigation'
@@ -586,7 +587,7 @@ function routedTaskNextStep(task: TaskSummary): string {
     case 'blocked':
       return task.blockedHint ?? 'Resolve blocker'
     case 'failed':
-      return task.error ?? 'Review failure and retry'
+      return taskFailurePreview(task.error)
     case 'completed':
       return 'Review completed handoff'
     case 'canceled':

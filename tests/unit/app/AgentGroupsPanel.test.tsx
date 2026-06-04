@@ -81,7 +81,7 @@ describe('AgentGroupsPanel', () => {
         id: 'failed-1',
         state: 'failed',
         params: { task: 'Retry deployment', message: '' },
-        error: 'Missing secret',
+        error: 'Rate limit exceeded: 429 from provider',
       }),
       makeTask({
         id: 'done-1',
@@ -111,7 +111,10 @@ describe('AgentGroupsPanel', () => {
     expect(screen.getByText('Auth handoff blocked')).toBeInTheDocument()
     expect(screen.getByText(/needs agent .* assign an agent before dispatch/i)).toBeInTheDocument()
     expect(screen.getByText(/build runner .* monitor live progress/i)).toBeInTheDocument()
-    expect(screen.getByText(/needs agent .* missing secret/i)).toBeInTheDocument()
+    expect(screen.getByText(/needs agent .* model service is busy/i)).toBeInTheDocument()
+    expect(screen.queryByText(/429/)).toBeNull()
+    expect(screen.queryByText(/rate limit exceeded/i)).toBeNull()
+    expect(screen.queryByText(/from provider/i)).toBeNull()
     expect(screen.queryByText('Other group work')).toBeNull()
   })
 
