@@ -145,6 +145,8 @@ describe('InboxView', () => {
     const nextStep = screen.getByTestId('inbox-next-step')
     expect(nextStep).toHaveTextContent('Reconnect a credential before more agent work starts')
     expect(nextStep).toHaveTextContent('keeps future agent runs from failing')
+    expect(screen.getByText('Reconnect agent work access')).toBeDefined()
+    expect(screen.queryByText(/runtime access/i)).toBeNull()
     expect(screen.getByRole('button', { name: /open settings/i })).toBeDefined()
   })
 

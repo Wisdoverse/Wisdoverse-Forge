@@ -108,6 +108,7 @@ export function InboxItem({
 }) {
   const config = TYPE_CONFIG[notification.type]
   const Icon = config.Icon
+  const message = displayNotificationMessage(notification)
 
   return (
     <button
@@ -156,7 +157,7 @@ export function InboxItem({
           {notification.taskTitle}
         </p>
         <p className="mt-0.5 line-clamp-2 break-words text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {notification.message}
+          {message}
         </p>
         <p className="mt-1 text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
           {config.guidance}
@@ -167,6 +168,13 @@ export function InboxItem({
       </div>
     </button>
   )
+}
+
+function displayNotificationMessage(notification: Notification): string {
+  if (notification.type === 'credential_expired') {
+    return notification.message.replace(/\bruntime access\b/gi, 'agent work access')
+  }
+  return notification.message
 }
 
 function formatTime(ts: number): string {
