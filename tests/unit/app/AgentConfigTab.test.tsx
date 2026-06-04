@@ -116,7 +116,7 @@ describe('AgentConfigTab', () => {
       expect(screen.getByRole('alert')).toHaveTextContent(/prompt profile was not saved/i)
     )
     expect(screen.getByRole('alert')).toHaveTextContent(
-      /confirm it is still a provider-backed agent/i
+      /confirm it is still a text-only model agent/i
     )
     expect(screen.getByRole('alert')).toHaveTextContent(/ask an admin to check your agent access/i)
   })
@@ -135,9 +135,9 @@ describe('AgentConfigTab', () => {
     render(<AgentConfigTab agentId="cli1" />)
     expect(screen.queryByLabelText(/system prompt/i)).toBeNull()
     expect(screen.getByTestId('agent-cli-config-summary')).toBeInTheDocument()
-    expect(screen.getByText('Runtime profile')).toBeInTheDocument()
-    expect(screen.getAllByText('Container CLI').length).toBeGreaterThan(0)
-    expect(screen.getByText(/only available for provider\+prompt agents/i)).toBeInTheDocument()
+    expect(screen.getByText('Work profile')).toBeInTheDocument()
+    expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
+    expect(screen.getByText(/only available for text-only model agents/i)).toBeInTheDocument()
   })
 
   it('renders "Agent not found" for unknown id', () => {

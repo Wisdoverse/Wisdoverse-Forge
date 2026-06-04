@@ -94,7 +94,7 @@ const BOTTOM_ITEMS: NavItem[] = [
     id: 'settings',
     Icon: Settings,
     labelKey: 'nav.settings',
-    description: 'configure workspace, runtime, and access',
+    description: 'configure workspace, agents, and access',
     path: '/settings',
   },
 ]

@@ -183,15 +183,15 @@ export function AgentTerminalTab({
         <div>
           <h3 className="text-sm font-semibold text-white">Terminal unavailable</h3>
           <p className="mt-1 text-xs leading-relaxed text-white/60">
-            The Container CLI runtime is selected, but no running container is attached yet.
+            This managed workspace is selected, but its terminal is not online yet.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2 text-[11px] text-white/55">
           <span>Agent status</span>
           <span className="text-white/80">{agentStatus ?? 'unknown'}</span>
-          <span>Runtime</span>
-          <span className="text-white/80">{cliTool ?? 'container-cli'}</span>
-          <span>Container</span>
+          <span>Work tool</span>
+          <span className="text-white/80">{cliTool ?? 'work-tool'}</span>
+          <span>Workspace</span>
           <span className="text-white/80">Pending</span>
         </div>
       </div>
@@ -215,7 +215,7 @@ export function AgentTerminalTab({
       >
         <span className="text-white/40">$</span>
         <span className="truncate text-white/40">Agent: {(agentName ?? agentId).slice(0, 24)}</span>
-        <span className="truncate text-white/25">Container: {containerId.slice(0, 12)}</span>
+        <span className="truncate text-white/25">Workspace: {containerId.slice(0, 12)}</span>
         <span className="flex-1" />
         <span
           className={cn(

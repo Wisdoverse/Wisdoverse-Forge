@@ -281,10 +281,10 @@ export function CliImagesPanel() {
     <div>
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>CLI agent images</h2>
+          <h2 className={uiStyles.sectionTitle}>Agent work-tool images</h2>
           <p className={uiStyles.sectionDescription}>
-            Shows whether each Container CLI image (codex, gemini, opencode) is current. Refreshes
-            every 30 seconds.
+            Shows whether each work-tool image (codex, gemini, opencode) is current. Refreshes every
+            30 seconds.
           </p>
         </div>
         <button

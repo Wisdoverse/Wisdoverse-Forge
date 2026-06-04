@@ -242,7 +242,7 @@ function agentConflictMessage(action: AgentErrorAction, detail: string | null): 
 
 function agentServerMessage(action: AgentErrorAction): string {
   if (action === 'start' || action === 'restart' || action === 'create') {
-    return 'The agent runtime is temporarily unavailable. Wait a moment, then try again. If it still fails, ask an owner or admin to check the agent runtime.'
+    return 'The agent workspace is temporarily unavailable. Wait a moment, then try again. If it still fails, ask an owner or admin to check agent setup.'
   }
   return 'The agent service is temporarily unavailable. Refresh Agents, then try again. If it still fails, ask an owner or admin to check agent setup.'
 }
@@ -250,25 +250,25 @@ function agentServerMessage(action: AgentErrorAction): string {
 function agentRuntimeRecoveryMessage(detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('docker')) {
-    return 'Docker is not running on the runner. Ask an owner or admin to start Docker, then start this agent from the agent card.'
+    return 'The worker host is not ready. Ask an owner or admin to start the worker service, then start this agent from the agent card.'
   }
-  return 'The agent runtime is not ready. Ask an owner or admin to check the runtime, then start this agent from the agent card.'
+  return 'The agent workspace is not ready. Ask an owner or admin to check agent setup, then start this agent from the agent card.'
 }
 
 function agentCreatedStartFailureMessage(error?: unknown): string {
   const detail = agentErrorDetail(error)
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('docker')) {
-    return 'Agent was created, but it could not start yet. It will stay in the list. Docker is not running on the runner. Ask an owner or admin to start Docker, then start this agent from the card.'
+    return 'Agent was created, but it could not start yet. It will stay in the list. The worker host is not ready. Ask an owner or admin to start the worker service, then start this agent from the card.'
   }
   if (
     normalized.includes('runtime') ||
     normalized.includes('container') ||
     normalized.includes('image')
   ) {
-    return 'Agent was created, but it could not start yet. It will stay in the list. Ask an owner or admin to check the agent runtime, then start this agent from the card.'
+    return 'Agent was created, but it could not start yet. It will stay in the list. Ask an owner or admin to check agent setup, then start this agent from the card.'
   }
-  return 'Agent was created, but it could not start yet. It will stay in the list. Refresh the Agents page, then start this agent from the card after the runtime is ready.'
+  return 'Agent was created, but it could not start yet. It will stay in the list. Refresh the Agents page, then start this agent from the card after the workspace is ready.'
 }
 
 function mapManagedAgentStatus(status: string): AgentStatus {

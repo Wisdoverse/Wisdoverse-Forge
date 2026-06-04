@@ -75,7 +75,7 @@ afterEach(() => {
 })
 
 describe('AgentsPanel', () => {
-  test('renders the runtime filter with every canonical option', async () => {
+  test('renders the work type filter with every plain-language option', async () => {
     render(<AgentsPanel />)
 
     const select = (await screen.findByTestId('admin-agents-runtime-filter')) as HTMLSelectElement
@@ -84,10 +84,10 @@ describe('AgentsPanel', () => {
       .map((o) => o.textContent)
 
     expect(optionLabels).toEqual([
-      'All runtimes',
-      'Container (Docker)',
-      'Host CLI (local process)',
-      'API (direct LLM calls)',
+      'All work types',
+      'Managed workspace',
+      'This computer',
+      'Text-only model',
     ])
     expect(loadAgentsMock).toHaveBeenCalled()
   })
@@ -99,14 +99,14 @@ describe('AgentsPanel', () => {
     expect(screen.getByTestId('agent-kind-badge-cli')).toBeDefined()
     expect(screen.getByTestId('agent-kind-badge-api')).toBeDefined()
 
-    expect(screen.getByText('Container')).toBeDefined()
-    expect(screen.getByText('Host CLI')).toBeDefined()
-    expect(screen.getByText('API')).toBeDefined()
+    expect(screen.getByText('Managed')).toBeDefined()
+    expect(screen.getAllByText('This computer').length).toBeGreaterThan(0)
+    expect(screen.getByText('Text-only')).toBeDefined()
 
     expect(screen.getAllByTestId('admin-agent-row')).toHaveLength(3)
   })
 
-  test('selecting a runtime kind triggers the filtered fetch', async () => {
+  test('selecting a work type triggers the filtered fetch', async () => {
     render(<AgentsPanel />)
 
     const select = (await screen.findByTestId('admin-agents-runtime-filter')) as HTMLSelectElement
@@ -141,13 +141,13 @@ describe('AgentsPanel', () => {
     expect(within(emptyState).getByText(/refresh admin and check again/i)).toBeDefined()
   })
 
-  test('guides admins to clear a runtime filter before assuming an agent is missing', async () => {
+  test('guides admins to clear a work type filter before assuming an agent is missing', async () => {
     useAdminStore.setState({ agents: [], agentsTotal: 0, agentRuntimeKindFilter: 'cli' })
 
     render(<AgentsPanel />)
 
     const emptyState = await screen.findByTestId('admin-agents-empty')
-    expect(within(emptyState).getByText(/choose "all runtimes"/i)).toBeDefined()
+    expect(within(emptyState).getByText(/choose "all work types"/i)).toBeDefined()
     expect(within(emptyState).getByText(/before assuming the agent is missing/i)).toBeDefined()
   })
 })

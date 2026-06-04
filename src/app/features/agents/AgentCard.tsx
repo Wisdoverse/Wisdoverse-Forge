@@ -46,10 +46,10 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
   const ratePercent = Math.round(agent.successRate * 100)
   const statusHelp = STATUS_HELP[agent.status]
   const runtimeLabel = isHostCliAgent(agent)
-    ? 'Host CLI'
+    ? 'This computer'
     : agent.cliTool
-      ? 'Container CLI'
-      : 'Provider Agent'
+      ? 'Managed workspace'
+      : 'Text-only model'
   const projectLabel = agent.projectName ?? agent.workspaceName ?? 'No project selected'
 
   return (

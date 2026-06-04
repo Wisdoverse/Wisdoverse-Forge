@@ -9,21 +9,20 @@ export const isContainerAgent = (a: Pick<AgentInfo, 'runtimeKind'>): boolean =>
 export const isApiAgent = (a: Pick<AgentInfo, 'runtimeKind'>): boolean => a.runtimeKind === 'api'
 
 /**
- * Canonical human labels for each runtime kind. These match the product
- * glossary (`docs/architecture/glossary.md`) and must stay in sync with the
- * server-side `agentforge_core::RuntimeKind` slugs.
+ * Canonical user-facing labels for each runtime kind. These labels are plain
+ * language; protocol slugs still stay in sync with server-side RuntimeKind.
  */
 export const RUNTIME_KIND_LABELS: Record<AgentRuntimeKind, string> = {
-  container: 'Container (Docker)',
-  cli: 'Host CLI (local process)',
-  api: 'API (direct LLM calls)',
+  container: 'Managed workspace',
+  cli: 'This computer',
+  api: 'Text-only model',
 }
 
 /** Short labels suited to compact table badges. */
 export const RUNTIME_KIND_SHORT_LABELS: Record<AgentRuntimeKind, string> = {
-  container: 'Container',
-  cli: 'Host CLI',
-  api: 'API',
+  container: 'Managed',
+  cli: 'This computer',
+  api: 'Text-only',
 }
 
 /** Canonical runtime kinds in display order. */

@@ -340,7 +340,7 @@ function displayCliTool(cliTool: string): string {
     case 'opencode':
       return 'OpenCode'
     default:
-      return 'Container CLI'
+      return 'Work tool'
   }
 }
 

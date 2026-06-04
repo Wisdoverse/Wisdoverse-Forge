@@ -19,19 +19,19 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   }
 
   if (status === 401) {
-    return 'Sign in again, then open Runtime setup and try this action again.'
+    return 'Sign in again, then open Agent setup and try this action again.'
   }
 
   if (status === 403) {
-    return 'You do not have permission to manage runtime setup. Ask an owner or admin to update your role.'
+    return 'You do not have permission to manage agent setup. Ask an owner or admin to update your role.'
   }
 
   if (status === 404) {
-    return 'Runtime setup is not available yet. Refresh after the runtime service is ready.'
+    return 'Agent setup is not available yet. Refresh after the service is ready.'
   }
 
   if (status === 409) {
-    return 'Runtime setup changed while you were working. Refresh this setup check, review the current status, then try again.'
+    return 'Agent setup changed while you were working. Refresh this setup check, review the current status, then try again.'
   }
 
   if (status === 422) {
@@ -39,11 +39,11 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   }
 
   if (status === 429) {
-    return 'Runtime setup is busy with too many requests. Wait a moment, then try again.'
+    return 'Agent setup is busy with too many requests. Wait a moment, then try again.'
   }
 
   if (status && status >= 500) {
-    return 'Runtime setup is temporarily unavailable. Refresh this setup check, then try again. If it still fails, ask an owner or admin to check the runner.'
+    return 'Agent setup is temporarily unavailable. Refresh this setup check, then try again. If it still fails, ask an owner or admin to check the worker service.'
   }
 
   return runtimeValidationMessage(action, detail)
@@ -59,27 +59,27 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
     normalized.includes('default cli tool') ||
     normalized.includes('default runtime') ||
     normalized.includes('not available')
-      ? 'Runtime settings could not be saved.'
-      : 'Runtime settings could not be loaded.'
+      ? 'Agent work settings could not be saved.'
+      : 'Agent work settings could not be loaded.'
 
   if (isNetworkError(normalized)) {
     return `${base} The app could not reach the service. Check your connection, then refresh Settings.`
   }
 
   if (status === 401) {
-    return `${base} Sign in again, then open Settings and try runtime setup again.`
+    return `${base} Sign in again, then open Settings and try agent setup again.`
   }
 
   if (status === 403) {
-    return `${base} Ask an owner or admin for access to manage runtime setup.`
+    return `${base} Ask an owner or admin for access to manage agent setup.`
   }
 
   if (status === 404) {
-    return `${base} Refresh after runtime settings are available.`
+    return `${base} Refresh after agent work settings are available.`
   }
 
   if (status === 409) {
-    return `${base} Runtime setup changed while you were working. Refresh Settings, review the current choices, then try again.`
+    return `${base} Agent setup changed while you were working. Refresh Settings, review the current choices, then try again.`
   }
 
   if (status === 422) {
@@ -91,10 +91,10 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
   }
 
   if (status && status >= 500) {
-    return `${base} The runtime settings service is temporarily unavailable. Refresh Settings, then try again. If it still fails, ask an owner to check runtime settings.`
+    return `${base} The agent work settings service is temporarily unavailable. Refresh Settings, then try again. If it still fails, ask an owner to check agent work settings.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner to check runtime settings.`
+  return `${base} Try again. If it still fails, ask an owner to check agent work settings.`
 }
 
 function errorDetail(err: unknown): string {

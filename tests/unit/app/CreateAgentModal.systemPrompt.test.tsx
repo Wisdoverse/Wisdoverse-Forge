@@ -32,7 +32,7 @@ describe('CreateAgentModal systemPrompt', () => {
     expect(screen.queryByLabelText(/system prompt/i)).toBeNull()
   })
 
-  it('defaults CLI working directory to the container workspace', async () => {
+  it('defaults managed workspace work directory to /workspace', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
 
@@ -52,9 +52,9 @@ describe('CreateAgentModal systemPrompt', () => {
     )
   })
 
-  it('shows system prompt textarea when Provider + Prompt selected', () => {
+  it('shows system prompt textarea when Text-only model selected', () => {
     render(<CreateAgentModal />)
-    fireEvent.click(screen.getByText(/Provider \+ Prompt/i))
+    fireEvent.click(screen.getByText(/Text-only model/i))
     expect(screen.getByLabelText(/system prompt/i)).toBeInTheDocument()
   })
 
@@ -66,7 +66,7 @@ describe('CreateAgentModal systemPrompt', () => {
     fireEvent.change(screen.getByPlaceholderText(/Frontend Agent/i), {
       target: { value: 'Test' },
     })
-    fireEvent.click(screen.getByText(/Provider \+ Prompt/i))
+    fireEvent.click(screen.getByText(/Text-only model/i))
     fireEvent.change(screen.getByLabelText(/system prompt/i), {
       target: { value: 'you are terse' },
     })
@@ -91,7 +91,7 @@ describe('CreateAgentModal systemPrompt', () => {
     fireEvent.change(screen.getByPlaceholderText(/Frontend Agent/i), {
       target: { value: 'Test' },
     })
-    fireEvent.click(screen.getByText(/Provider \+ Prompt/i))
+    fireEvent.click(screen.getByText(/Text-only model/i))
     fireEvent.click(screen.getByRole('button', { name: /create agent/i }))
     await waitFor(() =>
       expect(createAgent).toHaveBeenCalledWith(

@@ -1,14 +1,14 @@
 /**
- * Provider + Prompt Agent UX — E2E spec (#21)
+ * Text-Only Model Agent UX — E2E spec (#21)
  *
  * Covers the issue-21 UI plumbing end-to-end using the same mocked-API
  * pattern as react-app-smoke.spec.ts.  All backend HTTP calls are
  * intercepted by page.route(); no real server required.
  *
  * Tests:
- *   1. CreateAgentModal — "Provider + Prompt" radio reveals system-prompt textarea.
+ *   1. CreateAgentModal — "Text-only model" radio reveals system-prompt textarea.
  *   2. CreateAgentModal submit — POST body contains lowercase provider + systemPrompt.
- *   3. Agent list — provider+prompt agent shows "Provider" badge (no cliTool).
+ *   3. Agent list — text-only model agent shows "Text-only" badge (no cliTool).
  *   4. Chat tab — ChatComposer renders; Send disabled when empty.
  *   5. ChatComposer Cmd/Ctrl+Enter — fires POST /prompt with correct body.
  *   6. AgentConfigTab — loads existing systemPrompt; PATCH body captured on Save.
@@ -204,21 +204,21 @@ async function navigateToAgents(page: Page, baseURL: string): Promise<void> {
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-test.describe.serial('Provider + Prompt Agent UX (#21)', () => {
+test.describe.serial('Text-only model Agent UX (#21)', () => {
   // 1. CreateAgentModal — kind switch reveals system-prompt textarea ───────────
 
-  test('1. Provider+Prompt radio reveals system-prompt textarea', async ({ page, baseURL }) => {
+  test('1. Text-only model radio reveals system-prompt textarea', async ({ page, baseURL }) => {
     await navigateToAgents(page, baseURL!)
 
     // Open modal
     await page.getByText('New Agent').first().click()
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 })
 
-    // Default kind is "Container CLI" — system-prompt textarea must NOT be present
+    // Default kind is "Managed workspace" so system-prompt textarea must NOT be present.
     await expect(page.locator('textarea#systemPrompt')).not.toBeVisible()
 
-    // Switch to "Provider + Prompt"
-    await page.getByText('Provider + Prompt').click()
+    // Switch to "Text-only model"
+    await page.getByText('Text-only model').click()
 
     // System-prompt textarea must now be visible
     await expect(page.locator('textarea#systemPrompt')).toBeVisible({ timeout: 3000 })
@@ -262,8 +262,8 @@ test.describe.serial('Provider + Prompt Agent UX (#21)', () => {
     // Fill name
     await page.getByPlaceholder('e.g. Frontend Agent').fill('My LLM Agent')
 
-    // Switch to provider kind
-    await page.getByText('Provider + Prompt').click()
+    // Switch to text-only model kind
+    await page.getByText('Text-only model').click()
 
     // Provider select should default to 'anthropic' (first in list)
     const providerSelect = page.locator('select#agent-provider')
@@ -284,9 +284,9 @@ test.describe.serial('Provider + Prompt Agent UX (#21)', () => {
     expect(capturedBody.systemPrompt).toBe('Be concise.')
   })
 
-  // 3. Agent list renders provider badge when cliTool is null ────────────────
+  // 3. Agent list renders text-only badge when cliTool is null ───────────────
 
-  test('3. Agent list shows Provider badge for provider+prompt agent', async ({
+  test('3. Agent list shows Text-only badge for text-only model agent', async ({
     page,
     baseURL,
   }) => {
@@ -296,11 +296,11 @@ test.describe.serial('Provider + Prompt Agent UX (#21)', () => {
     const card = page.locator('[data-testid="agent-card-agent-prov-1"]')
     await expect(card).toBeVisible({ timeout: 5000 })
 
-    // AgentKindBadge renders "Provider" when cliTool is absent
-    await expect(card.getByText('Provider', { exact: true })).toBeVisible()
+    // AgentKindBadge renders "Text-only" when cliTool is absent
+    await expect(card.getByText('Text-only', { exact: true })).toBeVisible()
 
-    // Should NOT have "Container" badge
-    await expect(card.getByText('Container', { exact: true })).not.toBeVisible()
+    // Should NOT have "Managed" badge
+    await expect(card.getByText('Managed', { exact: true })).not.toBeVisible()
   })
 
   // 4. Chat tab — ChatComposer renders; Send disabled when empty ─────────────

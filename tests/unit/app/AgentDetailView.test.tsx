@@ -119,13 +119,13 @@ describe('AgentDetailView', () => {
     expect(screen.queryByRole('button', { name: 'History' })).toBeNull()
   })
 
-  test('Host CLI agent is managed without container terminal actions', () => {
+  test('agent joined from this computer is managed without terminal actions', () => {
     render(<AgentDetailView agent={hostCliAgent} onBack={() => {}} />)
-    expect(screen.getAllByText(/Local CLI/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/This computer/).length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: 'History' })).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Console' })).toBeNull()
     expect(screen.getByText('host-aabbccdd')).toBeDefined()
-    expect(screen.getAllByText(/run on the enrolled computer/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/agents joined from this computer run there/i)).toBeDefined()
     expect(screen.queryByRole('button', { name: /start agent/i })).toBeNull()
   })
 
@@ -206,12 +206,12 @@ describe('AgentDetailView', () => {
       screen.getByText(/success looks like the agent status changing to idle or working/i)
     ).toBeDefined()
     expect(
-      screen.getByText(/ask an admin to check the container runtime and agent image/i)
+      screen.getByText(/ask an admin to check the managed workspace setup and agent image/i)
     ).toBeDefined()
     expect(screen.getByRole('button', { name: /start agent workspace/i })).toBeDefined()
   })
 
-  test('shows start failure guidance without raw runtime details', () => {
+  test('shows start failure guidance without raw setup details', () => {
     useAgentsStore.setState({
       error: 'Docker socket refused',
       startAgent: vi.fn(async () => false),
@@ -233,16 +233,16 @@ describe('AgentDetailView', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Start did not finish')
-    expect(alert).toHaveTextContent('ask an admin to check the container runtime and agent image')
+    expect(alert).toHaveTextContent('ask an admin to check the managed workspace setup and agent image')
     expect(alert.textContent).not.toContain('Details:')
     expect(alert.textContent).not.toContain('Docker socket refused')
   })
 
-  test('guides offline Host CLI agents back to the local connection', () => {
+  test('guides offline agents joined from this computer back to the local connection', () => {
     render(<AgentDetailView agent={{ ...hostCliAgent, status: 'offline' }} onBack={() => {}} />)
 
     expect(screen.getByText('Reconnect the local computer')).toBeDefined()
-    expect(screen.getByText(/start the sidecar again/i)).toBeDefined()
+    expect(screen.getByText(/start the connection tool again/i)).toBeDefined()
     expect(screen.queryByRole('button', { name: /open terminal/i })).toBeNull()
   })
 
@@ -259,13 +259,13 @@ describe('AgentDetailView', () => {
     expect(screen.getByText(/files must be kept apart/i)).toBeDefined()
   })
 
-  test('explains provider-backed agents do not open workspace files', () => {
+  test('explains text-only model agents do not open workspace files', () => {
     render(<AgentDetailView agent={providerAgent} onBack={() => {}} />)
     expect(screen.getByText('Working folder')).toBeDefined()
     expect(screen.getAllByText('Not needed for this agent').length).toBeGreaterThan(0)
     expect(screen.getByText(/do not open workspace files by themselves/i)).toBeDefined()
     expect(
-      screen.getByText(/choose a local or container cli agent when the task must inspect or edit/i)
+      screen.getByText(/choose an agent on this computer or a managed workspace agent/i)
     ).toBeDefined()
   })
 

@@ -89,10 +89,10 @@ const TYPE_CONFIG: Record<
     color: 'text-apple-blue',
     unreadBg: 'bg-apple-blue/[0.04]',
     dot: 'bg-apple-blue',
-    label: 'CLI image',
-    actionLabel: 'Open CLI images',
+    label: 'Work-tool image',
+    actionLabel: 'Open work-tool images',
     guidance:
-      'Open Admin → CLI agent images to see the per-tool status. New agents pick up the change automatically.',
+      'Open Admin → Agent work-tool images to see the per-tool status. New agents pick up the change automatically.',
     template: 'task-lifecycle',
   },
 }

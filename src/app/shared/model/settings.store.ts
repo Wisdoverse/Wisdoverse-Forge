@@ -77,7 +77,7 @@ const SETTINGS_AREA_LABELS: Record<SettingsErrorArea, string> = {
   gitCredentials: 'Git credentials',
   sshKeys: 'SSH keys',
   resourceProfiles: 'resource profiles',
-  runtime: 'runtime settings',
+  runtime: 'agent work settings',
 }
 
 const SETTINGS_ITEM_LABELS: Record<SettingsErrorArea, string> = {
@@ -86,7 +86,7 @@ const SETTINGS_ITEM_LABELS: Record<SettingsErrorArea, string> = {
   gitCredentials: 'Git credential',
   sshKeys: 'SSH key',
   resourceProfiles: 'resource profile',
-  runtime: 'runtime setting',
+  runtime: 'agent work setting',
 }
 
 function settingsActionPhrase(area: SettingsErrorArea, action: SettingsErrorAction): string {
@@ -227,7 +227,7 @@ function settingsValidationMessage(
     return 'Ask an owner or admin to add a resource profile, then refresh Settings.'
   }
 
-  return 'Choose a supported runtime and Container CLI, then save runtime settings again.'
+  return 'Choose an available work location and local tool, then save agent work settings again.'
 }
 
 interface SettingsState {

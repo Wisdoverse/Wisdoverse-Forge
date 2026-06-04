@@ -467,8 +467,8 @@ export const zh: TranslationKeys = {
       statusNeedsInstall: '需要先安装，agent 才能使用',
       cliFit: '最适合 {{tool}}',
       allAgentsFit: '适用于任意 agent',
-      allAgentsTooltip: '不需要指定 Container CLI。',
-      containerCliTooltip: 'Container CLI：{{tool}}',
+      allAgentsTooltip: '不需要指定工作工具。',
+      containerCliTooltip: '工作工具：{{tool}}',
       sourceLabel: '来源',
       authorLabel: '维护者',
       versionLabel: '版本',
@@ -509,28 +509,28 @@ export const zh: TranslationKeys = {
     agent: {
       lifecycle: {
         restart_host_cli: {
-          title: '请在本机重启 sidecar',
-          detail: '平台不管理本地 sidecar。请在操作员机器上重新运行注册脚本。',
+          title: '请在这台电脑上重启连接工具',
+          detail: '平台不能替你重启这个本地进程。请在那台电脑上重新运行加入命令。',
         },
         restart_api: {
-          title: '没有可重启的容器',
-          detail: '该 Agent 直接调用 LLM 服务商。再发送一次 prompt 即可。',
+          title: '没有可重启的工作区',
+          detail: '该 Agent 使用只处理文字的模型服务。再发送一次 prompt 即可使用模型。',
         },
         start_host_cli: {
-          title: '请在本机启动 sidecar',
-          detail: '在操作员机器上重新运行注册脚本以启动 sidecar。',
+          title: '请在这台电脑上启动连接工具',
+          detail: '请在那台电脑上重新运行加入命令，让 Agent 上线。',
         },
         start_api: {
-          title: '没有可启动的容器',
-          detail: '服务商 Agent 没有 shell 可启动。',
+          title: '没有可启动的工作区',
+          detail: '只处理文字的模型 Agent 没有可启动的终端。',
         },
         stop_host_cli: {
-          title: '请在本机停止 sidecar',
-          detail: '平台无法远程停止 sidecar。请在操作员机器上停止该进程。',
+          title: '请在这台电脑上停止连接工具',
+          detail: '平台不能替你停止这个本地进程。请在那台电脑上停止它。',
         },
         stop_api: {
-          title: '没有可停止的容器',
-          detail: '服务商 Agent 没有 shell 可停止。',
+          title: '没有可停止的工作区',
+          detail: '只处理文字的模型 Agent 没有可停止的终端。',
         },
         not_permitted: {
           title: '无权操作该 Agent',
@@ -539,16 +539,16 @@ export const zh: TranslationKeys = {
       },
       create: {
         missing_cli_tool_for_container: {
-          title: '请选择一个 CLI 工具',
-          detail: '基于容器的 Agent 需要一个 Container CLI：claude、codex、gemini 或 opencode。',
+          title: '请选择一个工作工具',
+          detail: '托管工作区 Agent 需要一个工作工具：claude、codex、gemini 或 opencode。',
         },
         api_cannot_have_cli_tool: {
-          title: '服务商 Agent 不能有 CLI 工具',
-          detail: '请移除 CLI 工具，或将运行时改为 "容器 (Docker)"。',
+          title: '只处理文字的模型 Agent 不能有工作工具',
+          detail: '请移除工作工具，或将工作类型改为“托管工作区”。',
         },
         missing_cli_tool_for_host_cli: {
-          title: '请选择一个 CLI 工具',
-          detail: 'Host CLI 注册需要一个 Container CLI：claude、codex、gemini 或 opencode。',
+          title: '请选择一个工作工具',
+          detail: '从这台电脑加入的 Agent 需要一个工作工具：claude、codex、gemini 或 opencode。',
         },
       },
       enroll: {
@@ -557,9 +557,9 @@ export const zh: TranslationKeys = {
           detail: '请在 `Idempotency-Key` 请求头中带上一个新的 UUID 后重试。',
         },
         plaintext_nats_blocked: {
-          title: 'Host CLI 不允许使用明文 NATS',
+          title: '这台电脑的连接需要安全通道',
           detail:
-            '请将 `NATS_AGENT_URL` 设为 `tls://`，或设置组织策略 `allow_plaintext_host_nats=true` 后再试。',
+            '请将 `NATS_AGENT_URL` 设为 `tls://`，或先设置组织策略 `allow_plaintext_host_nats=true` 后再试。',
         },
       },
     },

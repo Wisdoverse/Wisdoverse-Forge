@@ -246,7 +246,7 @@ export function createAgentAPI(
      * Create a new managed agent.
      *
      * Two agent kinds share this endpoint:
-     *   - Container CLI: pass `cliTool` (claude/codex/gemini/opencode), omit provider/model.
+     *   - Managed workspace: pass `cliTool` (claude/codex/gemini/opencode), omit provider/model.
      *   - Provider+Prompt: omit `cliTool`, pass `provider` and `model`.
      * The backend distinguishes them by `cli_tool` being NULL.
      */

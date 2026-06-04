@@ -25,7 +25,7 @@ interface FilterOption {
 }
 
 const RUNTIME_KIND_FILTER_OPTIONS: FilterOption[] = [
-  { value: 'all', label: 'All runtimes' },
+  { value: 'all', label: 'All work types' },
   ...RUNTIME_KINDS.map((kind) => ({ value: kind, label: runtimeKindLabel(kind) })),
 ]
 
@@ -74,19 +74,20 @@ function AgentKindBadge({ kind }: { kind: AgentRuntimeKind }) {
 
 const AGENT_GUIDANCE: { title: string; description: string; Icon: LucideIcon }[] = [
   {
-    title: 'Container (Docker)',
-    description: 'Runs the Container CLI inside a managed Docker container. The platform default.',
+    title: 'Managed workspace',
+    description: 'Runs file and command work in a platform-managed workspace. Best for most teams.',
     Icon: Server,
   },
   {
-    title: 'Host CLI (local process)',
+    title: 'This computer',
     description:
-      'Runs the Container CLI as a local process on an operator machine. Legacy dev mode.',
+      'Runs work from a joined computer. Use it when files or tools must stay on that machine.',
     Icon: Cpu,
   },
   {
-    title: 'API (direct LLM calls)',
-    description: 'Provider + Prompt agents that call the LLM directly. No container, no terminal.',
+    title: 'Text-only model',
+    description:
+      'Uses a connected model for planning and review. It does not open files or run commands.',
     Icon: Sparkles,
   },
 ]
@@ -97,7 +98,7 @@ function agentsSummary(agents: AdminAgent[], filter: AdminAgentRuntimeKindFilter
       ? 'No agents have been created across any organization yet.'
       : `No ${runtimeKindLabel(filter)} agents are present right now.`
   }
-  const scope = filter === 'all' ? 'all runtimes' : runtimeKindLabel(filter)
+  const scope = filter === 'all' ? 'all work types' : runtimeKindLabel(filter)
   return `Showing ${agents.length} agent${agents.length === 1 ? '' : 's'} (${scope}).`
 }
 
@@ -118,7 +119,7 @@ function AgentsGuide({
           Admin view
         </p>
         <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-          Filter agents by where they run
+          Filter agents by how they work
         </h3>
         <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
           {agentsSummary(agents, filter)}
@@ -159,7 +160,7 @@ function AgentsEmptyState({ filter }: { filter: AdminAgentRuntimeKindFilter }) {
       <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
         {filter === 'all'
           ? 'Create the first agent from Agents, confirm it becomes Idle or Working, then return here to review it across organizations. If you just created one, refresh Admin and check again.'
-          : `No ${runtimeKindLabel(filter)} agents match this filter. Choose "All runtimes" before assuming the agent is missing.`}
+          : `No ${runtimeKindLabel(filter)} agents match this filter. Choose "All work types" before assuming the agent is missing.`}
       </p>
     </div>
   )
@@ -189,17 +190,17 @@ export function AgentsPanel() {
         <div>
           <h2 className={uiStyles.sectionTitle}>Agents</h2>
           <p className={uiStyles.sectionDescription}>
-            Review agents across every organization and filter them by runtime.
+            Review agents across every organization and filter them by work type.
           </p>
         </div>
         <div>
           <label htmlFor="admin-agents-runtime-filter" className={uiStyles.label}>
-            Runtime
+            Work type
           </label>
           <select
             id="admin-agents-runtime-filter"
             data-testid="admin-agents-runtime-filter"
-            aria-label="Filter agents by runtime kind"
+            aria-label="Filter agents by work type"
             value={agentRuntimeKindFilter}
             onChange={(event) =>
               void setAgentRuntimeKindFilter(event.target.value as AdminAgentRuntimeKindFilter)
@@ -238,7 +239,7 @@ export function AgentsPanel() {
             <thead className={uiStyles.tableHead}>
               <tr>
                 <th className={uiStyles.tableHeaderCell}>Name</th>
-                <th className={uiStyles.tableHeaderCell}>Runtime</th>
+                <th className={uiStyles.tableHeaderCell}>Work type</th>
                 <th className={uiStyles.tableHeaderCell}>Status</th>
                 <th className={uiStyles.tableHeaderCell}>Owner</th>
                 <th className={uiStyles.tableHeaderCell}>Project</th>
@@ -258,7 +259,7 @@ export function AgentsPanel() {
                     </p>
                     {agent.cliTool && (
                       <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                        Container CLI: {agent.cliTool}
+                        Work tool: {agent.cliTool}
                       </p>
                     )}
                   </td>

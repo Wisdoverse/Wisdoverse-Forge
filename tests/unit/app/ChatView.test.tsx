@@ -115,7 +115,7 @@ describe('ChatView', () => {
     expect(screen.getByText('Ask for one outcome at a time.')).toBeInTheDocument()
   })
 
-  test('guides empty Container CLI history toward routed work', () => {
+  test('guides empty managed workspace history toward routed work', () => {
     useAgentsStore.setState({ agents: [cliAgent] })
     seedChatState({ turns: [] })
 

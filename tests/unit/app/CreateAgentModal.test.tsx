@@ -44,15 +44,15 @@ beforeEach(() => {
 })
 
 describe('CreateAgentModal', () => {
-  test('renders Container CLI fields by default', () => {
+  test('renders managed workspace fields by default', () => {
     render(<CreateAgentModal />)
 
-    expect(screen.getByRole('radio', { name: /container cli/i })).toBeChecked()
+    expect(screen.getByRole('radio', { name: /managed workspace/i })).toBeChecked()
     expect(screen.getByTestId('agent-runtime-fit')).toBeInTheDocument()
-    expect(screen.getByText(/claude container worker/i)).toBeInTheDocument()
+    expect(screen.getByText(/claude in a managed workspace/i)).toBeInTheDocument()
     expect(screen.getByText('/workspace mounted')).toBeInTheDocument()
-    expect(screen.getByText(/runtime container must start/i)).toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: /container cli/i })).toBeInTheDocument()
+    expect(screen.getByText(/workspace must be online/i)).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /managed work tool/i })).toBeInTheDocument()
     expect(screen.getByLabelText(/working directory/i)).toBeInTheDocument()
     expect(screen.getByText(/shared workspace mount/i)).toBeInTheDocument()
     expect(screen.getAllByText(/primary project/i).length).toBeGreaterThan(0)
@@ -90,7 +90,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText(/tasks default to this project/i)).toBeInTheDocument()
   })
 
-  test('submits selected project workspace as the execution boundary', async () => {
+  test('submits selected project workspace context', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
     useNavigationStore.setState({
@@ -194,15 +194,15 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByText(/HTTP 403/i)).toBeNull()
   })
 
-  test('switching to Provider+Prompt hides CLI fields and shows Provider/Model', () => {
+  test('switching to Text-only model hides work-tool fields and shows Provider/Model', () => {
     render(<CreateAgentModal />)
 
-    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /text-only model/i }))
 
-    expect(screen.getByText(/anthropic prompt worker/i)).toBeInTheDocument()
-    expect(screen.getByText(/no direct workspace mount/i)).toBeInTheDocument()
-    expect(screen.getByText(/provider key must be ready/i)).toBeInTheDocument()
-    expect(screen.queryByRole('combobox', { name: /container cli/i })).toBeNull()
+    expect(screen.getByText(/anthropic text-only model/i)).toBeInTheDocument()
+    expect(screen.getByText(/no file access/i)).toBeInTheDocument()
+    expect(screen.getByText(/provider connection ready/i)).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: /managed work tool/i })).toBeNull()
     expect(screen.queryByLabelText(/working directory/i)).toBeNull()
     expect(screen.getByLabelText(/^provider$/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/^model$/i)).toBeInTheDocument()
@@ -222,44 +222,44 @@ describe('CreateAgentModal', () => {
     expect(createAgent).not.toHaveBeenCalled()
   })
 
-  test('guides users to choose provider fields before creating a prompt agent', async () => {
+  test('guides users to choose provider fields before creating a text-only model agent', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Prompt Worker' } })
-    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /text-only model/i }))
     fireEvent.change(screen.getByLabelText(/^model$/i), { target: { value: '' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Choose a provider and model before creating this prompt agent.'
+      'Choose a provider and model before creating this text-only model agent.'
     )
     expect(screen.queryByText('Provider and model are required')).toBeNull()
     expect(createAgent).not.toHaveBeenCalled()
   })
 
-  test('updates runtime fit when the operator changes runtime choices', async () => {
+  test('updates work fit when the operator changes work type choices', async () => {
     render(<CreateAgentModal />)
 
-    fireEvent.change(screen.getByRole('combobox', { name: /container cli/i }), {
+    fireEvent.change(screen.getByRole('combobox', { name: /managed work tool/i }), {
       target: { value: 'codex' },
     })
-    expect(screen.getByText(/codex container worker/i)).toBeInTheDocument()
+    expect(screen.getByText(/codex in a managed workspace/i)).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('radio', { name: /local cli/i }))
-    expect(screen.getByText(/codex local worker/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
+    expect(screen.getByText(/codex on this computer/i)).toBeInTheDocument()
     expect(screen.getByText('Run the join command')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /text-only model/i }))
     fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'google' } })
 
     await waitFor(() => {
-      expect(screen.getByText(/google prompt worker/i)).toBeInTheDocument()
+      expect(screen.getByText(/google text-only model/i)).toBeInTheDocument()
     })
   })
 
-  test('enrolls a Local CLI agent and shows the join command', async () => {
+  test('enrolls an agent on this computer and shows the join command', async () => {
     const enrollLocalAgent = vi.fn().mockResolvedValue({
       ok: true,
       agent: {
@@ -285,8 +285,8 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
 
-    fireEvent.click(screen.getByRole('radio', { name: /local cli/i }))
-    fireEvent.change(screen.getByRole('combobox', { name: /local cli/i }), {
+    fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
+    fireEvent.change(screen.getByRole('combobox', { name: /local work tool/i }), {
       target: { value: 'codex' },
     })
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
@@ -306,7 +306,7 @@ describe('CreateAgentModal', () => {
     )
   })
 
-  test('defaults to Provider+Prompt when a verified provider exists', async () => {
+  test('defaults to text-only model when a verified provider exists', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
     useSettingsStore.setState({
@@ -326,8 +326,8 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
 
-    expect(screen.getByRole('radio', { name: /provider \+ prompt/i })).toBeChecked()
-    expect(screen.queryByRole('combobox', { name: /container cli/i })).toBeNull()
+    expect(screen.getByRole('radio', { name: /text-only model/i })).toBeChecked()
+    expect(screen.queryByRole('combobox', { name: /managed work tool/i })).toBeNull()
     expect(screen.getByLabelText(/^provider$/i)).toHaveValue('openai')
     expect(screen.getByLabelText(/^model$/i)).toHaveValue('gpt-5.5')
 
@@ -346,7 +346,7 @@ describe('CreateAgentModal', () => {
   test('switching provider seeds the matching default model', async () => {
     render(<CreateAgentModal />)
 
-    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /text-only model/i }))
     fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'openai' } })
 
     await waitFor(() => {
@@ -380,7 +380,7 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
-    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /text-only model/i }))
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
     await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
@@ -394,12 +394,12 @@ describe('CreateAgentModal', () => {
     expect(payload).not.toHaveProperty('cliTool')
   })
 
-  test('applies a role template to a provider agent prompt', async () => {
+  test('applies a role template to a text-only model agent prompt', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
-    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /text-only model/i }))
     const templateGroup = screen.getByRole('group', { name: /agent role templates/i })
     fireEvent.click(within(templateGroup).getByRole('button', { name: /reviewer/i }))
 

@@ -166,8 +166,8 @@ describe('AgentListView', () => {
     expect(screen.queryByText('Build Runner')).toBeNull()
 
     fireEvent.change(screen.getByTestId('agent-search'), { target: { value: '' } })
-    const runtimeFilters = screen.getByRole('group', { name: /runtime filter/i })
-    fireEvent.click(within(runtimeFilters).getByRole('button', { name: /text only\s*1/i }))
+    const runtimeFilters = screen.getByRole('group', { name: /work type filter/i })
+    fireEvent.click(within(runtimeFilters).getByRole('button', { name: /text-only model\s*1/i }))
     expect(screen.getByText('Review Analyst')).toBeDefined()
     expect(screen.queryByText('Build Runner')).toBeNull()
 

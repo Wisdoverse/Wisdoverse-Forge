@@ -582,7 +582,7 @@ function routedTaskNextStep(task: TaskSummary): string {
         ? 'Ready to queue'
         : 'Assign an agent before dispatch'
     case 'queued':
-      return 'Waiting for runtime pickup'
+      return 'Waiting for an agent to pick it up'
     case 'working':
       return 'Monitor live progress'
     case 'blocked':

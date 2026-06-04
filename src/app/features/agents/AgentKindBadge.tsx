@@ -13,12 +13,12 @@ interface AgentKindBadgeProps {
 export function AgentKindBadge({ cliTool, runtimeKind, className }: AgentKindBadgeProps) {
   const isHost = runtimeKind === 'cli'
   const isContainer = Boolean(cliTool) && !isHost
-  const label = isHost ? 'Host CLI' : isContainer ? 'Container' : 'Provider'
+  const label = isHost ? 'This computer' : isContainer ? 'Managed' : 'Text-only'
   const title = isHost
     ? 'Runs on an enrolled computer. Use it when work should stay on that machine.'
     : isContainer
       ? 'Runs in a managed workspace that can edit files, run commands, and collect evidence.'
-      : 'Handles text-only tasks with a connected model. It does not open workspace files.'
+      : 'Handles text-only tasks with a connected model service. It does not open workspace files.'
 
   return (
     <span

@@ -204,7 +204,7 @@ describe('RuntimeSection', () => {
     await screen.findByTestId('runtime-launch-checklist')
     fireEvent.click(screen.getByRole('button', { name: /Connect GitHub/i }))
 
-    expect(await screen.findByText(/do not have permission to manage runtime setup/i)).toBeDefined()
+    expect(await screen.findByText(/do not have permission to manage agent setup/i)).toBeDefined()
     expect(screen.getByText(/owner or admin/i)).toBeDefined()
     expect(screen.queryByText(/403 Forbidden/)).toBeNull()
   })
@@ -219,7 +219,7 @@ describe('RuntimeSection', () => {
 
     await screen.findByTestId('runtime-launch-checklist')
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Runtime settings could not be saved. Choose an available work location and local tool, then save again.'
+      'Agent work settings could not be saved. Choose an available work location and local tool, then save again.'
     )
     expect(screen.queryByText(/Details: default CLI tool is not available/i)).toBeNull()
   })

@@ -44,12 +44,11 @@ const PROVIDER_EMPTY_COPY = {
 
 const CLI_EMPTY_COPY = {
   title: 'No agent updates yet',
-  detail:
-    'Updates appear after this Container CLI agent receives work or reports terminal progress.',
+  detail: 'Updates appear after this managed workspace agent receives work or reports progress.',
   steps: [
     'Open Tasks and route work to this agent or its lane.',
     'Use Attention once work starts to find blockers.',
-    'Refresh if the runtime just came online.',
+    'Refresh if the agent just came online.',
   ],
 }
 
@@ -219,10 +218,10 @@ export function ChatView({ agentId }: ChatViewProps) {
         'bg-apple-blue/10 text-apple-blue border border-apple-blue/20'
       )}
     >
-      <span className="font-medium">Provider + Prompt agent</span>
+      <span className="font-medium">Text-only model agent</span>
       <span className="text-apple-blue/80">
-        Messages are sent directly to {agent?.provider ?? 'the provider'} without a container
-        terminal.
+        Messages are sent directly to {agent?.provider ?? 'the provider'} without opening workspace
+        files or a terminal.
       </span>
     </div>
   ) : null
@@ -469,7 +468,7 @@ function ConversationEmptyState({
       </div>
       {offline && (
         <p className="rounded-lg bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
-          This agent is offline, so new updates will appear after the runtime is available.
+          This agent is offline, so new updates will appear after the agent is available.
         </p>
       )}
     </div>

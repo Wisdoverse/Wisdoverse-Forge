@@ -40,7 +40,7 @@ const RUNTIME_FILTERS: { value: AgentRuntimeFilter; label: string }[] = [
   { value: 'all', label: 'All agents' },
   { value: 'container', label: 'Managed workspace' },
   { value: 'host', label: 'This computer' },
-  { value: 'provider', label: 'Text only' },
+  { value: 'provider', label: 'Text-only model' },
 ]
 
 const SORT_OPTIONS: { value: AgentSortKey; label: string }[] = [
@@ -311,7 +311,7 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
         <p className="mb-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
           Local machine
         </p>
-        <div role="group" aria-label="Host CLI platform" className="grid grid-cols-2 gap-2">
+        <div role="group" aria-label="This computer platform" className="grid grid-cols-2 gap-2">
           {HOST_CLI_PLATFORMS.map((option) => (
             <button
               key={option.value}
@@ -549,7 +549,7 @@ function FleetControls({
           ))}
         </FilterButtonGroup>
 
-        <FilterButtonGroup label="Runtime">
+        <FilterButtonGroup label="Work type">
           {RUNTIME_FILTERS.map((filter) => (
             <FilterButton
               key={filter.value}

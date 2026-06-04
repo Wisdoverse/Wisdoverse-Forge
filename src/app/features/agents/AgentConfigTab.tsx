@@ -44,7 +44,7 @@ function promptStats(value: string): PromptStats {
 }
 
 function promptProfileSaveErrorMessage(): string {
-  return 'Prompt profile was not saved. Refresh this agent, confirm it is still a provider-backed agent, then save again. Ask an admin to check your agent access if it keeps failing.'
+  return 'Prompt profile was not saved. Refresh this agent, confirm it is still a text-only model agent, then save again. Ask an admin to check your agent access if it keeps failing.'
 }
 
 export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
@@ -305,28 +305,28 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
               aria-hidden="true"
             />
             <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              Runtime profile
+              Work profile
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            System prompt edit is only available for provider+prompt agents.
+            Prompt editing is only available for text-only model agents.
           </p>
         </div>
         <span className="inline-flex h-7 w-fit items-center rounded-full bg-apple-blue/10 px-2.5 text-ui-caption font-medium text-apple-blue">
-          {hostCli ? 'Host CLI' : 'Container CLI'}
+          {hostCli ? 'This computer' : 'Managed workspace'}
         </span>
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2">
-        <RuntimeRow label="Container CLI" value={agent.cliTool ?? 'Unknown'} />
+        <RuntimeRow label="Work tool" value={agent.cliTool ?? 'Unknown'} />
         <RuntimeRow
-          label="Runtime ID"
-          value={agent.runtimeId ?? (hostCli ? 'Pending sidecar' : 'Managed container')}
+          label="Connection ID"
+          value={agent.runtimeId ?? (hostCli ? 'Waiting for this computer' : 'Managed workspace')}
         />
         <RuntimeRow label="Project" value={agent.projectName ?? 'No primary project'} />
         <RuntimeRow
           label="Working directory"
-          value={agent.cwd ?? (hostCli ? 'Local sidecar directory' : '/workspace')}
+          value={agent.cwd ?? (hostCli ? 'Local connection folder' : '/workspace')}
         />
       </div>
     </div>

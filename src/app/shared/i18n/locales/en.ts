@@ -467,8 +467,8 @@ export const en = {
       statusNeedsInstall: 'Needs install before agents can use it',
       cliFit: 'Best with {{tool}}',
       allAgentsFit: 'Works with any agent',
-      allAgentsTooltip: 'No specific Container CLI is required.',
-      containerCliTooltip: 'Container CLI: {{tool}}',
+      allAgentsTooltip: 'No specific work tool is required.',
+      containerCliTooltip: 'Work tool: {{tool}}',
       sourceLabel: 'Where it came from',
       authorLabel: 'Maintainer',
       versionLabel: 'Version',
@@ -513,32 +513,30 @@ export const en = {
     agent: {
       lifecycle: {
         restart_host_cli: {
-          title: 'Restart the sidecar from your machine',
+          title: 'Restart the connection tool on your computer',
           detail:
-            'The platform does not manage the local sidecar. Re-run the enrollment shell script on the operator machine.',
+            'The platform cannot restart that local process for you. Re-run the join command on that computer.',
         },
         restart_api: {
-          title: 'No container to restart',
+          title: 'No workspace to restart',
           detail:
-            'This agent calls the LLM provider directly. Send a new prompt to invoke the model again.',
+            'This agent uses a text-only model service. Send a new prompt to use the model again.',
         },
         start_host_cli: {
-          title: 'Start the sidecar from your machine',
-          detail:
-            'Re-run the enrollment shell script on the operator machine to launch the sidecar.',
+          title: 'Start the connection tool on your computer',
+          detail: 'Re-run the join command on that computer to bring the agent online.',
         },
         start_api: {
-          title: 'No container to start',
-          detail: 'Provider agents have no shell to start.',
+          title: 'No workspace to start',
+          detail: 'Text-only model agents do not have a terminal to start.',
         },
         stop_host_cli: {
-          title: 'Stop the sidecar from your machine',
-          detail:
-            'The platform cannot stop a remote sidecar. Stop the process on the operator machine.',
+          title: 'Stop the connection tool on your computer',
+          detail: 'The platform cannot stop that local process for you. Stop it on that computer.',
         },
         stop_api: {
-          title: 'No container to stop',
-          detail: 'Provider agents have no shell to stop.',
+          title: 'No workspace to stop',
+          detail: 'Text-only model agents do not have a terminal to stop.',
         },
         not_permitted: {
           title: 'Operation not permitted on this agent',
@@ -547,17 +545,17 @@ export const en = {
       },
       create: {
         missing_cli_tool_for_container: {
-          title: 'Choose a CLI tool',
-          detail:
-            'Container-backed agents need a Container CLI: claude, codex, gemini, or opencode.',
+          title: 'Choose a work tool',
+          detail: 'Managed workspace agents need a work tool: claude, codex, gemini, or opencode.',
         },
         api_cannot_have_cli_tool: {
-          title: 'Provider agent cannot have a CLI tool',
-          detail: 'Remove the CLI tool, or change the runtime to "Container (Docker)".',
+          title: 'Text-only model agent cannot have a work tool',
+          detail: 'Remove the work tool, or change the work type to "Managed workspace".',
         },
         missing_cli_tool_for_host_cli: {
-          title: 'Choose a CLI tool',
-          detail: 'Host CLI enrollment needs a Container CLI: claude, codex, gemini, or opencode.',
+          title: 'Choose a work tool',
+          detail:
+            'Agents joined from this computer need a work tool: claude, codex, gemini, or opencode.',
         },
       },
       enroll: {
@@ -566,9 +564,9 @@ export const en = {
           detail: 'Resend with a fresh UUID in the `Idempotency-Key` header.',
         },
         plaintext_nats_blocked: {
-          title: 'Plaintext NATS not allowed for Host CLI',
+          title: 'Secure connection required for this computer',
           detail:
-            'Configure `NATS_AGENT_URL` to use `tls://`, or set the org policy `allow_plaintext_host_nats=true` to permit it.',
+            'Configure `NATS_AGENT_URL` to use `tls://`, or set the organization policy `allow_plaintext_host_nats=true` to permit it.',
         },
       },
     },

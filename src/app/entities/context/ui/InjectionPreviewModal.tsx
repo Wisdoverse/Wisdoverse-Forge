@@ -406,11 +406,11 @@ function stringValue(value: unknown): string | null {
 function runtimeLabel(runtime: string): string {
   switch (runtime) {
     case 'container':
-      return 'Container workspace'
+      return 'Managed workspace'
     case 'host':
-      return 'Local computer'
+      return 'This computer'
     case 'provider':
-      return 'Model only'
+      return 'Text-only model'
     default:
       return formatCodeLabel(runtime)
   }
@@ -426,7 +426,7 @@ function degradationLabel(reason: string): string {
     case 'budget_truncated':
       return 'Some matches were left out to stay within the context limit'
     case 'runtime_capability_fallback':
-      return 'Using safe defaults because runtime details were incomplete'
+      return 'Using safe defaults because agent setup details were incomplete'
     case 'no_subagents':
       return 'Subagent-specific context will be skipped'
     default:

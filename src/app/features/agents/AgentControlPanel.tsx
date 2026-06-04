@@ -87,7 +87,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
             <span>
               {error}. Refresh this agent and confirm the latest status before trying once more. For
               Start or Restart, wait for Idle or Working. If it keeps failing, ask an admin to check
-              your access and the agent runtime.
+              your access and agent setup.
             </span>
           </div>
         </div>
@@ -304,9 +304,9 @@ function getControlSummary(
 
   if (hostCli) {
     return {
-      title: 'Local agent controls',
+      title: 'This computer controls',
       detail:
-        'This agent runs on an enrolled machine. Start or stop the local sidecar on that machine; use this page for messages and cleanup.',
+        'This agent runs on a joined computer. Start or stop the connection tool on that computer; use this page for messages and cleanup.',
       Icon: CheckCircle2,
     }
   }
@@ -314,13 +314,13 @@ function getControlSummary(
   if (agent.cliTool) {
     return {
       title: 'Agent controls',
-      detail: 'The runtime looks ready. Use messages for quick help and Tasks for tracked work.',
+      detail: 'The workspace looks ready. Use messages for quick help and Tasks for tracked work.',
       Icon: CheckCircle2,
     }
   }
 
   return {
-    title: 'Provider agent controls',
+    title: 'Text-only model controls',
     detail:
       'This agent replies through its provider setup. Use messages for quick help and Tasks for tracked work.',
     Icon: CheckCircle2,

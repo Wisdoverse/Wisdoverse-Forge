@@ -292,7 +292,7 @@ describe('dispatchWsMessage', () => {
     expect(notifications[0].message).toContain('Patch merged')
   })
 
-  it('notifies the credential owner when a Container CLI credential expires', () => {
+  it('notifies the credential owner when a work-tool credential expires', () => {
     localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
 
     dispatchWsMessage({

@@ -67,7 +67,7 @@ describe('CliImagesPanel', () => {
     render(<CliImagesPanel />)
 
     await waitFor(() => expect(loadCliImages).toHaveBeenCalledOnce())
-    expect(screen.getByText('CLI agent images')).toBeDefined()
+    expect(screen.getByText('Agent work-tool images')).toBeDefined()
     expect(screen.getByText('Automatic updates are on')).toBeDefined()
     expect(screen.getByText('codex')).toBeDefined()
     expect(screen.getByText('Up to date')).toBeDefined()

@@ -131,22 +131,22 @@ function cliToolLabel(cliTool: CliTool): string {
 function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): RuntimeFitSummary {
   if (kind === 'cli') {
     return {
-      title: `${cliToolLabel(cliTool)} container worker`,
+      title: `${cliToolLabel(cliTool)} in a managed workspace`,
       detail: 'Best when the task needs repository files, terminal tools, or local CLI sessions.',
       items: [
-        { label: 'Execution', value: 'Container CLI' },
+        { label: 'Work type', value: 'Managed workspace' },
         { label: 'Files', value: '/workspace mounted' },
-        { label: 'Before use', value: 'Runtime container must start' },
+        { label: 'Before use', value: 'Workspace must be online' },
       ],
     }
   }
 
   if (kind === 'local-cli') {
     return {
-      title: `${cliToolLabel(cliTool)} local worker`,
+      title: `${cliToolLabel(cliTool)} on this computer`,
       detail: 'Best when the CLI already runs on your computer and this platform should manage it.',
       items: [
-        { label: 'Execution', value: 'Local CLI' },
+        { label: 'Work type', value: 'This computer' },
         { label: 'Files', value: 'Your local folder' },
         { label: 'Before use', value: 'Run the join command' },
       ],
@@ -154,13 +154,13 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
   }
 
   return {
-    title: `${providerLabel(provider)} prompt worker`,
+    title: `${providerLabel(provider)} text-only model`,
     detail:
       'Best for planning, review, and lightweight coordination that does not need filesystem tools.',
     items: [
-      { label: 'Execution', value: 'Provider API' },
-      { label: 'Files', value: 'No direct workspace mount' },
-      { label: 'Before use', value: 'Provider key must be ready' },
+      { label: 'Work type', value: 'Text-only model' },
+      { label: 'Files', value: 'No file access' },
+      { label: 'Before use', value: 'Provider connection ready' },
     ],
   }
 }
@@ -280,7 +280,7 @@ export function CreateAgentModal() {
     }
     if (data.kind === 'provider') {
       if (!data.provider || !data.model.trim()) {
-        setError('Choose a provider and model before creating this prompt agent.')
+        setError('Choose a provider and model before creating this text-only model agent.')
         return
       }
       await createAgent({
@@ -381,7 +381,7 @@ export function CreateAgentModal() {
             id="create-agent-title"
             className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark"
           >
-            {localEnrollment ? 'Local Agent Join' : 'New Agent'}
+            {localEnrollment ? 'Join Agent on This Computer' : 'New Agent'}
           </h2>
           <button
             type="button"
@@ -415,12 +415,12 @@ export function CreateAgentModal() {
                   </div>
                 </div>
                 <span className="rounded-full border border-apple-green/20 bg-white px-2.5 py-1 text-ui-caption text-apple-green dark:bg-white/[0.04]">
-                  Local CLI
+                  This computer
                 </span>
               </div>
               <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Copy this command and run it on the machine where the CLI is installed. The agent
-                will appear online after the sidecar starts.
+                Copy this command and run it on the computer where the work tool is installed. The
+                agent will appear online after the connection tool starts.
               </p>
             </div>
 
@@ -477,7 +477,7 @@ export function CreateAgentModal() {
                   Role template
                 </span>
                 <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  {kind === 'provider' ? 'Prompt ready' : 'Name seeds CLI agents'}
+                  {kind === 'provider' ? 'Text-only ready' : 'Name starts file-work agents'}
                 </span>
               </div>
               <div
@@ -530,9 +530,9 @@ export function CreateAgentModal() {
 
             <div>
               <label className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Agent kind
+                Work type
               </label>
-              <div className="flex gap-2" role="radiogroup" aria-label="Agent kind">
+              <div className="flex gap-2" role="radiogroup" aria-label="Agent work type">
                 <label
                   className={cn(
                     'flex-1 cursor-pointer rounded-full px-4 py-2 text-center text-ui-button font-medium transition-transform active:scale-95',
@@ -542,7 +542,7 @@ export function CreateAgentModal() {
                   )}
                 >
                   <input type="radio" value="cli" {...register('kind')} className="sr-only" />
-                  Container CLI
+                  Managed workspace
                 </label>
                 <label
                   className={cn(
@@ -553,7 +553,7 @@ export function CreateAgentModal() {
                   )}
                 >
                   <input type="radio" value="local-cli" {...register('kind')} className="sr-only" />
-                  Local CLI
+                  This computer
                 </label>
                 <label
                   className={cn(
@@ -564,15 +564,15 @@ export function CreateAgentModal() {
                   )}
                 >
                   <input type="radio" value="provider" {...register('kind')} className="sr-only" />
-                  Provider + Prompt
+                  Text-only model
                 </label>
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {kind === 'cli'
-                  ? 'Runs claude/codex/gemini/opencode inside a container.'
+                  ? 'Runs the selected work tool in a managed project workspace.'
                   : kind === 'local-cli'
-                    ? 'Runs a CLI on your machine while this platform manages identity and tasks.'
-                    : 'Calls the LLM provider directly — no container, no terminal.'}
+                    ? 'Runs a local work tool on your computer while this platform manages identity and tasks.'
+                    : 'Uses a connected model for text-only work; no files or terminal.'}
               </p>
             </div>
 
@@ -583,7 +583,7 @@ export function CreateAgentModal() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                    Runtime fit
+                    Work fit
                   </p>
                   <p className="mt-0.5 text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
                     {runtimeFit.title}
@@ -628,10 +628,10 @@ export function CreateAgentModal() {
                 {selectedProject
                   ? kind === 'local-cli'
                     ? 'Project ready. Tasks default to this project. Local filesystem access stays on the joined machine.'
-                    : 'Project ready. Tasks default to this project. Container access is the selected project workspace.'
+                    : 'Project ready. Tasks default to this project. File access is the selected project workspace.'
                   : kind === 'local-cli'
                     ? 'Choose a project first. Tasks can still be assigned later. Select a project in the sidebar before creating.'
-                    : 'Choose a project first. Tasks can still be assigned later. Select a project in the sidebar to set the execution boundary.'}
+                    : 'Choose a project first. Tasks can still be assigned later. Select a project in the sidebar to set the work area.'}
               </p>
             </div>
 
@@ -641,7 +641,7 @@ export function CreateAgentModal() {
                   htmlFor="agent-cli-tool"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  {kind === 'local-cli' ? 'Local CLI' : 'Container CLI'}
+                  {kind === 'local-cli' ? 'Local work tool' : 'Managed work tool'}
                 </label>
                 <select
                   id="agent-cli-tool"

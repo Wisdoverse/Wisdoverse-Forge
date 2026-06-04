@@ -2,7 +2,7 @@
  * SettingsAPI - Pure API layer for settings management
  *
  * All functions are pure HTTP calls with no DOM/state dependencies.
- * Handles LLM provider configuration, runtime settings, and gateway settings.
+ * Handles model provider configuration, agent work settings, and gateway settings.
  *
  * Error handling: Methods throw SettingsApiError on network/server errors.
  * UI components should catch errors and show appropriate error states.

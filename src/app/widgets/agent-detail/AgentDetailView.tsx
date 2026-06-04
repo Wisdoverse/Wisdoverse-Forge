@@ -49,7 +49,7 @@ interface AgentNextStep {
 }
 
 // Live console attach is only available for platform-managed work environments.
-// Local CLI agents keep their command window on the enrolled machine.
+// Agents joined from a computer keep their command window on that machine.
 function tabsFor(agent: AgentInfo): { id: Tab; label: string }[] {
   const isCli = Boolean(agent.cliTool)
   const hasTerminal = isCli && !isHostCliAgent(agent)
@@ -75,9 +75,8 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
       />
       {hostCli ? (
         <p>
-          Local CLI agents run on the enrolled computer. Forge sends tasks, checks the connection,
-          and saves evidence here; files stay in the folder where that computer is running the
-          sidecar.
+          Agents joined from this computer run there. Forge sends tasks, checks the connection, and
+          saves evidence here; files stay in the folder where that computer is connected.
         </p>
       ) : agent.cliTool ? (
         <p>
@@ -87,9 +86,9 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
         </p>
       ) : (
         <p>
-          Provider-backed agents answer through the model provider and do not open workspace files
-          by themselves. Choose a local or container CLI agent when the task must inspect or edit
-          files.
+          Text-only model agents answer through the model provider and do not open workspace files
+          by themselves. Choose an agent on this computer or a managed workspace agent when the task
+          must inspect or edit files.
         </p>
       )}
     </div>
@@ -234,9 +233,9 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
                 label="How it runs"
                 value={
                   isHostCliAgent(agent)
-                    ? `Local CLI · ${agent.cliTool ?? 'unknown'}`
+                    ? `This computer · ${agent.cliTool ?? 'unknown'}`
                     : agent.cliTool
-                      ? `Container workspace · ${agent.cliTool}`
+                      ? `Managed workspace · ${agent.cliTool}`
                       : `${agent.provider} model provider`
                 }
               />
@@ -251,10 +250,10 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
               />
               <DetailRow label="Working folder" value={agent.cwd ?? 'Not needed for this agent'} />
               <DetailRow
-                label={isHostCliAgent(agent) ? 'Local connection' : 'Managed workspace'}
+                label={isHostCliAgent(agent) ? 'This computer connection' : 'Managed workspace'}
                 value={
                   isHostCliAgent(agent)
-                    ? (agent.runtimeId ?? 'Waiting for sidecar')
+                    ? (agent.runtimeId ?? 'Waiting for this computer')
                     : (agent.containerId?.slice(0, 12) ??
                       (agent.cliTool ? 'Waiting to start' : 'Not needed'))
                 }
@@ -319,7 +318,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
       return {
         title: 'Reconnect the local computer',
         detail:
-          'Open the computer where this local agent was connected and start the sidecar again. This agent cannot receive new work until the connection returns.',
+          'Open the computer where this agent was connected and start the connection tool again. This agent cannot receive new work until the connection returns.',
         success: 'The status changes from Offline to Idle or Working.',
         ready: false,
       }
@@ -339,7 +338,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
     return {
       title: 'Fix setup before sending work',
       detail:
-        'This provider-backed agent is offline. Check the model provider setup before sending work.',
+        'This text-only model agent is offline. Check the model provider setup before sending work.',
       success: 'The agent returns to Idle and can receive tasks.',
       ready: false,
     }
@@ -471,16 +470,16 @@ function AssignmentFitCard({
       : 'Unavailable until restarted or reconnected'
   const hostCli = isHostCliAgent(agent)
   const runtime = hostCli
-    ? `${agent.cliTool ?? 'Local'} CLI on enrolled computer`
+    ? `${agent.cliTool ?? 'Work tool'} on this computer`
     : agent.cliTool
-      ? `${agent.cliTool} container workspace`
+      ? `${agent.cliTool} managed workspace`
       : `${agent.provider} model provider`
   const credential = hostCli
     ? 'Uses the accounts and tools installed on the enrolled computer.'
     : agent.cliTool === 'codex'
-      ? 'Container sign-in status is checked in Runtime settings.'
+      ? 'Sign-in status is checked in Agent setup.'
       : agent.cliTool
-        ? 'Container access is added when the agent starts.'
+        ? 'Workspace access is added when the agent starts.'
         : 'Model provider key readiness is checked in Settings providers.'
 
   return (
@@ -619,7 +618,7 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
           <span className="max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
             Start the workspace here. Success looks like the agent status changing to Idle or
             Working, then this Console opens a live terminal. If it stays pending, ask an admin to
-            check the container runtime and agent image.
+            check the managed workspace setup and agent image.
           </span>
         )}
       </div>
@@ -629,7 +628,7 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
           className="rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
         >
           Start did not finish. Check the agent status, then try once more. If it keeps failing, ask
-          an admin to check the container runtime and agent image.
+          an admin to check the managed workspace setup and agent image.
         </div>
       )}
       {agent.cliTool && (

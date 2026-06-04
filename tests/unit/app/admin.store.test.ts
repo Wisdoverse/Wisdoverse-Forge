@@ -172,7 +172,7 @@ describe('useAdminStore loading errors', () => {
 
     expectBeginnerError(
       useAdminStore.getState().cliImagesError,
-      'You do not have permission to view admin CLI agent images. Ask an owner to update your admin role.'
+      'You do not have permission to view admin agent work-tool images. Ask an owner to update your admin role.'
     )
   })
 

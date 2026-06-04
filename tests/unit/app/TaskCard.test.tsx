@@ -184,7 +184,7 @@ describe('TaskCard', () => {
     expect(count.textContent).toBe('2 files')
   })
 
-  test('shows stdout result count for real sidecar completions', () => {
+  test('shows stdout result count for real connection-tool completions', () => {
     render(
       <TaskCard task={{ ...mockTask, state: 'completed', result: { stdout: 'real output' } }} />
     )

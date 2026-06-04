@@ -128,7 +128,7 @@ describe('AgentGroupsPanel', () => {
     render(<AgentGroupsPanel />)
 
     expect(screen.getByText('Queue deployment')).toBeInTheDocument()
-    expect(screen.getByText(/assigned agent .* waiting for runtime pickup/i)).toBeInTheDocument()
+    expect(screen.getByText(/assigned agent .* waiting for an agent to pick it up/i)).toBeInTheDocument()
     expect(screen.queryByText(/unassigned/i)).toBeNull()
   })
 

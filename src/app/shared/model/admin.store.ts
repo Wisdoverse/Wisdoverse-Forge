@@ -73,7 +73,7 @@ export interface SystemHealth {
 }
 
 /**
- * One Container CLI tool's image-update state, as returned per-tool by
+ * One work tool's image-update state, as returned per-tool by
  * `GET /api/v1/admin/cli-images`. `pending` means the auto-updater has not yet
  * run a check for this tool (it is off by default).
  */
@@ -174,7 +174,7 @@ interface AdminState {
   healthLoading: boolean
   healthError: string | null
 
-  // CLI agent images
+  // Agent work-tool images
   cliImages: CliImageStatus | null
   cliImagesLoading: boolean
   cliImagesError: string | null
@@ -259,7 +259,7 @@ function adminResourceLabel(resource: AdminResource): string {
     case 'health':
       return 'system health'
     case 'cli-images':
-      return 'CLI agent images'
+      return 'agent work-tool images'
   }
 }
 
@@ -533,7 +533,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   },
 
   // ---------------------------------------------------------------------------
-  // CLI agent images
+  // Agent work-tool images
   // ---------------------------------------------------------------------------
 
   loadCliImages: async () => {

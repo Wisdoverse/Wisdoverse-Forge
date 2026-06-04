@@ -318,7 +318,7 @@ describe('GettingStartedView', () => {
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/providers' })
   })
 
-  test('routes runtime setup directly to runtime settings', async () => {
+  test('routes agent setup directly to work settings', async () => {
     render(<GettingStartedView />)
 
     fireEvent.click(await screen.findByRole('button', { name: /choose work location/i }))

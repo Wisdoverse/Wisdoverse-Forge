@@ -64,7 +64,7 @@ const DEFAULT_FORM: AddProviderForm = {
 const PROVIDER_SETUP_STEPS = [
   { label: 'Choose provider', value: 'Select the service that will run model requests.' },
   { label: 'Paste key', value: 'Use the provider key from that account. It is stored encrypted.' },
-  { label: 'Save, then test', value: 'Run Test before creating Provider + Prompt agents.' },
+  { label: 'Save, then test', value: 'Run Test before creating text-only model agents.' },
 ]
 
 const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
@@ -314,7 +314,7 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
     return {
       title: 'Test Provider Connection',
       detail: `Test ${firstProvider.displayName} before assigning work so agent creation does not fail on the first run.`,
-      success: 'The provider shows Ready and can be used by Provider + Prompt agents.',
+      success: 'The provider shows Ready and can be used by text-only model agents.',
       ready: false,
       action: 'show-needs-test',
       actionLabel: 'Show Needs Test',
@@ -336,16 +336,16 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
   if (!defaultProvider && readyProviders.length > 0) {
     return {
       title: 'Ready Provider Available',
-      detail: `${readyProviders[0].displayName} is ready. Use it when creating a Provider + Prompt agent.`,
-      success: 'New Provider + Prompt agents can select a tested provider.',
+      detail: `${readyProviders[0].displayName} is ready. Use it when creating a text-only model agent.`,
+      success: 'New text-only model agents can select a tested provider.',
       ready: true,
     }
   }
 
   return {
-    title: 'Ready to Create Provider Agents',
-    detail: `${defaultProvider?.displayName ?? readyProviders[0]?.displayName ?? 'A provider'} is ready for Provider + Prompt agents.`,
-    success: 'Open Agents, choose New Agent, then select Provider + Prompt.',
+    title: 'Ready to Create Text-Only Model Agents',
+    detail: `${defaultProvider?.displayName ?? readyProviders[0]?.displayName ?? 'A provider'} is ready for text-only model agents.`,
+    success: 'Open Agents, choose New Agent, then select Text-only model.',
     ready: true,
   }
 }
@@ -534,7 +534,7 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
           </div>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
             {total === 0
-              ? 'Add and test a provider before creating Provider + Prompt agents.'
+              ? 'Add and test a provider before creating text-only model agents.'
               : `${ready}/${total} provider${total === 1 ? '' : 's'} ready, ${needsTest} need${
                   needsTest === 1 ? 's' : ''
                 } a connection test, ${disabled} disabled.`}
@@ -1061,7 +1061,7 @@ export function ProvidersSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>LLM Providers</h2>
+          <h2 className={uiStyles.sectionTitle}>Model Providers</h2>
           <p className={uiStyles.sectionDescription}>Configure AI model providers and API keys</p>
         </div>
         {!showForm && (
