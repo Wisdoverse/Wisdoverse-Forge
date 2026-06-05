@@ -115,6 +115,11 @@ const COMMON_EVENT_TYPES = [
 
 const INPUT_CLASS =
   'h-9 w-full rounded-full border border-black/[0.08] bg-white px-3 text-ui-caption text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
+const HIDDEN_AUDIT_DETAIL_VALUE =
+  'Hidden for safety. Keep secrets hidden, refresh the audit view, then export again.'
+const MISSING_AUDIT_ACCESS_MESSAGE =
+  'Required account access is missing. Add or reconnect service access, then review the audit again.'
+const REPEATED_AUDIT_DETAIL_VALUE = 'Repeated detail omitted.'
 
 export function AuditLogView() {
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS)
@@ -734,8 +739,47 @@ function shortId(value: string): string {
 
 function prettyDetails(value: unknown): string {
   try {
-    return JSON.stringify(value, null, 2)
+    return JSON.stringify(safeAuditDetailValue(value), null, 2)
   } catch {
-    return String(value)
+    return safeAuditDetailString(String(value))
   }
+}
+
+function safeAuditDetailValue(
+  value: unknown,
+  key = '',
+  seen: WeakSet<object> = new WeakSet<object>()
+): unknown {
+  if (isSensitiveAuditDetailKey(key)) return HIDDEN_AUDIT_DETAIL_VALUE
+  if (typeof value === 'string') return safeAuditDetailString(value)
+  if (Array.isArray(value)) return value.map((item) => safeAuditDetailValue(item, '', seen))
+  if (value && typeof value === 'object') {
+    if (seen.has(value)) return REPEATED_AUDIT_DETAIL_VALUE
+    seen.add(value)
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([entryKey, entryValue]) => [
+        entryKey,
+        safeAuditDetailValue(entryValue, entryKey, seen),
+      ])
+    )
+  }
+  return value
+}
+
+function isSensitiveAuditDetailKey(key: string): boolean {
+  const normalizedKey = key.replace(/[^a-z0-9]/gi, '').toLowerCase()
+  return ['token', 'secret', 'password', 'apikey', 'credential'].some((sensitivePart) =>
+    normalizedKey.includes(sensitivePart)
+  )
+}
+
+function safeAuditDetailString(value: string): string {
+  const accessIssue =
+    /\b(missing|invalid|expired|revoked)\b.{0,32}\b(token|credential|credentials|api\s*key|secret)\b/i
+  const reversedAccessIssue =
+    /\b(token|credential|credentials|api\s*key|secret)\b.{0,32}\b(missing|invalid|expired|revoked)\b/i
+  if (accessIssue.test(value) || reversedAccessIssue.test(value)) {
+    return MISSING_AUDIT_ACCESS_MESSAGE
+  }
+  return value
 }

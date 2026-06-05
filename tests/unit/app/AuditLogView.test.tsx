@@ -148,6 +148,34 @@ describe('AuditLogView', () => {
     )
   })
 
+  test('hides sensitive values in audit change details', async () => {
+    fetchGovernanceAudit.mockResolvedValueOnce({
+      ...auditResponse,
+      entries: [
+        {
+          ...auditResponse.entries[0],
+          details: {
+            label: 'useful',
+            token: 'audit-secret-token',
+            nested: {
+              apiKey: 'private-audit-key',
+              error: 'Missing token',
+            },
+          },
+        },
+      ],
+    })
+
+    render(<AuditLogView />)
+
+    await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
+    expect(screen.getAllByText(/Hidden for safety/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Required account access is missing/i)).toBeDefined()
+    expect(screen.queryByText(/audit-secret-token/i)).toBeNull()
+    expect(screen.queryByText(/private-audit-key/i)).toBeNull()
+    expect(screen.queryByText(/Missing token/i)).toBeNull()
+  })
+
   test('explains how to recover from an empty audit result', async () => {
     fetchGovernanceAudit.mockResolvedValueOnce({
       entries: [],
