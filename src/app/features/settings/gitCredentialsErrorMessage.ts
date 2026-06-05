@@ -54,13 +54,13 @@ export function gitCredentialsErrorMessage(error: unknown): string {
     lower.includes('expired token') ||
     lower.includes('token expired')
   ) {
-    return `${base} Paste a new repository access key from GitHub or GitLab, then save again.`
+    return `${base} Paste a new access token from GitHub or GitLab, then save again.`
   }
   if (code === 409 || lower.includes('already exists')) {
     return `${base} Repository access for this Git provider already exists. Remove the old entry first or choose the other provider.`
   }
   if (code === 422 || lower.includes('invalid host') || lower.includes('invalid provider')) {
-    return `${base} Check the Git provider, repository access key, and self-hosted Git address, then try again.`
+    return `${base} Check the Git service, access token, and GitHub or GitLab address, then try again.`
   }
   if (
     lower.includes('not configured') ||

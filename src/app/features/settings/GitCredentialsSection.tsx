@@ -23,14 +23,14 @@ const PROVIDER_LABELS: Record<GitProvider, string> = {
 }
 
 const GIT_CREDENTIAL_SETUP_STEPS = [
-  { label: 'Choose Git service', value: 'Pick where the repositories live.' },
+  { label: 'Choose where code lives', value: 'Pick GitHub or GitLab.' },
   {
-    label: 'Paste repository access key',
-    value: 'Use the key from GitHub or GitLab that can reach the repositories.',
+    label: 'Paste the access token',
+    value: 'Create a personal access token in GitHub or GitLab, then paste it here.',
   },
   {
-    label: 'Address is usually blank',
-    value: 'Only add an address for self-hosted GitHub or GitLab.',
+    label: 'Leave address blank for cloud',
+    value: 'Only enter an address for self-hosted GitHub or GitLab.',
   },
 ]
 
@@ -52,17 +52,17 @@ function credentialFormReadiness({
   if (!token.trim()) {
     return {
       ready: false,
-      title: 'Next: Paste repository access key',
+      title: 'Next: Paste the access token',
       detail:
-        'Paste the repository access key from GitHub or GitLab so agents can clone and push repositories.',
-      error: 'Paste a repository access key before saving repository access.',
+        'Use the personal access token from GitHub or GitLab so agents can clone and push repositories.',
+      error: 'Paste an access token before saving repository access.',
       fieldId: tokenInputId,
     }
   }
 
   return {
     ready: true,
-    title: 'Ready to Save',
+    title: 'Ready to save',
     detail: 'Save repository access, then use a small agent task to confirm it works.',
     error: null,
     fieldId: null,
@@ -157,7 +157,8 @@ function AddCredentialForm({
   const [form, setForm] = useState<AddCredentialFormState>(DEFAULT_FORM)
   const providerInputId = 'git-credential-provider'
   const tokenInputId = 'git-credential-token'
-  const tokenHelpId = 'git-credential-token-help'
+  const tokenIntroId = 'git-credential-token-intro'
+  const tokenSafetyId = 'git-credential-token-safety'
   const hostHelpId = 'git-credential-host-help'
   const readiness = credentialFormReadiness({ token: form.token, tokenInputId })
 
@@ -185,7 +186,7 @@ function AddCredentialForm({
     >
       <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
         <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Git access setup path
+          Repository access setup
         </div>
         <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
           {GIT_CREDENTIAL_SETUP_STEPS.map((step) => (
@@ -204,10 +205,20 @@ function AddCredentialForm({
         </div>
       </div>
 
+      <div
+        className="mb-3 text-ui-caption text-secondary-light dark:text-secondary-dark"
+        aria-live="polite"
+      >
+        <span className="font-medium text-foreground-light dark:text-foreground-dark">
+          {readiness.title}
+        </span>
+        <span> {readiness.detail}</span>
+      </div>
+
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label htmlFor="git-credential-provider" className={uiStyles.label}>
-            Git provider
+            Git service
           </label>
           <select
             id={providerInputId}
@@ -222,20 +233,20 @@ function AddCredentialForm({
             ))}
           </select>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Choose where the repository is hosted.
+            Choose the site that owns the repository.
           </p>
         </div>
 
         <div>
           <label htmlFor="git-credential-token" className={uiStyles.label}>
-            Repository access key <span className="text-red-500">*</span>
+            Repository access token <span className="text-red-500">*</span>
           </label>
           <p
-            id={tokenHelpId}
+            id={tokenIntroId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste the key from the selected Git service. GitHub and GitLab may call this a personal
-            access token. It is hidden after saving.
+            Paste a personal access token from the selected site. It lets agents clone and update
+            only the repositories you allow.
           </p>
           <input
             id="git-credential-token"
@@ -243,23 +254,22 @@ function AddCredentialForm({
             name="token"
             value={form.token}
             onChange={(e) => setForm({ ...form, token: e.target.value })}
-            placeholder="Paste the repository access key"
+            placeholder="Paste the access token from GitHub or GitLab"
             required
             className={uiStyles.input}
-            aria-describedby={tokenHelpId}
+            aria-describedby={`${tokenIntroId} ${tokenSafetyId}`}
           />
           <p
-            id="git-credential-token-help"
+            id={tokenSafetyId}
             className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Use a key that can read the repositories your agents need. It will not be shown again
-            after saving.
+            Do not paste your GitHub or GitLab password. This token is hidden after saving.
           </p>
         </div>
 
         <div className="sm:col-span-2">
           <label htmlFor="git-credential-host" className={uiStyles.label}>
-            Self-hosted Git address{' '}
+            GitHub or GitLab address{' '}
             <span className="text-secondary-light dark:text-secondary-dark font-normal">
               (optional)
             </span>
@@ -268,7 +278,7 @@ function AddCredentialForm({
             id={hostHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Leave this empty for github.com or gitlab.com.
+            Leave this empty if you use github.com or gitlab.com.
           </p>
           <input
             id="git-credential-host"
@@ -284,7 +294,7 @@ function AddCredentialForm({
             id="git-credential-host-help"
             className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Leave blank for github.com or gitlab.com.
+            For a company-hosted Git service, enter the address you open in the browser.
           </p>
         </div>
       </div>
@@ -303,7 +313,7 @@ function AddCredentialForm({
           disabled={saving || !form.token.trim()}
           className={uiStyles.primaryButton}
         >
-          {saving ? 'Saving...' : 'Save access'}
+          {saving ? 'Saving...' : 'Save repository access'}
         </button>
       </div>
     </form>
@@ -345,8 +355,8 @@ export function GitCredentialsSection() {
   const canAddMore = existingProviders.length < 2
 
   const tableHeaders: { label: string; className?: string }[] = [
-    { label: 'Git provider' },
-    { label: 'Address' },
+    { label: 'Git service' },
+    { label: 'Git address' },
     { label: 'Added on' },
     { label: '', className: 'w-20' },
   ]
@@ -394,7 +404,7 @@ export function GitCredentialsSection() {
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Add GitHub or GitLab repository access for private repositories that use HTTPS
-              addresses, such as https://github.com/team/repo.git. Use repository SSH keys for
+              addresses, such as https://github.com/team/repo.git. Use repository SSH access for
               addresses that start with git@.
             </p>
           </div>
