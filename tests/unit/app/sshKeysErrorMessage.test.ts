@@ -2,22 +2,30 @@ import { describe, expect, test } from 'vitest'
 import { sshKeysErrorMessage } from '@app/features/settings/sshKeysErrorMessage'
 
 describe('sshKeysErrorMessage', () => {
+  function expectBeginnerMessage(actual: string, expected: string): void {
+    expect(actual).toBe(expected)
+    expect(actual).not.toContain('Code:')
+    expect(actual).not.toContain('Details:')
+    expect(actual).not.toContain('HTTP')
+  }
+
   test('turns invalid public key errors into a clear recovery step', () => {
-    expect(
-      sshKeysErrorMessage('Settings could not save SSH key. Details: invalid public key')
-    ).toBe(
+    expectBeginnerMessage(
+      sshKeysErrorMessage('Settings could not save SSH key. Details: invalid public key'),
       'Repository SSH access could not be saved. Paste only the shareable public line that starts with ssh-ed25519 or ssh-rsa, then save again.'
     )
   })
 
   test('explains permission errors without exposing raw backend details', () => {
-    expect(sshKeysErrorMessage('HTTP 403')).toBe(
+    expectBeginnerMessage(
+      sshKeysErrorMessage('HTTP 403'),
       'Repository SSH access could not be loaded. Ask an owner or admin for access to manage repository SSH access.'
     )
   })
 
   test('explains duplicate keys with a safe next action', () => {
-    expect(sshKeysErrorMessage('API 409 duplicate key')).toBe(
+    expectBeginnerMessage(
+      sshKeysErrorMessage('API 409 duplicate key'),
       'Repository SSH access could not be loaded. This public line already exists. Choose the saved access or remove the old one first.'
     )
   })
@@ -25,9 +33,38 @@ describe('sshKeysErrorMessage', () => {
   test('explains network failures in user-facing terms', () => {
     const message = sshKeysErrorMessage(new TypeError('Failed to fetch'))
 
-    expect(message).toBe(
-      'Repository SSH access could not be loaded. The app could not reach repository SSH access. Check your connection, then try again.'
+    expectBeginnerMessage(
+      message,
+      'Repository SSH access could not be loaded. Forge could not connect while opening repository SSH access. Check your connection, then try again.'
     )
     expect(message).not.toContain('service')
+    expect(message).not.toContain('Failed to fetch')
+  })
+
+  test('turns server failures into Settings recovery guidance', () => {
+    const message = sshKeysErrorMessage({ status: 503 })
+
+    expectBeginnerMessage(
+      message,
+      'Repository SSH access could not be loaded. Refresh Settings, then try again. If it still fails, ask an owner or admin to check repository SSH access settings.'
+    )
+    expect(message).not.toContain('temporarily unavailable')
+  })
+
+  test('turns structured rate limits into a wait and retry step', () => {
+    expectBeginnerMessage(
+      sshKeysErrorMessage({ code: '429' }),
+      'Repository SSH access could not be loaded. Forge is receiving too many repository SSH access requests right now. Wait a minute, then try again.'
+    )
+  })
+
+  test('turns unknown details into an owner or admin setup step', () => {
+    const message = sshKeysErrorMessage({ reason: 'unexpected key parser detail' })
+
+    expectBeginnerMessage(
+      message,
+      'Repository SSH access could not be loaded. Try again. If it still fails, ask an owner or admin to check repository SSH access settings.'
+    )
+    expect(message).not.toContain('parser')
   })
 })
