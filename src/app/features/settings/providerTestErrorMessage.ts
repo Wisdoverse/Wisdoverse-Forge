@@ -27,12 +27,12 @@ function isNetworkError(error: unknown): boolean {
 }
 
 export function providerTestErrorMessage(error: unknown, providerName = 'Model service'): string {
-  const base = `${providerName} connection test failed.`
+  const base = `${providerName} connection check failed.`
   const text = errorText(error).toLowerCase()
   const code = statusCode(error)
 
   if (code === 401 || code === 403 || text.includes('unauthorized') || text.includes('forbidden')) {
-    return `${base} Check that the saved service access key is active and allowed to use the selected model, then save and check again.`
+    return `${base} Confirm the saved service access key is active and allowed to use the selected model, then save and check again.`
   }
   if (
     code === 400 ||
@@ -47,13 +47,13 @@ export function providerTestErrorMessage(error: unknown, providerName = 'Model s
     return `${base} The model or service address was not found. Check the model name and service address, then check again.`
   }
   if (code === 408 || code === 429 || text.includes('rate limit') || text.includes('too many')) {
-    return `${base} The model service is busy or limiting checks. Wait a minute, then check again.`
+    return `${base} This model service is busy. Wait a minute, then check again.`
   }
   if (code != null && code >= 500) {
-    return `${base} The model service or gateway is temporarily unavailable. Try again in a few minutes.`
+    return `${base} Model service checks are temporarily unavailable. Try again in a few minutes. If it still fails, ask an owner to check model service settings.`
   }
   if (isNetworkError(error)) {
-    return `${base} The platform could not reach the model service. Check network access and the service address, then check again.`
+    return `${base} Forge could not connect to this model service. Check the service address and your connection, then check again.`
   }
 
   return `${base} Review the model service settings, then check again.`
