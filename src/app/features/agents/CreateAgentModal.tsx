@@ -373,7 +373,7 @@ export function CreateAgentModal() {
         aria-modal="true"
         aria-labelledby="create-agent-title"
         className={cn(
-          'relative w-[480px] max-h-[80vh] overflow-y-auto',
+          'relative max-h-[calc(100vh-2rem)] w-[480px] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-h-[80vh]',
           'rounded-panel border border-black/[0.08] bg-white p-6 dark:border-white/[0.1] dark:bg-[#2a2a2c]'
         )}
       >
@@ -382,7 +382,7 @@ export function CreateAgentModal() {
             id="create-agent-title"
             className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark"
           >
-            {localEnrollment ? 'Join Agent on This Computer' : 'New Agent'}
+            {localEnrollment ? 'Join agent on this computer' : 'New agent'}
           </h2>
           <button
             type="button"
@@ -486,10 +486,12 @@ export function CreateAgentModal() {
             <div>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                  Role template
+                  Starter role
                 </span>
                 <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  {kind === 'provider' ? 'Text-only ready' : 'Name starts file-work agents'}
+                  {kind === 'provider'
+                    ? 'Adds a starter name and instructions'
+                    : 'Adds a starter name for file work'}
                 </span>
               </div>
               <div
@@ -535,7 +537,7 @@ export function CreateAgentModal() {
                 id="agent-name"
                 {...register('name')}
                 className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                placeholder="e.g. Frontend Agent…"
+                placeholder="e.g. Review work agent"
                 autoFocus
               />
             </div>
@@ -606,7 +608,7 @@ export function CreateAgentModal() {
                     ? 'File work'
                     : kind === 'local-cli'
                       ? 'Local work'
-                      : 'Prompt work'}
+                      : 'Text-only work'}
                 </span>
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -709,15 +711,18 @@ export function CreateAgentModal() {
                     htmlFor="systemPrompt"
                     className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                   >
-                    System prompt
+                    Instructions for this agent
                   </label>
                   <textarea
                     id="systemPrompt"
                     {...register('systemPrompt')}
                     rows={4}
-                    placeholder="e.g. You are a concise, Pythonic code reviewer…"
+                    placeholder="e.g. Review code clearly, list risks first, and cite exact files."
                     className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                   />
+                  <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                    Optional. Use this to tell the agent how to behave every time it works.
+                  </p>
                 </div>
               </>
             )}
@@ -784,7 +789,7 @@ export function CreateAgentModal() {
                       )}
                     >
                       <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-                      {creatingGroup ? 'Creating…' : 'Create Work Lane'}
+                      {creatingGroup ? 'Creating...' : 'Create work lane'}
                     </button>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                       This creates the first work lane so the agent can receive tasks.
@@ -794,7 +799,7 @@ export function CreateAgentModal() {
               </div>
             )}
 
-            <div className="flex justify-end gap-2 mt-2">
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={handleClose}
@@ -811,7 +816,7 @@ export function CreateAgentModal() {
                   loading && 'opacity-50 cursor-not-allowed'
                 )}
               >
-                {loading ? 'Creating…' : 'Create Agent'}
+                {loading ? 'Creating...' : 'Create agent'}
               </button>
             </div>
           </form>

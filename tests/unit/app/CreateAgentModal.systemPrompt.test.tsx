@@ -27,9 +27,9 @@ beforeEach(() => {
 })
 
 describe('CreateAgentModal systemPrompt', () => {
-  it('hides system prompt textarea in CLI branch', () => {
+  it('hides instruction textarea in CLI branch', () => {
     render(<CreateAgentModal />)
-    expect(screen.queryByLabelText(/system prompt/i)).toBeNull()
+    expect(screen.queryByLabelText(/instructions for this agent/i)).toBeNull()
   })
 
   it('defaults managed workspace work directory to /workspace', async () => {
@@ -37,7 +37,7 @@ describe('CreateAgentModal systemPrompt', () => {
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
-    fireEvent.change(screen.getByPlaceholderText(/Frontend Agent/i), {
+    fireEvent.change(screen.getByPlaceholderText(/Review work agent/i), {
       target: { value: 'Test' },
     })
     fireEvent.click(screen.getByRole('button', { name: /create agent/i }))
@@ -52,10 +52,11 @@ describe('CreateAgentModal systemPrompt', () => {
     )
   })
 
-  it('shows system prompt textarea when Text-only model selected', () => {
+  it('shows instruction textarea when Text-only model selected', () => {
     render(<CreateAgentModal />)
     fireEvent.click(screen.getByText(/Text-only model/i))
-    expect(screen.getByLabelText(/system prompt/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/instructions for this agent/i)).toBeInTheDocument()
+    expect(screen.getByText(/tell the agent how to behave every time/i)).toBeInTheDocument()
   })
 
   it('submits with lowercase provider + systemPrompt payload', async () => {
@@ -63,11 +64,11 @@ describe('CreateAgentModal systemPrompt', () => {
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
-    fireEvent.change(screen.getByPlaceholderText(/Frontend Agent/i), {
+    fireEvent.change(screen.getByPlaceholderText(/Review work agent/i), {
       target: { value: 'Test' },
     })
     fireEvent.click(screen.getByText(/Text-only model/i))
-    fireEvent.change(screen.getByLabelText(/system prompt/i), {
+    fireEvent.change(screen.getByLabelText(/instructions for this agent/i), {
       target: { value: 'you are terse' },
     })
     fireEvent.click(screen.getByRole('button', { name: /create agent/i }))
@@ -88,7 +89,7 @@ describe('CreateAgentModal systemPrompt', () => {
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
-    fireEvent.change(screen.getByPlaceholderText(/Frontend Agent/i), {
+    fireEvent.change(screen.getByPlaceholderText(/Review work agent/i), {
       target: { value: 'Test' },
     })
     fireEvent.click(screen.getByText(/Text-only model/i))

@@ -413,9 +413,10 @@ describe('CreateAgentModal', () => {
     fireEvent.click(within(templateGroup).getByRole('button', { name: /reviewer/i }))
 
     expect(screen.getByLabelText(/^name$/i)).toHaveValue('Review Agent')
-    expect((screen.getByLabelText(/system prompt/i) as HTMLTextAreaElement).value).toContain(
-      'security issues'
-    )
+    expect(
+      (screen.getByLabelText(/instructions for this agent/i) as HTMLTextAreaElement).value
+    ).toContain('security issues')
+    expect(screen.getByText(/tell the agent how to behave every time/i)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
