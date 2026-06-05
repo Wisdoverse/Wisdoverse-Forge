@@ -47,7 +47,7 @@ function agentToolLabel(tool?: AgentInfo['cliTool']): string {
 
 function agentServiceLabel(agent: AgentInfo): string {
   if (agent.cliTool) return agentToolLabel(agent.cliTool)
-  return `${agent.provider} model service`
+  return `${agent.provider} AI service`
 }
 
 function agentInitial(agent: AgentInfo): string {
@@ -74,7 +74,7 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
     ? 'This computer'
     : agent.cliTool
       ? 'Managed workspace'
-      : 'Text-only model'
+      : 'Chat-only agent'
   const projectLabel = agent.projectName ?? agent.workspaceName ?? 'Choose a starting project'
   const serviceLabel = agentServiceLabel(agent)
 

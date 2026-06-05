@@ -39,9 +39,10 @@ describe('AgentListView', () => {
     render(<AgentListView />)
     const emptyState = screen.getByTestId('agent-empty-state')
     expect(within(emptyState).getByText(/create your first agent/i)).toBeDefined()
-    expect(within(emptyState).getByText(/start with text only/i)).toBeDefined()
+    expect(within(emptyState).getByText(/start with chat-only/i)).toBeDefined()
     expect(within(emptyState).getByText(/managed workspace or this computer/i)).toBeDefined()
     expect(within(emptyState).getByText(/success looks like one idle agent/i)).toBeDefined()
+    expect(within(emptyState).queryByText(/text only/i)).toBeNull()
   })
 
   test('waits for a selected project before showing a local-agent command', () => {
@@ -198,7 +199,7 @@ describe('AgentListView', () => {
 
     fireEvent.change(screen.getByTestId('agent-search'), { target: { value: '' } })
     const runtimeFilters = screen.getByRole('group', { name: /work type filter/i })
-    fireEvent.click(within(runtimeFilters).getByRole('button', { name: /text-only model\s*1/i }))
+    fireEvent.click(within(runtimeFilters).getByRole('button', { name: /chat-only agent\s*1/i }))
     expect(screen.getByText('Review Analyst')).toBeDefined()
     expect(screen.queryByText('Build Runner')).toBeNull()
 

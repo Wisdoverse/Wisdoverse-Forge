@@ -41,7 +41,7 @@ const RUNTIME_FILTERS: { value: AgentRuntimeFilter; label: string }[] = [
   { value: 'all', label: 'All agents' },
   { value: 'container', label: 'Managed workspace' },
   { value: 'host', label: 'This computer' },
-  { value: 'provider', label: 'Text-only model' },
+  { value: 'provider', label: 'Chat-only agent' },
 ]
 
 const SORT_OPTIONS: { value: AgentSortKey; label: string }[] = [
@@ -175,8 +175,8 @@ export function AgentListView() {
                   Create Your First Agent
                 </p>
                 <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-                  Start with Text only when you just need answers. Choose Managed workspace or This
-                  computer only when the task must read files or run commands.
+                  Start with Chat-only when you just need answers. Choose Managed workspace or This
+                  computer only when the task must read files or check the project.
                 </p>
               </div>
               <div className="max-w-sm rounded-lg bg-apple-blue/10 px-3 py-2 text-ui-caption text-secondary-light dark:text-secondary-dark">

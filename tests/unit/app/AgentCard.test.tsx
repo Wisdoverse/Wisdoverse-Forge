@@ -62,7 +62,7 @@ describe('AgentCard', () => {
     expect(screen.queryByText('Anthropic · claude')).toBeNull()
   })
 
-  test('labels text-only model agents by service and work type', () => {
+  test('labels chat-only agents by service and work type', () => {
     render(
       <AgentCard
         agent={{
@@ -78,10 +78,12 @@ describe('AgentCard', () => {
       />
     )
 
-    expect(screen.getByText('OpenAI model service')).toBeDefined()
-    expect(screen.getByText('Text-only model')).toBeDefined()
+    expect(screen.getByText('OpenAI AI service')).toBeDefined()
+    expect(screen.getByText('Chat-only agent')).toBeDefined()
     expect(screen.getByText('Choose a starting project')).toBeDefined()
     expect(screen.queryByText('OpenAI · gpt-4o-mini')).toBeNull()
+    expect(screen.queryByText(/model service/i)).toBeNull()
+    expect(screen.queryByText(/text-only model/i)).toBeNull()
   })
 
   test('warns before assigning work to an offline agent', () => {
