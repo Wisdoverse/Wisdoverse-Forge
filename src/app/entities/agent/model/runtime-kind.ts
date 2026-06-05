@@ -29,16 +29,38 @@ export const RUNTIME_KIND_SHORT_LABELS: Record<AgentRuntimeKind, string> = {
 export const RUNTIME_KINDS: readonly AgentRuntimeKind[] = ['container', 'cli', 'api'] as const
 
 /**
- * Return the canonical full label for a runtime kind, falling back to the raw
- * value for any unexpected server input so the UI never renders `undefined`.
+ * Return the canonical full label for a runtime kind. Unexpected server input
+ * gets a plain review label instead of exposing protocol slugs to operators.
  */
-export function runtimeKindLabel(kind: AgentRuntimeKind | undefined): string {
-  if (!kind) return 'Unknown'
-  return RUNTIME_KIND_LABELS[kind] ?? kind
+export function runtimeKindLabel(kind: AgentRuntimeKind | string | undefined): string {
+  switch (kind?.trim().toLowerCase()) {
+    case 'container':
+      return RUNTIME_KIND_LABELS.container
+    case 'cli':
+      return RUNTIME_KIND_LABELS.cli
+    case 'api':
+      return RUNTIME_KIND_LABELS.api
+    case undefined:
+    case '':
+      return 'Work type not reported'
+    default:
+      return 'Work type needs review'
+  }
 }
 
 /** Return the compact badge label for a runtime kind. */
-export function runtimeKindShortLabel(kind: AgentRuntimeKind | undefined): string {
-  if (!kind) return 'Unknown'
-  return RUNTIME_KIND_SHORT_LABELS[kind] ?? kind
+export function runtimeKindShortLabel(kind: AgentRuntimeKind | string | undefined): string {
+  switch (kind?.trim().toLowerCase()) {
+    case 'container':
+      return RUNTIME_KIND_SHORT_LABELS.container
+    case 'cli':
+      return RUNTIME_KIND_SHORT_LABELS.cli
+    case 'api':
+      return RUNTIME_KIND_SHORT_LABELS.api
+    case undefined:
+    case '':
+      return 'Not reported'
+    default:
+      return 'Needs review'
+  }
 }

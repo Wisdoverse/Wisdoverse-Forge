@@ -41,4 +41,16 @@ describe('runtime-kind specifications', () => {
     expect(runtimeKindLabel('api')).toBe('Chat-only AI service')
     expect(runtimeKindShortLabel('api')).toBe('Chat-only')
   })
+
+  it('uses beginner-facing labels when runtime kind is missing', () => {
+    expect(runtimeKindLabel(undefined)).toBe('Work type not reported')
+    expect(runtimeKindShortLabel(undefined)).toBe('Not reported')
+  })
+
+  it('does not expose unknown runtime kind slugs', () => {
+    expect(runtimeKindLabel('future_runtime' as never)).toBe('Work type needs review')
+    expect(runtimeKindShortLabel('future_runtime' as never)).toBe('Needs review')
+    expect(runtimeKindLabel('future_runtime' as never)).not.toContain('future_runtime')
+    expect(runtimeKindShortLabel('future_runtime' as never)).not.toContain('future_runtime')
+  })
 })
