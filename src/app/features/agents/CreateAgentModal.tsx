@@ -132,7 +132,8 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
   if (kind === 'cli') {
     return {
       title: `${cliToolLabel(cliTool)} in a managed workspace`,
-      detail: 'Best when the task needs project files and a ready workspace to run commands.',
+      detail:
+        'Best when the task needs project files and a ready place to check, change, and verify them.',
       items: [
         { label: 'Work type', value: 'Managed workspace' },
         { label: 'Files', value: 'Project files available' },
@@ -145,7 +146,7 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
     return {
       title: `${cliToolLabel(cliTool)} on this computer`,
       detail:
-        'Best when the work tool already runs on this computer and the platform should manage identity and tasks.',
+        'Best when the work tool already runs on this computer and Forge should assign tasks and track results.',
       items: [
         { label: 'Work type', value: 'This computer' },
         { label: 'Files', value: 'Your local folder' },
@@ -155,13 +156,12 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
   }
 
   return {
-    title: `${providerLabel(provider)} text-only model`,
-    detail:
-      'Best for planning, review, and lightweight coordination that does not need filesystem tools.',
+    title: `${providerLabel(provider)} chat-only agent`,
+    detail: 'Best for planning, review, and quick questions that do not need project files.',
     items: [
-      { label: 'Work type', value: 'Text-only model' },
-      { label: 'Files', value: 'No file access' },
-      { label: 'Before use', value: 'Model service checked' },
+      { label: 'Work type', value: 'Chat-only agent' },
+      { label: 'Files', value: 'Does not open project files' },
+      { label: 'Before use', value: 'AI service checked' },
     ],
   }
 }
@@ -281,7 +281,7 @@ export function CreateAgentModal() {
     }
     if (data.kind === 'provider') {
       if (!data.provider || !data.model.trim()) {
-        setError('Choose a model service and model before creating this text-only model agent.')
+        setError('Choose an AI service and model before creating this chat-only agent.')
         return
       }
       await createAgent({
@@ -430,8 +430,10 @@ export function CreateAgentModal() {
                 What to do next
               </p>
               <ol className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                <li>Paste the command into the command window for this project folder.</li>
-                <li>Keep that command window open while the agent is working.</li>
+                <li>
+                  Paste the command into the window where you run commands for this project folder.
+                </li>
+                <li>Keep that window open while the agent is working.</li>
                 <li>If you close it, run the same command again to reconnect this agent.</li>
               </ol>
             </div>
@@ -578,15 +580,15 @@ export function CreateAgentModal() {
                   )}
                 >
                   <input type="radio" value="provider" {...register('kind')} className="sr-only" />
-                  Text-only model
+                  Chat-only agent
                 </label>
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {kind === 'cli'
                   ? 'Runs the selected work tool in a managed project workspace.'
                   : kind === 'local-cli'
-                    ? 'Runs a local work tool on your computer while this platform manages identity and tasks.'
-                    : 'Uses a connected model for text-only work; no files or command window.'}
+                    ? 'Runs a local work tool on your computer while Forge assigns tasks and tracks results.'
+                    : 'Uses a connected AI service for chat and planning; it does not work on files.'}
               </p>
             </div>
 
@@ -604,11 +606,7 @@ export function CreateAgentModal() {
                   </p>
                 </div>
                 <span className="shrink-0 rounded-full bg-apple-blue/10 px-2 py-0.5 text-ui-caption font-medium text-apple-blue">
-                  {kind === 'cli'
-                    ? 'File work'
-                    : kind === 'local-cli'
-                      ? 'Local work'
-                      : 'Text-only work'}
+                  {kind === 'cli' ? 'File work' : kind === 'local-cli' ? 'Local work' : 'Chat work'}
                 </span>
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -678,7 +676,7 @@ export function CreateAgentModal() {
                     htmlFor="agent-provider"
                     className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                   >
-                    Model service
+                    AI service
                   </label>
                   <select
                     id="agent-provider"

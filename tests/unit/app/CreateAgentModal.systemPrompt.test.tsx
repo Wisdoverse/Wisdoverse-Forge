@@ -52,9 +52,9 @@ describe('CreateAgentModal systemPrompt', () => {
     )
   })
 
-  it('shows instruction textarea when Text-only model selected', () => {
+  it('shows instruction textarea when Chat-only agent selected', () => {
     render(<CreateAgentModal />)
-    fireEvent.click(screen.getByText(/Text-only model/i))
+    fireEvent.click(screen.getByText(/Chat-only agent/i))
     expect(screen.getByLabelText(/instructions for this agent/i)).toBeInTheDocument()
     expect(screen.getByText(/tell the agent how to behave every time/i)).toBeInTheDocument()
   })
@@ -67,7 +67,7 @@ describe('CreateAgentModal systemPrompt', () => {
     fireEvent.change(screen.getByPlaceholderText(/Review work agent/i), {
       target: { value: 'Test' },
     })
-    fireEvent.click(screen.getByText(/Text-only model/i))
+    fireEvent.click(screen.getByText(/Chat-only agent/i))
     fireEvent.change(screen.getByLabelText(/instructions for this agent/i), {
       target: { value: 'you are terse' },
     })
@@ -92,7 +92,7 @@ describe('CreateAgentModal systemPrompt', () => {
     fireEvent.change(screen.getByPlaceholderText(/Review work agent/i), {
       target: { value: 'Test' },
     })
-    fireEvent.click(screen.getByText(/Text-only model/i))
+    fireEvent.click(screen.getByText(/Chat-only agent/i))
     fireEvent.click(screen.getByRole('button', { name: /create agent/i }))
     await waitFor(() =>
       expect(createAgent).toHaveBeenCalledWith(
