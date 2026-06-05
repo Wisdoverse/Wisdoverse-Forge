@@ -58,7 +58,7 @@ export function chatStreamHttpErrorMessage(
   const detail = messageDetail(body)
 
   if (status === 401) {
-    return 'Sign in again, then open the agent chat and resend the message.'
+    return 'Your sign-in expired. Sign in again, then open this agent chat and resend the message.'
   }
   if (status === 403) {
     return 'You do not have access to this agent or workspace. Ask an owner or admin to update your workspace role.'
@@ -70,13 +70,13 @@ export function chatStreamHttpErrorMessage(
     return chatStreamConflictMessage(detail)
   }
   if (status === 429) {
-    return 'The model service is limiting messages right now. Wait a moment, then resend the message.'
+    return 'This agent is receiving too many messages right now. Wait a moment, then resend the message.'
   }
   if (status >= 500) {
     return 'Forge could not send this chat message right now. Wait a few minutes, then resend it. If it still fails, ask an owner or admin to check chat and agent setup.'
   }
 
-  return 'The chat request could not be sent. Refresh the selected agent, then resend the message.'
+  return 'This message was not sent. Refresh this agent, then resend the message.'
 }
 
 function chatStreamConflictMessage(detail: string | null): string {
@@ -94,7 +94,21 @@ function chatStreamRequestErrorMessage(error: unknown): string {
 
 function chatStreamReadErrorMessage(error: unknown): string {
   if (isAbortError(error)) return ''
-  return 'The chat stream stopped before the reply finished. Resend the message after the agent reconnects.'
+  return 'The reply stopped before it finished. Check that the agent is still online, then resend the message.'
+}
+
+export function chatStreamEventErrorMessage(detail: unknown): string {
+  const text = typeof detail === 'string' ? detail.toLowerCase() : ''
+  if (text.includes('rate') || text.includes('limit') || text.includes('too many')) {
+    return 'This agent is receiving too many messages right now. Wait a moment, then resend the message.'
+  }
+  if (text.includes('permission') || text.includes('forbidden') || text.includes('unauthorized')) {
+    return 'You do not have access to this agent chat. Ask an owner or admin to update your workspace role.'
+  }
+  if (text.includes('context')) {
+    return 'This chat has too much old context. Clear chat only if the old messages are no longer useful, then send the message again.'
+  }
+  return 'The agent could not finish this reply. Resend the message. If it still fails, ask an owner or admin to check chat setup.'
 }
 
 /** React hook: `send(content)` streams LLM reply; `abort()` cancels it. */
@@ -137,7 +151,7 @@ export function useChatStream(agentId: string) {
 
       if (!resp.body) {
         onStreamError(
-          'The chat response was empty. Refresh the page and try again; if it repeats, check that the agent is online.'
+          'The agent did not send a reply. Refresh this agent and try again; if it repeats, check that the agent is online.'
         )
         return
       }
@@ -194,8 +208,7 @@ export function useChatStream(agentId: string) {
               break
             }
             case 'error': {
-              const msg = typeof payload.message === 'string' ? payload.message : 'stream error'
-              onStreamError(msg)
+              onStreamError(chatStreamEventErrorMessage(payload.message))
               currentId = null
               break
             }

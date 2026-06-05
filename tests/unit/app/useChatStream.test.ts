@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { chatStreamHttpErrorMessage, parseSseFrame } from '@app/features/chat/useChatStream'
+import {
+  chatStreamEventErrorMessage,
+  chatStreamHttpErrorMessage,
+  parseSseFrame,
+} from '@app/features/chat/useChatStream'
 
 function expectBeginnerMessage(actual: string, expected: string): void {
   expect(actual).toBe(expected)
@@ -57,7 +61,7 @@ describe('chatStreamHttpErrorMessage', () => {
   it('turns auth failures into a clear next step', () => {
     expectBeginnerMessage(
       chatStreamHttpErrorMessage(401),
-      'Sign in again, then open the agent chat and resend the message.'
+      'Your sign-in expired. Sign in again, then open this agent chat and resend the message.'
     )
   })
 
@@ -78,14 +82,15 @@ describe('chatStreamHttpErrorMessage', () => {
     )
   })
 
-  it('turns model service rate limits into an operator action', () => {
+  it('turns chat rate limits into an operator action', () => {
     const message = chatStreamHttpErrorMessage(429)
 
     expectBeginnerMessage(
       message,
-      'The model service is limiting messages right now. Wait a moment, then resend the message.'
+      'This agent is receiving too many messages right now. Wait a moment, then resend the message.'
     )
     expect(message).not.toContain('provider')
+    expect(message).not.toContain('model service')
   })
 
   it('keeps server failures actionable for first-time operators', () => {
@@ -96,5 +101,48 @@ describe('chatStreamHttpErrorMessage', () => {
       'Forge could not send this chat message right now. Wait a few minutes, then resend it. If it still fails, ask an owner or admin to check chat and agent setup.'
     )
     expect(message).not.toContain('service unavailable')
+  })
+
+  it('keeps fallback send errors about the message, not transport details', () => {
+    const message = chatStreamHttpErrorMessage(418, { error: 'teapot route' })
+
+    expectBeginnerMessage(
+      message,
+      'This message was not sent. Refresh this agent, then resend the message.'
+    )
+    expect(message).not.toContain('chat request')
+    expect(message).not.toContain('teapot route')
+  })
+})
+
+describe('chatStreamEventErrorMessage', () => {
+  it('maps streamed rate limits without exposing raw event details', () => {
+    const message = chatStreamEventErrorMessage('provider_error: rate limited')
+
+    expectBeginnerMessage(
+      message,
+      'This agent is receiving too many messages right now. Wait a moment, then resend the message.'
+    )
+    expect(message).not.toContain('provider_error')
+  })
+
+  it('maps streamed permission failures to role guidance', () => {
+    const message = chatStreamEventErrorMessage('Forbidden token scope')
+
+    expectBeginnerMessage(
+      message,
+      'You do not have access to this agent chat. Ask an owner or admin to update your workspace role.'
+    )
+    expect(message).not.toContain('token')
+  })
+
+  it('maps unknown streamed failures to a resend and owner check step', () => {
+    const message = chatStreamEventErrorMessage('stream error')
+
+    expectBeginnerMessage(
+      message,
+      'The agent could not finish this reply. Resend the message. If it still fails, ask an owner or admin to check chat setup.'
+    )
+    expect(message).not.toContain('stream error')
   })
 })
