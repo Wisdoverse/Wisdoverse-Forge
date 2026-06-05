@@ -167,7 +167,7 @@ function scopeKindLabel(scopeKind: string): string {
     case 'user':
       return 'Only you'
     default:
-      return readableCodeLabel(scopeKind)
+      return 'Scope needs review'
   }
 }
 
@@ -182,16 +182,8 @@ function sensitivityLabel(sensitivity: string): string {
     case 'secret_detected':
       return 'May contain secrets'
     default:
-      return readableCodeLabel(sensitivity)
+      return 'Sensitivity needs review'
   }
-}
-
-function readableCodeLabel(value: string): string {
-  return value
-    .split(/[_\s-]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(' ')
 }
 
 function Badge({

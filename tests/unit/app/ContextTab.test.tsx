@@ -291,6 +291,33 @@ describe('ContextTab', () => {
     expect(screen.queryByText('Unknown')).toBeNull()
   })
 
+  test('labels unknown applied context badges without exposing backend values', async () => {
+    render(
+      <ContextTab
+        taskId="task-1"
+        loadContext={async () =>
+          context({
+            appliedItems: [
+              applied({
+                itemId: 'memory-unknown-badges',
+                title: 'Unknown badge memory',
+                scopeKind: 'global_workspace' as never,
+                sensitivity: 'restricted_zone' as never,
+              }),
+            ],
+          })
+        }
+      />
+    )
+
+    expect(await screen.findByText('Unknown badge memory')).toBeDefined()
+    expect(screen.getByText('Scope needs review')).toBeDefined()
+    expect(screen.getByText('Sensitivity needs review')).toBeDefined()
+    expect(screen.queryByText(/global workspace/i)).toBeNull()
+    expect(screen.queryByText(/restricted zone/i)).toBeNull()
+    expect(screen.queryByText('Unknown')).toBeNull()
+  })
+
   test('loads full memory content only after Show more is clicked', async () => {
     const readMemoryContent = vi.fn(async () => ({
       id: 'memory-1',
