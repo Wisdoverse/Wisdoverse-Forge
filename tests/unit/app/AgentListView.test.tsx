@@ -41,7 +41,7 @@ describe('AgentListView', () => {
     expect(within(emptyState).getByText(/create your first agent/i)).toBeDefined()
     expect(within(emptyState).getByText(/start with chat-only/i)).toBeDefined()
     expect(within(emptyState).getByText(/managed workspace or this computer/i)).toBeDefined()
-    expect(within(emptyState).getByText(/success looks like one idle agent/i)).toBeDefined()
+    expect(within(emptyState).getByText(/success looks like one ready agent/i)).toBeDefined()
     expect(within(emptyState).queryByText(/text only/i)).toBeNull()
   })
 

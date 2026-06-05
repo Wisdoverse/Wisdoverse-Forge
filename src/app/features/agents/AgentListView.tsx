@@ -32,7 +32,7 @@ type HostCliPlatform = 'posix' | 'windows'
 const STATUS_FILTERS: { value: AgentStatusFilter; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'working', label: 'Working' },
-  { value: 'idle', label: 'Idle' },
+  { value: 'idle', label: 'Ready' },
   { value: 'offline', label: 'Offline' },
 ]
 
@@ -109,7 +109,7 @@ export function AgentListView() {
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[560px]">
             <FleetStat label="Total" value={agents.length} />
             <FleetStat label="Working" value={statusCounts.working} />
-            <FleetStat label="Idle" value={statusCounts.idle} />
+            <FleetStat label="Ready" value={statusCounts.idle} />
             <FleetStat label="Offline" value={statusCounts.offline} />
           </div>
 
@@ -179,7 +179,7 @@ export function AgentListView() {
                 </p>
               </div>
               <div className="max-w-sm rounded-lg bg-apple-blue/10 px-3 py-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Success looks like one Idle agent in this list. Then send a small first task before
+                Success looks like one Ready agent in this list. Then send a small first task before
                 assigning important work.
               </div>
               <button

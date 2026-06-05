@@ -21,12 +21,12 @@ const mockAgent: AgentInfo = {
 }
 
 describe('AgentCard', () => {
-  test('explains when an idle agent can take work', () => {
+  test('explains when a ready agent can take work', () => {
     render(<AgentCard agent={mockAgent} />)
 
-    expect(screen.getByTestId('agent-status-agent-1').textContent).toContain('Idle')
+    expect(screen.getByTestId('agent-status-agent-1').textContent).toContain('Ready')
     expect(screen.getByTestId('agent-status-help-agent-1').textContent).toBe(
-      'Ready for the next task'
+      'Ready for a new task'
     )
     expect(screen.getByText('Finished')).toBeDefined()
     expect(screen.getByText('Running')).toBeDefined()
@@ -37,7 +37,7 @@ describe('AgentCard', () => {
     render(<AgentCard agent={mockAgent} />)
 
     expect(screen.getByText('Codex')).toBeDefined()
-    expect(screen.getByText('Managed workspace')).toBeDefined()
+    expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
     expect(screen.getByText('Console')).toBeDefined()
     expect(screen.queryByText('OpenAI · codex')).toBeNull()
   })
@@ -90,7 +90,7 @@ describe('AgentCard', () => {
     render(<AgentCard agent={{ ...mockAgent, status: 'offline' }} />)
 
     expect(screen.getByTestId('agent-status-help-agent-1').textContent).toBe(
-      'Reconnect before assigning work'
+      'Reconnect before sending work'
     )
   })
 

@@ -16,14 +16,14 @@ const STATUS_COLORS: Record<AgentStatus, string> = {
 
 const STATUS_LABELS: Record<AgentStatus, string> = {
   working: 'Working',
-  idle: 'Idle',
+  idle: 'Ready',
   offline: 'Offline',
 }
 
 const STATUS_HELP: Record<AgentStatus, string> = {
   working: 'Running a task now',
-  idle: 'Ready for the next task',
-  offline: 'Reconnect before assigning work',
+  idle: 'Ready for a new task',
+  offline: 'Reconnect before sending work',
 }
 
 function providerInitial(provider: string): string {
