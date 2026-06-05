@@ -569,12 +569,12 @@ export const en = {
         missing_idempotency_key: {
           title: 'Join request needs to be sent again',
           detail:
-            'Run the agent join step again. If this repeats, ask an owner to check local agent setup.',
+            'Run the join command on this computer again. If this repeats, ask an owner to check this computer agent setup.',
         },
         plaintext_nats_blocked: {
           title: 'Secure connection required for this computer',
           detail:
-            'Use the secure connection address for local agents. If you are not sure what to enter, ask an owner to check local agent connection settings.',
+            'Use the secure connection address for agents joined from this computer. If you are not sure what to enter, ask an owner to check this computer agent connection settings.',
         },
       },
     },

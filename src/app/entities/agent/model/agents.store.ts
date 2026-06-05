@@ -74,7 +74,7 @@ function agentActionPhrase(action: AgentErrorAction): string {
     case 'create':
       return 'create the agent'
     case 'enrollLocal':
-      return 'connect the local agent'
+      return 'connect the agent from this computer'
     case 'updateInstructions':
       return 'save agent instructions'
     case 'delete':
@@ -219,7 +219,7 @@ function agentValidationMessage(action: AgentErrorAction, detail: string | null)
   }
 
   if (action === 'enrollLocal') {
-    return 'Check the local agent name, local tool, and workspace, then try connecting it again.'
+    return 'Check the agent name, work tool, and project access, then run the join command again.'
   }
   if (action === 'sendPrompt') {
     return 'Write one clear instruction and make sure the agent is not already working, then send again.'

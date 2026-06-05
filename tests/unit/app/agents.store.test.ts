@@ -100,7 +100,7 @@ describe('Agents Store', () => {
     expect(message).not.toContain('Docker')
   })
 
-  test('explains local agent validation without CLI jargon', () => {
+  test('explains this-computer agent validation without CLI jargon', () => {
     const message = agentActionErrorMessage(
       'enrollLocal',
       apiError(422, { message: 'cli tool is required' })
@@ -108,9 +108,10 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'Check the local agent name, local tool, and workspace, then try connecting it again.'
+      'Check the agent name, work tool, and project access, then run the join command again.'
     )
     expect(message).not.toContain('CLI')
+    expect(message).not.toContain('local agent')
   })
 
   test('initializes with empty agents', () => {
@@ -226,7 +227,7 @@ describe('Agents Store', () => {
     expect(useAgentsStore.getState().error).not.toContain('Docker')
   })
 
-  test('stores connection guidance when local agent enrollment cannot reach the server', async () => {
+  test('stores connection guidance when this-computer agent enrollment cannot reach the server', async () => {
     agentApiMock.enrollLocalAgent.mockResolvedValue({ ok: false, error: 'Network error' })
 
     const result = await useAgentsStore.getState().enrollLocalAgent({
@@ -237,9 +238,10 @@ describe('Agents Store', () => {
     expect(result).toBeNull()
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Agent setup could not connect the local agent. Forge could not connect while updating Agents. Check your connection, then refresh Agents.'
+      'Agent setup could not connect the agent from this computer. Forge could not connect while updating Agents. Check your connection, then refresh Agents.'
     )
     expect(useAgentsStore.getState().error).not.toContain('Network error')
+    expect(useAgentsStore.getState().error).not.toContain('local agent')
   })
 
   test('stores retry guidance when prompt send hits a conflict', async () => {

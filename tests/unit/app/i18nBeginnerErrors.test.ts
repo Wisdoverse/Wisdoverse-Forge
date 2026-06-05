@@ -69,26 +69,32 @@ describe('beginner error translations', () => {
     expect(zh.skills.detail.noContent).toContain('先补充说明')
   })
 
-  test('local agent join errors avoid request-header and connection-policy jargon', () => {
+  test('this-computer agent join errors avoid request-header and connection-policy jargon', () => {
     const englishJoin = en.errors.agent.enroll.missing_idempotency_key
     const englishSecure = en.errors.agent.enroll.plaintext_nats_blocked
     const chineseJoin = zh.errors.agent.enroll.missing_idempotency_key
     const chineseSecure = zh.errors.agent.enroll.plaintext_nats_blocked
 
     expect(englishJoin.title).toContain('Join request needs to be sent again')
-    expect(englishJoin.detail).toContain('Run the agent join step again')
+    expect(englishJoin.detail).toContain('Run the join command on this computer again')
     expect(englishJoin.title).not.toContain('Idempotency-Key')
     expect(englishJoin.detail).not.toContain('UUID')
+    expect(englishJoin.detail).not.toContain('local agent')
     expect(englishSecure.detail).toContain('secure connection address')
+    expect(englishSecure.detail).toContain('agents joined from this computer')
+    expect(englishSecure.detail).not.toContain('local agents')
     expect(englishSecure.detail).not.toContain('NATS_AGENT_URL')
     expect(englishSecure.detail).not.toContain('tls://')
     expect(englishSecure.detail).not.toContain('allow_plaintext')
 
     expect(chineseJoin.title).toContain('重新发送加入请求')
-    expect(chineseJoin.detail).toContain('重新执行 Agent 加入步骤')
+    expect(chineseJoin.detail).toContain('在这台电脑上重新运行加入命令')
     expect(chineseJoin.title).not.toContain('Idempotency-Key')
     expect(chineseJoin.detail).not.toContain('UUID')
+    expect(chineseJoin.detail).not.toContain('本地 Agent')
     expect(chineseSecure.detail).toContain('安全连接地址')
+    expect(chineseSecure.detail).toContain('从这台电脑接入 Agent')
+    expect(chineseSecure.detail).not.toContain('本地 Agent')
     expect(chineseSecure.detail).not.toContain('NATS_AGENT_URL')
     expect(chineseSecure.detail).not.toContain('tls://')
     expect(chineseSecure.detail).not.toContain('allow_plaintext')
