@@ -44,6 +44,20 @@ describe('AgentListView', () => {
     expect(within(emptyState).getByText(/success looks like one idle agent/i)).toBeDefined()
   })
 
+  test('waits for a selected project before showing a local-agent command', () => {
+    render(<AgentListView />)
+
+    const enrollment = screen.getByTestId('host-cli-enrollment-panel')
+    expect(within(enrollment).getByText(/project setup/i)).toBeDefined()
+    expect(within(enrollment).getByText('Select a project first')).toBeDefined()
+    expect(within(enrollment).getByTestId('host-cli-command-waiting')).toHaveTextContent(
+      /select a project in the sidebar first/i
+    )
+    expect(enrollment.textContent).not.toContain('<project-id>')
+    expect(enrollment.textContent).not.toContain('agentforge agents enroll-local')
+    expect(within(enrollment).getByRole('button', { name: /select project first/i })).toBeDisabled()
+  })
+
   test('shows beginner local-agent enrollment command for the selected project', () => {
     useNavigationStore.setState({
       selectedProjectId: 'p1',
@@ -66,6 +80,8 @@ describe('AgentListView', () => {
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
     expect(within(enrollment).getByText('Connect a Local Agent')).toBeDefined()
     expect(within(enrollment).getByText(/work should run on your computer/i)).toBeDefined()
+    expect(within(enrollment).getByText('Project selected')).toBeDefined()
+    expect(enrollment.textContent).not.toContain('Project: p1')
     expect(enrollment.textContent).toContain('agentforge agents enroll-local')
     expect(enrollment.textContent).toContain('--tool <tool-name>')
     expect(enrollment.textContent).toContain('--name "Local Agent"')

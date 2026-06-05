@@ -266,8 +266,8 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
     () => buildLocalEnrollCommand(selectedProjectId, platform),
     [platform, selectedProjectId]
   )
-  const projectLabel = selectedProjectId ?? 'Select a project'
   const commandReady = Boolean(selectedProjectId)
+  const projectLabel = commandReady ? 'Project selected' : 'Select a project first'
 
   async function handleCopyCommand() {
     if (!commandReady || !navigator.clipboard?.writeText) return
@@ -348,18 +348,38 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
           aria-hidden="true"
         />
         <p className="min-w-0 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Project: <span className="font-mono">{projectLabel}</span>
+          Project setup: <span className="font-medium">{projectLabel}</span>
         </p>
       </div>
 
-      <pre className="mt-3 max-h-36 overflow-auto rounded-lg bg-[#111318] p-3 text-left font-mono text-[11px] leading-relaxed text-white/85">
-        <code className="whitespace-pre-wrap break-all">{command}</code>
-      </pre>
+      {commandReady ? (
+        <pre className="mt-3 max-h-36 overflow-auto rounded-lg bg-[#111318] p-3 text-left font-mono text-[11px] leading-relaxed text-white/85">
+          <code className="whitespace-pre-wrap break-all">{command}</code>
+        </pre>
+      ) : (
+        <div
+          data-testid="host-cli-command-waiting"
+          className="mt-3 rounded-lg bg-apple-blue/10 px-3 py-2 text-ui-caption text-secondary-light dark:text-secondary-dark"
+        >
+          Select a project in the sidebar first. The app will fill the project value into the join
+          command for you.
+        </div>
+      )}
 
       <div className="mt-3 grid gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-        <p>1. Install the Forge command on the computer that will do the work.</p>
-        <p>2. Replace &lt;tool-name&gt; with the tool you already use there.</p>
-        <p>3. Run the command from the folder this agent should work in.</p>
+        {commandReady ? (
+          <>
+            <p>1. Install the Forge command on the computer that will do the work.</p>
+            <p>2. Replace &lt;tool-name&gt; with the tool you already use there.</p>
+            <p>3. Run the command from the folder this agent should work in.</p>
+          </>
+        ) : (
+          <>
+            <p>1. Select the project where this agent should receive tasks.</p>
+            <p>2. Choose macOS / Linux or Windows for the computer that will do the work.</p>
+            <p>3. Copy the generated command after the project is selected.</p>
+          </>
+        )}
       </div>
 
       <button
