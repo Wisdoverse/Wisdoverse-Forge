@@ -1,6 +1,9 @@
 import { describe, test, expect, afterEach } from 'vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
-import { Workshop3DEmptyState } from '@app/widgets/views/Workshop3DView'
+import {
+  Workshop3DEmptyState,
+  Workshop3DStatusSummary,
+} from '@app/widgets/views/Workshop3DView'
 
 afterEach(cleanup)
 
@@ -23,5 +26,16 @@ describe('Workshop3DEmptyState', () => {
     expect(
       within(emptyState).getByText('Refresh this view after the agent checks in')
     ).toBeDefined()
+  })
+})
+
+describe('Workshop3DStatusSummary', () => {
+  test('uses beginner-safe labels instead of raw agent status words', () => {
+    render(<Workshop3DStatusSummary totals={{ working: 2, idle: 1, offline: 0 }} />)
+
+    expect(screen.getByText('2 Working')).toBeDefined()
+    expect(screen.getByText('1 Ready')).toBeDefined()
+    expect(screen.getByText('0 Offline')).toBeDefined()
+    expect(screen.queryByText(/idle/i)).toBeNull()
   })
 })
