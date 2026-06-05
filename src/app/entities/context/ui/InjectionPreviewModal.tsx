@@ -243,7 +243,7 @@ function PreviewMeta({ preview }: { preview: ContextPreviewResponse }) {
     stringValue(preview.capability.cli_tool) ??
     stringValue(preview.capability.provider_name) ??
     'the selected agent'
-  const runtime = stringValue(preview.capability.runtime_kind) ?? 'runtime'
+  const runtime = stringValue(preview.capability.runtime_kind)
   return (
     <div className="grid gap-2 text-ui-caption sm:grid-cols-3">
       <MetaCell label="Agent will use" value={formatCodeLabel(cli)} />
@@ -403,19 +403,27 @@ function budgetLabel(capability?: Record<string, unknown>): string {
 }
 
 function stringValue(value: unknown): string | null {
-  return typeof value === 'string' && value.length > 0 ? value : null
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
 }
 
-function runtimeLabel(runtime: string): string {
-  switch (runtime) {
+function runtimeLabel(runtime: string | null): string {
+  switch (runtime?.toLowerCase() ?? '') {
     case 'container':
+    case 'container-cli':
       return 'Managed workspace'
     case 'host':
+    case 'cli':
+    case 'host-cli':
       return 'This computer'
     case 'provider':
+    case 'api':
       return 'Chat-only AI service'
+    case '':
+      return 'Work location not listed'
     default:
-      return formatCodeLabel(runtime)
+      return 'Work location needs review'
   }
 }
 

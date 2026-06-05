@@ -136,6 +136,48 @@ describe('InjectionPreviewModal', () => {
     expect(screen.queryByText(/Text-only model/i)).toBeNull()
   })
 
+  test('labels unknown work locations without exposing backend values', () => {
+    render(
+      <InjectionPreviewModal
+        isOpen
+        preview={preview({
+          capability: {
+            cli_tool: 'codex',
+            runtime_kind: 'future_runtime' as never,
+            max_context_tokens: 1200,
+          },
+        })}
+        onClose={() => {}}
+        onConfirm={() => {}}
+      />
+    )
+
+    expect(screen.getByText('Work location')).toBeDefined()
+    expect(screen.getByText('Work location needs review')).toBeDefined()
+    expect(screen.queryByText(/future runtime/i)).toBeNull()
+    expect(screen.queryByText('Unknown')).toBeNull()
+  })
+
+  test('labels missing work locations as not listed', () => {
+    render(
+      <InjectionPreviewModal
+        isOpen
+        preview={preview({
+          capability: {
+            cli_tool: 'codex',
+            max_context_tokens: 1200,
+          },
+        })}
+        onClose={() => {}}
+        onConfirm={() => {}}
+      />
+    )
+
+    expect(screen.getByText('Work location')).toBeDefined()
+    expect(screen.getByText('Work location not listed')).toBeDefined()
+    expect(screen.queryByText('Runtime')).toBeNull()
+  })
+
   test('labels unknown context badges without exposing backend values', () => {
     render(
       <InjectionPreviewModal
