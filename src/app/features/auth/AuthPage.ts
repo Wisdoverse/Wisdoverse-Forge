@@ -20,7 +20,7 @@ function authSignInErrorMessage(error: unknown): string {
     lowerDetail.includes('load failed')
 
   if (networkFailed) {
-    return 'Sign-in could not finish because the app could not reach the service. Check your connection, then try again.'
+    return 'Sign-in could not finish. Forge could not connect while signing you in. Check your connection, then try again.'
   }
   if (lowerDetail.includes('access_denied') || lowerDetail.includes('cancel')) {
     return 'Sign-in was cancelled. Choose a sign-in option and try again.'
@@ -64,11 +64,11 @@ function authRecoveryErrorMessage(action: AuthRecoveryAction, error: unknown): s
   if (networkFailed) {
     switch (action) {
       case 'resend-verification':
-        return 'Verification email could not be sent because the app could not reach the service. Check your connection, then try again.'
+        return 'Verification email could not be sent. Forge could not connect while sending it. Check your connection, then try again.'
       case 'forgot-password':
-        return 'Reset email could not be requested because the app could not reach the service. Check your connection, then try again.'
+        return 'Reset email could not be requested. Forge could not connect while sending the reset email. Check your connection, then try again.'
       case 'reset-password':
-        return 'Password could not be updated because the app could not reach the service. Check your connection, then try again.'
+        return 'Password could not be updated. Forge could not connect while saving your new password. Check your connection, then try again.'
     }
   }
 

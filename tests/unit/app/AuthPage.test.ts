@@ -104,9 +104,10 @@ describe('AuthPage beginner guidance', () => {
 
     expect(exchangeAuthCode).toHaveBeenCalledWith('callback-code')
     expect(bodyText()).toContain(
-      'Sign-in could not finish because the app could not reach the service. Check your connection, then try again.'
+      'Sign-in could not finish. Forge could not connect while signing you in. Check your connection, then try again.'
     )
     expect(bodyText()).not.toContain('Failed to fetch')
+    expect(bodyText()).not.toContain('could not reach the service')
     expect(window.location.search).toBe('')
   })
 
@@ -213,6 +214,29 @@ describe('AuthPage beginner guidance', () => {
     expect(bodyText()).not.toContain('SMTP tenant missing')
   })
 
+  test('explains password reset email connection failures without service jargon', async () => {
+    const page = new AuthPage(
+      createAuthManager({
+        forgotPassword: vi.fn().mockRejectedValue(new TypeError('Failed to fetch')),
+      })
+    )
+
+    await page.show()
+    document.querySelector<HTMLAnchorElement>('#forgot-password-link')?.click()
+    const emailInput = document.querySelector<HTMLInputElement>('#forgot-email')
+    if (emailInput) emailInput.value = 'operator@example.com'
+    document
+      .querySelector<HTMLFormElement>('#forgot-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushAsyncWork()
+
+    expect(bodyText()).toContain(
+      'Reset email could not be requested. Forge could not connect while sending the reset email. Check your connection, then try again.'
+    )
+    expect(bodyText()).not.toContain('Failed to fetch')
+    expect(bodyText()).not.toContain('could not reach the service')
+  })
+
   test('explains expired reset links without showing raw backend text', async () => {
     const page = new AuthPage(
       createAuthManager({
@@ -236,6 +260,32 @@ describe('AuthPage beginner guidance', () => {
       'This reset link may have expired. Request a new reset email, then open the newest link.'
     )
     expect(bodyText()).not.toContain('invalid or expired token')
+  })
+
+  test('explains password update connection failures without raw network text', async () => {
+    const page = new AuthPage(
+      createAuthManager({
+        resetPassword: vi.fn().mockRejectedValue(new TypeError('Failed to fetch')),
+      }),
+      'login',
+      'reset-token'
+    )
+
+    await page.show()
+    const passwordInput = document.querySelector<HTMLInputElement>('#reset-password')
+    const confirmInput = document.querySelector<HTMLInputElement>('#reset-confirm')
+    if (passwordInput) passwordInput.value = 'LongPassword123!'
+    if (confirmInput) confirmInput.value = 'LongPassword123!'
+    document
+      .querySelector<HTMLFormElement>('#reset-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushAsyncWork()
+
+    expect(bodyText()).toContain(
+      'Password could not be updated. Forge could not connect while saving your new password. Check your connection, then try again.'
+    )
+    expect(bodyText()).not.toContain('Failed to fetch')
+    expect(bodyText()).not.toContain('could not reach the service')
   })
 
   test('shows a visible recovery step when verification resend fails', async () => {
@@ -262,8 +312,9 @@ describe('AuthPage beginner guidance', () => {
     await flushAsyncWork()
 
     expect(bodyText()).toContain(
-      'Verification email could not be sent because the app could not reach the service. Check your connection, then try again.'
+      'Verification email could not be sent. Forge could not connect while sending it. Check your connection, then try again.'
     )
     expect(bodyText()).not.toContain('Failed to fetch')
+    expect(bodyText()).not.toContain('could not reach the service')
   })
 })
