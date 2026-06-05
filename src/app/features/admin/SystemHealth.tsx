@@ -129,6 +129,49 @@ function countAttentionServices(health: SystemHealth) {
   }).length
 }
 
+function serviceIssueNote(error: string): string {
+  const detail = error.toLowerCase()
+
+  if (
+    detail.includes('password') ||
+    detail.includes('token') ||
+    detail.includes('secret') ||
+    detail.includes('credential') ||
+    detail.includes('unauthorized') ||
+    detail.includes('forbidden') ||
+    detail.includes('permission')
+  ) {
+    return 'The service reported an access setup problem. Ask an owner to check saved service access, then choose Check now.'
+  }
+  if (
+    detail.includes('connection') ||
+    detail.includes('refused') ||
+    detail.includes('unreachable') ||
+    detail.includes('timeout') ||
+    detail.includes('timed out')
+  ) {
+    return 'The service reported a connection problem. Use the next step above, then choose Check now.'
+  }
+  if (
+    detail.includes('missing') ||
+    detail.includes('not configured') ||
+    detail.includes('configuration') ||
+    detail.includes('config')
+  ) {
+    return 'A required service setting may be missing. Ask an owner to check service setup, then choose Check now.'
+  }
+  if (
+    detail.includes('rate limit') ||
+    detail.includes('too many') ||
+    detail.includes('busy') ||
+    detail.includes('overloaded')
+  ) {
+    return 'The service reported heavy load. Wait a minute, then choose Check now.'
+  }
+
+  return 'The service reported a problem. Use the next step above, then choose Check now.'
+}
+
 // ============================================================================
 // Service row
 // ============================================================================
@@ -171,7 +214,7 @@ function ServiceRow({ name, supportName, description, impact, action, health }: 
               </p>
               {health?.error && (
                 <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  Reported detail: {health.error}
+                  Support note: {serviceIssueNote(health.error)}
                 </p>
               )}
             </div>

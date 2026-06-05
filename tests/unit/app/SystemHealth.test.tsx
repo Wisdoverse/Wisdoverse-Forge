@@ -59,6 +59,35 @@ describe('SystemHealth', () => {
     expect(screen.getByText(/Service has been running for 2h/i)).toBeDefined()
   })
 
+  test('hides raw service error details from readiness rows', async () => {
+    const loadHealth = vi.fn()
+    useAdminStore.setState({
+      ...originalAdminState,
+      health: {
+        status: 'unhealthy',
+        checks: {
+          database: {
+            status: 'down',
+            error: 'connection refused at postgres.internal:5432 stack trace line 7',
+          },
+        },
+      },
+      healthLoading: false,
+      healthError: null,
+      loadHealth,
+    })
+
+    render(<SystemHealth />)
+
+    await waitFor(() => expect(loadHealth).toHaveBeenCalledOnce())
+    expect(screen.getByText(/Support note:/i)).toBeDefined()
+    expect(screen.getByText(/The service reported a connection problem/i)).toBeDefined()
+    expect(screen.queryByText(/postgres\.internal/i)).toBeNull()
+    expect(screen.queryByText(/5432/i)).toBeNull()
+    expect(screen.queryByText(/stack trace/i)).toBeNull()
+    expect(screen.queryByText(/Reported detail/i)).toBeNull()
+  })
+
   test('uses clear loading copy while readiness is being checked', () => {
     useAdminStore.setState({
       ...originalAdminState,
