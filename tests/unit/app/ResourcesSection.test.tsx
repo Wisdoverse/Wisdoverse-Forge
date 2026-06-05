@@ -40,20 +40,27 @@ describe('ResourcesSection', () => {
 
     const guide = await screen.findByTestId('resource-profile-guide')
     expect(
-      within(guide).getByText('Pick the smallest profile that can finish the work')
+      within(guide).getByText('Pick the smallest size that can finish the work')
     ).toBeDefined()
-    expect(guide.textContent).toContain('Small is the smallest option')
-    expect(within(guide).getByText('CPU controls speed')).toBeDefined()
-    expect(within(guide).getByText('Memory prevents crashes')).toBeDefined()
-    expect(within(guide).getByText('Agent sizes protect shared work')).toBeDefined()
+    expect(guide.textContent).toContain('Small is the smallest size')
+    expect(within(guide).getByText('Before choosing a size')).toBeDefined()
+    expect(within(guide).getByText('More processing power speeds work up')).toBeDefined()
+    expect(within(guide).getByText('More memory keeps large work stable')).toBeDefined()
+    expect(within(guide).getByText('Sizes keep work fair for everyone')).toBeDefined()
     expect(
-      within(guide).getByText('They keep one agent from using all available work capacity.')
+      within(guide).getByText('They keep one agent from using all shared work capacity.')
     ).toBeDefined()
+    expect(within(guide).queryByText(/profile/i)).toBeNull()
     expect(within(guide).queryByText(/runner/i)).toBeNull()
     expect(within(guide).queryByText(/machine resources/i)).toBeNull()
 
+    expect(screen.getByRole('columnheader', { name: 'Size' })).toBeDefined()
+    expect(screen.getByRole('columnheader', { name: 'Good fit' })).toBeDefined()
+    expect(screen.getByRole('columnheader', { name: 'Power and memory' })).toBeDefined()
+    expect(screen.queryByRole('columnheader', { name: 'Profile' })).toBeNull()
+    expect(screen.queryByRole('columnheader', { name: 'CPU' })).toBeNull()
     expect(screen.getByText('Small')).toBeDefined()
-    expect(screen.getByText(/1 core power · 1 GB memory/i)).toBeDefined()
+    expect(screen.getByText(/1 processing core · 1 GB memory/i)).toBeDefined()
     expect(screen.getByText('Light reviews, docs, and short commands')).toBeDefined()
     expect(screen.getByText('Normal coding tasks and test runs')).toBeDefined()
     expect(screen.getByText('Large builds, browser tests, and long-running work')).toBeDefined()
@@ -69,7 +76,7 @@ describe('ResourcesSection', () => {
     expect(within(emptyState).getByText('No agent sizes are available yet')).toBeDefined()
     expect(
       within(emptyState).getByText(
-        'Agents need at least one size before users can choose CPU and memory safely.'
+        'Agents need at least one size before users can choose safe work capacity.'
       )
     ).toBeDefined()
     expect(
@@ -94,7 +101,7 @@ describe('ResourcesSection', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Agent sizes could not be loaded.')
-    expect(alert).toHaveTextContent('Agent sizes decide how much CPU and memory')
+    expect(alert).toHaveTextContent('Agent sizes decide how much computer power and memory')
     expect(alert).not.toHaveTextContent('HTTP 500')
 
     fireEvent.click(screen.getByRole('button', { name: /reload sizes/i }))
