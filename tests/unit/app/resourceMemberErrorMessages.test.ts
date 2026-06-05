@@ -11,9 +11,12 @@ describe('resourceMemberErrorMessage', () => {
   test('turns network failures into reachable next steps', () => {
     const message = resourceMemberErrorMessage('load', 'Project', new Error('Failed to fetch'))
 
-    expect(message).toContain('app could not reach the service')
+    expect(message).toBe(
+      'Member access could not load for this project. Forge could not connect while loading members. Check your connection, then try again.'
+    )
     expect(message).toContain('Check your connection')
     expect(message).not.toContain('Failed to fetch')
+    expect(message).not.toContain('service')
   })
 
   test('maps auth failures without exposing raw API text', () => {
@@ -55,8 +58,11 @@ describe('resourceMemberErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'The members service is temporarily unavailable. Refresh members, then try again. If it still fails, ask an owner or admin to check member access setup.'
+      'Forge could not load members right now. Refresh members, then reopen members for this team. If it still fails, ask an owner or admin to check member access setup.'
     )
+    expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('backend')
+    expect(message).not.toContain('temporarily unavailable')
+    expect(message).not.toContain('service')
   })
 })

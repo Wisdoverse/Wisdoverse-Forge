@@ -18,7 +18,7 @@ export function resourceMemberErrorMessage(
     if (detail) {
       return validationMessage(action, resource, detail)
     }
-    return `Member access could not ${actionSummary(action, resource)} because the app could not reach the service. Check your connection, then try again.`
+    return memberConnectionMessage(action, resource)
   }
 
   if (status === 401) {
@@ -40,10 +40,20 @@ export function resourceMemberErrorMessage(
     return `Member access is busy. Wait a moment, then ${retrySummary(action, resource)}.`
   }
   if (status >= 500) {
-    return 'The members service is temporarily unavailable. Refresh members, then try again. If it still fails, ask an owner or admin to check member access setup.'
+    return memberUnavailableMessage(action, resource)
   }
 
   return `Member access could not ${actionSummary(action, resource)}. Refresh the members list and try again.`
+}
+
+function memberConnectionMessage(action: ResourceMemberErrorAction, resource: string): string {
+  const operation = action === 'load' ? 'loading members' : 'updating member access'
+  return `Member access could not ${actionSummary(action, resource)}. Forge could not connect while ${operation}. Check your connection, then try again.`
+}
+
+function memberUnavailableMessage(action: ResourceMemberErrorAction, resource: string): string {
+  const operation = action === 'load' ? 'load members' : 'update member access'
+  return `Forge could not ${operation} right now. Refresh members, then ${retrySummary(action, resource)}. If it still fails, ask an owner or admin to check member access setup.`
 }
 
 function actionSummary(action: ResourceMemberErrorAction, resource: string): string {
