@@ -31,7 +31,8 @@ describe('FeedItem', () => {
   test('shows a retry-safe next step for failed task updates', () => {
     render(<FeedItem item={{ ...baseItem, type: 'task.failed', detail: 'Command exited 1' }} />)
 
-    expect(screen.getByText('Failed')).toBeDefined()
+    expect(screen.getByText('Needs review')).toBeDefined()
+    expect(screen.queryByText('Failed')).toBeNull()
     expect(
       screen.getByText('Open details to see the recovery note, then retry or reassign when ready.')
     ).toBeDefined()
@@ -41,7 +42,11 @@ describe('FeedItem', () => {
   })
 
   test('keeps readable failed task details when they are already safe', () => {
-    render(<FeedItem item={{ ...baseItem, type: 'task.failed', detail: 'Repository access needs reconnecting' }} />)
+    render(
+      <FeedItem
+        item={{ ...baseItem, type: 'task.failed', detail: 'Repository access needs reconnecting' }}
+      />
+    )
 
     expect(screen.getByText('Repository access needs reconnecting')).toBeDefined()
     expect(screen.queryByText(/HTTP 500/i)).toBeNull()

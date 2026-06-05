@@ -83,8 +83,10 @@ describe('InboxView', () => {
 
     const item = await screen.findByTestId('inbox-notification-task-owner:t-failed:failed')
     expect(item.getAttribute('data-template')).toBe('task-lifecycle')
-    expect(screen.getByText('Failed task')).toBeDefined()
-    expect(screen.getByText('View failure')).toBeDefined()
+    expect(screen.getByText('Needs review')).toBeDefined()
+    expect(screen.getByText('Review recovery')).toBeDefined()
+    expect(screen.queryByText('Failed task')).toBeNull()
+    expect(screen.queryByText('View failure')).toBeNull()
     expect(screen.getByText('Deploy production')).toBeDefined()
     expect(
       screen.getByText(

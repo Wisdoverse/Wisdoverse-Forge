@@ -49,9 +49,9 @@ const TYPE_CONFIG: Record<
     color: 'text-apple-red',
     unreadBg: 'bg-apple-red/[0.05]',
     dot: 'bg-apple-red',
-    label: 'Failed task',
-    actionLabel: 'View failure',
-    guidance: 'Open the task to see what failed before starting another attempt.',
+    label: 'Needs review',
+    actionLabel: 'Review recovery',
+    guidance: 'Open the task, review the recovery note, then retry or reassign when ready.',
     template: 'task-lifecycle',
   },
   assigned: {
