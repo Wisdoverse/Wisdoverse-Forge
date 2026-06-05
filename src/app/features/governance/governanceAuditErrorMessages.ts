@@ -2,9 +2,9 @@ export type GovernanceAuditErrorAction = 'exportAudit' | 'loadAudit'
 
 const ACTION_FALLBACKS: Record<GovernanceAuditErrorAction, string> = {
   exportAudit:
-    'The audit export did not finish. Keep secrets hidden, refresh the audit view, then try export again.',
+    'The audit export did not finish. Keep secrets hidden, refresh the audit view, then try the export again.',
   loadAudit:
-    'The governance audit could not load. Refresh the audit view, then apply the filters again.',
+    'Governance audit history could not load. Refresh the audit view, then apply the filters again.',
 }
 
 export function governanceAuditErrorMessage(
@@ -16,11 +16,11 @@ export function governanceAuditErrorMessage(
   const status = errorStatus(err, normalized)
 
   if (isNetworkError(normalized)) {
-    return `${ACTION_FALLBACKS[action]} The app could not reach the service. Check your connection, then refresh the page.`
+    return `${ACTION_FALLBACKS[action]} Forge could not connect while ${actionLabel(action)}. Check your connection, then try again.`
   }
 
   if (status === 401) {
-    return 'Sign in again, then retry this audit action.'
+    return 'Your sign-in expired. Sign in again, then retry this audit action.'
   }
 
   if (status === 403) {
@@ -28,7 +28,7 @@ export function governanceAuditErrorMessage(
   }
 
   if (status === 404) {
-    return 'Governance audit is not available from this page. Refresh the audit view, then try again.'
+    return 'Governance audit is not available from this view. Open the Admin audit view again, then retry. If it still fails, ask an owner or admin to check workspace access.'
   }
 
   if (status === 409) {
@@ -40,11 +40,11 @@ export function governanceAuditErrorMessage(
   }
 
   if (status === 429) {
-    return 'Governance audit is busy. Wait a moment, then try again.'
+    return 'Governance audit is handling too many requests right now. Wait a moment, then try again.'
   }
 
   if (status && status >= 500) {
-    return 'Governance audit is temporarily unavailable. Refresh the audit view, then try again. If it still fails, ask an owner or admin to check governance audit setup.'
+    return `Forge could not ${actionVerb(action)} governance audit history right now. Refresh the audit view, then try again. If it still fails, ask an owner or admin to check governance audit setup.`
   }
 
   return validationMessage(action, detail)
@@ -99,16 +99,24 @@ function isNetworkError(normalizedDetail: string): boolean {
   )
 }
 
+function actionLabel(action: GovernanceAuditErrorAction): string {
+  return action === 'exportAudit' ? 'exporting audit history' : 'loading audit history'
+}
+
+function actionVerb(action: GovernanceAuditErrorAction): string {
+  return action === 'exportAudit' ? 'export' : 'load'
+}
+
 function validationMessage(action: GovernanceAuditErrorAction, detail: string): string {
   const normalized = detail.toLowerCase()
   if (normalized.includes('time')) {
-    return 'Choose a valid time range, then apply the audit filters again.'
+    return 'Choose a valid time range. Make sure From is before To, then apply the audit filters again.'
   }
   if (normalized.includes('limit')) {
-    return 'Choose a smaller record limit, then apply the audit filters again.'
+    return 'Enter a record limit from 1 to 200, then apply the audit filters again.'
   }
   if (normalized.includes('event')) {
-    return 'Check the event name filter, then apply the audit filters again.'
+    return 'Choose a common audit view or paste a support event name, then apply the audit filters again.'
   }
   if (normalized.includes('id')) {
     return 'Check the selected organization, workspace, user, or task support reference, then apply the audit filters again.'

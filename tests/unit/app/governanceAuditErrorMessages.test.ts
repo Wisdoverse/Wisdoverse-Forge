@@ -11,17 +11,26 @@ describe('governanceAuditErrorMessage', () => {
   test('turns auth failures into a sign-in instruction', () => {
     expectBeginnerMessage(
       governanceAuditErrorMessage('loadAudit', new Error('401 Unauthorized')),
-      'Sign in again, then retry this audit action.'
+      'Your sign-in expired. Sign in again, then retry this audit action.'
     )
   })
 
-  test('explains network failures without exposing only a transport error', () => {
+  test('explains load network failures without exposing only a transport error', () => {
     const message = governanceAuditErrorMessage('loadAudit', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('governance audit could not load')
-    expect(message).toContain('app could not reach the service')
+    expect(message).toContain('Governance audit history could not load')
+    expect(message).toContain('Forge could not connect while loading audit history')
     expect(message).not.toContain('API')
     expect(message).not.toContain('Failed to fetch')
+    expect(message).not.toContain('service')
+  })
+
+  test('explains export network failures with the export recovery path', () => {
+    const message = governanceAuditErrorMessage('exportAudit', 'Network Error')
+
+    expect(message).toContain('audit export did not finish')
+    expect(message).toContain('Keep secrets hidden')
+    expect(message).toContain('Forge could not connect while exporting audit history')
   })
 
   test('gives a clear export conflict recovery step', () => {
@@ -36,9 +45,27 @@ describe('governanceAuditErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Governance audit is temporarily unavailable. Refresh the audit view, then try again. If it still fails, ask an owner or admin to check governance audit setup.'
+      'Forge could not load governance audit history right now. Refresh the audit view, then try again. If it still fails, ask an owner or admin to check governance audit setup.'
     )
     expect(message).not.toContain('backend')
+    expect(message).not.toContain('temporarily unavailable')
+  })
+
+  test('turns missing routes into a view and access recovery step', () => {
+    const message = governanceAuditErrorMessage('loadAudit', { status: 404 })
+
+    expectBeginnerMessage(
+      message,
+      'Governance audit is not available from this view. Open the Admin audit view again, then retry. If it still fails, ask an owner or admin to check workspace access.'
+    )
+    expect(message).not.toContain('route')
+  })
+
+  test('turns rate limits into a wait and retry step', () => {
+    expectBeginnerMessage(
+      governanceAuditErrorMessage('loadAudit', { code: '429' }),
+      'Governance audit is handling too many requests right now. Wait a moment, then try again.'
+    )
   })
 
   test('turns validation details into a time range next step', () => {
@@ -46,7 +73,16 @@ describe('governanceAuditErrorMessage', () => {
       governanceAuditErrorMessage('loadAudit', {
         error: 'Invalid time range',
       }),
-      'Choose a valid time range, then apply the audit filters again.'
+      'Choose a valid time range. Make sure From is before To, then apply the audit filters again.'
+    )
+  })
+
+  test('turns limit validation details into the allowed range', () => {
+    expectBeginnerMessage(
+      governanceAuditErrorMessage('loadAudit', {
+        error: 'limit must be less than or equal to 200',
+      }),
+      'Enter a record limit from 1 to 200, then apply the audit filters again.'
     )
   })
 

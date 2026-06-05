@@ -208,9 +208,10 @@ describe('AuditLogView', () => {
     render(<AuditLogView />)
 
     const error = await screen.findByRole('alert')
-    expect(error.textContent).toContain('governance audit could not load')
-    expect(error.textContent).toContain('app could not reach the service')
+    expect(error.textContent).toContain('Governance audit history could not load')
+    expect(error.textContent).toContain('Forge could not connect while loading audit history')
     expect(error.textContent).not.toMatch(/failed to fetch/i)
+    expect(error.textContent).not.toContain('service')
   })
 
   test('shows beginner permission guidance when audit export fails', async () => {
