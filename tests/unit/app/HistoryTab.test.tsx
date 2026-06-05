@@ -77,10 +77,33 @@ describe('HistoryTab', () => {
     render(<HistoryTab task={makeTask()} />)
 
     expect(await screen.findByText('Agent work history')).toBeInTheDocument()
-    expect(screen.getByText(/Used codex/i)).toBeInTheDocument()
+    expect(screen.getByText(/Used Codex/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Used codex/)).toBeNull()
     expect(screen.getByText(/Support reference run-1234/i)).toBeInTheDocument()
     expect(screen.queryByText(/^Ref run-1234$/i)).toBeNull()
     expect(screen.queryByText(/Work method|configured worker|unknown worker|runtime/i)).toBeNull()
+  })
+
+  test('labels unknown work history tools without exposing raw tool values', async () => {
+    getTaskRunsMock.mockResolvedValue([
+      {
+        id: 'run-tool1234',
+        taskId: 'task-1',
+        agentId: 'agent-1',
+        status: 'running',
+        startedAt: '2026-04-25T06:06:00Z',
+        runtimeKind: 'container',
+        cliTool: 'future_tool',
+      },
+    ])
+
+    render(<HistoryTab task={makeTask()} />)
+
+    expect(await screen.findByText('Agent work history')).toBeInTheDocument()
+    expect(screen.getByText(/Used a work tool that needs review/i)).toBeInTheDocument()
+    expect(screen.queryByText(/future_tool/i)).toBeNull()
+    expect(screen.queryByText(/future tool/i)).toBeNull()
+    expect(screen.queryByText('Unknown')).toBeNull()
   })
 
   test('labels chat-only work history with AI service language', async () => {

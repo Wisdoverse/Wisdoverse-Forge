@@ -218,7 +218,8 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
 }
 
 function runSourceLabel(run: TaskRunSummary): string {
-  if (run.cliTool) return run.cliTool
+  const cliTool = workToolLabel(run.cliTool)
+  if (cliTool) return cliTool
   if (run.providerName) return run.providerName
 
   switch (run.runtimeKind) {
@@ -232,6 +233,24 @@ function runSourceLabel(run: TaskRunSummary): string {
       return 'an AI service'
     default:
       return run.maxContextTokens ? 'the assigned agent' : 'an agent'
+  }
+}
+
+function workToolLabel(tool?: string): string | null {
+  switch (tool?.trim().toLowerCase()) {
+    case 'claude':
+      return 'Claude'
+    case 'codex':
+      return 'Codex'
+    case 'gemini':
+      return 'Gemini'
+    case 'opencode':
+      return 'OpenCode'
+    case undefined:
+    case '':
+      return null
+    default:
+      return 'a work tool that needs review'
   }
 }
 
