@@ -105,7 +105,7 @@ describe('SkillsView', () => {
     expect(screen.getByText('1 skill')).toBeDefined()
   })
 
-  test('summarizes reuse readiness and filters CLI scoped skills', async () => {
+  test('summarizes reuse readiness and filters tool-specific skills', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -139,10 +139,11 @@ describe('SkillsView', () => {
     expect(within(summary).getByText('Total')).toBeDefined()
     expect(within(summary).getAllByText('Installed').length).toBeGreaterThan(0)
     expect(within(summary).getAllByText('Available').length).toBeGreaterThan(0)
-    expect(within(summary).getAllByText('CLI scoped').length).toBeGreaterThan(0)
+    expect(within(summary).getAllByText('Tool-specific').length).toBeGreaterThan(0)
+    expect(within(summary).queryByText(/C[L]I scoped/)).toBeNull()
 
     const filters = within(summary).getByRole('group', { name: /skill filter/i })
-    fireEvent.click(within(filters).getByRole('button', { name: /cli scoped\s*1/i }))
+    fireEvent.click(within(filters).getByRole('button', { name: /tool-specific\s*1/i }))
 
     expect(screen.getByText('cli-review')).toBeDefined()
     expect(screen.queryByText('release-draft')).toBeNull()
@@ -185,10 +186,7 @@ describe('SkillsView', () => {
     await user.type(screen.getByLabelText(/^skill name$/i), 'frontend-review')
     await user.type(screen.getByLabelText(/^short description$/i), 'Review frontend flows')
     await user.type(screen.getByLabelText(/^when agents should use it$/i), 'frontend')
-    await user.type(
-      screen.getByLabelText(/^content$/i),
-      'Check UI states and regressions'
-    )
+    await user.type(screen.getByLabelText(/^content$/i), 'Check UI states and regressions')
     await user.click(screen.getByRole('button', { name: /create skill/i }))
 
     await waitFor(() => {
