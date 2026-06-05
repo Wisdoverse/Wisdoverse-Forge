@@ -65,13 +65,13 @@ export function sshKeysErrorMessage(error: unknown): string {
     return `${base} Check the access name and public SSH line, then try again.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return `${base} The service is busy. Wait a minute, then try again.`
+    return `${base} Repository SSH access is busy. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
-    return `${base} The repository SSH access service is temporarily unavailable. Try again. If it still fails, ask an owner to check repository SSH access settings.`
+    return `${base} Repository SSH access is temporarily unavailable. Try again. If it still fails, ask an owner to check repository SSH access settings.`
   }
   if (isNetworkError(error)) {
-    return `${base} The app could not reach the service. Check your connection, then try again.`
+    return `${base} The app could not reach repository SSH access. Check your connection, then try again.`
   }
 
   return `${base} Try again. If it still fails, ask an owner to check repository SSH access settings.`

@@ -23,8 +23,11 @@ describe('sshKeysErrorMessage', () => {
   })
 
   test('explains network failures in user-facing terms', () => {
-    expect(sshKeysErrorMessage(new TypeError('Failed to fetch'))).toBe(
-      'Repository SSH access could not be loaded. The app could not reach the service. Check your connection, then try again.'
+    const message = sshKeysErrorMessage(new TypeError('Failed to fetch'))
+
+    expect(message).toBe(
+      'Repository SSH access could not be loaded. The app could not reach repository SSH access. Check your connection, then try again.'
     )
+    expect(message).not.toContain('service')
   })
 })

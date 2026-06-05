@@ -18,13 +18,16 @@ describe('gitCredentialsErrorMessage', () => {
 
   test('turns delete failures into a remove-specific next step', () => {
     expect(gitCredentialsErrorMessage('Settings could not delete Git credential. HTTP 500')).toBe(
-      'Repository access could not be removed. The repository access service is temporarily unavailable. Try again. If it still fails, ask an owner to check repository access settings.'
+      'Repository access could not be removed. Repository access is temporarily unavailable. Try again. If it still fails, ask an owner to check repository access settings.'
     )
   })
 
   test('turns network failures into a connection step', () => {
-    expect(gitCredentialsErrorMessage(new TypeError('Failed to fetch'))).toBe(
-      'Repository access could not be loaded. The app could not reach the service. Check your connection, then try again.'
+    const message = gitCredentialsErrorMessage(new TypeError('Failed to fetch'))
+
+    expect(message).toBe(
+      'Repository access could not be loaded. The app could not reach repository access. Check your connection, then try again.'
     )
+    expect(message).not.toContain('service')
   })
 })
