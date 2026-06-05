@@ -44,21 +44,23 @@ describe('ContextCandidatesList', () => {
 
     expect(screen.getByText('Suggested memory updates')).toBeInTheDocument()
     expect(
-      screen.getByText(/not saved for future work until someone reviews them/i)
+      screen.getByText(
+        /memory suggestions are not saved for future work until someone reviews them/i
+      )
     ).toBeInTheDocument()
     expect(screen.getByText('Release memory')).toBeInTheDocument()
     expect(screen.getByText('Suggested memory')).toBeInTheDocument()
     expect(screen.getByText('Waiting for review')).toBeInTheDocument()
     expect(
-      screen.getByText(/review the wording in Context before saving it for future tasks/i)
+      screen.getByText(/review the wording before saving it for future tasks/i)
     ).toBeInTheDocument()
-    expect(screen.getByText('Suggested from this task run')).toBeInTheDocument()
+    expect(screen.getByText('Suggested from this task')).toBeInTheDocument()
   })
 
-  test('explains skill candidates as drafts that agents cannot use yet', () => {
+  test('explains skill suggestions as review-only before agents can use them', () => {
     render(
       <ContextCandidatesList
-        title="Suggested skills to review"
+        title="Suggested reusable skills"
         kind="skill"
         candidates={[
           candidate({
@@ -74,18 +76,17 @@ describe('ContextCandidatesList', () => {
       />
     )
 
-    expect(screen.getByText('Suggested skills to review')).toBeInTheDocument()
+    expect(screen.getByText('Suggested reusable skills')).toBeInTheDocument()
     expect(
-      screen.getByText(/draft skills.*before agents can reuse the workflow/i)
+      screen.getByText(/skill suggestions.*before agents can reuse the workflow/i)
     ).toBeInTheDocument()
     expect(screen.getByText('Release operator')).toBeInTheDocument()
-    expect(screen.getByText('Draft skill')).toBeInTheDocument()
+    expect(screen.getByText('Skill suggestion')).toBeInTheDocument()
     expect(screen.getByText('Approved')).toBeInTheDocument()
     expect(
-      screen.getByText(/Open the Context queue to inspect the full suggestion/i)
+      screen.getByText(/Open reusable context review to inspect the full suggestion/i)
     ).toBeInTheDocument()
-    expect(
-      screen.getByText(/review the draft in Context before agents can use it/i)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/review the suggestion before agents can use it/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Context queue/i)).toBeNull()
   })
 })

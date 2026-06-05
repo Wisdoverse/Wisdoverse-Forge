@@ -51,7 +51,7 @@ export function ContextCandidatesList({ title, kind, candidates }: ContextCandid
                 </p>
                 <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-secondary-light dark:text-secondary-dark">
                   <span>Created {formatRelativeTime(candidate.createdAt)}</span>
-                  {candidate.sourceRunId && <span>Suggested from this task run</span>}
+                  {candidate.sourceRunId && <span>Suggested from this task</span>}
                 </div>
               </div>
             </div>
@@ -64,8 +64,8 @@ export function ContextCandidatesList({ title, kind, candidates }: ContextCandid
 
 function sectionDescription(kind: ContextCandidateKind): string {
   return kind === 'skill'
-    ? 'These are draft skills. Review them before agents can reuse the workflow.'
-    : 'These notes are not saved for future work until someone reviews them.'
+    ? 'These are skill suggestions. Review them before agents can reuse the workflow.'
+    : 'These memory suggestions are not saved for future work until someone reviews them.'
 }
 
 function candidateTitle(candidate: TaskContextCandidate): string {
@@ -81,11 +81,11 @@ function candidatePreview(candidate: TaskContextCandidate): string {
   const value = candidate.proposedPreview.content_preview
   return typeof value === 'string' && value.trim().length > 0
     ? value
-    : 'No preview is available yet. Open the Context queue to inspect the full suggestion.'
+    : 'No preview is available yet. Open reusable context review to inspect the full suggestion.'
 }
 
 function candidateKindLabel(candidate: TaskContextCandidate): string {
-  return candidate.itemKind === 'skill' ? 'Draft skill' : 'Suggested memory'
+  return candidate.itemKind === 'skill' ? 'Skill suggestion' : 'Suggested memory'
 }
 
 function candidateStateLabel(state: TaskContextCandidate['state']): string {
@@ -97,6 +97,6 @@ function candidateStateLabel(state: TaskContextCandidate['state']): string {
 
 function candidateNextStep(candidate: TaskContextCandidate): string {
   return candidate.itemKind === 'skill'
-    ? 'Next step: review the draft in Context before agents can use it.'
-    : 'Next step: review the wording in Context before saving it for future tasks.'
+    ? 'Next step: review the suggestion before agents can use it.'
+    : 'Next step: review the wording before saving it for future tasks.'
 }

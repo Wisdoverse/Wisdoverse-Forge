@@ -167,8 +167,8 @@ export function DescriptionTab({
           )}
           <p>
             {contextTotal > 0
-              ? `${contextTotal} context item${contextTotal === 1 ? '' : 's'} applied to this task.`
-              : 'Context, evidence, and skill candidates are collected as the run produces them.'}
+              ? `${contextTotal} saved context item${contextTotal === 1 ? '' : 's'} helped this task.`
+              : 'Saved memories, proof, and reusable skill suggestions appear here as the task runs.'}
           </p>
           {onOpenContext && (
             <button
@@ -199,7 +199,7 @@ export function DescriptionTab({
                   className="inline-flex h-8 items-center gap-1.5 rounded-full bg-apple-blue px-3 text-ui-button font-medium text-white transition-colors hover:bg-apple-blue-focus"
                 >
                   <WandSparkles size={13} strokeWidth={2.25} aria-hidden="true" />
-                  <span>Review skill candidates</span>
+                  <span>Review skill suggestions</span>
                 </button>
               )}
               {onDraftSkill && (

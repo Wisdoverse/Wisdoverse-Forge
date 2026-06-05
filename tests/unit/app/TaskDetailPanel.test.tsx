@@ -118,10 +118,10 @@ describe('TaskDetailPanel', () => {
     expect(screen.getAllByText(/needs your input/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/approve or update the task/i)).toBeDefined()
     expect(screen.getByText('Task story')).toBeDefined()
-    expect(screen.getByText('Run attempts')).toBeDefined()
-    expect(await screen.findByText('Attempt In Progress')).toBeDefined()
-    expect(screen.getByText(/ran with desktop app/i)).toBeDefined()
-    expect(screen.getByText(/ref run-1234/i)).toBeDefined()
+    expect(screen.getByText('Agent work history')).toBeDefined()
+    expect(await screen.findByText('Work attempt: In Progress')).toBeDefined()
+    expect(screen.getByText(/used desktop app/i)).toBeDefined()
+    expect(screen.getByText(/support reference run-1234/i)).toBeDefined()
     expect(screen.getAllByText(/waiting for account access/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/waiting for api credentials/i)).toBeNull()
     expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
@@ -264,14 +264,14 @@ describe('TaskDetailPanel', () => {
     })
   })
 
-  test('shows beginner guidance when run attempts fail to load', async () => {
+  test('shows beginner guidance when agent work history fails to load', async () => {
     orchestrationApiMock.getTaskRuns.mockRejectedValueOnce(new TypeError('Failed to fetch'))
 
     render(<TaskDetailPanel task={mockTask} onClose={() => {}} />)
 
     await userEvent.setup().click(screen.getByRole('button', { name: /updates/i }))
 
-    expect(await screen.findByText(/run attempts could not load/i)).toBeDefined()
+    expect(await screen.findByText(/agent work history could not load/i)).toBeDefined()
     expect(screen.getByText(/app could not reach the service/i)).toBeDefined()
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
   })
@@ -296,7 +296,7 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByText('Outcome')).toBeDefined()
     expect(screen.getByText(/solves the original request/i)).toBeDefined()
     expect(screen.getByText(/open result files or context/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: /review skill candidates/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /review skill suggestions/i })).toBeDefined()
   })
 
   test('guides beginner review on the result tab', async () => {

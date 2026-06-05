@@ -227,7 +227,7 @@ describe('ContextTab', () => {
     expect(screen.getByText('Release checklist')).toBeDefined()
     expect(screen.getByText('Suggested memory updates')).toBeDefined()
     expect(screen.getByText('New release memory')).toBeDefined()
-    expect(screen.getByText('Suggested skills to review')).toBeDefined()
+    expect(screen.getByText('Suggested reusable skills')).toBeDefined()
     expect(screen.getByText('Release operator')).toBeDefined()
     expect(screen.getByTestId('context-evidence')).toBeDefined()
     expect(screen.getByText(/No longer used for future work/)).toBeDefined()

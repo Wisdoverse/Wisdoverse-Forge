@@ -175,7 +175,7 @@ export function ContextTab({
         onRecordFeedback={(item, label) => recordFeedback(item, label)}
       />
       <ContextCandidatesList
-        title="Suggested skills to review"
+        title="Suggested reusable skills"
         kind="skill"
         candidates={context.skillCandidates}
       />
