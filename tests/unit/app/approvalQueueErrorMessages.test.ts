@@ -19,9 +19,10 @@ describe('approvalQueueErrorMessage', () => {
     const message = approvalQueueErrorMessage('loadQueue', new TypeError('Failed to fetch'))
 
     expect(message).toContain('reusable context review list could not load')
-    expect(message).toContain('app could not reach the service')
+    expect(message).toContain('Forge could not connect while loading reusable context')
     expect(message).not.toContain('API')
     expect(message).not.toContain('Failed to fetch')
+    expect(message).not.toContain('app could not reach')
   })
 
   test('gives a clear conflict recovery step', () => {
@@ -36,9 +37,10 @@ describe('approvalQueueErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'The reusable context review list is temporarily unavailable. Refresh the list, then try again. If it still fails, ask an owner or admin to check reusable context setup.'
+      'The reusable context review list could not load. Refresh the list so you see the latest items. Forge could not load reusable context right now. Refresh the list, then try again. If it still fails, ask an owner or admin to check reusable context setup.'
     )
     expect(message).not.toContain('backend')
+    expect(message).not.toContain('temporarily unavailable')
   })
 
   test('turns validation details into a scope next step', () => {

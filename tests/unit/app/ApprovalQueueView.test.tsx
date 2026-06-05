@@ -127,7 +127,7 @@ describe('ApprovalQueueView', () => {
 
     const error = await screen.findByTestId('context-approval-error')
     expect(error.textContent).toContain('reusable context review list could not load')
-    expect(error.textContent).toContain('app could not reach the service')
+    expect(error.textContent).toContain('Forge could not connect while loading reusable context')
     expect(error.textContent).not.toMatch(/failed to fetch/i)
   })
 

@@ -14,7 +14,7 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   const status = errorStatus(err, normalized)
 
   if (isNetworkError(normalized)) {
-    return `${ACTION_FALLBACKS[action]} The app could not reach the service. Check your connection, then refresh the page.`
+    return `${ACTION_FALLBACKS[action]} ${networkRecoveryMessage(action)}`
   }
 
   if (status === 401) {
@@ -22,7 +22,7 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   }
 
   if (status === 403) {
-    return 'You do not have permission to manage reusable context. Ask an owner or admin to update your role.'
+    return 'You do not have permission to manage reusable context. Ask an owner or admin to let you review reusable context.'
   }
 
   if (status === 404) {
@@ -42,10 +42,24 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   }
 
   if (status && status >= 500) {
-    return 'The reusable context review list is temporarily unavailable. Refresh the list, then try again. If it still fails, ask an owner or admin to check reusable context setup.'
+    return serviceRecoveryMessage(action)
   }
 
   return validationMessage(action, detail)
+}
+
+function networkRecoveryMessage(action: ApprovalQueueErrorAction): string {
+  if (action === 'loadQueue') {
+    return 'Forge could not connect while loading reusable context. Check your connection, then refresh the page.'
+  }
+  return 'Forge could not connect while saving this review decision. Check your connection, then try again.'
+}
+
+function serviceRecoveryMessage(action: ApprovalQueueErrorAction): string {
+  if (action === 'loadQueue') {
+    return `${ACTION_FALLBACKS[action]} Forge could not load reusable context right now. Refresh the list, then try again. If it still fails, ask an owner or admin to check reusable context setup.`
+  }
+  return `${ACTION_FALLBACKS[action]} Forge could not save this review decision right now. Refresh the list, then try again. If it still fails, ask an owner or admin to check reusable context setup.`
 }
 
 function errorDetail(err: unknown): string {
