@@ -32,8 +32,19 @@ describe('FeedItem', () => {
     render(<FeedItem item={{ ...baseItem, type: 'task.failed', detail: 'Command exited 1' }} />)
 
     expect(screen.getByText('Failed')).toBeDefined()
+    expect(
+      screen.getByText('Open details to see the recovery note, then retry or reassign when ready.')
+    ).toBeDefined()
     expect(screen.getByText(/follow the recovery note, then retry when ready/i)).toBeDefined()
+    expect(screen.queryByText('Command exited 1')).toBeNull()
     expect(screen.queryByText(/read the error/i)).toBeNull()
+  })
+
+  test('keeps readable failed task details when they are already safe', () => {
+    render(<FeedItem item={{ ...baseItem, type: 'task.failed', detail: 'Repository access needs reconnecting' }} />)
+
+    expect(screen.getByText('Repository access needs reconnecting')).toBeDefined()
+    expect(screen.queryByText(/HTTP 500/i)).toBeNull()
   })
 
   test('shows waiting and finished labels instead of raw queue status words', () => {

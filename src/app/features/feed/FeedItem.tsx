@@ -69,6 +69,7 @@ export function FeedItem({ item }: { item: FeedItemType }) {
     description: 'The agent reported a task update.',
   }
   const nextAction = NEXT_ACTION_COPY[item.type]
+  const detail = displayFeedDetail(item)
 
   return (
     <article
@@ -92,9 +93,9 @@ export function FeedItem({ item }: { item: FeedItemType }) {
             {typeCopy.label}
           </span>
         </div>
-        {item.detail && (
+        {detail && (
           <div className="text-[10px] text-secondary-light dark:text-secondary-dark mt-0.5">
-            {item.detail}
+            {detail}
           </div>
         )}
         {nextAction && (
@@ -108,6 +109,22 @@ export function FeedItem({ item }: { item: FeedItemType }) {
       </div>
     </article>
   )
+}
+
+function displayFeedDetail(item: FeedItemType): string {
+  if (item.type !== 'task.failed') return item.detail
+
+  const raw = item.detail.toLowerCase()
+  const exposesRawFailure =
+    /\b(?:command\s+)?exited?\s+\d+\b/.test(raw) ||
+    /\b(?:http|api)\s+\d{3}\b/.test(raw) ||
+    raw.includes('unauthorized') ||
+    raw.includes('non-zero') ||
+    raw.includes('provider')
+
+  if (!exposesRawFailure) return item.detail
+
+  return 'Open details to see the recovery note, then retry or reassign when ready.'
 }
 
 function formatTime(ts: number): string {
