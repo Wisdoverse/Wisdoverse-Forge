@@ -37,6 +37,27 @@ describe('beginner error translations', () => {
     expect(zh.errors.downloadError).not.toContain('详情：')
   })
 
+  test('authentication entry messages give clear next steps', () => {
+    expect(en.auth.loginSuccess).toBe('You are signed in.')
+    expect(en.auth.invalidCredentials).toContain('Check your email and password')
+    expect(en.auth.accountLocked).toContain('Wait a few minutes')
+    expect(en.auth.accountLocked).toContain('owner or admin')
+    expect(en.auth.agentExpired).toContain('Sign in again')
+    expect(en.auth.agentExpired).not.toContain('agent')
+    expect(en.auth.agentExpired).not.toContain('login')
+    expect(en.auth.passwordResetSent).toContain('password reset link')
+    expect(en.auth.fillAllFields).toContain('then try again')
+
+    expect(zh.auth.loginSuccess).toBe('你已登录。')
+    expect(zh.auth.invalidCredentials).toContain('检查邮箱和密码')
+    expect(zh.auth.accountLocked).toContain('等几分钟后重试')
+    expect(zh.auth.accountLocked).toContain('管理员')
+    expect(zh.auth.agentExpired).toContain('重新登录后继续')
+    expect(zh.auth.agentExpired).not.toContain('Agent')
+    expect(zh.auth.passwordResetSent).toContain('密码重置链接')
+    expect(zh.auth.fillAllFields).toContain('然后重试')
+  })
+
   test('empty states include a next step', () => {
     expect(en.common.noResults).toContain('clear the filters')
     expect(en.agents.noAgents).toContain('Create one agent')
