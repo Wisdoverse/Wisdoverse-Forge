@@ -10,7 +10,6 @@ import {
   Plus,
   Search,
   ShieldCheck,
-  Terminal,
 } from 'lucide-react'
 import {
   isHostCliAgent,
@@ -60,7 +59,7 @@ const HOST_CLI_PLATFORMS: {
   {
     value: 'posix',
     label: 'macOS / Linux',
-    detail: 'Terminal, bash, zsh',
+    detail: 'Terminal app',
     Icon: Laptop,
   },
   {
@@ -303,22 +302,23 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <Terminal
+            <Laptop
               size={15}
               strokeWidth={2}
               className="text-secondary-light dark:text-secondary-dark"
               aria-hidden="true"
             />
             <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              Join This Computer as an Agent
+              Connect This Computer as an Agent
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Use this when work should run on your computer and still be tracked here.
+            Use this when the agent should use files and tools on this computer while Forge tracks
+            the work here.
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-apple-blue/[0.08] px-2 py-1 text-[10px] font-semibold text-apple-blue">
-          Local
+          This computer
         </span>
       </div>
 
@@ -328,7 +328,7 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
             htmlFor="local-agent-tool"
             className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
           >
-            Agent tool on this computer
+            Work tool on this computer
           </label>
           <select
             id="local-agent-tool"
@@ -346,13 +346,14 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
             ))}
           </select>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Pick the tool you already use. The command below will include it automatically.
+            Choose the tool already signed in on this computer. Forge will add it to the join
+            command.
           </p>
         </div>
 
         <div>
           <p className="mb-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-            Computer type
+            What kind of computer is this?
           </p>
           <div role="group" aria-label="This computer platform" className="grid grid-cols-2 gap-2">
             {HOST_CLI_PLATFORMS.map((option) => (
@@ -392,7 +393,7 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
           aria-hidden="true"
         />
         <p className="min-w-0 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Project setup: <span className="font-medium">{projectLabel}</span>
+          Starting project: <span className="font-medium">{projectLabel}</span>
         </p>
       </div>
 
@@ -405,23 +406,22 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
           data-testid="host-cli-command-waiting"
           className="mt-3 rounded-lg bg-apple-blue/10 px-3 py-2 text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          Select a project in the sidebar first. The app will fill the starting project into the
-          join command for you.
+          Select a project in the sidebar first. Forge will add it to the join command for you.
         </div>
       )}
 
       <div className="mt-3 grid gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
         {commandReady ? (
           <>
-            <p>1. Install the Forge command on the computer that will do the work.</p>
-            <p>2. Choose the agent tool above.</p>
-            <p>3. Run the command from the folder this agent should work in.</p>
+            <p>1. Install Forge on the computer that will do the work.</p>
+            <p>2. Choose the work tool above.</p>
+            <p>3. Run the join command from the project folder this agent should use.</p>
           </>
         ) : (
           <>
-            <p>1. Select the project where this agent should receive tasks.</p>
-            <p>2. Choose macOS / Linux or Windows for the computer that will do the work.</p>
-            <p>3. Copy the generated command after the project is selected.</p>
+            <p>1. Select the project where this computer agent should receive tasks.</p>
+            <p>2. Choose whether this computer is macOS / Linux or Windows.</p>
+            <p>3. Copy the join command after the project is selected.</p>
           </>
         )}
       </div>
@@ -442,7 +442,9 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
         ) : (
           <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
         )}
-        <span>{commandReady ? (copied ? 'Copied' : 'Copy Command') : 'Select Project First'}</span>
+        <span>
+          {commandReady ? (copied ? 'Copied' : 'Copy join command') : 'Select project first'}
+        </span>
       </button>
     </section>
   )

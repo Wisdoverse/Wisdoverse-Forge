@@ -49,11 +49,11 @@ describe('AgentListView', () => {
     render(<AgentListView />)
 
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
-    expect(within(enrollment).getByText(/project setup/i)).toBeDefined()
+    expect(within(enrollment).getByText(/starting project/i)).toBeDefined()
     expect(within(enrollment).getByText('Select a project first')).toBeDefined()
-    expect(within(enrollment).getByLabelText(/agent tool on this computer/i)).toHaveValue('codex')
+    expect(within(enrollment).getByLabelText(/work tool on this computer/i)).toHaveValue('codex')
     expect(
-      within(enrollment).getByText(/command below will include it automatically/i)
+      within(enrollment).getByText(/Choose the tool already signed in on this computer/i)
     ).toBeDefined()
     expect(within(enrollment).getByTestId('host-cli-command-waiting')).toHaveTextContent(
       /select a project in the sidebar first/i
@@ -83,8 +83,10 @@ describe('AgentListView', () => {
     render(<AgentListView />)
 
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
-    expect(within(enrollment).getByText('Join This Computer as an Agent')).toBeDefined()
-    expect(within(enrollment).getByText(/work should run on your computer/i)).toBeDefined()
+    expect(within(enrollment).getByText('Connect This Computer as an Agent')).toBeDefined()
+    expect(
+      within(enrollment).getByText(/agent should use files and tools on this computer/i)
+    ).toBeDefined()
     expect(within(enrollment).getByText('Project selected')).toBeDefined()
     expect(enrollment.textContent).not.toContain('Project: p1')
     expect(enrollment.textContent).toContain('agentforge agents enroll-local')
@@ -92,10 +94,10 @@ describe('AgentListView', () => {
     expect(enrollment.textContent).toContain('--name "Codex on this computer"')
     expect(enrollment.textContent).toContain('--project p1')
     expect(enrollment.textContent).not.toContain('<tool-name>')
-    expect(enrollment.textContent).toContain('Choose the agent tool above')
-    expect(within(enrollment).getByRole('button', { name: /copy command/i })).toBeDefined()
+    expect(enrollment.textContent).toContain('Choose the work tool above')
+    expect(within(enrollment).getByRole('button', { name: /copy join command/i })).toBeDefined()
 
-    fireEvent.change(within(enrollment).getByLabelText(/agent tool on this computer/i), {
+    fireEvent.change(within(enrollment).getByLabelText(/work tool on this computer/i), {
       target: { value: 'opencode' },
     })
     expect(enrollment.textContent).toContain('--tool opencode')
