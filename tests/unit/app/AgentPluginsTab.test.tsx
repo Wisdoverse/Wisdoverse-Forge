@@ -135,9 +135,7 @@ describe('AgentPluginsTab', () => {
 
     const alert = await screen.findByRole('alert')
     expect(within(alert).getByText('Agent tools need attention.')).toBeDefined()
-    expect(alert.textContent).toContain(
-      'Ask a workspace owner or admin to give you permission for this agent.'
-    )
+    expect(alert.textContent).toContain("Ask an owner or admin to give you access to this agent's tools.")
     expect(alert.textContent).not.toContain('HTTP 403')
     expect(alert.textContent).not.toContain('Details:')
   })
@@ -161,9 +159,7 @@ describe('AgentPluginsTab', () => {
     expect(alert.textContent).toContain(
       'Tool change was not saved. The switch was returned to its previous setting.'
     )
-    expect(alert.textContent).toContain(
-      'Ask a workspace owner or admin to give you permission for this agent.'
-    )
+    expect(alert.textContent).toContain("Ask an owner or admin to give you access to this agent's tools.")
     expect(alert.textContent).not.toContain('HTTP 403')
     expect(shellSwitch).toHaveAttribute('aria-checked', 'true')
   })

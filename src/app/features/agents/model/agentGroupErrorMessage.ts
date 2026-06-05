@@ -29,10 +29,10 @@ export function agentGroupErrorMessage(err: unknown): string {
     return `${base} Sign in again, then choose the project and try again.`
   }
   if (code === 403 || text.includes('forbidden')) {
-    return `${base} Ask a workspace owner or admin to let you manage this project's work lanes.`
+    return `${base} Ask an owner or admin to let you create and manage work lanes in this project.`
   }
   if (code === 404) {
-    return `${base} Refresh the page; this project may have changed or been removed.`
+    return `${base} Refresh this page. The selected project may have changed or been removed.`
   }
   if (code === 409) {
     return `${base} A lane with this name may already exist. Use a different name, then try again.`
@@ -41,11 +41,11 @@ export function agentGroupErrorMessage(err: unknown): string {
     return `${base} Too many lane changes are happening right now. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
-    return `${base} The platform is temporarily unavailable. Try again in a few minutes.`
+    return `${base} Forge could not create the work lane right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check work lane setup.`
   }
   if (isNetworkError(err)) {
-    return `${base} Check your connection, then try again.`
+    return `${base} Forge could not connect while creating the work lane. Check your connection, then try again.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner or admin to check this project.`
+  return `${base} Try again. If it still fails, ask an owner or admin to check this project's work lane setup.`
 }

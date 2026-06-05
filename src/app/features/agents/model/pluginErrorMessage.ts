@@ -6,7 +6,7 @@ function errorText(err: unknown): string {
 }
 
 function statusCode(err: unknown): number | null {
-  const match = errorText(err).match(/\b(?:HTTP|API)\s+(\d{3})\b/i)
+  const match = errorText(err).match(/\b(?:HTTP|API|Server error)\s*\(?(\d{3})\b/i)
   if (!match) return null
   const code = Number.parseInt(match[1] ?? '', 10)
   return Number.isFinite(code) ? code : null
@@ -36,7 +36,7 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
     return `${base} Sign in again, then reopen this agent.`
   }
   if (code === 403) {
-    return `${base} Ask a workspace owner or admin to give you permission for this agent.`
+    return `${base} Ask an owner or admin to give you access to this agent's tools.`
   }
   if (code === 404) {
     return `${base} Refresh the page; this agent or tool may have been changed by someone else.`
@@ -48,14 +48,14 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
     return `${base} Too many requests are happening right now. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
-    return `${base} The platform is temporarily unavailable. Try again in a few minutes.`
+    return `${base} Forge could not finish this tool request right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check this agent's tool setup.`
   }
   if (isNetworkError(err)) {
-    return `${base} Check your connection, then try again.`
+    return `${base} Forge could not connect while checking this agent's tools. Check your connection, then try again.`
   }
   if (errorText(err).toLowerCase().includes('ok: false')) {
-    return `${base} The platform did not return a usable tools list. Refresh the page or ask an admin to check the workspace tools.`
+    return `${base} Forge could not read this agent's tool list. Refresh the page. If it still fails, ask an owner or admin to check workspace tools.`
   }
 
-  return `${base} Try again. If it still fails, ask an admin to check this agent's tool settings.`
+  return `${base} Try again. If it still fails, ask an owner or admin to check this agent's tool setup.`
 }

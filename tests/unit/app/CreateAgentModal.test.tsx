@@ -196,7 +196,7 @@ describe('CreateAgentModal', () => {
     fireEvent.click(await screen.findByRole('button', { name: /create work lane/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      "Work lane was not created. Ask a workspace owner or admin to let you manage this project's work lanes."
+      'Work lane was not created. Ask an owner or admin to let you create and manage work lanes in this project.'
     )
     expect(screen.queryByText(/HTTP 403/i)).toBeNull()
   })

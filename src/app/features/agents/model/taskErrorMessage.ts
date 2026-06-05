@@ -38,11 +38,11 @@ export function agentTasksErrorMessage(err: unknown): string {
     return `${base} Too many task requests are happening right now. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
-    return `${base} The platform is temporarily unavailable. Try again in a few minutes.`
+    return `${base} Forge could not load this task list right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check this agent's task setup.`
   }
   if (isNetworkError(err)) {
-    return `${base} Check your connection, then try again.`
+    return `${base} Forge could not connect while loading this task list. Check your connection, then try again.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner or admin to check this agent.`
+  return `${base} Try again. If it still fails, ask an owner or admin to check this agent's task setup.`
 }

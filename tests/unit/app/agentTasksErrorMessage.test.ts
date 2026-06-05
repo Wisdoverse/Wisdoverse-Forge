@@ -8,18 +8,22 @@ describe('agentTasksErrorMessage', () => {
     )
   })
 
-  test('maps platform failures without exposing transport details', () => {
+  test('maps service failures without exposing transport details', () => {
     const message = agentTasksErrorMessage('Server error (503)')
 
     expect(message).toBe(
-      'This agent task list could not be loaded. The platform is temporarily unavailable. Try again in a few minutes.'
+      "This agent task list could not be loaded. Forge could not load this task list right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check this agent's task setup."
     )
     expect(message).not.toContain('503')
+    expect(message).not.toContain('platform')
   })
 
   test('maps network failures to retryable guidance', () => {
-    expect(agentTasksErrorMessage(new TypeError('Failed to fetch'))).toBe(
-      'This agent task list could not be loaded. Check your connection, then try again.'
+    const message = agentTasksErrorMessage(new TypeError('Failed to fetch'))
+
+    expect(message).toBe(
+      'This agent task list could not be loaded. Forge could not connect while loading this task list. Check your connection, then try again.'
     )
+    expect(message).not.toContain('Failed to fetch')
   })
 })

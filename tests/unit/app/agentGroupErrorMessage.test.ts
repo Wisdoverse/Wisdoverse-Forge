@@ -4,7 +4,7 @@ import { agentGroupErrorMessage } from '@app/features/agents/model/agentGroupErr
 describe('agentGroupErrorMessage', () => {
   test('turns permission failures into an owner or admin next step', () => {
     expect(agentGroupErrorMessage(new Error('HTTP 403: Forbidden'))).toBe(
-      "Work lane was not created. Ask a workspace owner or admin to let you manage this project's work lanes."
+      'Work lane was not created. Ask an owner or admin to let you create and manage work lanes in this project.'
     )
   })
 
@@ -15,8 +15,21 @@ describe('agentGroupErrorMessage', () => {
   })
 
   test('gives a connection recovery path for network failures', () => {
-    expect(agentGroupErrorMessage(new TypeError('Failed to fetch'))).toBe(
-      'Work lane was not created. Check your connection, then try again.'
+    const message = agentGroupErrorMessage(new TypeError('Failed to fetch'))
+
+    expect(message).toBe(
+      'Work lane was not created. Forge could not connect while creating the work lane. Check your connection, then try again.'
     )
+    expect(message).not.toContain('Failed to fetch')
+  })
+
+  test('gives a safe retry step for service failures', () => {
+    const message = agentGroupErrorMessage(new Error('Server error 503: database unavailable'))
+
+    expect(message).toBe(
+      'Work lane was not created. Forge could not create the work lane right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check work lane setup.'
+    )
+    expect(message).not.toContain('Server error')
+    expect(message).not.toContain('platform')
   })
 })
