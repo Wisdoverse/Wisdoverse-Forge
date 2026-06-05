@@ -319,7 +319,7 @@ function stateLabel(state: TaskSummary['state']): string {
     case 'backlog':
       return 'Backlog'
     case 'queued':
-      return 'Queued'
+      return 'Waiting to start'
     case 'working':
       return 'Working'
     case 'blocked':

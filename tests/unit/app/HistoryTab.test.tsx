@@ -100,6 +100,24 @@ describe('HistoryTab', () => {
     expect(screen.queryByText(/provider/i)).toBeNull()
   })
 
+  test('labels waiting task history without queue wording', async () => {
+    getTaskRunsMock.mockResolvedValue([])
+
+    render(
+      <HistoryTab
+        task={makeTask({
+          state: 'queued',
+          progress: 0,
+        })}
+      />
+    )
+
+    expect(await screen.findByText('Waiting to start')).toBeInTheDocument()
+    expect(screen.getByText(/is waiting to start/i)).toBeInTheDocument()
+    expect(screen.getByText(/waiting to begin/i)).toBeInTheDocument()
+    expect(screen.queryByText('Queued')).toBeNull()
+  })
+
   test('summarizes blocked task history without raw reason codes', async () => {
     getTaskRunsMock.mockResolvedValue([])
 

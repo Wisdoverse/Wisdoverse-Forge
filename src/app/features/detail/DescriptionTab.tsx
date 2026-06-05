@@ -299,7 +299,7 @@ function stateLabel(state: TaskSummary['state']): string {
     case 'backlog':
       return 'Backlog'
     case 'queued':
-      return 'Queued'
+      return 'Waiting to start'
     case 'working':
       return 'Working'
     case 'blocked':
@@ -335,7 +335,7 @@ function nextActionForTask(
     case 'queued':
       return {
         title: 'Waiting for the agent to start',
-        detail: 'Keep the brief current while the assigned agent picks up the task.',
+        detail: 'Keep the brief current while the assigned agent gets ready to start.',
         tone: 'default',
       }
     case 'working':

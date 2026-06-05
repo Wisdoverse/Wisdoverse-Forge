@@ -28,7 +28,7 @@ const PRIORITY_LABELS: Record<string, string> = {
 
 const STATE_LABELS: Record<string, string> = {
   backlog: 'Backlog',
-  queued: 'Queued',
+  queued: 'Waiting to start',
   working: 'Working',
   blocked: 'Blocked',
   completed: 'Completed',
@@ -125,8 +125,8 @@ function taskMetadataGuidance(task: TaskSummary, hasAssignee: boolean): string {
         : 'This task is still a draft. Assign an agent before it can start.'
     case 'queued':
       return hasAssignee
-        ? 'The task is waiting for the assigned agent to pick it up.'
-        : 'The task is waiting for an available agent to be attached.'
+        ? 'The task is waiting for the assigned agent to start.'
+        : 'The task is waiting for the next available agent to start.'
     case 'working':
       return 'An agent is working now. Watch progress here and check Updates for recent activity.'
     case 'blocked':

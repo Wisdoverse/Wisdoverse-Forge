@@ -38,6 +38,27 @@ describe('TaskMetadata', () => {
     )
   })
 
+  test('labels waiting tasks without queue wording', () => {
+    render(
+      <TaskMetadata
+        task={{
+          ...mockTask,
+          state: 'queued',
+          assignedAgentName: 'Build Agent',
+        }}
+      />
+    )
+
+    expect(screen.getByText('Waiting to start')).toBeDefined()
+    expect(screen.getByTestId('task-metadata-guidance').textContent).toContain(
+      'waiting for the assigned agent to start.'
+    )
+    expect(screen.queryByText('Queued')).toBeNull()
+    expect(screen.getByTestId('task-metadata-guidance').textContent).not.toMatch(
+      /queue|pick it up/i
+    )
+  })
+
   test('turns credential blocked guidance into an account-access recovery step', () => {
     render(
       <TaskMetadata

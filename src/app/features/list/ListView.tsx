@@ -24,7 +24,7 @@ const PRIORITY_COLORS: Record<string, string> = {
 
 const STATUS_LABELS: Record<string, string> = {
   backlog: 'Backlog',
-  queued: 'Queued',
+  queued: 'Waiting to start',
   working: 'Working',
   blocked: 'Blocked',
   completed: 'Done',
@@ -490,10 +490,10 @@ function taskNextAction(task: TaskSummary): string {
   switch (task.state) {
     case 'backlog':
       return task.assignedAgentName || task.assignedTo
-        ? 'Queue this when you are ready for the agent to start.'
+        ? 'Send this when you are ready for the agent to start.'
         : 'Assign an agent or move it into a ready work lane.'
     case 'queued':
-      return 'Wait for an agent to pick it up; check again if it stays queued.'
+      return 'Wait for the next ready agent to start it; check again if it stays here.'
     case 'working':
       return `Follow progress at ${task.progress}%; open it if updates stop.`
     case 'blocked':

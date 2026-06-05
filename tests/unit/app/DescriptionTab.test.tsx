@@ -41,13 +41,15 @@ describe('DescriptionTab', () => {
     expect(screen.queryByText(/dispatch/i)).toBeNull()
   })
 
-  test('explains queued tasks without internal runtime language', () => {
+  test('explains waiting tasks without internal runtime language', () => {
     render(<DescriptionTab task={{ ...mockTask, state: 'queued', assignedTo: 'agent-1' }} />)
 
+    expect(screen.getByText('Waiting to start')).toBeDefined()
     expect(screen.getByText('Waiting for the agent to start')).toBeDefined()
     expect(screen.getByTestId('task-next-action').textContent).toContain(
-      'Keep the brief current while the assigned agent picks up the task.'
+      'Keep the brief current while the assigned agent gets ready to start.'
     )
+    expect(screen.queryByText('Queued')).toBeNull()
     expect(screen.queryByText(/execution|runtime/i)).toBeNull()
   })
 

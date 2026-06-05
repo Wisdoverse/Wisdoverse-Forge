@@ -41,6 +41,29 @@ describe('ListView', () => {
     expect(screen.getByText('Task B')).toBeDefined()
   })
 
+  test('shows waiting tasks without queue wording', () => {
+    useBoardStore.getState().setTasks([
+      {
+        id: 'waiting-1',
+        state: 'queued',
+        params: { task: 'Prepare release notes', message: '' },
+        assignedAgentName: 'Docs Agent',
+        priority: 'normal',
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+    ])
+
+    render(<ListView />)
+
+    expect(screen.getByText('Prepare release notes')).toBeDefined()
+    expect(screen.getByText('Waiting to start')).toBeDefined()
+    expect(screen.getByText(/next ready agent to start it/i)).toBeDefined()
+    expect(screen.queryByText('Queued')).toBeNull()
+    expect(screen.queryByText(/queue/i)).toBeNull()
+  })
+
   test('shows empty state when no tasks', () => {
     render(<ListView />)
     expect(screen.getByTestId('list-empty-state')).toBeDefined()
