@@ -156,6 +156,31 @@ describe('AuditLogView', () => {
     )
   })
 
+  test('labels missing audit event and resource names without Unknown', async () => {
+    fetchGovernanceAudit.mockResolvedValueOnce({
+      ...auditResponse,
+      entries: [
+        {
+          ...auditResponse.entries[0],
+          id: 'audit-missing-labels',
+          eventType: '',
+          itemKind: null,
+          rawItemId: null,
+          auditSubjectHash: 'missing-label-hash',
+          resourceType: '',
+          details: {},
+        },
+      ],
+    })
+
+    render(<AuditLogView />)
+
+    expect(await screen.findByText('Change not listed')).toBeDefined()
+    expect(screen.getByText('Item hidden for safety · Resource not listed')).toBeDefined()
+    expect(screen.getByText(/Support event:/).textContent).toContain('not listed')
+    expect(screen.queryByText('Unknown')).toBeNull()
+  })
+
   test('hides sensitive values in audit change details', async () => {
     fetchGovernanceAudit.mockResolvedValueOnce({
       ...auditResponse,

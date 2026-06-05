@@ -743,11 +743,16 @@ function auditEventLabel(eventType: string): string {
     'governance.context.memory.updated': 'Saved memory updated',
     'governance.context.memory.rejected': 'Saved memory rejected',
   }
-  return labels[eventType] ?? readableCodeLabel(eventType.split('.').slice(-2).join(' '))
+  return (
+    labels[eventType] ??
+    readableCodeLabel(eventType.split('.').slice(-2).join(' '), {
+      fallback: 'Change not listed',
+    })
+  )
 }
 
 function shortEventType(eventType: string): string {
-  return eventType.replace(/^governance\.context\./, '')
+  return eventType.replace(/^governance\.context\./, '').trim() || 'not listed'
 }
 
 function auditItemKindLabel(kind: GovernanceAuditItemKind | null | undefined): string {
@@ -757,7 +762,7 @@ function auditItemKindLabel(kind: GovernanceAuditItemKind | null | undefined): s
 }
 
 function resourceTypeLabel(value: string): string {
-  return readableCodeLabel(value)
+  return readableCodeLabel(value, { fallback: 'Resource not listed' })
 }
 
 function auditAreaLabel(kind: GovernanceAuditScopeKind | null | undefined): string {
@@ -777,9 +782,9 @@ function auditAreaLabel(kind: GovernanceAuditScopeKind | null | undefined): stri
   }
 }
 
-function readableCodeLabel(value: string): string {
+function readableCodeLabel(value: string, options: { fallback: string }): string {
   const words = value.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase()
-  if (!words) return 'Unknown'
+  if (!words) return options.fallback
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
