@@ -17,18 +17,18 @@ const FILTERS: { id: InboxFilter; label: string; empty: string }[] = [
   {
     id: 'needs-action',
     label: 'Needs action',
-    empty: 'No blockers, failures, or expired credentials need action right now.',
+    empty: 'No blockers, failures, or account access issues need action right now.',
   },
   {
     id: 'credentials',
-    label: 'Credentials',
-    empty: 'No credentials need reconnecting right now.',
+    label: 'Account access',
+    empty: 'No account access needs reconnecting right now.',
   },
 ]
 
 const INBOX_TRIAGE_STEPS = [
   'Start with Needs action to find blocked tasks and failures.',
-  'Use Credentials when an agent needs access reconnected.',
+  'Use Account access when an agent needs a connection restored.',
   'Mark items read after the task or setting has been handled.',
 ]
 
@@ -179,7 +179,8 @@ export function InboxView() {
             Inbox
           </h1>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Start with blockers and expired credentials. Completed work can wait until review time.
+            Start with blockers and account access issues. Completed work can wait until review
+            time.
           </p>
         </header>
         {nextStepNotification && (
@@ -337,7 +338,7 @@ function matchesFilter(notification: Notification, filter: InboxFilter): boolean
 function nextStepTitle(notification: Notification): string {
   switch (notification.type) {
     case 'credential_expired':
-      return 'Reconnect a credential before more agent work starts'
+      return 'Reconnect account access before more agent work starts'
     case 'blocked':
       return 'Review the blocker that is stopping work'
     case 'failed':
@@ -360,8 +361,8 @@ function nextStepDescription(
 ): string {
   if (notification.type === 'credential_expired') {
     return credentialCount === 1
-      ? 'One credential needs reconnecting. Fixing it keeps future agent runs from failing.'
-      : `${credentialCount} credentials need reconnecting. Start here because access problems can block new runs.`
+      ? 'One account connection needs reconnecting. Fixing it keeps future agent runs from failing.'
+      : `${credentialCount} account connections need reconnecting. Start here because access problems can block new runs.`
   }
 
   if (notification.type === 'blocked' || notification.type === 'failed') {

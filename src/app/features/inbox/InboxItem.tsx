@@ -79,8 +79,8 @@ const TYPE_CONFIG: Record<
     color: 'text-apple-blue',
     unreadBg: 'bg-apple-blue/[0.04]',
     dot: 'bg-apple-blue',
-    label: 'Credential',
-    actionLabel: 'Reconnect credential',
+    label: 'Account access',
+    actionLabel: 'Reconnect access',
     guidance: 'Reconnect access in settings so agents can keep working.',
     template: 'credential-action',
   },
@@ -108,6 +108,7 @@ export function InboxItem({
 }) {
   const config = TYPE_CONFIG[notification.type]
   const Icon = config.Icon
+  const title = displayNotificationTitle(notification)
   const message = displayNotificationMessage(notification)
 
   return (
@@ -115,7 +116,7 @@ export function InboxItem({
       type="button"
       data-testid={`inbox-notification-${notification.id}`}
       data-template={config.template}
-      aria-label={`${config.actionLabel}: ${notification.taskTitle}`}
+      aria-label={`${config.actionLabel}: ${title}`}
       onClick={onClick}
       className={cn(
         'flex w-full gap-3 px-4 py-3 text-left transition-colors',
@@ -154,7 +155,7 @@ export function InboxItem({
             !notification.read && 'font-semibold'
           )}
         >
-          {notification.taskTitle}
+          {title}
         </p>
         <p className="mt-0.5 line-clamp-2 break-words text-ui-caption text-secondary-light dark:text-secondary-dark">
           {message}
@@ -172,9 +173,23 @@ export function InboxItem({
 
 function displayNotificationMessage(notification: Notification): string {
   if (notification.type === 'credential_expired') {
-    return notification.message.replace(/\bruntime access\b/gi, 'agent work access')
+    return notification.message
+      .replace(/\bruntime access\b/gi, 'agent work access')
+      .replace(/\bcredentials?\b/gi, 'account access')
+      .replace(/\bexpired\b/gi, 'needs reconnecting')
   }
   return notification.message
+}
+
+function displayNotificationTitle(notification: Notification): string {
+  if (notification.type === 'credential_expired') {
+    const title = notification.taskTitle
+      .replace(/\bcredential expired\b/gi, 'account access needs reconnecting')
+      .replace(/\bcredentials?\b/gi, 'account access')
+      .replace(/\bexpired\b/gi, 'needs reconnecting')
+    return title.charAt(0).toUpperCase() + title.slice(1)
+  }
+  return notification.taskTitle
 }
 
 function formatTime(ts: number): string {

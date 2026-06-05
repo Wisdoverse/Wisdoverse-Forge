@@ -41,7 +41,7 @@ describe('InboxView', () => {
     expect(screen.getByText('Inbox triage path')).toBeDefined()
     expect(screen.getByText(/start with needs action/i)).toBeDefined()
     expect(
-      screen.getByText(/use credentials when an agent needs access reconnected/i)
+      screen.getByText(/use account access when an agent needs a connection restored/i)
     ).toBeDefined()
   })
 
@@ -118,7 +118,7 @@ describe('InboxView', () => {
     expect(screen.getByRole('button', { name: /open blocked task/i })).toBeDefined()
   })
 
-  test('prioritizes expired credentials because they can block future runs', () => {
+  test('prioritizes expired account access because it can block future runs', () => {
     const store = useFeedStore.getState()
     store.addNotification({
       id: 'n1',
@@ -143,10 +143,12 @@ describe('InboxView', () => {
     render(<InboxView />)
 
     const nextStep = screen.getByTestId('inbox-next-step')
-    expect(nextStep).toHaveTextContent('Reconnect a credential before more agent work starts')
+    expect(nextStep).toHaveTextContent('Reconnect account access before more agent work starts')
     expect(nextStep).toHaveTextContent('keeps future agent runs from failing')
     expect(screen.getByText('Reconnect agent work access')).toBeDefined()
+    expect(screen.getByText('Account access needs reconnecting')).toBeDefined()
     expect(screen.queryByText(/runtime access/i)).toBeNull()
+    expect(screen.queryByText(/credential expired/i)).toBeNull()
     expect(screen.getByRole('button', { name: /open settings/i })).toBeDefined()
   })
 
@@ -217,20 +219,20 @@ describe('InboxView', () => {
     const user = userEvent.setup()
     await user.click(screen.getByTestId('inbox-filter-needs-action'))
     expect(screen.getByText('Blocked deployment')).toBeDefined()
-    expect(screen.getByText('Credential expired')).toBeDefined()
+    expect(screen.getByText('Account access needs reconnecting')).toBeDefined()
     expect(screen.queryByText('Completed cleanup')).toBeNull()
 
     await user.click(screen.getByTestId('inbox-filter-credentials'))
-    expect(screen.getByText('Credential expired')).toBeDefined()
+    expect(screen.getByText('Account access needs reconnecting')).toBeDefined()
     expect(screen.queryByText('Blocked deployment')).toBeNull()
 
     await user.click(screen.getByTestId('inbox-filter-unread'))
     expect(screen.getByText('Blocked deployment')).toBeDefined()
-    expect(screen.getByText('Credential expired')).toBeDefined()
+    expect(screen.getByText('Account access needs reconnecting')).toBeDefined()
     expect(screen.queryByText('Completed cleanup')).toBeNull()
 
     await user.click(screen.getByTestId('inbox-filter-credentials'))
-    expect(screen.getByText('Credential expired')).toBeDefined()
+    expect(screen.getByText('Account access needs reconnecting')).toBeDefined()
   })
 
   test('explains what to try when a filter has no notifications', async () => {
@@ -270,7 +272,7 @@ describe('InboxView', () => {
     await user.click(screen.getByTestId('inbox-filter-credentials'))
 
     expect(screen.getByTestId('inbox-filter-empty')).toHaveTextContent(
-      'No credentials need reconnecting right now.'
+      'No account access needs reconnecting right now.'
     )
 
     await user.click(screen.getByRole('button', { name: /show all notifications/i }))
@@ -321,7 +323,7 @@ describe('InboxView', () => {
     expect(navigateMock).toHaveBeenCalledWith({ to: '/tasks' })
   })
 
-  test('renders credential notifications with action styling and opens settings', async () => {
+  test('renders account access notifications with action styling and opens settings', async () => {
     useFeedStore.getState().addNotification({
       id: 'credential-owner:user-owner:codex:expired:evt-1',
       type: 'credential_expired',
@@ -340,8 +342,12 @@ describe('InboxView', () => {
     )
     expect(item.getAttribute('data-template')).toBe('credential-action')
     expect(item.className).toContain('bg-apple-blue/[0.04]')
-    expect(screen.getByText('Credential')).toBeDefined()
-    expect(screen.getByText('Reconnect credential')).toBeDefined()
+    expect(item).toHaveTextContent('Account access')
+    expect(item).toHaveTextContent('Reconnect access')
+    expect(screen.getByText('Codex account access needs reconnecting')).toBeDefined()
+    expect(screen.getByText('Codex account connection needs reconnecting')).toBeDefined()
+    expect(screen.queryByText(/credential expired/i)).toBeNull()
+    expect(screen.queryByText(/account connection expired/i)).toBeNull()
 
     await userEvent.setup().click(item)
 
