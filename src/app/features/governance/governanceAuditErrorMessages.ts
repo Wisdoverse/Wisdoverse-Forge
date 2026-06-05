@@ -111,7 +111,7 @@ function validationMessage(action: GovernanceAuditErrorAction, detail: string): 
     return 'Check the event name filter, then apply the audit filters again.'
   }
   if (normalized.includes('id')) {
-    return 'Check the selected organization, workspace, user, or task ID, then apply the audit filters again.'
+    return 'Check the selected organization, workspace, user, or task support reference, then apply the audit filters again.'
   }
   return ACTION_FALLBACKS[action]
 }

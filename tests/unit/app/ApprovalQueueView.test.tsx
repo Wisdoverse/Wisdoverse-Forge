@@ -96,7 +96,14 @@ describe('ApprovalQueueView', () => {
     expect(screen.getByText(/sharing range is no wider than the people who need it/i)).toBeDefined()
     expect(screen.getByText(/sensitivity and redaction match the content/i)).toBeDefined()
     expect(screen.getByText('Who can reuse it')).toBeDefined()
-    expect(screen.getByText(/exact ID from settings/i)).toBeDefined()
+    expect(screen.getByText(/support reference from Settings/i)).toBeDefined()
+
+    await userEvent.setup().selectOptions(screen.getByTestId('context-approval-scope-kind'), 'team')
+
+    expect(screen.getByText('Team support reference')).toBeDefined()
+    expect(screen.getByPlaceholderText(/Team support reference from Settings/i)).toBeDefined()
+    expect(screen.getByText(/Paste the Team support reference before approving/i)).toBeDefined()
+    expect(screen.queryByText(/exact I[D] from settings/i)).toBeNull()
   })
 
   test('explains how to recover from empty approval filters', async () => {

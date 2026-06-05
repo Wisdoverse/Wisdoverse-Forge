@@ -471,7 +471,7 @@ function DecisionPanel({
     : !requiresScopeId
       ? 'Ready to approve for your own account.'
       : !form.scopeId.trim()
-        ? `Paste the ${scopeTargetIdLabel(form.scopeKind)} before approving.`
+        ? `Paste the ${scopeTargetReferenceLabel(form.scopeKind)} before approving.`
         : !form.confirmExpansion
           ? `Confirm ${reuseAudienceLabel(form.scopeKind)} can reuse this context before approving.`
           : `Ready to approve for ${reuseAudienceLabel(form.scopeKind)}.`
@@ -532,7 +532,7 @@ function DecisionPanel({
               <>
                 <div className="rounded-card bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
                   Choose who can reuse this context. User only is the safest choice. Team or Project
-                  shares it more broadly and needs the exact ID from settings.
+                  shares it more broadly and needs the support reference from Settings.
                 </div>
 
                 {!candidate.source_available && (
@@ -569,12 +569,12 @@ function DecisionPanel({
                 </Field>
 
                 {requiresScopeId && (
-                  <Field label={scopeTargetIdLabel(form.scopeKind)}>
+                  <Field label={scopeTargetReferenceLabel(form.scopeKind)}>
                     <input
                       value={form.scopeId}
                       onChange={(event) => updateForm('scopeId', event.target.value)}
                       className={fieldClassName}
-                      placeholder={`Paste the ${scopeTargetIdLabel(form.scopeKind)} from Settings…`}
+                      placeholder={`Paste the ${scopeTargetReferenceLabel(form.scopeKind)} from Settings…`}
                       name="scopeId"
                       autoComplete="off"
                       data-testid="context-approval-scope-id"
@@ -906,8 +906,8 @@ function reuseAudienceLabel(value: ContextCandidateSummary['proposed_scope_kind'
   return `a ${value}`
 }
 
-function scopeTargetIdLabel(value: ContextScopeKind): string {
-  return `${titleCase(value)} ID`
+function scopeTargetReferenceLabel(value: ContextScopeKind): string {
+  return `${titleCase(value)} support reference`
 }
 
 function candidatePreview(candidate: ContextCandidateSummary): string {

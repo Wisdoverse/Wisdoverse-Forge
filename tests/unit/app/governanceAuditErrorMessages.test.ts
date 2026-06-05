@@ -49,4 +49,16 @@ describe('governanceAuditErrorMessage', () => {
       'Choose a valid time range, then apply the audit filters again.'
     )
   })
+
+  test('turns reference validation details into a support-reference next step', () => {
+    const message = governanceAuditErrorMessage('loadAudit', {
+      error: 'Invalid scope id',
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Check the selected organization, workspace, user, or task support reference, then apply the audit filters again.'
+    )
+    expect(message).not.toMatch(/task I[D]/)
+  })
 })
