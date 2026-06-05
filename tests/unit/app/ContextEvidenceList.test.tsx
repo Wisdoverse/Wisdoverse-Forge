@@ -62,16 +62,15 @@ describe('ContextEvidenceList', () => {
     render(<ContextEvidenceList evidence={[evidence()]} revokedItems={[]} />)
 
     expect(screen.getByText('Evidence')).toBeInTheDocument()
-    expect(screen.getByText(/what the agent used or produced/i)).toBeInTheDocument()
+    expect(screen.getByText(/what the agent used or saved/i)).toBeInTheDocument()
     expect(screen.getByText('Task result')).toBeInTheDocument()
-    expect(
-      screen.getByText(/Final output or status captured from the agent run/i)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/Final answer or status saved from the agent run/i)).toBeInTheDocument()
     expect(screen.getByText('Health check completed successfully.')).toBeInTheDocument()
     expect(
       screen.getByText(/Most users can rely on the summary above.*sharing evidence with support/i)
     ).toBeInTheDocument()
-    expect(screen.getByText('Show technical details')).toBeInTheDocument()
+    expect(screen.getByText('Show support details')).toBeInTheDocument()
+    expect(screen.queryByText(/technical details/i)).toBeNull()
     expect(screen.queryByText(/raw details/i)).toBeNull()
   })
 
@@ -107,8 +106,28 @@ describe('ContextEvidenceList', () => {
       />
     )
 
-    expect(screen.getByText('Detailed record with 2 pieces of information.')).toBeInTheDocument()
+    expect(
+      screen.getByText('Additional evidence with 2 pieces of information.')
+    ).toBeInTheDocument()
     expect(screen.queryByText(/fields/i)).toBeNull()
+  })
+
+  test('uses result-file wording for saved file evidence', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            sourceType: 'artifact',
+            payload: { title: 'release-notes.md', description: 'Release notes saved for review.' },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    expect(screen.getByText('Saved result file')).toBeInTheDocument()
+    expect(screen.getByText('A file or result saved during the run.')).toBeInTheDocument()
+    expect(screen.queryByText(/artifact/i)).toBeNull()
   })
 
   test('hides sensitive values in technical evidence details', () => {
@@ -130,7 +149,7 @@ describe('ContextEvidenceList', () => {
 
     expect(screen.getByText('Deployment check')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('Show technical details'))
+    fireEvent.click(screen.getByText('Show support details'))
 
     expect(screen.getAllByText(/Hidden for safety/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/Required account access is missing/i)).toBeInTheDocument()
@@ -152,9 +171,10 @@ describe('ContextEvidenceList', () => {
       />
     )
 
-    expect(screen.getByText('Custom Probe')).toBeInTheDocument()
+    expect(screen.getByText('Run evidence')).toBeInTheDocument()
     expect(screen.getByText('Supporting information recorded during the run.')).toBeInTheDocument()
     expect(screen.getByText('The recorded result needs attention.')).toBeInTheDocument()
+    expect(screen.queryByText('Custom Probe')).toBeNull()
   })
 
   test('explains why revoked context is still visible', () => {
