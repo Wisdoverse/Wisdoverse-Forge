@@ -4,9 +4,9 @@ const ACTION_FALLBACKS: Record<RuntimeErrorAction, string> = {
   loadAgentSignals:
     'Agent online status could not load. Start or wake an agent, then refresh this setup check.',
   loadCliSignIn:
-    'Local tool sign-in status could not load. Refresh this setup check before starting local-tool agents.',
+    'Work tool account connection status could not load. Refresh this setup check before starting agents that use work tools.',
   startCliSignIn:
-    'Local tool sign-in did not start. Check the model service setup, then try Connect again.',
+    'Work tool account connection did not start. Check the model service setup, then try Connect again.',
 }
 
 export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): string {
@@ -160,7 +160,7 @@ function runtimeValidationMessage(action: RuntimeErrorAction, detail: string): s
   }
 
   if (action === 'loadCliSignIn') {
-    return 'Local tool sign-in status could not load. Refresh this setup check, then connect the local tool again.'
+    return 'Work tool account connection status could not load. Refresh this setup check, then connect the work tool again.'
   }
 
   return 'Agent online status could not load. Start or wake an agent, then refresh this setup check.'

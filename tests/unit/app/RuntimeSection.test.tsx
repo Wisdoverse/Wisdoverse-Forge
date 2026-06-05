@@ -116,7 +116,7 @@ describe('RuntimeSection', () => {
 
     expect(await screen.findByTestId('runtime-launch-checklist')).toBeDefined()
     const nextStep = screen.getByTestId('runtime-next-step')
-    expect(nextStep).toHaveTextContent('Do This Next')
+    expect(nextStep).toHaveTextContent('Do this next')
     expect(nextStep).toHaveTextContent('Work tool packages')
     expect(screen.getByText('Before assigning work')).toBeDefined()
     expect(screen.getByText('2/4 ready')).toBeDefined()
@@ -127,6 +127,8 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText('api')).toBeNull()
     expect(screen.queryByText('codex')).toBeNull()
     expect(screen.getAllByText(/Rebuild the agent tool packages/i).length).toBeGreaterThan(0)
+    expect(screen.getByText('Rebuild needed')).toBeDefined()
+    expect(screen.getByText('Ready to use')).toBeDefined()
     expect(screen.getByRole('button', { name: /Connect GitHub/i })).toBeDefined()
 
     fireEvent.click(screen.getByRole('button', { name: /Connect GitHub/i }))
@@ -183,7 +185,9 @@ describe('RuntimeSection', () => {
 
     render(<RuntimeSection />)
 
-    expect(await screen.findByText(/local tool sign-in status could not load/i)).toBeDefined()
+    expect(
+      await screen.findByText(/work tool account connection status could not load/i)
+    ).toBeDefined()
     expect(screen.getByText(/app could not reach the service/i)).toBeDefined()
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
   })

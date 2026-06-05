@@ -21,7 +21,7 @@ describe('runtimeErrorMessage', () => {
   test('explains network failures without exposing only a transport error', () => {
     const message = runtimeErrorMessage('loadCliSignIn', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('Local tool sign-in status could not load')
+    expect(message).toContain('Work tool account connection status could not load')
     expect(message).toContain('app could not reach the service')
     expect(message).not.toContain('Failed to fetch')
   })
@@ -59,7 +59,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Local tool sign-in did not start. Check the model service setup, then try Connect again. The app could not reach the service. Check your connection, then refresh the page.'
+      'Work tool account connection did not start. Check the model service setup, then try Connect again. The app could not reach the service. Check your connection, then refresh the page.'
     )
     expect(message).not.toContain('provider')
     expect(message).not.toContain('Failed to fetch')

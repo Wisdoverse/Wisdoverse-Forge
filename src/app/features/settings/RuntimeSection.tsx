@@ -33,7 +33,12 @@ interface RuntimeChecklistItem {
 
 function SettingRow({ label, description, children }: SettingRowProps) {
   return (
-    <div className={cn('flex items-center justify-between gap-4 px-4 py-3', uiStyles.row)}>
+    <div
+      className={cn(
+        'flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4',
+        uiStyles.row
+      )}
+    >
       <div className="min-w-0">
         <span className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
           {label}
@@ -44,7 +49,7 @@ function SettingRow({ label, description, children }: SettingRowProps) {
           </p>
         )}
       </div>
-      <div className="shrink-0">{children}</div>
+      <div className="w-full sm:w-auto sm:shrink-0">{children}</div>
     </div>
   )
 }
@@ -302,14 +307,14 @@ export function RuntimeSection() {
                     {cliToolLabel(detail.cliTool)}
                   </span>
                   <span className="block truncate text-secondary-light dark:text-secondary-dark">
-                    {detail.version ?? 'Needs package check'}
+                    {detail.version ?? 'Needs tool check'}
                   </span>
                 </div>
                 <span
                   className="min-w-0 truncate text-secondary-light dark:text-secondary-dark"
                   title={detail.image}
                 >
-                  {detail.imagePresent ? 'Package found' : 'Package needs rebuild'}
+                  {detail.imagePresent ? 'Ready to use' : 'Rebuild needed'}
                 </span>
                 <span
                   className={cn(
@@ -507,7 +512,7 @@ function RuntimeNextStepPanel({
               />
             )}
             <p className="text-ui-caption font-semibold uppercase text-secondary-light dark:text-secondary-dark">
-              {allReady ? 'Ready' : 'Do This Next'}
+              {allReady ? 'Ready' : 'Do this next'}
             </p>
           </div>
           <h3 className="mt-1 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
@@ -530,7 +535,7 @@ function RuntimeNextStepPanel({
             type="button"
             onClick={onAction}
             disabled={busy}
-            className={cn(uiStyles.secondaryButton, 'shrink-0')}
+            className={cn(uiStyles.secondaryButton, 'w-full sm:w-auto sm:shrink-0')}
           >
             <span>{busy ? busyLabel : item.actionLabel}</span>
             <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
@@ -603,7 +608,7 @@ function RuntimeChecklistRow({
           type="button"
           onClick={onAction}
           disabled={busy}
-          className={cn(uiStyles.secondaryButton, 'h-8 shrink-0 px-2.5')}
+          className={cn(uiStyles.secondaryButton, 'h-8 w-full px-2.5 sm:w-auto sm:shrink-0')}
         >
           <span>{busy ? busyLabel : item.actionLabel}</span>
           <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
