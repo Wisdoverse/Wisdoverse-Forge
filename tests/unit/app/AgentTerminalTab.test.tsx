@@ -65,7 +65,8 @@ describe('AgentTerminalTab', () => {
     expect(screen.getByText('Workspace ready')).toBeDefined()
     expect(screen.queryByText(/container-1/i)).toBeNull()
     expect(within(toggle).getByText('Keyboard')).toBeDefined()
-    expect(screen.getByText('Shortcut keys send to command window')).toBeDefined()
+    expect(screen.getByText('Shortcut keys send to live work')).toBeDefined()
+    expect(screen.queryByText(/command window/i)).toBeNull()
     expect(screen.queryByText(/send to terminal/i)).toBeNull()
     expect(screen.getByRole('button', { name: 'Enter' })).toBeEnabled()
   })
@@ -77,20 +78,21 @@ describe('AgentTerminalTab', () => {
 
     const toggle = screen.getByRole('button', { name: /show virtual keyboard/i })
     expect(within(toggle).getByText('Keyboard')).toBeDefined()
-    expect(screen.queryByText('Shortcut keys send to command window')).toBeNull()
+    expect(screen.queryByText('Shortcut keys send to live work')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Enter' })).toBeNull()
   })
 
-  test('explains that shortcut keys wait for a connected command window', () => {
+  test('explains that shortcut keys wait for connected live work', () => {
     terminalMocks.status = 'disconnected'
 
     render(<AgentTerminalTab agentId="agent-1" agentName="Runner" containerId="container-1" />)
 
-    expect(screen.getByText('Connect command window to use keys')).toBeDefined()
+    expect(screen.getByText('Connect live work to use keys')).toBeDefined()
+    expect(screen.queryByText(/command window/i)).toBeNull()
     expect(screen.getByRole('button', { name: 'Enter' })).toBeDisabled()
   })
 
-  test('prints a recovery step instead of raw command-window connection errors', () => {
+  test('prints a recovery step instead of raw live work connection errors', () => {
     render(<AgentTerminalTab agentId="agent-1" agentName="Runner" containerId="container-1" />)
 
     act(() => {
@@ -101,24 +103,26 @@ describe('AgentTerminalTab', () => {
     })
 
     const notice = String(terminalMocks.write.mock.calls.at(-1)?.[0] ?? '')
-    expect(notice).toContain('Command window notice: The command window disconnected.')
+    expect(notice).toContain('Live work notice: Live work disconnected.')
     expect(notice).toContain('restart the workspace')
+    expect(notice).not.toContain('Command window')
     expect(notice).not.toContain('HTTP 500')
     expect(notice).not.toContain('pty connection failed')
     expect(notice).not.toContain('[terminal]')
   })
 
-  test('shows a beginner unavailable state while the command window is starting', () => {
+  test('shows a beginner unavailable state while live work is starting', () => {
     render(<AgentTerminalTab agentId="agent-1" agentName="Runner" />)
 
-    expect(screen.getByText('Command window not ready')).toBeInTheDocument()
+    expect(screen.getByText('Live work not ready')).toBeInTheDocument()
     expect(
       screen.getByText(
-        'This managed workspace is selected, but its command window is still starting.'
+        'This managed workspace is selected, but live work access is still starting.'
       )
     ).toBeInTheDocument()
     expect(screen.getByText('Not reported')).toBeInTheDocument()
     expect(screen.getByText('Starting')).toBeInTheDocument()
+    expect(screen.queryByText(/command window/i)).toBeNull()
     expect(screen.queryByText(/terminal unavailable/i)).toBeNull()
     expect(screen.queryByText(/unknown/i)).toBeNull()
   })
