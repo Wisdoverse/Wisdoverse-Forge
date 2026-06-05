@@ -486,7 +486,7 @@ export const en = {
       detailsHelper: 'Review this text if you need to check exactly what will be reused.',
       noContent:
         'No reusable instructions have been saved yet. Add instructions before asking agents to use this skill.',
-      unknownAuthor: 'Unknown',
+      unknownAuthor: 'Maintainer not listed yet',
       unknownSource: 'Skills library',
       versionLatest: 'latest',
     },

@@ -76,7 +76,8 @@ describe('SkillDetailModal', () => {
     expect(screen.getByText('Needs install before agents can use it')).toBeInTheDocument()
     expect(screen.getByText('Works with any agent')).toBeInTheDocument()
     expect(screen.getByText('Skills library')).toBeInTheDocument()
-    expect(screen.getByText('Unknown')).toBeInTheDocument()
+    expect(screen.getByText('Maintainer not listed yet')).toBeInTheDocument()
+    expect(screen.queryByText('Unknown')).toBeNull()
     expect(screen.getByText('latest')).toBeInTheDocument()
     expect(
       screen.getByText('No summary yet. Review the instructions below before using this skill.')

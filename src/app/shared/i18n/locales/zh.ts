@@ -479,7 +479,7 @@ export const zh: TranslationKeys = {
       detailsHeading: 'agent 会读取的说明',
       detailsHelper: '如果要确认复用的具体内容，请查看这段文字。',
       noContent: '还没有保存可复用说明。请先补充说明，再让 Agent 使用这个技能。',
-      unknownAuthor: '未知',
+      unknownAuthor: '暂未列出维护者',
       unknownSource: '技能库',
       versionLatest: '最新',
     },

@@ -63,10 +63,12 @@ describe('beginner error translations', () => {
     expect(en.agents.noAgents).toContain('Create one agent')
     expect(en.skills.detail.noDescription).toContain('Review the instructions')
     expect(en.skills.detail.noContent).toContain('Add instructions')
+    expect(en.skills.detail.unknownAuthor).toContain('not listed yet')
     expect(zh.common.noResults).toContain('清除筛选')
     expect(zh.agents.noAgents).toContain('创建一个 Agent')
     expect(zh.skills.detail.noDescription).toContain('查看下面的说明')
     expect(zh.skills.detail.noContent).toContain('先补充说明')
+    expect(zh.skills.detail.unknownAuthor).toContain('暂未列出')
   })
 
   test('this-computer agent join errors avoid request-header and connection-policy jargon', () => {
