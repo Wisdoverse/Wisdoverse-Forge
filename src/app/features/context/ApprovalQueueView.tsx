@@ -61,29 +61,29 @@ const KIND_FILTERS: Array<{ value: KindFilter; label: string }> = [
 ]
 
 const SCOPE_FILTERS: Array<{ value: ScopeFilter; label: string }> = [
-  { value: 'all', label: 'All reuse ranges' },
-  { value: 'user', label: 'User only' },
-  { value: 'team', label: 'Team' },
-  { value: 'project', label: 'Project' },
+  { value: 'all', label: 'All sharing ranges' },
+  { value: 'user', label: 'Only me' },
+  { value: 'team', label: 'My team' },
+  { value: 'project', label: 'This project' },
 ]
 
 const SENSITIVITIES: Array<{ value: ContextSensitivity; label: string }> = [
-  { value: 'public', label: 'Public' },
-  { value: 'internal', label: 'Internal' },
+  { value: 'public', label: 'Safe to share' },
+  { value: 'internal', label: 'Team internal' },
   { value: 'confidential', label: 'Confidential' },
-  { value: 'secret_detected', label: 'Secret detected' },
+  { value: 'secret_detected', label: 'May contain secrets' },
 ]
 
 const APPROVAL_PATH_STEPS = [
-  'Open the item and read the original task preview.',
-  'Approve only reusable context, and choose the smallest safe sharing range.',
-  'Reject anything outdated, unsafe, or unclear.',
+  'Open the item and check what will be saved.',
+  'Approve only if it will help future work, then choose the smallest sharing range.',
+  'Reject it if it is outdated, unsafe, duplicated, or unclear.',
 ]
 
 const APPROVE_CHECKLIST = [
-  'Original task is complete and still relevant.',
-  'Sharing range is no wider than the people who need it.',
-  'Sensitivity and redaction match the content.',
+  'Original task is complete and the saved note is still useful.',
+  'Sharing range is limited to the people who need it.',
+  'Sensitive details are hidden before saving.',
 ]
 
 const REJECT_CHECKLIST = [
@@ -210,9 +210,9 @@ export function ApprovalQueueView() {
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-ui-caption font-semibold text-apple-blue">
               <ShieldCheck size={14} strokeWidth={2} aria-hidden="true" />
-              <span>Governed context</span>
+              <span>Reusable context review</span>
             </div>
-            <h1 className="mt-1 text-ui-title font-semibold">Approval queue</h1>
+            <h1 className="mt-1 text-ui-title font-semibold">Review reusable context</h1>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
               {totalLabel}
             </p>
@@ -221,7 +221,7 @@ export function ApprovalQueueView() {
             type="button"
             onClick={() => void loadCandidates()}
             className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]"
-            title="Refresh approval queue"
+            title="Refresh review list"
           >
             <RefreshCw
               size={15}
@@ -240,10 +240,10 @@ export function ApprovalQueueView() {
           <div className="grid gap-3 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)] md:items-start">
             <div>
               <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
-                Approval path
+                Review steps
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Decide whether a memory or skill should become reusable context for future work.
+                Decide which memories or skills are safe to save for future work.
               </p>
             </div>
             <ol className="list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -268,7 +268,7 @@ export function ApprovalQueueView() {
             onChange={(value) => setKindFilter(value)}
           />
           <SelectFilter
-            label="Reuse range"
+            label="Sharing range"
             value={scopeFilter}
             options={SCOPE_FILTERS}
             onChange={(value) => setScopeFilter(value)}
@@ -294,7 +294,7 @@ export function ApprovalQueueView() {
           {loading && candidates.length === 0 ? (
             <div className="flex h-64 items-center justify-center gap-2 text-ui-body text-secondary-light dark:text-secondary-dark">
               <Loader2 size={18} strokeWidth={2} className="animate-spin" aria-hidden="true" />
-              <span>Loading approval queue…</span>
+              <span>Loading reusable context review list...</span>
             </div>
           ) : candidates.length === 0 ? (
             <div className="flex h-64 flex-col items-center justify-center rounded-card border border-dashed border-black/[0.12] text-center dark:border-white/[0.12]">
@@ -306,10 +306,10 @@ export function ApprovalQueueView() {
               />
               <p className="mt-2 text-ui-section font-medium">No items match these filters</p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                New items appear here from completed work.
+                New memories and skills appear here after completed work.
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Switch Status to All or clear item and reuse filters if you expected older
+                Switch Status to All or clear item and sharing filters if you expected older
                 decisions.
               </p>
             </div>
@@ -386,7 +386,7 @@ function CandidateRow({
               className="inline-flex h-6 items-center gap-1 rounded-full bg-apple-red/10 px-2 text-ui-caption font-semibold text-apple-red"
             >
               <AlertTriangle size={12} strokeWidth={2} aria-hidden="true" />
-              Original task unavailable
+              Original task preview unavailable
             </span>
           )}
         </div>
@@ -397,10 +397,12 @@ function CandidateRow({
           </p>
         )}
         <div className="mt-3 flex flex-wrap items-center gap-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          <span>Suggested for {reuseAudienceLabel(candidate.proposed_scope_kind)}</span>
+          <span>Suggested sharing: {reuseRangeLabel(candidate.proposed_scope_kind)}</span>
           {candidate.source_run_id && (
             <span>
-              {candidate.source_available ? 'Original task available' : 'Original task unavailable'}
+              {candidate.source_available
+                ? 'Original task preview available'
+                : 'Original task preview unavailable'}
             </span>
           )}
           <span>Created {formatTimestamp(candidate.created_at)}</span>
@@ -417,7 +419,9 @@ function CandidateRow({
               disabled={!candidate.source_available}
               className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:bg-black/20 disabled:text-black/45 dark:disabled:bg-white/10 dark:disabled:text-white/35"
               title={
-                candidate.source_available ? 'Approve for reuse' : 'Original task is unavailable'
+                candidate.source_available
+                  ? 'Approve and save for reuse'
+                  : 'Original task preview is unavailable'
               }
             >
               <CheckCircle2 size={15} strokeWidth={2} aria-hidden="true" />
@@ -467,7 +471,7 @@ function DecisionPanel({
     (!requiresScopeId || (form.scopeId.trim().length > 0 && form.confirmExpansion))
   const approvalStatusId = `context-approval-status-${candidate.id}`
   const approvalStatus = !candidate.source_available
-    ? 'This item cannot be approved because the original task is unavailable.'
+    ? 'This item cannot be approved because the original task preview is unavailable.'
     : !requiresScopeId
       ? 'Ready to approve for your own account.'
       : !form.scopeId.trim()
@@ -494,7 +498,7 @@ function DecisionPanel({
     <div className="fixed inset-0 z-50 flex justify-end bg-black/35 backdrop-blur-sm">
       <button
         type="button"
-        aria-label="Close approval panel"
+        aria-label="Close review panel"
         className="hidden flex-1 md:block"
         onClick={onClose}
       />
@@ -508,7 +512,7 @@ function DecisionPanel({
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-ui-caption font-semibold text-apple-blue">
-                {approving ? 'Approve for reuse' : 'Reject item'}
+                {approving ? 'Approve and save' : 'Reject this item'}
               </p>
               <h2 className="mt-1 truncate text-ui-title font-semibold">{title}</h2>
             </div>
@@ -531,8 +535,8 @@ function DecisionPanel({
             {approving ? (
               <>
                 <div className="rounded-card bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
-                  Choose who can reuse this context. User only is the safest choice. Team or Project
-                  shares it more broadly and needs the support reference from Settings.
+                  Choose who can reuse this context. Only me is the safest choice. My team or This
+                  project shares it more broadly and needs the support reference from Settings.
                 </div>
 
                 {!candidate.source_available && (
@@ -543,7 +547,9 @@ function DecisionPanel({
                       className="mt-0.5 flex-shrink-0"
                       aria-hidden="true"
                     />
-                    <span>Approval is blocked because the original task is unavailable.</span>
+                    <span>
+                      Approval is blocked because the original task preview is unavailable.
+                    </span>
                   </div>
                 )}
 
@@ -562,9 +568,9 @@ function DecisionPanel({
                     }}
                     className={fieldClassName}
                   >
-                    <option value="user">User only</option>
-                    <option value="team">Team</option>
-                    <option value="project">Project</option>
+                    <option value="user">Only me</option>
+                    <option value="team">My team</option>
+                    <option value="project">This project</option>
                   </select>
                 </Field>
 
@@ -686,7 +692,7 @@ function DecisionPanel({
                 {loading ? (
                   <Loader2 size={15} strokeWidth={2} className="animate-spin" aria-hidden="true" />
                 ) : null}
-                <span>{approving ? 'Approve for reuse' : 'Reject item'}</span>
+                <span>{approving ? 'Approve and save' : 'Reject this item'}</span>
               </button>
             </div>
           </div>
@@ -896,14 +902,18 @@ function contextItemKindLabel(value: ContextCandidateKind): string {
 
 function reuseRangeLabel(value: ContextCandidateSummary['proposed_scope_kind']): string {
   if (value === 'org') return 'Organization'
-  if (value === 'user') return 'User only'
+  if (value === 'user') return 'Only me'
+  if (value === 'team') return 'My team'
+  if (value === 'project') return 'This project'
   return titleCase(value)
 }
 
 function reuseAudienceLabel(value: ContextCandidateSummary['proposed_scope_kind']): string {
-  if (value === 'org') return 'the organization'
+  if (value === 'org') return 'everyone in the organization'
   if (value === 'user') return 'your own account'
-  return `a ${value}`
+  if (value === 'team') return 'your team'
+  if (value === 'project') return 'this project'
+  return `the selected ${value}`
 }
 
 function scopeTargetReferenceLabel(value: ContextScopeKind): string {

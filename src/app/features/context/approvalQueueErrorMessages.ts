@@ -2,10 +2,10 @@ export type ApprovalQueueErrorAction = 'approveCandidate' | 'loadQueue' | 'rejec
 
 const ACTION_FALLBACKS: Record<ApprovalQueueErrorAction, string> = {
   approveCandidate:
-    'The item was not approved. Review the sharing range and original task preview, then try again.',
-  loadQueue: 'The approval queue could not load. Refresh the queue so you see the latest items.',
-  rejectCandidate:
-    'The item was not rejected. Refresh the queue, then try the reject action again.',
+    'The item was not approved. Check who can reuse it and the original task preview, then try again.',
+  loadQueue:
+    'The reusable context review list could not load. Refresh the list so you see the latest items.',
+  rejectCandidate: 'The item was not rejected. Refresh the list, then try the reject action again.',
 }
 
 export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err: unknown): string {
@@ -18,7 +18,7 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   }
 
   if (status === 401) {
-    return 'Sign in again, then retry this approval queue action.'
+    return 'Sign in again, then retry this review action.'
   }
 
   if (status === 403) {
@@ -26,11 +26,11 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   }
 
   if (status === 404) {
-    return 'This item was not found. Refresh the queue so you see the latest items.'
+    return 'This item was not found. Refresh the list so you see the latest items.'
   }
 
   if (status === 409) {
-    return 'This item changed while you were reviewing it. Refresh the queue, then open it again.'
+    return 'This item changed while you were reviewing it. Refresh the list, then open it again.'
   }
 
   if (status === 422) {
@@ -38,11 +38,11 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   }
 
   if (status === 429) {
-    return 'The approval queue is busy. Wait a moment, then try again.'
+    return 'The reusable context review list is busy. Wait a moment, then try again.'
   }
 
   if (status && status >= 500) {
-    return 'The approval queue is temporarily unavailable. Refresh the queue, then try again. If it still fails, ask an owner or admin to check reusable context setup.'
+    return 'The reusable context review list is temporarily unavailable. Refresh the list, then try again. If it still fails, ask an owner or admin to check reusable context setup.'
   }
 
   return validationMessage(action, detail)
@@ -101,7 +101,7 @@ function validationMessage(action: ApprovalQueueErrorAction, detail: string): st
   const normalized = detail.toLowerCase()
   if (normalized.includes('scope')) {
     return action === 'loadQueue'
-      ? 'The approval queue could not load. Refresh the queue, then check the selected reuse range.'
+      ? 'The reusable context review list could not load. Refresh the list, then check the selected sharing range.'
       : 'Choose who can reuse it and review the original task preview, then try again.'
   }
   if (normalized.includes('sensitivity')) {
