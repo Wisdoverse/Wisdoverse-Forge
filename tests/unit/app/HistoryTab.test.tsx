@@ -95,4 +95,23 @@ describe('HistoryTab', () => {
     expect(screen.queryByText(/429/)).toBeNull()
     expect(screen.queryByText(/provider/i)).toBeNull()
   })
+
+  test('summarizes blocked task history without raw reason codes', async () => {
+    getTaskRunsMock.mockResolvedValue([])
+
+    render(
+      <HistoryTab
+        task={makeTask({
+          state: 'blocked',
+          blockedReason: 'quota_exceeded',
+          error: 'quota_exceeded: docker socket denied secret token abc',
+        })}
+      />
+    )
+
+    expect(await screen.findAllByText(/Free capacity or ask an owner/i)).toHaveLength(2)
+    expect(screen.queryByText(/quota_exceeded/i)).toBeNull()
+    expect(screen.queryByText(/docker socket/i)).toBeNull()
+    expect(screen.queryByText(/secret token/i)).toBeNull()
+  })
 })

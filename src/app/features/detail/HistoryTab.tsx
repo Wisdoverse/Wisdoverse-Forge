@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { cn } from '@app/shared/lib/utils'
-import { taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
+import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import {
   orchestrationApi,
   taskResultArtifacts,
@@ -278,7 +278,11 @@ function taskCheckIn(task: TaskSummary): {
     case 'blocked':
       return {
         title: `${agentName} needs owner input`,
-        detail: task.blockedHint ?? task.blockedReason ?? 'Resolve the blocker to continue.',
+        detail: taskBlockedPreview({
+          blockedHint: task.blockedHint,
+          blockedReason: task.blockedReason,
+          error: task.error,
+        }),
         tone: 'warn',
         Icon: AlertTriangle,
       }
@@ -358,10 +362,11 @@ function taskHistoryEvents(task: TaskSummary): { id: string; title: string; deta
     events.push({
       id: 'blocked',
       title: 'Needs your input',
-      detail:
-        task.blockedHint ??
-        task.blockedReason ??
-        'No details were provided. Review the task actions before continuing.',
+      detail: taskBlockedPreview({
+        blockedHint: task.blockedHint,
+        blockedReason: task.blockedReason,
+        error: task.error,
+      }),
     })
   }
 

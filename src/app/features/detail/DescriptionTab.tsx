@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { taskResultArtifacts, type TaskSummary } from '@app/shared/api/orchestration'
 import { formatRelativeTime } from '@app/shared/lib/time'
-import { taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
+import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { cn } from '@app/shared/lib/utils'
 
 interface DescriptionTabProps {
@@ -350,7 +350,11 @@ function nextActionForTask(
     case 'blocked':
       return {
         title: 'Resolve the blocker',
-        detail: task.blockedHint ?? task.blockedReason ?? 'Clarify what is missing, then reassign.',
+        detail: taskBlockedPreview({
+          blockedHint: task.blockedHint,
+          blockedReason: task.blockedReason,
+          error: task.error,
+        }),
         tone: 'warn',
       }
     case 'completed':

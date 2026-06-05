@@ -150,4 +150,27 @@ describe('ListView', () => {
     fireEvent.click(screen.getByRole('button', { name: /show all tasks/i }))
     expect(screen.getByText('Build settings')).toBeDefined()
   })
+
+  test('shows blocked reason guidance without raw reason codes', () => {
+    useBoardStore.getState().setTasks([
+      {
+        id: 'blocked-raw',
+        state: 'blocked',
+        params: { task: 'Scale preview', message: '' },
+        priority: 'urgent',
+        progress: 20,
+        blockedReason: 'quota_exceeded',
+        error: 'quota_exceeded: docker socket denied secret token abc',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+    ])
+
+    render(<ListView />)
+
+    expect(screen.getByText(/Resolve blocker: Free capacity or ask an owner/i)).toBeDefined()
+    expect(screen.queryByText(/quota_exceeded/i)).toBeNull()
+    expect(screen.queryByText(/docker socket/i)).toBeNull()
+    expect(screen.queryByText(/secret token/i)).toBeNull()
+  })
 })

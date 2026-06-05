@@ -5,6 +5,7 @@ import { useBoardStore } from '@app/shared/model/board.store'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime as formatDate } from '@app/shared/lib/time'
+import { taskBlockedPreview } from '@app/shared/lib/taskFailureCopy'
 
 const PRIORITY_LABELS: Record<string, string> = {
   low: 'Low',
@@ -496,9 +497,11 @@ function taskNextAction(task: TaskSummary): string {
     case 'working':
       return `Follow progress at ${task.progress}%; open it if updates stop.`
     case 'blocked':
-      return task.blockedHint || task.blockedReason
-        ? `Resolve blocker: ${task.blockedHint ?? task.blockedReason}.`
-        : 'Open it and provide the missing decision or input.'
+      return `Resolve blocker: ${taskBlockedPreview({
+        blockedHint: task.blockedHint,
+        blockedReason: task.blockedReason,
+        error: task.error,
+      })}`
     case 'failed':
       return 'Open it, read the failure, then retry only after the cause is clear.'
     case 'completed':

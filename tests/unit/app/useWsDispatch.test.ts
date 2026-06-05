@@ -186,6 +186,74 @@ describe('dispatchWsMessage', () => {
     expect(notifications[0].message).toContain('needs owner input')
   })
 
+  it('hides raw blocked fallback details in owner notifications', () => {
+    localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
+
+    dispatchWsMessage({
+      type: 'orchestration:task_update',
+      payload: {
+        action: 'updated',
+        task: {
+          id: 'task-owner-blocked-raw',
+          groupId: 'g-other',
+          state: 'blocked',
+          method: 'code',
+          params: { task: 'Scale preview worker', message: '' },
+          createdBy: 'user-owner',
+          assignedAgentName: 'Codex',
+          blockedReason: 'quota_exceeded',
+          error: 'quota_exceeded: docker socket denied secret token abc',
+          priority: 'normal',
+          progress: 0,
+          createdAt: '2026-04-03T00:00:00Z',
+          updatedAt: '2026-04-03T00:01:00Z',
+        },
+      },
+    })
+
+    const notifications = useFeedStore.getState().notifications
+    expect(notifications).toHaveLength(1)
+    expect(notifications[0].message).toContain(
+      'Free capacity or ask an owner to raise the limit, then retry.'
+    )
+    expect(notifications[0].message).not.toContain('quota_exceeded')
+    expect(notifications[0].message).not.toContain('docker socket')
+    expect(notifications[0].message).not.toContain('secret token')
+  })
+
+  it('hides raw blocked error details when no structured reason is available', () => {
+    localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
+
+    dispatchWsMessage({
+      type: 'orchestration:task_update',
+      payload: {
+        action: 'updated',
+        task: {
+          id: 'task-owner-blocked-error',
+          groupId: 'g-other',
+          state: 'blocked',
+          method: 'code',
+          params: { task: 'Reconnect account', message: '' },
+          createdBy: 'user-owner',
+          assignedAgentName: 'Codex',
+          error: '401 Unauthorized: token expired',
+          priority: 'normal',
+          progress: 0,
+          createdAt: '2026-04-03T00:00:00Z',
+          updatedAt: '2026-04-03T00:01:00Z',
+        },
+      },
+    })
+
+    const notifications = useFeedStore.getState().notifications
+    expect(notifications).toHaveLength(1)
+    expect(notifications[0].message).toContain(
+      'This task needs account access before it can continue.'
+    )
+    expect(notifications[0].message).not.toContain('401 Unauthorized')
+    expect(notifications[0].message).not.toContain('token expired')
+  })
+
   it('notifies the human task owner when their task fails', () => {
     localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
 

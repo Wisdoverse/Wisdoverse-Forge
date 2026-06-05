@@ -95,4 +95,24 @@ describe('DescriptionTab', () => {
     expect(screen.queryByText(/429/)).toBeNull()
     expect(screen.queryByText(/provider/i)).toBeNull()
   })
+
+  test('summarizes blocked task reasons without raw codes', () => {
+    render(
+      <DescriptionTab
+        task={{
+          ...mockTask,
+          state: 'blocked',
+          blockedReason: 'quota_exceeded',
+          error: 'quota_exceeded: docker socket denied secret token abc',
+        }}
+      />
+    )
+
+    expect(screen.getByTestId('task-next-action').textContent).toContain(
+      'Free capacity or ask an owner to raise the limit'
+    )
+    expect(screen.queryByText(/quota_exceeded/i)).toBeNull()
+    expect(screen.queryByText(/docker socket/i)).toBeNull()
+    expect(screen.queryByText(/secret token/i)).toBeNull()
+  })
 })
