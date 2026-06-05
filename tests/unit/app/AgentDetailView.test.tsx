@@ -113,7 +113,7 @@ describe('AgentDetailView', () => {
   test('shows readable status labels in agent details', () => {
     render(<AgentDetailView agent={containerAgent} onBack={() => {}} />)
 
-    const statusValues = screen.getAllByText('Idle')
+    const statusValues = screen.getAllByText('Ready')
     expect(statusValues.length).toBeGreaterThan(0)
     expect(screen.queryByText('idle')).toBeNull()
   })
@@ -178,7 +178,7 @@ describe('AgentDetailView', () => {
     render(<AgentDetailView agent={containerAgent} onBack={() => {}} />)
 
     expect(screen.getByTestId('agent-next-step')).toBeDefined()
-    expect(screen.getByText('Ready')).toBeDefined()
+    expect(screen.getAllByText('Ready').length).toBeGreaterThan(0)
     expect(screen.getByText('Send a small first task')).toBeDefined()
     expect(screen.getByRole('button', { name: /open tasks/i })).toBeDefined()
   })
@@ -222,7 +222,7 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Start the managed workspace to open live work')).toBeDefined()
     expect(screen.getByText(/start the workspace when you need to watch live work/i)).toBeDefined()
     expect(
-      screen.getByText(/success looks like the agent status changing to idle or working/i)
+      screen.getByText(/success looks like the agent status changing to ready or working/i)
     ).toBeDefined()
     expect(
       screen.getByText(/ask an admin to check Agent Work Setup for this agent/i)

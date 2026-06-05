@@ -29,7 +29,7 @@ const STATUS_COLORS: Record<AgentStatus, string> = {
 
 const STATUS_LABELS: Record<AgentStatus, string> = {
   working: 'Working',
-  idle: 'Idle',
+  idle: 'Ready',
   offline: 'Offline',
 }
 
@@ -349,7 +349,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
         title: 'Reconnect the local computer',
         detail:
           'Open the computer where this agent was connected and start the connection tool again. This agent cannot receive new work until the connection returns.',
-        success: 'The status changes from Offline to Idle or Working.',
+        success: 'The status changes from Offline to Ready or Working.',
         ready: false,
       }
     }
@@ -358,7 +358,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
       return {
         title: 'Start the managed workspace',
         detail: 'Open Live work, then start this managed workspace so the agent can receive tasks.',
-        success: 'The agent returns to Idle and can receive tasks.',
+        success: 'The agent returns to Ready and can receive tasks.',
         ready: false,
         targetTab: 'terminal',
         actionLabel: 'Open Live work',
@@ -369,7 +369,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
       title: 'Fix setup before sending work',
       detail:
         'This chat-only agent is offline. Open Settings and check that the connected AI service is ready before sending work.',
-      success: 'The agent returns to Idle and can receive tasks.',
+      success: 'The agent returns to Ready and can receive tasks.',
       ready: false,
     }
   }
@@ -643,7 +643,7 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
         </span>
         {agent.cliTool && (
           <span className="max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Start the workspace here. Success looks like the agent status changing to Idle or
+            Start the workspace here. Success looks like the agent status changing to Ready or
             Working, then Live work opens. If it stays pending, ask an admin to check Agent Work
             Setup for this agent.
           </span>
