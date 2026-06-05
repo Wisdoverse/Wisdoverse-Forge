@@ -294,6 +294,32 @@ function nonBlankLabel(value?: string | null): string | null {
   return trimmed ? trimmed : null
 }
 
+function aiServiceLabel(provider?: string | null): string | null {
+  switch (provider?.trim().toLowerCase()) {
+    case 'anthropic':
+      return 'Anthropic'
+    case 'openai':
+      return 'OpenAI'
+    case 'google':
+    case 'gemini':
+      return 'Google'
+    case 'ollama':
+      return 'Ollama'
+    case 'openrouter':
+      return 'OpenRouter'
+    case 'together':
+      return 'Together AI'
+    case 'openai_compatible':
+    case 'openai-compatible':
+      return 'OpenAI-compatible service'
+    case undefined:
+    case '':
+      return null
+    default:
+      return 'AI service needs review'
+  }
+}
+
 function cliToolLabel(cliTool?: CliTool | string | null): string | null {
   switch (cliTool?.trim().toLowerCase()) {
     case 'claude':
@@ -343,7 +369,7 @@ export function managedToAgentInfo(agent: ManagedAgent): AgentInfo {
     // Provider+prompt agents: backend carries the real provider/model keys.
     // CLI-tool agents: backend leaves them null, fall back to cliTool-derived labels.
     provider:
-      nonBlankLabel(agent.provider) ??
+      aiServiceLabel(nonBlankLabel(agent.provider)) ??
       cliToolToProvider(agent.cliTool) ??
       'AI service not reported',
     model: nonBlankLabel(agent.model) ?? cliToolLabel(agent.cliTool) ?? 'Model not reported',

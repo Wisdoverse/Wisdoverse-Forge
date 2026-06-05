@@ -56,6 +56,23 @@ describe('agents.store managedToAgentInfo backward-compat', () => {
     expect(info.model).toBe('Codex')
   })
 
+  it('uses display names for known AI service keys', () => {
+    expect(
+      managedToAgentInfo({
+        ...base,
+        provider: 'anthropic',
+        model: 'claude-sonnet-4-6',
+      } as any).provider
+    ).toBe('Anthropic')
+    expect(
+      managedToAgentInfo({
+        ...base,
+        provider: 'openai_compatible',
+        model: 'custom-model',
+      } as any).provider
+    ).toBe('OpenAI-compatible service')
+  })
+
   it('uses beginner-facing labels when AI service and model are missing', () => {
     const info = managedToAgentInfo({
       ...base,
@@ -82,5 +99,18 @@ describe('agents.store managedToAgentInfo backward-compat', () => {
     expect(info.model).toBe('Work tool needs review')
     expect(info.provider).not.toContain('future_tool')
     expect(info.model).not.toContain('future_tool')
+  })
+
+  it('does not expose unknown AI service slugs', () => {
+    const info = managedToAgentInfo({
+      ...base,
+      provider: 'future_provider',
+      model: 'future-model',
+      cliTool: null,
+    } as any)
+
+    expect(info.provider).toBe('AI service needs review')
+    expect(info.provider).not.toContain('future_provider')
+    expect(info.model).toBe('future-model')
   })
 })
