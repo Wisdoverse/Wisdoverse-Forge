@@ -816,7 +816,7 @@ function versionSourceLabel(source: string, imagePresent: boolean): string {
 }
 
 function fallbackRuntimeLabel(runtime: string): string {
-  switch (runtime) {
+  switch (runtime.trim().toLowerCase()) {
     case 'cli':
       return 'This computer'
     case 'api':
@@ -824,12 +824,12 @@ function fallbackRuntimeLabel(runtime: string): string {
     case 'container':
       return 'Managed workspace'
     default:
-      return titleFromSlug(runtime)
+      return runtime.trim() ? 'Work location needs review' : 'Work location not listed'
   }
 }
 
 function fallbackCliToolLabel(tool: string): string {
-  switch (tool) {
+  switch (tool.trim().toLowerCase()) {
     case 'claude':
       return 'Claude'
     case 'codex':
@@ -839,16 +839,8 @@ function fallbackCliToolLabel(tool: string): string {
     case 'opencode':
       return 'OpenCode'
     default:
-      return titleFromSlug(tool)
+      return tool.trim() ? 'Work tool needs review' : 'Work tool not listed'
   }
-}
-
-function titleFromSlug(value: string): string {
-  return value
-    .split(/[-_\s]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(' ')
 }
 
 function latestParticipantHeartbeat(participants: ParticipantSummary[]): string | null {

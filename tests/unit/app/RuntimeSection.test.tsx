@@ -210,6 +210,34 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText('Unknown')).toBeNull()
   })
 
+  test('labels unknown work location and tool values without exposing backend codes', async () => {
+    useSettingsStore.setState({
+      runtimeSettings: {
+        defaultRuntime: 'future_runtime' as never,
+        availableRuntimes: ['future_runtime' as never],
+        defaultCliTool: 'future_tool' as never,
+        availableCliTools: ['future_tool' as never],
+        cliToolDetails: [
+          {
+            cliTool: 'future_tool' as never,
+            image: 'agentforge-agent:future-tool',
+            imagePresent: true,
+            version: '1.0.0',
+            versionSource: 'docker-label',
+          },
+        ],
+      },
+    })
+
+    render(<RuntimeSection />)
+
+    expect((await screen.findAllByText('Work location needs review')).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Work tool needs review').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/future_runtime/i)).toBeNull()
+    expect(screen.queryByText(/future_tool/i)).toBeNull()
+    expect(screen.queryByText('Unknown')).toBeNull()
+  })
+
   test('shows beginner guidance when local tool sign-in status cannot load', async () => {
     agentApiMock.getCliAuthProxyStatus.mockRejectedValueOnce(new TypeError('Failed to fetch'))
 
