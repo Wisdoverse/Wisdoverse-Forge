@@ -49,7 +49,7 @@ const EMPTY_STALE = {
 
 function relativeAge(timestamp: string): string {
   const value = Date.parse(timestamp)
-  if (Number.isNaN(value)) return 'unknown'
+  if (Number.isNaN(value)) return 'time not available'
   const seconds = Math.max(0, Math.floor((Date.now() - value) / 1000))
   if (seconds < 3600) return `${Math.max(1, Math.floor(seconds / 60))}m ago`
   if (seconds < 86_400) return `${Math.floor(seconds / 3600)}h ago`
@@ -62,7 +62,7 @@ function humanizeMachineValue(value: string): string {
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .replace(/[_-]+/g, ' ')
 
-  if (!normalized) return 'Unknown'
+  if (!normalized) return 'Not listed yet'
 
   return normalized
     .split(/\s+/)

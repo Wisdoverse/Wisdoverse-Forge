@@ -52,4 +52,38 @@ describe('ContextUsageDashboard', () => {
     expect(banner).toHaveTextContent('Refresh analytics before making decisions')
     expect(banner).not.toHaveTextContent('Snapshot')
   })
+
+  test('uses clear fallback text when analytics labels are missing', () => {
+    render(
+      <ContextUsageDashboard
+        data={analytics({
+          lastRefreshedAt: 'not-a-date',
+          topUseful: [
+            {
+              itemId: 'memory-1',
+              itemKind: 'memory',
+              itemTitle: 'Release checklist',
+              taskKind: '',
+              runtime: '',
+              agentId: 'agent-1',
+              agentName: 'Builder Agent',
+              appliedCount: 2,
+              completedCount: 2,
+              successRate: 1,
+              feedbackTotalCount: 1,
+              feedbackUsefulCount: 1,
+              feedbackNegativeCount: 0,
+              negativeFeedbackRate: 0,
+              lastUsedAt: '2026-05-20T12:00:00.000Z',
+            },
+          ],
+        })}
+      />
+    )
+
+    expect(screen.getByText('Updated time not available')).toBeDefined()
+    const item = screen.getByTestId('context-usage-item')
+    expect(item.textContent).toContain('Builder Agent · Not listed yet · Not listed yet')
+    expect(screen.queryByText(/^unknown$/i)).toBeNull()
+  })
 })
