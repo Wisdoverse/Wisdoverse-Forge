@@ -38,7 +38,7 @@ describe('TaskMetadata', () => {
     )
   })
 
-  test('surfaces server-provided blocked guidance as the status explanation', () => {
+  test('turns credential blocked guidance into an account-access recovery step', () => {
     render(
       <TaskMetadata
         task={{
@@ -52,7 +52,24 @@ describe('TaskMetadata', () => {
       />
     )
 
-    expect(screen.getByText('Waiting for API credentials.')).toBeDefined()
+    expect(screen.getByText(/Waiting for account access/i)).toBeDefined()
+    expect(screen.getByText(/Add or reconnect the required service access/i)).toBeDefined()
+    expect(screen.queryByText(/API credentials/i)).toBeNull()
+  })
+
+  test('keeps plain blocked guidance when it is already beginner-friendly', () => {
+    render(
+      <TaskMetadata
+        task={{
+          ...mockTask,
+          state: 'blocked',
+          blockedReason: 'waiting_input',
+          blockedHint: 'Waiting for your answer before continuing.',
+        }}
+      />
+    )
+
+    expect(screen.getByText('Waiting for your answer before continuing.')).toBeDefined()
   })
 
   test('explains failed task recovery without hiding the status badge', () => {

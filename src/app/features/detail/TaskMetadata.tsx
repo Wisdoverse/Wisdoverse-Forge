@@ -131,7 +131,7 @@ function taskMetadataGuidance(task: TaskSummary, hasAssignee: boolean): string {
       return 'An agent is working now. Watch progress here and check Updates for recent activity.'
     case 'blocked':
       return task.blockedHint
-        ? task.blockedHint
+        ? beginnerBlockedHint(task.blockedHint)
         : 'The task needs attention before work can continue. Check Updates for the blocker.'
     case 'completed':
       return 'The task is finished. Review the Result tab or the final answer before closing the loop.'
@@ -142,4 +142,15 @@ function taskMetadataGuidance(task: TaskSummary, hasAssignee: boolean): string {
     default:
       return 'Open Updates to review the latest task activity.'
   }
+}
+
+function beginnerBlockedHint(hint: string): string {
+  const trimmed = hint.trim()
+  if (!trimmed) {
+    return 'The task needs attention before work can continue. Check Updates for the blocker.'
+  }
+  if (/\b(api\s*)?(credential|credentials|key|keys|token|tokens|secret|secrets)\b/i.test(trimmed)) {
+    return 'Waiting for account access. Add or reconnect the required service access, then retry.'
+  }
+  return trimmed
 }
