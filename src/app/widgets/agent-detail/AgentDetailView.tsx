@@ -81,8 +81,8 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
       ) : agent.cliTool ? (
         <p>
           This agent can work in the shared workspace folder, which can include several projects.
-          The selected project only chooses the default place for new tasks. Use a separate
-          workspace when files must be kept apart.
+          The selected project is just the starting project for new tasks. Use a separate workspace
+          when files must be kept apart.
         </p>
       ) : (
         <p>
@@ -101,6 +101,33 @@ function agentFolderLabel(agent: AgentInfo): string {
     return isHostCliAgent(agent) ? 'Local connection folder' : 'Project workspace'
   }
   return agent.cwd
+}
+
+function agentToolLabel(tool?: AgentInfo['cliTool']): string {
+  switch (tool) {
+    case 'claude':
+      return 'Claude'
+    case 'codex':
+      return 'Codex'
+    case 'gemini':
+      return 'Gemini'
+    case 'opencode':
+      return 'OpenCode'
+    default:
+      return 'Work tool'
+  }
+}
+
+function agentRuntimeLabel(agent: AgentInfo): string {
+  if (isHostCliAgent(agent)) return `${agentToolLabel(agent.cliTool)} on this computer`
+  if (agent.cliTool) return `${agentToolLabel(agent.cliTool)} in a managed workspace`
+  return `${agent.provider} model service`
+}
+
+function agentSetupSummary(agent: AgentInfo): string {
+  if (isHostCliAgent(agent)) return 'This computer'
+  if (agent.cliTool) return 'Managed workspace'
+  return 'Text-only model'
 }
 
 function agentConnectionStatus(agent: AgentInfo): string {
@@ -179,7 +206,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
             <AgentKindBadge cliTool={agent.cliTool} runtimeKind={agent.runtimeKind} />
           </div>
           <p className="truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-            {agent.provider} · {agent.model}
+            {agentRuntimeLabel(agent)} · {agent.model}
           </p>
         </div>
 
@@ -230,7 +257,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
             <StatCard label="Tasks Done" value={String(agent.tasksCompleted)} />
             <StatCard label="In Progress" value={String(agent.tasksInProgress)} />
             <StatCard label="Success Rate" value={`${ratePercent}%`} />
-            <StatCard label="Model service" value={agent.provider} />
+            <StatCard label="Work setup" value={agentSetupSummary(agent)} />
           </div>
 
           {/* Agent info */}
@@ -245,23 +272,14 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
               Details
             </span>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-ui-caption">
-              <DetailRow
-                label="How it runs"
-                value={
-                  isHostCliAgent(agent)
-                    ? `This computer · ${agent.cliTool ?? 'unknown'}`
-                    : agent.cliTool
-                      ? `Managed workspace · ${agent.cliTool}`
-                      : `${agent.provider} model service`
-                }
-              />
+              <DetailRow label="How it runs" value={agentRuntimeLabel(agent)} />
               <DetailRow label="Status" value={STATUS_LABELS[agent.status]} />
               <DetailRow
                 label="Workspace it can use"
                 value={agent.workspaceName ?? 'Default workspace'}
               />
               <DetailRow
-                label="Default project for tasks"
+                label="Starting project for tasks"
                 value={agent.projectName ?? 'Choose when assigning work'}
               />
               <DetailRow label="Project folder" value={agentFolderLabel(agent)} />
@@ -346,7 +364,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
     return {
       title: 'Fix setup before sending work',
       detail:
-        'This text-only model agent is offline. Check the model service account access before sending work.',
+        'This text-only model agent is offline. Open Settings and check that the model service account is ready before sending work.',
       success: 'The agent returns to Idle and can receive tasks.',
       ready: false,
     }
@@ -477,18 +495,14 @@ function AssignmentFitCard({
       ? 'Already working'
       : 'Unavailable until restarted or reconnected'
   const hostCli = isHostCliAgent(agent)
-  const runtime = hostCli
-    ? `${agent.cliTool ?? 'Work tool'} on this computer`
-    : agent.cliTool
-      ? `${agent.cliTool} managed workspace`
-      : `${agent.provider} model service`
+  const runtime = agentRuntimeLabel(agent)
   const credential = hostCli
     ? 'Uses the accounts and tools installed on the enrolled computer.'
     : agent.cliTool === 'codex'
       ? 'Sign-in status is checked in Agent setup.'
       : agent.cliTool
         ? 'Workspace access is added when the agent starts.'
-        : 'Model service account access is checked in Settings.'
+        : 'Settings checks whether this model service account is ready.'
 
   return (
     <section
@@ -619,14 +633,14 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
         </span>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {agent.cliTool
-            ? `${agent.cliTool} is ready. Start the workspace when you need live console access.`
+            ? `${agentToolLabel(agent.cliTool)} is ready. Start the workspace when you need live console access.`
             : 'This agent does not need a managed workspace.'}
         </span>
         {agent.cliTool && (
           <span className="max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
             Start the workspace here. Success looks like the agent status changing to Idle or
             Working, then this Console opens for live work. If it stays pending, ask an admin to
-            check this agent's workspace setup and tool package.
+            check this agent's workspace and agent tool setup.
           </span>
         )}
       </div>
@@ -636,7 +650,7 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
           className="rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
         >
           Start did not finish. Check the agent status, then try once more. If it keeps failing, ask
-          an admin to check this agent's workspace setup and tool package.
+          an admin to check this agent's workspace and agent tool setup.
         </div>
       )}
       {agent.cliTool && (

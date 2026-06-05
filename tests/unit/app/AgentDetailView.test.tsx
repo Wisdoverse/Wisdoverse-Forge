@@ -154,7 +154,8 @@ describe('AgentDetailView', () => {
     render(<AgentDetailView agent={containerAgent} onBack={() => {}} />)
     expect(screen.getByText('12')).toBeDefined()
     expect(screen.getByText('98%')).toBeDefined()
-    expect(screen.getByText('Model service')).toBeDefined()
+    expect(screen.getByText('Work setup')).toBeDefined()
+    expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
   })
 
   test('foregrounds assignment fit on the agent profile', () => {
@@ -221,7 +222,7 @@ describe('AgentDetailView', () => {
       screen.getByText(/success looks like the agent status changing to idle or working/i)
     ).toBeDefined()
     expect(
-      screen.getByText(/ask an admin to check this agent's workspace setup and tool package/i)
+      screen.getByText(/ask an admin to check this agent's workspace and agent tool setup/i)
     ).toBeDefined()
     expect(screen.queryByText(/open terminal/i)).toBeNull()
     expect(screen.queryByText(/terminal access/i)).toBeNull()
@@ -252,7 +253,7 @@ describe('AgentDetailView', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Start did not finish')
     expect(alert).toHaveTextContent(
-      "ask an admin to check this agent's workspace setup and tool package"
+      "ask an admin to check this agent's workspace and agent tool setup"
     )
     expect(alert.textContent).not.toContain('Details:')
     expect(alert.textContent).not.toContain('Docker socket refused')
@@ -275,12 +276,14 @@ describe('AgentDetailView', () => {
     expect(screen.queryByText('/workspace')).toBeNull()
     expect(screen.queryByText('c-abc')).toBeNull()
     expect(screen.getAllByText('How it runs').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('OpenCode in a managed workspace').length).toBeGreaterThan(0)
+    expect(screen.queryByText('opencode managed workspace')).toBeNull()
     expect(screen.getByText('Workspace it can use')).toBeDefined()
     expect(screen.getByText('Engineering')).toBeDefined()
-    expect(screen.getByText('Default project for tasks')).toBeDefined()
+    expect(screen.getByText('Starting project for tasks')).toBeDefined()
     expect(screen.getByText('Platform')).toBeDefined()
     expect(screen.getByText(/can include several projects/i)).toBeDefined()
-    expect(screen.getByText(/default place for new tasks/i)).toBeDefined()
+    expect(screen.getByText(/starting project for new tasks/i)).toBeDefined()
     expect(screen.getByText(/files must be kept apart/i)).toBeDefined()
   })
 
@@ -295,7 +298,9 @@ describe('AgentDetailView', () => {
     expect(
       screen.getByText(/choose an agent on this computer or a managed workspace agent/i)
     ).toBeDefined()
-    expect(screen.getByText(/model service account access is checked in settings/i)).toBeDefined()
+    expect(
+      screen.getByText(/settings checks whether this model service account is ready/i)
+    ).toBeDefined()
     expect(screen.queryByText(/model provider/i)).toBeNull()
   })
 
