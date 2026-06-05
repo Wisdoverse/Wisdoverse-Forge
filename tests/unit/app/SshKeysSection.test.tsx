@@ -50,29 +50,29 @@ afterEach(() => {
 })
 
 describe('SshKeysSection', () => {
-  test('guides first-time SSH key setup and saves only after required fields are filled', async () => {
+  test('guides first-time repository SSH access setup and saves only after required fields are filled', async () => {
     render(<SshKeysSection />)
 
-    expect(await screen.findByText('No repository SSH keys yet')).toBeDefined()
-    expect(screen.getByText(/address starts with git@/i)).toBeDefined()
+    expect(await screen.findByText('No repository SSH access yet')).toBeDefined()
+    expect(screen.getAllByText(/address starts with git@/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/start with https:\/\//i)).toBeDefined()
 
-    fireEvent.click(screen.getByRole('button', { name: /add ssh key/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add ssh access/i }))
 
-    expect(screen.getByText('SSH key setup path')).toBeDefined()
-    expect(screen.getByText('Paste public key only')).toBeDefined()
+    expect(screen.getByText('Repository SSH access setup')).toBeDefined()
+    expect(screen.getByText('Paste the public line only')).toBeDefined()
     expect(screen.getAllByText(/starts with ssh-ed25519 or ssh-rsa/i).length).toBeGreaterThan(0)
-    expect(screen.getByText('Keep private key private')).toBeDefined()
-    expect(screen.getAllByText(/never paste a private key/i).length).toBeGreaterThan(0)
+    expect(screen.getByText('Keep the private part private')).toBeDefined()
+    expect(screen.getAllByText(/never paste a private key block/i).length).toBeGreaterThan(0)
     expect(
       screen.getByPlaceholderText('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... dev@example.com')
     ).toBeDefined()
 
-    const saveButton = screen.getByRole('button', { name: /save ssh key/i })
+    const saveButton = screen.getByRole('button', { name: /save ssh access/i })
     expect(saveButton).toBeDisabled()
 
-    fireEvent.change(screen.getByLabelText(/^key name/i), { target: { value: 'Work laptop' } })
-    fireEvent.change(screen.getByLabelText(/^public key text/i), {
+    fireEvent.change(screen.getByLabelText(/^access name/i), { target: { value: 'Work laptop' } })
+    fireEvent.change(screen.getByLabelText(/^public ssh line/i), {
       target: { value: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAexample dev@example.com' },
     })
     expect(saveButton).toBeEnabled()
@@ -86,18 +86,22 @@ describe('SshKeysSection', () => {
     )
   })
 
-  test('explains the impact before removing an SSH key', async () => {
+  test('explains the impact before removing repository SSH access', async () => {
     useSettingsStore.setState({ sshKeys: [sshKey()] })
 
     render(<SshKeysSection />)
 
     await waitFor(() => expect(loadSshKeysMock).toHaveBeenCalledTimes(1))
-    fireEvent.click(screen.getByRole('button', { name: /remove work laptop ssh key/i }))
+    fireEvent.click(
+      screen.getByRole('button', { name: /remove work laptop repository ssh access/i })
+    )
 
     expect(deleteSshKeyMock).not.toHaveBeenCalled()
-    expect(screen.getByText(/can block agents that use private repositories/i)).toBeDefined()
+    expect(screen.getByText(/removing this access can block agents/i)).toBeDefined()
 
-    fireEvent.click(screen.getByRole('button', { name: /confirm removing work laptop ssh key/i }))
+    fireEvent.click(
+      screen.getByRole('button', { name: /confirm removing work laptop repository ssh access/i })
+    )
 
     expect(deleteSshKeyMock).toHaveBeenCalledWith('ssh-key-1')
   })
@@ -111,7 +115,7 @@ describe('SshKeysSection', () => {
 
     await waitFor(() => expect(loadSshKeysMock).toHaveBeenCalled())
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Repository SSH key could not be saved. Paste only the public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+      'Repository SSH access could not be saved. Paste only the shareable public line that starts with ssh-ed25519 or ssh-rsa, then save again.'
     )
     expect(screen.queryByText(/Details: invalid public key/i)).toBeNull()
   })

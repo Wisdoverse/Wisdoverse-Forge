@@ -30,9 +30,9 @@ function actionFromText(text: string): SshKeyAction {
 }
 
 function baseMessage(action: SshKeyAction): string {
-  if (action === 'save') return 'Repository SSH key could not be saved.'
-  if (action === 'remove') return 'Repository SSH key could not be removed.'
-  return 'Repository SSH keys could not be loaded.'
+  if (action === 'save') return 'Repository SSH access could not be saved.'
+  if (action === 'remove') return 'Repository SSH access could not be removed.'
+  return 'Repository SSH access could not be loaded.'
 }
 
 export function sshKeysErrorMessage(error: unknown): string {
@@ -43,10 +43,10 @@ export function sshKeysErrorMessage(error: unknown): string {
   const base = baseMessage(action)
 
   if (code === 401 || lower.includes('sign in again') || lower.includes('unauthorized')) {
-    return `${base} Sign in again, then open Settings and try repository SSH keys again.`
+    return `${base} Sign in again, then open Settings and try repository SSH access again.`
   }
   if (code === 403 || lower.includes('permission') || lower.includes('forbidden')) {
-    return `${base} Ask an owner or admin for access to manage repository SSH keys.`
+    return `${base} Ask an owner or admin for access to manage repository SSH access.`
   }
   if (
     lower.includes('invalid public key') ||
@@ -56,23 +56,23 @@ export function sshKeysErrorMessage(error: unknown): string {
     lower.includes('openssh private key') ||
     lower.includes('begin private key')
   ) {
-    return `${base} Paste only the public key line that starts with ssh-ed25519 or ssh-rsa, then save again.`
+    return `${base} Paste only the shareable public line that starts with ssh-ed25519 or ssh-rsa, then save again.`
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
-    return `${base} This public key already exists. Choose the saved key or remove the old one first.`
+    return `${base} This public line already exists. Choose the saved access or remove the old one first.`
   }
   if (code === 422 || lower.includes('required') || lower.includes('missing')) {
-    return `${base} Check the key name and public key text, then try again.`
+    return `${base} Check the access name and public SSH line, then try again.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
     return `${base} The service is busy. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
-    return `${base} The repository SSH key service is temporarily unavailable. Try again. If it still fails, ask an owner to check repository SSH key settings.`
+    return `${base} The repository SSH access service is temporarily unavailable. Try again. If it still fails, ask an owner to check repository SSH access settings.`
   }
   if (isNetworkError(error)) {
     return `${base} The app could not reach the service. Check your connection, then try again.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner to check repository SSH key settings.`
+  return `${base} Try again. If it still fails, ask an owner to check repository SSH access settings.`
 }
