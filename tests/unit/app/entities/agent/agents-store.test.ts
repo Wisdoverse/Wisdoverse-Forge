@@ -43,4 +43,44 @@ describe('agents.store managedToAgentInfo backward-compat', () => {
     const info = managedToAgentInfo({ ...base } as any)
     expect(info.runtimeKind).toBe('api')
   })
+
+  it('uses beginner-facing service and model labels for known work tools', () => {
+    const info = managedToAgentInfo({
+      ...base,
+      cliTool: 'codex',
+      provider: null,
+      model: null,
+    } as any)
+
+    expect(info.provider).toBe('OpenAI')
+    expect(info.model).toBe('Codex')
+  })
+
+  it('uses beginner-facing labels when AI service and model are missing', () => {
+    const info = managedToAgentInfo({
+      ...base,
+      provider: null,
+      model: null,
+      cliTool: null,
+    } as any)
+
+    expect(info.provider).toBe('AI service not reported')
+    expect(info.model).toBe('Model not reported')
+    expect(info.provider).not.toBe('Unknown')
+    expect(info.model).not.toBe('unknown')
+  })
+
+  it('does not expose unknown work tool slugs in service or model labels', () => {
+    const info = managedToAgentInfo({
+      ...base,
+      cliTool: 'future_tool',
+      provider: null,
+      model: null,
+    } as any)
+
+    expect(info.provider).toBe('Work tool needs review')
+    expect(info.model).toBe('Work tool needs review')
+    expect(info.provider).not.toContain('future_tool')
+    expect(info.model).not.toContain('future_tool')
+  })
 })

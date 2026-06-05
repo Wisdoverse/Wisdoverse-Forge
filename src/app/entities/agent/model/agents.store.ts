@@ -289,8 +289,31 @@ function mapManagedAgentStatus(status: string): AgentStatus {
   }
 }
 
-function cliToolToProvider(cliTool?: CliTool): string {
-  switch (cliTool) {
+function nonBlankLabel(value?: string | null): string | null {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : null
+}
+
+function cliToolLabel(cliTool?: CliTool | string | null): string | null {
+  switch (cliTool?.trim().toLowerCase()) {
+    case 'claude':
+      return 'Claude'
+    case 'gemini':
+      return 'Gemini'
+    case 'codex':
+      return 'Codex'
+    case 'opencode':
+      return 'OpenCode'
+    case undefined:
+    case '':
+      return null
+    default:
+      return 'Work tool needs review'
+  }
+}
+
+function cliToolToProvider(cliTool?: CliTool | string | null): string | null {
+  switch (cliTool?.trim().toLowerCase()) {
     case 'claude':
       return 'Anthropic'
     case 'gemini':
@@ -299,8 +322,11 @@ function cliToolToProvider(cliTool?: CliTool): string {
       return 'OpenAI'
     case 'opencode':
       return 'OpenAI'
+    case undefined:
+    case '':
+      return null
     default:
-      return 'Unknown'
+      return 'Work tool needs review'
   }
 }
 
@@ -316,8 +342,11 @@ export function managedToAgentInfo(agent: ManagedAgent): AgentInfo {
     name: agent.name,
     // Provider+prompt agents: backend carries the real provider/model keys.
     // CLI-tool agents: backend leaves them null, fall back to cliTool-derived labels.
-    provider: agent.provider ?? cliToolToProvider(agent.cliTool),
-    model: agent.model ?? agent.cliTool ?? 'unknown',
+    provider:
+      nonBlankLabel(agent.provider) ??
+      cliToolToProvider(agent.cliTool) ??
+      'AI service not reported',
+    model: nonBlankLabel(agent.model) ?? cliToolLabel(agent.cliTool) ?? 'Model not reported',
     status: mapManagedAgentStatus(agent.status),
     tasksCompleted: 0,
     tasksInProgress: 0,
