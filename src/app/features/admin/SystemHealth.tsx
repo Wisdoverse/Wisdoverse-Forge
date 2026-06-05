@@ -59,11 +59,11 @@ const SERVICE_DEFINITIONS: readonly ServiceDefinition[] = [
   },
   {
     key: 'bullmq',
-    name: 'Background Jobs',
-    supportName: 'Background work service',
-    description: 'Runs delayed and background work outside the main page request.',
-    impact: 'Queued work may wait longer before it starts.',
-    action: 'Check the background job service, then retry after the queue is healthy.',
+    name: 'Delayed Work',
+    supportName: 'Delayed work helper',
+    description: 'Starts scheduled or delayed work without blocking the page.',
+    impact: 'Work waiting to start may wait longer before it begins.',
+    action: 'Check the delayed work helper, then retry once work starts moving again.',
   },
 ]
 
@@ -255,7 +255,8 @@ function OverallBanner({
       bg: 'border-black/[0.08] bg-black/[0.03] dark:border-white/[0.08] dark:bg-white/[0.03]',
       text: 'text-secondary-light dark:text-secondary-dark',
       label: 'Some services need attention',
-      detail: 'Users may see slow screens, delayed updates, or queued work until this clears.',
+      detail:
+        'Users may see slow screens, delayed updates, or work waiting to start until this clears.',
     },
     unhealthy: {
       bg: 'border-apple-red/20 bg-apple-red/10',
