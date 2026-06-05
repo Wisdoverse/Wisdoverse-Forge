@@ -60,10 +60,24 @@ describe('AgentControlPanel', () => {
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
     expect(screen.getByRole('alert')).toHaveTextContent(/refresh this agent/i)
-    expect(screen.getByRole('alert')).toHaveTextContent(/agent service is temporarily unavailable/i)
-    expect(screen.getByRole('alert')).toHaveTextContent(/ask an admin to check agent setup/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/forge could not update this agent/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/ask an owner or admin to check agent setup/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/HTTP 500/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/Start request failed/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/temporarily unavailable/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/agent service/i)
+  })
+
+  test('turns busy action failures into a wait and refresh step', () => {
+    useAgentsStore.setState({ error: 'HTTP 429: rate limit exceeded' } as never)
+
+    render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The agent controls are busy. Wait a moment, refresh this agent, then try again.'
+    )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/HTTP 429/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/agent service/i)
   })
 
   test('explains quick messages and sends trimmed text', async () => {

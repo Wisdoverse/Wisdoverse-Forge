@@ -393,13 +393,13 @@ function agentControlErrorMessage(error: string): string {
     return 'This agent changed while you were working. Refresh this agent, confirm the latest status, then try again.'
   }
   if (normalized.includes('rate limit') || /\b429\b/.test(error)) {
-    return 'The agent service is busy. Wait a moment, refresh this agent, then try again.'
+    return 'The agent controls are busy. Wait a moment, refresh this agent, then try again.'
   }
   if (/\b5\d\d\b/.test(error)) {
-    return 'The agent service is temporarily unavailable. Refresh this agent and try again. If it keeps failing, ask an admin to check agent setup.'
+    return 'Forge could not update this agent right now. Refresh this agent and try again. If it keeps failing, ask an owner or admin to check agent setup.'
   }
 
-  return 'Refresh this agent and confirm the latest status before trying once more. For Start or Restart, wait for Idle or Working. If it keeps failing, ask an admin to check your access and agent setup.'
+  return 'Refresh this agent and confirm the latest status before trying once more. For Start or Restart, wait for Idle or Working. If it keeps failing, ask an owner or admin to check your access and agent setup.'
 }
 
 interface ConfirmActionProps {
