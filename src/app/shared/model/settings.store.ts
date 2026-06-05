@@ -72,7 +72,7 @@ type SettingsErrorArea =
 type SettingsErrorAction = 'load' | 'save' | 'delete' | 'create' | 'revoke' | 'update'
 
 const SETTINGS_AREA_LABELS: Record<SettingsErrorArea, string> = {
-  providers: 'provider settings',
+  providers: 'AI service settings',
   apiKeys: 'platform access keys',
   gitCredentials: 'Git credentials',
   sshKeys: 'SSH keys',
@@ -81,7 +81,7 @@ const SETTINGS_AREA_LABELS: Record<SettingsErrorArea, string> = {
 }
 
 const SETTINGS_ITEM_LABELS: Record<SettingsErrorArea, string> = {
-  providers: 'provider',
+  providers: 'AI service',
   apiKeys: 'platform access key',
   gitCredentials: 'Git credential',
   sshKeys: 'SSH key',
@@ -211,9 +211,9 @@ function settingsValidationMessage(
       return 'Enter the service access key from the AI service, choose a model, then save again.'
     }
     if (normalized.includes('model')) {
-      return 'Choose a supported model for this provider, then save the provider again.'
+      return 'Choose a supported model for this AI service, then save again.'
     }
-    return 'Check the provider name, model, and secret key, then save the provider again.'
+    return 'Check the AI service name, model, and service access key, then save again.'
   }
 
   if (area === 'apiKeys') {

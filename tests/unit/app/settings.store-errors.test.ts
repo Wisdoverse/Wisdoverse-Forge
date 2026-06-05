@@ -60,7 +60,7 @@ describe('settingsActionErrorMessage', () => {
   test('turns expired auth into a sign-in step', () => {
     expectBeginnerError(
       settingsActionErrorMessage('providers', 'load', statusError(401, 'HTTP 401')),
-      'Sign in again, then open Settings and try to load provider settings again.'
+      'Sign in again, then open Settings and try to load AI service settings again.'
     )
   })
 
@@ -88,7 +88,14 @@ describe('settingsActionErrorMessage', () => {
   test('turns field validation details into a provider setup step', () => {
     expectBeginnerError(
       settingsActionErrorMessage('providers', 'save', statusError(422, 'model is required')),
-      'Choose a supported model for this provider, then save the provider again.'
+      'Choose a supported model for this AI service, then save again.'
+    )
+  })
+
+  test('turns general provider validation into AI service setup guidance', () => {
+    expectBeginnerError(
+      settingsActionErrorMessage('providers', 'save', statusError(422, 'invalid provider')),
+      'Check the AI service name, model, and service access key, then save again.'
     )
   })
 
@@ -114,8 +121,9 @@ describe('useSettingsStore errors', () => {
 
     expectBeginnerError(
       useSettingsStore.getState().providersError,
-      'Forge could not load Settings right now. Refresh Settings, then try to load provider settings again. If it still fails, ask an owner or admin to check Settings.'
+      'Forge could not load Settings right now. Refresh Settings, then try to load AI service settings again. If it still fails, ask an owner or admin to check Settings.'
     )
+    expect(useSettingsStore.getState().providersError).not.toContain('provider settings')
     expect(useSettingsStore.getState().providersError).not.toContain('HTTP 503')
     expect(useSettingsStore.getState().providersError).not.toContain('temporarily unavailable')
   })
