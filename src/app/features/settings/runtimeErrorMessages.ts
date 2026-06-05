@@ -4,9 +4,9 @@ const ACTION_FALLBACKS: Record<RuntimeErrorAction, string> = {
   loadAgentSignals:
     'Agent online status could not load. Start or wake an agent, then refresh this setup check.',
   loadCliSignIn:
-    'Work tool sign-in status could not load. Refresh this setup check before starting agents that use work tools.',
+    'Tool account connection status could not load. Refresh this setup check before starting agents that use work tools.',
   startCliSignIn:
-    'Work tool sign-in did not start. Check the AI service setup, then try Connect again.',
+    'Tool account connection did not start. Check the AI service setup, then reconnect the account.',
 }
 
 export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): string {
@@ -151,16 +151,16 @@ function runtimeValidationMessage(action: RuntimeErrorAction, detail: string): s
 
   if (action === 'startCliSignIn') {
     if (normalized.includes('provider') || normalized.includes('configured')) {
-      return 'Choose and save an AI service first, then try Connect again.'
+      return 'Choose and save an AI service first, then reconnect the tool account.'
     }
     if (normalized.includes('tool') || normalized.includes('cli')) {
-      return 'Choose an available local tool, then try Connect again.'
+      return 'Choose an available local tool, then reconnect the tool account.'
     }
-    return 'Check the AI service setup and selected local tool, then try Connect again.'
+    return 'Check the AI service setup and selected local tool, then reconnect the tool account.'
   }
 
   if (action === 'loadCliSignIn') {
-    return 'Work tool sign-in status could not load. Refresh this setup check, then connect the work tool again.'
+    return 'Tool account connection status could not load. Refresh this setup check, then reconnect the tool account.'
   }
 
   return 'Agent online status could not load. Start or wake an agent, then refresh this setup check.'

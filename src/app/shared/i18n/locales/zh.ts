@@ -436,11 +436,11 @@ export const zh: TranslationKeys = {
       defaultRuntimeLabel: '默认位置',
       defaultRuntimeDescription: '新 Agent 默认在哪里工作',
       defaultContainerCliLabel: '默认工作工具',
-      defaultContainerCliDescription: 'Agent 需要处理项目文件或命令窗口时使用的工具',
+      defaultContainerCliDescription: 'Agent 需要处理项目文件或实时工作访问时使用的工具',
       availableRuntimesLabel: 'Agent 可以工作的地方',
       availableRuntimesDescription: '当前安装可使用的工作位置',
       availableContainerClisLabel: '可用工作工具',
-      availableContainerClisDescription: 'Agent 可用于项目文件和命令窗口的工具',
+      availableContainerClisDescription: 'Agent 可用于项目文件和实时工作访问的工具',
       runtimeLabels: {
         cli: '这台电脑',
         api: '只处理文字的模型服务',

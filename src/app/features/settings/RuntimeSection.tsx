@@ -218,7 +218,7 @@ export function RuntimeSection() {
             </div>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
               {runtimeSettings
-                ? `${runtimeSettings.availableRuntimes.length} work place${runtimeSettings.availableRuntimes.length === 1 ? '' : 's'} available, ${runtimeSettings.availableCliTools.length} work tool${runtimeSettings.availableCliTools.length === 1 ? '' : 's'} available, ${connectedCredentialCount} signed-in account${connectedCredentialCount === 1 ? '' : 's'} ready, ${participants.length} agent${participants.length === 1 ? '' : 's'} seen online.`
+                ? `${runtimeSettings.availableRuntimes.length} work place${runtimeSettings.availableRuntimes.length === 1 ? '' : 's'} available, ${runtimeSettings.availableCliTools.length} work tool${runtimeSettings.availableCliTools.length === 1 ? '' : 's'} available, ${connectedCredentialCount} tool account${connectedCredentialCount === 1 ? '' : 's'} connected, ${participants.length} agent${participants.length === 1 ? '' : 's'} seen online.`
                 : 'The setup check has not loaded yet.'}
             </p>
           </div>
@@ -263,11 +263,11 @@ export function RuntimeSection() {
             ready={Boolean(latestHeartbeat)}
           />
           <RuntimeReadinessMetric
-            label="Account sign-ins"
+            label="Tool account connections"
             value={
               cliStatuses.length > 0
                 ? `${connectedCredentialCount}/${cliStatuses.length} connected`
-                : 'No account sign-ins'
+                : 'No tool accounts needed'
             }
             ready={cliStatuses.length === 0 || disconnectedCredentials.length === 0}
           />
@@ -521,7 +521,7 @@ function RuntimeNextStepPanel({
           </h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
             {allReady
-              ? 'The work place, work tools, account sign-ins, and agent online status are ready.'
+              ? 'The work place, work tools, tool account connections, and agent online status are ready.'
               : item?.detail}
           </p>
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -659,10 +659,10 @@ function CredentialStatusRow({
   const detail = status.connected
     ? status.lastRefresh
       ? `Last checked ${formatRelativeTime(status.lastRefresh)}`
-      : 'Account sign-in ready'
+      : 'Tool account connected'
     : status.revokeReason || status.revokedAt
-      ? 'Reconnect before starting agents that use this tool'
-      : 'No saved account sign-in'
+      ? 'Reconnect this account before starting agents that use this tool'
+      : 'No tool account connection saved'
 
   return (
     <div className="flex flex-col gap-2 rounded-lg bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04] sm:flex-row sm:items-center sm:justify-between">
@@ -692,7 +692,7 @@ function CredentialStatusRow({
           disabled={opening}
           className={cn(uiStyles.secondaryButton, 'shrink-0')}
         >
-          {opening ? 'Opening' : 'Connect'}
+          {opening ? 'Opening' : 'Reconnect account'}
         </button>
       )}
     </div>
@@ -775,20 +775,20 @@ function runtimeLaunchChecklistItems(
   const credentialReady = !cliStatusError && (!disconnectedCredential || cliStatuses.length === 0)
   items.push({
     id: 'credentials',
-    title: 'Account sign-ins for work tools',
+    title: 'Tool account connections',
     detail: cliStatusError
-      ? 'Account sign-in status could not be checked. Refresh Settings. If it still cannot be checked, ask an owner or admin to check work tool sign-ins.'
+      ? 'Tool account connection status could not be checked. Refresh Settings. If it still cannot be checked, ask an owner or admin to check work tool accounts.'
       : cliStatuses.length === 0
-        ? 'No account sign-ins are required.'
+        ? 'No tool account connections are required.'
         : disconnectedCredential
-          ? `${connectedCredentialCount}/${cliStatuses.length} account sign-ins ready. Reconnect ${disconnectedCredential.displayName} before starting agents that use this tool.`
-          : `${connectedCredentialCount}/${cliStatuses.length} account sign-ins ready.`,
+          ? `${connectedCredentialCount}/${cliStatuses.length} tool account connections ready. Reconnect ${disconnectedCredential.displayName} before starting agents that use this tool.`
+          : `${connectedCredentialCount}/${cliStatuses.length} tool account connections ready.`,
     ready: credentialReady,
     action: cliStatusError ? 'refresh' : disconnectedCredential ? 'connect' : undefined,
     actionLabel: cliStatusError
       ? 'Refresh'
       : disconnectedCredential
-        ? `Connect ${disconnectedCredential.displayName}`
+        ? `Reconnect ${disconnectedCredential.displayName} account`
         : undefined,
     provider: disconnectedCredential?.provider,
   })

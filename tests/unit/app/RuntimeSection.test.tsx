@@ -134,13 +134,16 @@ describe('RuntimeSection', () => {
     expect(screen.getAllByText(/Rebuild work tools/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/agent tools/i)).toBeNull()
     expect(screen.queryByText(/agent check-in/i)).toBeNull()
+    expect(screen.queryByText(/account sign-ins/i)).toBeNull()
     expect(screen.queryByText(/tool check|not reported|not checked/i)).toBeNull()
     expect(screen.queryByText(/package check/i)).toBeNull()
     expect(screen.getByText('Rebuild needed')).toBeDefined()
     expect(screen.getByText('Ready to use')).toBeDefined()
-    expect(screen.getByRole('button', { name: /Connect GitHub/i })).toBeDefined()
+    expect(screen.getAllByText(/tool account connections/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/1\/2 tool account connections ready/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: /Reconnect GitHub account/i })).toBeDefined()
 
-    fireEvent.click(screen.getByRole('button', { name: /Connect GitHub/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Reconnect GitHub account/i }))
 
     await waitFor(() => expect(agentApiMock.startCliAuthProxyLogin).toHaveBeenCalledWith('github'))
     expect(openSpy).toHaveBeenCalledWith(
@@ -185,8 +188,9 @@ describe('RuntimeSection', () => {
 
     expect(await screen.findByText('4/4 ready')).toBeDefined()
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Ready to start agent work')
-    expect(screen.queryByRole('button', { name: /Connect GitHub/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Reconnect GitHub account/i })).toBeNull()
     expect(screen.getByText(/1\/1 work tools are ready/i)).toBeDefined()
+    expect(screen.getByText(/1\/1 tool account connections ready/i)).toBeDefined()
     expect(screen.getAllByText(/agent online status/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/agent tools are checked/i)).toBeNull()
     expect(screen.queryByText(/agent check-ins/i)).toBeNull()
@@ -198,7 +202,7 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     expect(
-      await screen.findByText(/work tool sign-in status could not load/i)
+      await screen.findByText(/tool account connection status could not load/i)
     ).toBeDefined()
     expect(screen.getByText(/Forge could not connect while checking agent setup/i)).toBeDefined()
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
@@ -227,7 +231,7 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     await screen.findByTestId('runtime-launch-checklist')
-    fireEvent.click(screen.getByRole('button', { name: /Connect GitHub/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Reconnect GitHub account/i }))
 
     expect(await screen.findByText(/do not have permission to manage agent setup/i)).toBeDefined()
     expect(screen.getAllByText(/owner or admin/i).length).toBeGreaterThan(0)

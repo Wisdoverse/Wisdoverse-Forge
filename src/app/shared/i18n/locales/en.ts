@@ -441,7 +441,7 @@ export const en = {
       defaultRuntimeDescription: 'Where new agents should work by default',
       defaultContainerCliLabel: 'Default work tool',
       defaultContainerCliDescription:
-        'The tool used when an agent needs project files or live work access',
+        'The tool agents use when they need project files or live work access',
       availableRuntimesLabel: 'Places agents can work',
       availableRuntimesDescription: 'Work places this installation can use',
       availableContainerClisLabel: 'Available work tools',

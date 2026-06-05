@@ -22,7 +22,7 @@ describe('runtimeErrorMessage', () => {
   test('explains network failures without exposing only a transport error', () => {
     const message = runtimeErrorMessage('loadCliSignIn', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('Work tool sign-in status could not load')
+    expect(message).toContain('Tool account connection status could not load')
     expect(message).toContain('Forge could not connect while checking agent setup')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('app could not reach')
@@ -40,7 +40,10 @@ describe('runtimeErrorMessage', () => {
       error: 'Provider is not configured',
     })
 
-    expectBeginnerMessage(message, 'Choose and save an AI service first, then try Connect again.')
+    expectBeginnerMessage(
+      message,
+      'Choose and save an AI service first, then reconnect the tool account.'
+    )
     expect(message).not.toContain('provider')
   })
 
@@ -51,7 +54,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check the AI service setup and selected local tool, then try Connect again.'
+      'Check the AI service setup and selected local tool, then reconnect the tool account.'
     )
     expect(message).not.toContain('provider')
   })
@@ -61,7 +64,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Work tool sign-in did not start. Check the AI service setup, then try Connect again. Forge could not connect while checking agent setup. Check your connection, then refresh Settings.'
+      'Tool account connection did not start. Check the AI service setup, then reconnect the account. Forge could not connect while checking agent setup. Check your connection, then refresh Settings.'
     )
     expect(message).not.toContain('provider')
     expect(message).not.toContain('Failed to fetch')
