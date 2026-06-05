@@ -29,8 +29,20 @@ describe('providerSettingsErrorMessage', () => {
   })
 
   test('explains network failures in user-facing terms', () => {
-    expect(providerSettingsErrorMessage(new TypeError('Failed to fetch'))).toBe(
-      'Model service settings could not be loaded. The app could not reach the service. Check your connection, then try again.'
+    const message = providerSettingsErrorMessage(new TypeError('Failed to fetch'))
+
+    expect(message).toBe(
+      'Model service settings could not be loaded. The app could not reach model service settings. Check your connection, then try again.'
     )
+    expect(message).not.toContain('the service')
+  })
+
+  test('turns temporary failures into a model service settings recovery step', () => {
+    const message = providerSettingsErrorMessage('HTTP 500')
+
+    expect(message).toBe(
+      'Model service settings could not be loaded. Model service settings are temporarily unavailable. Try again. If it still fails, ask an owner to check model service settings.'
+    )
+    expect(message).not.toContain('settings page')
   })
 })

@@ -73,13 +73,13 @@ export function platformKeyErrorMessage(error: unknown): string {
     return `${base} Enter the app, script, or workflow name, then try again.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return `${base} The service is busy. Wait a minute, then try again.`
+    return `${base} Platform access key settings are busy. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
-    return `${base} The platform access key service is temporarily unavailable. Try again. If it still fails, ask an owner to check platform access key settings.`
+    return `${base} Platform access key settings are temporarily unavailable. Try again. If it still fails, ask an owner to check platform access key settings.`
   }
   if (isNetworkError(error)) {
-    return `${base} The app could not reach the service. Check your connection, then try again.`
+    return `${base} The app could not reach platform access key settings. Check your connection, then try again.`
   }
 
   return `${base} Try again. If it still fails, ask an owner to check platform access key settings.`

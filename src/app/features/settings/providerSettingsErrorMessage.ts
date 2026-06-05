@@ -73,13 +73,13 @@ export function providerSettingsErrorMessage(error: unknown): string {
     return `${base} Choose the AI service, confirm the model, add the service access key, and add the service address if needed. Then save again.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return `${base} The service is busy. Wait a minute, then try again.`
+    return `${base} Model service settings are busy. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
-    return `${base} The model service settings page is temporarily unavailable. Try again. If it still fails, ask an owner to check model service settings.`
+    return `${base} Model service settings are temporarily unavailable. Try again. If it still fails, ask an owner to check model service settings.`
   }
   if (isNetworkError(error)) {
-    return `${base} The app could not reach the service. Check your connection, then try again.`
+    return `${base} The app could not reach model service settings. Check your connection, then try again.`
   }
 
   return `${base} Try again. If it still fails, ask an owner to check model service settings.`

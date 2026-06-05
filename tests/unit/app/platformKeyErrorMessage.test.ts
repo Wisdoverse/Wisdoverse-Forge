@@ -29,8 +29,20 @@ describe('platformKeyErrorMessage', () => {
   })
 
   test('explains network failures in user-facing terms', () => {
-    expect(platformKeyErrorMessage(new TypeError('Failed to fetch'))).toBe(
-      'Platform access keys could not be loaded. The app could not reach the service. Check your connection, then try again.'
+    const message = platformKeyErrorMessage(new TypeError('Failed to fetch'))
+
+    expect(message).toBe(
+      'Platform access keys could not be loaded. The app could not reach platform access key settings. Check your connection, then try again.'
     )
+    expect(message).not.toContain('the service')
+  })
+
+  test('turns temporary failures into a platform access key settings recovery step', () => {
+    const message = platformKeyErrorMessage('HTTP 500')
+
+    expect(message).toBe(
+      'Platform access keys could not be loaded. Platform access key settings are temporarily unavailable. Try again. If it still fails, ask an owner to check platform access key settings.'
+    )
+    expect(message).not.toContain('access key service')
   })
 })
