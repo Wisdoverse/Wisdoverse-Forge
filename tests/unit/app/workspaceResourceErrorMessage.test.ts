@@ -11,9 +11,12 @@ describe('workspaceResourceErrorMessage', () => {
   test('turns network failures into connection guidance', () => {
     const message = workspaceResourceErrorMessage('team', 'update', new Error('Failed to fetch'))
 
-    expect(message).toContain('app could not reach the service')
+    expect(message).toBe(
+      'Team could not be saved. Forge could not connect while saving workspace settings. Check your connection, then try again.'
+    )
     expect(message).toContain('Check your connection')
     expect(message).not.toContain('Failed to fetch')
+    expect(message).not.toContain('service')
   })
 
   test('maps project permission failures without raw API text', () => {
@@ -46,8 +49,10 @@ describe('workspaceResourceErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Workspace settings are temporarily unavailable. Refresh Settings, then try again. If it still fails, ask an owner or admin to check workspace setup.'
+      'Forge could not save workspace settings right now. Refresh Settings, then save the project again. If it still fails, ask an owner or admin to check workspace setup.'
     )
     expect(message).not.toContain('HTTP 500')
+    expect(message).not.toContain('temporarily unavailable')
+    expect(message).not.toContain('service')
   })
 })

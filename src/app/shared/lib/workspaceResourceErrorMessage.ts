@@ -17,7 +17,7 @@ export function workspaceResourceErrorMessage(
     if (detail) {
       return validationMessage(resource, action, detail)
     }
-    return `${label(resource)} could not ${actionPhrase(action)} because the app could not reach the service. Check your connection, then try again.`
+    return workspaceResourceConnectionMessage(resource, action)
   }
 
   if (status === 401) {
@@ -36,13 +36,29 @@ export function workspaceResourceErrorMessage(
     return validationMessage(resource, action, detail)
   }
   if (status === 429) {
-    return `Workspace settings are busy. Wait a moment, then ${retryPhrase(resource, action)}.`
+    return `Settings is busy. Wait a moment, then ${retryPhrase(resource, action)}.`
   }
   if (status >= 500) {
-    return 'Workspace settings are temporarily unavailable. Refresh Settings, then try again. If it still fails, ask an owner or admin to check workspace setup.'
+    return workspaceResourceUnavailableMessage(resource, action)
   }
 
   return `${label(resource)} could not ${actionPhrase(action)}. Refresh Settings and try again.`
+}
+
+function workspaceResourceConnectionMessage(
+  resource: WorkspaceResourceKind,
+  action: WorkspaceResourceAction
+): string {
+  const operation = action === 'update' ? 'saving workspace settings' : `deleting this ${resource}`
+  return `${label(resource)} could not ${actionPhrase(action)}. Forge could not connect while ${operation}. Check your connection, then try again.`
+}
+
+function workspaceResourceUnavailableMessage(
+  resource: WorkspaceResourceKind,
+  action: WorkspaceResourceAction
+): string {
+  const operation = action === 'update' ? 'save workspace settings' : `delete this ${resource}`
+  return `Forge could not ${operation} right now. Refresh Settings, then ${retryPhrase(resource, action)}. If it still fails, ask an owner or admin to check workspace setup.`
 }
 
 function label(resource: WorkspaceResourceKind): string {
