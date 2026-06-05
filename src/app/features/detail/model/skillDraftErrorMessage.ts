@@ -34,10 +34,10 @@ export function skillDraftErrorMessage(error: unknown): string {
     return `${base} Sign in again, reopen this task, and publish the skill again.`
   }
   if (code === 403 || text.includes('forbidden') || text.includes('permission')) {
-    return `${base} Ask a workspace owner or admin to let you create workspace skills.`
+    return `${base} Ask an owner or admin to let you create reusable skills.`
   }
   if (code === 404) {
-    return `${base} Refresh the task; the workspace or skill service may have changed.`
+    return `${base} Refresh the task. Skill publishing setup may have changed.`
   }
   if (
     code === 409 ||
@@ -54,11 +54,11 @@ export function skillDraftErrorMessage(error: unknown): string {
     return `${base} Too many skill changes are happening right now. Wait a minute, then publish again.`
   }
   if (code != null && code >= 500) {
-    return `${base} The skill service is temporarily unavailable. Try again in a few minutes.`
+    return `${base} Forge could not publish this skill right now. Wait a few minutes, then publish again. If it still fails, ask an owner or admin to check skill setup.`
   }
   if (isNetworkError(error)) {
-    return `${base} Check your connection, then publish again.`
+    return `${base} Forge could not connect while publishing this skill. Check your connection, then publish again.`
   }
 
-  return `${base} Review the draft and try again. If it still fails, ask an owner or admin to check workspace skills.`
+  return `${base} Review the draft and try again. If it still fails, ask an owner or admin to check skill setup.`
 }

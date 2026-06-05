@@ -265,7 +265,7 @@ describe('SkillsView', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('You do not have permission to create workspace skills')
-    expect(alert).toHaveTextContent('Ask an admin')
+    expect(alert).toHaveTextContent('Ask an owner or admin')
     expect(alert.textContent).not.toContain('Code:')
     expect(alert.textContent).not.toContain('API 403')
     expect(alert.textContent).not.toContain('Forbidden')

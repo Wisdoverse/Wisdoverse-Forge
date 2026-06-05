@@ -138,7 +138,7 @@ describe('SkillDraftModal', () => {
     await user.click(screen.getByRole('button', { name: /publish skill/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Skill was not published. Ask a workspace owner or admin to let you create workspace skills.'
+      'Skill was not published. Ask an owner or admin to let you create reusable skills.'
     )
     expect(screen.queryByText(/HTTP 403/i)).toBeNull()
   })

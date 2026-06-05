@@ -163,11 +163,11 @@ export function skillHttpErrorMessage(
   }
   if (status === 403) {
     return action === 'create'
-      ? 'You do not have permission to create workspace skills. Ask an admin to update your role.'
-      : 'You do not have permission to view workspace skills. Ask an admin to update your role.'
+      ? 'You do not have permission to create workspace skills. Ask an owner or admin to let you create reusable skills.'
+      : 'You do not have permission to view workspace skills. Ask an owner or admin to update your workspace access.'
   }
   if (status === 404) {
-    return 'The skills service is not available from this page. Refresh Skills, then try again.'
+    return 'Skills could not be opened from this page. Refresh Skills, then try again.'
   }
   if (status === 409) {
     return 'A skill with this name or trigger may already exist. Review the existing skills, then try again.'
@@ -176,10 +176,12 @@ export function skillHttpErrorMessage(
     return skillValidationMessage(detail)
   }
   if (status === 429) {
-    return `The skills service is busy. Wait a moment, then ${actionText}.`
+    return `Skill setup is busy. Wait a moment, then ${actionText}.`
   }
   if (status >= 500) {
-    return 'The skills service is temporarily unavailable. Refresh Skills, then try again. If it still fails, ask an admin to check skill setup.'
+    return action === 'create'
+      ? 'Forge could not create the skill right now. Refresh Skills, then try again. If it still fails, ask an owner or admin to check skill setup.'
+      : 'Forge could not load Skills right now. Refresh Skills, then try again. If it still fails, ask an owner or admin to check skill setup.'
   }
 
   return action === 'create'
@@ -189,8 +191,8 @@ export function skillHttpErrorMessage(
 
 function skillNetworkErrorMessage(action: SkillAction): string {
   return action === 'create'
-    ? 'The skill could not be created because the app could not reach the service. Check your connection and try again.'
-    : 'Skills could not load because the app could not reach the service. Check your connection and refresh the page.'
+    ? 'Forge could not connect while creating this skill. Check your connection, then try again.'
+    : 'Forge could not connect while loading Skills. Check your connection, then refresh the page.'
 }
 
 function skillResponseErrorMessage(

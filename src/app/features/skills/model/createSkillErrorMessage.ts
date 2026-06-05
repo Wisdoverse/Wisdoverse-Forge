@@ -4,9 +4,11 @@ const GENERIC_BODY_TEXT = /^(Unauthorized|Forbidden|Not Found|Internal Server Er
 
 const USER_FACING_STARTS = [
   'The skill could not be created',
+  'Forge could not',
+  'Skills could not',
   'Sign in again',
   'You do not have permission',
-  'The skills service',
+  'Skill setup',
   'A skill with this name',
   'Check the skill name',
 ]
@@ -23,17 +25,17 @@ export function createSkillErrorMessage(error?: unknown): string {
     if (safeDetail) {
       return validationMessage(safeDetail)
     }
-    return 'The skill could not be created because the app could not reach the service. Check your connection and try again.'
+    return 'Forge could not connect while creating this skill. Check your connection, then try again.'
   }
 
   if (status === 401) {
     return 'Sign in again, then create the skill.'
   }
   if (status === 403) {
-    return 'You do not have permission to create workspace skills. Ask an admin to update your role.'
+    return 'You do not have permission to create workspace skills. Ask an owner or admin to let you create reusable skills.'
   }
   if (status === 404) {
-    return 'The skills service is not available from this page. Refresh Skills, then try again.'
+    return 'Skills could not be opened from this page. Refresh Skills, then try again.'
   }
   if (status === 409) {
     return 'A skill with this name or trigger may already exist. Review the existing skills, then try again.'
@@ -42,10 +44,10 @@ export function createSkillErrorMessage(error?: unknown): string {
     return validationMessage(safeDetail)
   }
   if (status === 429) {
-    return 'The skills service is busy. Wait a moment, then create the skill.'
+    return 'Skill setup is busy. Wait a moment, then create the skill.'
   }
   if (status >= 500) {
-    return 'The skills service is temporarily unavailable. Refresh Skills, then try again. If it still fails, ask an admin to check skill setup.'
+    return 'Forge could not create the skill right now. Refresh Skills, then try again. If it still fails, ask an owner or admin to check skill setup.'
   }
 
   return 'The skill could not be created. Review the fields and try again.'

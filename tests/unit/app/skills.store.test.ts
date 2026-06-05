@@ -36,7 +36,7 @@ describe('skillHttpErrorMessage', () => {
   test('turns create permission failures into an admin role step', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('create', 403),
-      'You do not have permission to create workspace skills. Ask an admin to update your role.'
+      'You do not have permission to create workspace skills. Ask an owner or admin to let you create reusable skills.'
     )
   })
 
@@ -55,8 +55,9 @@ describe('useSkillsStore errors', () => {
     await useSkillsStore.getState().loadSkills()
 
     expect(useSkillsStore.getState().error).toBe(
-      'The skills service is temporarily unavailable. Refresh Skills, then try again. If it still fails, ask an admin to check skill setup.'
+      'Forge could not load Skills right now. Refresh Skills, then try again. If it still fails, ask an owner or admin to check skill setup.'
     )
+    expect(useSkillsStore.getState().error).not.toContain('service is temporarily unavailable')
   })
 
   test('stores a connection recovery step when skill loading cannot reach the server', async () => {
@@ -65,8 +66,9 @@ describe('useSkillsStore errors', () => {
     await useSkillsStore.getState().loadSkills()
 
     expect(useSkillsStore.getState().error).toBe(
-      'Skills could not load because the app could not reach the service. Check your connection and refresh the page.'
+      'Forge could not connect while loading Skills. Check your connection, then refresh the page.'
     )
+    expect(useSkillsStore.getState().error).not.toContain('Failed to fetch')
   })
 
   test('throws beginner guidance when skill creation fails validation', async () => {
@@ -90,7 +92,7 @@ describe('useSkillsStore errors', () => {
         content: 'Review the task',
       })
     ).rejects.toThrow(
-      'The skill could not be created because the app could not reach the service. Check your connection and try again.'
+      'Forge could not connect while creating this skill. Check your connection, then try again.'
     )
   })
 })
