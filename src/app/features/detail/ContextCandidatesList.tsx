@@ -74,7 +74,14 @@ function candidateTitle(candidate: TaskContextCandidate): string {
     const value = preview[key]
     if (typeof value === 'string' && value.trim().length > 0) return value
   }
-  return candidate.itemKind === 'skill' ? 'Suggested skill' : 'Suggested memory'
+  switch (candidate.itemKind) {
+    case 'memory':
+      return 'Suggested memory'
+    case 'skill':
+      return 'Suggested skill'
+    default:
+      return 'Suggested context item'
+  }
 }
 
 function candidatePreview(candidate: TaskContextCandidate): string {
@@ -85,7 +92,14 @@ function candidatePreview(candidate: TaskContextCandidate): string {
 }
 
 function candidateKindLabel(candidate: TaskContextCandidate): string {
-  return candidate.itemKind === 'skill' ? 'Skill suggestion' : 'Suggested memory'
+  switch (candidate.itemKind) {
+    case 'memory':
+      return 'Suggested memory'
+    case 'skill':
+      return 'Skill suggestion'
+    default:
+      return 'Suggestion needs review'
+  }
 }
 
 function candidateStateLabel(state: TaskContextCandidate['state']): string {
@@ -96,7 +110,12 @@ function candidateStateLabel(state: TaskContextCandidate['state']): string {
 }
 
 function candidateNextStep(candidate: TaskContextCandidate): string {
-  return candidate.itemKind === 'skill'
-    ? 'Next step: review the suggestion before agents can use it.'
-    : 'Next step: review the wording before saving it for future tasks.'
+  switch (candidate.itemKind) {
+    case 'memory':
+      return 'Next step: review the wording before saving it for future tasks.'
+    case 'skill':
+      return 'Next step: review the suggestion before agents can use it.'
+    default:
+      return 'Next step: review this suggestion before agents can reuse it.'
+  }
 }

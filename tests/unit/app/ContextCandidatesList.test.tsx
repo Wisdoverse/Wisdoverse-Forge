@@ -89,4 +89,27 @@ describe('ContextCandidatesList', () => {
     expect(screen.getByText(/review the suggestion before agents can use it/i)).toBeInTheDocument()
     expect(screen.queryByText(/Context queue/i)).toBeNull()
   })
+
+  test('labels unknown suggestion types without pretending they are memories', () => {
+    render(
+      <ContextCandidatesList
+        title="Suggested memory updates"
+        kind="memory"
+        candidates={[
+          candidate({
+            id: 'candidate-unknown-kind',
+            itemKind: 'future_context_kind' as never,
+            proposedPreview: {
+              content_preview: 'Review this generated suggestion before reuse.',
+            },
+          }),
+        ]}
+      />
+    )
+
+    expect(screen.getByText('Suggested context item')).toBeInTheDocument()
+    expect(screen.getByText('Suggestion needs review')).toBeInTheDocument()
+    expect(screen.getByText(/review this suggestion before agents can reuse it/i)).toBeInTheDocument()
+    expect(screen.queryByText(/future context kind/i)).toBeNull()
+  })
 })
