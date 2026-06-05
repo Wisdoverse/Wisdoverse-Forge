@@ -420,8 +420,8 @@ export function CreateAgentModal() {
                 </span>
               </div>
               <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Copy the full command below and run it in the local project folder. The agent will
-                appear online after the connection tool starts.
+                Copy the full command below and run it in the project folder on this computer. The
+                agent will appear online after the connection tool starts.
               </p>
             </div>
 
@@ -633,19 +633,19 @@ export function CreateAgentModal() {
 
             <div data-testid="agent-work-readiness">
               <div className="mb-1 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Primary Project
+                Starting Project
               </div>
               <div className="w-full rounded-[18px] border border-black/[0.08] bg-white px-4 py-2 text-ui-body text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark">
-                {selectedProject?.name ?? 'No primary project'}
+                {selectedProject?.name ?? 'Choose a starting project'}
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {selectedProject
                   ? kind === 'local-cli'
-                    ? 'Project ready. Tasks default to this project. Local filesystem access stays on the joined machine.'
-                    : 'Project ready. Tasks default to this project. File access is the selected project workspace.'
+                    ? 'Project ready. New tasks start in this project. File access stays on the joined computer.'
+                    : 'Project ready. New tasks start in this project. File access uses the selected project workspace.'
                   : kind === 'local-cli'
-                    ? 'Choose a project first. Tasks can still be assigned later. Select a project in the sidebar before creating.'
-                    : 'Choose a project first. Tasks can still be assigned later. Select a project in the sidebar to set the work area.'}
+                    ? 'Choose a starting project first. Tasks can still be assigned later. Select a project in the sidebar before creating.'
+                    : 'Choose a starting project first. Tasks can still be assigned later. Select a project in the sidebar to set the work area.'}
               </p>
             </div>
 
@@ -733,7 +733,9 @@ export function CreateAgentModal() {
                   htmlFor="agent-cwd"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  {kind === 'local-cli' ? 'Local project folder' : 'Project files folder'}
+                  {kind === 'local-cli'
+                    ? 'Project folder on this computer'
+                    : 'Project files folder'}
                 </label>
                 <input
                   id="agent-cwd"
@@ -744,7 +746,7 @@ export function CreateAgentModal() {
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                   {kind === 'local-cli'
                     ? 'Leave blank to use the folder where you run the join command.'
-                    : 'The managed workspace can include several projects. Primary Project sets the default work area; it is not a private user folder.'}
+                    : 'The managed workspace can include several projects. Starting Project chooses where new tasks begin; it is not a private user folder.'}
                 </p>
               </div>
             )}

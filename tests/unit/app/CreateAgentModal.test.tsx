@@ -58,16 +58,20 @@ describe('CreateAgentModal', () => {
     expect(screen.getByRole('combobox', { name: /managed work tool/i })).toBeInTheDocument()
     expect(screen.getByLabelText(/project files folder/i)).toBeInTheDocument()
     expect(screen.getByText(/managed workspace can include several projects/i)).toBeInTheDocument()
-    expect(screen.getAllByText(/primary project/i).length).toBeGreaterThan(0)
-    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/choose a project first/i)
+    expect(screen.getAllByText(/starting project/i).length).toBeGreaterThan(0)
+    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
+      /choose a starting project first/i
+    )
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
       /select a project in the sidebar/i
     )
+    expect(screen.queryByText(/primary project/i)).toBeNull()
+    expect(screen.queryByText(/default work area/i)).toBeNull()
     expect(screen.queryByLabelText(/^model service$/i)).toBeNull()
     expect(screen.queryByLabelText(/^model$/i)).toBeNull()
   })
 
-  test('shows selected project as the primary project context', () => {
+  test('shows selected project as the starting project context', () => {
     useNavigationStore.setState({
       selectedProjectId: 'p1',
       agentGroups: [],
@@ -90,7 +94,7 @@ describe('CreateAgentModal', () => {
 
     expect(screen.getByText('Platform')).toBeInTheDocument()
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/project ready/i)
-    expect(screen.getByText(/tasks default to this project/i)).toBeInTheDocument()
+    expect(screen.getByText(/new tasks start in this project/i)).toBeInTheDocument()
   })
 
   test('submits selected project workspace context', async () => {
@@ -206,7 +210,9 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText(/no file access/i)).toBeInTheDocument()
     expect(screen.getByText(/model service checked/i)).toBeInTheDocument()
     expect(screen.queryByRole('combobox', { name: /managed work tool/i })).toBeNull()
-    expect(screen.queryByLabelText(/project files folder|local project folder/i)).toBeNull()
+    expect(
+      screen.queryByLabelText(/project files folder|project folder on this computer/i)
+    ).toBeNull()
     expect(screen.getByLabelText(/^model service$/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/^model$/i)).toBeInTheDocument()
   })
@@ -295,7 +301,7 @@ describe('CreateAgentModal', () => {
       target: { value: 'codex' },
     })
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
-    fireEvent.change(screen.getByLabelText(/local project folder/i), {
+    fireEvent.change(screen.getByLabelText(/project folder on this computer/i), {
       target: { value: '/Users/me/project' },
     })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
@@ -310,6 +316,7 @@ describe('CreateAgentModal', () => {
       "export AGENT_ID='a-local'\nagentforge-sidecar"
     )
     expect(screen.getByText('What to do next')).toBeInTheDocument()
+    expect(screen.getByText(/project folder on this computer/i)).toBeInTheDocument()
     expect(screen.getByText(/paste the command into the terminal/i)).toBeInTheDocument()
     expect(screen.getByText(/keep that terminal open/i)).toBeInTheDocument()
     expect(screen.getByText(/run the same command again to reconnect/i)).toBeInTheDocument()
