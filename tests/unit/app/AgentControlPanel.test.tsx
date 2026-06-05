@@ -118,11 +118,13 @@ describe('AgentControlPanel', () => {
     expect(sendPromptMock).not.toHaveBeenCalled()
   })
 
-  test('uses model service language for text-only agents', () => {
+  test('uses chat-only language for agents that answer through an AI service', () => {
     render(<AgentControlPanel agent={textOnlyAgent} onDeleted={() => {}} />)
 
-    expect(screen.getByText('Text-only model controls')).toBeDefined()
-    expect(screen.getByText(/saved model service/i)).toBeDefined()
+    expect(screen.getByText('Chat-only agent controls')).toBeDefined()
+    expect(screen.getByText(/connected AI service/i)).toBeDefined()
+    expect(screen.queryByText(/text-only model/i)).toBeNull()
+    expect(screen.queryByText(/model service/i)).toBeNull()
     expect(screen.queryByText(/provider setup/i)).toBeNull()
   })
 
@@ -136,8 +138,9 @@ describe('AgentControlPanel', () => {
 
     expect(screen.getByText('Agent workspace needs to start')).toBeDefined()
     expect(screen.getByText(/has no running workspace yet/i)).toBeDefined()
-    expect(screen.getByText(/opening the command window/i)).toBeDefined()
+    expect(screen.getByText(/opening its live work window/i)).toBeDefined()
     expect(screen.queryByText(/opening a terminal/i)).toBeNull()
+    expect(screen.queryByText(/opening the command window/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /start agent/i }))
 
@@ -151,9 +154,10 @@ describe('AgentControlPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /restart agent/i }))
     expect(screen.getByText('Restart this agent?')).toBeDefined()
-    expect(screen.getByText(/command window or task updates are stuck/i)).toBeDefined()
+    expect(screen.getByText(/live work window or task updates are stuck/i)).toBeDefined()
     expect(screen.getByText(/active work may stop/i)).toBeDefined()
     expect(screen.queryByText(/terminal or task updates/i)).toBeNull()
+    expect(screen.queryByText(/command window or task updates/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /keep running/i }))
     expect(restartAgentMock).not.toHaveBeenCalled()

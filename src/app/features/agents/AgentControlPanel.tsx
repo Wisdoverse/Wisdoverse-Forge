@@ -210,7 +210,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                   tone="blue"
                   icon={RotateCcw}
                   title="Restart this agent?"
-                  detail="Use restart only when the command window or task updates are stuck. Active work may stop and need to be sent again."
+                  detail="Use restart only when the live work window or task updates are stuck. Active work may stop and need to be sent again."
                   confirmLabel="Restart now"
                   cancelLabel="Keep running"
                   onConfirm={handleRestart}
@@ -220,7 +220,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                 <ActionCard
                   icon={RotateCcw}
                   title="Recover a stuck agent"
-                  detail="Restart only after checking Tasks or the command window and seeing no new progress."
+                  detail="Restart only after checking Tasks or the live work window and seeing no new progress."
                 >
                   <button
                     type="button"
@@ -286,7 +286,8 @@ function getControlSummary(
   if (canStartContainer) {
     return {
       title: 'Agent workspace needs to start',
-      detail: 'Start this agent workspace before sending file work or opening the command window.',
+      detail:
+        'Start this agent workspace before sending file work or opening its live work window.',
       Icon: Play,
     }
   }
@@ -317,9 +318,9 @@ function getControlSummary(
   }
 
   return {
-    title: 'Text-only model controls',
+    title: 'Chat-only agent controls',
     detail:
-      'This agent replies through its saved model service. Use messages for quick help and Tasks for tracked work.',
+      'This agent replies through its connected AI service. Use messages for quick help and Tasks for tracked work.',
     Icon: CheckCircle2,
   }
 }
