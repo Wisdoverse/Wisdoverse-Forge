@@ -32,7 +32,8 @@ describe('FeedItem', () => {
     render(<FeedItem item={{ ...baseItem, type: 'task.failed', detail: 'Command exited 1' }} />)
 
     expect(screen.getByText('Failed')).toBeDefined()
-    expect(screen.getByText(/read the error, then retry after the cause is fixed/i)).toBeDefined()
+    expect(screen.getByText(/follow the recovery note, then retry when ready/i)).toBeDefined()
+    expect(screen.queryByText(/read the error/i)).toBeNull()
   })
 
   test('shows waiting and finished labels instead of raw queue status words', () => {

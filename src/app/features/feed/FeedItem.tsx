@@ -40,7 +40,7 @@ const TYPE_COPY: Record<string, { label: string; description: string }> = {
   },
   'task.failed': {
     label: 'Failed',
-    description: 'The task hit an error and needs review.',
+    description: 'The task stopped before finishing and needs review.',
   },
   'task.progress': {
     label: 'Update',
@@ -59,7 +59,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 const NEXT_ACTION_COPY: Record<string, string> = {
   'task.blocked': 'Next step: open the task and clear the blocker or missing access.',
-  'task.failed': 'Next step: open the task, read the error, then retry after the cause is fixed.',
+  'task.failed': 'Next step: open the task, follow the recovery note, then retry when ready.',
 }
 
 export function FeedItem({ item }: { item: FeedItemType }) {

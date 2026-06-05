@@ -114,8 +114,8 @@ export function dispatchWsMessage(msg: WsMessage) {
           id: `${eventType}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           type: eventType,
           agentName,
-          taskTitle: tool ?? eventType,
-          detail: tool ? `Tool: ${tool}` : eventType,
+          taskTitle: agentActivityTitle(eventType, tool),
+          detail: agentActivityDetail(eventType, tool),
           timestamp,
         })
 
@@ -251,6 +251,66 @@ function taskNotificationMessage(
       return `${actor} failed to complete this task: ${detail}`
     case 'completed':
       return `${actor} completed this task: ${detail}`
+  }
+}
+
+function agentActivityTitle(eventType: string, tool?: string | null): string {
+  switch (eventType) {
+    case 'pre_tool_use':
+      return tool ? activityToolLabel(tool) : 'Starting a work step'
+    case 'post_tool_use':
+      return tool ? `Finished ${activityToolLabel(tool).toLowerCase()}` : 'Finished a work step'
+    case 'permission_prompt':
+      return 'Decision needed'
+    case 'blocked':
+      return 'Needs help'
+    default:
+      return 'Task update'
+  }
+}
+
+function agentActivityDetail(eventType: string, tool?: string | null): string {
+  switch (eventType) {
+    case 'pre_tool_use':
+      return tool
+        ? `Started ${activityToolLabel(tool).toLowerCase()}.`
+        : 'The agent started a work step.'
+    case 'post_tool_use':
+      return tool
+        ? `Finished ${activityToolLabel(tool).toLowerCase()}.`
+        : 'The agent finished a work step.'
+    case 'permission_prompt':
+      return 'Review the request before the agent continues.'
+    case 'blocked':
+      return 'Open the task to see what is needed before work can continue.'
+    default:
+      return 'The agent reported a task update.'
+  }
+}
+
+function activityToolLabel(tool: string): string {
+  switch (tool.toLowerCase()) {
+    case 'read':
+      return 'Checking project files'
+    case 'write':
+    case 'edit':
+    case 'multiedit':
+      return 'Updating project files'
+    case 'bash':
+    case 'shell':
+      return 'Running a project command'
+    case 'grep':
+    case 'glob':
+    case 'ls':
+    case 'rg':
+      return 'Searching the project'
+    case 'webfetch':
+    case 'websearch':
+      return 'Checking online information'
+    case 'todowrite':
+      return 'Updating the work checklist'
+    default:
+      return 'Working on the task'
   }
 }
 

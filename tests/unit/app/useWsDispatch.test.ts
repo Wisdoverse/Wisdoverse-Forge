@@ -103,6 +103,28 @@ describe('dispatchWsMessage', () => {
 
     expect(useFeedStore.getState().feedItems).toHaveLength(1)
     expect(useFeedStore.getState().feedItems[0].type).toBe('pre_tool_use')
+    expect(useFeedStore.getState().feedItems[0].taskTitle).toBe('Checking project files')
+    expect(useFeedStore.getState().feedItems[0].detail).toBe('Started checking project files.')
+    expect(useFeedStore.getState().feedItems[0].detail).not.toContain('Tool:')
+    expect(useFeedStore.getState().feedItems[0].taskTitle).not.toBe('Read')
+  })
+
+  it('turns command activity events into plain work steps', () => {
+    dispatchWsMessage({
+      type: 'event',
+      payload: {
+        type: 'post_tool_use',
+        agentName: 'Codex',
+        tool: 'Bash',
+        timestamp: Date.now(),
+      },
+    })
+
+    const item = useFeedStore.getState().feedItems[0]
+    expect(item.taskTitle).toBe('Finished running a project command')
+    expect(item.detail).toBe('Finished running a project command.')
+    expect(item.detail).not.toContain('Tool:')
+    expect(item.taskTitle).not.toBe('Bash')
   })
 
   it('ignores unknown message types', () => {
