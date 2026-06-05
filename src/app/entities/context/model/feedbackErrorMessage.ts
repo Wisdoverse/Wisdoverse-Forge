@@ -10,14 +10,14 @@ export function feedbackErrorMessage(error?: unknown): string {
     if (detail) {
       return validationMessage(detail)
     }
-    return 'Feedback could not be saved because the app could not reach the service. Check your connection, then try again.'
+    return 'Feedback could not be saved. Forge could not connect while saving it. Check your connection, then try again.'
   }
 
   if (status === 401) {
     return 'Sign in again, then save this feedback.'
   }
   if (status === 403) {
-    return 'You do not have permission to save feedback for this context. Ask an admin to check your role.'
+    return 'You do not have permission to save feedback for this context. Ask an owner or admin to check your role.'
   }
   if (status === 404) {
     return 'This context item could not be found. Refresh the task, then choose the context item again.'
@@ -32,7 +32,7 @@ export function feedbackErrorMessage(error?: unknown): string {
     return 'Feedback is busy. Wait a moment, then save this feedback again.'
   }
   if (status >= 500) {
-    return 'Feedback is temporarily unavailable. Refresh the task, then try again. If it still fails, ask an admin to check feedback setup.'
+    return 'Forge could not save feedback right now. Refresh the task, then try again. If it still fails, ask an owner or admin to check feedback setup.'
   }
 
   return 'Feedback could not be saved. Refresh the task and try again.'
