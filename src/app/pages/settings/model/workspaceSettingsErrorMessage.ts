@@ -56,6 +56,24 @@ function baseMessage(resource: WorkspaceSettingsResource, action: WorkspaceSetti
     : `The ${label} was not created.`
 }
 
+function connectionMessage(
+  resource: WorkspaceSettingsResource,
+  action: WorkspaceSettingsAction
+): string {
+  const operation =
+    action === 'load' ? 'loading workspace settings' : `creating this ${resourceLabel(resource)}`
+  return `${baseMessage(resource, action)} Forge could not connect while ${operation}. Check your connection, then try again.`
+}
+
+function unavailableMessage(
+  resource: WorkspaceSettingsResource,
+  action: WorkspaceSettingsAction
+): string {
+  const operation =
+    action === 'load' ? 'load workspace settings' : `create this ${resourceLabel(resource)}`
+  return `${baseMessage(resource, action)} Forge could not ${operation} right now. Refresh Settings, then try again. If it still fails, ask an owner or admin to check workspace setup.`
+}
+
 export function workspaceSettingsErrorMessage(
   resource: WorkspaceSettingsResource,
   action: WorkspaceSettingsAction,
@@ -90,10 +108,10 @@ export function workspaceSettingsErrorMessage(
     return `${base} Too many setup changes are happening right now. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
-    return `${base} The workspace settings service is temporarily unavailable. Refresh Settings, then try again. If it still fails, ask an owner or admin to check workspace setup.`
+    return unavailableMessage(resource, action)
   }
   if (isNetworkError(err)) {
-    return `${base} Check your connection, then try again.`
+    return connectionMessage(resource, action)
   }
 
   return `${base} Try again. If it still fails, ask an owner or admin to check the workspace setup.`

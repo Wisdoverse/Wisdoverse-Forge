@@ -32,20 +32,32 @@ describe('workspaceSettingsErrorMessage', () => {
   })
 
   test('turns server details into an owner recovery step', () => {
-    expectBeginnerMessage(
-      workspaceSettingsErrorMessage(
-        'team',
-        'load',
-        new Error('API 503: {"message":"database unavailable"}')
-      ),
-      'Workspace teams could not be loaded. The workspace settings service is temporarily unavailable. Refresh Settings, then try again. If it still fails, ask an owner or admin to check workspace setup.'
+    const message = workspaceSettingsErrorMessage(
+      'team',
+      'load',
+      new Error('API 503: {"message":"database unavailable"}')
     )
+
+    expectBeginnerMessage(
+      message,
+      'Workspace teams could not be loaded. Forge could not load workspace settings right now. Refresh Settings, then try again. If it still fails, ask an owner or admin to check workspace setup.'
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('temporarily unavailable')
+    expect(message).not.toContain('service')
   })
 
   test('maps network failures to retryable setup guidance', () => {
-    expectBeginnerMessage(
-      workspaceSettingsErrorMessage('project', 'load', new TypeError('Failed to fetch')),
-      'Workspace projects could not be loaded. Check your connection, then try again.'
+    const message = workspaceSettingsErrorMessage(
+      'project',
+      'load',
+      new TypeError('Failed to fetch')
     )
+
+    expectBeginnerMessage(
+      message,
+      'Workspace projects could not be loaded. Forge could not connect while loading workspace settings. Check your connection, then try again.'
+    )
+    expect(message).not.toContain('Failed to fetch')
   })
 })

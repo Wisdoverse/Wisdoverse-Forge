@@ -74,9 +74,10 @@ describe('TeamsSection', () => {
 
     await waitFor(() => expect(getTeams).toHaveBeenCalledWith('org-1'))
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Workspace teams could not be loaded. The workspace settings service is temporarily unavailable. Refresh Settings, then try again. If it still fails, ask an owner or admin to check workspace setup.'
+      'Workspace teams could not be loaded. Forge could not load workspace settings right now. Refresh Settings, then try again. If it still fails, ask an owner or admin to check workspace setup.'
     )
     expect(screen.queryByText('HTTP 500')).toBeNull()
+    expect(screen.queryByText(/temporarily unavailable/i)).toBeNull()
   })
 
   test('turns team loading permission errors into an owner access step', async () => {
