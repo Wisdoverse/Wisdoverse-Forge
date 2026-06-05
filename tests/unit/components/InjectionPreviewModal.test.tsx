@@ -183,10 +183,11 @@ describe('InjectionPreviewModal', () => {
       <InjectionPreviewModal
         isOpen
         preview={preview({
+          degradation: ['future_limit_reason'],
           items: [
             {
               id: 'memory-unknown-badges',
-              itemKind: 'memory',
+              itemKind: 'future_context_kind' as never,
               title: 'Unknown badge memory',
               selected: true,
               pinned: false,
@@ -207,8 +208,12 @@ describe('InjectionPreviewModal', () => {
     )
 
     expect(screen.getByText('Unknown badge memory')).toBeDefined()
+    expect(screen.getByText('Context item needs review')).toBeDefined()
     expect(screen.getByText('Scope needs review')).toBeDefined()
     expect(screen.getByText('Sensitivity needs review')).toBeDefined()
+    expect(screen.getByText('Some context limits need review')).toBeDefined()
+    expect(screen.queryByText(/future context kind/i)).toBeNull()
+    expect(screen.queryByText(/future limit reason/i)).toBeNull()
     expect(screen.queryByText(/global workspace/i)).toBeNull()
     expect(screen.queryByText(/restricted zone/i)).toBeNull()
     expect(screen.queryByText('Unknown')).toBeNull()

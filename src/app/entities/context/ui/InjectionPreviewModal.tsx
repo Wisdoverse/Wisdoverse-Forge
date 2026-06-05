@@ -441,7 +441,7 @@ function degradationLabel(reason: string): string {
     case 'no_subagents':
       return 'Subagent-specific context will be skipped'
     default:
-      return formatCodeLabel(reason)
+      return 'Some context limits need review'
   }
 }
 
@@ -452,7 +452,7 @@ function itemKindLabel(kind: string): string {
     case 'skill':
       return 'Skill instruction'
     default:
-      return formatCodeLabel(kind)
+      return 'Context item needs review'
   }
 }
 
