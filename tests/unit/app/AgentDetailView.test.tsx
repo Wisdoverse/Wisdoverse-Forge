@@ -84,23 +84,23 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Build Agent')).toBeDefined()
   })
 
-  test('workspace tool agent shows the command window tab and labels chat as History', () => {
+  test('workspace tool agent shows the live work tab and labels chat as History', () => {
     render(<AgentDetailView agent={containerAgent} onBack={() => {}} />)
     expect(screen.getByRole('button', { name: 'Overview' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Tasks' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'History' })).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Command window' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Live work' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Plugins' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Instructions' })).toBeDefined()
   })
 
-  test('alternate workspace tool agent still shows the command window tab', () => {
+  test('alternate workspace tool agent still shows the live work tab', () => {
     render(<AgentDetailView agent={workspaceToolAgent} onBack={() => {}} />)
-    expect(screen.getByRole('button', { name: 'Command window' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Live work' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'History' })).toBeDefined()
   })
 
-  test('workspace tool agent keeps the command window tab while the environment is pending', () => {
+  test('workspace tool agent keeps the live work tab while the environment is pending', () => {
     render(
       <AgentDetailView
         agent={{ ...workspaceToolAgent, id: 'a4', name: 'Pending Agent', containerId: undefined }}
@@ -118,19 +118,21 @@ describe('AgentDetailView', () => {
     expect(screen.queryByText('idle')).toBeNull()
   })
 
-  test('prompt agent hides command window and labels chat as Chat', () => {
+  test('prompt agent hides live work and labels chat as Chat', () => {
     render(<AgentDetailView agent={providerAgent} onBack={() => {}} />)
     expect(screen.getByRole('button', { name: 'Overview' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Tasks' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Chat' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Live work' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Command window' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'History' })).toBeNull()
   })
 
-  test('agent joined from this computer is managed without command-window actions', () => {
+  test('agent joined from this computer is managed without live work actions', () => {
     render(<AgentDetailView agent={hostCliAgent} onBack={() => {}} />)
     expect(screen.getAllByText(/This computer/).length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: 'History' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Live work' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Command window' })).toBeNull()
     expect(screen.getByText('Connection status')).toBeDefined()
     expect(screen.getByText('Connected from this computer')).toBeDefined()
@@ -139,7 +141,7 @@ describe('AgentDetailView', () => {
     expect(screen.queryByRole('button', { name: /start agent/i })).toBeNull()
   })
 
-  test('prompt agent ignores stale environment ids for command window visibility', () => {
+  test('prompt agent ignores stale environment ids for live work visibility', () => {
     render(
       <AgentDetailView
         agent={{ ...providerAgent, containerId: 'stale-provider-container' }}
@@ -147,6 +149,7 @@ describe('AgentDetailView', () => {
       />
     )
     expect(screen.getByRole('button', { name: 'Chat' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Live work' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Command window' })).toBeNull()
   })
 
@@ -196,7 +199,7 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Do This Next')).toBeDefined()
   })
 
-  test('guides pending managed workspace agents to the command window tab', () => {
+  test('guides pending managed workspace agents to the live work tab', () => {
     render(
       <AgentDetailView
         agent={{
@@ -212,12 +215,12 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Start the managed workspace')).toBeDefined()
     expect(
       screen.getByText(
-        'Open Command window, then start this managed workspace so the agent can receive tasks.'
+        'Open Live work, then start this managed workspace so the agent can receive tasks.'
       )
     ).toBeDefined()
-    fireEvent.click(screen.getByRole('button', { name: /open command window/i }))
-    expect(screen.getByText('Start the managed workspace to open the command window')).toBeDefined()
-    expect(screen.getByText(/start the workspace when you need live command access/i)).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /open live work/i }))
+    expect(screen.getByText('Start the managed workspace to open live work')).toBeDefined()
+    expect(screen.getByText(/start the workspace when you need live access/i)).toBeDefined()
     expect(
       screen.getByText(/success looks like the agent status changing to idle or working/i)
     ).toBeDefined()
@@ -227,6 +230,7 @@ describe('AgentDetailView', () => {
     expect(screen.queryByText(/open terminal/i)).toBeNull()
     expect(screen.queryByText(/terminal access/i)).toBeNull()
     expect(screen.queryByText(/live terminal/i)).toBeNull()
+    expect(screen.queryByText(/command window/i)).toBeNull()
     expect(screen.getByRole('button', { name: /start agent workspace/i })).toBeDefined()
   })
 
@@ -248,7 +252,7 @@ describe('AgentDetailView', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /open command window/i }))
+    fireEvent.click(screen.getByRole('button', { name: /open live work/i }))
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Start did not finish')
@@ -287,21 +291,23 @@ describe('AgentDetailView', () => {
     expect(screen.getByText(/files must be kept apart/i)).toBeDefined()
   })
 
-  test('explains text-only model agents do not open workspace files', () => {
+  test('explains chat-only agents do not open workspace files', () => {
     render(<AgentDetailView agent={providerAgent} onBack={() => {}} />)
     expect(screen.getByText('Project folder')).toBeDefined()
     expect(screen.getAllByText('Not needed for this agent').length).toBeGreaterThan(0)
     expect(screen.getByText('Connection status')).toBeDefined()
     expect(screen.getByText('Not needed')).toBeDefined()
-    expect(screen.getByText(/answer through the model service/i)).toBeDefined()
+    expect(screen.getByText(/answer through a connected AI service/i)).toBeDefined()
     expect(screen.getByText(/do not open workspace files by themselves/i)).toBeDefined()
     expect(
       screen.getByText(/choose an agent on this computer or a managed workspace agent/i)
     ).toBeDefined()
     expect(
-      screen.getByText(/settings checks whether this model service account is ready/i)
+      screen.getByText(/settings checks whether this AI service account is ready/i)
     ).toBeDefined()
     expect(screen.queryByText(/model provider/i)).toBeNull()
+    expect(screen.queryByText(/text-only model/i)).toBeNull()
+    expect(screen.queryByText(/model service/i)).toBeNull()
   })
 
   test('shows back button', () => {

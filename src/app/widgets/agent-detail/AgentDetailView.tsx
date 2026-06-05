@@ -48,8 +48,8 @@ interface AgentNextStep {
   actionLabel?: string
 }
 
-// Live command window attach is only available for platform-managed work environments.
-// Agents joined from a computer keep their command window on that machine.
+// Live work attach is only available for platform-managed work environments.
+// Agents joined from a computer keep the work window on that machine.
 function tabsFor(agent: AgentInfo): { id: Tab; label: string }[] {
   const isCli = Boolean(agent.cliTool)
   const hasTerminal = isCli && !isHostCliAgent(agent)
@@ -57,7 +57,7 @@ function tabsFor(agent: AgentInfo): { id: Tab; label: string }[] {
     { id: 'overview', label: 'Overview' },
     { id: 'tasks', label: 'Tasks' },
     { id: 'history', label: isCli ? 'History' : 'Chat' },
-    ...(hasTerminal ? [{ id: 'terminal' as Tab, label: 'Command window' }] : []),
+    ...(hasTerminal ? [{ id: 'terminal' as Tab, label: 'Live work' }] : []),
     { id: 'plugins', label: 'Plugins' },
     { id: 'config', label: 'Instructions' },
   ]
@@ -86,7 +86,7 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
         </p>
       ) : (
         <p>
-          Text-only model agents answer through the model service and do not open workspace files by
+          Chat-only agents answer through a connected AI service and do not open workspace files by
           themselves. Choose an agent on this computer or a managed workspace agent when the task
           must inspect or edit files.
         </p>
@@ -121,13 +121,13 @@ function agentToolLabel(tool?: AgentInfo['cliTool']): string {
 function agentRuntimeLabel(agent: AgentInfo): string {
   if (isHostCliAgent(agent)) return `${agentToolLabel(agent.cliTool)} on this computer`
   if (agent.cliTool) return `${agentToolLabel(agent.cliTool)} in a managed workspace`
-  return `${agent.provider} model service`
+  return `${agent.provider} AI service`
 }
 
 function agentSetupSummary(agent: AgentInfo): string {
   if (isHostCliAgent(agent)) return 'This computer'
   if (agent.cliTool) return 'Managed workspace'
-  return 'Text-only model'
+  return 'Chat-only agent'
 }
 
 function agentConnectionStatus(agent: AgentInfo): string {
@@ -307,7 +307,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
                 'text-center text-ui-body text-secondary-light dark:text-secondary-dark'
               )}
             >
-              Loading command window...
+              Loading live work...
             </div>
           }
         >
@@ -353,19 +353,18 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
     if (hasContainerTerminal) {
       return {
         title: 'Start the managed workspace',
-        detail:
-          'Open Command window, then start this managed workspace so the agent can receive tasks.',
+        detail: 'Open Live work, then start this managed workspace so the agent can receive tasks.',
         success: 'The agent returns to Idle and can receive tasks.',
         ready: false,
         targetTab: 'terminal',
-        actionLabel: 'Open Command window',
+        actionLabel: 'Open Live work',
       }
     }
 
     return {
       title: 'Fix setup before sending work',
       detail:
-        'This text-only model agent is offline. Open Settings and check that the model service account is ready before sending work.',
+        'This chat-only agent is offline. Open Settings and check that the AI service account is ready before sending work.',
       success: 'The agent returns to Idle and can receive tasks.',
       ready: false,
     }
@@ -386,7 +385,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
     return {
       title: 'Send a small first task',
       detail: hostCli
-        ? 'Use Tasks to send a small, low-risk task. The command window stays on the enrolled machine while Forge tracks results.'
+        ? 'Use Tasks to send a small, low-risk task. The local work window stays on the enrolled machine while Forge tracks results.'
         : 'Use Tasks to send a small, low-risk task. Leave it unassigned if any ready agent can pick it up.',
       success: 'A task appears as Waiting to start or Working for this agent.',
       ready: true,
@@ -497,13 +496,14 @@ function AssignmentFitCard({
       : 'Unavailable until restarted or reconnected'
   const hostCli = isHostCliAgent(agent)
   const runtime = agentRuntimeLabel(agent)
-  const credential = hostCli
-    ? 'Uses the accounts and tools installed on the enrolled computer.'
-    : agent.cliTool === 'codex'
-      ? 'Sign-in status is checked in Agent setup.'
-      : agent.cliTool
-        ? 'Workspace access is added when the agent starts.'
-        : 'Settings checks whether this model service account is ready.'
+  let credential = 'Settings checks whether this AI service account is ready.'
+  if (hostCli) {
+    credential = 'Uses the accounts and tools installed on the enrolled computer.'
+  } else if (agent.cliTool === 'codex') {
+    credential = 'Sign-in status is checked in Agent setup.'
+  } else if (agent.cliTool) {
+    credential = 'Workspace access is added when the agent starts.'
+  }
 
   return (
     <section
@@ -630,18 +630,18 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
     >
       <div className="flex flex-col gap-1">
         <span className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-          Start the managed workspace to open the command window
+          Start the managed workspace to open live work
         </span>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {agent.cliTool
-            ? `${agentToolLabel(agent.cliTool)} is ready. Start the workspace when you need live command access.`
+            ? `${agentToolLabel(agent.cliTool)} is ready. Start the workspace when you need live access to the workspace.`
             : 'This agent does not need a managed workspace.'}
         </span>
         {agent.cliTool && (
           <span className="max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
             Start the workspace here. Success looks like the agent status changing to Idle or
-            Working, then this command window opens for live work. If it stays pending, ask an admin
-            to check this agent's workspace and agent tool setup.
+            Working, then Live work opens. If it stays pending, ask an admin to check this agent's
+            workspace and agent tool setup.
           </span>
         )}
       </div>
