@@ -214,9 +214,10 @@ describe('TaskDetailPanel', () => {
     )
 
     const preview = screen.getByTestId('task-detail-failure-preview')
-    expect(preview.textContent).toContain('model service is busy')
+    expect(preview.textContent).toContain('AI service is busy')
     expect(preview.textContent).not.toContain('429')
     expect(preview.textContent).not.toContain('provider')
+    expect(preview.textContent).not.toContain('model service is busy')
   })
 
   test('shows beginner guidance when retry fails', async () => {

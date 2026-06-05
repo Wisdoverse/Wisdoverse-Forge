@@ -229,7 +229,7 @@ function runSourceLabel(run: TaskRunSummary): string {
       return 'this computer'
     case 'api':
     case 'provider':
-      return 'a model service'
+      return 'an AI service'
     default:
       return run.maxContextTokens ? 'the assigned agent' : 'an agent'
   }

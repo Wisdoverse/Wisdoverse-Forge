@@ -91,10 +91,11 @@ describe('AgentTasksTab', () => {
     expect(within(screen.getByTestId('agent-task-metric-completed')).getByText('1')).toBeDefined()
     expect(screen.getByText('Needs help: Needs SSH key')).toBeDefined()
     const failedPreview = screen.getByTestId('agent-task-error-failed')
-    expect(failedPreview.textContent).toContain('model service is busy')
+    expect(failedPreview.textContent).toContain('AI service is busy')
     expect(failedPreview.textContent).not.toContain('429')
     expect(failedPreview.textContent).not.toContain('provider')
-    expect(failedPreview.getAttribute('title')).toContain('model service is busy')
+    expect(failedPreview.textContent).not.toContain('model service is busy')
+    expect(failedPreview.getAttribute('title')).toContain('AI service is busy')
   })
 
   test('shows beginner recovery guidance when agent tasks fail to load', async () => {

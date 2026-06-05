@@ -83,6 +83,26 @@ describe('HistoryTab', () => {
     expect(screen.queryByText(/Work method|configured worker|unknown worker|runtime/i)).toBeNull()
   })
 
+  test('labels chat-only work history with AI service language', async () => {
+    getTaskRunsMock.mockResolvedValue([
+      {
+        id: 'run-ai123456',
+        taskId: 'task-1',
+        agentId: 'agent-1',
+        status: 'completed',
+        startedAt: '2026-04-25T06:06:00Z',
+        finishedAt: '2026-04-25T06:07:00Z',
+        runtimeKind: 'api',
+      },
+    ])
+
+    render(<HistoryTab task={makeTask()} />)
+
+    expect(await screen.findByText('Agent work history')).toBeInTheDocument()
+    expect(screen.getByText(/Used an AI service/i)).toBeInTheDocument()
+    expect(screen.queryByText(/model service/i)).toBeNull()
+  })
+
   test('summarizes failed task history without raw service details', async () => {
     getTaskRunsMock.mockResolvedValue([])
 
@@ -97,7 +117,8 @@ describe('HistoryTab', () => {
 
     expect(await screen.findByText('Needs review')).toBeInTheDocument()
     expect(screen.queryByText('Failed')).toBeNull()
-    expect(await screen.findAllByText(/model service is busy/i)).toHaveLength(2)
+    expect(await screen.findAllByText(/AI service is busy/i)).toHaveLength(2)
+    expect(screen.queryByText(/model service is busy/i)).toBeNull()
     expect(screen.queryByText(/429/)).toBeNull()
     expect(screen.queryByText(/provider/i)).toBeNull()
   })
