@@ -82,7 +82,7 @@ describe('BoardView', () => {
 
     render(<BoardView />)
 
-    expect(await screen.findByText(/the app could not reach the service/i)).toBeDefined()
+    expect(await screen.findByText(/forge could not connect while loading the board/i)).toBeDefined()
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
   })
 

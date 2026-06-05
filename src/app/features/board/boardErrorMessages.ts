@@ -28,7 +28,7 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
   }
 
   if (isNetworkError(normalized)) {
-    return `${ACTION_FALLBACKS[action]} The app could not reach the service. Check your connection, then refresh the page.`
+    return `${ACTION_FALLBACKS[action]} ${networkRecoveryMessage(action)}`
   }
 
   if (status === 401) {
@@ -36,7 +36,7 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
   }
 
   if (status === 403) {
-    return 'You do not have permission to change this board. Ask an owner or admin to update your role.'
+    return 'You do not have permission to change this board. Ask an owner or admin to give you access to this board.'
   }
 
   if (status === 404) {
@@ -56,10 +56,24 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
   }
 
   if (status && status >= 500) {
-    return 'The board is temporarily unavailable. Refresh the board, then try again. If it still fails, ask an owner or admin to check task board setup.'
+    return serviceRecoveryMessage(action)
   }
 
   return validationRecovery(action, detail)
+}
+
+function networkRecoveryMessage(action: BoardErrorAction): string {
+  if (action === 'loadReadiness' || action === 'loadTasks') {
+    return 'Forge could not connect while loading the board. Check your connection, then refresh the page.'
+  }
+  return 'Forge could not connect while updating the board. Check your connection, then try again.'
+}
+
+function serviceRecoveryMessage(action: BoardErrorAction): string {
+  if (action === 'loadReadiness' || action === 'loadTasks') {
+    return `${ACTION_FALLBACKS[action]} Forge could not load the board right now. Refresh the board, then try again. If it still fails, ask an owner or admin to check task board setup.`
+  }
+  return `${ACTION_FALLBACKS[action]} Forge could not finish this board action right now. Refresh the board, then try again. If it still fails, ask an owner or admin to check task board setup.`
 }
 
 function errorDetail(err: unknown): string {

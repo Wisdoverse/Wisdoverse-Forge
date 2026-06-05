@@ -19,9 +19,10 @@ describe('boardActionErrorMessage', () => {
     const message = boardActionErrorMessage('loadReadiness', new TypeError('Failed to fetch'))
 
     expect(message).toContain('Agent readiness could not load')
-    expect(message).toContain('The app could not reach the service')
+    expect(message).toContain('Forge could not connect while loading the board')
     expect(message).not.toContain('API')
     expect(message).not.toContain('Failed to fetch')
+    expect(message).not.toContain('app could not reach')
   })
 
   test('gives a clear next step when no agent can preview context', () => {
@@ -35,9 +36,10 @@ describe('boardActionErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'The board is temporarily unavailable. Refresh the board, then try again. If it still fails, ask an owner or admin to check task board setup.'
+      'The task board could not load. Refresh the board, then try again. Forge could not load the board right now. Refresh the board, then try again. If it still fails, ask an owner or admin to check task board setup.'
     )
     expect(message).not.toContain('backend')
+    expect(message).not.toContain('temporarily unavailable')
   })
 
   test('turns validation details into a concrete field recovery step', () => {
