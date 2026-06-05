@@ -19,10 +19,10 @@ function formatDate(dateStr: string | null): string {
   })
 }
 
-const API_KEY_EMPTY_STEPS = [
-  'Create a key only for a trusted automation tool.',
+const ACCESS_KEY_EMPTY_STEPS = [
+  'Create one only for a trusted automation tool.',
   'Use a name that tells the team where the key will live.',
-  'Copy the new key into safe secret storage before closing the banner.',
+  'Copy it into a password manager or secret manager before closing the banner.',
 ]
 
 // ============================================================================
@@ -109,7 +109,7 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="mb-1 text-ui-caption font-semibold">
-            Platform API key created — copy it now, it won&apos;t be shown again
+            Platform access key created — copy it now, it won&apos;t be shown again
           </p>
           <p className="mb-2 text-ui-caption text-apple-blue/80">
             Save it in a password manager or another safe secret store before dismissing this
@@ -153,7 +153,7 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
   const trimmedName = name.trim()
   const isReady = Boolean(trimmedName)
   const visibleError =
-    submitAttempted && !isReady ? 'Name this platform key before creating it.' : null
+    submitAttempted && !isReady ? 'Name this access key before creating it.' : null
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -171,7 +171,7 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
       className="mt-3 rounded-card border border-black/[0.08] bg-white p-3 dark:border-white/[0.1] dark:bg-[#2c2c2e]"
     >
       <label htmlFor={nameInputId} className={uiStyles.label}>
-        Key name
+        Access key name
       </label>
       <div className="flex items-center gap-2">
         <input
@@ -255,9 +255,10 @@ export function KeysSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Platform API Keys</h2>
+          <h2 className={uiStyles.sectionTitle}>Platform Access Keys</h2>
           <p className={uiStyles.sectionDescription}>
-            Create keys for trusted automation tools that need to call Forge without signing in
+            Create access keys for trusted automation tools that need to connect without a person
+            signing in
           </p>
         </div>
         {!showForm && (
@@ -267,7 +268,7 @@ export function KeysSection() {
             className={uiStyles.primaryButton}
           >
             <span>+</span>
-            <span>Create Platform Key</span>
+            <span>Create Access Key</span>
           </button>
         )}
       </div>
@@ -293,7 +294,7 @@ export function KeysSection() {
       <div className={cn(uiStyles.card, 'mt-3 overflow-x-auto')}>
         {keysLoading && apiKeys.length === 0 ? (
           <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading keys…
+            Loading access keys…
           </div>
         ) : apiKeys.length === 0 ? (
           <PlatformKeyEmptyState onCreate={() => setShowForm(true)} />
@@ -337,7 +338,7 @@ function PlatformKeyEmptyState({ onCreate }: { onCreate: () => void }) {
               id="platform-key-empty-title"
               className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark"
             >
-              No platform API keys yet
+              No platform access keys yet
             </h3>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
               Create one only when another tool needs to call Forge without a signed-in user.
@@ -345,7 +346,7 @@ function PlatformKeyEmptyState({ onCreate }: { onCreate: () => void }) {
           </div>
         </div>
         <div className="grid gap-2 sm:grid-cols-3">
-          {API_KEY_EMPTY_STEPS.map((step) => (
+          {ACCESS_KEY_EMPTY_STEPS.map((step) => (
             <div
               key={step}
               className="flex min-h-16 items-start gap-2 rounded-lg bg-black/[0.025] px-3 py-2 dark:bg-white/[0.05]"
@@ -364,7 +365,7 @@ function PlatformKeyEmptyState({ onCreate }: { onCreate: () => void }) {
         </div>
         <button type="button" onClick={onCreate} className={cn(uiStyles.primaryButton, 'w-fit')}>
           <span>+</span>
-          <span>Create Platform Key</span>
+          <span>Create Access Key</span>
         </button>
       </div>
     </section>

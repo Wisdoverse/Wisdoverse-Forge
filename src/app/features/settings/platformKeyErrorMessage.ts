@@ -43,9 +43,9 @@ function actionFromText(text: string): PlatformKeyAction {
 }
 
 function baseMessage(action: PlatformKeyAction): string {
-  if (action === 'create') return 'Platform API key could not be created.'
-  if (action === 'remove') return 'Platform API key could not be revoked.'
-  return 'Platform API keys could not be loaded.'
+  if (action === 'create') return 'Platform access key could not be created.'
+  if (action === 'remove') return 'Platform access key could not be revoked.'
+  return 'Platform access keys could not be loaded.'
 }
 
 export function platformKeyErrorMessage(error: unknown): string {
@@ -59,7 +59,7 @@ export function platformKeyErrorMessage(error: unknown): string {
     return `${base} Sign in again, then open Settings and try platform keys again.`
   }
   if (code === 403 || lower.includes('permission') || lower.includes('forbidden')) {
-    return `${base} Ask an owner or admin for access to manage platform API keys.`
+    return `${base} Ask an owner or admin for access to manage platform access keys.`
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
     return `${base} A key with this name or value already exists. Refresh the list, then choose a different name or revoke the old key first.`

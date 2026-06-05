@@ -51,31 +51,33 @@ afterEach(() => {
 })
 
 describe('KeysSection', () => {
-  test('guides an empty API key setup into the create form', async () => {
+  test('guides an empty access key setup into the create form', async () => {
     render(<KeysSection />)
 
     await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
     const emptyState = screen.getByTestId('platform-key-empty-state')
 
-    expect(within(emptyState).getByText('No platform API keys yet')).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Platform Access Keys' })).toBeDefined()
+    expect(within(emptyState).getByText('No platform access keys yet')).toBeDefined()
     expect(within(emptyState).getByText(/another tool needs to call Forge/i)).toBeDefined()
     expect(within(emptyState).getByText(/trusted automation tool/i)).toBeDefined()
-    expect(within(emptyState).getByText(/safe secret storage/i)).toBeDefined()
+    expect(within(emptyState).getByText(/password manager or secret manager/i)).toBeDefined()
+    expect(within(emptyState).queryByText(/platform A[P]I keys/i)).toBeNull()
 
-    fireEvent.click(within(emptyState).getByRole('button', { name: /create platform key/i }))
+    fireEvent.click(within(emptyState).getByRole('button', { name: /create access key/i }))
 
-    expect(screen.getByLabelText(/^key name$/i)).toBeDefined()
+    expect(screen.getByLabelText(/^access key name$/i)).toBeDefined()
     expect(screen.getByText(/enter a short name first/i)).toBeDefined()
     expect(screen.getByText(/exact place this key will be used/i)).toBeDefined()
   })
 
-  test('explains the required key name before creating a platform key', async () => {
+  test('explains the required key name before creating an access key', async () => {
     render(<KeysSection />)
 
     await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
-    fireEvent.click(screen.getAllByRole('button', { name: /create platform key/i })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: /create access key/i })[0])
 
-    const input = screen.getByLabelText(/^key name$/i)
+    const input = screen.getByLabelText(/^access key name$/i)
     const form = input.closest('form')
     expect(form).toBeTruthy()
 
@@ -83,9 +85,7 @@ describe('KeysSection', () => {
     fireEvent.submit(form!)
 
     expect(createApiKeyMock).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      /name this platform key before creating it/i
-    )
+    expect(screen.getByRole('alert')).toHaveTextContent(/name this access key before creating it/i)
     expect(input).toHaveFocus()
   })
 
@@ -98,13 +98,14 @@ describe('KeysSection', () => {
     render(<KeysSection />)
 
     await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
-    fireEvent.click(screen.getAllByRole('button', { name: /create platform key/i })[0])
-    fireEvent.change(screen.getByLabelText(/^key name$/i), {
+    fireEvent.click(screen.getAllByRole('button', { name: /create access key/i })[0])
+    fireEvent.change(screen.getByLabelText(/^access key name$/i), {
       target: { value: 'Production deploy pipeline' },
     })
     fireEvent.click(screen.getByRole('button', { name: /^create$/i }))
 
     await waitFor(() => expect(createApiKeyMock).toHaveBeenCalledWith('Production deploy pipeline'))
+    expect(screen.getByText(/Platform access key created/i)).toBeDefined()
     expect(screen.getByText(/copy it now/i)).toBeDefined()
     expect(screen.getByText(/password manager or another safe secret store/i)).toBeDefined()
     expect(screen.getByText('af_test_key_value')).toBeDefined()
@@ -120,7 +121,7 @@ describe('KeysSection', () => {
 
     await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Platform API key could not be created. Ask an owner or admin for access to manage platform API keys.'
+      'Platform access key could not be created. Ask an owner or admin for access to manage platform access keys.'
     )
     expect(screen.queryByText(/Details: Forbidden/i)).toBeNull()
   })
