@@ -163,7 +163,7 @@ function isRawAgentFailure(detail: string | null): boolean {
 
 function agentConnectionMessage(actionPhrase: string, action: AgentErrorAction): string {
   const operation = action === 'load' ? 'loading Agents' : 'updating Agents'
-  return `Agent setup could not ${actionPhrase}. Forge could not connect while ${operation}. Check your connection, then refresh Agents.`
+  return `Forge could not ${actionPhrase}. It could not connect while ${operation}. Check your connection, then refresh Agents.`
 }
 
 export function agentActionErrorMessage(action: AgentErrorAction, error?: unknown): string {
@@ -200,7 +200,7 @@ export function agentActionErrorMessage(action: AgentErrorAction, error?: unknow
     return agentServerMessage(action)
   }
 
-  return `Agent setup could not ${actionPhrase}. Refresh the Agents page, then try again.`
+  return `Forge could not ${actionPhrase}. Refresh the Agents page, then try again.`
 }
 
 function agentValidationMessage(action: AgentErrorAction, detail: string | null): string {
@@ -247,31 +247,31 @@ function agentConflictMessage(action: AgentErrorAction, detail: string | null): 
 
 function agentServerMessage(action: AgentErrorAction): string {
   if (action === 'start' || action === 'restart' || action === 'create') {
-    return "Forge could not prepare this agent's workspace right now. Wait a moment, then try again. If it still fails, ask an owner or admin to check agent setup."
+    return "Forge could not prepare this agent's workspace right now. Wait a moment, then try again. If it still fails, ask an owner or admin to check Agent Work Setup."
   }
-  return 'Forge could not update Agents right now. Refresh Agents, then try again. If it still fails, ask an owner or admin to check agent setup.'
+  return 'Forge could not update Agents right now. Refresh Agents, then try again. If it still fails, ask an owner or admin to check Agent Work Setup.'
 }
 
 function agentRuntimeRecoveryMessage(detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('docker')) {
-    return "This agent's workspace is not ready. Ask an owner or admin to check agent setup, then start this agent from the agent card."
+    return "This agent's workspace is not ready. Ask an owner or admin to check Agent Work Setup, then start this agent from the agent card."
   }
-  return 'The agent workspace is not ready. Ask an owner or admin to check agent setup, then start this agent from the agent card.'
+  return 'The agent workspace is not ready. Ask an owner or admin to check Agent Work Setup, then start this agent from the agent card.'
 }
 
 function agentCreatedStartFailureMessage(error?: unknown): string {
   const detail = agentErrorDetail(error)
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('docker')) {
-    return 'Agent was created, but its workspace is not ready yet. It will stay in the list. Ask an owner or admin to check agent setup, then start this agent from the card.'
+    return 'Agent was created, but its workspace is not ready yet. It will stay in the list. Ask an owner or admin to check Agent Work Setup, then start this agent from the card.'
   }
   if (
     normalized.includes('runtime') ||
     normalized.includes('container') ||
     normalized.includes('image')
   ) {
-    return 'Agent was created, but it could not start yet. It will stay in the list. Ask an owner or admin to check agent setup, then start this agent from the card.'
+    return 'Agent was created, but it could not start yet. It will stay in the list. Ask an owner or admin to check Agent Work Setup, then start this agent from the card.'
   }
   return 'Agent was created, but it could not start yet. It will stay in the list. Refresh the Agents page, then start this agent from the card after the workspace is ready.'
 }

@@ -2,11 +2,11 @@ export type RuntimeErrorAction = 'loadAgentSignals' | 'loadCliSignIn' | 'startCl
 
 const ACTION_FALLBACKS: Record<RuntimeErrorAction, string> = {
   loadAgentSignals:
-    'Agent online status could not load. Start or wake an agent, then refresh this setup check.',
+    'Agent connection status could not load. Start or wake an agent, then refresh this page.',
   loadCliSignIn:
-    'Tool account connection status could not load. Refresh this setup check before starting agents that use work tools.',
+    'Tool account connection could not be checked. Refresh this page before starting agents that use work tools.',
   startCliSignIn:
-    'Tool account connection did not start. Check the AI service setup, then reconnect the account.',
+    'Tool account connection did not start. Check the connected AI service, then reconnect the account.',
 }
 
 export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): string {
@@ -15,23 +15,23 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   const status = errorStatus(err, normalized)
 
   if (isNetworkError(normalized)) {
-    return `${ACTION_FALLBACKS[action]} Forge could not connect while checking agent setup. Check your connection, then refresh Settings.`
+    return `${ACTION_FALLBACKS[action]} Forge could not connect while checking Agent Work Setup. Check your connection, then refresh Settings.`
   }
 
   if (status === 401) {
-    return 'Your sign-in expired. Sign in again, then open Agent setup and try this action again.'
+    return 'Your sign-in expired. Sign in again, then open Agent Work Setup and try again.'
   }
 
   if (status === 403) {
-    return 'You do not have permission to manage agent setup. Ask an owner or admin to update your role.'
+    return 'You do not have permission to manage Agent Work Setup. Ask an owner or admin to update your role.'
   }
 
   if (status === 404) {
-    return 'Agent setup is not available yet. Refresh Settings. If it still does not load, ask an owner or admin to check agent setup.'
+    return 'Agent Work Setup is not available yet. Refresh Settings. If it still does not load, ask an owner or admin to check it.'
   }
 
   if (status === 409) {
-    return 'Agent setup changed while you were working. Refresh this setup check, review the current status, then try again.'
+    return 'Agent Work Setup changed while you were working. Refresh this page, review the current status, then try again.'
   }
 
   if (status === 422) {
@@ -39,11 +39,11 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   }
 
   if (status === 429) {
-    return 'Forge is receiving too many agent setup requests right now. Wait a moment, then try again.'
+    return 'Forge is receiving too many Agent Work Setup requests right now. Wait a moment, then try again.'
   }
 
   if (status && status >= 500) {
-    return 'Forge could not check agent setup right now. Refresh this setup check, then try again. If it still fails, ask an owner or admin to check agent setup.'
+    return 'Forge could not check Agent Work Setup right now. Refresh this page, then try again. If it still fails, ask an owner or admin to check Agent Work Setup.'
   }
 
   return runtimeValidationMessage(action, detail)
@@ -59,27 +59,27 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
     normalized.includes('default cli tool') ||
     normalized.includes('default runtime') ||
     normalized.includes('not available')
-      ? 'Agent work settings could not be saved.'
-      : 'Agent work settings could not be loaded.'
+      ? 'Agent Work Setup could not be saved.'
+      : 'Agent Work Setup could not be loaded.'
 
   if (isNetworkError(normalized)) {
-    return `${base} Forge could not connect while opening agent work settings. Check your connection, then refresh Settings.`
+    return `${base} Forge could not connect while opening Agent Work Setup. Check your connection, then refresh Settings.`
   }
 
   if (status === 401) {
-    return `${base} Your sign-in expired. Sign in again, then open Settings and try agent setup again.`
+    return `${base} Your sign-in expired. Sign in again, then open Agent Work Setup and try again.`
   }
 
   if (status === 403) {
-    return `${base} Ask an owner or admin for access to manage agent setup.`
+    return `${base} Ask an owner or admin for access to manage Agent Work Setup.`
   }
 
   if (status === 404) {
-    return `${base} Refresh after agent work settings are available.`
+    return `${base} Refresh after Agent Work Setup is available.`
   }
 
   if (status === 409) {
-    return `${base} Agent setup changed while you were working. Refresh Settings, review the current choices, then try again.`
+    return `${base} Agent Work Setup changed while you were working. Refresh Settings, review the current choices, then try again.`
   }
 
   if (status === 422) {
@@ -87,14 +87,14 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
   }
 
   if (status === 429) {
-    return `${base} Forge is receiving too many agent work settings requests right now. Wait a minute, then try again.`
+    return `${base} Forge is receiving too many Agent Work Setup requests right now. Wait a minute, then try again.`
   }
 
   if (status && status >= 500) {
-    return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check agent work settings.`
+    return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check Agent Work Setup.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner or admin to check agent work settings.`
+  return `${base} Try again. If it still fails, ask an owner or admin to check Agent Work Setup.`
 }
 
 function errorDetail(err: unknown): string {
@@ -160,8 +160,8 @@ function runtimeValidationMessage(action: RuntimeErrorAction, detail: string): s
   }
 
   if (action === 'loadCliSignIn') {
-    return 'Tool account connection status could not load. Refresh this setup check, then reconnect the tool account.'
+    return 'Tool account connection could not be checked. Refresh this page, then reconnect the tool account.'
   }
 
-  return 'Agent online status could not load. Start or wake an agent, then refresh this setup check.'
+  return 'Agent connection status could not load. Start or wake an agent, then refresh this page.'
 }

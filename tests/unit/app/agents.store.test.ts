@@ -73,7 +73,7 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'Agent setup could not start the agent. Forge could not connect while updating Agents. Check your connection, then refresh Agents.'
+      'Forge could not start the agent. It could not connect while updating Agents. Check your connection, then refresh Agents.'
     )
     expect(message).not.toContain('Network error')
     expect(message).not.toContain('service')
@@ -94,7 +94,7 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      "This agent's workspace is not ready. Ask an owner or admin to check agent setup, then start this agent from the agent card."
+      "This agent's workspace is not ready. Ask an owner or admin to check Agent Work Setup, then start this agent from the agent card."
     )
     expect(message).not.toContain('worker')
     expect(message).not.toContain('Docker')
@@ -175,7 +175,7 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Forge could not update Agents right now. Refresh Agents, then try again. If it still fails, ask an owner or admin to check agent setup.'
+      'Forge could not update Agents right now. Refresh Agents, then try again. If it still fails, ask an owner or admin to check Agent Work Setup.'
     )
     expect(useAgentsStore.getState().error).not.toContain('temporarily unavailable')
     expect(useAgentsStore.getState().loading).toBe(false)
@@ -221,7 +221,7 @@ describe('Agents Store', () => {
     expect(useAgentsStore.getState().agents).toHaveLength(1)
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Agent was created, but its workspace is not ready yet. It will stay in the list. Ask an owner or admin to check agent setup, then start this agent from the card.'
+      'Agent was created, but its workspace is not ready yet. It will stay in the list. Ask an owner or admin to check Agent Work Setup, then start this agent from the card.'
     )
     expect(useAgentsStore.getState().error).not.toContain('worker')
     expect(useAgentsStore.getState().error).not.toContain('Docker')
@@ -238,7 +238,7 @@ describe('Agents Store', () => {
     expect(result).toBeNull()
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Agent setup could not connect the agent from this computer. Forge could not connect while updating Agents. Check your connection, then refresh Agents.'
+      'Forge could not connect the agent from this computer. It could not connect while updating Agents. Check your connection, then refresh Agents.'
     )
     expect(useAgentsStore.getState().error).not.toContain('Network error')
     expect(useAgentsStore.getState().error).not.toContain('local agent')
