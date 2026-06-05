@@ -172,19 +172,20 @@ describe('AgentControlPanel', () => {
     })
   })
 
-  test('warns before deleting and calls the close handler only after success', async () => {
+  test('warns before removing and calls the close handler only after success', async () => {
     const onDeleted = vi.fn()
     render(<AgentControlPanel agent={containerAgent} onDeleted={onDeleted} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /delete agent/i }))
-    expect(screen.getByText('Delete this agent?')).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /remove agent/i }))
+    expect(screen.getByText('Remove this agent?')).toBeDefined()
     expect(screen.getByText(/removes the agent from future work/i)).toBeDefined()
+    expect(screen.getByText(/existing task history stays available/i)).toBeDefined()
 
     fireEvent.click(screen.getByRole('button', { name: /keep agent/i }))
     expect(deleteAgentMock).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: /delete agent/i }))
-    fireEvent.click(screen.getByRole('button', { name: /delete permanently/i }))
+    fireEvent.click(screen.getByRole('button', { name: /remove agent/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^remove agent$/i }))
 
     await waitFor(() => {
       expect(deleteAgentMock).toHaveBeenCalledWith('agent-1')

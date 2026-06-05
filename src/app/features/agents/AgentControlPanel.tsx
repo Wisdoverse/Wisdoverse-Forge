@@ -242,9 +242,9 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
             <ConfirmAction
               tone="red"
               icon={Trash2}
-              title="Delete this agent?"
-              detail="This removes the agent from future work. Past task records are not a replacement plan, so delete only when you are done with this agent."
-              confirmLabel="Delete permanently"
+              title="Remove this agent?"
+              detail="This removes the agent from future work. Existing task history stays available, but this agent will no longer receive new work."
+              confirmLabel="Remove agent"
               cancelLabel="Keep agent"
               onConfirm={handleDelete}
               onCancel={() => setConfirmDelete(false)}
@@ -263,7 +263,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                   'text-apple-red transition-colors hover:bg-apple-red/5 dark:border-white/[0.1]'
                 )}
               >
-                Delete agent
+                Remove agent
               </button>
             </ActionCard>
           )}
