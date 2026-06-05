@@ -28,10 +28,41 @@ describe('TaskFormModal', () => {
 
     expect(
       screen.getByText(
-        'No online agents available. New tasks will wait here until an agent comes online.'
+        'No online agents available. New tasks will wait in this work lane until an agent comes online.'
       )
     ).toBeDefined()
     expect(screen.queryByText(/dispatched?/i)).toBeNull()
+    expect(screen.queryByText(/queue/i)).toBeNull()
+  })
+
+  test('guides busy-agent assignment without queue language', () => {
+    render(
+      <TaskFormModal
+        isOpen
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        agents={[
+          { id: 'agent-1', name: 'Busy Agent', status: 'busy' },
+          { id: 'agent-2', name: 'Offline Agent', status: 'offline' },
+        ]}
+        projects={[project]}
+        selectedProjectId={project.id}
+        selectedTaskGroupId="lane-1"
+        selectedTaskGroupName="Starter Lane"
+      />
+    )
+
+    expect(
+      screen.getByText(
+        'All agents are busy or offline. Leave the task unassigned so the next available agent can pick it up.'
+      )
+    ).toBeDefined()
+    expect(
+      screen.getByRole('option', { name: /let the next available agent pick it up/i })
+    ).toBeDefined()
+    expect(screen.getByText(/any ready agent can do the work/i)).toBeDefined()
+    expect(screen.getByText(/people are waiting on it now/i)).toBeDefined()
+    expect(screen.queryByText(/queue/i)).toBeNull()
   })
 
   test('shows a beginner-safe title error before submitting', async () => {

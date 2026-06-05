@@ -320,7 +320,8 @@ export function TaskFormModal({
               aria-hidden="true"
             />
             <span>
-              No online agents available. New tasks will wait here until an agent comes online.
+              No online agents available. New tasks will wait in this work lane until an agent comes
+              online.
             </span>
           </div>
         )}
@@ -333,7 +334,10 @@ export function TaskFormModal({
               className="mt-0.5 shrink-0"
               aria-hidden="true"
             />
-            <span>All agents are busy or offline. Leave the task unassigned so it can queue.</span>
+            <span>
+              All agents are busy or offline. Leave the task unassigned so the next available agent
+              can pick it up.
+            </span>
           </div>
         )}
 
@@ -524,7 +528,7 @@ export function TaskFormModal({
                 <option value="urgent">Urgent</option>
               </select>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Normal is right for most work. Use Urgent only when it must jump the queue.
+                Normal is right for most work. Use Urgent only when people are waiting on it now.
               </p>
             </div>
             <div className="flex-1">
@@ -544,7 +548,7 @@ export function TaskFormModal({
                 {...register('assignedTo')}
                 className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
               >
-                <option value="">Let the next available agent choose</option>
+                <option value="">Let the next available agent pick it up</option>
                 {agents.map((a) => (
                   <option key={a.id} value={a.id} disabled={!agentCanTakeTask(a.status)}>
                     {a.name} ({agentStatusLabel(a.status)})
@@ -552,7 +556,7 @@ export function TaskFormModal({
                 ))}
               </select>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Leave this unassigned when you want the next available agent to pick it up.
+                Leave this unassigned when any ready agent can do the work.
               </p>
             </div>
           </div>
