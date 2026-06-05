@@ -274,7 +274,7 @@ describe('AgentListView', () => {
     fireEvent.change(screen.getByLabelText(/work lane name/i), {
       target: { value: 'Frontend Delivery' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /^create lane$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^create work lane$/i }))
 
     await waitFor(() =>
       expect(createAgentGroup).toHaveBeenCalledWith(
@@ -324,18 +324,18 @@ describe('AgentListView', () => {
     const templates = screen.getByRole('group', { name: /work lane templates/i })
     fireEvent.click(within(templates).getByRole('button', { name: /review/i }))
 
-    expect(screen.getByLabelText(/work lane name/i)).toHaveValue('Review Group')
+    expect(screen.getByLabelText(/work lane name/i)).toHaveValue('Review Lane')
     expect((screen.getByLabelText(/work lane description/i) as HTMLInputElement).value).toContain(
       'release risk'
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /^create lane$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^create work lane$/i }))
 
     await waitFor(() =>
       expect(createAgentGroup).toHaveBeenCalledWith(
         'p1',
         expect.objectContaining({
-          name: 'Review Group',
+          name: 'Review Lane',
           description: expect.stringContaining('release risk'),
         })
       )

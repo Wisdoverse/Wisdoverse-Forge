@@ -109,7 +109,9 @@ describe('AgentGroupsPanel', () => {
       within(screen.getByTestId('routing-metric-completed')).getByText('1')
     ).toBeInTheDocument()
     expect(screen.getByText('Auth handoff blocked')).toBeInTheDocument()
-    expect(screen.getByText(/needs agent .* choose an agent before sending it/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/needs agent .* choose an agent before sending it/i)
+    ).toBeInTheDocument()
     expect(screen.getByText(/build agent .* watch live progress/i)).toBeInTheDocument()
     expect(screen.getByText(/needs agent .* model service is busy/i)).toBeInTheDocument()
     expect(screen.queryByText(/dispatch/i)).toBeNull()
@@ -134,7 +136,9 @@ describe('AgentGroupsPanel', () => {
     render(<AgentGroupsPanel />)
 
     expect(screen.getByText('Queue deployment')).toBeInTheDocument()
-    expect(screen.getByText(/assigned agent .* waiting for an agent to pick it up/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/assigned agent .* waiting for an agent to pick it up/i)
+    ).toBeInTheDocument()
     expect(screen.queryByText(/unassigned/i)).toBeNull()
   })
 
@@ -177,8 +181,8 @@ describe('AgentGroupsPanel', () => {
     render(<AgentGroupsPanel />)
 
     const emptyState = screen.getByTestId('task-routing-empty')
-    expect(emptyState).toHaveTextContent('No routed work is loaded for this lane yet')
-    expect(emptyState).toHaveTextContent('Create a task and choose this lane')
+    expect(emptyState).toHaveTextContent('No tasks are in this work lane yet')
+    expect(emptyState).toHaveTextContent('Create a task and choose this work lane')
   })
 
   test('guides blank work lane names with examples', () => {
@@ -186,8 +190,8 @@ describe('AgentGroupsPanel', () => {
 
     render(<AgentGroupsPanel />)
 
-    fireEvent.click(screen.getByRole('button', { name: /^new$/i }))
-    fireEvent.submit(screen.getByRole('button', { name: /create lane/i }).closest('form')!)
+    fireEvent.click(screen.getByRole('button', { name: /new lane/i }))
+    fireEvent.submit(screen.getByRole('button', { name: /create work lane/i }).closest('form')!)
 
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Name this work lane before creating it. Examples: Intake, Review, or Delivery.'
@@ -201,11 +205,11 @@ describe('AgentGroupsPanel', () => {
 
     render(<AgentGroupsPanel />)
 
-    fireEvent.click(screen.getByRole('button', { name: /new/i }))
+    fireEvent.click(screen.getByRole('button', { name: /new lane/i }))
     fireEvent.change(screen.getByLabelText(/work lane name/i), {
       target: { value: 'Delivery Lane' },
     })
-    fireEvent.submit(screen.getByRole('button', { name: /create lane/i }).closest('form')!)
+    fireEvent.submit(screen.getByRole('button', { name: /create work lane/i }).closest('form')!)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       "Work lane was not created. Ask a workspace owner or admin to let you manage this project's work lanes."

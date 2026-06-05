@@ -74,7 +74,7 @@ const TASK_GROUP_TEMPLATES: TaskGroupTemplate[] = [
     id: 'delivery',
     label: 'Delivery',
     summary: 'Build and verify',
-    name: 'Delivery Group',
+    name: 'Delivery Lane',
     description: 'Build scoped changes, keep work moving, and verify before handoff.',
     Icon: Wrench,
   },
@@ -82,7 +82,7 @@ const TASK_GROUP_TEMPLATES: TaskGroupTemplate[] = [
     id: 'review',
     label: 'Review',
     summary: 'Risk and readiness',
-    name: 'Review Group',
+    name: 'Review Lane',
     description: 'Review completed work for regressions, missing tests, and release risk.',
     Icon: ShieldCheck,
   },
@@ -90,7 +90,7 @@ const TASK_GROUP_TEMPLATES: TaskGroupTemplate[] = [
     id: 'triage',
     label: 'Triage',
     summary: 'Clarify and route',
-    name: 'Triage Group',
+    name: 'Triage Lane',
     description: 'Clarify incoming work, identify blockers, and route tasks to the right agent.',
     Icon: ClipboardCheck,
   },
@@ -245,7 +245,7 @@ export function AgentGroupsPanel() {
             )}
           >
             <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-            New
+            New Lane
           </button>
         )}
       </div>
@@ -359,8 +359,8 @@ export function AgentGroupsPanel() {
                     data-testid="task-routing-empty"
                     className="rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark"
                   >
-                    No routed work is loaded for this lane yet. Create a task and choose this lane
-                    so agents know where to pick it up.
+                    No tasks are in this work lane yet. Create a task and choose this work lane so
+                    agents know where to pick it up.
                   </p>
                 ) : visibleTasks.length > 0 ? (
                   <ul className="flex flex-col gap-1.5">
@@ -373,7 +373,7 @@ export function AgentGroupsPanel() {
                     data-testid="task-routing-filter-empty"
                     className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark"
                   >
-                    <span>No routed work matches this search.</span>
+                    <span>No tasks in this work lane match this search.</span>
                     {hasRoutingSearch && (
                       <button
                         type="button"
@@ -392,7 +392,7 @@ export function AgentGroupsPanel() {
           {formOpen && (
             <form onSubmit={handleCreateGroup} className="grid gap-2">
               <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Pick a starter lane or name one yourself. New tasks can use it as soon as it is
+                Pick a starter work lane or name one yourself. New tasks can use it as soon as it is
                 created.
               </p>
               <div
@@ -459,7 +459,7 @@ export function AgentGroupsPanel() {
                   )}
                 >
                   <Check size={14} strokeWidth={2.25} aria-hidden="true" />
-                  {saving ? 'Creating…' : 'Create Lane'}
+                  {saving ? 'Creating…' : 'Create Work Lane'}
                 </button>
                 {agentGroups.length > 0 && (
                   <button
