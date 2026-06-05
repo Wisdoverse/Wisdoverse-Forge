@@ -68,7 +68,7 @@ const PROVIDER_SETUP_STEPS = [
   },
   {
     label: 'Add service access key',
-    value: 'Many AI services call this an API key. It stays hidden after saving.',
+    value: 'Paste the service access key from your AI service. It stays hidden after saving.',
   },
   {
     label: 'Save and check',
@@ -243,7 +243,8 @@ function providerFormReadiness({
     return {
       ready: false,
       title: 'Next: Add the service access key',
-      detail: 'Paste the API key from the selected AI service. Do not paste your account password.',
+      detail:
+        'Paste the service access key from the selected AI service. Do not paste your account password.',
       error: 'Add the service access key before saving this AI service.',
       fieldId: apiKeyInputId,
     }
@@ -912,8 +913,8 @@ function AddProviderFormPanel({
             id={apiKeyHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste the API key from the selected AI service. Forge saves it as a hidden service
-            access key.
+            Paste the service access key from the selected AI service. Forge keeps it hidden after
+            saving.
           </p>
           <input
             id={apiKeyInputId}
