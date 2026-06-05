@@ -73,12 +73,12 @@ function nextStep(plan: BillingPlan | null, subscription: BillingSubscription | 
   }
 
   if (subscription.cancelAtPeriodEnd) {
-    return `The plan will stop on ${formatDate(subscription.currentPeriodEnd)}. Manage billing to resume it before that date.`
+    return `The plan will stop on ${formatDate(subscription.currentPeriodEnd)}. Open billing management to resume it before that date.`
   }
 
   switch (subscription.status) {
     case 'active':
-      return 'No action needed now. Manage billing for receipts, payment details, or cancellation.'
+      return 'No action needed now. Open billing management for receipts, payment details, or cancellation.'
     case 'trialing':
       return `The trial runs until ${formatDate(subscription.currentPeriodEnd)}. Check usage before it ends.`
     case 'past_due':
@@ -161,7 +161,7 @@ export function PlanCard({
           {!plan && !subscription && (
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
               No paid plan is attached yet. An owner or admin must make a paid plan available before
-              checkout can open.
+              the secure payment page can open.
             </p>
           )}
 
@@ -173,9 +173,9 @@ export function PlanCard({
 
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
             {subscription
-              ? 'Use the billing portal to update payment methods, invoices, or cancellation.'
+              ? 'Use the billing management page to update payment methods, invoices, or cancellation.'
               : canUpgrade
-                ? 'Upgrade opens checkout in this browser. Review the plan before continuing.'
+                ? 'Upgrade opens a secure payment page in this browser. Review the plan before continuing.'
                 : 'Ask an owner or admin to make a plan available.'}
           </p>
         </div>

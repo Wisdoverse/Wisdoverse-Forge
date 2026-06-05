@@ -9,7 +9,7 @@ import { InvoiceList } from './InvoiceList'
 
 const BILLING_SETUP_STEPS = [
   'Ask an owner or admin to turn on billing for this workspace.',
-  'Do not paste payment keys here. Ask an owner or admin to connect billing in billing settings.',
+  'Do not paste secret payment settings here. Ask an owner or admin to connect billing in settings.',
   'Refresh this page after billing is turned on.',
 ]
 
@@ -60,15 +60,15 @@ function BillingCheckpoint({ hasSubscription, usageCount, invoicesCount }: Billi
   const checkpoints = [
     {
       label: 'Plan',
-      value: hasSubscription ? 'Subscription is active or managed' : 'No paid subscription yet',
+      value: hasSubscription ? 'Paid plan is active' : 'No paid plan yet',
     },
     {
       label: 'Usage',
-      value: usageCount > 0 ? `${usageCount} usage areas visible` : 'No usage reported yet',
+      value: usageCount > 0 ? `${usageCount} usage areas shown` : 'No usage reported yet',
     },
     {
       label: 'Invoices',
-      value: invoicesCount > 0 ? `${invoicesCount} invoice records` : 'No invoices yet',
+      value: invoicesCount > 0 ? `${invoicesCount} invoices shown` : 'No invoices yet',
     },
   ]
 
@@ -80,7 +80,7 @@ function BillingCheckpoint({ hasSubscription, usageCount, invoicesCount }: Billi
       <div className="flex flex-col gap-1">
         <h2 className={uiStyles.sectionTitle}>Billing checkpoint</h2>
         <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-          Check the plan, usage, and invoices before changing billing settings.
+          Review the plan, usage, and invoices before you change a plan or payment method.
         </p>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
@@ -132,7 +132,9 @@ export function BillingPage() {
 
   const handleUpgrade = async () => {
     if (!plan) {
-      setActionError('A paid plan must be available before checkout can open.')
+      setActionError(
+        'Ask an owner or admin to make a paid plan available before opening the secure payment page.'
+      )
       return
     }
 
@@ -149,7 +151,9 @@ export function BillingPage() {
         window.location.href = url
         return
       }
-      setActionError('Checkout did not open. Try again or ask an owner or admin to check billing.')
+      setActionError(
+        'The secure payment page did not open. Try again or ask an owner or admin to check billing.'
+      )
     } finally {
       setBillingAction(null)
     }
@@ -165,7 +169,7 @@ export function BillingPage() {
         return
       }
       setActionError(
-        'Billing management did not open. Try again or ask an owner or admin to check access.'
+        'The billing management page did not open. Try again or ask an owner or admin to check access.'
       )
     } finally {
       setBillingAction(null)

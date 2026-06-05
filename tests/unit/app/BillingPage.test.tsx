@@ -89,7 +89,7 @@ describe('BillingPage', () => {
     expect(await screen.findByText('Billing setup path')).toBeDefined()
     expect(screen.getByText(/nothing can be charged/i)).toBeDefined()
     expect(screen.getByText(/turn on billing for this workspace/i)).toBeDefined()
-    expect(screen.getByText(/do not paste payment keys/i)).toBeDefined()
+    expect(screen.getByText(/do not paste secret payment settings/i)).toBeDefined()
     expect(screen.getByText(/after billing is turned on/i)).toBeDefined()
     expect(screen.queryByText(/deployment/i)).toBeNull()
     await waitFor(() => expect(loadAllMock).toHaveBeenCalled())
@@ -99,23 +99,26 @@ describe('BillingPage', () => {
     render(<BillingPage />)
 
     expect(await screen.findByText('Billing checkpoint')).toBeDefined()
-    expect(screen.getAllByText('No paid subscription yet').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('No paid plan yet').length).toBeGreaterThan(0)
     expect(screen.getByText(/no paid plan is attached yet/i)).toBeDefined()
+    expect(screen.getByText(/secure payment page can open/i)).toBeDefined()
     expect(screen.getByText(/ask an owner or admin/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /upgrade plan/i })).toBeDisabled()
-    expect(screen.getByText(/invoices appear after checkout/i)).toBeDefined()
+    expect(screen.getByText(/invoices appear after you start or change a plan/i)).toBeDefined()
+    expect(screen.queryByText(/checkout/i)).toBeNull()
+    expect(screen.queryByText(/billing portal/i)).toBeNull()
   })
 
-  test('opens the billing portal from an active subscription', async () => {
+  test('opens the billing management page from an active subscription', async () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
     openPortalMock.mockResolvedValue('https://billing.example.test/portal')
     setBillingState({ plan, subscription, usage, invoices })
 
     render(<BillingPage />)
 
-    expect(await screen.findByText('Subscription is active or managed')).toBeDefined()
-    expect(screen.getByText('1 usage areas visible')).toBeDefined()
-    expect(screen.getByText('1 invoice records')).toBeDefined()
+    expect(await screen.findByText('Paid plan is active')).toBeDefined()
+    expect(screen.getByText('1 usage areas shown')).toBeDefined()
+    expect(screen.getByText('1 invoices shown')).toBeDefined()
 
     fireEvent.click(screen.getByRole('button', { name: /manage billing/i }))
 

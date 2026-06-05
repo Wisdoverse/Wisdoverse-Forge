@@ -67,6 +67,7 @@ describe('Billing beginner guidance', () => {
     expect(screen.getByText('$29')).toBeInTheDocument()
     expect(screen.getByText('Payment due')).toBeInTheDocument()
     expect(screen.getByText(/Update your payment method to keep the plan active/i)).toBeDefined()
+    expect(screen.getByText(/billing management page/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /manage billing/i })).toHaveTextContent(
       'Manage billing'
     )
@@ -125,7 +126,8 @@ describe('Billing beginner guidance', () => {
 
     render(<InvoiceList invoices={invoices} />)
 
-    expect(screen.getByText(/Invoices appear after checkout/i)).toBeInTheDocument()
+    expect(screen.getByText(/Invoices appear after you start or change a plan/i)).toBeInTheDocument()
+    expect(screen.queryByText(/billing portal/i)).not.toBeInTheDocument()
     expect(screen.getByText('Paid')).toBeInTheDocument()
     expect(screen.getByText('No action needed.')).toBeInTheDocument()
     expect(screen.getByText('Payment due')).toBeInTheDocument()
@@ -145,6 +147,7 @@ describe('Billing beginner guidance', () => {
 
     expect(screen.getByText('No invoices have been created yet')).toBeInTheDocument()
     expect(screen.getByText(/Receipts and payment links/i)).toBeInTheDocument()
+    expect(screen.getByText(/start or change a plan/i)).toBeInTheDocument()
 
     rerender(
       <InvoiceList

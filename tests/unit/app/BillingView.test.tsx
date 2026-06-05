@@ -41,6 +41,7 @@ describe('Billing views', () => {
     expect(screen.getByText('Invoices and receipts')).toBeDefined()
     expect(screen.getByText('No invoices have been created yet')).toBeDefined()
     expect(screen.getByText(/Receipts and payment links/i)).toBeDefined()
+    expect(screen.getByText(/start or change a plan/i)).toBeDefined()
   })
 
   test('uses payment-focused invoice labels', () => {
