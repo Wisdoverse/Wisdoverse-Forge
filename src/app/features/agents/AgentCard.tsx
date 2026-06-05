@@ -30,6 +30,31 @@ function providerInitial(provider: string): string {
   return provider.charAt(0).toUpperCase()
 }
 
+function agentToolLabel(tool?: AgentInfo['cliTool']): string {
+  switch (tool) {
+    case 'claude':
+      return 'Claude'
+    case 'codex':
+      return 'Codex'
+    case 'gemini':
+      return 'Gemini'
+    case 'opencode':
+      return 'OpenCode'
+    default:
+      return 'Work tool'
+  }
+}
+
+function agentServiceLabel(agent: AgentInfo): string {
+  if (agent.cliTool) return agentToolLabel(agent.cliTool)
+  return `${agent.provider} model service`
+}
+
+function agentInitial(agent: AgentInfo): string {
+  if (agent.cliTool) return agentToolLabel(agent.cliTool).charAt(0)
+  return providerInitial(agent.provider)
+}
+
 function defaultGradient(provider: string): string {
   return (
     PROVIDER_GRADIENTS[provider] ??
@@ -50,7 +75,8 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
     : agent.cliTool
       ? 'Managed workspace'
       : 'Text-only model'
-  const projectLabel = agent.projectName ?? agent.workspaceName ?? 'No project selected'
+  const projectLabel = agent.projectName ?? agent.workspaceName ?? 'Choose a starting project'
+  const serviceLabel = agentServiceLabel(agent)
 
   return (
     <button
@@ -73,7 +99,7 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
         )}
         aria-hidden="true"
       >
-        {providerInitial(agent.provider)}
+        {agentInitial(agent)}
       </div>
 
       <div className="min-w-0 flex-1">
@@ -86,7 +112,7 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
 
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           <span className="truncate" translate="no">
-            {agent.provider} · {agent.model}
+            {serviceLabel}
           </span>
           <span className="hidden sm:inline" aria-hidden="true">
             ·

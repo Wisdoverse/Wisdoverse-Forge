@@ -33,6 +33,57 @@ describe('AgentCard', () => {
     expect(screen.getByText('Success')).toBeDefined()
   })
 
+  test('summarizes managed workspace agents without raw provider/model pairs', () => {
+    render(<AgentCard agent={mockAgent} />)
+
+    expect(screen.getByText('Codex')).toBeDefined()
+    expect(screen.getByText('Managed workspace')).toBeDefined()
+    expect(screen.getByText('Console')).toBeDefined()
+    expect(screen.queryByText('OpenAI · codex')).toBeNull()
+  })
+
+  test('labels agents joined from this computer in beginner language', () => {
+    render(
+      <AgentCard
+        agent={{
+          ...mockAgent,
+          id: 'local-agent',
+          cliTool: 'claude',
+          runtimeKind: 'cli',
+          runtimeId: 'host-1234',
+          provider: 'Anthropic',
+          model: 'claude',
+        }}
+      />
+    )
+
+    expect(screen.getByText('Claude')).toBeDefined()
+    expect(screen.getAllByText('This computer').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Anthropic · claude')).toBeNull()
+  })
+
+  test('labels text-only model agents by service and work type', () => {
+    render(
+      <AgentCard
+        agent={{
+          ...mockAgent,
+          id: 'provider-agent',
+          cliTool: undefined,
+          runtimeKind: 'api',
+          provider: 'OpenAI',
+          model: 'gpt-4o-mini',
+          projectName: undefined,
+          workspaceName: undefined,
+        }}
+      />
+    )
+
+    expect(screen.getByText('OpenAI model service')).toBeDefined()
+    expect(screen.getByText('Text-only model')).toBeDefined()
+    expect(screen.getByText('Choose a starting project')).toBeDefined()
+    expect(screen.queryByText('OpenAI · gpt-4o-mini')).toBeNull()
+  })
+
   test('warns before assigning work to an offline agent', () => {
     render(<AgentCard agent={{ ...mockAgent, status: 'offline' }} />)
 
