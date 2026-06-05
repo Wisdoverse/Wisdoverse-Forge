@@ -387,7 +387,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
       detail: hostCli
         ? 'Use Tasks to send a small, low-risk task. The command window stays on the enrolled machine while Forge tracks results.'
         : 'Use Tasks to send a small, low-risk task. Leave it unassigned if any ready agent can pick it up.',
-      success: 'A task appears as Queued or Working for this agent.',
+      success: 'A task appears as Waiting to start or Working for this agent.',
       ready: true,
       targetTab: 'tasks',
       actionLabel: 'Open Tasks',

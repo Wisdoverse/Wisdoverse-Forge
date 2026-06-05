@@ -13,7 +13,7 @@ const COLUMN_CONFIG: Record<string, { label: string; dot: string; surface: strin
     surface: 'bg-white/70 dark:bg-white/[0.03]',
   },
   queued: {
-    label: 'Queued',
+    label: 'Waiting to start',
     dot: 'bg-apple-blue',
     surface: 'bg-apple-blue/[0.035] dark:bg-apple-blue/[0.06]',
   },
@@ -50,8 +50,8 @@ const COLUMN_EMPTY_STATE: Record<string, { title: string; detail: string }> = {
     detail: 'Use quick add below to write the first clear task brief.',
   },
   queued: {
-    title: 'Nothing queued',
-    detail: 'Assigned tasks wait here until an agent starts them.',
+    title: 'Nothing waiting to start',
+    detail: 'Assigned tasks wait here until the next ready agent starts them.',
   },
   working: {
     title: 'No active runs',
@@ -132,7 +132,7 @@ export function KanbanColumn({
         ))}
         {tasks.length === 0 && <ColumnEmptyState columnId={columnId} label={config.label} />}
       </div>
-      {/* Quick-add only on backlog. Other columns reflect dispatcher state and
+      {/* Quick-add only on backlog. Other columns reflect task state and
           can't accept manual inserts — promote a backlog task by dragging instead. */}
       {columnId === 'backlog' && (
         <QuickCreate columnId={columnId} onSubmit={(title, col) => onQuickCreate?.(title, col)} />

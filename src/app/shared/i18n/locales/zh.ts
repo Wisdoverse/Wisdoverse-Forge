@@ -160,7 +160,7 @@ export const zh: TranslationKeys = {
         emptyWithoutRouting: '先创建工作通道，再创建第一个任务。',
         ready: '看板上已有 {{count}} 个任务。',
         why: '先用一个小任务验证流程，避免一开始就把真实工作卡住。',
-        success: '看板上出现任务，并且任务已分配或进入队列。',
+        success: '看板上出现任务，并且任务已分配或正在等待开始。',
         create: '创建任务',
         open: '打开看板',
       },

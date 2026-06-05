@@ -31,12 +31,13 @@ describe('KanbanColumn', () => {
     expect(within(emptyState).getByText(/once an agent starts the task/i)).toBeDefined()
   })
 
-  test('explains queued tasks without dispatch language', () => {
+  test('explains waiting tasks without queue or dispatch language', () => {
     renderColumn('queued')
 
     const emptyState = screen.getByTestId('kanban-empty-queued')
-    expect(within(emptyState).getByText('Nothing queued')).toBeDefined()
-    expect(within(emptyState).getByText(/until an agent starts them/i)).toBeDefined()
+    expect(within(emptyState).getByText('Nothing waiting to start')).toBeDefined()
+    expect(within(emptyState).getByText(/next ready agent starts them/i)).toBeDefined()
+    expect(emptyState.textContent).not.toMatch(/queue|queued/i)
     expect(emptyState.textContent).not.toContain('dispatch')
   })
 })

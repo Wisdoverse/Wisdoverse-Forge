@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 
 const TIMELINE_STEPS = [
   'Start a task from the board',
-  'Watch queued, working, blocked, and completed updates',
+  'Watch tasks move through waiting, working, blocked, and completed steps',
   'Open a task when the timeline shows something that needs attention',
 ]
 

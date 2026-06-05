@@ -56,7 +56,7 @@ describe('BoardView', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Backlog').length).toBeGreaterThan(0)
     })
-    expect(screen.getByText('Queued')).toBeDefined()
+    expect(screen.getByText('Waiting to start')).toBeDefined()
     expect(screen.getByText('Working')).toBeDefined()
     expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
     expect(screen.getByText('Done')).toBeDefined()

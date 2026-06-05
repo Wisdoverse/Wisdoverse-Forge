@@ -109,6 +109,8 @@ describe('AgentGroupsPanel', () => {
       within(screen.getByTestId('routing-metric-completed')).getByText('1')
     ).toBeInTheDocument()
     expect(screen.getByText('Auth handoff blocked')).toBeInTheDocument()
+    expect(screen.getByText('Waiting to start')).toBeInTheDocument()
+    expect(screen.queryByText('Queued')).not.toBeInTheDocument()
     expect(
       screen.getByText(/needs agent .* choose an agent before sending it/i)
     ).toBeInTheDocument()
@@ -128,16 +130,16 @@ describe('AgentGroupsPanel', () => {
       makeTask({
         id: 'queued-1',
         state: 'queued',
-        params: { task: 'Queue deployment', message: '' },
+        params: { task: 'Deploy settings', message: '' },
         assignedTo: 'agent-1',
       }),
     ])
 
     render(<AgentGroupsPanel />)
 
-    expect(screen.getByText('Queue deployment')).toBeInTheDocument()
+    expect(screen.getByText('Deploy settings')).toBeInTheDocument()
     expect(
-      screen.getByText(/assigned agent .* waiting for an agent to pick it up/i)
+      screen.getByText(/assigned agent .* waiting for the next ready agent to start it/i)
     ).toBeInTheDocument()
     expect(screen.queryByText(/unassigned/i)).toBeNull()
   })

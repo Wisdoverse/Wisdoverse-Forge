@@ -160,7 +160,7 @@ export const en = {
         emptyWithoutRouting: 'Create a work lane before the first task.',
         ready: '{{count}} task on the board.',
         why: 'A small first task proves the setup works before you depend on it for real work.',
-        success: 'A task appears on the board and is assigned or queued.',
+        success: 'A task appears on the board and is assigned or waiting to start.',
         create: 'Create task',
         open: 'Open board',
       },

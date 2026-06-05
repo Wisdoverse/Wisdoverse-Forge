@@ -25,7 +25,7 @@ const DEFAULT_GROUP_DESCRIPTION = 'This work lane lets agents receive board task
 
 const TASK_STATE_LABELS: Record<TaskSummary['state'], string> = {
   backlog: 'Backlog',
-  queued: 'Queued',
+  queued: 'Waiting to start',
   working: 'Working',
   blocked: 'Blocked',
   completed: 'Done',
@@ -581,7 +581,7 @@ function routedTaskNextStep(task: TaskSummary): string {
         ? 'Ready to send'
         : 'Choose an agent before sending it'
     case 'queued':
-      return 'Waiting for an agent to pick it up'
+      return 'Waiting for the next ready agent to start it'
     case 'working':
       return 'Watch live progress'
     case 'blocked':
