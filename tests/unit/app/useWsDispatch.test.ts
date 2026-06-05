@@ -388,6 +388,42 @@ describe('dispatchWsMessage', () => {
     expect(notifications[0].message).toContain('Patch merged')
   })
 
+  it('hides raw completed task stdout in owner notifications', () => {
+    localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
+
+    dispatchWsMessage({
+      type: 'orchestration:task_update',
+      payload: {
+        task: {
+          id: 'task-owner-stdout',
+          groupId: 'g1',
+          state: 'completed',
+          method: 'code',
+          params: { task: 'Generate report', message: '' },
+          createdBy: 'user-owner',
+          assignedAgentName: 'Codex',
+          result: {
+            stdout: 'panic: stack trace line 7\nsecret token abc\nraw command output',
+          },
+          priority: 'normal',
+          progress: 100,
+          createdAt: '2026-04-03T00:00:00Z',
+          updatedAt: '2026-04-03T00:01:00Z',
+        },
+      },
+    })
+
+    const notifications = useFeedStore.getState().notifications
+    expect(notifications).toHaveLength(1)
+    expect(notifications[0].message).toContain(
+      'Finished with a text result. Open details to review it.'
+    )
+    expect(notifications[0].message).not.toContain('panic')
+    expect(notifications[0].message).not.toContain('stack trace')
+    expect(notifications[0].message).not.toContain('secret token')
+    expect(notifications[0].message).not.toContain('raw command output')
+  })
+
   it('notifies the credential owner when a tool account expires', () => {
     localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
 

@@ -420,7 +420,7 @@ function completionSummary(task: TaskSummary): string {
   }
   if (typeof result.message === 'string' && result.message.trim()) return result.message
   if (typeof result.stdout === 'string' && result.stdout.trim()) {
-    return result.stdout.trim().split('\n')[0]?.slice(0, 140) || 'Completed'
+    return 'Finished with a text result. Open details to review it.'
   }
   return 'Completed'
 }
