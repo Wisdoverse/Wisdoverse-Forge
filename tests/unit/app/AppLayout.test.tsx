@@ -155,6 +155,27 @@ describe('AppLayout', () => {
     expect(screen.queryByText(/providers/i)).toBeNull()
   })
 
+  test('uses beginner-facing reusable knowledge page metadata', () => {
+    routerState.path = '/context'
+
+    render(<MemoryRouter />)
+
+    expect(screen.getByText('Reusable knowledge')).toBeDefined()
+    expect(screen.getByText('Review what agents can save and reuse')).toBeDefined()
+    expect(screen.queryByText(/approval queue/i)).toBeNull()
+    expect(screen.queryByText(/governed context/i)).toBeNull()
+  })
+
+  test('uses plain review history metadata for context exports', () => {
+    routerState.path = '/context/audit'
+
+    render(<MemoryRouter />)
+
+    expect(screen.getByText('Review history')).toBeDefined()
+    expect(screen.getByText('See past reuse decisions and exports')).toBeDefined()
+    expect(screen.queryByText(/governance event/i)).toBeNull()
+  })
+
   test('does not expose work lane creation from the Tasks top bar', async () => {
     seedProjectNavigation('p1')
     useNavigationStore.setState({ agentGroups: [] })
