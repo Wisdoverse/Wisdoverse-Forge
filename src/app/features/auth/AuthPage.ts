@@ -9,6 +9,50 @@ import { iconSuccess } from '@app/shared/ui/icons'
 type AuthTab = 'login' | 'register'
 type AuthRecoveryAction = 'resend-verification' | 'forgot-password' | 'reset-password'
 
+function authSignInErrorMessage(error: unknown): string {
+  const detail =
+    error instanceof Error ? error.message.trim() : typeof error === 'string' ? error.trim() : ''
+  const lowerDetail = detail.toLowerCase()
+  const networkFailed =
+    error instanceof TypeError ||
+    /^failed to fetch$/i.test(detail) ||
+    lowerDetail.includes('network') ||
+    lowerDetail.includes('load failed')
+
+  if (networkFailed) {
+    return 'Sign-in could not finish because the app could not reach the service. Check your connection, then try again.'
+  }
+  if (lowerDetail.includes('access_denied') || lowerDetail.includes('cancel')) {
+    return 'Sign-in was cancelled. Choose a sign-in option and try again.'
+  }
+  if (
+    lowerDetail.includes('invalid_grant') ||
+    lowerDetail.includes('invalid_request') ||
+    lowerDetail.includes('expired') ||
+    lowerDetail.includes('auth code') ||
+    lowerDetail.includes('state mismatch') ||
+    lowerDetail.includes('token')
+  ) {
+    return 'This sign-in link expired or could not be verified. Start sign-in again from this page.'
+  }
+  if (
+    lowerDetail.includes('unauthorized') ||
+    lowerDetail.includes('forbidden') ||
+    lowerDetail.includes('permission')
+  ) {
+    return 'This account is not allowed to sign in here. Ask an owner or admin to check your access.'
+  }
+  if (
+    lowerDetail.includes('provider') ||
+    lowerDetail.includes('client') ||
+    lowerDetail.includes('not configured')
+  ) {
+    return 'Sign-in provider is not ready. Ask an owner or admin to check sign-in setup.'
+  }
+
+  return 'Sign-in could not finish. Choose a sign-in option and try again. If it still fails, ask an owner or admin to check sign-in setup.'
+}
+
 function authRecoveryErrorMessage(action: AuthRecoveryAction, error: unknown): string {
   const detail = error instanceof Error ? error.message.trim() : ''
   const lowerDetail = detail.toLowerCase()
@@ -85,6 +129,7 @@ export class AuthPage {
 
     // Handle URL parameters first
     const urlParams = new URLSearchParams(window.location.search)
+    let signInError: unknown | null = null
 
     // Handle reset token
     const resetToken = this.initialResetToken ?? urlParams.get('reset_token')
@@ -113,6 +158,7 @@ export class AuthPage {
       } catch (error) {
         // Show error, fall through to login page
         console.error('SSO exchange failed:', error)
+        signInError = error
       }
     }
 
@@ -137,7 +183,10 @@ export class AuthPage {
     const authError = urlParams.get('auth_error')
     if (authError) {
       window.history.replaceState({}, '', window.location.pathname)
-      this.setError(decodeURIComponent(authError))
+      signInError = authError
+    }
+    if (signInError) {
+      this.setError(authSignInErrorMessage(signInError))
     }
 
     // Auto-focus first input

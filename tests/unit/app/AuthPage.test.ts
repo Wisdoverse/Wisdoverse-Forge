@@ -77,6 +77,39 @@ describe('AuthPage beginner guidance', () => {
     )
   })
 
+  test('turns sign-in URL errors into beginner recovery guidance', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/login?auth_error=invalid_grant%3A%20oauth%20token%20expired'
+    )
+    const page = new AuthPage(createAuthManager())
+
+    await page.show()
+
+    expect(bodyText()).toContain(
+      'This sign-in link expired or could not be verified. Start sign-in again from this page.'
+    )
+    expect(bodyText()).not.toContain('invalid_grant')
+    expect(bodyText()).not.toContain('oauth token expired')
+    expect(window.location.search).toBe('')
+  })
+
+  test('shows a recovery step when provider sign-in callback fails', async () => {
+    window.history.replaceState({}, '', '/login?auth_code=callback-code')
+    const exchangeAuthCode = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
+    const page = new AuthPage(createAuthManager({ exchangeAuthCode }))
+
+    await page.show()
+
+    expect(exchangeAuthCode).toHaveBeenCalledWith('callback-code')
+    expect(bodyText()).toContain(
+      'Sign-in could not finish because the app could not reach the service. Check your connection, then try again.'
+    )
+    expect(bodyText()).not.toContain('Failed to fetch')
+    expect(window.location.search).toBe('')
+  })
+
   test('guides password recovery without exposing account existence', async () => {
     const page = new AuthPage(createAuthManager())
 
