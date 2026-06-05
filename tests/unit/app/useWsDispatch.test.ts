@@ -222,8 +222,11 @@ describe('dispatchWsMessage', () => {
       read: false,
     })
     expect(notifications[0].message).toContain('failed')
-    expect(notifications[0].message).toContain('401 Unauthorized')
+    expect(notifications[0].message).toContain(
+      'Stopped because sign-in or service access needs attention.'
+    )
     expect(notifications[0].message).toContain('failed to complete this task')
+    expect(notifications[0].message).not.toContain('401 Unauthorized')
   })
 
   it('notifies for legacy error task updates with snake_case owner fields', () => {
@@ -258,7 +261,10 @@ describe('dispatchWsMessage', () => {
       taskId: 'task-owner-error',
       ownerUserId: 'user-owner',
     })
-    expect(notifications[0].message).toContain('migration exited non-zero')
+    expect(notifications[0].message).toContain(
+      'Stopped before finishing. Open details to see what happened and retry.'
+    )
+    expect(notifications[0].message).not.toContain('migration exited non-zero')
   })
 
   it('does not notify non-owners and does not duplicate repeated completed events', () => {

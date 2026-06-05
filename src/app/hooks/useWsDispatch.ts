@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import type { TaskSummary } from '@app/shared/api/orchestration'
+import { taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { useAdminStore } from '@app/shared/model/admin.store'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useFeedStore } from '@app/shared/model/feed.store'
@@ -217,7 +218,7 @@ function notifyTaskOwner(task: TaskSummary) {
     notificationType === 'blocked'
       ? (task.blockedHint ?? task.blockedReason ?? task.error ?? 'No unblock reason was provided')
       : notificationType === 'failed'
-        ? (task.error ?? 'No failure reason was provided')
+        ? taskFailurePreview(task.error)
         : completionSummary(task)
 
   useFeedStore.getState().addNotification({
