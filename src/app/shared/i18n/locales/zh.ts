@@ -222,7 +222,7 @@ export const zh: TranslationKeys = {
     createAccount: '创建账户',
     fillAllFields: '请填写所有字段',
     fillRequiredFields: '请填写所有必填字段',
-    networkError: '浏览器暂时连不上服务器。请检查网络后重试。',
+    networkError: 'Forge 登录时暂时连不上。请检查网络后重试。',
   },
 
   // =========================================================================
@@ -490,13 +490,13 @@ export const zh: TranslationKeys = {
   // =========================================================================
   errors: {
     generic: '出现了问题。请重试；如果反复发生，请让管理员检查系统。',
-    network: '浏览器暂时连不上服务器。请检查网络后重试。',
+    network: 'Forge 暂时连不上。请检查网络后重试。',
     timeout: '请求超时，请重试',
     notFound: '未找到 {{resource}}。请刷新页面后重试。',
     unauthorized: '请重新登录，然后再试一次。',
     forbidden: '你当前没有权限执行这个操作。请让所有者或管理员更新你的角色。',
     validation: '请检查高亮字段，然后重试。',
-    serverError: '服务器处理时出现问题。请稍等片刻后重试。',
+    serverError: 'Forge 暂时无法完成这个操作。请稍等片刻后重试。',
     connectionLost: '连接断开，正在重连...',
     reconnecting: '重新连接中...',
     reconnected: '连接已恢复',

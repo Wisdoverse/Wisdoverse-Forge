@@ -6,6 +6,10 @@ describe('beginner error translations', () => {
   test('English common errors lead with recovery steps', () => {
     expect(en.errors.network).toContain('Check your connection')
     expect(en.errors.serverError).toContain('try again')
+    expect(en.auth.networkError).toContain('signing in')
+    expect(en.auth.networkError).not.toContain('service')
+    expect(en.errors.network).not.toContain('service')
+    expect(en.errors.serverError).not.toContain('service')
     expect(en.errors.forbidden).toContain('Ask an owner or admin')
     expect(en.errors.agentError).toContain('check the agent status')
     expect(en.errors.agentError).not.toMatch(/^Agent error:/)
@@ -19,6 +23,10 @@ describe('beginner error translations', () => {
   test('Chinese common errors avoid terse technical labels', () => {
     expect(zh.errors.network).toContain('检查网络')
     expect(zh.errors.serverError).toContain('稍等片刻')
+    expect(zh.auth.networkError).toContain('登录')
+    expect(zh.auth.networkError).not.toContain('服务器')
+    expect(zh.errors.network).not.toContain('服务器')
+    expect(zh.errors.serverError).not.toContain('服务器')
     expect(zh.errors.forbidden).toContain('管理员')
     expect(zh.errors.agentError).toContain('检查 Agent 状态')
     expect(zh.errors.agentError).not.toMatch(/^Agent 错误/)

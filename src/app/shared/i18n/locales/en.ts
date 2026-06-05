@@ -222,7 +222,8 @@ export const en = {
     createAccount: 'Create Account',
     fillAllFields: 'Please fill in all fields',
     fillRequiredFields: 'Please fill in all required fields',
-    networkError: 'The app could not reach the service. Check your connection, then try again.',
+    networkError:
+      'Forge could not connect while signing in. Check your connection, then try again.',
   },
 
   // =========================================================================
@@ -494,13 +495,13 @@ export const en = {
   errors: {
     generic:
       'Something went wrong. Try again, then ask an owner to check the system if it repeats.',
-    network: 'The app could not reach the service. Check your connection, then try again.',
+    network: 'Forge could not connect. Check your connection, then try again.',
     timeout: 'Request timed out. Please try again.',
     notFound: '{{resource}} was not found. Refresh the page, then try again.',
     unauthorized: 'Sign in again, then retry this action.',
     forbidden: 'You do not have access for this action. Ask an owner or admin to update your role.',
     validation: 'Check the highlighted fields, then try again.',
-    serverError: 'The service had a problem. Wait a moment, then try again.',
+    serverError: 'Forge could not finish this right now. Wait a moment, then try again.',
     connectionLost: 'Connection lost. Reconnecting...',
     reconnecting: 'Reconnecting...',
     reconnected: 'Connection restored',
