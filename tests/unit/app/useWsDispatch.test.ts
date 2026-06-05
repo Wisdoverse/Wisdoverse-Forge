@@ -316,13 +316,14 @@ describe('dispatchWsMessage', () => {
       id: 'credential-owner:user-owner:codex:expired:evt-credential-1',
       type: 'credential_expired',
       taskId: 'credential:codex',
-      taskTitle: 'Codex credential expired',
+      taskTitle: 'Codex account needs reconnecting',
       ownerUserId: 'user-owner',
       taskHref: '/settings',
       read: false,
     })
     expect(notifications[0].message).toContain('Reconnect the Codex account in Settings')
     expect(notifications[0].message).toContain('managed workspace agents')
+    expect(notifications[0].taskTitle).not.toContain('credential expired')
   })
 
   it('does not notify other users for credential status updates', () => {
@@ -372,7 +373,7 @@ describe('dispatchWsMessage', () => {
     expect(notifications[0].message).toContain('latest tool package')
   })
 
-  it('toasts a failed CLI tool package check with the reported error', () => {
+  it('toasts a failed CLI tool package check with a beginner recovery step', () => {
     dispatchWsMessage({
       type: 'cli_image.updated',
       payload: {
@@ -390,7 +391,9 @@ describe('dispatchWsMessage', () => {
     expect(notifications).toHaveLength(1)
     expect(notifications[0].type).toBe('cli_image_updated')
     expect(notifications[0].taskTitle).toContain('tool package check failed')
-    expect(notifications[0].message).toContain('registry timeout')
+    expect(notifications[0].message).toContain('Open Admin and choose Check now')
+    expect(notifications[0].message).toContain('tool package access')
+    expect(notifications[0].message).not.toContain('registry timeout')
   })
 
   it('live-patches an open CLI images panel from the toast', () => {
@@ -578,7 +581,8 @@ describe('dispatchWsMessage', () => {
     expect(notifications).toHaveLength(2)
     const fresh = notifications.find((n) => n.id === 'cli-image:gemini:failed:bbb')
     expect(fresh?.read).toBe(false)
-    expect(fresh?.message).toContain('auth revoked')
+    expect(fresh?.message).toContain('Open Admin and choose Check now')
+    expect(fresh?.message).not.toContain('auth revoked')
   })
 
   it('ignores a cli_image toast for a panel that has not loaded', () => {

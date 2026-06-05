@@ -279,7 +279,7 @@ function notifyCredentialOwner(payload: Record<string, unknown> | null) {
     id: `credential-owner:${ownerId}:${cliTool}:expired:${eventKey}`,
     type: 'credential_expired',
     taskId: `credential:${cliTool}`,
-    taskTitle: `${displayName} credential expired`,
+    taskTitle: `${displayName} account needs reconnecting`,
     message: `Reconnect the ${displayName} account in Settings before starting new managed workspace agents.`,
     taskHref: '/settings',
     ownerUserId: ownerId,
@@ -313,6 +313,7 @@ function handleCliImageUpdate(payload: Record<string, unknown> | null) {
   })
 
   const display = displayCliTool(tool)
+  const failureMessage = `The ${display} tool package check failed. Open Admin and choose Check now after a few minutes, or ask an owner to check tool package access. New agents keep the current tool package until it succeeds.`
   useFeedStore.getState().addNotification({
     id: eventId,
     type: 'cli_image_updated',
@@ -324,7 +325,7 @@ function handleCliImageUpdate(payload: Record<string, unknown> | null) {
     message:
       state === 'updated'
         ? `New ${display} agents will start on the latest tool package. Running agents are unaffected.`
-        : `The ${display} tool package check failed${lastError ? `: ${lastError}` : ''}. New agents keep the current tool package until it succeeds.`,
+        : failureMessage,
     taskHref: '/admin',
     read: false,
     timestamp: unix * 1000,
