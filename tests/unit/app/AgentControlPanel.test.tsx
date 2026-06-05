@@ -82,6 +82,15 @@ describe('AgentControlPanel', () => {
     expect(screen.getByRole('alert')).not.toHaveTextContent(/agent service/i)
   })
 
+  test('keeps generic recovery steps aligned with Ready status wording', () => {
+    useAgentsStore.setState({ error: 'Unexpected control result' } as never)
+
+    render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/wait for Ready or Working/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/wait for Idle/i)
+  })
+
   test('explains quick messages and sends trimmed text', async () => {
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 

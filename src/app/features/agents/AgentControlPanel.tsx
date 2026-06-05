@@ -400,7 +400,7 @@ function agentControlErrorMessage(error: string): string {
     return 'Forge could not update this agent right now. Refresh this agent and try again. If it keeps failing, ask an owner or admin to check Agent Work Setup.'
   }
 
-  return 'Refresh this agent and confirm the latest status before trying once more. For Start or Restart, wait for Idle or Working. If it keeps failing, ask an owner or admin to check what you can do and Agent Work Setup.'
+  return 'Refresh this agent and confirm the latest status before trying once more. For Start or Restart, wait for Ready or Working. If it keeps failing, ask an owner or admin to check what you can do and Agent Work Setup.'
 }
 
 interface ConfirmActionProps {
