@@ -50,7 +50,7 @@ describe('ContextCandidatesList', () => {
     expect(screen.getByText('Suggested memory')).toBeInTheDocument()
     expect(screen.getByText('Waiting for review')).toBeInTheDocument()
     expect(
-      screen.getByText(/check the wording in Context before saving it for future tasks/i)
+      screen.getByText(/review the wording in Context before saving it for future tasks/i)
     ).toBeInTheDocument()
     expect(screen.getByText('Suggested from this task run')).toBeInTheDocument()
   })
@@ -58,7 +58,7 @@ describe('ContextCandidatesList', () => {
   test('explains skill candidates as drafts that agents cannot use yet', () => {
     render(
       <ContextCandidatesList
-        title="Skill candidates"
+        title="Suggested skills to review"
         kind="skill"
         candidates={[
           candidate({
@@ -74,9 +74,9 @@ describe('ContextCandidatesList', () => {
       />
     )
 
-    expect(screen.getByText('Skill candidates')).toBeInTheDocument()
+    expect(screen.getByText('Suggested skills to review')).toBeInTheDocument()
     expect(
-      screen.getByText(/Review them before agents can reuse the workflow/i)
+      screen.getByText(/draft skills.*before agents can reuse the workflow/i)
     ).toBeInTheDocument()
     expect(screen.getByText('Release operator')).toBeInTheDocument()
     expect(screen.getByText('Draft skill')).toBeInTheDocument()

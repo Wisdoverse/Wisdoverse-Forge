@@ -81,7 +81,7 @@ describe('ContextTab', () => {
     )
 
     expect(await screen.findByText(/sign in again/i)).toBeDefined()
-    expect(screen.getByText(/code: 401/i)).toBeDefined()
+    expect(screen.queryByText(/code: 401/i)).toBeNull()
     expect(screen.queryByText(/401 unauthorized/i)).toBeNull()
   })
 
@@ -208,6 +208,9 @@ describe('ContextTab', () => {
     )
 
     expect(await screen.findByTestId('context-tab')).toBeDefined()
+    expect(screen.getByText('Agent work checked for context')).toBeDefined()
+    expect(screen.getByText('Work run 1')).toBeDefined()
+    expect(screen.getByText('Finished')).toBeDefined()
     expect(screen.getByText('Applied memories')).toBeDefined()
     expect(screen.getAllByText(/added to the agent's working context/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Prod deploy memory').length).toBeGreaterThan(0)
@@ -216,11 +219,17 @@ describe('ContextTab', () => {
     expect(screen.getByText('Release checklist')).toBeDefined()
     expect(screen.getByText('Suggested memory updates')).toBeDefined()
     expect(screen.getByText('New release memory')).toBeDefined()
-    expect(screen.getByText('Skill candidates')).toBeDefined()
+    expect(screen.getByText('Suggested skills to review')).toBeDefined()
     expect(screen.getByText('Release operator')).toBeDefined()
     expect(screen.getByTestId('context-evidence')).toBeDefined()
     expect(screen.getByText(/No longer used for future work/)).toBeDefined()
     expect(screen.getByTestId('context-provenance')).toBeDefined()
+    expect(screen.getByText('Where saved context came from')).toBeDefined()
+    expect(
+      screen.getByText(/came from Prod deploy memory and was used during this agent run/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/via claude/i)).toBeNull()
+    expect(screen.queryByText(/envelope/i)).toBeNull()
   })
 
   test('loads full memory content only after Show more is clicked', async () => {

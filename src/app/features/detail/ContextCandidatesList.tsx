@@ -64,8 +64,8 @@ export function ContextCandidatesList({ title, kind, candidates }: ContextCandid
 
 function sectionDescription(kind: ContextCandidateKind): string {
   return kind === 'skill'
-    ? 'Draft skills are suggestions only. Review them before agents can reuse the workflow.'
-    : 'Suggested memories are not saved for future work until someone reviews them.'
+    ? 'These are draft skills. Review them before agents can reuse the workflow.'
+    : 'These notes are not saved for future work until someone reviews them.'
 }
 
 function candidateTitle(candidate: TaskContextCandidate): string {
@@ -98,5 +98,5 @@ function candidateStateLabel(state: TaskContextCandidate['state']): string {
 function candidateNextStep(candidate: TaskContextCandidate): string {
   return candidate.itemKind === 'skill'
     ? 'Next step: review the draft in Context before agents can use it.'
-    : 'Next step: check the wording in Context before saving it for future tasks.'
+    : 'Next step: review the wording in Context before saving it for future tasks.'
 }

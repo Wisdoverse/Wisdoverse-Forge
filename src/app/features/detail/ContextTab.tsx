@@ -105,7 +105,9 @@ export function ContextTab({
   if (loading) {
     return (
       <div className="py-8 flex items-center justify-center">
-        <p className="text-xs text-secondary-light dark:text-secondary-dark">Loading context...</p>
+        <p className="text-xs text-secondary-light dark:text-secondary-dark">
+          Loading saved context...
+        </p>
       </div>
     )
   }
@@ -130,21 +132,23 @@ export function ContextTab({
         <section className="rounded-lg bg-apple-gray-6/70 dark:bg-white/[0.035] p-3">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
-              Runs
+              Agent work checked for context
             </h3>
             <span className="text-[10px] text-secondary-light dark:text-secondary-dark">
-              {context.runs.length} run{context.runs.length === 1 ? '' : 's'}
+              {context.runs.length} record{context.runs.length === 1 ? '' : 's'}
             </span>
           </div>
           <div className="mt-2 space-y-1.5">
-            {context.runs.map((run) => (
+            {context.runs.map((run, index) => (
               <div
                 key={run.id}
                 className="flex items-center justify-between gap-2 text-[10px] text-secondary-light dark:text-secondary-dark"
               >
-                <span className="font-mono">{run.id.slice(0, 8)}</span>
-                <span>{run.status}</span>
-                <span>{formatRelativeTime(run.startedAt)}</span>
+                <span className="font-medium text-foreground-light dark:text-foreground-dark">
+                  Work run {index + 1}
+                </span>
+                <span>{runStatusLabel(run.status)}</span>
+                <span>Started {formatRelativeTime(run.startedAt)}</span>
               </div>
             ))}
           </div>
@@ -171,7 +175,7 @@ export function ContextTab({
         onRecordFeedback={(item, label) => recordFeedback(item, label)}
       />
       <ContextCandidatesList
-        title="Skill candidates"
+        title="Suggested skills to review"
         kind="skill"
         candidates={context.skillCandidates}
       />
@@ -179,7 +183,7 @@ export function ContextTab({
       {context.provenance.length > 0 && (
         <section className="space-y-2" data-testid="context-provenance">
           <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
-            Provenance
+            Where saved context came from
           </h3>
           <div className="space-y-1.5">
             {context.provenance.map((item) => (
@@ -190,8 +194,7 @@ export function ContextTab({
                 <span className="font-medium text-foreground-light dark:text-foreground-dark">
                   {item.title}
                 </span>{' '}
-                via {item.adapter} {item.envelopeVersion} from{' '}
-                {item.source?.title ?? item.source?.sourceType ?? 'context resolver'}.
+                came from {contextSourceLabel(item.source)} and was used during this agent run.
               </div>
             ))}
           </div>
@@ -199,6 +202,31 @@ export function ContextTab({
       )}
     </div>
   )
+}
+
+function runStatusLabel(status: string): string {
+  switch (status) {
+    case 'completed':
+      return 'Finished'
+    case 'running':
+    case 'working':
+      return 'In progress'
+    case 'failed':
+      return 'Needs review'
+    case 'canceled':
+    case 'cancelled':
+      return 'Stopped'
+    default:
+      return status
+        .split(/[_\s-]+/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ')
+  }
+}
+
+function contextSourceLabel(source: TaskContextResponse['provenance'][number]['source']): string {
+  return source?.title ?? 'the context selection step'
 }
 
 function ContextEmptyState() {
