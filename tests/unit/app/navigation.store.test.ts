@@ -64,10 +64,18 @@ describe('navigation.store', () => {
   })
 
   it('turns raw network failures into connection guidance', () => {
-    expectBeginnerError(
-      navigationActionErrorMessage('workLanes', 'load', new TypeError('Failed to fetch')),
-      'Navigation could not load work lanes because the app could not reach the service. Check your connection and refresh the page.'
+    const message = navigationActionErrorMessage(
+      'workLanes',
+      'load',
+      new TypeError('Failed to fetch')
     )
+
+    expectBeginnerError(
+      message,
+      'Navigation could not load work lanes. Forge could not connect while loading the sidebar. Check your connection, then refresh the page.'
+    )
+    expect(message).not.toContain('Failed to fetch')
+    expect(message).not.toContain('service')
   })
 
   it('loadOrgs fetches and stores orgs, auto-selects first', async () => {
@@ -269,8 +277,9 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'The workspace navigation service is temporarily unavailable. Refresh the sidebar, then try again. If it still fails, ask an owner or admin to check workspace navigation.'
+      'Forge could not load workspace navigation right now. Refresh the sidebar, then try again. If it still fails, ask an owner or admin to check workspace navigation.'
     )
+    expect(useNavigationStore.getState().error).not.toContain('temporarily unavailable')
     expect(useNavigationStore.getState().loading).toBe(false)
   })
 
@@ -292,8 +301,9 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'Navigation could not load work lanes because the app could not reach the service. Check your connection and refresh the page.'
+      'Navigation could not load work lanes. Forge could not connect while loading the sidebar. Check your connection, then refresh the page.'
     )
+    expect(useNavigationStore.getState().error).not.toContain('Failed to fetch')
   })
 
   it('stores field guidance when work lane creation is invalid', async () => {

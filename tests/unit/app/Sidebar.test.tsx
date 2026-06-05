@@ -353,6 +353,27 @@ describe('Sidebar', () => {
     expect(screen.queryByText(/Details:/i)).not.toBeInTheDocument()
   })
 
+  it('explains team rename connection failures without raw network text', async () => {
+    seedProjectTree()
+    vi.mocked(teamApi.updateTeam).mockRejectedValueOnce(new TypeError('Failed to fetch'))
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit team details/i }))
+    fireEvent.change(screen.getByLabelText(/team name people see/i), {
+      target: { value: 'Renamed Team' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(
+      await screen.findByText(
+        'Team name could not be saved. Forge could not connect while saving it. Check your connection, then save again.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Failed to fetch/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/could not reach the service/i)).not.toBeInTheDocument()
+  })
+
   it('guides team rename when the name is empty', async () => {
     seedProjectTree()
 
@@ -429,6 +450,30 @@ describe('Sidebar', () => {
     expect(screen.queryByText(/API 422/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Code:/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Details:/i)).not.toBeInTheDocument()
+  })
+
+  it('explains project rename server failures without temporary service language', async () => {
+    seedProjectTree()
+    vi.mocked(projectApi.updateProject).mockRejectedValueOnce(
+      new Error('API 500: {"message":"database unavailable"}')
+    )
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /rename project/i }))
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Renamed Project' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(
+      await screen.findByText(
+        'Forge could not save this project name right now. Refresh the sidebar, then save again. If it still fails, ask an owner or admin to check workspace setup.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/API 500/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/database unavailable/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/temporarily unavailable/i)).not.toBeInTheDocument()
   })
 
   it('guides project rename when the name is empty', async () => {

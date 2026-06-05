@@ -145,7 +145,7 @@ export function navigationActionErrorMessage(
     if (!isRawNavigationFailure(detail)) {
       return navigationValidationMessage(area, action, detail)
     }
-    return `Navigation could not ${actionPhrase} because the app could not reach the service. Check your connection and refresh the page.`
+    return `Navigation could not ${actionPhrase}. Forge could not connect while loading the sidebar. Check your connection, then refresh the page.`
   }
 
   if (status === 401) {
@@ -155,7 +155,7 @@ export function navigationActionErrorMessage(
     return `You do not have permission to ${actionPhrase}. Ask an owner or admin to update your workspace access.`
   }
   if (status === 404) {
-    return `Workspace navigation for ${NAVIGATION_AREA_LABELS[area]} is not available. Refresh after the workspace service is ready.`
+    return `Workspace navigation for ${NAVIGATION_AREA_LABELS[area]} is not ready yet. Refresh the sidebar, then try again.`
   }
   if (status === 409) {
     return 'The workspace navigation changed while you were working. Refresh the sidebar, review the current teams and projects, then try again.'
@@ -164,10 +164,10 @@ export function navigationActionErrorMessage(
     return navigationValidationMessage(area, action, detail)
   }
   if (status === 429) {
-    return `The workspace service is busy. Wait a moment, then try to ${actionPhrase} again.`
+    return `The sidebar is busy. Wait a moment, then try to ${actionPhrase} again.`
   }
   if (status >= 500) {
-    return 'The workspace navigation service is temporarily unavailable. Refresh the sidebar, then try again. If it still fails, ask an owner or admin to check workspace navigation.'
+    return 'Forge could not load workspace navigation right now. Refresh the sidebar, then try again. If it still fails, ask an owner or admin to check workspace navigation.'
   }
 
   return `Navigation could not ${actionPhrase}. Refresh the sidebar, then try again.`

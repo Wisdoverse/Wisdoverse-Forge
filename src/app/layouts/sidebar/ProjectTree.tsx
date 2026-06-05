@@ -122,7 +122,7 @@ function renameErrorMessage(target: RenameTarget, error: unknown): string {
     error instanceof TypeError ||
     (error instanceof Error && /^Failed to fetch$/i.test(error.message.trim()))
   ) {
-    return `${title} name could not be saved because the app could not reach the service. Check your connection, then save again.`
+    return `${title} name could not be saved. Forge could not connect while saving it. Check your connection, then save again.`
   }
 
   const { status, detail } = parseApiStatus(error)
@@ -147,10 +147,10 @@ function renameErrorMessage(target: RenameTarget, error: unknown): string {
     return renameValidationMessage(target, detail)
   }
   if (status === 429) {
-    return `The workspace service is busy. Wait a moment, then save this ${label} name again.`
+    return `The sidebar is busy. Wait a moment, then save this ${label} name again.`
   }
   if (status >= 500) {
-    return 'The workspace service is temporarily unavailable. Refresh the sidebar, then save again. If it still fails, ask an owner or admin to check workspace setup.'
+    return `Forge could not save this ${label} name right now. Refresh the sidebar, then save again. If it still fails, ask an owner or admin to check workspace setup.`
   }
 
   return `${title} name could not be saved. Refresh the sidebar and try again.`
