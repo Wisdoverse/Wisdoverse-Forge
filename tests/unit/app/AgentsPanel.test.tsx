@@ -87,7 +87,7 @@ describe('AgentsPanel', () => {
       'All work types',
       'Managed workspace',
       'This computer',
-      'Text-only model',
+      'Chat-only AI service',
     ])
     expect(loadAgentsMock).toHaveBeenCalled()
   })
@@ -101,7 +101,8 @@ describe('AgentsPanel', () => {
 
     expect(screen.getByText('Managed')).toBeDefined()
     expect(screen.getAllByText('This computer').length).toBeGreaterThan(0)
-    expect(screen.getByText('Text-only')).toBeDefined()
+    expect(screen.getByText('Chat-only')).toBeDefined()
+    expect(screen.queryByText(/Text-only model/i)).toBeNull()
 
     expect(screen.getAllByTestId('admin-agent-row')).toHaveLength(3)
   })

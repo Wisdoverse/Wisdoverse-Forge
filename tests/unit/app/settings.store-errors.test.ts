@@ -133,7 +133,7 @@ describe('useSettingsStore errors', () => {
     expect(result).toBeNull()
     expectBeginnerError(
       useSettingsStore.getState().providersError,
-      'Enter the secret key from the model service, choose a model, then save the provider again.'
+      'Enter the service access key from the AI service, choose a model, then save again.'
     )
   })
 

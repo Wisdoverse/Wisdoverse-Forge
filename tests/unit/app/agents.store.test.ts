@@ -79,10 +79,10 @@ describe('Agents Store', () => {
     expect(message).not.toContain('service')
   })
 
-  test('uses model service language for create validation failures', () => {
+  test('uses AI service language for create validation failures', () => {
     expectBeginnerError(
       agentActionErrorMessage('create', apiError(422, { message: 'provider and model required' })),
-      'Choose a tested model service and model, then try creating this agent again.'
+      'Choose a tested AI service and model, then try creating this agent again.'
     )
   })
 

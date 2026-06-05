@@ -44,7 +44,7 @@ function promptStats(value: string): PromptStats {
 }
 
 function promptProfileSaveErrorMessage(): string {
-  return 'Prompt profile was not saved. Refresh this agent, confirm it is still a text-only model agent, then save again. Ask an admin to check your agent access if it keeps failing.'
+  return 'Prompt profile was not saved. Refresh this agent, confirm it is still a chat-only agent, then save again. Ask an admin to check your agent access if it keeps failing.'
 }
 
 export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
@@ -309,7 +309,7 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Prompt editing is only available for text-only model agents.
+            Prompt editing is only available for chat-only agents.
           </p>
         </div>
         <span className="inline-flex h-7 w-fit items-center rounded-full bg-apple-blue/10 px-2.5 text-ui-caption font-medium text-apple-blue">

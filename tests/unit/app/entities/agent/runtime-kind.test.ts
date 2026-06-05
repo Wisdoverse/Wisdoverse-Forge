@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { isApiAgent, isContainerAgent, isHostCliAgent } from '@app/entities/agent'
+import {
+  isApiAgent,
+  isContainerAgent,
+  isHostCliAgent,
+  runtimeKindLabel,
+  runtimeKindShortLabel,
+} from '@app/entities/agent'
 
 describe('runtime-kind specifications', () => {
   it('isHostCliAgent matches only runtimeKind="cli"', () => {
@@ -29,5 +35,10 @@ describe('runtime-kind specifications', () => {
     expect(isApiAgent({ runtimeKind: 'api' })).toBe(true)
     expect(isApiAgent({ runtimeKind: 'cli' })).toBe(false)
     expect(isApiAgent({ runtimeKind: 'container' })).toBe(false)
+  })
+
+  it('uses beginner-facing labels for chat-only agents', () => {
+    expect(runtimeKindLabel('api')).toBe('Chat-only AI service')
+    expect(runtimeKindShortLabel('api')).toBe('Chat-only')
   })
 })

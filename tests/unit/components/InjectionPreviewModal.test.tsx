@@ -116,6 +116,26 @@ describe('InjectionPreviewModal', () => {
     expect(screen.getByText('Needs about 120 context units')).toBeDefined()
   })
 
+  test('uses chat-only AI service wording for provider context reviews', () => {
+    render(
+      <InjectionPreviewModal
+        isOpen
+        preview={preview({
+          capability: {
+            runtime_kind: 'provider',
+            max_context_tokens: 1200,
+          },
+        })}
+        onClose={() => {}}
+        onConfirm={() => {}}
+      />
+    )
+
+    expect(screen.getByText('Work location')).toBeDefined()
+    expect(screen.getByText('Chat-only AI service')).toBeDefined()
+    expect(screen.queryByText(/Text-only model/i)).toBeNull()
+  })
+
   test('submits removed default items and pinned suggested items', async () => {
     const onConfirm = vi.fn()
     render(

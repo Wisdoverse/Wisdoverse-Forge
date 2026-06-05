@@ -413,7 +413,7 @@ function runtimeLabel(runtime: string): string {
     case 'host':
       return 'This computer'
     case 'provider':
-      return 'Text-only model'
+      return 'Chat-only AI service'
     default:
       return formatCodeLabel(runtime)
   }

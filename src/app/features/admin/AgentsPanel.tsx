@@ -85,9 +85,9 @@ const AGENT_GUIDANCE: { title: string; description: string; Icon: LucideIcon }[]
     Icon: Cpu,
   },
   {
-    title: 'Text-only model',
+    title: 'Chat-only AI service',
     description:
-      'Uses a connected model for planning and review. It does not open files or run commands.',
+      'Uses a connected AI service for planning and review. It does not open files or run commands.',
     Icon: Sparkles,
   },
 ]

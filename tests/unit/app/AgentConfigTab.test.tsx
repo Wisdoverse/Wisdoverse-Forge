@@ -116,9 +116,8 @@ describe('AgentConfigTab', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(/prompt profile was not saved/i)
     )
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      /confirm it is still a text-only model agent/i
-    )
+    expect(screen.getByRole('alert')).toHaveTextContent(/confirm it is still a chat-only agent/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/text-only model/i)
     expect(screen.getByRole('alert')).toHaveTextContent(/ask an admin to check your agent access/i)
   })
 
@@ -145,7 +144,8 @@ describe('AgentConfigTab', () => {
     expect(screen.queryByText('Connection ID')).toBeNull()
     expect(screen.queryByText('af-claude-container-123')).toBeNull()
     expect(screen.queryByText('/workspace')).toBeNull()
-    expect(screen.getByText(/only available for text-only model agents/i)).toBeInTheDocument()
+    expect(screen.getByText(/only available for chat-only agents/i)).toBeInTheDocument()
+    expect(screen.queryByText(/text-only model/i)).toBeNull()
   })
 
   it('renders "Agent not found" for unknown id', () => {

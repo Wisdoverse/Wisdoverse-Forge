@@ -208,7 +208,7 @@ function settingsValidationMessage(
       normalized.includes('token') ||
       normalized.includes('key')
     ) {
-      return 'Enter the secret key from the model service, choose a model, then save the provider again.'
+      return 'Enter the service access key from the AI service, choose a model, then save again.'
     }
     if (normalized.includes('model')) {
       return 'Choose a supported model for this provider, then save the provider again.'
