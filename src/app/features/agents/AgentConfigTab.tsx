@@ -315,11 +315,12 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
               aria-hidden="true"
             />
             <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              How this agent works
+              Where this agent works
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Instruction editing is only available for chat-only agents.
+            This agent follows the setup for its work tool. Confirm where it can open files before
+            assigning work.
           </p>
         </div>
         <span className="inline-flex h-7 w-fit items-center rounded-full bg-apple-blue/10 px-2.5 text-ui-caption font-medium text-apple-blue">
@@ -330,19 +331,25 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
       <div className="grid gap-2 sm:grid-cols-2">
         <RuntimeRow label="Work tool" value={agent.cliTool ?? 'Unknown'} />
         <RuntimeRow
-          label="Connection status"
+          label="Connection"
           value={
             hostCli
               ? agent.runtimeId
                 ? 'Connected from this computer'
-                : 'Waiting for this computer'
-              : 'Managed workspace ready'
+                : 'Waiting for this computer to reconnect'
+              : 'Ready in managed workspace'
           }
         />
-        <RuntimeRow label="Project" value={agent.projectName ?? 'No primary project'} />
         <RuntimeRow
-          label="Project folder"
-          value={agent.cwd ?? (hostCli ? 'Local connection folder' : 'Project workspace')}
+          label="Starting project"
+          value={agent.projectName ?? 'No starting project selected'}
+        />
+        <RuntimeRow
+          label="Starting folder"
+          value={
+            agent.cwd ??
+            (hostCli ? 'Folder used when this computer joined' : 'Workspace project folder')
+          }
         />
       </div>
     </div>

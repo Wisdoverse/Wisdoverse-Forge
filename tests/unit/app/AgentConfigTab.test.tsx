@@ -36,6 +36,20 @@ describe('AgentConfigTab', () => {
           cliTool: 'claude' as const,
           runtimeId: 'af-claude-container-123',
         },
+        {
+          id: 'host1',
+          name: 'Local Agent',
+          provider: 'Codex',
+          model: 'codex',
+          status: 'idle' as const,
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+          cliTool: 'codex' as const,
+          runtimeId: 'host-local-123',
+          runtimeKind: 'cli' as const,
+          projectName: 'Platform',
+        },
       ],
       updateAgentSystemPrompt,
     } as never)
@@ -141,18 +155,32 @@ describe('AgentConfigTab', () => {
     render(<AgentConfigTab agentId="cli1" />)
     expect(screen.queryByLabelText(/instructions for this agent/i)).toBeNull()
     expect(screen.getByTestId('agent-cli-config-summary')).toBeInTheDocument()
-    expect(screen.getByText('How this agent works')).toBeInTheDocument()
+    expect(screen.getByText('Where this agent works')).toBeInTheDocument()
     expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
-    expect(screen.getByText('Connection status')).toBeInTheDocument()
-    expect(screen.getByText('Managed workspace ready')).toBeInTheDocument()
-    expect(screen.getByText('Project folder')).toBeInTheDocument()
-    expect(screen.getByText('Project workspace')).toBeInTheDocument()
+    expect(screen.getByText('Connection')).toBeInTheDocument()
+    expect(screen.getByText('Ready in managed workspace')).toBeInTheDocument()
+    expect(screen.getByText('Starting folder')).toBeInTheDocument()
+    expect(screen.getByText('Workspace project folder')).toBeInTheDocument()
     expect(screen.queryByText('Connection ID')).toBeNull()
     expect(screen.queryByText('af-claude-container-123')).toBeNull()
     expect(screen.queryByText('/workspace')).toBeNull()
-    expect(screen.getByText(/instruction editing is only available for chat-only agents/i)).toBeInTheDocument()
+    expect(screen.getByText(/confirm where it can open files before assigning work/i)).toBeInTheDocument()
     expect(screen.queryByText(/text-only model/i)).toBeNull()
     expect(screen.queryByText(/work profile/i)).toBeNull()
+  })
+
+  it('explains agents connected from this computer without exposing runtime ids', () => {
+    render(<AgentConfigTab agentId="host1" />)
+
+    expect(screen.getByTestId('agent-cli-config-summary')).toBeInTheDocument()
+    expect(screen.getByText('This computer')).toBeInTheDocument()
+    expect(screen.getByText('Connected from this computer')).toBeInTheDocument()
+    expect(screen.getByText('Starting project')).toBeInTheDocument()
+    expect(screen.getByText('Platform')).toBeInTheDocument()
+    expect(screen.getByText('Starting folder')).toBeInTheDocument()
+    expect(screen.getByText('Folder used when this computer joined')).toBeInTheDocument()
+    expect(screen.queryByText('host-local-123')).toBeNull()
+    expect(screen.queryByText(/runtime/i)).toBeNull()
   })
 
   it('renders "Agent not found" for unknown id', () => {
