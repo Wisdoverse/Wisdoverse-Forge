@@ -20,9 +20,9 @@ function formatDate(dateStr: string | null): string {
 }
 
 const ACCESS_KEY_EMPTY_STEPS = [
-  'Create one only for an app or script you trust.',
-  'Name it after the exact place it will be used.',
-  'Copy the new key into a password manager before closing the banner.',
+  'Create one only for a tool you trust.',
+  'Name it after the exact tool or job that will use it.',
+  'Copy the new key into a password manager before closing this message.',
 ]
 
 // ============================================================================
@@ -165,7 +165,7 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
   const trimmedName = name.trim()
   const isReady = Boolean(trimmedName)
   const visibleError =
-    submitAttempted && !isReady ? 'Name where this access key will be used first.' : null
+    submitAttempted && !isReady ? 'Name the tool that will use this access key first.' : null
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -183,7 +183,7 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
       className="mt-3 rounded-card border border-black/[0.08] bg-white p-3 dark:border-white/[0.1] dark:bg-[#2c2c2e]"
     >
       <label htmlFor={nameInputId} className={uiStyles.label}>
-        Where will this key be used?
+        Which tool will use this key?
       </label>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <input
@@ -191,7 +191,7 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. release automation"
+          placeholder="e.g. release tool"
           autoFocus
           aria-invalid={visibleError !== null}
           aria-describedby={`${nameHelpId}${visibleError ? ` ${nameErrorId}` : ''}`}
@@ -217,7 +217,7 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
         id={nameHelpId}
         className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark"
       >
-        Use the app, script, or workflow name. This makes it easy to remove the right key later.
+        Use a clear tool or job name. This makes it easy to remove the right key later.
       </p>
       {visibleError && (
         <p id={nameErrorId} role="alert" className="mt-1 text-ui-caption text-apple-red">
@@ -272,7 +272,7 @@ export function KeysSection() {
         <div>
           <h2 className={uiStyles.sectionTitle}>Platform access keys</h2>
           <p className={uiStyles.sectionDescription}>
-            Give a trusted app or script access to Forge without asking a person to sign in.
+            Let a trusted outside tool connect to Forge without asking a person to sign in.
           </p>
         </div>
         {!showForm && (
@@ -357,8 +357,8 @@ function PlatformKeyEmptyState({ onCreate }: { onCreate: () => void }) {
               No platform access keys yet
             </h3>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-              Use this only for trusted automation, such as a release workflow or internal tool,
-              that needs to connect without a person signing in.
+              Use this only when a trusted outside tool needs to connect without a person signing
+              in.
             </p>
           </div>
         </div>

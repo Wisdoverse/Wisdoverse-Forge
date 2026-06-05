@@ -98,7 +98,7 @@ export function platformKeyErrorMessage(error: unknown): string {
     lower.includes('name required') ||
     lower.includes('invalid name')
   ) {
-    return `${base} Enter the app, script, or workflow name, then try again.`
+    return `${base} Enter the tool or job name, then try again.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
     return `${base} Forge is receiving too many platform access key requests right now. Wait a minute, then try again.`

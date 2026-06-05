@@ -59,16 +59,16 @@ describe('KeysSection', () => {
 
     expect(screen.getByRole('heading', { name: 'Platform access keys' })).toBeDefined()
     expect(within(emptyState).getByText('No platform access keys yet')).toBeDefined()
-    expect(within(emptyState).getByText(/trusted automation/i)).toBeDefined()
-    expect(within(emptyState).getByText(/app or script you trust/i)).toBeDefined()
-    expect(within(emptyState).getByText(/password manager before closing/i)).toBeDefined()
+    expect(within(emptyState).getByText(/trusted outside tool/i)).toBeDefined()
+    expect(within(emptyState).getByText(/tool you trust/i)).toBeDefined()
+    expect(within(emptyState).getByText(/password manager before closing this message/i)).toBeDefined()
     expect(within(emptyState).queryByText(/platform A[P]I keys/i)).toBeNull()
 
     fireEvent.click(within(emptyState).getByRole('button', { name: /create access key/i }))
 
     expect(screen.queryByTestId('platform-key-empty-state')).toBeNull()
-    expect(screen.getByLabelText(/^where will this key be used/i)).toBeDefined()
-    expect(screen.getByText(/use the app, script, or workflow name/i)).toBeDefined()
+    expect(screen.getByLabelText(/^which tool will use this key/i)).toBeDefined()
+    expect(screen.getByText(/use a clear tool or job name/i)).toBeDefined()
     expect(screen.getByText(/remove the right key later/i)).toBeDefined()
   })
 
@@ -78,7 +78,7 @@ describe('KeysSection', () => {
     await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
     fireEvent.click(screen.getAllByRole('button', { name: /create access key/i })[0])
 
-    const input = screen.getByLabelText(/^where will this key be used/i)
+    const input = screen.getByLabelText(/^which tool will use this key/i)
     const form = input.closest('form')
     expect(form).toBeTruthy()
 
@@ -87,7 +87,7 @@ describe('KeysSection', () => {
 
     expect(createApiKeyMock).not.toHaveBeenCalled()
     expect(screen.getByRole('alert')).toHaveTextContent(
-      /name where this access key will be used first/i
+      /name the tool that will use this access key first/i
     )
     expect(input).toHaveFocus()
   })
@@ -102,7 +102,7 @@ describe('KeysSection', () => {
 
     await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
     fireEvent.click(screen.getAllByRole('button', { name: /create access key/i })[0])
-    fireEvent.change(screen.getByLabelText(/^where will this key be used/i), {
+    fireEvent.change(screen.getByLabelText(/^which tool will use this key/i), {
       target: { value: 'Production deploy pipeline' },
     })
     fireEvent.click(screen.getByRole('button', { name: /create access key/i }))

@@ -23,7 +23,7 @@ describe('platformKeyErrorMessage', () => {
       platformKeyErrorMessage(
         'Check the required fields for platform API key, then try again. Code: 422. Details: name is required'
       ),
-      'Platform access key could not be created. Enter the app, script, or workflow name, then try again.'
+      'Platform access key could not be created. Enter the tool or job name, then try again.'
     )
   })
 
