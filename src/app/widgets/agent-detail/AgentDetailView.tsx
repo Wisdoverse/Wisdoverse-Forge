@@ -95,6 +95,22 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
   )
 }
 
+function agentFolderLabel(agent: AgentInfo): string {
+  if (!agent.cliTool) return 'Not needed for this agent'
+  if (!agent.cwd || agent.cwd === '/workspace') {
+    return isHostCliAgent(agent) ? 'Local connection folder' : 'Project workspace'
+  }
+  return agent.cwd
+}
+
+function agentConnectionStatus(agent: AgentInfo): string {
+  if (isHostCliAgent(agent)) {
+    return agent.runtimeId ? 'Connected from this computer' : 'Waiting for this computer'
+  }
+  if (agent.cliTool) return agent.containerId ? 'Managed workspace ready' : 'Waiting to start'
+  return 'Not needed'
+}
+
 interface AgentDetailViewProps {
   agent: AgentInfo
   onBack: () => void
@@ -248,16 +264,8 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
                 label="Default project for tasks"
                 value={agent.projectName ?? 'Choose when assigning work'}
               />
-              <DetailRow label="Working folder" value={agent.cwd ?? 'Not needed for this agent'} />
-              <DetailRow
-                label={isHostCliAgent(agent) ? 'This computer connection' : 'Managed workspace'}
-                value={
-                  isHostCliAgent(agent)
-                    ? (agent.runtimeId ?? 'Waiting for this computer')
-                    : (agent.containerId?.slice(0, 12) ??
-                      (agent.cliTool ? 'Waiting to start' : 'Not needed'))
-                }
-              />
+              <DetailRow label="Project folder" value={agentFolderLabel(agent)} />
+              <DetailRow label="Connection status" value={agentConnectionStatus(agent)} />
             </div>
             <WorkspaceBoundaryNote agent={agent} />
           </div>

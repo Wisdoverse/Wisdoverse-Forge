@@ -132,7 +132,9 @@ describe('AgentDetailView', () => {
     expect(screen.getAllByText(/This computer/).length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: 'History' })).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Console' })).toBeNull()
-    expect(screen.getByText('host-aabbccdd')).toBeDefined()
+    expect(screen.getByText('Connection status')).toBeDefined()
+    expect(screen.getByText('Connected from this computer')).toBeDefined()
+    expect(screen.queryByText('host-aabbccdd')).toBeNull()
     expect(screen.getByText(/agents joined from this computer run there/i)).toBeDefined()
     expect(screen.queryByRole('button', { name: /start agent/i })).toBeNull()
   })
@@ -266,7 +268,12 @@ describe('AgentDetailView', () => {
 
   test('explains workspace access and primary project context', () => {
     render(<AgentDetailView agent={{ ...containerAgent, cwd: '/workspace' }} onBack={() => {}} />)
-    expect(screen.getByText('Working folder')).toBeDefined()
+    expect(screen.getByText('Project folder')).toBeDefined()
+    expect(screen.getByText('Project workspace')).toBeDefined()
+    expect(screen.getByText('Connection status')).toBeDefined()
+    expect(screen.getByText('Managed workspace ready')).toBeDefined()
+    expect(screen.queryByText('/workspace')).toBeNull()
+    expect(screen.queryByText('c-abc')).toBeNull()
     expect(screen.getAllByText('How it runs').length).toBeGreaterThan(0)
     expect(screen.getByText('Workspace it can use')).toBeDefined()
     expect(screen.getByText('Engineering')).toBeDefined()
@@ -279,8 +286,10 @@ describe('AgentDetailView', () => {
 
   test('explains text-only model agents do not open workspace files', () => {
     render(<AgentDetailView agent={providerAgent} onBack={() => {}} />)
-    expect(screen.getByText('Working folder')).toBeDefined()
+    expect(screen.getByText('Project folder')).toBeDefined()
     expect(screen.getAllByText('Not needed for this agent').length).toBeGreaterThan(0)
+    expect(screen.getByText('Connection status')).toBeDefined()
+    expect(screen.getByText('Not needed')).toBeDefined()
     expect(screen.getByText(/answer through the model service/i)).toBeDefined()
     expect(screen.getByText(/do not open workspace files by themselves/i)).toBeDefined()
     expect(
