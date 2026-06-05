@@ -74,12 +74,12 @@ const AGENT_TASK_EMPTY_STEPS: { title: string; description: string; Icon: Lucide
     Icon: ListFilter,
   },
   {
-    title: 'Check the work lane routing',
-    description: 'Make sure new work is assigned to a lane this agent can receive.',
+    title: 'Check the work lane',
+    description: 'Make sure new work is sent to a work lane this agent can receive.',
     Icon: CircleDot,
   },
   {
-    title: 'Use Needs action after tasks arrive',
+    title: 'Use Needs help after tasks arrive',
     description: 'Blocked or failed work will appear there so you know what needs help.',
     Icon: AlertTriangle,
   },
@@ -318,7 +318,7 @@ function AgentTasksEmptyState() {
         <div className="min-w-0">
           <h3 className="text-ui-section font-semibold">No tasks have reached this agent yet</h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-            Tasks appear here after work is routed to this agent or to a work lane it can receive.
+            Tasks appear here after work is sent to this agent or to a work lane it can receive.
           </p>
         </div>
       </div>
