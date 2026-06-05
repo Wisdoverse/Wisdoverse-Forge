@@ -79,7 +79,7 @@ describe('AuditLogView', () => {
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
     expect(screen.getByText('Start with what you need to check')).toBeDefined()
-    expect(screen.getByText('Protected subjects')).toBeDefined()
+    expect(screen.getByText('Protected references')).toBeDefined()
 
     const quickViews = screen.getByRole('group', { name: /common audit views/i })
     fireEvent.click(within(quickViews).getByRole('button', { name: /skill decisions/i }))
@@ -98,18 +98,34 @@ describe('AuditLogView', () => {
     )
   })
 
-  test('renders raw IDs only for visible subjects and sends filters', async () => {
+  test('shows support references without database wording and sends filters', async () => {
     render(<AuditLogView />)
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
     expect(screen.getByText(/Hide secrets before export/i)).toBeDefined()
+    expect(screen.getByText('Work area reference')).toBeDefined()
+    expect(
+      screen.getByPlaceholderText(/organization, workspace, team, or project reference/i)
+    ).toBeDefined()
+    expect(screen.getByText('Person reference')).toBeDefined()
+    expect(screen.getByPlaceholderText(/user reference when needed/i)).toBeDefined()
     expect(screen.getAllByTestId('governance-audit-row')).toHaveLength(2)
     expect(screen.getByText('Change')).toBeDefined()
     expect(screen.getAllByText('Changed item').length).toBeGreaterThan(0)
     expect(screen.getByText('Changed by')).toBeDefined()
     expect(screen.getByText('Verification')).toBeDefined()
-    expect(screen.getByTestId('governance-audit-raw-item-id').textContent).toContain('11111111')
-    expect(screen.getByTestId('governance-audit-subject-hash').textContent).toContain('f9f0b5b53a')
+    expect(screen.getByTestId('governance-audit-item-reference').textContent).toContain(
+      'Item reference'
+    )
+    expect(screen.getByTestId('governance-audit-item-reference').textContent).toContain('11111111')
+    expect(screen.getByTestId('governance-audit-protected-reference').textContent).toContain(
+      'Protected reference'
+    )
+    expect(screen.getByTestId('governance-audit-protected-reference').textContent).toContain(
+      'f9f0b5b53a'
+    )
+    expect(screen.queryByText(/Work area I[D]/)).toBeNull()
+    expect(screen.queryByText(/Person I[D]/)).toBeNull()
     expect(screen.getByTestId('governance-audit-redacted').textContent).toContain('Protected')
     expect(screen.getByText('Not checked')).toBeDefined()
     expect(screen.getByText('Verified')).toBeDefined()

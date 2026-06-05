@@ -125,7 +125,10 @@ export function AuditLogView() {
   const [exportStatus, setExportStatus] = useState<string | null>(null)
 
   const entries = data?.entries ?? []
-  const hiddenRawIds = useMemo(() => entries.filter((entry) => !entry.rawItemId).length, [entries])
+  const protectedReferences = useMemo(
+    () => entries.filter((entry) => !entry.rawItemId).length,
+    [entries]
+  )
   const redactedRows = useMemo(
     () => entries.filter((entry) => entry.detailsRedacted).length,
     [entries]
@@ -326,23 +329,23 @@ export function AuditLogView() {
         </div>
 
         <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_180px_180px_auto]">
-          <Field label="Work area ID">
+          <Field label="Work area reference">
             <input
               value={filters.scopeId}
               name="scopeId"
               autoComplete="off"
               onChange={(event) => updateFilter('scopeId', event.target.value)}
-              placeholder="Paste an org, workspace, team, or project ID"
+              placeholder="Paste an organization, workspace, team, or project reference"
               className={INPUT_CLASS}
             />
           </Field>
-          <Field label="Person ID">
+          <Field label="Person reference">
             <input
               value={filters.userId}
               name="userId"
               autoComplete="off"
               onChange={(event) => updateFilter('userId', event.target.value)}
-              placeholder="Paste a user ID when needed"
+              placeholder="Paste a user reference when needed"
               className={INPUT_CLASS}
             />
           </Field>
@@ -400,7 +403,7 @@ export function AuditLogView() {
         <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Metric label="Events" value={entries.length} />
           <Metric label="View" value={data?.query.eventPrefix ?? filters.eventPrefix} compact />
-          <Metric label="Protected subjects" value={hiddenRawIds} />
+          <Metric label="Protected references" value={protectedReferences} />
           <Metric label="Safe details" value={redactedRows} />
         </div>
 
@@ -509,14 +512,16 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
       <td className="w-72 px-4 py-3">
         {entry.rawItemId ? (
           <SubjectLine
-            testId="governance-audit-raw-item-id"
+            testId="governance-audit-item-reference"
             icon="visible"
+            label="Item reference"
             value={entry.rawItemId}
           />
         ) : (
           <SubjectLine
-            testId="governance-audit-subject-hash"
+            testId="governance-audit-protected-reference"
             icon="hash"
+            label="Protected reference"
             value={entry.auditSubjectHash}
           />
         )}
@@ -533,12 +538,12 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
       <td className="w-56 px-4 py-3">
         <div className="font-medium">{entry.scopeKind ?? 'hidden area'}</div>
         <div className="mt-1 truncate font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {entry.scopeId ?? 'not shared'}
+          {entry.scopeId ? shortId(entry.scopeId) : 'not shared'}
         </div>
       </td>
       <td className="w-48 px-4 py-3">
         <span className="block truncate font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {entry.actorUserId ?? 'System'}
+          {entry.actorUserId ? shortId(entry.actorUserId) : 'System'}
         </span>
       </td>
       <td className="w-44 px-4 py-3">
@@ -556,17 +561,25 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
 function SubjectLine({
   testId,
   icon,
+  label,
   value,
 }: {
   testId: string
   icon: 'visible' | 'hash'
+  label: string
   value: string
 }) {
   const Icon = icon === 'visible' ? ShieldCheck : Fingerprint
   return (
     <div data-testid={testId} className="flex min-w-0 items-center gap-2">
       <Icon size={14} className="shrink-0 text-apple-blue" aria-hidden="true" />
-      <span className="truncate font-mono text-ui-caption" title={value}>
+      <span className="shrink-0 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+        {label}
+      </span>
+      <span
+        className="truncate font-mono text-ui-caption"
+        aria-label={`${label}: ${shortId(value)}`}
+      >
         {shortId(value)}
       </span>
     </div>
