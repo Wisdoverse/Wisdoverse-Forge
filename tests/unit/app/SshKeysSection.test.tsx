@@ -54,25 +54,44 @@ describe('SshKeysSection', () => {
     render(<SshKeysSection />)
 
     expect(await screen.findByText('No repository SSH access yet')).toBeDefined()
-    expect(screen.getAllByText(/address starts with git@/i).length).toBeGreaterThan(0)
-    expect(screen.getByText(/start with https:\/\//i)).toBeDefined()
+    expect(screen.getAllByText(/addresses.*start.*git@/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/address starts with https:\/\//i)).toBeDefined()
 
     fireEvent.click(screen.getByRole('button', { name: /add ssh access/i }))
 
-    expect(screen.getByText('Repository SSH access setup')).toBeDefined()
-    expect(screen.getByText('Paste the public line only')).toBeDefined()
+    expect(screen.getByText('Add repository SSH access')).toBeDefined()
+    expect(screen.getByText('Paste the shareable line')).toBeDefined()
     expect(screen.getAllByText(/starts with ssh-ed25519 or ssh-rsa/i).length).toBeGreaterThan(0)
-    expect(screen.getByText('Keep the private part private')).toBeDefined()
-    expect(screen.getAllByText(/never paste a private key block/i).length).toBeGreaterThan(0)
+    expect(screen.getByText('Keep the secret key private')).toBeDefined()
+    expect(screen.getAllByText(/BEGIN PRIVATE KEY/i).length).toBeGreaterThan(0)
     expect(
       screen.getByPlaceholderText('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... dev@example.com')
     ).toBeDefined()
 
+    const nameInput = screen.getByLabelText(/^name for this access/i)
+    const shareableLineInput = screen.getByLabelText(/^shareable ssh line/i)
+    const form = nameInput.closest('form')
+    expect(form).toBeTruthy()
+
     const saveButton = screen.getByRole('button', { name: /save ssh access/i })
     expect(saveButton).toBeDisabled()
 
-    fireEvent.change(screen.getByLabelText(/^access name/i), { target: { value: 'Work laptop' } })
-    fireEvent.change(screen.getByLabelText(/^public ssh line/i), {
+    fireEvent.submit(form!)
+    expect(createSshKeyMock).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /add a name your team will recognize before saving/i
+    )
+    expect(nameInput).toHaveFocus()
+
+    fireEvent.change(nameInput, { target: { value: 'Work laptop' } })
+    fireEvent.submit(form!)
+    expect(createSshKeyMock).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /paste the shareable ssh line before saving/i
+    )
+    expect(shareableLineInput).toHaveFocus()
+
+    fireEvent.change(shareableLineInput, {
       target: { value: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAexample dev@example.com' },
     })
     expect(saveButton).toBeEnabled()
@@ -115,7 +134,7 @@ describe('SshKeysSection', () => {
 
     await waitFor(() => expect(loadSshKeysMock).toHaveBeenCalled())
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Repository SSH access could not be saved. Paste only the shareable public line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+      'Repository SSH access could not be saved. Paste only the shareable one-line SSH key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'
     )
     expect(screen.queryByText(/Details: invalid public key/i)).toBeNull()
   })

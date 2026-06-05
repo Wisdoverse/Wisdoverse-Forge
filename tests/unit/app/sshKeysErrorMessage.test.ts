@@ -12,7 +12,7 @@ describe('sshKeysErrorMessage', () => {
   test('turns invalid public key errors into a clear recovery step', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage('Settings could not save SSH key. Details: invalid public key'),
-      'Repository SSH access could not be saved. Paste only the shareable public line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+      'Repository SSH access could not be saved. Paste only the shareable one-line SSH key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'
     )
   })
 
@@ -27,6 +27,13 @@ describe('sshKeysErrorMessage', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage('API 409 duplicate key'),
       'Repository SSH access could not be loaded. This public line already exists. Choose the saved access or remove the old one first.'
+    )
+  })
+
+  test('explains missing fields as the next form fields to fix', () => {
+    expectBeginnerMessage(
+      sshKeysErrorMessage('Code: 422 Details: public key is required'),
+      'Repository SSH access could not be loaded. Check the access name and shareable SSH line, then try again.'
     )
   })
 
