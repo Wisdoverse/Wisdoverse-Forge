@@ -136,6 +136,42 @@ describe('InjectionPreviewModal', () => {
     expect(screen.queryByText(/Text-only model/i)).toBeNull()
   })
 
+  test('labels unknown context badges without exposing backend values', () => {
+    render(
+      <InjectionPreviewModal
+        isOpen
+        preview={preview({
+          items: [
+            {
+              id: 'memory-unknown-badges',
+              itemKind: 'memory',
+              title: 'Unknown badge memory',
+              selected: true,
+              pinned: false,
+              scopeKind: 'global_workspace' as never,
+              scopeId: 'workspace-1',
+              sensitivity: 'restricted_zone' as never,
+              estimatedTokens: 90,
+              lastUsedAt: null,
+              lastVerifiedAt: null,
+              why: 'Matched task text.',
+            },
+          ],
+          suggestedItems: [],
+        })}
+        onClose={() => {}}
+        onConfirm={() => {}}
+      />
+    )
+
+    expect(screen.getByText('Unknown badge memory')).toBeDefined()
+    expect(screen.getByText('Scope needs review')).toBeDefined()
+    expect(screen.getByText('Sensitivity needs review')).toBeDefined()
+    expect(screen.queryByText(/global workspace/i)).toBeNull()
+    expect(screen.queryByText(/restricted zone/i)).toBeNull()
+    expect(screen.queryByText('Unknown')).toBeNull()
+  })
+
   test('submits removed default items and pinned suggested items', async () => {
     const onConfirm = vi.fn()
     render(

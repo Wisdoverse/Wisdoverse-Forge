@@ -459,7 +459,7 @@ function scopeKindLabel(scope: string): string {
     case 'project':
       return 'Project'
     default:
-      return formatCodeLabel(scope)
+      return 'Scope needs review'
   }
 }
 
@@ -474,7 +474,7 @@ function sensitivityLabel(sensitivity: string): string {
     case 'secret_detected':
       return 'Possible secret'
     default:
-      return formatCodeLabel(sensitivity)
+      return 'Sensitivity needs review'
   }
 }
 
