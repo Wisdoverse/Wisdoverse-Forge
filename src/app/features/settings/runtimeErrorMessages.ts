@@ -6,7 +6,7 @@ const ACTION_FALLBACKS: Record<RuntimeErrorAction, string> = {
   loadCliSignIn:
     'Work tool sign-in status could not load. Refresh this setup check before starting agents that use work tools.',
   startCliSignIn:
-    'Work tool sign-in did not start. Check the model service setup, then try Connect again.',
+    'Work tool sign-in did not start. Check the AI service setup, then try Connect again.',
 }
 
 export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): string {
@@ -151,12 +151,12 @@ function runtimeValidationMessage(action: RuntimeErrorAction, detail: string): s
 
   if (action === 'startCliSignIn') {
     if (normalized.includes('provider') || normalized.includes('configured')) {
-      return 'Choose and save a model service first, then try Connect again.'
+      return 'Choose and save an AI service first, then try Connect again.'
     }
     if (normalized.includes('tool') || normalized.includes('cli')) {
       return 'Choose an available local tool, then try Connect again.'
     }
-    return 'Check the model service setup and selected local tool, then try Connect again.'
+    return 'Check the AI service setup and selected local tool, then try Connect again.'
   }
 
   if (action === 'loadCliSignIn') {

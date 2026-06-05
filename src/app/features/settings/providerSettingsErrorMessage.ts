@@ -70,9 +70,9 @@ function actionFromText(text: string): ProviderSettingsAction {
 }
 
 function baseMessage(action: ProviderSettingsAction): string {
-  if (action === 'save') return 'Model service could not be saved.'
-  if (action === 'remove') return 'Model service could not be removed.'
-  return 'Model service settings could not be loaded.'
+  if (action === 'save') return 'AI service could not be saved.'
+  if (action === 'remove') return 'AI service could not be removed.'
+  return 'AI service settings could not be loaded.'
 }
 
 export function providerSettingsErrorMessage(error: unknown): string {
@@ -83,13 +83,13 @@ export function providerSettingsErrorMessage(error: unknown): string {
   const base = baseMessage(action)
 
   if (code === 401 || lower.includes('sign in again') || lower.includes('unauthorized')) {
-    return `${base} Your sign-in expired. Sign in again, then open Settings and try model services again.`
+    return `${base} Your sign-in expired. Sign in again, then open Settings and try AI services again.`
   }
   if (code === 403 || lower.includes('permission') || lower.includes('forbidden')) {
-    return `${base} Ask an owner or admin to let you manage model services.`
+    return `${base} Ask an owner or admin to let you manage AI services.`
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
-    return `${base} A model service with this name or setup already exists. Refresh the list, then choose a different name or remove the old service first.`
+    return `${base} An AI service with this name or setup already exists. Refresh the list, then choose a different name or remove the old service first.`
   }
   if (
     code === 422 ||
@@ -101,14 +101,14 @@ export function providerSettingsErrorMessage(error: unknown): string {
     return `${base} Choose the AI service, confirm the model, add the service access key, and add the service address if needed. Then save again.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return `${base} Forge is receiving too many model service requests right now. Wait a minute, then try again.`
+    return `${base} Forge is receiving too many AI service requests right now. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
-    return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check model service settings.`
+    return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check AI service settings.`
   }
   if (isNetworkError(error)) {
-    return `${base} Forge could not connect while opening model service settings. Check your connection, then try again.`
+    return `${base} Forge could not connect while opening AI service settings. Check your connection, then try again.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner or admin to check model service settings.`
+  return `${base} Try again. If it still fails, ask an owner or admin to check AI service settings.`
 }

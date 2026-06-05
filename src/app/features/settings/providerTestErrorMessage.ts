@@ -49,7 +49,7 @@ function isNetworkError(error: unknown): boolean {
   )
 }
 
-export function providerTestErrorMessage(error: unknown, providerName = 'Model service'): string {
+export function providerTestErrorMessage(error: unknown, providerName = 'AI service'): string {
   const base = `${providerName} connection check needs attention.`
   const text = errorText(error).toLowerCase()
   const code = statusCode(error)
@@ -70,14 +70,14 @@ export function providerTestErrorMessage(error: unknown, providerName = 'Model s
     return `${base} The model or service address was not found. Check the model name and service address, then check again.`
   }
   if (code === 408 || code === 429 || text.includes('rate limit') || text.includes('too many')) {
-    return `${base} This model service is receiving too many checks right now. Wait a minute, then check again.`
+    return `${base} This AI service is receiving too many checks right now. Wait a minute, then check again.`
   }
   if (code != null && code >= 500) {
-    return `${base} Forge could not check this model service right now. Try again in a few minutes. If it still needs attention, ask an owner or admin to check model service settings.`
+    return `${base} Forge could not check this AI service right now. Try again in a few minutes. If it still needs attention, ask an owner or admin to check AI service settings.`
   }
   if (isNetworkError(error)) {
-    return `${base} Forge could not connect to this model service. Check the service address and your connection, then check again.`
+    return `${base} Forge could not connect to this AI service. Check the service address and your connection, then check again.`
   }
 
-  return `${base} Review the model service settings, then check again. If it still needs attention, ask an owner or admin to check model service settings.`
+  return `${base} Review the AI service settings, then check again. If it still needs attention, ask an owner or admin to check AI service settings.`
 }

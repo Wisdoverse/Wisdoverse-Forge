@@ -29,7 +29,7 @@ describe('providerTestErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Local Lab connection check needs attention. Forge could not connect to this model service. Check the service address and your connection, then check again.'
+      'Local Lab connection check needs attention. Forge could not connect to this AI service. Check the service address and your connection, then check again.'
     )
     expect(message).not.toContain('network access')
     expect(message).not.toContain('Failed to fetch')
@@ -40,7 +40,7 @@ describe('providerTestErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'OpenAI Production connection check needs attention. Forge could not check this model service right now. Try again in a few minutes. If it still needs attention, ask an owner or admin to check model service settings.'
+      'OpenAI Production connection check needs attention. Forge could not check this AI service right now. Try again in a few minutes. If it still needs attention, ask an owner or admin to check AI service settings.'
     )
     expect(message).not.toContain('gateway')
     expect(message).not.toContain('temporarily unavailable')
@@ -49,7 +49,7 @@ describe('providerTestErrorMessage', () => {
   test('turns structured rate limits into a wait and check step', () => {
     expectBeginnerMessage(
       providerTestErrorMessage({ status: 429 }, 'OpenAI Production'),
-      'OpenAI Production connection check needs attention. This model service is receiving too many checks right now. Wait a minute, then check again.'
+      'OpenAI Production connection check needs attention. This AI service is receiving too many checks right now. Wait a minute, then check again.'
     )
   })
 
@@ -58,7 +58,7 @@ describe('providerTestErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Model service connection check needs attention. Review the model service settings, then check again. If it still needs attention, ask an owner or admin to check model service settings.'
+      'AI service connection check needs attention. Review the AI service settings, then check again. If it still needs attention, ask an owner or admin to check AI service settings.'
     )
     expect(message).not.toContain('gateway')
   })

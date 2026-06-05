@@ -234,7 +234,7 @@ function providerFormReadiness({
       ready: false,
       title: 'Next: Choose a model',
       detail: 'Use the suggested model, or choose one from the list.',
-      error: 'Choose a model before saving this model service.',
+      error: 'Choose a model before saving this AI service.',
       fieldId: modelInputId,
     }
   }
@@ -244,7 +244,7 @@ function providerFormReadiness({
       ready: false,
       title: 'Next: Add the service access key',
       detail: 'Paste the API key from the selected AI service. Do not paste your account password.',
-      error: 'Add the service access key before saving this model service.',
+      error: 'Add the service access key before saving this AI service.',
       fieldId: apiKeyInputId,
     }
   }
@@ -253,8 +253,8 @@ function providerFormReadiness({
     return {
       ready: false,
       title: 'Next: Add the service address',
-      detail: 'Paste the web address for your compatible or local model service.',
-      error: 'Add the service address before saving this model service.',
+      detail: 'Paste the web address for your compatible or local AI service.',
+      error: 'Add the service address before saving this AI service.',
       fieldId: baseUrlInputId,
     }
   }
@@ -262,7 +262,7 @@ function providerFormReadiness({
   return {
     ready: true,
     title: 'Ready to save',
-    detail: 'Save this model service, then check the connection so agents can use it safely.',
+    detail: 'Save this AI service, then check the connection so agents can use it safely.',
     error: null,
     fieldId: null,
   }
@@ -307,22 +307,22 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
 
   if (total === 0) {
     return {
-      title: 'Add Your First Model Service',
+      title: 'Add Your First AI Service',
       detail:
-        'A model service gives agents a model to use. Choose the AI service, confirm the model, add its access key, then check the connection.',
-      success: 'At least 1 model service is saved and ready for a connection check.',
+        'An AI service gives chat-only agents a model to use. Choose the service, confirm the model, add its access key, then check the connection.',
+      success: 'At least 1 AI service is saved and ready for a connection check.',
       ready: false,
       action: 'add-provider',
-      actionLabel: 'Add model service',
+      actionLabel: 'Add AI service',
     }
   }
 
   if (needsTestProviders.length > 0) {
     const firstProvider = needsTestProviders[0]
     return {
-      title: 'Check Model Service Connection',
+      title: 'Check AI Service Connection',
       detail: `Check ${firstProvider.displayName} before assigning work so agent creation does not fail on the first run.`,
-      success: 'The model service shows Ready and can be used by text-only model agents.',
+      success: 'The AI service shows Ready and can be used by chat-only agents.',
       ready: false,
       action: 'show-needs-test',
       actionLabel: 'Show services needing check',
@@ -331,29 +331,29 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
 
   if (readyProviders.length === 0) {
     return {
-      title: 'Add an Active Model Service',
+      title: 'Add an Active AI Service',
       detail:
-        'All saved model services are disabled. Add a working model service so agents have a model to use.',
-      success: 'At least 1 enabled model service is checked and marked Ready.',
+        'All saved AI services are disabled. Add a working AI service so agents have a model to use.',
+      success: 'At least 1 enabled AI service is checked and marked Ready.',
       ready: false,
       action: 'add-provider',
-      actionLabel: 'Add model service',
+      actionLabel: 'Add AI service',
     }
   }
 
   if (!defaultProvider && readyProviders.length > 0) {
     return {
-      title: 'Ready Model Service Available',
-      detail: `${readyProviders[0].displayName} is ready. Use it when creating a text-only model agent.`,
-      success: 'New text-only model agents can select a checked model service.',
+      title: 'Ready AI Service Available',
+      detail: `${readyProviders[0].displayName} is ready. Use it when creating a chat-only agent.`,
+      success: 'New chat-only agents can select a checked AI service.',
       ready: true,
     }
   }
 
   return {
-    title: 'Ready to Create Text-Only Model Agents',
-    detail: `${defaultProvider?.displayName ?? readyProviders[0]?.displayName ?? 'A model service'} is ready for text-only model agents.`,
-    success: 'Open Agents, choose New Agent, then select Text-only model.',
+    title: 'Ready to Create Chat-Only Agents',
+    detail: `${defaultProvider?.displayName ?? readyProviders[0]?.displayName ?? 'An AI service'} is ready for chat-only agents.`,
+    success: 'Open Agents, choose New Agent, then select Chat-only agent.',
     ready: true,
   }
 }
@@ -491,8 +491,8 @@ function ProviderCard({ providerConfig, onTest, onDelete }: ProviderCardProps) {
           onClick={handleDelete}
           aria-label={
             confirming
-              ? `Confirm removing ${displayName} model service`
-              : `Remove ${displayName} model service`
+              ? `Confirm removing ${displayName} AI service`
+              : `Remove ${displayName} AI service`
           }
           className={cn(
             'flex-1 sm:flex-none',
@@ -542,19 +542,19 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
               />
             )}
             <h3 className={uiStyles.sectionTitle}>
-              {allReady ? 'Model services ready for agents' : 'Model service setup needs attention'}
+              {allReady ? 'AI services ready for agents' : 'AI service setup needs attention'}
             </h3>
           </div>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
             {total === 0
-              ? 'Add and check a model service before creating text-only model agents.'
-              : `${ready}/${total} model service${total === 1 ? '' : 's'} ready, ${needsTest} need${
+              ? 'Add and check an AI service before creating chat-only agents.'
+              : `${ready}/${total} AI service${total === 1 ? '' : 's'} ready, ${needsTest} need${
                   needsTest === 1 ? 's' : ''
                 } a connection check, ${disabled} disabled.`}
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-black/[0.04] px-2.5 py-1 text-ui-caption font-semibold text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-          Default service: {defaultProvider?.displayName ?? 'None'}
+          Default AI service: {defaultProvider?.displayName ?? 'None'}
         </span>
       </div>
 
@@ -753,7 +753,7 @@ function AddProviderFormPanel({
     >
       <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
         <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Model service setup
+          AI service setup
         </div>
         <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
           {PROVIDER_SETUP_STEPS.map((step) => (
@@ -773,7 +773,7 @@ function AddProviderFormPanel({
       </div>
 
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {/* Model service */}
+        {/* AI service */}
         <div>
           <label htmlFor={providerInputId} className={uiStyles.label}>
             AI service
@@ -897,7 +897,7 @@ function AddProviderFormPanel({
             name="displayName"
             value={form.displayName}
             onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-            placeholder="Team model service…"
+            placeholder="Team AI service…"
             autoComplete="off"
             className={uiStyles.input}
           />
@@ -999,7 +999,7 @@ function AddProviderFormPanel({
             disabled={saving}
             className={cn(uiStyles.primaryButton, 'flex-1 sm:flex-none')}
           >
-            {saving ? 'Saving…' : 'Save model service'}
+            {saving ? 'Saving…' : 'Save AI service'}
           </button>
         </div>
       </div>
@@ -1082,9 +1082,9 @@ export function ProvidersSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Model services</h2>
+          <h2 className={uiStyles.sectionTitle}>AI services</h2>
           <p className={uiStyles.sectionDescription}>
-            Connect an AI model service so agents can answer messages.
+            Connect an AI service so chat-only agents can answer messages.
           </p>
         </div>
         {!showForm && (
@@ -1094,7 +1094,7 @@ export function ProvidersSection() {
             className={uiStyles.primaryButton}
           >
             <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-            <span>Add model service</span>
+            <span>Add AI service</span>
           </button>
         )}
       </div>
@@ -1111,7 +1111,7 @@ export function ProvidersSection() {
 
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <label className="relative min-w-0 flex-1">
-          <span className="sr-only">Search model services</span>
+          <span className="sr-only">Search AI services</span>
           <Search
             size={14}
             strokeWidth={2}
@@ -1123,7 +1123,7 @@ export function ProvidersSection() {
             name="provider-search"
             value={providerSearch}
             onChange={(event) => setProviderSearch(event.target.value)}
-            placeholder="Search model services…"
+            placeholder="Search AI services…"
             autoComplete="off"
             className={cn(uiStyles.input, 'pl-9')}
           />
@@ -1131,7 +1131,7 @@ export function ProvidersSection() {
         <div
           className="flex flex-wrap gap-2"
           role="group"
-          aria-label="Filter model services by status"
+          aria-label="Filter AI services by status"
         >
           {PROVIDER_FILTERS.map((filter) => (
             <button
@@ -1152,29 +1152,29 @@ export function ProvidersSection() {
         </div>
       </div>
 
-      {/* Model service list */}
+      {/* AI service list */}
       <div className={uiStyles.card}>
         {providersLoading && providers.length === 0 ? (
           <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading model services…
+            Loading AI services…
           </div>
         ) : providers.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No model services connected
+              No AI services connected
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Add one AI service, confirm the model, add its access key, save it, then run Check
-              before creating agents.
+              before creating chat-only agents.
             </p>
           </div>
         ) : filteredProviders.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No model services match this view
+              No AI services match this view
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Clear search or switch filters to review every model service.
+              Clear search or switch filters to review every AI service.
             </p>
           </div>
         ) : (

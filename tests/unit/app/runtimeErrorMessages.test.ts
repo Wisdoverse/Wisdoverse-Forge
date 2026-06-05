@@ -35,33 +35,33 @@ describe('runtimeErrorMessage', () => {
     )
   })
 
-  test('turns model service setup details into a connect step', () => {
+  test('turns AI service setup details into a connect step', () => {
     const message = runtimeErrorMessage('startCliSignIn', {
       error: 'Provider is not configured',
     })
 
-    expectBeginnerMessage(message, 'Choose and save a model service first, then try Connect again.')
+    expectBeginnerMessage(message, 'Choose and save an AI service first, then try Connect again.')
     expect(message).not.toContain('provider')
   })
 
-  test('uses model service setup language for unclear local sign-in validation', () => {
+  test('uses AI service setup language for unclear local sign-in validation', () => {
     const message = runtimeErrorMessage('startCliSignIn', {
       error: 'setup is incomplete',
     })
 
     expectBeginnerMessage(
       message,
-      'Check the model service setup and selected local tool, then try Connect again.'
+      'Check the AI service setup and selected local tool, then try Connect again.'
     )
     expect(message).not.toContain('provider')
   })
 
-  test('uses model service setup language when local sign-in startup cannot reach service', () => {
+  test('uses AI service setup language when local sign-in startup cannot reach service', () => {
     const message = runtimeErrorMessage('startCliSignIn', new TypeError('Failed to fetch'))
 
     expectBeginnerMessage(
       message,
-      'Work tool sign-in did not start. Check the model service setup, then try Connect again. Forge could not connect while checking agent setup. Check your connection, then refresh Settings.'
+      'Work tool sign-in did not start. Check the AI service setup, then try Connect again. Forge could not connect while checking agent setup. Check your connection, then refresh Settings.'
     )
     expect(message).not.toContain('provider')
     expect(message).not.toContain('Failed to fetch')
