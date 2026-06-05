@@ -108,4 +108,38 @@ describe('OrganizationsPanel', () => {
     ).toBeDefined()
     expect(within(error).queryByText(/admin service/i)).toBeNull()
   })
+
+  test('labels unknown organization plans without exposing backend plan values', async () => {
+    useAdminStore.setState({
+      orgs: [
+        {
+          id: 'org-3',
+          name: 'Gamma Team',
+          slug: 'gamma',
+          plan: 'pilot_plan',
+          membersCount: 1,
+          teamsCount: 1,
+          createdAt: '2026-05-03T10:00:00.000Z',
+        },
+        {
+          id: 'org-4',
+          name: 'Delta Team',
+          slug: 'delta',
+          plan: ' ',
+          membersCount: 1,
+          teamsCount: 1,
+          createdAt: '2026-05-04T10:00:00.000Z',
+        },
+      ],
+    })
+
+    render(<OrganizationsPanel />)
+
+    expect(await screen.findByText('Plan needs review')).toBeDefined()
+    expect(screen.getByText('Plan not listed')).toBeDefined()
+    expect(screen.getByText(/not in the standard list/i)).toBeDefined()
+    expect(screen.getByText(/choose a plan before relying on limits/i)).toBeDefined()
+    expect(screen.queryByText(/pilot_plan/i)).toBeNull()
+    expect(screen.queryByText('Unknown')).toBeNull()
+  })
 })

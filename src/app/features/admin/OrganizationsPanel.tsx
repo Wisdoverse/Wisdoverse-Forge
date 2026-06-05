@@ -33,7 +33,23 @@ const PLAN_DETAILS: Record<string, { label: string; description: string }> = {
 }
 
 function planDescription(plan: string): string {
-  return PLAN_DETAILS[plan]?.description ?? 'Plan details are not available yet.'
+  return planDetails(plan).description
+}
+
+function planDetails(plan: string): { label: string; description: string } {
+  const planKey = normalizePlanKey(plan)
+  if (PLAN_DETAILS[planKey]) return PLAN_DETAILS[planKey]
+  if (!planKey) {
+    return {
+      label: 'Plan not listed',
+      description: 'Choose a plan before relying on limits or billing status.',
+    }
+  }
+  return {
+    label: 'Plan needs review',
+    description:
+      'This plan is not in the standard list. Check billing settings before relying on limits.',
+  }
 }
 
 function organizationReadiness(org: AdminOrg): {
@@ -63,10 +79,8 @@ function organizationReadiness(org: AdminOrg): {
 }
 
 function PlanBadge({ plan }: { plan: string }) {
-  const details = PLAN_DETAILS[plan] ?? {
-    label: plan || 'Unknown',
-    description: 'Plan details are not available yet.',
-  }
+  const planKey = normalizePlanKey(plan)
+  const details = planDetails(plan)
   const colors: Record<string, string> = {
     free: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
     pro: 'bg-apple-blue/10 text-apple-blue',
@@ -76,12 +90,16 @@ function PlanBadge({ plan }: { plan: string }) {
     <span
       className={cn(
         'inline-flex items-center rounded-full px-2 py-0.5 text-ui-caption font-medium',
-        colors[plan] ?? colors.free
+        colors[planKey] ?? colors.free
       )}
     >
       {details.label}
     </span>
   )
+}
+
+function normalizePlanKey(plan: string): string {
+  return plan.trim().toLowerCase()
 }
 
 const ORG_GUIDANCE: { title: string; description: string; Icon: LucideIcon }[] = [
