@@ -2,14 +2,42 @@ type ProviderSettingsAction = 'load' | 'save' | 'remove'
 
 function errorText(error: unknown): string {
   if (error instanceof Error) return error.message
-  return typeof error === 'string' ? error : ''
+  if (typeof error === 'string') return error
+  if (!error || typeof error !== 'object') return ''
+
+  const value = error as {
+    detail?: unknown
+    error?: unknown
+    message?: unknown
+    reason?: unknown
+  }
+
+  for (const candidate of [value.detail, value.error, value.message, value.reason]) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+  }
+
+  return ''
 }
 
 function statusCode(error: unknown): number | null {
+  if (error && typeof error === 'object') {
+    const value = error as { status?: unknown; statusCode?: unknown; code?: unknown }
+    for (const candidate of [value.status, value.statusCode, value.code]) {
+      const code = numericStatus(candidate)
+      if (code) return code
+    }
+  }
+
   const match = errorText(error).match(/\b(?:HTTP|API|Server error|Code:)\s*\(?(\d{3})\b/i)
   if (!match) return null
   const code = Number.parseInt(match[1] ?? '', 10)
   return Number.isFinite(code) ? code : null
+}
+
+function numericStatus(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && /^\d+$/.test(value)) return Number(value)
+  return null
 }
 
 function isNetworkError(error: unknown): boolean {
@@ -55,7 +83,7 @@ export function providerSettingsErrorMessage(error: unknown): string {
   const base = baseMessage(action)
 
   if (code === 401 || lower.includes('sign in again') || lower.includes('unauthorized')) {
-    return `${base} Sign in again, then open Settings and try model services again.`
+    return `${base} Your sign-in expired. Sign in again, then open Settings and try model services again.`
   }
   if (code === 403 || lower.includes('permission') || lower.includes('forbidden')) {
     return `${base} Ask an owner or admin to let you manage model services.`
@@ -73,14 +101,14 @@ export function providerSettingsErrorMessage(error: unknown): string {
     return `${base} Choose the AI service, confirm the model, add the service access key, and add the service address if needed. Then save again.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return `${base} Model service settings are busy. Wait a minute, then try again.`
+    return `${base} Forge is receiving too many model service requests right now. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
-    return `${base} Model service settings are temporarily unavailable. Try again. If it still fails, ask an owner to check model service settings.`
+    return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check model service settings.`
   }
   if (isNetworkError(error)) {
-    return `${base} The app could not reach model service settings. Check your connection, then try again.`
+    return `${base} Forge could not connect while opening model service settings. Check your connection, then try again.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner to check model service settings.`
+  return `${base} Try again. If it still fails, ask an owner or admin to check model service settings.`
 }
