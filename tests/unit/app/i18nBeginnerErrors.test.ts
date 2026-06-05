@@ -77,6 +77,7 @@ describe('beginner error translations', () => {
 
     expect(englishJoin.title).toContain('Join request needs to be sent again')
     expect(englishJoin.detail).toContain('Run the join command on this computer again')
+    expect(englishJoin.detail).toContain('Agent Work Setup')
     expect(englishJoin.title).not.toContain('Idempotency-Key')
     expect(englishJoin.detail).not.toContain('UUID')
     expect(englishJoin.detail).not.toContain('local agent')
@@ -89,6 +90,7 @@ describe('beginner error translations', () => {
 
     expect(chineseJoin.title).toContain('重新发送加入请求')
     expect(chineseJoin.detail).toContain('在这台电脑上重新运行加入命令')
+    expect(chineseJoin.detail).toContain('Agent 工作设置')
     expect(chineseJoin.title).not.toContain('Idempotency-Key')
     expect(chineseJoin.detail).not.toContain('UUID')
     expect(chineseJoin.detail).not.toContain('本地 Agent')

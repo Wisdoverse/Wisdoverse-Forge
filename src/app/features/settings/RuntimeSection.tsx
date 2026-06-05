@@ -219,7 +219,7 @@ export function RuntimeSection() {
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
               {runtimeSettings
                 ? `${runtimeSettings.availableRuntimes.length} work place${runtimeSettings.availableRuntimes.length === 1 ? '' : 's'} available, ${runtimeSettings.availableCliTools.length} work tool${runtimeSettings.availableCliTools.length === 1 ? '' : 's'} available, ${connectedCredentialCount} tool account${connectedCredentialCount === 1 ? '' : 's'} connected, ${participants.length} agent${participants.length === 1 ? '' : 's'} seen online.`
-                : 'The setup check has not loaded yet.'}
+                : 'Agent Work Setup has not loaded yet.'}
             </p>
           </div>
           <button
@@ -713,9 +713,9 @@ function runtimeLaunchChecklistItems(
     return [
       {
         id: 'runtime-api',
-        title: 'Work setup check',
+        title: 'Agent Work Setup',
         detail:
-          'The setup check has not loaded yet. Refresh Settings. If it still does not load, ask an owner or admin to check agent setup.',
+          'Agent Work Setup has not loaded yet. Refresh Settings. If it still does not load, ask an owner or admin to check Agent Work Setup.',
         ready: false,
         action: 'refresh',
         actionLabel: 'Refresh',
@@ -797,7 +797,7 @@ function runtimeLaunchChecklistItems(
     id: 'heartbeats',
     title: 'Agent online status',
     detail: participantsError
-      ? 'Agent online status could not be checked. Refresh Settings. If it still cannot be checked, ask an owner or admin to check agent setup.'
+      ? 'Agent online status could not be checked. Refresh Settings. If it still cannot be checked, ask an owner or admin to check Agent Work Setup.'
       : latestHeartbeat
         ? `An agent was online ${formatRelativeTime(latestHeartbeat)}.`
         : 'No agent has been seen online yet. Start or wake an agent, then refresh.',

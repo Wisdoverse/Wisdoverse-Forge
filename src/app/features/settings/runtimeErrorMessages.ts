@@ -156,7 +156,7 @@ function runtimeValidationMessage(action: RuntimeErrorAction, detail: string): s
     if (normalized.includes('tool') || normalized.includes('cli')) {
       return 'Choose an available local tool, then reconnect the tool account.'
     }
-    return 'Check the AI service setup and selected local tool, then reconnect the tool account.'
+    return 'Check the connected AI service and selected local tool, then reconnect the tool account.'
   }
 
   if (action === 'loadCliSignIn') {

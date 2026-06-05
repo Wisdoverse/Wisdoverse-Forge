@@ -35,7 +35,7 @@ describe('runtimeErrorMessage', () => {
     )
   })
 
-  test('turns AI service setup details into a connect step', () => {
+  test('turns AI service details into a connect step', () => {
     const message = runtimeErrorMessage('startCliSignIn', {
       error: 'Provider is not configured',
     })
@@ -47,19 +47,19 @@ describe('runtimeErrorMessage', () => {
     expect(message).not.toContain('provider')
   })
 
-  test('uses AI service setup language for unclear local sign-in validation', () => {
+  test('uses connected AI service language for unclear local sign-in validation', () => {
     const message = runtimeErrorMessage('startCliSignIn', {
       error: 'setup is incomplete',
     })
 
     expectBeginnerMessage(
       message,
-      'Check the AI service setup and selected local tool, then reconnect the tool account.'
+      'Check the connected AI service and selected local tool, then reconnect the tool account.'
     )
     expect(message).not.toContain('provider')
   })
 
-  test('uses AI service setup language when local sign-in startup cannot reach service', () => {
+  test('uses connected AI service language when local sign-in startup cannot reach service', () => {
     const message = runtimeErrorMessage('startCliSignIn', new TypeError('Failed to fetch'))
 
     expectBeginnerMessage(
@@ -71,7 +71,7 @@ describe('runtimeErrorMessage', () => {
     expect(message).not.toContain('app could not reach')
   })
 
-  test('turns setup service failures into an agent setup recovery step', () => {
+  test('turns setup service failures into an Agent Work Setup recovery step', () => {
     const message = runtimeErrorMessage('loadAgentSignals', new Error('HTTP 500'))
 
     expectBeginnerMessage(
@@ -123,7 +123,7 @@ describe('runtimeSettingsErrorMessage', () => {
     expect(message).not.toContain('app could not reach')
   })
 
-  test('turns temporary agent work settings failures into a settings recovery step', () => {
+  test('turns temporary Agent Work Setup failures into a settings recovery step', () => {
     const message = runtimeSettingsErrorMessage(new Error('HTTP 500'))
 
     expectBeginnerMessage(

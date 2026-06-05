@@ -202,9 +202,9 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     expect(
-      await screen.findByText(/tool account connection status could not load/i)
+      await screen.findByText(/tool account connection could not be checked/i)
     ).toBeDefined()
-    expect(screen.getByText(/Forge could not connect while checking agent setup/i)).toBeDefined()
+    expect(screen.getByText(/Forge could not connect while checking Agent Work Setup/i)).toBeDefined()
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
     expect(screen.queryByText(/app could not reach/i)).toBeNull()
     expect(screen.queryByText(/service is healthy/i)).toBeNull()
@@ -233,7 +233,7 @@ describe('RuntimeSection', () => {
     await screen.findByTestId('runtime-launch-checklist')
     fireEvent.click(screen.getByRole('button', { name: /Reconnect GitHub account/i }))
 
-    expect(await screen.findByText(/do not have permission to manage agent setup/i)).toBeDefined()
+    expect(await screen.findByText(/do not have permission to manage Agent Work Setup/i)).toBeDefined()
     expect(screen.getAllByText(/owner or admin/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/403 Forbidden/)).toBeNull()
   })
@@ -248,7 +248,7 @@ describe('RuntimeSection', () => {
 
     await screen.findByTestId('runtime-launch-checklist')
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Agent work settings could not be saved. Choose an available work location and local tool, then save again.'
+      'Agent Work Setup could not be saved. Choose an available work location and local tool, then save again.'
     )
     expect(screen.queryByText(/Details: default CLI tool is not available/i)).toBeNull()
   })

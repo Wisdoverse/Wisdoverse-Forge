@@ -569,7 +569,7 @@ export const en = {
         missing_idempotency_key: {
           title: 'Join request needs to be sent again',
           detail:
-            'Run the join command on this computer again. If this repeats, ask an owner to check this computer agent setup.',
+            'Run the join command on this computer again. If this repeats, ask an owner to check Agent Work Setup for this computer.',
         },
         plaintext_nats_blocked: {
           title: 'Secure connection required for this computer',

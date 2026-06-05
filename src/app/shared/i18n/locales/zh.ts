@@ -555,7 +555,7 @@ export const zh: TranslationKeys = {
         missing_idempotency_key: {
           title: '需要重新发送加入请求',
           detail:
-            '请在这台电脑上重新运行加入命令。如果反复出现，请让管理员检查这台电脑的 Agent 设置。',
+            '请在这台电脑上重新运行加入命令。如果反复出现，请让管理员检查这台电脑的 Agent 工作设置。',
         },
         plaintext_nats_blocked: {
           title: '这台电脑的连接需要安全通道',
