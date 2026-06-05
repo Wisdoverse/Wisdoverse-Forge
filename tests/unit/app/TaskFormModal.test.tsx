@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { TaskFormModal, type TaskProjectOption } from '@app/features/board/TaskFormModal'
 
@@ -32,5 +32,31 @@ describe('TaskFormModal', () => {
       )
     ).toBeDefined()
     expect(screen.queryByText(/dispatched?/i)).toBeNull()
+  })
+
+  test('shows a beginner-safe title error before submitting', async () => {
+    const onSubmit = vi.fn()
+
+    render(
+      <TaskFormModal
+        isOpen
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+        agents={[{ id: 'agent-1', name: 'Agent One', status: 'available' }]}
+        projects={[project]}
+        selectedProjectId={project.id}
+        selectedTaskGroupId="lane-1"
+        selectedTaskGroupName="Starter Lane"
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /create task/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Add a short title so the agent knows the goal.'
+      )
+    })
+    expect(onSubmit).not.toHaveBeenCalled()
   })
 })

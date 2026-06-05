@@ -270,11 +270,11 @@ export function BoardView() {
         </div>
         <div className="space-y-1">
           <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            {selectedProjectId ? 'Create a Work Lane First' : 'Pick a Project to Start'}
+            {selectedProjectId ? 'Set Up a Work Lane First' : 'Pick a Project to Start'}
           </p>
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
             {selectedProjectId
-              ? 'Create a work lane in Agents > Work Lanes, then come back here to add work. Agents watch work lanes for new tasks.'
+              ? 'A work lane is the list agents watch for new tasks. Create one in Agents > Work Lanes, then come back here.'
               : 'Choose a project from the sidebar first. A project keeps tasks, agents, and work lanes together.'}
           </p>
         </div>

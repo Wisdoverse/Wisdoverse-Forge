@@ -45,9 +45,9 @@ describe('BoardView', () => {
 
     render(<BoardView />)
 
-    expect(screen.getByText(/create a work lane first/i)).toBeDefined()
-    expect(screen.getByText(/create a work lane in agents > work lanes/i)).toBeDefined()
-    expect(screen.getByText(/agents watch work lanes for new tasks/i)).toBeDefined()
+    expect(screen.getByText(/set up a work lane first/i)).toBeDefined()
+    expect(screen.getByText(/a work lane is the list agents watch/i)).toBeDefined()
+    expect(screen.getByText(/agents > work lanes/i)).toBeDefined()
   })
 
   test('renders task lifecycle columns with correct headers', async () => {

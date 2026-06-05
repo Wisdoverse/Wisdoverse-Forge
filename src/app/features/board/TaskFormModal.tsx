@@ -123,7 +123,7 @@ export function TaskFormModal({
     reset,
     setValue,
     watch,
-    formState: { isSubmitting },
+    formState: { errors, isSubmitting },
   } = useForm<TaskFormData>({
     defaultValues: {
       projectId: selectedProjectId ?? '',
@@ -229,10 +229,11 @@ export function TaskFormModal({
         <div className="flex items-center justify-between mb-4">
           <div className="min-w-0">
             <h2 id="task-form-title" className="text-ui-title font-semibold">
-              New Task
+              Tell an Agent What to Do
             </h2>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Start with the outcome. Templates add the scope and proof an agent needs.
+              Write the result you want. A template can add scope and proof so the agent knows when
+              the work is done.
             </p>
           </div>
           <button
@@ -304,7 +305,7 @@ export function TaskFormModal({
                   </span>
                 </>
               ) : (
-                <span>Select the project that should own this task.</span>
+                <span>Choose where this task, its files, and its activity history belong.</span>
               )}
             </div>
           </div>
@@ -364,12 +365,12 @@ export function TaskFormModal({
               )}
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">
-                  {workLaneReady ? 'Work Lane Ready' : 'Create a Work Lane First'}
+                  {workLaneReady ? 'Ready to Send' : 'Set Up a Work Lane First'}
                 </p>
                 <p className="mt-0.5 text-secondary-light dark:text-secondary-dark">
                   {workLaneReady
-                    ? `${selectedTaskGroupName ?? 'Selected work lane'} will receive this task.`
-                    : 'Agents watch work lanes for new tasks. Open Work Lanes, create a lane, then return to Tasks.'}
+                    ? `${selectedTaskGroupName ?? 'Selected work lane'} is the place agents check for this project.`
+                    : 'A work lane is the list agents watch for new tasks. Create one once, then return here.'}
                 </p>
               </div>
             </div>
@@ -394,7 +395,7 @@ export function TaskFormModal({
           </div>
         )}
 
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="flex flex-col gap-4">
+        <form noValidate onSubmit={handleSubmit(handleFormSubmit)} className="flex flex-col gap-4">
           <div>
             <div className="mb-2 flex items-center justify-between gap-2">
               <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
@@ -436,7 +437,7 @@ export function TaskFormModal({
             </div>
             <div className="mt-3 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]">
               <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Agent-ready brief
+                A clear task has three parts
               </div>
               <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
                 {AGENT_READY_BRIEF_POINTS.map((point) => (
@@ -461,16 +462,30 @@ export function TaskFormModal({
               htmlFor="task-title"
               className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
             >
-              Title
+              What should the agent finish?
             </label>
             <input
               id="task-title"
               autoComplete="off"
-              {...register('title', { required: true })}
+              {...register('title', { required: 'Add a short title so the agent knows the goal.' })}
+              aria-invalid={errors.title ? 'true' : undefined}
+              aria-describedby={errors.title ? 'task-title-error' : 'task-title-help'}
               className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-              placeholder="What needs to be done…"
+              placeholder="For example: Fix the login error"
               autoFocus
             />
+            {errors.title ? (
+              <p id="task-title-error" role="alert" className="mt-1 text-ui-caption text-apple-red">
+                {errors.title.message}
+              </p>
+            ) : (
+              <p
+                id="task-title-help"
+                className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+              >
+                Use one sentence. Put the details in the next field.
+              </p>
+            )}
           </div>
 
           <div>
@@ -478,7 +493,7 @@ export function TaskFormModal({
               htmlFor="task-description"
               className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
             >
-              Description
+              Details the agent should know
             </label>
             <textarea
               id="task-description"
@@ -486,7 +501,7 @@ export function TaskFormModal({
               {...register('description')}
               rows={3}
               className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-              placeholder="Additional details…"
+              placeholder="Add context, files to inspect, limits, or the proof you expect."
             />
           </div>
 
@@ -508,6 +523,9 @@ export function TaskFormModal({
                 <option value="high">High</option>
                 <option value="urgent">Urgent</option>
               </select>
+              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                Normal is right for most work. Use Urgent only when it must jump the queue.
+              </p>
             </div>
             <div className="flex-1">
               <div className="mb-1 flex items-center justify-between gap-2">
@@ -515,7 +533,7 @@ export function TaskFormModal({
                   htmlFor="task-assigned-to"
                   className="block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  Assign Agent
+                  Who should pick it up?
                 </label>
                 <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
                   {assignableAgents.length} available
@@ -526,7 +544,7 @@ export function TaskFormModal({
                 {...register('assignedTo')}
                 className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
               >
-                <option value="">Unassigned</option>
+                <option value="">Let the next available agent choose</option>
                 {agents.map((a) => (
                   <option key={a.id} value={a.id} disabled={!agentCanTakeTask(a.status)}>
                     {a.name} ({agentStatusLabel(a.status)})
@@ -539,11 +557,11 @@ export function TaskFormModal({
             </div>
           </div>
 
-          <div className="mt-2 flex justify-end gap-2">
+          <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-full bg-surface-pearl px-4 py-2 text-ui-button font-medium text-foreground-light ring-1 ring-black/[0.04] transition-transform active:scale-95 dark:bg-white/[0.06] dark:text-foreground-dark"
+              className="w-full rounded-full bg-surface-pearl px-4 py-2 text-ui-button font-medium text-foreground-light ring-1 ring-black/[0.04] transition-transform active:scale-95 dark:bg-white/[0.06] dark:text-foreground-dark sm:w-auto"
             >
               Cancel
             </button>
@@ -557,7 +575,7 @@ export function TaskFormModal({
                 !selectedTaskGroupId
               }
               aria-busy={isSubmitting || selectingProject}
-              className="rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {selectingProject ? 'Selecting…' : isSubmitting ? 'Creating…' : 'Create Task'}
             </button>

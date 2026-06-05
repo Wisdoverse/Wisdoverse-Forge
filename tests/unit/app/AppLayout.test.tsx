@@ -196,10 +196,10 @@ describe('AppLayout', () => {
     fireEvent.click(screen.getByRole('button', { name: /\+ task/i }))
 
     await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
-    fireEvent.change(screen.getByPlaceholderText(/what needs to be done/i), {
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
       target: { value: 'Modal task' },
     })
-    fireEvent.change(screen.getByPlaceholderText(/additional details/i), {
+    fireEvent.change(screen.getByLabelText(/details the agent should know/i), {
       target: { value: 'Details' },
     })
     const modal = screen.getByRole('dialog')
@@ -233,18 +233,18 @@ describe('AppLayout', () => {
 
     await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
     const briefGroup = screen.getByRole('group', { name: /task brief templates/i })
-    expect(screen.getByText(/agent-ready brief/i)).toBeDefined()
+    expect(screen.getByText(/clear task has three parts/i)).toBeDefined()
     expect(screen.getByText('Result')).toBeDefined()
     expect(screen.getByText(/visible change or decision/i)).toBeDefined()
 
     fireEvent.click(within(briefGroup).getByRole('button', { name: /bug/i }))
 
-    expect(screen.getByPlaceholderText(/what needs to be done/i)).toHaveValue(
+    expect(screen.getByLabelText(/what should the agent finish/i)).toHaveValue(
       'Fix a reproducible defect'
     )
-    expect(screen.getByPlaceholderText(/additional details/i)).toHaveValue()
+    expect(screen.getByLabelText(/details the agent should know/i)).toHaveValue()
     expect(
-      (screen.getByPlaceholderText(/additional details/i) as HTMLTextAreaElement).value
+      (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
     ).toContain('Symptom:')
 
     fireEvent.click(screen.getByRole('button', { name: /create task/i }))
@@ -274,11 +274,11 @@ describe('AppLayout', () => {
     fireEvent.change(projectSelect, { target: { value: 'p1' } })
     await waitFor(() => expect(mockGetGroups).toHaveBeenCalledWith('p1'))
 
-    fireEvent.change(screen.getByPlaceholderText(/what needs to be done/i), {
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
       target: { value: 'Project-scoped task' },
     })
     await waitFor(() => expect(createButton).toBeEnabled())
-    expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain('Work Lane Ready')
+    expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain('Ready to Send')
     fireEvent.click(createButton)
 
     await waitFor(() =>
@@ -304,15 +304,15 @@ describe('AppLayout', () => {
     fireEvent.change(projectSelect, { target: { value: 'p1' } })
     await waitFor(() => expect(mockGetGroups).toHaveBeenCalledWith('p1'))
 
-    fireEvent.change(screen.getByPlaceholderText(/what needs to be done/i), {
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
       target: { value: 'Initialize project board' },
     })
     await waitFor(() =>
       expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain(
-        'Create a Work Lane First'
+        'Set Up a Work Lane First'
       )
     )
-    expect(screen.getByText(/agents watch work lanes for new tasks/i)).toBeDefined()
+    expect(screen.getByText(/a work lane is the list agents watch/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /open work lanes/i })).toBeDefined()
     expect(createButton).toBeDisabled()
     expect(mockCreateGroup).not.toHaveBeenCalled()
