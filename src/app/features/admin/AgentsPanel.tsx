@@ -47,6 +47,19 @@ function formatLastActivity(epochMs: number): string {
   }
 }
 
+function agentStatusLabel(status: string): string {
+  switch (status.toLowerCase()) {
+    case 'idle':
+      return 'Ready'
+    case 'working':
+      return 'Working'
+    case 'offline':
+      return 'Offline'
+    default:
+      return status || 'Unknown'
+  }
+}
+
 const RUNTIME_KIND_BADGE_STYLES: Record<AgentRuntimeKind, string> = {
   container: 'bg-apple-blue/10 text-apple-blue',
   cli: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
@@ -159,7 +172,7 @@ function AgentsEmptyState({ filter }: { filter: AdminAgentRuntimeKindFilter }) {
       </p>
       <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
         {filter === 'all'
-          ? 'Create the first agent from Agents, confirm it becomes Idle or Working, then return here to review it across organizations. If you just created one, refresh Admin and check again.'
+          ? 'Create the first agent from Agents, confirm it becomes Ready or Working, then return here to review it across organizations. If you just created one, refresh Admin and check again.'
           : `No ${runtimeKindLabel(filter)} agents match this filter. Choose "All work types" before assuming the agent is missing.`}
       </p>
     </div>
@@ -272,7 +285,7 @@ export function AgentsPanel() {
                       'text-ui-body text-foreground-light dark:text-foreground-dark'
                     )}
                   >
-                    {agent.status}
+                    {agentStatusLabel(agent.status)}
                   </td>
                   <td
                     className={cn(

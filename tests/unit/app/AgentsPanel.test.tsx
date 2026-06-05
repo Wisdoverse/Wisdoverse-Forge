@@ -103,6 +103,8 @@ describe('AgentsPanel', () => {
     expect(screen.getAllByText('This computer').length).toBeGreaterThan(0)
     expect(screen.getByText('Chat-only')).toBeDefined()
     expect(screen.queryByText(/Text-only model/i)).toBeNull()
+    expect(screen.getByText('Ready')).toBeDefined()
+    expect(screen.queryByText('idle')).toBeNull()
 
     expect(screen.getAllByTestId('admin-agent-row')).toHaveLength(3)
   })
@@ -139,7 +141,7 @@ describe('AgentsPanel', () => {
 
     const emptyState = await screen.findByTestId('admin-agents-empty')
     expect(within(emptyState).getByText(/create the first agent from agents/i)).toBeDefined()
-    expect(within(emptyState).getByText(/confirm it becomes idle or working/i)).toBeDefined()
+    expect(within(emptyState).getByText(/confirm it becomes ready or working/i)).toBeDefined()
     expect(within(emptyState).getByText(/refresh admin and check again/i)).toBeDefined()
   })
 
