@@ -161,6 +161,11 @@ function isRawAgentFailure(detail: string | null): boolean {
   )
 }
 
+function agentConnectionMessage(actionPhrase: string, action: AgentErrorAction): string {
+  const operation = action === 'load' ? 'loading Agents' : 'updating Agents'
+  return `Agent setup could not ${actionPhrase}. Forge could not connect while ${operation}. Check your connection, then refresh Agents.`
+}
+
 export function agentActionErrorMessage(action: AgentErrorAction, error?: unknown): string {
   const actionPhrase = agentActionPhrase(action)
   const status = agentErrorStatus(error)
@@ -170,7 +175,7 @@ export function agentActionErrorMessage(action: AgentErrorAction, error?: unknow
     if (!isRawAgentFailure(detail)) {
       return agentValidationMessage(action, detail)
     }
-    return `Agent setup could not ${actionPhrase} because the app could not reach the service. Check your connection and refresh the page.`
+    return agentConnectionMessage(actionPhrase, action)
   }
 
   if (status === 401) {
@@ -189,7 +194,7 @@ export function agentActionErrorMessage(action: AgentErrorAction, error?: unknow
     return agentValidationMessage(action, detail)
   }
   if (status === 429) {
-    return `The agent service is busy. Wait a moment, then try to ${actionPhrase} again.`
+    return `The Agents page is busy. Wait a moment, then try to ${actionPhrase} again.`
   }
   if (status >= 500) {
     return agentServerMessage(action)
@@ -242,15 +247,15 @@ function agentConflictMessage(action: AgentErrorAction, detail: string | null): 
 
 function agentServerMessage(action: AgentErrorAction): string {
   if (action === 'start' || action === 'restart' || action === 'create') {
-    return 'The agent workspace is temporarily unavailable. Wait a moment, then try again. If it still fails, ask an owner or admin to check agent setup.'
+    return "Forge could not prepare this agent's workspace right now. Wait a moment, then try again. If it still fails, ask an owner or admin to check agent setup."
   }
-  return 'The agent service is temporarily unavailable. Refresh Agents, then try again. If it still fails, ask an owner or admin to check agent setup.'
+  return 'Forge could not update Agents right now. Refresh Agents, then try again. If it still fails, ask an owner or admin to check agent setup.'
 }
 
 function agentRuntimeRecoveryMessage(detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('docker')) {
-    return 'The managed workspace service is not ready. Ask an owner or admin to check agent setup, then start this agent from the agent card.'
+    return "This agent's workspace is not ready. Ask an owner or admin to check agent setup, then start this agent from the agent card."
   }
   return 'The agent workspace is not ready. Ask an owner or admin to check agent setup, then start this agent from the agent card.'
 }
@@ -259,7 +264,7 @@ function agentCreatedStartFailureMessage(error?: unknown): string {
   const detail = agentErrorDetail(error)
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('docker')) {
-    return 'Agent was created, but it could not start yet. It will stay in the list. The managed workspace service is not ready. Ask an owner or admin to check agent setup, then start this agent from the card.'
+    return 'Agent was created, but its workspace is not ready yet. It will stay in the list. Ask an owner or admin to check agent setup, then start this agent from the card.'
   }
   if (
     normalized.includes('runtime') ||

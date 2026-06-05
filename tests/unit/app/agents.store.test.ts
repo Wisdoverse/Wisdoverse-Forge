@@ -69,10 +69,14 @@ describe('Agents Store', () => {
   })
 
   test('turns raw network failures into connection guidance', () => {
+    const message = agentActionErrorMessage('start', 'Network error')
+
     expectBeginnerError(
-      agentActionErrorMessage('start', 'Network error'),
-      'Agent setup could not start the agent because the app could not reach the service. Check your connection and refresh the page.'
+      message,
+      'Agent setup could not start the agent. Forge could not connect while updating Agents. Check your connection, then refresh Agents.'
     )
+    expect(message).not.toContain('Network error')
+    expect(message).not.toContain('service')
   })
 
   test('uses model service language for create validation failures', () => {
@@ -90,7 +94,7 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'The managed workspace service is not ready. Ask an owner or admin to check agent setup, then start this agent from the agent card.'
+      "This agent's workspace is not ready. Ask an owner or admin to check agent setup, then start this agent from the agent card."
     )
     expect(message).not.toContain('worker')
     expect(message).not.toContain('Docker')
@@ -170,8 +174,9 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'The agent service is temporarily unavailable. Refresh Agents, then try again. If it still fails, ask an owner or admin to check agent setup.'
+      'Forge could not update Agents right now. Refresh Agents, then try again. If it still fails, ask an owner or admin to check agent setup.'
     )
+    expect(useAgentsStore.getState().error).not.toContain('temporarily unavailable')
     expect(useAgentsStore.getState().loading).toBe(false)
   })
 
@@ -215,7 +220,7 @@ describe('Agents Store', () => {
     expect(useAgentsStore.getState().agents).toHaveLength(1)
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Agent was created, but it could not start yet. It will stay in the list. The managed workspace service is not ready. Ask an owner or admin to check agent setup, then start this agent from the card.'
+      'Agent was created, but its workspace is not ready yet. It will stay in the list. Ask an owner or admin to check agent setup, then start this agent from the card.'
     )
     expect(useAgentsStore.getState().error).not.toContain('worker')
     expect(useAgentsStore.getState().error).not.toContain('Docker')
@@ -232,8 +237,9 @@ describe('Agents Store', () => {
     expect(result).toBeNull()
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Agent setup could not connect the local agent because the app could not reach the service. Check your connection and refresh the page.'
+      'Agent setup could not connect the local agent. Forge could not connect while updating Agents. Check your connection, then refresh Agents.'
     )
+    expect(useAgentsStore.getState().error).not.toContain('Network error')
   })
 
   test('stores retry guidance when prompt send hits a conflict', async () => {
