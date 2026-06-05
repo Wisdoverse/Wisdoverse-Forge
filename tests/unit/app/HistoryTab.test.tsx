@@ -45,7 +45,7 @@ describe('HistoryTab', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain(
-      'You do not have permission to view this task. Ask an owner or admin to update your role.'
+      'You do not have permission to view this task. Ask an owner or admin to give you access to this task.'
     )
     expect(alert.textContent).not.toContain('HTTP 403')
   })
@@ -95,6 +95,8 @@ describe('HistoryTab', () => {
       />
     )
 
+    expect(await screen.findByText('Needs review')).toBeInTheDocument()
+    expect(screen.queryByText('Failed')).toBeNull()
     expect(await screen.findAllByText(/model service is busy/i)).toHaveLength(2)
     expect(screen.queryByText(/429/)).toBeNull()
     expect(screen.queryByText(/provider/i)).toBeNull()

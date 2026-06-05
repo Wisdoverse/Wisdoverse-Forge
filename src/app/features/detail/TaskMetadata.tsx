@@ -32,7 +32,7 @@ const STATE_LABELS: Record<string, string> = {
   working: 'Working',
   blocked: 'Blocked',
   completed: 'Completed',
-  failed: 'Failed',
+  failed: 'Needs review',
   canceled: 'Canceled',
 }
 

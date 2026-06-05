@@ -105,7 +105,8 @@ describe('TaskMetadata', () => {
       />
     )
 
-    expect(screen.getByText('Failed')).toBeDefined()
+    expect(screen.getByText('Needs review')).toBeDefined()
+    expect(screen.queryByText('Failed')).toBeNull()
     expect(screen.getByText('High')).toBeDefined()
     expect(screen.getByTestId('task-metadata-guidance').textContent).toContain(
       'fix the cause, then retry.'

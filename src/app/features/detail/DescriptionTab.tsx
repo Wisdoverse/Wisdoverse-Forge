@@ -307,7 +307,7 @@ function stateLabel(state: TaskSummary['state']): string {
     case 'completed':
       return 'Completed'
     case 'failed':
-      return 'Failed'
+      return 'Needs review'
     case 'canceled':
       return 'Canceled'
   }

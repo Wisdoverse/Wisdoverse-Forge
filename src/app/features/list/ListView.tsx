@@ -28,7 +28,7 @@ const STATUS_LABELS: Record<string, string> = {
   working: 'Working',
   blocked: 'Blocked',
   completed: 'Done',
-  failed: 'Failed',
+  failed: 'Needs review',
   canceled: 'Canceled',
 }
 

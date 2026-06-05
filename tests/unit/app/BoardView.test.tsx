@@ -60,7 +60,8 @@ describe('BoardView', () => {
     expect(screen.getByText('Working')).toBeDefined()
     expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
     expect(screen.getByText('Done')).toBeDefined()
-    expect(screen.getByText('Failed')).toBeDefined()
+    expect(screen.getByText('Needs review')).toBeDefined()
+    expect(screen.queryByText('Failed')).toBeNull()
     expect(screen.getByText('Canceled')).toBeDefined()
   })
 

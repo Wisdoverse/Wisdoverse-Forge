@@ -33,7 +33,7 @@ const COLUMN_CONFIG: Record<string, { label: string; dot: string; surface: strin
     surface: 'bg-apple-green/[0.035] dark:bg-apple-green/[0.06]',
   },
   failed: {
-    label: 'Failed',
+    label: 'Needs review',
     dot: 'bg-apple-red',
     surface: 'bg-apple-red/[0.04] dark:bg-apple-red/[0.07]',
   },
@@ -66,8 +66,8 @@ const COLUMN_EMPTY_STATE: Record<string, { title: string; detail: string }> = {
     detail: 'Completed tasks move here so you can check results and reusable learning.',
   },
   failed: {
-    title: 'No failed runs',
-    detail: 'If a run fails, open the card here to inspect the error and retry path.',
+    title: 'No work needing recovery',
+    detail: 'If a task stops early, open its card here to review the recovery note and retry path.',
   },
   canceled: {
     title: 'No canceled tasks',
