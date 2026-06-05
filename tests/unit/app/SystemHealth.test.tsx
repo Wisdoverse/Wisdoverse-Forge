@@ -97,6 +97,31 @@ describe('SystemHealth', () => {
     expect(screen.queryByText(/Reported detail/i)).toBeNull()
   })
 
+  test('turns service setup errors into owner or admin next steps', async () => {
+    const loadHealth = vi.fn()
+    useAdminStore.setState({
+      ...originalAdminState,
+      health: {
+        status: 'unhealthy',
+        checks: {
+          platform: {
+            status: 'down',
+            error: 'missing runtime configuration value',
+          },
+        },
+      },
+      healthLoading: false,
+      healthError: null,
+      loadHealth,
+    })
+
+    render(<SystemHealth />)
+
+    await waitFor(() => expect(loadHealth).toHaveBeenCalledOnce())
+    expect(screen.getByText(/Ask an owner or admin to check service setup/i)).toBeDefined()
+    expect(screen.queryByText(/runtime configuration/i)).toBeNull()
+  })
+
   test('uses clear loading copy while readiness is being checked', () => {
     useAdminStore.setState({
       ...originalAdminState,
@@ -124,9 +149,11 @@ describe('SystemHealth', () => {
     render(<SystemHealth />)
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Service readiness could not be loaded. Service readiness is temporarily unavailable. Ask an owner to check the admin service, then choose Check now.'
+      'Forge could not check service readiness. Refresh Admin, then choose Check now. If it still fails, ask an owner or admin to check service readiness setup.'
     )
     expect(screen.queryByText('HTTP 500')).toBeNull()
+    expect(screen.queryByText(/temporarily unavailable/i)).toBeNull()
+    expect(screen.queryByText(/admin service/i)).toBeNull()
     expect(screen.getByRole('button', { name: 'Check now' })).toBeDefined()
   })
 })

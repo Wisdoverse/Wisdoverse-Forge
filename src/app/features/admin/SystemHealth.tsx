@@ -141,7 +141,7 @@ function serviceIssueNote(error: string): string {
     detail.includes('forbidden') ||
     detail.includes('permission')
   ) {
-    return 'The service reported an access setup problem. Ask an owner to check saved service access, then choose Check now.'
+    return 'The service reported an access setup problem. Ask an owner or admin to check saved service access, then choose Check now.'
   }
   if (
     detail.includes('connection') ||
@@ -158,7 +158,7 @@ function serviceIssueNote(error: string): string {
     detail.includes('configuration') ||
     detail.includes('config')
   ) {
-    return 'A required service setting may be missing. Ask an owner to check service setup, then choose Check now.'
+    return 'A required service setting may be missing. Ask an owner or admin to check service setup, then choose Check now.'
   }
   if (
     detail.includes('rate limit') ||
