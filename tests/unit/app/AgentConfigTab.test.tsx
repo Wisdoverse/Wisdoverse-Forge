@@ -34,6 +34,7 @@ describe('AgentConfigTab', () => {
           tasksInProgress: 0,
           successRate: 0,
           cliTool: 'claude' as const,
+          runtimeId: 'af-claude-container-123',
         },
       ],
       updateAgentSystemPrompt,
@@ -137,6 +138,13 @@ describe('AgentConfigTab', () => {
     expect(screen.getByTestId('agent-cli-config-summary')).toBeInTheDocument()
     expect(screen.getByText('Work profile')).toBeInTheDocument()
     expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
+    expect(screen.getByText('Connection status')).toBeInTheDocument()
+    expect(screen.getByText('Managed workspace ready')).toBeInTheDocument()
+    expect(screen.getByText('Project folder')).toBeInTheDocument()
+    expect(screen.getByText('Project workspace')).toBeInTheDocument()
+    expect(screen.queryByText('Connection ID')).toBeNull()
+    expect(screen.queryByText('af-claude-container-123')).toBeNull()
+    expect(screen.queryByText('/workspace')).toBeNull()
     expect(screen.getByText(/only available for text-only model agents/i)).toBeInTheDocument()
   })
 

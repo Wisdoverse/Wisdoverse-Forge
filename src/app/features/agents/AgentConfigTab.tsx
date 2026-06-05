@@ -320,13 +320,19 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
       <div className="grid gap-2 sm:grid-cols-2">
         <RuntimeRow label="Work tool" value={agent.cliTool ?? 'Unknown'} />
         <RuntimeRow
-          label="Connection ID"
-          value={agent.runtimeId ?? (hostCli ? 'Waiting for this computer' : 'Managed workspace')}
+          label="Connection status"
+          value={
+            hostCli
+              ? agent.runtimeId
+                ? 'Connected from this computer'
+                : 'Waiting for this computer'
+              : 'Managed workspace ready'
+          }
         />
         <RuntimeRow label="Project" value={agent.projectName ?? 'No primary project'} />
         <RuntimeRow
-          label="Working directory"
-          value={agent.cwd ?? (hostCli ? 'Local connection folder' : '/workspace')}
+          label="Project folder"
+          value={agent.cwd ?? (hostCli ? 'Local connection folder' : 'Project workspace')}
         />
       </div>
     </div>
