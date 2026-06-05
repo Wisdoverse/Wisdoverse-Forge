@@ -205,24 +205,32 @@ export function ContextTab({
 }
 
 function runStatusLabel(status: string): string {
-  switch (status) {
+  const normalized = normalizeRunStatus(status)
+  switch (normalized) {
     case 'completed':
+    case 'succeeded':
+    case 'success':
       return 'Finished'
     case 'running':
     case 'working':
+    case 'in_progress':
       return 'In progress'
+    case 'queued':
+    case 'pending':
+      return 'Waiting to start'
     case 'failed':
+    case 'error':
       return 'Needs review'
     case 'canceled':
     case 'cancelled':
       return 'Stopped'
     default:
-      return status
-        .split(/[_\s-]+/)
-        .filter(Boolean)
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(' ')
+      return normalized ? 'Status needs review' : 'Status not reported'
   }
+}
+
+function normalizeRunStatus(status: string): string {
+  return status.trim().toLowerCase()
 }
 
 function contextSourceLabel(source: TaskContextResponse['provenance'][number]['source']): string {

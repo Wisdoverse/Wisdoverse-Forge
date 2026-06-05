@@ -111,7 +111,7 @@ describe('ContextTab', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'You do not have permission to view this task. Ask an owner or admin to update your role.'
+      'You do not have permission to view this task. Ask an owner or admin to give you access to this task.'
     )
     expect(alert).not.toHaveTextContent('HTTP 403')
   })
@@ -243,6 +243,52 @@ describe('ContextTab', () => {
     ).toBeDefined()
     expect(screen.queryByText(/via claude/i)).toBeNull()
     expect(screen.queryByText(/envelope/i)).toBeNull()
+  })
+
+  test('labels unknown context run states without exposing backend status values', async () => {
+    render(
+      <ContextTab
+        taskId="task-1"
+        loadContext={async () =>
+          context({
+            runs: [
+              {
+                id: 'run-1',
+                status: 'pending',
+                agentId: 'agent-1',
+                startedAt: now,
+                finishedAt: null,
+                capabilityProfile: {},
+              },
+              {
+                id: 'run-2',
+                status: 'waiting_for_context',
+                agentId: 'agent-1',
+                startedAt: now,
+                finishedAt: null,
+                capabilityProfile: {},
+              },
+              {
+                id: 'run-3',
+                status: ' ',
+                agentId: 'agent-1',
+                startedAt: now,
+                finishedAt: null,
+                capabilityProfile: {},
+              },
+            ],
+            appliedItems: [applied({ itemId: 'memory-run-status' })],
+          })
+        }
+      />
+    )
+
+    expect(await screen.findByText('Agent work checked for context')).toBeDefined()
+    expect(screen.getByText('Waiting to start')).toBeDefined()
+    expect(screen.getByText('Status needs review')).toBeDefined()
+    expect(screen.getByText('Status not reported')).toBeDefined()
+    expect(screen.queryByText(/waiting_for_context/i)).toBeNull()
+    expect(screen.queryByText('Unknown')).toBeNull()
   })
 
   test('loads full memory content only after Show more is clicked', async () => {
