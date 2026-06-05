@@ -32,6 +32,20 @@ WAIT: use --show-wait to list them when a human needs the full queue
 When the output says it used a cached snapshot, that is expected. Treat the
 result as a recent point-in-time view, not a live watch.
 
+## Do Not Poll In Chat
+
+Use this command as a snapshot, then stop. A `WAIT` result means GitHub is
+already handling review, CI, or merge queue work. Ask an agent to check again
+later, or schedule the command outside the chat.
+
+Safe rhythm for most teams:
+
+1. Run `npm run pr:summary`.
+2. Fix only PRs listed under `ACTION`.
+3. Leave `WAIT` PRs alone unless a reviewer asks for the full list.
+4. Re-run after 10 to 15 minutes, or after a known remote change such as a new
+   push.
+
 ## Refresh Only When Needed
 
 Use a refresh when you just pushed a fix, enabled auto-merge, or need a new
@@ -45,11 +59,25 @@ npm run pr:summary:refresh
 right away, it reuses the latest snapshot instead of calling GitHub again.
 
 Use a forced refresh only when you know the remote state changed and the command
-must ignore that cooldown:
+must ignore the normal cooldown:
 
 ```bash
 npm run pr:summary:force-refresh
 ```
+
+Even forced refresh keeps a 60-second repeat-read guard for the same query. That
+prevents an agent, shell loop, or impatient operator from hitting GitHub over and
+over while nothing useful changed.
+
+If an emergency manual check must read GitHub again immediately, make that
+choice explicit:
+
+```bash
+npm run pr:summary:force-refresh -- --allow-repeat-remote-read
+```
+
+Do not put that emergency flag in scripts, aliases, scheduled jobs, or agent
+skills.
 
 Use a shorter or longer reuse window when an operator has a reason to change
 the default:
@@ -58,10 +86,20 @@ the default:
 npm run pr:summary -- --cache-ttl-seconds 300
 ```
 
+Change the repeat-read guard only for a one-time manual session:
+
+```bash
+npm run pr:summary:refresh -- --min-remote-read-interval-seconds 120
+```
+
 Do not put `npm run pr:summary:refresh` or `npm run pr:summary:force-refresh`
 in a tight loop. This command is a snapshot tool, not a chat-based live watch.
 For monitoring, schedule it at a fixed interval such as 10 or 15 minutes and
 alert only when the `ACTION` count is greater than zero.
+
+`--no-cache` is intentionally blocked unless you also pass
+`--allow-repeat-remote-read`. It removes the local protection that stops repeated
+remote reads, so keep it for one-time troubleshooting only.
 
 ## What The Buckets Mean
 

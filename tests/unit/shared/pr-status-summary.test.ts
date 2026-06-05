@@ -7,7 +7,9 @@ import {
 import {
   CACHE_VERSION,
   cacheQuery,
+  DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS,
   DEFAULT_REFRESH_COOLDOWN_SECONDS,
+  isRepeatRemoteReadSuppressed,
   isReusableCacheEntry,
   isUsableCacheEntry,
   parseArgs,
@@ -101,7 +103,9 @@ describe('PR status summary', () => {
   it('defaults to a short-lived cache and supports explicit refresh', () => {
     expect(parseArgs([])).toMatchObject({
       cacheTtlSeconds: 900,
+      allowRepeatRemoteRead: false,
       forceRefresh: false,
+      minRemoteReadIntervalSeconds: DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS,
       noCache: false,
       refresh: false,
       refreshCooldownSeconds: DEFAULT_REFRESH_COOLDOWN_SECONDS,
@@ -116,6 +120,29 @@ describe('PR status summary', () => {
       forceRefresh: true,
       refresh: true,
     })
+  })
+
+  it('keeps a repeat-read guard even for forced refreshes', () => {
+    const now = Date.parse('2026-06-05T12:00:00Z')
+    const options = parseArgs(['--force-refresh'])
+    const entry = {
+      version: CACHE_VERSION,
+      fetchedAt: now - 30_000,
+      query: cacheQuery(options),
+      pullRequests: [pr()],
+    }
+
+    expect(isRepeatRemoteReadSuppressed(entry, options, now)).toBe(true)
+    expect(
+      isRepeatRemoteReadSuppressed({ ...entry, fetchedAt: now - 61_000 }, options, now)
+    ).toBe(false)
+    expect(
+      isRepeatRemoteReadSuppressed(
+        entry,
+        parseArgs(['--force-refresh', '--allow-repeat-remote-read']),
+        now
+      )
+    ).toBe(false)
   })
 
   it('reuses only fresh cache entries for the same GitHub query', () => {

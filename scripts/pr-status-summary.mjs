@@ -12,6 +12,7 @@ import {
 const CACHE_VERSION = 1
 const DEFAULT_CACHE_TTL_SECONDS = 900
 const DEFAULT_REFRESH_COOLDOWN_SECONDS = 60
+const DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS = 60
 
 const GH_FIELDS = [
   'autoMergeRequest',
@@ -51,11 +52,13 @@ function parseArgs(args) {
   const options = {
     cacheFile: '',
     cacheTtlSeconds: DEFAULT_CACHE_TTL_SECONDS,
+    allowRepeatRemoteRead: false,
     failOnAction: false,
     forceRefresh: false,
     inputPath: '',
     json: false,
     limit: 120,
+    minRemoteReadIntervalSeconds: DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS,
     noCache: false,
     refresh: false,
     refreshCooldownSeconds: DEFAULT_REFRESH_COOLDOWN_SECONDS,
@@ -78,6 +81,8 @@ function parseArgs(args) {
       options.forceRefresh = true
     } else if (arg === '--no-cache') {
       options.noCache = true
+    } else if (arg === '--allow-repeat-remote-read') {
+      options.allowRepeatRemoteRead = true
     } else if (arg === '--limit') {
       options.limit = parsePositiveInt(readValue(args, index, arg), options.limit)
       index += 1
@@ -91,6 +96,12 @@ function parseArgs(args) {
       options.refreshCooldownSeconds = parseNonNegativeInt(
         readValue(args, index, arg),
         options.refreshCooldownSeconds
+      )
+      index += 1
+    } else if (arg === '--min-remote-read-interval-seconds') {
+      options.minRemoteReadIntervalSeconds = parseNonNegativeInt(
+        readValue(args, index, arg),
+        options.minRemoteReadIntervalSeconds
       )
       index += 1
     } else if (arg === '--cache-file') {
@@ -123,10 +134,19 @@ function readPullRequestSnapshot(options, now = Date.now()) {
   }
 
   const cachePath = resolveCachePath(options.cacheFile)
+  if (options.noCache && !options.allowRepeatRemoteRead) {
+    throwUsageError(
+      '--no-cache disables repeat-read protection; pass --allow-repeat-remote-read only for a one-time manual check'
+    )
+  }
+
   if (!options.noCache) {
     const cached = readFreshCache(cachePath, options, now)
     if (cached) return cached
   }
+
+  const guarded = readRepeatRemoteReadGuard(cachePath, options, now)
+  if (guarded) return guarded
 
   const pullRequests = readPullRequestsFromGitHub(options)
   if (!options.noCache) {
@@ -173,6 +193,24 @@ function readFreshCache(cachePath, options, now) {
       cacheHit: true,
       cacheAgeSeconds: Math.max(0, Math.floor((now - cache.fetchedAt) / 1000)),
       refreshSuppressed: options.refresh === true && options.forceRefresh !== true,
+    }
+  } catch {
+    return null
+  }
+}
+
+function readRepeatRemoteReadGuard(cachePath, options, now) {
+  if (!existsSync(cachePath)) return null
+
+  try {
+    const cache = JSON.parse(readFileSync(cachePath, 'utf8'))
+    if (!isRepeatRemoteReadSuppressed(cache, options, now)) return null
+    return {
+      pullRequests: cache.pullRequests,
+      source: cachePath,
+      cacheHit: true,
+      cacheAgeSeconds: Math.max(0, Math.floor((now - cache.fetchedAt) / 1000)),
+      repeatRemoteReadSuppressed: true,
     }
   } catch {
     return null
@@ -268,6 +306,13 @@ function isReusableCacheEntry(cache, options, now = Date.now()) {
   return isUsableCacheEntry(cache, options, now)
 }
 
+function isRepeatRemoteReadSuppressed(cache, options, now = Date.now()) {
+  if (options.allowRepeatRemoteRead) return false
+  if (options.minRemoteReadIntervalSeconds <= 0) return false
+  if (!isMatchingCacheEntry(cache, options)) return false
+  return now - cache.fetchedAt <= options.minRemoteReadIntervalSeconds * 1000
+}
+
 function isMatchingCacheEntry(cache, options) {
   if (!cache || cache.version !== CACHE_VERSION || !Array.isArray(cache.pullRequests)) return false
   if (!cache.fetchedAt || !Number.isFinite(cache.fetchedAt)) return false
@@ -283,6 +328,11 @@ function cacheQuery(options) {
 }
 
 function formatCacheNotice(snapshot, options) {
+  if (snapshot.repeatRemoteReadSuppressed) {
+    return `[pr-summary] remote refresh skipped because GitHub was checked ${formatAge(
+      snapshot.cacheAgeSeconds
+    )}; wait or pass --allow-repeat-remote-read only for a one-time manual check`
+  }
   if (snapshot.refreshSuppressed) {
     return `[pr-summary] refresh skipped because GitHub was checked ${formatAge(
       snapshot.cacheAgeSeconds
@@ -311,12 +361,16 @@ Options:
   --limit <n>         Number of PRs to read from GitHub. Default: 120
   --state <state>    open, closed, or all. Default: open
   --refresh          Query GitHub unless the latest snapshot is inside the refresh cooldown
-  --force-refresh    Bypass the refresh cooldown and query GitHub now
-  --no-cache         Query GitHub and do not read or write the local cache
+  --force-refresh    Bypass the refresh cooldown, but keep the repeat-read guard
+  --no-cache         Query GitHub and do not read or write the local cache; requires --allow-repeat-remote-read
+  --allow-repeat-remote-read
+                     Permit an immediate uncached or forced GitHub read for a one-time manual check
   --cache-ttl-seconds <n>
                      Reuse a local GitHub snapshot for this many seconds. Default: 900
   --refresh-cooldown-seconds <n>
                      Reuse a very recent snapshot even when --refresh is passed. Default: 60
+  --min-remote-read-interval-seconds <n>
+                     Minimum seconds between GitHub reads for the same query. Default: 60
   --cache-file <path>
                      Use a custom cache file. Default: Git temp path
   --show-wait        Print each WAIT item instead of only the wait count
@@ -340,7 +394,9 @@ export {
   CACHE_VERSION,
   cacheQuery,
   classifyPullRequest,
+  DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS,
   DEFAULT_REFRESH_COOLDOWN_SECONDS,
+  isRepeatRemoteReadSuppressed,
   isUsableCacheEntry,
   isReusableCacheEntry,
   parseArgs,
