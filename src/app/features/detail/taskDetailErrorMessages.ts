@@ -30,7 +30,7 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
   }
 
   if (isNetworkError(normalized)) {
-    return `${ACTION_FALLBACKS[action]} The app could not reach the service. Check your connection, then refresh the page.`
+    return `${ACTION_FALLBACKS[action]} ${networkRecoveryMessage(action)}`
   }
 
   if (status === 401) {
@@ -39,9 +39,9 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
 
   if (status === 403) {
     if (action === 'loadAgents' || action === 'loadContext' || action === 'loadRuns') {
-      return 'You do not have permission to view this task. Ask an owner or admin to update your role.'
+      return 'You do not have permission to view this task. Ask an owner or admin to give you access to this task.'
     }
-    return 'You do not have permission to change this task. Ask an owner or admin to update your role.'
+    return 'You do not have permission to change this task. Ask an owner or admin to let you update this task.'
   }
 
   if (status === 404) {
@@ -61,10 +61,24 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
   }
 
   if (status && status >= 500) {
-    return 'Task details are temporarily unavailable. Refresh the task, then try again. If it still fails, ask an owner or admin to check task services.'
+    return serviceRecoveryMessage(action)
   }
 
   return validationMessage(action, detail)
+}
+
+function networkRecoveryMessage(action: TaskDetailErrorAction): string {
+  if (action === 'loadAgents' || action === 'loadContext' || action === 'loadRuns') {
+    return 'Forge could not connect while loading this task. Check your connection, then refresh the page.'
+  }
+  return 'Forge could not connect while updating this task. Check your connection, then try again.'
+}
+
+function serviceRecoveryMessage(action: TaskDetailErrorAction): string {
+  if (action === 'loadAgents' || action === 'loadContext' || action === 'loadRuns') {
+    return `${ACTION_FALLBACKS[action]} Forge could not load task details right now. Refresh the task, then try again. If it still fails, ask an owner or admin to check task setup.`
+  }
+  return `${ACTION_FALLBACKS[action]} Forge could not finish this task action right now. Refresh the task, then try again. If it still fails, ask an owner or admin to check task setup.`
 }
 
 function errorDetail(err: unknown): string {
