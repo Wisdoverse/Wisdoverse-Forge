@@ -12,11 +12,11 @@ export function accountErrorMessage(action: AccountErrorAction, error?: unknown)
     if (detail) {
       return validationMessage(action, detail)
     }
-    return `${actionFailureBase(action)} The app could not reach ${settingsAreaLabel(action).toLowerCase()}. Check your connection, then try again.`
+    return `${actionFailureBase(action)} Forge could not connect while opening ${settingsAreaLabel(action).toLowerCase()}. Check your connection, then try again.`
   }
 
   if (status === 401) {
-    return `Sign in again, then ${retryPhrase(action)}.`
+    return `Your sign-in expired. Sign in again, then ${retryPhrase(action)}.`
   }
   if (status === 403) {
     return permissionMessage(action)
@@ -31,13 +31,13 @@ export function accountErrorMessage(action: AccountErrorAction, error?: unknown)
     return validationMessage(action, detail)
   }
   if (status === 429) {
-    return `${settingsAreaLabel(action)} are busy. Wait a moment, then ${retryPhrase(action)}.`
+    return `Forge is receiving too many account settings requests right now. Wait a moment, then ${retryPhrase(action)}.`
   }
   if (status >= 500) {
-    return `${settingsAreaLabel(action)} are temporarily unavailable. Wait a moment, then try again. If it still fails, ask an owner to check account settings.`
+    return `${actionFailureBase(action)} Refresh Settings, then try again. If it still fails, ask an owner or admin to check account settings.`
   }
 
-  return `Account settings could not ${actionPhrase(action)}. Refresh the page and try again.`
+  return `Account settings could not ${actionPhrase(action)}. Refresh Settings, then try again. If it still fails, ask an owner or admin to check account settings.`
 }
 
 function actionFailureBase(action: AccountErrorAction): string {
