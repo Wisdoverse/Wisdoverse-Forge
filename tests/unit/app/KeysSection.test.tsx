@@ -57,18 +57,19 @@ describe('KeysSection', () => {
     await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
     const emptyState = screen.getByTestId('platform-key-empty-state')
 
-    expect(screen.getByRole('heading', { name: 'Platform Access Keys' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Platform access keys' })).toBeDefined()
     expect(within(emptyState).getByText('No platform access keys yet')).toBeDefined()
-    expect(within(emptyState).getByText(/another tool needs to call Forge/i)).toBeDefined()
-    expect(within(emptyState).getByText(/trusted automation tool/i)).toBeDefined()
-    expect(within(emptyState).getByText(/password manager or secret manager/i)).toBeDefined()
+    expect(within(emptyState).getByText(/trusted automation/i)).toBeDefined()
+    expect(within(emptyState).getByText(/app or script you trust/i)).toBeDefined()
+    expect(within(emptyState).getByText(/password manager before closing/i)).toBeDefined()
     expect(within(emptyState).queryByText(/platform A[P]I keys/i)).toBeNull()
 
     fireEvent.click(within(emptyState).getByRole('button', { name: /create access key/i }))
 
-    expect(screen.getByLabelText(/^access key name$/i)).toBeDefined()
-    expect(screen.getByText(/enter a short name first/i)).toBeDefined()
-    expect(screen.getByText(/exact place this key will be used/i)).toBeDefined()
+    expect(screen.queryByTestId('platform-key-empty-state')).toBeNull()
+    expect(screen.getByLabelText(/^where will this key be used/i)).toBeDefined()
+    expect(screen.getByText(/use the app, script, or workflow name/i)).toBeDefined()
+    expect(screen.getByText(/remove the right key later/i)).toBeDefined()
   })
 
   test('explains the required key name before creating an access key', async () => {
@@ -77,7 +78,7 @@ describe('KeysSection', () => {
     await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
     fireEvent.click(screen.getAllByRole('button', { name: /create access key/i })[0])
 
-    const input = screen.getByLabelText(/^access key name$/i)
+    const input = screen.getByLabelText(/^where will this key be used/i)
     const form = input.closest('form')
     expect(form).toBeTruthy()
 
@@ -85,7 +86,9 @@ describe('KeysSection', () => {
     fireEvent.submit(form!)
 
     expect(createApiKeyMock).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert')).toHaveTextContent(/name this access key before creating it/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /name where this access key will be used first/i
+    )
     expect(input).toHaveFocus()
   })
 
@@ -99,16 +102,38 @@ describe('KeysSection', () => {
 
     await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
     fireEvent.click(screen.getAllByRole('button', { name: /create access key/i })[0])
-    fireEvent.change(screen.getByLabelText(/^access key name$/i), {
+    fireEvent.change(screen.getByLabelText(/^where will this key be used/i), {
       target: { value: 'Production deploy pipeline' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /^create$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /create access key/i }))
 
     await waitFor(() => expect(createApiKeyMock).toHaveBeenCalledWith('Production deploy pipeline'))
-    expect(screen.getByText(/Platform access key created/i)).toBeDefined()
-    expect(screen.getByText(/copy it now/i)).toBeDefined()
-    expect(screen.getByText(/password manager or another safe secret store/i)).toBeDefined()
+    expect(screen.getByText(/Platform access key created - save it now/i)).toBeDefined()
+    expect(screen.getByText(/only time the full key is shown/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: /copy key/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /i saved it/i })).toBeDefined()
     expect(screen.getByText('af_test_key_value')).toBeDefined()
+  })
+
+  test('labels saved key rows with clear removal language', async () => {
+    useSettingsStore.setState({
+      apiKeys: [apiKey({ name: 'Release automation', keyPrefix: 'af_rel' })],
+    })
+
+    render(<KeysSection />)
+
+    expect(await screen.findByRole('table', { name: /platform access keys/i })).toBeDefined()
+    expect(screen.getByText('Starts with')).toBeDefined()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /remove release automation platform access key/i })
+    )
+
+    expect(
+      screen.getByRole('button', {
+        name: /confirm removing release automation platform access key/i,
+      })
+    ).toHaveTextContent('Remove now')
   })
 
   test('shows a beginner recovery step instead of raw platform key details', async () => {
@@ -121,7 +146,7 @@ describe('KeysSection', () => {
 
     await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Platform access key could not be created. Ask an owner or admin for access to manage platform access keys.'
+      'Platform access key could not be created. Ask an owner or admin to let you create or remove platform access keys.'
     )
     expect(screen.queryByText(/Details: Forbidden/i)).toBeNull()
   })

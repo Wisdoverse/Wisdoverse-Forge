@@ -20,9 +20,9 @@ function formatDate(dateStr: string | null): string {
 }
 
 const ACCESS_KEY_EMPTY_STEPS = [
-  'Create one only for a trusted automation tool.',
-  'Use a name that tells the team where the key will live.',
-  'Copy it into a password manager or secret manager before closing the banner.',
+  'Create one only for an app or script you trust.',
+  'Name it after the exact place it will be used.',
+  'Copy the new key into a password manager before closing the banner.',
 ]
 
 // ============================================================================
@@ -72,9 +72,14 @@ function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
         <button
           type="button"
           onClick={handleRevoke}
+          aria-label={
+            confirming
+              ? `Confirm removing ${apiKey.name} platform access key`
+              : `Remove ${apiKey.name} platform access key`
+          }
           className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
         >
-          {confirming ? 'Confirm?' : 'Revoke'}
+          {confirming ? 'Remove now' : 'Remove'}
         </button>
       </td>
     </tr>
@@ -106,27 +111,34 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
         'mb-4 rounded-card border border-apple-blue/20 bg-apple-blue/10 p-4 text-apple-blue'
       )}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <p className="mb-1 text-ui-caption font-semibold">
-            Platform access key created — copy it now, it won&apos;t be shown again
+            Platform access key created - save it now
           </p>
           <p className="mb-2 text-ui-caption text-apple-blue/80">
-            Save it in a password manager or another safe secret store before dismissing this
-            banner.
+            This is the only time the full key is shown. Copy it into a password manager before
+            choosing I saved it.
           </p>
           <code className="break-all font-mono text-ui-caption">{keyValue}</code>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex gap-2 sm:shrink-0">
           <button
             type="button"
             onClick={handleCopy}
-            className={copied ? uiStyles.primaryButton : uiStyles.secondaryButton}
+            className={cn(
+              copied ? uiStyles.primaryButton : uiStyles.secondaryButton,
+              'flex-1 sm:flex-none'
+            )}
           >
-            {copied ? 'Copied!' : 'Copy'}
+            {copied ? 'Copied' : 'Copy key'}
           </button>
-          <button type="button" onClick={onDismiss} className={uiStyles.subtleButton}>
-            Dismiss
+          <button
+            type="button"
+            onClick={onDismiss}
+            className={cn(uiStyles.subtleButton, 'flex-1 sm:flex-none')}
+          >
+            I saved it
           </button>
         </div>
       </div>
@@ -153,7 +165,7 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
   const trimmedName = name.trim()
   const isReady = Boolean(trimmedName)
   const visibleError =
-    submitAttempted && !isReady ? 'Name this access key before creating it.' : null
+    submitAttempted && !isReady ? 'Name where this access key will be used first.' : null
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -171,15 +183,15 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
       className="mt-3 rounded-card border border-black/[0.08] bg-white p-3 dark:border-white/[0.1] dark:bg-[#2c2c2e]"
     >
       <label htmlFor={nameInputId} className={uiStyles.label}>
-        Access key name
+        Where will this key be used?
       </label>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <input
           id={nameInputId}
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. production deploy pipeline"
+          placeholder="e.g. release automation"
           autoFocus
           aria-invalid={visibleError !== null}
           aria-describedby={`${nameHelpId}${visibleError ? ` ${nameErrorId}` : ''}`}
@@ -189,20 +201,23 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className={uiStyles.secondaryButton}
+          className={cn(uiStyles.secondaryButton, 'w-full sm:w-auto')}
         >
           Cancel
         </button>
-        <button type="submit" disabled={saving || !name.trim()} className={uiStyles.primaryButton}>
-          {saving ? 'Creating...' : 'Create'}
+        <button
+          type="submit"
+          disabled={saving || !name.trim()}
+          className={cn(uiStyles.primaryButton, 'w-full sm:w-auto')}
+        >
+          {saving ? 'Creating...' : 'Create access key'}
         </button>
       </div>
       <p
         id={nameHelpId}
         className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark"
       >
-        Enter a short name first. Use the exact place this key will be used so it is easy to revoke
-        later.
+        Use the app, script, or workflow name. This makes it easy to remove the right key later.
       </p>
       {visibleError && (
         <p id={nameErrorId} role="alert" className="mt-1 text-ui-caption text-apple-red">
@@ -244,9 +259,9 @@ export function KeysSection() {
 
   const tableHeaders: { label: string; className?: string }[] = [
     { label: 'Name' },
-    { label: 'Key' },
+    { label: 'Starts with' },
     { label: 'Created' },
-    { label: 'Last Used' },
+    { label: 'Last used' },
     { label: '', className: 'w-20' },
   ]
 
@@ -255,10 +270,9 @@ export function KeysSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Platform Access Keys</h2>
+          <h2 className={uiStyles.sectionTitle}>Platform access keys</h2>
           <p className={uiStyles.sectionDescription}>
-            Create access keys for trusted automation tools that need to connect without a person
-            signing in
+            Give a trusted app or script access to Forge without asking a person to sign in.
           </p>
         </div>
         {!showForm && (
@@ -268,7 +282,7 @@ export function KeysSection() {
             className={uiStyles.primaryButton}
           >
             <span>+</span>
-            <span>Create Access Key</span>
+            <span>Create access key</span>
           </button>
         )}
       </div>
@@ -291,32 +305,34 @@ export function KeysSection() {
       )}
 
       {/* Table */}
-      <div className={cn(uiStyles.card, 'mt-3 overflow-x-auto')}>
-        {keysLoading && apiKeys.length === 0 ? (
-          <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading access keys…
-          </div>
-        ) : apiKeys.length === 0 ? (
-          <PlatformKeyEmptyState onCreate={() => setShowForm(true)} />
-        ) : (
-          <table className={uiStyles.table}>
-            <thead className={uiStyles.tableHead}>
-              <tr>
-                {tableHeaders.map((h) => (
-                  <th key={h.label} className={cn(uiStyles.tableHeaderCell, h.className)}>
-                    {h.label}
-                  </th>
+      {(keysLoading || apiKeys.length > 0 || !showForm) && (
+        <div className={cn(uiStyles.card, 'mt-3 overflow-x-auto')}>
+          {keysLoading && apiKeys.length === 0 ? (
+            <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
+              Loading access keys…
+            </div>
+          ) : apiKeys.length === 0 ? (
+            <PlatformKeyEmptyState onCreate={() => setShowForm(true)} />
+          ) : (
+            <table className={uiStyles.table} aria-label="Platform access keys">
+              <thead className={uiStyles.tableHead}>
+                <tr>
+                  {tableHeaders.map((h) => (
+                    <th key={h.label} className={cn(uiStyles.tableHeaderCell, h.className)}>
+                      {h.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {apiKeys.map((key: ApiKeyRecord) => (
+                  <KeyRow key={key.id} apiKey={key} onRevoke={handleRevoke} />
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {apiKeys.map((key: ApiKeyRecord) => (
-                <KeyRow key={key.id} apiKey={key} onRevoke={handleRevoke} />
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -341,7 +357,8 @@ function PlatformKeyEmptyState({ onCreate }: { onCreate: () => void }) {
               No platform access keys yet
             </h3>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-              Create one only when another tool needs to call Forge without a signed-in user.
+              Use this only for trusted automation, such as a release workflow or internal tool,
+              that needs to connect without a person signing in.
             </p>
           </div>
         </div>
@@ -365,7 +382,7 @@ function PlatformKeyEmptyState({ onCreate }: { onCreate: () => void }) {
         </div>
         <button type="button" onClick={onCreate} className={cn(uiStyles.primaryButton, 'w-fit')}>
           <span>+</span>
-          <span>Create Access Key</span>
+          <span>Create access key</span>
         </button>
       </div>
     </section>

@@ -8,7 +8,7 @@ describe('platformKeyErrorMessage', () => {
         'You do not have permission to create the platform API key. Code: 403. Details: Forbidden'
       )
     ).toBe(
-      'Platform access key could not be created. Ask an owner or admin for access to manage platform access keys.'
+      'Platform access key could not be created. Ask an owner or admin to let you create or remove platform access keys.'
     )
   })
 
@@ -18,13 +18,13 @@ describe('platformKeyErrorMessage', () => {
         'Check the required fields for platform API key, then try again. Code: 422. Details: name is required'
       )
     ).toBe(
-      'Platform access key could not be created. Enter a short name that says where this key will be used, then try again.'
+      'Platform access key could not be created. Enter the app, script, or workflow name, then try again.'
     )
   })
 
   test('explains duplicate keys with a safe next action', () => {
     expect(platformKeyErrorMessage('API 409 duplicate key')).toBe(
-      'Platform access key could not be created. A key with this name or value already exists. Refresh the list, then choose a different name or revoke the old key first.'
+      'Platform access key could not be created. A platform access key with this name already exists. Refresh the list, then choose a different name or remove the old key first.'
     )
   })
 

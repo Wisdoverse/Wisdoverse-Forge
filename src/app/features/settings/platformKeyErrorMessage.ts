@@ -44,7 +44,7 @@ function actionFromText(text: string): PlatformKeyAction {
 
 function baseMessage(action: PlatformKeyAction): string {
   if (action === 'create') return 'Platform access key could not be created.'
-  if (action === 'remove') return 'Platform access key could not be revoked.'
+  if (action === 'remove') return 'Platform access key could not be removed.'
   return 'Platform access keys could not be loaded.'
 }
 
@@ -59,10 +59,10 @@ export function platformKeyErrorMessage(error: unknown): string {
     return `${base} Sign in again, then open Settings and try platform keys again.`
   }
   if (code === 403 || lower.includes('permission') || lower.includes('forbidden')) {
-    return `${base} Ask an owner or admin for access to manage platform access keys.`
+    return `${base} Ask an owner or admin to let you create or remove platform access keys.`
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
-    return `${base} A key with this name or value already exists. Refresh the list, then choose a different name or revoke the old key first.`
+    return `${base} A platform access key with this name already exists. Refresh the list, then choose a different name or remove the old key first.`
   }
   if (
     code === 422 ||
@@ -70,17 +70,17 @@ export function platformKeyErrorMessage(error: unknown): string {
     lower.includes('name required') ||
     lower.includes('invalid name')
   ) {
-    return `${base} Enter a short name that says where this key will be used, then try again.`
+    return `${base} Enter the app, script, or workflow name, then try again.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
     return `${base} The service is busy. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
-    return `${base} The platform key service is temporarily unavailable. Try again. If it still fails, ask an owner to check platform key settings.`
+    return `${base} The platform access key service is temporarily unavailable. Try again. If it still fails, ask an owner to check platform access key settings.`
   }
   if (isNetworkError(error)) {
     return `${base} The app could not reach the service. Check your connection, then try again.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner to check platform key settings.`
+  return `${base} Try again. If it still fails, ask an owner to check platform access key settings.`
 }
