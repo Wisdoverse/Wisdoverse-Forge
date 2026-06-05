@@ -296,6 +296,24 @@ function ConfigMetric({ label, value }: { label: string; value: string }) {
   )
 }
 
+function cliToolLabel(tool?: AgentInfo['cliTool'] | string): string {
+  switch (tool?.trim().toLowerCase()) {
+    case 'claude':
+      return 'Claude'
+    case 'codex':
+      return 'Codex'
+    case 'gemini':
+      return 'Gemini'
+    case 'opencode':
+      return 'OpenCode'
+    case undefined:
+    case '':
+      return 'Work tool not reported'
+    default:
+      return 'Work tool needs review'
+  }
+}
+
 function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
   const hostCli = isHostCliAgent(agent)
   return (
@@ -329,7 +347,7 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2">
-        <RuntimeRow label="Work tool" value={agent.cliTool ?? 'Unknown'} />
+        <RuntimeRow label="Work tool" value={cliToolLabel(agent.cliTool)} />
         <RuntimeRow
           label="Connection"
           value={

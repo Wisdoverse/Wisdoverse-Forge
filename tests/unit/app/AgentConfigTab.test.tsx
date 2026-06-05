@@ -50,6 +50,19 @@ describe('AgentConfigTab', () => {
           runtimeKind: 'cli' as const,
           projectName: 'Platform',
         },
+        {
+          id: 'future-tool',
+          name: 'Future Tool Agent',
+          provider: 'Work tool needs review',
+          model: 'Work tool needs review',
+          status: 'idle' as const,
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+          cliTool: 'future_tool' as never,
+          runtimeId: 'af-future-tool-container-123',
+          runtimeKind: 'container' as const,
+        },
       ],
       updateAgentSystemPrompt,
     } as never)
@@ -156,12 +169,14 @@ describe('AgentConfigTab', () => {
     expect(screen.queryByLabelText(/instructions for this agent/i)).toBeNull()
     expect(screen.getByTestId('agent-cli-config-summary')).toBeInTheDocument()
     expect(screen.getByText('Where this agent works')).toBeInTheDocument()
+    expect(screen.getByText('Claude')).toBeInTheDocument()
     expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
     expect(screen.getByText('Connection')).toBeInTheDocument()
     expect(screen.getByText('Ready in managed workspace')).toBeInTheDocument()
     expect(screen.getByText('Starting folder')).toBeInTheDocument()
     expect(screen.getByText('Workspace project folder')).toBeInTheDocument()
     expect(screen.queryByText('Connection ID')).toBeNull()
+    expect(screen.queryByText('claude')).toBeNull()
     expect(screen.queryByText('af-claude-container-123')).toBeNull()
     expect(screen.queryByText('/workspace')).toBeNull()
     expect(screen.getByText(/confirm where it can open files before assigning work/i)).toBeInTheDocument()
@@ -181,6 +196,15 @@ describe('AgentConfigTab', () => {
     expect(screen.getByText('Folder used when this computer joined')).toBeInTheDocument()
     expect(screen.queryByText('host-local-123')).toBeNull()
     expect(screen.queryByText(/runtime/i)).toBeNull()
+  })
+
+  it('labels unknown work tools without exposing raw tool values', () => {
+    render(<AgentConfigTab agentId="future-tool" />)
+
+    expect(screen.getByTestId('agent-cli-config-summary')).toBeInTheDocument()
+    expect(screen.getByText('Work tool needs review')).toBeInTheDocument()
+    expect(screen.queryByText('future_tool')).toBeNull()
+    expect(screen.queryByText('Unknown')).toBeNull()
   })
 
   it('renders "Agent not found" for unknown id', () => {
