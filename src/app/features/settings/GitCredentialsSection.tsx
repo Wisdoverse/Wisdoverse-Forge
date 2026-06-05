@@ -25,8 +25,8 @@ const PROVIDER_LABELS: Record<GitProvider, string> = {
 const GIT_CREDENTIAL_SETUP_STEPS = [
   { label: 'Choose where code lives', value: 'Pick GitHub or GitLab.' },
   {
-    label: 'Paste the access token',
-    value: 'Create a personal access token in GitHub or GitLab, then paste it here.',
+    label: 'Create an access key',
+    value: 'GitHub and GitLab call this a personal access token with repository access.',
   },
   {
     label: 'Leave address blank for cloud',
@@ -52,10 +52,10 @@ function credentialFormReadiness({
   if (!token.trim()) {
     return {
       ready: false,
-      title: 'Next: Paste the access token',
+      title: 'Next: Create an access key',
       detail:
-        'Use the personal access token from GitHub or GitLab so agents can clone and push repositories.',
-      error: 'Paste an access token before saving repository access.',
+        'Create the key in GitHub or GitLab, paste it here, then agents can clone and update allowed repositories.',
+      error: 'Paste the GitHub or GitLab access key before saving repository access.',
       fieldId: tokenInputId,
     }
   }
@@ -239,13 +239,13 @@ function AddCredentialForm({
 
         <div>
           <label htmlFor="git-credential-token" className={uiStyles.label}>
-            Repository access token <span className="text-red-500">*</span>
+            GitHub or GitLab access key <span className="text-red-500">*</span>
           </label>
           <p
             id={tokenIntroId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste a personal access token from the selected site. It lets agents clone and update
+            Paste the personal access token from the selected site. It lets agents clone and update
             only the repositories you allow.
           </p>
           <input
@@ -254,7 +254,7 @@ function AddCredentialForm({
             name="token"
             value={form.token}
             onChange={(e) => setForm({ ...form, token: e.target.value })}
-            placeholder="Paste the access token from GitHub or GitLab"
+            placeholder="Paste the access key from GitHub or GitLab"
             required
             className={uiStyles.input}
             aria-describedby={`${tokenIntroId} ${tokenSafetyId}`}
@@ -263,7 +263,7 @@ function AddCredentialForm({
             id={tokenSafetyId}
             className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Do not paste your GitHub or GitLab password. This token is hidden after saving.
+            Do not paste your GitHub or GitLab password. This key is hidden after saving.
           </p>
         </div>
 

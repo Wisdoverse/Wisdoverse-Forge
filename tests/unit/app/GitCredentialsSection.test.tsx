@@ -51,9 +51,11 @@ describe('GitCredentialsSection', () => {
 
     expect(screen.getByText('Repository access setup')).toBeDefined()
     expect(screen.getByText('Choose where code lives')).toBeDefined()
-    expect(screen.getByText('Paste the access token')).toBeDefined()
-    expect(screen.getByText(/create a personal access token in GitHub or GitLab/i)).toBeDefined()
-    expect(screen.getByText(/next: paste the access token/i)).toBeDefined()
+    expect(screen.getByText('Create an access key')).toBeDefined()
+    expect(screen.getByText(/call this a personal access token/i)).toBeDefined()
+    expect(screen.getByText(/next: create an access key/i)).toBeDefined()
+    expect(screen.queryByText('Paste the access token')).toBeNull()
+    expect(screen.queryByLabelText(/^repository access token/i)).toBeNull()
     expect(screen.getByText(/do not paste your GitHub or GitLab password/i)).toBeDefined()
     expect(screen.getByText(/leave this empty if you use github.com or gitlab.com/i)).toBeDefined()
     expect(screen.getByPlaceholderText('e.g. gitlab.example.com')).toBeDefined()
@@ -61,7 +63,7 @@ describe('GitCredentialsSection', () => {
     const saveButton = screen.getByRole('button', { name: /save repository access/i })
     expect(saveButton).toBeDisabled()
 
-    const tokenInput = screen.getByLabelText(/^repository access token/i)
+    const tokenInput = screen.getByLabelText(/^GitHub or GitLab access key/i)
     expect(tokenInput).toHaveAttribute(
       'aria-describedby',
       'git-credential-token-intro git-credential-token-safety'
@@ -89,7 +91,7 @@ describe('GitCredentialsSection', () => {
 
     await waitFor(() => expect(loadGitCredentialsMock).toHaveBeenCalled())
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Repository access could not be saved. Paste a new access token from GitHub or GitLab, then save again.'
+      'Repository access could not be saved. Paste a new GitHub or GitLab access key, then save again.'
     )
     expect(screen.queryByText(/Details: invalid token/i)).toBeNull()
   })
