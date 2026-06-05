@@ -8,11 +8,11 @@ const HIDDEN_ACCESS_VALUE = 'Hidden for safety. Reconnect the required account a
 const MISSING_ACCESS_MESSAGE =
   'Required account access is missing. Add or reconnect service access, then retry.'
 
-function formatJson(data: Record<string, unknown>): string {
+function formatSupportDetails(data: Record<string, unknown>): string {
   try {
     return JSON.stringify(safeToolValue(data), null, 2)
   } catch {
-    return String(data)
+    return 'Support details were recorded but could not be shown safely.'
   }
 }
 
@@ -56,6 +56,49 @@ function formatDuration(duration: number): string {
   return duration < 1000 ? `${duration}ms` : `${(duration / 1000).toFixed(1)}s`
 }
 
+function toolDataSummary(data: Record<string, unknown>, kind: 'request' | 'result'): string {
+  const directSummary = firstString(data.summary, data.message, data.title, data.description)
+  if (directSummary) return safeToolString(directSummary)
+
+  if (typeof data.command === 'string' && data.command.trim()) {
+    return `Command to run: ${safeToolString(data.command)}`
+  }
+
+  if (typeof data.query === 'string' && data.query.trim()) {
+    return `Search request: ${safeToolString(data.query)}`
+  }
+
+  const target = firstString(data.path, data.file, data.url)
+  if (target) {
+    return `Target: ${safeToolString(target)}`
+  }
+
+  const issue = firstString(data.error, data.reason)
+  if (issue) {
+    return `Needs attention: ${safeToolString(issue)}`
+  }
+
+  if (typeof data.ok === 'boolean') {
+    return data.ok ? 'This step finished successfully.' : 'This step needs review.'
+  }
+
+  const itemCount = Object.keys(data).length
+  if (itemCount > 0) {
+    return `${kind === 'request' ? 'Request' : 'Result'} includes ${itemCount} ${itemCount === 1 ? 'item' : 'items'} for support review.`
+  }
+
+  return kind === 'request'
+    ? 'The agent sent this step without extra settings.'
+    : 'The step returned an empty result.'
+}
+
+function firstString(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim().length > 0) return value.trim()
+  }
+  return null
+}
+
 function toolOutcome(call: ToolCall): {
   label: string
   helper: string
@@ -65,7 +108,7 @@ function toolOutcome(call: ToolCall): {
   if (call.success === true) {
     return {
       label: 'Completed cleanly',
-      helper: 'The tool finished without reporting a problem.',
+      helper: 'This step finished without reporting a problem.',
       tone: 'success',
       Icon: CheckCircle2,
     }
@@ -74,7 +117,7 @@ function toolOutcome(call: ToolCall): {
   if (call.success === false) {
     return {
       label: 'Needs review',
-      helper: 'The tool reported a problem. Check this before trusting the answer.',
+      helper: 'This step reported a problem. Check it before trusting the answer.',
       tone: 'danger',
       Icon: AlertTriangle,
     }
@@ -90,9 +133,14 @@ function toolOutcome(call: ToolCall): {
 
 export function ToolCallDetail({ call }: { call: ToolCall }) {
   const [expanded, setExpanded] = useState(false)
+  const [showRequestDetails, setShowRequestDetails] = useState(false)
+  const [showResultDetails, setShowResultDetails] = useState(false)
   const [showFullOutput, setShowFullOutput] = useState(false)
 
-  const outputText = call.output ? formatJson(call.output) : null
+  const requestSummary = toolDataSummary(call.input, 'request')
+  const requestDetails = formatSupportDetails(call.input)
+  const outputSummary = call.output ? toolDataSummary(call.output, 'result') : null
+  const outputText = call.output ? formatSupportDetails(call.output) : null
   const outputLines = outputText?.split('\n') ?? []
   const isTruncated = outputLines.length > MAX_OUTPUT_LINES
   const outcome = toolOutcome(call)
@@ -111,7 +159,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
         type="button"
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
-        aria-label={`${expanded ? 'Hide' : 'Show'} details for ${call.tool}`}
+        aria-label={`${expanded ? 'Hide' : 'Show'} step details for ${call.tool}`}
         className={cn(
           'w-full flex items-center gap-2 px-3 py-2 text-left',
           'hover:bg-black/[0.03] dark:hover:bg-white/[0.03]',
@@ -126,10 +174,10 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
         />
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-medium text-foreground-light dark:text-foreground-dark">
-            Agent used <code>{call.tool}</code>
+            Agent ran a work step
           </p>
           <p className="truncate text-[10px] text-secondary-light dark:text-secondary-dark">
-            {outcome.helper}
+            Step name: {call.tool}. {outcome.helper}
           </p>
         </div>
         <span
@@ -165,35 +213,28 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
             </div>
           )}
 
-          {/* Input */}
+          {/* Request */}
           <div>
             <span className="text-[10px] font-medium text-secondary-light dark:text-secondary-dark uppercase tracking-wide">
-              What the agent sent
+              Step request
             </span>
             <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-              Settings or instructions passed into this step.
+              What the agent was asked to use for this step.
             </p>
-            <pre
-              className={cn(
-                'mt-1 p-2 rounded-md text-[11px] leading-relaxed overflow-x-auto',
-                'bg-black/[0.04] dark:bg-white/[0.04]',
-                'text-foreground-light dark:text-foreground-dark',
-                'font-mono'
-              )}
+            <p className="mt-1 rounded-md bg-black/[0.035] px-3 py-2 text-[11px] leading-relaxed text-foreground-light dark:bg-white/[0.04] dark:text-foreground-dark">
+              {requestSummary}
+            </p>
+            <button
+              type="button"
+              aria-expanded={showRequestDetails}
+              onClick={() => setShowRequestDetails((visible) => !visible)}
+              className="mt-1 text-[10px] font-medium text-apple-blue hover:underline"
             >
-              {formatJson(call.input)}
-            </pre>
-          </div>
-
-          {/* Output */}
-          {outputText ? (
-            <div>
-              <span className="text-[10px] font-medium text-secondary-light dark:text-secondary-dark uppercase tracking-wide">
-                What came back
-              </span>
-              <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-                Result returned by the tool.
-              </p>
+              {showRequestDetails
+                ? 'Hide support details for request'
+                : 'Show support details for request'}
+            </button>
+            {showRequestDetails && (
               <pre
                 className={cn(
                   'mt-1 p-2 rounded-md text-[11px] leading-relaxed overflow-x-auto',
@@ -202,18 +243,57 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
                   'font-mono'
                 )}
               >
-                {isTruncated && !showFullOutput
-                  ? `${outputLines.slice(0, MAX_OUTPUT_LINES).join('\n')}\n...`
-                  : outputText}
+                {requestDetails}
               </pre>
-              {isTruncated && !showFullOutput && (
-                <button
-                  type="button"
-                  onClick={() => setShowFullOutput(true)}
-                  className="text-[10px] text-apple-blue hover:underline mt-1"
-                >
-                  Show full result ({outputLines.length} lines)
-                </button>
+            )}
+          </div>
+
+          {/* Result */}
+          {outputText ? (
+            <div>
+              <span className="text-[10px] font-medium text-secondary-light dark:text-secondary-dark uppercase tracking-wide">
+                Step result
+              </span>
+              <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
+                What this step returned.
+              </p>
+              <p className="mt-1 rounded-md bg-black/[0.035] px-3 py-2 text-[11px] leading-relaxed text-foreground-light dark:bg-white/[0.04] dark:text-foreground-dark">
+                {outputSummary}
+              </p>
+              <button
+                type="button"
+                aria-expanded={showResultDetails}
+                onClick={() => setShowResultDetails((visible) => !visible)}
+                className="mt-1 text-[10px] font-medium text-apple-blue hover:underline"
+              >
+                {showResultDetails
+                  ? 'Hide support details for result'
+                  : 'Show support details for result'}
+              </button>
+              {showResultDetails && (
+                <>
+                  <pre
+                    className={cn(
+                      'mt-1 p-2 rounded-md text-[11px] leading-relaxed overflow-x-auto',
+                      'bg-black/[0.04] dark:bg-white/[0.04]',
+                      'text-foreground-light dark:text-foreground-dark',
+                      'font-mono'
+                    )}
+                  >
+                    {isTruncated && !showFullOutput
+                      ? `${outputLines.slice(0, MAX_OUTPUT_LINES).join('\n')}\n...`
+                      : outputText}
+                  </pre>
+                  {isTruncated && !showFullOutput && (
+                    <button
+                      type="button"
+                      onClick={() => setShowFullOutput(true)}
+                      className="text-[10px] text-apple-blue hover:underline mt-1"
+                    >
+                      Show full support result ({outputLines.length} lines)
+                    </button>
+                  )}
+                </>
               )}
             </div>
           ) : (

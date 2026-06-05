@@ -6,8 +6,8 @@ import type { ToolCall } from '@app/shared/model/chat.store'
 const baseCall: ToolCall = {
   toolUseId: 'tool-1',
   tool: 'shell',
-  input: { command: 'npm run typecheck' },
-  output: { ok: true, summary: 'Typecheck passed' },
+  input: { command: 'npm run typecheck', cwd: '/workspace/app' },
+  output: { ok: true, summary: 'Typecheck passed', durationMs: 1200 },
   success: true,
   duration: 1200,
 }
@@ -20,29 +20,40 @@ describe('ToolCallDetail', () => {
   test('summarizes a completed tool step in operator language', () => {
     render(<ToolCallDetail call={baseCall} />)
 
-    expect(screen.getByText(/Agent used/i)).toBeInTheDocument()
-    expect(screen.getByText('shell')).toBeInTheDocument()
+    expect(screen.getByText(/Agent ran a work step/i)).toBeInTheDocument()
+    expect(screen.getByText(/Step name: shell/i)).toBeInTheDocument()
     expect(screen.getByText('Completed cleanly')).toBeInTheDocument()
-    expect(screen.getByText('The tool finished without reporting a problem.')).toBeInTheDocument()
+    expect(screen.getByText(/This step finished without reporting a problem/i)).toBeInTheDocument()
     expect(screen.getByText('Took 1.2s')).toBeInTheDocument()
+    expect(screen.queryByText(/Agent used/i)).toBeNull()
   })
 
-  test('opens beginner labels before raw input and result details', () => {
+  test('opens beginner summaries before support details', () => {
     render(<ToolCallDetail call={baseCall} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /show details for shell/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show step details for shell/i }))
 
     expect(
       screen.getByText(
         /this is a read-only record of one step the agent took.*whether to continue, retry, or ask the agent to explain it/i
       )
     ).toBeInTheDocument()
-    expect(screen.getByText('What the agent sent')).toBeInTheDocument()
-    expect(screen.getByText('Settings or instructions passed into this step.')).toBeInTheDocument()
-    expect(screen.getByText('What came back')).toBeInTheDocument()
-    expect(screen.getByText('Result returned by the tool.')).toBeInTheDocument()
-    expect(screen.getByText(/npm run typecheck/)).toBeInTheDocument()
+    expect(screen.getByText('Step request')).toBeInTheDocument()
+    expect(screen.getByText('What the agent was asked to use for this step.')).toBeInTheDocument()
+    expect(screen.getByText('Step result')).toBeInTheDocument()
+    expect(screen.getByText('What this step returned.')).toBeInTheDocument()
+    expect(screen.getByText('Command to run: npm run typecheck')).toBeInTheDocument()
     expect(screen.getByText(/Typecheck passed/)).toBeInTheDocument()
+    expect(screen.queryByText(/cwd/i)).toBeNull()
+    expect(screen.queryByText(/durationMs/i)).toBeNull()
+    expect(screen.queryByText(/What the agent sent/i)).toBeNull()
+    expect(screen.queryByText(/What came back/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /show support details for request/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show support details for result/i }))
+
+    expect(screen.getByText(/cwd/i)).toBeInTheDocument()
+    expect(screen.getByText(/durationMs/i)).toBeInTheDocument()
   })
 
   test('flags failed tool output as something to review before trusting the answer', () => {
@@ -60,16 +71,17 @@ describe('ToolCallDetail', () => {
     )
 
     expect(screen.getByText('Needs review')).toBeInTheDocument()
-    expect(
-      screen.getByText('The tool reported a problem. Check this before trusting the answer.')
-    ).toBeInTheDocument()
+    expect(screen.getByText(/This step reported a problem/i)).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /show details for deploy/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show step details for deploy/i }))
 
     expect(
       screen.getByText('Review this result before relying on the final answer.')
     ).toBeInTheDocument()
     expect(screen.getByText(/Required account access is missing/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /show support details for request/i }))
+
     expect(screen.getByText(/Hidden for safety/i)).toBeInTheDocument()
     expect(screen.queryByText(/Missing token/i)).toBeNull()
     expect(screen.queryByText(/secret-token-value/i)).toBeNull()
@@ -87,11 +99,9 @@ describe('ToolCallDetail', () => {
     )
 
     expect(screen.getByText('Waiting for result')).toBeInTheDocument()
-    expect(
-      screen.getByText('The agent started this step, but no result has been recorded yet.')
-    ).toBeInTheDocument()
+    expect(screen.getByText(/no result has been recorded yet/i)).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /show details for search/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show step details for search/i }))
 
     expect(screen.getByText('No result has been recorded for this step yet.')).toBeInTheDocument()
   })
