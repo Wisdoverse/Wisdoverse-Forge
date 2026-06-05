@@ -134,7 +134,7 @@ describe('AgentDetailView', () => {
     expect(screen.getByRole('button', { name: 'History' })).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Live work' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Command window' })).toBeNull()
-    expect(screen.getByText('Connection status')).toBeDefined()
+    expect(screen.getByText('Connection')).toBeDefined()
     expect(screen.getByText('Connected from this computer')).toBeDefined()
     expect(screen.queryByText('host-aabbccdd')).toBeNull()
     expect(screen.getByText(/agents joined from this computer run there/i)).toBeDefined()
@@ -273,13 +273,13 @@ describe('AgentDetailView', () => {
 
   test('explains workspace access and primary project context', () => {
     render(<AgentDetailView agent={{ ...containerAgent, cwd: '/workspace' }} onBack={() => {}} />)
-    expect(screen.getByText('Project folder')).toBeDefined()
-    expect(screen.getByText('Project workspace')).toBeDefined()
-    expect(screen.getByText('Connection status')).toBeDefined()
-    expect(screen.getByText('Managed workspace ready')).toBeDefined()
+    expect(screen.getByText('Starting folder')).toBeDefined()
+    expect(screen.getByText('Workspace project folder')).toBeDefined()
+    expect(screen.getByText('Connection')).toBeDefined()
+    expect(screen.getByText('Ready in managed workspace')).toBeDefined()
     expect(screen.queryByText('/workspace')).toBeNull()
     expect(screen.queryByText('c-abc')).toBeNull()
-    expect(screen.getAllByText('How it runs').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Where it works').length).toBeGreaterThan(0)
     expect(screen.getAllByText('OpenCode in a managed workspace').length).toBeGreaterThan(0)
     expect(screen.queryByText('opencode managed workspace')).toBeNull()
     expect(screen.getByText('Workspace it can use')).toBeDefined()
@@ -293,12 +293,12 @@ describe('AgentDetailView', () => {
 
   test('explains chat-only agents do not open workspace files', () => {
     render(<AgentDetailView agent={providerAgent} onBack={() => {}} />)
-    expect(screen.getByText('Project folder')).toBeDefined()
+    expect(screen.getByText('Starting folder')).toBeDefined()
     expect(screen.getAllByText('Not needed for this agent').length).toBeGreaterThan(0)
-    expect(screen.getByText('Connection status')).toBeDefined()
+    expect(screen.getByText('Connection')).toBeDefined()
     expect(screen.getByText('Not needed')).toBeDefined()
     expect(screen.getByText(/answer through a connected AI service/i)).toBeDefined()
-    expect(screen.getByText(/do not open workspace files by themselves/i)).toBeDefined()
+    expect(screen.getByText(/cannot open project files on their own/i)).toBeDefined()
     expect(
       screen.getByText(/choose an agent on this computer or a managed workspace agent/i)
     ).toBeDefined()

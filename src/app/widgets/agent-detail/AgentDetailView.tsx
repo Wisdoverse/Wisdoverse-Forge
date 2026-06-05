@@ -76,7 +76,7 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
       {hostCli ? (
         <p>
           Agents joined from this computer run there. Forge sends tasks, checks the connection, and
-          saves evidence here; files stay in the folder where that computer is connected.
+          saves task history here; files stay in the folder where that computer is connected.
         </p>
       ) : agent.cliTool ? (
         <p>
@@ -86,8 +86,8 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
         </p>
       ) : (
         <p>
-          Chat-only agents answer through a connected AI service and do not open workspace files by
-          themselves. Choose an agent on this computer or a managed workspace agent when the task
+          Chat-only agents answer through a connected AI service and cannot open project files on
+          their own. Choose an agent on this computer or a managed workspace agent when the task
           must inspect or edit files.
         </p>
       )}
@@ -98,7 +98,9 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
 function agentFolderLabel(agent: AgentInfo): string {
   if (!agent.cliTool) return 'Not needed for this agent'
   if (!agent.cwd || agent.cwd === '/workspace') {
-    return isHostCliAgent(agent) ? 'Local connection folder' : 'Project workspace'
+    return isHostCliAgent(agent)
+      ? 'Folder used when this computer joined'
+      : 'Workspace project folder'
   }
   return agent.cwd
 }
@@ -132,9 +134,11 @@ function agentSetupSummary(agent: AgentInfo): string {
 
 function agentConnectionStatus(agent: AgentInfo): string {
   if (isHostCliAgent(agent)) {
-    return agent.runtimeId ? 'Connected from this computer' : 'Waiting for this computer'
+    return agent.runtimeId
+      ? 'Connected from this computer'
+      : 'Waiting for this computer to reconnect'
   }
-  if (agent.cliTool) return agent.containerId ? 'Managed workspace ready' : 'Waiting to start'
+  if (agent.cliTool) return agent.containerId ? 'Ready in managed workspace' : 'Waiting to start'
   return 'Not needed'
 }
 
@@ -272,7 +276,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
               Details
             </span>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-ui-caption">
-              <DetailRow label="How it runs" value={agentRuntimeLabel(agent)} />
+              <DetailRow label="Where it works" value={agentRuntimeLabel(agent)} />
               <DetailRow label="Status" value={STATUS_LABELS[agent.status]} />
               <DetailRow
                 label="Workspace it can use"
@@ -282,8 +286,8 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
                 label="Starting project for tasks"
                 value={agent.projectName ?? 'Choose when assigning work'}
               />
-              <DetailRow label="Project folder" value={agentFolderLabel(agent)} />
-              <DetailRow label="Connection status" value={agentConnectionStatus(agent)} />
+              <DetailRow label="Starting folder" value={agentFolderLabel(agent)} />
+              <DetailRow label="Connection" value={agentConnectionStatus(agent)} />
             </div>
             <WorkspaceBoundaryNote agent={agent} />
           </div>
@@ -550,7 +554,7 @@ function AssignmentFitCard({
               : 'No recent task updates'
           }
         />
-        <ProfileSummaryRow label="How it runs" value={runtime} />
+        <ProfileSummaryRow label="Where it works" value={runtime} />
         <ProfileSummaryRow
           label="Skills"
           value={
