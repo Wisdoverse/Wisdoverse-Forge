@@ -103,6 +103,43 @@ describe('HistoryTab', () => {
     expect(screen.queryByText(/model service/i)).toBeNull()
   })
 
+  test('labels unknown work attempt states without exposing backend status values', async () => {
+    getTaskRunsMock.mockResolvedValue([
+      {
+        id: 'run-pending123',
+        taskId: 'task-1',
+        agentId: 'agent-1',
+        status: 'pending',
+        startedAt: '2026-04-25T06:06:00Z',
+        runtimeKind: 'container',
+      },
+      {
+        id: 'run-waiting123',
+        taskId: 'task-1',
+        agentId: 'agent-1',
+        status: 'waiting_for_result',
+        startedAt: '2026-04-25T06:07:00Z',
+        runtimeKind: 'container',
+      },
+      {
+        id: 'run-missing123',
+        taskId: 'task-1',
+        agentId: 'agent-1',
+        status: ' ',
+        startedAt: '2026-04-25T06:08:00Z',
+        runtimeKind: 'container',
+      },
+    ])
+
+    render(<HistoryTab task={makeTask()} />)
+
+    expect(await screen.findByText('Work attempt: Waiting to start')).toBeInTheDocument()
+    expect(screen.getByText('Work attempt: Status needs review')).toBeInTheDocument()
+    expect(screen.getByText('Work attempt: Status not reported')).toBeInTheDocument()
+    expect(screen.queryByText(/waiting_for_result/i)).toBeNull()
+    expect(screen.queryByText('Unknown')).toBeNull()
+  })
+
   test('summarizes failed task history without raw service details', async () => {
     getTaskRunsMock.mockResolvedValue([])
 
