@@ -55,6 +55,7 @@
     "migrate:down": "node scripts/rust-migrate-unsupported.mjs down",
     "migrate:status": "node scripts/rust-migrate-unsupported.mjs status",
     "pr:summary": "node scripts/pr-status-summary.mjs",
+    "pr:summary:refresh": "node scripts/pr-status-summary.mjs --refresh",
     "fsd:check": "node scripts/check-fsd-boundaries.mjs",
     "lint": "npm run fsd:check && eslint shared scripts src/app",
     "lint:fix": "eslint shared scripts src/app --fix",

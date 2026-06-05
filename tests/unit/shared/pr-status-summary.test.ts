@@ -4,6 +4,12 @@ import {
   renderSummary,
   summarizePullRequests,
 } from '../../../scripts/lib/pr-status-summary.js'
+import {
+  CACHE_VERSION,
+  cacheQuery,
+  isUsableCacheEntry,
+  parseArgs,
+} from '../../../scripts/pr-status-summary.mjs'
 
 function pr(overrides: Record<string, unknown> = {}) {
   return {
@@ -88,5 +94,35 @@ describe('PR status summary', () => {
     expect(renderSummary(summary)).toContain('ACTION 1 | WAIT 1 | DONE 0')
     expect(renderSummary(summary)).toContain('WAIT: 1 PR(s) waiting')
     expect(renderSummary(summary)).not.toContain('#101 codex/example')
+  })
+
+  it('defaults to a short-lived cache and supports explicit refresh', () => {
+    expect(parseArgs([])).toMatchObject({
+      cacheTtlSeconds: 900,
+      noCache: false,
+      refresh: false,
+    })
+
+    expect(parseArgs(['--refresh', '--cache-ttl-seconds', '300'])).toMatchObject({
+      cacheTtlSeconds: 300,
+      refresh: true,
+    })
+  })
+
+  it('reuses only fresh cache entries for the same GitHub query', () => {
+    const now = Date.parse('2026-06-05T12:00:00Z')
+    const options = parseArgs(['--limit', '5'])
+    const entry = {
+      version: CACHE_VERSION,
+      fetchedAt: now - 30_000,
+      query: cacheQuery(options),
+      pullRequests: [pr()],
+    }
+
+    expect(isUsableCacheEntry(entry, options, now)).toBe(true)
+    expect(isUsableCacheEntry({ ...entry, fetchedAt: now - 901_000 }, options, now)).toBe(false)
+    expect(
+      isUsableCacheEntry({ ...entry, query: { ...cacheQuery(options), limit: 6 } }, options, now)
+    ).toBe(false)
   })
 })

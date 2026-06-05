@@ -15,6 +15,11 @@ human action without reading every GitHub check line.
 npm run pr:summary
 ```
 
+By default the command reuses a local GitHub snapshot for 15 minutes. Running it
+again inside that window does not call GitHub again, so an agent can summarize
+PR state without repeatedly spending chat/output budget on the same remote
+checks.
+
 Success looks like this:
 
 ```text
@@ -23,6 +28,29 @@ ACTION: none
 WAIT: 42 PR(s) waiting on review, CI, draft state, or merge queue
 WAIT: use --show-wait to list them when a human needs the full queue
 ```
+
+When the output says it used a cached snapshot, that is expected. Treat the
+result as a recent point-in-time view, not a live watch.
+
+## Refresh Only When Needed
+
+Use a refresh when you just pushed a fix, enabled auto-merge, or need a new
+point-in-time answer:
+
+```bash
+npm run pr:summary:refresh
+```
+
+Use a shorter or longer reuse window when an operator has a reason to change
+the default:
+
+```bash
+npm run pr:summary -- --cache-ttl-seconds 300
+```
+
+Avoid putting `npm run pr:summary:refresh` in a tight loop. For monitoring,
+schedule it at a fixed interval such as 10 or 15 minutes and alert only when
+the `ACTION` count is greater than zero.
 
 ## What The Buckets Mean
 
@@ -50,6 +78,15 @@ npm run pr:summary -- --fail-on-action
 
 The command exits with status `1` only when one or more PRs are in `ACTION`.
 That keeps monitors quiet while PRs are merely waiting for review or CI.
+
+For a low-noise monitor, run:
+
+```bash
+npm run pr:summary:refresh -- --fail-on-action
+```
+
+The command prints one compact summary, exits cleanly for `WAIT` and `DONE`
+states, and only fails when a person or agent has something specific to fix.
 
 ## Offline Review
 
