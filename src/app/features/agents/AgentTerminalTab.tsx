@@ -217,7 +217,7 @@ export function AgentTerminalTab({
       >
         <span className="text-white/40">$</span>
         <span className="truncate text-white/40">Agent: {(agentName ?? agentId).slice(0, 24)}</span>
-        <span className="truncate text-white/25">Workspace: {containerId.slice(0, 12)}</span>
+        <span className="truncate text-white/25">Workspace ready</span>
         <span className="flex-1" />
         <span
           className={cn(

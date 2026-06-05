@@ -62,6 +62,8 @@ describe('AgentTerminalTab', () => {
 
     const toggle = screen.getByRole('button', { name: /hide virtual keyboard/i })
 
+    expect(screen.getByText('Workspace ready')).toBeDefined()
+    expect(screen.queryByText(/container-1/i)).toBeNull()
     expect(within(toggle).getByText('Keyboard')).toBeDefined()
     expect(screen.getByText('Shortcut keys send to console')).toBeDefined()
     expect(screen.queryByText(/send to terminal/i)).toBeNull()
@@ -111,7 +113,9 @@ describe('AgentTerminalTab', () => {
 
     expect(screen.getByText('Console not ready')).toBeInTheDocument()
     expect(
-      screen.getByText('This managed workspace is selected, but its live console is still starting.')
+      screen.getByText(
+        'This managed workspace is selected, but its live console is still starting.'
+      )
     ).toBeInTheDocument()
     expect(screen.getByText('Not reported')).toBeInTheDocument()
     expect(screen.getByText('Starting')).toBeInTheDocument()
