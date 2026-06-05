@@ -4,9 +4,9 @@ const ACTION_FALLBACKS: Record<RuntimeErrorAction, string> = {
   loadAgentSignals:
     'Agent online status could not load. Start or wake an agent, then refresh this setup check.',
   loadCliSignIn:
-    'Work tool account connection status could not load. Refresh this setup check before starting agents that use work tools.',
+    'Work tool sign-in status could not load. Refresh this setup check before starting agents that use work tools.',
   startCliSignIn:
-    'Work tool account connection did not start. Check the model service setup, then try Connect again.',
+    'Work tool sign-in did not start. Check the model service setup, then try Connect again.',
 }
 
 export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): string {
@@ -15,7 +15,7 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   const status = errorStatus(err, normalized)
 
   if (isNetworkError(normalized)) {
-    return `${ACTION_FALLBACKS[action]} The app could not reach the service. Check your connection, then refresh the page.`
+    return `${ACTION_FALLBACKS[action]} The app could not reach Agent setup. Check your connection, then refresh the page.`
   }
 
   if (status === 401) {
@@ -27,7 +27,7 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   }
 
   if (status === 404) {
-    return 'Agent setup is not available yet. Refresh after the service is ready.'
+    return 'Agent setup is not available yet. Refresh Settings. If it still does not load, ask an owner or admin to check agent setup.'
   }
 
   if (status === 409) {
@@ -39,11 +39,11 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   }
 
   if (status === 429) {
-    return 'Agent setup is busy with too many requests. Wait a moment, then try again.'
+    return 'Agent setup is busy. Wait a moment, then try again.'
   }
 
   if (status && status >= 500) {
-    return 'Agent setup is temporarily unavailable. Refresh this setup check, then try again. If it still fails, ask an owner or admin to check the agent setup service.'
+    return 'Agent setup is temporarily unavailable. Refresh this setup check, then try again. If it still fails, ask an owner or admin to check agent setup.'
   }
 
   return runtimeValidationMessage(action, detail)
@@ -63,7 +63,7 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
       : 'Agent work settings could not be loaded.'
 
   if (isNetworkError(normalized)) {
-    return `${base} The app could not reach the service. Check your connection, then refresh Settings.`
+    return `${base} The app could not reach agent work settings. Check your connection, then refresh Settings.`
   }
 
   if (status === 401) {
@@ -87,11 +87,11 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
   }
 
   if (status === 429) {
-    return `${base} The service is busy. Wait a minute, then try again.`
+    return `${base} Agent work settings are busy. Wait a minute, then try again.`
   }
 
   if (status && status >= 500) {
-    return `${base} The agent work settings service is temporarily unavailable. Refresh Settings, then try again. If it still fails, ask an owner to check agent work settings.`
+    return `${base} Agent work settings are temporarily unavailable. Refresh Settings, then try again. If it still fails, ask an owner to check agent work settings.`
   }
 
   return `${base} Try again. If it still fails, ask an owner to check agent work settings.`
@@ -160,7 +160,7 @@ function runtimeValidationMessage(action: RuntimeErrorAction, detail: string): s
   }
 
   if (action === 'loadCliSignIn') {
-    return 'Work tool account connection status could not load. Refresh this setup check, then connect the work tool again.'
+    return 'Work tool sign-in status could not load. Refresh this setup check, then connect the work tool again.'
   }
 
   return 'Agent online status could not load. Start or wake an agent, then refresh this setup check.'

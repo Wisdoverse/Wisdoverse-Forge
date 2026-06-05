@@ -362,7 +362,8 @@ export function RuntimeSection() {
                 </h4>
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Clear these items before assigning work that needs project files or commands.
+                Clear these items before assigning work that needs project files or the command
+                window.
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-ui-caption font-medium tabular-nums text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
@@ -713,7 +714,8 @@ function runtimeLaunchChecklistItems(
       {
         id: 'runtime-api',
         title: 'Work setup check',
-        detail: 'The setup check has not loaded yet. Refresh after the service is reachable.',
+        detail:
+          'The setup check has not loaded yet. Refresh Settings. If it still does not load, ask an owner or admin to check agent setup.',
         ready: false,
         action: 'refresh',
         actionLabel: 'Refresh',
@@ -748,7 +750,8 @@ function runtimeLaunchChecklistItems(
     reportedVersionCount === runtimeSettings.cliToolDetails.length
   let imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} work tools are ready.`
   if (runtimeSettings.availableCliTools.length === 0) {
-    imageDetail = 'Enable at least one work tool before assigning file or command work.'
+    imageDetail =
+      'Enable at least one work tool before assigning work that needs project files or the command window.'
   } else if (runtimeSettings.cliToolDetails.length === 0) {
     imageDetail = 'No work tool status yet.'
   } else if (missingImages.length > 0) {
@@ -774,7 +777,7 @@ function runtimeLaunchChecklistItems(
     id: 'credentials',
     title: 'Account sign-ins for work tools',
     detail: cliStatusError
-      ? 'Account sign-in status could not be checked. Refresh after the service is healthy.'
+      ? 'Account sign-in status could not be checked. Refresh Settings. If it still cannot be checked, ask an owner or admin to check work tool sign-ins.'
       : cliStatuses.length === 0
         ? 'No account sign-ins are required.'
         : disconnectedCredential
@@ -794,7 +797,7 @@ function runtimeLaunchChecklistItems(
     id: 'heartbeats',
     title: 'Agent online status',
     detail: participantsError
-      ? 'Agent online status could not be checked. Refresh after the service is healthy.'
+      ? 'Agent online status could not be checked. Refresh Settings. If it still cannot be checked, ask an owner or admin to check agent setup.'
       : latestHeartbeat
         ? `An agent was online ${formatRelativeTime(latestHeartbeat)}.`
         : 'No agent has been seen online yet. Start or wake an agent, then refresh.',

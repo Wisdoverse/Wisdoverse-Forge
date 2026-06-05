@@ -122,6 +122,7 @@ describe('RuntimeSection', () => {
     expect(screen.getByText('2/4 ready')).toBeDefined()
     expect(screen.getByText(/work places available/i)).toBeDefined()
     expect(screen.getByText(/work tools available/i)).toBeDefined()
+    expect(screen.getAllByText(/project files or the command window/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Text-only model service').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Codex').length).toBeGreaterThan(0)
@@ -195,10 +196,11 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     expect(
-      await screen.findByText(/work tool account connection status could not load/i)
+      await screen.findByText(/work tool sign-in status could not load/i)
     ).toBeDefined()
-    expect(screen.getByText(/app could not reach the service/i)).toBeDefined()
+    expect(screen.getByText(/app could not reach agent setup/i)).toBeDefined()
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
+    expect(screen.queryByText(/service is healthy/i)).toBeNull()
   })
 
   test('shows beginner guidance when agent online status cannot load', async () => {
@@ -210,6 +212,7 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText(/code: 401/i)).toBeNull()
     expect(screen.queryByText(/Code:/i)).toBeNull()
     expect(screen.queryByText(/401 Unauthorized/)).toBeNull()
+    expect(screen.queryByText(/service is healthy/i)).toBeNull()
   })
 
   test('shows beginner guidance when local tool sign-in cannot start', async () => {
@@ -224,7 +227,7 @@ describe('RuntimeSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /Connect GitHub/i }))
 
     expect(await screen.findByText(/do not have permission to manage agent setup/i)).toBeDefined()
-    expect(screen.getByText(/owner or admin/i)).toBeDefined()
+    expect(screen.getAllByText(/owner or admin/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/403 Forbidden/)).toBeNull()
   })
 

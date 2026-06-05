@@ -436,11 +436,13 @@ export const en = {
       defaultRuntimeLabel: 'Default place',
       defaultRuntimeDescription: 'Where new agents should work by default',
       defaultContainerCliLabel: 'Default work tool',
-      defaultContainerCliDescription: 'The tool used when an agent needs files or commands',
+      defaultContainerCliDescription:
+        'The tool used when an agent needs project files or the command window',
       availableRuntimesLabel: 'Places agents can work',
       availableRuntimesDescription: 'Work places this installation can use',
       availableContainerClisLabel: 'Available work tools',
-      availableContainerClisDescription: 'Tools agents can use for file and command work',
+      availableContainerClisDescription:
+        'Tools agents can use for project files and the command window',
       runtimeLabels: {
         cli: 'This computer',
         api: 'Text-only model service',

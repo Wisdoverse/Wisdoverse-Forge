@@ -8,6 +8,7 @@ function expectBeginnerMessage(actual: string, expected: string): void {
   expect(actual).toBe(expected)
   expect(actual).not.toContain('Code:')
   expect(actual).not.toContain('Detail:')
+  expect(actual).not.toContain('Details:')
 }
 
 describe('runtimeErrorMessage', () => {
@@ -21,8 +22,8 @@ describe('runtimeErrorMessage', () => {
   test('explains network failures without exposing only a transport error', () => {
     const message = runtimeErrorMessage('loadCliSignIn', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('Work tool account connection status could not load')
-    expect(message).toContain('app could not reach the service')
+    expect(message).toContain('Work tool sign-in status could not load')
+    expect(message).toContain('app could not reach Agent setup')
     expect(message).not.toContain('Failed to fetch')
   })
 
@@ -59,7 +60,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Work tool account connection did not start. Check the model service setup, then try Connect again. The app could not reach the service. Check your connection, then refresh the page.'
+      'Work tool sign-in did not start. Check the model service setup, then try Connect again. The app could not reach Agent setup. Check your connection, then refresh the page.'
     )
     expect(message).not.toContain('provider')
     expect(message).not.toContain('Failed to fetch')
@@ -70,7 +71,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Agent setup is temporarily unavailable. Refresh this setup check, then try again. If it still fails, ask an owner or admin to check the agent setup service.'
+      'Agent setup is temporarily unavailable. Refresh this setup check, then try again. If it still fails, ask an owner or admin to check agent setup.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('worker')
@@ -101,16 +102,16 @@ describe('runtimeSettingsErrorMessage', () => {
 
   test('explains network failures in user-facing terms', () => {
     expect(runtimeSettingsErrorMessage(new TypeError('Failed to fetch'))).toBe(
-      'Agent work settings could not be loaded. The app could not reach the service. Check your connection, then refresh Settings.'
+      'Agent work settings could not be loaded. The app could not reach agent work settings. Check your connection, then refresh Settings.'
     )
   })
 
-  test('turns agent work settings service failures into a settings recovery step', () => {
+  test('turns temporary agent work settings failures into a settings recovery step', () => {
     const message = runtimeSettingsErrorMessage(new Error('HTTP 500'))
 
     expectBeginnerMessage(
       message,
-      'Agent work settings could not be loaded. The agent work settings service is temporarily unavailable. Refresh Settings, then try again. If it still fails, ask an owner to check agent work settings.'
+      'Agent work settings could not be loaded. Agent work settings are temporarily unavailable. Refresh Settings, then try again. If it still fails, ask an owner to check agent work settings.'
     )
     expect(message).not.toContain('backend')
   })
