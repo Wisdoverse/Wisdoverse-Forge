@@ -93,7 +93,7 @@ describe('chatStreamHttpErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'The chat service is temporarily unavailable. Resend the message. If it still fails, ask an owner or admin to check chat and agent setup.'
+      'Forge could not send this chat message right now. Wait a few minutes, then resend it. If it still fails, ask an owner or admin to check chat and agent setup.'
     )
     expect(message).not.toContain('service unavailable')
   })

@@ -73,7 +73,7 @@ export function chatStreamHttpErrorMessage(
     return 'The model service is limiting messages right now. Wait a moment, then resend the message.'
   }
   if (status >= 500) {
-    return 'The chat service is temporarily unavailable. Resend the message. If it still fails, ask an owner or admin to check chat and agent setup.'
+    return 'Forge could not send this chat message right now. Wait a few minutes, then resend it. If it still fails, ask an owner or admin to check chat and agent setup.'
   }
 
   return 'The chat request could not be sent. Refresh the selected agent, then resend the message.'
@@ -89,7 +89,7 @@ function chatStreamConflictMessage(detail: string | null): string {
 
 function chatStreamRequestErrorMessage(error: unknown): string {
   if (isAbortError(error)) return ''
-  return 'The chat request could not reach the service. Check your connection, then resend the message.'
+  return 'Forge could not connect while sending this message. Check your connection, then resend it.'
 }
 
 function chatStreamReadErrorMessage(error: unknown): string {

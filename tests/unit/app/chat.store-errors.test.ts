@@ -34,9 +34,19 @@ describe('chatErrorMessage', () => {
     const message = chatErrorMessage('clear', 'Server error (503)')
 
     expect(message).toBe(
-      'Chat was not cleared. The platform is temporarily unavailable. Try again in a few minutes.'
+      'Chat was not cleared. Forge could not update this chat right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check chat setup.'
     )
     expect(message).not.toContain('503')
+    expect(message).not.toContain('platform')
+  })
+
+  test('maps unusable conversation data without exposing raw response wording', () => {
+    const message = chatErrorMessage('load', new Error('Server returned ok: false'))
+
+    expect(message).toBe(
+      'Conversation history could not be loaded. Forge could not read this conversation. Refresh the chat, then try again.'
+    )
+    expect(message).not.toContain('ok: false')
   })
 })
 
@@ -50,6 +60,7 @@ describe('useChatStore beginner errors', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
   })
 
   test('turns failed message loads into retryable guidance', async () => {
@@ -58,9 +69,10 @@ describe('useChatStore beginner errors', () => {
     await useChatStore.getState().loadMessages('agent-1')
 
     expect(useChatStore.getState().error).toBe(
-      'Conversation history could not be loaded. The platform is temporarily unavailable. Try again in a few minutes.'
+      'Conversation history could not be loaded. Forge could not load this conversation right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check chat setup.'
     )
     expect(useChatStore.getState().error).not.toContain('503')
+    expect(useChatStore.getState().error).not.toContain('platform')
     expect(useChatStore.getState().messagesLoading).toBe(false)
   })
 
@@ -70,8 +82,9 @@ describe('useChatStore beginner errors', () => {
     await useChatStore.getState().loadMessages('agent-1')
 
     expect(useChatStore.getState().error).toBe(
-      'Conversation history could not be loaded. Check your connection, then try again.'
+      'Conversation history could not be loaded. Forge could not connect while loading this conversation. Check your connection, then try again.'
     )
+    expect(useChatStore.getState().error).not.toContain('Failed to fetch')
   })
 
   test('turns clear chat failures into access guidance', async () => {
@@ -83,5 +96,23 @@ describe('useChatStore beginner errors', () => {
       'Chat was not cleared. Ask an owner or admin to give you access to this agent.'
     )
     expect(useChatStore.getState().error).not.toContain('HTTP 403')
+  })
+
+  test('turns event history failures into the same conversation recovery copy', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+      })
+    )
+
+    await useChatStore.getState().fetchEvents('agent-1')
+
+    expect(useChatStore.getState().error).toBe(
+      'Conversation history could not be loaded. Forge could not load this conversation right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check chat setup.'
+    )
+    expect(useChatStore.getState().error).not.toContain('HTTP 500')
+    expect(useChatStore.getState().loading).toBe(false)
   })
 })

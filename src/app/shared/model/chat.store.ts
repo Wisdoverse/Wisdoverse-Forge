@@ -168,8 +168,8 @@ export const useChatStore = create<ChatState>((set) => ({
       }
       const turns = groupEventsIntoTurns(data.events)
       set({ turns, loading: false })
-    } catch {
-      set({ loading: false, error: 'Failed to load conversation history' })
+    } catch (err) {
+      set({ loading: false, error: chatErrorMessage('load', err) })
     }
   },
 

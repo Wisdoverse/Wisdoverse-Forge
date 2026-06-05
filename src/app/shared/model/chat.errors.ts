@@ -26,6 +26,18 @@ function baseMessage(action: ChatErrorAction): string {
   return action === 'load' ? 'Conversation history could not be loaded.' : 'Chat was not cleared.'
 }
 
+function serviceRecoveryMessage(action: ChatErrorAction): string {
+  return action === 'load'
+    ? 'Forge could not load this conversation right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check chat setup.'
+    : 'Forge could not update this chat right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check chat setup.'
+}
+
+function networkRecoveryMessage(action: ChatErrorAction): string {
+  return action === 'load'
+    ? 'Forge could not connect while loading this conversation. Check your connection, then try again.'
+    : 'Forge could not connect while clearing this chat. Check your connection, then try again.'
+}
+
 export function chatErrorMessage(action: ChatErrorAction, err: unknown): string {
   const base = baseMessage(action)
   const code = statusCode(err)
@@ -47,11 +59,14 @@ export function chatErrorMessage(action: ChatErrorAction, err: unknown): string 
     return `${base} Too many chat requests are happening right now. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
-    return `${base} The platform is temporarily unavailable. Try again in a few minutes.`
+    return `${base} ${serviceRecoveryMessage(action)}`
   }
   if (isNetworkError(err)) {
-    return `${base} Check your connection, then try again.`
+    return `${base} ${networkRecoveryMessage(action)}`
+  }
+  if (text.includes('ok: false')) {
+    return `${base} Forge could not read this conversation. Refresh the chat, then try again.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner or admin to check this agent.`
+  return `${base} Try again. If it still fails, ask an owner or admin to check this agent's chat setup.`
 }
