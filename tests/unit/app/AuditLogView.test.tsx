@@ -79,7 +79,7 @@ describe('AuditLogView', () => {
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
     expect(screen.getByText('Start with what you need to check')).toBeDefined()
-    expect(screen.getByText('Protected references')).toBeDefined()
+    expect(screen.getByText('Hidden item references')).toBeDefined()
 
     const quickViews = screen.getByRole('group', { name: /common audit views/i })
     fireEvent.click(within(quickViews).getByRole('button', { name: /skill decisions/i }))
@@ -111,19 +111,27 @@ describe('AuditLogView', () => {
     expect(screen.getByPlaceholderText(/user reference when needed/i)).toBeDefined()
     expect(screen.getAllByTestId('governance-audit-row')).toHaveLength(2)
     expect(screen.getByText('Change')).toBeDefined()
+    expect(screen.getByText('Feedback recorded')).toBeDefined()
+    expect(screen.getByText('Skill approved')).toBeDefined()
+    expect(screen.getAllByText(/Support event:/).length).toBeGreaterThan(0)
+    expect(screen.getByText('Saved memory · Memory item')).toBeDefined()
+    expect(screen.getByText('Reusable skill · Skill')).toBeDefined()
     expect(screen.getAllByText('Changed item').length).toBeGreaterThan(0)
     expect(screen.getByText('Changed by')).toBeDefined()
     expect(screen.getByText('Verification')).toBeDefined()
+    expect(screen.getByText('Support details')).toBeDefined()
     expect(screen.getByTestId('governance-audit-item-reference').textContent).toContain(
-      'Item reference'
+      'Visible item reference'
     )
     expect(screen.getByTestId('governance-audit-item-reference').textContent).toContain('11111111')
     expect(screen.getByTestId('governance-audit-protected-reference').textContent).toContain(
-      'Protected reference'
+      'Hidden item reference'
     )
     expect(screen.getByTestId('governance-audit-protected-reference').textContent).toContain(
       'f9f0b5b53a'
     )
+    expect(screen.getAllByText('Project').length).toBeGreaterThan(0)
+    expect(screen.getByText('Reference project-1')).toBeDefined()
     expect(screen.queryByText(/Work area I[D]/)).toBeNull()
     expect(screen.queryByText(/Person I[D]/)).toBeNull()
     expect(screen.getByTestId('governance-audit-redacted').textContent).toContain('Protected')
@@ -189,8 +197,8 @@ describe('AuditLogView', () => {
 
     render(<AuditLogView />)
 
-    expect(await screen.findByText('No audit events in this view')).toBeDefined()
-    expect(screen.getByText(/Try All governance events or widen the time range/i)).toBeDefined()
+    expect(await screen.findByText('No audit history in this view')).toBeDefined()
+    expect(screen.getByText(/Try All context changes or widen the time range/i)).toBeDefined()
     expect(screen.getByText(/approve a skill or record context feedback/i)).toBeDefined()
   })
 

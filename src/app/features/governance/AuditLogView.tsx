@@ -63,8 +63,8 @@ const DEFAULT_FILTERS: FilterState = {
 const QUICK_AUDIT_VIEWS: QuickAuditView[] = [
   {
     id: 'all',
-    label: 'All governance events',
-    description: 'Start broad, then narrow the result.',
+    label: 'All context changes',
+    description: 'Start broad, then narrow the history.',
     Icon: Search,
     filters: {},
   },
@@ -236,7 +236,7 @@ export function AuditLogView() {
               autoComplete="off"
               value={filters.eventPrefix}
               onChange={(event) => updateFilter('eventPrefix', event.target.value)}
-              placeholder="governance.context."
+              placeholder="Paste a support event group when needed"
               className={INPUT_CLASS}
             />
           </Field>
@@ -247,7 +247,7 @@ export function AuditLogView() {
               autoComplete="off"
               value={filters.eventType}
               onChange={(event) => updateFilter('eventType', event.target.value)}
-              placeholder="Pick a view or paste an event name"
+              placeholder="Pick a view or paste a support event name"
               className={INPUT_CLASS}
             />
             <datalist id="governance-audit-event-type-options">
@@ -408,8 +408,8 @@ export function AuditLogView() {
         <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Metric label="Events" value={entries.length} />
           <Metric label="View" value={data?.query.eventPrefix ?? filters.eventPrefix} compact />
-          <Metric label="Protected references" value={protectedReferences} />
-          <Metric label="Safe details" value={redactedRows} />
+          <Metric label="Hidden item references" value={protectedReferences} />
+          <Metric label="Hidden detail rows" value={redactedRows} />
         </div>
 
         <div className="overflow-hidden rounded-card border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#2c2c2e]">
@@ -423,26 +423,25 @@ export function AuditLogView() {
                   <th className="px-4 py-3 font-semibold">Area</th>
                   <th className="px-4 py-3 font-semibold">Changed by</th>
                   <th className="px-4 py-3 font-semibold">Verification</th>
-                  <th className="px-4 py-3 font-semibold">Change details</th>
+                  <th className="px-4 py-3 font-semibold">Support details</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5 dark:divide-white/10">
                 {loading ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-12 text-center text-secondary-light">
-                      Loading audit records…
+                      Loading audit history...
                     </td>
                   </tr>
                 ) : entries.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-12 text-center">
                       <p className="font-semibold text-foreground-light dark:text-foreground-dark">
-                        No audit events in this view
+                        No audit history in this view
                       </p>
                       <p className="mt-1 text-secondary-light dark:text-secondary-dark">
-                        Try All governance events or widen the time range. If this is a new
-                        workspace, approve a skill or record context feedback, then refresh this
-                        view.
+                        Try All context changes or widen the time range. If this is a new workspace,
+                        approve a skill or record context feedback, then refresh this view.
                       </p>
                     </td>
                   </tr>
@@ -507,11 +506,14 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
         <span className="tabular-nums">{formatDate(entry.createdAt)}</span>
       </td>
       <td className="max-w-[260px] px-4 py-3">
-        <div className="truncate font-mono text-ui-caption" title={entry.eventType}>
-          {entry.eventType}
+        <div className="truncate font-medium" title={entry.eventType}>
+          {auditEventLabel(entry.eventType)}
         </div>
         <div className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {entry.itemKind ?? 'hidden item'} · {entry.resourceType}
+          Support event: <span className="font-mono">{shortEventType(entry.eventType)}</span>
+        </div>
+        <div className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {auditItemKindLabel(entry.itemKind)} · {resourceTypeLabel(entry.resourceType)}
         </div>
       </td>
       <td className="w-72 px-4 py-3">
@@ -519,14 +521,14 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
           <SubjectLine
             testId="governance-audit-item-reference"
             icon="visible"
-            label="Item reference"
+            label="Visible item reference"
             value={entry.rawItemId}
           />
         ) : (
           <SubjectLine
             testId="governance-audit-protected-reference"
             icon="hash"
-            label="Protected reference"
+            label="Hidden item reference"
             value={entry.auditSubjectHash}
           />
         )}
@@ -541,9 +543,9 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
         )}
       </td>
       <td className="w-56 px-4 py-3">
-        <div className="font-medium">{entry.scopeKind ?? 'hidden area'}</div>
+        <div className="font-medium">{auditAreaLabel(entry.scopeKind)}</div>
         <div className="mt-1 truncate font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {entry.scopeId ? shortId(entry.scopeId) : 'not shared'}
+          {entry.scopeId ? `Reference ${shortId(entry.scopeId)}` : 'No sharing reference'}
         </div>
       </td>
       <td className="w-48 px-4 py-3">
@@ -731,6 +733,54 @@ function formatDate(value: string): string {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date)
+}
+
+function auditEventLabel(eventType: string): string {
+  const labels: Record<string, string> = {
+    'governance.context.feedback.recorded': 'Feedback recorded',
+    'governance.context.skill.approved': 'Skill approved',
+    'governance.context.skill.reviewed': 'Skill reviewed',
+    'governance.context.memory.updated': 'Saved memory updated',
+    'governance.context.memory.rejected': 'Saved memory rejected',
+  }
+  return labels[eventType] ?? readableCodeLabel(eventType.split('.').slice(-2).join(' '))
+}
+
+function shortEventType(eventType: string): string {
+  return eventType.replace(/^governance\.context\./, '')
+}
+
+function auditItemKindLabel(kind: GovernanceAuditItemKind | null | undefined): string {
+  if (kind === 'memory') return 'Saved memory'
+  if (kind === 'skill') return 'Reusable skill'
+  return 'Item hidden for safety'
+}
+
+function resourceTypeLabel(value: string): string {
+  return readableCodeLabel(value)
+}
+
+function auditAreaLabel(kind: GovernanceAuditScopeKind | null | undefined): string {
+  switch (kind) {
+    case 'org':
+      return 'Organization'
+    case 'workspace':
+      return 'Workspace'
+    case 'team':
+      return 'Team'
+    case 'project':
+      return 'Project'
+    case 'user':
+      return 'User account'
+    default:
+      return 'Area hidden for safety'
+  }
+}
+
+function readableCodeLabel(value: string): string {
+  const words = value.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase()
+  if (!words) return 'Unknown'
+  return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
 function shortId(value: string): string {
