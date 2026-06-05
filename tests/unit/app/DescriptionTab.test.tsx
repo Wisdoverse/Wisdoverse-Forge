@@ -73,11 +73,12 @@ describe('DescriptionTab', () => {
       'This agent owns the next run for this task.'
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /open artifacts/i }))
+    fireEvent.click(screen.getByRole('button', { name: /open result files/i }))
     fireEvent.click(screen.getByRole('button', { name: /^review context/i }))
 
     expect(onOpenResult).toHaveBeenCalledOnce()
     expect(onOpenContext).toHaveBeenCalledOnce()
+    expect(screen.queryByText(/result artifact/i)).toBeNull()
   })
 
   test('summarizes failed task errors without raw service details', () => {

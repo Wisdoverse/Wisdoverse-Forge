@@ -102,11 +102,11 @@ export function taskResultArtifacts(result: TaskSummary['result']): TaskResultAr
   }
 
   if (typeof result.stdout === 'string') {
-    return [{ name: 'stdout.txt', mimeType: 'text/plain', data: result.stdout }]
+    return [{ name: 'text-result.txt', mimeType: 'text/plain', data: result.stdout }]
   }
 
   if (typeof result.message === 'string') {
-    return [{ name: 'message.txt', mimeType: 'text/plain', data: result.message }]
+    return [{ name: 'final-answer.txt', mimeType: 'text/plain', data: result.message }]
   }
 
   return [

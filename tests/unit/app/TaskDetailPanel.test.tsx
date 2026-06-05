@@ -122,7 +122,8 @@ describe('TaskDetailPanel', () => {
     expect(await screen.findByText('Attempt In Progress')).toBeDefined()
     expect(screen.getByText(/ran with desktop app/i)).toBeDefined()
     expect(screen.getByText(/ref run-1234/i)).toBeDefined()
-    expect(screen.getAllByText(/waiting for api credentials/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/waiting for account access/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/waiting for api credentials/i)).toBeNull()
     expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
   })
 
@@ -294,7 +295,7 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByTestId('task-handoff-checklist')).toBeDefined()
     expect(screen.getByText('Outcome')).toBeDefined()
     expect(screen.getByText(/solves the original request/i)).toBeDefined()
-    expect(screen.getByText(/open artifacts or context/i)).toBeDefined()
+    expect(screen.getByText(/open result files or context/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /review skill candidates/i })).toBeDefined()
   })
 
@@ -318,14 +319,36 @@ describe('TaskDetailPanel', () => {
       />
     )
 
-    await userEvent.setup().click(screen.getByRole('button', { name: /result/i }))
+    await userEvent.setup().click(screen.getByRole('button', { name: /^result$/i }))
 
     expect(screen.getByTestId('task-result-review-guide')).toBeDefined()
     expect(screen.getByText(/review the result before closing/i)).toBeDefined()
     expect(screen.getByText(/compare with the brief/i)).toBeDefined()
-    expect(screen.getByText(/1 result artifact attached for review/i)).toBeDefined()
+    expect(screen.getByText(/1 result file attached for review/i)).toBeDefined()
     expect(screen.getByText(/accept the result, draft reusable learning/i)).toBeDefined()
     expect(screen.getByText(/if it does not answer the brief/i)).toBeDefined()
+  })
+
+  test('uses beginner-friendly names for text result files', async () => {
+    render(
+      <TaskDetailPanel
+        task={{
+          ...mockTask,
+          state: 'completed',
+          progress: 100,
+          result: {
+            stdout: 'Reviewed the setup and produced final notes.',
+          },
+          completedAt: new Date().toISOString(),
+        }}
+        onClose={() => {}}
+      />
+    )
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /^result$/i }))
+
+    expect(screen.getByText('text-result.txt')).toBeDefined()
+    expect(screen.queryByText('stdout.txt')).toBeNull()
   })
 
   test('shows available agents as selectable handoff cards', async () => {

@@ -415,7 +415,7 @@ function ResultReviewGuide({ task, artifactCount }: { task: TaskSummary; artifac
         <ResultReviewStep
           number="2"
           title="Check the evidence"
-          detail={`${artifactCount} result artifact${artifactCount === 1 ? '' : 's'} attached for review.`}
+          detail={`${artifactCount} result file${artifactCount === 1 ? '' : 's'} attached for review.`}
         />
         <ResultReviewStep
           number="3"

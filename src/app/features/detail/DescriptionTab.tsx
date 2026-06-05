@@ -22,7 +22,7 @@ interface DescriptionTabProps {
 
 const HANDOFF_REVIEW_POINTS = [
   { label: 'Outcome', value: 'Confirm the result solves the original request.' },
-  { label: 'Evidence', value: 'Open artifacts or context before accepting the work.' },
+  { label: 'Evidence', value: 'Open result files or context before accepting the work.' },
   { label: 'Reuse', value: 'Draft a skill only when the steps should help future tasks.' },
 ]
 
@@ -146,14 +146,14 @@ export function DescriptionTab({
         </div>
       </ReviewSection>
 
-      <ReviewSection title="Artifacts and evidence" Icon={CheckCircle2}>
+      <ReviewSection title="Result files and evidence" Icon={CheckCircle2}>
         <div className="space-y-2 text-xs text-secondary-light dark:text-secondary-dark">
           <p>
             {resultArtifacts.length > 0
-              ? `${resultArtifacts.length} result artifact${resultArtifacts.length === 1 ? '' : 's'} ready for review.`
+              ? `${resultArtifacts.length} result file${resultArtifacts.length === 1 ? '' : 's'} ready for review.`
               : canReview
-                ? 'No result artifacts were attached.'
-                : 'Result artifacts appear here after the run finishes.'}
+                ? 'No result files were attached.'
+                : 'Result files appear here after the run finishes.'}
           </p>
           {resultArtifacts.length > 0 && (
             <button
@@ -161,7 +161,7 @@ export function DescriptionTab({
               onClick={onOpenResult}
               className="inline-flex h-8 items-center gap-1.5 rounded-full bg-apple-blue/10 px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/15"
             >
-              <span>Open artifacts</span>
+              <span>Open result files</span>
               <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
             </button>
           )}
@@ -343,7 +343,7 @@ function nextActionForTask(
         title: 'Monitor progress',
         detail:
           task.progress >= 80
-            ? 'Prepare to review artifacts when the agent completes the run.'
+            ? 'Prepare to review result files when the agent completes the run.'
             : 'Watch progress and use Block if the agent needs owner input.',
         tone: 'default',
       }
@@ -362,7 +362,7 @@ function nextActionForTask(
         title: 'Review the handoff',
         detail:
           artifactCount > 0
-            ? 'Open artifacts, review context, and draft reusable learning if the work should repeat.'
+            ? 'Open result files, review context, and draft reusable learning if the work should repeat.'
             : contextTotal > 0
               ? 'Review context and decide whether the completed work should become reusable learning.'
               : 'Confirm the outcome and decide whether follow-up evidence or reusable learning is needed.',
