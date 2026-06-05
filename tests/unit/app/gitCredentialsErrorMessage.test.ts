@@ -2,11 +2,11 @@ import { describe, expect, test } from 'vitest'
 import { gitCredentialsErrorMessage } from '@app/features/settings/gitCredentialsErrorMessage'
 
 describe('gitCredentialsErrorMessage', () => {
-  test('turns invalid token details into a token replacement step', () => {
+  test('turns invalid token details into a repository access key replacement step', () => {
     expect(
       gitCredentialsErrorMessage('Settings could not save Git credential. Details: invalid token')
     ).toBe(
-      'Repository access could not be saved. Paste a new GitHub or GitLab access token with repository access, then save again.'
+      'Repository access could not be saved. Paste a new repository access key from GitHub or GitLab, then save again.'
     )
   })
 

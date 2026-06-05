@@ -25,8 +25,8 @@ const PROVIDER_LABELS: Record<GitProvider, string> = {
 const GIT_CREDENTIAL_SETUP_STEPS = [
   { label: 'Choose Git service', value: 'Pick where the repositories live.' },
   {
-    label: 'Paste access token',
-    value: 'Use the GitHub or GitLab access token that can reach the repositories.',
+    label: 'Paste repository access key',
+    value: 'Use the key from GitHub or GitLab that can reach the repositories.',
   },
   {
     label: 'Address is usually blank',
@@ -52,10 +52,10 @@ function credentialFormReadiness({
   if (!token.trim()) {
     return {
       ready: false,
-      title: 'Next: Paste access token',
+      title: 'Next: Paste repository access key',
       detail:
-        'Paste the access token from GitHub or GitLab so agents can clone and push repositories.',
-      error: 'Paste an access token before saving repository access.',
+        'Paste the repository access key from GitHub or GitLab so agents can clone and push repositories.',
+      error: 'Paste a repository access key before saving repository access.',
       fieldId: tokenInputId,
     }
   }
@@ -228,13 +228,14 @@ function AddCredentialForm({
 
         <div>
           <label htmlFor="git-credential-token" className={uiStyles.label}>
-            Access token <span className="text-red-500">*</span>
+            Repository access key <span className="text-red-500">*</span>
           </label>
           <p
             id={tokenHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste a personal access token from the selected Git service. It is hidden after saving.
+            Paste the key from the selected Git service. GitHub and GitLab may call this a personal
+            access token. It is hidden after saving.
           </p>
           <input
             id="git-credential-token"
@@ -242,7 +243,7 @@ function AddCredentialForm({
             name="token"
             value={form.token}
             onChange={(e) => setForm({ ...form, token: e.target.value })}
-            placeholder="Paste a repository access token"
+            placeholder="Paste the repository access key"
             required
             className={uiStyles.input}
             aria-describedby={tokenHelpId}
@@ -251,8 +252,8 @@ function AddCredentialForm({
             id="git-credential-token-help"
             className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste a token that can read the repositories your agents need. It will not be shown
-            again after saving.
+            Use a key that can read the repositories your agents need. It will not be shown again
+            after saving.
           </p>
         </div>
 
@@ -392,9 +393,9 @@ export function GitCredentialsSection() {
               No repository access saved yet
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Add a GitHub or GitLab token for private repositories that use HTTPS addresses, such
-              as https://github.com/team/repo.git. Use repository SSH keys for addresses that start
-              with git@.
+              Add GitHub or GitLab repository access for private repositories that use HTTPS
+              addresses, such as https://github.com/team/repo.git. Use repository SSH keys for
+              addresses that start with git@.
             </p>
           </div>
         ) : (
