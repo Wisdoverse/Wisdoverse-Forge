@@ -15,7 +15,7 @@ export function AgentKindBadge({ cliTool, runtimeKind, className }: AgentKindBad
   const isContainer = Boolean(cliTool) && !isHost
   const label = isHost ? 'This computer' : isContainer ? 'Managed' : 'Chat-only'
   const title = isHost
-    ? 'Runs on an enrolled computer. Use it when work should stay on that machine.'
+    ? 'Runs on this connected computer. Use it when work should stay on that computer.'
     : isContainer
       ? 'Runs in a managed workspace that can edit files, run commands, and collect evidence.'
       : 'Answers in chat through a connected AI service. It does not open workspace files.'

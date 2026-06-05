@@ -13,7 +13,7 @@ describe('AgentKindBadge', () => {
     const badge = screen.getByText('This computer')
     expect(badge).toHaveAttribute(
       'title',
-      'Runs on an enrolled computer. Use it when work should stay on that machine.'
+      'Runs on this connected computer. Use it when work should stay on that computer.'
     )
   })
 

@@ -161,7 +161,7 @@ describe('AgentDetailView', () => {
     expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
   })
 
-  test('foregrounds assignment fit on the agent profile', () => {
+  test('foregrounds assignment fit on the agent overview', () => {
     render(
       <AgentDetailView
         agent={{ ...containerAgent, currentTask: 'Implement onboarding flow' }}
@@ -303,7 +303,7 @@ describe('AgentDetailView', () => {
       screen.getByText(/choose an agent on this computer or a managed workspace agent/i)
     ).toBeDefined()
     expect(
-      screen.getByText(/settings checks whether this AI service account is ready/i)
+      screen.getByText(/settings shows whether the connected AI service is ready/i)
     ).toBeDefined()
     expect(screen.queryByText(/model provider/i)).toBeNull()
     expect(screen.queryByText(/text-only model/i)).toBeNull()

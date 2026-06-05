@@ -364,7 +364,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
     return {
       title: 'Fix setup before sending work',
       detail:
-        'This chat-only agent is offline. Open Settings and check that the AI service account is ready before sending work.',
+        'This chat-only agent is offline. Open Settings and check that the connected AI service is ready before sending work.',
       success: 'The agent returns to Idle and can receive tasks.',
       ready: false,
     }
@@ -385,7 +385,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
     return {
       title: 'Send a small first task',
       detail: hostCli
-        ? 'Use Tasks to send a small, low-risk task. The local work window stays on the enrolled machine while Forge tracks results.'
+        ? 'Use Tasks to send a small, low-risk task. The work window stays on this computer while Forge tracks results.'
         : 'Use Tasks to send a small, low-risk task. Leave it unassigned if any ready agent can pick it up.',
       success: 'A task appears as Waiting to start or Working for this agent.',
       ready: true,
@@ -496,13 +496,13 @@ function AssignmentFitCard({
       : 'Unavailable until restarted or reconnected'
   const hostCli = isHostCliAgent(agent)
   const runtime = agentRuntimeLabel(agent)
-  let credential = 'Settings checks whether this AI service account is ready.'
+  let credential = 'Settings shows whether the connected AI service is ready.'
   if (hostCli) {
-    credential = 'Uses the accounts and tools installed on the enrolled computer.'
+    credential = 'Uses the tool accounts and project files available on this computer.'
   } else if (agent.cliTool === 'codex') {
-    credential = 'Sign-in status is checked in Agent setup.'
+    credential = 'Agent Work Setup shows whether this tool account is connected.'
   } else if (agent.cliTool) {
-    credential = 'Workspace access is added when the agent starts.'
+    credential = 'Forge adds project file access when the managed workspace starts.'
   }
 
   return (
@@ -559,7 +559,7 @@ function AssignmentFitCard({
               : 'Attach and review skills from task context'
           }
         />
-        <ProfileSummaryRow label="Access setup" value={credential} />
+        <ProfileSummaryRow label="Account and file access" value={credential} />
       </div>
     </section>
   )
