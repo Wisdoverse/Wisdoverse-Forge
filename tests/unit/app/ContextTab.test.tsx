@@ -219,10 +219,15 @@ describe('ContextTab', () => {
     expect(screen.getAllByText('Project-level').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Internal only').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Saved from an earlier task').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Prepared for this agent run').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Prepared before the agent worked').length).toBeGreaterThan(0)
     expect(screen.queryByText(/Source task/i)).toBeNull()
     expect(screen.queryByText(/Adapter claude/i)).toBeNull()
-    expect(screen.getByText(/limited context: source snapshot was shortened/i)).toBeDefined()
+    expect(
+      screen.getByText(/This saved item was shortened before the agent used it/i)
+    ).toBeDefined()
+    expect(screen.getByText(/Review the full item before relying on it/i)).toBeDefined()
+    expect(screen.queryByText(/source snapshot/i)).toBeNull()
+    expect(screen.queryByText(/limited context/i)).toBeNull()
     expect(screen.getByText('Applied skills')).toBeDefined()
     expect(screen.getByText('Release checklist')).toBeDefined()
     expect(screen.getByText('Suggested memory updates')).toBeDefined()
@@ -301,7 +306,7 @@ describe('ContextTab', () => {
     await screen.findByText('Short preview...')
     await userEvent.setup().click(screen.getByRole('button', { name: /show full memory/i }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/full context could not load/i)
+    expect(await screen.findByRole('alert')).toHaveTextContent(/full saved memory could not load/i)
     expect(screen.queryByText('raw backend failure')).toBeNull()
   })
 

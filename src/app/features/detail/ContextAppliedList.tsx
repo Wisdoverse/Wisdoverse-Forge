@@ -85,7 +85,7 @@ function AppliedContextCard({
       const result = await onReadMemoryContent(item.itemId)
       setExpandedContent(result.content)
     } catch {
-      setContentError('Full context could not load. Try again or check the source memory.')
+      setContentError('The full saved memory could not load. Try again before relying on it.')
     } finally {
       setLoadingContent(false)
     }
@@ -141,12 +141,13 @@ function AppliedContextCard({
         <span>Applied {formatRelativeTime(item.appliedAt)}</span>
         <span>Last used {formatRelativeTime(item.lastUsedAt ?? item.appliedAt)}</span>
         {item.sourceTaskId && <span className="truncate">Saved from an earlier task</span>}
-        {item.adapter && <span className="truncate">Prepared for this agent run</span>}
+        {item.adapter && <span className="truncate">Prepared before the agent worked</span>}
       </div>
 
       {item.degradationReason && (
         <p className="text-[10px] text-apple-orange">
-          Limited context: {item.degradationReason}. Review before relying on it.
+          This saved item was shortened before the agent used it. Review the full item before
+          relying on it.
         </p>
       )}
 
