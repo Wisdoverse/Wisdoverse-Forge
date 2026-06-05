@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, test } from 'vitest'
 import { ContextEvidenceList } from '@app/features/detail/ContextEvidenceList'
 import type { AppliedContextItem, TaskContextEvidence } from '@shared/types/context'
@@ -109,6 +109,34 @@ describe('ContextEvidenceList', () => {
 
     expect(screen.getByText('Detailed record with 2 pieces of information.')).toBeInTheDocument()
     expect(screen.queryByText(/fields/i)).toBeNull()
+  })
+
+  test('hides sensitive values in technical evidence details', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            payload: {
+              ok: false,
+              title: 'Deployment check',
+              token: 'secret-token-value',
+              nested: { apiKey: 'private-api-key', error: 'Missing token' },
+            },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    expect(screen.getByText('Deployment check')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Show technical details'))
+
+    expect(screen.getAllByText(/Hidden for safety/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Required account access is missing/i)).toBeInTheDocument()
+    expect(screen.queryByText(/secret-token-value/i)).toBeNull()
+    expect(screen.queryByText(/private-api-key/i)).toBeNull()
+    expect(screen.queryByText(/Missing token/i)).toBeNull()
   })
 
   test('uses a plain-language fallback for unknown evidence sources', () => {

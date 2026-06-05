@@ -2,6 +2,11 @@ import { FileText, ShieldAlert } from 'lucide-react'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import type { AppliedContextItem, TaskContextEvidence } from '@shared/types/context'
 
+const HIDDEN_EVIDENCE_VALUE =
+  'Hidden for safety. Reconnect the required account access, then retry.'
+const MISSING_ACCESS_MESSAGE =
+  'Required account access is missing. Add or reconnect service access, then retry.'
+
 interface ContextEvidenceListProps {
   evidence: TaskContextEvidence[]
   revokedItems: AppliedContextItem[]
@@ -76,7 +81,7 @@ export function ContextEvidenceList({ evidence, revokedItems }: ContextEvidenceL
                     Show technical details
                   </summary>
                   <pre className="mt-1 max-h-28 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-white/70 p-2 leading-relaxed dark:bg-black/20">
-                    {JSON.stringify(item.payload, null, 2)}
+                    {formatTechnicalDetails(item.payload)}
                   </pre>
                 </details>
               </div>
@@ -134,6 +139,46 @@ function payloadSummary(payload: Record<string, unknown>): string {
   }
 
   return 'Detailed evidence was recorded for this run.'
+}
+
+function formatTechnicalDetails(payload: Record<string, unknown>): string {
+  try {
+    return JSON.stringify(safeEvidenceValue(payload), null, 2)
+  } catch {
+    return 'Technical details were recorded but could not be shown safely.'
+  }
+}
+
+function safeEvidenceValue(value: unknown, key = ''): unknown {
+  if (isSensitiveEvidenceKey(key)) return HIDDEN_EVIDENCE_VALUE
+
+  if (typeof value === 'string') return safeEvidenceString(value)
+
+  if (Array.isArray(value)) return value.map((item) => safeEvidenceValue(item))
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([entryKey, entryValue]) => [
+        entryKey,
+        safeEvidenceValue(entryValue, entryKey),
+      ])
+    )
+  }
+
+  return value
+}
+
+function isSensitiveEvidenceKey(key: string): boolean {
+  return /\b(token|secret|password|api[_-]?key|credential|credentials)\b/i.test(key)
+}
+
+function safeEvidenceString(value: string): string {
+  if (
+    /\b(missing|invalid|expired)\s+(token|credential|credentials|api\s*key|secret)\b/i.test(value)
+  ) {
+    return MISSING_ACCESS_MESSAGE
+  }
+  return value
 }
 
 function firstString(...values: unknown[]): string | null {
