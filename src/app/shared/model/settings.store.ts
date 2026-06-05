@@ -73,7 +73,7 @@ type SettingsErrorAction = 'load' | 'save' | 'delete' | 'create' | 'revoke' | 'u
 
 const SETTINGS_AREA_LABELS: Record<SettingsErrorArea, string> = {
   providers: 'provider settings',
-  apiKeys: 'platform API keys',
+  apiKeys: 'platform access keys',
   gitCredentials: 'Git credentials',
   sshKeys: 'SSH keys',
   resourceProfiles: 'resource profiles',
@@ -82,7 +82,7 @@ const SETTINGS_AREA_LABELS: Record<SettingsErrorArea, string> = {
 
 const SETTINGS_ITEM_LABELS: Record<SettingsErrorArea, string> = {
   providers: 'provider',
-  apiKeys: 'platform API key',
+  apiKeys: 'platform access key',
   gitCredentials: 'Git credential',
   sshKeys: 'SSH key',
   resourceProfiles: 'resource profile',
@@ -198,18 +198,18 @@ function settingsValidationMessage(
       normalized.includes('token') ||
       normalized.includes('key')
     ) {
-      return 'Enter the provider API key, choose a model, then save the provider again.'
+      return 'Enter the secret key from the model service, choose a model, then save the provider again.'
     }
     if (normalized.includes('model')) {
       return 'Choose a supported model for this provider, then save the provider again.'
     }
-    return 'Check the provider name, model, and API key, then save the provider again.'
+    return 'Check the provider name, model, and secret key, then save the provider again.'
   }
 
   if (area === 'apiKeys') {
     return action === 'load'
-      ? 'Refresh platform API keys. If they still do not load, ask an owner or admin for access.'
-      : 'Name this platform API key, choose the allowed access, then create it again.'
+      ? 'Refresh platform access keys. If they still do not load, ask an owner or admin for access.'
+      : 'Name this platform access key, choose the allowed access, then create it again.'
   }
 
   if (area === 'gitCredentials') {

@@ -67,8 +67,22 @@ describe('settingsActionErrorMessage', () => {
   test('turns permission failures into an admin role step', () => {
     expectBeginnerError(
       settingsActionErrorMessage('apiKeys', 'create', statusError(403, 'Forbidden')),
-      'You do not have permission to create the platform API key. Ask an owner or admin to give you access to platform API keys.'
+      'You do not have permission to create the platform access key. Ask an owner or admin to give you access to platform access keys.'
     )
+  })
+
+  test('turns platform key validation details into access-key guidance', () => {
+    const message = settingsActionErrorMessage(
+      'apiKeys',
+      'create',
+      statusError(422, 'name is required')
+    )
+
+    expectBeginnerError(
+      message,
+      'Name this platform access key, choose the allowed access, then create it again.'
+    )
+    expect(message).not.toMatch(/A[P]I key/)
   })
 
   test('turns field validation details into a provider setup step', () => {
@@ -113,7 +127,7 @@ describe('useSettingsStore errors', () => {
     expect(result).toBeNull()
     expectBeginnerError(
       useSettingsStore.getState().providersError,
-      'Enter the provider API key, choose a model, then save the provider again.'
+      'Enter the secret key from the model service, choose a model, then save the provider again.'
     )
   })
 
