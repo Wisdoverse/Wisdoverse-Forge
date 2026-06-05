@@ -218,7 +218,7 @@ export function RuntimeSection() {
             </div>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
               {runtimeSettings
-                ? `${runtimeSettings.availableRuntimes.length} place${runtimeSettings.availableRuntimes.length === 1 ? '' : 's'} agents can work, ${runtimeSettings.availableCliTools.length} work tool${runtimeSettings.availableCliTools.length === 1 ? '' : 's'}, ${connectedCredentialCount} account connection${connectedCredentialCount === 1 ? '' : 's'} ready, ${participants.length} agent check-in${participants.length === 1 ? '' : 's'}.`
+                ? `${runtimeSettings.availableRuntimes.length} place${runtimeSettings.availableRuntimes.length === 1 ? '' : 's'} agents can work, ${runtimeSettings.availableCliTools.length} agent tool${runtimeSettings.availableCliTools.length === 1 ? '' : 's'}, ${connectedCredentialCount} account sign-in${connectedCredentialCount === 1 ? '' : 's'} ready, ${participants.length} agent check-in${participants.length === 1 ? '' : 's'}.`
                 : 'The setup check has not loaded yet.'}
             </p>
           </div>
@@ -240,18 +240,18 @@ export function RuntimeSection() {
 
         <div className="mt-4 grid gap-3 md:grid-cols-4">
           <RuntimeReadinessMetric
-            label="Default place"
+            label="Working location"
             value={runtimeSettings ? runtimeLabel(runtimeSettings.defaultRuntime) : 'Unknown'}
             ready={Boolean(
               runtimeSettings?.availableRuntimes.includes(runtimeSettings.defaultRuntime)
             )}
           />
           <RuntimeReadinessMetric
-            label="Work tools"
+            label="Agent tools"
             value={
               cliToolDetails.length > 0
                 ? `${reportedVersionCount}/${cliToolDetails.length} ready`
-                : 'No tool status yet'
+                : 'No tool check yet'
             }
             ready={cliToolDetails.length > 0 && reportedVersionCount === cliToolDetails.length}
           />
@@ -263,11 +263,11 @@ export function RuntimeSection() {
             ready={Boolean(latestHeartbeat)}
           />
           <RuntimeReadinessMetric
-            label="Account connections"
+            label="Account sign-ins"
             value={
               cliStatuses.length > 0
                 ? `${connectedCredentialCount}/${cliStatuses.length} connected`
-                : 'No account connections'
+                : 'No account sign-ins'
             }
             ready={cliStatuses.length === 0 || disconnectedCredentials.length === 0}
           />
@@ -291,10 +291,10 @@ export function RuntimeSection() {
           <div className="mt-4 space-y-2" data-testid="runtime-cli-versions">
             <div className="flex items-center justify-between gap-2">
               <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Work tools
+                Agent tools
               </p>
               <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {reportedVersionCount} tool{reportedVersionCount === 1 ? '' : 's'} ready
+                {reportedVersionCount} tool{reportedVersionCount === 1 ? '' : 's'} checked
               </p>
             </div>
             {cliToolDetails.map((detail) => (
@@ -307,7 +307,7 @@ export function RuntimeSection() {
                     {cliToolLabel(detail.cliTool)}
                   </span>
                   <span className="block truncate text-secondary-light dark:text-secondary-dark">
-                    {detail.version ?? 'Needs tool check'}
+                    {detail.version ?? 'Needs a tool check'}
                   </span>
                 </div>
                 <span
@@ -362,7 +362,7 @@ export function RuntimeSection() {
                 </h4>
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Clear these items before assigning work to agents that need files or commands.
+                Clear these items before assigning work that needs project files or commands.
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-ui-caption font-medium tabular-nums text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
@@ -520,7 +520,7 @@ function RuntimeNextStepPanel({
           </h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
             {allReady
-              ? 'The default place, work tools, account connections, and agent check-ins are ready.'
+              ? 'The working location, agent tools, account sign-ins, and agent check-ins are ready.'
               : item?.detail}
           </p>
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -658,10 +658,10 @@ function CredentialStatusRow({
   const detail = status.connected
     ? status.lastRefresh
       ? `Last checked ${formatRelativeTime(status.lastRefresh)}`
-      : 'Account connection ready'
+      : 'Account sign-in ready'
     : status.revokeReason || status.revokedAt
       ? 'Reconnect before starting agents that use this tool'
-      : 'No saved account connection'
+      : 'No saved account sign-in'
 
   return (
     <div className="flex flex-col gap-2 rounded-lg bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04] sm:flex-row sm:items-center sm:justify-between">
@@ -728,12 +728,12 @@ function runtimeLaunchChecklistItems(
     runtimeSettings.availableCliTools.includes(runtimeSettings.defaultCliTool)
   items.push({
     id: 'defaults',
-    title: 'Default place for new agents',
+    title: 'Working location for new agents',
     detail: defaultRuntimeReady
       ? `${runtimeLabel(runtimeSettings.defaultRuntime)} with ${cliToolLabel(
           runtimeSettings.defaultCliTool
         )} is selected for new agents.`
-      : 'Choose an available place and work tool.',
+      : 'Choose where new agents work and which tool they use.',
     ready: defaultRuntimeReady,
   })
 
@@ -746,22 +746,21 @@ function runtimeLaunchChecklistItems(
     runtimeSettings.cliToolDetails.length > 0 &&
     missingImages.length === 0 &&
     reportedVersionCount === runtimeSettings.cliToolDetails.length
-  let imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} work tools are ready.`
+  let imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} agent tools are checked.`
   if (runtimeSettings.availableCliTools.length === 0) {
-    imageDetail =
-      'Enable at least one work tool before assigning agents that need files or commands.'
+    imageDetail = 'Enable at least one agent tool before assigning file or command work.'
   } else if (runtimeSettings.cliToolDetails.length === 0) {
-    imageDetail = 'No work tool package details have been reported yet.'
+    imageDetail = 'No agent tool check has been reported yet.'
   } else if (missingImages.length > 0) {
-    imageDetail = `${missingImages.length} work tool package${
+    imageDetail = `${missingImages.length} agent tool${
       missingImages.length === 1 ? '' : 's'
-    } could not be checked. Rebuild the agent tool packages, then refresh.`
+    } could not be checked. Rebuild agent tools, then refresh.`
   } else if (reportedVersionCount !== runtimeSettings.cliToolDetails.length) {
-    imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} work tools are ready. Rebuild the packages that still need a package check.`
+    imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} agent tools are checked. Rebuild the tools that still need a check.`
   }
   items.push({
     id: 'images',
-    title: 'Work tool packages',
+    title: 'Agent tools',
     detail: imageDetail,
     ready: imageInventoryReady,
     action: imageInventoryReady ? undefined : 'refresh',
@@ -773,14 +772,14 @@ function runtimeLaunchChecklistItems(
   const credentialReady = !cliStatusError && (!disconnectedCredential || cliStatuses.length === 0)
   items.push({
     id: 'credentials',
-    title: 'Account connections for work tools',
+    title: 'Account sign-ins for agent tools',
     detail: cliStatusError
-      ? 'Account connection status could not be checked. Refresh after the service is healthy.'
+      ? 'Account sign-in status could not be checked. Refresh after the service is healthy.'
       : cliStatuses.length === 0
-        ? 'No account connections are required.'
+        ? 'No account sign-ins are required.'
         : disconnectedCredential
-          ? `${connectedCredentialCount}/${cliStatuses.length} account connections ready. Reconnect ${disconnectedCredential.displayName} before starting agents that use this tool.`
-          : `${connectedCredentialCount}/${cliStatuses.length} account connections ready.`,
+          ? `${connectedCredentialCount}/${cliStatuses.length} account sign-ins ready. Reconnect ${disconnectedCredential.displayName} before starting agents that use this tool.`
+          : `${connectedCredentialCount}/${cliStatuses.length} account sign-ins ready.`,
     ready: credentialReady,
     action: cliStatusError ? 'refresh' : disconnectedCredential ? 'connect' : undefined,
     actionLabel: cliStatusError

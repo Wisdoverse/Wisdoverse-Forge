@@ -117,7 +117,7 @@ describe('RuntimeSection', () => {
     expect(await screen.findByTestId('runtime-launch-checklist')).toBeDefined()
     const nextStep = screen.getByTestId('runtime-next-step')
     expect(nextStep).toHaveTextContent('Do this next')
-    expect(nextStep).toHaveTextContent('Work tool packages')
+    expect(nextStep).toHaveTextContent('Agent tools')
     expect(screen.getByText('Before assigning work')).toBeDefined()
     expect(screen.getByText('2/4 ready')).toBeDefined()
     expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
@@ -126,7 +126,8 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText('container')).toBeNull()
     expect(screen.queryByText('api')).toBeNull()
     expect(screen.queryByText('codex')).toBeNull()
-    expect(screen.getAllByText(/Rebuild the agent tool packages/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Rebuild agent tools/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/package check/i)).toBeNull()
     expect(screen.getByText('Rebuild needed')).toBeDefined()
     expect(screen.getByText('Ready to use')).toBeDefined()
     expect(screen.getByRole('button', { name: /Connect GitHub/i })).toBeDefined()
@@ -177,7 +178,7 @@ describe('RuntimeSection', () => {
     expect(await screen.findByText('4/4 ready')).toBeDefined()
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Ready to start agent work')
     expect(screen.queryByRole('button', { name: /Connect GitHub/i })).toBeNull()
-    expect(screen.getByText(/1\/1 work tools are ready/i)).toBeDefined()
+    expect(screen.getByText(/1\/1 agent tools are checked/i)).toBeDefined()
   })
 
   test('shows beginner guidance when local tool sign-in status cannot load', async () => {
