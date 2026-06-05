@@ -25,45 +25,45 @@ export function resourceMemberErrorMessage(
     return `Sign in again, then reopen members for this ${resource}.`
   }
   if (status === 403) {
-    return `You do not have permission to manage members for this ${resource}. Ask an owner or admin to update your role.`
+    return `You do not have permission to manage people for this ${resource}. Ask an owner or admin to update what you can do.`
   }
   if (status === 404) {
-    return `Members for this ${resource} are not available. Refresh members or choose another ${resource}.`
+    return `People for this ${resource} are not available. Refresh members or choose another ${resource}.`
   }
   if (status === 409) {
-    return 'This membership changed while you were editing. Refresh the members list, review current access, then try again.'
+    return "This person's access changed while you were editing. Refresh the members list, review who has access, then try again."
   }
   if (status === 422) {
     return validationMessage(action, resource, detail)
   }
   if (status === 429) {
-    return `Member access is busy. Wait a moment, then ${retrySummary(action, resource)}.`
+    return `People access is busy. Wait a moment, then ${retrySummary(action, resource)}.`
   }
   if (status >= 500) {
     return memberUnavailableMessage(action, resource)
   }
 
-  return `Member access could not ${actionSummary(action, resource)}. Refresh the members list and try again.`
+  return `Forge could not ${actionSummary(action, resource)}. Refresh the members list and try again.`
 }
 
 function memberConnectionMessage(action: ResourceMemberErrorAction, resource: string): string {
-  const operation = action === 'load' ? 'loading members' : 'updating member access'
-  return `Member access could not ${actionSummary(action, resource)}. Forge could not connect while ${operation}. Check your connection, then try again.`
+  const operation = action === 'load' ? 'loading the people list' : 'updating people access'
+  return `Forge could not ${actionSummary(action, resource)}. It could not connect while ${operation}. Check your connection, then try again.`
 }
 
 function memberUnavailableMessage(action: ResourceMemberErrorAction, resource: string): string {
-  const operation = action === 'load' ? 'load members' : 'update member access'
-  return `Forge could not ${operation} right now. Refresh members, then ${retrySummary(action, resource)}. If it still fails, ask an owner or admin to check member access setup.`
+  const operation = action === 'load' ? 'load the people list' : 'update people access'
+  return `Forge could not ${operation} right now. Refresh members, then ${retrySummary(action, resource)}. If it still fails, ask an owner or admin to check people access settings.`
 }
 
 function actionSummary(action: ResourceMemberErrorAction, resource: string): string {
   switch (action) {
     case 'load':
-      return `load for this ${resource}`
+      return `load people for this ${resource}`
     case 'add':
       return `add this person to this ${resource}`
     case 'updateRole':
-      return `change this person's role on this ${resource}`
+      return `change what this person can do on this ${resource}`
     case 'remove':
       return `remove this person from this ${resource}`
   }
@@ -76,7 +76,7 @@ function retrySummary(action: ResourceMemberErrorAction, resource: string): stri
     case 'add':
       return `add the person again`
     case 'updateRole':
-      return `change the role again`
+      return `save the access change again`
     case 'remove':
       return `remove the person again`
   }
@@ -93,14 +93,14 @@ function validationMessage(
       return `Members could not load for this ${resource}. Refresh the page and try again.`
     case 'add':
       if (normalized.includes('role')) {
-        return 'Choose this person and their role, then add them again.'
+        return 'Choose this person and what they can do, then add them again.'
       }
-      return `Check the selected person and role, then add them again.`
+      return `Check the selected person and what they can do, then add them again.`
     case 'updateRole':
       if (normalized.includes('owner')) {
-        return `Choose a different owner first, then change this person's role on this ${resource}.`
+        return `Choose a different owner first, then change what this person can do on this ${resource}.`
       }
-      return `Check the selected role, then save the change again.`
+      return `Check what this person can do, then save the change again.`
     case 'remove':
       if (normalized.includes('owner')) {
         return `Choose a different owner first, then remove this person from this ${resource}.`

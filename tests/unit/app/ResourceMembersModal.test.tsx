@@ -100,21 +100,19 @@ describe('ResourceMembersModal', () => {
     const guide = await screen.findByTestId('member-role-guide')
     expect(within(guide).getByText('Add people only when they need this project')).toBeDefined()
     expect(within(guide).getByText('Start with Member')).toBeDefined()
-    expect(within(guide).getByText('Use Maintainer for daily setup')).toBeDefined()
-    expect(within(guide).getByText('Reserve Owner and Admin')).toBeDefined()
+    expect(within(guide).getByText('Use Maintainer for everyday changes')).toBeDefined()
+    expect(within(guide).getByText('Keep Owner and Admin limited')).toBeDefined()
     expect(
-      screen.getByText(
-        'Choose an organization user, pick the safest role, then add them to this resource.'
-      )
+      screen.getByText('Choose a person, pick the safest access level, then add them here.')
     ).toBeDefined()
 
     const emptyState = screen.getByTestId('members-empty-state')
     expect(within(emptyState).getByText('No direct members yet')).toBeDefined()
     expect(
-      within(emptyState).getByText(/Start with Member unless they need to manage access/i)
+      within(emptyState).getByText(/Start with Member unless they need to manage who can get in/i)
     ).toBeDefined()
 
-    fireEvent.change(screen.getByLabelText('Select member to add'), {
+    fireEvent.change(screen.getByLabelText('Select person to add'), {
       target: { value: 'user-1' },
     })
     fireEvent.click(screen.getByRole('button', { name: /add/i }))
@@ -128,11 +126,11 @@ describe('ResourceMembersModal', () => {
   test('explains that organization users must exist before members can be added', async () => {
     renderMembersModal({ users: [] })
 
-    expect(await screen.findByText('No org users available')).toBeDefined()
+    expect(await screen.findByText('No organization users available')).toBeDefined()
     expect(
-      screen.getByText('Invite a user to the organization first, then return here to grant access.')
+      screen.getByText('Invite the person to the organization first, then return here to give access.')
     ).toBeDefined()
-    expect(screen.getByLabelText('Select member to add')).toBeDisabled()
+    expect(screen.getByLabelText('Select person to add')).toBeDisabled()
   })
 
   test('explains filtered candidate results without hiding current access', async () => {
@@ -149,7 +147,7 @@ describe('ResourceMembersModal', () => {
       target: { value: 'missing-user' },
     })
 
-    expect(screen.getByText('No matching org members')).toBeDefined()
+    expect(screen.getByText('No matching organization members')).toBeDefined()
     expect(
       screen.getByText(
         'Clear the filter or invite the person to the organization before adding them here.'
@@ -172,7 +170,7 @@ describe('ResourceMembersModal', () => {
     renderMembersModal({ addMemberError: new Error('API 403: Forbidden') })
 
     await screen.findByText('No direct members yet')
-    fireEvent.change(screen.getByLabelText('Select member to add'), {
+    fireEvent.change(screen.getByLabelText('Select person to add'), {
       target: { value: 'user-1' },
     })
     fireEvent.click(screen.getByRole('button', { name: /add/i }))
@@ -192,12 +190,12 @@ describe('ResourceMembersModal', () => {
     })
 
     await screen.findByText('builder')
-    fireEvent.change(screen.getByLabelText('Role for builder'), {
+    fireEvent.change(screen.getByLabelText('Access level for builder'), {
       target: { value: 'admin' },
     })
 
     const alert = await screen.findByRole('alert')
-    expect(alert.textContent).toContain('This membership changed while you were editing')
+    expect(alert.textContent).toContain("This person's access changed while you were editing")
     expect(alert.textContent).toContain('Refresh the members list')
     expect(alert.textContent).not.toContain('API 409')
     expect(alert.textContent).not.toContain('role already changed')

@@ -12,7 +12,7 @@ describe('resourceMemberErrorMessage', () => {
     const message = resourceMemberErrorMessage('load', 'Project', new Error('Failed to fetch'))
 
     expect(message).toBe(
-      'Member access could not load for this project. Forge could not connect while loading members. Check your connection, then try again.'
+      'Forge could not load people for this project. It could not connect while loading the people list. Check your connection, then try again.'
     )
     expect(message).toContain('Check your connection')
     expect(message).not.toContain('Failed to fetch')
@@ -53,12 +53,12 @@ describe('resourceMemberErrorMessage', () => {
     expect(message).not.toContain('API 422')
   })
 
-  test('turns service failures into a member access setup step', () => {
+  test('turns service failures into a people access settings step', () => {
     const message = resourceMemberErrorMessage('load', 'Team', new Error('HTTP 500'))
 
     expectBeginnerMessage(
       message,
-      'Forge could not load members right now. Refresh members, then reopen members for this team. If it still fails, ask an owner or admin to check member access setup.'
+      'Forge could not load the people list right now. Refresh members, then reopen members for this team. If it still fails, ask an owner or admin to check people access settings.'
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('backend')
