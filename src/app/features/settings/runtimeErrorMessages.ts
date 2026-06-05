@@ -15,11 +15,11 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   const status = errorStatus(err, normalized)
 
   if (isNetworkError(normalized)) {
-    return `${ACTION_FALLBACKS[action]} The app could not reach Agent setup. Check your connection, then refresh the page.`
+    return `${ACTION_FALLBACKS[action]} Forge could not connect while checking agent setup. Check your connection, then refresh Settings.`
   }
 
   if (status === 401) {
-    return 'Sign in again, then open Agent setup and try this action again.'
+    return 'Your sign-in expired. Sign in again, then open Agent setup and try this action again.'
   }
 
   if (status === 403) {
@@ -39,11 +39,11 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   }
 
   if (status === 429) {
-    return 'Agent setup is busy. Wait a moment, then try again.'
+    return 'Forge is receiving too many agent setup requests right now. Wait a moment, then try again.'
   }
 
   if (status && status >= 500) {
-    return 'Agent setup is temporarily unavailable. Refresh this setup check, then try again. If it still fails, ask an owner or admin to check agent setup.'
+    return 'Forge could not check agent setup right now. Refresh this setup check, then try again. If it still fails, ask an owner or admin to check agent setup.'
   }
 
   return runtimeValidationMessage(action, detail)
@@ -63,11 +63,11 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
       : 'Agent work settings could not be loaded.'
 
   if (isNetworkError(normalized)) {
-    return `${base} The app could not reach agent work settings. Check your connection, then refresh Settings.`
+    return `${base} Forge could not connect while opening agent work settings. Check your connection, then refresh Settings.`
   }
 
   if (status === 401) {
-    return `${base} Sign in again, then open Settings and try agent setup again.`
+    return `${base} Your sign-in expired. Sign in again, then open Settings and try agent setup again.`
   }
 
   if (status === 403) {
@@ -87,14 +87,14 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
   }
 
   if (status === 429) {
-    return `${base} Agent work settings are busy. Wait a minute, then try again.`
+    return `${base} Forge is receiving too many agent work settings requests right now. Wait a minute, then try again.`
   }
 
   if (status && status >= 500) {
-    return `${base} Agent work settings are temporarily unavailable. Refresh Settings, then try again. If it still fails, ask an owner to check agent work settings.`
+    return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check agent work settings.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner to check agent work settings.`
+  return `${base} Try again. If it still fails, ask an owner or admin to check agent work settings.`
 }
 
 function errorDetail(err: unknown): string {

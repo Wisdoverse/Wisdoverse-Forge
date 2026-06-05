@@ -15,7 +15,7 @@ describe('runtimeErrorMessage', () => {
   test('turns auth failures into a sign-in instruction', () => {
     expectBeginnerMessage(
       runtimeErrorMessage('loadAgentSignals', new Error('401 Unauthorized')),
-      'Sign in again, then open Agent setup and try this action again.'
+      'Your sign-in expired. Sign in again, then open Agent setup and try this action again.'
     )
   })
 
@@ -23,8 +23,9 @@ describe('runtimeErrorMessage', () => {
     const message = runtimeErrorMessage('loadCliSignIn', new TypeError('Failed to fetch'))
 
     expect(message).toContain('Work tool sign-in status could not load')
-    expect(message).toContain('app could not reach Agent setup')
+    expect(message).toContain('Forge could not connect while checking agent setup')
     expect(message).not.toContain('Failed to fetch')
+    expect(message).not.toContain('app could not reach')
   })
 
   test('gives a clear permission step for local sign-in startup', () => {
@@ -60,10 +61,11 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Work tool sign-in did not start. Check the model service setup, then try Connect again. The app could not reach Agent setup. Check your connection, then refresh the page.'
+      'Work tool sign-in did not start. Check the model service setup, then try Connect again. Forge could not connect while checking agent setup. Check your connection, then refresh Settings.'
     )
     expect(message).not.toContain('provider')
     expect(message).not.toContain('Failed to fetch')
+    expect(message).not.toContain('app could not reach')
   })
 
   test('turns setup service failures into an agent setup recovery step', () => {
@@ -71,11 +73,19 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Agent setup is temporarily unavailable. Refresh this setup check, then try again. If it still fails, ask an owner or admin to check agent setup.'
+      'Forge could not check agent setup right now. Refresh this setup check, then try again. If it still fails, ask an owner or admin to check agent setup.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('worker')
     expect(message).not.toContain('HTTP 500')
+    expect(message).not.toContain('temporarily unavailable')
+  })
+
+  test('turns setup rate limits into a wait and retry step', () => {
+    expectBeginnerMessage(
+      runtimeErrorMessage('loadAgentSignals', { code: '429' }),
+      'Forge is receiving too many agent setup requests right now. Wait a moment, then try again.'
+    )
   })
 })
 
@@ -101,9 +111,13 @@ describe('runtimeSettingsErrorMessage', () => {
   })
 
   test('explains network failures in user-facing terms', () => {
-    expect(runtimeSettingsErrorMessage(new TypeError('Failed to fetch'))).toBe(
-      'Agent work settings could not be loaded. The app could not reach agent work settings. Check your connection, then refresh Settings.'
+    const message = runtimeSettingsErrorMessage(new TypeError('Failed to fetch'))
+
+    expectBeginnerMessage(
+      message,
+      'Agent work settings could not be loaded. Forge could not connect while opening agent work settings. Check your connection, then refresh Settings.'
     )
+    expect(message).not.toContain('app could not reach')
   })
 
   test('turns temporary agent work settings failures into a settings recovery step', () => {
@@ -111,8 +125,26 @@ describe('runtimeSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Agent work settings could not be loaded. Agent work settings are temporarily unavailable. Refresh Settings, then try again. If it still fails, ask an owner to check agent work settings.'
+      'Agent work settings could not be loaded. Refresh Settings, then try again. If it still fails, ask an owner or admin to check agent work settings.'
     )
     expect(message).not.toContain('backend')
+    expect(message).not.toContain('temporarily unavailable')
+  })
+
+  test('turns work settings rate limits into a wait and retry step', () => {
+    expectBeginnerMessage(
+      runtimeSettingsErrorMessage({ statusCode: '429' }),
+      'Agent work settings could not be loaded. Forge is receiving too many agent work settings requests right now. Wait a minute, then try again.'
+    )
+  })
+
+  test('turns unknown work settings failures into owner or admin guidance', () => {
+    const message = runtimeSettingsErrorMessage({ reason: 'unexpected runtime parser detail' })
+
+    expectBeginnerMessage(
+      message,
+      'Agent work settings could not be loaded. Try again. If it still fails, ask an owner or admin to check agent work settings.'
+    )
+    expect(message).not.toContain('parser')
   })
 })

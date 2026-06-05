@@ -198,8 +198,9 @@ describe('RuntimeSection', () => {
     expect(
       await screen.findByText(/work tool sign-in status could not load/i)
     ).toBeDefined()
-    expect(screen.getByText(/app could not reach agent setup/i)).toBeDefined()
+    expect(screen.getByText(/Forge could not connect while checking agent setup/i)).toBeDefined()
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
+    expect(screen.queryByText(/app could not reach/i)).toBeNull()
     expect(screen.queryByText(/service is healthy/i)).toBeNull()
   })
 
