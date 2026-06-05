@@ -12,7 +12,7 @@ export function accountErrorMessage(action: AccountErrorAction, error?: unknown)
     if (detail) {
       return validationMessage(action, detail)
     }
-    return `Account settings could not ${actionPhrase(action)} because the app could not reach the service. Check your connection, then try again.`
+    return `${actionFailureBase(action)} The app could not reach ${settingsAreaLabel(action).toLowerCase()}. Check your connection, then try again.`
   }
 
   if (status === 401) {
@@ -22,7 +22,7 @@ export function accountErrorMessage(action: AccountErrorAction, error?: unknown)
     return permissionMessage(action)
   }
   if (status === 404) {
-    return `${serviceLabel(action)} is not available. Refresh Settings, then try again.`
+    return `${settingsAreaLabel(action)} are not available. Refresh Settings, then try again.`
   }
   if (status === 409) {
     return conflictMessage(action)
@@ -31,13 +31,19 @@ export function accountErrorMessage(action: AccountErrorAction, error?: unknown)
     return validationMessage(action, detail)
   }
   if (status === 429) {
-    return `Account settings are busy. Wait a moment, then ${retryPhrase(action)}.`
+    return `${settingsAreaLabel(action)} are busy. Wait a moment, then ${retryPhrase(action)}.`
   }
   if (status >= 500) {
-    return `${serviceLabel(action)} had a problem. Wait a moment, then try again. If it still fails, ask an owner to check account settings.`
+    return `${settingsAreaLabel(action)} are temporarily unavailable. Wait a moment, then try again. If it still fails, ask an owner to check account settings.`
   }
 
   return `Account settings could not ${actionPhrase(action)}. Refresh the page and try again.`
+}
+
+function actionFailureBase(action: AccountErrorAction): string {
+  return action === 'changePassword'
+    ? 'Password could not be changed.'
+    : 'Organization name could not be saved.'
 }
 
 function actionPhrase(action: AccountErrorAction): string {
@@ -50,8 +56,8 @@ function retryPhrase(action: AccountErrorAction): string {
     : 'rename the organization again'
 }
 
-function serviceLabel(action: AccountErrorAction): string {
-  return action === 'changePassword' ? 'The password service' : 'The organization settings service'
+function settingsAreaLabel(action: AccountErrorAction): string {
+  return action === 'changePassword' ? 'Password settings' : 'Organization settings'
 }
 
 function permissionMessage(action: AccountErrorAction): string {

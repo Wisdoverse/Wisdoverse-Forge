@@ -5,9 +5,12 @@ describe('accountErrorMessage', () => {
   test('turns password network failures into connection guidance', () => {
     const message = accountErrorMessage('changePassword', new Error('Failed to fetch'))
 
-    expect(message).toContain('app could not reach the service')
+    expect(message).toBe(
+      'Password could not be changed. The app could not reach password settings. Check your connection, then try again.'
+    )
     expect(message).toContain('Check your connection')
     expect(message).not.toContain('Failed to fetch')
+    expect(message).not.toContain('service')
   })
 
   test('maps password auth failures without raw HTTP text', () => {
@@ -48,14 +51,15 @@ describe('accountErrorMessage', () => {
     expect(message).not.toContain('Forbidden')
   })
 
-  test('turns account service failures into a retry and owner step', () => {
+  test('turns account settings failures into a retry and owner step', () => {
     const message = accountErrorMessage('renameOrganization', new Error('HTTP 500'))
 
     expect(message).toBe(
-      'The organization settings service had a problem. Wait a moment, then try again. If it still fails, ask an owner to check account settings.'
+      'Organization settings are temporarily unavailable. Wait a moment, then try again. If it still fails, ask an owner to check account settings.'
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('backend')
+    expect(message).not.toContain('service')
   })
 
   test('turns organization validation details into a recovery step', () => {
