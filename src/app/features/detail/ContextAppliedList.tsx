@@ -39,7 +39,7 @@ export function ContextAppliedList({
           {title}
         </h3>
         <p className="mt-0.5 text-[11px] text-secondary-light dark:text-secondary-dark">
-          These items were added to the agent's working context for this run.
+          These notes and skills were selected for the agent before it worked on this task.
         </p>
       </div>
       <div className="space-y-2">
@@ -109,8 +109,8 @@ function AppliedContextCard({
               {item.title}
             </h4>
             {item.revoked && <Badge tone="red">Revoked</Badge>}
-            {item.scopeKind && <Badge>{item.scopeKind}</Badge>}
-            {item.sensitivity && <Badge tone="orange">{item.sensitivity}</Badge>}
+            {item.scopeKind && <Badge>{scopeKindLabel(item.scopeKind)}</Badge>}
+            {item.sensitivity && <Badge tone="orange">{sensitivityLabel(item.sensitivity)}</Badge>}
           </div>
           <p className="mt-1 text-[11px] leading-relaxed text-secondary-light dark:text-secondary-dark whitespace-pre-wrap break-words">
             {content}
@@ -140,10 +140,8 @@ function AppliedContextCard({
       <div className="grid grid-cols-2 gap-2 text-[10px] text-secondary-light dark:text-secondary-dark">
         <span>Applied {formatRelativeTime(item.appliedAt)}</span>
         <span>Last used {formatRelativeTime(item.lastUsedAt ?? item.appliedAt)}</span>
-        {item.sourceTaskId && (
-          <span className="truncate">Source task {item.sourceTaskId.slice(0, 8)}</span>
-        )}
-        {item.adapter && <span className="truncate">Adapter {item.adapter}</span>}
+        {item.sourceTaskId && <span className="truncate">Saved from an earlier task</span>}
+        {item.adapter && <span className="truncate">Prepared for this agent run</span>}
       </div>
 
       {item.degradationReason && (
@@ -155,6 +153,44 @@ function AppliedContextCard({
       <FeedbackControls item={item} onRecord={onRecordFeedback} />
     </article>
   )
+}
+
+function scopeKindLabel(scopeKind: string): string {
+  switch (scopeKind) {
+    case 'org':
+      return 'Organization-level'
+    case 'team':
+      return 'Team-level'
+    case 'project':
+      return 'Project-level'
+    case 'user':
+      return 'Only you'
+    default:
+      return readableCodeLabel(scopeKind)
+  }
+}
+
+function sensitivityLabel(sensitivity: string): string {
+  switch (sensitivity) {
+    case 'public':
+      return 'Shareable'
+    case 'internal':
+      return 'Internal only'
+    case 'confidential':
+      return 'Confidential'
+    case 'secret_detected':
+      return 'May contain secrets'
+    default:
+      return readableCodeLabel(sensitivity)
+  }
+}
+
+function readableCodeLabel(value: string): string {
+  return value
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
 }
 
 function Badge({

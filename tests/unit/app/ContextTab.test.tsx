@@ -212,8 +212,16 @@ describe('ContextTab', () => {
     expect(screen.getByText('Work run 1')).toBeDefined()
     expect(screen.getByText('Finished')).toBeDefined()
     expect(screen.getByText('Applied memories')).toBeDefined()
-    expect(screen.getAllByText(/added to the agent's working context/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/selected for the agent before it worked/i).length).toBeGreaterThan(
+      0
+    )
     expect(screen.getAllByText('Prod deploy memory').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Project-level').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Internal only').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Saved from an earlier task').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Prepared for this agent run').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/Source task/i)).toBeNull()
+    expect(screen.queryByText(/Adapter claude/i)).toBeNull()
     expect(screen.getByText(/limited context: source snapshot was shortened/i)).toBeDefined()
     expect(screen.getByText('Applied skills')).toBeDefined()
     expect(screen.getByText('Release checklist')).toBeDefined()
