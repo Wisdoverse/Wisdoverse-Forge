@@ -101,9 +101,9 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
               <p className="text-ui-body text-foreground-light dark:text-foreground-dark">
                 {t('skills.detail.triggerHelper')}
               </p>
-              <code className="mt-1 w-fit max-w-full rounded-full bg-black/[0.04] px-2 py-0.5 font-mono text-[11px] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+              <span className="mt-1 w-fit max-w-full rounded-full bg-black/[0.04] px-2 py-0.5 text-ui-caption text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
                 {skill.triggerPattern}
-              </code>
+              </span>
             </section>
           )}
 

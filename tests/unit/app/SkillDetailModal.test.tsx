@@ -41,9 +41,9 @@ describe('SkillDetailModal', () => {
     expect(screen.getByText('workspace')).toBeInTheDocument()
     expect(screen.getByText('What this helps with')).toBeInTheDocument()
     expect(screen.getByText('Check deployment steps before release.')).toBeInTheDocument()
-    expect(screen.getByText('When agents should consider it')).toBeInTheDocument()
+    expect(screen.getByText('Task words that suggest this skill')).toBeInTheDocument()
     expect(
-      screen.getByText('Agents can use this skill when the task matches this phrase.')
+      screen.getByText('When a task includes these words, agents can consider this skill.')
     ).toBeInTheDocument()
     expect(screen.getByText('deploy')).toBeInTheDocument()
     expect(screen.getByText('Instructions the agent will read')).toBeInTheDocument()

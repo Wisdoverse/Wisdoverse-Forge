@@ -474,8 +474,8 @@ export const en = {
       versionLabel: 'Version',
       descriptionHeading: 'What this helps with',
       noDescription: 'No summary yet. Review the instructions below before using this skill.',
-      triggerHeading: 'When agents should consider it',
-      triggerHelper: 'Agents can use this skill when the task matches this phrase.',
+      triggerHeading: 'Task words that suggest this skill',
+      triggerHelper: 'When a task includes these words, agents can consider this skill.',
       detailsHeading: 'Instructions the agent will read',
       detailsHelper: 'Review this text if you need to check exactly what will be reused.',
       noContent:

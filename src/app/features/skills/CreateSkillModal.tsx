@@ -267,23 +267,23 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
 
           <div>
             <label htmlFor="skill-trigger" className={uiStyles.label}>
-              When agents should use it
+              Matching words for future tasks
             </label>
             <p
               id="skill-trigger-help"
               className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
             >
-              Add a word or short phrase from tasks that should use this skill.
+              Type the words people usually write when this skill should be suggested.
             </p>
             <input
               id="skill-trigger"
               value={form.triggerPattern}
               onChange={(event) => updateField('triggerPattern', event.target.value)}
-              className={cn(uiStyles.input, 'font-mono')}
-              placeholder="e.g. release review"
+              className={uiStyles.input}
+              placeholder="release review, incident notes"
             />
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Leave blank so people can choose the skill themselves when needed.
+              Leave blank if people should choose the skill manually.
             </p>
           </div>
 

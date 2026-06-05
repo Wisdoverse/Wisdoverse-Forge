@@ -35,8 +35,8 @@ export function SkillCard({ skill, onClick }: SkillCardProps) {
             {skill.pluginAuthor ? <span> by {skill.pluginAuthor}</span> : null}
           </span>
           {skill.triggerPattern && (
-            <span className="mt-1 inline-flex w-fit max-w-full items-center rounded-full bg-black/[0.04] px-2 py-0.5 font-mono text-[10px] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-              <span className="truncate">Use when: {skill.triggerPattern}</span>
+            <span className="mt-1 inline-flex w-fit max-w-full items-center rounded-full bg-black/[0.04] px-2 py-0.5 text-ui-caption text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+              <span className="truncate">Suggested for: {skill.triggerPattern}</span>
             </span>
           )}
         </div>

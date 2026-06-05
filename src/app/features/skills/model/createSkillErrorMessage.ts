@@ -133,7 +133,7 @@ function trimDetail(detail: string | null): string | null {
 function validationMessage(detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('trigger')) {
-    return 'Check the trigger pattern, then try again.'
+    return 'Check the matching words, then try again.'
   }
   if (normalized.includes('name')) {
     return 'Enter a skill name, then try again.'
@@ -141,7 +141,7 @@ function validationMessage(detail: string | null): string {
   if (normalized.includes('content') || normalized.includes('instruction')) {
     return 'Enter the skill instructions, then try again.'
   }
-  return 'Check the skill name, trigger pattern, and content, then try again.'
+  return 'Check the skill name, matching words, and instructions, then try again.'
 }
 
 function stripInternalErrorSuffix(detail: string): string {

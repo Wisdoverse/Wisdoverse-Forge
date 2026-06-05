@@ -44,11 +44,9 @@ describe('createSkillErrorMessage', () => {
   })
 
   test('turns validation details into a field-specific next step', () => {
-    const message = createSkillErrorMessage(
-      new Error('HTTP 422: {"message":"trigger is invalid"}')
-    )
+    const message = createSkillErrorMessage(new Error('HTTP 422: {"message":"trigger is invalid"}'))
 
-    expectBeginnerMessage(message, 'Check the trigger pattern, then try again.')
+    expectBeginnerMessage(message, 'Check the matching words, then try again.')
     expect(message).not.toContain('HTTP 422')
     expect(message).not.toContain('trigger is invalid')
   })

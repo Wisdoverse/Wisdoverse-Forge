@@ -62,7 +62,7 @@ describe('SkillsView', () => {
     expect(screen.getByLabelText(/^short description$/i)).toHaveValue(
       'Draft release notes from accepted work'
     )
-    expect(screen.getByLabelText(/^when agents should use it$/i)).toHaveValue('release')
+    expect(screen.getByLabelText(/^matching words for future tasks$/i)).toHaveValue('release')
     expect((screen.getByLabelText(/^content$/i) as HTMLTextAreaElement).value).toContain(
       'Group user-facing updates'
     )
@@ -100,7 +100,7 @@ describe('SkillsView', () => {
       expect(screen.getByText('webui-review')).toBeDefined()
     })
     expect(screen.getByText('Review WebUI flows')).toBeDefined()
-    expect(screen.getByText('Use when: webui')).toBeDefined()
+    expect(screen.getByText('Suggested for: webui')).toBeDefined()
     expect(screen.getByText('Global skills')).toBeDefined()
     expect(screen.getByText('1 skill')).toBeDefined()
   })
@@ -181,11 +181,12 @@ describe('SkillsView', () => {
     await user.click(screen.getAllByRole('button', { name: /new skill/i })[0])
     expect(screen.getByText(/check before creating/i)).toBeDefined()
     expect(screen.getByText('Safe to share')).toBeDefined()
-    expect(screen.getByText(/choose the skill themselves/i)).toBeDefined()
+    expect(screen.getByText(/choose the skill manually/i)).toBeDefined()
+    expect(screen.getByText(/words people usually write/i)).toBeDefined()
 
     await user.type(screen.getByLabelText(/^skill name$/i), 'frontend-review')
     await user.type(screen.getByLabelText(/^short description$/i), 'Review frontend flows')
-    await user.type(screen.getByLabelText(/^when agents should use it$/i), 'frontend')
+    await user.type(screen.getByLabelText(/^matching words for future tasks$/i), 'frontend')
     await user.type(screen.getByLabelText(/^content$/i), 'Check UI states and regressions')
     await user.click(screen.getByRole('button', { name: /create skill/i }))
 
