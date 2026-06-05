@@ -61,8 +61,9 @@ describe('OrganizationsPanel', () => {
       within(guide).getByText('8 members and 3 teams are spread across 2 organizations.')
     ).toBeDefined()
     expect(within(guide).getByText('Plan shows limits')).toBeDefined()
-    expect(within(guide).getByText('Members show access size')).toBeDefined()
-    expect(within(guide).getByText('Teams show routing shape')).toBeDefined()
+    expect(within(guide).getByText('Members show who has access')).toBeDefined()
+    expect(within(guide).getByText('Teams show work areas')).toBeDefined()
+    expect(within(guide).queryByText(/routing shape/i)).toBeNull()
 
     expect(screen.getByText('Acme Labs')).toBeDefined()
     expect(screen.getByText('Link name: acme')).toBeDefined()
@@ -80,13 +81,14 @@ describe('OrganizationsPanel', () => {
     const guide = await screen.findByTestId('admin-org-guide')
     expect(
       within(guide).getByText(
-        'Organizations appear here after setup or sync. Teams, projects, and members need an organization first.'
+        'Organizations appear here after setup. Teams, projects, and members need an organization first.'
       )
     ).toBeDefined()
 
     const emptyState = screen.getByTestId('admin-org-empty')
     expect(within(emptyState).getByText('No organizations are visible yet')).toBeDefined()
-    expect(within(emptyState).getByText(/create or sync one organization first/i)).toBeDefined()
+    expect(within(emptyState).getByText(/create one organization first/i)).toBeDefined()
+    expect(within(emptyState).queryByText(/sync/i)).toBeNull()
     expect(within(emptyState).getByText(/one row with a plan, member count/i)).toBeDefined()
     expect(within(emptyState).getByText(/then create teams, projects, members/i)).toBeDefined()
   })

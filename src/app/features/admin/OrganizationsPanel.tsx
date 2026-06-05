@@ -87,24 +87,24 @@ function PlanBadge({ plan }: { plan: string }) {
 const ORG_GUIDANCE: { title: string; description: string; Icon: LucideIcon }[] = [
   {
     title: 'Plan shows limits',
-    description: 'Use it to spot which organizations may need billing or capacity review.',
+    description: 'Use it to see which organizations may need billing help or more room for work.',
     Icon: Building2,
   },
   {
-    title: 'Members show access size',
-    description: 'A sudden jump can mean onboarding succeeded or access needs review.',
+    title: 'Members show who has access',
+    description: 'A sudden jump can mean onboarding worked or access needs review.',
     Icon: Users,
   },
   {
-    title: 'Teams show routing shape',
-    description: 'More teams usually means more project lanes and agent assignment paths.',
+    title: 'Teams show work areas',
+    description: 'More teams usually means more places to organize projects and assign agent work.',
     Icon: Network,
   },
 ]
 
 function organizationSummary(orgs: AdminOrg[]): string {
   if (orgs.length === 0) {
-    return 'Organizations appear here after setup or sync. Teams, projects, and members need an organization first.'
+    return 'Organizations appear here after setup. Teams, projects, and members need an organization first.'
   }
   const members = orgs.reduce((total, org) => total + org.membersCount, 0)
   const teams = orgs.reduce((total, org) => total + org.teamsCount, 0)
@@ -163,10 +163,10 @@ function OrganizationsEmptyState() {
         No organizations are visible yet
       </p>
       <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
-        Create or sync one organization first. Success looks like one row with a plan, member count,
-        and team count. Then create teams, projects, members, and agent work lanes inside that
-        organization. If you expected data here, confirm your admin access, refresh Admin, and check
-        again.
+        Create one organization first, or refresh Admin after an existing organization is connected.
+        Success looks like one row with a plan, member count, and team count. Then create teams,
+        projects, members, and agent work lanes inside that organization. If you expected data here,
+        confirm your admin access, refresh Admin, and check again.
       </p>
     </div>
   )
