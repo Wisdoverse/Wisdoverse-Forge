@@ -44,7 +44,7 @@ function promptStats(value: string): PromptStats {
 }
 
 function promptProfileSaveErrorMessage(): string {
-  return 'Prompt profile was not saved. Refresh this agent, confirm it is still a chat-only agent, then save again. Ask an admin to check your agent access if it keeps failing.'
+  return 'Agent instructions were not saved. Refresh this agent, confirm it is still a chat-only agent, then save again. Ask an admin to check your agent access if it keeps failing.'
 }
 
 export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
@@ -98,13 +98,13 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
   const promptStatus = saveError
     ? saveError
     : saving
-      ? 'Saving prompt profile…'
+      ? 'Saving agent instructions…'
       : dirty
-        ? 'Unsaved changes. Save to use this prompt on future work.'
+        ? 'Unsaved changes. Save to use these instructions on future work.'
         : savedAt != null
-          ? 'Prompt profile saved.'
+          ? 'Agent instructions saved.'
           : hasPrompt
-            ? 'This agent already has a prompt profile.'
+            ? 'This agent already has saved instructions.'
             : 'Choose a template or write instructions before saving.'
   const updatePromptValue = (nextValue: string) => {
     setValue(nextValue)
@@ -124,7 +124,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
           <div className="flex items-center gap-2">
             <Sparkles size={16} strokeWidth={2} className="text-apple-blue" aria-hidden="true" />
             <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              Prompt profile
+              Agent instructions
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -143,17 +143,23 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
                   : 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.08] dark:text-secondary-dark'
           )}
         >
-          {dirty ? 'Unsaved' : savedAt != null ? 'Saved' : hasPrompt ? 'Configured' : 'Empty'}
+          {dirty
+            ? 'Unsaved'
+            : savedAt != null
+              ? 'Saved'
+              : hasPrompt
+                ? 'Has instructions'
+                : 'No instructions'}
         </span>
       </div>
 
       <div data-testid="agent-config-summary" className="grid grid-cols-3 gap-2">
         <ConfigMetric label="Words" value={String(stats.words)} />
         <ConfigMetric label="Lines" value={String(stats.lines)} />
-        <ConfigMetric label="Chars" value={String(stats.characters)} />
+        <ConfigMetric label="Characters" value={String(stats.characters)} />
       </div>
 
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Prompt templates">
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Instruction templates">
         {PROMPT_TEMPLATES.map((template) => {
           const selected = activeTemplateId === template.id
           return (
@@ -181,7 +187,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
           htmlFor="config-system-prompt"
           className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
         >
-          System Prompt
+          Instructions for this agent
         </label>
         <p
           id={promptHelpId}
@@ -225,7 +231,9 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
             onClick={() => updatePromptValue(initial)}
             disabled={!dirty}
             title={
-              dirty ? 'Reset to the last saved prompt.' : 'Make an edit before reset is available.'
+              dirty
+                ? 'Reset to the last saved instructions.'
+                : 'Make an edit before reset is available.'
             }
             className={cn(
               'inline-flex h-9 items-center gap-2 rounded-lg border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-apple-blue/35 hover:text-apple-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-foreground-dark',
@@ -240,7 +248,9 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
             onClick={() => updatePromptValue('')}
             disabled={!hasPrompt}
             title={
-              hasPrompt ? 'Clear the prompt text.' : 'Add prompt text before clear is available.'
+              hasPrompt
+                ? 'Clear the instruction text.'
+                : 'Add instructions before clear is available.'
             }
             className={cn(
               'inline-flex h-9 items-center gap-2 rounded-lg border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-apple-red/35 hover:text-apple-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-foreground-dark',
@@ -257,8 +267,8 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
           disabled={saving || !dirty}
           title={
             dirty
-              ? 'Save this prompt for future work.'
-              : 'Change the prompt before save is available.'
+              ? 'Save these instructions for future work.'
+              : 'Change the instructions before save is available.'
           }
           className={cn(
             'inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus active:scale-95',
@@ -266,7 +276,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
           )}
         >
           <Save size={14} strokeWidth={2} aria-hidden="true" />
-          {saving ? 'Saving…' : 'Save Prompt Profile'}
+          {saving ? 'Saving…' : 'Save Instructions'}
         </button>
       </div>
     </div>
@@ -305,11 +315,11 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
               aria-hidden="true"
             />
             <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              Work profile
+              How this agent works
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Prompt editing is only available for chat-only agents.
+            Instruction editing is only available for chat-only agents.
           </p>
         </div>
         <span className="inline-flex h-7 w-fit items-center rounded-full bg-apple-blue/10 px-2.5 text-ui-caption font-medium text-apple-blue">

@@ -43,38 +43,44 @@ describe('AgentConfigTab', () => {
 
   it('shows existing system_prompt value in the textarea', () => {
     render(<AgentConfigTab agentId="a1" />)
-    expect(screen.getByLabelText(/system prompt/i)).toHaveValue('old prompt')
+    expect(screen.getByLabelText(/instructions for this agent/i)).toHaveValue('old prompt')
   })
 
-  it('summarizes prompt profile readiness', () => {
+  it('summarizes agent instruction readiness', () => {
     render(<AgentConfigTab agentId="a1" />)
     const summary = screen.getByTestId('agent-config-summary')
     expect(within(summary).getByText('Words')).toBeDefined()
     expect(within(summary).getByText('2')).toBeDefined()
     expect(within(summary).getByText('Lines')).toBeDefined()
     expect(within(summary).getByText('1')).toBeDefined()
-    expect(screen.getByText('Configured')).toBeDefined()
+    expect(within(summary).getByText('Characters')).toBeDefined()
+    expect(screen.getByText('Has instructions')).toBeDefined()
+    expect(screen.getByText('Agent instructions')).toBeDefined()
+    expect(screen.queryByText('Prompt profile')).toBeNull()
   })
 
   it('Save button disabled until user edits the value', () => {
     render(<AgentConfigTab agentId="a1" />)
     const save = screen.getByRole('button', { name: /save/i })
     expect(save).toBeDisabled()
-    fireEvent.change(screen.getByLabelText(/system prompt/i), {
+    fireEvent.change(screen.getByLabelText(/instructions for this agent/i), {
       target: { value: 'new prompt' },
     })
     expect(save).not.toBeDisabled()
   })
 
-  it('explains prompt editing in beginner language', () => {
+  it('explains instruction editing in beginner language', () => {
     render(<AgentConfigTab agentId="a1" />)
-    const prompt = screen.getByLabelText(/system prompt/i)
+    const instructions = screen.getByLabelText(/instructions for this agent/i)
 
     expect(
       screen.getByText(/start from a template or write everyday instructions/i)
     ).toBeInTheDocument()
-    expect(prompt).toHaveAccessibleDescription(/tell this agent the outcome/i)
-    expect(screen.getByRole('status')).toHaveTextContent(/this agent already has a prompt profile/i)
+    expect(instructions).toHaveAccessibleDescription(/tell this agent the outcome/i)
+    expect(screen.getByRole('status')).toHaveTextContent(
+      /this agent already has saved instructions/i
+    )
+    expect(screen.queryByText(/system prompt/i)).toBeNull()
   })
 
   it('applies a prompt template and can reset the edit', () => {
@@ -83,21 +89,21 @@ describe('AgentConfigTab', () => {
     expect(reviewTemplate).toHaveAttribute('aria-pressed', 'false')
     fireEvent.click(reviewTemplate)
 
-    expect((screen.getByLabelText(/system prompt/i) as HTMLTextAreaElement).value).toContain(
-      'code review agent'
-    )
+    expect(
+      (screen.getByLabelText(/instructions for this agent/i) as HTMLTextAreaElement).value
+    ).toContain('code review agent')
     expect(reviewTemplate).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('Unsaved')).toBeDefined()
     expect(screen.getByRole('status')).toHaveTextContent(/unsaved changes/i)
 
     fireEvent.click(screen.getByRole('button', { name: /reset/i }))
-    expect(screen.getByLabelText(/system prompt/i)).toHaveValue('old prompt')
+    expect(screen.getByLabelText(/instructions for this agent/i)).toHaveValue('old prompt')
   })
 
   it('calls updateAgentSystemPrompt with trimmed value on Save', async () => {
     updateAgentSystemPrompt.mockResolvedValue(true)
     render(<AgentConfigTab agentId="a1" />)
-    fireEvent.change(screen.getByLabelText(/system prompt/i), {
+    fireEvent.change(screen.getByLabelText(/instructions for this agent/i), {
       target: { value: '  new prompt  ' },
     })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
@@ -107,14 +113,14 @@ describe('AgentConfigTab', () => {
   it('shows a plain-language save failure message', async () => {
     updateAgentSystemPrompt.mockResolvedValue(false)
     render(<AgentConfigTab agentId="a1" />)
-    fireEvent.change(screen.getByLabelText(/system prompt/i), {
+    fireEvent.change(screen.getByLabelText(/instructions for this agent/i), {
       target: { value: 'new prompt' },
     })
 
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(/prompt profile was not saved/i)
+      expect(screen.getByRole('alert')).toHaveTextContent(/agent instructions were not saved/i)
     )
     expect(screen.getByRole('alert')).toHaveTextContent(/confirm it is still a chat-only agent/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/text-only model/i)
@@ -124,7 +130,7 @@ describe('AgentConfigTab', () => {
   it('empty string clears the prompt (sent as "" to backend)', async () => {
     updateAgentSystemPrompt.mockResolvedValue(true)
     render(<AgentConfigTab agentId="a1" />)
-    fireEvent.change(screen.getByLabelText(/system prompt/i), {
+    fireEvent.change(screen.getByLabelText(/instructions for this agent/i), {
       target: { value: '' },
     })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
@@ -133,9 +139,9 @@ describe('AgentConfigTab', () => {
 
   it('renders CLI-agent-not-supported notice instead of the form', () => {
     render(<AgentConfigTab agentId="cli1" />)
-    expect(screen.queryByLabelText(/system prompt/i)).toBeNull()
+    expect(screen.queryByLabelText(/instructions for this agent/i)).toBeNull()
     expect(screen.getByTestId('agent-cli-config-summary')).toBeInTheDocument()
-    expect(screen.getByText('Work profile')).toBeInTheDocument()
+    expect(screen.getByText('How this agent works')).toBeInTheDocument()
     expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
     expect(screen.getByText('Connection status')).toBeInTheDocument()
     expect(screen.getByText('Managed workspace ready')).toBeInTheDocument()
@@ -144,8 +150,9 @@ describe('AgentConfigTab', () => {
     expect(screen.queryByText('Connection ID')).toBeNull()
     expect(screen.queryByText('af-claude-container-123')).toBeNull()
     expect(screen.queryByText('/workspace')).toBeNull()
-    expect(screen.getByText(/only available for chat-only agents/i)).toBeInTheDocument()
+    expect(screen.getByText(/instruction editing is only available for chat-only agents/i)).toBeInTheDocument()
     expect(screen.queryByText(/text-only model/i)).toBeNull()
+    expect(screen.queryByText(/work profile/i)).toBeNull()
   })
 
   it('renders "Agent not found" for unknown id', () => {
