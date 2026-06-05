@@ -34,17 +34,17 @@ const TASK_KIND_LABELS: Record<string, string> = {
 
 const EMPTY_TOP_USEFUL = {
   title: 'No useful context yet',
-  detail: 'Helpful items appear after users mark applied context as useful.',
+  detail: 'Helpful saved memories and skills appear after people mark them useful in task results.',
 }
 
 const EMPTY_NEEDS_REVIEW = {
-  title: 'No review signals',
-  detail: 'Items show here when feedback says context may be outdated, incorrect, or sensitive.',
+  title: 'Nothing needs review',
+  detail: 'Items appear here when feedback says they may be outdated, incorrect, or too sensitive.',
 }
 
 const EMPTY_STALE = {
-  title: 'No stale context',
-  detail: 'Nothing has crossed the stale threshold for this workspace.',
+  title: 'Nothing looks outdated',
+  detail: 'Saved memories and skills appear here when they are old enough to check again.',
 }
 
 function relativeAge(timestamp: string): string {
@@ -87,7 +87,7 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
             Context reuse
           </h2>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Snapshot refreshed {data ? relativeAge(data.lastRefreshedAt) : 'when data is available'}
+            Updated {data ? relativeAge(data.lastRefreshedAt) : 'when data is available'}
           </p>
           <p className="mt-1 max-w-2xl text-ui-body text-secondary-light dark:text-secondary-dark">
             Use this panel to keep context that helps work finish and review items that may be
@@ -101,8 +101,8 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
           >
             <AlertTriangle size={14} strokeWidth={2} aria-hidden="true" />
             <span>
-              Snapshot is older than {data.staleAfterHours}h. Refresh analytics before acting on
-              these numbers.
+              These numbers are more than {data.staleAfterHours}h old. Refresh analytics before
+              making decisions from them.
             </span>
           </div>
         )}
@@ -160,7 +160,7 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
         />
         <UsageList
           testId="context-usage-stale-items"
-          title="Stale"
+          title="May be outdated"
           description="Verify these before agents rely on them again."
           icon="stale"
           items={data?.staleItems ?? []}
