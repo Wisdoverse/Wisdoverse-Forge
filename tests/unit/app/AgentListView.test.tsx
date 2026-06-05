@@ -50,6 +50,10 @@ describe('AgentListView', () => {
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
     expect(within(enrollment).getByText(/project setup/i)).toBeDefined()
     expect(within(enrollment).getByText('Select a project first')).toBeDefined()
+    expect(within(enrollment).getByLabelText(/agent tool on this computer/i)).toHaveValue('codex')
+    expect(
+      within(enrollment).getByText(/command below will include it automatically/i)
+    ).toBeDefined()
     expect(within(enrollment).getByTestId('host-cli-command-waiting')).toHaveTextContent(
       /select a project in the sidebar first/i
     )
@@ -78,16 +82,27 @@ describe('AgentListView', () => {
     render(<AgentListView />)
 
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
-    expect(within(enrollment).getByText('Connect a Local Agent')).toBeDefined()
+    expect(within(enrollment).getByText('Join This Computer as an Agent')).toBeDefined()
     expect(within(enrollment).getByText(/work should run on your computer/i)).toBeDefined()
     expect(within(enrollment).getByText('Project selected')).toBeDefined()
     expect(enrollment.textContent).not.toContain('Project: p1')
     expect(enrollment.textContent).toContain('agentforge agents enroll-local')
-    expect(enrollment.textContent).toContain('--tool <tool-name>')
-    expect(enrollment.textContent).toContain('--name "Local Agent"')
+    expect(enrollment.textContent).toContain('--tool codex')
+    expect(enrollment.textContent).toContain('--name "Codex on this computer"')
     expect(enrollment.textContent).toContain('--project p1')
-    expect(enrollment.textContent).toContain('Replace <tool-name> with the tool you already use')
+    expect(enrollment.textContent).not.toContain('<tool-name>')
+    expect(enrollment.textContent).toContain('Choose the agent tool above')
     expect(within(enrollment).getByRole('button', { name: /copy command/i })).toBeDefined()
+
+    fireEvent.change(within(enrollment).getByLabelText(/agent tool on this computer/i), {
+      target: { value: 'opencode' },
+    })
+    expect(enrollment.textContent).toContain('--tool opencode')
+    expect(enrollment.textContent).toContain('--name "OpenCode on this computer"')
+
+    fireEvent.click(within(enrollment).getByRole('button', { name: /windows/i }))
+    expect(enrollment.textContent).toContain('--shell-format powershell')
+    expect(enrollment.textContent).toContain('--cwd "$($PWD.Path)"')
   })
 
   test('renders agent cards', () => {

@@ -20,6 +20,7 @@ import {
 } from '@app/entities/agent'
 import { useNavigationStore } from '@app/entities/navigation'
 import { cn } from '@app/shared/lib/utils'
+import type { CliTool } from '@shared/types'
 import { AgentCard } from './AgentCard'
 import { AgentGroupsPanel } from './AgentGroupsPanel'
 import { CreateAgentModal } from './CreateAgentModal'
@@ -69,6 +70,17 @@ const HOST_CLI_PLATFORMS: {
     Icon: Monitor,
   },
 ]
+
+const LOCAL_AGENT_TOOLS: { value: CliTool; label: string }[] = [
+  { value: 'codex', label: 'Codex' },
+  { value: 'claude', label: 'Claude' },
+  { value: 'gemini', label: 'Gemini' },
+  { value: 'opencode', label: 'OpenCode' },
+]
+
+function localAgentToolLabel(tool: CliTool): string {
+  return LOCAL_AGENT_TOOLS.find((option) => option.value === tool)?.label ?? 'Agent tool'
+}
 
 export function AgentListView() {
   const { agents, selectAgent, setCreateModalOpen, loadAgents, loading } = useAgentsStore()
@@ -235,14 +247,16 @@ export function AgentListView() {
 
 function buildLocalEnrollCommand(
   selectedProjectId: string | null,
-  platform: HostCliPlatform
+  platform: HostCliPlatform,
+  tool: CliTool
 ): string {
   const projectArg = selectedProjectId ?? '<project-id>'
+  const name = `${localAgentToolLabel(tool)} on this computer`
   if (platform === 'windows') {
     return [
       'agentforge agents enroll-local `',
-      '  --tool codex `',
-      '  --name "Host Codex" `',
+      `  --tool ${tool} \``,
+      `  --name "${name}" \``,
       `  --project ${projectArg} \``,
       '  --cwd "$($PWD.Path)" `',
       '  --shell-format powershell',
@@ -251,8 +265,8 @@ function buildLocalEnrollCommand(
 
   return [
     'agentforge agents enroll-local \\',
-    '  --tool <tool-name> \\',
-    '  --name "Local Agent" \\',
+    `  --tool ${tool} \\`,
+    `  --name "${name}" \\`,
     `  --project ${projectArg} \\`,
     '  --cwd "$PWD" \\',
     '  --shell-format bash',
@@ -261,10 +275,11 @@ function buildLocalEnrollCommand(
 
 function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: string | null }) {
   const [platform, setPlatform] = useState<HostCliPlatform>('posix')
+  const [tool, setTool] = useState<CliTool>('codex')
   const [copied, setCopied] = useState(false)
   const command = useMemo(
-    () => buildLocalEnrollCommand(selectedProjectId, platform),
-    [platform, selectedProjectId]
+    () => buildLocalEnrollCommand(selectedProjectId, platform, tool),
+    [platform, selectedProjectId, tool]
   )
   const commandReady = Boolean(selectedProjectId)
   const projectLabel = commandReady ? 'Project selected' : 'Select a project first'
@@ -295,7 +310,7 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
               aria-hidden="true"
             />
             <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              Connect a Local Agent
+              Join This Computer as an Agent
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -307,36 +322,65 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
         </span>
       </div>
 
-      <div className="mt-4">
-        <p className="mb-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Local machine
-        </p>
-        <div role="group" aria-label="This computer platform" className="grid grid-cols-2 gap-2">
-          {HOST_CLI_PLATFORMS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              aria-pressed={platform === option.value}
-              onClick={() => {
-                setPlatform(option.value)
-                setCopied(false)
-              }}
-              className={cn(
-                'flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
-                platform === option.value
-                  ? 'border-apple-blue/45 bg-apple-blue/[0.08] text-apple-blue'
-                  : 'border-black/[0.08] bg-white text-foreground-light hover:border-apple-blue/30 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark'
-              )}
-            >
-              <option.Icon size={15} strokeWidth={2.15} aria-hidden="true" />
-              <span className="min-w-0">
-                <span className="block truncate text-ui-button font-medium">{option.label}</span>
-                <span className="block truncate text-[10px] text-secondary-light dark:text-secondary-dark">
-                  {option.detail}
+      <div className="mt-4 grid gap-3">
+        <div>
+          <label
+            htmlFor="local-agent-tool"
+            className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
+          >
+            Agent tool on this computer
+          </label>
+          <select
+            id="local-agent-tool"
+            value={tool}
+            onChange={(event) => {
+              setTool(event.target.value as CliTool)
+              setCopied(false)
+            }}
+            className="h-10 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-ui-body text-foreground-light outline-none transition-colors focus-visible:border-apple-blue/40 focus-visible:ring-2 focus-visible:ring-apple-blue/20 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+          >
+            {LOCAL_AGENT_TOOLS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Pick the tool you already use. The command below will include it automatically.
+          </p>
+        </div>
+
+        <div>
+          <p className="mb-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+            Computer type
+          </p>
+          <div role="group" aria-label="This computer platform" className="grid grid-cols-2 gap-2">
+            {HOST_CLI_PLATFORMS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={platform === option.value}
+                onClick={() => {
+                  setPlatform(option.value)
+                  setCopied(false)
+                }}
+                className={cn(
+                  'flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
+                  platform === option.value
+                    ? 'border-apple-blue/45 bg-apple-blue/[0.08] text-apple-blue'
+                    : 'border-black/[0.08] bg-white text-foreground-light hover:border-apple-blue/30 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark'
+                )}
+              >
+                <option.Icon size={15} strokeWidth={2.15} aria-hidden="true" />
+                <span className="min-w-0">
+                  <span className="block truncate text-ui-button font-medium">{option.label}</span>
+                  <span className="block truncate text-[10px] text-secondary-light dark:text-secondary-dark">
+                    {option.detail}
+                  </span>
                 </span>
-              </span>
-            </button>
-          ))}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -361,8 +405,8 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
           data-testid="host-cli-command-waiting"
           className="mt-3 rounded-lg bg-apple-blue/10 px-3 py-2 text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          Select a project in the sidebar first. The app will fill the project value into the join
-          command for you.
+          Select a project in the sidebar first. The app will fill the starting project into the
+          join command for you.
         </div>
       )}
 
@@ -370,7 +414,7 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
         {commandReady ? (
           <>
             <p>1. Install the Forge command on the computer that will do the work.</p>
-            <p>2. Replace &lt;tool-name&gt; with the tool you already use there.</p>
+            <p>2. Choose the agent tool above.</p>
             <p>3. Run the command from the folder this agent should work in.</p>
           </>
         ) : (
