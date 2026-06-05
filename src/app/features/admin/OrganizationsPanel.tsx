@@ -237,7 +237,7 @@ export function OrganizationsPanel() {
                           {org.name}
                         </p>
                         <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                          Organization URL name: {org.slug}
+                          Link name: {org.slug}
                         </p>
                       </div>
                     </td>

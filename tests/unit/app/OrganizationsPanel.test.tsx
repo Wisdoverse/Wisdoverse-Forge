@@ -65,6 +65,8 @@ describe('OrganizationsPanel', () => {
     expect(within(guide).getByText('Teams show routing shape')).toBeDefined()
 
     expect(screen.getByText('Acme Labs')).toBeDefined()
+    expect(screen.getByText('Link name: acme')).toBeDefined()
+    expect(screen.queryByText(/Organization URL name/i)).toBeNull()
     expect(screen.getByText('Enterprise')).toBeDefined()
     expect(screen.getAllByText('Review access when membership or teams change.').length).toBe(2)
     expect(loadOrgsMock).toHaveBeenCalled()
