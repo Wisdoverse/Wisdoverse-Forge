@@ -93,10 +93,14 @@ describe('settingsActionErrorMessage', () => {
   })
 
   test('turns raw network errors into connection guidance', () => {
+    const message = settingsActionErrorMessage('sshKeys', 'load', 'Network error')
+
     expectBeginnerError(
-      settingsActionErrorMessage('sshKeys', 'load', 'Network error'),
-      'Settings could not load SSH keys because the app could not reach the service. Check your connection and try again.'
+      message,
+      'Settings could not load SSH keys. Forge could not connect while loading Settings. Check your connection, then try again.'
     )
+    expect(message).not.toContain('Network error')
+    expect(message).not.toContain('service')
   })
 })
 
@@ -110,8 +114,10 @@ describe('useSettingsStore errors', () => {
 
     expectBeginnerError(
       useSettingsStore.getState().providersError,
-      'The settings service is temporarily unavailable. Refresh Settings, then try to load provider settings again. If it still fails, ask an owner or admin to check Settings.'
+      'Forge could not load Settings right now. Refresh Settings, then try to load provider settings again. If it still fails, ask an owner or admin to check Settings.'
     )
+    expect(useSettingsStore.getState().providersError).not.toContain('HTTP 503')
+    expect(useSettingsStore.getState().providersError).not.toContain('temporarily unavailable')
   })
 
   test('stores validation guidance when provider creation fails', async () => {
@@ -138,8 +144,9 @@ describe('useSettingsStore errors', () => {
 
     expectBeginnerError(
       useSettingsStore.getState().sshKeysError,
-      'Settings could not load SSH keys because the app could not reach the service. Check your connection and try again.'
+      'Settings could not load SSH keys. Forge could not connect while loading Settings. Check your connection, then try again.'
     )
+    expect(useSettingsStore.getState().sshKeysError).not.toContain('Network error')
   })
 
   test('turns Git credential configuration details into a setup step', async () => {

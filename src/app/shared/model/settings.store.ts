@@ -144,6 +144,16 @@ function isRawSettingsFailure(detail: string | null): boolean {
   )
 }
 
+function settingsConnectionMessage(actionPhrase: string, action: SettingsErrorAction): string {
+  const operation = action === 'load' ? 'loading Settings' : 'updating Settings'
+  return `Settings could not ${actionPhrase}. Forge could not connect while ${operation}. Check your connection, then try again.`
+}
+
+function settingsUnavailableMessage(actionPhrase: string, action: SettingsErrorAction): string {
+  const operation = action === 'load' ? 'load Settings' : 'update Settings'
+  return `Forge could not ${operation} right now. Refresh Settings, then try to ${actionPhrase} again. If it still fails, ask an owner or admin to check Settings.`
+}
+
 export function settingsActionErrorMessage(
   area: SettingsErrorArea,
   action: SettingsErrorAction,
@@ -157,7 +167,7 @@ export function settingsActionErrorMessage(
     if (!isRawSettingsFailure(detail)) {
       return settingsValidationMessage(area, action, detail)
     }
-    return `Settings could not ${actionPhrase} because the app could not reach the service. Check your connection and try again.`
+    return settingsConnectionMessage(actionPhrase, action)
   }
 
   if (status === 401) {
@@ -167,7 +177,7 @@ export function settingsActionErrorMessage(
     return `You do not have permission to ${actionPhrase}. Ask an owner or admin to give you access to ${SETTINGS_AREA_LABELS[area]}.`
   }
   if (status === 404) {
-    return `Settings for ${SETTINGS_AREA_LABELS[area]} are not available. Refresh after the settings service is ready.`
+    return `Settings for ${SETTINGS_AREA_LABELS[area]} are not ready yet. Refresh Settings, then try again.`
   }
   if (status === 409) {
     return `This ${SETTINGS_ITEM_LABELS[area]} changed or already exists. Refresh the list, review the current value, then try again.`
@@ -176,10 +186,10 @@ export function settingsActionErrorMessage(
     return settingsValidationMessage(area, action, detail)
   }
   if (status === 429) {
-    return `The settings service is busy. Wait a moment, then try to ${actionPhrase} again.`
+    return `The Settings page is busy. Wait a moment, then try to ${actionPhrase} again.`
   }
   if (status >= 500) {
-    return `The settings service is temporarily unavailable. Refresh Settings, then try to ${actionPhrase} again. If it still fails, ask an owner or admin to check Settings.`
+    return settingsUnavailableMessage(actionPhrase, action)
   }
 
   return `Settings could not ${actionPhrase}. Refresh Settings, then try again.`
