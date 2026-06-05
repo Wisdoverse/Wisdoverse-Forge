@@ -54,7 +54,7 @@ describe('TaskFormModal', () => {
 
     expect(
       screen.getByText(
-        'All agents are busy or offline. Leave the task unassigned so the next available agent can pick it up.'
+        'No agents are ready right now. Leave the task unassigned so the next available agent can pick it up.'
       )
     ).toBeDefined()
     expect(
@@ -63,6 +63,41 @@ describe('TaskFormModal', () => {
     expect(screen.getByText(/any ready agent can do the work/i)).toBeDefined()
     expect(screen.getByText(/people are waiting on it now/i)).toBeDefined()
     expect(screen.queryByText(/queue/i)).toBeNull()
+  })
+
+  test('labels unknown agent states without exposing backend status values', () => {
+    render(
+      <TaskFormModal
+        isOpen
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        agents={[
+          { id: 'agent-1', name: 'Ready Agent', status: 'available' },
+          { id: 'agent-2', name: 'Starting Agent', status: 'starting_up' },
+          { id: 'agent-3', name: 'Missing Status Agent', status: ' ' },
+        ]}
+        projects={[project]}
+        selectedProjectId={project.id}
+        selectedTaskGroupId="lane-1"
+        selectedTaskGroupName="Starter Lane"
+      />
+    )
+
+    const readyOption = screen.getByRole('option', {
+      name: 'Ready Agent (ready)',
+    }) as HTMLOptionElement
+    const unknownOption = screen.getByRole('option', {
+      name: 'Starting Agent (not ready)',
+    }) as HTMLOptionElement
+    const missingStatusOption = screen.getByRole('option', {
+      name: 'Missing Status Agent (status not reported)',
+    }) as HTMLOptionElement
+
+    expect(readyOption.disabled).toBe(false)
+    expect(unknownOption.disabled).toBe(true)
+    expect(missingStatusOption.disabled).toBe(true)
+    expect(screen.queryByText(/starting_up/i)).toBeNull()
+    expect(screen.queryByText(/Unknown/i)).toBeNull()
   })
 
   test('shows a beginner-safe title error before submitting', async () => {

@@ -335,7 +335,7 @@ export function TaskFormModal({
               aria-hidden="true"
             />
             <span>
-              All agents are busy or offline. Leave the task unassigned so the next available agent
+              No agents are ready right now. Leave the task unassigned so the next available agent
               can pick it up.
             </span>
           </div>
@@ -591,22 +591,28 @@ export function TaskFormModal({
 }
 
 function agentCanTakeTask(status: string): boolean {
-  return status === 'available' || status === 'idle'
+  const normalized = normalizeAgentStatus(status)
+  return normalized === 'available' || normalized === 'idle'
 }
 
 function agentStatusLabel(status: string): string {
-  switch (status) {
+  const normalized = normalizeAgentStatus(status)
+  switch (normalized) {
     case 'available':
     case 'idle':
-      return 'available'
+      return 'ready'
     case 'busy':
     case 'working':
       return 'busy'
     case 'offline':
       return 'offline'
     default:
-      return status
+      return normalized ? 'not ready' : 'status not reported'
   }
+}
+
+function normalizeAgentStatus(status: string): string {
+  return status.trim().toLowerCase()
 }
 
 function groupProjectsByTeam(projects: TaskProjectOption[]): TaskProjectGroup[] {
