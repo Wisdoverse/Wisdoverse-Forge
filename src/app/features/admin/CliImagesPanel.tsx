@@ -76,6 +76,70 @@ function toolLabel(tool: string): string {
   }
 }
 
+type CliImageIssueContext = 'check' | 'restart' | 'cleanup'
+
+function cliImageIssueNote(error: string, context: CliImageIssueContext): string {
+  const detail = error.toLowerCase()
+
+  if (
+    detail.includes('already in progress') ||
+    detail.includes('busy') ||
+    detail.includes('too many') ||
+    detail.includes('rate limit')
+  ) {
+    if (context === 'restart') {
+      return 'Another restart is already running. Wait for it to finish, then check this page again.'
+    }
+    return 'The tool update service is busy. Wait a minute, then choose Check now.'
+  }
+  if (
+    detail.includes('password') ||
+    detail.includes('token') ||
+    detail.includes('secret') ||
+    detail.includes('credential') ||
+    detail.includes('unauthorized') ||
+    detail.includes('forbidden') ||
+    detail.includes('permission') ||
+    detail.includes('auth')
+  ) {
+    return 'The tool updater reported an access setup problem. Ask an owner to check tool package access, then choose Check now.'
+  }
+  if (
+    detail.includes('connection') ||
+    detail.includes('refused') ||
+    detail.includes('unreachable') ||
+    detail.includes('timeout') ||
+    detail.includes('timed out') ||
+    detail.includes('registry')
+  ) {
+    return 'The updater could not reach the tool package source. Check network access, then choose Check now.'
+  }
+  if (
+    detail.includes('space') ||
+    detail.includes('disk') ||
+    detail.includes('overlay') ||
+    detail.includes('cleanup') ||
+    detail.includes('prune')
+  ) {
+    return 'Old package cleanup could not finish. Ask an owner to check disk space, then choose Check now.'
+  }
+  if (
+    context === 'restart' ||
+    detail.includes('stop') ||
+    detail.includes('start') ||
+    detail.includes('restart') ||
+    detail.includes('respawn') ||
+    detail.includes('container')
+  ) {
+    return 'Some agents could not restart cleanly. Open Agents, check affected agents, then restart them one at a time.'
+  }
+  if (context === 'cleanup') {
+    return 'Old package cleanup could not finish. Ask an owner to check tool package cleanup, then choose Check now.'
+  }
+
+  return 'The tool updater reported a problem. Choose Check now again, then ask an owner to check the tool updater if it still fails.'
+}
+
 function StateBadge({ state, label }: { state: CliImageToolState; label?: string }) {
   return (
     <span
@@ -199,7 +263,7 @@ function ToolRow({
                 succeeds.
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Reported detail: {tool.lastError}
+                Support note: {cliImageIssueNote(tool.lastError, 'check')}
               </p>
             </div>
           )}
@@ -386,7 +450,7 @@ function RollResultBlock({
     return (
       <div className={cn(uiStyles.error, 'mt-4')}>
         The restart could not be started.
-        <span className="mt-1 block text-ui-caption">{error}</span>
+        <span className="mt-1 block text-ui-caption">{cliImageIssueNote(error, 'restart')}</span>
       </div>
     )
   }
@@ -429,7 +493,7 @@ function RollResultBlock({
           )}
           {firstError && (
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Reported detail: {firstError}
+              Support note: {cliImageIssueNote(firstError, 'restart')}
             </p>
           )}
         </div>
@@ -481,7 +545,7 @@ function PruneSummaryBlock({ prune }: { prune: CliImagePruneStatus }) {
             The last cleanup hit {prune.errors} {prune.errors === 1 ? 'error' : 'errors'}.
           </p>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Reported detail: {prune.lastError}
+            Support note: {cliImageIssueNote(prune.lastError, 'cleanup')}
           </p>
         </div>
       )}

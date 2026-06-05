@@ -75,9 +75,12 @@ describe('CliImagesPanel', () => {
     expect(screen.queryByText(/^source:/i)).toBeNull()
     expect(screen.getByText('Codex')).toBeDefined()
     expect(screen.getByText('Up to date')).toBeDefined()
-    // failed tool surfaces its reported detail
+    // failed tool shows a safe support note instead of raw updater text
     expect(screen.getByText('Check failed')).toBeDefined()
-    expect(screen.getByText(/registry timeout/)).toBeDefined()
+    expect(screen.getByText(/Support note:/i)).toBeDefined()
+    expect(screen.getByText(/could not reach the tool package source/i)).toBeDefined()
+    expect(screen.queryByText(/registry timeout/i)).toBeNull()
+    expect(screen.queryByText(/Reported detail/i)).toBeNull()
     expect(screen.getByText('2 agents are currently using this tool')).toBeDefined()
   })
 
@@ -106,6 +109,35 @@ describe('CliImagesPanel', () => {
     expect(screen.getByText('Old tool package cleanup')).toBeDefined()
     expect(screen.getByText(/3 removed/)).toBeDefined()
     expect(screen.getByText(/1 still in use/)).toBeDefined()
+  })
+
+  test('hides raw cleanup errors from the prune summary', () => {
+    useAdminStore.setState({
+      ...originalAdminState,
+      cliImages: sampleStatus({
+        prune: {
+          enabled: true,
+          lastRunUnix: Math.floor(Date.now() / 1000) - 60,
+          scanned: 4,
+          removed: 1,
+          skippedInUse: 1,
+          skippedConflict: 0,
+          errors: 1,
+          lastError: 'no space left on /var/lib/docker/overlay2 secret token abc',
+        },
+      }),
+      cliImagesLoading: false,
+      cliImagesError: null,
+      loadCliImages: vi.fn(),
+    })
+
+    render(<CliImagesPanel />)
+
+    expect(screen.getByText(/The last cleanup hit 1 error/i)).toBeDefined()
+    expect(screen.getByText(/access setup problem/i)).toBeDefined()
+    expect(screen.queryByText(/\/var\/lib\/docker/i)).toBeNull()
+    expect(screen.queryByText(/overlay2/i)).toBeNull()
+    expect(screen.queryByText(/secret token/i)).toBeNull()
   })
 
   test('flags prune configured on but never run (likely auto-update off)', () => {
@@ -316,6 +348,10 @@ describe('CliImagesPanel', () => {
         /could not be stopped cleanly.*may still be running on.*the previous tool version/s
       )
     ).toBeDefined()
+    expect(screen.getByText(/Some agents could not restart cleanly/i)).toBeDefined()
+    expect(screen.queryByText(/respawn failed/i)).toBeNull()
+    expect(screen.queryByText(/stop failed/i)).toBeNull()
+    expect(screen.queryByText(/Reported detail/i)).toBeNull()
   })
 
   test('surfaces a roll error', () => {
@@ -330,6 +366,7 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
     expect(screen.getByText(/The restart could not be started/i)).toBeDefined()
-    expect(screen.getByText(/already in progress/)).toBeDefined()
+    expect(screen.getByText(/Another restart is already running/i)).toBeDefined()
+    expect(screen.queryByText(/a roll for this tool is already in progress/i)).toBeNull()
   })
 })
