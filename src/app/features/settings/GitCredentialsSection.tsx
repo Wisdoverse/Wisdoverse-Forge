@@ -24,7 +24,10 @@ const PROVIDER_LABELS: Record<GitProvider, string> = {
 
 const GIT_CREDENTIAL_SETUP_STEPS = [
   { label: 'Choose Git service', value: 'Pick where the repositories live.' },
-  { label: 'Add access token', value: 'Use a GitHub or GitLab token that can reach the repos.' },
+  {
+    label: 'Paste access token',
+    value: 'Use the GitHub or GitLab access token that can reach the repositories.',
+  },
   {
     label: 'Address is usually blank',
     value: 'Only add an address for self-hosted GitHub or GitLab.',
@@ -49,8 +52,9 @@ function credentialFormReadiness({
   if (!token.trim()) {
     return {
       ready: false,
-      title: 'Next: Paste Access Token',
-      detail: 'Paste a token from GitHub or GitLab so agents can clone and push repositories.',
+      title: 'Next: Paste access token',
+      detail:
+        'Paste the access token from GitHub or GitLab so agents can clone and push repositories.',
       error: 'Paste an access token before saving repository access.',
       fieldId: tokenInputId,
     }
@@ -59,7 +63,7 @@ function credentialFormReadiness({
   return {
     ready: true,
     title: 'Ready to Save',
-    detail: 'Save this token, then use a small agent task to confirm repository access.',
+    detail: 'Save repository access, then use a small agent task to confirm it works.',
     error: null,
     fieldId: null,
   }
@@ -109,12 +113,12 @@ function CredentialRow({ credential, onDelete }: CredentialRowProps) {
           onClick={handleDelete}
           aria-label={
             confirming
-              ? `Confirm removing ${PROVIDER_LABELS[credential.provider]} repository token`
-              : `Remove ${PROVIDER_LABELS[credential.provider]} repository token`
+              ? `Confirm removing ${PROVIDER_LABELS[credential.provider]} repository access`
+              : `Remove ${PROVIDER_LABELS[credential.provider]} repository access`
           }
           className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
         >
-          {confirming ? 'Remove token?' : 'Remove'}
+          {confirming ? 'Remove access?' : 'Remove'}
         </button>
       </td>
     </tr>
@@ -298,7 +302,7 @@ function AddCredentialForm({
           disabled={saving || !form.token.trim()}
           className={uiStyles.primaryButton}
         >
-          {saving ? 'Saving...' : 'Save token'}
+          {saving ? 'Saving...' : 'Save access'}
         </button>
       </div>
     </form>
@@ -351,7 +355,7 @@ export function GitCredentialsSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Repository access tokens</h2>
+          <h2 className={uiStyles.sectionTitle}>Repository access</h2>
           <p className={uiStyles.sectionDescription}>
             Connect GitHub or GitLab so agents can clone and update repositories when a task needs
             code access.
@@ -364,7 +368,7 @@ export function GitCredentialsSection() {
             className={uiStyles.primaryButton}
           >
             <span>+</span>
-            <span>Add repository token</span>
+            <span>Add repository access</span>
           </button>
         )}
       </div>
@@ -380,12 +384,12 @@ export function GitCredentialsSection() {
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {gitCredentialsLoading && gitCredentials.length === 0 ? (
           <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading repository access tokens...
+            Loading repository access...
           </div>
         ) : gitCredentials.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No repository access tokens yet
+              No repository access saved yet
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Add a GitHub or GitLab token for private repositories that use HTTPS addresses, such
@@ -396,7 +400,7 @@ export function GitCredentialsSection() {
         ) : (
           <>
             {gitCredentials.length > 0 && (
-              <table className={uiStyles.table} aria-label="Repository access tokens">
+              <table className={uiStyles.table} aria-label="Repository access">
                 <thead className={uiStyles.tableHead}>
                   <tr>
                     {tableHeaders.map((h) => (

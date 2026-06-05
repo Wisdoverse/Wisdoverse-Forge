@@ -30,9 +30,9 @@ function actionFromText(text: string): GitCredentialAction {
 }
 
 function baseMessage(action: GitCredentialAction): string {
-  if (action === 'save') return 'Repository token could not be saved.'
-  if (action === 'remove') return 'Repository token could not be removed.'
-  return 'Repository access tokens could not be loaded.'
+  if (action === 'save') return 'Repository access could not be saved.'
+  if (action === 'remove') return 'Repository access could not be removed.'
+  return 'Repository access could not be loaded.'
 }
 
 export function gitCredentialsErrorMessage(error: unknown): string {
@@ -46,7 +46,7 @@ export function gitCredentialsErrorMessage(error: unknown): string {
     return `${base} Sign in again, then open Settings and try repository access again.`
   }
   if (code === 403 || lower.includes('permission') || lower.includes('forbidden')) {
-    return `${base} Ask an owner or admin for access to manage repository tokens.`
+    return `${base} Ask an owner or admin to let you manage repository access.`
   }
   if (
     lower.includes('invalid token') ||
@@ -54,13 +54,13 @@ export function gitCredentialsErrorMessage(error: unknown): string {
     lower.includes('expired token') ||
     lower.includes('token expired')
   ) {
-    return `${base} Paste a new token from GitHub or GitLab with repository access, then save again.`
+    return `${base} Paste a new GitHub or GitLab access token with repository access, then save again.`
   }
   if (code === 409 || lower.includes('already exists')) {
-    return `${base} A token for this Git provider already exists. Remove the old token first or choose the other provider.`
+    return `${base} Repository access for this Git provider already exists. Remove the old entry first or choose the other provider.`
   }
   if (code === 422 || lower.includes('invalid host') || lower.includes('invalid provider')) {
-    return `${base} Check the provider, token, and self-hosted Git address, then try again.`
+    return `${base} Check the Git provider, access token, and self-hosted Git address, then try again.`
   }
   if (
     lower.includes('not configured') ||

@@ -6,25 +6,25 @@ describe('gitCredentialsErrorMessage', () => {
     expect(
       gitCredentialsErrorMessage('Settings could not save Git credential. Details: invalid token')
     ).toBe(
-      'Repository token could not be saved. Paste a new token from GitHub or GitLab with repository access, then save again.'
+      'Repository access could not be saved. Paste a new GitHub or GitLab access token with repository access, then save again.'
     )
   })
 
   test('turns permission failures into an owner or admin next step', () => {
     expect(gitCredentialsErrorMessage('HTTP 403')).toBe(
-      'Repository access tokens could not be loaded. Ask an owner or admin for access to manage repository tokens.'
+      'Repository access could not be loaded. Ask an owner or admin to let you manage repository access.'
     )
   })
 
   test('turns delete failures into a remove-specific next step', () => {
     expect(gitCredentialsErrorMessage('Settings could not delete Git credential. HTTP 500')).toBe(
-      'Repository token could not be removed. The repository access service is temporarily unavailable. Try again. If it still fails, ask an owner to check repository access settings.'
+      'Repository access could not be removed. The repository access service is temporarily unavailable. Try again. If it still fails, ask an owner to check repository access settings.'
     )
   })
 
   test('turns network failures into a connection step', () => {
     expect(gitCredentialsErrorMessage(new TypeError('Failed to fetch'))).toBe(
-      'Repository access tokens could not be loaded. The app could not reach the service. Check your connection, then try again.'
+      'Repository access could not be loaded. The app could not reach the service. Check your connection, then try again.'
     )
   })
 })

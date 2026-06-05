@@ -43,20 +43,20 @@ describe('GitCredentialsSection', () => {
   test('guides first-time git credential setup before saving a token', async () => {
     render(<GitCredentialsSection />)
 
-    expect(await screen.findByText('No repository access tokens yet')).toBeDefined()
+    expect(await screen.findByText('No repository access saved yet')).toBeDefined()
     expect(screen.getByText(/use HTTPS addresses/i)).toBeDefined()
     expect(screen.getByText(/use repository SSH keys/i)).toBeDefined()
 
-    fireEvent.click(screen.getByRole('button', { name: /add repository token/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add repository access/i }))
 
     expect(screen.getByText('Git access setup path')).toBeDefined()
     expect(screen.getByText('Choose Git service')).toBeDefined()
-    expect(screen.getByText('Add access token')).toBeDefined()
-    expect(screen.getByText(/token that can reach the repos/i)).toBeDefined()
+    expect(screen.getByText('Paste access token')).toBeDefined()
+    expect(screen.getByText(/access token that can reach the repositories/i)).toBeDefined()
     expect(screen.getByText(/leave this empty for github.com or gitlab.com/i)).toBeDefined()
     expect(screen.getByPlaceholderText('e.g. gitlab.example.com')).toBeDefined()
 
-    const saveButton = screen.getByRole('button', { name: /save token/i })
+    const saveButton = screen.getByRole('button', { name: /save access/i })
     expect(saveButton).toBeDisabled()
 
     fireEvent.change(screen.getByLabelText(/^access token/i), {
@@ -79,7 +79,7 @@ describe('GitCredentialsSection', () => {
 
     await waitFor(() => expect(loadGitCredentialsMock).toHaveBeenCalled())
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Repository token could not be saved. Paste a new token from GitHub or GitLab with repository access, then save again.'
+      'Repository access could not be saved. Paste a new GitHub or GitLab access token with repository access, then save again.'
     )
     expect(screen.queryByText(/Details: invalid token/i)).toBeNull()
   })
