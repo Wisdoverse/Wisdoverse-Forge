@@ -25,12 +25,12 @@ const PROVIDER_LABELS: Record<GitProvider, string> = {
 const GIT_CREDENTIAL_SETUP_STEPS = [
   { label: 'Choose where code lives', value: 'Pick GitHub or GitLab.' },
   {
-    label: 'Create an access key',
-    value: 'GitHub and GitLab call this a personal access token with repository access.',
+    label: 'Create a repository access key',
+    value: 'On GitHub or GitLab, look for a personal access token with repository access.',
   },
   {
     label: 'Leave address blank for cloud',
-    value: 'Only enter an address for self-hosted GitHub or GitLab.',
+    value: 'Only enter an address when your company runs its own GitHub or GitLab.',
   },
 ]
 
@@ -52,10 +52,10 @@ function credentialFormReadiness({
   if (!token.trim()) {
     return {
       ready: false,
-      title: 'Next: Create an access key',
+      title: 'Next: Create a repository access key',
       detail:
-        'Create the key in GitHub or GitLab, paste it here, then agents can clone and update allowed repositories.',
-      error: 'Paste the GitHub or GitLab access key before saving repository access.',
+        'Create the key in GitHub or GitLab, paste it here, then agents can open the repositories you allow.',
+      error: 'Paste the repository access key from GitHub or GitLab before saving.',
       fieldId: tokenInputId,
     }
   }
@@ -155,15 +155,20 @@ function AddCredentialForm({
   saving,
 }: AddCredentialFormProps) {
   const [form, setForm] = useState<AddCredentialFormState>(DEFAULT_FORM)
+  const [submitAttempted, setSubmitAttempted] = useState(false)
   const providerInputId = 'git-credential-provider'
   const tokenInputId = 'git-credential-token'
   const tokenIntroId = 'git-credential-token-intro'
   const tokenSafetyId = 'git-credential-token-safety'
+  const tokenErrorId = 'git-credential-token-error'
   const hostHelpId = 'git-credential-host-help'
+  const hostCompanyHelpId = 'git-credential-host-company-help'
   const readiness = credentialFormReadiness({ token: form.token, tokenInputId })
+  const visibleError = submitAttempted && !readiness.ready ? readiness.error : null
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    setSubmitAttempted(true)
     if (!readiness.ready) {
       if (readiness.fieldId) document.getElementById(readiness.fieldId)?.focus()
       return
@@ -186,7 +191,7 @@ function AddCredentialForm({
     >
       <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
         <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Repository access setup
+          Add repository access
         </div>
         <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
           {GIT_CREDENTIAL_SETUP_STEPS.map((step) => (
@@ -239,14 +244,13 @@ function AddCredentialForm({
 
         <div>
           <label htmlFor="git-credential-token" className={uiStyles.label}>
-            GitHub or GitLab access key <span className="text-red-500">*</span>
+            Repository access key <span className="text-red-500">*</span>
           </label>
           <p
             id={tokenIntroId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste the personal access token from the selected site. It lets agents clone and update
-            only the repositories you allow.
+            Paste the key from GitHub or GitLab. Those sites may call it a personal access token.
           </p>
           <input
             id="git-credential-token"
@@ -257,14 +261,21 @@ function AddCredentialForm({
             placeholder="Paste the access key from GitHub or GitLab"
             required
             className={uiStyles.input}
-            aria-describedby={`${tokenIntroId} ${tokenSafetyId}`}
+            aria-invalid={visibleError !== null}
+            aria-describedby={`${tokenIntroId} ${tokenSafetyId}${visibleError ? ` ${tokenErrorId}` : ''}`}
           />
           <p
             id={tokenSafetyId}
             className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Do not paste your GitHub or GitLab password. This key is hidden after saving.
+            It lets agents open only the repositories you allow. Do not paste your GitHub or GitLab
+            password. This key is hidden after saving.
           </p>
+          {visibleError && (
+            <p id={tokenErrorId} role="alert" className="mt-1 text-ui-caption text-apple-red">
+              {visibleError}
+            </p>
+          )}
         </div>
 
         <div className="sm:col-span-2">
@@ -288,10 +299,10 @@ function AddCredentialForm({
             onChange={(e) => setForm({ ...form, host: e.target.value })}
             placeholder="e.g. gitlab.example.com"
             className={uiStyles.input}
-            aria-describedby={hostHelpId}
+            aria-describedby={`${hostHelpId} ${hostCompanyHelpId}`}
           />
           <p
-            id="git-credential-host-help"
+            id={hostCompanyHelpId}
             className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
             For a company-hosted Git service, enter the address you open in the browser.

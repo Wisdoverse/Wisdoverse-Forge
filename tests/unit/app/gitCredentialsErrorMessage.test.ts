@@ -9,10 +9,17 @@ describe('gitCredentialsErrorMessage', () => {
     expect(actual).not.toContain('HTTP')
   }
 
-  test('turns invalid token details into an access key replacement step', () => {
+  test('turns invalid token details into repository access key guidance', () => {
     expectBeginnerMessage(
       gitCredentialsErrorMessage('Settings could not save Git credential. Details: invalid token'),
-      'Repository access could not be saved. Paste a new GitHub or GitLab access key, then save again.'
+      'Repository access could not be saved. Paste a new repository access key from GitHub or GitLab, then save again.'
+    )
+  })
+
+  test('turns validation failures into clear fields to check', () => {
+    expectBeginnerMessage(
+      gitCredentialsErrorMessage('Code: 422 Details: invalid provider'),
+      'Repository access could not be loaded. Check the selected site, repository access key, and GitHub or GitLab address, then try again.'
     )
   })
 
