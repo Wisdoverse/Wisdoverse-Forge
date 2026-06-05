@@ -13,12 +13,12 @@ interface AgentKindBadgeProps {
 export function AgentKindBadge({ cliTool, runtimeKind, className }: AgentKindBadgeProps) {
   const isHost = runtimeKind === 'cli'
   const isContainer = Boolean(cliTool) && !isHost
-  const label = isHost ? 'This computer' : isContainer ? 'Managed' : 'Chat-only'
+  const label = isHost ? 'This computer' : isContainer ? 'Managed workspace' : 'Chat-only'
   const title = isHost
-    ? 'Runs on this connected computer. Use it when work should stay on that computer.'
+    ? 'Uses files and tools on this connected computer. Use it when work should stay there.'
     : isContainer
-      ? 'Runs in a managed workspace that can edit files, run commands, and collect evidence.'
-      : 'Answers in chat through a connected AI service. It does not open workspace files.'
+      ? 'Uses a Forge-managed project workspace. It can change files, run checks, and save what it checked.'
+      : 'Answers in chat through a connected AI service. It cannot open project files on its own.'
 
   return (
     <span
