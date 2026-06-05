@@ -61,7 +61,9 @@ describe('AgentControlPanel', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent(/refresh this agent/i)
     expect(screen.getByRole('alert')).toHaveTextContent(/forge could not update this agent/i)
-    expect(screen.getByRole('alert')).toHaveTextContent(/ask an owner or admin to check agent setup/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /ask an owner or admin to check Agent Work Setup/i
+    )
     expect(screen.getByRole('alert')).not.toHaveTextContent(/HTTP 500/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/Start request failed/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/temporarily unavailable/i)

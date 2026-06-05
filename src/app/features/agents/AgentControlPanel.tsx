@@ -385,7 +385,7 @@ function agentControlErrorMessage(error: string): string {
     normalized.includes('forbidden') ||
     /\b403\b/.test(error)
   ) {
-    return 'You do not have permission to change this agent. Ask an admin to update your access, then try again.'
+    return 'You do not have permission to change this agent. Ask an owner or admin to update what you can do, then try again.'
   }
   if (normalized.includes('unauthorized') || /\b401\b/.test(error)) {
     return 'Sign in again, reopen this agent, then try the action once more.'
@@ -397,10 +397,10 @@ function agentControlErrorMessage(error: string): string {
     return 'The agent controls are busy. Wait a moment, refresh this agent, then try again.'
   }
   if (/\b5\d\d\b/.test(error)) {
-    return 'Forge could not update this agent right now. Refresh this agent and try again. If it keeps failing, ask an owner or admin to check agent setup.'
+    return 'Forge could not update this agent right now. Refresh this agent and try again. If it keeps failing, ask an owner or admin to check Agent Work Setup.'
   }
 
-  return 'Refresh this agent and confirm the latest status before trying once more. For Start or Restart, wait for Idle or Working. If it keeps failing, ask an owner or admin to check your access and agent setup.'
+  return 'Refresh this agent and confirm the latest status before trying once more. For Start or Restart, wait for Idle or Working. If it keeps failing, ask an owner or admin to check what you can do and Agent Work Setup.'
 }
 
 interface ConfirmActionProps {

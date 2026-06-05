@@ -220,12 +220,12 @@ describe('AgentDetailView', () => {
     ).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: /open live work/i }))
     expect(screen.getByText('Start the managed workspace to open live work')).toBeDefined()
-    expect(screen.getByText(/start the workspace when you need live access/i)).toBeDefined()
+    expect(screen.getByText(/start the workspace when you need to watch live work/i)).toBeDefined()
     expect(
       screen.getByText(/success looks like the agent status changing to idle or working/i)
     ).toBeDefined()
     expect(
-      screen.getByText(/ask an admin to check this agent's workspace and agent tool setup/i)
+      screen.getByText(/ask an admin to check Agent Work Setup for this agent/i)
     ).toBeDefined()
     expect(screen.queryByText(/open terminal/i)).toBeNull()
     expect(screen.queryByText(/terminal access/i)).toBeNull()
@@ -257,7 +257,7 @@ describe('AgentDetailView', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Start did not finish')
     expect(alert).toHaveTextContent(
-      "ask an admin to check this agent's workspace and agent tool setup"
+      'ask an admin to check Agent Work Setup for this agent'
     )
     expect(alert.textContent).not.toContain('Details:')
     expect(alert.textContent).not.toContain('Docker socket refused')
