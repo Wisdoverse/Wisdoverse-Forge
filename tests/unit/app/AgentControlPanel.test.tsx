@@ -69,18 +69,39 @@ describe('AgentControlPanel', () => {
   test('explains quick messages and sends trimmed text', async () => {
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
-    expect(screen.getByLabelText(/send a message/i)).toBeDefined()
-    expect(screen.getByText(/for tracked work, create a task/i)).toBeDefined()
+    const instructionInput = screen.getByLabelText(/send one instruction/i)
+    expect(instructionInput).toBeDefined()
+    expect(screen.getByText(/for work that needs a clear result, create a task/i)).toBeDefined()
+    expect(instructionInput).toHaveAccessibleDescription(
+      /send one concrete instruction, then watch this agent's history for progress/i
+    )
 
-    fireEvent.change(screen.getByLabelText(/send a message/i), {
+    fireEvent.change(instructionInput, {
       target: { value: '  Check the latest run  ' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /send message/i }))
+    fireEvent.click(screen.getByRole('button', { name: /send instruction/i }))
 
     await waitFor(() => {
       expect(sendPromptMock).toHaveBeenCalledWith('agent-1', 'Check the latest run')
     })
-    expect(screen.getByLabelText(/send a message/i)).toHaveValue('')
+    expect(screen.getByLabelText(/send one instruction/i)).toHaveValue('')
+  })
+
+  test('focuses the instruction box when users try to send blank text', () => {
+    render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
+
+    const instructionInput = screen.getByLabelText(/send one instruction/i)
+    fireEvent.click(screen.getByRole('button', { name: /send instruction/i }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Write an instruction before sending it to this agent.'
+    )
+    expect(instructionInput).toHaveFocus()
+    expect(instructionInput).toHaveAttribute(
+      'aria-describedby',
+      expect.stringContaining('agent-control-prompt-error')
+    )
+    expect(sendPromptMock).not.toHaveBeenCalled()
   })
 
   test('uses model service language for text-only agents', () => {

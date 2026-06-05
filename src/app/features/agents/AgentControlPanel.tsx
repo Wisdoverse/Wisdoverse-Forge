@@ -25,7 +25,6 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
   const [starting, setStarting] = useState(false)
   const [confirmRestart, setConfirmRestart] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const promptInputId = 'agent-control-prompt'
   const promptHelpId = 'agent-control-prompt-help'
   const promptErrorId = 'agent-control-prompt-error'
 
@@ -46,7 +45,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
     const trimmedPrompt = prompt.trim()
     if (!trimmedPrompt) {
       setPromptError('Write an instruction before sending it to this agent.')
-      document.getElementById(promptInputId)?.focus()
+      document.getElementById(messageInputId)?.focus()
       return
     }
     setPromptError(null)
@@ -104,14 +103,14 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
               htmlFor={messageInputId}
               className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark"
             >
-              Send a Message
+              Send one instruction
             </label>
             <p
               id={messageHelpId}
               className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
             >
-              Use this for one short instruction or question. For tracked work, create a task so the
-              result and evidence are easier to review.
+              Use this for a quick question or one small request. For work that needs a clear
+              result, create a task instead.
             </p>
           </div>
         </div>
@@ -123,7 +122,9 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
             if (promptError) setPromptError(null)
           }}
           rows={3}
-          aria-describedby={messageHelpId}
+          aria-describedby={`${messageHelpId} ${promptHelpId}${
+            promptError ? ` ${promptErrorId}` : ''
+          }`}
           className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
           placeholder="Example: Check the latest run and tell me the next safe step."
           onKeyDown={(e) => {
@@ -142,7 +143,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
           id={promptHelpId}
           className="text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          Send one concrete instruction, then watch this agent&apos;s task history for progress.
+          Send one concrete instruction, then watch this agent&apos;s history for progress.
         </p>
         <div className="flex justify-end">
           <button
@@ -150,11 +151,11 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
             onClick={handleSendPrompt}
             disabled={sending}
             className={cn(
-              'rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95',
+              'w-full rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 sm:w-auto',
               sending && 'opacity-50 cursor-not-allowed'
             )}
           >
-            {sending ? 'Sending…' : 'Send Message'}
+            {sending ? 'Sending...' : 'Send instruction'}
           </button>
         </div>
       </div>
@@ -196,12 +197,12 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                     onClick={handleStart}
                     disabled={starting}
                     className={cn(
-                      'rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white',
+                      'w-full rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white sm:w-auto',
                       'transition-transform hover:bg-apple-blue-focus active:scale-95',
                       starting && 'opacity-50 cursor-not-allowed'
                     )}
                   >
-                    {starting ? 'Starting…' : 'Start Agent'}
+                    {starting ? 'Starting...' : 'Start agent'}
                   </button>
                 </ActionCard>
               ) : confirmRestart ? (
@@ -210,8 +211,8 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                   icon={RotateCcw}
                   title="Restart this agent?"
                   detail="Use restart only when the console or task updates are stuck. Active work may stop and need to be sent again."
-                  confirmLabel="Restart Now"
-                  cancelLabel="Keep Running"
+                  confirmLabel="Restart now"
+                  cancelLabel="Keep running"
                   onConfirm={handleRestart}
                   onCancel={() => setConfirmRestart(false)}
                 />
@@ -230,7 +231,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                       'dark:border-white/[0.1]'
                     )}
                   >
-                    Restart Agent
+                    Restart agent
                   </button>
                 </ActionCard>
               )}
@@ -242,9 +243,9 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
               tone="red"
               icon={Trash2}
               title="Delete this agent?"
-              detail="This removes the agent from future work. Existing task history is not a replacement plan, so delete only when you are done with this agent."
-              confirmLabel="Delete Permanently"
-              cancelLabel="Keep Agent"
+              detail="This removes the agent from future work. Past task records are not a replacement plan, so delete only when you are done with this agent."
+              confirmLabel="Delete permanently"
+              cancelLabel="Keep agent"
               onConfirm={handleDelete}
               onCancel={() => setConfirmDelete(false)}
             />
@@ -262,7 +263,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                   'text-apple-red transition-colors hover:bg-apple-red/5 dark:border-white/[0.1]'
                 )}
               >
-                Delete Agent
+                Delete agent
               </button>
             </ActionCard>
           )}
@@ -346,7 +347,7 @@ function ActionCard({ icon: Icon, title, detail, children }: ActionCardProps) {
           </p>
         </div>
       </div>
-      <div className="flex flex-wrap justify-end gap-2">{children}</div>
+      <div className="flex flex-col justify-end gap-2 sm:flex-row sm:flex-wrap">{children}</div>
     </div>
   )
 }
@@ -442,11 +443,11 @@ function ConfirmAction({
           </p>
         </div>
       </div>
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="flex flex-col justify-end gap-2 sm:flex-row sm:flex-wrap">
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-full bg-apple-gray-5 px-3 py-1.5 text-ui-button font-medium text-foreground-light dark:bg-white/[0.06] dark:text-foreground-dark"
+          className="w-full rounded-full bg-apple-gray-5 px-3 py-1.5 text-ui-button font-medium text-foreground-light dark:bg-white/[0.06] dark:text-foreground-dark sm:w-auto"
         >
           {cancelLabel}
         </button>
@@ -454,7 +455,7 @@ function ConfirmAction({
           type="button"
           onClick={() => void onConfirm()}
           className={cn(
-            'rounded-full px-3 py-1.5 text-ui-button font-medium text-white',
+            'w-full rounded-full px-3 py-1.5 text-ui-button font-medium text-white sm:w-auto',
             tone === 'red'
               ? 'bg-apple-red hover:bg-apple-red/90'
               : 'bg-apple-blue hover:bg-apple-blue-focus'
