@@ -8,7 +8,7 @@ describe('providerSettingsErrorMessage', () => {
         'Check the required fields for provider, then try again. Code: 422. Details: API key is required'
       )
     ).toBe(
-      'Model service could not be saved. Check the AI service, model, service access key, and service address, then save again.'
+      'Model service could not be saved. Choose the AI service, confirm the model, add the service access key, and add the service address if needed. Then save again.'
     )
   })
 

@@ -70,7 +70,7 @@ export function providerSettingsErrorMessage(error: unknown): string {
     lower.includes('base url') ||
     lower.includes('invalid provider')
   ) {
-    return `${base} Check the AI service, model, service access key, and service address, then save again.`
+    return `${base} Choose the AI service, confirm the model, add the service access key, and add the service address if needed. Then save again.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
     return `${base} The service is busy. Wait a minute, then try again.`

@@ -135,19 +135,19 @@ describe('ProvidersSection', () => {
 
     const nextStep = await screen.findByTestId('provider-next-step')
     expect(within(nextStep).getByText('Add Your First Model Service')).toBeDefined()
-    expect(within(nextStep).getByText(/paste its key/i)).toBeDefined()
+    expect(within(nextStep).getByText(/confirm the model, add its access key/i)).toBeDefined()
 
     fireEvent.click(within(nextStep).getByRole('button', { name: /add model service/i }))
 
     expect(screen.getByText('Model service setup')).toBeDefined()
     expect(screen.getByText('Choose AI service')).toBeDefined()
-    expect(screen.getByText('Paste access key')).toBeDefined()
-    expect(screen.getByText(/hidden after saving/i)).toBeDefined()
+    expect(screen.getByText('Add service access key')).toBeDefined()
+    expect(screen.getByText(/AI services call this an API key/i)).toBeDefined()
     expect(screen.getByText('Save and check')).toBeDefined()
     expect(screen.getByText(/run check before using this service/i)).toBeDefined()
     expect(screen.getByLabelText(/^AI service$/i)).toBeDefined()
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
-      /next: paste the access key/i
+      /next: add the service access key/i
     )
     const saveButton = screen.getByRole('button', { name: /save model service/i })
     expect(saveButton).toBeEnabled()
@@ -155,7 +155,7 @@ describe('ProvidersSection', () => {
     fireEvent.click(saveButton)
 
     expect(
-      screen.getAllByText('Paste the service access key before saving this model service.').length
+      screen.getAllByText('Add the service access key before saving this model service.').length
     ).toBeGreaterThan(0)
     expect(saveProviderMock).not.toHaveBeenCalled()
 
@@ -205,7 +205,7 @@ describe('ProvidersSection', () => {
     expect(screen.getByText('Local Disabled')).toBeDefined()
     expect(screen.getByRole('button', { name: /save model service/i })).toBeEnabled()
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
-      /next: paste the access key/i
+      /next: add the service access key/i
     )
   })
 
@@ -266,7 +266,7 @@ describe('ProvidersSection', () => {
 
     await waitFor(() => expect(loadProvidersMock).toHaveBeenCalledTimes(1))
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Model service could not be saved. Check the AI service, model, service access key, and service address, then save again.'
+      'Model service could not be saved. Choose the AI service, confirm the model, add the service access key, and add the service address if needed. Then save again.'
     )
     expect(screen.queryByText(/Details: API key is required/i)).toBeNull()
   })

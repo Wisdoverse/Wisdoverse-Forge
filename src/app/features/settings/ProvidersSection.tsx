@@ -67,8 +67,8 @@ const PROVIDER_SETUP_STEPS = [
     value: 'Pick the company or gateway that provides the model.',
   },
   {
-    label: 'Paste access key',
-    value: 'Use the key from that account. It is hidden after saving.',
+    label: 'Add service access key',
+    value: 'Many AI services call this an API key. It stays hidden after saving.',
   },
   {
     label: 'Save and check',
@@ -242,9 +242,9 @@ function providerFormReadiness({
   if (needsApiKey && !form.apiKey.trim()) {
     return {
       ready: false,
-      title: 'Next: Paste the access key',
-      detail: 'Paste the service access key. Do not paste your account password.',
-      error: 'Paste the service access key before saving this model service.',
+      title: 'Next: Add the service access key',
+      detail: 'Paste the API key from the selected AI service. Do not paste your account password.',
+      error: 'Add the service access key before saving this model service.',
       fieldId: apiKeyInputId,
     }
   }
@@ -310,7 +310,7 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
     return {
       title: 'Add Your First Model Service',
       detail:
-        'A model service gives agents a model to use. Choose a service, paste its key, save it, then check the connection.',
+        'A model service gives agents a model to use. Choose the AI service, confirm the model, add its access key, then check the connection.',
       success: 'At least 1 model service is saved and ready for a connection check.',
       ready: false,
       action: 'add-provider',
@@ -913,7 +913,8 @@ function AddProviderFormPanel({
             id={apiKeyHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste the key from the selected AI service. Do not paste your account password.
+            Paste the API key from the selected AI service. Forge saves it as a hidden service
+            access key.
           </p>
           <input
             id={apiKeyInputId}
@@ -1164,8 +1165,8 @@ export function ProvidersSection() {
               No model services connected
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Add one AI service, paste its access key, save it, then run Check before creating
-              agents.
+              Add one AI service, confirm the model, add its access key, save it, then run Check
+              before creating agents.
             </p>
           </div>
         ) : filteredProviders.length === 0 && !showForm ? (
