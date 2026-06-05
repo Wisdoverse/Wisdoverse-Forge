@@ -26,6 +26,8 @@ describe('CommandPalette', () => {
     expect(screen.getByText('See work that is planned, active, or done.')).toBeDefined()
     expect(screen.getByText('Inbox')).toBeDefined()
     expect(screen.getByText('Agents')).toBeDefined()
+    expect(screen.getByText('Create or check agents that handle work.')).toBeDefined()
+    expect(screen.queryByText(/workers doing tasks/i)).toBeNull()
   })
 
   test('shows action commands', () => {

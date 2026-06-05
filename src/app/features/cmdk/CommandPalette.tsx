@@ -16,7 +16,7 @@ const NAV_COMMANDS = [
     label: 'Context',
     description: 'Review knowledge before agents use it in tasks.',
   },
-  { id: 'nav:agents', label: 'Agents', description: 'Create or check the workers doing tasks.' },
+  { id: 'nav:agents', label: 'Agents', description: 'Create or check agents that handle work.' },
   { id: 'nav:skills', label: 'Skills', description: 'Reuse instructions for repeated work.' },
   {
     id: 'nav:settings',
