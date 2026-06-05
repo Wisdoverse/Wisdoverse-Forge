@@ -230,7 +230,9 @@ describe('GettingStartedView', () => {
 
     render(<GettingStartedView />)
 
-    expect(await screen.findByText('Local Agent can run work from this computer.')).toBeDefined()
+    expect(
+      await screen.findByText('Local Agent is ready to run work from this computer.')
+    ).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: /review agents/i }))
     expect(navigateMock).toHaveBeenCalledWith({ to: '/agents' })
   })
@@ -306,11 +308,14 @@ describe('GettingStartedView', () => {
 
     render(<GettingStartedView />)
 
-    expect(await screen.findByText('Check the model service before assigning work.')).toBeDefined()
+    expect(
+      await screen.findByText('Check the model service before giving agents work.')
+    ).toBeDefined()
     expect(screen.getByText('Do this next')).toBeDefined()
     expect(
-      screen.getAllByText(/Agents need a checked model service/i).length
+      screen.getAllByText(/Agents need one ready option/i).length
     ).toBeGreaterThan(0)
+    expect(screen.queryByText(/assigning work/i)).toBeNull()
     expect(screen.queryByText('100%')).toBeNull()
     const [testProviderButton] = screen.getAllByRole('button', { name: /check model service/i })
     expect(testProviderButton).toBeDefined()
