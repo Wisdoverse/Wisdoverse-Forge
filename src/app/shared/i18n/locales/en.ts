@@ -127,16 +127,16 @@ export const en = {
       provider: {
         title: 'Give agents a way to work',
         empty:
-          'Choose one way to let agents work: add a model service, or join this computer as an agent.',
-        needsTest: 'Check the model service before giving agents work.',
+          'Choose one way to let agents work: add an AI service, or join this computer as an agent.',
+        needsTest: 'Check the AI service before giving agents work.',
         cliReady: '{{name}} is ready to run work from {{location}}.',
-        why: 'Agents need one ready option: a checked model service for text answers, or an agent joined from this computer for hands-on work.',
+        why: 'Agents need one ready option: a checked AI service for chat answers, or an agent joined from this computer for hands-on work.',
         success:
-          'One ready option exists: a checked model service or an agent joined from this computer.',
-        create: 'Add model service',
+          'One ready option exists: a checked AI service or an agent joined from this computer.',
+        create: 'Add AI service',
         connectCli: 'Join this computer',
-        test: 'Check model service',
-        reviewProviders: 'Review model services',
+        test: 'Check AI service',
+        reviewProviders: 'Review AI services',
         reviewAgents: 'Review agents',
       },
       agent: {
@@ -441,15 +441,15 @@ export const en = {
       defaultRuntimeDescription: 'Where new agents should work by default',
       defaultContainerCliLabel: 'Default work tool',
       defaultContainerCliDescription:
-        'The tool used when an agent needs project files or the command window',
+        'The tool used when an agent needs project files or live work access',
       availableRuntimesLabel: 'Places agents can work',
       availableRuntimesDescription: 'Work places this installation can use',
       availableContainerClisLabel: 'Available work tools',
       availableContainerClisDescription:
-        'Tools agents can use for project files and the command window',
+        'Tools agents can use for project files and live work access',
       runtimeLabels: {
         cli: 'This computer',
-        api: 'Text-only model service',
+        api: 'Chat-only AI service',
         container: 'Managed workspace',
       },
       cliToolLabels: {
@@ -526,7 +526,7 @@ export const en = {
         restart_api: {
           title: 'No workspace to restart',
           detail:
-            'This agent uses a text-only model service. Send a new prompt to use the model again.',
+            'This chat-only agent uses an AI service. Send a new prompt to use the model again.',
         },
         start_host_cli: {
           title: 'Start the connection tool on your computer',
@@ -534,7 +534,7 @@ export const en = {
         },
         start_api: {
           title: 'No workspace to start',
-          detail: 'Text-only model agents do not have a command window to start.',
+          detail: 'Chat-only agents do not have live work to start.',
         },
         stop_host_cli: {
           title: 'Stop the connection tool on your computer',
@@ -543,7 +543,7 @@ export const en = {
         },
         stop_api: {
           title: 'No workspace to stop',
-          detail: 'Text-only model agents do not have a command window to stop.',
+          detail: 'Chat-only agents do not have live work to stop.',
         },
         not_permitted: {
           title: 'Operation not permitted on this agent',
@@ -556,7 +556,7 @@ export const en = {
           detail: 'Managed workspace agents need a work tool: claude, codex, gemini, or opencode.',
         },
         api_cannot_have_cli_tool: {
-          title: 'Text-only model agent cannot have a work tool',
+          title: 'Chat-only agent cannot have a work tool',
           detail: 'Remove the work tool, or change the work type to "Managed workspace".',
         },
         missing_cli_tool_for_host_cli: {

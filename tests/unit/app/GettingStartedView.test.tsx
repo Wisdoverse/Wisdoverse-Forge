@@ -186,7 +186,7 @@ describe('GettingStartedView', () => {
 
     expect(await screen.findByText('Do this next')).toBeDefined()
     expect(screen.getAllByText(/A project gives tasks a clear home/i).length).toBeGreaterThan(0)
-    fireEvent.click(await screen.findByRole('button', { name: /add model service/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /add AI service/i }))
 
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/providers' })
   })
@@ -308,16 +308,15 @@ describe('GettingStartedView', () => {
 
     render(<GettingStartedView />)
 
-    expect(
-      await screen.findByText('Check the model service before giving agents work.')
-    ).toBeDefined()
+    expect(await screen.findByText('Check the AI service before giving agents work.')).toBeDefined()
     expect(screen.getByText('Do this next')).toBeDefined()
     expect(
       screen.getAllByText(/Agents need one ready option/i).length
     ).toBeGreaterThan(0)
+    expect(screen.queryByText(/checked model service/i)).toBeNull()
     expect(screen.queryByText(/assigning work/i)).toBeNull()
     expect(screen.queryByText('100%')).toBeNull()
-    const [testProviderButton] = screen.getAllByRole('button', { name: /check model service/i })
+    const [testProviderButton] = screen.getAllByRole('button', { name: /check AI service/i })
     expect(testProviderButton).toBeDefined()
     fireEvent.click(testProviderButton!)
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/providers' })

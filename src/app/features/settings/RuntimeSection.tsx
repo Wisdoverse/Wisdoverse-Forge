@@ -362,8 +362,8 @@ export function RuntimeSection() {
                 </h4>
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Clear these items before assigning work that needs project files or the command
-                window.
+                Clear these items before assigning work that needs project files or live work
+                access.
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-ui-caption font-medium tabular-nums text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
@@ -751,7 +751,7 @@ function runtimeLaunchChecklistItems(
   let imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} work tools are ready.`
   if (runtimeSettings.availableCliTools.length === 0) {
     imageDetail =
-      'Enable at least one work tool before assigning work that needs project files or the command window.'
+      'Enable at least one work tool before assigning work that needs project files or live work access.'
   } else if (runtimeSettings.cliToolDetails.length === 0) {
     imageDetail = 'No work tool status yet.'
   } else if (missingImages.length > 0) {
@@ -820,7 +820,7 @@ function fallbackRuntimeLabel(runtime: string): string {
     case 'cli':
       return 'This computer'
     case 'api':
-      return 'Text-only model service'
+      return 'Chat-only AI service'
     case 'container':
       return 'Managed workspace'
     default:
