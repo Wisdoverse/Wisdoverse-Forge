@@ -55,21 +55,44 @@ describe('adminHttpErrorMessage', () => {
   test('turns expired admin auth into a sign-in step', () => {
     expectBeginnerError(
       adminHttpErrorMessage('users', 401),
-      'Sign in again, then open Admin and reload the user list.'
+      'Your sign-in expired. Sign in again, then open Admin and reload the user list.'
     )
   })
 
   test('turns admin permission failures into an owner role step', () => {
     expectBeginnerError(
       adminHttpErrorMessage('organizations', 403),
-      'You do not have permission to view admin organization list. Ask an owner to update your admin role.'
+      'You do not have access to the admin organization list. Ask an owner or admin to update your role, then reload Admin.'
     )
   })
 
   test('turns server failures into an owner recovery step', () => {
+    const message = adminHttpErrorMessage('health', 503, {
+      error: { message: 'database down' },
+    })
+
     expectBeginnerError(
-      adminHttpErrorMessage('health', 503, { error: { message: 'database down' } }),
-      'The admin service is temporarily unavailable. Reload the system health, then try again. If it still fails, ask an owner to check the admin service.'
+      message,
+      'Forge could not load the admin system health right now. Reload the system health, then try again. If it still fails, ask an owner or admin to check Admin setup.'
+    )
+    expect(message).not.toContain('temporarily unavailable')
+    expect(message).not.toContain('admin service')
+  })
+
+  test('turns missing admin resources into an Admin setup step', () => {
+    const message = adminHttpErrorMessage('agents', 404)
+
+    expectBeginnerError(
+      message,
+      'The admin agent list is not available from this Admin view. Refresh Admin, then try again. If it still fails, ask an owner or admin to check setup.'
+    )
+    expect(message).not.toContain('service')
+  })
+
+  test('turns admin rate limits into a wait and reload step', () => {
+    expectBeginnerError(
+      adminHttpErrorMessage('users', 429),
+      'Forge is receiving too many Admin requests right now. Wait a moment, then reload the user list.'
     )
   })
 })
@@ -82,7 +105,7 @@ describe('useAdminStore loading errors', () => {
 
     expectBeginnerError(
       useAdminStore.getState().usersError,
-      'You do not have permission to view admin user list. Ask an owner to update your admin role.'
+      'You do not have access to the admin user list. Ask an owner or admin to update your role, then reload Admin.'
     )
   })
 
@@ -92,8 +115,9 @@ describe('useAdminStore loading errors', () => {
     await useAdminStore.getState().loadOrgs()
 
     expect(useAdminStore.getState().orgsError).toBe(
-      'The admin organization list could not load because the app could not reach the service. Check your connection and refresh the page.'
+      'Forge could not connect while loading the admin organization list. Check your connection, then refresh Admin.'
     )
+    expect(useAdminStore.getState().orgsError).not.toContain('could not reach the service')
   })
 
   test('returns beginner guidance when user access saving is forbidden', async () => {
@@ -104,7 +128,7 @@ describe('useAdminStore loading errors', () => {
     expect(result).toEqual({
       ok: false,
       error:
-        'You do not have permission to change user access. Ask an owner to update your admin role.',
+        'You do not have access to change user access. Ask an owner or admin to update your role, then save again.',
     })
     expect(result.error).not.toContain('Code:')
     expect(result.error).not.toContain('Details:')
@@ -117,8 +141,9 @@ describe('useAdminStore loading errors', () => {
 
     expectBeginnerError(
       useAdminStore.getState().healthError,
-      'The admin service is temporarily unavailable. Reload the system health, then try again. If it still fails, ask an owner to check the admin service.'
+      'Forge could not load the admin system health right now. Reload the system health, then try again. If it still fails, ask an owner or admin to check Admin setup.'
     )
+    expect(useAdminStore.getState().healthError).not.toContain('temporarily unavailable')
   })
 
   test('loads the CLI image status report on success', async () => {
@@ -172,7 +197,7 @@ describe('useAdminStore loading errors', () => {
 
     expectBeginnerError(
       useAdminStore.getState().cliImagesError,
-      'You do not have permission to view admin agent tool updates. Ask an owner to update your admin role.'
+      'You do not have access to the admin agent tool updates. Ask an owner or admin to update your role, then reload Admin.'
     )
   })
 

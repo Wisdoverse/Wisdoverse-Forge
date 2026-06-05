@@ -99,8 +99,9 @@ describe('OrganizationsPanel', () => {
     expect(within(error).queryByText('HTTP 503')).toBeNull()
     expect(
       within(error).getByText(
-        'Refresh Admin, then try again. If it still fails, ask an owner to check the admin service and your admin role.'
+        'Refresh Admin, then try again. If it still fails, ask an owner or admin to check Admin setup and your role.'
       )
     ).toBeDefined()
+    expect(within(error).queryByText(/admin service/i)).toBeNull()
   })
 })

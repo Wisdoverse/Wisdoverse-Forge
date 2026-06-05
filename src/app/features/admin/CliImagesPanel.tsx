@@ -102,7 +102,7 @@ function cliImageIssueNote(error: string, context: CliImageIssueContext): string
     detail.includes('permission') ||
     detail.includes('auth')
   ) {
-    return 'The tool updater reported an access setup problem. Ask an owner to check tool package access, then choose Check now.'
+    return 'The tool updater reported an access setup problem. Ask an owner or admin to check tool package access, then choose Check now.'
   }
   if (
     detail.includes('connection') ||
@@ -121,7 +121,7 @@ function cliImageIssueNote(error: string, context: CliImageIssueContext): string
     detail.includes('cleanup') ||
     detail.includes('prune')
   ) {
-    return 'Old package cleanup could not finish. Ask an owner to check disk space, then choose Check now.'
+    return 'Old package cleanup could not finish. Ask an owner or admin to check disk space, then choose Check now.'
   }
   if (
     context === 'restart' ||
@@ -134,10 +134,10 @@ function cliImageIssueNote(error: string, context: CliImageIssueContext): string
     return 'Some agents could not restart cleanly. Open Agents, check affected agents, then restart them one at a time.'
   }
   if (context === 'cleanup') {
-    return 'Old package cleanup could not finish. Ask an owner to check tool package cleanup, then choose Check now.'
+    return 'Old package cleanup could not finish. Ask an owner or admin to check tool package cleanup, then choose Check now.'
   }
 
-  return 'The tool updater reported a problem. Choose Check now again, then ask an owner to check the tool updater if it still fails.'
+  return 'The tool updater reported a problem. Choose Check now again, then ask an owner or admin to check tool update setup if it still fails.'
 }
 
 function StateBadge({ state, label }: { state: CliImageToolState; label?: string }) {

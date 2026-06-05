@@ -106,7 +106,7 @@ describe('UserManagement', () => {
     const updateUserRole = vi.fn().mockResolvedValue({
       ok: false,
       error:
-        'You do not have permission to change user access. Ask an owner to update your admin role.',
+        'You do not have access to change user access. Ask an owner or admin to update your role, then save again.',
     })
     useAdminStore.setState({
       ...originalAdminState,
@@ -129,9 +129,9 @@ describe('UserManagement', () => {
     await user.click(screen.getByRole('button', { name: /save role/i }))
 
     expect(
-      await screen.findByText(/You do not have permission to change user access/i)
+      await screen.findByText(/You do not have access to change user access/i)
     ).toBeDefined()
-    expect(screen.getByText(/Ask an owner to update your admin role/i)).toBeDefined()
+    expect(screen.getByText(/Ask an owner or admin to update your role/i)).toBeDefined()
     expect(screen.queryByText(/Code:/i)).toBeNull()
     expect(screen.queryByText(/Details:/i)).toBeNull()
     expect(screen.queryByText(/owner role required/i)).toBeNull()

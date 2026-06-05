@@ -252,8 +252,9 @@ describe('CliImagesPanel', () => {
     ).toBeDefined()
     expect(screen.queryByText('HTTP 401')).toBeNull()
     expect(
-      screen.getByText(/ask an owner to check the admin service and agent tool updater/i)
+      screen.getByText(/ask an owner or admin to check tool update setup/i)
     ).toBeDefined()
+    expect(screen.queryByText(/admin service/i)).toBeNull()
     expect(screen.getByText('Codex')).toBeDefined()
   })
 
@@ -286,6 +287,7 @@ describe('CliImagesPanel', () => {
     expect(screen.getByText(/The agent tool update status could not load/i)).toBeDefined()
     expect(screen.queryByText('HTTP 500')).toBeNull()
     expect(screen.getByText(/choose check now again/i)).toBeDefined()
+    expect(screen.getByText(/ask an owner or admin to check tool update setup/i)).toBeDefined()
     expect(screen.getByRole('button', { name: 'Check now' })).toBeDefined()
   })
 

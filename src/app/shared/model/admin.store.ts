@@ -291,13 +291,13 @@ export function adminHttpErrorMessage(
   const detail = adminErrorDetail(data)?.toLowerCase() ?? ''
 
   if (status === 401) {
-    return `Sign in again, then open Admin and reload the ${label}.`
+    return `Your sign-in expired. Sign in again, then open Admin and reload the ${label}.`
   }
   if (status === 403) {
-    return `You do not have permission to view admin ${label}. Ask an owner to update your admin role.`
+    return `You do not have access to the admin ${label}. Ask an owner or admin to update your role, then reload Admin.`
   }
   if (status === 404) {
-    return `The admin ${label} is not available. Refresh Admin, then try again. If it is still missing, ask an owner to check the admin service.`
+    return `The admin ${label} is not available from this Admin view. Refresh Admin, then try again. If it still fails, ask an owner or admin to check setup.`
   }
   if (
     status === 409 &&
@@ -307,17 +307,17 @@ export function adminHttpErrorMessage(
     return 'A CLI image roll is already in progress. Wait for the current roll to finish, refresh CLI images, then try again.'
   }
   if (status === 429) {
-    return `The admin service is busy. Wait a moment, then reload the ${label}.`
+    return `Forge is receiving too many Admin requests right now. Wait a moment, then reload the ${label}.`
   }
   if (status >= 500) {
-    return `The admin service is temporarily unavailable. Reload the ${label}, then try again. If it still fails, ask an owner to check the admin service.`
+    return `Forge could not load the admin ${label} right now. Reload the ${label}, then try again. If it still fails, ask an owner or admin to check Admin setup.`
   }
 
-  return `The admin ${label} could not load. Refresh Admin, then try again.`
+  return `The admin ${label} could not load. Refresh Admin, then try again. If it still fails, ask an owner or admin to check Admin setup.`
 }
 
 function adminNetworkErrorMessage(resource: AdminResource): string {
-  return `The admin ${adminResourceLabel(resource)} could not load because the app could not reach the service. Check your connection and refresh the page.`
+  return `Forge could not connect while loading the admin ${adminResourceLabel(resource)}. Check your connection, then refresh Admin.`
 }
 
 function adminErrorMessage(err: unknown, resource: AdminResource): string {
@@ -331,10 +331,10 @@ function adminActionHttpErrorMessage(
 ): string {
   if (action === 'update-user-role') {
     if (status === 401) {
-      return "Sign in again, then reopen Admin and save this user's access."
+      return "Your sign-in expired. Sign in again, then reopen Admin and save this user's access."
     }
     if (status === 403) {
-      return 'You do not have permission to change user access. Ask an owner to update your admin role.'
+      return 'You do not have access to change user access. Ask an owner or admin to update your role, then save again.'
     }
     if (status === 404) {
       return 'This user could not be found. Refresh the user list, then choose the current user again.'
@@ -343,10 +343,10 @@ function adminActionHttpErrorMessage(
       return 'This user changed while you were editing. Refresh the user list, review the current access, then try again.'
     }
     if (status === 429) {
-      return "The admin service is busy. Wait a moment, then save this user's access again."
+      return "Forge is receiving too many Admin changes right now. Wait a moment, then save this user's access again."
     }
     if (status >= 500) {
-      return "The admin service is temporarily unavailable. Refresh the user list, then save this user's access again. If it still fails, ask an owner to check the admin service."
+      return "Forge could not save user access right now. Refresh the user list, then save this user's access again. If it still fails, ask an owner or admin to check Admin setup."
     }
   }
 
@@ -355,9 +355,9 @@ function adminActionHttpErrorMessage(
 
 function adminActionNetworkErrorMessage(action: AdminAction): string {
   if (action === 'update-user-role') {
-    return "User access could not be saved because the app could not reach the service. Check your connection, then save this user's access again."
+    return "Forge could not connect while saving user access. Check your connection, then save this user's access again."
   }
-  return 'The admin change could not be saved because the app could not reach the service. Check your connection and try again.'
+  return 'Forge could not connect while saving this Admin change. Check your connection, then try again.'
 }
 
 function adminActionErrorMessage(err: unknown, action: AdminAction): string {
