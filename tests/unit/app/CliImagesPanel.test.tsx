@@ -318,7 +318,7 @@ describe('CliImagesPanel', () => {
     expect(rollCliImage).toHaveBeenCalledWith('codex')
   })
 
-  test('shows the last roll result including failed agents', () => {
+  test('shows the last roll result including failed and busy agents', () => {
     useAdminStore.setState({
       ...originalAdminState,
       cliImages: sampleStatus(),
@@ -327,10 +327,10 @@ describe('CliImagesPanel', () => {
       loadCliImages: vi.fn(),
       cliImageRollResult: {
         tool: 'codex',
-        total: 3,
+        total: 4,
         succeeded: 1,
         failed: 2,
-        skippedBusy: 0,
+        skippedBusy: 1,
         results: [
           { agentId: 'a1', ok: true, stopped: false },
           { agentId: 'a2', ok: false, stopped: true, error: 'respawn failed' },
@@ -341,7 +341,10 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
     expect(screen.getByText('Last restart: Codex')).toBeDefined()
-    expect(screen.getByText(/1 of 3 agents restarted/)).toBeDefined()
+    expect(screen.getByText(/1 of 4 agents restarted/)).toBeDefined()
+    expect(screen.getByText(/1 skipped \(busy\)/)).toBeDefined()
+    expect(screen.getByText(/Restart again once they show Ready/i)).toBeDefined()
+    expect(screen.queryByText(/idle/i)).toBeNull()
     // start-fail → "now stopped"; stop-fail → unconfirmed post-condition (may be
     // running on the old image OR already down after a partial stop).
     expect(screen.getByText(/did not restart and .* now stopped/)).toBeDefined()

@@ -472,7 +472,7 @@ function RollResultBlock({
       {result.skippedBusy > 0 && (
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           Busy agents were left running to avoid interrupting their work. Restart again once they
-          are idle.
+          show Ready.
         </p>
       )}
       {(nowStopped.length > 0 || stillRunning.length > 0) && (
