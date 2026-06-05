@@ -50,6 +50,9 @@ describe('CreateAgentModal', () => {
     expect(screen.getByRole('radio', { name: /managed workspace/i })).toBeChecked()
     expect(screen.getByTestId('agent-runtime-fit')).toBeInTheDocument()
     expect(screen.getByText(/claude in a managed workspace/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/project files and a ready workspace to run commands/i)
+    ).toBeInTheDocument()
     expect(screen.getByText('Project files available')).toBeInTheDocument()
     expect(screen.getByText(/workspace must be online/i)).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /managed work tool/i })).toBeInTheDocument()
@@ -249,6 +252,8 @@ describe('CreateAgentModal', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
     expect(screen.getByText(/codex on this computer/i)).toBeInTheDocument()
+    expect(screen.getByText(/work tool already runs on this computer/i)).toBeInTheDocument()
+    expect(screen.queryByText(/local C[L]I sessions/i)).toBeNull()
     expect(screen.getByText('Run the join command')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('radio', { name: /text-only model/i }))

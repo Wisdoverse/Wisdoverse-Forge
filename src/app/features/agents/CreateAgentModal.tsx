@@ -132,7 +132,7 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
   if (kind === 'cli') {
     return {
       title: `${cliToolLabel(cliTool)} in a managed workspace`,
-      detail: 'Best when the task needs repository files, terminal tools, or local CLI sessions.',
+      detail: 'Best when the task needs project files and a ready workspace to run commands.',
       items: [
         { label: 'Work type', value: 'Managed workspace' },
         { label: 'Files', value: 'Project files available' },
@@ -144,7 +144,8 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
   if (kind === 'local-cli') {
     return {
       title: `${cliToolLabel(cliTool)} on this computer`,
-      detail: 'Best when the CLI already runs on your computer and this platform should manage it.',
+      detail:
+        'Best when the work tool already runs on this computer and the platform should manage identity and tasks.',
       items: [
         { label: 'Work type', value: 'This computer' },
         { label: 'Files', value: 'Your local folder' },
