@@ -515,7 +515,7 @@ export const en = {
         restart_host_cli: {
           title: 'Restart the connection tool on your computer',
           detail:
-            'The platform cannot restart that local process for you. Re-run the join command on that computer.',
+            'The platform cannot restart that connection tool for you. Re-run the join command on that computer.',
         },
         restart_api: {
           title: 'No workspace to restart',
@@ -528,15 +528,16 @@ export const en = {
         },
         start_api: {
           title: 'No workspace to start',
-          detail: 'Text-only model agents do not have a terminal to start.',
+          detail: 'Text-only model agents do not have a command window to start.',
         },
         stop_host_cli: {
           title: 'Stop the connection tool on your computer',
-          detail: 'The platform cannot stop that local process for you. Stop it on that computer.',
+          detail:
+            'The platform cannot stop that connection tool for you. Stop it on that computer.',
         },
         stop_api: {
           title: 'No workspace to stop',
-          detail: 'Text-only model agents do not have a terminal to stop.',
+          detail: 'Text-only model agents do not have a command window to stop.',
         },
         not_permitted: {
           title: 'Operation not permitted on this agent',

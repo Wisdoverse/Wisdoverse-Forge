@@ -510,7 +510,7 @@ export const zh: TranslationKeys = {
       lifecycle: {
         restart_host_cli: {
           title: '请在这台电脑上重启连接工具',
-          detail: '平台不能替你重启这个本地进程。请在那台电脑上重新运行加入命令。',
+          detail: '平台不能替你重启这个连接工具。请在那台电脑上重新运行加入命令。',
         },
         restart_api: {
           title: '没有可重启的工作区',
@@ -522,15 +522,15 @@ export const zh: TranslationKeys = {
         },
         start_api: {
           title: '没有可启动的工作区',
-          detail: '只处理文字的模型 Agent 没有可启动的终端。',
+          detail: '只处理文字的模型 Agent 没有可启动的命令窗口。',
         },
         stop_host_cli: {
           title: '请在这台电脑上停止连接工具',
-          detail: '平台不能替你停止这个本地进程。请在那台电脑上停止它。',
+          detail: '平台不能替你停止这个连接工具。请在那台电脑上停止它。',
         },
         stop_api: {
           title: '没有可停止的工作区',
-          detail: '只处理文字的模型 Agent 没有可停止的终端。',
+          detail: '只处理文字的模型 Agent 没有可停止的命令窗口。',
         },
         not_permitted: {
           title: '无权操作该 Agent',

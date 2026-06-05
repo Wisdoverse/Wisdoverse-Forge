@@ -17,8 +17,8 @@ interface AgentTerminalTabProps {
 }
 
 const KEY_GROUPS: KeyDef[][] = [NAV_KEYS, NUM_KEYS, UTIL_KEYS]
-const CONSOLE_CONNECTION_NOTICE =
-  'Console notice: The live console disconnected. Refresh this page, or restart the workspace if it stays offline.'
+const COMMAND_WINDOW_CONNECTION_NOTICE =
+  'Command window notice: The command window disconnected. Refresh this page, or restart the workspace if it stays offline.'
 
 export function AgentTerminalTab({
   agentId,
@@ -140,7 +140,7 @@ export function AgentTerminalTab({
         const term = terminalRef.current
         if (!term) return
         if (msg.type === 'terminal_error') {
-          term.write(`\r\n${CONSOLE_CONNECTION_NOTICE}\r\n`)
+          term.write(`\r\n${COMMAND_WINDOW_CONNECTION_NOTICE}\r\n`)
           return
         }
         const data = msg.payload?.data
@@ -183,9 +183,9 @@ export function AgentTerminalTab({
           </span>
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-white">Console not ready</h3>
+          <h3 className="text-sm font-semibold text-white">Command window not ready</h3>
           <p className="mt-1 text-xs leading-relaxed text-white/60">
-            This managed workspace is selected, but its live console is still starting.
+            This managed workspace is selected, but its command window is still starting.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2 text-[11px] text-white/55">
@@ -253,7 +253,9 @@ interface KeyToolbarProps {
 function KeyToolbar({ onKeys, disabled }: KeyToolbarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const toggleLabel = collapsed ? 'Show virtual keyboard' : 'Hide virtual keyboard'
-  const keyboardHint = disabled ? 'Connect console to use keys' : 'Shortcut keys send to console'
+  const keyboardHint = disabled
+    ? 'Connect command window to use keys'
+    : 'Shortcut keys send to command window'
 
   return (
     <div

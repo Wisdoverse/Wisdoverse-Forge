@@ -91,7 +91,7 @@ describe('ChatView', () => {
     expect(banner).toBeInTheDocument()
     expect(within(banner).getByText(/messages use anthropic/i)).toBeInTheDocument()
     expect(
-      within(banner).getByText(/do not open workspace files or the live console/i)
+      within(banner).getByText(/do not open workspace files or a command window/i)
     ).toBeInTheDocument()
     expect(banner).not.toHaveTextContent(/terminal/i)
     expect(banner).not.toHaveTextContent(/provider/i)

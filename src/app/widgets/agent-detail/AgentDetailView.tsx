@@ -48,7 +48,7 @@ interface AgentNextStep {
   actionLabel?: string
 }
 
-// Live console attach is only available for platform-managed work environments.
+// Live command window attach is only available for platform-managed work environments.
 // Agents joined from a computer keep their command window on that machine.
 function tabsFor(agent: AgentInfo): { id: Tab; label: string }[] {
   const isCli = Boolean(agent.cliTool)
@@ -57,7 +57,7 @@ function tabsFor(agent: AgentInfo): { id: Tab; label: string }[] {
     { id: 'overview', label: 'Overview' },
     { id: 'tasks', label: 'Tasks' },
     { id: 'history', label: isCli ? 'History' : 'Chat' },
-    ...(hasTerminal ? [{ id: 'terminal' as Tab, label: 'Console' }] : []),
+    ...(hasTerminal ? [{ id: 'terminal' as Tab, label: 'Command window' }] : []),
     { id: 'plugins', label: 'Plugins' },
     { id: 'config', label: 'Instructions' },
   ]
@@ -307,7 +307,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
                 'text-center text-ui-body text-secondary-light dark:text-secondary-dark'
               )}
             >
-              Loading console...
+              Loading command window...
             </div>
           }
         >
@@ -353,11 +353,12 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
     if (hasContainerTerminal) {
       return {
         title: 'Start the managed workspace',
-        detail: 'Open Console, then start this managed workspace so the agent can receive tasks.',
+        detail:
+          'Open Command window, then start this managed workspace so the agent can receive tasks.',
         success: 'The agent returns to Idle and can receive tasks.',
         ready: false,
         targetTab: 'terminal',
-        actionLabel: 'Open Console',
+        actionLabel: 'Open Command window',
       }
     }
 
@@ -629,18 +630,18 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
     >
       <div className="flex flex-col gap-1">
         <span className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-          Start the managed workspace to open the console
+          Start the managed workspace to open the command window
         </span>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {agent.cliTool
-            ? `${agentToolLabel(agent.cliTool)} is ready. Start the workspace when you need live console access.`
+            ? `${agentToolLabel(agent.cliTool)} is ready. Start the workspace when you need live command access.`
             : 'This agent does not need a managed workspace.'}
         </span>
         {agent.cliTool && (
           <span className="max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
             Start the workspace here. Success looks like the agent status changing to Idle or
-            Working, then this Console opens for live work. If it stays pending, ask an admin to
-            check this agent's workspace and agent tool setup.
+            Working, then this command window opens for live work. If it stays pending, ask an admin
+            to check this agent's workspace and agent tool setup.
           </span>
         )}
       </div>

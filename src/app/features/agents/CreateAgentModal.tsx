@@ -430,8 +430,8 @@ export function CreateAgentModal() {
                 What to do next
               </p>
               <ol className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                <li>Paste the command into the terminal for this project folder.</li>
-                <li>Keep that terminal open while the agent is working.</li>
+                <li>Paste the command into the command window for this project folder.</li>
+                <li>Keep that command window open while the agent is working.</li>
                 <li>If you close it, run the same command again to reconnect this agent.</li>
               </ol>
             </div>
@@ -586,7 +586,7 @@ export function CreateAgentModal() {
                   ? 'Runs the selected work tool in a managed project workspace.'
                   : kind === 'local-cli'
                     ? 'Runs a local work tool on your computer while this platform manages identity and tasks.'
-                    : 'Uses a connected model for text-only work; no files or terminal.'}
+                    : 'Uses a connected model for text-only work; no files or command window.'}
               </p>
             </div>
 

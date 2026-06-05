@@ -317,8 +317,8 @@ describe('CreateAgentModal', () => {
     )
     expect(screen.getByText('What to do next')).toBeInTheDocument()
     expect(screen.getByText(/project folder on this computer/i)).toBeInTheDocument()
-    expect(screen.getByText(/paste the command into the terminal/i)).toBeInTheDocument()
-    expect(screen.getByText(/keep that terminal open/i)).toBeInTheDocument()
+    expect(screen.getByText(/paste the command into the command window/i)).toBeInTheDocument()
+    expect(screen.getByText(/keep that command window open/i)).toBeInTheDocument()
     expect(screen.getByText(/run the same command again to reconnect/i)).toBeInTheDocument()
   })
 
