@@ -91,7 +91,7 @@ describe('ProvidersSection', () => {
     expect(within(readiness).getByText(/1\/3 model services ready/i)).toBeDefined()
     expect(within(readiness).getByText('Default service: OpenAI Production')).toBeDefined()
     const nextStep = screen.getByTestId('provider-next-step')
-    expect(within(nextStep).getByText('Next Step')).toBeDefined()
+    expect(within(nextStep).getByText('Next step')).toBeDefined()
     expect(within(nextStep).getByText('Check Model Service Connection')).toBeDefined()
     expect(
       screen.getByRole('button', { name: /check openai production connection/i })
@@ -99,7 +99,7 @@ describe('ProvidersSection', () => {
     expect(screen.getByText('Anthropic Review')).toBeDefined()
     expect(screen.getByText('Local Lab')).toBeDefined()
 
-    fireEvent.click(within(nextStep).getByRole('button', { name: /show needs check/i }))
+    fireEvent.click(within(nextStep).getByRole('button', { name: /show services needing check/i }))
 
     expect(screen.queryByRole('button', { name: /check openai production connection/i })).toBeNull()
     expect(screen.getByText('Anthropic Review')).toBeDefined()
@@ -139,14 +139,15 @@ describe('ProvidersSection', () => {
 
     fireEvent.click(within(nextStep).getByRole('button', { name: /add model service/i }))
 
-    expect(screen.getByText('Model service setup path')).toBeDefined()
-    expect(screen.getByText('Add secret key')).toBeDefined()
-    expect(screen.getByText(/saved securely/i)).toBeDefined()
-    expect(screen.getByText('Save, then check')).toBeDefined()
-    expect(screen.getByText(/use check before creating agents/i)).toBeDefined()
-    expect(screen.getByLabelText(/^model service$/i)).toBeDefined()
+    expect(screen.getByText('Model service setup')).toBeDefined()
+    expect(screen.getByText('Choose AI service')).toBeDefined()
+    expect(screen.getByText('Paste access key')).toBeDefined()
+    expect(screen.getByText(/hidden after saving/i)).toBeDefined()
+    expect(screen.getByText('Save and check')).toBeDefined()
+    expect(screen.getByText(/run check before using this service/i)).toBeDefined()
+    expect(screen.getByLabelText(/^AI service$/i)).toBeDefined()
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
-      /next: paste secret key/i
+      /next: paste the access key/i
     )
     const saveButton = screen.getByRole('button', { name: /save model service/i })
     expect(saveButton).toBeEnabled()
@@ -154,11 +155,13 @@ describe('ProvidersSection', () => {
     fireEvent.click(saveButton)
 
     expect(
-      screen.getAllByText('Add the secret key before saving this model service.').length
+      screen.getAllByText('Paste the service access key before saving this model service.').length
     ).toBeGreaterThan(0)
     expect(saveProviderMock).not.toHaveBeenCalled()
 
-    fireEvent.change(screen.getByLabelText(/secret key/i), { target: { value: 'sk-test' } })
+    fireEvent.change(screen.getByLabelText(/service access key/i), {
+      target: { value: 'sk-test' },
+    })
 
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/ready to save/i)
     fireEvent.click(saveButton)
@@ -202,7 +205,7 @@ describe('ProvidersSection', () => {
     expect(screen.getByText('Local Disabled')).toBeDefined()
     expect(screen.getByRole('button', { name: /save model service/i })).toBeEnabled()
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
-      /next: paste secret key/i
+      /next: paste the access key/i
     )
   })
 
@@ -219,6 +222,20 @@ describe('ProvidersSection', () => {
     expect(loadProvidersMock).toHaveBeenCalled()
   })
 
+  test('labels model service removal with clear confirmation language', async () => {
+    render(<ProvidersSection />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /remove anthropic review model service/i })
+    )
+
+    expect(
+      screen.getByRole('button', {
+        name: /confirm removing anthropic review model service/i,
+      })
+    ).toHaveTextContent('Remove now')
+  })
+
   test('explains provider test failures without raw API text', async () => {
     settingsApiMock.testProvider.mockResolvedValue({
       ok: false,
@@ -232,7 +249,7 @@ describe('ProvidersSection', () => {
 
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Anthropic Review connection test failed. Check that the saved secret key is active and allowed to use the selected model, then save and check again.'
+        'Anthropic Review connection test failed. Check that the saved service access key is active and allowed to use the selected model, then save and check again.'
       )
     )
     expect(screen.queryByText(/HTTP 403/i)).toBeNull()
@@ -249,7 +266,7 @@ describe('ProvidersSection', () => {
 
     await waitFor(() => expect(loadProvidersMock).toHaveBeenCalledTimes(1))
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Model service could not be saved. Check the model service, model, secret key, and service address, then save again.'
+      'Model service could not be saved. Check the AI service, model, service access key, and service address, then save again.'
     )
     expect(screen.queryByText(/Details: API key is required/i)).toBeNull()
   })

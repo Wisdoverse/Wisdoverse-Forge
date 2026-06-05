@@ -8,7 +8,7 @@ describe('providerSettingsErrorMessage', () => {
         'Check the required fields for provider, then try again. Code: 422. Details: API key is required'
       )
     ).toBe(
-      'Model service could not be saved. Check the model service, model, secret key, and service address, then save again.'
+      'Model service could not be saved. Check the AI service, model, service access key, and service address, then save again.'
     )
   })
 
@@ -18,7 +18,7 @@ describe('providerSettingsErrorMessage', () => {
         'You do not have permission to save the provider. Code: 403. Details: Forbidden'
       )
     ).toBe(
-      'Model service could not be saved. Ask an owner or admin for access to manage model services.'
+      'Model service could not be saved. Ask an owner or admin to let you manage model services.'
     )
   })
 

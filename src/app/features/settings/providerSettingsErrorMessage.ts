@@ -58,7 +58,7 @@ export function providerSettingsErrorMessage(error: unknown): string {
     return `${base} Sign in again, then open Settings and try model services again.`
   }
   if (code === 403 || lower.includes('permission') || lower.includes('forbidden')) {
-    return `${base} Ask an owner or admin for access to manage model services.`
+    return `${base} Ask an owner or admin to let you manage model services.`
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
     return `${base} A model service with this name or setup already exists. Refresh the list, then choose a different name or remove the old service first.`
@@ -70,7 +70,7 @@ export function providerSettingsErrorMessage(error: unknown): string {
     lower.includes('base url') ||
     lower.includes('invalid provider')
   ) {
-    return `${base} Check the model service, model, secret key, and service address, then save again.`
+    return `${base} Check the AI service, model, service access key, and service address, then save again.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
     return `${base} The service is busy. Wait a minute, then try again.`

@@ -49,7 +49,7 @@ interface ProviderFormReadiness {
 const PROVIDER_FILTERS: { id: ProviderFilter; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'ready', label: 'Ready' },
-  { id: 'needs-test', label: 'Needs Check' },
+  { id: 'needs-test', label: 'Needs check' },
   { id: 'disabled', label: 'Disabled' },
 ]
 
@@ -62,9 +62,18 @@ const DEFAULT_FORM: AddProviderForm = {
 }
 
 const PROVIDER_SETUP_STEPS = [
-  { label: 'Choose service', value: 'Pick the model service agents will use for messages.' },
-  { label: 'Add secret key', value: 'Paste the key from that service. It is saved securely.' },
-  { label: 'Save, then check', value: 'Use Check before creating agents with this service.' },
+  {
+    label: 'Choose AI service',
+    value: 'Pick the company or gateway that provides the model.',
+  },
+  {
+    label: 'Paste access key',
+    value: 'Use the key from that account. It is hidden after saving.',
+  },
+  {
+    label: 'Save and check',
+    value: 'Run Check before using this service with agents.',
+  },
 ]
 
 const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
@@ -223,8 +232,8 @@ function providerFormReadiness({
   if (!form.model.trim()) {
     return {
       ready: false,
-      title: 'Next: Choose a Model',
-      detail: 'Choose a model from the list or keep the suggested default.',
+      title: 'Next: Choose a model',
+      detail: 'Use the suggested model, or choose one from the list.',
       error: 'Choose a model before saving this model service.',
       fieldId: modelInputId,
     }
@@ -233,9 +242,9 @@ function providerFormReadiness({
   if (needsApiKey && !form.apiKey.trim()) {
     return {
       ready: false,
-      title: 'Next: Paste Secret Key',
-      detail: 'Paste the key from the model service account. It will be stored as a secret.',
-      error: 'Add the secret key before saving this model service.',
+      title: 'Next: Paste the access key',
+      detail: 'Paste the service access key. Do not paste your account password.',
+      error: 'Paste the service access key before saving this model service.',
       fieldId: apiKeyInputId,
     }
   }
@@ -243,8 +252,8 @@ function providerFormReadiness({
   if (needsBaseUrl && !form.baseUrl.trim()) {
     return {
       ready: false,
-      title: 'Next: Add Service Address',
-      detail: 'Paste the URL for your compatible model service.',
+      title: 'Next: Add the service address',
+      detail: 'Paste the web address for your compatible or local model service.',
       error: 'Add the service address before saving this model service.',
       fieldId: baseUrlInputId,
     }
@@ -252,7 +261,7 @@ function providerFormReadiness({
 
   return {
     ready: true,
-    title: 'Ready to Save',
+    title: 'Ready to save',
     detail: 'Save this model service, then check the connection so agents can use it safely.',
     error: null,
     fieldId: null,
@@ -268,7 +277,7 @@ function providerStatusLabel(provider: LlmProviderConfig): string {
   if (!provider.isEnabled) return 'Disabled'
   if (provider.lastTestStatus === 'passed') return 'Ready'
   if (provider.lastTestStatus === 'failed') return 'Failed'
-  return 'Needs Check'
+  return 'Needs check'
 }
 
 function providerStatusTone(provider: LlmProviderConfig): string {
@@ -305,7 +314,7 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
       success: 'At least 1 model service is saved and ready for a connection check.',
       ready: false,
       action: 'add-provider',
-      actionLabel: 'Add Model Service',
+      actionLabel: 'Add model service',
     }
   }
 
@@ -317,7 +326,7 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
       success: 'The model service shows Ready and can be used by text-only model agents.',
       ready: false,
       action: 'show-needs-test',
-      actionLabel: 'Show Needs Check',
+      actionLabel: 'Show services needing check',
     }
   }
 
@@ -329,7 +338,7 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
       success: 'At least 1 enabled model service is checked and marked Ready.',
       ready: false,
       action: 'add-provider',
-      actionLabel: 'Add Model Service',
+      actionLabel: 'Add model service',
     }
   }
 
@@ -471,7 +480,7 @@ function ProviderCard({ providerConfig, onTest, onDelete }: ProviderCardProps) {
           type="button"
           onClick={handleTest}
           disabled={testing || !isEnabled}
-          className={uiStyles.secondaryButton}
+          className={cn(uiStyles.secondaryButton, 'flex-1 sm:flex-none')}
           aria-label={`Check ${displayName} connection`}
           title="Check connection"
         >
@@ -481,12 +490,17 @@ function ProviderCard({ providerConfig, onTest, onDelete }: ProviderCardProps) {
         <button
           type="button"
           onClick={handleDelete}
+          aria-label={
+            confirming
+              ? `Confirm removing ${displayName} model service`
+              : `Remove ${displayName} model service`
+          }
           className={cn(
-            'shrink-0',
+            'flex-1 sm:flex-none',
             confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton
           )}
         >
-          {confirming ? 'Confirm?' : 'Remove'}
+          {confirming ? 'Remove now' : 'Remove'}
         </button>
       </div>
     </div>
@@ -529,9 +543,7 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
               />
             )}
             <h3 className={uiStyles.sectionTitle}>
-              {allReady
-                ? 'Model services ready for agent creation'
-                : 'Model service setup needs attention'}
+              {allReady ? 'Model services ready for agents' : 'Model service setup needs attention'}
             </h3>
           </div>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
@@ -550,14 +562,14 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
       <div className="mt-4 grid gap-3 sm:grid-cols-4">
         <ProviderReadinessMetric label="Ready" value={String(ready)} ready={ready > 0} />
         <ProviderReadinessMetric
-          label="Needs Check"
+          label="Needs check"
           value={String(needsTest)}
           ready={needsTest === 0}
         />
         <ProviderReadinessMetric label="Disabled" value={String(disabled)} ready={disabled === 0} />
         <ProviderReadinessMetric
-          label="Default Service"
-          value={defaultProvider?.displayName ?? 'Not Set'}
+          label="Default service"
+          value={defaultProvider?.displayName ?? 'Not set'}
           ready={Boolean(defaultProvider)}
         />
       </div>
@@ -603,7 +615,7 @@ function ProviderNextStepPanel({
               />
             )}
             <p className="text-ui-caption font-semibold uppercase text-secondary-light dark:text-secondary-dark">
-              {step.ready ? 'Ready' : 'Next Step'}
+              {step.ready ? 'Ready' : 'Next step'}
             </p>
           </div>
           <h3 className="mt-1 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
@@ -742,7 +754,7 @@ function AddProviderFormPanel({
     >
       <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
         <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Model service setup path
+          Model service setup
         </div>
         <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
           {PROVIDER_SETUP_STEPS.map((step) => (
@@ -765,7 +777,7 @@ function AddProviderFormPanel({
         {/* Model service */}
         <div>
           <label htmlFor={providerInputId} className={uiStyles.label}>
-            Model service
+            AI service
           </label>
           <select
             id={providerInputId}
@@ -892,16 +904,16 @@ function AddProviderFormPanel({
           />
         </div>
 
-        {/* Secret key */}
+        {/* Service access key */}
         <div>
           <label htmlFor={apiKeyInputId} className={uiStyles.label}>
-            Secret key {needsApiKey && <span className="text-red-500">*</span>}
+            Service access key {needsApiKey && <span className="text-red-500">*</span>}
           </label>
           <p
             id={apiKeyHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste the key from the selected service account. It is hidden after saving.
+            Paste the key from the selected AI service. Do not paste your account password.
           </p>
           <input
             id={apiKeyInputId}
@@ -909,7 +921,7 @@ function AddProviderFormPanel({
             name="apiKey"
             value={form.apiKey}
             onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
-            placeholder={needsApiKey ? 'sk-…' : 'not required…'}
+            placeholder={needsApiKey ? 'Paste the service access key' : 'No key required'}
             autoComplete="off"
             spellCheck={false}
             aria-invalid={visibleError !== null && readiness.fieldId === apiKeyInputId}
@@ -936,7 +948,7 @@ function AddProviderFormPanel({
             id={baseUrlHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Only change this for a local model server or compatible model gateway.
+            Leave this alone unless you use a local model server or compatible gateway.
           </p>
           <input
             id={baseUrlInputId}
@@ -962,25 +974,32 @@ function AddProviderFormPanel({
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p
           id={formStatusId}
           data-testid="provider-form-status"
           className="text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          {readiness.title}
+          <span className="font-medium text-foreground-light dark:text-foreground-dark">
+            {readiness.title}
+          </span>
+          <span> {readiness.detail}</span>
         </p>
-        <div className="flex gap-2">
+        <div className="flex gap-2 sm:shrink-0">
           <button
             type="button"
             onClick={onCancel}
             disabled={saving}
-            className={uiStyles.secondaryButton}
+            className={cn(uiStyles.secondaryButton, 'flex-1 sm:flex-none')}
           >
             Cancel
           </button>
-          <button type="submit" disabled={saving} className={uiStyles.primaryButton}>
-            {saving ? 'Saving…' : 'Save Model Service'}
+          <button
+            type="submit"
+            disabled={saving}
+            className={cn(uiStyles.primaryButton, 'flex-1 sm:flex-none')}
+          >
+            {saving ? 'Saving…' : 'Save model service'}
           </button>
         </div>
       </div>
@@ -1063,9 +1082,9 @@ export function ProvidersSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Model Services</h2>
+          <h2 className={uiStyles.sectionTitle}>Model services</h2>
           <p className={uiStyles.sectionDescription}>
-            Connect model services so agents can answer messages
+            Connect an AI model service so agents can answer messages.
           </p>
         </div>
         {!showForm && (
@@ -1075,7 +1094,7 @@ export function ProvidersSection() {
             className={uiStyles.primaryButton}
           >
             <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-            <span>Add Model Service</span>
+            <span>Add model service</span>
           </button>
         )}
       </div>
@@ -1145,7 +1164,8 @@ export function ProvidersSection() {
               No model services connected
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Add a model service so text-only model agents can answer.
+              Add one AI service, paste its access key, save it, then run Check before creating
+              agents.
             </p>
           </div>
         ) : filteredProviders.length === 0 && !showForm ? (

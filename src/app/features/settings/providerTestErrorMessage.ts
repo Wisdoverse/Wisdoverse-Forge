@@ -32,7 +32,7 @@ export function providerTestErrorMessage(error: unknown, providerName = 'Model s
   const code = statusCode(error)
 
   if (code === 401 || code === 403 || text.includes('unauthorized') || text.includes('forbidden')) {
-    return `${base} Check that the saved secret key is active and allowed to use the selected model, then save and check again.`
+    return `${base} Check that the saved service access key is active and allowed to use the selected model, then save and check again.`
   }
   if (
     code === 400 ||
@@ -41,7 +41,7 @@ export function providerTestErrorMessage(error: unknown, providerName = 'Model s
     text.includes('api key') ||
     text.includes('authentication')
   ) {
-    return `${base} Check the secret key, model, and service address, then save and check again.`
+    return `${base} Check the service access key, model, and service address, then save and check again.`
   }
   if (code === 404 || text.includes('not found')) {
     return `${base} The model or service address was not found. Check the model name and service address, then check again.`

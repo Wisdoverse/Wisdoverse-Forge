@@ -4,13 +4,13 @@ import { providerTestErrorMessage } from '@app/features/settings/providerTestErr
 describe('providerTestErrorMessage', () => {
   test('turns invalid key details into setup guidance', () => {
     expect(providerTestErrorMessage('Invalid key', 'Anthropic Review')).toBe(
-      'Anthropic Review connection test failed. Check the secret key, model, and service address, then save and check again.'
+      'Anthropic Review connection test failed. Check the service access key, model, and service address, then save and check again.'
     )
   })
 
-  test('turns permission failures into secret key and model guidance', () => {
+  test('turns permission failures into access key and model guidance', () => {
     expect(providerTestErrorMessage(new Error('HTTP 403: Forbidden'), 'OpenAI Production')).toBe(
-      'OpenAI Production connection test failed. Check that the saved secret key is active and allowed to use the selected model, then save and check again.'
+      'OpenAI Production connection test failed. Check that the saved service access key is active and allowed to use the selected model, then save and check again.'
     )
   })
 
