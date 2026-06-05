@@ -158,9 +158,9 @@ function cliToolLabel(tool: string): string {
     case 'claude':
       return 'Claude Code'
     case 'codex':
-      return 'Codex CLI'
+      return 'Codex'
     case 'gemini':
-      return 'Gemini CLI'
+      return 'Gemini'
     case 'opencode':
       return 'OpenCode'
     default:

@@ -450,7 +450,7 @@ export const en = {
         claude: 'Claude Code',
         opencode: 'OpenCode',
         codex: 'Codex',
-        gemini: 'Gemini CLI',
+        gemini: 'Gemini',
       },
     },
   },
