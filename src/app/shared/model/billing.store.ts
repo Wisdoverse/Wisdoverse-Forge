@@ -104,19 +104,19 @@ export function billingErrorMessage(err: unknown, area: BillingErrorArea): strin
     return `${base} Sign in again, then open Billing.`
   }
   if (code === 403 || text.includes('permission') || text.includes('forbidden')) {
-    return `${base} Ask an owner or billing administrator for access.`
+    return `${base} Ask an owner or admin to give you billing access.`
   }
   if (code === 429 || text.includes('busy') || text.includes('too many')) {
     return `${base} Billing is busy. Wait a minute, then refresh this page.`
   }
   if (code != null && code >= 500) {
-    return `${base} The billing service is temporarily unavailable. Ask an administrator to check billing, then refresh this page.`
+    return `${base} Forge could not load billing right now. Ask an owner or admin to check billing, then refresh this page.`
   }
   if (isNetworkError(err)) {
-    return `${base} The app could not reach the service. Check your connection, then refresh this page.`
+    return `${base} Forge could not connect while loading billing. Check your connection, then refresh this page.`
   }
 
-  return `${base} Refresh this page. If it still fails, ask an administrator to check billing.`
+  return `${base} Refresh this page. If it still fails, ask an owner or admin to check billing.`
 }
 
 // ============================================================================
