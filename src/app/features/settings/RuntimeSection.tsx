@@ -218,7 +218,7 @@ export function RuntimeSection() {
             </div>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
               {runtimeSettings
-                ? `${runtimeSettings.availableRuntimes.length} place${runtimeSettings.availableRuntimes.length === 1 ? '' : 's'} agents can work, ${runtimeSettings.availableCliTools.length} agent tool${runtimeSettings.availableCliTools.length === 1 ? '' : 's'}, ${connectedCredentialCount} account sign-in${connectedCredentialCount === 1 ? '' : 's'} ready, ${participants.length} agent check-in${participants.length === 1 ? '' : 's'}.`
+                ? `${runtimeSettings.availableRuntimes.length} work place${runtimeSettings.availableRuntimes.length === 1 ? '' : 's'} available, ${runtimeSettings.availableCliTools.length} work tool${runtimeSettings.availableCliTools.length === 1 ? '' : 's'} available, ${connectedCredentialCount} signed-in account${connectedCredentialCount === 1 ? '' : 's'} ready, ${participants.length} agent${participants.length === 1 ? '' : 's'} seen online.`
                 : 'The setup check has not loaded yet.'}
             </p>
           </div>
@@ -247,18 +247,18 @@ export function RuntimeSection() {
             )}
           />
           <RuntimeReadinessMetric
-            label="Agent tools"
+            label="Work tools"
             value={
               cliToolDetails.length > 0
                 ? `${reportedVersionCount}/${cliToolDetails.length} ready`
-                : 'No tool check yet'
+                : 'No tool status yet'
             }
             ready={cliToolDetails.length > 0 && reportedVersionCount === cliToolDetails.length}
           />
           <RuntimeReadinessMetric
-            label="Last agent check-in"
+            label="Last agent online"
             value={
-              latestHeartbeat ? formatRelativeTime(latestHeartbeat) : 'No agent has checked in'
+              latestHeartbeat ? formatRelativeTime(latestHeartbeat) : 'No agent seen online yet'
             }
             ready={Boolean(latestHeartbeat)}
           />
@@ -291,10 +291,10 @@ export function RuntimeSection() {
           <div className="mt-4 space-y-2" data-testid="runtime-cli-versions">
             <div className="flex items-center justify-between gap-2">
               <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Agent tools
+                Work tools
               </p>
               <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {reportedVersionCount} tool{reportedVersionCount === 1 ? '' : 's'} checked
+                {reportedVersionCount} tool{reportedVersionCount === 1 ? '' : 's'} ready
               </p>
             </div>
             {cliToolDetails.map((detail) => (
@@ -307,7 +307,7 @@ export function RuntimeSection() {
                     {cliToolLabel(detail.cliTool)}
                   </span>
                   <span className="block truncate text-secondary-light dark:text-secondary-dark">
-                    {detail.version ?? 'Needs a tool check'}
+                    {detail.version ?? 'Needs attention'}
                   </span>
                 </div>
                 <span
@@ -520,7 +520,7 @@ function RuntimeNextStepPanel({
           </h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
             {allReady
-              ? 'The working location, agent tools, account sign-ins, and agent check-ins are ready.'
+              ? 'The work place, work tools, account sign-ins, and agent online status are ready.'
               : item?.detail}
           </p>
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -746,21 +746,21 @@ function runtimeLaunchChecklistItems(
     runtimeSettings.cliToolDetails.length > 0 &&
     missingImages.length === 0 &&
     reportedVersionCount === runtimeSettings.cliToolDetails.length
-  let imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} agent tools are checked.`
+  let imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} work tools are ready.`
   if (runtimeSettings.availableCliTools.length === 0) {
-    imageDetail = 'Enable at least one agent tool before assigning file or command work.'
+    imageDetail = 'Enable at least one work tool before assigning file or command work.'
   } else if (runtimeSettings.cliToolDetails.length === 0) {
-    imageDetail = 'No agent tool check has been reported yet.'
+    imageDetail = 'No work tool status yet.'
   } else if (missingImages.length > 0) {
-    imageDetail = `${missingImages.length} agent tool${
+    imageDetail = `${missingImages.length} work tool${
       missingImages.length === 1 ? '' : 's'
-    } could not be checked. Rebuild agent tools, then refresh.`
+    } need attention. Rebuild work tools, then refresh.`
   } else if (reportedVersionCount !== runtimeSettings.cliToolDetails.length) {
-    imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} agent tools are checked. Rebuild the tools that still need a check.`
+    imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} work tools are ready. Rebuild the tools that still need attention.`
   }
   items.push({
     id: 'images',
-    title: 'Agent tools',
+    title: 'Work tools',
     detail: imageDetail,
     ready: imageInventoryReady,
     action: imageInventoryReady ? undefined : 'refresh',
@@ -772,7 +772,7 @@ function runtimeLaunchChecklistItems(
   const credentialReady = !cliStatusError && (!disconnectedCredential || cliStatuses.length === 0)
   items.push({
     id: 'credentials',
-    title: 'Account sign-ins for agent tools',
+    title: 'Account sign-ins for work tools',
     detail: cliStatusError
       ? 'Account sign-in status could not be checked. Refresh after the service is healthy.'
       : cliStatuses.length === 0
@@ -792,12 +792,12 @@ function runtimeLaunchChecklistItems(
 
   items.push({
     id: 'heartbeats',
-    title: 'Agent check-in',
+    title: 'Agent online status',
     detail: participantsError
       ? 'Agent online status could not be checked. Refresh after the service is healthy.'
       : latestHeartbeat
-        ? `Latest agent check-in ${formatRelativeTime(latestHeartbeat)}.`
-        : 'No agent has checked in yet. Start or wake an agent, then refresh.',
+        ? `An agent was online ${formatRelativeTime(latestHeartbeat)}.`
+        : 'No agent has been seen online yet. Start or wake an agent, then refresh.',
     ready: !participantsError && Boolean(latestHeartbeat),
     action: participantsError || !latestHeartbeat ? 'refresh' : undefined,
     actionLabel: participantsError || !latestHeartbeat ? 'Refresh' : undefined,
@@ -808,8 +808,8 @@ function runtimeLaunchChecklistItems(
 
 function versionSourceLabel(source: string, imagePresent: boolean): string {
   if (source === 'docker-label') return 'ready'
-  if (source === 'image-tag') return imagePresent ? 'version found' : 'not checked'
-  return 'not reported'
+  if (source === 'image-tag') return imagePresent ? 'ready' : 'needs attention'
+  return 'needs attention'
 }
 
 function fallbackRuntimeLabel(runtime: string): string {
