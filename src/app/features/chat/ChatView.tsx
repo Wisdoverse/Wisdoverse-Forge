@@ -28,7 +28,7 @@ const CONVERSATION_FILTERS: { value: ConversationFilter; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'operator', label: 'You' },
   { value: 'agent', label: 'Agent' },
-  { value: 'tool', label: 'Tool' },
+  { value: 'tool', label: 'Steps' },
   { value: 'attention', label: 'Attention' },
 ]
 
@@ -42,12 +42,12 @@ const PROVIDER_EMPTY_COPY = {
   ],
 }
 
-const CLI_EMPTY_COPY = {
-  title: 'No agent updates yet',
-  detail: 'Updates appear after this managed workspace agent receives work or reports progress.',
+const WORKSPACE_AGENT_EMPTY_COPY = {
+  title: 'No updates from this agent yet',
+  detail: 'Updates appear after this workspace agent receives work or reports progress.',
   steps: [
-    'Open Tasks and route work to this agent or its lane.',
-    'Use Attention once work starts to find blockers.',
+    'Open Tasks and assign work to this agent or its lane.',
+    'Check Attention once work starts to find blockers.',
     'Refresh if the agent just came online.',
   ],
 }
@@ -210,7 +210,7 @@ export function ChatView({ agentId }: ChatViewProps) {
       </div>
     ) : null
 
-  const modelServiceName = agent?.provider ?? 'the saved model service'
+  const modelServiceName = agent?.provider ?? 'your saved AI service'
   const providerAgentBanner = isProviderAgent ? (
     <div
       data-testid="provider-agent-chat-banner"
@@ -219,9 +219,10 @@ export function ChatView({ agentId }: ChatViewProps) {
         'bg-apple-blue/10 text-apple-blue border border-apple-blue/20'
       )}
     >
-      <span className="font-medium">Text-only model agent</span>
+      <span className="font-medium">Chat-only agent</span>
       <span className="text-apple-blue/80">
-        Messages use {modelServiceName}. They do not open workspace files or a command window.
+        Messages use {modelServiceName}. This agent can answer in chat, but it does not work on
+        workspace files.
       </span>
     </div>
   ) : null
@@ -265,7 +266,7 @@ export function ChatView({ agentId }: ChatViewProps) {
           />
           <ConversationMetric
             testId="conversation-metric-tools"
-            label="Tools"
+            label="Work steps"
             value={transcriptStats.tools}
             Icon={Terminal}
             tone="tool"
@@ -300,7 +301,7 @@ export function ChatView({ agentId }: ChatViewProps) {
             type="search"
             value={conversationSearch}
             onChange={(event) => setConversationSearch(event.target.value)}
-            placeholder="Search updates, blockers, tools..."
+            placeholder="Search updates, blockers, steps..."
             className={cn(
               'h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-ui-body outline-none',
               'text-foreground-light placeholder:text-secondary-light dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:placeholder:text-secondary-dark',
@@ -384,7 +385,7 @@ export function ChatView({ agentId }: ChatViewProps) {
             )
           ) : turns.length === 0 ? (
             <ConversationEmptyState
-              copy={CLI_EMPTY_COPY}
+              copy={WORKSPACE_AGENT_EMPTY_COPY}
               offline={offline}
               testId="conversation-empty-state"
             />

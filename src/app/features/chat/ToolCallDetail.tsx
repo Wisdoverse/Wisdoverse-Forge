@@ -61,16 +61,16 @@ function toolDataSummary(data: Record<string, unknown>, kind: 'request' | 'resul
   if (directSummary) return safeToolString(directSummary)
 
   if (typeof data.command === 'string' && data.command.trim()) {
-    return `Command to run: ${safeToolString(data.command)}`
+    return `Command the agent used: ${safeToolString(data.command)}`
   }
 
   if (typeof data.query === 'string' && data.query.trim()) {
-    return `Search request: ${safeToolString(data.query)}`
+    return `Search used: ${safeToolString(data.query)}`
   }
 
   const target = firstString(data.path, data.file, data.url)
   if (target) {
-    return `Target: ${safeToolString(target)}`
+    return `Place checked: ${safeToolString(target)}`
   }
 
   const issue = firstString(data.error, data.reason)
@@ -84,11 +84,11 @@ function toolDataSummary(data: Record<string, unknown>, kind: 'request' | 'resul
 
   const itemCount = Object.keys(data).length
   if (itemCount > 0) {
-    return `${kind === 'request' ? 'Request' : 'Result'} includes ${itemCount} ${itemCount === 1 ? 'item' : 'items'} for support review.`
+    return `${kind === 'request' ? 'Step setup' : 'Step result'} includes ${itemCount} ${itemCount === 1 ? 'item' : 'items'} for support review.`
   }
 
   return kind === 'request'
-    ? 'The agent sent this step without extra settings.'
+    ? 'The agent started this step without extra settings.'
     : 'The step returned an empty result.'
 }
 
@@ -174,10 +174,10 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
         />
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-medium text-foreground-light dark:text-foreground-dark">
-            Agent ran a work step
+            Agent recorded a work step
           </p>
           <p className="truncate text-[10px] text-secondary-light dark:text-secondary-dark">
-            Step name: {call.tool}. {outcome.helper}
+            Step type: {call.tool}. {outcome.helper}
           </p>
         </div>
         <span
@@ -216,10 +216,10 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
           {/* Request */}
           <div>
             <span className="text-[10px] font-medium text-secondary-light dark:text-secondary-dark uppercase tracking-wide">
-              Step request
+              Step setup
             </span>
             <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-              What the agent was asked to use for this step.
+              Settings or instructions recorded for this step.
             </p>
             <p className="mt-1 rounded-md bg-black/[0.035] px-3 py-2 text-[11px] leading-relaxed text-foreground-light dark:bg-white/[0.04] dark:text-foreground-dark">
               {requestSummary}
@@ -231,8 +231,8 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
               className="mt-1 text-[10px] font-medium text-apple-blue hover:underline"
             >
               {showRequestDetails
-                ? 'Hide support details for request'
-                : 'Show support details for request'}
+                ? 'Hide support details for setup'
+                : 'Show support details for setup'}
             </button>
             {showRequestDetails && (
               <pre
@@ -255,7 +255,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
                 Step result
               </span>
               <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-                What this step returned.
+                What happened when this step finished.
               </p>
               <p className="mt-1 rounded-md bg-black/[0.035] px-3 py-2 text-[11px] leading-relaxed text-foreground-light dark:bg-white/[0.04] dark:text-foreground-dark">
                 {outputSummary}
@@ -290,7 +290,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
                       onClick={() => setShowFullOutput(true)}
                       className="text-[10px] text-apple-blue hover:underline mt-1"
                     >
-                      Show full support result ({outputLines.length} lines)
+                      Show full recorded result ({outputLines.length} lines)
                     </button>
                   )}
                 </>

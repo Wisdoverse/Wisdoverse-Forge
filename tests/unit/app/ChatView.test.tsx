@@ -80,7 +80,7 @@ afterEach(() => {
 })
 
 describe('ChatView', () => {
-  test('shows text-only model banner when agent has no cliTool', async () => {
+  test('shows chat-only agent banner when agent has no cliTool', async () => {
     const loadMessages = vi.fn().mockResolvedValue(undefined)
     useAgentsStore.setState({ agents: [providerAgent] })
     seedChatState({ messages: [message('Hello from provider')], loadMessages })
@@ -91,10 +91,12 @@ describe('ChatView', () => {
     expect(banner).toBeInTheDocument()
     expect(within(banner).getByText(/messages use anthropic/i)).toBeInTheDocument()
     expect(
-      within(banner).getByText(/do not open workspace files or a command window/i)
+      within(banner).getByText(/can answer in chat.*does not work on workspace files/i)
     ).toBeInTheDocument()
     expect(banner).not.toHaveTextContent(/terminal/i)
     expect(banner).not.toHaveTextContent(/provider/i)
+    expect(banner).not.toHaveTextContent(/model service/i)
+    expect(banner).not.toHaveTextContent(/command window/i)
     expect(screen.getByText('Hello from provider')).toBeInTheDocument()
     await waitFor(() => expect(loadMessages).toHaveBeenCalledWith(providerAgent.id))
   })
@@ -129,9 +131,9 @@ describe('ChatView', () => {
     render(<ChatView agentId={cliAgent.id} />)
 
     expect(screen.getByTestId('conversation-empty-state')).toBeInTheDocument()
-    expect(screen.getByText('No agent updates yet')).toBeInTheDocument()
+    expect(screen.getByText('No updates from this agent yet')).toBeInTheDocument()
     expect(
-      screen.getByText('Open Tasks and route work to this agent or its lane.')
+      screen.getByText('Open Tasks and assign work to this agent or its lane.')
     ).toBeInTheDocument()
   })
 
@@ -232,6 +234,9 @@ describe('ChatView', () => {
     ).toBeInTheDocument()
     expect(
       within(screen.getByTestId('conversation-metric-agent')).getByText('2')
+    ).toBeInTheDocument()
+    expect(
+      within(screen.getByTestId('conversation-metric-tools')).getByText('Work steps')
     ).toBeInTheDocument()
     expect(
       within(screen.getByTestId('conversation-metric-tools')).getByText('2')
