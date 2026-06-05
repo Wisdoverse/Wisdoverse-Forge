@@ -4,13 +4,52 @@ import { cn } from '@app/shared/lib/utils'
 import type { ToolCall } from '@app/shared/model/chat.store'
 
 const MAX_OUTPUT_LINES = 12
+const HIDDEN_ACCESS_VALUE = 'Hidden for safety. Reconnect the required account access, then retry.'
+const MISSING_ACCESS_MESSAGE =
+  'Required account access is missing. Add or reconnect service access, then retry.'
 
 function formatJson(data: Record<string, unknown>): string {
   try {
-    return JSON.stringify(data, null, 2)
+    return JSON.stringify(safeToolValue(data), null, 2)
   } catch {
     return String(data)
   }
+}
+
+function safeToolValue(value: unknown, key = ''): unknown {
+  if (isSensitiveKey(key)) return HIDDEN_ACCESS_VALUE
+
+  if (typeof value === 'string') {
+    return safeToolString(value)
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => safeToolValue(item))
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([entryKey, entryValue]) => [
+        entryKey,
+        safeToolValue(entryValue, entryKey),
+      ])
+    )
+  }
+
+  return value
+}
+
+function isSensitiveKey(key: string): boolean {
+  return /\b(token|secret|password|api[_-]?key|credential|credentials)\b/i.test(key)
+}
+
+function safeToolString(value: string): string {
+  if (
+    /\b(missing|invalid|expired)\s+(token|credential|credentials|api\s*key|secret)\b/i.test(value)
+  ) {
+    return MISSING_ACCESS_MESSAGE
+  }
+  return value
 }
 
 function formatDuration(duration: number): string {

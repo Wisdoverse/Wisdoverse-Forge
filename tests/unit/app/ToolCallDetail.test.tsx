@@ -51,7 +51,7 @@ describe('ToolCallDetail', () => {
         call={{
           ...baseCall,
           tool: 'deploy',
-          input: { target: 'preview' },
+          input: { target: 'preview', token: 'secret-token-value' },
           output: { error: 'Missing token' },
           success: false,
           duration: 400,
@@ -69,7 +69,10 @@ describe('ToolCallDetail', () => {
     expect(
       screen.getByText('Review this result before relying on the final answer.')
     ).toBeInTheDocument()
-    expect(screen.getByText(/Missing token/)).toBeInTheDocument()
+    expect(screen.getByText(/Required account access is missing/i)).toBeInTheDocument()
+    expect(screen.getByText(/Hidden for safety/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Missing token/i)).toBeNull()
+    expect(screen.queryByText(/secret-token-value/i)).toBeNull()
   })
 
   test('explains when a tool step has not returned a result yet', () => {
