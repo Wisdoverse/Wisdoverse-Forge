@@ -110,7 +110,9 @@ describe('AgentGroupsPanel', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('Auth handoff blocked')).toBeInTheDocument()
     expect(screen.getByText('Waiting to start')).toBeInTheDocument()
+    expect(screen.getByText('Needs review')).toBeInTheDocument()
     expect(screen.queryByText('Queued')).not.toBeInTheDocument()
+    expect(screen.queryByText('Failed')).not.toBeInTheDocument()
     expect(
       screen.getByText(/needs agent .* choose an agent before sending it/i)
     ).toBeInTheDocument()

@@ -98,6 +98,7 @@ describe('ProvidersSection', () => {
     ).toBeDefined()
     expect(screen.getByText('Anthropic Review')).toBeDefined()
     expect(screen.getByText('Local Lab')).toBeDefined()
+    expect(screen.queryByText('Failed')).toBeNull()
 
     fireEvent.click(within(nextStep).getByRole('button', { name: /show services needing check/i }))
 
@@ -249,7 +250,7 @@ describe('ProvidersSection', () => {
 
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Anthropic Review connection check failed. Confirm the saved service access key is active and allowed to use the selected model, then save and check again.'
+        'Anthropic Review connection check needs attention. Confirm the saved service access key is active and allowed to use the selected model, then save and check again.'
       )
     )
     expect(screen.queryByText(/HTTP 403/i)).toBeNull()

@@ -276,7 +276,6 @@ function providerConnectionState(provider: LlmProviderConfig): ProviderFilter {
 function providerStatusLabel(provider: LlmProviderConfig): string {
   if (!provider.isEnabled) return 'Disabled'
   if (provider.lastTestStatus === 'passed') return 'Ready'
-  if (provider.lastTestStatus === 'failed') return 'Failed'
   return 'Needs check'
 }
 

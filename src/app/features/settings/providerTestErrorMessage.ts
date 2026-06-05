@@ -50,7 +50,7 @@ function isNetworkError(error: unknown): boolean {
 }
 
 export function providerTestErrorMessage(error: unknown, providerName = 'Model service'): string {
-  const base = `${providerName} connection check failed.`
+  const base = `${providerName} connection check needs attention.`
   const text = errorText(error).toLowerCase()
   const code = statusCode(error)
 
@@ -73,11 +73,11 @@ export function providerTestErrorMessage(error: unknown, providerName = 'Model s
     return `${base} This model service is receiving too many checks right now. Wait a minute, then check again.`
   }
   if (code != null && code >= 500) {
-    return `${base} Forge could not check this model service right now. Try again in a few minutes. If it still fails, ask an owner or admin to check model service settings.`
+    return `${base} Forge could not check this model service right now. Try again in a few minutes. If it still needs attention, ask an owner or admin to check model service settings.`
   }
   if (isNetworkError(error)) {
     return `${base} Forge could not connect to this model service. Check the service address and your connection, then check again.`
   }
 
-  return `${base} Review the model service settings, then check again. If it still fails, ask an owner or admin to check model service settings.`
+  return `${base} Review the model service settings, then check again. If it still needs attention, ask an owner or admin to check model service settings.`
 }

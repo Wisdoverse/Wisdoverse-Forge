@@ -87,6 +87,11 @@ describe('InboxView', () => {
     expect(screen.getByText('Review recovery')).toBeDefined()
     expect(screen.queryByText('Failed task')).toBeNull()
     expect(screen.queryByText('View failure')).toBeNull()
+    expect(screen.getByTestId('inbox-next-step')).toHaveTextContent(
+      'Review the recovery note before retrying'
+    )
+    expect(screen.getByRole('button', { name: /^review recovery$/i })).toBeDefined()
+    expect(screen.queryByText('Open Failed Task')).toBeNull()
     expect(screen.getByText('Deploy production')).toBeDefined()
     expect(
       screen.getByText(

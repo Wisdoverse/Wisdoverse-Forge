@@ -342,7 +342,7 @@ function nextStepTitle(notification: Notification): string {
     case 'blocked':
       return 'Review the blocker that is stopping work'
     case 'failed':
-      return 'Review the failed task before retrying'
+      return 'Review the recovery note before retrying'
     case 'completed':
       return 'Review the latest completed result when you have time'
     case 'assigned':
@@ -368,7 +368,7 @@ function nextStepDescription(
   if (notification.type === 'blocked' || notification.type === 'failed') {
     return needsActionCount === 1
       ? 'This is the only item that needs action. Open it and decide the next owner step.'
-      : `${needsActionCount} items need action. Start with the newest blocker or failure first.`
+      : `${needsActionCount} items need action. Start with the newest blocker or recovery item first.`
   }
 
   return 'There are no urgent blockers. Open this update only if you need to review the latest work.'
@@ -381,7 +381,7 @@ function nextStepActionLabel(notification: Notification): string {
     case 'blocked':
       return 'Open Blocked Task'
     case 'failed':
-      return 'Open Failed Task'
+      return 'Review Recovery'
     case 'completed':
       return 'Open Result'
     case 'assigned':
