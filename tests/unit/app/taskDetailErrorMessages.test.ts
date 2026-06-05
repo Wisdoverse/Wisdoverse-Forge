@@ -25,7 +25,7 @@ describe('taskDetailErrorMessage', () => {
   test('explains network failures without exposing only a transport error', () => {
     const message = taskDetailErrorMessage('loadRuns', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('Run attempts could not load')
+    expect(message).toContain('Agent work history could not load')
     expect(message).toContain('The app could not reach the service')
     expect(message).not.toContain('API')
     expect(message).not.toContain('Failed to fetch')

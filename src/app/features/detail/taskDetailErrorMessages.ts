@@ -13,7 +13,7 @@ const ACTION_FALLBACKS: Record<TaskDetailErrorAction, string> = {
   loadAgents: 'Available agents could not load. Refresh this task before assigning it.',
   loadContext: 'Task context could not load. Refresh the detail panel, then try again.',
   loadRuns:
-    'Run attempts could not load. Refresh Updates before deciding whether to retry this task.',
+    'Agent work history could not load. Refresh Updates before deciding whether to retry this task.',
   previewContext: 'The context review could not load. Choose an available agent, then try again.',
   publishTask:
     'The task was not published with selected context. Review the context choices, then try again.',

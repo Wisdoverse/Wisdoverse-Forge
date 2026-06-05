@@ -38,7 +38,7 @@ function makeTask(overrides: Partial<TaskSummary> = {}): TaskSummary {
 }
 
 describe('HistoryTab', () => {
-  test('shows beginner recovery guidance when run attempts fail to load', async () => {
+  test('shows beginner recovery guidance when work history fails to load', async () => {
     getTaskRunsMock.mockRejectedValue(new Error('HTTP 403'))
 
     render(<HistoryTab task={makeTask()} />)
@@ -50,17 +50,18 @@ describe('HistoryTab', () => {
     expect(alert.textContent).not.toContain('HTTP 403')
   })
 
-  test('shows the empty attempt guidance after a successful empty load', async () => {
+  test('shows the empty work history guidance after a successful empty load', async () => {
     getTaskRunsMock.mockResolvedValue([])
 
     render(<HistoryTab task={makeTask()} />)
 
     expect(
-      await screen.findByText(/Attempts appear after an agent starts work/i)
+      await screen.findByText(/Work history appears after an agent starts/i)
     ).toBeInTheDocument()
+    expect(screen.queryByText(/Run attempts/i)).toBeNull()
   })
 
-  test('labels run attempts by agent tool without worker jargon', async () => {
+  test('labels work history by agent tool without worker jargon', async () => {
     getTaskRunsMock.mockResolvedValue([
       {
         id: 'run-12345678',
@@ -75,7 +76,10 @@ describe('HistoryTab', () => {
 
     render(<HistoryTab task={makeTask()} />)
 
-    expect(await screen.findByText(/Ran with codex/i)).toBeInTheDocument()
+    expect(await screen.findByText('Agent work history')).toBeInTheDocument()
+    expect(screen.getByText(/Used codex/i)).toBeInTheDocument()
+    expect(screen.getByText(/Support reference run-1234/i)).toBeInTheDocument()
+    expect(screen.queryByText(/^Ref run-1234$/i)).toBeNull()
     expect(screen.queryByText(/Work method|configured worker|unknown worker|runtime/i)).toBeNull()
   })
 

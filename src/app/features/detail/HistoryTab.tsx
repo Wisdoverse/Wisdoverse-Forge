@@ -95,11 +95,11 @@ export function HistoryTab({ task }: HistoryTabProps) {
         <section className="space-y-2">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] font-medium uppercase text-secondary-light dark:text-secondary-dark">
-              Run attempts
+              Agent work history
             </p>
             {loading && (
               <span className="text-[10px] text-secondary-light dark:text-secondary-dark">
-                Loading attempts
+                Loading work history
               </span>
             )}
           </div>
@@ -113,8 +113,8 @@ export function HistoryTab({ task }: HistoryTabProps) {
           )}
           {!loading && !error && runs.length === 0 && (
             <div className="rounded-lg border border-dashed border-black/[0.1] px-3 py-2 text-xs text-secondary-light dark:border-white/[0.12] dark:text-secondary-dark">
-              Attempts appear after an agent starts work. If this stays empty, check that an agent
-              is assigned and the task was started.
+              Work history appears after an agent starts. If this stays empty, check that an agent
+              is assigned and the task has been started.
             </div>
           )}
           {runs.map((run) => (
@@ -196,20 +196,21 @@ function CheckInMetric({ label, value }: { label: string; value: string }) {
 function TaskRunRow({ run }: { run: TaskRunSummary }) {
   const runSource = runSourceLabel(run)
   const finished = run.finishedAt ? formatRelativeTime(run.finishedAt) : 'Still running'
+  const supportReference = run.id.slice(0, 8)
 
   return (
     <div className="rounded-lg bg-apple-gray-6/70 px-3 py-2 dark:bg-white/[0.035]">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-xs font-medium text-foreground-light dark:text-foreground-dark">
-            Attempt {readableRunStatus(run.status)}
+            Work attempt: {readableRunStatus(run.status)}
           </p>
           <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-            Started {formatRelativeTime(run.startedAt)} · {finished} · Ran with {runSource}
+            Started {formatRelativeTime(run.startedAt)} · {finished} · Used {runSource}
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-black/[0.05] px-2 py-0.5 text-[10px] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-          Ref {run.id.slice(0, 8)}
+          Support reference {supportReference}
         </span>
       </div>
     </div>
