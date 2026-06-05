@@ -48,7 +48,7 @@ function formatLastActivity(epochMs: number): string {
 }
 
 function agentStatusLabel(status: string): string {
-  switch (status.toLowerCase()) {
+  switch (status.trim().toLowerCase()) {
     case 'idle':
       return 'Ready'
     case 'working':
@@ -56,7 +56,7 @@ function agentStatusLabel(status: string): string {
     case 'offline':
       return 'Offline'
     default:
-      return status || 'Unknown'
+      return status.trim() ? 'Needs review' : 'Status not reported'
   }
 }
 

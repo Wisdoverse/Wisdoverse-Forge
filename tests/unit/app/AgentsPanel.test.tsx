@@ -44,6 +44,28 @@ const agents: AdminAgent[] = [
     projectName: 'Research',
     lastActivity: 1_700_000_200_000,
   },
+  {
+    id: 'agent-4',
+    name: 'Review Needed Agent',
+    status: 'paused',
+    runtimeKind: 'container',
+    cliTool: 'codex',
+    ownerUsername: null,
+    ownerEmail: 'dana@example.com',
+    projectName: 'Ops',
+    lastActivity: 1_700_000_300_000,
+  },
+  {
+    id: 'agent-5',
+    name: 'Missing Status Agent',
+    status: ' ',
+    runtimeKind: 'api',
+    cliTool: null,
+    ownerUsername: null,
+    ownerEmail: null,
+    projectName: null,
+    lastActivity: 0,
+  },
 ]
 
 beforeEach(() => {
@@ -95,18 +117,22 @@ describe('AgentsPanel', () => {
   test('shows a runtime-kind badge for each agent row', async () => {
     render(<AgentsPanel />)
 
-    expect(await screen.findByTestId('agent-kind-badge-container')).toBeDefined()
-    expect(screen.getByTestId('agent-kind-badge-cli')).toBeDefined()
-    expect(screen.getByTestId('agent-kind-badge-api')).toBeDefined()
+    expect(await screen.findAllByTestId('agent-kind-badge-container')).toHaveLength(2)
+    expect(screen.getAllByTestId('agent-kind-badge-cli')).toHaveLength(1)
+    expect(screen.getAllByTestId('agent-kind-badge-api')).toHaveLength(2)
 
-    expect(screen.getByText('Managed')).toBeDefined()
+    expect(screen.getAllByText('Managed')).toHaveLength(2)
     expect(screen.getAllByText('This computer').length).toBeGreaterThan(0)
-    expect(screen.getByText('Chat-only')).toBeDefined()
+    expect(screen.getAllByText('Chat-only')).toHaveLength(2)
     expect(screen.queryByText(/Text-only model/i)).toBeNull()
     expect(screen.getByText('Ready')).toBeDefined()
     expect(screen.queryByText('idle')).toBeNull()
+    expect(screen.getByText('Needs review')).toBeDefined()
+    expect(screen.getByText('Status not reported')).toBeDefined()
+    expect(screen.queryByText('paused')).toBeNull()
+    expect(screen.queryByText('Unknown')).toBeNull()
 
-    expect(screen.getAllByTestId('admin-agent-row')).toHaveLength(3)
+    expect(screen.getAllByTestId('admin-agent-row')).toHaveLength(5)
   })
 
   test('selecting a work type triggers the filtered fetch', async () => {
