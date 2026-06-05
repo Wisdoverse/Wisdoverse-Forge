@@ -178,7 +178,24 @@ function displayNotificationMessage(notification: Notification): string {
       .replace(/\bcredentials?\b/gi, 'account access')
       .replace(/\bexpired\b/gi, 'needs reconnecting')
   }
+  if (notification.type === 'failed') {
+    return failedNotificationMessage(notification.message)
+  }
   return notification.message
+}
+
+function failedNotificationMessage(message: string): string {
+  const raw = message.toLowerCase()
+  const exposesRawFailure =
+    raw.includes('failed to complete this task') ||
+    /\bexit\s+\d+\b/.test(raw) ||
+    /\b(?:http|api)\s+\d{3}\b/.test(raw) ||
+    raw.includes('unauthorized') ||
+    raw.includes('non-zero')
+
+  if (!exposesRawFailure) return message
+
+  return 'The task stopped before finishing. Open it, review the recovery note, then retry or reassign when ready.'
 }
 
 function displayNotificationTitle(notification: Notification): string {

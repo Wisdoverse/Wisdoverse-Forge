@@ -86,6 +86,13 @@ describe('InboxView', () => {
     expect(screen.getByText('Failed task')).toBeDefined()
     expect(screen.getByText('View failure')).toBeDefined()
     expect(screen.getByText('Deploy production')).toBeDefined()
+    expect(
+      screen.getByText(
+        'The task stopped before finishing. Open it, review the recovery note, then retry or reassign when ready.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByText(/failed to complete this task/i)).toBeNull()
+    expect(screen.queryByText(/exit 1/i)).toBeNull()
   })
 
   test('summarizes the safest next action for beginner triage', () => {

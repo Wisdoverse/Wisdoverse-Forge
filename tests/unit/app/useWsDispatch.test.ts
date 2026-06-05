@@ -311,11 +311,13 @@ describe('dispatchWsMessage', () => {
       taskHref: '/tasks',
       read: false,
     })
-    expect(notifications[0].message).toContain('failed')
     expect(notifications[0].message).toContain(
       'Stopped because sign-in or service access needs attention.'
     )
-    expect(notifications[0].message).toContain('failed to complete this task')
+    expect(notifications[0].message).toContain(
+      'stopped before finishing. Open the task, review the recovery note, then retry or reassign when ready.'
+    )
+    expect(notifications[0].message).not.toContain('failed to complete this task')
     expect(notifications[0].message).not.toContain('401 Unauthorized')
   })
 
