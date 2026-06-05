@@ -209,7 +209,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                   tone="blue"
                   icon={RotateCcw}
                   title="Restart this agent?"
-                  detail="Use restart only when the terminal or task updates are stuck. Active work may stop and need to be sent again."
+                  detail="Use restart only when the console or task updates are stuck. Active work may stop and need to be sent again."
                   confirmLabel="Restart Now"
                   cancelLabel="Keep Running"
                   onConfirm={handleRestart}
@@ -219,7 +219,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                 <ActionCard
                   icon={RotateCcw}
                   title="Recover a stuck agent"
-                  detail="Restart only after checking Tasks or Terminal and seeing no new progress."
+                  detail="Restart only after checking Tasks or Console and seeing no new progress."
                 >
                   <button
                     type="button"
@@ -285,7 +285,7 @@ function getControlSummary(
   if (canStartContainer) {
     return {
       title: 'Agent workspace needs to start',
-      detail: 'Start this agent workspace before sending file work or opening a terminal.',
+      detail: 'Start this agent workspace before sending file work or opening the console.',
       Icon: Play,
     }
   }

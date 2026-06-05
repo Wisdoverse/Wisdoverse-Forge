@@ -101,6 +101,8 @@ describe('AgentControlPanel', () => {
 
     expect(screen.getByText('Agent workspace needs to start')).toBeDefined()
     expect(screen.getByText(/has no running workspace yet/i)).toBeDefined()
+    expect(screen.getByText(/opening the console/i)).toBeDefined()
+    expect(screen.queryByText(/opening a terminal/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /start agent/i }))
 
@@ -114,7 +116,9 @@ describe('AgentControlPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /restart agent/i }))
     expect(screen.getByText('Restart this agent?')).toBeDefined()
+    expect(screen.getByText(/console or task updates are stuck/i)).toBeDefined()
     expect(screen.getByText(/active work may stop/i)).toBeDefined()
+    expect(screen.queryByText(/terminal or task updates/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /keep running/i }))
     expect(restartAgentMock).not.toHaveBeenCalled()
