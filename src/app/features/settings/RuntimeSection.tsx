@@ -241,7 +241,7 @@ export function RuntimeSection() {
         <div className="mt-4 grid gap-3 md:grid-cols-4">
           <RuntimeReadinessMetric
             label="Working location"
-            value={runtimeSettings ? runtimeLabel(runtimeSettings.defaultRuntime) : 'Unknown'}
+            value={runtimeSettings ? runtimeLabel(runtimeSettings.defaultRuntime) : 'Not set yet'}
             ready={Boolean(
               runtimeSettings?.availableRuntimes.includes(runtimeSettings.defaultRuntime)
             )}

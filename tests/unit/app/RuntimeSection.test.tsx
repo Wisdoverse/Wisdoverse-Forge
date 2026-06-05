@@ -196,6 +196,20 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText(/agent check-ins/i)).toBeNull()
   })
 
+  test('labels missing work setup clearly instead of Unknown', async () => {
+    useSettingsStore.setState({
+      runtimeSettings: null,
+      runtimeLoading: false,
+      runtimeError: null,
+    })
+
+    render(<RuntimeSection />)
+
+    expect(await screen.findByText('Agent Work Setup has not loaded yet.')).toBeDefined()
+    expect(screen.getByText('Not set yet')).toBeDefined()
+    expect(screen.queryByText('Unknown')).toBeNull()
+  })
+
   test('shows beginner guidance when local tool sign-in status cannot load', async () => {
     agentApiMock.getCliAuthProxyStatus.mockRejectedValueOnce(new TypeError('Failed to fetch'))
 
