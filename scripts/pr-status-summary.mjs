@@ -11,6 +11,7 @@ import {
 
 const CACHE_VERSION = 1
 const DEFAULT_CACHE_TTL_SECONDS = 900
+const DEFAULT_REFRESH_COOLDOWN_SECONDS = 60
 
 const GH_FIELDS = [
   'autoMergeRequest',
@@ -51,11 +52,13 @@ function parseArgs(args) {
     cacheFile: '',
     cacheTtlSeconds: DEFAULT_CACHE_TTL_SECONDS,
     failOnAction: false,
+    forceRefresh: false,
     inputPath: '',
     json: false,
     limit: 120,
     noCache: false,
     refresh: false,
+    refreshCooldownSeconds: DEFAULT_REFRESH_COOLDOWN_SECONDS,
     showWait: false,
     state: 'open',
   }
@@ -70,6 +73,9 @@ function parseArgs(args) {
       options.failOnAction = true
     } else if (arg === '--refresh') {
       options.refresh = true
+    } else if (arg === '--force-refresh') {
+      options.refresh = true
+      options.forceRefresh = true
     } else if (arg === '--no-cache') {
       options.noCache = true
     } else if (arg === '--limit') {
@@ -79,6 +85,12 @@ function parseArgs(args) {
       options.cacheTtlSeconds = parseNonNegativeInt(
         readValue(args, index, arg),
         options.cacheTtlSeconds
+      )
+      index += 1
+    } else if (arg === '--refresh-cooldown-seconds') {
+      options.refreshCooldownSeconds = parseNonNegativeInt(
+        readValue(args, index, arg),
+        options.refreshCooldownSeconds
       )
       index += 1
     } else if (arg === '--cache-file') {
@@ -111,7 +123,7 @@ function readPullRequestSnapshot(options, now = Date.now()) {
   }
 
   const cachePath = resolveCachePath(options.cacheFile)
-  if (!options.noCache && !options.refresh) {
+  if (!options.noCache) {
     const cached = readFreshCache(cachePath, options, now)
     if (cached) return cached
   }
@@ -154,12 +166,13 @@ function readFreshCache(cachePath, options, now) {
 
   try {
     const cache = JSON.parse(readFileSync(cachePath, 'utf8'))
-    if (!isUsableCacheEntry(cache, options, now)) return null
+    if (!isReusableCacheEntry(cache, options, now)) return null
     return {
       pullRequests: cache.pullRequests,
       source: cachePath,
       cacheHit: true,
       cacheAgeSeconds: Math.max(0, Math.floor((now - cache.fetchedAt) / 1000)),
+      refreshSuppressed: options.refresh === true && options.forceRefresh !== true,
     }
   } catch {
     return null
@@ -239,10 +252,25 @@ function resolveCachePath(cacheFile) {
 }
 
 function isUsableCacheEntry(cache, options, now = Date.now()) {
-  if (!cache || cache.version !== CACHE_VERSION || !Array.isArray(cache.pullRequests)) return false
-  if (!cache.fetchedAt || !Number.isFinite(cache.fetchedAt)) return false
+  if (!isMatchingCacheEntry(cache, options)) return false
   if (options.cacheTtlSeconds <= 0) return false
   if (now - cache.fetchedAt > options.cacheTtlSeconds * 1000) return false
+  return true
+}
+
+function isReusableCacheEntry(cache, options, now = Date.now()) {
+  if (!isMatchingCacheEntry(cache, options)) return false
+  if (options.refresh) {
+    if (options.forceRefresh) return false
+    if (options.refreshCooldownSeconds <= 0) return false
+    return now - cache.fetchedAt <= options.refreshCooldownSeconds * 1000
+  }
+  return isUsableCacheEntry(cache, options, now)
+}
+
+function isMatchingCacheEntry(cache, options) {
+  if (!cache || cache.version !== CACHE_VERSION || !Array.isArray(cache.pullRequests)) return false
+  if (!cache.fetchedAt || !Number.isFinite(cache.fetchedAt)) return false
   return JSON.stringify(cache.query) === JSON.stringify(cacheQuery(options))
 }
 
@@ -255,6 +283,11 @@ function cacheQuery(options) {
 }
 
 function formatCacheNotice(snapshot, options) {
+  if (snapshot.refreshSuppressed) {
+    return `[pr-summary] refresh skipped because GitHub was checked ${formatAge(
+      snapshot.cacheAgeSeconds
+    )}; pass --force-refresh only when a new remote read is required`
+  }
   return `[pr-summary] using cached GitHub snapshot from ${formatAge(
     snapshot.cacheAgeSeconds
   )}; pass --refresh to query GitHub now or --cache-ttl-seconds ${options.cacheTtlSeconds} to change reuse time`
@@ -277,10 +310,13 @@ Summarize GitHub PRs into low-token ACTION / WAIT / DONE buckets.
 Options:
   --limit <n>         Number of PRs to read from GitHub. Default: 120
   --state <state>    open, closed, or all. Default: open
-  --refresh          Ignore the local cache and query GitHub now
+  --refresh          Query GitHub unless the latest snapshot is inside the refresh cooldown
+  --force-refresh    Bypass the refresh cooldown and query GitHub now
   --no-cache         Query GitHub and do not read or write the local cache
   --cache-ttl-seconds <n>
                      Reuse a local GitHub snapshot for this many seconds. Default: 900
+  --refresh-cooldown-seconds <n>
+                     Reuse a very recent snapshot even when --refresh is passed. Default: 60
   --cache-file <path>
                      Use a custom cache file. Default: Git temp path
   --show-wait        Print each WAIT item instead of only the wait count
@@ -304,7 +340,9 @@ export {
   CACHE_VERSION,
   cacheQuery,
   classifyPullRequest,
+  DEFAULT_REFRESH_COOLDOWN_SECONDS,
   isUsableCacheEntry,
+  isReusableCacheEntry,
   parseArgs,
   readPullRequestSnapshot,
 }

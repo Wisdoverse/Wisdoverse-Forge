@@ -7,6 +7,8 @@ import {
 import {
   CACHE_VERSION,
   cacheQuery,
+  DEFAULT_REFRESH_COOLDOWN_SECONDS,
+  isReusableCacheEntry,
   isUsableCacheEntry,
   parseArgs,
 } from '../../../scripts/pr-status-summary.mjs'
@@ -99,12 +101,19 @@ describe('PR status summary', () => {
   it('defaults to a short-lived cache and supports explicit refresh', () => {
     expect(parseArgs([])).toMatchObject({
       cacheTtlSeconds: 900,
+      forceRefresh: false,
       noCache: false,
       refresh: false,
+      refreshCooldownSeconds: DEFAULT_REFRESH_COOLDOWN_SECONDS,
     })
 
     expect(parseArgs(['--refresh', '--cache-ttl-seconds', '300'])).toMatchObject({
       cacheTtlSeconds: 300,
+      refresh: true,
+    })
+
+    expect(parseArgs(['--force-refresh'])).toMatchObject({
+      forceRefresh: true,
       refresh: true,
     })
   })
@@ -124,5 +133,20 @@ describe('PR status summary', () => {
     expect(
       isUsableCacheEntry({ ...entry, query: { ...cacheQuery(options), limit: 6 } }, options, now)
     ).toBe(false)
+  })
+
+  it('reuses very recent cache entries when refresh is requested repeatedly', () => {
+    const now = Date.parse('2026-06-05T12:00:00Z')
+    const options = parseArgs(['--refresh'])
+    const entry = {
+      version: CACHE_VERSION,
+      fetchedAt: now - 30_000,
+      query: cacheQuery(options),
+      pullRequests: [pr()],
+    }
+
+    expect(isReusableCacheEntry(entry, options, now)).toBe(true)
+    expect(isReusableCacheEntry({ ...entry, fetchedAt: now - 61_000 }, options, now)).toBe(false)
+    expect(isReusableCacheEntry(entry, parseArgs(['--force-refresh']), now)).toBe(false)
   })
 })

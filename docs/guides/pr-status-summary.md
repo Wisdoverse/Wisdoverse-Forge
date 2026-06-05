@@ -41,6 +41,16 @@ point-in-time answer:
 npm run pr:summary:refresh
 ```
 
+`refresh` still has a short safety cooldown. If someone runs the command again
+right away, it reuses the latest snapshot instead of calling GitHub again.
+
+Use a forced refresh only when you know the remote state changed and the command
+must ignore that cooldown:
+
+```bash
+npm run pr:summary:force-refresh
+```
+
 Use a shorter or longer reuse window when an operator has a reason to change
 the default:
 
@@ -48,9 +58,10 @@ the default:
 npm run pr:summary -- --cache-ttl-seconds 300
 ```
 
-Avoid putting `npm run pr:summary:refresh` in a tight loop. For monitoring,
-schedule it at a fixed interval such as 10 or 15 minutes and alert only when
-the `ACTION` count is greater than zero.
+Do not put `npm run pr:summary:refresh` or `npm run pr:summary:force-refresh`
+in a tight loop. This command is a snapshot tool, not a chat-based live watch.
+For monitoring, schedule it at a fixed interval such as 10 or 15 minutes and
+alert only when the `ACTION` count is greater than zero.
 
 ## What The Buckets Mean
 
@@ -87,6 +98,8 @@ npm run pr:summary:refresh -- --fail-on-action
 
 The command prints one compact summary, exits cleanly for `WAIT` and `DONE`
 states, and only fails when a person or agent has something specific to fix.
+Running the monitor again too soon uses the cached snapshot, which prevents
+accidental repeated polling from wasting operator time or agent context.
 
 ## Offline Review
 
