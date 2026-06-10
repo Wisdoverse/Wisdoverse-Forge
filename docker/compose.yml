@@ -126,6 +126,10 @@ services:
       - MINIO_USE_SSL=${MINIO_USE_SSL:-false}
       - MINIO_REGION=${MINIO_REGION:-}
       - APP_URL=${APP_URL:-}
+      # One-command local agent join (docs/guides/configuration.md →
+      # "Local Agent Join Variables"). Plaintext NATS stays opt-in.
+      - ALLOW_PLAINTEXT_HOST_NATS=${ALLOW_PLAINTEXT_HOST_NATS:-false}
+      - HOST_JOIN_BINARY_BASE_URL=${HOST_JOIN_BINARY_BASE_URL:-}
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-}
       - SMTP_USER=${SMTP_USER:-}
