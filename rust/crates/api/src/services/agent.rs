@@ -6,8 +6,8 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::agent::{
-    AgentAggregate, AgentCliToolSelection, AgentCollaboratorPermission, AgentCommandSubject, AgentLifecycle,
-    AgentListPage, AgentName, AgentOwnerPolicy, AgentPermissionProjection, AgentStatusTransition,
+    AgentAggregate, AgentCliToolSelection, AgentCollaboratorPermission, AgentCommandSubject, AgentCreateRuntimePolicy,
+    AgentLifecycle, AgentListPage, AgentName, AgentOwnerPolicy, AgentPermissionProjection, AgentStatusTransition,
     agent_permission_projection,
 };
 pub(crate) use crate::domain::agent::{
@@ -87,12 +87,13 @@ impl AgentService {
         AgentName::validate(params.name)?;
         let mut params = params;
         params.cli_tool = AgentCliToolSelection::normalize(params.cli_tool)?;
+        let runtime_kind = AgentCreateRuntimePolicy::for_create(params.cli_tool);
         if self.workspace_resolver.is_none() {
-            return self.repo.create(scope, params).await;
+            return self.repo.create(scope, params, runtime_kind).await;
         }
         let resolved_cwd = self.resolve_container_workspace(scope, &mut params).await?;
         params.cwd = resolved_cwd.as_deref();
-        self.repo.create(scope, params).await
+        self.repo.create(scope, params, runtime_kind).await
     }
 
     async fn resolve_container_workspace(

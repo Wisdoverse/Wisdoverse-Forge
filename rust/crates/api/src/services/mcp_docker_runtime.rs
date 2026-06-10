@@ -699,6 +699,7 @@ mod tests {
             name: "Prompt worker".to_string(),
             status: AgentStatus::Idle,
             container_id: Some("ctr-test".to_string()),
+            cli_tool: Some("codex".to_string()),
             model: Some("agentforge-agent-codex:latest".to_string()),
             provider: Some("openai".to_string()),
             updated_at: Some(now),
