@@ -7,6 +7,57 @@ This runbook is written for operators who may not be professional engineers.
 Follow the steps in order. Advanced runtime details are intentionally kept after
 the basic path.
 
+## One-command join (recommended)
+
+The fastest path needs no pre-installed tooling beyond `curl` (macOS/Linux) or
+PowerShell (Windows).
+
+1. In the web app, open **Agents → New Agent**, pick **Local CLI**, name the
+   agent, and click **Create Agent**.
+2. Copy the join command the dialog shows for your operating system. It looks
+   like:
+
+   ```bash
+   curl -fsSL https://forge.example.com/api/v1/agents/local-join/script | sh -s -- --code afj_<pairing-code>
+   ```
+
+   or on Windows PowerShell:
+
+   ```powershell
+   $env:AGENTFORGE_JOIN_CODE = 'afj_<pairing-code>'; irm https://forge.example.com/api/v1/agents/local-join/script.ps1 | iex
+   ```
+
+3. Paste it into a terminal on the machine where the agent should work and
+   press Enter.
+
+The script downloads the right `agentforge-sidecar` release binary if one is
+not installed, exchanges the pairing code for this agent's credentials, saves
+them to `~/.agentforge/agents/<agent-id>.env` (permissions `600`), and starts
+the sidecar in the foreground.
+
+**Success looks like:** the terminal prints `Agent connected.` and the agent
+shows **Online** in the Agent Fleet list.
+
+**If the code is rejected:** pairing codes expire after 15 minutes. Create the
+agent again (or re-submit the same form — it is idempotent) to get a fresh
+command. The command also fails if the deployment blocks plaintext NATS; ask
+your platform operator to configure a `tls://` NATS address (or
+`ALLOW_PLAINTEXT_HOST_NATS=true` in isolated dev environments).
+
+**Air-gapped deployments:** the script downloads binaries from this project's
+GitHub releases by default. Operators can point it at an internal mirror with
+`HOST_JOIN_BINARY_BASE_URL` (see
+[Configuration](../guides/configuration.md)).
+
+To reconnect later without a new code, re-run the saved environment:
+
+```bash
+sh -c 'set -a; . ~/.agentforge/agents/<agent-id>.env; set +a; exec agentforge-sidecar'
+```
+
+Everything below is the manual path — useful when you want to verify binaries
+first or cannot pipe scripts from the network.
+
 ## Requirements
 
 - The remote API must be reachable by the operator.

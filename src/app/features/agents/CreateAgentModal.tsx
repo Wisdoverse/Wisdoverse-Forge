@@ -196,6 +196,8 @@ export function CreateAgentModal() {
   const [creatingGroup, setCreatingGroup] = useState(false)
   const [localEnrollment, setLocalEnrollment] = useState<LocalAgentEnrollmentResponse | null>(null)
   const [copiedCommand, setCopiedCommand] = useState(false)
+  const [joinOs, setJoinOs] = useState<'posix' | 'windows'>('posix')
+  const [copiedJoin, setCopiedJoin] = useState(false)
   const verifiedProvider = useMemo(
     () =>
       providers.find((provider) => provider.isEnabled && provider.lastTestStatus === 'passed') ??
@@ -240,6 +242,8 @@ export function CreateAgentModal() {
     setSelectedTemplateId(null)
     setLocalEnrollment(null)
     setCopiedCommand(false)
+    setCopiedJoin(false)
+    setJoinOs('posix')
     setError(null)
   }, [createModalOpen, defaultValues, reset, setError])
 
@@ -338,6 +342,7 @@ export function CreateAgentModal() {
     setError(null)
     setLocalEnrollment(null)
     setCopiedCommand(false)
+    setCopiedJoin(false)
   }
 
   async function handleCopyCommand() {
@@ -351,9 +356,20 @@ export function CreateAgentModal() {
     }
   }
 
+  async function handleCopyJoinCommand(command: string) {
+    if (!navigator.clipboard?.writeText) return
+    try {
+      await navigator.clipboard.writeText(command)
+      setCopiedJoin(true)
+    } catch {
+      setCopiedJoin(false)
+    }
+  }
+
   function handleCreateAnother() {
     setLocalEnrollment(null)
     setCopiedCommand(false)
+    setCopiedJoin(false)
     setSelectedTemplateId(null)
     reset(defaultValues)
   }
@@ -415,26 +431,111 @@ export function CreateAgentModal() {
                 </span>
               </div>
               <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Copy this command and run it on the machine where the CLI is installed. The agent
-                will appear online after the sidecar starts.
+                {localEnrollment.enrollment?.joinCommand
+                  ? 'Paste one command into a terminal on the machine where the agent should work. It downloads what is missing and connects this agent.'
+                  : 'Copy this command and run it on the machine where the CLI is installed. The agent will appear online after the sidecar starts.'}
               </p>
             </div>
 
-            <div>
-              <label
-                htmlFor="local-agent-command"
-                className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
-              >
-                Join command
-              </label>
-              <textarea
-                id="local-agent-command"
-                readOnly
-                value={localEnrollment.enrollment?.shellExports ?? ''}
-                rows={8}
-                className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-              />
-            </div>
+            {localEnrollment.enrollment?.joinCommand ? (
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                    Join command
+                  </span>
+                  <div role="group" aria-label="Local machine platform" className="flex gap-1">
+                    {(
+                      [
+                        { value: 'posix', label: 'macOS / Linux' },
+                        { value: 'windows', label: 'Windows' },
+                      ] as const
+                    ).map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={joinOs === option.value}
+                        onClick={() => {
+                          setJoinOs(option.value)
+                          setCopiedJoin(false)
+                        }}
+                        className={cn(
+                          'rounded-full px-3 py-1 text-ui-caption font-medium transition-colors',
+                          joinOs === option.value
+                            ? 'bg-apple-blue text-white'
+                            : 'border border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark'
+                        )}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <textarea
+                  id="local-agent-join-command"
+                  aria-label="One-command join"
+                  readOnly
+                  value={
+                    (joinOs === 'posix'
+                      ? localEnrollment.enrollment.joinCommand
+                      : localEnrollment.enrollment.joinCommandPowershell) ?? ''
+                  }
+                  rows={3}
+                  className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                />
+                <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  The pairing code inside expires in 15 minutes. If it expires, create the agent
+                  again to get a fresh command. Success looks like: this agent shows Online in the
+                  Agent Fleet.
+                </p>
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                    Manual setup (advanced)
+                  </summary>
+                  <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                    Already have <code>agentforge-sidecar</code> installed? Export this environment
+                    and start the sidecar yourself.
+                  </p>
+                  <textarea
+                    id="local-agent-command"
+                    aria-label="Manual setup environment"
+                    readOnly
+                    value={localEnrollment.enrollment?.shellExports ?? ''}
+                    rows={6}
+                    className="mt-2 w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                  />
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => void handleCopyCommand()}
+                      className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] px-3 py-1.5 text-ui-caption font-medium text-foreground-light dark:border-white/[0.1] dark:text-foreground-dark"
+                    >
+                      {copiedCommand ? (
+                        <Check size={13} strokeWidth={2.25} aria-hidden="true" />
+                      ) : (
+                        <Copy size={13} strokeWidth={2.25} aria-hidden="true" />
+                      )}
+                      {copiedCommand ? 'Copied' : 'Copy manual setup'}
+                    </button>
+                  </div>
+                </details>
+              </div>
+            ) : (
+              <div>
+                <label
+                  htmlFor="local-agent-command"
+                  className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
+                >
+                  Join command
+                </label>
+                <textarea
+                  id="local-agent-command"
+                  readOnly
+                  value={localEnrollment.enrollment?.shellExports ?? ''}
+                  rows={8}
+                  className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                />
+              </div>
+            )}
 
             <div className="flex flex-wrap justify-end gap-2">
               <button
@@ -444,18 +545,39 @@ export function CreateAgentModal() {
               >
                 Create another
               </button>
-              <button
-                type="button"
-                onClick={() => void handleCopyCommand()}
-                className="inline-flex items-center gap-2 rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
-              >
-                {copiedCommand ? (
-                  <Check size={14} strokeWidth={2.25} aria-hidden="true" />
-                ) : (
-                  <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
-                )}
-                {copiedCommand ? 'Copied' : 'Copy command'}
-              </button>
+              {localEnrollment.enrollment?.joinCommand ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const command =
+                      joinOs === 'posix'
+                        ? localEnrollment.enrollment?.joinCommand
+                        : localEnrollment.enrollment?.joinCommandPowershell
+                    if (command) void handleCopyJoinCommand(command)
+                  }}
+                  className="inline-flex items-center gap-2 rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
+                >
+                  {copiedJoin ? (
+                    <Check size={14} strokeWidth={2.25} aria-hidden="true" />
+                  ) : (
+                    <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
+                  )}
+                  {copiedJoin ? 'Copied' : 'Copy join command'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void handleCopyCommand()}
+                  className="inline-flex items-center gap-2 rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
+                >
+                  {copiedCommand ? (
+                    <Check size={14} strokeWidth={2.25} aria-hidden="true" />
+                  ) : (
+                    <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
+                  )}
+                  {copiedCommand ? 'Copied' : 'Copy command'}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleClose}
