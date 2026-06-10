@@ -4,6 +4,7 @@
 //! repositories and HTTP route DTOs.
 
 use agentforge_core::{AgentStatus, AppError, AppResult, ErrorKind, RuntimeKind};
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -96,8 +97,90 @@ impl AdminAgentListProjection {
     }
 }
 
+/// Admin-console user projection consumed by the React admin "User access"
+/// table. `role` is derived from `users.is_admin` (`"admin" | "member"`);
+/// `status` is always `"active"` because the list query filters soft-deleted
+/// rows — the field stays so the response contract is explicit.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AdminUserProjection {
+    pub(crate) id: Uuid,
+    pub(crate) email: String,
+    pub(crate) display_name: String,
+    pub(crate) role: String,
+    pub(crate) status: String,
+    pub(crate) created_at: DateTime<Utc>,
+    pub(crate) last_login_at: Option<DateTime<Utc>>,
+}
+
+impl From<agentforge_db::entities::User> for AdminUserProjection {
+    fn from(user: agentforge_db::entities::User) -> Self {
+        let display_name = match user.display_name.as_deref().map(str::trim) {
+            Some(name) if !name.is_empty() => name.to_string(),
+            // Fall back to the local part of the email so the admin table
+            // never renders a blank "Person" cell.
+            _ => user.email.split('@').next().unwrap_or(user.email.as_str()).to_string(),
+        };
+        Self {
+            id: user.id.as_uuid(),
+            display_name,
+            role: if user.is_admin { "admin".to_string() } else { "member".to_string() },
+            status: "active".to_string(),
+            created_at: user.created_at,
+            last_login_at: user.last_login_at,
+            email: user.email,
+        }
+    }
+}
+
+/// Paginated admin-console user list projection.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AdminUserListProjection {
+    pub(crate) users: Vec<AdminUserProjection>,
+    pub(crate) total: i64,
+    pub(crate) page: i64,
+    pub(crate) limit: i64,
+    pub(crate) total_pages: i64,
+}
+
+impl AdminUserListProjection {
+    pub(crate) fn new(users: Vec<AdminUserProjection>, total: i64, page: i64, limit: i64) -> Self {
+        let total_pages = if limit > 0 { (total + limit - 1) / limit } else { 0 };
+        Self { users, total, page, limit, total_pages }
+    }
+}
+
+/// Admin-console organization projection. There is intentionally NO `plan`
+/// field: the organizations table has no plan column, so the contract must
+/// not pretend one exists.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AdminOrgProjection {
+    pub(crate) id: Uuid,
+    pub(crate) name: String,
+    pub(crate) slug: String,
+    pub(crate) created_at: DateTime<Utc>,
+    pub(crate) members_count: i64,
+    pub(crate) teams_count: i64,
+}
+
 pub(crate) fn admin_data_response<T: Serialize>(data: T) -> Value {
     json!({ "ok": true, "data": data })
+}
+
+pub(crate) fn admin_user_list_response(projection: AdminUserListProjection) -> Value {
+    json!({
+        "ok": true,
+        "users": projection.users,
+        "total": projection.total,
+        "page": projection.page,
+        "limit": projection.limit,
+        "totalPages": projection.total_pages,
+    })
+}
+
+pub(crate) fn admin_org_list_response(organizations: Vec<AdminOrgProjection>, total: i64) -> Value {
+    json!({ "ok": true, "organizations": organizations, "total": total })
 }
 
 pub(crate) fn admin_delete_response() -> Value {
@@ -573,6 +656,127 @@ mod tests {
         assert_eq!(value["tokens"]["current"], 1234);
         assert_eq!(value["tokens"]["cumulative"], 56789);
         assert_eq!(value["eventsCount"], 42);
+    }
+
+    /// Build a DB user entity for projection tests.
+    fn db_user(email: &str, display_name: Option<&str>, is_admin: bool) -> agentforge_db::entities::User {
+        use chrono::TimeZone;
+        agentforge_db::entities::User {
+            id: Uuid::nil().into(),
+            email: email.to_string(),
+            password_hash: None,
+            display_name: display_name.map(str::to_string),
+            is_admin,
+            last_login_at: Some(Utc.timestamp_millis_opt(1_700_000_200_000).unwrap()),
+            created_at: Utc.timestamp_millis_opt(1_700_000_000_000).unwrap(),
+            updated_at: Utc.timestamp_millis_opt(1_700_000_100_000).unwrap(),
+            deleted_at: None,
+        }
+    }
+
+    #[test]
+    fn admin_user_projection_serializes_camel_case_contract() {
+        let value =
+            serde_json::to_value(AdminUserProjection::from(db_user("alice@example.com", Some("Alice"), true))).unwrap();
+
+        assert_eq!(value["id"], json!(Uuid::nil()));
+        assert_eq!(value["email"], "alice@example.com");
+        assert_eq!(value["displayName"], "Alice");
+        assert_eq!(value["role"], "admin");
+        assert_eq!(value["status"], "active");
+        assert!(value["createdAt"].as_str().expect("createdAt RFC3339 string").starts_with("2023-11-14T"));
+        assert!(value["lastLoginAt"].as_str().expect("lastLoginAt RFC3339 string").starts_with("2023-11-14T"));
+        // snake_case keys must not leak.
+        assert!(value.get("display_name").is_none());
+        assert!(value.get("created_at").is_none());
+        assert!(value.get("last_login_at").is_none());
+    }
+
+    #[test]
+    fn admin_user_projection_falls_back_to_email_local_part() {
+        for missing in [None, Some(""), Some("   ")] {
+            let projection = AdminUserProjection::from(db_user("bob@example.com", missing, false));
+            assert_eq!(projection.display_name, "bob", "display_name {missing:?} must fall back to email local part");
+        }
+        let kept = AdminUserProjection::from(db_user("bob@example.com", Some("Bob B."), false));
+        assert_eq!(kept.display_name, "Bob B.");
+    }
+
+    #[test]
+    fn admin_user_projection_derives_role_from_is_admin() {
+        assert_eq!(AdminUserProjection::from(db_user("a@example.com", None, true)).role, "admin");
+        assert_eq!(AdminUserProjection::from(db_user("b@example.com", None, false)).role, "member");
+    }
+
+    #[test]
+    fn admin_user_list_projection_computes_total_pages() {
+        let page = AdminUserListProjection::new(vec![], 51, 2, 25);
+        assert_eq!(page.total_pages, 3);
+        assert_eq!(AdminUserListProjection::new(vec![], 50, 1, 25).total_pages, 2);
+        assert_eq!(AdminUserListProjection::new(vec![], 0, 1, 25).total_pages, 0);
+        assert_eq!(AdminUserListProjection::new(vec![], 10, 1, 0).total_pages, 0);
+    }
+
+    #[test]
+    fn admin_user_list_response_uses_camel_case_keys() {
+        let response = admin_user_list_response(AdminUserListProjection::new(
+            vec![AdminUserProjection::from(db_user("alice@example.com", Some("Alice"), true))],
+            26,
+            2,
+            25,
+        ));
+
+        assert_eq!(response["ok"], true);
+        assert_eq!(response["total"], 26);
+        assert_eq!(response["page"], 2);
+        assert_eq!(response["limit"], 25);
+        assert_eq!(response["totalPages"], 2);
+        assert_eq!(response["users"][0]["displayName"], "Alice");
+        assert_eq!(response["users"][0]["role"], "admin");
+    }
+
+    #[test]
+    fn admin_org_projection_serializes_camel_case_contract() {
+        use chrono::TimeZone;
+        let value = serde_json::to_value(AdminOrgProjection {
+            id: Uuid::nil(),
+            name: "Acme".into(),
+            slug: "acme".into(),
+            created_at: Utc.timestamp_millis_opt(1_700_000_000_000).unwrap(),
+            members_count: 6,
+            teams_count: 2,
+        })
+        .unwrap();
+
+        assert_eq!(value["name"], "Acme");
+        assert_eq!(value["slug"], "acme");
+        assert_eq!(value["membersCount"], 6);
+        assert_eq!(value["teamsCount"], 2);
+        assert!(value["createdAt"].as_str().expect("createdAt RFC3339 string").starts_with("2023-11-14T"));
+        // The organizations table has no plan column — the contract must not invent one.
+        assert!(value.get("plan").is_none());
+        assert!(value.get("members_count").is_none());
+    }
+
+    #[test]
+    fn admin_org_list_response_wraps_organizations_and_total() {
+        use chrono::TimeZone;
+        let response = admin_org_list_response(
+            vec![AdminOrgProjection {
+                id: Uuid::nil(),
+                name: "Acme".into(),
+                slug: "acme".into(),
+                created_at: Utc.timestamp_millis_opt(1_700_000_000_000).unwrap(),
+                members_count: 1,
+                teams_count: 0,
+            }],
+            7,
+        );
+
+        assert_eq!(response["ok"], true);
+        assert_eq!(response["total"], 7);
+        assert_eq!(response["organizations"][0]["slug"], "acme");
+        assert_eq!(response["organizations"][0]["teamsCount"], 0);
     }
 
     #[test]

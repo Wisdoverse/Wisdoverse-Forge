@@ -49,20 +49,12 @@ const SERVICE_DEFINITIONS: readonly ServiceDefinition[] = [
     action: 'Check the messaging service, then confirm new events appear after refresh.',
   },
   {
-    key: 'platform',
-    name: 'Agent Runner',
-    supportName: 'Container platform',
-    description: 'Starts and manages agent work sessions.',
-    impact: 'Starting new agent work may fail until the runner is healthy again.',
-    action: 'Check the runner service and container host before sending new work.',
-  },
-  {
-    key: 'bullmq',
-    name: 'Background Jobs',
-    supportName: 'Job worker',
-    description: 'Runs delayed and background work outside the main page request.',
-    impact: 'Queued work may wait longer before it starts.',
-    action: 'Check workers and retry the job after the queue is healthy.',
+    key: 'docker',
+    name: 'Agent Containers',
+    supportName: 'Docker runtime',
+    description: 'Starts and manages the containers that agents work inside.',
+    impact: 'Starting new container agents may fail; agents already running may stop reporting.',
+    action: 'Check that Docker is running on the host before starting new agent work.',
   },
 ]
 

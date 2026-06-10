@@ -16,25 +16,6 @@ function formatDate(iso: string): string {
   }
 }
 
-const PLAN_DETAILS: Record<string, { label: string; description: string }> = {
-  free: {
-    label: 'Free',
-    description: 'Limited capacity; useful for evaluation and small teams.',
-  },
-  pro: {
-    label: 'Pro',
-    description: 'Production-grade limits and support for growing teams.',
-  },
-  enterprise: {
-    label: 'Enterprise',
-    description: 'Custom limits and dedicated support for large deployments.',
-  },
-}
-
-function planDescription(plan: string): string {
-  return PLAN_DETAILS[plan]?.description ?? 'Plan details are not available yet.'
-}
-
 function organizationReadiness(org: AdminOrg): {
   label: string
   tone: string
@@ -61,32 +42,10 @@ function organizationReadiness(org: AdminOrg): {
   }
 }
 
-function PlanBadge({ plan }: { plan: string }) {
-  const details = PLAN_DETAILS[plan] ?? {
-    label: plan || 'Unknown',
-    description: 'Plan details are not available yet.',
-  }
-  const colors: Record<string, string> = {
-    free: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
-    pro: 'bg-apple-blue/10 text-apple-blue',
-    enterprise: 'bg-apple-blue/[0.07] text-apple-blue',
-  }
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-ui-caption font-medium',
-        colors[plan] ?? colors.free
-      )}
-    >
-      {details.label}
-    </span>
-  )
-}
-
 const ORG_GUIDANCE: { title: string; description: string; Icon: LucideIcon }[] = [
   {
-    title: 'Plan shows limits',
-    description: 'Use it to spot which organizations may need billing or capacity review.',
+    title: 'Readiness shows setup gaps',
+    description: 'Use it to spot organizations that still need their first members or team.',
     Icon: Building2,
   },
   {
@@ -183,7 +142,7 @@ export function OrganizationsPanel() {
         <div>
           <h2 className={uiStyles.sectionTitle}>Organizations</h2>
           <p className={uiStyles.sectionDescription}>
-            Check whether each organization has people, teams, and a plan that matches its use.
+            Check whether each organization has the people and teams it needs to start work.
           </p>
         </div>
       </div>
@@ -215,7 +174,6 @@ export function OrganizationsPanel() {
             <thead className={uiStyles.tableHead}>
               <tr>
                 <th className={uiStyles.tableHeaderCell}>Name</th>
-                <th className={uiStyles.tableHeaderCell}>Plan</th>
                 <th className={uiStyles.tableHeaderCell}>Members</th>
                 <th className={uiStyles.tableHeaderCell}>Teams</th>
                 <th className={uiStyles.tableHeaderCell}>Readiness</th>
@@ -238,14 +196,6 @@ export function OrganizationsPanel() {
                         </p>
                         <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
                           Organization URL name: {org.slug}
-                        </p>
-                      </div>
-                    </td>
-                    <td className={uiStyles.tableCell}>
-                      <div className="grid gap-1">
-                        <PlanBadge plan={org.plan} />
-                        <p className="max-w-[220px] text-ui-caption text-secondary-light dark:text-secondary-dark">
-                          {planDescription(org.plan)}
                         </p>
                       </div>
                     </td>

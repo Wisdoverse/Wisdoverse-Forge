@@ -12,7 +12,6 @@ const organizations: AdminOrg[] = [
     id: 'org-1',
     name: 'Acme Labs',
     slug: 'acme',
-    plan: 'enterprise',
     membersCount: 6,
     teamsCount: 2,
     createdAt: '2026-05-01T10:00:00.000Z',
@@ -21,7 +20,6 @@ const organizations: AdminOrg[] = [
     id: 'org-2',
     name: 'Beta Team',
     slug: 'beta',
-    plan: 'free',
     membersCount: 2,
     teamsCount: 1,
     createdAt: '2026-05-02T10:00:00.000Z',
@@ -60,12 +58,16 @@ describe('OrganizationsPanel', () => {
     expect(
       within(guide).getByText('8 members and 3 teams are spread across 2 organizations.')
     ).toBeDefined()
-    expect(within(guide).getByText('Plan shows limits')).toBeDefined()
+    expect(within(guide).getByText('Readiness shows setup gaps')).toBeDefined()
     expect(within(guide).getByText('Members show access size')).toBeDefined()
     expect(within(guide).getByText('Teams show routing shape')).toBeDefined()
 
     expect(screen.getByText('Acme Labs')).toBeDefined()
-    expect(screen.getByText('Enterprise')).toBeDefined()
+    // The backend has no plan data — the panel must not pretend it does.
+    expect(screen.queryByText('Plan')).toBeNull()
+    expect(screen.queryByText('Enterprise')).toBeNull()
+    expect(screen.getByText('6')).toBeDefined()
+    expect(screen.getAllByText('2').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Review access when membership or teams change.').length).toBe(2)
     expect(loadOrgsMock).toHaveBeenCalled()
   })

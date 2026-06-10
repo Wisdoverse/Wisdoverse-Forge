@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use agentforge_core::{AppResult, TenantScope};
-use agentforge_db::entities::{ImpersonationLog, Organization, User};
+use agentforge_db::entities::ImpersonationLog;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -11,13 +11,15 @@ pub use crate::domain::admin::BulkDeleteResult;
 use crate::domain::admin::{
     AdminAgentDetailProjection, AdminAgentEventProjection, AdminAgentFilterPolicy, AdminAgentFilterQuery,
     AdminAgentListProjection, AdminAgentProjection, AdminAgentTokens, AdminBulkDeletePolicy, AdminImpersonationPolicy,
-    AdminListPage, AdminRolePolicy,
+    AdminListPage, AdminOrgProjection, AdminRolePolicy, AdminUserListProjection, AdminUserProjection,
 };
 pub(crate) use crate::domain::admin::{
     admin_agent_detail_response, admin_agent_list_response, admin_bulk_delete_response, admin_data_response,
-    admin_delete_response,
+    admin_delete_response, admin_org_list_response, admin_user_list_response,
 };
-use crate::repositories::admin::{AdminAgentEventRow, AdminAgentFilters, AdminAgentRow, AdminRepository, AdminStats};
+use crate::repositories::admin::{
+    AdminAgentEventRow, AdminAgentFilters, AdminAgentRow, AdminOrgRow, AdminRepository, AdminStats,
+};
 use crate::services::auth_callout::AuthCalloutService;
 
 /// Service input for the admin agent list endpoint. This is intentionally
@@ -65,6 +67,19 @@ impl From<AdminAgentEventRow> for AdminAgentEventProjection {
     }
 }
 
+impl From<AdminOrgRow> for AdminOrgProjection {
+    fn from(row: AdminOrgRow) -> Self {
+        Self {
+            id: row.id,
+            name: row.name,
+            slug: row.slug,
+            created_at: row.created_at,
+            members_count: row.members_count,
+            teams_count: row.teams_count,
+        }
+    }
+}
+
 /// Business logic layer for admin operations.
 pub struct AdminService {
     repo: AdminRepository,
@@ -85,16 +100,30 @@ impl AdminService {
         self
     }
 
-    /// List all users (admin only). Limit capped at 100.
-    pub async fn list_all_users(&self, limit: i64, offset: i64) -> AppResult<Vec<User>> {
-        let page = AdminListPage::new(limit, offset);
-        self.repo.list_all_users(page.limit(), page.offset()).await
+    /// List users as the admin-console paginated projection (admin only).
+    /// `page` is 1-based with a floor of 1; the limit is clamped to 1..=100 by
+    /// [`AdminListPage`].
+    pub(crate) async fn list_user_page(
+        &self,
+        page: i64,
+        limit: i64,
+        search: Option<&str>,
+    ) -> AppResult<AdminUserListProjection> {
+        let page = page.max(1);
+        let list_page = AdminListPage::new(limit, (page - 1).saturating_mul(limit));
+        let users = self.repo.list_all_users(list_page.limit(), list_page.offset(), search).await?;
+        let total = self.repo.count_users(search).await?;
+        let users = users.into_iter().map(AdminUserProjection::from).collect();
+        Ok(AdminUserListProjection::new(users, total, page, list_page.limit()))
     }
 
-    /// List all organizations (admin only). Limit capped at 100.
-    pub async fn list_all_organizations(&self, limit: i64, offset: i64) -> AppResult<Vec<Organization>> {
+    /// List organizations with member/team counts plus the total org count
+    /// (admin only). Limit capped at 100.
+    pub(crate) async fn list_org_page(&self, limit: i64, offset: i64) -> AppResult<(Vec<AdminOrgProjection>, i64)> {
         let page = AdminListPage::new(limit, offset);
-        self.repo.list_all_organizations(page.limit(), page.offset()).await
+        let orgs = self.repo.list_all_organizations_with_counts(page.limit(), page.offset()).await?;
+        let total = self.repo.count_organizations().await?;
+        Ok((orgs.into_iter().map(AdminOrgProjection::from).collect(), total))
     }
 
     /// Start impersonation of a target user.
@@ -346,6 +375,68 @@ mod tests {
         })
         .expect_err("unknown runtimeKind must surface as an error");
         assert!(matches!(err.kind, ErrorKind::Unprocessable(_)), "expected 422 Unprocessable, got {err:?}");
+    }
+
+    /// Seed `count` users so pagination math has data to work against.
+    async fn seed_users(pool: &PgPool, count: usize) {
+        for index in 0..count {
+            sqlx::query("INSERT INTO users (id, email, display_name) VALUES ($1, $2, $3)")
+                .bind(Uuid::new_v4())
+                .bind(format!("user-{index}@example.com"))
+                .bind(format!("User {index}"))
+                .execute(pool)
+                .await
+                .expect("seed user");
+        }
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn list_user_page_returns_correct_total_pages(pool: PgPool) {
+        let service = AdminService::new(AdminRepository::new(pool.clone()));
+        seed_users(&pool, 5).await;
+
+        let page = service.list_user_page(1, 2, None).await.expect("first page");
+        assert_eq!(page.total, 5);
+        assert_eq!(page.page, 1);
+        assert_eq!(page.limit, 2);
+        assert_eq!(page.total_pages, 3, "5 users at limit 2 span 3 pages");
+        assert_eq!(page.users.len(), 2);
+
+        let last = service.list_user_page(3, 2, None).await.expect("last page");
+        assert_eq!(last.page, 3);
+        assert_eq!(last.users.len(), 1, "last page carries the remainder");
+
+        // Page floor: page 0 behaves like page 1 instead of a negative offset.
+        let floored = service.list_user_page(0, 2, None).await.expect("floored page");
+        assert_eq!(floored.page, 1);
+        assert_eq!(floored.users.len(), 2);
+
+        // Search threads through to the projection and its pagination metadata.
+        let searched = service.list_user_page(1, 2, Some("user-3")).await.expect("searched page");
+        assert_eq!(searched.total, 1);
+        assert_eq!(searched.total_pages, 1);
+        assert_eq!(searched.users[0].email, "user-3@example.com");
+        assert_eq!(searched.users[0].display_name, "User 3");
+        assert_eq!(searched.users[0].role, "member");
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn list_org_page_projects_counts_and_total(pool: PgPool) {
+        let service = AdminService::new(AdminRepository::new(pool.clone()));
+        let org_id = Uuid::new_v4();
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, 'Acme', $2)")
+            .bind(org_id)
+            .bind(format!("org-{org_id}"))
+            .execute(&pool)
+            .await
+            .expect("seed organization");
+
+        let (orgs, total) = service.list_org_page(50, 0).await.expect("org page");
+        assert_eq!(total, 1);
+        assert_eq!(orgs.len(), 1);
+        assert_eq!(orgs[0].name, "Acme");
+        assert_eq!(orgs[0].members_count, 0);
+        assert_eq!(orgs[0].teams_count, 0);
     }
 
     #[test]
