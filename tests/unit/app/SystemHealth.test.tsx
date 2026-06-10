@@ -23,6 +23,7 @@ describe('SystemHealth', () => {
           database: { status: 'up', latencyMs: 12 },
           redis: { status: 'degraded' },
           nats: { status: 'down' },
+          // docker intentionally absent → renders as "Not checked".
         },
       },
       healthLoading: false,
@@ -37,13 +38,42 @@ describe('SystemHealth', () => {
     expect(screen.getByText('Some services need attention')).toBeDefined()
     expect(screen.getByText(/slow screens, delayed updates/i)).toBeDefined()
     expect(screen.getByText('Saved Data')).toBeDefined()
-    expect(screen.getByText('Agent Runner')).toBeDefined()
+    expect(screen.getByText('Live Updates')).toBeDefined()
+    expect(screen.getByText('Agent Containers')).toBeDefined()
+    expect(screen.getByText('Docker runtime')).toBeDefined()
     expect(screen.getByText('12 ms response')).toBeDefined()
     expect(screen.getByText('Ready')).toBeDefined()
     expect(screen.getAllByText('Needs attention').length).toBeGreaterThan(0)
     expect(screen.getByText('Unavailable')).toBeDefined()
     expect(screen.getAllByText('Not checked').length).toBeGreaterThan(0)
     expect(screen.getByText(/API has been running for 2h/i)).toBeDefined()
+    // The retired services from the old health endpoint are gone.
+    expect(screen.queryByText('Agent Runner')).toBeNull()
+    expect(screen.queryByText('Background Jobs')).toBeNull()
+  })
+
+  test('shows every check as ready when the probe reports all dependencies up', () => {
+    useAdminStore.setState({
+      ...originalAdminState,
+      health: {
+        status: 'healthy',
+        checks: {
+          database: { status: 'up' },
+          redis: { status: 'up' },
+          nats: { status: 'up' },
+          docker: { status: 'up' },
+        },
+      },
+      healthLoading: false,
+      healthError: null,
+      loadHealth: vi.fn(),
+    })
+
+    render(<SystemHealth />)
+
+    expect(screen.getByText('All services are ready')).toBeDefined()
+    expect(screen.getAllByText('Ready').length).toBe(4)
+    expect(screen.queryByText('Not checked')).toBeNull()
   })
 
   test('uses clear loading copy while readiness is being checked', () => {

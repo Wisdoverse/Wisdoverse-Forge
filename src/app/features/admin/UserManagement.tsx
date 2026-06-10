@@ -1,40 +1,28 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, type FormEvent } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAdminStore, type AdminUser } from '@app/shared/model/admin.store'
 
-const ROLE_OPTIONS = ['admin', 'operator', 'viewer'] as const
-type Role = (typeof ROLE_OPTIONS)[number]
-
-const ROLE_LABELS: Record<Role, string> = {
-  admin: 'Full access',
-  operator: 'Can run work',
-  viewer: 'View only',
-}
-
-const ROLE_HELP: Record<Role, string> = {
-  admin: 'Can manage users, billing, settings, and work.',
-  operator: 'Can run day-to-day agent and task work.',
-  viewer: 'Can review information without changing it.',
-}
-
+/**
+ * Access levels the backend can report: `role` is derived from
+ * `users.is_admin`, so it is always `admin` or `member`. The chip is
+ * read-only — there is no role-editing endpoint.
+ */
 const ROLE_DETAILS: Record<Role, { label: string; description: string }> = {
   admin: {
     label: 'Admin',
     description: 'Can manage users, settings, and system configuration.',
   },
-  operator: {
-    label: 'Operator',
-    description: 'Can run daily workspace operations without changing admin settings.',
-  },
-  viewer: {
-    label: 'Viewer',
-    description: 'Can read workspace information without making changes.',
+  member: {
+    label: 'Member',
+    description: 'Can run day-to-day work without changing admin settings.',
   },
 }
 
+type Role = 'admin' | 'member'
+
 function normalizeRole(role: string): Role {
-  return ROLE_OPTIONS.includes(role as Role) ? (role as Role) : 'viewer'
+  return role === 'admin' ? 'admin' : 'member'
 }
 
 function formatDate(iso: string | null): string {
@@ -51,11 +39,10 @@ function formatDate(iso: string | null): string {
 }
 
 function RoleBadge({ role }: { role: string }) {
-  const knownRole = ROLE_OPTIONS.includes(role as Role) ? (role as Role) : 'viewer'
-  const colors: Record<string, string> = {
+  const knownRole = normalizeRole(role)
+  const colors: Record<Role, string> = {
     admin: 'bg-apple-blue/10 text-apple-blue',
-    operator: 'bg-apple-blue/[0.07] text-apple-blue',
-    viewer: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
+    member: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
   }
   return (
     <span
@@ -64,7 +51,7 @@ function RoleBadge({ role }: { role: string }) {
         colors[knownRole]
       )}
     >
-      {ROLE_LABELS[knownRole]}
+      {ROLE_DETAILS[knownRole].label}
     </span>
   )
 }
@@ -87,44 +74,7 @@ function StatusBadge({ status }: { status: AdminUser['status'] }) {
 }
 
 function UserRow({ user }: { user: AdminUser }) {
-  const [editing, setEditing] = useState(false)
-  const [selectedRole, setSelectedRole] = useState<Role>(normalizeRole(user.role))
-  const [saving, setSaving] = useState(false)
-  const [roleError, setRoleError] = useState<string | null>(null)
-  const updateUserRole = useAdminStore((s) => s.updateUserRole)
-  const currentRole = normalizeRole(user.role)
-  const selectedRoleDetails = ROLE_DETAILS[selectedRole]
-  const roleChanged = selectedRole !== currentRole
-  const editStatus = saving
-    ? `Saving ${selectedRoleDetails.label} access...`
-    : roleChanged
-      ? `Ready to save ${selectedRoleDetails.label} access.`
-      : 'Choose a different role before saving.'
-
-  useEffect(() => {
-    if (!editing) setSelectedRole(currentRole)
-  }, [currentRole, editing])
-
-  async function handleSave() {
-    if (!roleChanged) {
-      return
-    }
-    setSaving(true)
-    setRoleError(null)
-    const ok = await updateUserRole(user.id, selectedRole)
-    setSaving(false)
-    if (ok) {
-      setEditing(false)
-      return
-    }
-    setRoleError('Role could not be saved. Check your permissions and try again.')
-  }
-
-  function handleCancel() {
-    setSelectedRole(currentRole)
-    setRoleError(null)
-    setEditing(false)
-  }
+  const role = normalizeRole(user.role)
 
   return (
     <tr className="border-b border-black/[0.06] transition-colors hover:bg-black/[0.02] dark:border-white/[0.08] dark:hover:bg-white/[0.02]">
@@ -139,74 +89,10 @@ function UserRow({ user }: { user: AdminUser }) {
         </div>
       </td>
       <td className={uiStyles.tableCell}>
-        {editing ? (
-          <div className="grid min-w-[260px] gap-2">
-            <select
-              aria-label={`Role for ${user.displayName}`}
-              value={selectedRole}
-              onChange={(e) => {
-                setSelectedRole(e.target.value as Role)
-                setRoleError(null)
-              }}
-              className={cn(uiStyles.select, 'h-8 text-ui-caption')}
-            >
-              {ROLE_OPTIONS.map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABELS[r]}
-                </option>
-              ))}
-            </select>
-            <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-              {selectedRoleDetails.description}
-            </p>
-            <p
-              aria-live="polite"
-              className="text-ui-caption text-secondary-light dark:text-secondary-dark"
-            >
-              {editStatus}
-            </p>
-            {roleError && (
-              <p role="alert" className="text-ui-caption text-red-600 dark:text-red-400">
-                {roleError}
-              </p>
-            )}
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => void handleSave()}
-                disabled={saving || !roleChanged}
-                aria-label={`Save role for ${user.displayName}`}
-                className={cn(uiStyles.primaryButton, 'h-8 px-3 text-ui-caption')}
-              >
-                {saving ? 'Saving...' : 'Save Role'}
-              </button>
-              <button
-                type="button"
-                onClick={handleCancel}
-                className={cn(uiStyles.secondaryButton, 'h-8 px-3 text-ui-caption')}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="group flex items-center gap-1.5"
-            title="Change what this user can do"
-          >
-            <RoleBadge role={user.role} />
-            <span className="text-ui-caption text-secondary-light opacity-0 transition-opacity group-hover:opacity-100 dark:text-secondary-dark">
-              change access
-            </span>
-          </button>
-        )}
-        {!editing && (
-          <p className="mt-1 max-w-[220px] text-ui-caption text-secondary-light dark:text-secondary-dark">
-            {ROLE_HELP[ROLE_OPTIONS.includes(user.role as Role) ? (user.role as Role) : 'viewer']}
-          </p>
-        )}
+        <RoleBadge role={user.role} />
+        <p className="mt-1 max-w-[220px] text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {ROLE_DETAILS[role].description}
+        </p>
       </td>
       <td className={uiStyles.tableCell}>
         <StatusBadge status={user.status} />
@@ -222,10 +108,10 @@ function UserRow({ user }: { user: AdminUser }) {
       <td
         className={cn(
           uiStyles.tableCell,
-          'text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark'
+          'text-ui-caption text-secondary-light dark:text-secondary-dark'
         )}
       >
-        {user.sessionsCount === 0 ? 'No active sessions' : `${user.sessionsCount} active`}
+        {formatDate(user.lastLoginAt)}
       </td>
     </tr>
   )
@@ -260,7 +146,7 @@ export function UserManagement() {
         <div>
           <h2 className={uiStyles.sectionTitle}>User access</h2>
           <p className={uiStyles.sectionDescription}>
-            {usersTotal} people can be reviewed here. Change access only when their job changes.
+            {usersTotal} people can be reviewed here. Access levels are read-only in this view.
           </p>
         </div>
       </div>
@@ -307,7 +193,7 @@ export function UserManagement() {
                 <th className={uiStyles.tableHeaderCell}>Access level</th>
                 <th className={uiStyles.tableHeaderCell}>Sign-in status</th>
                 <th className={uiStyles.tableHeaderCell}>Added</th>
-                <th className={uiStyles.tableHeaderCell}>Active sessions</th>
+                <th className={uiStyles.tableHeaderCell}>Last sign-in</th>
               </tr>
             </thead>
             <tbody>
