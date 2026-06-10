@@ -53,6 +53,8 @@ pub fn create_router(state: AppState) -> Router {
         .route("/auth/logout", post(routes::auth::logout))
         .route("/auth/refresh", post(routes::auth::refresh_token))
         .route("/auth/providers", get(routes::auth::providers))
+        // Public local-join bootstrap + pairing-code claim (the code is the credential)
+        .merge(routes::agent_join::agent_join_routes())
         // Protected routes
         .route("/me", get(routes::auth::me))
         .merge(routes::legacy_navigation::legacy_navigation_routes())

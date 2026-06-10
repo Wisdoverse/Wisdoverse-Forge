@@ -342,9 +342,14 @@ export function GettingStartedView() {
               </p>
             </div>
           </div>
-          <div className="mt-5 h-2 overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/[0.08]">
-            <div className="h-full rounded-full bg-apple-blue" style={{ width: `${progress}%` }} />
-          </div>
+          {!setupComplete && (
+            <div className="mt-5 h-2 overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/[0.08]">
+              <div
+                className="h-full rounded-full bg-apple-blue"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          )}
         </div>
 
         <div className="rounded-card border border-black/[0.08] bg-white p-5 dark:border-white/[0.1] dark:bg-[#2a2a2c]">

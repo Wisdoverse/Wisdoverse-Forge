@@ -243,6 +243,56 @@ describe('CreateAgentModal', () => {
     )
   })
 
+  test('shows the one-command join with an OS toggle when the server mints a join code', async () => {
+    const joinCommand =
+      'curl -fsSL https://forge.example.com/api/v1/agents/local-join/script | sh -s -- --code afj_test'
+    const joinCommandPowershell =
+      "$env:AGENTFORGE_JOIN_CODE = 'afj_test'; irm https://forge.example.com/api/v1/agents/local-join/script.ps1 | iex"
+    const enrollLocalAgent = vi.fn().mockResolvedValue({
+      ok: true,
+      agent: {
+        id: 'a-local',
+        name: 'Laptop Worker',
+        status: 'offline',
+        createdAt: Date.now(),
+        lastActivity: Date.now(),
+        cliTool: 'codex',
+        runtimeId: 'host-a-local',
+      },
+      enrollment: {
+        agentId: 'a-local',
+        runtimeId: 'host-a-local',
+        cliTool: 'codex',
+        env: { AGENT_ID: 'a-local' },
+        shellExports: "export AGENT_ID='a-local'\nagentforge-sidecar",
+        sidecarCommand: 'agentforge-sidecar',
+        serverUrl: 'https://forge.example.com',
+        joinCode: 'afj_test',
+        joinCommand,
+        joinCommandPowershell,
+      },
+    })
+    useAgentsStore.setState({ enrollLocalAgent } as never)
+
+    render(<CreateAgentModal />)
+
+    fireEvent.click(screen.getByRole('radio', { name: /local cli/i }))
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
+    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+
+    // One-command join leads; the pasted command tracks the OS toggle.
+    const oneLiner = await screen.findByLabelText(/one-command join/i)
+    expect(oneLiner).toHaveValue(joinCommand)
+    fireEvent.click(screen.getByRole('button', { name: /windows/i }))
+    expect(oneLiner).toHaveValue(joinCommandPowershell)
+
+    // Manual env block stays available behind the advanced section.
+    expect(screen.getByText(/manual setup \(advanced\)/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/manual setup environment/i)).toHaveValue(
+      "export AGENT_ID='a-local'\nagentforge-sidecar"
+    )
+  })
+
   test('defaults to Provider+Prompt when a verified provider exists', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
