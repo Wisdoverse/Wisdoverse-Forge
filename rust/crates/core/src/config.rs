@@ -400,6 +400,13 @@ pub struct AppConfig {
     #[serde(default = "default_false")]
     pub allow_plaintext_host_nats: bool,
 
+    /// Base URL the one-command join script downloads `agentforge-sidecar`
+    /// binaries from when the operator machine does not have one installed.
+    /// Defaults to this repository's GitHub latest-release downloads. Point it
+    /// at an internal mirror for air-gapped deployments
+    /// (`HOST_JOIN_BINARY_BASE_URL=https://mirror.example.com/agentforge`).
+    pub host_join_binary_base_url: Option<String>,
+
     /// Deployment-side CLI agent-image auto-updater rollout gate. When `false`
     /// (default) the backend does not spawn the updater and nothing polls the
     /// registry. When `true` (and a Docker daemon is available) a background
@@ -700,6 +707,7 @@ mod tests {
             smtp_from: None,
             smtp_secure: false,
             allow_plaintext_host_nats: false,
+            host_join_binary_base_url: None,
             cli_image_auto_update_enabled: false,
             cli_image_auto_update_interval_secs: 900,
             cli_image_prune_enabled: false,
@@ -1022,6 +1030,7 @@ mod tests {
             smtp_from: Some("Wisdoverse Forge <noreply@example.com>".to_string()),
             smtp_secure: true,
             allow_plaintext_host_nats: false,
+            host_join_binary_base_url: None,
             cli_image_auto_update_enabled: false,
             cli_image_auto_update_interval_secs: 900,
             cli_image_prune_enabled: false,

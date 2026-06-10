@@ -2,11 +2,13 @@
 //! agent's chat messages and event stream.
 
 pub mod event;
+pub mod join_code;
 pub mod mcp;
 pub mod message;
 pub mod workspace;
 
 pub use event::EventRepository;
+pub(crate) use join_code::AgentJoinCodeRepository;
 pub(crate) use mcp::{McpAgentInsertRecord, McpAgentRepository};
 pub use message::MessageRepository;
 pub use workspace::AgentWorkspaceRepository;

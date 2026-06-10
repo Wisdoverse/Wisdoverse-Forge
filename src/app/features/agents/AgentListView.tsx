@@ -253,6 +253,7 @@ function buildLocalEnrollCommand(
 }
 
 function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: string | null }) {
+  const setCreateModalOpen = useAgentsStore((s) => s.setCreateModalOpen)
   const [platform, setPlatform] = useState<HostCliPlatform>('posix')
   const [copied, setCopied] = useState(false)
   const command = useMemo(
@@ -298,6 +299,20 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
         <span className="shrink-0 rounded-full bg-apple-blue/[0.08] px-2 py-1 text-[10px] font-semibold text-apple-blue">
           Local
         </span>
+      </div>
+
+      <div className="mt-3 rounded-lg border border-apple-blue/20 bg-apple-blue/[0.05] px-3 py-2.5">
+        <p className="text-ui-caption text-foreground-light dark:text-foreground-dark">
+          Fastest path: create a <span className="font-semibold">Local CLI</span> agent and paste
+          its one-command join into a terminal on your computer.
+        </p>
+        <button
+          type="button"
+          onClick={() => setCreateModalOpen(true)}
+          className="mt-2 inline-flex h-8 items-center justify-center rounded-full bg-apple-blue px-3 text-ui-caption font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
+        >
+          New Local CLI agent
+        </button>
       </div>
 
       <div className="mt-4">

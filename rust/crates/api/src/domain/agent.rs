@@ -6,6 +6,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use agentforge_core::{AgentId, AgentStatus, AppError, AppResult, CliToolKind, ErrorKind, RuntimeKind, TenantScope};
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -116,6 +117,19 @@ pub(crate) fn agent_permission_response(projection: AgentPermissionProjection) -
     json!({ "ok": true, "data": projection })
 }
 
+/// JSON body for a successful join-code claim. Flat (no `data` wrapper) so
+/// the PowerShell bootstrap reads `.env` / `.cliTool` directly.
+pub(crate) fn agent_join_claim_response(claimed: ClaimedHostAgentJoin) -> Value {
+    json!({
+        "ok": true,
+        "agentId": claimed.agent_id,
+        "agentName": claimed.agent_name,
+        "cliTool": claimed.cli_tool,
+        "env": claimed.env,
+        "sidecarCommand": claimed.sidecar_command,
+    })
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct HostAgentEnrollment {
@@ -126,6 +140,29 @@ pub(crate) struct HostAgentEnrollment {
     pub(crate) shell_exports: String,
     pub(crate) sidecar_command: String,
     pub(crate) server_url: Option<String>,
+    /// One-command join pairing code (plaintext, never persisted). Present
+    /// whenever a code was minted for this enrollment.
+    pub(crate) join_code: Option<String>,
+    pub(crate) join_code_expires_at: Option<DateTime<Utc>>,
+    /// Copy-paste join command for macOS/Linux. Requires `server_url`.
+    pub(crate) join_command: Option<String>,
+    /// Copy-paste join command for Windows PowerShell. Requires `server_url`.
+    pub(crate) join_command_powershell: Option<String>,
+}
+
+/// What a successful join-code claim hands the bootstrap script. Carries the
+/// same env a fresh enrollment would produce, plus ready-to-eval export-line
+/// renderings so the script needs no JSON tooling.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ClaimedHostAgentJoin {
+    pub(crate) agent_id: Uuid,
+    pub(crate) agent_name: Option<String>,
+    pub(crate) cli_tool: Option<String>,
+    pub(crate) env: BTreeMap<String, String>,
+    pub(crate) shell_export_lines: String,
+    pub(crate) powershell_export_lines: String,
+    pub(crate) sidecar_command: String,
 }
 
 pub(crate) struct HostAgentEnrollmentPolicy;
@@ -184,10 +221,108 @@ impl HostAgentEnrollmentPolicy {
             .collect::<Vec<_>>()
             .join("\n")
     }
+
+    /// Bash `export` lines only (no trailing sidecar command) — the payload
+    /// the join bootstrap script evals and persists as the agent env file.
+    pub(crate) fn shell_export_lines(env: &BTreeMap<String, String>) -> String {
+        env.iter().map(|(key, value)| format!("export {key}={}", shell_quote(value))).collect::<Vec<_>>().join("\n")
+    }
+
+    /// PowerShell `$env:` lines for the Windows join bootstrap.
+    pub(crate) fn powershell_export_lines(env: &BTreeMap<String, String>) -> String {
+        env.iter()
+            .map(|(key, value)| format!("$env:{key} = {}", powershell_quote(value)))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// One-command join for macOS/Linux, modeled on the pairing-code bridge
+    /// commands of comparable products: fetch the bootstrap from the
+    /// operator's own deployment and pass the pairing code as a flag.
+    pub(crate) fn join_command(server_url: &str, code: &str) -> String {
+        let base = server_url.trim_end_matches('/');
+        format!("curl -fsSL {base}/api/v1/agents/local-join/script | sh -s -- --code {code}")
+    }
+
+    /// One-command join for Windows PowerShell. The code travels via an env
+    /// var because `irm | iex` cannot take script arguments.
+    pub(crate) fn join_command_powershell(server_url: &str, code: &str) -> String {
+        let base = server_url.trim_end_matches('/');
+        format!("$env:AGENTFORGE_JOIN_CODE = '{code}'; irm {base}/api/v1/agents/local-join/script.ps1 | iex")
+    }
+
+    /// Opaque rejection for unknown, expired, or non-host-CLI join codes.
+    /// One error shape on purpose: callers are unauthenticated, so the
+    /// response must not reveal whether a code ever existed.
+    pub(crate) fn invalid_join_code_error() -> AppError {
+        ErrorKind::NotFound("join code is invalid or has expired".into()).into()
+    }
 }
 
 fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\"'\"'"))
+}
+
+fn powershell_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "''"))
+}
+
+/// A one-command join pairing code: `afj_` + 43 base64url chars (32 random
+/// bytes). The plaintext lives only in the enrollment response and the
+/// operator's command line; persistence stores [`JoinCode::hash_hex`].
+pub(crate) struct JoinCode(String);
+
+impl JoinCode {
+    pub(crate) const PREFIX: &'static str = "afj_";
+    /// Codes stay claimable this long. Short enough that a leaked command
+    /// line goes stale quickly, long enough to download a sidecar binary on
+    /// a slow connection and retry once.
+    pub(crate) const TTL_SECS: i64 = 15 * 60;
+
+    pub(crate) fn generate() -> Self {
+        use base64::Engine as _;
+        use rand::RngCore as _;
+        let mut bytes = [0u8; 32];
+        rand::rng().fill_bytes(&mut bytes);
+        Self(format!("{}{}", Self::PREFIX, base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)))
+    }
+
+    /// Accepts a presented code for claiming. Shape-validates only — the
+    /// authoritative check is the hash lookup. Invalid shapes get the same
+    /// opaque error as unknown codes.
+    pub(crate) fn parse(raw: &str) -> AppResult<Self> {
+        let trimmed = raw.trim();
+        let valid = trimmed.strip_prefix(Self::PREFIX).is_some_and(|tail| {
+            (32..=64).contains(&tail.len())
+                && tail.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+        });
+        if !valid {
+            return Err(HostAgentEnrollmentPolicy::invalid_join_code_error());
+        }
+        Ok(Self(trimmed.to_string()))
+    }
+
+    pub(crate) fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// Hex SHA-256 of the full code string — the only form that touches the
+    /// database.
+    pub(crate) fn hash_hex(&self) -> String {
+        use sha2::Digest as _;
+        let digest = sha2::Sha256::digest(self.0.as_bytes());
+        digest.iter().map(|b| format!("{b:02x}")).collect()
+    }
+
+    pub(crate) fn expires_at_from(now: DateTime<Utc>) -> DateTime<Utc> {
+        now + chrono::Duration::seconds(Self::TTL_SECS)
+    }
+}
+
+impl std::fmt::Debug for JoinCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("JoinCode").field(&"<redacted>").finish()
+    }
 }
 
 #[derive(Clone)]
@@ -1795,6 +1930,54 @@ mod tests {
 
     fn test_tenant_scope() -> TenantScope {
         crate::test_support::tenant_scope()
+    }
+
+    #[test]
+    fn join_code_generates_prefixed_high_entropy_codes_and_stable_hash() {
+        let code = JoinCode::generate();
+        assert!(code.as_str().starts_with(JoinCode::PREFIX));
+        assert_eq!(code.as_str().len(), JoinCode::PREFIX.len() + 43, "32 bytes base64url, no padding");
+        assert_ne!(code.as_str(), JoinCode::generate().as_str(), "codes are random");
+
+        let parsed = JoinCode::parse(code.as_str()).expect("own code parses");
+        assert_eq!(parsed.hash_hex(), code.hash_hex(), "hash is deterministic");
+        assert_eq!(code.hash_hex().len(), 64, "hex sha-256");
+        assert!(!format!("{code:?}").contains(code.as_str()), "Debug must not leak the code");
+    }
+
+    #[test]
+    fn join_code_parse_rejects_bad_shapes_with_opaque_error() {
+        for bad in ["", "afj_", "afj_short", "nope_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "afj_has space"] {
+            let err = JoinCode::parse(bad).expect_err("bad shape rejected");
+            assert!(matches!(err.kind, ErrorKind::NotFound(_)), "opaque NotFound for {bad:?}");
+        }
+    }
+
+    #[test]
+    fn join_commands_follow_pairing_code_format() {
+        let bash = HostAgentEnrollmentPolicy::join_command("https://forge.example.com/", "afj_abc");
+        assert_eq!(
+            bash,
+            "curl -fsSL https://forge.example.com/api/v1/agents/local-join/script | sh -s -- --code afj_abc"
+        );
+        let ps = HostAgentEnrollmentPolicy::join_command_powershell("https://forge.example.com", "afj_abc");
+        assert_eq!(
+            ps,
+            "$env:AGENTFORGE_JOIN_CODE = 'afj_abc'; irm https://forge.example.com/api/v1/agents/local-join/script.ps1 | iex"
+        );
+    }
+
+    #[test]
+    fn export_line_renderings_quote_for_each_shell() {
+        let env = HostAgentEnrollmentPolicy::env_map(vec![
+            "HMAC_SECRET=value'with-quote".to_string(),
+            "AGENT_ID=agent-1".to_string(),
+        ]);
+        let bash = HostAgentEnrollmentPolicy::shell_export_lines(&env);
+        assert!(bash.contains("export HMAC_SECRET='value'\"'\"'with-quote'"));
+        assert!(!bash.contains(HostAgentEnrollmentPolicy::SIDECAR_COMMAND), "no command suffix");
+        let ps = HostAgentEnrollmentPolicy::powershell_export_lines(&env);
+        assert!(ps.contains("$env:HMAC_SECRET = 'value''with-quote'"));
     }
 
     #[test]
