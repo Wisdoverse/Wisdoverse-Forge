@@ -939,12 +939,11 @@ mod tests {
         .await
         .expect("container-backed MCP insert must satisfy runtime-kind invariants");
 
-        let row: (String, Option<String>) =
-            sqlx::query_as("SELECT runtime_kind, cli_tool FROM agents WHERE id = $1")
-                .bind(agent_id)
-                .fetch_one(&pool)
-                .await
-                .expect("read inserted agent");
+        let row: (String, Option<String>) = sqlx::query_as("SELECT runtime_kind, cli_tool FROM agents WHERE id = $1")
+            .bind(agent_id)
+            .fetch_one(&pool)
+            .await
+            .expect("read inserted agent");
         assert_eq!(row.0, "container");
         assert_eq!(row.1.as_deref(), Some("codex"));
 
