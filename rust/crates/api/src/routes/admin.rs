@@ -1,7 +1,7 @@
 //! Admin endpoints (nested under `/api/v1`).
 //!
-//! - `GET    /api/v1/admin/users`              — list all users (admin only)
-//! - `GET    /api/v1/admin/organizations`      — list all orgs (admin only)
+//! - `GET    /api/v1/admin/users`              — paginated user list (`{ ok, users, total, page, limit, totalPages }`)
+//! - `GET    /api/v1/admin/organizations`      — org list with member/team counts (`{ ok, organizations, total }`)
 //! - `GET    /api/v1/admin/agents`             — list agents across all tenants
 //! - `GET    /api/v1/admin/agents/:id`         — agent detail with recent events
 //! - `DELETE /api/v1/admin/agents/:id`         — hard-delete a single agent
@@ -25,7 +25,8 @@ use agentforge_core::AppResult;
 use crate::health::AppState;
 use crate::services::admin::{
     AdminAgentListInput, AdminService, admin_agent_detail_response, admin_agent_list_response,
-    admin_bulk_delete_response, admin_data_response, admin_delete_response,
+    admin_bulk_delete_response, admin_data_response, admin_delete_response, admin_org_list_response,
+    admin_user_list_response,
 };
 use crate::services::cli_image::cli_image_status_response;
 use crate::services::cli_image_roll::{RollToolPolicy, cli_image_roll_response};
@@ -55,19 +56,37 @@ fn make_service(state: &AppState) -> AdminService {
     state.admin_service()
 }
 
-/// `GET /api/v1/admin/users` — list all users (admin only).
+/// Query parameters for `GET /admin/users`: 1-based `page`, `limit`
+/// (clamped to 1..=100 by the service), and an optional email/display-name
+/// `search` term.
+#[derive(Debug, Deserialize)]
+pub struct AdminUsersQuery {
+    #[serde(default = "default_page")]
+    pub page: i64,
+    #[serde(default = "default_users_limit")]
+    pub limit: i64,
+    #[serde(default)]
+    pub search: Option<String>,
+}
+
+fn default_users_limit() -> i64 {
+    25
+}
+
+/// `GET /api/v1/admin/users` — paginated user list (admin only).
 async fn list_users(
     State(state): State<AppState>,
     auth: AuthUser,
-    Query(query): Query<ListQuery>,
+    Query(query): Query<AdminUsersQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
     AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
-    let users = service.list_all_users(query.limit, query.offset).await?;
-    Ok(Json(admin_data_response(users)))
+    let page = service.list_user_page(query.page, query.limit, query.search.as_deref()).await?;
+    Ok(Json(admin_user_list_response(page)))
 }
 
-/// `GET /api/v1/admin/organizations` — list all organizations (admin only).
+/// `GET /api/v1/admin/organizations` — list all organizations with member and
+/// team counts (admin only).
 async fn list_organizations(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -75,8 +94,8 @@ async fn list_organizations(
 ) -> AppResult<Json<serde_json::Value>> {
     AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
-    let orgs = service.list_all_organizations(query.limit, query.offset).await?;
-    Ok(Json(admin_data_response(orgs)))
+    let (organizations, total) = service.list_org_page(query.limit, query.offset).await?;
+    Ok(Json(admin_org_list_response(organizations, total)))
 }
 
 /// `POST /api/v1/admin/impersonate` — start impersonation.
@@ -296,6 +315,22 @@ mod tests {
         let query: ListQuery = serde_json::from_str(r#"{"limit": 50, "offset": 10}"#).unwrap();
         assert_eq!(query.limit, 50);
         assert_eq!(query.offset, 10);
+    }
+
+    #[test]
+    fn admin_users_query_defaults() {
+        let query: AdminUsersQuery = serde_json::from_str("{}").unwrap();
+        assert_eq!(query.page, 1);
+        assert_eq!(query.limit, 25);
+        assert!(query.search.is_none());
+    }
+
+    #[test]
+    fn admin_users_query_custom_values() {
+        let query: AdminUsersQuery = serde_json::from_str(r#"{"page": 3, "limit": 50, "search": "alice"}"#).unwrap();
+        assert_eq!(query.page, 3);
+        assert_eq!(query.limit, 50);
+        assert_eq!(query.search.as_deref(), Some("alice"));
     }
 
     #[test]

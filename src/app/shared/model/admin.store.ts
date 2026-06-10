@@ -32,22 +32,25 @@ export interface AdminAgent {
   lastActivity: number
 }
 
+/** One user row as returned by `GET /api/v1/admin/users`. */
 export interface AdminUser {
   id: string
   email: string
   displayName: string
+  /** `'admin' | 'member'` — derived from `users.is_admin` on the backend. */
   role: string
   status: 'active' | 'inactive'
+  /** RFC3339 timestamp string. */
   createdAt: string | null
+  /** RFC3339 timestamp string, or null when the user never signed in. */
   lastLoginAt: string | null
-  sessionsCount: number
 }
 
+/** One organization row as returned by `GET /api/v1/admin/organizations`. */
 export interface AdminOrg {
   id: string
   name: string
   slug: string
-  plan: string
   membersCount: number
   teamsCount: number
   createdAt: string
@@ -62,11 +65,10 @@ export interface ComponentHealth {
 export interface SystemHealth {
   status: 'healthy' | 'degraded' | 'unhealthy'
   checks: {
-    database?: ComponentHealth & { pool?: { total: number; idle: number; waiting: number } }
-    redis?: ComponentHealth & { mode?: string; circuitState?: string }
+    database?: ComponentHealth
+    redis?: ComponentHealth
     nats?: ComponentHealth
-    platform?: ComponentHealth & { version?: string; uptime?: number }
-    bullmq?: ComponentHealth
+    docker?: ComponentHealth
   }
   uptime?: number
   version?: string
@@ -187,8 +189,6 @@ interface AdminState {
   setUserSearch: (search: string) => void
 
   loadUsers: (page?: number) => Promise<void>
-  updateUserRole: (id: string, role: string) => Promise<boolean>
-  deleteUser: (id: string) => Promise<boolean>
 
   loadOrgs: () => Promise<void>
 
@@ -371,37 +371,23 @@ export const useAdminStore = create<AdminState>((set, get) => ({
           adminHttpErrorMessage('users', res.status, await readAdminErrorPayload(res))
         )
       }
-      const data = (await res.json()) as { users: AdminUser[]; total: number; page: number }
-      set({ users: data.users, usersTotal: data.total, usersPage: data.page, usersLoading: false })
+      // Parse `{ users, total, page, totalPages }` defensively: a missing
+      // `users` array (e.g. a legacy `{ ok, data }` body) must render an empty
+      // table, never crash the page.
+      const data = (await res.json().catch(() => ({}))) as {
+        users?: AdminUser[]
+        total?: number
+        page?: number
+        totalPages?: number
+      } | null
+      set({
+        users: data?.users ?? [],
+        usersTotal: data?.total ?? 0,
+        usersPage: data?.page ?? 1,
+        usersLoading: false,
+      })
     } catch (err) {
       set({ usersLoading: false, usersError: adminErrorMessage(err, 'users') })
-    }
-  },
-
-  updateUserRole: async (id, role) => {
-    try {
-      const res = await adminFetch(`/api/v1/admin/users/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ role }),
-      })
-      if (!res.ok) return false
-      set((state) => ({
-        users: state.users.map((u) => (u.id === id ? { ...u, role } : u)),
-      }))
-      return true
-    } catch {
-      return false
-    }
-  },
-
-  deleteUser: async (id) => {
-    try {
-      const res = await adminFetch(`/api/v1/admin/users/${id}`, { method: 'DELETE' })
-      if (!res.ok) return false
-      set((state) => ({ users: state.users.filter((u) => u.id !== id) }))
-      return true
-    } catch {
-      return false
     }
   },
 
@@ -412,14 +398,17 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   loadOrgs: async () => {
     set({ orgsLoading: true, orgsError: null })
     try {
-      const res = await adminFetch('/api/v1/admin/orgs')
+      const res = await adminFetch('/api/v1/admin/organizations')
       if (!res.ok) {
         throw userFacingError(
           adminHttpErrorMessage('organizations', res.status, await readAdminErrorPayload(res))
         )
       }
-      const data = (await res.json()) as { orgs: AdminOrg[] }
-      set({ orgs: data.orgs, orgsLoading: false })
+      const data = (await res.json().catch(() => ({}))) as {
+        organizations?: AdminOrg[]
+        total?: number
+      } | null
+      set({ orgs: data?.organizations ?? [], orgsLoading: false })
     } catch (err) {
       set({ orgsLoading: false, orgsError: adminErrorMessage(err, 'organizations') })
     }
@@ -462,15 +451,40 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   loadHealth: async () => {
     set({ healthLoading: true, healthError: null })
     try {
-      // Use admin-authed call to get detailed health info
-      const res = await adminFetch('/api/v1/health')
-      if (!res.ok) {
+      // `GET /api/health` is the deep readiness probe. It answers
+      // `{ ok, status: 'ready' | 'degraded', checks: { database, redis, nats,
+      // docker } }` with boolean checks — and uses HTTP 503 when a required
+      // dependency is down, so a body that still carries `checks` is a health
+      // REPORT to render, not a failed request.
+      const res = await adminFetch('/api/health')
+      const body = (await res.json().catch(() => null)) as {
+        ok?: boolean
+        status?: string
+        checks?: {
+          database?: boolean
+          redis?: boolean
+          nats?: boolean
+          docker?: boolean
+        }
+      } | null
+      if (!body || typeof body.checks !== 'object' || body.checks === null) {
         throw userFacingError(
-          adminHttpErrorMessage('health', res.status, await readAdminErrorPayload(res))
+          adminHttpErrorMessage('health', res.status, (body ?? {}) as Record<string, unknown>)
         )
       }
-      const data = (await res.json()) as SystemHealth
-      set({ health: data, healthLoading: false })
+      const toComponent = (up: boolean | undefined): ComponentHealth => ({
+        status: up ? 'up' : 'down',
+      })
+      const health: SystemHealth = {
+        status: body.ok === false ? 'unhealthy' : body.status === 'ready' ? 'healthy' : 'degraded',
+        checks: {
+          database: toComponent(body.checks.database),
+          redis: toComponent(body.checks.redis),
+          nats: toComponent(body.checks.nats),
+          docker: toComponent(body.checks.docker),
+        },
+      }
+      set({ health, healthLoading: false })
     } catch (err) {
       set({ healthLoading: false, healthError: adminErrorMessage(err, 'health') })
     }

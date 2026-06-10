@@ -219,26 +219,134 @@ describe('useAdminStore loading errors', () => {
   test('still loads admin users on success', async () => {
     authFetchMock.mockResolvedValue(
       response(200, {
+        ok: true,
         users: [
           {
             id: 'user-1',
             email: 'owner@example.com',
             displayName: 'Owner',
-            role: 'owner',
+            role: 'admin',
             status: 'active',
-            createdAt: null,
+            createdAt: '2026-05-01T12:00:00Z',
             lastLoginAt: null,
-            sessionsCount: 1,
           },
         ],
         total: 1,
         page: 1,
+        totalPages: 1,
       })
     )
 
     await useAdminStore.getState().loadUsers()
 
-    expect(useAdminStore.getState().users).toHaveLength(1)
-    expect(useAdminStore.getState().usersError).toBeNull()
+    const state = useAdminStore.getState()
+    expect(state.users).toHaveLength(1)
+    expect(state.users[0]?.displayName).toBe('Owner')
+    expect(state.usersTotal).toBe(1)
+    expect(state.usersPage).toBe(1)
+    expect(state.usersError).toBeNull()
+  })
+
+  test('sends page, limit, and search to the admin users endpoint', async () => {
+    authFetchMock.mockResolvedValue(
+      response(200, { ok: true, users: [], total: 0, page: 2, totalPages: 0 })
+    )
+    useAdminStore.setState({ userSearch: 'alice' })
+
+    await useAdminStore.getState().loadUsers(2)
+
+    expect(authFetchMock).toHaveBeenCalledWith(
+      '/api/v1/admin/users?page=2&limit=25&search=alice',
+      expect.anything()
+    )
+  })
+
+  test('a legacy {ok,data} users body leaves users empty instead of crashing', async () => {
+    // Regression: the old backend answered `{ ok, data }` with raw rows; a body
+    // without a `users` array must produce an empty list, never a throw.
+    authFetchMock.mockResolvedValue(response(200, { ok: true, data: [{ id: 'user-1' }] }))
+
+    await expect(useAdminStore.getState().loadUsers()).resolves.toBeUndefined()
+
+    const state = useAdminStore.getState()
+    expect(state.users).toEqual([])
+    expect(state.usersTotal).toBe(0)
+    expect(state.usersPage).toBe(1)
+    expect(state.usersLoading).toBe(false)
+  })
+
+  test('loads organizations from the organizations endpoint contract', async () => {
+    authFetchMock.mockResolvedValue(
+      response(200, {
+        ok: true,
+        organizations: [
+          {
+            id: 'org-1',
+            name: 'Acme Labs',
+            slug: 'acme',
+            membersCount: 6,
+            teamsCount: 2,
+            createdAt: '2026-05-01T10:00:00Z',
+          },
+        ],
+        total: 1,
+      })
+    )
+
+    await useAdminStore.getState().loadOrgs()
+
+    expect(authFetchMock).toHaveBeenCalledWith('/api/v1/admin/organizations', expect.anything())
+    const state = useAdminStore.getState()
+    expect(state.orgs).toHaveLength(1)
+    expect(state.orgs[0]?.membersCount).toBe(6)
+    expect(state.orgsError).toBeNull()
+  })
+
+  test('an organizations body without the array leaves orgs empty', async () => {
+    authFetchMock.mockResolvedValue(response(200, { ok: true, data: [] }))
+
+    await useAdminStore.getState().loadOrgs()
+
+    expect(useAdminStore.getState().orgs).toEqual([])
+    expect(useAdminStore.getState().orgsError).toBeNull()
+  })
+
+  test('maps the readiness probe booleans into service health', async () => {
+    authFetchMock.mockResolvedValue(
+      response(200, {
+        ok: true,
+        status: 'ready',
+        checks: { database: true, redis: true, nats: true, docker: true },
+      })
+    )
+
+    await useAdminStore.getState().loadHealth()
+
+    const { health, healthError } = useAdminStore.getState()
+    expect(authFetchMock).toHaveBeenCalledWith('/api/health', expect.anything())
+    expect(healthError).toBeNull()
+    expect(health?.status).toBe('healthy')
+    expect(health?.checks.database?.status).toBe('up')
+    expect(health?.checks.docker?.status).toBe('up')
+  })
+
+  test('a 503 readiness report still renders which checks are down', async () => {
+    // /api/health answers HTTP 503 with the SAME body shape when a required
+    // dependency is down — that is a report to show, not a request failure.
+    authFetchMock.mockResolvedValue(
+      response(503, {
+        ok: false,
+        status: 'degraded',
+        checks: { database: false, redis: true, nats: true, docker: true },
+      })
+    )
+
+    await useAdminStore.getState().loadHealth()
+
+    const { health, healthError } = useAdminStore.getState()
+    expect(healthError).toBeNull()
+    expect(health?.status).toBe('unhealthy')
+    expect(health?.checks.database?.status).toBe('down')
+    expect(health?.checks.redis?.status).toBe('up')
   })
 })
