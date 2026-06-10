@@ -139,6 +139,7 @@ const MIGRATION_SOURCES: &[(&str, &str)] = &[
     ("063_agents_runtime_kind_check.sql", include_str!("../migrations/063_agents_runtime_kind_check.sql")),
     ("064_agents_runtime_kind_index.sql", include_str!("../migrations/064_agents_runtime_kind_index.sql")),
     ("065_enrollment_idempotency.sql", include_str!("../migrations/065_enrollment_idempotency.sql")),
+    ("066_agent_join_codes.sql", include_str!("../migrations/066_agent_join_codes.sql")),
 ];
 
 /// Run pending SQLx migrations against the database.
@@ -167,4 +168,38 @@ pub enum RunMigrationsError {
     /// SQLx migration execution failed.
     #[error("migration failed: {0}")]
     Migrate(#[from] sqlx::migrate::MigrateError),
+}
+
+#[cfg(test)]
+mod migration_sources_tests {
+    use super::{MIGRATION_MANIFEST, MIGRATION_SOURCES};
+    use crate::manifest::verify_manifest;
+
+    /// `MIGRATION_SOURCES` is a hand-maintained `include_str!` list. A new
+    /// migration that lands in `migrations/` + `MANIFEST.sha256` but not here
+    /// passes every sqlx test (they read the directory) and then crashes the
+    /// server at boot with "listed in MANIFEST.sha256 but not found". This
+    /// runs the exact startup verification at test time so CI catches the
+    /// missing entry instead of the deployment (regression: 066).
+    #[test]
+    fn embedded_sources_match_manifest_exactly() {
+        verify_manifest(MIGRATION_MANIFEST, MIGRATION_SOURCES)
+            .expect("MIGRATION_SOURCES must list every migration in MANIFEST.sha256 — add the new include_str! entry");
+    }
+
+    /// Every .sql file in the migrations directory must be embedded. Catches
+    /// the inverse drift (file on disk, missing from BOTH manifest and list)
+    /// that `verify_manifest` alone cannot see.
+    #[test]
+    fn every_migration_file_on_disk_is_embedded() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations");
+        let mut missing = Vec::new();
+        for entry in std::fs::read_dir(dir).expect("read migrations dir") {
+            let name = entry.expect("dir entry").file_name().to_string_lossy().into_owned();
+            if name.ends_with(".sql") && !MIGRATION_SOURCES.iter().any(|(listed, _)| *listed == name) {
+                missing.push(name);
+            }
+        }
+        assert!(missing.is_empty(), "migrations on disk missing from MIGRATION_SOURCES: {missing:?}");
+    }
 }
