@@ -237,9 +237,19 @@ impl AgentRepository {
     }
 
     /// Create a new agent with `idle` status.
-    pub async fn create(&self, scope: &TenantScope, params: CreateAgentParams<'_>) -> AppResult<Agent> {
+    ///
+    /// `runtime_kind` must be derived via
+    /// [`crate::domain::agent::AgentCreateRuntimePolicy`] so the row satisfies
+    /// the `agents_runtime_kind_invariants` CHECK; relying on the column
+    /// DEFAULT (`'api'`) violates it for any row with a `cli_tool`.
+    pub async fn create(
+        &self,
+        scope: &TenantScope,
+        params: CreateAgentParams<'_>,
+        runtime_kind: RuntimeKind,
+    ) -> AppResult<Agent> {
         sqlx::query_as::<_, Agent>(
-            r#"INSERT INTO agents (organization_id, workspace_id, user_id, name, model, provider, cli_tool, cwd, project_id, status, system_prompt)
+            r#"INSERT INTO agents (organization_id, workspace_id, user_id, name, model, provider, cli_tool, cwd, project_id, status, system_prompt, runtime_kind)
                VALUES (
                    $1,
                    COALESCE(
@@ -251,7 +261,7 @@ impl AgentRepository {
                          ORDER BY created_at ASC
                          LIMIT 1)
                    ),
-                   $3, $4, $5, $6, $7, $8, $9, 'idle', $10
+                   $3, $4, $5, $6, $7, $8, $9, 'idle', $10, $11
                )
                RETURNING *"#,
         )
@@ -265,6 +275,7 @@ impl AgentRepository {
         .bind(params.cwd)
         .bind(params.project_id)
         .bind(params.system_prompt)
+        .bind(runtime_kind.as_str())
         .fetch_one(&self.pool)
         .await
         .map_err(Into::into)
@@ -802,6 +813,7 @@ mod tests {
                     system_prompt: Some("you are helpful"),
                     ..Default::default()
                 },
+                RuntimeKind::Api,
             )
             .await
             .expect("create");
@@ -830,6 +842,7 @@ mod tests {
                     system_prompt: Some("original"),
                     ..Default::default()
                 },
+                RuntimeKind::Api,
             )
             .await
             .expect("create");
@@ -846,5 +859,116 @@ mod tests {
         // Non-empty string = replace
         let after_set = repo.update(&scope, agent_id, None, None, None, Some("new prompt")).await.expect("update set");
         assert_eq!(after_set.system_prompt.as_deref(), Some("new prompt"));
+    }
+
+    /// Regression for the staging 500: creating a Container CLI agent through
+    /// the legacy path must write `runtime_kind='container'`. Relying on the
+    /// column DEFAULT ('api') violates `agents_runtime_kind_invariants` for
+    /// any row with a `cli_tool` and the INSERT fails outright.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn create_with_cli_tool_persists_container_runtime_kind(pool: sqlx::PgPool) {
+        let (scope, _user) = seed_user_with_org(&pool).await;
+        let repo = AgentRepository::new(pool);
+        let created = repo
+            .create(
+                &scope,
+                CreateAgentParams {
+                    name: Some("container-agent"),
+                    cli_tool: Some("claude"),
+                    cwd: Some("/workspace"),
+                    workspace_id: Some(scope.org_id().as_uuid()),
+                    ..Default::default()
+                },
+                crate::domain::agent::AgentCreateRuntimePolicy::for_create(Some("claude")),
+            )
+            .await
+            .expect("container-cli create must satisfy runtime-kind invariants");
+
+        let enriched = repo.find_with_owner_by_id(&scope, created.id).await.expect("find_with_owner");
+        assert_eq!(enriched.runtime_kind, RuntimeKind::Container);
+        assert_eq!(enriched.cli_tool.as_deref(), Some("claude"));
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn create_without_cli_tool_persists_api_runtime_kind(pool: sqlx::PgPool) {
+        let (scope, _user) = seed_user_with_org(&pool).await;
+        let repo = AgentRepository::new(pool);
+        let created = repo
+            .create(
+                &scope,
+                CreateAgentParams {
+                    name: Some("provider-agent"),
+                    model: Some("claude-sonnet-4-6"),
+                    provider: Some("anthropic"),
+                    workspace_id: Some(scope.org_id().as_uuid()),
+                    ..Default::default()
+                },
+                crate::domain::agent::AgentCreateRuntimePolicy::for_create(None),
+            )
+            .await
+            .expect("create");
+
+        let enriched = repo.find_with_owner_by_id(&scope, created.id).await.expect("find_with_owner");
+        assert_eq!(enriched.runtime_kind, RuntimeKind::Api);
+    }
+
+    /// The MCP bridge inserts container-backed rows; they must carry both
+    /// `cli_tool` and `runtime_kind='container'` to satisfy the CHECK, and a
+    /// container-backed record without a cli_tool is a typed rejection
+    /// instead of a database 500.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn mcp_insert_agent_satisfies_runtime_kind_invariants(pool: sqlx::PgPool) {
+        let (scope, user_uuid) = seed_user_with_org(&pool).await;
+        let org_uuid = scope.org_id().as_uuid();
+        let repo = McpAgentRepository::new(pool.clone());
+
+        let agent_id = Uuid::now_v7();
+        repo.insert_agent(McpAgentInsertRecord {
+            agent_id,
+            organization_id: org_uuid,
+            workspace_id: org_uuid,
+            project_id: None,
+            user_id: user_uuid,
+            name: "MCP worker".into(),
+            status: AgentStatus::Idle,
+            container_id: Some("ctr-mcp-1".into()),
+            cli_tool: Some("codex".into()),
+            model: Some("agentforge-agent:codex".into()),
+            provider: Some("openai".into()),
+        })
+        .await
+        .expect("container-backed MCP insert must satisfy runtime-kind invariants");
+
+        let row: (String, Option<String>) =
+            sqlx::query_as("SELECT runtime_kind, cli_tool FROM agents WHERE id = $1")
+                .bind(agent_id)
+                .fetch_one(&pool)
+                .await
+                .expect("read inserted agent");
+        assert_eq!(row.0, "container");
+        assert_eq!(row.1.as_deref(), Some("codex"));
+
+        // Container-backed record without a cli_tool: typed validation error.
+        let err = repo
+            .insert_agent(McpAgentInsertRecord {
+                agent_id: Uuid::now_v7(),
+                organization_id: org_uuid,
+                workspace_id: org_uuid,
+                project_id: None,
+                user_id: user_uuid,
+                name: "Broken MCP worker".into(),
+                status: AgentStatus::Idle,
+                container_id: Some("ctr-mcp-2".into()),
+                cli_tool: None,
+                model: None,
+                provider: None,
+            })
+            .await
+            .expect_err("container without cli_tool cannot satisfy any CHECK arm");
+        assert!(
+            matches!(err.kind, agentforge_core::ErrorKind::Validation(_)),
+            "expected typed validation rejection, got: {:?}",
+            err.kind
+        );
     }
 }
