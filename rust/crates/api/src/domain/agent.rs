@@ -293,8 +293,7 @@ impl JoinCode {
     pub(crate) fn parse(raw: &str) -> AppResult<Self> {
         let trimmed = raw.trim();
         let valid = trimmed.strip_prefix(Self::PREFIX).is_some_and(|tail| {
-            (32..=64).contains(&tail.len())
-                && tail.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+            (32..=64).contains(&tail.len()) && tail.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
         });
         if !valid {
             return Err(HostAgentEnrollmentPolicy::invalid_join_code_error());

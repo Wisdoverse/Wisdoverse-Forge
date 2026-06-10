@@ -34,17 +34,10 @@ pub(crate) struct ClaimJoinCodeRequest {
 }
 
 fn render_script(template: &str, state: &AppState) -> String {
-    let server_url = state
-        .config
-        .app_url
-        .clone()
-        .or_else(|| state.config.container_server_url.clone())
-        .unwrap_or_default();
-    let binary_base = state
-        .config
-        .host_join_binary_base_url
-        .clone()
-        .unwrap_or_else(|| DEFAULT_BINARY_BASE_URL.to_string());
+    let server_url =
+        state.config.app_url.clone().or_else(|| state.config.container_server_url.clone()).unwrap_or_default();
+    let binary_base =
+        state.config.host_join_binary_base_url.clone().unwrap_or_else(|| DEFAULT_BINARY_BASE_URL.to_string());
     template
         .replace("__AGENTFORGE_SERVER_URL__", server_url.trim_end_matches('/'))
         .replace("__AGENTFORGE_BINARY_BASE_URL__", binary_base.trim_end_matches('/'))

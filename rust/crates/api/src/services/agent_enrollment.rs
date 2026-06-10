@@ -18,11 +18,11 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+pub(crate) use crate::domain::agent::agent_join_claim_response;
 use crate::domain::agent::{
     AgentContainerEnvInput, AgentContainerEnvPolicy, AgentName, ClaimedHostAgentJoin, EnrolledHostCli,
     HostAgentEnrollment, HostAgentEnrollmentPolicy, HostCliIdentity, JoinCode, NewAgent,
 };
-pub(crate) use crate::domain::agent::agent_join_claim_response;
 use crate::domain::context::{ContextFeature, ContextFeatureFlags};
 use crate::repositories::agent::{AgentJoinCodeRepository, AgentListItem, AgentRepository};
 use crate::repositories::enrollment_idempotency::EnrollmentIdempotencyRepository;
