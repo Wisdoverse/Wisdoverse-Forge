@@ -5,7 +5,7 @@ use agentforge_db::entities::Agent;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::agent::AgentRepositoryPolicy;
+use crate::domain::agent::{AgentCreateRuntimePolicy, AgentRepositoryPolicy};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct McpProjectRuntimeContextRow {
@@ -25,6 +25,7 @@ pub(crate) struct McpAgentInsertRecord {
     pub(crate) name: String,
     pub(crate) status: AgentStatus,
     pub(crate) container_id: Option<String>,
+    pub(crate) cli_tool: Option<String>,
     pub(crate) model: Option<String>,
     pub(crate) provider: Option<String>,
 }
@@ -71,9 +72,11 @@ impl McpAgentRepository {
     }
 
     pub(crate) async fn insert_agent(&self, record: McpAgentInsertRecord) -> AppResult<()> {
+        let runtime_kind =
+            AgentCreateRuntimePolicy::for_mcp_insert(record.cli_tool.as_deref(), record.container_id.as_deref())?;
         sqlx::query(
-            r#"INSERT INTO agents (id, organization_id, workspace_id, project_id, user_id, name, status, container_id, model, provider)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"#,
+            r#"INSERT INTO agents (id, organization_id, workspace_id, project_id, user_id, name, status, container_id, cli_tool, model, provider, runtime_kind)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)"#,
         )
         .bind(record.agent_id)
         .bind(record.organization_id)
@@ -83,8 +86,10 @@ impl McpAgentRepository {
         .bind(record.name)
         .bind(record.status)
         .bind(record.container_id)
+        .bind(record.cli_tool)
         .bind(record.model)
         .bind(record.provider)
+        .bind(runtime_kind.as_str())
         .execute(&self.pool)
         .await?;
         Ok(())

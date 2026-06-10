@@ -1263,6 +1263,35 @@ impl McpAgentRuntimePolicy {
     }
 }
 
+/// Runtime-kind derivation for agent INSERT paths that predate the
+/// [`NewAgent`] aggregate. Every row must satisfy the DB CHECK
+/// `agents_runtime_kind_invariants` (migration 063):
+/// `container` ⇔ cli_tool present, `api` ⇔ no cli_tool and no container_id.
+/// Host CLI (`cli`) agents are created exclusively by enrollment and never
+/// pass through these paths.
+pub(crate) struct AgentCreateRuntimePolicy;
+
+impl AgentCreateRuntimePolicy {
+    /// Kind for the legacy create path (`POST /api/v1/agents`): a `cli_tool`
+    /// makes the agent a Container CLI worker, otherwise it is provider-backed.
+    pub(crate) fn for_create(cli_tool: Option<&str>) -> RuntimeKind {
+        if cli_tool.is_some() { RuntimeKind::Container } else { RuntimeKind::Api }
+    }
+
+    /// Kind for the MCP bridge insert. A container-backed record without a
+    /// `cli_tool` cannot satisfy any CHECK arm, so it is rejected here as a
+    /// typed validation error instead of surfacing as a 500 from the database.
+    pub(crate) fn for_mcp_insert(cli_tool: Option<&str>, container_id: Option<&str>) -> AppResult<RuntimeKind> {
+        if container_id.is_some() && cli_tool.is_none() {
+            return Err(ErrorKind::Validation(
+                "container-backed MCP agent requires a cli_tool to satisfy runtime-kind invariants".into(),
+            )
+            .into());
+        }
+        Ok(Self::for_create(cli_tool))
+    }
+}
+
 pub(crate) struct AgentRepositoryPolicy;
 
 impl AgentRepositoryPolicy {
@@ -1734,6 +1763,22 @@ mod tests {
             "nats://nats:4222"
         );
         assert!(HostAgentEnrollmentPolicy::require_nats_base_url(None, None).is_err());
+    }
+
+    #[test]
+    fn create_runtime_policy_derives_kind_from_cli_tool() {
+        assert_eq!(AgentCreateRuntimePolicy::for_create(Some("claude")), RuntimeKind::Container);
+        assert_eq!(AgentCreateRuntimePolicy::for_create(None), RuntimeKind::Api);
+    }
+
+    #[test]
+    fn create_runtime_policy_rejects_container_backed_mcp_insert_without_cli_tool() {
+        assert_eq!(
+            AgentCreateRuntimePolicy::for_mcp_insert(Some("codex"), Some("ctr-1")).unwrap(),
+            RuntimeKind::Container
+        );
+        assert_eq!(AgentCreateRuntimePolicy::for_mcp_insert(None, None).unwrap(), RuntimeKind::Api);
+        assert!(AgentCreateRuntimePolicy::for_mcp_insert(None, Some("ctr-1")).is_err());
     }
 
     #[test]
