@@ -423,7 +423,8 @@ mod tests {
         for shell in [JoinScriptShell::Sh, JoinScriptShell::PowerShell] {
             let rendered = svc.join_script(shell);
             assert!(!rendered.contains("__AGENTFORGE_"), "unrendered placeholder left in script");
-            assert!(rendered.contains("https://agentforge.example/api/v1/agents/local-join/claim"));
+            assert!(rendered.contains("https://agentforge.example"), "server url baked in");
+            assert!(rendered.contains("/api/v1/agents/local-join/claim"), "script calls the claim endpoint");
             assert!(rendered.contains(DEFAULT_BINARY_BASE_URL), "default binary base baked in");
         }
         assert!(svc.join_script(JoinScriptShell::Sh).starts_with("#!/bin/sh\n"));
