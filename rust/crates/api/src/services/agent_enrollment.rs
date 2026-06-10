@@ -46,7 +46,22 @@ struct HostAgentEnrollmentSettings {
     codex_default_model: String,
     context_injection_enabled: bool,
     allow_plaintext_host_nats: bool,
+    host_join_binary_base_url: Option<String>,
 }
+
+/// Shell flavor of the join bootstrap script served to operators.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum JoinScriptShell {
+    Sh,
+    PowerShell,
+}
+
+const JOIN_SCRIPT_SH: &str = include_str!("scripts/local_join.sh");
+const JOIN_SCRIPT_PS1: &str = include_str!("scripts/local_join.ps1");
+
+/// Default download base for sidecar release binaries. Overridable per
+/// deployment with `HOST_JOIN_BINARY_BASE_URL` (e.g. an internal mirror).
+const DEFAULT_BINARY_BASE_URL: &str = "https://github.com/Wisdoverse/Wisdoverse-Forge/releases/latest/download";
 
 pub(crate) struct HostAgentEnrollmentService {
     pool: PgPool,
@@ -71,9 +86,25 @@ impl HostAgentEnrollmentService {
                 codex_default_model: config.codex_default_model.clone(),
                 context_injection_enabled: context_features.enabled(ContextFeature::Injection),
                 allow_plaintext_host_nats: config.allow_plaintext_host_nats,
+                host_join_binary_base_url: config.host_join_binary_base_url.clone(),
             },
             pool,
         }
+    }
+
+    /// Render the join bootstrap for the requested shell with this
+    /// deployment's server URL and binary download base baked in. The
+    /// rendered script carries no secrets.
+    pub(crate) fn join_script(&self, shell: JoinScriptShell) -> String {
+        let template = match shell {
+            JoinScriptShell::Sh => JOIN_SCRIPT_SH,
+            JoinScriptShell::PowerShell => JOIN_SCRIPT_PS1,
+        };
+        let server_url = self.settings.server_url.as_deref().unwrap_or_default();
+        let binary_base = self.settings.host_join_binary_base_url.as_deref().unwrap_or(DEFAULT_BINARY_BASE_URL);
+        template
+            .replace("__AGENTFORGE_SERVER_URL__", server_url.trim_end_matches('/'))
+            .replace("__AGENTFORGE_BINARY_BASE_URL__", binary_base.trim_end_matches('/'))
     }
 
     pub(crate) async fn enroll(
@@ -378,9 +409,25 @@ mod tests {
                 codex_default_model: "gpt-5.5".to_string(),
                 context_injection_enabled: false,
                 allow_plaintext_host_nats: false,
+                host_join_binary_base_url: None,
             },
             pool,
         }
+    }
+
+    /// The rendered bootstrap scripts embed this deployment's URLs, leave no
+    /// placeholders behind, and call the claim endpoint.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn join_scripts_render_with_deployment_urls(pool: PgPool) {
+        let svc = service_with_tls_nats(pool);
+        for shell in [JoinScriptShell::Sh, JoinScriptShell::PowerShell] {
+            let rendered = svc.join_script(shell);
+            assert!(!rendered.contains("__AGENTFORGE_"), "unrendered placeholder left in script");
+            assert!(rendered.contains("https://agentforge.example/api/v1/agents/local-join/claim"));
+            assert!(rendered.contains(DEFAULT_BINARY_BASE_URL), "default binary base baked in");
+        }
+        assert!(svc.join_script(JoinScriptShell::Sh).starts_with("#!/bin/sh\n"));
+        assert!(svc.join_script(JoinScriptShell::Sh).contains("Codes expire after 15 minutes"));
     }
 
     /// Parity: enrolling a host-cli agent then replaying the same idempotency
