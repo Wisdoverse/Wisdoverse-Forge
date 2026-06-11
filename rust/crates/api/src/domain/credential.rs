@@ -135,6 +135,9 @@ pub(crate) struct ProviderInfo {
     pub(crate) display_name: &'static str,
     pub(crate) default_model: Option<&'static str>,
     pub(crate) default_base_url: Option<&'static str>,
+    /// Alternate-region endpoint hint (e.g. the global host for a provider
+    /// whose default base URL is the China-region endpoint).
+    pub(crate) global_base_url: Option<&'static str>,
     pub(crate) requires_api_key: bool,
     pub(crate) allow_custom_models: bool,
     pub(crate) models: Vec<ProviderModelInfo>,
@@ -237,6 +240,7 @@ pub(crate) fn supported_provider_list() -> Vec<ProviderInfo> {
             display_name: spec.display_name,
             default_model: spec.default_model,
             default_base_url: spec.default_base_url,
+            global_base_url: spec.global_base_url,
             requires_api_key: spec.requires_api_key,
             allow_custom_models: spec.allow_custom_models,
             models: spec
