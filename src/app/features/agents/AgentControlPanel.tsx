@@ -304,7 +304,7 @@ function getControlSummary(
     return {
       title: 'This computer is connected',
       detail:
-        'Run the connection command on that computer to bring it online. Close the Terminal or PowerShell window to stop it. Use this page for messages, tasks, or cleanup.',
+        'Run the setup command on that computer to bring it online. Keep the Terminal or PowerShell window open while it works; close that window when you want to stop it.',
       Icon: CheckCircle2,
     }
   }
@@ -331,7 +331,7 @@ function getReadyActionInfo(
 ): { title: string; detail: string } {
   if (hostCli) {
     return {
-      title: 'Keep the command running',
+      title: 'Keep the setup command running',
       detail:
         'Keep the Terminal or PowerShell window open on that computer while it works. Use this page for quick messages, tracked tasks, or cleanup.',
     }

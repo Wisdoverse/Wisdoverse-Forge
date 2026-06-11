@@ -76,7 +76,7 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
       {hostCli ? (
         <p>
           This computer does the work. Forge sends tasks and saves task history here; files stay in
-          the folder where you ran the connection command.
+          the folder where you ran the setup command.
         </p>
       ) : agent.cliTool ? (
         <p>
@@ -98,7 +98,7 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
 function agentFolderLabel(agent: AgentInfo): string {
   if (!agent.cliTool) return 'Not needed for this agent'
   if (!agent.cwd || agent.cwd === '/workspace') {
-    return isHostCliAgent(agent) ? 'Folder where you ran the command' : 'Workspace project folder'
+    return isHostCliAgent(agent) ? 'Folder where you ran the setup command' : 'Workspace project folder'
   }
   return agent.cwd
 }
@@ -117,7 +117,7 @@ function agentConnectionStatus(agent: AgentInfo): string {
   if (isHostCliAgent(agent)) {
     return agent.runtimeId
       ? 'Connected from this computer'
-      : 'Run the command on this computer again'
+      : 'Run the setup command on this computer again'
   }
   if (agent.cliTool) return agent.containerId ? 'Ready in managed workspace' : 'Waiting to start'
   return 'Not needed'
@@ -334,9 +334,9 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
   if (agent.status === 'offline') {
     if (hostCli) {
       return {
-        title: 'Run the command on this computer again',
+        title: 'Run the setup command on this computer again',
         detail:
-          'Go to the computer where this agent was connected. Open Terminal or PowerShell in the project folder, run the connection command again, and keep that window open.',
+          'Go to the computer where this agent was connected. Open Terminal or PowerShell in the project folder, run the setup command again, and keep that window open.',
         success: 'The status changes from Offline to Ready or Working.',
         ready: false,
       }

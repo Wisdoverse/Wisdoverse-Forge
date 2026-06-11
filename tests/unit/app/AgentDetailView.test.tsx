@@ -163,7 +163,8 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Connected from this computer')).toBeDefined()
     expect(screen.queryByText('host-aabbccdd')).toBeNull()
     expect(screen.getByText(/this computer does the work/i)).toBeDefined()
-    expect(screen.getByText(/folder where you ran the connection command/i)).toBeDefined()
+    expect(screen.getByText(/folder where you ran the setup command/i)).toBeDefined()
+    expect(screen.queryByText(/connection command/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /start agent/i })).toBeNull()
   })
 
@@ -288,7 +289,7 @@ describe('AgentDetailView', () => {
   test('guides offline agents joined from this computer back to the local connection', () => {
     render(<AgentDetailView agent={{ ...hostCliAgent, status: 'offline' }} onBack={() => {}} />)
 
-    expect(screen.getByText('Run the command on this computer again')).toBeDefined()
+    expect(screen.getByText('Run the setup command on this computer again')).toBeDefined()
     expect(screen.getByText(/open Terminal or PowerShell in the project folder/i)).toBeDefined()
     expect(screen.getByText(/keep that window open/i)).toBeDefined()
     expect(screen.queryByRole('button', { name: /open terminal/i })).toBeNull()

@@ -156,8 +156,9 @@ describe('AgentControlPanel', () => {
     render(<AgentControlPanel agent={hostCliAgent} onDeleted={() => {}} />)
 
     expect(screen.getByText('This computer is connected')).toBeDefined()
-    expect(screen.getByText(/connection command on that computer/i)).toBeDefined()
-    expect(screen.getByText('Keep the command running')).toBeDefined()
+    expect(screen.getByText(/setup command on that computer/i)).toBeDefined()
+    expect(screen.queryByText(/connection command/i)).toBeNull()
+    expect(screen.getByText('Keep the setup command running')).toBeDefined()
     expect(
       screen.getByText(
         'Keep the Terminal or PowerShell window open on that computer while it works. Use this page for quick messages, tracked tasks, or cleanup.'
