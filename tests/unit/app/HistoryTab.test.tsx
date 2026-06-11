@@ -126,6 +126,38 @@ describe('HistoryTab', () => {
     expect(screen.queryByText(/model service/i)).toBeNull()
   })
 
+  test('labels provider-backed work history without raw provider slugs', async () => {
+    getTaskRunsMock.mockResolvedValue([
+      {
+        id: 'run-provider1',
+        taskId: 'task-1',
+        agentId: 'agent-1',
+        status: 'completed',
+        startedAt: '2026-04-25T06:06:00Z',
+        runtimeKind: 'api',
+        providerName: 'openai_compatible',
+      },
+      {
+        id: 'run-provider2',
+        taskId: 'task-1',
+        agentId: 'agent-1',
+        status: 'completed',
+        startedAt: '2026-04-25T06:08:00Z',
+        runtimeKind: 'api',
+        providerName: 'future_provider',
+      },
+    ])
+
+    render(<HistoryTab task={makeTask()} />)
+
+    expect(await screen.findByText('Agent work history')).toBeInTheDocument()
+    expect(screen.getByText(/Used a custom AI service/i)).toBeInTheDocument()
+    expect(screen.getByText(/Used an AI service that needs review/i)).toBeInTheDocument()
+    expect(screen.queryByText(/openai_compatible/i)).toBeNull()
+    expect(screen.queryByText(/future_provider/i)).toBeNull()
+    expect(screen.queryByText(/future provider/i)).toBeNull()
+  })
+
   test('labels unknown work attempt states without exposing backend status values', async () => {
     getTaskRunsMock.mockResolvedValue([
       {

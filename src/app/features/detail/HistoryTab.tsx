@@ -220,7 +220,8 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
 function runSourceLabel(run: TaskRunSummary): string {
   const cliTool = workToolLabel(run.cliTool)
   if (cliTool) return cliTool
-  if (run.providerName) return run.providerName
+  const provider = aiServiceLabel(run.providerName)
+  if (provider) return provider
 
   switch (run.runtimeKind) {
     case 'container':
@@ -234,6 +235,38 @@ function runSourceLabel(run: TaskRunSummary): string {
     default:
       return run.maxContextTokens ? 'the assigned agent' : 'an agent'
   }
+}
+
+function aiServiceLabel(providerName?: string): string | null {
+  const trimmed = providerName?.trim()
+  if (!trimmed) return null
+
+  const normalized = trimmed.toLowerCase()
+  switch (normalized) {
+    case 'anthropic':
+      return 'Anthropic'
+    case 'openai':
+      return 'OpenAI'
+    case 'google':
+    case 'gemini':
+      return 'Google'
+    case 'openai_compatible':
+    case 'openai-compatible':
+    case 'custom':
+      return 'a custom AI service'
+    case 'azure_openai':
+    case 'azure-openai':
+      return 'Azure OpenAI'
+    case 'ollama':
+    case 'local':
+      return 'a local AI service'
+    default:
+      return looksLikeSlug(trimmed, normalized) ? 'an AI service that needs review' : trimmed
+  }
+}
+
+function looksLikeSlug(value: string, normalized: string): boolean {
+  return value === normalized && /^[a-z0-9]+(?:[_-][a-z0-9]+)+$/.test(normalized)
 }
 
 function workToolLabel(tool?: string): string | null {
