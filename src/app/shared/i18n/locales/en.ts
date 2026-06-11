@@ -727,7 +727,7 @@ export const en = {
       memoryUsage: 'Memory Usage',
       cpuUsage: 'CPU Usage',
       uptime: 'Uptime',
-      wsConnections: 'WS Connections',
+      wsConnections: 'Live browser connections',
       requestsPerMinute: 'Requests/min',
     },
     users: {

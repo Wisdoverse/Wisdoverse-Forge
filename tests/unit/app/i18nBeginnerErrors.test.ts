@@ -146,4 +146,13 @@ describe('beginner error translations', () => {
     expect(zh.admin.agents.title).toBe('Agent 管理')
     expect(JSON.stringify(zh)).not.toContain('会话')
   })
+
+  test('admin metric labels describe live browser activity without protocol jargon', () => {
+    expect(en.admin.metrics.wsConnections).toBe('Live browser connections')
+    expect(en.admin.metrics.wsConnections).not.toContain('WS')
+    expect(en.admin.metrics.wsConnections).not.toContain('WebSocket')
+
+    expect(zh.admin.metrics.wsConnections).toBe('实时浏览器连接')
+    expect(zh.admin.metrics.wsConnections).not.toContain('WebSocket')
+  })
 })

@@ -709,7 +709,7 @@ export const zh: TranslationKeys = {
       memoryUsage: '内存使用',
       cpuUsage: 'CPU 使用率',
       uptime: '运行时间',
-      wsConnections: 'WebSocket 连接',
+      wsConnections: '实时浏览器连接',
       requestsPerMinute: '请求/分钟',
     },
     users: {
