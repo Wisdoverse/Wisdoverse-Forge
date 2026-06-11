@@ -102,7 +102,7 @@ describe('CliImagesPanel', () => {
     await waitFor(() => expect(loadCliImages).toHaveBeenCalledOnce())
     expect(screen.getByText('Agent tool updates')).toBeDefined()
     expect(screen.getByText('Automatic updates are on')).toBeDefined()
-    expect(screen.getByText(/Tool package source is managed in Admin settings/i)).toBeDefined()
+    expect(screen.getByText(/Where updates come from is managed in Admin settings/i)).toBeDefined()
     expect(screen.queryByText(/ghcr\.io\/wisdoverse\/wisdoverse-forge/i)).toBeNull()
     expect(screen.queryByText(/agent-<tool>/i)).toBeNull()
     expect(screen.queryByText(/^source:/i)).toBeNull()
@@ -173,7 +173,7 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
     expect(screen.getByText('Old tool package cleanup')).toBeDefined()
-    expect(screen.getByText(/3 removed/)).toBeDefined()
+    expect(screen.getByText(/3 old packages removed/)).toBeDefined()
     expect(screen.getByText(/1 still in use/)).toBeDefined()
   })
 
@@ -337,7 +337,7 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
 
-    expect(screen.getByText('Checking agent tool update status...')).toBeDefined()
+    expect(screen.getByText('Checking agent tool updates...')).toBeDefined()
     expect(screen.getByRole('button', { name: 'Checking...' })).toBeDisabled()
   })
 
@@ -373,7 +373,7 @@ describe('CliImagesPanel', () => {
     render(<CliImagesPanel />)
 
     // codex (agentsWithContainer=2) offers a roll; gemini (0) does not.
-    const rollButtons = screen.getAllByRole('button', { name: 'Restart on latest tool' })
+    const rollButtons = screen.getAllByRole('button', { name: 'Restart agents on latest tool' })
     expect(rollButtons).toHaveLength(1)
 
     // First click only arms a destructive confirm — it must NOT roll yet.
@@ -460,11 +460,12 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
 
-    expect(screen.getByText('Local build')).toBeDefined()
+    expect(screen.getByText('Built here')).toBeDefined()
     expect(screen.getByText('Update available')).toBeDefined()
     // installed vs latest, in plain versions (claude has no registry digests).
-    expect(screen.getByText(/installed: v2\.1\.100/)).toBeDefined()
-    expect(screen.getByText(/latest on npm: v2\.1\.173/)).toBeDefined()
+    expect(screen.getByText(/current version: v2\.1\.100/)).toBeDefined()
+    expect(screen.getByText(/latest available: v2\.1\.173/)).toBeDefined()
+    expect(screen.queryByText(/npm/i)).toBeNull()
 
     // ONE click builds — no confirm step (image-level, agents untouched).
     const build = screen.getByRole('button', { name: 'Build v2.1.173' })
@@ -503,8 +504,8 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
 
-    expect(screen.getByText(/Auto-build on/)).toBeDefined()
-    expect(screen.queryByRole('button', { name: 'Roll onto new image' })).toBeNull()
+    expect(screen.getByText(/Builds automatically/)).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Restart agents on latest tool' })).toBeNull()
   })
 
   test('claude up to date shows no build button', () => {
@@ -585,7 +586,8 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
     expect(screen.getByText(/The build could not be started/i)).toBeDefined()
-    expect(screen.getByText(/already in progress/)).toBeDefined()
+    expect(screen.getByText(/tool update service is busy/i)).toBeDefined()
+    expect(screen.queryByText(/a claude image build is already in progress/i)).toBeNull()
     // the row still renders for retry.
     expect(screen.getByRole('button', { name: 'Build v2.1.173' })).toBeDefined()
   })

@@ -224,7 +224,7 @@ function RollButton({ tool, control }: { tool: CliImageTool; control: RollContro
       onClick={control.onRequest}
       className="rounded-full border border-black/[0.1] px-3 py-1 text-ui-caption font-medium text-foreground-light dark:border-white/[0.12] dark:text-foreground-dark"
     >
-      Restart on latest tool
+      Restart agents on latest tool
     </button>
   )
 }
@@ -311,7 +311,7 @@ function ToolRow({
             </p>
             {localBuild && (
               <span className="rounded-full bg-black/[0.05] px-2 py-0.5 text-ui-caption text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-                Local build
+                Built here
               </span>
             )}
           </div>
@@ -331,9 +331,9 @@ function ToolRow({
               {/* Built on this server (no public registry image), so versions —
                   not registry digests — are the meaningful comparison. */}
               <span className="font-mono">
-                installed: {tool.localVersion ? `v${tool.localVersion}` : 'unknown'}
+                current version: {tool.localVersion ? `v${tool.localVersion}` : 'unknown'}
                 {tool.state === 'update_available' && tool.remoteVersion
-                  ? ` → latest on npm: v${tool.remoteVersion}`
+                  ? ` → latest available: v${tool.remoteVersion}`
                   : ''}
               </span>
               <span>last checked {relativeTime(tool.lastCheckedUnix)}</span>
@@ -343,10 +343,10 @@ function ToolRow({
               {/* The locally-pulled image the NEXT agent will start from — not
                   necessarily what already-running agents booted from. */}
               <span className="font-mono">
-                package for new agents: {shortDigest(tool.localDigest)}
+                current package for new agents: {shortDigest(tool.localDigest)}
               </span>
               <span className="font-mono">
-                latest available package: {shortDigest(tool.remoteDigest)}
+                latest package found: {shortDigest(tool.remoteDigest)}
               </span>
               <span>last checked {relativeTime(tool.lastCheckedUnix)}</span>
             </div>
@@ -379,7 +379,7 @@ function ToolRow({
         <BuildButton tool={tool} control={build} />
         {localBuild && build.autoBuildOn && (
           <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Auto-build on — new versions build themselves
+            Builds automatically — new versions build themselves
           </span>
         )}
         <RollButton tool={tool} control={roll} />
@@ -419,11 +419,11 @@ function ConfigBanner({ enabled, intervalSecs }: { enabled: boolean; intervalSec
         </p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {enabled
-            ? `This service checks for newer agent tool packages about every ${intervalLabel} and downloads them so new agents start on the latest tool version. Running agents are never interrupted.`
+            ? `Forge checks for newer agent tool packages about every ${intervalLabel} and downloads them so new agents start on the latest tool version. Running agents are never interrupted.`
             : 'New agents keep using the tool package that was last downloaded. Ask an owner or admin to turn on automatic tool updates in Admin settings so updates are checked and downloaded automatically.'}
         </p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Tool package source is managed in Admin settings.
+          Where updates come from is managed in Admin settings.
         </p>
       </div>
     </div>
@@ -491,7 +491,7 @@ export function CliImagesPanel() {
           <p className={uiStyles.sectionDescription}>
             Shows whether each agent tool package is up to date. New agents use the latest checked
             package. This page checks when opened, then about every {refreshLabel} while visible.
-            Hidden tabs pause checks.
+            Checks pause when this browser tab is hidden.
           </p>
         </div>
         <button
@@ -514,7 +514,7 @@ export function CliImagesPanel() {
       {cliImagesLoading && !cliImages && (
         <div className="flex items-center justify-center py-12">
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-            Checking agent tool update status...
+            Checking agent tool updates...
           </p>
         </div>
       )}
@@ -561,7 +561,9 @@ export function CliImagesPanel() {
             <div className={cn(uiStyles.error, 'mt-4')}>
               The build could not be started. Nothing was changed — try again once the cause below
               is fixed.
-              <span className="mt-1 block text-ui-caption">{cliImageBuildError}</span>
+              <span className="mt-1 block text-ui-caption">
+                {cliImageIssueNote(cliImageBuildError, 'check')}
+              </span>
             </div>
           )}
 
@@ -672,9 +674,9 @@ function PruneSummaryBlock({ prune }: { prune: CliImagePruneStatus }) {
             unused packages for these tools are removed — never a package an agent is using.
           </p>
           <p className="mt-1 text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
-            Last sweep: {prune.removed} removed · {prune.skippedInUse} still in use ·{' '}
-            {prune.scanned} scanned
-            {prune.errors > 0 ? ` · ${prune.errors} errors` : ''} · checked{' '}
+            Last cleanup: {prune.removed} old packages removed · {prune.skippedInUse} still in use ·{' '}
+            {prune.scanned} checked
+            {prune.errors > 0 ? ` · ${prune.errors} errors` : ''} · ran{' '}
             {relativeTime(prune.lastRunUnix)}
           </p>
         </>
