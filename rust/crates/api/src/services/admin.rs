@@ -592,7 +592,7 @@ mod tests {
 
     /// Tenant scope for the acting admin-console operator.
     fn scope_for(org_id: Uuid, user_id: Uuid) -> TenantScope {
-        TenantScope::new(org_id.into(), user_id.into())
+        crate::test_support::tenant_scope_for_ids(org_id, user_id)
     }
 
     /// Read the audit trail rows written for the org, oldest first.
