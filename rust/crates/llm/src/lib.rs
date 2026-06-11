@@ -89,7 +89,12 @@ impl LlmProviderFactory {
 
         match spec.transport {
             registry::ProviderTransport::Anthropic => {
-                Ok(Arc::new(anthropic::AnthropicProvider::new(config.api_key, config.base_url)))
+                // Per-config base_url wins, then the spec default — set for
+                // Anthropic-protocol coding-plan vendors (zhipu_coding, …).
+                // The `anthropic` spec default stays `None`, so the adapter
+                // keeps falling back to api.anthropic.com.
+                let base_url = config.base_url.or_else(|| spec.default_base_url.map(str::to_string));
+                Ok(Arc::new(anthropic::AnthropicProvider::new(config.api_key, base_url)))
             }
             registry::ProviderTransport::OpenAi => {
                 Ok(Arc::new(openai::OpenAiProvider::new(config.api_key, config.base_url)))
@@ -363,6 +368,37 @@ mod tests {
         let f = LlmProviderFactory::new(None);
         let p = f.build("litellm", "sk-gateway".into()).unwrap();
         assert_eq!(p.name(), "litellm");
+    }
+
+    #[test]
+    fn factory_builds_cn_providers_as_openai_compatible_with_spec_default_url() {
+        let f = LlmProviderFactory::new(None);
+        // No per-config base_url: the registry's CN default endpoint fills in.
+        for key in ["zhipu", "minimax", "moonshot", "dashscope", "hunyuan", "xiaomi"] {
+            let p = f.build(key, "vendor-test-key".into()).unwrap();
+            assert_eq!(p.name(), key);
+        }
+    }
+
+    #[test]
+    fn factory_builds_cn_coding_plans_via_anthropic_transport_without_config_url() {
+        let f = LlmProviderFactory::new(None);
+        // The Anthropic arm must fall back to the spec's vendor endpoint when
+        // the user config carries no base_url; construction succeeding without
+        // a caller-supplied URL is the observable contract here.
+        for key in ["zhipu_coding", "minimax_coding", "moonshot_coding", "dashscope_coding", "xiaomi_coding"] {
+            let p = f.build(key, "vendor-test-key".into()).unwrap();
+            // All Anthropic-transport providers share the adapter identity.
+            assert_eq!(p.name(), "anthropic");
+        }
+    }
+
+    #[test]
+    fn factory_resolves_cn_aliases_including_coding_suffix() {
+        let f = LlmProviderFactory::new(None);
+        assert_eq!(f.build("kimi", "vendor-test-key".into()).unwrap().name(), "moonshot");
+        assert_eq!(f.build("qwen", "vendor-test-key".into()).unwrap().name(), "dashscope");
+        assert_eq!(f.build("kimi_coding", "vendor-test-key".into()).unwrap().name(), "anthropic");
     }
 
     #[test]

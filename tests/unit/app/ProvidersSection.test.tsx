@@ -199,6 +199,32 @@ describe('ProvidersSection', () => {
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/next: paste api key/i)
   })
 
+  test('surfaces the CN default placeholder and global endpoint hint for region-switch providers', async () => {
+    useSettingsStore.setState({ providers: [] })
+
+    render(<ProvidersSection />)
+
+    const nextStep = await screen.findByTestId('provider-next-step')
+    fireEvent.click(within(nextStep).getByRole('button', { name: /add provider/i }))
+
+    fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'zhipu' } })
+
+    // CN endpoint is the default (placeholder); the global endpoint is the hint.
+    expect(screen.getByLabelText(/^model$/i)).toHaveValue('glm-4.7')
+    expect(screen.getByLabelText(/base url/i)).toHaveAttribute(
+      'placeholder',
+      expect.stringContaining('https://open.bigmodel.cn/api/paas/v4')
+    )
+    expect(
+      screen.getByText(/global endpoint: https:\/\/api\.z\.ai\/api\/paas\/v4/i)
+    ).toBeDefined()
+
+    // Hunyuan is CN-only — no global endpoint hint, default copy returns.
+    fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'hunyuan' } })
+    expect(screen.getByText(/only change this for a local model server/i)).toBeDefined()
+    expect(screen.queryByText(/global endpoint:/i)).toBeNull()
+  })
+
   test('runs a provider test from the provider row', async () => {
     render(<ProvidersSection />)
 

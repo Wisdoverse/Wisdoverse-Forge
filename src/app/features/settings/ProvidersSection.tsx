@@ -116,6 +116,115 @@ const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
     allowCustomModels: true,
     models: [{ model: 'deepseek-chat', displayName: 'DeepSeek Chat' }],
   },
+  // Mainstream China-region vendors: the default Base URL is the China
+  // endpoint; globalBaseUrl is surfaced as the help hint for region switching.
+  {
+    provider: 'zhipu',
+    displayName: 'Zhipu GLM',
+    defaultModel: 'glm-4.7',
+    defaultBaseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    globalBaseUrl: 'https://api.z.ai/api/paas/v4',
+    requiresApiKey: true,
+    allowCustomModels: true,
+    models: [{ model: 'glm-4.7', displayName: 'GLM-4.7' }],
+  },
+  {
+    provider: 'zhipu_coding',
+    displayName: 'Zhipu GLM Coding Plan',
+    defaultModel: 'glm-4.7',
+    defaultBaseUrl: 'https://open.bigmodel.cn/api/anthropic',
+    globalBaseUrl: 'https://api.z.ai/api/anthropic',
+    requiresApiKey: true,
+    allowCustomModels: true,
+    models: [{ model: 'glm-4.7', displayName: 'GLM-4.7' }],
+  },
+  {
+    provider: 'minimax',
+    displayName: 'MiniMax',
+    defaultModel: 'MiniMax-M3',
+    defaultBaseUrl: 'https://api.minimaxi.com/v1',
+    globalBaseUrl: 'https://api.minimax.io/v1',
+    requiresApiKey: true,
+    allowCustomModels: true,
+    models: [{ model: 'MiniMax-M3', displayName: 'MiniMax M3' }],
+  },
+  {
+    provider: 'minimax_coding',
+    displayName: 'MiniMax Coding Plan',
+    defaultModel: 'MiniMax-M3',
+    defaultBaseUrl: 'https://api.minimaxi.com/anthropic',
+    globalBaseUrl: 'https://api.minimax.io/anthropic',
+    requiresApiKey: true,
+    allowCustomModels: true,
+    models: [{ model: 'MiniMax-M3', displayName: 'MiniMax M3' }],
+  },
+  {
+    provider: 'moonshot',
+    displayName: 'Moonshot Kimi',
+    defaultModel: 'kimi-k2.5',
+    defaultBaseUrl: 'https://api.moonshot.cn/v1',
+    globalBaseUrl: 'https://api.moonshot.ai/v1',
+    requiresApiKey: true,
+    allowCustomModels: true,
+    models: [{ model: 'kimi-k2.5', displayName: 'Kimi K2.5' }],
+  },
+  {
+    provider: 'moonshot_coding',
+    displayName: 'Moonshot Kimi Coding Plan',
+    defaultModel: 'kimi-k2.5',
+    defaultBaseUrl: 'https://api.moonshot.cn/anthropic',
+    globalBaseUrl: 'https://api.moonshot.ai/anthropic',
+    requiresApiKey: true,
+    allowCustomModels: true,
+    models: [{ model: 'kimi-k2.5', displayName: 'Kimi K2.5' }],
+  },
+  {
+    provider: 'dashscope',
+    displayName: 'Alibaba Qwen (DashScope)',
+    defaultModel: 'qwen3-coder-plus',
+    defaultBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    globalBaseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+    requiresApiKey: true,
+    allowCustomModels: true,
+    models: [{ model: 'qwen3-coder-plus', displayName: 'Qwen3 Coder Plus' }],
+  },
+  {
+    provider: 'dashscope_coding',
+    displayName: 'Alibaba Qwen Coding Plan',
+    defaultModel: 'qwen3-coder-plus',
+    defaultBaseUrl: 'https://coding.dashscope.aliyuncs.com/apps/anthropic',
+    globalBaseUrl: 'https://coding-intl.dashscope.aliyuncs.com/apps/anthropic',
+    requiresApiKey: true,
+    allowCustomModels: true,
+    models: [{ model: 'qwen3-coder-plus', displayName: 'Qwen3 Coder Plus' }],
+  },
+  {
+    provider: 'hunyuan',
+    displayName: 'Tencent Hunyuan',
+    defaultModel: 'hunyuan-turbo-latest',
+    defaultBaseUrl: 'https://api.hunyuan.cloud.tencent.com/v1',
+    requiresApiKey: true,
+    allowCustomModels: true,
+    models: [{ model: 'hunyuan-turbo-latest', displayName: 'Hunyuan Turbo' }],
+  },
+  {
+    provider: 'xiaomi',
+    displayName: 'Xiaomi MiMo',
+    defaultModel: 'mimo-v2.5-pro',
+    defaultBaseUrl: 'https://api.xiaomimimo.com/v1',
+    requiresApiKey: true,
+    allowCustomModels: true,
+    models: [{ model: 'mimo-v2.5-pro', displayName: 'MiMo V2.5 Pro' }],
+  },
+  {
+    provider: 'xiaomi_coding',
+    displayName: 'Xiaomi MiMo Coding Plan',
+    defaultModel: 'mimo-v2.5-pro',
+    defaultBaseUrl: 'https://api.xiaomimimo.com/anthropic',
+    requiresApiKey: true,
+    allowCustomModels: true,
+    models: [{ model: 'mimo-v2.5-pro', displayName: 'MiMo V2.5 Pro' }],
+  },
   {
     provider: 'xai',
     displayName: 'xAI',
@@ -929,7 +1038,9 @@ function AddProviderFormPanel({
             id={baseUrlHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Only change this for a local model server or OpenAI-compatible gateway.
+            {selectedProvider?.globalBaseUrl
+              ? `Leave blank to use the China endpoint. Global endpoint: ${selectedProvider.globalBaseUrl}`
+              : 'Only change this for a local model server or OpenAI-compatible gateway.'}
           </p>
           <input
             id={baseUrlInputId}

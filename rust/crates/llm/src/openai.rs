@@ -36,11 +36,29 @@ impl OpenAiProvider {
 
     /// Create a provider for an OpenAI-compatible API.
     ///
-    /// `base_url` is the service root before `/v1/chat/completions`; for
-    /// example Groq uses `https://api.groq.com/openai`.
+    /// `base_url` accepts both shapes vendors document: a service root before
+    /// `/v1/chat/completions` (Groq uses `https://api.groq.com/openai`) or a
+    /// fully versioned base the OpenAI SDK style appends `/chat/completions`
+    /// to (MiniMax uses `https://api.minimaxi.com/v1`, Zhipu uses
+    /// `https://open.bigmodel.cn/api/paas/v4`). See [`chat_completions_url`].
     pub fn compatible(provider_name: impl Into<String>, api_key: String, base_url: String) -> Self {
         Self { client: Client::new(), api_key, base_url, provider_name: provider_name.into() }
     }
+}
+
+/// Join the Chat Completions path onto a configured base URL.
+///
+/// Appends `/v1/chat/completions` to service roots, but only
+/// `/chat/completions` when the base already ends in a version segment such as
+/// `/v1` or `/api/paas/v4` — the shape OpenAI-SDK-style vendor docs publish.
+/// Without this, a pasted vendor base URL would double the version segment
+/// (`…/v1/v1/chat/completions`).
+fn chat_completions_url(base_url: &str) -> String {
+    let trimmed = base_url.trim_end_matches('/');
+    let already_versioned = trimmed.rsplit('/').next().is_some_and(|segment| {
+        segment.len() >= 2 && segment.starts_with('v') && segment[1..].chars().all(|c| c.is_ascii_digit())
+    });
+    if already_versioned { format!("{trimmed}/chat/completions") } else { format!("{trimmed}/v1/chat/completions") }
 }
 
 /// Test-only constructor that sets a custom base URL directly.
@@ -80,7 +98,7 @@ impl LlmStream for OpenAiProvider {
 
         let mut rb = self
             .client
-            .post(format!("{}/v1/chat/completions", self.base_url))
+            .post(chat_completions_url(&self.base_url))
             .header("content-type", "application/json")
             .json(&req);
         if !self.api_key.is_empty() {
@@ -199,7 +217,7 @@ impl LlmProvider for OpenAiProvider {
 
         let mut req = self
             .client
-            .post(format!("{}/v1/chat/completions", self.base_url))
+            .post(chat_completions_url(&self.base_url))
             .header("content-type", "application/json")
             .json(&body);
 
@@ -234,6 +252,45 @@ impl LlmProvider for OpenAiProvider {
         });
 
         Ok(ChatResponse { content, model: json["model"].as_str().unwrap_or(&request.model).to_string(), usage })
+    }
+}
+
+#[cfg(test)]
+mod url_tests {
+    use super::chat_completions_url;
+
+    #[test]
+    fn appends_v1_segment_to_service_roots() {
+        assert_eq!(
+            chat_completions_url("https://api.groq.com/openai"),
+            "https://api.groq.com/openai/v1/chat/completions"
+        );
+        assert_eq!(chat_completions_url("https://api.deepseek.com"), "https://api.deepseek.com/v1/chat/completions");
+        assert_eq!(chat_completions_url("http://litellm:4000"), "http://litellm:4000/v1/chat/completions");
+        assert_eq!(chat_completions_url("http://localhost:11434"), "http://localhost:11434/v1/chat/completions");
+    }
+
+    #[test]
+    fn does_not_double_version_segment_on_versioned_bases() {
+        assert_eq!(chat_completions_url("https://api.minimaxi.com/v1"), "https://api.minimaxi.com/v1/chat/completions");
+        assert_eq!(
+            chat_completions_url("https://open.bigmodel.cn/api/paas/v4"),
+            "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+        );
+        assert_eq!(
+            chat_completions_url("https://dashscope.aliyuncs.com/compatible-mode/v1"),
+            "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+        );
+        assert_eq!(chat_completions_url("https://api.moonshot.cn/v1/"), "https://api.moonshot.cn/v1/chat/completions");
+    }
+
+    #[test]
+    fn non_version_trailing_segments_still_get_v1() {
+        assert_eq!(chat_completions_url("https://host.example/vllm"), "https://host.example/vllm/v1/chat/completions");
+        assert_eq!(
+            chat_completions_url("https://host.example/v1beta"),
+            "https://host.example/v1beta/v1/chat/completions"
+        );
     }
 }
 
