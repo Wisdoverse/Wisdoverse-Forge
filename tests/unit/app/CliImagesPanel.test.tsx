@@ -108,9 +108,13 @@ describe('CliImagesPanel', () => {
     expect(screen.queryByText(/^source:/i)).toBeNull()
     expect(screen.getByText('Codex')).toBeDefined()
     expect(screen.getByText('Up to date')).toBeDefined()
-    // failed tool shows a safe support note instead of raw updater text
+    expect(screen.getByText(/current tool package ID for new agents: aaaaaaaaaaaa…/i)).toBeDefined()
+    expect(screen.getByText(/latest tool package ID found: aaaaaaaaaaaa…/i)).toBeDefined()
+    expect(screen.queryByText(/current package for new agents/i)).toBeNull()
+    expect(screen.queryByText(/latest package found/i)).toBeNull()
+    // failed tool shows a safe next step instead of raw updater text
     expect(screen.getByText('Check failed')).toBeDefined()
-    expect(screen.getByText(/Support note:/i)).toBeDefined()
+    expect(screen.getByText(/What to do:/i)).toBeDefined()
     expect(screen.getByText(/could not reach the tool package source/i)).toBeDefined()
     expect(screen.queryByText(/registry timeout/i)).toBeNull()
     expect(screen.queryByText(/Reported detail/i)).toBeNull()
@@ -568,7 +572,7 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
 
-    expect(screen.getByText(/Support note:/)).toBeDefined()
+    expect(screen.getByText(/What to do:/)).toBeDefined()
     expect(screen.getByText(/could not reach the tool package source/i)).toBeDefined()
     expect(screen.queryByText(/npm registry timeout/)).toBeNull()
     expect(screen.getByRole('button', { name: 'Build latest' })).toBeDefined()

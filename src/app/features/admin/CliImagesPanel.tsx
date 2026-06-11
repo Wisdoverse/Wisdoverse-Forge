@@ -343,10 +343,10 @@ function ToolRow({
               {/* The locally-pulled image the NEXT agent will start from — not
                   necessarily what already-running agents booted from. */}
               <span className="font-mono">
-                current package for new agents: {shortDigest(tool.localDigest)}
+                current tool package ID for new agents: {shortDigest(tool.localDigest)}
               </span>
               <span className="font-mono">
-                latest package found: {shortDigest(tool.remoteDigest)}
+                latest tool package ID found: {shortDigest(tool.remoteDigest)}
               </span>
               <span>last checked {relativeTime(tool.lastCheckedUnix)}</span>
             </div>
@@ -368,7 +368,7 @@ function ToolRow({
                 succeeds.
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Support note: {cliImageIssueNote(tool.lastError, 'check')}
+                What to do: {cliImageIssueNote(tool.lastError, 'check')}
               </p>
             </div>
           )}
@@ -635,7 +635,7 @@ function RollResultBlock({
           )}
           {firstError && (
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Support note: {cliImageIssueNote(firstError, 'restart')}
+              What to do: {cliImageIssueNote(firstError, 'restart')}
             </p>
           )}
         </div>
@@ -687,7 +687,7 @@ function PruneSummaryBlock({ prune }: { prune: CliImagePruneStatus }) {
             The last cleanup hit {prune.errors} {prune.errors === 1 ? 'error' : 'errors'}.
           </p>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Support note: {cliImageIssueNote(prune.lastError, 'cleanup')}
+            What to do: {cliImageIssueNote(prune.lastError, 'cleanup')}
           </p>
         </div>
       )}
