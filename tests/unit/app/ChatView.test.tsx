@@ -156,6 +156,11 @@ describe('ChatView', () => {
           content: 'Settings page shipped',
           createdAt: '2026-04-25T06:10:00Z',
         }),
+        message('Internal sender is not listed yet', {
+          id: 'future-role',
+          role: 'function_call' as never,
+          content: 'Internal sender is not listed yet',
+        }),
       ],
     })
 
@@ -174,6 +179,12 @@ describe('ChatView', () => {
     expect(
       within(screen.getByTestId('conversation-metric-attention')).getByText('1')
     ).toBeInTheDocument()
+    expect(screen.getAllByText('You').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Agent').length).toBeGreaterThan(0)
+    expect(screen.getByText('Message needs review')).toBeInTheDocument()
+    expect(screen.queryByText(/^user$/i)).toBeNull()
+    expect(screen.queryByText(/^assistant$/i)).toBeNull()
+    expect(screen.queryByText(/function_call/i)).toBeNull()
 
     const filters = screen.getByTestId('conversation-filter-group')
     expect(within(filters).getByRole('button', { name: /you\s*1/i })).toBeInTheDocument()

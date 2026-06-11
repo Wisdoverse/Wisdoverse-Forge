@@ -360,28 +360,33 @@ export function ChatView({ agentId }: ChatViewProps) {
                 )}
               </div>
             ) : (
-              visibleMessages.map((m) => (
-                <div
-                  key={m.id}
-                  className={cn(
-                    'flex flex-col gap-1',
-                    m.role === 'user' ? 'items-end' : 'items-start'
-                  )}
-                >
-                  <span className="text-[10px] text-secondary-light">{m.role}</span>
+              visibleMessages.map((m) => {
+                const role = messageRoleKey(m.role)
+                return (
                   <div
+                    key={m.id}
                     className={cn(
-                      'rounded-xl px-3 py-2 max-w-[80%] text-sm whitespace-pre-wrap',
-                      m.role === 'user'
-                        ? 'bg-apple-blue/10 text-apple-blue'
-                        : 'bg-apple-gray-6 dark:bg-white/[0.06]'
+                      'flex flex-col gap-1',
+                      role === 'user' ? 'items-end' : 'items-start'
                     )}
                   >
-                    {m.content ||
-                      (m.role === 'assistant' && streaming && m.finishReason == null ? '…' : '')}
+                    <span className="text-[10px] text-secondary-light">
+                      {messageRoleLabel(m.role)}
+                    </span>
+                    <div
+                      className={cn(
+                        'rounded-xl px-3 py-2 max-w-[80%] text-sm whitespace-pre-wrap',
+                        role === 'user'
+                          ? 'bg-apple-blue/10 text-apple-blue'
+                          : 'bg-apple-gray-6 dark:bg-white/[0.06]'
+                      )}
+                    >
+                      {m.content ||
+                        (role === 'assistant' && streaming && m.finishReason == null ? '…' : '')}
+                    </div>
                   </div>
-                </div>
-              ))
+                )
+              })
             )
           ) : turns.length === 0 ? (
             <ConversationEmptyState
@@ -613,9 +618,10 @@ function turnMatchesConversation(turn: Turn, filter: ConversationFilter, query: 
 }
 
 function messageMatchesFilter(message: AgentMessageRow, filter: ConversationFilter): boolean {
+  const role = messageRoleKey(message.role)
   if (filter === 'all') return true
-  if (filter === 'operator') return message.role === 'user'
-  if (filter === 'agent') return message.role === 'assistant'
+  if (filter === 'operator') return role === 'user'
+  if (filter === 'agent') return role === 'assistant'
   if (filter === 'tool') return false
   return messageNeedsAttention(message)
 }
@@ -645,7 +651,7 @@ function turnNeedsAttention(turn: Turn): boolean {
 }
 
 function messageSearchText(message: AgentMessageRow): string {
-  return [message.role, message.content, message.model, message.finishReason]
+  return [messageRoleLabel(message.role), message.content, message.model, message.finishReason]
     .filter(Boolean)
     .join(' ')
     .toLowerCase()
@@ -676,6 +682,21 @@ function formatMessageTime(value: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return 'recently'
   return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+}
+
+function messageRoleKey(role: string): string {
+  return role.trim().toLowerCase()
+}
+
+function messageRoleLabel(role: string): string {
+  switch (messageRoleKey(role)) {
+    case 'user':
+      return 'You'
+    case 'assistant':
+      return 'Agent'
+    default:
+      return role.trim() ? 'Message needs review' : 'Message sender not reported'
+  }
 }
 
 function formatTurnTime(value: number): string {
