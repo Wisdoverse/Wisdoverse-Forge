@@ -84,6 +84,14 @@ jobs:
   quality-gate:
     name: Quality Gate
     needs: validate
+    # The called ci.yml declares `security-events: write` on its trivy-fs job;
+    # workflow-call validation requires the caller to grant it even though
+    # `upload_sarif: false` skips the actual upload. Without this grant every
+    # dispatch dies at startup with "requesting 'security-events: write', but
+    # is only allowed 'security-events: none'".
+    permissions:
+      contents: read
+      security-events: write
     uses: ./.github/workflows/ci.yml
     with:
       upload_sarif: false
