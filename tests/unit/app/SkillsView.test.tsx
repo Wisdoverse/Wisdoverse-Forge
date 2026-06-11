@@ -209,7 +209,7 @@ describe('SkillsView', () => {
     await user.click(screen.getAllByRole('button', { name: /new instruction/i })[0])
     expect(screen.getByText(/check before creating/i)).toBeDefined()
     expect(screen.getByText('Safe to share')).toBeDefined()
-    expect(screen.getByText(/choose the skill manually/i)).toBeDefined()
+    expect(screen.getByText(/choose this instruction manually/i)).toBeDefined()
     expect(screen.getByText(/words people usually write/i)).toBeDefined()
 
     await user.type(screen.getByLabelText(/^instruction name$/i), 'frontend-review')
@@ -255,7 +255,9 @@ describe('SkillsView', () => {
     await user.click(screen.getAllByRole('button', { name: /new instruction/i })[0])
     await user.click(screen.getByRole('button', { name: /create instruction/i }))
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Name this skill before creating it.')
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Name this saved instruction before creating it.'
+    )
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveFocus()
 
     await user.type(screen.getByLabelText(/^instruction name$/i), 'frontend-review')
@@ -264,10 +266,27 @@ describe('SkillsView', () => {
     await user.click(screen.getByRole('button', { name: /create instruction/i }))
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Add the instructions this skill should apply.'
+      'Add the steps this saved instruction should apply.'
     )
     expect(screen.getByLabelText(/^agent instructions$/i)).toHaveFocus()
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  test('shows a recovery step when saved instructions fail to load', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({ message: 'HTTP 500: database unavailable' }),
+    })
+
+    render(<SkillsView />)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Forge could not load Saved instructions right now')
+    expect(alert).toHaveTextContent('Choose Retry to refresh Saved instructions.')
+    expect(alert).not.toHaveTextContent('HTTP 500')
+    expect(alert).not.toHaveTextContent('database unavailable')
+    expect(screen.getByRole('button', { name: /^retry$/i })).toBeDefined()
   })
 
   test('shows beginner guidance when skill creation is denied', async () => {

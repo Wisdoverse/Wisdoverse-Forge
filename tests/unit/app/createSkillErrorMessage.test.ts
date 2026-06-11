@@ -44,6 +44,13 @@ describe('createSkillErrorMessage', () => {
     expect(message).not.toContain('Forbidden')
   })
 
+  test('maps missing saved instruction routes to a page refresh step', () => {
+    expectBeginnerMessage(
+      createSkillErrorMessage(new Error('HTTP 404: Not Found')),
+      'Saved instructions could not be opened from this page. Refresh Saved instructions, then try again.'
+    )
+  })
+
   test('turns validation details into a field-specific next step', () => {
     const message = createSkillErrorMessage(new Error('HTTP 422: {"message":"trigger is invalid"}'))
 

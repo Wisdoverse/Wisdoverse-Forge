@@ -118,12 +118,12 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
     const content = form.content.trim()
 
     if (!name) {
-      setError('Name this skill before creating it.')
+      setError('Name this saved instruction before creating it.')
       nameInputRef.current?.focus()
       return
     }
     if (!content) {
-      setError('Add the instructions this skill should apply.')
+      setError('Add the steps this saved instruction should apply.')
       contentInputRef.current?.focus()
       return
     }
@@ -189,8 +189,8 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
         </div>
 
         <p className="mb-4 text-ui-body text-secondary-light dark:text-secondary-dark">
-          Skills are reusable instructions. Start with a clear name and the rules the agent should
-          follow.
+          Saved instructions are reusable steps for agents. Start with a clear name and the rules
+          the agent should follow.
         </p>
 
         {error && (
@@ -289,7 +289,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
               id="skill-trigger-help"
               className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
             >
-              Type the words people usually write when this skill should be suggested.
+              Type the words people usually write when this saved instruction should be suggested.
             </p>
             <input
               id="skill-trigger"
@@ -299,7 +299,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
               placeholder="release review, incident notes"
             />
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Leave blank if people should choose the skill manually.
+              Leave blank if people should choose this instruction manually.
             </p>
           </div>
 
@@ -336,7 +336,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
               className={cn(
                 'min-h-36 w-full resize-y rounded-[18px] border border-black/[0.08] bg-white px-3 py-2 font-mono text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
               )}
-              placeholder="Steps the agent should follow when this skill is selected"
+              placeholder="Steps the agent should follow when this instruction is selected"
             />
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Plain steps work best. Include what success should look like.

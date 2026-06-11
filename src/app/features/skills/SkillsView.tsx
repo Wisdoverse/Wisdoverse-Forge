@@ -16,6 +16,8 @@ const SKILL_FILTER_LABELS: Record<SkillFilter, string> = {
   cli: 'For one work tool',
 }
 
+const RAW_LOAD_ERROR_PATTERN = /\b(?:API|HTTP|Code:)\s*\(?\d{3}\b/i
+
 export function SkillsView() {
   const {
     skills: catalogSkills,
@@ -146,8 +148,18 @@ export function SkillsView() {
         )}
 
         {!loading && error && (
-          <div className="flex h-full flex-col items-center justify-center gap-3">
-            <p className="text-ui-body text-apple-red">{error}</p>
+          <div
+            role="alert"
+            className="flex h-full flex-col items-center justify-center gap-3 text-center"
+          >
+            <div className="space-y-1">
+              <p className="text-ui-body text-apple-red">
+                {savedInstructionsLoadErrorMessage(error)}
+              </p>
+              <p className="max-w-sm text-ui-caption text-secondary-light dark:text-secondary-dark">
+                {savedInstructionsLoadRecoveryMessage(error)}
+              </p>
+            </div>
             <button
               type="button"
               onClick={() => void loadSkills()}
@@ -210,6 +222,22 @@ export function SkillsView() {
       <CreateSkillModal open={createModalOpen} onClose={() => setCreateModalOpen(false)} />
     </div>
   )
+}
+
+function savedInstructionsLoadErrorMessage(error: string): string {
+  return RAW_LOAD_ERROR_PATTERN.test(error) ? 'Saved instructions could not load.' : error
+}
+
+function savedInstructionsLoadRecoveryMessage(error: string): string {
+  const normalized = error.toLowerCase()
+  if (normalized.includes('sign in')) return 'After signing in, choose Retry.'
+  if (normalized.includes('permission') || normalized.includes('access')) {
+    return 'After an owner or admin updates your access, choose Retry.'
+  }
+  if (normalized.includes('connect') || normalized.includes('connection')) {
+    return 'Check your connection, then choose Retry.'
+  }
+  return 'Choose Retry to refresh Saved instructions.'
 }
 
 function filterSkills(skills: Skill[], filter: SkillFilter): Skill[] {

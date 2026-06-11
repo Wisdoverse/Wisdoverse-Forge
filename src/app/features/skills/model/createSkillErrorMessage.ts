@@ -5,7 +5,7 @@ const GENERIC_BODY_TEXT = /^(Unauthorized|Forbidden|Not Found|Internal Server Er
 const USER_FACING_STARTS = [
   'The instruction could not be created',
   'Forge could not',
-  'Skills could not',
+  'Saved instructions could not',
   'Sign in again',
   'You do not have permission',
   'Instruction setup',
@@ -35,7 +35,7 @@ export function createSkillErrorMessage(error?: unknown): string {
     return 'You do not have permission to create workspace instructions. Ask an owner or admin to let you create saved instructions.'
   }
   if (status === 404) {
-    return 'Skills could not be opened from this page. Refresh Skills, then try again.'
+    return 'Saved instructions could not be opened from this page. Refresh Saved instructions, then try again.'
   }
   if (status === 409) {
     return 'An instruction with this name or trigger may already exist. Review the existing instructions, then try again.'
