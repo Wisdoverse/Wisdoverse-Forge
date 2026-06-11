@@ -130,6 +130,13 @@ services:
       # "Local Agent Join Variables"). Plaintext NATS stays opt-in.
       - ALLOW_PLAINTEXT_HOST_NATS=${ALLOW_PLAINTEXT_HOST_NATS:-false}
       - HOST_JOIN_BINARY_BASE_URL=${HOST_JOIN_BINARY_BASE_URL:-}
+      # CLI agent-image auto-updater (docs/guides/configuration.md →
+      # "CLI Agent Image Updater Variables"). Off by default.
+      - CLI_IMAGE_AUTO_UPDATE_ENABLED=${CLI_IMAGE_AUTO_UPDATE_ENABLED:-false}
+      - CLI_IMAGE_AUTO_UPDATE_INTERVAL_SECS=${CLI_IMAGE_AUTO_UPDATE_INTERVAL_SECS:-900}
+      - CLI_IMAGE_PRUNE_ENABLED=${CLI_IMAGE_PRUNE_ENABLED:-false}
+      - AGENT_REGISTRY=${AGENT_REGISTRY:-ghcr.io/wisdoverse/wisdoverse-forge}
+      - AGENT_CLI_IMAGE_TAG=${AGENT_CLI_IMAGE_TAG:-latest}
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-}
       - SMTP_USER=${SMTP_USER:-}
