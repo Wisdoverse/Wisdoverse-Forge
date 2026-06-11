@@ -1,8 +1,10 @@
 import { describe, test, expect, afterEach } from 'vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
+import type { AgentInfo } from '@app/entities/agent'
 import {
   Workshop3DEmptyState,
   Workshop3DStatusSummary,
+  workshop3DAgentSubtitle,
 } from '@app/widgets/views/Workshop3DView'
 
 afterEach(cleanup)
@@ -37,5 +39,26 @@ describe('Workshop3DStatusSummary', () => {
     expect(screen.getByText('1 Ready')).toBeDefined()
     expect(screen.getByText('0 Offline')).toBeDefined()
     expect(screen.queryByText(/idle/i)).toBeNull()
+  })
+})
+
+describe('workshop3DAgentSubtitle', () => {
+  test('uses beginner-safe runtime labels instead of raw service fields', () => {
+    const agent: AgentInfo = {
+      id: 'agent-1',
+      name: 'Planning agent',
+      provider: 'openai_compatible',
+      model: 'vendor-internal-model',
+      status: 'idle',
+      tasksCompleted: 0,
+      tasksInProgress: 0,
+      successRate: 0,
+      cliTool: 'codex',
+      runtimeKind: 'cli',
+    }
+
+    expect(workshop3DAgentSubtitle(agent)).toBe('Ready - Codex on this computer')
+    expect(workshop3DAgentSubtitle(agent)).not.toContain('vendor-internal-model')
+    expect(workshop3DAgentSubtitle(agent)).not.toContain('openai_compatible')
   })
 })

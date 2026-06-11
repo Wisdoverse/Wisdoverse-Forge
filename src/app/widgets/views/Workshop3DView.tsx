@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { Bot, Power, RefreshCw } from 'lucide-react'
 import * as THREE from 'three'
-import { useAgentsStore, type AgentInfo, type AgentStatus } from '@app/entities/agent'
+import {
+  agentRuntimeLabel as agentRuntimeDisplayLabel,
+  useAgentsStore,
+  type AgentInfo,
+  type AgentStatus,
+} from '@app/entities/agent'
 
 type AgentSceneObject = {
   group: THREE.Group
@@ -69,6 +74,10 @@ const EMPTY_STATE_STEPS = [
   { label: 'Refresh this view after the agent checks in', icon: RefreshCw },
 ]
 
+export function workshop3DAgentSubtitle(agent: AgentInfo): string {
+  return `${STATUS_STYLE[agent.status].label} - ${agentRuntimeDisplayLabel(agent)}`
+}
+
 export function Workshop3DEmptyState() {
   return (
     <div
@@ -101,10 +110,6 @@ function agentPosition(index: number, total: number): THREE.Vector3 {
   const radius = Math.min(4.9, Math.max(2.7, 1.8 + total * 0.48))
   const angle = (index / total) * Math.PI * 2 - Math.PI / 2
   return new THREE.Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius)
-}
-
-function agentRuntimeLabel(agent: AgentInfo): string {
-  return agent.model || agent.provider || agent.cliTool || 'runtime'
 }
 
 function createArm(side: -1 | 1, material: THREE.MeshStandardMaterial): THREE.Group {
@@ -894,7 +899,7 @@ export function Workshop3DView() {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{agent.name}</span>
                   <span className="block truncate text-[11px] text-white/58">
-                    {status.label} - {agentRuntimeLabel(agent)}
+                    {workshop3DAgentSubtitle(agent)}
                   </span>
                 </span>
               </button>
@@ -911,7 +916,7 @@ export function Workshop3DView() {
           <div className="text-[11px] text-white/55">Selected</div>
           <div className="mt-1 truncate text-sm font-medium">{selectedAgent.name}</div>
           <div className="mt-0.5 truncate text-[11px] text-white/60">
-            {STATUS_STYLE[selectedAgent.status].label} - {agentRuntimeLabel(selectedAgent)}
+            {workshop3DAgentSubtitle(selectedAgent)}
           </div>
         </div>
       ) : null}
