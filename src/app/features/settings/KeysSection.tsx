@@ -36,6 +36,7 @@ interface KeyRowProps {
 
 function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
   const [confirming, setConfirming] = useState(false)
+  const removeWarningId = `automation-key-remove-warning-${apiKey.id}`
 
   function handleRevoke() {
     if (!confirming) {
@@ -77,10 +78,16 @@ function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
               ? `Confirm removing automation access key named ${apiKey.name}`
               : `Remove automation access key named ${apiKey.name}`
           }
+          aria-describedby={confirming ? removeWarningId : undefined}
           className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
         >
           {confirming ? 'Remove now' : 'Remove'}
         </button>
+        {confirming && (
+          <p id={removeWarningId} className="ml-auto mt-1 max-w-48 text-ui-caption text-apple-red">
+            Removing this key can stop {apiKey.name} from connecting to Forge.
+          </p>
+        )}
       </td>
     </tr>
   )
@@ -259,7 +266,7 @@ export function KeysSection() {
 
   const tableHeaders: { label: string; className?: string }[] = [
     { label: 'Name' },
-    { label: 'Starts with' },
+    { label: 'Key preview' },
     { label: 'Created' },
     { label: 'Last used' },
     { label: '', className: 'w-20' },

@@ -125,17 +125,30 @@ describe('KeysSection', () => {
     render(<KeysSection />)
 
     expect(await screen.findByRole('table', { name: /automation access keys/i })).toBeDefined()
-    expect(screen.getByText('Starts with')).toBeDefined()
+    expect(screen.getByText('Key preview')).toBeDefined()
+    expect(screen.queryByText('Starts with')).toBeNull()
 
     fireEvent.click(
       screen.getByRole('button', { name: /remove automation access key named release automation/i })
     )
 
+    expect(revokeApiKeyMock).not.toHaveBeenCalled()
+    expect(
+      screen.getByText('Removing this key can stop Release automation from connecting to Forge.')
+    ).toBeDefined()
     expect(
       screen.getByRole('button', {
         name: /confirm removing automation access key named release automation/i,
       })
     ).toHaveTextContent('Remove now')
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /confirm removing automation access key named release automation/i,
+      })
+    )
+
+    expect(revokeApiKeyMock).toHaveBeenCalledWith('key-1')
   })
 
   test('shows a beginner recovery step instead of raw platform key details', async () => {
