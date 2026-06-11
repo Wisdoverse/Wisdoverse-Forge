@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { AgentPluginsTab } from '@app/features/agents/AgentPluginsTab'
+import { AgentPluginsTab, pluginSettingNote } from '@app/features/agents/AgentPluginsTab'
 
 const fetchMock = vi.fn()
 
@@ -74,6 +74,18 @@ describe('AgentPluginsTab', () => {
     expect(screen.getByText('Shell Tools')).toBeDefined()
     expect(screen.getByText('Browser Tools')).toBeDefined()
     expect(screen.getByText('Deploy Tools')).toBeDefined()
+    expect(screen.getByText('Following workspace setting - the workspace normally allows this tool')).toBeDefined()
+    expect(screen.getByText('Changed here - the workspace normally keeps this tool off')).toBeDefined()
+    expect(screen.queryByText(/workspace default/i)).toBeNull()
+  })
+
+  test('explains per-agent tool settings without raw on and off jargon', () => {
+    expect(pluginSettingNote({ defaultEnabled: true, hasOverride: false })).toBe(
+      'Following workspace setting - the workspace normally allows this tool'
+    )
+    expect(pluginSettingNote({ defaultEnabled: false, hasOverride: true })).toBe(
+      'Changed here - the workspace normally keeps this tool off'
+    )
   })
 
   test('filters and searches agent plugins', async () => {

@@ -97,6 +97,17 @@ function filterPlugins(plugins: PluginItem[], filter: PluginFilter, query: strin
   })
 }
 
+export function pluginSettingNote(
+  plugin: Pick<PluginItem, 'defaultEnabled' | 'hasOverride'>
+): string {
+  const workspaceSetting = plugin.defaultEnabled
+    ? 'the workspace normally allows this tool'
+    : 'the workspace normally keeps this tool off'
+  return plugin.hasOverride
+    ? `Changed here - ${workspaceSetting}`
+    : `Following workspace setting - ${workspaceSetting}`
+}
+
 interface AgentPluginsTabProps {
   agentId: string
 }
@@ -367,9 +378,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
                 {plugin.description || 'No description provided'}
               </span>
               <span className="text-[10px] font-mono uppercase tracking-normal text-secondary-light/80 dark:text-secondary-dark/80">
-                {plugin.hasOverride
-                  ? `Changed for this agent · workspace default is ${plugin.defaultEnabled ? 'on' : 'off'}`
-                  : `Using workspace default · ${plugin.defaultEnabled ? 'on' : 'off'}`}
+                {pluginSettingNote(plugin)}
               </span>
             </div>
 
