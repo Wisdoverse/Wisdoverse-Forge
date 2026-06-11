@@ -28,6 +28,28 @@ afterEach(() => {
 })
 
 describe('workspace management rows', () => {
+  test('labels generated team and project addresses without implementation terms', () => {
+    render(
+      <>
+        <EditableTeamRow
+          team={team}
+          onUpdate={vi.fn().mockResolvedValue(undefined)}
+          onDelete={vi.fn()}
+        />
+        <EditableProjectRow
+          project={project}
+          teamName="Product"
+          onUpdate={vi.fn().mockResolvedValue(undefined)}
+          onDelete={vi.fn()}
+        />
+      </>
+    )
+
+    expect(screen.getByText(/Address:\s*product-team/i)).toBeDefined()
+    expect(screen.getByText('Address: website-launch')).toBeDefined()
+    expect(screen.queryByText(/slug/i)).toBeNull()
+  })
+
   test('requires a clear second action before deleting a project', async () => {
     const onDelete = vi.fn().mockResolvedValue(undefined)
 
@@ -139,7 +161,9 @@ describe('workspace management rows', () => {
   })
 
   test('shows beginner guidance when a project delete is blocked', async () => {
-    const onDelete = vi.fn().mockRejectedValue(new Error('HTTP 422: {"message":"Move agents first."}'))
+    const onDelete = vi
+      .fn()
+      .mockRejectedValue(new Error('HTTP 422: {"message":"Move agents first."}'))
 
     render(
       <EditableProjectRow

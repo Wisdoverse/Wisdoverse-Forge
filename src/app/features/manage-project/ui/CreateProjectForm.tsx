@@ -21,8 +21,8 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
   const [name, setName] = useState('')
   const [teamId, setTeamId] = useState(teams[0]?.id ?? '')
   const [submitAttempted, setSubmitAttempted] = useState(false)
-  const nameInputId = 'create-project-name'
-  const teamSelectId = 'create-project-team'
+  const nameInputId = 'project-name'
+  const teamSelectId = 'project-team'
   const statusId = 'create-project-status'
   const errorId = 'create-project-error'
   const trimmedName = name.trim()
@@ -80,11 +80,11 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
 
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <label htmlFor="project-name" className={uiStyles.label}>
-            Project Name *
+          <label htmlFor={nameInputId} className={uiStyles.label}>
+            Project name *
           </label>
           <input
-            id="project-name"
+            id={nameInputId}
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -102,18 +102,18 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
           </p>
           {name.trim() && (
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Slug: {slugifyName(name)}
+              Address preview: {slugifyName(name)}. Forge creates this automatically from the name.
             </p>
           )}
         </div>
 
         <div>
-          <label htmlFor="project-team" className={uiStyles.label}>
+          <label htmlFor={teamSelectId} className={uiStyles.label}>
             Team *
           </label>
           {teams.length === 0 ? (
             <p
-              id="create-project-team"
+              id={teamSelectId}
               tabIndex={-1}
               className="py-1.5 text-ui-caption text-secondary-light dark:text-secondary-dark"
             >
@@ -121,7 +121,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
             </p>
           ) : (
             <select
-              id="project-team"
+              id={teamSelectId}
               value={teamId}
               onChange={(e) => setTeamId(e.target.value)}
               aria-invalid={errorField === 'team'}
@@ -155,10 +155,10 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
           className="text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
           {isReady
-            ? 'Ready to Create Project'
+            ? 'Ready to create project'
             : missingTeam
-              ? 'Next: Create a Team First'
-              : 'Next: Name the Project'}
+              ? 'Next: create a team first'
+              : 'Next: name the project'}
         </p>
         <div className="flex gap-2">
           <button
@@ -170,7 +170,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
             Cancel
           </button>
           <button type="submit" disabled={saving} className={uiStyles.primaryButton}>
-            {saving ? 'Creating…' : 'Create Project'}
+            {saving ? 'Creating…' : 'Create project'}
           </button>
         </div>
       </div>

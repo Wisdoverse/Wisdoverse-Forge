@@ -188,8 +188,8 @@ export function EditableProjectRow({
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <span className="hidden rounded-badge border border-black/5 bg-black/[0.03] px-1.5 py-0.5 font-mono text-[10px] text-secondary-light dark:border-white/10 dark:bg-white/[0.05] dark:text-secondary-dark sm:inline">
-          {project.slug}
+        <span className="hidden rounded-badge border border-black/5 bg-black/[0.03] px-1.5 py-0.5 text-[10px] text-secondary-light dark:border-white/10 dark:bg-white/[0.05] dark:text-secondary-dark sm:inline">
+          Address: {project.slug}
         </span>
         {canManage && (
           <>

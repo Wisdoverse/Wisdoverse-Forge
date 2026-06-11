@@ -41,9 +41,14 @@ describe('organization setup forms', () => {
     fireEvent.change(screen.getByLabelText(/^team name/i), {
       target: { value: ' Platform Ops ' },
     })
-    expect(screen.getByText('Slug: platform-ops')).toBeDefined()
+    expect(
+      screen.getByText(
+        'Address preview: platform-ops. Forge creates this automatically from the name.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByText(/slug:/i)).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /create team/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Create team' }))
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith('Platform Ops'))
   })
@@ -61,9 +66,14 @@ describe('organization setup forms', () => {
       target: { value: ' Customer Portal ' },
     })
     fireEvent.change(screen.getByLabelText(/^team/i), { target: { value: 'team-ops' } })
-    expect(screen.getByText('Slug: customer-portal')).toBeDefined()
+    expect(
+      screen.getByText(
+        'Address preview: customer-portal. Forge creates this automatically from the name.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByText(/slug:/i)).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Create project' }))
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith('Customer Portal', 'team-ops'))
   })
@@ -76,6 +86,35 @@ describe('organization setup forms', () => {
     })
 
     expect(screen.getByText(/No teams/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: /create project/i })).not.toBeDisabled()
+    expect(screen.getByTestId('create-project-status')).toHaveTextContent(
+      'Next: create a team first'
+    )
+    expect(screen.getByRole('button', { name: 'Create project' })).not.toBeDisabled()
+  })
+
+  test('moves focus to the team name when team creation is submitted empty', () => {
+    const onSave = vi.fn().mockResolvedValue(undefined)
+
+    render(<CreateTeamForm onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    const form = screen.getByLabelText(/^team name/i).closest('form')
+    fireEvent.submit(form!)
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter a team name before creating it.')
+    expect(screen.getByLabelText(/^team name/i)).toHaveFocus()
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  test('moves focus to the project name when project creation is submitted without a name', () => {
+    const onSave = vi.fn().mockResolvedValue(undefined)
+
+    render(<CreateProjectForm teams={teams} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    const form = screen.getByLabelText(/^project name/i).closest('form')
+    fireEvent.submit(form!)
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter a project name before creating it.')
+    expect(screen.getByLabelText(/^project name/i)).toHaveFocus()
+    expect(onSave).not.toHaveBeenCalled()
   })
 })
