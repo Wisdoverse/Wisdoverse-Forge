@@ -111,6 +111,10 @@ function agentSetupSummary(agent: AgentInfo): string {
   return 'Chat-only agent'
 }
 
+export function agentDetailHeaderSubtitle(agent: AgentInfo): string {
+  return agentRuntimeLabel(agent)
+}
+
 function agentConnectionStatus(agent: AgentInfo): string {
   if (isHostCliAgent(agent)) {
     return agent.runtimeId
@@ -191,7 +195,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
             <AgentKindBadge cliTool={agent.cliTool} runtimeKind={agent.runtimeKind} />
           </div>
           <p className="truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-            {agentRuntimeLabel(agent)} · {agent.model}
+            {agentDetailHeaderSubtitle(agent)}
           </p>
         </div>
 

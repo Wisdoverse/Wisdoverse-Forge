@@ -1,7 +1,10 @@
 import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useAgentsStore } from '@app/entities/agent'
-import { AgentDetailView } from '@app/widgets/agent-detail/AgentDetailView'
+import {
+  agentDetailHeaderSubtitle,
+  AgentDetailView,
+} from '@app/widgets/agent-detail/AgentDetailView'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 
 afterEach(cleanup)
@@ -82,6 +85,15 @@ describe('AgentDetailView', () => {
   test('renders agent name', () => {
     render(<AgentDetailView agent={containerAgent} onBack={() => {}} />)
     expect(screen.getByText('Build Agent')).toBeDefined()
+  })
+
+  test('agent header summarizes work location without raw model names', () => {
+    expect(agentDetailHeaderSubtitle(containerAgent)).toBe('OpenCode in a managed workspace')
+
+    render(<AgentDetailView agent={containerAgent} onBack={() => {}} />)
+
+    expect(screen.getAllByText('OpenCode in a managed workspace').length).toBeGreaterThan(0)
+    expect(screen.queryByText('tool-large')).toBeNull()
   })
 
   test('workspace tool agent shows the live work tab and labels chat as History', () => {
