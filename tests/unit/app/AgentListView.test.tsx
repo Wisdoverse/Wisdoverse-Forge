@@ -38,8 +38,9 @@ describe('AgentListView', () => {
   test('shows empty state when no agents', () => {
     render(<AgentListView />)
     expect(screen.getByText(/create your first agent/i)).toBeDefined()
-    expect(screen.getByText(/connected model for text-only work/i)).toBeDefined()
-    expect(screen.getByText(/local files and commands/i)).toBeDefined()
+    expect(screen.getByText(/chat-only AI service for planning and review/i)).toBeDefined()
+    expect(screen.getByText(/files and commands on your machine/i)).toBeDefined()
+    expect(screen.queryByText(/connected model for text-only work/i)).toBeNull()
     expect(screen.getAllByRole('button', { name: /new agent/i }).length).toBeGreaterThan(0)
   })
 
@@ -190,6 +191,8 @@ describe('AgentListView', () => {
     ])
 
     render(<AgentListView />)
+    expect(screen.getByPlaceholderText(/AI services, projects/i)).toBeDefined()
+    expect(screen.queryByPlaceholderText(/models, projects/i)).toBeNull()
 
     fireEvent.change(screen.getByTestId('agent-search'), { target: { value: 'review' } })
     expect(screen.getByText('Review Analyst')).toBeDefined()
@@ -197,7 +200,10 @@ describe('AgentListView', () => {
 
     fireEvent.change(screen.getByTestId('agent-search'), { target: { value: '' } })
     const runtimeFilters = screen.getByRole('group', { name: /runtime filter/i })
-    fireEvent.click(within(runtimeFilters).getByRole('button', { name: /text only\s*1/i }))
+    expect(within(runtimeFilters).queryByRole('button', { name: /text only\s*1/i })).toBeNull()
+    fireEvent.click(
+      within(runtimeFilters).getByRole('button', { name: /chat-only AI service\s*1/i })
+    )
     expect(screen.getByText('Review Analyst')).toBeDefined()
     expect(screen.queryByText('Build Runner')).toBeNull()
 

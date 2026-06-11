@@ -40,7 +40,7 @@ const RUNTIME_FILTERS: { value: AgentRuntimeFilter; label: string }[] = [
   { value: 'all', label: 'All agents' },
   { value: 'container', label: 'Managed workspace' },
   { value: 'host', label: 'This computer' },
-  { value: 'provider', label: 'Text only' },
+  { value: 'provider', label: 'Chat-only AI service' },
 ]
 
 const SORT_OPTIONS: { value: AgentSortKey; label: string }[] = [
@@ -150,8 +150,8 @@ export function AgentListView() {
                   Create Your First Agent
                 </p>
                 <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-                  Start with a connected model for text-only work, or connect this computer when the
-                  task needs local files and commands.
+                  Start with a chat-only AI service for planning and review, or connect this
+                  computer when the task needs files and commands on your machine.
                 </p>
               </div>
               <button
@@ -532,7 +532,7 @@ function FleetControls({
             autoComplete="off"
             value={searchQuery}
             onChange={(event) => onSearchQueryChange(event.target.value)}
-            placeholder="Search agents, models, projects…"
+            placeholder="Search agents, AI services, projects…"
             className="h-10 w-full rounded-md border border-black/[0.08] bg-white pl-9 pr-3 text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light focus-visible:border-apple-blue/40 focus-visible:ring-2 focus-visible:ring-apple-blue/20 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark"
           />
         </div>
