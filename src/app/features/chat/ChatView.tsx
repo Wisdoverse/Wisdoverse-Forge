@@ -38,7 +38,7 @@ const PROVIDER_EMPTY_COPY = {
   steps: [
     'Ask for one outcome at a time.',
     'Use Attention after a reply to find blockers.',
-    'Clear chat only when old context is no longer useful.',
+    'Clear chat only when old messages are no longer useful.',
   ],
 }
 
@@ -219,7 +219,7 @@ export function ChatView({ agentId }: ChatViewProps) {
         'bg-apple-blue/10 text-apple-blue border border-apple-blue/20'
       )}
     >
-      <span className="font-medium">Chat-only agent</span>
+      <span className="font-medium">Chat-only AI service</span>
       <span className="text-apple-blue/80">
         Messages use {modelServiceName}. This agent can answer in chat, but it does not work on
         workspace files.

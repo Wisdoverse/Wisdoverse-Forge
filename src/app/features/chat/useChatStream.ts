@@ -106,7 +106,7 @@ export function chatStreamEventErrorMessage(detail: unknown): string {
     return 'You do not have access to this agent chat. Ask an owner or admin to update your workspace role.'
   }
   if (text.includes('context')) {
-    return 'This chat has too much old context. Clear chat only if the old messages are no longer useful, then send the message again.'
+    return 'This chat has too many old messages. Clear chat only if those messages are no longer useful, then send the message again.'
   }
   return 'The agent could not finish this reply. Resend the message. If it still fails, ask an owner or admin to check chat setup.'
 }

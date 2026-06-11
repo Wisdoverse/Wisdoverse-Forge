@@ -80,7 +80,7 @@ afterEach(() => {
 })
 
 describe('ChatView', () => {
-  test('shows chat-only agent banner when agent has no cliTool', async () => {
+  test('shows chat-only AI service banner when agent has no cliTool', async () => {
     const loadMessages = vi.fn().mockResolvedValue(undefined)
     useAgentsStore.setState({ agents: [providerAgent] })
     seedChatState({ messages: [message('Hello from provider')], loadMessages })
@@ -89,6 +89,7 @@ describe('ChatView', () => {
 
     const banner = screen.getByTestId('provider-agent-chat-banner')
     expect(banner).toBeInTheDocument()
+    expect(within(banner).getByText('Chat-only AI service')).toBeInTheDocument()
     expect(within(banner).getByText(/messages use anthropic/i)).toBeInTheDocument()
     expect(
       within(banner).getByText(/can answer in chat.*does not work on workspace files/i)
@@ -97,6 +98,7 @@ describe('ChatView', () => {
     expect(banner).not.toHaveTextContent(/provider/i)
     expect(banner).not.toHaveTextContent(/model service/i)
     expect(banner).not.toHaveTextContent(/command window/i)
+    expect(banner).not.toHaveTextContent('Chat-only agent')
     expect(screen.getByText('Hello from provider')).toBeInTheDocument()
     await waitFor(() => expect(loadMessages).toHaveBeenCalledWith(providerAgent.id))
   })
@@ -142,6 +144,8 @@ describe('ChatView', () => {
     expect(screen.getByTestId('conversation-empty-state')).toBeInTheDocument()
     expect(screen.getByText('Start by asking this agent')).toBeInTheDocument()
     expect(screen.getByText('Ask for one outcome at a time.')).toBeInTheDocument()
+    expect(screen.getByText(/old messages are no longer useful/i)).toBeInTheDocument()
+    expect(screen.queryByText(/old context/i)).toBeNull()
   })
 
   test('guides empty managed workspace history toward routed work', () => {

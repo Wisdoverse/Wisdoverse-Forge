@@ -136,6 +136,17 @@ describe('chatStreamEventErrorMessage', () => {
     expect(message).not.toContain('token')
   })
 
+  it('maps context limit errors to old-message guidance', () => {
+    const message = chatStreamEventErrorMessage('context window exceeded')
+
+    expectBeginnerMessage(
+      message,
+      'This chat has too many old messages. Clear chat only if those messages are no longer useful, then send the message again.'
+    )
+    expect(message).not.toContain('old context')
+    expect(message).not.toContain('context window')
+  })
+
   it('maps unknown streamed failures to a resend and owner check step', () => {
     const message = chatStreamEventErrorMessage('stream error')
 
