@@ -6,7 +6,12 @@ vi.mock('@app/shared/api/legacy', () => ({
   getAuthFetch: () => authFetchMock,
 }))
 
-import { adminHttpErrorMessage, useAdminStore } from '@app/shared/model/admin.store'
+import {
+  adminHttpErrorMessage,
+  adminUserActionErrorMessage,
+  useAdminStore,
+  type AdminUser,
+} from '@app/shared/model/admin.store'
 
 function response(status: number, body: unknown): Response {
   return {
@@ -25,6 +30,7 @@ function resetAdminState() {
     usersLoading: false,
     usersError: null,
     userSearch: '',
+    userActionError: null,
     orgs: [],
     orgsLoading: false,
     orgsError: null,
@@ -359,6 +365,165 @@ describe('useAdminStore loading errors', () => {
     expect(authFetchMock).toHaveBeenCalledWith(
       '/api/v1/admin/users?page=2&limit=25&search=alice',
       expect.anything()
+    )
+  })
+
+  // ---------------------------------------------------------------------------
+  // Per-user actions: role change + removal
+  // ---------------------------------------------------------------------------
+
+  const seedUsers = (): AdminUser[] => [
+    {
+      id: 'user-1',
+      email: 'alex@example.com',
+      displayName: 'Alex Operator',
+      role: 'member',
+      status: 'active',
+      createdAt: '2026-05-01T12:00:00Z',
+      lastLoginAt: null,
+    },
+    {
+      id: 'user-2',
+      email: 'bo@example.com',
+      displayName: 'Bo Member',
+      role: 'member',
+      status: 'active',
+      createdAt: '2026-05-02T12:00:00Z',
+      lastLoginAt: null,
+    },
+  ]
+
+  test('updateUserRole PUTs the new role and swaps in the saved row', async () => {
+    useAdminStore.setState({ users: seedUsers(), usersTotal: 2 })
+    authFetchMock.mockResolvedValue(
+      response(200, {
+        ok: true,
+        user: {
+          id: 'user-1',
+          email: 'alex@example.com',
+          displayName: 'Alex Operator',
+          role: 'admin',
+          status: 'active',
+          createdAt: '2026-05-01T12:00:00Z',
+          lastLoginAt: null,
+        },
+      })
+    )
+
+    const ok = await useAdminStore.getState().updateUserRole('user-1', 'admin')
+
+    expect(ok).toBe(true)
+    expect(authFetchMock).toHaveBeenCalledWith(
+      '/api/v1/admin/users/user-1',
+      expect.objectContaining({ method: 'PUT', body: JSON.stringify({ role: 'admin' }) })
+    )
+    const state = useAdminStore.getState()
+    expect(state.userActionError).toBeNull()
+    expect(state.users[0]?.role).toBe('admin')
+    // Other rows are untouched.
+    expect(state.users[1]?.role).toBe('member')
+    expect(state.usersTotal).toBe(2)
+  })
+
+  test('updateUserRole surfaces the backend last-admin guard message verbatim', async () => {
+    useAdminStore.setState({ users: seedUsers(), usersTotal: 2 })
+    authFetchMock.mockResolvedValue(
+      response(422, {
+        ok: false,
+        error: {
+          code: 'UNPROCESSABLE_ENTITY',
+          message:
+            'unprocessable entity: this is the only admin account left. Make another person an admin first, then retry this change.',
+        },
+      })
+    )
+
+    const ok = await useAdminStore.getState().updateUserRole('user-1', 'member')
+
+    expect(ok).toBe(false)
+    expect(useAdminStore.getState().userActionError).toBe(
+      'This is the only admin account left. Make another person an admin first, then retry this change.'
+    )
+    // The row keeps its previous role — nothing was saved.
+    expect(useAdminStore.getState().users[0]?.role).toBe('member')
+  })
+
+  test('deleteUser DELETEs the account and drops the row and total', async () => {
+    useAdminStore.setState({ users: seedUsers(), usersTotal: 2 })
+    authFetchMock.mockResolvedValue(response(200, { ok: true }))
+
+    const ok = await useAdminStore.getState().deleteUser('user-2')
+
+    expect(ok).toBe(true)
+    expect(authFetchMock).toHaveBeenCalledWith(
+      '/api/v1/admin/users/user-2',
+      expect.objectContaining({ method: 'DELETE' })
+    )
+    const state = useAdminStore.getState()
+    expect(state.users.map((u) => u.id)).toEqual(['user-1'])
+    expect(state.usersTotal).toBe(1)
+    expect(state.userActionError).toBeNull()
+  })
+
+  test('deleteUser surfaces the backend self-removal guard message verbatim', async () => {
+    useAdminStore.setState({ users: seedUsers(), usersTotal: 2 })
+    authFetchMock.mockResolvedValue(
+      response(422, {
+        ok: false,
+        error: {
+          code: 'UNPROCESSABLE_ENTITY',
+          message:
+            'unprocessable entity: you cannot change or remove your own account. Ask another admin to make this change for you.',
+        },
+      })
+    )
+
+    const ok = await useAdminStore.getState().deleteUser('user-1')
+
+    expect(ok).toBe(false)
+    expect(useAdminStore.getState().userActionError).toBe(
+      'You cannot change or remove your own account. Ask another admin to make this change for you.'
+    )
+    // Nothing was removed.
+    expect(useAdminStore.getState().users).toHaveLength(2)
+    expect(useAdminStore.getState().usersTotal).toBe(2)
+  })
+
+  test('a user action that cannot reach the server explains the retry step', async () => {
+    useAdminStore.setState({ users: seedUsers(), usersTotal: 2 })
+    authFetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
+
+    const ok = await useAdminStore.getState().deleteUser('user-2')
+
+    expect(ok).toBe(false)
+    expect(useAdminStore.getState().userActionError).toBe(
+      'The removal could not reach the server. Check your connection and try again.'
+    )
+    expect(useAdminStore.getState().users).toHaveLength(2)
+  })
+
+  test('clearUserActionError dismisses a stale action error', () => {
+    useAdminStore.setState({ userActionError: 'old problem' })
+    useAdminStore.getState().clearUserActionError()
+    expect(useAdminStore.getState().userActionError).toBeNull()
+  })
+
+  test('adminUserActionErrorMessage maps statuses to operator steps', () => {
+    expect(adminUserActionErrorMessage('change-role', 401)).toBe(
+      'Sign in again, then retry the access change. Code: 401.'
+    )
+    expect(adminUserActionErrorMessage('remove', 403)).toBe(
+      'You do not have permission to manage users. Ask an owner to update your admin role. Code: 403.'
+    )
+    expect(adminUserActionErrorMessage('remove', 404)).toBe(
+      'This user is no longer in the list. Reload the user list to see the latest accounts. Code: 404.'
+    )
+    expect(adminUserActionErrorMessage('change-role', 500, { error: 'db down' })).toBe(
+      'The admin service had a server problem. Retry the access change after the backend is healthy. Code: 500. Details: db down'
+    )
+    // 422 without a usable detail falls back to the generic retry step.
+    expect(adminUserActionErrorMessage('change-role', 422)).toBe(
+      'The access change did not go through. Try again. Code: 422.'
     )
   })
 

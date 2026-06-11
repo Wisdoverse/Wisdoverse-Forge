@@ -113,6 +113,16 @@ pub(crate) struct AdminUserProjection {
     pub(crate) last_login_at: Option<DateTime<Utc>>,
 }
 
+/// Wire label for a user's global access level, derived from `users.is_admin`.
+///
+/// This maps the GLOBAL admin flag only. Org-membership roles
+/// (`organization_members.role`, which feed the JWT `role` claim at login) are
+/// intentionally NOT editable here — per-organization role management is
+/// future multi-tenant work.
+pub(crate) fn admin_role_label(is_admin: bool) -> &'static str {
+    if is_admin { "admin" } else { "member" }
+}
+
 impl From<agentforge_db::entities::User> for AdminUserProjection {
     fn from(user: agentforge_db::entities::User) -> Self {
         let display_name = match user.display_name.as_deref().map(str::trim) {
@@ -124,13 +134,108 @@ impl From<agentforge_db::entities::User> for AdminUserProjection {
         Self {
             id: user.id.as_uuid(),
             display_name,
-            role: if user.is_admin { "admin".to_string() } else { "member".to_string() },
+            role: admin_role_label(user.is_admin).to_string(),
             status: "active".to_string(),
             created_at: user.created_at,
             last_login_at: user.last_login_at,
             email: user.email,
         }
     }
+}
+
+/// Requested access-level change from the admin console role editor.
+///
+/// Parses the wire role (`"admin" | "member"`, matching
+/// [`AdminUserProjection::role`]) into the `users.is_admin` boolean it sets.
+/// Only the GLOBAL admin flag is managed here; org-membership roles
+/// (`organization_members.role`) are out of scope — future multi-tenant work.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct AdminRoleChange;
+
+impl AdminRoleChange {
+    /// Map `"admin"` → `true` and `"member"` → `false`. Anything else is
+    /// rejected with HTTP 422 so a typo never silently changes access.
+    pub(crate) fn parse(role: &str) -> AppResult<bool> {
+        match role {
+            "admin" => Ok(true),
+            "member" => Ok(false),
+            other => Err(ErrorKind::Unprocessable(format!(
+                "unknown access level '{other}'. Choose \"admin\" or \"member\"."
+            ))
+            .into()),
+        }
+    }
+}
+
+/// The signed-in admin tried to change or remove their own account (422).
+pub(crate) fn cannot_modify_self_error() -> AppError {
+    ErrorKind::Unprocessable(
+        "you cannot change or remove your own account. Ask another admin to make this change for you.".into(),
+    )
+    .into()
+}
+
+/// The action would leave the deployment with zero admins (422).
+pub(crate) fn last_admin_error() -> AppError {
+    ErrorKind::Unprocessable(
+        "this is the only admin account left. Make another person an admin first, then retry this change.".into(),
+    )
+    .into()
+}
+
+/// The target user does not exist or was already removed (404).
+pub(crate) fn admin_user_not_found_error(user_id: Uuid) -> AppError {
+    ErrorKind::NotFound(format!("user {user_id}")).into()
+}
+
+/// The target is this organization's owner (422). Owners hold the org's root
+/// access and are not managed from the user console.
+pub(crate) fn owner_managed_error() -> AppError {
+    ErrorKind::Unprocessable(
+        "this person is the organization owner. Owner access cannot be changed or removed from this page.".into(),
+    )
+    .into()
+}
+
+/// Guards for admin-console user role changes and account removal.
+pub(crate) struct AdminUserModificationPolicy;
+
+impl AdminUserModificationPolicy {
+    /// An admin may not demote or delete their own account — that path locks
+    /// people out by accident. A different admin must do it.
+    pub(crate) fn ensure_not_self(current_user_id: Uuid, target_user_id: Uuid) -> AppResult<()> {
+        if current_user_id == target_user_id {
+            return Err(cannot_modify_self_error());
+        }
+        Ok(())
+    }
+
+    /// Called when the target is CURRENTLY an admin and is about to lose admin
+    /// access (demotion or deletion). The final remaining admin can never be
+    /// removed, otherwise nobody could administer the deployment.
+    pub(crate) fn ensure_another_admin_remains(active_admin_count: i64) -> AppResult<()> {
+        if active_admin_count <= 1 {
+            return Err(last_admin_error());
+        }
+        Ok(())
+    }
+}
+
+/// Audit action recorded when an admin changes a user's global access level.
+pub(crate) const ADMIN_USER_ROLE_UPDATED_ACTION: &str = "admin.user.role_updated";
+/// Audit action recorded when an admin removes (soft-deletes) a user account.
+pub(crate) const ADMIN_USER_DELETED_ACTION: &str = "admin.user.deleted";
+/// Audit resource type for admin user-management actions.
+pub(crate) const ADMIN_USER_AUDIT_RESOURCE: &str = "user";
+
+/// Audit payload for a role change: who changed from/to what.
+pub(crate) fn admin_user_role_audit_details(email: &str, old_role: &str, new_role: &str) -> Value {
+    json!({ "email": email, "oldRole": old_role, "newRole": new_role })
+}
+
+/// Audit payload for an account removal: who was removed and their last role.
+pub(crate) fn admin_user_deleted_audit_details(email: &str, role: &str) -> Value {
+    json!({ "email": email, "role": role })
 }
 
 /// Paginated admin-console user list projection.
@@ -185,6 +290,12 @@ pub(crate) fn admin_org_list_response(organizations: Vec<AdminOrgProjection>, to
 
 pub(crate) fn admin_delete_response() -> Value {
     json!({ "ok": true })
+}
+
+/// Response for `PUT /admin/users/:id` — the updated user row, in the same
+/// projection shape the user list uses so the frontend can swap it in place.
+pub(crate) fn admin_user_role_response(user: AdminUserProjection) -> Value {
+    json!({ "ok": true, "user": user })
 }
 
 pub(crate) fn admin_bulk_delete_response(results: Vec<BulkDeleteResult>) -> Value {
@@ -706,6 +817,92 @@ mod tests {
     fn admin_user_projection_derives_role_from_is_admin() {
         assert_eq!(AdminUserProjection::from(db_user("a@example.com", None, true)).role, "admin");
         assert_eq!(AdminUserProjection::from(db_user("b@example.com", None, false)).role, "member");
+        assert_eq!(admin_role_label(true), "admin");
+        assert_eq!(admin_role_label(false), "member");
+    }
+
+    #[test]
+    fn admin_role_change_parses_known_roles() {
+        assert!(AdminRoleChange::parse("admin").unwrap(), "\"admin\" maps to is_admin = true");
+        assert!(!AdminRoleChange::parse("member").unwrap(), "\"member\" maps to is_admin = false");
+    }
+
+    #[test]
+    fn admin_role_change_rejects_unknown_roles_with_422() {
+        for raw in ["owner", "Admin", "ADMIN", "viewer", "", " admin "] {
+            let err = AdminRoleChange::parse(raw).expect_err("unknown role must be rejected");
+            assert!(
+                matches!(err.kind, ErrorKind::Unprocessable(ref msg) if msg.contains("admin") && msg.contains("member")),
+                "expected 422 naming the valid choices, got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn admin_user_modification_errors_carry_beginner_clear_messages() {
+        assert!(matches!(
+            cannot_modify_self_error().kind,
+            ErrorKind::Unprocessable(ref msg) if msg.contains("your own account") && msg.contains("another admin")
+        ));
+        assert!(matches!(
+            last_admin_error().kind,
+            ErrorKind::Unprocessable(ref msg) if msg.contains("only admin") && msg.contains("first")
+        ));
+        let user_id = Uuid::now_v7();
+        assert!(matches!(
+            admin_user_not_found_error(user_id).kind,
+            ErrorKind::NotFound(ref msg) if msg.contains(&user_id.to_string())
+        ));
+    }
+
+    #[test]
+    fn admin_user_modification_policy_rejects_self_target() {
+        let user_id = Uuid::now_v7();
+        assert!(matches!(
+            AdminUserModificationPolicy::ensure_not_self(user_id, user_id).expect_err("self target rejected").kind,
+            ErrorKind::Unprocessable(_)
+        ));
+        assert!(AdminUserModificationPolicy::ensure_not_self(user_id, Uuid::now_v7()).is_ok());
+    }
+
+    #[test]
+    fn admin_user_modification_policy_protects_the_last_admin() {
+        assert!(matches!(
+            AdminUserModificationPolicy::ensure_another_admin_remains(1).expect_err("last admin protected").kind,
+            ErrorKind::Unprocessable(_)
+        ));
+        assert!(matches!(
+            AdminUserModificationPolicy::ensure_another_admin_remains(0).expect_err("zero admins protected").kind,
+            ErrorKind::Unprocessable(_)
+        ));
+        assert!(AdminUserModificationPolicy::ensure_another_admin_remains(2).is_ok());
+    }
+
+    #[test]
+    fn admin_user_role_response_wraps_the_projection() {
+        let response =
+            admin_user_role_response(AdminUserProjection::from(db_user("alice@example.com", Some("Alice"), true)));
+        assert_eq!(response["ok"], true);
+        assert_eq!(response["user"]["email"], "alice@example.com");
+        assert_eq!(response["user"]["displayName"], "Alice");
+        assert_eq!(response["user"]["role"], "admin");
+        assert_eq!(response["user"]["status"], "active");
+    }
+
+    #[test]
+    fn admin_user_audit_details_carry_role_transition_and_email() {
+        let role = admin_user_role_audit_details("alice@example.com", "member", "admin");
+        assert_eq!(role["email"], "alice@example.com");
+        assert_eq!(role["oldRole"], "member");
+        assert_eq!(role["newRole"], "admin");
+
+        let deleted = admin_user_deleted_audit_details("bob@example.com", "member");
+        assert_eq!(deleted["email"], "bob@example.com");
+        assert_eq!(deleted["role"], "member");
+
+        assert_eq!(ADMIN_USER_ROLE_UPDATED_ACTION, "admin.user.role_updated");
+        assert_eq!(ADMIN_USER_DELETED_ACTION, "admin.user.deleted");
+        assert_eq!(ADMIN_USER_AUDIT_RESOURCE, "user");
     }
 
     #[test]
