@@ -26,9 +26,9 @@ describe('TaskFormModal', () => {
       />
     )
 
-    expect(screen.getByText('Start with a task type')).toBeDefined()
+    expect(screen.getByText('Start with a task template')).toBeDefined()
     expect(screen.getByText('Fills in a safe first draft')).toBeDefined()
-    expect(screen.getByRole('group', { name: /task type shortcuts/i })).toBeDefined()
+    expect(screen.getByRole('group', { name: /task templates/i })).toBeDefined()
     expect(screen.getByText('What to finish')).toBeDefined()
     expect(screen.getByText('Where to work')).toBeDefined()
     expect(screen.getByText('Done when')).toBeDefined()

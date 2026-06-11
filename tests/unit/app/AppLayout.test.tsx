@@ -246,7 +246,7 @@ describe('AppLayout', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  test('applies a task type shortcut before creating a New Task', async () => {
+  test('applies a task template before creating a New Task', async () => {
     seedProjectNavigation('p1')
     useBoardStore.getState().setSelectedGroupId('group-1')
 
@@ -254,7 +254,7 @@ describe('AppLayout', () => {
     fireEvent.click(screen.getByRole('button', { name: /\+ task/i }))
 
     await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
-    const briefGroup = screen.getByRole('group', { name: /task type shortcuts/i })
+    const briefGroup = screen.getByRole('group', { name: /task templates/i })
     expect(screen.getByText(/clear task has three parts/i)).toBeDefined()
     expect(screen.getByText('What to finish')).toBeDefined()
     expect(screen.getByText(/visible change or decision/i)).toBeDefined()
