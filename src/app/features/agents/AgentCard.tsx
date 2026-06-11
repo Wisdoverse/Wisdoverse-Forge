@@ -2,9 +2,10 @@ import { cn } from '@app/shared/lib/utils'
 import {
   agentAvatarInitial,
   agentServiceLabel,
+  agentStatusKey,
+  agentStatusLabel,
   isHostCliAgent,
   type AgentInfo,
-  type AgentStatus,
 } from '@app/entities/agent'
 import { AgentKindBadge } from './AgentKindBadge'
 
@@ -14,22 +15,26 @@ const PROVIDER_GRADIENTS: Record<string, string> = {
   OpenAI: 'bg-[#f5f5f7] text-[#1d1d1f] dark:bg-white/[0.08] dark:text-white',
 }
 
-const STATUS_COLORS: Record<AgentStatus, string> = {
+const STATUS_COLORS: Record<string, string> = {
   working: 'bg-[#1d1d1f] dark:bg-white',
   idle: 'bg-[#7a7a7a]',
   offline: 'bg-[#d2d2d7]',
 }
 
-const STATUS_LABELS: Record<AgentStatus, string> = {
-  working: 'Working',
-  idle: 'Ready',
-  offline: 'Offline',
-}
+const STATUS_FALLBACK_COLOR = 'bg-[#d2d2d7]'
 
-const STATUS_HELP: Record<AgentStatus, string> = {
+const STATUS_HELP: Record<string, string> = {
   working: 'Running a task now',
   idle: 'Ready for a new task',
   offline: 'Reconnect before sending work',
+}
+
+export function agentCardStatusHelp(
+  status: AgentInfo['status'] | string | null | undefined
+): string {
+  const statusKey = agentStatusKey(status)
+  if (!statusKey) return 'Check this agent before sending work'
+  return STATUS_HELP[statusKey] ?? 'Check this agent before sending work'
 }
 
 function defaultGradient(provider: string): string {
@@ -46,7 +51,9 @@ interface AgentCardProps {
 
 export function AgentCard({ agent, onClick }: AgentCardProps) {
   const ratePercent = Math.round(agent.successRate * 100)
-  const statusHelp = STATUS_HELP[agent.status]
+  const statusKey = agentStatusKey(agent.status)
+  const statusLabel = agentStatusLabel(agent.status)
+  const statusHelp = agentCardStatusHelp(agent.status)
   const runtimeLabel = isHostCliAgent(agent)
     ? 'This computer'
     : agent.cliTool
@@ -110,9 +117,9 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
           data-testid={`agent-status-help-${agent.id}`}
           className={cn(
             'mt-2 rounded-md px-2 py-1 text-ui-caption',
-            agent.status === 'offline'
+            statusKey === 'offline'
               ? 'bg-apple-red/10 text-apple-red'
-              : agent.status === 'working'
+              : statusKey === 'working'
                 ? 'bg-apple-blue/10 text-secondary-light dark:text-secondary-dark'
                 : 'bg-apple-green/10 text-secondary-light dark:text-secondary-dark'
           )}
@@ -134,8 +141,10 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
           'border-black/[0.08] bg-white text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark'
         )}
       >
-        <span className={cn('h-2 w-2 rounded-full', STATUS_COLORS[agent.status])} />
-        {STATUS_LABELS[agent.status]}
+        <span
+          className={cn('h-2 w-2 rounded-full', STATUS_COLORS[statusKey] ?? STATUS_FALLBACK_COLOR)}
+        />
+        {statusLabel}
       </span>
     </button>
   )

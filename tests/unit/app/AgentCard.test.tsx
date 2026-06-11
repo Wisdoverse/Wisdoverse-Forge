@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { AgentCard } from '@app/features/agents/AgentCard'
+import { agentCardStatusHelp, AgentCard } from '@app/features/agents/AgentCard'
 import type { AgentInfo } from '@app/entities/agent'
 
 afterEach(cleanup)
@@ -110,6 +110,19 @@ describe('AgentCard', () => {
     expect(screen.getByTestId('agent-status-help-agent-1').textContent).toBe(
       'Reconnect before sending work'
     )
+  })
+
+  test('labels unknown agent statuses without exposing backend values', () => {
+    expect(agentCardStatusHelp('warming_up')).toBe('Check this agent before sending work')
+
+    render(<AgentCard agent={{ ...mockAgent, status: 'warming_up' as never }} />)
+
+    expect(screen.getByTestId('agent-status-agent-1').textContent).toContain('Status needs review')
+    expect(screen.getByTestId('agent-status-help-agent-1').textContent).toBe(
+      'Check this agent before sending work'
+    )
+    expect(screen.queryByText(/warming_up/i)).toBeNull()
+    expect(screen.queryByText(/warming up/i)).toBeNull()
   })
 
   test('keeps current task visible while explaining working state', () => {
