@@ -57,7 +57,7 @@ const AGENT_ROLE_TEMPLATES: AgentRoleTemplate[] = [
   {
     id: 'builder',
     label: 'Builder',
-    summary: 'Implementation and tests',
+    summary: 'Builds changes and checks them',
     name: 'Builder Agent',
     systemPrompt:
       'You turn scoped requests into working changes. Keep edits narrow, explain tradeoffs when requirements conflict, and verify with the most relevant checks before handing work back.',
@@ -66,7 +66,7 @@ const AGENT_ROLE_TEMPLATES: AgentRoleTemplate[] = [
   {
     id: 'reviewer',
     label: 'Reviewer',
-    summary: 'Risk and release checks',
+    summary: 'Finds risks before release',
     name: 'Review Agent',
     systemPrompt:
       'You review changes for regressions, security issues, missing tests, and release risk. Lead with concrete findings and cite the exact files or checks that prove each point.',
@@ -75,7 +75,7 @@ const AGENT_ROLE_TEMPLATES: AgentRoleTemplate[] = [
   {
     id: 'investigator',
     label: 'Investigator',
-    summary: 'Root-cause analysis',
+    summary: 'Tracks down unclear failures',
     name: 'Investigation Agent',
     systemPrompt:
       'You investigate uncertain failures by gathering evidence first, separating facts from hypotheses, and ending with the smallest next action that can disprove or confirm the cause.',
@@ -84,7 +84,7 @@ const AGENT_ROLE_TEMPLATES: AgentRoleTemplate[] = [
   {
     id: 'fixer',
     label: 'Fixer',
-    summary: 'Bug repair loop',
+    summary: 'Reproduces and fixes bugs',
     name: 'Bug Fix Agent',
     systemPrompt:
       'You reproduce bugs, identify the smallest responsible path, patch the defect without unrelated refactors, and verify both the failing case and the nearby regression surface.',
@@ -171,12 +171,12 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
   }
 
   return {
-    title: `${providerLabel(provider)} chat-only agent`,
-    detail: 'Best for planning, review, and short answers that do not need project files.',
+    title: `${providerLabel(provider)} simple chat agent`,
+    detail: 'Best for questions, planning, writing, and review that do not need project files.',
     items: [
-      { label: 'Work style', value: 'Chat-only AI service' },
+      { label: 'Work style', value: 'Simple chat agent' },
       { label: 'Files', value: 'Does not open project files' },
-      { label: 'Before use', value: 'AI service must be ready' },
+      { label: 'Before use', value: 'AI service must be checked' },
     ],
   }
 }
@@ -609,15 +609,15 @@ export function CreateAgentModal() {
             <div>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                  Role template
+                  Start from a role
                 </span>
                 <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  {kind === 'provider' ? 'Instructions ready' : 'Name sets up this agent'}
+                  {kind === 'provider' ? 'Fills name and instructions' : 'Fills the agent name'}
                 </span>
               </div>
               <div
                 role="group"
-                aria-label="Agent role templates"
+                aria-label="Agent role shortcuts"
                 className="grid gap-2 sm:grid-cols-2"
               >
                 {AGENT_ROLE_TEMPLATES.map((template) => (
@@ -665,9 +665,9 @@ export function CreateAgentModal() {
 
             <div>
               <label className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                How this agent works
+                Choose work style
               </label>
-              <div className="flex gap-2" role="radiogroup" aria-label="How this agent works">
+              <div className="flex gap-2" role="radiogroup" aria-label="Choose work style">
                 <label
                   className={cn(
                     'flex-1 cursor-pointer rounded-full px-4 py-2 text-center text-ui-button font-medium transition-transform active:scale-95',
@@ -699,7 +699,7 @@ export function CreateAgentModal() {
                   )}
                 >
                   <input type="radio" value="provider" {...register('kind')} className="sr-only" />
-                  Chat-only AI service
+                  Simple chat agent
                 </label>
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -725,11 +725,7 @@ export function CreateAgentModal() {
                   </p>
                 </div>
                 <span className="shrink-0 rounded-full bg-apple-blue/10 px-2 py-0.5 text-ui-caption font-medium text-apple-blue">
-                  {kind === 'cli'
-                    ? 'File work'
-                    : kind === 'local-cli'
-                      ? 'Local work'
-                      : 'Chat-only work'}
+                  {kind === 'cli' ? 'File work' : kind === 'local-cli' ? 'Local work' : 'Chat only'}
                 </span>
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -838,7 +834,7 @@ export function CreateAgentModal() {
                     id="systemPrompt"
                     {...register('systemPrompt')}
                     rows={4}
-                    placeholder="e.g. You are a concise, Pythonic code reviewer…"
+                    placeholder="e.g. Help review tasks, explain risks in plain language, and list the next step."
                     className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                   />
                 </div>
@@ -873,7 +869,7 @@ export function CreateAgentModal() {
                   htmlFor="agent-group"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  Task Group
+                  Task lane
                 </label>
                 {groups.length > 0 ? (
                   <>
@@ -882,7 +878,7 @@ export function CreateAgentModal() {
                       {...register('groupId')}
                       className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                     >
-                      <option value="">No task group</option>
+                      <option value="">No task lane</option>
                       {groups.map((g) => (
                         <option key={g.id} value={g.id}>
                           {g.name}
@@ -890,7 +886,7 @@ export function CreateAgentModal() {
                       ))}
                     </select>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      A task group is the work lane this agent listens to for board tasks.
+                      A task lane is where this agent listens for board tasks.
                     </p>
                   </>
                 ) : (
@@ -907,7 +903,7 @@ export function CreateAgentModal() {
                       )}
                     >
                       <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-                      {creatingGroup ? 'Creating…' : 'Create Task Group'}
+                      {creatingGroup ? 'Creating…' : 'Create task lane'}
                     </button>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                       This creates the first work lane so the agent can receive tasks.
