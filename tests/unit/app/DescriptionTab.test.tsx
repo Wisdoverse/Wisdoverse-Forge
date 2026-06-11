@@ -121,4 +121,12 @@ describe('DescriptionTab', () => {
     expect(screen.queryByText(/docker socket/i)).toBeNull()
     expect(screen.queryByText(/secret token/i)).toBeNull()
   })
+
+  test('labels unknown assignment state without exposing raw codes', () => {
+    render(<DescriptionTab task={{ ...mockTask, state: 'waiting_for_agent' as never }} />)
+
+    expect(screen.getByText('Status needs review')).toBeDefined()
+    expect(screen.queryByText(/waiting_for_agent/i)).toBeNull()
+    expect(screen.queryByText(/waiting for agent/i)).toBeNull()
+  })
 })

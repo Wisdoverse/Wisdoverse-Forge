@@ -12,6 +12,7 @@ import {
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { cn } from '@app/shared/lib/utils'
 import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
+import { taskStateLabel } from '@app/entities/task'
 import {
   orchestrationApi,
   taskResultArtifacts,
@@ -173,7 +174,7 @@ function AgentCheckIn({ task }: { task: TaskSummary }) {
       </div>
       <div className="grid grid-cols-3 gap-2">
         <CheckInMetric label="Agent" value={task.assignedAgentName ?? 'Unassigned'} />
-        <CheckInMetric label="State" value={stateLabel(task.state)} />
+        <CheckInMetric label="State" value={taskStateLabel(task.state)} />
         <CheckInMetric label="Updated" value={formatRelativeTime(task.updatedAt)} />
       </div>
     </section>
@@ -363,25 +364,14 @@ function taskCheckIn(task: TaskSummary): {
         tone: 'default',
         Icon: XCircle,
       }
-  }
-}
-
-function stateLabel(state: TaskSummary['state']): string {
-  switch (state) {
-    case 'backlog':
-      return 'Backlog'
-    case 'queued':
-      return 'Waiting to start'
-    case 'working':
-      return 'Working'
-    case 'blocked':
-      return 'Blocked'
-    case 'completed':
-      return 'Completed'
-    case 'failed':
-      return 'Needs review'
-    case 'canceled':
-      return 'Canceled'
+    default:
+      return {
+        title: 'Task status needs review',
+        detail:
+          'Open the latest updates before deciding whether to start, retry, or close this task.',
+        tone: 'warn',
+        Icon: AlertTriangle,
+      }
   }
 }
 
@@ -462,6 +452,8 @@ function taskUpdateGuide(task: TaskSummary): string {
       return 'Read the latest attempt, fix the cause if you can, then retry or create a clearer follow-up task.'
     case 'canceled':
       return 'No one is working on this task now. Reopen it or create follow-up work if it still matters.'
+    default:
+      return 'Review the latest updates before deciding whether to start, retry, or close this task.'
   }
 }
 

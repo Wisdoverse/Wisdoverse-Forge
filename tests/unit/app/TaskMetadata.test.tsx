@@ -112,4 +112,23 @@ describe('TaskMetadata', () => {
       'fix the cause, then retry.'
     )
   })
+
+  test('labels unknown task status and priority without exposing raw codes', () => {
+    render(
+      <TaskMetadata
+        task={{
+          ...mockTask,
+          state: 'waiting_for_agent' as never,
+          priority: 'future_priority' as never,
+        }}
+      />
+    )
+
+    expect(screen.getByText('Status needs review')).toBeDefined()
+    expect(screen.getByText('Priority needs review')).toBeDefined()
+    expect(screen.queryByText(/waiting_for_agent/i)).toBeNull()
+    expect(screen.queryByText(/waiting for agent/i)).toBeNull()
+    expect(screen.queryByText(/future_priority/i)).toBeNull()
+    expect(screen.queryByText(/future priority/i)).toBeNull()
+  })
 })

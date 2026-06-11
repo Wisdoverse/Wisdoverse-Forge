@@ -6,13 +6,7 @@ import type { TaskSummary } from '@app/shared/api/orchestration'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime as formatDate } from '@app/shared/lib/time'
 import { taskBlockedPreview } from '@app/shared/lib/taskFailureCopy'
-
-const PRIORITY_LABELS: Record<string, string> = {
-  low: 'Low',
-  normal: 'Normal',
-  high: 'High',
-  urgent: 'Urgent',
-}
+import { taskMachineKey, taskPriorityLabel, taskStateLabel } from '@app/entities/task'
 
 const PRIORITY_COLORS: Record<string, string> = {
   low: 'border-black/[0.08] bg-white text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark',
@@ -20,16 +14,6 @@ const PRIORITY_COLORS: Record<string, string> = {
     'border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark',
   high: 'border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark',
   urgent: 'border-apple-red/20 bg-apple-red/10 text-apple-red',
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  backlog: 'Backlog',
-  queued: 'Waiting to start',
-  working: 'Working',
-  blocked: 'Blocked',
-  completed: 'Done',
-  failed: 'Needs review',
-  canceled: 'Canceled',
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -280,6 +264,8 @@ export function ListView() {
               const task = visibleTasks[virtualRow.index]
               const openTask = () => setSelectedTask(task.id)
               const nextAction = taskNextAction(task)
+              const stateKey = taskMachineKey(task.state)
+              const priorityKey = taskMachineKey(task.priority)
               return (
                 <div
                   key={task.id}
@@ -318,10 +304,10 @@ export function ListView() {
                   <span
                     className={cn(
                       'inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-ui-caption font-medium',
-                      STATUS_COLORS[task.state] ?? STATUS_COLORS.backlog
+                      STATUS_COLORS[stateKey] ?? STATUS_COLORS.backlog
                     )}
                   >
-                    {STATUS_LABELS[task.state] ?? task.state}
+                    {taskStateLabel(task.state, { completedLabel: 'Done' })}
                   </span>
 
                   {/* Assignee */}
@@ -333,10 +319,10 @@ export function ListView() {
                   <span
                     className={cn(
                       'inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-ui-caption font-medium',
-                      PRIORITY_COLORS[task.priority] ?? PRIORITY_COLORS.normal
+                      PRIORITY_COLORS[priorityKey] ?? PRIORITY_COLORS.normal
                     )}
                   >
-                    {PRIORITY_LABELS[task.priority] ?? task.priority}
+                    {taskPriorityLabel(task.priority)}
                   </span>
 
                   {/* Updated */}

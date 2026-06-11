@@ -9,6 +9,7 @@ import {
   WandSparkles,
 } from 'lucide-react'
 import { taskResultArtifacts, type TaskSummary } from '@app/shared/api/orchestration'
+import { taskStateLabel } from '@app/entities/task'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { cn } from '@app/shared/lib/utils'
@@ -95,7 +96,7 @@ export function DescriptionTab({
       <ReviewSection title="Assignment" Icon={MessageSquare}>
         <div className="space-y-1.5 text-xs">
           <ReviewRow label="Agent" value={assignment.label} muted={!assignment.hasAgent} />
-          <ReviewRow label="State" value={stateLabel(task.state)} />
+          <ReviewRow label="State" value={taskStateLabel(task.state)} />
           <p
             data-testid="task-assignment-guidance"
             className={cn(
@@ -294,25 +295,6 @@ function assignmentSummary(task: TaskSummary): {
   }
 }
 
-function stateLabel(state: TaskSummary['state']): string {
-  switch (state) {
-    case 'backlog':
-      return 'Backlog'
-    case 'queued':
-      return 'Waiting to start'
-    case 'working':
-      return 'Working'
-    case 'blocked':
-      return 'Blocked'
-    case 'completed':
-      return 'Completed'
-    case 'failed':
-      return 'Needs review'
-    case 'canceled':
-      return 'Canceled'
-  }
-}
-
 function nextActionForTask(
   task: TaskSummary,
   artifactCount: number,
@@ -379,6 +361,12 @@ function nextActionForTask(
         title: 'No active run',
         detail: 'Create a new task or reopen the brief if this work still matters.',
         tone: 'default',
+      }
+    default:
+      return {
+        title: 'Check current status',
+        detail: 'Open Updates to review the latest activity before starting, retrying, or closing.',
+        tone: 'warn',
       }
   }
 }

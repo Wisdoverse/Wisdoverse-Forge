@@ -196,4 +196,27 @@ describe('ListView', () => {
     expect(screen.queryByText(/docker socket/i)).toBeNull()
     expect(screen.queryByText(/secret token/i)).toBeNull()
   })
+
+  test('labels unknown row status and priority without exposing raw codes', () => {
+    useBoardStore.getState().setTasks([
+      {
+        id: 'unknown-state',
+        state: 'waiting_for_agent',
+        params: { task: 'Review release gate', message: '' },
+        priority: 'future_priority',
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+    ])
+
+    render(<ListView />)
+
+    expect(screen.getByText('Status needs review')).toBeDefined()
+    expect(screen.getByText('Priority needs review')).toBeDefined()
+    expect(screen.queryByText(/waiting_for_agent/i)).toBeNull()
+    expect(screen.queryByText(/waiting for agent/i)).toBeNull()
+    expect(screen.queryByText(/future_priority/i)).toBeNull()
+    expect(screen.queryByText(/future priority/i)).toBeNull()
+  })
 })

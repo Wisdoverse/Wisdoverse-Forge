@@ -251,4 +251,14 @@ describe('HistoryTab', () => {
     expect(screen.queryByText(/docker socket/i)).toBeNull()
     expect(screen.queryByText(/secret token/i)).toBeNull()
   })
+
+  test('labels unknown task history state without exposing raw codes', async () => {
+    getTaskRunsMock.mockResolvedValue([])
+
+    render(<HistoryTab task={makeTask({ state: 'waiting_for_agent' as never })} />)
+
+    expect(await screen.findByText('Status needs review')).toBeInTheDocument()
+    expect(screen.queryByText(/waiting_for_agent/i)).toBeNull()
+    expect(screen.queryByText(/waiting for agent/i)).toBeNull()
+  })
 })

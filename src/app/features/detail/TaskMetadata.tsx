@@ -1,6 +1,7 @@
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import type { TaskSummary } from '@app/shared/api/orchestration'
+import { taskMachineKey, taskPriorityLabel, taskStateLabel } from '@app/entities/task'
 
 const STATE_COLORS: Record<string, string> = {
   backlog: 'bg-apple-gray-1 text-white',
@@ -19,23 +20,6 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: 'bg-apple-gray-5 text-apple-gray-2',
 }
 
-const PRIORITY_LABELS: Record<string, string> = {
-  urgent: 'Urgent',
-  high: 'High',
-  normal: 'Normal',
-  low: 'Low',
-}
-
-const STATE_LABELS: Record<string, string> = {
-  backlog: 'Backlog',
-  queued: 'Waiting to start',
-  working: 'Working',
-  blocked: 'Blocked',
-  completed: 'Completed',
-  failed: 'Needs review',
-  canceled: 'Canceled',
-}
-
 interface TaskMetadataProps {
   task: TaskSummary
 }
@@ -43,6 +27,8 @@ interface TaskMetadataProps {
 export function TaskMetadata({ task }: TaskMetadataProps) {
   const hasAssignee = Boolean(task.assignedAgentName || task.assignedTo)
   const guidance = taskMetadataGuidance(task, hasAssignee)
+  const stateKey = taskMachineKey(task.state)
+  const priorityKey = taskMachineKey(task.priority)
 
   return (
     <div className="flex flex-col gap-3 py-3">
@@ -51,18 +37,18 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
         <span
           className={cn(
             'text-[10px] font-semibold px-2 py-0.5 rounded-badge',
-            STATE_COLORS[task.state] ?? 'bg-apple-gray-5 text-apple-gray-1'
+            STATE_COLORS[stateKey] ?? 'bg-apple-gray-5 text-apple-gray-1'
           )}
         >
-          {STATE_LABELS[task.state] ?? task.state}
+          {taskStateLabel(task.state)}
         </span>
         <span
           className={cn(
             'text-[10px] font-medium px-1.5 py-0.5 rounded-badge',
-            PRIORITY_COLORS[task.priority] ?? 'bg-apple-gray-5 text-apple-gray-1'
+            PRIORITY_COLORS[priorityKey] ?? 'bg-apple-gray-5 text-apple-gray-1'
           )}
         >
-          {PRIORITY_LABELS[task.priority] ?? task.priority}
+          {taskPriorityLabel(task.priority)}
         </span>
       </div>
 
