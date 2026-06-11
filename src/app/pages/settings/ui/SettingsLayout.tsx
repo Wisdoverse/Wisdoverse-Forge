@@ -26,7 +26,7 @@ interface SectionItem {
 }
 
 const SECTIONS: SectionItem[] = [
-  { id: 'providers', label: 'Model Services', group: 'Models' },
+  { id: 'providers', label: 'AI Services', group: 'AI Setup' },
   { id: 'keys', label: 'Platform Access Keys', group: 'Work Setup' },
   { id: 'git-credentials', label: 'Code Repository Access', group: 'Work Setup' },
   { id: 'ssh-keys', label: 'SSH Access Keys', group: 'Work Setup' },
@@ -38,7 +38,7 @@ const SECTIONS: SectionItem[] = [
   { id: 'about', label: 'About', group: 'Product Info' },
 ]
 
-const GROUPS = ['Models', 'Work Setup', 'People', 'Product Info']
+const GROUPS = ['AI Setup', 'Work Setup', 'People', 'Product Info']
 
 // ============================================================================
 // Content router

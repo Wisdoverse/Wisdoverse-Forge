@@ -23,11 +23,11 @@ describe('SettingsLayout', () => {
     render(<SettingsLayout routeSection="about" onSectionChange={onSectionChange} />)
 
     const desktopNav = screen.getByTestId('settings-desktop-nav')
-    expect(within(desktopNav).getByText('Models')).toBeInTheDocument()
+    expect(within(desktopNav).getByText('AI Setup')).toBeInTheDocument()
     expect(within(desktopNav).getByText('Work Setup')).toBeInTheDocument()
     expect(within(desktopNav).getByText('People')).toBeInTheDocument()
     expect(within(desktopNav).getByText('Product Info')).toBeInTheDocument()
-    expect(within(desktopNav).getByRole('button', { name: 'Model Services' })).toBeInTheDocument()
+    expect(within(desktopNav).getByRole('button', { name: 'AI Services' })).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('button', { name: 'Platform Access Keys' })
     ).toBeInTheDocument()
@@ -36,7 +36,9 @@ describe('SettingsLayout', () => {
     ).toBeInTheDocument()
     expect(within(desktopNav).getByRole('button', { name: 'Agent Work Setup' })).toBeInTheDocument()
 
+    expect(screen.getByRole('group', { name: 'AI Setup' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Work Setup' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'AI Services' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Work Capacity' })).toBeInTheDocument()
 
     fireEvent.click(within(desktopNav).getByRole('button', { name: 'Agent Work Setup' }))
