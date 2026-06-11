@@ -11,7 +11,9 @@ interface SkillDetailModalProps {
 
 export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
   const { t } = useTranslation()
-  const version = skill.marketplace ? `${skill.marketplace}` : t('skills.detail.versionLatest')
+  const availability = skill.marketplace
+    ? skillAvailabilityLabel(skill.marketplace, (key) => t(key))
+    : t('skills.detail.availabilityLatest')
   const author = skill.pluginAuthor || t('skills.detail.unknownAuthor')
   const source = skill.plugin || t('skills.detail.unknownSource')
   const cliLabel = skill.cliTool
@@ -81,7 +83,7 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
           <div className="grid gap-2 sm:grid-cols-3">
             <SkillMeta label={t('skills.detail.sourceLabel')} value={source} />
             <SkillMeta label={t('skills.detail.authorLabel')} value={author} />
-            <SkillMeta label={t('skills.detail.versionLabel')} value={version} />
+            <SkillMeta label={t('skills.detail.availabilityLabel')} value={availability} />
           </div>
 
           <section className="flex flex-col gap-1">
@@ -168,6 +170,23 @@ function cliToolLabel(tool: string): string {
         .split(/[_-]+/)
         .filter(Boolean)
         .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ')
+  }
+}
+
+function skillAvailabilityLabel(value: string, translate: (key: string) => string): string {
+  switch (value.trim().toLowerCase()) {
+    case 'workspace':
+      return translate('skills.detail.availabilityWorkspace')
+    case 'global':
+      return translate('skills.detail.availabilityGlobal')
+    case 'project':
+      return translate('skills.detail.availabilityProject')
+    default:
+      return value
+        .split(/[_-]+/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
         .join(' ')
   }
 }
