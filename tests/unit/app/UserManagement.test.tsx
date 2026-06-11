@@ -1,5 +1,25 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+
+// The panel reads the signed-in user to hide self-targeted actions; give the
+// tests a controllable identity without mounting the full AuthProvider.
+const signedInUser = vi.hoisted(() => ({
+  current: { id: 'self-1', email: 'operator@example.com', username: 'operator' } as {
+    id: string
+    email: string
+    username: string
+  } | null,
+}))
+
+vi.mock('@app/shared/model/auth.context', () => ({
+  useAuth: () => ({
+    authManager: {},
+    user: signedInUser.current,
+    isAuthenticated: true,
+    isLoading: false,
+  }),
+}))
+
 import { UserManagement } from '@app/features/admin/UserManagement'
 import { useAdminStore, type AdminUser } from '@app/shared/model/admin.store'
 
@@ -18,6 +38,7 @@ const mockUser: AdminUser = {
 afterEach(() => {
   cleanup()
   useAdminStore.setState(originalAdminState, true)
+  signedInUser.current = { id: 'self-1', email: 'operator@example.com', username: 'operator' }
   vi.restoreAllMocks()
 })
 
@@ -39,12 +60,13 @@ describe('UserManagement', () => {
 
     await waitFor(() => expect(loadUsers).toHaveBeenCalledWith(1))
     expect(screen.getByText('User access')).toBeDefined()
-    expect(screen.getByText(/Access levels are read-only in this view/i)).toBeDefined()
+    expect(screen.getByText(/Change what each person can do/i)).toBeDefined()
     expect(screen.getByText('Person')).toBeDefined()
     expect(screen.getByText('Access level')).toBeDefined()
     expect(screen.getByText('Sign-in status')).toBeDefined()
     expect(screen.getByText('Added')).toBeDefined()
     expect(screen.getByText('Last sign-in')).toBeDefined()
+    expect(screen.getByText('Actions')).toBeDefined()
     expect(screen.getByText('Admin')).toBeDefined()
     expect(screen.getByText('Member')).toBeDefined()
     expect(screen.getByText('Can sign in')).toBeDefined()
@@ -53,7 +75,14 @@ describe('UserManagement', () => {
     expect(screen.queryByText('Active sessions')).toBeNull()
   })
 
-  test('renders access levels as read-only chips without an editor', () => {
+  test('saving a new access level calls the role update and closes the editor', async () => {
+    const updateUserRole = vi.fn(async () => {
+      // Mirror the real store: the row is swapped for the saved projection.
+      useAdminStore.setState((s) => ({
+        users: s.users.map((u) => (u.id === 'user-1' ? { ...u, role: 'member' } : u)),
+      }))
+      return true
+    })
     useAdminStore.setState({
       ...originalAdminState,
       users: [mockUser],
@@ -61,18 +90,129 @@ describe('UserManagement', () => {
       usersPage: 1,
       usersLoading: false,
       usersError: null,
+      userActionError: null,
+      userSearch: '',
+      loadUsers: vi.fn(),
+      updateUserRole,
+    })
+
+    render(<UserManagement />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change access' }))
+    const select = screen.getByLabelText(/Access level for Alex Operator/i)
+    fireEvent.change(select, { target: { value: 'member' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save access' }))
+
+    await waitFor(() => expect(updateUserRole).toHaveBeenCalledWith('user-1', 'member'))
+    // Editor closes and the row reflects the saved role.
+    await waitFor(() => expect(screen.queryByRole('combobox')).toBeNull())
+    expect(screen.getByText('Member')).toBeDefined()
+  })
+
+  test('a backend guard rejection keeps the editor open and shows the reason', async () => {
+    const guardMessage =
+      'This is the only admin account left. Make another person an admin first, then retry this change.'
+    const updateUserRole = vi.fn(async () => {
+      useAdminStore.setState({ userActionError: guardMessage })
+      return false
+    })
+    useAdminStore.setState({
+      ...originalAdminState,
+      users: [mockUser],
+      usersTotal: 1,
+      usersPage: 1,
+      usersLoading: false,
+      usersError: null,
+      userActionError: null,
+      userSearch: '',
+      loadUsers: vi.fn(),
+      updateUserRole,
+    })
+
+    render(<UserManagement />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change access' }))
+    fireEvent.change(screen.getByLabelText(/Access level for Alex Operator/i), {
+      target: { value: 'member' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save access' }))
+
+    await waitFor(() => expect(screen.getByText(guardMessage)).toBeDefined())
+    // The editor stays open so the operator can cancel or retry.
+    expect(screen.getByRole('combobox')).toBeDefined()
+  })
+
+  test('removing a user asks for confirmation before calling delete', async () => {
+    const deleteUser = vi.fn(async () => true)
+    useAdminStore.setState({
+      ...originalAdminState,
+      users: [{ ...mockUser, id: 'user-2', displayName: 'Bo Member', role: 'member' }],
+      usersTotal: 1,
+      usersPage: 1,
+      usersLoading: false,
+      usersError: null,
+      userActionError: null,
+      userSearch: '',
+      loadUsers: vi.fn(),
+      deleteUser,
+    })
+
+    render(<UserManagement />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    // Nothing is deleted until the confirm step.
+    expect(deleteUser).not.toHaveBeenCalled()
+    expect(screen.getByText(/Bo Member loses sign-in access right away/i)).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove account' }))
+    await waitFor(() => expect(deleteUser).toHaveBeenCalledWith('user-2'))
+  })
+
+  test('cancelling the remove confirmation keeps the account', () => {
+    const deleteUser = vi.fn(async () => true)
+    useAdminStore.setState({
+      ...originalAdminState,
+      users: [{ ...mockUser, id: 'user-2', role: 'member' }],
+      usersTotal: 1,
+      usersPage: 1,
+      usersLoading: false,
+      usersError: null,
+      userActionError: null,
+      userSearch: '',
+      loadUsers: vi.fn(),
+      deleteUser,
+    })
+
+    render(<UserManagement />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Keep account' }))
+
+    expect(deleteUser).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeDefined()
+  })
+
+  test('your own row offers no role editor and no remove action', () => {
+    signedInUser.current = { id: 'user-1', email: 'alex@example.com', username: 'alex' }
+    useAdminStore.setState({
+      ...originalAdminState,
+      users: [mockUser, { ...mockUser, id: 'user-2', displayName: 'Bo Member', role: 'member' }],
+      usersTotal: 2,
+      usersPage: 1,
+      usersLoading: false,
+      usersError: null,
+      userActionError: null,
       userSearch: '',
       loadUsers: vi.fn(),
     })
 
     render(<UserManagement />)
 
-    expect(screen.getByText('Admin')).toBeDefined()
-    expect(screen.getByText('Can manage users, settings, and system configuration.')).toBeDefined()
-    // No role editor remains: no select, no save button, no change-access affordance.
-    expect(screen.queryByRole('combobox')).toBeNull()
-    expect(screen.queryByRole('button', { name: /save role/i })).toBeNull()
-    expect(screen.queryByTitle('Change what this user can do')).toBeNull()
+    // Own row: explained, not just missing.
+    expect(screen.getByText(/This is you/i)).toBeDefined()
+    // The other row still has both actions — exactly one of each.
+    expect(screen.getAllByRole('button', { name: 'Change access' })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(1)
   })
 
   test('explains an empty user search result without crashing on zero users', () => {

@@ -172,6 +172,12 @@ interface AdminState {
   usersLoading: boolean
   usersError: string | null
   userSearch: string
+  /**
+   * Error from the most recent per-user action (role change or removal).
+   * Backend guard rejections (own account, last admin) land here verbatim so
+   * the panel can show exactly why the change was refused.
+   */
+  userActionError: string | null
 
   // Orgs
   orgs: AdminOrg[]
@@ -208,6 +214,22 @@ interface AdminState {
   setUserSearch: (search: string) => void
 
   loadUsers: (page?: number) => Promise<void>
+  /**
+   * Change a user's access level via `PUT /api/v1/admin/users/{id}`. On
+   * success the row is swapped for the backend's updated projection and the
+   * call resolves `true`; on rejection the reason lands in `userActionError`
+   * and the call resolves `false`.
+   */
+  updateUserRole: (id: string, role: 'admin' | 'member') => Promise<boolean>
+  /**
+   * Remove a user account via `DELETE /api/v1/admin/users/{id}` (the backend
+   * soft-deletes; sign-in stops immediately). On success the row leaves the
+   * list and the total drops by one; on rejection the reason lands in
+   * `userActionError`.
+   */
+  deleteUser: (id: string) => Promise<boolean>
+  /** Dismiss the last user-action error (e.g. when the operator cancels). */
+  clearUserActionError: () => void
 
   loadOrgs: () => Promise<void>
 
@@ -345,6 +367,60 @@ function adminErrorMessage(err: unknown, resource: AdminResource): string {
   return err instanceof AdminUserFacingError ? err.message : adminNetworkErrorMessage(resource)
 }
 
+// ---------------------------------------------------------------------------
+// Per-user action errors (role change / removal)
+// ---------------------------------------------------------------------------
+
+type AdminUserAction = 'change-role' | 'remove'
+
+function adminUserActionLabel(action: AdminUserAction): string {
+  return action === 'change-role' ? 'access change' : 'removal'
+}
+
+/**
+ * Beginner-first message for a failed user action. Guard rejections (own
+ * account, last admin, unknown access level) arrive as HTTP 422 with a
+ * ready-to-read sentence — those are shown directly, minus the protocol
+ * prefix, because the backend wording explains exactly what to do next.
+ */
+export function adminUserActionErrorMessage(
+  action: AdminUserAction,
+  status: number,
+  data: Record<string, unknown> = {}
+): string {
+  const label = adminUserActionLabel(action)
+  const detail = adminErrorDetail(data)
+
+  if (status === 422 && detail) {
+    const message = detail.replace(/^unprocessable entity:\s*/i, '')
+    return message.charAt(0).toUpperCase() + message.slice(1)
+  }
+
+  const suffix = detail ? ` Details: ${detail}` : ''
+  const statusText = `Code: ${status}.`
+  if (status === 401) {
+    return `Sign in again, then retry the ${label}. ${statusText}${suffix}`
+  }
+  if (status === 403) {
+    return `You do not have permission to manage users. Ask an owner to update your admin role. ${statusText}${suffix}`
+  }
+  if (status === 404) {
+    return `This user is no longer in the list. Reload the user list to see the latest accounts. ${statusText}${suffix}`
+  }
+  if (status >= 500) {
+    return `The admin service had a server problem. Retry the ${label} after the backend is healthy. ${statusText}${suffix}`
+  }
+  return `The ${label} did not go through. Try again. ${statusText}${suffix}`
+}
+
+function adminUserActionNetworkMessage(action: AdminUserAction): string {
+  return `The ${adminUserActionLabel(action)} could not reach the server. Check your connection and try again.`
+}
+
+function adminUserActionError(err: unknown, action: AdminUserAction): string {
+  return err instanceof AdminUserFacingError ? err.message : adminUserActionNetworkMessage(action)
+}
+
 // ============================================================================
 // Store
 // ============================================================================
@@ -358,6 +434,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   usersLoading: false,
   usersError: null,
   userSearch: '',
+  userActionError: null,
 
   orgs: [],
   orgsLoading: false,
@@ -421,6 +498,62 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       set({ usersLoading: false, usersError: adminErrorMessage(err, 'users') })
     }
   },
+
+  updateUserRole: async (id, role) => {
+    set({ userActionError: null })
+    try {
+      const res = await adminFetch(`/api/v1/admin/users/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ role }),
+      })
+      const body = (await res.json().catch(() => null)) as {
+        ok?: boolean
+        user?: AdminUser
+      } | null
+      if (!res.ok || !body || body.ok === false || !body.user) {
+        throw userFacingError(
+          adminUserActionErrorMessage(
+            'change-role',
+            res.status,
+            (body ?? {}) as Record<string, unknown>
+          )
+        )
+      }
+      // Swap in the backend's updated projection so the row shows exactly
+      // what was saved (role, status, timestamps) — no optimistic guessing.
+      const updated = body.user
+      set((s) => ({ users: s.users.map((user) => (user.id === id ? updated : user)) }))
+      return true
+    } catch (err) {
+      set({ userActionError: adminUserActionError(err, 'change-role') })
+      return false
+    }
+  },
+
+  deleteUser: async (id) => {
+    set({ userActionError: null })
+    try {
+      const res = await adminFetch(`/api/v1/admin/users/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      })
+      const body = (await res.json().catch(() => null)) as { ok?: boolean } | null
+      if (!res.ok || !body || body.ok === false) {
+        throw userFacingError(
+          adminUserActionErrorMessage('remove', res.status, (body ?? {}) as Record<string, unknown>)
+        )
+      }
+      set((s) => ({
+        users: s.users.filter((user) => user.id !== id),
+        usersTotal: Math.max(0, s.usersTotal - 1),
+      }))
+      return true
+    } catch (err) {
+      set({ userActionError: adminUserActionError(err, 'remove') })
+      return false
+    }
+  },
+
+  clearUserActionError: () => set({ userActionError: null }),
 
   // ---------------------------------------------------------------------------
   // Orgs

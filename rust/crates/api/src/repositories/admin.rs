@@ -7,7 +7,7 @@ use serde::Serialize;
 use sqlx::{FromRow, PgPool, QueryBuilder};
 use uuid::Uuid;
 
-use crate::domain::admin::{AdminAgentSort, AdminRepositoryPolicy, SortOrder};
+use crate::domain::admin::{AdminAgentSort, AdminRepositoryPolicy, SortOrder, admin_user_not_found_error};
 
 /// Filter parameters for the admin agent list query.
 #[derive(Debug, Default, Clone)]
@@ -186,6 +186,84 @@ impl AdminRepository {
     fn search_pattern(search: Option<&str>) -> Option<String> {
         let trimmed = search.map(str::trim).filter(|s| !s.is_empty())?;
         Some(format!("%{trimmed}%"))
+    }
+
+    /// Fetch a single live user across all organizations (admin only).
+    pub async fn find_user_by_id(&self, user_id: Uuid) -> AppResult<User> {
+        sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL")
+            .bind(user_id)
+            .fetch_optional(&self.pool)
+            .await?
+            .ok_or_else(|| admin_user_not_found_error(user_id))
+    }
+
+    /// Set the GLOBAL admin flag for a live user (admin only) and return the
+    /// updated row. Soft-deleted users cannot be modified — that is a 404.
+    pub async fn set_user_admin(&self, user_id: Uuid, is_admin: bool) -> AppResult<User> {
+        sqlx::query_as::<_, User>(
+            r#"UPDATE users SET is_admin = $2, updated_at = NOW()
+               WHERE id = $1 AND deleted_at IS NULL
+               RETURNING *"#,
+        )
+        .bind(user_id)
+        .bind(is_admin)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or_else(|| admin_user_not_found_error(user_id))
+    }
+
+    /// Soft-delete a user account (admin only). The row keeps its history but
+    /// disappears from the admin list and can no longer sign in. Deleting an
+    /// already-deleted or unknown user is a 404.
+    pub async fn soft_delete_user(&self, user_id: Uuid) -> AppResult<()> {
+        let result =
+            sqlx::query("UPDATE users SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL")
+                .bind(user_id)
+                .execute(&self.pool)
+                .await?;
+        if result.rows_affected() == 0 {
+            return Err(admin_user_not_found_error(user_id));
+        }
+        Ok(())
+    }
+
+    /// Count live admin accounts deployment-wide. Backs the last-admin guard:
+    /// the final remaining admin can never be demoted or deleted.
+    pub async fn count_active_admins(&self) -> AppResult<i64> {
+        let count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users WHERE is_admin AND deleted_at IS NULL")
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(count)
+    }
+
+    /// The target's membership role in one organization (`None` = not a member).
+    /// The JWT `role` claim is minted from this column at login/context-switch,
+    /// so role edits must keep it in step with `users.is_admin`.
+    pub async fn member_role(&self, org_id: Uuid, user_id: Uuid) -> AppResult<Option<String>> {
+        let role = sqlx::query_scalar::<_, String>(
+            "SELECT role FROM organization_members WHERE organization_id = $1 AND user_id = $2 LIMIT 1",
+        )
+        .bind(org_id)
+        .bind(user_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(role)
+    }
+
+    /// Sync the org-membership role so the next minted JWT carries the new
+    /// access level. Returns whether a membership row existed to update.
+    /// `owner` rows are never written here — the service rejects owner targets
+    /// before calling.
+    pub async fn set_member_role(&self, org_id: Uuid, user_id: Uuid, role: &str) -> AppResult<bool> {
+        let result = sqlx::query(
+            "UPDATE organization_members SET role = $3 WHERE organization_id = $1 AND user_id = $2 AND role <> 'owner'",
+        )
+        .bind(org_id)
+        .bind(user_id)
+        .bind(role)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() > 0)
     }
 
     /// List ALL organizations (admin only) with live member and team counts.
@@ -580,6 +658,73 @@ mod tests {
         assert_eq!(repo.list_all_users(50, 0, None).await.expect("unfiltered list").len(), 3);
         assert_eq!(repo.count_users(None).await.expect("unfiltered count"), 3);
         assert_eq!(repo.count_users(Some("   ")).await.expect("blank search count"), 3);
+    }
+
+    /// Seed one live user row with an explicit `is_admin` flag.
+    async fn seed_user_with_admin(pool: &PgPool, email: &str, is_admin: bool) -> Uuid {
+        let id = seed_user(pool, email, None, false).await;
+        sqlx::query("UPDATE users SET is_admin = $2 WHERE id = $1")
+            .bind(id)
+            .bind(is_admin)
+            .execute(pool)
+            .await
+            .expect("set is_admin");
+        id
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn set_user_admin_flips_the_flag_and_skips_deleted_rows(pool: PgPool) {
+        let repo = AdminRepository::new(pool.clone());
+        let member = seed_user_with_admin(&pool, "member@example.com", false).await;
+
+        let promoted = repo.set_user_admin(member, true).await.expect("promote member");
+        assert!(promoted.is_admin);
+        assert_eq!(promoted.email, "member@example.com");
+
+        let demoted = repo.set_user_admin(member, false).await.expect("demote admin");
+        assert!(!demoted.is_admin);
+
+        // Unknown and soft-deleted rows are both a 404 — never a silent no-op.
+        let missing = repo.set_user_admin(Uuid::new_v4(), true).await.expect_err("unknown user");
+        assert!(matches!(missing.kind, agentforge_core::ErrorKind::NotFound(_)));
+        let deleted = seed_user(&pool, "gone@example.com", None, true).await;
+        let gone = repo.set_user_admin(deleted, true).await.expect_err("deleted user");
+        assert!(matches!(gone.kind, agentforge_core::ErrorKind::NotFound(_)));
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn soft_delete_user_marks_the_row_once(pool: PgPool) {
+        let repo = AdminRepository::new(pool.clone());
+        let user = seed_user(&pool, "leaver@example.com", Some("Leaver"), false).await;
+
+        repo.soft_delete_user(user).await.expect("soft delete");
+        let deleted_at: Option<chrono::DateTime<chrono::Utc>> =
+            sqlx::query_scalar("SELECT deleted_at FROM users WHERE id = $1")
+                .bind(user)
+                .fetch_one(&pool)
+                .await
+                .expect("read deleted_at");
+        assert!(deleted_at.is_some(), "soft delete stamps deleted_at");
+
+        // A second delete (or a lookup) sees the row as gone.
+        let again = repo.soft_delete_user(user).await.expect_err("already deleted");
+        assert!(matches!(again.kind, agentforge_core::ErrorKind::NotFound(_)));
+        let lookup = repo.find_user_by_id(user).await.expect_err("deleted user lookup");
+        assert!(matches!(lookup.kind, agentforge_core::ErrorKind::NotFound(_)));
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn count_active_admins_ignores_members_and_deleted_admins(pool: PgPool) {
+        let repo = AdminRepository::new(pool.clone());
+        assert_eq!(repo.count_active_admins().await.expect("empty count"), 0);
+
+        seed_user_with_admin(&pool, "admin-1@example.com", true).await;
+        let admin_2 = seed_user_with_admin(&pool, "admin-2@example.com", true).await;
+        seed_user_with_admin(&pool, "member@example.com", false).await;
+        assert_eq!(repo.count_active_admins().await.expect("two admins"), 2);
+
+        repo.soft_delete_user(admin_2).await.expect("delete one admin");
+        assert_eq!(repo.count_active_admins().await.expect("one admin"), 1, "deleted admins do not count");
     }
 
     #[sqlx::test(migrations = "../db/migrations")]
