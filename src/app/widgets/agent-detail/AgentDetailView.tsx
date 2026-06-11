@@ -86,9 +86,9 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
         </p>
       ) : (
         <p>
-          Chat-only agents answer through a connected AI service and cannot open project files on
-          their own. Choose an agent on this computer or a managed workspace agent when the task
-          must inspect or edit files.
+          This chat-only AI service can plan, write, and review in chat, but it cannot open project
+          files on its own. Choose an agent on this computer or a managed workspace agent when the
+          task must inspect or edit files.
         </p>
       )}
     </div>
@@ -96,7 +96,7 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
 }
 
 function agentFolderLabel(agent: AgentInfo): string {
-  if (!agent.cliTool) return 'Not needed for this agent'
+  if (!agent.cliTool) return 'No file access needed'
   if (!agent.cwd || agent.cwd === '/workspace') {
     return isHostCliAgent(agent) ? 'Folder where you ran the setup command' : 'Workspace project folder'
   }
@@ -106,7 +106,7 @@ function agentFolderLabel(agent: AgentInfo): string {
 function agentSetupSummary(agent: AgentInfo): string {
   if (isHostCliAgent(agent)) return 'This computer'
   if (agent.cliTool) return 'Managed workspace'
-  return 'Chat-only agent'
+  return 'Chat-only AI service'
 }
 
 export function agentDetailHeaderSubtitle(agent: AgentInfo): string {
@@ -120,7 +120,7 @@ function agentConnectionStatus(agent: AgentInfo): string {
       : 'Run the setup command on this computer again'
   }
   if (agent.cliTool) return agent.containerId ? 'Ready in managed workspace' : 'Waiting to start'
-  return 'Not needed'
+  return 'Uses AI service connection'
 }
 
 interface AgentDetailViewProps {
@@ -357,7 +357,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
     return {
       title: 'Fix setup before sending work',
       detail:
-        'This chat-only agent is offline. Open Settings and check that the connected AI service is ready before sending work.',
+        'This chat-only AI service is offline. Open Settings and check that the AI service is ready before sending work.',
       success: 'The agent returns to Ready and can receive tasks.',
       ready: false,
     }
@@ -489,7 +489,7 @@ function AssignmentFitCard({
       : 'Unavailable until restarted or reconnected'
   const hostCli = isHostCliAgent(agent)
   const runtime = agentRuntimeLabel(agent)
-  let credential = 'Settings shows whether the connected AI service is ready.'
+  let credential = 'Settings shows whether the AI service is ready.'
   if (hostCli) {
     credential = 'Uses the tool accounts and project files available on this computer.'
   } else if (agent.cliTool === 'codex') {

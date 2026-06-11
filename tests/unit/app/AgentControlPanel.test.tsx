@@ -142,8 +142,9 @@ describe('AgentControlPanel', () => {
   test('uses chat-only language for agents that answer through an AI service', () => {
     render(<AgentControlPanel agent={textOnlyAgent} onDeleted={() => {}} />)
 
-    expect(screen.getByText('Chat-only agent controls')).toBeDefined()
-    expect(screen.getByText(/connected AI service/i)).toBeDefined()
+    expect(screen.getByText('Chat-only AI service controls')).toBeDefined()
+    expect(screen.getByText(/replies through its AI service/i)).toBeDefined()
+    expect(screen.queryByText('Chat-only agent controls')).toBeNull()
     expect(screen.getByText('Ready for chat and tracked tasks')).toBeDefined()
     expect(screen.getByText(/planning or review with a clear result/i)).toBeDefined()
     expect(screen.queryByText(/No recovery action needed/i)).toBeNull()

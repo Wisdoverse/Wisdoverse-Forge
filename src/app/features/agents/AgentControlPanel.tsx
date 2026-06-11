@@ -318,9 +318,9 @@ function getControlSummary(
   }
 
   return {
-    title: 'Chat-only agent controls',
+    title: 'Chat-only AI service controls',
     detail:
-      'This agent replies through its connected AI service. Use messages for quick help and Tasks for tracked work.',
+      'This agent replies through its AI service. Use messages for quick help and Tasks for tracked work.',
     Icon: CheckCircle2,
   }
 }

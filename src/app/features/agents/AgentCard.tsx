@@ -58,7 +58,7 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
     ? 'This computer'
     : agent.cliTool
       ? 'Managed workspace'
-      : 'Chat-only agent'
+      : 'Chat-only AI service'
   const projectLabel = agent.projectName ?? agent.workspaceName ?? 'Choose a starting project'
   const serviceLabel = agentServiceLabel(agent)
 
