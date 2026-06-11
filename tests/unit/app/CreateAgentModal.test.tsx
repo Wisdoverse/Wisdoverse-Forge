@@ -44,17 +44,17 @@ beforeEach(() => {
 })
 
 describe('CreateAgentModal', () => {
-  test('renders Container CLI fields by default', () => {
+  test('renders managed workspace fields by default', () => {
     render(<CreateAgentModal />)
 
-    expect(screen.getByRole('radio', { name: /container cli/i })).toBeChecked()
+    expect(screen.getByRole('radio', { name: /managed workspace/i })).toBeChecked()
     expect(screen.getByTestId('agent-runtime-fit')).toBeInTheDocument()
-    expect(screen.getByText(/claude container worker/i)).toBeInTheDocument()
-    expect(screen.getByText('/workspace mounted')).toBeInTheDocument()
-    expect(screen.getByText(/runtime container must start/i)).toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: /container cli/i })).toBeInTheDocument()
-    expect(screen.getByLabelText(/working directory/i)).toBeInTheDocument()
-    expect(screen.getByText(/shared workspace mount/i)).toBeInTheDocument()
+    expect(screen.getByText(/claude in a managed workspace/i)).toBeInTheDocument()
+    expect(screen.getByText('Project files included')).toBeInTheDocument()
+    expect(screen.getByText(/workspace must be ready/i)).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /^work tool$/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/project folder/i)).toBeInTheDocument()
+    expect(screen.getByText(/primary project sets the default task context/i)).toBeInTheDocument()
     expect(screen.getAllByText(/primary project/i).length).toBeGreaterThan(0)
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/choose a project first/i)
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
@@ -164,16 +164,16 @@ describe('CreateAgentModal', () => {
     })
   })
 
-  test('switching to Provider+Prompt hides CLI fields and shows Provider/Model', () => {
+  test('switching to chat-only AI service hides work tool fields and shows Provider/Model', () => {
     render(<CreateAgentModal />)
 
-    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /chat-only ai service/i }))
 
-    expect(screen.getByText(/anthropic prompt worker/i)).toBeInTheDocument()
-    expect(screen.getByText(/no direct workspace mount/i)).toBeInTheDocument()
-    expect(screen.getByText(/provider key must be ready/i)).toBeInTheDocument()
-    expect(screen.queryByRole('combobox', { name: /container cli/i })).toBeNull()
-    expect(screen.queryByLabelText(/working directory/i)).toBeNull()
+    expect(screen.getByText(/anthropic chat-only agent/i)).toBeInTheDocument()
+    expect(screen.getByText(/does not open project files/i)).toBeInTheDocument()
+    expect(screen.getByText(/ai service must be ready/i)).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: /^work tool$/i })).toBeNull()
+    expect(screen.queryByLabelText(/project folder/i)).toBeNull()
     expect(screen.getByLabelText(/^provider$/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/^model$/i)).toBeInTheDocument()
   })
@@ -181,24 +181,24 @@ describe('CreateAgentModal', () => {
   test('updates runtime fit when the operator changes runtime choices', async () => {
     render(<CreateAgentModal />)
 
-    fireEvent.change(screen.getByRole('combobox', { name: /container cli/i }), {
+    fireEvent.change(screen.getByRole('combobox', { name: /^work tool$/i }), {
       target: { value: 'codex' },
     })
-    expect(screen.getByText(/codex container worker/i)).toBeInTheDocument()
+    expect(screen.getByText(/codex in a managed workspace/i)).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('radio', { name: /local cli/i }))
-    expect(screen.getByText(/codex local worker/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
+    expect(screen.getByText(/codex on this computer/i)).toBeInTheDocument()
     expect(screen.getByText('Run the join command')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /chat-only ai service/i }))
     fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'google' } })
 
     await waitFor(() => {
-      expect(screen.getByText(/google prompt worker/i)).toBeInTheDocument()
+      expect(screen.getByText(/google chat-only agent/i)).toBeInTheDocument()
     })
   })
 
-  test('enrolls a Local CLI agent and shows the join command', async () => {
+  test('enrolls an agent on this computer and shows the join command', async () => {
     const enrollLocalAgent = vi.fn().mockResolvedValue({
       ok: true,
       agent: {
@@ -224,12 +224,12 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
 
-    fireEvent.click(screen.getByRole('radio', { name: /local cli/i }))
-    fireEvent.change(screen.getByRole('combobox', { name: /local cli/i }), {
+    fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
+    fireEvent.change(screen.getByRole('combobox', { name: /work tool on this computer/i }), {
       target: { value: 'codex' },
     })
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
-    fireEvent.change(screen.getByLabelText(/local working directory/i), {
+    fireEvent.change(screen.getByLabelText(/folder on this computer/i), {
       target: { value: '/Users/me/project' },
     })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
@@ -278,7 +278,7 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
 
-    fireEvent.click(screen.getByRole('radio', { name: /local cli/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
@@ -298,7 +298,7 @@ describe('CreateAgentModal', () => {
     )
   })
 
-  test('defaults to Provider+Prompt when a verified provider exists', async () => {
+  test('defaults to chat-only AI service when a verified provider exists', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
     useSettingsStore.setState({
@@ -318,8 +318,8 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
 
-    expect(screen.getByRole('radio', { name: /provider \+ prompt/i })).toBeChecked()
-    expect(screen.queryByRole('combobox', { name: /container cli/i })).toBeNull()
+    expect(screen.getByRole('radio', { name: /chat-only ai service/i })).toBeChecked()
+    expect(screen.queryByRole('combobox', { name: /^work tool$/i })).toBeNull()
     expect(screen.getByLabelText(/^provider$/i)).toHaveValue('openai')
     expect(screen.getByLabelText(/^model$/i)).toHaveValue('gpt-5.5')
 
@@ -338,7 +338,7 @@ describe('CreateAgentModal', () => {
   test('switching provider seeds the matching default model', async () => {
     render(<CreateAgentModal />)
 
-    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /chat-only ai service/i }))
     fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'openai' } })
 
     await waitFor(() => {
@@ -349,7 +349,7 @@ describe('CreateAgentModal', () => {
   test('lists China-region providers and seeds the Zhipu GLM default model', async () => {
     render(<CreateAgentModal />)
 
-    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /chat-only ai service/i }))
 
     const providerSelect = screen.getByLabelText(/^provider$/i)
     expect(within(providerSelect).getByRole('option', { name: 'Zhipu GLM' })).toBeInTheDocument()
@@ -399,7 +399,7 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
-    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /chat-only ai service/i }))
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
     await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
@@ -418,7 +418,7 @@ describe('CreateAgentModal', () => {
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
-    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /chat-only ai service/i }))
     const templateGroup = screen.getByRole('group', { name: /agent role templates/i })
     fireEvent.click(within(templateGroup).getByRole('button', { name: /reviewer/i }))
 

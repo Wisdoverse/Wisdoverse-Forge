@@ -48,7 +48,7 @@ describe('AgentListView', () => {
 
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
     expect(within(enrollment).getByText(/connect a local agent/i)).toBeDefined()
-    expect(enrollment.textContent).toContain('Create a Local CLI agent')
+    expect(enrollment.textContent).toContain('Create an agent for this computer')
     expect(within(enrollment).getByText(/project:/i)).toBeDefined()
     expect(within(enrollment).getByText('Select a project')).toBeDefined()
     expect(enrollment.textContent).not.toContain('<project-id>')

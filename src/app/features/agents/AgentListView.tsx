@@ -283,9 +283,9 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Use this when work should run on your computer and still be tracked here. Create a{' '}
-            <span className="font-semibold">Local CLI</span> agent, then paste its one-command join
-            into a terminal on that computer.
+            Use this when work should run on your computer and still be tracked here. Create an
+            agent for this computer, then paste its one-command join into a terminal on that
+            computer.
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-apple-blue/[0.08] px-2 py-1 text-[10px] font-semibold text-apple-blue">
@@ -299,7 +299,7 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
         className="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-full bg-apple-blue px-3 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
       >
         <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
-        New Local CLI agent
+        New agent on this computer
       </button>
 
       <details className="mt-3">

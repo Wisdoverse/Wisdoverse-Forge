@@ -148,36 +148,35 @@ function cliToolLabel(cliTool: CliTool): string {
 function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): RuntimeFitSummary {
   if (kind === 'cli') {
     return {
-      title: `${cliToolLabel(cliTool)} container worker`,
-      detail: 'Best when the task needs repository files, terminal tools, or local CLI sessions.',
+      title: `${cliToolLabel(cliTool)} in a managed workspace`,
+      detail: 'Best when the task needs project files or work tools prepared by Forge.',
       items: [
-        { label: 'Execution', value: 'Container CLI' },
-        { label: 'Files', value: '/workspace mounted' },
-        { label: 'Before use', value: 'Runtime container must start' },
+        { label: 'Work style', value: 'Managed workspace' },
+        { label: 'Files', value: 'Project files included' },
+        { label: 'Before use', value: 'Workspace must be ready' },
       ],
     }
   }
 
   if (kind === 'local-cli') {
     return {
-      title: `${cliToolLabel(cliTool)} local worker`,
-      detail: 'Best when the CLI already runs on your computer and this platform should manage it.',
+      title: `${cliToolLabel(cliTool)} on this computer`,
+      detail: 'Best when files or tools must stay on a computer you control.',
       items: [
-        { label: 'Execution', value: 'Local CLI' },
-        { label: 'Files', value: 'Your local folder' },
+        { label: 'Work style', value: 'This computer' },
+        { label: 'Files', value: 'Your chosen folder' },
         { label: 'Before use', value: 'Run the join command' },
       ],
     }
   }
 
   return {
-    title: `${providerLabel(provider)} prompt worker`,
-    detail:
-      'Best for planning, review, and lightweight coordination that does not need filesystem tools.',
+    title: `${providerLabel(provider)} chat-only agent`,
+    detail: 'Best for planning, review, and short answers that do not need project files.',
     items: [
-      { label: 'Execution', value: 'Provider API' },
-      { label: 'Files', value: 'No direct workspace mount' },
-      { label: 'Before use', value: 'Provider key must be ready' },
+      { label: 'Work style', value: 'Chat-only AI service' },
+      { label: 'Files', value: 'Does not open project files' },
+      { label: 'Before use', value: 'AI service must be ready' },
     ],
   }
 }
@@ -445,7 +444,7 @@ export function CreateAgentModal() {
                   </div>
                 </div>
                 <span className="rounded-full border border-apple-green/20 bg-white px-2.5 py-1 text-ui-caption text-apple-green dark:bg-white/[0.04]">
-                  Local CLI
+                  This computer
                 </span>
               </div>
               <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -666,9 +665,9 @@ export function CreateAgentModal() {
 
             <div>
               <label className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Agent kind
+                How this agent works
               </label>
-              <div className="flex gap-2" role="radiogroup" aria-label="Agent kind">
+              <div className="flex gap-2" role="radiogroup" aria-label="How this agent works">
                 <label
                   className={cn(
                     'flex-1 cursor-pointer rounded-full px-4 py-2 text-center text-ui-button font-medium transition-transform active:scale-95',
@@ -678,7 +677,7 @@ export function CreateAgentModal() {
                   )}
                 >
                   <input type="radio" value="cli" {...register('kind')} className="sr-only" />
-                  Container CLI
+                  Managed workspace
                 </label>
                 <label
                   className={cn(
@@ -689,7 +688,7 @@ export function CreateAgentModal() {
                   )}
                 >
                   <input type="radio" value="local-cli" {...register('kind')} className="sr-only" />
-                  Local CLI
+                  This computer
                 </label>
                 <label
                   className={cn(
@@ -700,15 +699,15 @@ export function CreateAgentModal() {
                   )}
                 >
                   <input type="radio" value="provider" {...register('kind')} className="sr-only" />
-                  Provider + Prompt
+                  Chat-only AI service
                 </label>
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {kind === 'cli'
-                  ? 'Runs claude/codex/gemini/opencode inside a container.'
+                  ? 'Uses a ready workspace managed by Forge for file and command work.'
                   : kind === 'local-cli'
-                    ? 'Runs a CLI on your machine while this platform manages identity and tasks.'
-                    : 'Calls the LLM provider directly — no container, no terminal.'}
+                    ? 'Uses a work tool installed on your computer while Forge gives it tasks.'
+                    : 'Uses a connected AI service for planning, writing, and review. It does not open files or run commands.'}
               </p>
             </div>
 
@@ -719,7 +718,7 @@ export function CreateAgentModal() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                    Runtime fit
+                    Best for
                   </p>
                   <p className="mt-0.5 text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
                     {runtimeFit.title}
@@ -763,11 +762,11 @@ export function CreateAgentModal() {
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {selectedProject
                   ? kind === 'local-cli'
-                    ? 'Project ready. Tasks default to this project. Local filesystem access stays on the joined machine.'
-                    : 'Project ready. Tasks default to this project. Container access is the selected project workspace.'
+                    ? 'Project ready. Tasks default to this project. File access stays on the joined computer.'
+                    : 'Project ready. Tasks default to this project. Forge prepares this project workspace for the agent.'
                   : kind === 'local-cli'
                     ? 'Choose a project first. Tasks can still be assigned later. Select a project in the sidebar before creating.'
-                    : 'Choose a project first. Tasks can still be assigned later. Select a project in the sidebar to set the execution boundary.'}
+                    : 'Choose a project first. Tasks can still be assigned later. Select a project in the sidebar to choose where work belongs.'}
               </p>
             </div>
 
@@ -777,7 +776,7 @@ export function CreateAgentModal() {
                   htmlFor="agent-cli-tool"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  {kind === 'local-cli' ? 'Local CLI' : 'Container CLI'}
+                  {kind === 'local-cli' ? 'Work tool on this computer' : 'Work tool'}
                 </label>
                 <select
                   id="agent-cli-tool"
@@ -852,7 +851,7 @@ export function CreateAgentModal() {
                   htmlFor="agent-cwd"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  {kind === 'local-cli' ? 'Local working directory' : 'Working Directory'}
+                  {kind === 'local-cli' ? 'Folder on this computer' : 'Project folder'}
                 </label>
                 <input
                   id="agent-cwd"
@@ -863,7 +862,7 @@ export function CreateAgentModal() {
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                   {kind === 'local-cli'
                     ? 'Leave blank to use the folder where you run the join command.'
-                    : '/workspace is the shared workspace mount and may contain multiple projects. Primary Project sets default context; it is not a private user directory.'}
+                    : 'Use /workspace unless an owner gives you a different path. It can include multiple projects. Primary Project sets the default task context.'}
                 </p>
               </div>
             )}
