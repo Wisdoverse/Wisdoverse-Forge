@@ -58,7 +58,7 @@ chrono = { version = "0.4", features = ["serde"] }
 # Authentication
 # The API and orchestrator sign only HS256 tokens. Use the aws-lc-rs provider so
 # jsonwebtoken does not pull the RustCrypto `rsa` crate affected by RUSTSEC-2023-0071.
-jsonwebtoken = { version = "=10.3.0", default-features = false, features = ["aws_lc_rs"] }
+jsonwebtoken = { version = "=10.4.0", default-features = false, features = ["aws_lc_rs"] }
 argon2 = "0.5"
 
 # Validation
