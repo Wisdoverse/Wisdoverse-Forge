@@ -72,7 +72,7 @@ describe('AgentControlPanel', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/refresh this agent/i)
     expect(screen.getByRole('alert')).toHaveTextContent(/forge could not update this agent/i)
     expect(screen.getByRole('alert')).toHaveTextContent(
-      /ask an owner or admin to check Agent Work Setup/i
+      /ask an owner or admin to check this agent setup/i
     )
     expect(screen.getByRole('alert')).not.toHaveTextContent(/HTTP 500/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/Start request failed/i)
@@ -155,12 +155,12 @@ describe('AgentControlPanel', () => {
   test('guides joined-computer agents without start or restart controls', () => {
     render(<AgentControlPanel agent={hostCliAgent} onDeleted={() => {}} />)
 
-    expect(screen.getByText('This computer controls')).toBeDefined()
-    expect(screen.getByText(/runs on a joined computer/i)).toBeDefined()
-    expect(screen.getByText('Keep this computer connected')).toBeDefined()
+    expect(screen.getByText('This computer is connected')).toBeDefined()
+    expect(screen.getByText(/connection command on that computer/i)).toBeDefined()
+    expect(screen.getByText('Keep the command running')).toBeDefined()
     expect(
       screen.getByText(
-        'Start or stop the connection tool on that computer. Use this page for quick messages, tracked tasks, or cleanup.'
+        'Keep the Terminal or PowerShell window open on that computer while it works. Use this page for quick messages, tracked tasks, or cleanup.'
       )
     ).toBeDefined()
     expect(screen.queryByRole('button', { name: /start agent/i })).toBeNull()
@@ -176,13 +176,16 @@ describe('AgentControlPanel', () => {
       />
     )
 
-    expect(screen.getByText('Agent workspace needs to start')).toBeDefined()
-    expect(screen.getByText(/has no running workspace yet/i)).toBeDefined()
-    expect(screen.getByText(/opening its live work window/i)).toBeDefined()
+    expect(screen.getByText('Workspace needs to start')).toBeDefined()
+    expect(screen.getByText(/no workspace is running yet/i)).toBeDefined()
+    expect(screen.getByText(/Wait for Ready before sending file work/i)).toBeDefined()
+    expect(
+      screen.getByText(/Start this workspace before sending file work or opening Live work/i)
+    ).toBeDefined()
     expect(screen.queryByText(/opening a terminal/i)).toBeNull()
     expect(screen.queryByText(/opening the command window/i)).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /start agent/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start workspace/i }))
 
     await waitFor(() => {
       expect(startAgentMock).toHaveBeenCalledWith('pending-agent')
@@ -194,7 +197,7 @@ describe('AgentControlPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /restart agent/i }))
     expect(screen.getByText('Restart this agent?')).toBeDefined()
-    expect(screen.getByText(/live work window or task updates are stuck/i)).toBeDefined()
+    expect(screen.getByText(/Tasks or Live work stops showing progress/i)).toBeDefined()
     expect(screen.getByText(/active work may stop/i)).toBeDefined()
     expect(screen.queryByText(/terminal or task updates/i)).toBeNull()
     expect(screen.queryByText(/command window or task updates/i)).toBeNull()
@@ -202,6 +205,7 @@ describe('AgentControlPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /keep running/i }))
     expect(restartAgentMock).not.toHaveBeenCalled()
 
+    expect(screen.getByText('Fix a stuck workspace')).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: /restart agent/i }))
     fireEvent.click(screen.getByRole('button', { name: /restart now/i }))
 

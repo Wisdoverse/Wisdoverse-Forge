@@ -190,8 +190,8 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
               {canStartContainer ? (
                 <ActionCard
                   icon={Play}
-                  title="Start the agent workspace"
-                  detail="Use this when the agent has no running workspace yet. Starting can take a short moment."
+                  title="Start the workspace"
+                  detail="Use this when no workspace is running yet. Wait for Ready before sending file work."
                 >
                   <button
                     type="button"
@@ -203,7 +203,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                       starting && 'opacity-50 cursor-not-allowed'
                     )}
                   >
-                    {starting ? 'Starting...' : 'Start agent'}
+                    {starting ? 'Starting...' : 'Start workspace'}
                   </button>
                 </ActionCard>
               ) : confirmRestart ? (
@@ -211,7 +211,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                   tone="blue"
                   icon={RotateCcw}
                   title="Restart this agent?"
-                  detail="Use restart only when the live work window or task updates are stuck. Active work may stop and need to be sent again."
+                  detail="Use restart only when Tasks or Live work stops showing progress. Active work may stop and need to be sent again."
                   confirmLabel="Restart now"
                   cancelLabel="Keep running"
                   onConfirm={handleRestart}
@@ -220,8 +220,8 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
               ) : (
                 <ActionCard
                   icon={RotateCcw}
-                  title="Recover a stuck agent"
-                  detail="Restart only after checking Tasks or the live work window and seeing no new progress."
+                  title="Fix a stuck workspace"
+                  detail="Restart only after checking Tasks or Live work and seeing no new progress."
                 >
                   <button
                     type="button"
@@ -286,9 +286,8 @@ function getControlSummary(
 ): { title: string; detail: string; Icon: LucideIcon } {
   if (canStartContainer) {
     return {
-      title: 'Agent workspace needs to start',
-      detail:
-        'Start this agent workspace before sending file work or opening its live work window.',
+      title: 'Workspace needs to start',
+      detail: 'Start this workspace before sending file work or opening Live work.',
       Icon: Play,
     }
   }
@@ -303,9 +302,9 @@ function getControlSummary(
 
   if (hostCli) {
     return {
-      title: 'This computer controls',
+      title: 'This computer is connected',
       detail:
-        'This agent runs on a joined computer. Start or stop the connection tool on that computer; use this page for messages and cleanup.',
+        'Run the connection command on that computer to bring it online. Close the Terminal or PowerShell window to stop it. Use this page for messages, tasks, or cleanup.',
       Icon: CheckCircle2,
     }
   }
@@ -332,9 +331,9 @@ function getReadyActionInfo(
 ): { title: string; detail: string } {
   if (hostCli) {
     return {
-      title: 'Keep this computer connected',
+      title: 'Keep the command running',
       detail:
-        'Start or stop the connection tool on that computer. Use this page for quick messages, tracked tasks, or cleanup.',
+        'Keep the Terminal or PowerShell window open on that computer while it works. Use this page for quick messages, tracked tasks, or cleanup.',
     }
   }
 
@@ -425,10 +424,10 @@ function agentControlErrorMessage(error: string): string {
     return 'The agent controls are busy. Wait a moment, refresh this agent, then try again.'
   }
   if (/\b5\d\d\b/.test(error)) {
-    return 'Forge could not update this agent right now. Refresh this agent and try again. If it keeps failing, ask an owner or admin to check Agent Work Setup.'
+    return 'Forge could not update this agent right now. Refresh this agent and try again. If it keeps failing, ask an owner or admin to check this agent setup.'
   }
 
-  return 'Refresh this agent and confirm the latest status before trying once more. For Start or Restart, wait for Ready or Working. If it keeps failing, ask an owner or admin to check what you can do and Agent Work Setup.'
+  return 'Refresh this agent and confirm the latest status before trying once more. For Start or Restart, wait for Ready or Working. If it keeps failing, ask an owner or admin to check what you can do and this agent setup.'
 }
 
 interface ConfirmActionProps {

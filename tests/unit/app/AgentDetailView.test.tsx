@@ -162,7 +162,8 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Connection')).toBeDefined()
     expect(screen.getByText('Connected from this computer')).toBeDefined()
     expect(screen.queryByText('host-aabbccdd')).toBeNull()
-    expect(screen.getByText(/agents joined from this computer run there/i)).toBeDefined()
+    expect(screen.getByText(/this computer does the work/i)).toBeDefined()
+    expect(screen.getByText(/folder where you ran the connection command/i)).toBeDefined()
     expect(screen.queryByRole('button', { name: /start agent/i })).toBeNull()
   })
 
@@ -196,7 +197,7 @@ describe('AgentDetailView', () => {
     expect(screen.getByTestId('agent-assignment-fit')).toBeDefined()
     expect(screen.getByText('Can be assigned now')).toBeDefined()
     expect(screen.getByText('Implement onboarding flow')).toBeDefined()
-    expect(screen.getByText(/attach and review skills/i)).toBeDefined()
+    expect(screen.getByText(/attach saved instructions/i)).toBeDefined()
   })
 
   test('guides an idle agent toward a first safe task', () => {
@@ -237,26 +238,24 @@ describe('AgentDetailView', () => {
       />
     )
 
-    expect(screen.getByText('Start the managed workspace')).toBeDefined()
+    expect(screen.getByText('Start this workspace')).toBeDefined()
     expect(
       screen.getByText(
-        'Open Live work, then start this managed workspace so the agent can receive tasks.'
+        'Open Live work, choose Start workspace, and wait until this agent shows Ready before sending file work.'
       )
     ).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: /open live work/i }))
-    expect(screen.getByText('Start the managed workspace to open live work')).toBeDefined()
-    expect(screen.getByText(/start the workspace when you need to watch live work/i)).toBeDefined()
+    expect(screen.getByText('Start this workspace to open Live work')).toBeDefined()
+    expect(screen.getByText(/start the workspace before this agent works on files/i)).toBeDefined()
     expect(
       screen.getByText(/success looks like the agent status changing to ready or working/i)
     ).toBeDefined()
-    expect(
-      screen.getByText(/ask an admin to check Agent Work Setup for this agent/i)
-    ).toBeDefined()
+    expect(screen.getByText(/ask an owner or admin to check this agent setup/i)).toBeDefined()
     expect(screen.queryByText(/open terminal/i)).toBeNull()
     expect(screen.queryByText(/terminal access/i)).toBeNull()
     expect(screen.queryByText(/live terminal/i)).toBeNull()
     expect(screen.queryByText(/command window/i)).toBeNull()
-    expect(screen.getByRole('button', { name: /start agent workspace/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /start workspace/i })).toBeDefined()
   })
 
   test('shows start failure guidance without raw setup details', () => {
@@ -281,9 +280,7 @@ describe('AgentDetailView', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Start did not finish')
-    expect(alert).toHaveTextContent(
-      'ask an admin to check Agent Work Setup for this agent'
-    )
+    expect(alert).toHaveTextContent('ask an owner or admin to check this agent setup')
     expect(alert.textContent).not.toContain('Details:')
     expect(alert.textContent).not.toContain('Docker socket refused')
   })
@@ -291,8 +288,9 @@ describe('AgentDetailView', () => {
   test('guides offline agents joined from this computer back to the local connection', () => {
     render(<AgentDetailView agent={{ ...hostCliAgent, status: 'offline' }} onBack={() => {}} />)
 
-    expect(screen.getByText('Reconnect the local computer')).toBeDefined()
-    expect(screen.getByText(/start the connection tool again/i)).toBeDefined()
+    expect(screen.getByText('Run the command on this computer again')).toBeDefined()
+    expect(screen.getByText(/open Terminal or PowerShell in the project folder/i)).toBeDefined()
+    expect(screen.getByText(/keep that window open/i)).toBeDefined()
     expect(screen.queryByRole('button', { name: /open terminal/i })).toBeNull()
   })
 

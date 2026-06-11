@@ -75,8 +75,8 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
       />
       {hostCli ? (
         <p>
-          Agents joined from this computer run there. Forge sends tasks, checks the connection, and
-          saves task history here; files stay in the folder where that computer is connected.
+          This computer does the work. Forge sends tasks and saves task history here; files stay in
+          the folder where you ran the connection command.
         </p>
       ) : agent.cliTool ? (
         <p>
@@ -98,9 +98,7 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
 function agentFolderLabel(agent: AgentInfo): string {
   if (!agent.cliTool) return 'Not needed for this agent'
   if (!agent.cwd || agent.cwd === '/workspace') {
-    return isHostCliAgent(agent)
-      ? 'Folder used when this computer joined'
-      : 'Workspace project folder'
+    return isHostCliAgent(agent) ? 'Folder where you ran the command' : 'Workspace project folder'
   }
   return agent.cwd
 }
@@ -119,7 +117,7 @@ function agentConnectionStatus(agent: AgentInfo): string {
   if (isHostCliAgent(agent)) {
     return agent.runtimeId
       ? 'Connected from this computer'
-      : 'Waiting for this computer to reconnect'
+      : 'Run the command on this computer again'
   }
   if (agent.cliTool) return agent.containerId ? 'Ready in managed workspace' : 'Waiting to start'
   return 'Not needed'
@@ -336,9 +334,9 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
   if (agent.status === 'offline') {
     if (hostCli) {
       return {
-        title: 'Reconnect the local computer',
+        title: 'Run the command on this computer again',
         detail:
-          'Open the computer where this agent was connected and start the connection tool again. This agent cannot receive new work until the connection returns.',
+          'Go to the computer where this agent was connected. Open Terminal or PowerShell in the project folder, run the connection command again, and keep that window open.',
         success: 'The status changes from Offline to Ready or Working.',
         ready: false,
       }
@@ -346,8 +344,9 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
 
     if (hasContainerTerminal) {
       return {
-        title: 'Start the managed workspace',
-        detail: 'Open Live work, then start this managed workspace so the agent can receive tasks.',
+        title: 'Start this workspace',
+        detail:
+          'Open Live work, choose Start workspace, and wait until this agent shows Ready before sending file work.',
         success: 'The agent returns to Ready and can receive tasks.',
         ready: false,
         targetTab: 'terminal',
@@ -494,7 +493,7 @@ function AssignmentFitCard({
   if (hostCli) {
     credential = 'Uses the tool accounts and project files available on this computer.'
   } else if (agent.cliTool === 'codex') {
-    credential = 'Agent Work Setup shows whether this tool account is connected.'
+    credential = 'Settings shows whether this tool account is connected.'
   } else if (agent.cliTool) {
     credential = 'Forge adds project file access when the managed workspace starts.'
   }
@@ -546,11 +545,11 @@ function AssignmentFitCard({
         />
         <ProfileSummaryRow label="Where it works" value={runtime} />
         <ProfileSummaryRow
-          label="Skills"
+          label="Saved instructions"
           value={
             appliedSkillCount > 0
-              ? `${appliedSkillCount} applied skill${appliedSkillCount === 1 ? '' : 's'} in recent work`
-              : 'Attach and review skills from task context'
+              ? `${appliedSkillCount} saved instruction${appliedSkillCount === 1 ? '' : 's'} used in recent work`
+              : 'Attach saved instructions from task context'
           }
         />
         <ProfileSummaryRow label="Account and file access" value={credential} />
@@ -624,18 +623,17 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
     >
       <div className="flex flex-col gap-1">
         <span className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-          Start the managed workspace to open live work
+          Start this workspace to open Live work
         </span>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {agent.cliTool
-            ? `${agentToolLabel(agent.cliTool)} is ready. Start the workspace when you need to watch live work.`
+            ? `${agentToolLabel(agent.cliTool)} is ready. Start the workspace before this agent works on files.`
             : 'This agent does not need a managed workspace.'}
         </span>
         {agent.cliTool && (
           <span className="max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Start the workspace here. Success looks like the agent status changing to Ready or
-            Working, then Live work opens. If it stays pending, ask an admin to check Agent Work
-            Setup for this agent.
+            Success looks like the agent status changing to Ready or Working. If it stays stuck, ask
+            an owner or admin to check this agent setup.
           </span>
         )}
       </div>
@@ -645,7 +643,7 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
           className="rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
         >
           Start did not finish. Check the agent status, then try once more. If it keeps failing, ask
-          an admin to check Agent Work Setup for this agent.
+          an owner or admin to check this agent setup.
         </div>
       )}
       {agent.cliTool && (
@@ -659,7 +657,7 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
             starting && 'opacity-50'
           )}
         >
-          {starting ? 'Starting…' : 'Start agent workspace'}
+          {starting ? 'Starting...' : 'Start workspace'}
         </button>
       )}
     </div>

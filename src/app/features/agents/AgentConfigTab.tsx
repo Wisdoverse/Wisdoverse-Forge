@@ -364,7 +364,7 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
             hostCli
               ? agent.runtimeId
                 ? 'Connected from this computer'
-                : 'Waiting for this computer to reconnect'
+                : 'Run the command on this computer again'
               : 'Ready in managed workspace'
           }
         />
@@ -375,8 +375,7 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
         <RuntimeRow
           label="Starting folder"
           value={
-            agent.cwd ??
-            (hostCli ? 'Folder used when this computer joined' : 'Workspace project folder')
+            agent.cwd ?? (hostCli ? 'Folder where you ran the command' : 'Workspace project folder')
           }
         />
       </div>
