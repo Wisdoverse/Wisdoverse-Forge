@@ -4,10 +4,21 @@ import { BoardView } from '@app/features/board/BoardView'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useNavigationStore } from '@app/entities/navigation'
 
+const boardSocketMocks = vi.hoisted(() => ({
+  status: 'disconnected' as 'connecting' | 'connected' | 'disconnected',
+}))
 const mockGetTasks = vi.fn().mockResolvedValue([])
 const mockCreateTask = vi.fn().mockResolvedValue({ ok: true, task: null })
 const mockUpdateTask = vi.fn().mockResolvedValue({ ok: true })
 const mockGetParticipants = vi.fn().mockResolvedValue([])
+
+vi.mock('@app/shared/model/websocket.context', () => ({
+  useWebSocket: () => ({
+    status: boardSocketMocks.status,
+    send: vi.fn(),
+    subscribe: vi.fn(() => () => {}),
+  }),
+}))
 
 vi.mock('@app/shared/api/orchestration', () => ({
   taskResultArtifacts: (result: unknown) => (Array.isArray(result) ? result : []),
@@ -20,6 +31,7 @@ vi.mock('@app/shared/api/orchestration', () => ({
 }))
 
 beforeEach(() => {
+  boardSocketMocks.status = 'disconnected'
   mockGetTasks.mockClear().mockResolvedValue([])
   mockCreateTask.mockClear()
   mockUpdateTask.mockClear()
@@ -366,5 +378,23 @@ describe('BoardView', () => {
     })
 
     expect(mockGetTasks).toHaveBeenCalledTimes(2)
+  })
+
+  test('skips fallback refresh while live updates are connected', async () => {
+    vi.useFakeTimers()
+    boardSocketMocks.status = 'connected'
+    useBoardStore.getState().setSelectedGroupId('test-group')
+
+    render(<BoardView />)
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(mockGetTasks).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000)
+    })
+
+    expect(mockGetTasks).toHaveBeenCalledTimes(1)
   })
 })

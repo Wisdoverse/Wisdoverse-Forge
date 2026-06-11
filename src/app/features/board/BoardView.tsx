@@ -1,5 +1,5 @@
 import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
 import { useNavigationStore } from '@app/entities/navigation'
@@ -22,6 +22,7 @@ import {
   type BoardPriorityFilter,
 } from './BoardToolbar'
 import { boardActionErrorMessage } from './boardErrorMessages'
+import { useWebSocket } from '@app/shared/model/websocket.context'
 
 const COLUMN_ORDER: ColumnId[] = [
   'backlog',
@@ -50,6 +51,8 @@ export function BoardView() {
   } = useBoardStore()
   const selectedProjectId = useNavigationStore((s) => s.selectedProjectId)
   const canPublishWithContext = useContextFeaturesStore((s) => s.preview && s.injection)
+  const { status: wsStatus } = useWebSocket()
+  const wsStatusRef = useRef(wsStatus)
   const [activeTask, setActiveTask] = useState<TaskSummary | null>(null)
   const [previewTask, setPreviewTask] = useState<TaskSummary | null>(null)
   const [preview, setPreview] = useState<ContextPreviewResponse | null>(null)
@@ -81,6 +84,10 @@ export function BoardView() {
     searchQuery.trim().length > 0 || priorityFilter !== 'all' || assigneeFilter !== 'all'
 
   useEffect(() => {
+    wsStatusRef.current = wsStatus
+  }, [wsStatus])
+
+  useEffect(() => {
     if (!selectedGroupId) return
     const groupId = selectedGroupId
     let cancelled = false
@@ -101,6 +108,7 @@ export function BoardView() {
     void loadTasks(true)
     const fallbackRefresh = window.setInterval(() => {
       if (document.visibilityState === 'hidden') return
+      if (wsStatusRef.current === 'connected') return
       void loadTasks(false)
     }, BOARD_FALLBACK_REFRESH_MS)
     return () => {
@@ -130,6 +138,7 @@ export function BoardView() {
     void loadParticipants(true)
     const fallbackRefresh = window.setInterval(() => {
       if (document.visibilityState === 'hidden') return
+      if (wsStatusRef.current === 'connected') return
       void loadParticipants(false)
     }, BOARD_FALLBACK_REFRESH_MS)
     return () => window.clearInterval(fallbackRefresh)
