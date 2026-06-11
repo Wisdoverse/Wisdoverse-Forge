@@ -17,7 +17,7 @@ const FILTERS: { id: InboxFilter; label: string; empty: string }[] = [
   {
     id: 'needs-action',
     label: 'Needs action',
-    empty: 'No blockers, failures, or account access issues need action right now.',
+    empty: 'No blockers, stopped tasks, or account access issues need action right now.',
   },
   {
     id: 'credentials',
@@ -27,7 +27,7 @@ const FILTERS: { id: InboxFilter; label: string; empty: string }[] = [
 ]
 
 const INBOX_TRIAGE_STEPS = [
-  'Start with Needs action to find blocked tasks and failures.',
+  'Start with Needs action to find blocked tasks and work that stopped early.',
   'Use Account access when an agent needs a connection restored.',
   'Mark items read after the task or setting has been handled.',
 ]
@@ -163,7 +163,7 @@ export function InboxView() {
             You're all caught up
           </p>
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-            Agent updates, task completions, and system alerts will show up here.
+            Agent updates, finished work, and account access notices will show up here.
           </p>
         </div>
         <InboxTriagePath compact />

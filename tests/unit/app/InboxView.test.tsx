@@ -40,9 +40,13 @@ describe('InboxView', () => {
     expect(screen.getByText(/all caught up/i)).toBeDefined()
     expect(screen.getByText('Inbox triage path')).toBeDefined()
     expect(screen.getByText(/start with needs action/i)).toBeDefined()
+    expect(screen.getByText(/work that stopped early/i)).toBeDefined()
+    expect(screen.getByText(/account access notices/i)).toBeDefined()
     expect(
       screen.getByText(/use account access when an agent needs a connection restored/i)
     ).toBeDefined()
+    expect(screen.queryByText(/failures/i)).toBeNull()
+    expect(screen.queryByText(/system alerts/i)).toBeNull()
   })
 
   test('renders notification items', () => {
@@ -292,6 +296,27 @@ describe('InboxView', () => {
     await user.click(screen.getByRole('button', { name: /show all notifications/i }))
 
     expect(screen.getByText('Completed cleanup')).toBeDefined()
+  })
+
+  test('explains empty needs-action lane without failure jargon', async () => {
+    useFeedStore.getState().addNotification({
+      id: 'n-completed',
+      type: 'completed',
+      taskId: 't-done',
+      taskTitle: 'Completed cleanup',
+      message: 'Ready for review',
+      read: true,
+      timestamp: Date.now(),
+    })
+
+    render(<InboxView />)
+
+    await userEvent.setup().click(screen.getByTestId('inbox-filter-needs-action'))
+
+    expect(screen.getByTestId('inbox-filter-empty')).toHaveTextContent(
+      'No blockers, stopped tasks, or account access issues need action right now.'
+    )
+    expect(screen.getByTestId('inbox-filter-empty')).not.toHaveTextContent(/failures/i)
   })
 
   test('shows a recoverable message when older notifications cannot load', async () => {
