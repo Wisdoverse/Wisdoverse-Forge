@@ -617,7 +617,7 @@ export function CreateAgentModal() {
               </div>
               <div
                 role="group"
-                aria-label="Agent role shortcuts"
+                aria-label="Agent role templates"
                 className="grid gap-2 sm:grid-cols-2"
               >
                 {AGENT_ROLE_TEMPLATES.map((template) => (

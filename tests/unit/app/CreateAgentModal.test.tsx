@@ -432,13 +432,13 @@ describe('CreateAgentModal', () => {
     expect(payload).not.toHaveProperty('cliTool')
   })
 
-  test('applies a role shortcut to simple chat agent instructions', async () => {
+  test('applies a role template to simple chat agent instructions', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
-    const templateGroup = screen.getByRole('group', { name: /agent role shortcuts/i })
+    const templateGroup = screen.getByRole('group', { name: /agent role templates/i })
     fireEvent.click(within(templateGroup).getByRole('button', { name: /reviewer/i }))
 
     expect(screen.getByLabelText(/^name$/i)).toHaveValue('Review Agent')
