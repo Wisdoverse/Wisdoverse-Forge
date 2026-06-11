@@ -46,7 +46,7 @@ use std::time::{Duration, SystemTime};
 use agentforge_core::{AppConfig, AppResult, CliToolKind, TenantScope, crypto};
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use rand::RngCore;
+use rand::Rng;
 use redis::AsyncCommands;
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;

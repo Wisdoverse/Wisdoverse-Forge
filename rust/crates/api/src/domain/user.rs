@@ -7,7 +7,7 @@
 use agentforge_core::{AppError, AppResult, ErrorKind, UserId};
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use rand::RngCore;
+use rand::Rng;
 use serde::Serialize;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};

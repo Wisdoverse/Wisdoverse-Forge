@@ -3,7 +3,7 @@
 use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::ApiKey;
 use chrono::{DateTime, Utc};
-use rand::Rng;
+use rand::RngExt;
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use uuid::Uuid;
