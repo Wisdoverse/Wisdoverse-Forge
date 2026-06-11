@@ -16,7 +16,8 @@ inbound GitHub→deployment reachability, no CI→deploy coupling.
 ## What it does (when enabled)
 
 A background worker (`CliImageUpdater`) periodically, for each public CLI tool
-(**never `claude`** — it has no public image, built locally under license):
+(**never a registry pull for `claude`** — it has no public image; see
+"Claude (local build)" below for how the same sweep keeps it current):
 
 1. Asks the registry for the current manifest digest of
    `${AGENT_REGISTRY}/agent-<tool>:${AGENT_CLI_IMAGE_TAG}` — **without pulling**
@@ -54,13 +55,17 @@ is reused (no token is plumbed into the Rust process).
 ## Observe
 
 - **Admin status API**: `GET /api/v1/admin/cli-images` (admin-gated) returns a
-  per-tool report — `state` (`pending` | `up_to_date` | `updated` | `failed`),
-  the local and remote manifest digests, last-checked / last-updated timestamps,
-  the last error, and `agentsWithContainer` (a rough per-tool live-container
-  count; it does NOT assert which digest each container booted from). The report
-  also echoes `autoUpdateEnabled`, `pollIntervalSecs`, `registry`, and
-  `imageTag` (JSON is camelCase). Every pollable tool appears even before the
-  first tick (as `pending`); `claude` is never listed.
+  per-tool report — `state` (`pending` | `up_to_date` | `updated` | `failed`,
+  plus `update_available` for claude), `updateMode` (`registry` |
+  `local_build`), the local and remote manifest digests (registry tools) or
+  `localVersion`/`remoteVersion` + a `building` flag (claude), last-checked /
+  last-updated timestamps, the last error, and `agentsWithContainer` (a rough
+  per-tool live-container count; it does NOT assert which digest each container
+  booted from). The report also echoes `autoUpdateEnabled`,
+  `claudeAutoBuildEnabled`, `pollIntervalSecs`, `registry`, and `imageTag`
+  (JSON is camelCase). Every reported tool appears even before the first tick
+  (as `pending`), including `claude` (listed with `updateMode: "local_build"`
+  — it is checked against npm, never pulled from a registry).
 
   ```bash
   curl -s -H "Authorization: Bearer $ADMIN_JWT" \
@@ -93,6 +98,71 @@ parent layer is never cascade-deleted, and only when the image is DANGLING and a
 repo digest names one of our own pollable-tool GHCR overlays
 (`<registry>/agent-<tool>`). The base image and other stacks' images can never
 match. A 409 conflict is treated as "leave it", not an error.
+
+## Claude (local build)
+
+Claude is the one Container CLI **without** a public registry image: the
+Claude Code license requires every deployment to build that image itself, so
+there is nothing for the updater to pull. Instead, the same sweep keeps Claude
+current with a **local build**:
+
+1. It asks the npm registry for the latest `@anthropic-ai/claude-code` version.
+2. It compares that to the version baked into your local
+   `agentforge-agent:claude` image (the `org.agentforge.cli-version` label;
+   images built with an older Makefile are read via the pre-existing
+   `org.wisdoverse.cli-version` label). A missing image or label counts as
+   "unknown", so an update is always offered.
+3. On a newer version, the Admin → "CLI agent images" panel shows the Claude
+   row as **Update available** with the installed and latest versions and a
+   **Build vX.Y.Z** button.
+
+**What the one-click build does.** Clicking Build (or calling
+`POST /api/v1/admin/cli-images/claude/build`, admin-gated) answers
+`202 { ok, started, targetVersion }` immediately and builds in the background —
+the server-side equivalent of `make build-claude`: it makes sure the shared
+base image exists (pulling `${AGENT_REGISTRY}/agent-base:<tag>` if needed),
+runs a `docker build` that installs the pinned npm version, and tags
+`agentforge-agent:claude` + `agentforge-agent:claude-<version>`. The panel
+shows **Building…** while it runs (typically a few minutes), then **Just
+updated** — and admins get the same toast as a registry update. Running agents
+are never touched; the **next** spawned Claude agent uses the new CLI. If the
+build fails, the row turns **Check failed** with the reported reason, the local
+image stays as it was, and a **Build latest** retry button appears. The same
+**Build latest** button shows while the row is still "Not checked" — the build
+endpoint looks up npm itself, so one click works even when automatic checks
+(`CLI_IMAGE_AUTO_UPDATE_ENABLED`) are off.
+
+**Zero clicks (auto-build).** To skip the button entirely:
+
+```bash
+# docker/.env — requires CLI_IMAGE_AUTO_UPDATE_ENABLED=true as well
+CLI_IMAGE_CLAUDE_AUTO_BUILD=true
+```
+
+Each sweep then builds the new version as soon as it is detected. The panel
+notes "Auto-build is on" on the Claude row. Manual builds keep working either
+way (the two paths share a single-flight slot, so they can never run twice at
+once — a concurrent request gets `409`).
+
+**npm mirror.** Both the version check and the in-build `npm install` honour:
+
+```bash
+CLI_IMAGE_NPM_REGISTRY=https://registry.npmmirror.com   # default registry.npmjs.org
+```
+
+Status codes for the build endpoint:
+
+| Code  | When                                                                                      |
+| ----- | ----------------------------------------------------------------------------------------- |
+| `202` | Build accepted and started; `targetVersion` is the npm version being built.              |
+| `422` | Tool is not `claude` (registry tools update by pull, not build).                          |
+| `409` | A claude build is already in progress (manual or auto).                                   |
+| `503` | The container runtime is unavailable, or the npm registry could not be reached — nothing was started. |
+
+The build only creates images — it never creates or stops a container, so it is
+safe to run while agents are working. Want existing agents on the new CLI right
+away? That is the operator-initiated roll below (registry tools only today;
+rolling claude agents remains manual stop/start from the Agents view).
 
 ## Operator-initiated roll (staging-gated)
 

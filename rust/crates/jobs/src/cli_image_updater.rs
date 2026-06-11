@@ -16,18 +16,23 @@
 //!
 //! Policy: RUNNING agents are NEVER touched — only the image the next spawn
 //! resolves is refreshed. `claude` has no public registry image (built locally
-//! under license), so it is excluded from the poll set. The worker is
-//! deployment-global: it holds no tenant scope and queries no org-scoped table,
-//! only Docker. Notification is via a structured `warn!` event, Prometheus
-//! metrics, a read-only admin status API (`GET /admin/cli-images`), and — when
-//! NATS is configured — a live admin WebSocket toast on `broadcast.admin.cli_image`.
-//! The worker can also prune superseded overlays (`with_prune`, default-off).
-//! Warm-pool drain-on-drift remains a tracked follow-up (`platform/pool.rs` is
-//! still dormant).
+//! under license), so it is excluded from the registry poll set; instead the
+//! sweep checks the npm registry for a newer `@anthropic-ai/claude-code` and —
+//! opt-in via `CLI_IMAGE_CLAUDE_AUTO_BUILD` or one click in the admin panel —
+//! builds the overlay image server-side from an in-memory Dockerfile (see
+//! [`CLAUDE_OVERLAY_DOCKERFILE`]). The worker is deployment-global: it holds no
+//! tenant scope and queries no org-scoped table, only Docker (plus the npm
+//! registry for claude). Notification is via a structured `warn!` event,
+//! Prometheus metrics, a read-only admin status API (`GET /admin/cli-images`),
+//! and — when NATS is configured — a live admin WebSocket toast on
+//! `broadcast.admin.cli_image`. The worker can also prune superseded overlays
+//! (`with_prune`, default-off). Warm-pool drain-on-drift remains a tracked
+//! follow-up (`platform/pool.rs` is still dormant).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::env;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use agentforge_core::CliToolKind;
@@ -39,10 +44,21 @@ use tokio::sync::{RwLock, watch};
 /// Per-tool image-update state, surfaced read-only by `GET /admin/cli-images`.
 #[derive(Debug, Clone, Default)]
 pub struct CliToolImageState {
-    /// `up_to_date` | `updated` | `failed`.
+    /// Registry tools: `up_to_date` | `updated` | `failed`.
+    /// `claude` (local build) additionally: `update_available`.
     pub state: String,
+    /// How this tool's image is kept current: `registry` (pull + re-tag from
+    /// GHCR) or `local_build` (claude — built server-side from npm).
+    pub update_mode: String,
     pub local_digest: Option<String>,
     pub remote_digest: Option<String>,
+    /// Local-build tools only: the CLI version baked into the local image
+    /// (`org.agentforge.cli-version` label; `None` = unknown).
+    pub local_version: Option<String>,
+    /// Local-build tools only: the latest version on the npm registry.
+    pub remote_version: Option<String>,
+    /// True while a server-side local build is running for this tool.
+    pub building: bool,
     pub last_checked_unix: Option<i64>,
     pub last_updated_unix: Option<i64>,
     pub last_error: Option<String>,
@@ -65,13 +81,19 @@ pub struct CliImagePruneSummary {
     pub last_error: Option<String>,
 }
 
-/// Shared in-memory snapshot of the latest per-tool update state + prune result.
-/// Written by the worker each tick, read by the admin status endpoint.
-/// Deployment-global (image state is per host, not per org), so no tenant scope.
+/// Shared in-memory snapshot of the latest per-tool update state + prune result,
+/// plus the single-flight slot for the claude local build. Written by the worker
+/// each tick, read by the admin status endpoint, and shared with the manual
+/// `POST /admin/cli-images/claude/build` path (which must work even when the
+/// poller task was never spawned). Deployment-global (image state is per host,
+/// not per org), so no tenant scope.
 #[derive(Debug, Default)]
 pub struct CliImageUpdateStatus {
     tools: RwLock<BTreeMap<String, CliToolImageState>>,
     prune: RwLock<CliImagePruneSummary>,
+    /// True while a claude local build is running (auto-build in the sweep OR a
+    /// manual admin build). The single-flight truth shared by both initiators.
+    claude_build_inflight: AtomicBool,
 }
 
 impl CliImageUpdateStatus {
@@ -89,12 +111,41 @@ impl CliImageUpdateStatus {
         self.prune.read().await.clone()
     }
 
+    /// Whether a claude local build is currently running (sweep or manual).
+    pub fn claude_build_in_flight(&self) -> bool {
+        self.claude_build_inflight.load(Ordering::SeqCst)
+    }
+
+    /// Try to claim the claude build single-flight slot. `None` means a build
+    /// is already in flight (the manual endpoint maps that to 409). The slot is
+    /// released when the returned guard drops — including on early return or
+    /// panic — so a failed build can never wedge future builds.
+    pub fn try_acquire_claude_build(self: &Arc<Self>) -> Option<ClaudeBuildSlot> {
+        self.claude_build_inflight
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
+            .then(|| ClaudeBuildSlot { status: Arc::clone(self) })
+    }
+
     async fn record(&self, tool: &str, state: CliToolImageState) {
         self.tools.write().await.insert(tool.to_string(), state);
     }
 
     async fn record_prune(&self, summary: CliImagePruneSummary) {
         *self.prune.write().await = summary;
+    }
+}
+
+/// RAII guard for the claude build single-flight slot. Mirrors the roll path's
+/// `RollGuard` semantics: hold for the duration of the build, release on drop.
+#[derive(Debug)]
+pub struct ClaudeBuildSlot {
+    status: Arc<CliImageUpdateStatus>,
+}
+
+impl Drop for ClaudeBuildSlot {
+    fn drop(&mut self) {
+        self.status.claude_build_inflight.store(false, Ordering::SeqCst);
     }
 }
 
@@ -112,17 +163,99 @@ const DEFAULT_CLI_IMAGE_TAG: &str = "latest";
 
 /// The Container CLI tools that have a public registry overlay image. `claude`
 /// is excluded — it is built locally (license precludes a public GHCR image),
-/// so the updater must never attempt to pull it.
+/// so the updater must never attempt to PULL it. Claude is still checked each
+/// sweep via [`CliImageUpdater::check_claude`] (npm version diff + optional
+/// local build); it is just never part of the registry pull/prune/roll set.
 fn pollable_tools() -> impl Iterator<Item = CliToolKind> {
     CliToolKind::ALL.into_iter().filter(|tool| !matches!(tool, CliToolKind::Claude))
 }
 
 /// Canonical pollable tool names (`CliToolKind::ALL` minus `claude`). The single
-/// source of truth shared by the worker's poll loop and the admin status
-/// projection, so the endpoint can never list a tool the worker won't poll.
+/// source of truth shared by the worker's registry poll loop, the prune scoping,
+/// and the roll allowlist, so none of those paths can ever touch `claude`.
 pub fn pollable_tool_names() -> Vec<&'static str> {
     pollable_tools().map(|tool| tool.as_str()).collect()
 }
+
+/// Every tool the admin status report lists: the registry-pollable set PLUS
+/// `claude` (checked via npm + local build). Drives `GET /admin/cli-images` so
+/// claude is a first-class row even though it is never pulled from a registry.
+pub fn reported_tool_names() -> Vec<&'static str> {
+    CliToolKind::ALL.into_iter().map(|tool| tool.as_str()).collect()
+}
+
+/// How a tool's image is kept current: `registry` (pull + re-tag from GHCR) or
+/// `local_build` (claude — no public image, built server-side from npm).
+pub fn update_mode_for(tool: &str) -> &'static str {
+    if tool == CliToolKind::Claude.as_str() { UPDATE_MODE_LOCAL_BUILD } else { UPDATE_MODE_REGISTRY }
+}
+
+/// `update_mode` value for tools pulled from a public registry.
+pub const UPDATE_MODE_REGISTRY: &str = "registry";
+/// `update_mode` value for tools built locally on this server (claude).
+pub const UPDATE_MODE_LOCAL_BUILD: &str = "local_build";
+
+/// npm package that ships the claude Container CLI.
+pub const CLAUDE_NPM_PACKAGE: &str = "@anthropic-ai/claude-code";
+
+/// Default npm registry base for the claude version check + build. Operators
+/// can override with `CLI_IMAGE_NPM_REGISTRY` (e.g. a China mirror).
+pub const DEFAULT_NPM_REGISTRY: &str = "https://registry.npmjs.org";
+
+/// Image label carrying the CLI version baked into a locally-built claude
+/// image. Written by [`CLAUDE_OVERLAY_DOCKERFILE`] and by the Makefile's
+/// `build-agent` target (`--label org.agentforge.cli-version=$(_VER)`).
+pub const CLAUDE_VERSION_LABEL: &str = "org.agentforge.cli-version";
+
+/// Pre-existing label baked by `docker/Dockerfile.agent` since before the
+/// local-build feature. Read as a fallback so images operators built with an
+/// older Makefile still report their version instead of "unknown".
+const LEGACY_CLAUDE_VERSION_LABEL: &str = "org.wisdoverse.cli-version";
+
+/// The runtime ref the container-start resolver spawns claude agents from —
+/// the build's final re-tag target (same convention as `local_runtime_ref`).
+const CLAUDE_RUNTIME_REF: &str = "agentforge-agent:claude";
+
+/// Local tag of the shared agent base image every overlay builds FROM. Pulled
+/// from `${AGENT_REGISTRY}/agent-base:<tag>` and re-tagged when absent
+/// (mirrors the Makefile's `update-agent-base` target).
+const AGENT_BASE_IMAGE_REF: &str = "agentforge-agent-base:latest";
+
+/// Build context for the server-side claude overlay build.
+///
+/// MIRROR OF `docker/Dockerfile.agent` for `CLI_TOOL=claude` — every
+/// instruction after that file's ARG block is reproduced here (npm-mirror
+/// config, the claude arm of the install `case`, the `AGENTFORGE_CLI_*` ENVs,
+/// and the version LABELs). `docker/Dockerfile.agent` carries a reciprocal
+/// comment pointing back at this constant; change them together. `CLI_VERSION`
+/// and `NPM_REGISTRY` are supplied as Docker build-args at build time
+/// ([`build_claude_overlay`]), exactly like the Makefile's `build-agent`
+/// target passes `--build-arg`.
+pub const CLAUDE_OVERLAY_DOCKERFILE: &str = r#"# Generated in-memory by the Wisdoverse Forge server for the claude local
+# image build (no public registry image — license requires self-build).
+# Source of truth: rust/crates/jobs/src/cli_image_updater.rs
+# (CLAUDE_OVERLAY_DOCKERFILE). Mirrors docker/Dockerfile.agent with
+# CLI_TOOL=claude; keep both files in sync.
+
+ARG BASE_IMAGE=agentforge-agent-base:latest
+FROM ${BASE_IMAGE}
+
+ARG CLI_TOOL=claude
+# CLI_VERSION: pinned version for reproducible builds (e.g. "2.1.38")
+ARG CLI_VERSION=latest
+# China mirror: pass --build-arg NPM_REGISTRY=https://registry.npmmirror.com
+ARG NPM_REGISTRY=
+RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi
+
+# Install CLI tool with pinned version for immutable, reproducible images.
+RUN npm install -g @anthropic-ai/claude-code@${CLI_VERSION}
+
+# Bake the CLI tool type and version into the image
+ENV AGENTFORGE_CLI_TOOL=$CLI_TOOL
+ENV AGENTFORGE_CLI_VERSION=$CLI_VERSION
+LABEL org.wisdoverse.cli-version=$CLI_VERSION
+LABEL org.agentforge.cli-version=$CLI_VERSION
+"#;
 
 /// The registry base the updater pulls overlays from (`AGENT_REGISTRY`, else the
 /// built-in GHCR default). Surfaced for the admin status endpoint so operators
@@ -157,11 +290,28 @@ pub struct CliImageUpdater {
     /// overlay images. Default `false` — a destructive image-removal path stays
     /// opt-in. Set via [`Self::with_prune`].
     prune_enabled: bool,
+    /// When true, the sweep builds the claude overlay locally as soon as a
+    /// newer npm version is detected (zero clicks). Default `false` — the sweep
+    /// stays detect-only and the admin panel offers the one-click build. Set
+    /// via [`Self::with_claude_auto_build`].
+    claude_auto_build: bool,
+    /// npm registry base override for the claude version check + build
+    /// (`CLI_IMAGE_NPM_REGISTRY`); `None` uses [`DEFAULT_NPM_REGISTRY`]. Set
+    /// via [`Self::with_npm_registry`].
+    npm_registry: Option<String>,
 }
 
 impl CliImageUpdater {
     pub fn new(docker: Arc<DockerClient>, status: Arc<CliImageUpdateStatus>) -> Self {
-        Self { docker, status, interval: DEFAULT_INTERVAL, event_sink: None, prune_enabled: false }
+        Self {
+            docker,
+            status,
+            interval: DEFAULT_INTERVAL,
+            event_sink: None,
+            prune_enabled: false,
+            claude_auto_build: false,
+            npm_registry: None,
+        }
     }
 
     /// Attach the NATS client the worker publishes admin toast frames to. Pass
@@ -174,6 +324,18 @@ impl CliImageUpdater {
     /// Enable pruning of superseded agent overlay images after each sweep.
     pub fn with_prune(mut self, enabled: bool) -> Self {
         self.prune_enabled = enabled;
+        self
+    }
+
+    /// Enable the zero-click claude local build when a newer npm version lands.
+    pub fn with_claude_auto_build(mut self, enabled: bool) -> Self {
+        self.claude_auto_build = enabled;
+        self
+    }
+
+    /// Override the npm registry base used for the claude check + build.
+    pub fn with_npm_registry(mut self, registry: Option<String>) -> Self {
+        self.npm_registry = registry.map(|value| value.trim().to_string()).filter(|value| !value.is_empty());
         self
     }
 
@@ -218,16 +380,24 @@ impl CliImageUpdater {
             let state = match self.check_and_update(tool).await {
                 Ok(UpdateOutcome::UpToDate { digest }) => CliToolImageState {
                     state: "up_to_date".to_string(),
+                    update_mode: UPDATE_MODE_REGISTRY.to_string(),
                     local_digest: Some(digest.clone()),
                     remote_digest: Some(digest),
+                    local_version: None,
+                    remote_version: None,
+                    building: false,
                     last_checked_unix: Some(now),
                     last_updated_unix: prev.and_then(|p| p.last_updated_unix),
                     last_error: None,
                 },
                 Ok(UpdateOutcome::Updated { to, .. }) => CliToolImageState {
                     state: "updated".to_string(),
+                    update_mode: UPDATE_MODE_REGISTRY.to_string(),
                     local_digest: Some(to.clone()),
                     remote_digest: Some(to),
+                    local_version: None,
+                    remote_version: None,
+                    building: false,
                     last_checked_unix: Some(now),
                     last_updated_unix: Some(now),
                     last_error: None,
@@ -238,10 +408,14 @@ impl CliImageUpdater {
                         .increment(1);
                     CliToolImageState {
                         state: "failed".to_string(),
+                        update_mode: UPDATE_MODE_REGISTRY.to_string(),
                         // carry forward the last-known digests so a transient
                         // registry blip doesn't blank the operator's view.
                         local_digest: prev.and_then(|p| p.local_digest.clone()),
                         remote_digest: prev.and_then(|p| p.remote_digest.clone()),
+                        local_version: None,
+                        remote_version: None,
+                        building: false,
                         last_checked_unix: Some(now),
                         last_updated_unix: prev.and_then(|p| p.last_updated_unix),
                         last_error: Some(err.to_string()),
@@ -259,6 +433,11 @@ impl CliImageUpdater {
             self.status.record(tool.as_str(), state).await;
         }
 
+        // claude has no public registry image — check the npm registry instead
+        // and (opt-in) build the overlay locally. Runs inline by design: the
+        // sweep loop is sequential, so a build simply extends this tick.
+        self.check_claude(now, &prior).await;
+
         // After refreshing every tool, optionally reclaim superseded (dangling)
         // agent overlay images. Default-off; image-level only (never a
         // container op), and scoped + reference-guarded so it can never touch a
@@ -267,6 +446,63 @@ impl CliImageUpdater {
             let summary = self.prune_orphans(now).await;
             self.status.record_prune(summary).await;
         }
+    }
+
+    /// The claude step of the sweep: diff the npm `latest` version against the
+    /// version label baked into the local `agentforge-agent:claude` image, then
+    /// either record `up_to_date` / `update_available` (detect-only, the
+    /// default) or — when auto-build is enabled — run the local build inline.
+    /// Same carry-forward-on-transient-error and toast-on-transition semantics
+    /// as the registry loop above.
+    async fn check_claude(&self, now: i64, prior: &BTreeMap<String, CliToolImageState>) {
+        let tool = CliToolKind::Claude.as_str();
+        let prev = prior.get(tool);
+        if self.status.claude_build_in_flight() {
+            // A build (manual, or auto from a previous tick) is still running;
+            // its completion path records the outcome. Don't clobber the
+            // `building` state with a stale check result.
+            return;
+        }
+
+        let state = match self.check_claude_versions().await {
+            Ok(ClaudeOutcome::UpToDate { version }) => claude_state_up_to_date(now, prev, version),
+            Ok(ClaudeOutcome::UpdateAvailable { local, remote }) => {
+                if self.claude_auto_build
+                    && let Some(slot) = self.status.try_acquire_claude_build()
+                {
+                    let ctx = ClaudeBuildContext {
+                        docker: self.docker.clone(),
+                        status: self.status.clone(),
+                        event_sink: self.event_sink.clone(),
+                        npm_registry: self.npm_registry.clone(),
+                    };
+                    // Inline await: the sweep is sequential by design, and
+                    // execute_claude_build records state + toasts itself.
+                    execute_claude_build(slot, ctx, &remote).await;
+                    return;
+                }
+                claude_state_update_available(now, prev, local, remote)
+            }
+            Err(err) => {
+                tracing::warn!(tool, error = %err, "claude local-build version check failed");
+                metrics::counter!("agentforge_cli_image_pull_total", "tool" => tool, "result" => "failed").increment(1);
+                claude_state_failed(now, prev, err)
+            }
+        };
+
+        if should_toast(prev, &state) {
+            self.emit_toast(tool, &state, now).await;
+        }
+        self.status.record(tool, state).await;
+    }
+
+    /// Fetch npm `latest` + read the local image's version label, reduced to a
+    /// pure [`ClaudeOutcome`] decision. A missing image or missing label is an
+    /// UNKNOWN local version → update available whenever npm answers.
+    async fn check_claude_versions(&self) -> Result<ClaudeOutcome, String> {
+        let remote = fetch_claude_latest_version(self.npm_registry.as_deref()).await?;
+        let local = local_claude_version(&self.docker).await.map_err(|err| err.to_string())?;
+        Ok(derive_claude_outcome(local, remote))
     }
 
     /// Reclaim superseded agent overlay images: list local images, keep only
@@ -329,20 +565,12 @@ impl CliImageUpdater {
         summary
     }
 
-    /// Publish an admin toast frame for `updated`/`failed` transitions. Best
-    /// effort: a publish failure is logged and never affects the update result
-    /// or the status snapshot. No-op when no NATS sink is attached, and silent
-    /// for `up_to_date`/`pending` (those would be noise).
+    /// Publish an admin toast frame for `updated`/`update_available`/`failed`
+    /// transitions. Best effort: a publish failure is logged and never affects
+    /// the update result or the status snapshot. No-op when no NATS sink is
+    /// attached, and silent for `up_to_date`/`pending` (those would be noise).
     async fn emit_toast(&self, tool: &str, state: &CliToolImageState, unix: i64) {
-        let Some(client) = self.event_sink.as_ref() else {
-            return;
-        };
-        let Some(frame) = build_cli_image_frame(tool, state, unix) else {
-            return;
-        };
-        if let Err(err) = client.publish(ADMIN_CLI_IMAGE_SUBJECT, frame.into_bytes().into()).await {
-            tracing::warn!(tool, error = %err, "failed to publish cli image admin toast (non-fatal)");
-        }
+        publish_cli_image_toast(self.event_sink.as_ref(), tool, state, unix).await;
     }
 
     /// Diff the registry vs the local image for one tool and, on drift, pull +
@@ -404,6 +632,297 @@ enum UpdateOutcome {
     Updated { from: Option<String>, to: String },
 }
 
+// ---------------------------------------------------------------------------
+// claude local build (no public registry image — npm version diff + docker
+// build from CLAUDE_OVERLAY_DOCKERFILE)
+// ---------------------------------------------------------------------------
+
+/// Version-diff decision for the claude local build.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ClaudeOutcome {
+    UpToDate { version: String },
+    UpdateAvailable { local: Option<String>, remote: String },
+}
+
+/// Pure derivation: a local version is current only when it EXACTLY matches
+/// npm `latest`. `None` (missing image or missing label) is unknown → an
+/// update is available whenever npm returns a version.
+fn derive_claude_outcome(local: Option<String>, remote: String) -> ClaudeOutcome {
+    match local {
+        Some(version) if version == remote => ClaudeOutcome::UpToDate { version },
+        other => ClaudeOutcome::UpdateAvailable { local: other, remote },
+    }
+}
+
+/// The CLI version baked into the local `agentforge-agent:claude` image, read
+/// from the `org.agentforge.cli-version` label (falling back to the
+/// pre-existing `org.wisdoverse.cli-version` label so operator-built images
+/// from before this feature still report a version). `Ok(None)` = image
+/// missing or unlabeled → unknown.
+async fn local_claude_version(docker: &DockerClient) -> Result<Option<String>, PlatformError> {
+    let Some(labels) = docker.image_labels(CLAUDE_RUNTIME_REF).await? else {
+        return Ok(None);
+    };
+    Ok(labels
+        .get(CLAUDE_VERSION_LABEL)
+        .or_else(|| labels.get(LEGACY_CLAUDE_VERSION_LABEL))
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty()))
+}
+
+fn claude_state_base(now: i64, prev: Option<&CliToolImageState>) -> CliToolImageState {
+    CliToolImageState {
+        state: String::new(),
+        update_mode: UPDATE_MODE_LOCAL_BUILD.to_string(),
+        // local-build images have no registry manifest digests by definition.
+        local_digest: None,
+        remote_digest: None,
+        local_version: None,
+        remote_version: None,
+        building: false,
+        last_checked_unix: Some(now),
+        last_updated_unix: prev.and_then(|p| p.last_updated_unix),
+        last_error: None,
+    }
+}
+
+fn claude_state_up_to_date(now: i64, prev: Option<&CliToolImageState>, version: String) -> CliToolImageState {
+    CliToolImageState {
+        state: "up_to_date".to_string(),
+        local_version: Some(version.clone()),
+        remote_version: Some(version),
+        ..claude_state_base(now, prev)
+    }
+}
+
+fn claude_state_update_available(
+    now: i64,
+    prev: Option<&CliToolImageState>,
+    local: Option<String>,
+    remote: String,
+) -> CliToolImageState {
+    CliToolImageState {
+        state: "update_available".to_string(),
+        local_version: local,
+        remote_version: Some(remote),
+        ..claude_state_base(now, prev)
+    }
+}
+
+fn claude_state_updated(now: i64, prev: Option<&CliToolImageState>, version: String) -> CliToolImageState {
+    CliToolImageState {
+        state: "updated".to_string(),
+        local_version: Some(version.clone()),
+        remote_version: Some(version),
+        last_updated_unix: Some(now),
+        ..claude_state_base(now, prev)
+    }
+}
+
+fn claude_state_failed(now: i64, prev: Option<&CliToolImageState>, error: String) -> CliToolImageState {
+    CliToolImageState {
+        state: "failed".to_string(),
+        // carry forward the last-known versions so a transient npm/docker blip
+        // doesn't blank the operator's view (same policy as registry tools).
+        local_version: prev.and_then(|p| p.local_version.clone()),
+        remote_version: prev.and_then(|p| p.remote_version.clone()),
+        last_error: Some(error),
+        ..claude_state_base(now, prev)
+    }
+}
+
+/// Everything a claude build needs, decoupled from the updater struct so the
+/// manual `POST /admin/cli-images/claude/build` endpoint can run the identical
+/// flow even when the poller task was never spawned (auto-update off).
+pub struct ClaudeBuildContext {
+    pub docker: Arc<DockerClient>,
+    pub status: Arc<CliImageUpdateStatus>,
+    /// NATS sink for the completion toast on `broadcast.admin.cli_image`;
+    /// `None` leaves toasts off (status + metrics still record).
+    pub event_sink: Option<async_nats::Client>,
+    /// npm registry override, forwarded as the `NPM_REGISTRY` build-arg.
+    pub npm_registry: Option<String>,
+}
+
+/// Run one claude local build end to end, holding `slot` (the single-flight
+/// guard) for the duration: record `building` once before, build, record the
+/// final `updated`/`failed` state once after, and emit the admin toast on the
+/// same transition rules as the sweep. Never returns an error — the outcome is
+/// the recorded state, exactly like a sweep tick.
+pub async fn execute_claude_build(slot: ClaudeBuildSlot, ctx: ClaudeBuildContext, target_version: &str) {
+    let tool = CliToolKind::Claude.as_str();
+    let now = chrono::Utc::now().timestamp();
+    let prior = ctx.status.snapshot().await;
+    let prev = prior.get(tool);
+
+    // Record once BEFORE: the panel shows "building" for the whole docker build
+    // (npm install of the CLI — typically minutes, not seconds).
+    let mut in_progress = claude_state_update_available(
+        now,
+        prev,
+        prev.and_then(|p| p.local_version.clone()),
+        target_version.to_string(),
+    );
+    in_progress.building = true;
+    ctx.status.record(tool, in_progress).await;
+
+    metrics::counter!("agentforge_cli_image_drift_detected_total", "tool" => tool).increment(1);
+    let started = std::time::Instant::now();
+    let result = build_claude_overlay(&ctx.docker, target_version, ctx.npm_registry.as_deref()).await;
+    let finished = chrono::Utc::now().timestamp();
+
+    // Re-snapshot so the toast-transition compare sees the `building` record.
+    let prior = ctx.status.snapshot().await;
+    let prev = prior.get(tool);
+    let state = match result {
+        Ok(()) => {
+            metrics::histogram!("agentforge_cli_image_pull_duration_seconds", "tool" => tool)
+                .record(started.elapsed().as_secs_f64());
+            metrics::counter!("agentforge_cli_image_pull_total", "tool" => tool, "result" => "success").increment(1);
+            tracing::warn!(
+                tool,
+                version = target_version,
+                local_ref = CLAUDE_RUNTIME_REF,
+                "claude agent image built locally; new agents will use the new CLI (running agents unaffected)"
+            );
+            claude_state_updated(finished, prev, target_version.to_string())
+        }
+        Err(err) => {
+            metrics::counter!("agentforge_cli_image_pull_total", "tool" => tool, "result" => "failed").increment(1);
+            tracing::warn!(tool, version = target_version, error = %err, "claude local image build failed");
+            claude_state_failed(finished, prev, err.to_string())
+        }
+    };
+
+    if should_toast(prev, &state) {
+        publish_cli_image_toast(ctx.event_sink.as_ref(), tool, &state, finished).await;
+    }
+    ctx.status.record(tool, state).await;
+    drop(slot); // release the single-flight slot only after the outcome is recorded
+}
+
+/// Build the claude overlay image — the server-side equivalent of
+/// `make build-claude`: ensure `agentforge-agent-base:latest` exists locally
+/// (pull + re-tag `${AGENT_REGISTRY}/agent-base:<tag>` when absent, mirroring
+/// the Makefile's `update-agent-base`/`ensure-agent-base` targets), then
+/// `docker build` [`CLAUDE_OVERLAY_DOCKERFILE`] with the pinned `CLI_VERSION`,
+/// tagging `agentforge-agent:claude-<version>` and re-tagging the runtime ref
+/// `agentforge-agent:claude` the next spawn resolves.
+pub async fn build_claude_overlay(
+    docker: &DockerClient,
+    version: &str,
+    npm_registry: Option<&str>,
+) -> Result<(), PlatformError> {
+    ensure_agent_base_image(docker).await?;
+
+    let mut build_args = HashMap::new();
+    build_args.insert("CLI_VERSION".to_string(), version.to_string());
+    if let Some(registry) = npm_registry.map(str::trim).filter(|value| !value.is_empty()) {
+        build_args.insert("NPM_REGISTRY".to_string(), registry.to_string());
+    }
+
+    let versioned_ref = format!("{CLAUDE_RUNTIME_REF}-{version}");
+    docker.build_image_from_dockerfile(CLAUDE_OVERLAY_DOCKERFILE, &versioned_ref, &build_args).await?;
+
+    // The build succeeded; point the runtime ref at it (same recovery shape as
+    // the registry path: on a tag failure the image is on disk but the next
+    // spawn still uses the OLD one — the next sweep re-detects and retries).
+    let (target_repo, target_tag) = split_repo_tag(CLAUDE_RUNTIME_REF);
+    if let Err(err) = docker.tag_image(&versioned_ref, &target_repo, &target_tag).await {
+        tracing::error!(
+            versioned_ref = %versioned_ref,
+            runtime_ref = CLAUDE_RUNTIME_REF,
+            error = %err,
+            "claude image BUILT but failed to re-tag the runtime ref; new agents still run the OLD cli until the next attempt"
+        );
+        return Err(err);
+    }
+    Ok(())
+}
+
+/// Make sure the shared agent base image exists locally before an overlay
+/// build, reusing the same pull + re-tag helpers the registry updater uses.
+/// An already-present base (e.g. built locally via `make build-agent-base`) is
+/// left untouched — this never force-refreshes the base.
+async fn ensure_agent_base_image(docker: &DockerClient) -> Result<(), PlatformError> {
+    if docker.image_exists(AGENT_BASE_IMAGE_REF).await? {
+        return Ok(());
+    }
+    let remote_ref = format!("{}/agent-base:{}", configured_registry().trim_end_matches('/'), configured_image_tag());
+    tracing::info!(remote_ref = %remote_ref, local_ref = AGENT_BASE_IMAGE_REF, "agent base image missing locally; pulling");
+    docker.pull_image(&remote_ref, None).await?;
+    let (target_repo, target_tag) = split_repo_tag(AGENT_BASE_IMAGE_REF);
+    docker.tag_image(&remote_ref, &target_repo, &target_tag).await
+}
+
+/// npm registry base after the `CLI_IMAGE_NPM_REGISTRY` override: trimmed, no
+/// trailing slash, defaulting to [`DEFAULT_NPM_REGISTRY`].
+fn npm_registry_base(configured: Option<&str>) -> String {
+    configured
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(DEFAULT_NPM_REGISTRY)
+        .trim_end_matches('/')
+        .to_string()
+}
+
+/// `<registry>/@anthropic-ai%2Fclaude-code/latest` — the scoped package name
+/// keeps its `@` and URL-encodes the inner `/`, the canonical form for scoped
+/// packages (verified against registry.npmjs.org; the unencoded form also
+/// answers 200, but the encoded one is what npm itself sends and what mirrors
+/// are tested against).
+fn claude_npm_latest_url(registry_base: &str) -> String {
+    format!("{registry_base}/{}/latest", CLAUDE_NPM_PACKAGE.replacen('/', "%2F", 1))
+}
+
+/// Timeout for the npm `latest` lookup. No retries — the sweep re-runs every
+/// interval, and the manual endpoint surfaces the error to the operator.
+const NPM_LOOKUP_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// GET npm `latest` for the claude CLI and parse `.version`. String errors —
+/// they land verbatim in the recorded state's `last_error` / the 503 detail.
+pub async fn fetch_claude_latest_version(npm_registry: Option<&str>) -> Result<String, String> {
+    let url = claude_npm_latest_url(&npm_registry_base(npm_registry));
+    let client = reqwest::Client::builder()
+        .timeout(NPM_LOOKUP_TIMEOUT)
+        .build()
+        .map_err(|err| format!("npm http client init failed: {err}"))?;
+    let response = client.get(&url).send().await.map_err(|err| format!("npm registry request failed: {err}"))?;
+    let status = response.status();
+    if !status.is_success() {
+        return Err(format!("npm registry returned HTTP {status} for {url}"));
+    }
+    let body = response.text().await.map_err(|err| format!("npm registry response read failed: {err}"))?;
+    parse_npm_latest_version(&body)
+}
+
+/// Parse the `version` field from an npm `<pkg>/latest` document. Pure — unit
+/// tested against literal JSON, no network.
+fn parse_npm_latest_version(body: &str) -> Result<String, String> {
+    let value: serde_json::Value =
+        serde_json::from_str(body).map_err(|err| format!("npm registry returned invalid JSON: {err}"))?;
+    value
+        .get("version")
+        .and_then(|version| version.as_str())
+        .map(|version| version.trim().to_string())
+        .filter(|version| !version.is_empty())
+        .ok_or_else(|| "npm registry response has no version field".to_string())
+}
+
+/// Publish one admin toast frame (shared by the sweep and the build task).
+/// Best effort: failures are logged, never propagated.
+async fn publish_cli_image_toast(sink: Option<&async_nats::Client>, tool: &str, state: &CliToolImageState, unix: i64) {
+    let Some(client) = sink else {
+        return;
+    };
+    let Some(frame) = build_cli_image_frame(tool, state, unix) else {
+        return;
+    };
+    if let Err(err) = client.publish(ADMIN_CLI_IMAGE_SUBJECT, frame.into_bytes().into()).await {
+        tracing::warn!(tool, error = %err, "failed to publish cli image admin toast (non-fatal)");
+    }
+}
+
 /// Register metric descriptions + initialise series at 0 so dashboards have
 /// them from the first scrape even before the (default-off) worker runs.
 pub fn register_metrics() {
@@ -424,10 +943,11 @@ pub fn register_metrics() {
         "Superseded agent overlay images removed by the prune sweep (default-off)"
     );
     metrics::counter!("agentforge_cli_image_pruned_total").increment(0);
-    for tool in pollable_tools() {
-        metrics::counter!("agentforge_cli_image_pull_total", "tool" => tool.as_str(), "result" => "success")
-            .increment(0);
-        metrics::counter!("agentforge_cli_image_drift_detected_total", "tool" => tool.as_str()).increment(0);
+    // All reported tools, including `claude`: its local-build path records the
+    // same pull_total/drift/duration series (a "pull" is a local build there).
+    for tool in reported_tool_names() {
+        metrics::counter!("agentforge_cli_image_pull_total", "tool" => tool, "result" => "success").increment(0);
+        metrics::counter!("agentforge_cli_image_drift_detected_total", "tool" => tool).increment(0);
     }
 }
 
@@ -487,12 +1007,19 @@ fn local_runtime_ref(tool: &str) -> String {
 /// `updated` always toasts (it is a one-shot landing — the next tick is
 /// `up_to_date`). `failed` toasts only when it is new or the error text changed,
 /// so a steadily-failing tool toasts once per distinct failure, not every tick.
+/// `update_available` (claude local build, detect-only) toasts once per
+/// transition — a steady "still available" state does NOT re-toast every tick,
+/// but a NEWER npm version while one is already pending does (distinct event).
 fn should_toast(prev: Option<&CliToolImageState>, state: &CliToolImageState) -> bool {
     match state.state.as_str() {
         "updated" => true,
         "failed" => {
             prev.map(|p| p.state.as_str()) != Some("failed")
                 || prev.and_then(|p| p.last_error.as_deref()) != state.last_error.as_deref()
+        }
+        "update_available" => {
+            prev.map(|p| p.state.as_str()) != Some("update_available")
+                || prev.and_then(|p| p.remote_version.as_deref()) != state.remote_version.as_deref()
         }
         _ => false,
     }
@@ -510,20 +1037,25 @@ fn error_discriminator(err: Option<&str>) -> String {
 
 /// Build the admin toast frame for a recorded per-tool state. Returns
 /// `Some(frame_json)` only for the transitions worth toasting (`updated` =
-/// a landed image, `failed` = a check error); `None` for `up_to_date`/`pending`
-/// so steady state is silent. The string is the exact WS envelope the gateway
-/// forwards verbatim and the browser dispatch consumes (`type` + `payload`).
+/// a landed image, `update_available` = a newer claude version to build,
+/// `failed` = a check/build error); `None` for `up_to_date`/`pending` so steady
+/// state is silent. The string is the exact WS envelope the gateway forwards
+/// verbatim and the browser dispatch consumes (`type` + `payload`).
 fn build_cli_image_frame(tool: &str, state: &CliToolImageState, unix: i64) -> Option<String> {
-    if state.state != "updated" && state.state != "failed" {
-        return None;
-    }
-    // Dedup key: a new `updated` digest is a distinct toast; a `failed` key
-    // embeds the error discriminator so a NEW failure surfaces as a fresh unread
-    // toast (the browser dedups by id and preserves the read flag on a match).
-    let event_id = if state.state == "updated" {
-        format!("cli-image:{tool}:updated:{}", state.remote_digest.as_deref().unwrap_or("unknown"))
-    } else {
-        format!("cli-image:{tool}:failed:{}", error_discriminator(state.last_error.as_deref()))
+    // Dedup key: a new `updated` digest/version is a distinct toast; an
+    // `update_available` key embeds the pending version; a `failed` key embeds
+    // the error discriminator so a NEW failure surfaces as a fresh unread toast
+    // (the browser dedups by id and preserves the read flag on a match).
+    let event_id = match state.state.as_str() {
+        "updated" => format!(
+            "cli-image:{tool}:updated:{}",
+            state.remote_digest.as_deref().or(state.remote_version.as_deref()).unwrap_or("unknown")
+        ),
+        "update_available" => {
+            format!("cli-image:{tool}:update_available:{}", state.remote_version.as_deref().unwrap_or("unknown"))
+        }
+        "failed" => format!("cli-image:{tool}:failed:{}", error_discriminator(state.last_error.as_deref())),
+        _ => return None,
     };
     let frame = serde_json::json!({
         "type": CLI_IMAGE_UPDATED_EVENT,
@@ -532,6 +1064,8 @@ fn build_cli_image_frame(tool: &str, state: &CliToolImageState, unix: i64) -> Op
             "state": state.state,
             "localDigest": state.local_digest,
             "remoteDigest": state.remote_digest,
+            "localVersion": state.local_version,
+            "remoteVersion": state.remote_version,
             "lastError": state.last_error,
             "eventId": event_id,
             "unix": unix,
@@ -629,11 +1163,12 @@ mod tests {
     fn state(s: &str, remote: Option<&str>, err: Option<&str>) -> CliToolImageState {
         CliToolImageState {
             state: s.to_string(),
+            update_mode: UPDATE_MODE_REGISTRY.to_string(),
             local_digest: remote.map(str::to_string),
             remote_digest: remote.map(str::to_string),
             last_checked_unix: Some(1_700_000_000),
-            last_updated_unix: None,
             last_error: err.map(str::to_string),
+            ..Default::default()
         }
     }
 
@@ -713,5 +1248,195 @@ mod tests {
         assert_eq!(split_repo_tag("agentforge-agent"), ("agentforge-agent".into(), "latest".into()));
         // a custom registry override with host:port and no tag
         assert_eq!(split_repo_tag("reg:5000/agent"), ("reg:5000/agent".into(), "latest".into()));
+    }
+
+    // ------------------------------------------------------------------
+    // claude local build
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn reported_tools_are_pollable_plus_claude() {
+        let reported = reported_tool_names();
+        assert!(reported.contains(&"claude"), "claude must be a first-class row in the status report");
+        for pollable in pollable_tool_names() {
+            assert!(reported.contains(&pollable));
+        }
+        assert_eq!(reported.len(), pollable_tool_names().len() + 1);
+    }
+
+    #[test]
+    fn update_mode_is_local_build_only_for_claude() {
+        assert_eq!(update_mode_for("claude"), UPDATE_MODE_LOCAL_BUILD);
+        assert_eq!(update_mode_for("codex"), UPDATE_MODE_REGISTRY);
+        assert_eq!(update_mode_for("gemini"), UPDATE_MODE_REGISTRY);
+        assert_eq!(update_mode_for("opencode"), UPDATE_MODE_REGISTRY);
+        assert_eq!(update_mode_for("unknown"), UPDATE_MODE_REGISTRY);
+    }
+
+    #[test]
+    fn claude_outcome_derivation_including_unknown_local() {
+        // exact match → up to date.
+        assert_eq!(
+            derive_claude_outcome(Some("2.1.173".into()), "2.1.173".into()),
+            ClaudeOutcome::UpToDate { version: "2.1.173".into() }
+        );
+        // differing version → update available, local carried.
+        assert_eq!(
+            derive_claude_outcome(Some("2.1.100".into()), "2.1.173".into()),
+            ClaudeOutcome::UpdateAvailable { local: Some("2.1.100".into()), remote: "2.1.173".into() }
+        );
+        // UNKNOWN local (missing image / missing label) → update available
+        // whenever npm answers — never a silent "up to date".
+        assert_eq!(
+            derive_claude_outcome(None, "2.1.173".into()),
+            ClaudeOutcome::UpdateAvailable { local: None, remote: "2.1.173".into() }
+        );
+        // a "latest" placeholder label (old Makefile fallback) is not a real
+        // version, so it counts as drift against a concrete npm version.
+        assert_eq!(
+            derive_claude_outcome(Some("latest".into()), "2.1.173".into()),
+            ClaudeOutcome::UpdateAvailable { local: Some("latest".into()), remote: "2.1.173".into() }
+        );
+    }
+
+    #[test]
+    fn claude_states_record_local_build_mode_and_versions() {
+        let up = claude_state_up_to_date(1_700_000_000, None, "2.1.173".into());
+        assert_eq!(up.state, "up_to_date");
+        assert_eq!(up.update_mode, UPDATE_MODE_LOCAL_BUILD);
+        assert_eq!(up.local_version.as_deref(), Some("2.1.173"));
+        assert_eq!(up.remote_version.as_deref(), Some("2.1.173"));
+        // local-build images have no registry manifest digests by definition.
+        assert!(up.local_digest.is_none() && up.remote_digest.is_none());
+        assert!(!up.building);
+
+        let avail = claude_state_update_available(1_700_000_100, Some(&up), Some("2.1.100".into()), "2.1.173".into());
+        assert_eq!(avail.state, "update_available");
+        assert_eq!(avail.update_mode, UPDATE_MODE_LOCAL_BUILD);
+        assert_eq!(avail.local_version.as_deref(), Some("2.1.100"));
+        assert_eq!(avail.remote_version.as_deref(), Some("2.1.173"));
+
+        let updated = claude_state_updated(1_700_000_200, Some(&avail), "2.1.173".into());
+        assert_eq!(updated.state, "updated");
+        assert_eq!(updated.last_updated_unix, Some(1_700_000_200));
+        assert_eq!(updated.local_version.as_deref(), Some("2.1.173"));
+
+        // failure carries the last-known versions forward (transient blip must
+        // not blank the operator's view) and preserves last_updated.
+        let failed = claude_state_failed(1_700_000_300, Some(&updated), "npm timeout".into());
+        assert_eq!(failed.state, "failed");
+        assert_eq!(failed.local_version.as_deref(), Some("2.1.173"));
+        assert_eq!(failed.remote_version.as_deref(), Some("2.1.173"));
+        assert_eq!(failed.last_updated_unix, Some(1_700_000_200));
+        assert_eq!(failed.last_error.as_deref(), Some("npm timeout"));
+    }
+
+    fn claude_avail(remote: &str) -> CliToolImageState {
+        claude_state_update_available(1_700_000_000, None, Some("2.1.100".into()), remote.into())
+    }
+
+    #[test]
+    fn should_toast_update_available_exactly_once_per_version() {
+        let up = claude_state_up_to_date(1, None, "2.1.100".into());
+        let avail = claude_avail("2.1.173");
+
+        // first transition into update_available toasts…
+        assert!(should_toast(Some(&up), &avail));
+        assert!(should_toast(None, &avail));
+        // …but the SAME pending version next tick does NOT re-toast.
+        assert!(!should_toast(Some(&avail), &claude_avail("2.1.173")));
+        // a NEWER version while one is already pending is a distinct event.
+        assert!(should_toast(Some(&avail), &claude_avail("2.1.200")));
+        // leaving update_available for up_to_date is silent.
+        assert!(!should_toast(Some(&avail), &up));
+    }
+
+    #[test]
+    fn update_available_frame_shape_and_dedup_key() {
+        let raw = build_cli_image_frame("claude", &claude_avail("2.1.173"), 1_700_000_123).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        assert_eq!(v["type"], CLI_IMAGE_UPDATED_EVENT);
+        assert_eq!(v["payload"]["tool"], "claude");
+        assert_eq!(v["payload"]["state"], "update_available");
+        assert_eq!(v["payload"]["localVersion"], "2.1.100");
+        assert_eq!(v["payload"]["remoteVersion"], "2.1.173");
+        assert_eq!(v["payload"]["eventId"], "cli-image:claude:update_available:2.1.173");
+        // up_to_date stays silent for claude exactly like registry tools.
+        assert!(build_cli_image_frame("claude", &claude_state_up_to_date(1, None, "2.1.173".into()), 1).is_none());
+    }
+
+    #[test]
+    fn claude_updated_frame_keys_on_version_when_digests_absent() {
+        let updated = claude_state_updated(1_700_000_200, None, "2.1.173".into());
+        let raw = build_cli_image_frame("claude", &updated, 1_700_000_200).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        // a local build has no digest — the dedup key falls back to the version
+        // so two successive builds of different versions stay distinct toasts.
+        assert_eq!(v["payload"]["eventId"], "cli-image:claude:updated:2.1.173");
+        assert_eq!(v["payload"]["remoteDigest"], serde_json::Value::Null);
+    }
+
+    #[test]
+    fn parse_npm_latest_version_from_json() {
+        assert_eq!(
+            parse_npm_latest_version(r#"{"name":"@anthropic-ai/claude-code","version":"2.1.173"}"#).unwrap(),
+            "2.1.173"
+        );
+        // missing / empty version and invalid JSON are typed errors, not panics.
+        assert!(parse_npm_latest_version(r#"{"name":"x"}"#).is_err());
+        assert!(parse_npm_latest_version(r#"{"version":""}"#).is_err());
+        assert!(parse_npm_latest_version(r#"{"version":42}"#).is_err());
+        assert!(parse_npm_latest_version("not json").is_err());
+    }
+
+    #[test]
+    fn npm_latest_url_encodes_scoped_package_and_honours_mirror() {
+        assert_eq!(
+            claude_npm_latest_url(&npm_registry_base(None)),
+            "https://registry.npmjs.org/@anthropic-ai%2Fclaude-code/latest"
+        );
+        // mirror override; a trailing slash is normalised.
+        assert_eq!(
+            claude_npm_latest_url(&npm_registry_base(Some("https://registry.npmmirror.com/"))),
+            "https://registry.npmmirror.com/@anthropic-ai%2Fclaude-code/latest"
+        );
+        // blank override falls back to the default base.
+        assert_eq!(npm_registry_base(Some("   ")), DEFAULT_NPM_REGISTRY);
+    }
+
+    #[test]
+    fn claude_build_slot_is_single_flight() {
+        let status = Arc::new(CliImageUpdateStatus::new());
+        assert!(!status.claude_build_in_flight());
+
+        let slot = status.try_acquire_claude_build().expect("first acquire");
+        assert!(status.claude_build_in_flight());
+        // a second concurrent acquire is rejected (the endpoint maps it to 409)…
+        assert!(status.try_acquire_claude_build().is_none());
+
+        // …and dropping the guard frees the slot, even after a failed build.
+        drop(slot);
+        assert!(!status.claude_build_in_flight());
+        assert!(status.try_acquire_claude_build().is_some());
+    }
+
+    #[test]
+    fn claude_dockerfile_mirrors_the_overlay_contract() {
+        let df = CLAUDE_OVERLAY_DOCKERFILE;
+        // Same base, same install, same post-install ENV/LABEL steps as
+        // docker/Dockerfile.agent (CLI_TOOL=claude). If that file changes,
+        // change the constant AND this contract together.
+        assert!(df.contains("ARG BASE_IMAGE=agentforge-agent-base:latest"));
+        assert!(df.contains("FROM ${BASE_IMAGE}"));
+        assert!(df.contains(r#"RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi"#));
+        assert!(df.contains("RUN npm install -g @anthropic-ai/claude-code@${CLI_VERSION}"));
+        assert!(df.contains("ENV AGENTFORGE_CLI_TOOL=$CLI_TOOL"));
+        assert!(df.contains("ENV AGENTFORGE_CLI_VERSION=$CLI_VERSION"));
+        assert!(df.contains("LABEL org.wisdoverse.cli-version=$CLI_VERSION"));
+        // the introspection label the version detector reads back.
+        assert!(df.contains(&format!("LABEL {CLAUDE_VERSION_LABEL}=$CLI_VERSION")));
+        // pinned via build-arg, never baked to a fixed version in the template.
+        assert!(df.contains("ARG CLI_VERSION=latest"));
+        assert!(df.contains("ARG CLI_TOOL=claude"));
     }
 }

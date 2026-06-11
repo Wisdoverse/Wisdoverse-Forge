@@ -429,6 +429,25 @@ pub struct AppConfig {
     /// container references.
     #[serde(default = "default_false")]
     pub cli_image_prune_enabled: bool,
+
+    /// Auto-build the local `claude` agent image when a newer
+    /// `@anthropic-ai/claude-code` version is published on npm. `false`
+    /// (default) keeps the updater sweep detect-only for claude: the admin
+    /// panel shows "update available" with a one-click Build button. When
+    /// `true` (and `cli_image_auto_update_enabled` is on) the sweep builds the
+    /// overlay image server-side with zero clicks. `claude` has no public
+    /// registry image — its license requires a local build — so this is the
+    /// only auto-update path for that tool.
+    #[serde(default = "default_false")]
+    pub cli_image_claude_auto_build: bool,
+
+    /// npm registry base URL the claude version check and local build use.
+    /// Defaults to `https://registry.npmjs.org` at the use-site. Operators
+    /// behind a firewall (or in China) can point it at a mirror such as
+    /// `https://registry.npmmirror.com`; the value is also passed to the
+    /// generated Dockerfile as the `NPM_REGISTRY` build-arg so the in-image
+    /// `npm install` uses the same mirror.
+    pub cli_image_npm_registry: Option<String>,
 }
 
 fn default_cli_image_update_interval() -> u64 {
@@ -711,6 +730,8 @@ mod tests {
             cli_image_auto_update_enabled: false,
             cli_image_auto_update_interval_secs: 900,
             cli_image_prune_enabled: false,
+            cli_image_claude_auto_build: false,
+            cli_image_npm_registry: None,
         };
         assert!(cfg.is_production());
     }
@@ -1034,6 +1055,8 @@ mod tests {
             cli_image_auto_update_enabled: false,
             cli_image_auto_update_interval_secs: 900,
             cli_image_prune_enabled: false,
+            cli_image_claude_auto_build: false,
+            cli_image_npm_registry: None,
         };
         let dbg = format!("{cfg:?}");
         for needle in [

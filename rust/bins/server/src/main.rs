@@ -334,7 +334,13 @@ async fn main() -> Result<()> {
                     // is configured; None leaves toasts off (status + metrics only).
                     .with_event_sink(nats.client().cloned())
                     // Default-off prune of superseded dangling agent overlays.
-                    .with_prune(config.cli_image_prune_enabled);
+                    .with_prune(config.cli_image_prune_enabled)
+                    // claude (no public image): default detect-only — the sweep
+                    // records `update_available`; this flag opts into the
+                    // zero-click local build. Manual builds via the admin
+                    // endpoint work regardless of this worker.
+                    .with_claude_auto_build(config.cli_image_claude_auto_build)
+                    .with_npm_registry(config.cli_image_npm_registry.clone());
                 let worker_shutdown = shutdown_rx.clone();
                 Some(tokio::spawn(async move { worker.run(worker_shutdown).await }))
             }

@@ -309,7 +309,8 @@ build-agent: ensure-agent-base ## Build single CLI agent image (default: claude)
 		-f docker/Dockerfile.agent \
 		--build-arg CLI_TOOL=$(_TOOL) \
 		--build-arg CLI_VERSION=$(_VER) \
-		--label org.wisdoverse.cli-version=$(_VER) .
+		--label org.wisdoverse.cli-version=$(_VER) \
+		--label org.agentforge.cli-version=$(_VER) .
 	@docker tag agentforge-agent:$(_TOOL) agentforge-agent-$(_TOOL):latest || \
 		echo "WARNING: compat tag agentforge-agent-$(_TOOL):latest failed"
 	@if [ "$(_TOOL)" = "claude" ]; then docker tag agentforge-agent:claude agentforge-agent:latest || \

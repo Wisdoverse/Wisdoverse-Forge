@@ -39,6 +39,11 @@ pub enum PlatformError {
     /// A registry/distribution inspect (remote digest lookup, no pull) failed.
     #[error("Registry inspect failed: {0}")]
     Registry(String),
+
+    /// A daemon-side `docker build` failed (transport error or an in-stream
+    /// `errorDetail` frame). Carries the daemon's message.
+    #[error("Image build failed: {0}")]
+    Build(String),
 }
 
 impl PlatformError {

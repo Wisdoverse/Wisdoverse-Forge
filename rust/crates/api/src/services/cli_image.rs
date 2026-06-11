@@ -12,7 +12,7 @@ use sqlx::PgPool;
 
 use agentforge_core::{AppConfig, AppResult};
 use agentforge_jobs::{
-    CliImageUpdateStatus, configured_image_tag, configured_registry, effective_interval_secs, pollable_tool_names,
+    CliImageUpdateStatus, configured_image_tag, configured_registry, effective_interval_secs, reported_tool_names,
 };
 
 use crate::repositories::admin::AdminRepository;
@@ -24,6 +24,7 @@ pub struct CliImageService {
     repo: AdminRepository,
     status: Arc<CliImageUpdateStatus>,
     auto_update_enabled: bool,
+    claude_auto_build_enabled: bool,
     poll_interval_secs: u64,
     prune_configured: bool,
 }
@@ -34,6 +35,9 @@ impl CliImageService {
             repo: AdminRepository::new(pool),
             status,
             auto_update_enabled: config.cli_image_auto_update_enabled,
+            // Operator INTENT for the claude zero-click build, surfaced so the
+            // panel can render "auto-build on" next to the manual Build button.
+            claude_auto_build_enabled: config.cli_image_claude_auto_build,
             // Report the EFFECTIVE cadence (post-floor), so the panel never
             // claims a faster poll rate than the worker actually runs.
             poll_interval_secs: effective_interval_secs(config.cli_image_auto_update_interval_secs),
@@ -49,10 +53,13 @@ impl CliImageService {
         let snapshot = self.status.snapshot().await;
         let prune = self.status.prune_snapshot().await;
         let counts: BTreeMap<String, i64> = self.repo.container_agent_counts_by_tool().await?.into_iter().collect();
-        let tool_names = pollable_tool_names();
+        // The registry poll set PLUS claude (local build) — claude is a
+        // first-class row even though it is never pulled from a registry.
+        let tool_names = reported_tool_names();
 
         Ok(CliImageStatusReport::build(
             self.auto_update_enabled,
+            self.claude_auto_build_enabled,
             self.poll_interval_secs,
             configured_registry(),
             configured_image_tag(),

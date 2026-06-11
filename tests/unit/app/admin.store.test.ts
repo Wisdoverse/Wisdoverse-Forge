@@ -37,6 +37,7 @@ function resetAdminState() {
     cliImageRollingTool: null,
     cliImageRollResult: null,
     cliImageRollError: null,
+    cliImageBuildError: null,
   })
 }
 
@@ -102,15 +103,34 @@ describe('useAdminStore loading errors', () => {
         ok: true,
         data: {
           autoUpdateEnabled: false,
+          claudeAutoBuildEnabled: false,
           pollIntervalSecs: 900,
           registry: 'ghcr.io/wisdoverse/wisdoverse-forge',
           imageTag: 'latest',
           tools: [
             {
-              tool: 'codex',
-              state: 'pending',
+              tool: 'claude',
+              state: 'update_available',
+              updateMode: 'local_build',
               localDigest: null,
               remoteDigest: null,
+              localVersion: '2.1.100',
+              remoteVersion: '2.1.173',
+              building: false,
+              lastCheckedUnix: null,
+              lastUpdatedUnix: null,
+              lastError: null,
+              agentsWithContainer: 0,
+            },
+            {
+              tool: 'codex',
+              state: 'pending',
+              updateMode: 'registry',
+              localDigest: null,
+              remoteDigest: null,
+              localVersion: null,
+              remoteVersion: null,
+              building: false,
               lastCheckedUnix: null,
               lastUpdatedUnix: null,
               lastError: null,
@@ -136,8 +156,15 @@ describe('useAdminStore loading errors', () => {
     const { cliImages, cliImagesError } = useAdminStore.getState()
     expect(cliImagesError).toBeNull()
     expect(cliImages?.autoUpdateEnabled).toBe(false)
-    expect(cliImages?.tools).toHaveLength(1)
-    expect(cliImages?.tools[0]?.tool).toBe('codex')
+    expect(cliImages?.claudeAutoBuildEnabled).toBe(false)
+    expect(cliImages?.tools).toHaveLength(2)
+    // claude is a first-class row with the local-build contract fields.
+    expect(cliImages?.tools[0]?.tool).toBe('claude')
+    expect(cliImages?.tools[0]?.updateMode).toBe('local_build')
+    expect(cliImages?.tools[0]?.localVersion).toBe('2.1.100')
+    expect(cliImages?.tools[0]?.remoteVersion).toBe('2.1.173')
+    expect(cliImages?.tools[0]?.building).toBe(false)
+    expect(cliImages?.tools[1]?.tool).toBe('codex')
   })
 
   test('stores a permission step when CLI image status is forbidden', async () => {
@@ -174,6 +201,7 @@ describe('useAdminStore loading errors', () => {
           ok: true,
           data: {
             autoUpdateEnabled: true,
+            claudeAutoBuildEnabled: false,
             pollIntervalSecs: 900,
             registry: 'ghcr.io/x',
             imageTag: 'latest',
@@ -214,6 +242,79 @@ describe('useAdminStore loading errors', () => {
     expect(state.cliImageRollingTool).toBeNull()
     expect(state.cliImageRollError).toContain('already in progress')
     expect(state.cliImageRollResult).toBeNull()
+  })
+
+  /** A loaded report with a claude row, for build-action tests. */
+  function seedClaudeReport(overrides: { building?: boolean; state?: string } = {}) {
+    useAdminStore.setState({
+      cliImages: {
+        autoUpdateEnabled: true,
+        claudeAutoBuildEnabled: false,
+        pollIntervalSecs: 900,
+        registry: 'ghcr.io/x',
+        imageTag: 'latest',
+        tools: [
+          {
+            tool: 'claude',
+            state: (overrides.state ?? 'update_available') as never,
+            updateMode: 'local_build',
+            localDigest: null,
+            remoteDigest: null,
+            localVersion: '2.1.100',
+            remoteVersion: '2.1.173',
+            building: overrides.building ?? false,
+            lastCheckedUnix: 1_700_000_000,
+            lastUpdatedUnix: null,
+            lastError: null,
+            agentsWithContainer: 1,
+          },
+        ],
+        prune: {
+          enabled: false,
+          lastRunUnix: null,
+          scanned: 0,
+          removed: 0,
+          skippedInUse: 0,
+          skippedConflict: 0,
+          errors: 0,
+          lastError: null,
+        },
+      },
+    })
+  }
+
+  test('buildClaudeImage posts to the build endpoint and marks claude building', async () => {
+    seedClaudeReport()
+    authFetchMock.mockResolvedValue(
+      response(202, { ok: true, started: true, targetVersion: '2.1.173' })
+    )
+
+    const started = await useAdminStore.getState().buildClaudeImage()
+
+    expect(started).toBe(true)
+    expect(authFetchMock).toHaveBeenCalledWith(
+      '/api/v1/admin/cli-images/claude/build',
+      expect.objectContaining({ method: 'POST' })
+    )
+    const state = useAdminStore.getState()
+    expect(state.cliImageBuildError).toBeNull()
+    // optimistic flag stays set; the next poll/toast carries the real state.
+    expect(state.cliImages?.tools[0]?.building).toBe(true)
+  })
+
+  test('buildClaudeImage rolls back the building flag on a 409 conflict', async () => {
+    seedClaudeReport()
+    authFetchMock.mockResolvedValue(
+      response(409, { error: 'a claude image build is already in progress' })
+    )
+
+    const started = await useAdminStore.getState().buildClaudeImage()
+
+    expect(started).toBe(false)
+    const state = useAdminStore.getState()
+    expect(state.cliImageBuildError).toContain('already in progress')
+    // the build did not start — the button must unlock again.
+    expect(state.cliImages?.tools[0]?.building).toBe(false)
   })
 
   test('still loads admin users on success', async () => {

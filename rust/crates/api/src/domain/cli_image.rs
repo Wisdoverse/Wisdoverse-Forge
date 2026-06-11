@@ -7,22 +7,34 @@
 use std::collections::BTreeMap;
 
 use agentforge_core::{AppError, AppResult, ErrorKind};
-use agentforge_jobs::{CliImagePruneSummary, CliToolImageState, pollable_tool_names};
+use agentforge_jobs::{CliImagePruneSummary, CliToolImageState, pollable_tool_names, update_mode_for};
 use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-/// One pollable Container CLI tool's current image-update state.
+/// One reported Container CLI tool's current image-update state.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CliImageToolStatus {
     pub tool: String,
-    /// `pending` (no tick yet) | `up_to_date` | `updated` | `failed`.
+    /// `pending` (no tick yet) | `up_to_date` | `updated` | `failed`; the
+    /// local-build tool (`claude`) additionally reports `update_available`.
     pub state: String,
-    /// Manifest digest of the locally-pulled GHCR ref (`None` until first pull).
+    /// `registry` (pulled + re-tagged from GHCR) or `local_build` (claude —
+    /// no public image, built server-side from npm).
+    pub update_mode: String,
+    /// Manifest digest of the locally-pulled GHCR ref (`None` until first pull;
+    /// always `None` for local-build tools).
     pub local_digest: Option<String>,
     /// Manifest digest currently advertised by the registry.
     pub remote_digest: Option<String>,
+    /// Local-build tools: CLI version baked into the local image (`None` =
+    /// unknown — image missing or unlabeled).
+    pub local_version: Option<String>,
+    /// Local-build tools: latest version published on the npm registry.
+    pub remote_version: Option<String>,
+    /// True while a server-side local build is running for this tool.
+    pub building: bool,
     pub last_checked_unix: Option<i64>,
     pub last_updated_unix: Option<i64>,
     pub last_error: Option<String>,
@@ -83,6 +95,10 @@ pub struct CliImageStatusReport {
     /// Whether the background auto-updater is enabled in deployment config. When
     /// false, every tool stays `pending` (the worker never ticks).
     pub auto_update_enabled: bool,
+    /// Whether the sweep auto-builds the claude image on a newer npm version
+    /// (`CLI_IMAGE_CLAUDE_AUTO_BUILD`). Operator INTENT — surfaced even when the
+    /// worker never ran, so the panel can say "auto-build on" truthfully.
+    pub claude_auto_build_enabled: bool,
     /// Effective poll cadence in seconds — the configured value after the
     /// worker's >= 60s floor, so it matches the rate the worker actually runs.
     pub poll_interval_secs: u64,
@@ -97,22 +113,23 @@ pub struct CliImageStatusReport {
 
 impl CliImageStatusReport {
     /// Merge the worker's per-tool snapshot with the cross-tenant container
-    /// counts and deployment config. Driven by `pollable_tools` (the canonical
-    /// poll set) so a never-yet-checked tool still appears as `pending` rather
-    /// than vanishing from the report.
+    /// counts and deployment config. Driven by `reported_tools` (the registry
+    /// poll set plus the local-build `claude`) so a never-yet-checked tool
+    /// still appears as `pending` rather than vanishing from the report.
     #[allow(clippy::too_many_arguments)]
     pub fn build(
         auto_update_enabled: bool,
+        claude_auto_build_enabled: bool,
         poll_interval_secs: u64,
         registry: String,
         image_tag: String,
-        pollable_tools: &[&str],
+        reported_tools: &[&str],
         snapshot: &BTreeMap<String, CliToolImageState>,
         container_counts: &BTreeMap<String, i64>,
         prune_configured: bool,
         prune: CliImagePruneSummary,
     ) -> Self {
-        let tools = pollable_tools
+        let tools = reported_tools
             .iter()
             .map(|tool| {
                 let recorded = snapshot.get(*tool);
@@ -122,8 +139,15 @@ impl CliImageStatusReport {
                         .map(|s| s.state.clone())
                         .filter(|s| !s.is_empty())
                         .unwrap_or_else(|| "pending".to_string()),
+                    // Derived from the canonical per-tool mode, not the recorded
+                    // snapshot, so a pending (never-checked) claude row is still
+                    // labeled `local_build`.
+                    update_mode: update_mode_for(tool).to_string(),
                     local_digest: recorded.and_then(|s| s.local_digest.clone()),
                     remote_digest: recorded.and_then(|s| s.remote_digest.clone()),
+                    local_version: recorded.and_then(|s| s.local_version.clone()),
+                    remote_version: recorded.and_then(|s| s.remote_version.clone()),
+                    building: recorded.map(|s| s.building).unwrap_or(false),
                     last_checked_unix: recorded.and_then(|s| s.last_checked_unix),
                     last_updated_unix: recorded.and_then(|s| s.last_updated_unix),
                     last_error: recorded.and_then(|s| s.last_error.clone()),
@@ -134,6 +158,7 @@ impl CliImageStatusReport {
 
         Self {
             auto_update_enabled,
+            claude_auto_build_enabled,
             poll_interval_secs,
             registry,
             image_tag,
@@ -265,6 +290,64 @@ pub(crate) fn cli_image_roll_response(report: RollReport) -> Value {
     json!({ "ok": true, "data": report })
 }
 
+// ---------------------------------------------------------------------------
+// Operator-initiated local build (POST /admin/cli-images/claude/build)
+// ---------------------------------------------------------------------------
+
+/// Which tools may be built locally. Exactly the inverse boundary of
+/// [`RollToolPolicy`]: only `claude` (no public registry image — its license
+/// requires a self-build) is buildable; registry tools are pulled, never built.
+/// Asserted in the route AND re-asserted in the service, like the roll path.
+pub(crate) struct LocalBuildToolPolicy;
+
+impl LocalBuildToolPolicy {
+    /// Accept only the local-build tool. Registry tools and unknown values are
+    /// rejected with 422 — NOT 404, since the route path matched; the value is
+    /// just not a locally-buildable tool.
+    pub(crate) fn ensure_local_buildable(tool: &str) -> AppResult<()> {
+        if tool == agentforge_core::CliToolKind::Claude.as_str() {
+            Ok(())
+        } else {
+            Err(ErrorKind::Unprocessable(format!(
+                "'{tool}' is not a locally-built CLI tool; only 'claude' is built on this server \
+                 (registry tools update via pull)"
+            ))
+            .into())
+        }
+    }
+}
+
+/// 409 error for a claude build that is already in flight (manual or
+/// auto-build). The user-visible error contract lives here in the domain.
+pub(crate) fn claude_build_in_progress_error() -> AppError {
+    ErrorKind::Conflict("a claude image build is already in progress".to_string()).into()
+}
+
+/// 503 error when the container runtime is unavailable on this deployment —
+/// the build cannot start at all. Mirrors the roll path's runtime-down error.
+pub(crate) fn claude_build_runtime_unavailable_error() -> AppError {
+    ErrorKind::Unavailable(
+        "the container runtime is unavailable on this server; the image build cannot start".to_string(),
+    )
+    .into()
+}
+
+/// 503 error when the npm registry could not be reached / parsed, so the
+/// target version is unknown and no build was started. Carries the operator
+/// detail verbatim (the npm lookup error strings hold no secrets).
+pub(crate) fn claude_version_lookup_failed_error(detail: &str) -> AppError {
+    ErrorKind::Unavailable(format!(
+        "could not determine the latest Claude Code version from the npm registry; no build was started: {detail}"
+    ))
+    .into()
+}
+
+/// `202 { ok: true, started: true, targetVersion }` body — the build was
+/// accepted and runs in the background; progress lands in the status report.
+pub(crate) fn cli_image_build_response(target_version: &str) -> Value {
+    json!({ "ok": true, "started": true, "targetVersion": target_version })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -317,17 +400,18 @@ mod tests {
     fn state(s: &str) -> CliToolImageState {
         CliToolImageState {
             state: s.to_string(),
+            update_mode: "registry".to_string(),
             local_digest: Some("sha256:local".into()),
             remote_digest: Some("sha256:remote".into()),
             last_checked_unix: Some(1_700_000_000),
-            last_updated_unix: None,
-            last_error: None,
+            ..Default::default()
         }
     }
 
     #[test]
     fn unchecked_tool_is_pending_with_zero_agents() {
         let report = CliImageStatusReport::build(
+            false,
             false,
             900,
             "ghcr.io/x".into(),
@@ -341,7 +425,9 @@ mod tests {
         assert_eq!(report.tools.len(), 2);
         assert!(report.tools.iter().all(|t| t.state == "pending"));
         assert!(report.tools.iter().all(|t| t.agents_with_container == 0));
+        assert!(report.tools.iter().all(|t| !t.building));
         assert!(!report.auto_update_enabled);
+        assert!(!report.claude_auto_build_enabled);
         // prune defaults to disabled/zeroed.
         assert!(!report.prune.enabled);
         assert_eq!(report.prune.removed, 0);
@@ -354,6 +440,7 @@ mod tests {
         // ran a sweep (e.g. auto-update off). Must report enabled=true with no
         // last_run, NOT the reassuring "off".
         let report = CliImageStatusReport::build(
+            false,
             false,
             900,
             "ghcr.io/x".into(),
@@ -377,6 +464,7 @@ mod tests {
 
         let report = CliImageStatusReport::build(
             true,
+            false,
             600,
             "ghcr.io/x".into(),
             "latest".into(),
@@ -396,6 +484,7 @@ mod tests {
         assert_eq!(codex.state, "up_to_date");
         assert_eq!(codex.agents_with_container, 4);
         assert_eq!(codex.remote_digest.as_deref(), Some("sha256:remote"));
+        assert_eq!(codex.update_mode, "registry");
         assert!(report.prune.enabled);
         assert_eq!(report.prune.removed, 3);
 
@@ -403,5 +492,113 @@ mod tests {
         let gemini = report.tools.iter().find(|t| t.tool == "gemini").unwrap();
         assert_eq!(gemini.state, "pending");
         assert_eq!(gemini.agents_with_container, 0);
+    }
+
+    // ------------------------------------------------------------------
+    // claude local build
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn claude_row_reports_local_build_mode_even_when_pending() {
+        // claude in the report driver list but no recorded state → a pending
+        // row that is STILL labeled local_build (mode comes from the canonical
+        // per-tool policy, not the snapshot).
+        let report = CliImageStatusReport::build(
+            false,
+            true,
+            900,
+            "ghcr.io/x".into(),
+            "latest".into(),
+            &["claude", "codex"],
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            false,
+            CliImagePruneSummary::default(),
+        );
+        assert!(report.claude_auto_build_enabled);
+        let claude = report.tools.iter().find(|t| t.tool == "claude").unwrap();
+        assert_eq!(claude.state, "pending");
+        assert_eq!(claude.update_mode, "local_build");
+        assert!(claude.local_version.is_none() && claude.remote_version.is_none());
+        let codex = report.tools.iter().find(|t| t.tool == "codex").unwrap();
+        assert_eq!(codex.update_mode, "registry");
+    }
+
+    #[test]
+    fn tool_status_serializes_camel_case_with_versions_and_building() {
+        let recorded = CliToolImageState {
+            state: "update_available".to_string(),
+            update_mode: "local_build".to_string(),
+            local_version: Some("2.1.100".into()),
+            remote_version: Some("2.1.173".into()),
+            building: true,
+            last_checked_unix: Some(1_700_000_000),
+            ..Default::default()
+        };
+        let mut snap = BTreeMap::new();
+        snap.insert("claude".to_string(), recorded);
+
+        let report = CliImageStatusReport::build(
+            true,
+            true,
+            900,
+            "ghcr.io/x".into(),
+            "latest".into(),
+            &["claude"],
+            &snap,
+            &BTreeMap::new(),
+            false,
+            CliImagePruneSummary::default(),
+        );
+        let value = serde_json::to_value(&report).unwrap();
+
+        // top-level report contract: camelCase, claude flag present.
+        assert_eq!(value["claudeAutoBuildEnabled"], true);
+        assert!(value.get("claude_auto_build_enabled").is_none());
+
+        let claude = &value["tools"][0];
+        assert_eq!(claude["tool"], "claude");
+        assert_eq!(claude["state"], "update_available");
+        assert_eq!(claude["updateMode"], "local_build");
+        assert_eq!(claude["localVersion"], "2.1.100");
+        assert_eq!(claude["remoteVersion"], "2.1.173");
+        assert_eq!(claude["building"], true);
+        assert_eq!(claude["localDigest"], serde_json::Value::Null);
+        // snake_case keys must not leak.
+        assert!(claude.get("update_mode").is_none());
+        assert!(claude.get("local_version").is_none());
+        assert!(claude.get("remote_version").is_none());
+    }
+
+    #[test]
+    fn local_build_policy_accepts_only_claude() {
+        assert!(LocalBuildToolPolicy::ensure_local_buildable("claude").is_ok());
+        // registry tools are pulled, never built — and unknown values fail too.
+        for tool in ["codex", "gemini", "opencode", "nonsense", ""] {
+            let err = LocalBuildToolPolicy::ensure_local_buildable(tool).expect_err("must reject");
+            assert!(
+                matches!(err.kind, ErrorKind::Unprocessable(ref msg) if msg.contains("locally-built")),
+                "expected 422 Unprocessable, got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn claude_build_error_constructors_carry_http_contract() {
+        assert!(matches!(claude_build_in_progress_error().kind, ErrorKind::Conflict(_)));
+        assert!(matches!(claude_build_runtime_unavailable_error().kind, ErrorKind::Unavailable(_)));
+        let lookup = claude_version_lookup_failed_error("npm registry returned HTTP 503");
+        assert!(
+            matches!(lookup.kind, ErrorKind::Unavailable(ref msg) if msg.contains("npm registry returned HTTP 503")
+                && msg.contains("no build was started"))
+        );
+    }
+
+    #[test]
+    fn build_response_reports_started_and_target_version() {
+        let response = cli_image_build_response("2.1.173");
+        assert_eq!(response["ok"], true);
+        assert_eq!(response["started"], true);
+        assert_eq!(response["targetVersion"], "2.1.173");
     }
 }

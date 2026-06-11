@@ -25,6 +25,7 @@ use crate::services::billing::BillingService;
 use crate::services::cli_auth_proxy::CliAuthProxyService;
 use crate::services::cli_credential::CliCredentialService;
 use crate::services::cli_image::CliImageService;
+use crate::services::cli_image_build::CliImageBuildService;
 use crate::services::cli_image_roll::CliImageRollService;
 use crate::services::context::{ContextApprovalService, ContextFeedbackService};
 use crate::services::context_envelope::ContextEnvelopeService;
@@ -71,6 +72,16 @@ impl AppState {
 
     pub(crate) fn cli_image_service(&self) -> CliImageService {
         CliImageService::from_runtime(self.pool.clone(), self.cli_image_status.clone(), &self.config)
+    }
+
+    pub(crate) fn cli_image_build_service(&self) -> CliImageBuildService {
+        CliImageBuildService::from_runtime(
+            self.cli_image_status.clone(),
+            self.docker.clone(),
+            // Same toast sink the auto-updater uses (`broadcast.admin.cli_image`).
+            self.nats.client().cloned(),
+            &self.config,
+        )
     }
 
     pub(crate) fn cli_image_roll_service(&self) -> CliImageRollService {
