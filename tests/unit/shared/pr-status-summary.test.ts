@@ -9,6 +9,7 @@ import {
   cacheQuery,
   DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS,
   DEFAULT_REFRESH_COOLDOWN_SECONDS,
+  formatCacheNotice,
   isRepeatRemoteReadSuppressed,
   isReusableCacheEntry,
   isUsableCacheEntry,
@@ -133,9 +134,9 @@ describe('PR status summary', () => {
     }
 
     expect(isRepeatRemoteReadSuppressed(entry, options, now)).toBe(true)
-    expect(
-      isRepeatRemoteReadSuppressed({ ...entry, fetchedAt: now - 61_000 }, options, now)
-    ).toBe(false)
+    expect(isRepeatRemoteReadSuppressed({ ...entry, fetchedAt: now - 61_000 }, options, now)).toBe(
+      false
+    )
     expect(
       isRepeatRemoteReadSuppressed(
         entry,
@@ -143,6 +144,40 @@ describe('PR status summary', () => {
         now
       )
     ).toBe(false)
+  })
+
+  it('tells operators when a repeated remote read will be useful again', () => {
+    expect(
+      formatCacheNotice({
+        cacheAgeSeconds: 30,
+        cacheHit: true,
+        pullRequests: [],
+        remoteReadGuardRemainingSeconds: 30,
+        repeatRemoteReadSuppressed: true,
+        source: 'cache',
+      })
+    ).toContain('next remote read is allowed in 30s')
+
+    expect(
+      formatCacheNotice({
+        cacheAgeSeconds: 20,
+        cacheHit: true,
+        pullRequests: [],
+        refreshCooldownRemainingSeconds: 40,
+        refreshSuppressed: true,
+        source: 'cache',
+      })
+    ).toContain('try again in 40s')
+
+    expect(
+      formatCacheNotice({
+        cacheAgeSeconds: 120,
+        cacheHit: true,
+        cacheTtlRemainingSeconds: 780,
+        pullRequests: [],
+        source: 'cache',
+      })
+    ).toContain('it expires in 13m')
   })
 
   it('reuses only fresh cache entries for the same GitHub query', () => {

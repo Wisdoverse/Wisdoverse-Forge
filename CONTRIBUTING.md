@@ -78,6 +78,33 @@ Every PR should include:
 - migration, environment, or rollout notes when runtime behavior changes,
 - documentation updates for any changed API, runtime, deployment path, or contributor workflow.
 
+### Low-token PR status checks
+
+Do not repeatedly refresh PR or CI status inside an agent chat. Use one compact
+snapshot first:
+
+```bash
+npm run pr:summary
+```
+
+Read the buckets this way:
+
+- `ACTION`: fix the listed PRs or checks now.
+- `WAIT`: stop checking in chat; review, CI, or the merge queue is still working.
+- `DONE`: no action is needed for that PR.
+
+For an external monitor, schedule the low-noise command instead of asking an
+agent to watch a loop:
+
+```bash
+npm run pr:summary:monitor
+```
+
+That command reuses the local snapshot when it runs too soon and exits with an
+alert only when a PR needs action. See
+[docs/guides/pr-status-summary.md](docs/guides/pr-status-summary.md) for the
+refresh rules and emergency one-time override.
+
 ### Merge requirements
 
 `main` is protected by a GitHub ruleset: all 15 status checks must be green, one

@@ -34,7 +34,7 @@ function main() {
   const summary = summarizePullRequests(pullRequests)
 
   if (snapshot.cacheHit) {
-    console.error(formatCacheNotice(snapshot, options))
+    console.error(formatCacheNotice(snapshot))
   }
 
   if (options.json) {
@@ -192,6 +192,12 @@ function readFreshCache(cachePath, options, now) {
       source: cachePath,
       cacheHit: true,
       cacheAgeSeconds: Math.max(0, Math.floor((now - cache.fetchedAt) / 1000)),
+      cacheTtlRemainingSeconds: secondsRemaining(cache.fetchedAt, options.cacheTtlSeconds, now),
+      refreshCooldownRemainingSeconds: secondsRemaining(
+        cache.fetchedAt,
+        options.refreshCooldownSeconds,
+        now
+      ),
       refreshSuppressed: options.refresh === true && options.forceRefresh !== true,
     }
   } catch {
@@ -210,6 +216,11 @@ function readRepeatRemoteReadGuard(cachePath, options, now) {
       source: cachePath,
       cacheHit: true,
       cacheAgeSeconds: Math.max(0, Math.floor((now - cache.fetchedAt) / 1000)),
+      remoteReadGuardRemainingSeconds: secondsRemaining(
+        cache.fetchedAt,
+        options.minRemoteReadIntervalSeconds,
+        now
+      ),
       repeatRemoteReadSuppressed: true,
     }
   } catch {
@@ -327,29 +338,47 @@ function cacheQuery(options) {
   }
 }
 
-function formatCacheNotice(snapshot, options) {
+function formatCacheNotice(snapshot) {
   if (snapshot.repeatRemoteReadSuppressed) {
     return `[pr-summary] remote refresh skipped because GitHub was checked ${formatAge(
       snapshot.cacheAgeSeconds
-    )}; wait or pass --allow-repeat-remote-read only for a one-time manual check`
+    )}; next remote read is allowed in ${formatDuration(
+      snapshot.remoteReadGuardRemainingSeconds
+    )}; pass --allow-repeat-remote-read only for a one-time manual check`
   }
   if (snapshot.refreshSuppressed) {
     return `[pr-summary] refresh skipped because GitHub was checked ${formatAge(
       snapshot.cacheAgeSeconds
+    )}; try again in ${formatDuration(
+      snapshot.refreshCooldownRemainingSeconds
     )}; pass --force-refresh only when a new remote read is required`
   }
   return `[pr-summary] using cached GitHub snapshot from ${formatAge(
     snapshot.cacheAgeSeconds
-  )}; pass --refresh to query GitHub now or --cache-ttl-seconds ${options.cacheTtlSeconds} to change reuse time`
+  )}; it expires in ${formatDuration(
+    snapshot.cacheTtlRemainingSeconds
+  )}; pass --refresh only after a known remote change`
+}
+
+function secondsRemaining(fetchedAt, limitSeconds, now) {
+  if (!Number.isFinite(fetchedAt) || !Number.isFinite(limitSeconds) || limitSeconds <= 0) {
+    return 0
+  }
+  return Math.max(0, Math.ceil(limitSeconds - (now - fetchedAt) / 1000))
 }
 
 function formatAge(seconds) {
   if (!Number.isFinite(seconds) || seconds <= 0) return 'just now'
-  if (seconds < 60) return `${seconds}s ago`
+  return `${formatDuration(seconds)} ago`
+}
+
+function formatDuration(seconds) {
+  if (!Number.isFinite(seconds) || seconds <= 0) return 'just now'
+  if (seconds < 60) return `${seconds}s`
   const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
+  if (minutes < 60) return `${minutes}m`
   const hours = Math.floor(minutes / 60)
-  return `${hours}h ago`
+  return `${hours}h`
 }
 
 function printHelp() {
@@ -396,6 +425,7 @@ export {
   classifyPullRequest,
   DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS,
   DEFAULT_REFRESH_COOLDOWN_SECONDS,
+  formatCacheNotice,
   isRepeatRemoteReadSuppressed,
   isUsableCacheEntry,
   isReusableCacheEntry,

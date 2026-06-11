@@ -30,7 +30,8 @@ WAIT: use --show-wait to list them when a human needs the full queue
 ```
 
 When the output says it used a cached snapshot, that is expected. Treat the
-result as a recent point-in-time view, not a live watch.
+result as a recent point-in-time view, not a live watch. The cache notice also
+tells you when another remote read would be useful again.
 
 ## Do Not Poll In Chat
 
@@ -45,6 +46,11 @@ Safe rhythm for most teams:
 3. Leave `WAIT` PRs alone unless a reviewer asks for the full list.
 4. Re-run after 10 to 15 minutes, or after a known remote change such as a new
    push.
+
+Agent rule: after a `WAIT` snapshot, do not ask the agent to keep checking in
+the conversation. The next useful check is either the cache expiry time printed
+by the script or a real remote change, such as a push, review, failed check, or
+merge.
 
 ## Refresh Only When Needed
 
@@ -128,16 +134,17 @@ npm run pr:summary -- --fail-on-action
 The command exits with status `1` only when one or more PRs are in `ACTION`.
 That keeps monitors quiet while PRs are merely waiting for review or CI.
 
-For a low-noise monitor, run:
+For a low-noise monitor, schedule this command every 10 to 15 minutes:
 
 ```bash
-npm run pr:summary:refresh -- --fail-on-action
+npm run pr:summary:monitor
 ```
 
-The command prints one compact summary, exits cleanly for `WAIT` and `DONE`
-states, and only fails when a person or agent has something specific to fix.
-Running the monitor again too soon uses the cached snapshot, which prevents
-accidental repeated polling from wasting operator time or agent context.
+The monitor command prints one compact summary, exits cleanly for `WAIT` and
+`DONE` states, and only fails when a person or agent has something specific to
+fix. Running it again too soon uses the cached snapshot and prints the remaining
+wait time, which prevents accidental repeated polling from wasting operator time
+or agent context.
 
 ## Offline Review
 
