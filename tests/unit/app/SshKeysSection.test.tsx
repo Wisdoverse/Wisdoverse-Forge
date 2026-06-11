@@ -138,4 +138,18 @@ describe('SshKeysSection', () => {
     )
     expect(screen.queryByText(/Details: invalid public key/i)).toBeNull()
   })
+
+  test('keeps store validation guidance on the save path', async () => {
+    useSettingsStore.setState({
+      sshKeysError: 'Add a label, paste a valid public SSH key, then save the SSH key again.',
+    })
+
+    render(<SshKeysSection />)
+
+    await waitFor(() => expect(loadSshKeysMock).toHaveBeenCalled())
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Repository SSH access could not be saved. Add a name for this access, then save again.'
+    )
+    expect(screen.queryByText(/could not be loaded/i)).toBeNull()
+  })
 })

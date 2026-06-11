@@ -52,8 +52,22 @@ function isNetworkError(error: unknown): boolean {
 }
 
 function actionFromText(text: string): SshKeyAction {
+  const lower = text.toLowerCase()
   if (/\b(save|saving|saved|create|created|update|updated)\b/i.test(text)) return 'save'
   if (/\b(delete|deleted|remove|removed|removing)\b/i.test(text)) return 'remove'
+  if (
+    lower.includes('add a name') ||
+    lower.includes('add a label') ||
+    lower.includes('shareable ssh') ||
+    lower.includes('public ssh key') ||
+    lower.includes('public key') ||
+    lower.includes('private key') ||
+    lower.includes('already exists') ||
+    lower.includes('duplicate') ||
+    lower.includes('required')
+  ) {
+    return 'save'
+  }
   return 'load'
 }
 
@@ -77,6 +91,13 @@ export function sshKeysErrorMessage(error: unknown): string {
     return `${base} Ask an owner or admin for access to manage repository SSH access.`
   }
   if (
+    lower.includes('add a name') ||
+    lower.includes('add a label') ||
+    lower.includes('access name')
+  ) {
+    return `${base} Add a name for this access, then save again.`
+  }
+  if (
     lower.includes('invalid public key') ||
     lower.includes('invalid ssh key') ||
     lower.includes('bad key') ||
@@ -88,6 +109,14 @@ export function sshKeysErrorMessage(error: unknown): string {
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
     return `${base} This public line already exists. Choose the saved access or remove the old one first.`
+  }
+  if (
+    lower.includes('shareable ssh line') ||
+    lower.includes('shareable ssh key') ||
+    lower.includes('public key') ||
+    lower.includes('ssh key')
+  ) {
+    return `${base} Paste the shareable SSH line that starts with ssh-ed25519 or ssh-rsa, then save again.`
   }
   if (code === 422 || lower.includes('required') || lower.includes('missing')) {
     return `${base} Check the access name and shareable SSH line, then try again.`

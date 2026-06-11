@@ -245,7 +245,20 @@ function settingsValidationMessage(
   }
 
   if (area === 'sshKeys') {
-    return 'Add a label, paste a valid public SSH key, then save the SSH key again.'
+    if (normalized.includes('label') || normalized.includes('name')) {
+      return 'Add a name for this SSH access, then save again.'
+    }
+    if (normalized.includes('private key') || normalized.includes('begin private key')) {
+      return 'Paste only the shareable one-line SSH key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'
+    }
+    if (
+      normalized.includes('public key') ||
+      normalized.includes('ssh key') ||
+      normalized.includes('key')
+    ) {
+      return 'Paste the shareable SSH line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+    }
+    return 'Add a name for this access, paste the shareable SSH line, then save again.'
   }
 
   if (area === 'resourceProfiles') {

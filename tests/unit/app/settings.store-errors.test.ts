@@ -113,6 +113,20 @@ describe('settingsActionErrorMessage', () => {
     )
   })
 
+  test('turns SSH key label validation into a naming step', () => {
+    expectBeginnerError(
+      settingsActionErrorMessage('sshKeys', 'create', statusError(422, 'label is required')),
+      'Add a name for this SSH access, then save again.'
+    )
+  })
+
+  test('turns SSH public key validation into shareable-line guidance', () => {
+    expectBeginnerError(
+      settingsActionErrorMessage('sshKeys', 'create', statusError(422, 'public key is invalid')),
+      'Paste the shareable SSH line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+    )
+  })
+
   test('turns raw network errors into connection guidance', () => {
     const message = settingsActionErrorMessage('sshKeys', 'load', 'Network error')
 
