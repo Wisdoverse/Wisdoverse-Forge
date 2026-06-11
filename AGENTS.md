@@ -200,6 +200,10 @@ the stop condition for the chat: review, CI, or the merge queue is still
 working, so do not repeatedly refresh status inside the conversation. For
 external monitoring, schedule `npm run pr:summary:monitor`; it reuses the local
 snapshot when run too soon and alerts only when a PR needs action.
+Do not use `gh pr checks --watch`, `gh run watch`, shell loops, or repeated
+forced refreshes from the chat unless the user explicitly asks for a live watch.
+If a bounded local waiter is necessary, it must print only terminal output and
+must be stopped before sending the final response.
 
 ## Backend Contracts
 

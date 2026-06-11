@@ -57,7 +57,7 @@
     "pr:summary": "node scripts/pr-status-summary.mjs",
     "pr:summary:refresh": "node scripts/pr-status-summary.mjs --refresh",
     "pr:summary:force-refresh": "node scripts/pr-status-summary.mjs --force-refresh",
-    "pr:summary:monitor": "node scripts/pr-status-summary.mjs --refresh --fail-on-action",
+    "pr:summary:monitor": "node scripts/pr-status-summary.mjs --fail-on-action",
     "fsd:check": "node scripts/check-fsd-boundaries.mjs",
     "lint": "npm run fsd:check && eslint shared scripts src/app",
     "lint:fix": "eslint shared scripts src/app --fix",

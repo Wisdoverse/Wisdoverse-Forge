@@ -18,7 +18,7 @@ npm run pr:summary
 By default the command reuses a local GitHub snapshot for 15 minutes. Running it
 again inside that window does not call GitHub again, so an agent can summarize
 PR state without repeatedly spending chat/output budget on the same remote
-checks.
+checks. This is a point-in-time status tool, not a live watch command.
 
 Success looks like this:
 
@@ -38,6 +38,12 @@ tells you when another remote read would be useful again.
 Use this command as a snapshot, then stop. A `WAIT` result means GitHub is
 already handling review, CI, or merge queue work. Ask an agent to check again
 later, or schedule the command outside the chat.
+
+Operator rule: `WAIT` is a valid end state for the conversation. Do not keep
+asking the agent to refresh the same PR queue, and do not run `gh pr checks
+--watch`, `gh run watch`, shell loops, or repeated forced refreshes from the
+chat. Those commands spend tokens on unchanged remote state without creating
+new work.
 
 Safe rhythm for most teams:
 
@@ -142,9 +148,9 @@ npm run pr:summary:monitor
 
 The monitor command prints one compact summary, exits cleanly for `WAIT` and
 `DONE` states, and only fails when a person or agent has something specific to
-fix. Running it again too soon uses the cached snapshot and prints the remaining
-wait time, which prevents accidental repeated polling from wasting operator time
-or agent context.
+fix. It uses the same 15-minute snapshot reuse window as the quick check, so a
+monitor scheduled too frequently still reads cached state instead of repeatedly
+calling GitHub.
 
 ## Offline Review
 
