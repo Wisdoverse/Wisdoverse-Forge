@@ -16,14 +16,14 @@ vi.mock('@app/shared/api/legacy', () => ({
 
 const originalUpdateOrg = useNavigationStore.getState().updateOrg
 
-function renderAccountSection() {
+function renderAccountSection(role = 'owner') {
   const authValue: AuthContextValue = {
     authManager: {} as AuthContextValue['authManager'],
     user: {
       id: 'user-1',
       email: 'operator@example.com',
       username: 'Operator',
-      role: 'owner',
+      role,
       orgId: 'org-1',
     },
     isAuthenticated: true,
@@ -137,6 +137,14 @@ describe('AccountSection', () => {
         'Select an organization from the sidebar before changing organization settings.'
       )
     ).toBeDefined()
+  })
+
+  test('uses a friendly fallback instead of exposing an unknown account role', () => {
+    renderAccountSection('billing_admin')
+
+    expect(screen.getByText('Access level needs review')).toBeDefined()
+    expect(screen.queryByText('billing_admin')).toBeNull()
+    expect(screen.queryByText('billing admin')).toBeNull()
   })
 
   test('shows sign-in guidance when password update is not authorized', async () => {
