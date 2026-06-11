@@ -12,6 +12,42 @@ const project: TaskProjectOption = {
 }
 
 describe('TaskFormModal', () => {
+  test('uses beginner-friendly brief template prompts', () => {
+    render(
+      <TaskFormModal
+        isOpen
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        agents={[{ id: 'agent-1', name: 'Agent One', status: 'available' }]}
+        projects={[project]}
+        selectedProjectId={project.id}
+        selectedTaskGroupId="lane-1"
+        selectedTaskGroupName="Starter Lane"
+      />
+    )
+
+    expect(screen.getByText('What, where, done when')).toBeDefined()
+    expect(screen.getByText('What to finish')).toBeDefined()
+    expect(screen.getByText('Where to work')).toBeDefined()
+    expect(screen.getByText('Done when')).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: /feature/i }))
+
+    expect(screen.getByLabelText(/what should the agent finish/i)).toHaveValue(
+      'Build a focused feature'
+    )
+    const description = screen.getByLabelText(
+      /details the agent should know/i
+    ) as HTMLTextAreaElement
+    expect(description.value).toContain('What should change:')
+    expect(description.value).toContain('Where to work:')
+    expect(description.value).toContain('What to avoid:')
+    expect(description.value).toContain('Done when:')
+    expect(description.value).not.toContain('Scope:')
+    expect(description.value).not.toContain('Constraints:')
+    expect(description.value).not.toContain('Evidence:')
+  })
+
   test('explains the no-agent state without dispatch language', () => {
     render(
       <TaskFormModal

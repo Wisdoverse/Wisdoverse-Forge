@@ -49,9 +49,10 @@ const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
   {
     id: 'feature',
     label: 'Feature',
-    summary: 'Scoped implementation',
-    title: 'Ship a scoped feature',
-    description: 'Outcome:\n- \n\nScope:\n- \n\nConstraints:\n- \n\nEvidence:\n- ',
+    summary: 'Build a contained change',
+    title: 'Build a focused feature',
+    description:
+      'What should change:\n- \n\nWhere to work:\n- \n\nWhat to avoid:\n- \n\nDone when:\n- ',
     priority: 'normal',
     Icon: ClipboardCheck,
   },
@@ -60,36 +61,37 @@ const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
     label: 'Bug',
     summary: 'Reproduce and fix',
     title: 'Fix a reproducible defect',
-    description: 'Symptom:\n- \n\nExpected behavior:\n- \n\nLikely area:\n- \n\nVerification:\n- ',
+    description:
+      'What is broken:\n- \n\nWhat should happen:\n- \n\nWhere to look first:\n- \n\nDone when:\n- ',
     priority: 'high',
     Icon: Bug,
   },
   {
     id: 'investigation',
     label: 'Investigate',
-    summary: 'Find root cause',
+    summary: 'Find the reason',
     title: 'Investigate an unclear issue',
     description:
-      'Question:\n- \n\nSignals to inspect:\n- \n\nKnown constraints:\n- \n\nDecision needed:\n- ',
+      'Question to answer:\n- \n\nWhat to inspect:\n- \n\nWhat is already known:\n- \n\nDecision needed:\n- ',
     priority: 'normal',
     Icon: Search,
   },
   {
     id: 'review',
     label: 'Review',
-    summary: 'Risk and evidence pass',
+    summary: 'Check before release',
     title: 'Review a change for release readiness',
     description:
-      'Change to review:\n- \n\nRisk areas:\n- \n\nRequired checks:\n- \n\nOutput expected:\n- ',
+      'Change to review:\n- \n\nWhat could go wrong:\n- \n\nChecks to run:\n- \n\nAnswer format:\n- ',
     priority: 'normal',
     Icon: ShieldCheck,
   },
 ]
 
 const AGENT_READY_BRIEF_POINTS = [
-  { label: 'Result', value: 'The visible change or decision you need.' },
-  { label: 'Boundary', value: 'Where the agent should work and what to avoid.' },
-  { label: 'Proof', value: 'The check, screenshot, or output that proves it is done.' },
+  { label: 'What to finish', value: 'The visible change or decision you need.' },
+  { label: 'Where to work', value: 'Files, screens, or areas to use and what to avoid.' },
+  { label: 'Done when', value: 'The check, screenshot, or output that proves it is done.' },
 ]
 
 interface TaskFormModalProps {
@@ -406,7 +408,7 @@ export function TaskFormModal({
                 Start From a Brief
               </span>
               <span className="hidden text-ui-caption text-secondary-light dark:text-secondary-dark sm:inline">
-                Outcome, scope, proof
+                What, where, done when
               </span>
             </div>
             <div
@@ -505,7 +507,7 @@ export function TaskFormModal({
               {...register('description')}
               rows={3}
               className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-              placeholder="Add context, files to inspect, limits, or the proof you expect."
+              placeholder="Add background, files to check, what to avoid, and how you will know it is done."
             />
           </div>
 
