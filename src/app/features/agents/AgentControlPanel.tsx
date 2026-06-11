@@ -38,6 +38,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
     canRestartContainer,
     hostCli,
   })
+  const readyActionInfo = getReadyActionInfo(agent, { hostCli })
   const ControlSummaryIcon = controlSummary.Icon
 
   async function handleSendPrompt() {
@@ -179,8 +180,8 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
           {!canStartContainer && !canRestartContainer && (
             <ActionInfo
               icon={CheckCircle2}
-              title="No recovery action needed"
-              detail="Do not restart anything unless work stops updating. Use Tasks for work that needs a clear result."
+              title={readyActionInfo.title}
+              detail={readyActionInfo.detail}
             />
           )}
 
@@ -322,6 +323,33 @@ function getControlSummary(
     detail:
       'This agent replies through its connected AI service. Use messages for quick help and Tasks for tracked work.',
     Icon: CheckCircle2,
+  }
+}
+
+function getReadyActionInfo(
+  agent: AgentInfo,
+  { hostCli }: { hostCli: boolean }
+): { title: string; detail: string } {
+  if (hostCli) {
+    return {
+      title: 'Keep this computer connected',
+      detail:
+        'Start or stop the connection tool on that computer. Use this page for quick messages, tracked tasks, or cleanup.',
+    }
+  }
+
+  if (agent.cliTool) {
+    return {
+      title: 'Ready for messages and tasks',
+      detail:
+        'Send a quick instruction here, or create a Task when you need file work with a clear result.',
+    }
+  }
+
+  return {
+    title: 'Ready for chat and tracked tasks',
+    detail:
+      'Send a quick instruction here, or create a Task when you need planning or review with a clear result.',
   }
 }
 

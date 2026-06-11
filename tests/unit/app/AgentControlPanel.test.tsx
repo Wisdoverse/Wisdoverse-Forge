@@ -31,6 +31,16 @@ const textOnlyAgent: AgentInfo = {
   name: 'Text Agent',
   cliTool: undefined,
   containerId: undefined,
+  runtimeKind: 'api',
+}
+
+const hostCliAgent: AgentInfo = {
+  ...containerAgent,
+  id: 'host-agent',
+  name: 'Laptop Agent',
+  containerId: undefined,
+  runtimeId: 'host-aabbccdd',
+  runtimeKind: 'cli',
 }
 
 afterEach(() => {
@@ -134,9 +144,28 @@ describe('AgentControlPanel', () => {
 
     expect(screen.getByText('Chat-only agent controls')).toBeDefined()
     expect(screen.getByText(/connected AI service/i)).toBeDefined()
+    expect(screen.getByText('Ready for chat and tracked tasks')).toBeDefined()
+    expect(screen.getByText(/planning or review with a clear result/i)).toBeDefined()
+    expect(screen.queryByText(/No recovery action needed/i)).toBeNull()
     expect(screen.queryByText(/text-only model/i)).toBeNull()
     expect(screen.queryByText(/model service/i)).toBeNull()
     expect(screen.queryByText(/provider setup/i)).toBeNull()
+  })
+
+  test('guides joined-computer agents without start or restart controls', () => {
+    render(<AgentControlPanel agent={hostCliAgent} onDeleted={() => {}} />)
+
+    expect(screen.getByText('This computer controls')).toBeDefined()
+    expect(screen.getByText(/runs on a joined computer/i)).toBeDefined()
+    expect(screen.getByText('Keep this computer connected')).toBeDefined()
+    expect(
+      screen.getByText(
+        'Start or stop the connection tool on that computer. Use this page for quick messages, tracked tasks, or cleanup.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByRole('button', { name: /start agent/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /restart agent/i })).toBeNull()
+    expect(screen.queryByText(/No recovery action needed/i)).toBeNull()
   })
 
   test('shows start guidance for pending agent workspaces', async () => {
