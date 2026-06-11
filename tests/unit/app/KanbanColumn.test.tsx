@@ -20,7 +20,10 @@ describe('KanbanColumn', () => {
 
     const emptyState = screen.getByTestId('kanban-empty-backlog')
     expect(within(emptyState).getByText('No draft tasks')).toBeDefined()
-    expect(within(emptyState).getByText(/quick add below/i)).toBeDefined()
+    expect(
+      within(emptyState).getByText(/add a draft task below with the result you want/i)
+    ).toBeDefined()
+    expect(emptyState.textContent).not.toMatch(/quick add/i)
   })
 
   test('explains empty lifecycle columns by their next visible state', () => {

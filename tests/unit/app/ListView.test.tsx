@@ -9,7 +9,8 @@ beforeEach(() => useBoardStore.getState().reset())
 describe('ListView', () => {
   test('renders table headers', () => {
     render(<ListView />)
-    expect(screen.getByText('Title')).toBeDefined()
+    expect(screen.getByText('Task result')).toBeDefined()
+    expect(screen.queryByText('Title')).toBeNull()
     expect(screen.getByText('Status')).toBeDefined()
     expect(screen.getByText('Assignee')).toBeDefined()
     expect(screen.getByText('Priority')).toBeDefined()
@@ -168,7 +169,8 @@ describe('ListView', () => {
     })
     expect(screen.getByTestId('list-filter-empty')).toBeDefined()
 
-    expect(screen.getByText(/Show all tasks first/i)).toBeDefined()
+    expect(screen.getByText(/narrow by task result/i)).toBeDefined()
+    expect(screen.queryByText(/task title/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /show all tasks/i }))
     expect(screen.getByText('Build settings')).toBeDefined()

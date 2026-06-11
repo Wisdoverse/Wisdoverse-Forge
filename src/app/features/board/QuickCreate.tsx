@@ -42,7 +42,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
         onClick={() => setIsOpen(true)}
         className="w-full rounded-full px-3 py-2 text-left text-ui-caption font-medium text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
       >
-        + Add Task
+        + Add Draft Task
       </button>
     )
   }
@@ -51,7 +51,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
     <div className="space-y-2 px-1">
       <input
         ref={inputRef}
-        aria-label="Task title"
+        aria-label="Task result"
         name={`${columnId}-quick-task-title`}
         autoComplete="off"
         value={title}
@@ -63,7 +63,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
           }
           if (e.key === 'Escape') handleCancel()
         }}
-        placeholder="Task title…"
+        placeholder="Example: Fix the login error"
         className={cn(
           'h-10 w-full rounded-full border border-black/[0.08] px-4 text-ui-body outline-none',
           'bg-white dark:border-white/[0.1] dark:bg-[#2c2c2e]',
@@ -82,7 +82,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
               : 'cursor-not-allowed bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
           )}
         >
-          Add Task
+          Add Draft Task
         </button>
         <button
           type="button"
