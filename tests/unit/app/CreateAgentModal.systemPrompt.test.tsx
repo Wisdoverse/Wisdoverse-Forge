@@ -26,7 +26,7 @@ beforeEach(() => {
   useNavigationStore.setState({ selectedProjectId: null, projects: {} })
 })
 
-describe('CreateAgentModal systemPrompt', () => {
+describe('CreateAgentModal agent instructions', () => {
   it('hides instruction textarea in CLI branch', () => {
     render(<CreateAgentModal />)
     expect(screen.queryByLabelText(/instructions for this agent/i)).toBeNull()
@@ -54,8 +54,10 @@ describe('CreateAgentModal systemPrompt', () => {
 
   it('shows instruction textarea when Chat-only agent selected', () => {
     render(<CreateAgentModal />)
-    fireEvent.click(screen.getByText(/Provider \+ Prompt/i))
-    expect(screen.getByLabelText(/system prompt/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('radio', { name: /chat-only ai service/i }))
+    expect(screen.getByLabelText(/agent instructions/i)).toBeInTheDocument()
+    expect(screen.queryByText(/system prompt/i)).toBeNull()
+    expect(screen.queryByText(/prompt work/i)).toBeNull()
   })
 
   it('submits with lowercase provider + systemPrompt payload', async () => {
@@ -66,8 +68,8 @@ describe('CreateAgentModal systemPrompt', () => {
     fireEvent.change(screen.getByPlaceholderText(/Frontend Agent/i), {
       target: { value: 'Test' },
     })
-    fireEvent.click(screen.getByText(/Provider \+ Prompt/i))
-    fireEvent.change(screen.getByLabelText(/system prompt/i), {
+    fireEvent.click(screen.getByRole('radio', { name: /chat-only ai service/i }))
+    fireEvent.change(screen.getByLabelText(/agent instructions/i), {
       target: { value: 'you are terse' },
     })
     fireEvent.click(screen.getByRole('button', { name: /create agent/i }))
@@ -91,7 +93,7 @@ describe('CreateAgentModal systemPrompt', () => {
     fireEvent.change(screen.getByPlaceholderText(/Frontend Agent/i), {
       target: { value: 'Test' },
     })
-    fireEvent.click(screen.getByText(/Provider \+ Prompt/i))
+    fireEvent.click(screen.getByRole('radio', { name: /chat-only ai service/i }))
     fireEvent.click(screen.getByRole('button', { name: /create agent/i }))
     await waitFor(() =>
       expect(createAgent).toHaveBeenCalledWith(

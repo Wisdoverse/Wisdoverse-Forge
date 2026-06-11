@@ -419,7 +419,7 @@ describe('CreateAgentModal', () => {
     expect(payload).not.toHaveProperty('cliTool')
   })
 
-  test('applies a role template to a provider agent prompt', async () => {
+  test('applies a role template to chat-only agent instructions', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
 
@@ -429,9 +429,10 @@ describe('CreateAgentModal', () => {
     fireEvent.click(within(templateGroup).getByRole('button', { name: /reviewer/i }))
 
     expect(screen.getByLabelText(/^name$/i)).toHaveValue('Review Agent')
-    expect((screen.getByLabelText(/system prompt/i) as HTMLTextAreaElement).value).toContain(
+    expect((screen.getByLabelText(/agent instructions/i) as HTMLTextAreaElement).value).toContain(
       'security issues'
     )
+    expect(screen.queryByText(/prompt work/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 

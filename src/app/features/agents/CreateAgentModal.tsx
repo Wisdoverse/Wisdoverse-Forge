@@ -729,7 +729,7 @@ export function CreateAgentModal() {
                     ? 'File work'
                     : kind === 'local-cli'
                       ? 'Local work'
-                      : 'Prompt work'}
+                      : 'Chat-only work'}
                 </span>
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -832,7 +832,7 @@ export function CreateAgentModal() {
                     htmlFor="systemPrompt"
                     className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                   >
-                    System prompt
+                    Agent instructions
                   </label>
                   <textarea
                     id="systemPrompt"
