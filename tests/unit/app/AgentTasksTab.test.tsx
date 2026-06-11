@@ -43,11 +43,11 @@ describe('AgentTasksTab', () => {
     expect(within(emptyState).getByText('No tasks have reached this agent yet')).toBeDefined()
     expect(
       within(emptyState).getByText(
-        'Tasks appear here after work is sent to this agent or to a work lane it can receive.'
+        'Tasks appear here after work is sent to this agent or to a task queue it can receive.'
       )
     ).toBeDefined()
     expect(within(emptyState).getByText('Open Tasks')).toBeDefined()
-    expect(within(emptyState).getByText('Check the work lane')).toBeDefined()
+    expect(within(emptyState).getByText('Check the task queue')).toBeDefined()
     expect(within(emptyState).getByText('Use Needs help after tasks arrive')).toBeDefined()
     expect(emptyState.textContent).not.toContain('routed')
     expect(emptyState.textContent).not.toContain('routing')
@@ -106,7 +106,7 @@ describe('AgentTasksTab', () => {
     const alert = await screen.findByRole('alert')
     expect(within(alert).getByText('Agent tasks need attention.')).toBeDefined()
     expect(alert.textContent).toContain(
-      'Ask an owner or admin to give you access to this agent or its work lane.'
+      'Ask an owner or admin to give you access to this agent or its task queue.'
     )
     expect(alert.textContent).not.toContain('HTTP 403')
     expect(alert.textContent).not.toContain('Details:')

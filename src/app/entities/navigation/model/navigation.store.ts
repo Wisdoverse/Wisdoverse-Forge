@@ -49,8 +49,8 @@ type NavigationErrorAction = 'load' | 'create'
 const NAVIGATION_AREA_LABELS: Record<NavigationErrorArea, string> = {
   organizations: 'organizations',
   teamProjects: 'teams and projects',
-  workLanes: 'work lanes',
-  workLane: 'work lane',
+  workLanes: 'task queues',
+  workLane: 'task queue',
 }
 
 function navigationActionPhrase(area: NavigationErrorArea, action: NavigationErrorAction): string {
@@ -182,14 +182,14 @@ function navigationValidationMessage(
 
   if (area === 'workLane' || area === 'workLanes') {
     if (normalized.includes('name') || normalized.includes('title')) {
-      return 'Name this work lane, choose its project, then create it again.'
+      return 'Name this task queue, choose its project, then create it again.'
     }
     if (normalized.includes('project')) {
-      return 'Choose the project that should hold this work lane, then try again.'
+      return 'Choose the project that should hold this task queue, then try again.'
     }
     return action === 'create'
-      ? 'Check the work lane name and project, then create it again.'
-      : 'Refresh the selected project, then load work lanes again.'
+      ? 'Check the task queue name and project, then create it again.'
+      : 'Refresh the selected project, then load task queues again.'
   }
 
   if (area === 'teamProjects') {

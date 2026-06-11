@@ -51,7 +51,7 @@ afterEach(() => {
 })
 
 describe('AgentGroupsPanel', () => {
-  test('summarizes the selected work lane workload', () => {
+  test('summarizes the selected task queue workload', () => {
     seedRoutingState([
       makeTask({
         id: 'backlog-1',
@@ -180,44 +180,44 @@ describe('AgentGroupsPanel', () => {
     expect(screen.getByText('Build settings page')).toBeInTheDocument()
   })
 
-  test('explains the next step when a work lane has no routed tasks', () => {
+  test('explains the next step when a task queue has no routed tasks', () => {
     seedRoutingState([])
 
     render(<AgentGroupsPanel />)
 
     const emptyState = screen.getByTestId('task-routing-empty')
-    expect(emptyState).toHaveTextContent('No tasks are in this work lane yet')
-    expect(emptyState).toHaveTextContent('Create a task and choose this work lane')
+    expect(emptyState).toHaveTextContent('No tasks are in this task queue yet')
+    expect(emptyState).toHaveTextContent('Create a task and choose this task queue')
   })
 
-  test('guides blank work lane names with examples', () => {
+  test('guides blank task queue names with examples', () => {
     seedRoutingState([])
 
     render(<AgentGroupsPanel />)
 
-    fireEvent.click(screen.getByRole('button', { name: /new lane/i }))
-    fireEvent.submit(screen.getByRole('button', { name: /create work lane/i }).closest('form')!)
+    fireEvent.click(screen.getByRole('button', { name: /new queue/i }))
+    fireEvent.submit(screen.getByRole('button', { name: /create task queue/i }).closest('form')!)
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Name this work lane before creating it. Examples: Intake, Review, or Delivery.'
+      'Name this task queue before creating it. Examples: Intake, Review, or Delivery.'
     )
   })
 
-  test('explains work lane creation permission failures with a next step', async () => {
+  test('explains task queue creation permission failures with a next step', async () => {
     seedRoutingState([])
     const createAgentGroup = vi.fn().mockRejectedValue(new Error('HTTP 403: Forbidden'))
     useNavigationStore.setState({ createAgentGroup } as never)
 
     render(<AgentGroupsPanel />)
 
-    fireEvent.click(screen.getByRole('button', { name: /new lane/i }))
-    fireEvent.change(screen.getByLabelText(/work lane name/i), {
-      target: { value: 'Delivery Lane' },
+    fireEvent.click(screen.getByRole('button', { name: /new queue/i }))
+    fireEvent.change(screen.getByLabelText(/task queue name/i), {
+      target: { value: 'Delivery Queue' },
     })
-    fireEvent.submit(screen.getByRole('button', { name: /create work lane/i }).closest('form')!)
+    fireEvent.submit(screen.getByRole('button', { name: /create task queue/i }).closest('form')!)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Work lane was not created. Ask an owner or admin to let you create and manage work lanes in this project.'
+      'Task queue was not created. Ask an owner or admin to let you create and manage task queues in this project.'
     )
     expect(screen.queryByText(/HTTP 403/i)).toBeNull()
   })

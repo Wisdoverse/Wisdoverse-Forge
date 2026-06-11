@@ -70,12 +70,12 @@ const TASK_FILTERS: { value: AgentTaskFilter; label: string }[] = [
 const AGENT_TASK_EMPTY_STEPS: { title: string; description: string; Icon: LucideIcon }[] = [
   {
     title: 'Open Tasks',
-    description: 'Create work and send it to this agent or its work lane.',
+    description: 'Create work and send it to this agent or its task queue.',
     Icon: ListFilter,
   },
   {
-    title: 'Check the work lane',
-    description: 'Make sure new work is sent to a work lane this agent can receive.',
+    title: 'Check the task queue',
+    description: 'Make sure new work is sent to a task queue this agent can receive.',
     Icon: CircleDot,
   },
   {
@@ -318,7 +318,7 @@ function AgentTasksEmptyState() {
         <div className="min-w-0">
           <h3 className="text-ui-section font-semibold">No tasks have reached this agent yet</h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-            Tasks appear here after work is sent to this agent or to a work lane it can receive.
+            Tasks appear here after work is sent to this agent or to a task queue it can receive.
           </p>
         </div>
       </div>

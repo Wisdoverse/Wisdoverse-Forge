@@ -29,7 +29,7 @@ export function agentTasksErrorMessage(err: unknown): string {
     return `${base} Sign in again, then reopen this agent.`
   }
   if (code === 403 || text.includes('forbidden')) {
-    return `${base} Ask an owner or admin to give you access to this agent or its work lane.`
+    return `${base} Ask an owner or admin to give you access to this agent or its task queue.`
   }
   if (code === 404) {
     return `${base} Refresh the page; this agent may have changed or been removed.`

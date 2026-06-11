@@ -243,7 +243,7 @@ describe('AgentListView', () => {
     expect(screen.getAllByText(/new agent/i).length).toBeGreaterThan(0)
   })
 
-  test('creates a work lane from the selected project context', async () => {
+  test('creates a task queue from the selected project context', async () => {
     const createAgentGroup = vi.fn(
       async (projectId: string, input: { name: string; description?: string }) => {
         const group = { id: 'g-new', name: input.name, projectId }
@@ -272,19 +272,19 @@ describe('AgentListView', () => {
 
     render(<AgentListView />)
 
-    expect(screen.getByText('Work Lanes')).toBeDefined()
-    expect(screen.getByText(/work lanes are simple places agents watch for tasks/i)).toBeDefined()
-    fireEvent.change(screen.getByLabelText(/work lane name/i), {
+    expect(screen.getByText('Task Queues')).toBeDefined()
+    expect(screen.getByText(/task queues are simple places agents check for tasks/i)).toBeDefined()
+    fireEvent.change(screen.getByLabelText(/task queue name/i), {
       target: { value: 'Frontend Delivery' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /^create work lane$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^create task queue$/i }))
 
     await waitFor(() =>
       expect(createAgentGroup).toHaveBeenCalledWith(
         'p1',
         expect.objectContaining({
           name: 'Frontend Delivery',
-          description: 'This work lane lets agents receive board tasks.',
+          description: 'This task queue lets agents receive board tasks.',
         })
       )
     )
@@ -295,7 +295,7 @@ describe('AgentListView', () => {
     )
   })
 
-  test('applies a work lane template before creating routing', async () => {
+  test('applies a task queue template before creating routing', async () => {
     const createAgentGroup = vi.fn(
       async (projectId: string, input: { name: string; description?: string }) => {
         const group = { id: 'g-review', name: input.name, projectId }
@@ -324,21 +324,21 @@ describe('AgentListView', () => {
 
     render(<AgentListView />)
 
-    const templates = screen.getByRole('group', { name: /work lane templates/i })
+    const templates = screen.getByRole('group', { name: /task queue templates/i })
     fireEvent.click(within(templates).getByRole('button', { name: /review/i }))
 
-    expect(screen.getByLabelText(/work lane name/i)).toHaveValue('Review Lane')
-    expect((screen.getByLabelText(/work lane description/i) as HTMLInputElement).value).toContain(
+    expect(screen.getByLabelText(/task queue name/i)).toHaveValue('Review Queue')
+    expect((screen.getByLabelText(/task queue description/i) as HTMLInputElement).value).toContain(
       'release risk'
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /^create work lane$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^create task queue$/i }))
 
     await waitFor(() =>
       expect(createAgentGroup).toHaveBeenCalledWith(
         'p1',
         expect.objectContaining({
-          name: 'Review Lane',
+          name: 'Review Queue',
           description: expect.stringContaining('release risk'),
         })
       )

@@ -26,15 +26,15 @@ function isNetworkError(error: unknown): boolean {
 }
 
 export function createAgentWorkLaneErrorMessage(error: unknown): string {
-  const base = 'Work lane was not created.'
+  const base = 'Task queue was not created.'
   const text = errorText(error).toLowerCase()
   const code = statusCode(error)
 
   if (code === 401 || text.includes('unauthorized') || text.includes('sign in again')) {
-    return `${base} Sign in again, reopen New Agent, and try creating the lane again.`
+    return `${base} Sign in again, reopen New Agent, and try creating the queue again.`
   }
   if (code === 403 || text.includes('forbidden') || text.includes('permission')) {
-    return `${base} Ask an owner or admin to let you create and manage work lanes in this project.`
+    return `${base} Ask an owner or admin to let you create and manage task queues in this project.`
   }
   if (code === 404) {
     return `${base} Refresh this page. The selected project may have changed or been removed.`
@@ -45,20 +45,20 @@ export function createAgentWorkLaneErrorMessage(error: unknown): string {
     text.includes('already exist') ||
     text.includes('duplicate')
   ) {
-    return `${base} A starter lane may already exist. Refresh the project, then choose the existing lane.`
+    return `${base} A starter queue may already exist. Refresh the project, then choose the existing queue.`
   }
   if (code === 422 || text.includes('validation')) {
     return `${base} Choose a project first, then try again.`
   }
   if (code === 429 || text.includes('rate limit') || text.includes('too many')) {
-    return `${base} Too many lane changes are happening right now. Wait a minute, then try again.`
+    return `${base} Too many queue changes are happening right now. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
-    return `${base} Forge could not create the work lane right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check work lane setup.`
+    return `${base} Forge could not create the task queue right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check task queue setup.`
   }
   if (isNetworkError(error)) {
-    return `${base} Forge could not connect while creating the work lane. Check your connection, then try again.`
+    return `${base} Forge could not connect while creating the task queue. Check your connection, then try again.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner or admin to check this project's work lane setup.`
+  return `${base} Try again. If it still fails, ask an owner or admin to check this project's task queue setup.`
 }

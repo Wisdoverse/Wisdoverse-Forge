@@ -477,7 +477,7 @@ function taskNextAction(task: TaskSummary): string {
     case 'backlog':
       return task.assignedAgentName || task.assignedTo
         ? 'Send this when you are ready for the agent to start.'
-        : 'Assign an agent or move it into a ready work lane.'
+        : 'Assign an agent or move it into a ready task queue.'
     case 'queued':
       return 'Wait for the next ready agent to start it; check again if it stays here.'
     case 'working':

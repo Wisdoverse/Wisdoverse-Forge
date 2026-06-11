@@ -2,9 +2,9 @@ import { describe, expect, test } from 'vitest'
 import { agentTasksErrorMessage } from '@app/features/agents/model/taskErrorMessage'
 
 describe('agentTasksErrorMessage', () => {
-  test('maps permission failures to work lane access guidance', () => {
+  test('maps permission failures to task queue access guidance', () => {
     expect(agentTasksErrorMessage(new Error('HTTP 403'))).toBe(
-      'This agent task list could not be loaded. Ask an owner or admin to give you access to this agent or its work lane.'
+      'This agent task list could not be loaded. Ask an owner or admin to give you access to this agent or its task queue.'
     )
   })
 

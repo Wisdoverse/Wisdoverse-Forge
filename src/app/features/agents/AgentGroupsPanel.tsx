@@ -21,7 +21,7 @@ import type { TaskSummary } from '@app/shared/api/orchestration'
 import { useNavigationStore } from '@app/entities/navigation'
 import { agentGroupErrorMessage } from './model/agentGroupErrorMessage'
 
-const DEFAULT_GROUP_DESCRIPTION = 'This work lane lets agents receive board tasks.'
+const DEFAULT_GROUP_DESCRIPTION = 'This task queue lets agents receive board tasks.'
 
 const TASK_STATE_LABELS: Record<TaskSummary['state'], string> = {
   backlog: 'Backlog',
@@ -74,7 +74,7 @@ const TASK_GROUP_TEMPLATES: TaskGroupTemplate[] = [
     id: 'delivery',
     label: 'Delivery',
     summary: 'Build and verify',
-    name: 'Delivery Lane',
+    name: 'Delivery Queue',
     description: 'Build scoped changes, keep work moving, and verify before handoff.',
     Icon: Wrench,
   },
@@ -82,7 +82,7 @@ const TASK_GROUP_TEMPLATES: TaskGroupTemplate[] = [
     id: 'review',
     label: 'Review',
     summary: 'Risk and readiness',
-    name: 'Review Lane',
+    name: 'Review Queue',
     description: 'Review completed work for regressions, missing tests, and release risk.',
     Icon: ShieldCheck,
   },
@@ -90,7 +90,7 @@ const TASK_GROUP_TEMPLATES: TaskGroupTemplate[] = [
     id: 'triage',
     label: 'Triage',
     summary: 'Clarify and route',
-    name: 'Triage Lane',
+    name: 'Triage Queue',
     description: 'Clarify incoming work, identify blockers, and route tasks to the right agent.',
     Icon: ClipboardCheck,
   },
@@ -167,14 +167,14 @@ export function AgentGroupsPanel() {
     event.preventDefault()
     if (!selectedProjectId) {
       setError(
-        'Select a project from the sidebar first. Work lanes belong to one project so agents know where to look for tasks.'
+        'Select a project from the sidebar first. Task queues belong to one project so agents know where to look for tasks.'
       )
       return
     }
 
     const trimmedName = name.trim()
     if (!trimmedName) {
-      setError('Name this work lane before creating it. Examples: Intake, Review, or Delivery.')
+      setError('Name this task queue before creating it. Examples: Intake, Review, or Delivery.')
       return
     }
 
@@ -217,11 +217,11 @@ export function AgentGroupsPanel() {
               aria-hidden="true"
             />
             <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              Work Lanes
+              Task Queues
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Work lanes are simple places agents watch for tasks. Create a lane, add agents, then
+            Task queues are simple places agents check for tasks. Create a queue, add agents, then
             send tasks to it.
           </p>
           {selectedProject && (
@@ -245,14 +245,15 @@ export function AgentGroupsPanel() {
             )}
           >
             <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-            New Lane
+            New Queue
           </button>
         )}
       </div>
 
       {!selectedProjectId ? (
         <div className="mt-3 rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark">
-          Select a project from the sidebar first. Each project keeps its own work lanes and agents.
+          Select a project from the sidebar first. Each project keeps its own task queues and
+          agents.
         </div>
       ) : (
         <div className="mt-3 flex flex-col gap-3">
@@ -280,7 +281,7 @@ export function AgentGroupsPanel() {
               })
             ) : (
               <div className="rounded-lg border border-dashed border-black/10 px-3 py-2 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark">
-                No work lanes yet. Create one below so agents can receive tasks.
+                No task queues yet. Create one below so agents can receive tasks.
               </div>
             )}
           </div>
@@ -293,10 +294,10 @@ export function AgentGroupsPanel() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                    Lane workload
+                    Queue workload
                   </p>
                   <h3 className="truncate text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-                    {selectedGroup?.name ?? 'Select a work lane'}
+                    {selectedGroup?.name ?? 'Select a task queue'}
                   </h3>
                 </div>
                 <span className="shrink-0 rounded-full bg-white px-2 py-1 text-ui-caption font-medium text-secondary-light shadow-sm dark:bg-black/20 dark:text-secondary-dark">
@@ -359,7 +360,7 @@ export function AgentGroupsPanel() {
                     data-testid="task-routing-empty"
                     className="rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark"
                   >
-                    No tasks are in this work lane yet. Create a task and choose this work lane so
+                    No tasks are in this task queue yet. Create a task and choose this task queue so
                     agents know where to pick it up.
                   </p>
                 ) : visibleTasks.length > 0 ? (
@@ -373,7 +374,7 @@ export function AgentGroupsPanel() {
                     data-testid="task-routing-filter-empty"
                     className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark"
                   >
-                    <span>No tasks in this work lane match this search.</span>
+                    <span>No tasks in this task queue match this search.</span>
                     {hasRoutingSearch && (
                       <button
                         type="button"
@@ -392,12 +393,12 @@ export function AgentGroupsPanel() {
           {formOpen && (
             <form onSubmit={handleCreateGroup} className="grid gap-2">
               <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Pick a starter work lane or name one yourself. New tasks can use it as soon as it is
-                created.
+                Pick a starter task queue or name one yourself. New tasks can use it as soon as it
+                is created.
               </p>
               <div
                 role="group"
-                aria-label="Work lane templates"
+                aria-label="Task queue templates"
                 className="grid gap-2 sm:grid-cols-3"
               >
                 {TASK_GROUP_TEMPLATES.map((template) => (
@@ -429,23 +430,23 @@ export function AgentGroupsPanel() {
               </div>
 
               <input
-                aria-label="Work lane name"
+                aria-label="Task queue name"
                 name="taskGroupName"
                 autoComplete="off"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 className="h-10 rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                placeholder="Work lane name…"
+                placeholder="Task queue name…"
                 disabled={saving}
               />
               <input
-                aria-label="Work lane description"
+                aria-label="Task queue description"
                 name="taskGroupDescription"
                 autoComplete="off"
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 className="h-10 rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                placeholder="What should agents use this lane for?"
+                placeholder="What should agents use this queue for?"
                 disabled={saving}
               />
               <div className="flex items-center justify-end gap-2">
@@ -459,7 +460,7 @@ export function AgentGroupsPanel() {
                   )}
                 >
                   <Check size={14} strokeWidth={2.25} aria-hidden="true" />
-                  {saving ? 'Creating…' : 'Create Work Lane'}
+                  {saving ? 'Creating…' : 'Create Task Queue'}
                 </button>
                 {agentGroups.length > 0 && (
                   <button
@@ -469,7 +470,7 @@ export function AgentGroupsPanel() {
                       setError(null)
                     }}
                     disabled={saving}
-                    aria-label="Cancel work lane creation"
+                    aria-label="Cancel task queue creation"
                     className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ui-button text-secondary-light transition-transform hover:bg-black/[0.04] hover:text-foreground-light active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
                   >
                     <X size={14} strokeWidth={2.25} aria-hidden="true" />

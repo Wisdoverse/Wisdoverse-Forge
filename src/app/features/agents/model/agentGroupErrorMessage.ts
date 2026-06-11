@@ -21,7 +21,7 @@ function isNetworkError(err: unknown): boolean {
 }
 
 export function agentGroupErrorMessage(err: unknown): string {
-  const base = 'Work lane was not created.'
+  const base = 'Task queue was not created.'
   const code = statusCode(err)
   const text = errorText(err).toLowerCase()
 
@@ -29,23 +29,23 @@ export function agentGroupErrorMessage(err: unknown): string {
     return `${base} Sign in again, then choose the project and try again.`
   }
   if (code === 403 || text.includes('forbidden')) {
-    return `${base} Ask an owner or admin to let you create and manage work lanes in this project.`
+    return `${base} Ask an owner or admin to let you create and manage task queues in this project.`
   }
   if (code === 404) {
     return `${base} Refresh this page. The selected project may have changed or been removed.`
   }
   if (code === 409) {
-    return `${base} A lane with this name may already exist. Use a different name, then try again.`
+    return `${base} A queue with this name may already exist. Use a different name, then try again.`
   }
   if (code === 429 || text.includes('rate limit') || text.includes('too many')) {
-    return `${base} Too many lane changes are happening right now. Wait a minute, then try again.`
+    return `${base} Too many queue changes are happening right now. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
-    return `${base} Forge could not create the work lane right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check work lane setup.`
+    return `${base} Forge could not create the task queue right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check task queue setup.`
   }
   if (isNetworkError(err)) {
-    return `${base} Forge could not connect while creating the work lane. Check your connection, then try again.`
+    return `${base} Forge could not connect while creating the task queue. Check your connection, then try again.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner or admin to check this project's work lane setup.`
+  return `${base} Try again. If it still fails, ask an owner or admin to check this project's task queue setup.`
 }

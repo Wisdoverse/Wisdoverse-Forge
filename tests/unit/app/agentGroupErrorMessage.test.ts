@@ -4,13 +4,13 @@ import { agentGroupErrorMessage } from '@app/features/agents/model/agentGroupErr
 describe('agentGroupErrorMessage', () => {
   test('turns permission failures into an owner or admin next step', () => {
     expect(agentGroupErrorMessage(new Error('HTTP 403: Forbidden'))).toBe(
-      'Work lane was not created. Ask an owner or admin to let you create and manage work lanes in this project.'
+      'Task queue was not created. Ask an owner or admin to let you create and manage task queues in this project.'
     )
   })
 
   test('explains naming conflicts without leaking raw API wording', () => {
     expect(agentGroupErrorMessage(new Error('API 409 lane conflict'))).toBe(
-      'Work lane was not created. A lane with this name may already exist. Use a different name, then try again.'
+      'Task queue was not created. A queue with this name may already exist. Use a different name, then try again.'
     )
   })
 
@@ -18,7 +18,7 @@ describe('agentGroupErrorMessage', () => {
     const message = agentGroupErrorMessage(new TypeError('Failed to fetch'))
 
     expect(message).toBe(
-      'Work lane was not created. Forge could not connect while creating the work lane. Check your connection, then try again.'
+      'Task queue was not created. Forge could not connect while creating the task queue. Check your connection, then try again.'
     )
     expect(message).not.toContain('Failed to fetch')
   })
@@ -27,7 +27,7 @@ describe('agentGroupErrorMessage', () => {
     const message = agentGroupErrorMessage(new Error('Server error 503: database unavailable'))
 
     expect(message).toBe(
-      'Work lane was not created. Forge could not create the work lane right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check work lane setup.'
+      'Task queue was not created. Forge could not create the task queue right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check task queue setup.'
     )
     expect(message).not.toContain('Server error')
     expect(message).not.toContain('platform')

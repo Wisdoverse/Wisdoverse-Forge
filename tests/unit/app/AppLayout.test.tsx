@@ -183,7 +183,7 @@ describe('AppLayout', () => {
 
     render(<MemoryRouter />)
 
-    expect(screen.queryByRole('button', { name: /new work lane/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /new task queue/i })).toBeNull()
     expect(screen.getByRole('combobox', { name: /task queue for new tasks/i })).toBeDisabled()
     expect(mockCreateGroup).not.toHaveBeenCalled()
   })

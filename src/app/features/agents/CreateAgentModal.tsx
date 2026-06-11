@@ -310,7 +310,7 @@ export function CreateAgentModal() {
 
   async function handleCreateDefaultGroup() {
     if (!selectedProjectId) {
-      setError('Select a project before creating a work lane. Work lanes belong to one project.')
+      setError('Select a project before creating a task queue. Task queues belong to one project.')
       return
     }
 
@@ -318,8 +318,8 @@ export function CreateAgentModal() {
     setError(null)
     try {
       const group = await createAgentGroup(selectedProjectId, {
-        name: 'Default Work Lane',
-        description: 'This work lane lets agents receive board tasks.',
+        name: 'Default Task Queue',
+        description: 'This task queue lets agents receive board tasks.',
       })
       setValue('groupId', group.id, { shouldDirty: true })
     } catch (err) {
@@ -762,7 +762,7 @@ export function CreateAgentModal() {
                   htmlFor="agent-group"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  Work lane
+                  Task queue
                 </label>
                 {groups.length > 0 ? (
                   <>
@@ -771,7 +771,7 @@ export function CreateAgentModal() {
                       {...register('groupId')}
                       className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                     >
-                      <option value="">No work lane</option>
+                      <option value="">No task queue</option>
                       {groups.map((g) => (
                         <option key={g.id} value={g.id}>
                           {g.name}
@@ -779,7 +779,7 @@ export function CreateAgentModal() {
                       ))}
                     </select>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      Choose the work lane this agent watches for board tasks.
+                      Choose the task queue this agent checks for board tasks.
                     </p>
                   </>
                 ) : (
@@ -796,10 +796,10 @@ export function CreateAgentModal() {
                       )}
                     >
                       <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-                      {creatingGroup ? 'Creating...' : 'Create work lane'}
+                      {creatingGroup ? 'Creating...' : 'Create task queue'}
                     </button>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      This creates the first work lane so the agent can receive tasks.
+                      This creates the first task queue so the agent can receive tasks.
                     </p>
                   </div>
                 )}

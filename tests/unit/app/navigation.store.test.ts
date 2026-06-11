@@ -54,11 +54,7 @@ describe('navigation.store', () => {
 
   it('turns permission failures into workspace access guidance', () => {
     expectBeginnerError(
-      navigationActionErrorMessage(
-        'teamProjects',
-        'load',
-        apiError(403, { message: 'forbidden' })
-      ),
+      navigationActionErrorMessage('teamProjects', 'load', apiError(403, { message: 'forbidden' })),
       'You do not have permission to load teams and projects. Ask an owner or admin to update your workspace access.'
     )
   })
@@ -72,7 +68,7 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       message,
-      'Navigation could not load work lanes. Forge could not connect while loading the sidebar. Check your connection, then refresh the page.'
+      'Navigation could not load task queues. Forge could not connect while loading the sidebar. Check your connection, then refresh the page.'
     )
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('service')
@@ -294,19 +290,19 @@ describe('navigation.store', () => {
     )
   })
 
-  it('stores connection guidance when work lanes cannot load', async () => {
+  it('stores connection guidance when task queues cannot load', async () => {
     vi.mocked(agentGroupApi.getGroups).mockRejectedValue(new TypeError('Failed to fetch'))
 
     await useNavigationStore.getState().selectProject('p-offline')
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'Navigation could not load work lanes. Forge could not connect while loading the sidebar. Check your connection, then refresh the page.'
+      'Navigation could not load task queues. Forge could not connect while loading the sidebar. Check your connection, then refresh the page.'
     )
     expect(useNavigationStore.getState().error).not.toContain('Failed to fetch')
   })
 
-  it('stores field guidance when work lane creation is invalid', async () => {
+  it('stores field guidance when task queue creation is invalid', async () => {
     vi.mocked(agentGroupApi.createGroup).mockRejectedValue(
       apiError(422, { error: 'name is required' })
     )
@@ -320,7 +316,7 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'Name this work lane, choose its project, then create it again.'
+      'Name this task queue, choose its project, then create it again.'
     )
   })
 })
