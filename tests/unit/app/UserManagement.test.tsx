@@ -236,6 +236,30 @@ describe('UserManagement', () => {
     expect(screen.queryByRole('button', { name: 'Next' })).toBeNull()
   })
 
+  test('hides raw load errors behind a recovery step', async () => {
+    const loadUsers = vi.fn()
+    useAdminStore.setState({
+      ...originalAdminState,
+      users: [],
+      usersTotal: 0,
+      usersPage: 1,
+      usersLoading: false,
+      usersError: 'HTTP 503',
+      userSearch: '',
+      loadUsers,
+    })
+
+    render(<UserManagement />)
+
+    await waitFor(() => expect(loadUsers).toHaveBeenCalledWith(1))
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent('The admin user list could not load.')
+    expect(alert).toHaveTextContent(
+      'Refresh Admin, then try again. If it still fails, ask an owner or admin to check Admin setup and your role.'
+    )
+    expect(alert).not.toHaveTextContent('HTTP 503')
+  })
+
   test('search submits a fresh first-page lookup', async () => {
     const loadUsers = vi.fn()
     useAdminStore.setState({

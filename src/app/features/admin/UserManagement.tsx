@@ -3,6 +3,7 @@ import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAuth } from '@app/shared/model/auth.context'
 import { useAdminStore, type AdminUser } from '@app/shared/model/admin.store'
+import { ADMIN_PANEL_RECOVERY, adminPanelLoadErrorMessage } from './adminErrorCopy'
 
 /**
  * Access levels the backend reports and accepts: `role` maps onto the global
@@ -334,7 +335,12 @@ export function UserManagement() {
       </form>
 
       {/* Error */}
-      {usersError && <div className={uiStyles.error}>{usersError}</div>}
+      {usersError && (
+        <div role="alert" className={uiStyles.error}>
+          <p>{adminPanelLoadErrorMessage(usersError, 'user list')}</p>
+          <p className="mt-1 text-ui-caption">{ADMIN_PANEL_RECOVERY}</p>
+        </div>
+      )}
 
       {/* Table */}
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
