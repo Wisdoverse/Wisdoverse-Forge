@@ -79,7 +79,10 @@ describe('AuditLogView', () => {
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
     expect(screen.getByText('Start with what you need to check')).toBeDefined()
+    expect(screen.getByText('See every saved-memory and saved-instruction change.')).toBeDefined()
     expect(screen.getByText('Hidden item references')).toBeDefined()
+    expect(screen.getByText('Selected view')).toBeDefined()
+    expect(screen.getAllByText('All context changes').length).toBeGreaterThan(0)
 
     const quickViews = screen.getByRole('group', { name: /common audit views/i })
     fireEvent.click(within(quickViews).getByRole('button', { name: /skill decisions/i }))
@@ -103,6 +106,14 @@ describe('AuditLogView', () => {
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
     expect(screen.getByText(/Hide secrets before export/i)).toBeDefined()
+    expect(screen.getByText('Change group')).toBeDefined()
+    expect(
+      screen.getByText('Use the default unless support gives you a specific group.')
+    ).toBeDefined()
+    expect(screen.getByText('Support event name')).toBeDefined()
+    expect(
+      screen.getByText('Optional. Paste this only when support asks for a specific event.')
+    ).toBeDefined()
     expect(screen.getByText('Work area reference')).toBeDefined()
     expect(
       screen.getByPlaceholderText(/organization, workspace, team, or project reference/i)
@@ -113,13 +124,14 @@ describe('AuditLogView', () => {
     expect(screen.getByText('Change')).toBeDefined()
     expect(screen.getByText('Feedback recorded')).toBeDefined()
     expect(screen.getByText('Skill approved')).toBeDefined()
-    expect(screen.getAllByText(/Support event:/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Show support event').length).toBeGreaterThan(0)
     expect(screen.getByText('Saved memory · Memory item')).toBeDefined()
     expect(screen.getByText('Saved instruction · Skill')).toBeDefined()
     expect(screen.getAllByText('Changed item').length).toBeGreaterThan(0)
     expect(screen.getByText('Changed by')).toBeDefined()
     expect(screen.getByText('Verification')).toBeDefined()
-    expect(screen.getByText('Support details')).toBeDefined()
+    expect(screen.getByText('Support notes')).toBeDefined()
+    expect(screen.getAllByText('Show support notes').length).toBeGreaterThan(0)
     expect(screen.getByTestId('governance-audit-item-reference').textContent).toContain(
       'Visible item reference'
     )
@@ -177,7 +189,8 @@ describe('AuditLogView', () => {
 
     expect(await screen.findByText('Change not listed')).toBeDefined()
     expect(screen.getByText('Item hidden for safety · Resource not listed')).toBeDefined()
-    expect(screen.getByText(/Support event:/).textContent).toContain('not listed')
+    expect(screen.getByText('Show support event')).toBeDefined()
+    expect(screen.getByText('not listed')).toBeDefined()
     expect(screen.queryByText('Unknown')).toBeNull()
   })
 

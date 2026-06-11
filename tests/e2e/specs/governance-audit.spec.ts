@@ -97,12 +97,14 @@ test.describe('Governance audit log', () => {
     await setupGovernanceAuditFixture(page, baseURL!)
 
     await expect(page.getByTestId('governance-audit-row')).toHaveCount(2)
-    await expect(page.getByTestId('governance-audit-raw-item-id')).toContainText('11111111')
-    await expect(page.getByTestId('governance-audit-subject-hash')).toContainText(
+    await expect(page.getByTestId('governance-audit-item-reference')).toContainText('11111111')
+    await expect(page.getByTestId('governance-audit-protected-reference')).toContainText(
       hiddenSkillHash.slice(0, 10)
     )
     await expect(page.getByTestId('governance-audit-redacted')).toBeVisible()
-    await expect(page.getByText('Protected subjects')).toBeVisible()
+    await expect(page.getByText('Hidden item references')).toBeVisible()
+    await expect(page.getByText('Support notes')).toBeVisible()
+    await expect(page.getByText('Show support event').first()).toBeVisible()
 
     await page
       .getByTestId('governance-audit-filter-event-type')
@@ -111,9 +113,7 @@ test.describe('Governance audit log', () => {
     await page.getByRole('button', { name: 'Apply filters' }).click()
 
     await expect(page.getByTestId('governance-audit-row')).toHaveCount(1)
-    await expect(page.getByTestId('governance-audit-view')).toContainText(
-      'governance.context.skill.reviewed'
-    )
+    await expect(page.getByTestId('governance-audit-view')).toContainText('Skill reviewed')
 
     const download = page.waitForEvent('download')
     await page.getByTestId('governance-audit-export').click()

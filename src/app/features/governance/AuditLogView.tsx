@@ -64,14 +64,14 @@ const QUICK_AUDIT_VIEWS: QuickAuditView[] = [
   {
     id: 'all',
     label: 'All context changes',
-    description: 'Start broad, then narrow the history.',
+    description: 'See every saved-memory and saved-instruction change.',
     Icon: Search,
     filters: {},
   },
   {
     id: 'skill-decisions',
     label: 'Skill decisions',
-    description: 'Review approvals and changes for skills.',
+    description: 'Check who approved or updated saved instructions.',
     Icon: ClipboardCheck,
     filters: {
       eventPrefix: 'governance.context.skill.',
@@ -81,7 +81,7 @@ const QUICK_AUDIT_VIEWS: QuickAuditView[] = [
   {
     id: 'memory-feedback',
     label: 'Memory feedback',
-    description: 'See saved context feedback first.',
+    description: 'See whether saved memories helped or caused trouble.',
     Icon: ShieldCheck,
     filters: {
       eventType: 'governance.context.feedback.recorded',
@@ -229,7 +229,10 @@ export function AuditLogView() {
           </div>
         </div>
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_160px_160px_160px_auto]">
-          <Field label="Event family">
+          <Field
+            label="Change group"
+            help="Use the default unless support gives you a specific group."
+          >
             <input
               data-testid="governance-audit-filter-event-prefix"
               name="eventPrefix"
@@ -240,10 +243,14 @@ export function AuditLogView() {
               className={INPUT_CLASS}
             />
           </Field>
-          <Field label="Exact event name">
+          <Field
+            label="Support event name"
+            help="Optional. Paste this only when support asks for a specific event."
+          >
             <input
               data-testid="governance-audit-filter-event-type"
               name="eventType"
+              list="governance-audit-event-type-options"
               autoComplete="off"
               value={filters.eventType}
               onChange={(event) => updateFilter('eventType', event.target.value)}
@@ -407,7 +414,11 @@ export function AuditLogView() {
 
         <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Metric label="Events" value={entries.length} />
-          <Metric label="View" value={data?.query.eventPrefix ?? filters.eventPrefix} compact />
+          <Metric
+            label="Selected view"
+            value={auditViewMetricLabel(data?.query.eventPrefix ?? filters.eventPrefix)}
+            compact
+          />
           <Metric label="Hidden item references" value={protectedReferences} />
           <Metric label="Hidden detail rows" value={redactedRows} />
         </div>
@@ -423,7 +434,7 @@ export function AuditLogView() {
                   <th className="px-4 py-3 font-semibold">Area</th>
                   <th className="px-4 py-3 font-semibold">Changed by</th>
                   <th className="px-4 py-3 font-semibold">Verification</th>
-                  <th className="px-4 py-3 font-semibold">Support details</th>
+                  <th className="px-4 py-3 font-semibold">Support notes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5 dark:divide-white/10">
@@ -509,9 +520,12 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
         <div className="truncate font-medium" title={entry.eventType}>
           {auditEventLabel(entry.eventType)}
         </div>
-        <div className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Support event: <span className="font-mono">{shortEventType(entry.eventType)}</span>
-        </div>
+        <details className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          <summary className="cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/30">
+            Show support event
+          </summary>
+          <span className="mt-1 block font-mono">{shortEventType(entry.eventType)}</span>
+        </details>
         <div className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {auditItemKindLabel(entry.itemKind)} · {resourceTypeLabel(entry.resourceType)}
         </div>
@@ -557,9 +571,14 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
         <TamperBadge status={entry.tamperStatus} />
       </td>
       <td className="min-w-[260px] px-4 py-3">
-        <pre className="max-h-32 overflow-auto rounded-card bg-black/[0.035] p-2 font-mono text-ui-caption leading-relaxed text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
-          {prettyDetails(entry.details)}
-        </pre>
+        <details>
+          <summary className="cursor-pointer select-none text-ui-caption font-medium text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/30 dark:text-foreground-dark">
+            Show support notes
+          </summary>
+          <pre className="mt-2 max-h-32 overflow-auto rounded-card bg-black/[0.035] p-2 font-mono text-ui-caption leading-relaxed text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
+            {prettyDetails(entry.details)}
+          </pre>
+        </details>
       </td>
     </tr>
   )
@@ -749,6 +768,13 @@ function auditEventLabel(eventType: string): string {
       fallback: 'Change not listed',
     })
   )
+}
+
+function auditViewMetricLabel(eventPrefix: string | undefined): string {
+  if (!eventPrefix || eventPrefix === 'governance.context.') return 'All context changes'
+  if (eventPrefix === 'governance.context.skill.') return 'Saved instruction changes'
+  if (eventPrefix === 'governance.context.memory.') return 'Saved memory changes'
+  return 'Support-filtered view'
 }
 
 function shortEventType(eventType: string): string {
