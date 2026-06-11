@@ -43,7 +43,7 @@ export function AssignmentReadinessPanel({
   const offline = participants.filter((participant) => participant.status === 'offline')
   const summary =
     participants.length === 0
-      ? 'No agents are registered for this work lane yet.'
+      ? 'No agents are connected to this task queue yet.'
       : available.length > 0
         ? `${available.length} agent${available.length === 1 ? '' : 's'} can take work now.`
         : 'No agent can take work right now.'
@@ -122,8 +122,8 @@ export function AssignmentReadinessPanel({
             Connect an agent before sending work
           </p>
           <p className="mt-0.5 text-ui-caption leading-snug text-secondary-light dark:text-secondary-dark">
-            Open Agents / Work Lanes, choose this lane, then attach an available agent. Until then,
-            backlog tasks stay in this lane.
+            Open Agents / Work Lanes, choose this task queue, then attach an available agent. Until
+            then, backlog tasks stay in this queue.
           </p>
         </div>
       ) : participants.length > 0 ? (
@@ -182,7 +182,7 @@ function summarizeHandoff(workload: BoardWorkloadSnapshot, availableCount: numbe
     return `${workload.review} completed ${pluralize(workload.review, 'task')} ready for review.`
   }
 
-  return 'Work lane is clear.'
+  return 'Task queue is clear.'
 }
 
 function pluralize(count: number, singular: string): string {

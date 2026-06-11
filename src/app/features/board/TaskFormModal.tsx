@@ -179,7 +179,7 @@ export function TaskFormModal({
       return
     }
     if (!selectedTaskGroupId) {
-      setSubmitError('Create a work lane before creating a task.')
+      setSubmitError('Create a task queue before creating a task.')
       return
     }
     try {
@@ -322,8 +322,8 @@ export function TaskFormModal({
               aria-hidden="true"
             />
             <span>
-              No online agents available. New tasks will wait in this work lane until an agent comes
-              online.
+              No online agents available. New tasks will wait in this task queue until an agent
+              comes online.
             </span>
           </div>
         )}
@@ -371,12 +371,12 @@ export function TaskFormModal({
               )}
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">
-                  {workLaneReady ? 'Ready to Send' : 'Set Up a Work Lane First'}
+                  {workLaneReady ? 'Ready to Send' : 'Set Up a Task Queue First'}
                 </p>
                 <p className="mt-0.5 text-secondary-light dark:text-secondary-dark">
                   {workLaneReady
-                    ? `${selectedTaskGroupName ?? 'Selected work lane'} is the place agents check for this project.`
-                    : 'A work lane is the list agents watch for new tasks. Create one once, then return here.'}
+                    ? `${selectedTaskGroupName ?? 'Selected task queue'} is the task queue agents check for this project.`
+                    : 'A task queue is where new work waits until an agent is ready. Create one once, then return here.'}
                 </p>
               </div>
             </div>
@@ -386,7 +386,7 @@ export function TaskFormModal({
                 onClick={onOpenTaskRouting}
                 className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-apple-orange/30 bg-white px-3 text-ui-button font-medium text-apple-orange transition-colors hover:bg-apple-orange/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-orange/35 dark:bg-white/[0.06]"
               >
-                Open Work Lanes
+                Open Task Queues
               </button>
             )}
           </div>

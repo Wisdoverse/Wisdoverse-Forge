@@ -8,7 +8,7 @@ export type BoardErrorAction =
   | 'selectProject'
 
 const ACTION_FALLBACKS: Record<BoardErrorAction, string> = {
-  createTask: 'The task was not created. Check the project, work lane, and title, then try again.',
+  createTask: 'The task was not created. Check the project, task queue, and title, then try again.',
   loadReadiness:
     'Agent readiness could not load. Refresh readiness before assigning or publishing work.',
   loadTasks: 'The task board could not load. Refresh the board, then try again.',
@@ -129,13 +129,13 @@ function validationRecovery(action: BoardErrorAction, detail: string): string {
   const normalized = detail.toLowerCase()
 
   if (normalized.includes('title') || normalized.includes('name')) {
-    return 'Add a task title, choose the project and work lane, then create the task again.'
+    return 'Add a task title, choose the project and task queue, then create the task again.'
   }
   if (normalized.includes('project')) {
     return 'Choose a project you can access, then try the board action again.'
   }
   if (normalized.includes('lane') || normalized.includes('group')) {
-    return 'Choose a work lane for this project, then try the board action again.'
+    return 'Choose a task queue for this project, then try the board action again.'
   }
   if (normalized.includes('agent')) {
     return 'Choose an available agent, then try the board action again.'

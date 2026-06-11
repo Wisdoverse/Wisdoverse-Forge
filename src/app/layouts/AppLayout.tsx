@@ -287,7 +287,7 @@ export function AppLayout({
           }
           if (!groupId) {
             throw new Error(
-              'Create a work lane before creating a task. Agents watch work lanes for new tasks; create one in Agents > Work Lanes.'
+              'Create a task queue before creating a task. Agents check task queues for new tasks; create one in Agents > Work Lanes.'
             )
           }
           const response = await orchestrationApi.createTask({

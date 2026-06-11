@@ -64,14 +64,14 @@ describe('TaskFormModal', () => {
 
     expect(
       screen.getByText(
-        'No online agents available. New tasks will wait in this work lane until an agent comes online.'
+        'No online agents available. New tasks will wait in this task queue until an agent comes online.'
       )
     ).toBeDefined()
     expect(screen.queryByText(/dispatched?/i)).toBeNull()
-    expect(screen.queryByText(/queue/i)).toBeNull()
+    expect(screen.queryByText(/work lane/i)).toBeNull()
   })
 
-  test('guides busy-agent assignment without queue language', () => {
+  test('guides busy-agent assignment without dispatch language', () => {
     render(
       <TaskFormModal
         isOpen
@@ -98,7 +98,34 @@ describe('TaskFormModal', () => {
     ).toBeDefined()
     expect(screen.getByText(/any ready agent can do the work/i)).toBeDefined()
     expect(screen.getByText(/people are waiting on it now/i)).toBeDefined()
-    expect(screen.queryByText(/queue/i)).toBeNull()
+    expect(screen.queryByText(/dispatch/i)).toBeNull()
+  })
+
+  test('explains task queue readiness before creating work', () => {
+    const openTaskRouting = vi.fn()
+    render(
+      <TaskFormModal
+        isOpen
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        agents={[{ id: 'agent-1', name: 'Agent One', status: 'available' }]}
+        projects={[project]}
+        selectedProjectId={project.id}
+        selectedTaskGroupId={null}
+        selectedTaskGroupName={null}
+        onOpenTaskRouting={openTaskRouting}
+      />
+    )
+
+    expect(screen.getByText('Set Up a Task Queue First')).toBeDefined()
+    expect(
+      screen.getByText(/A task queue is where new work waits until an agent is ready/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/Set Up a Work Lane First/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /open task queues/i }))
+
+    expect(openTaskRouting).toHaveBeenCalled()
   })
 
   test('labels unknown agent states without exposing backend status values', () => {

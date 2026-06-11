@@ -177,14 +177,14 @@ describe('AppLayout', () => {
     expect(screen.queryByText(/governance event/i)).toBeNull()
   })
 
-  test('does not expose work lane creation from the Tasks top bar', async () => {
+  test('does not expose task queue creation from the Tasks top bar', async () => {
     seedProjectNavigation('p1')
     useNavigationStore.setState({ agentGroups: [] })
 
     render(<MemoryRouter />)
 
     expect(screen.queryByRole('button', { name: /new work lane/i })).toBeNull()
-    expect(screen.getByRole('combobox', { name: /work lane for new tasks/i })).toBeDisabled()
+    expect(screen.getByRole('combobox', { name: /task queue for new tasks/i })).toBeDisabled()
     expect(mockCreateGroup).not.toHaveBeenCalled()
   })
 
@@ -256,7 +256,7 @@ describe('AppLayout', () => {
     await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
     const briefGroup = screen.getByRole('group', { name: /task brief templates/i })
     expect(screen.getByText(/clear task has three parts/i)).toBeDefined()
-    expect(screen.getByText('Result')).toBeDefined()
+    expect(screen.getByText('What to finish')).toBeDefined()
     expect(screen.getByText(/visible change or decision/i)).toBeDefined()
 
     fireEvent.click(within(briefGroup).getByRole('button', { name: /bug/i }))
@@ -267,7 +267,7 @@ describe('AppLayout', () => {
     expect(screen.getByLabelText(/details the agent should know/i)).toHaveValue()
     expect(
       (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
-    ).toContain('Symptom:')
+    ).toContain('What is broken:')
 
     fireEvent.click(screen.getByRole('button', { name: /create task/i }))
 
@@ -276,7 +276,7 @@ describe('AppLayout', () => {
         groupId: 'group-1',
         params: {
           task: 'Fix a reproducible defect',
-          message: expect.stringContaining('Verification:'),
+          message: expect.stringContaining('Done when:'),
         },
         priority: 'high',
       })
@@ -313,7 +313,7 @@ describe('AppLayout', () => {
     expect(useNavigationStore.getState().selectedProjectId).toBe('p1')
   })
 
-  test('requires a work lane instead of initializing one from New Task', async () => {
+  test('requires a task queue instead of initializing one from New Task', async () => {
     seedProjectNavigation(null)
     mockGetGroups.mockResolvedValue([])
 
@@ -331,11 +331,11 @@ describe('AppLayout', () => {
     })
     await waitFor(() =>
       expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain(
-        'Set Up a Work Lane First'
+        'Set Up a Task Queue First'
       )
     )
-    expect(screen.getByText(/a work lane is the list agents watch/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: /open work lanes/i })).toBeDefined()
+    expect(screen.getByText(/a task queue is where new work waits/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: /open task queues/i })).toBeDefined()
     expect(createButton).toBeDisabled()
     expect(mockCreateGroup).not.toHaveBeenCalled()
     expect(mockCreateTask).not.toHaveBeenCalled()

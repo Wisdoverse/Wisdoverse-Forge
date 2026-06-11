@@ -52,13 +52,13 @@ describe('BoardView', () => {
     expect(screen.getByText(/pick a project to start/i)).toBeDefined()
   })
 
-  test('explains missing work lane when a project is selected', () => {
+  test('explains missing task queue when a project is selected', () => {
     useNavigationStore.setState({ selectedProjectId: 'p1' })
 
     render(<BoardView />)
 
-    expect(screen.getByText(/set up a work lane first/i)).toBeDefined()
-    expect(screen.getByText(/a work lane is the list agents watch/i)).toBeDefined()
+    expect(screen.getByText(/set up a task queue first/i)).toBeDefined()
+    expect(screen.getByText(/a task queue is where new tasks wait/i)).toBeDefined()
     expect(screen.getByText(/agents > work lanes/i)).toBeDefined()
   })
 
@@ -95,7 +95,9 @@ describe('BoardView', () => {
 
     render(<BoardView />)
 
-    expect(await screen.findByText(/forge could not connect while loading the board/i)).toBeDefined()
+    expect(
+      await screen.findByText(/forge could not connect while loading the board/i)
+    ).toBeDefined()
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
   })
 

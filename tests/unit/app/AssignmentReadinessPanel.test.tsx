@@ -14,7 +14,7 @@ const emptyWorkload = {
 }
 
 describe('AssignmentReadinessPanel', () => {
-  test('guides setup when no agents are connected to the work lane', () => {
+  test('guides setup when no agents are connected to the task queue', () => {
     render(
       <AssignmentReadinessPanel
         participants={[]}
@@ -28,7 +28,7 @@ describe('AssignmentReadinessPanel', () => {
     const emptyState = screen.getByTestId('assignment-readiness-empty')
     expect(within(emptyState).getByText('Connect an agent before sending work')).toBeDefined()
     expect(within(emptyState).getByText(/Agents \/ Work Lanes/)).toBeDefined()
-    expect(within(emptyState).getByText(/backlog tasks stay in this lane/)).toBeDefined()
+    expect(within(emptyState).getByText(/backlog tasks stay in this queue/)).toBeDefined()
     expect(emptyState.textContent).not.toContain('dispatch')
   })
 

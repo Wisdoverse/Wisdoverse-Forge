@@ -47,7 +47,7 @@ describe('boardActionErrorMessage', () => {
       boardActionErrorMessage('createTask', {
         error: 'Task title is required',
       }),
-      'Add a task title, choose the project and work lane, then create the task again.'
+      'Add a task title, choose the project and task queue, then create the task again.'
     )
   })
 })
