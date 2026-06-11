@@ -192,7 +192,7 @@ export function AuditLogView() {
       URL.revokeObjectURL(url)
       setData(response)
       setExportStatus(
-        `${response.entries.length} audit ${response.entries.length === 1 ? 'event' : 'events'} exported`
+        `${response.entries.length} history ${response.entries.length === 1 ? 'row' : 'rows'} exported`
       )
     } catch (err) {
       setError(governanceAuditErrorMessage('exportAudit', err))
@@ -293,7 +293,7 @@ export function AuditLogView() {
               ))}
             </select>
           </Field>
-          <Field label="Record limit">
+          <Field label="Rows to show">
             <input
               type="number"
               name="limit"
@@ -320,9 +320,9 @@ export function AuditLogView() {
               data-testid="governance-audit-refresh"
               onClick={() => void loadAudit(filters)}
               disabled={loading}
-              aria-label="Refresh audit events"
+              aria-label="Refresh audit history"
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-ui-button text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
-              title="Refresh audit events"
+              title="Refresh audit history"
             >
               <RefreshCw size={15} className={cn(loading && 'animate-spin')} aria-hidden="true" />
             </button>
@@ -331,9 +331,9 @@ export function AuditLogView() {
               data-testid="governance-audit-export"
               onClick={() => void exportAudit()}
               disabled={exporting}
-              aria-label="Export audit events"
+              aria-label="Export audit history"
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-ui-button text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
-              title="Export audit events"
+              title="Export audit history"
             >
               <Download size={15} aria-hidden="true" />
             </button>
@@ -413,14 +413,14 @@ export function AuditLogView() {
         )}
 
         <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Metric label="Events" value={entries.length} />
+          <Metric label="History rows" value={entries.length} />
           <Metric
             label="Selected view"
             value={auditViewMetricLabel(data?.query.eventPrefix ?? filters.eventPrefix)}
             compact
           />
           <Metric label="Hidden item references" value={protectedReferences} />
-          <Metric label="Hidden detail rows" value={redactedRows} />
+          <Metric label="Hidden support-note rows" value={redactedRows} />
         </div>
 
         <div className="overflow-hidden rounded-card border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#2c2c2e]">

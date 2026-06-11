@@ -106,6 +106,13 @@ describe('AuditLogView', () => {
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
     expect(screen.getByText(/Hide secrets before export/i)).toBeDefined()
+    expect(screen.getByText('Rows to show')).toBeDefined()
+    expect(screen.queryByText('Record limit')).toBeNull()
+    expect(screen.getByText('History rows')).toBeDefined()
+    expect(screen.getByText('Hidden support-note rows')).toBeDefined()
+    expect(screen.queryByText('Hidden detail rows')).toBeNull()
+    expect(screen.getByLabelText('Refresh audit history')).toBeDefined()
+    expect(screen.getByLabelText('Export audit history')).toBeDefined()
     expect(screen.getByText('Change group')).toBeDefined()
     expect(
       screen.getByText('Use the default unless support gives you a specific group.')
