@@ -1266,6 +1266,8 @@ export type { WorkspaceProject }
 
 export interface UserPreferences {
   defaultCliTool?: CliTool
+  /** True once the user skipped or completed the Getting Started guide. */
+  gettingStartedDismissed?: boolean
 }
 
 export interface UserPreferencesResponse {

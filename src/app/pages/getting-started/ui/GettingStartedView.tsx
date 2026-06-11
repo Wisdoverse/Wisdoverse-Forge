@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ComponentType, type SVGProps } from 'react'
+import { useEffect, useMemo, useRef, useState, type ComponentType, type SVGProps } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
@@ -60,6 +60,10 @@ export function GettingStartedView() {
   const loadProviders = useSettingsStore((state) => state.loadProviders)
   const runtimeSettings = useSettingsStore((state) => state.runtimeSettings)
   const loadRuntimeSettings = useSettingsStore((state) => state.loadRuntimeSettings)
+  const preferences = useSettingsStore((state) => state.preferences)
+  const preferencesLoaded = useSettingsStore((state) => state.preferencesLoaded)
+  const loadPreferences = useSettingsStore((state) => state.loadPreferences)
+  const setGettingStartedDismissed = useSettingsStore((state) => state.setGettingStartedDismissed)
   const agents = useAgentsStore((state) => state.agents)
   const loadAgents = useAgentsStore((state) => state.loadAgents)
   const boardColumns = useBoardStore((state) => state.columns)
@@ -73,10 +77,11 @@ export function GettingStartedView() {
       loadOrgs(),
       loadProviders(),
       loadRuntimeSettings(),
+      loadPreferences(),
       loadAgents(),
       loadSkills(),
     ])
-  }, [loadAgents, loadOrgs, loadProviders, loadRuntimeSettings, loadSkills])
+  }, [loadAgents, loadOrgs, loadPreferences, loadProviders, loadRuntimeSettings, loadSkills])
 
   const projects = useMemo(() => Object.values(projectsByTeam).flat(), [projectsByTeam])
   const selectedProject = useMemo(
@@ -310,8 +315,28 @@ export function GettingStartedView() {
   const NextStepIcon = nextStep.Icon
   const setupComplete = completeCount === steps.length
 
+  // Once every step is done, hide the guide from the sidebar automatically.
+  // Persist exactly once: wait for the stored preference (so an already
+  // dismissed guide is not re-patched) and remember the write across renders.
+  // The page itself stays reachable at /start either way.
+  const autoDismissPersistedRef = useRef(false)
+  useEffect(() => {
+    if (!setupComplete || !preferencesLoaded) return
+    if (preferences?.gettingStartedDismissed === true) return
+    if (autoDismissPersistedRef.current) return
+    autoDismissPersistedRef.current = true
+    void setGettingStartedDismissed(true)
+  }, [setupComplete, preferencesLoaded, preferences, setGettingStartedDismissed])
+
   function go(path: string) {
     void navigate({ to: path })
+  }
+
+  function skipGuide() {
+    // Optimistic store update hides the sidebar entry immediately; the store
+    // reverts it if the server rejects the patch.
+    void setGettingStartedDismissed(true)
+    void navigate({ to: '/tasks' })
   }
 
   return (
@@ -329,6 +354,14 @@ export function GettingStartedView() {
               <p className="mt-1 max-w-2xl text-ui-body text-secondary-light dark:text-secondary-dark">
                 {t('gettingStarted.description')}
               </p>
+              <button
+                type="button"
+                data-testid="getting-started-skip"
+                onClick={skipGuide}
+                className="mt-2 text-ui-caption font-medium text-secondary-light underline-offset-2 transition-colors hover:text-foreground-light hover:underline focus-visible:underline focus-visible:outline-none dark:text-secondary-dark dark:hover:text-foreground-dark"
+              >
+                {t('gettingStarted.skip')}
+              </button>
             </div>
             <div className="shrink-0 rounded-lg border border-black/[0.08] px-4 py-3 text-right dark:border-white/[0.1]">
               <p className="text-ui-metric font-semibold tabular-nums text-foreground-light dark:text-foreground-dark">

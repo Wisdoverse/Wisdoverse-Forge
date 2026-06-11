@@ -97,6 +97,83 @@ pub(crate) fn user_members_response<T: Serialize>(members: T) -> Value {
     json!({ "ok": true, "members": members })
 }
 
+pub(crate) fn user_preferences_response(preferences: &Value) -> Value {
+    json!({ "ok": true, "preferences": preferences })
+}
+
+/// Error policy for the per-user preferences document.
+pub(crate) struct UserPreferencesPolicy;
+
+impl UserPreferencesPolicy {
+    pub(crate) fn patch_must_be_object() -> AppError {
+        ErrorKind::Validation("preferences patch must be a JSON object".into()).into()
+    }
+
+    pub(crate) fn unknown_preference_key(key: &str) -> AppError {
+        ErrorKind::Validation(format!(
+            "unknown preference key: {key} (allowed: {DEFAULT_CLI_TOOL_PREFERENCE_KEY}, {GETTING_STARTED_DISMISSED_PREFERENCE_KEY})"
+        ))
+        .into()
+    }
+
+    pub(crate) fn preference_must_be_string(key: &str) -> AppError {
+        ErrorKind::Validation(format!("preference {key} must be a string")).into()
+    }
+
+    pub(crate) fn preference_must_be_boolean(key: &str) -> AppError {
+        ErrorKind::Validation(format!("preference {key} must be a boolean")).into()
+    }
+}
+
+pub(crate) const DEFAULT_CLI_TOOL_PREFERENCE_KEY: &str = "defaultCliTool";
+pub(crate) const GETTING_STARTED_DISMISSED_PREFERENCE_KEY: &str = "gettingStartedDismissed";
+
+/// Validated PATCH body for `/users/me/preferences`.
+///
+/// Only known keys with the correct JSON types pass validation; the resulting
+/// document is shallow-merged into `users.preferences` by the repository, so a
+/// patch never erases keys it does not mention.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct UserPreferencesPatch {
+    patch: Value,
+}
+
+impl UserPreferencesPatch {
+    pub(crate) fn parse(body: &Value) -> AppResult<Self> {
+        let Some(object) = body.as_object() else {
+            return Err(UserPreferencesPolicy::patch_must_be_object());
+        };
+
+        let mut patch = serde_json::Map::with_capacity(object.len());
+        for (key, value) in object {
+            match key.as_str() {
+                DEFAULT_CLI_TOOL_PREFERENCE_KEY => {
+                    let raw = value.as_str().ok_or_else(|| UserPreferencesPolicy::preference_must_be_string(key))?;
+                    // Canonicalize through the shared Container CLI selection
+                    // policy so "Codex " and "codex" persist identically.
+                    let tool = super::agent::AgentCliToolSelection::normalize(Some(raw))?;
+                    if let Some(tool) = tool {
+                        patch.insert(key.clone(), Value::String(tool.to_string()));
+                    }
+                }
+                GETTING_STARTED_DISMISSED_PREFERENCE_KEY => {
+                    if !value.is_boolean() {
+                        return Err(UserPreferencesPolicy::preference_must_be_boolean(key));
+                    }
+                    patch.insert(key.clone(), value.clone());
+                }
+                unknown => return Err(UserPreferencesPolicy::unknown_preference_key(unknown)),
+            }
+        }
+
+        Ok(Self { patch: Value::Object(patch) })
+    }
+
+    pub(crate) fn as_value(&self) -> &Value {
+        &self.patch
+    }
+}
+
 pub(crate) const PASSWORD_RESET_TTL_MINUTES: i64 = 60;
 
 const REFRESH_COOKIE_NAME: &str = "af_rt";
@@ -710,6 +787,77 @@ mod tests {
         assert_eq!(internal.code(), "INTERNAL_ERROR");
         assert_eq!(internal.message(), "Internal server error");
         assert!(internal.log_internal());
+    }
+
+    #[test]
+    fn user_preferences_patch_accepts_known_keys_and_canonicalizes_cli_tool() {
+        let patch = UserPreferencesPatch::parse(&json!({
+            "defaultCliTool": " Codex ",
+            "gettingStartedDismissed": true,
+        }))
+        .unwrap();
+
+        assert_eq!(patch.as_value(), &json!({ "defaultCliTool": "codex", "gettingStartedDismissed": true }));
+    }
+
+    #[test]
+    fn user_preferences_patch_allows_partial_and_empty_objects() {
+        let dismissed_only = UserPreferencesPatch::parse(&json!({ "gettingStartedDismissed": false })).unwrap();
+        assert_eq!(dismissed_only.as_value(), &json!({ "gettingStartedDismissed": false }));
+
+        // An empty object is a valid no-op merge.
+        let empty = UserPreferencesPatch::parse(&json!({})).unwrap();
+        assert_eq!(empty.as_value(), &json!({}));
+    }
+
+    #[test]
+    fn user_preferences_patch_rejects_unknown_keys() {
+        let err = UserPreferencesPatch::parse(&json!({ "theme": "dark" })).unwrap_err();
+        assert!(matches!(
+            err.kind,
+            ErrorKind::Validation(message) if message.contains("unknown preference key: theme")
+        ));
+    }
+
+    #[test]
+    fn user_preferences_patch_rejects_wrong_types() {
+        let bool_as_string = UserPreferencesPatch::parse(&json!({ "gettingStartedDismissed": "yes" })).unwrap_err();
+        assert!(matches!(
+            bool_as_string.kind,
+            ErrorKind::Validation(message) if message.contains("gettingStartedDismissed must be a boolean")
+        ));
+
+        let tool_as_number = UserPreferencesPatch::parse(&json!({ "defaultCliTool": 7 })).unwrap_err();
+        assert!(matches!(
+            tool_as_number.kind,
+            ErrorKind::Validation(message) if message.contains("defaultCliTool must be a string")
+        ));
+
+        let unknown_tool = UserPreferencesPatch::parse(&json!({ "defaultCliTool": "unknown-tool" })).unwrap_err();
+        assert!(matches!(
+            unknown_tool.kind,
+            ErrorKind::Validation(message) if message.contains("unsupported cli_tool")
+        ));
+    }
+
+    #[test]
+    fn user_preferences_patch_rejects_non_objects() {
+        for body in [json!("string"), json!(42), json!(["array"]), json!(null), json!(true)] {
+            let err = UserPreferencesPatch::parse(&body).unwrap_err();
+            assert!(matches!(
+                err.kind,
+                ErrorKind::Validation(message) if message.contains("must be a JSON object")
+            ));
+        }
+    }
+
+    #[test]
+    fn user_preferences_response_keeps_ok_preferences_contract() {
+        let preferences = json!({ "gettingStartedDismissed": true });
+        let response = user_preferences_response(&preferences);
+
+        assert_eq!(response["ok"], true);
+        assert_eq!(response["preferences"], preferences);
     }
 
     #[test]

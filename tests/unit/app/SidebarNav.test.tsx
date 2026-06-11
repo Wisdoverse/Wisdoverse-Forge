@@ -4,6 +4,7 @@ import '@app/i18n'
 import { SidebarNav } from '@app/layouts/sidebar/SidebarNav'
 import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
 import { useContextStore } from '@app/shared/model/context.store'
+import { useSettingsStore } from '@app/shared/model/settings.store'
 
 const navigateMock = vi.fn()
 const logoutMock = vi.fn()
@@ -34,12 +35,14 @@ beforeEach(() => {
     loading: false,
   })
   useContextStore.getState().reset()
+  useSettingsStore.setState({ preferences: null, preferencesLoaded: false })
 })
 
 afterEach(() => {
   cleanup()
   useContextFeaturesStore.getState().reset()
   useContextStore.getState().reset()
+  useSettingsStore.setState({ preferences: null, preferencesLoaded: false })
 })
 
 describe('SidebarNav', () => {
@@ -102,5 +105,40 @@ describe('SidebarNav', () => {
       expect(screen.queryByRole('button', adminItem)).not.toBeInTheDocument()
       cleanup()
     }
+  })
+
+  const startItem = { name: /start: follow the setup checklist/i }
+
+  test('hides the Getting Started entry once the guide is dismissed', () => {
+    useSettingsStore.setState({
+      preferences: { gettingStartedDismissed: true },
+      preferencesLoaded: true,
+    })
+
+    render(<SidebarNav expanded={true} activePath="/tasks" onNavigate={() => {}} />)
+
+    expect(screen.queryByRole('button', startItem)).not.toBeInTheDocument()
+    // The rest of the primary navigation is unaffected.
+    expect(
+      screen.getByRole('button', { name: /tasks: create and review agent work/i })
+    ).toBeInTheDocument()
+  })
+
+  test('keeps showing the Getting Started entry while preferences are unknown', () => {
+    // preferences: null (request not finished) — do not blank the nav slot.
+    render(<SidebarNav expanded={true} activePath="/tasks" onNavigate={() => {}} />)
+
+    expect(screen.getByRole('button', startItem)).toBeInTheDocument()
+  })
+
+  test('keeps showing the Getting Started entry when the stored preference is false', () => {
+    useSettingsStore.setState({
+      preferences: { gettingStartedDismissed: false },
+      preferencesLoaded: true,
+    })
+
+    render(<SidebarNav expanded={true} activePath="/tasks" onNavigate={() => {}} />)
+
+    expect(screen.getByRole('button', startItem)).toBeInTheDocument()
   })
 })

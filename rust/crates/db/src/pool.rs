@@ -140,6 +140,7 @@ const MIGRATION_SOURCES: &[(&str, &str)] = &[
     ("064_agents_runtime_kind_index.sql", include_str!("../migrations/064_agents_runtime_kind_index.sql")),
     ("065_enrollment_idempotency.sql", include_str!("../migrations/065_enrollment_idempotency.sql")),
     ("066_agent_join_codes.sql", include_str!("../migrations/066_agent_join_codes.sql")),
+    ("067_user_preferences.sql", include_str!("../migrations/067_user_preferences.sql")),
 ];
 
 /// Run pending SQLx migrations against the database.

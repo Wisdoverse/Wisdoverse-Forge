@@ -4,6 +4,7 @@ import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAuth } from '@app/shared/model/auth.context'
 import { useTheme } from '@app/shared/model/theme.context'
 import { useI18n } from '@app/shared/model/i18n.context'
+import { useSettingsStore } from '@app/shared/model/settings.store'
 import { getUserApi } from '@app/shared/api/legacy'
 import { useNavigationStore } from '@app/entities/navigation'
 
@@ -326,6 +327,79 @@ function OrgRenameForm() {
 }
 
 // ============================================================================
+// Getting Started Guide Row
+// ============================================================================
+
+function GettingStartedGuideRow() {
+  const preferences = useSettingsStore((s) => s.preferences)
+  const preferencesLoaded = useSettingsStore((s) => s.preferencesLoaded)
+  const loadPreferences = useSettingsStore((s) => s.loadPreferences)
+  const setGettingStartedDismissed = useSettingsStore((s) => s.setGettingStartedDismissed)
+  const [restoring, setRestoring] = useState(false)
+  const [restored, setRestored] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Direct visits to /settings/account need the stored preference; the store
+  // skips the request if another surface already loaded it.
+  useEffect(() => {
+    void loadPreferences()
+  }, [loadPreferences])
+
+  const dismissed = preferences?.gettingStartedDismissed === true
+  const statusLine = !preferencesLoaded
+    ? 'Checking whether the guide is hidden...'
+    : dismissed
+      ? 'The guide is hidden right now.'
+      : 'The guide is already visible in the sidebar.'
+
+  async function handleRestore() {
+    setError(null)
+    setRestored(false)
+    setRestoring(true)
+    const ok = await setGettingStartedDismissed(false)
+    setRestoring(false)
+    if (ok) {
+      setRestored(true)
+    } else {
+      setError('The guide could not be restored. Check your connection and try again.')
+    }
+  }
+
+  return (
+    <div className="space-y-2 px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-ui-body text-foreground-light dark:text-foreground-dark">
+            Getting started guide
+          </p>
+          <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Hidden after you finish or skip it. {statusLine}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleRestore}
+          disabled={restoring || !preferencesLoaded || !dismissed}
+          className={cn(uiStyles.secondaryButton, 'shrink-0')}
+        >
+          {restoring ? 'Restoring...' : 'Show the guide again'}
+        </button>
+      </div>
+      {error && (
+        <div role="alert" className={cn(uiStyles.error, 'mb-0')}>
+          {error}
+        </div>
+      )}
+      {restored && (
+        <div className="rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
+          The guide is back. Open Start in the sidebar to continue the checklist.
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================================================
 // AccountSection
 // ============================================================================
 
@@ -410,6 +484,14 @@ export function AccountSection() {
               0.1.0
             </span>
           </div>
+        </div>
+      </div>
+
+      {/* Onboarding */}
+      <div>
+        <h3 className={uiStyles.groupLabel}>Onboarding</h3>
+        <div className={uiStyles.card}>
+          <GettingStartedGuideRow />
         </div>
       </div>
 

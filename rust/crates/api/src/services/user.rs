@@ -13,12 +13,12 @@ pub(crate) use crate::domain::user::{
     auth_message_response, auth_ok_response, auth_providers_response, auth_refresh_response,
     auth_success_response_body, invalid_refresh_token_response_contract, is_unauthorized_error,
     missing_refresh_token_response_contract, password_reset_error_response_contract, user_data_response,
-    user_members_response,
+    user_members_response, user_preferences_response,
 };
 use crate::domain::user::{
     AuthRefreshCookiePolicy, GeneratedPasswordResetToken, PASSWORD_RESET_TTL_MINUTES, PasswordResetRequestEmail,
     PasswordResetToken, RefreshSessionPolicy, RefreshedAccessToken, UserAccessPolicy, UserAccountPolicy, UserEmail,
-    UserListPage, UserPassword, derive_username, email_domain_for_log, password_reset_email_body,
+    UserListPage, UserPassword, UserPreferencesPatch, derive_username, email_domain_for_log, password_reset_email_body,
 };
 pub use crate::domain::user::{AuthenticatedUser, LoginResult};
 use crate::repositories::user::{OrgUserSearchResult, UserRepository};
@@ -238,6 +238,25 @@ impl UserService {
         UserAccessPolicy::ensure_self_profile(scope.user_id(), input.target_user_id)?;
 
         self.repo.update_profile(scope, input.target_user_id, input.display_name.as_deref()).await
+    }
+
+    /// Read the authenticated user's UI preferences document.
+    ///
+    /// Preferences are per-user (keyed by `scope.user_id()`), not org-scoped:
+    /// they belong to the account and follow it across organizations.
+    pub(crate) async fn get_preferences(&self, scope: &TenantScope) -> AppResult<serde_json::Value> {
+        self.repo.get_preferences(scope.user_id()).await
+    }
+
+    /// Validate a preferences patch and shallow-merge it into the
+    /// authenticated user's stored preferences, returning the merged document.
+    pub(crate) async fn update_preferences(
+        &self,
+        scope: &TenantScope,
+        body: &serde_json::Value,
+    ) -> AppResult<serde_json::Value> {
+        let patch = UserPreferencesPatch::parse(body)?;
+        self.repo.merge_preferences(scope.user_id(), patch.as_value()).await
     }
 
     /// List users in the org (admin, paginated).

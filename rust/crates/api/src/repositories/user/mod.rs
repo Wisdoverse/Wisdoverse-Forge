@@ -148,6 +148,35 @@ impl UserRepository {
         .ok_or_else(|| UserRepositoryPolicy::user_not_found(id))
     }
 
+    /// Read the user's UI preferences document.
+    ///
+    /// Per-user, not org-scoped: preferences belong to the account itself and
+    /// follow the user across organizations. Callers must pass the
+    /// authenticated user's own id (`scope.user_id()`).
+    pub async fn get_preferences(&self, user_id: UserId) -> AppResult<serde_json::Value> {
+        sqlx::query_scalar::<_, serde_json::Value>("SELECT preferences FROM users WHERE id = $1 AND deleted_at IS NULL")
+            .bind(user_id.as_uuid())
+            .fetch_optional(&self.pool)
+            .await?
+            .ok_or_else(|| UserRepositoryPolicy::user_not_found(user_id))
+    }
+
+    /// Shallow-merge a validated patch into the user's preferences document
+    /// and return the merged result. `||` is PostgreSQL's top-level JSONB
+    /// merge, so keys absent from the patch keep their stored values.
+    pub async fn merge_preferences(&self, user_id: UserId, patch: &serde_json::Value) -> AppResult<serde_json::Value> {
+        sqlx::query_scalar::<_, serde_json::Value>(
+            r#"UPDATE users SET preferences = preferences || $2, updated_at = NOW()
+               WHERE id = $1 AND deleted_at IS NULL
+               RETURNING preferences"#,
+        )
+        .bind(user_id.as_uuid())
+        .bind(patch)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or_else(|| UserRepositoryPolicy::user_not_found(user_id))
+    }
+
     /// Find the user's default organization and role.
     ///
     /// Three-tier preference:
@@ -467,6 +496,67 @@ async fn insert_personal_org(
 #[cfg(test)]
 mod tests {
     use super::email_domain;
+    use super::*;
+    use serde_json::json;
+
+    /// Seed a bare user row. Preferences tests are user-scoped, so no org or
+    /// membership is required.
+    async fn seed_user(pool: &sqlx::PgPool) -> UserId {
+        let user_uuid = uuid::Uuid::new_v4();
+        sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+            .bind(user_uuid)
+            .bind(format!("u-{user_uuid}@example.com"))
+            .execute(pool)
+            .await
+            .expect("seed user");
+        UserId::from(user_uuid)
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn preferences_default_to_empty_object(pool: sqlx::PgPool) {
+        let repo = UserRepository::new(pool.clone());
+        let user_id = seed_user(&pool).await;
+
+        let preferences = repo.get_preferences(user_id).await.expect("get preferences");
+        assert_eq!(preferences, json!({}));
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn merge_preferences_is_shallow_and_preserves_other_keys(pool: sqlx::PgPool) {
+        let repo = UserRepository::new(pool.clone());
+        let user_id = seed_user(&pool).await;
+
+        let first = repo.merge_preferences(user_id, &json!({ "defaultCliTool": "codex" })).await.expect("first patch");
+        assert_eq!(first, json!({ "defaultCliTool": "codex" }));
+
+        // A second patch must keep the first patch's keys (shallow JSONB merge).
+        let second =
+            repo.merge_preferences(user_id, &json!({ "gettingStartedDismissed": true })).await.expect("second patch");
+        assert_eq!(second, json!({ "defaultCliTool": "codex", "gettingStartedDismissed": true }));
+
+        // Re-patching an existing key overwrites only that key.
+        let third =
+            repo.merge_preferences(user_id, &json!({ "gettingStartedDismissed": false })).await.expect("third patch");
+        assert_eq!(third, json!({ "defaultCliTool": "codex", "gettingStartedDismissed": false }));
+
+        let stored = repo.get_preferences(user_id).await.expect("get preferences");
+        assert_eq!(stored, third);
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn preferences_reject_unknown_user(pool: sqlx::PgPool) {
+        let repo = UserRepository::new(pool);
+        let missing = UserId::new();
+
+        let get_err = repo.get_preferences(missing).await.expect_err("get must fail");
+        assert!(matches!(get_err.kind, agentforge_core::ErrorKind::NotFound(_)));
+
+        let merge_err = repo
+            .merge_preferences(missing, &json!({ "gettingStartedDismissed": true }))
+            .await
+            .expect_err("merge must fail");
+        assert!(matches!(merge_err.kind, agentforge_core::ErrorKind::NotFound(_)));
+    }
 
     #[test]
     fn extracts_lowercase_domain() {
