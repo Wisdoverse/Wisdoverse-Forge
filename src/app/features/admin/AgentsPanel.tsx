@@ -25,7 +25,7 @@ interface FilterOption {
 }
 
 const RUNTIME_KIND_FILTER_OPTIONS: FilterOption[] = [
-  { value: 'all', label: 'All work types' },
+  { value: 'all', label: 'All work locations' },
   ...RUNTIME_KINDS.map((kind) => ({ value: kind, label: runtimeKindLabel(kind) })),
 ]
 
@@ -111,7 +111,7 @@ function agentsSummary(agents: AdminAgent[], filter: AdminAgentRuntimeKindFilter
       ? 'No agents have been created across any organization yet.'
       : `No ${runtimeKindLabel(filter)} agents are present right now.`
   }
-  const scope = filter === 'all' ? 'all work types' : runtimeKindLabel(filter)
+  const scope = filter === 'all' ? 'all work locations' : runtimeKindLabel(filter)
   return `Showing ${agents.length} agent${agents.length === 1 ? '' : 's'} (${scope}).`
 }
 
@@ -173,7 +173,7 @@ function AgentsEmptyState({ filter }: { filter: AdminAgentRuntimeKindFilter }) {
       <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
         {filter === 'all'
           ? 'Create the first agent from Agents, confirm it becomes Ready or Working, then return here to review it across organizations. If you just created one, refresh Admin and check again.'
-          : `No ${runtimeKindLabel(filter)} agents match this filter. Choose "All work types" before assuming the agent is missing.`}
+          : `No ${runtimeKindLabel(filter)} agents match this filter. Choose "All work locations" before assuming the agent is missing.`}
       </p>
     </div>
   )
@@ -203,17 +203,17 @@ export function AgentsPanel() {
         <div>
           <h2 className={uiStyles.sectionTitle}>Agents</h2>
           <p className={uiStyles.sectionDescription}>
-            Review agents across every organization and filter them by work type.
+            Review agents across every organization and filter them by work location.
           </p>
         </div>
         <div>
           <label htmlFor="admin-agents-runtime-filter" className={uiStyles.label}>
-            Work type
+            Work location
           </label>
           <select
             id="admin-agents-runtime-filter"
             data-testid="admin-agents-runtime-filter"
-            aria-label="Filter agents by work type"
+            aria-label="Filter agents by work location"
             value={agentRuntimeKindFilter}
             onChange={(event) =>
               void setAgentRuntimeKindFilter(event.target.value as AdminAgentRuntimeKindFilter)
@@ -252,7 +252,7 @@ export function AgentsPanel() {
             <thead className={uiStyles.tableHead}>
               <tr>
                 <th className={uiStyles.tableHeaderCell}>Name</th>
-                <th className={uiStyles.tableHeaderCell}>Work type</th>
+                <th className={uiStyles.tableHeaderCell}>Work location</th>
                 <th className={uiStyles.tableHeaderCell}>Status</th>
                 <th className={uiStyles.tableHeaderCell}>Owner</th>
                 <th className={uiStyles.tableHeaderCell}>Project</th>

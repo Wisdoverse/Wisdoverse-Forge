@@ -42,9 +42,9 @@ export function runtimeKindLabel(kind: AgentRuntimeKind | string | undefined): s
       return RUNTIME_KIND_LABELS.api
     case undefined:
     case '':
-      return 'Work type not reported'
+      return 'Work location not reported'
     default:
-      return 'Work type needs review'
+      return 'Work location needs review'
   }
 }
 

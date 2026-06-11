@@ -565,7 +565,7 @@ export const en = {
         },
         api_cannot_have_cli_tool: {
           title: 'Chat-only agent cannot have a work tool',
-          detail: 'Remove the work tool, or change the work type to "Managed workspace".',
+          detail: 'Remove the work tool, or change the work location to "Managed workspace".',
         },
         missing_cli_tool_for_host_cli: {
           title: 'Choose a work tool',

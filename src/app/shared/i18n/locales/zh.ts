@@ -475,7 +475,7 @@ export const zh: TranslationKeys = {
       authorLabel: '维护者',
       availabilityLabel: '可用范围',
       descriptionHeading: '它能帮什么',
-      noDescription: '还没有简介。使用这条保存的说明前，请先查看下面的内容。',
+      noDescription: '还没有简介。使用这条保存的说明前，请先查看下面的说明。',
       triggerHeading: '什么时候有帮助',
       triggerHelper: '当任务里出现类似这些词时，Agent 就知道这条保存的说明可能有帮助。',
       detailsHeading: '可复用说明',

@@ -97,7 +97,7 @@ afterEach(() => {
 })
 
 describe('AgentsPanel', () => {
-  test('renders the work type filter with every plain-language option', async () => {
+  test('renders the work location filter with every plain-language option', async () => {
     render(<AgentsPanel />)
 
     const select = (await screen.findByTestId('admin-agents-runtime-filter')) as HTMLSelectElement
@@ -106,7 +106,7 @@ describe('AgentsPanel', () => {
       .map((o) => o.textContent)
 
     expect(optionLabels).toEqual([
-      'All work types',
+      'All work locations',
       'Managed workspace',
       'This computer',
       'Chat-only AI service',
@@ -135,7 +135,7 @@ describe('AgentsPanel', () => {
     expect(screen.getAllByTestId('admin-agent-row')).toHaveLength(5)
   })
 
-  test('selecting a work type triggers the filtered fetch', async () => {
+  test('selecting a work location triggers the filtered fetch', async () => {
     render(<AgentsPanel />)
 
     const select = (await screen.findByTestId('admin-agents-runtime-filter')) as HTMLSelectElement
@@ -171,13 +171,13 @@ describe('AgentsPanel', () => {
     expect(within(emptyState).getByText(/refresh admin and check again/i)).toBeDefined()
   })
 
-  test('guides admins to clear a work type filter before assuming an agent is missing', async () => {
+  test('guides admins to clear a work location filter before assuming an agent is missing', async () => {
     useAdminStore.setState({ agents: [], agentsTotal: 0, agentRuntimeKindFilter: 'cli' })
 
     render(<AgentsPanel />)
 
     const emptyState = await screen.findByTestId('admin-agents-empty')
-    expect(within(emptyState).getByText(/choose "all work types"/i)).toBeDefined()
+    expect(within(emptyState).getByText(/choose "all work locations"/i)).toBeDefined()
     expect(within(emptyState).getByText(/before assuming the agent is missing/i)).toBeDefined()
   })
 })
