@@ -24,14 +24,14 @@ function describeKeyType(keyType: string): string {
 }
 
 const SSH_KEY_SETUP_STEPS = [
-  { label: 'Name this access', value: 'Use a device, team, or repository name.' },
+  { label: 'Name where it is used', value: 'Use a device, team, or repository name.' },
   {
-    label: 'Paste the shareable line',
-    value: 'Copy only the one-line key that starts with ssh-ed25519 or ssh-rsa.',
+    label: 'Paste the public line',
+    value: 'Copy only the one-line .pub key that starts with ssh-ed25519 or ssh-rsa.',
   },
   {
-    label: 'Keep the secret key private',
-    value: 'Never paste anything that says BEGIN PRIVATE KEY.',
+    label: 'Keep the private key secret',
+    value: 'Never paste a private key file or anything that says BEGIN PRIVATE KEY.',
   },
 ]
 
@@ -131,7 +131,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
     submitAttempted && missingField === 'label'
       ? 'Add a name your team will recognize before saving.'
       : submitAttempted && missingField === 'publicKey'
-        ? 'Paste the shareable SSH line before saving.'
+        ? 'Paste the public SSH key line before saving.'
         : null
 
   async function handleSubmit(e: FormEvent) {
@@ -155,7 +155,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
     >
       <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
         <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Add repository SSH access
+          Add repository SSH access for git@ repository addresses
         </div>
         <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
           {SSH_KEY_SETUP_STEPS.map((step) => (
@@ -202,13 +202,14 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
 
         <div>
           <label htmlFor="ssh-public-key" className={uiStyles.label}>
-            Shareable SSH line <span className="text-red-500">*</span>
+            Public SSH key line <span className="text-red-500">*</span>
           </label>
           <p
             id={publicKeyHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Copy the one-line shareable SSH key from the tool that generated it.
+            Paste the line from your .pub file. It is safe to share and usually starts with
+            ssh-ed25519 or ssh-rsa.
           </p>
           <textarea
             id={publicKeyInputId}
@@ -226,7 +227,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
             id={publicKeySafetyId}
             className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            It starts with ssh-ed25519 or ssh-rsa. Never paste anything that says BEGIN PRIVATE KEY.
+            Do not paste the private key file. Private keys often include BEGIN PRIVATE KEY.
           </p>
         </div>
       </div>
@@ -284,8 +285,8 @@ export function SshKeysSection() {
 
   const tableHeaders: { label: string; className?: string }[] = [
     { label: 'Key name' },
-    { label: 'Saved key ID' },
-    { label: 'Key kind' },
+    { label: 'Safety check' },
+    { label: 'Key type' },
     { label: 'Added on' },
     { label: '', className: 'w-20' },
   ]
@@ -297,8 +298,8 @@ export function SshKeysSection() {
         <div>
           <h2 className={uiStyles.sectionTitle}>Repository SSH access</h2>
           <p className={uiStyles.sectionDescription}>
-            Let agents open code repositories that are not public and use addresses starting with
-            git@.
+            Use this when a private repository gives you an address that starts with git@. Agents
+            can then read that repository during their work.
           </p>
         </div>
         {!showForm && (
@@ -332,8 +333,8 @@ export function SshKeysSection() {
               No repository SSH access yet
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Code repository addresses that start with git@ need this. If the address starts with
-              https://, use repository access instead.
+              If the repository address starts with git@, add this. If it starts with https://, use
+              Code Repository Access instead.
             </p>
           </div>
         ) : (

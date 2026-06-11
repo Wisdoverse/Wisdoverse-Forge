@@ -54,23 +54,26 @@ describe('SshKeysSection', () => {
     render(<SshKeysSection />)
 
     expect(await screen.findByText('No repository SSH access yet')).toBeDefined()
-    expect(screen.getAllByText(/addresses.*start.*git@/i).length).toBeGreaterThan(0)
-    expect(screen.getByText(/code repository addresses/i)).toBeDefined()
-    expect(screen.getByText(/address starts with https:\/\//i)).toBeDefined()
+    expect(screen.getAllByText(/starts with git@/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/starts with https:\/\//i)).toBeDefined()
+    expect(screen.getByText(/Code Repository Access/i)).toBeDefined()
 
     fireEvent.click(screen.getByRole('button', { name: /add ssh access/i }))
 
-    expect(screen.getByText('Add repository SSH access')).toBeDefined()
-    expect(screen.getByText('Paste the shareable line')).toBeDefined()
+    expect(
+      screen.getByText('Add repository SSH access for git@ repository addresses')
+    ).toBeDefined()
+    expect(screen.getByText('Paste the public line')).toBeDefined()
+    expect(screen.getByText(/one-line \.pub key/i)).toBeDefined()
     expect(screen.getAllByText(/starts with ssh-ed25519 or ssh-rsa/i).length).toBeGreaterThan(0)
-    expect(screen.getByText('Keep the secret key private')).toBeDefined()
+    expect(screen.getByText('Keep the private key secret')).toBeDefined()
     expect(screen.getAllByText(/BEGIN PRIVATE KEY/i).length).toBeGreaterThan(0)
     expect(
       screen.getByPlaceholderText('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... dev@example.com')
     ).toBeDefined()
 
     const nameInput = screen.getByLabelText(/^name for this access/i)
-    const shareableLineInput = screen.getByLabelText(/^shareable ssh line/i)
+    const shareableLineInput = screen.getByLabelText(/^public ssh key line/i)
     const form = nameInput.closest('form')
     expect(form).toBeTruthy()
 
@@ -88,7 +91,7 @@ describe('SshKeysSection', () => {
     fireEvent.submit(form!)
     expect(createSshKeyMock).not.toHaveBeenCalled()
     expect(screen.getByRole('alert')).toHaveTextContent(
-      /paste the shareable ssh line before saving/i
+      /paste the public ssh key line before saving/i
     )
     expect(shareableLineInput).toHaveFocus()
 
@@ -112,11 +115,11 @@ describe('SshKeysSection', () => {
     render(<SshKeysSection />)
 
     await waitFor(() => expect(loadSshKeysMock).toHaveBeenCalledTimes(1))
-    expect(screen.getByText('Saved key ID')).toBeDefined()
-    expect(screen.getByText('Key kind')).toBeDefined()
+    expect(screen.getByText('Safety check')).toBeDefined()
+    expect(screen.getByText('Key type')).toBeDefined()
     expect(screen.getByText('Modern SSH key')).toBeDefined()
-    expect(screen.queryByText('Saved key fingerprint')).toBeNull()
-    expect(screen.queryByText('SSH type')).toBeNull()
+    expect(screen.queryByText('Saved key ID')).toBeNull()
+    expect(screen.queryByText('Key kind')).toBeNull()
 
     fireEvent.click(
       screen.getByRole('button', { name: /remove work laptop repository ssh access/i })

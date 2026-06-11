@@ -26,14 +26,14 @@ describe('sshKeysErrorMessage', () => {
   test('explains duplicate keys with a safe next action', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage('API 409 duplicate key'),
-      'Repository SSH access could not be saved. This public line already exists. Choose the saved access or remove the old one first.'
+      'Repository SSH access could not be saved. This public SSH key line is already saved. Choose the saved access or remove the old one first.'
     )
   })
 
   test('explains missing fields as the next form fields to fix', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage('Code: 422 Details: public key is required'),
-      'Repository SSH access could not be saved. Paste the shareable SSH line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+      'Repository SSH access could not be saved. Paste the public SSH key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
     )
   })
 
