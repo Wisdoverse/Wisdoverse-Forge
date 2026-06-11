@@ -152,7 +152,7 @@ tabwriter = "1"
 dialoguer = { version = "0.12", default-features = false }
 is-terminal = "0.4"
 jaq-core = "1.5"
-jaq-std = "1.5"
+jaq-std = "2.1"
 jaq-parse = "1.0"
 jaq-interpret = "1.5"
 opentelemetry = { version = "0.31", features = ["trace"] }
