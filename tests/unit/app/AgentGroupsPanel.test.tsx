@@ -100,6 +100,7 @@ describe('AgentGroupsPanel', () => {
     render(<AgentGroupsPanel />)
 
     expect(screen.getByTestId('task-routing-workload')).toBeInTheDocument()
+    expect(screen.getByText('6 tasks here')).toBeInTheDocument()
     expect(within(screen.getByTestId('routing-metric-active')).getByText('2')).toBeInTheDocument()
     expect(within(screen.getByTestId('routing-metric-backlog')).getByText('1')).toBeInTheDocument()
     expect(
@@ -110,9 +111,15 @@ describe('AgentGroupsPanel', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('Auth handoff blocked')).toBeInTheDocument()
     expect(screen.getByText('Waiting to start')).toBeInTheDocument()
+    expect(screen.getAllByText('Not sent yet').length).toBeGreaterThan(0)
     expect(screen.getByText('Needs review')).toBeInTheDocument()
+    expect(screen.queryByText('Backlog')).not.toBeInTheDocument()
     expect(screen.queryByText('Queued')).not.toBeInTheDocument()
     expect(screen.queryByText('Failed')).not.toBeInTheDocument()
+    expect(screen.queryByText(/routed/i)).toBeNull()
+    expect(
+      screen.getByPlaceholderText('Search this queue, assignees, or blockers...')
+    ).toBeDefined()
     expect(
       screen.getByText(/needs agent .* choose an agent before sending it/i)
     ).toBeInTheDocument()
@@ -188,6 +195,9 @@ describe('AgentGroupsPanel', () => {
     const emptyState = screen.getByTestId('task-routing-empty')
     expect(emptyState).toHaveTextContent('No tasks are in this task queue yet')
     expect(emptyState).toHaveTextContent('Create a task and choose this task queue')
+    expect(emptyState).toHaveTextContent(
+      'Success looks like a task showing Waiting to start or Working here.'
+    )
   })
 
   test('guides blank task queue names with examples', () => {

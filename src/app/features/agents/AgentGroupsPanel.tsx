@@ -24,7 +24,7 @@ import { agentGroupErrorMessage } from './model/agentGroupErrorMessage'
 const DEFAULT_GROUP_DESCRIPTION = 'This task queue lets agents receive board tasks.'
 
 const TASK_STATE_LABELS: Record<TaskSummary['state'], string> = {
-  backlog: 'Backlog',
+  backlog: 'Not sent yet',
   queued: 'Waiting to start',
   working: 'Working',
   blocked: 'Blocked',
@@ -89,9 +89,9 @@ const TASK_GROUP_TEMPLATES: TaskGroupTemplate[] = [
   {
     id: 'triage',
     label: 'Triage',
-    summary: 'Clarify and route',
+    summary: 'Clarify and assign',
     name: 'Triage Queue',
-    description: 'Clarify incoming work, identify blockers, and route tasks to the right agent.',
+    description: 'Clarify incoming work, identify blockers, and send tasks to the right agent.',
     Icon: ClipboardCheck,
   },
 ]
@@ -301,7 +301,7 @@ export function AgentGroupsPanel() {
                   </h3>
                 </div>
                 <span className="shrink-0 rounded-full bg-white px-2 py-1 text-ui-caption font-medium text-secondary-light shadow-sm dark:bg-black/20 dark:text-secondary-dark">
-                  {workload.total} routed
+                  {workload.total} {workload.total === 1 ? 'task here' : 'tasks here'}
                 </span>
               </div>
 
@@ -315,7 +315,7 @@ export function AgentGroupsPanel() {
                 />
                 <RoutingMetric
                   testId="routing-metric-backlog"
-                  label="Backlog"
+                  label="Not sent yet"
                   value={workload.backlog}
                   Icon={Clock3}
                   tone="neutral"
@@ -337,7 +337,7 @@ export function AgentGroupsPanel() {
               </div>
 
               <label className="relative mt-3 block">
-                <span className="sr-only">Search routed tasks</span>
+                <span className="sr-only">Search tasks in this queue</span>
                 <Search
                   size={14}
                   strokeWidth={2}
@@ -350,7 +350,7 @@ export function AgentGroupsPanel() {
                   value={routingSearch}
                   onChange={(event) => setRoutingSearch(event.target.value)}
                   className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-ui-body text-foreground-light outline-none placeholder:text-secondary-light focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:text-foreground-dark dark:placeholder:text-secondary-dark"
-                  placeholder="Search routed work, assignees, blockers…"
+                  placeholder="Search this queue, assignees, or blockers..."
                 />
               </label>
 
@@ -362,6 +362,9 @@ export function AgentGroupsPanel() {
                   >
                     No tasks are in this task queue yet. Create a task and choose this task queue so
                     agents know where to pick it up.
+                    <span className="mt-1 block">
+                      Success looks like a task showing Waiting to start or Working here.
+                    </span>
                   </p>
                 ) : visibleTasks.length > 0 ? (
                   <ul className="flex flex-col gap-1.5">
