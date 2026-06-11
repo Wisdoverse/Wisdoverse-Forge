@@ -353,9 +353,9 @@ function providerFormReadiness({
   if (needsBaseUrl && !form.baseUrl.trim()) {
     return {
       ready: false,
-      title: 'Next: Add Service URL',
-      detail: 'Paste the service address for your OpenAI-compatible service.',
-      error: 'Add the service URL before saving this AI service.',
+      title: 'Next: Add connection URL',
+      detail: 'Paste the custom connection address for this AI service.',
+      error: 'Add the connection URL before saving this AI service.',
       fieldId: baseUrlInputId,
     }
   }
@@ -663,8 +663,8 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
         />
         <ProviderReadinessMetric label="Disabled" value={String(disabled)} ready={disabled === 0} />
         <ProviderReadinessMetric
-          label="Default Route"
-          value={defaultProvider?.displayName ?? 'Not Set'}
+          label="Default AI service"
+          value={defaultProvider?.displayName ?? 'Not set'}
           ready={Boolean(defaultProvider)}
         />
       </div>
@@ -982,10 +982,10 @@ function AddProviderFormPanel({
           )}
         </div>
 
-        {/* Display Name */}
+        {/* Display name */}
         <div>
           <label htmlFor={displayNameInputId} className={uiStyles.label}>
-            Display Name
+            Name in Forge
           </label>
           <input
             id={displayNameInputId}
@@ -1035,18 +1035,18 @@ function AddProviderFormPanel({
           )}
         </div>
 
-        {/* Service URL (optional) */}
+        {/* Connection URL (optional) */}
         <div className="sm:col-span-2">
           <label htmlFor={baseUrlInputId} className={uiStyles.label}>
-            Service URL {needsBaseUrl && <span className="text-red-500">*</span>}
+            Connection URL {needsBaseUrl && <span className="text-red-500">*</span>}
           </label>
           <p
             id={baseUrlHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
             {selectedProvider?.globalBaseUrl
-              ? `Leave blank to use the China service address. Global service address: ${selectedProvider.globalBaseUrl}`
-              : 'Only change this for a local model server or OpenAI-compatible gateway.'}
+              ? `Leave blank to use the China address. Global address: ${selectedProvider.globalBaseUrl}`
+              : 'Only change this if an owner gives you a custom AI service address.'}
           </p>
           <input
             id={baseUrlInputId}

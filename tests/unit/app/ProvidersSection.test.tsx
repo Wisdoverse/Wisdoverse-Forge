@@ -90,6 +90,8 @@ describe('ProvidersSection', () => {
     const readiness = await screen.findByTestId('provider-readiness')
     expect(within(readiness).getByText(/1\/3 AI services ready/i)).toBeDefined()
     expect(within(readiness).getByText('Default: OpenAI Production')).toBeDefined()
+    expect(within(readiness).getByText('Default AI service')).toBeDefined()
+    expect(within(readiness).queryByText('Default Route')).toBeNull()
     const nextStep = screen.getByTestId('provider-next-step')
     expect(within(nextStep).getByText('Do This Next')).toBeDefined()
     expect(within(nextStep).getByText('Check AI Service Connection')).toBeDefined()
@@ -148,6 +150,8 @@ describe('ProvidersSection', () => {
     expect(screen.getByText(/stored encrypted/i)).toBeDefined()
     expect(screen.getByText('Save, then check')).toBeDefined()
     expect(screen.getByLabelText(/^AI service$/i)).toBeDefined()
+    expect(screen.getByLabelText(/^Name in Forge$/i)).toBeDefined()
+    expect(screen.queryByLabelText(/^Display Name$/i)).toBeNull()
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
       /next: paste secret key/i
     )
@@ -209,7 +213,7 @@ describe('ProvidersSection', () => {
     )
   })
 
-  test('surfaces the CN default placeholder and global endpoint hint for region-switch providers', async () => {
+  test('surfaces the China default placeholder and global address hint for region-switch providers', async () => {
     useSettingsStore.setState({ providers: [] })
 
     render(<ProvidersSection />)
@@ -219,20 +223,20 @@ describe('ProvidersSection', () => {
 
     fireEvent.change(screen.getByLabelText(/^AI service$/i), { target: { value: 'zhipu' } })
 
-    // CN service address is the default (placeholder); the global service address is the hint.
+    // China address is the default (placeholder); the global address is the hint.
     expect(screen.getByLabelText(/^model$/i)).toHaveValue('glm-4.7')
-    expect(screen.getByLabelText(/service url/i)).toHaveAttribute(
+    expect(screen.getByLabelText(/connection url/i)).toHaveAttribute(
       'placeholder',
       expect.stringContaining('https://open.bigmodel.cn/api/paas/v4')
     )
     expect(
-      screen.getByText(/global service address: https:\/\/api\.z\.ai\/api\/paas\/v4/i)
+      screen.getByText(/global address: https:\/\/api\.z\.ai\/api\/paas\/v4/i)
     ).toBeDefined()
 
-    // Hunyuan is CN-only — no global service-address hint, default copy returns.
+    // Hunyuan is China-only: no global address hint, default copy returns.
     fireEvent.change(screen.getByLabelText(/^AI service$/i), { target: { value: 'hunyuan' } })
-    expect(screen.getByText(/only change this for a local model server/i)).toBeDefined()
-    expect(screen.queryByText(/global service address:/i)).toBeNull()
+    expect(screen.getByText(/only change this if an owner gives you/i)).toBeDefined()
+    expect(screen.queryByText(/global address:/i)).toBeNull()
   })
 
   test('runs a provider test from the provider row', async () => {
