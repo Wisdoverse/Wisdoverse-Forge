@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { type Turn, useChatStore } from '@app/shared/model/chat.store'
-import { useAgentsStore } from '@app/entities/agent'
+import { agentAiServiceLabel, useAgentsStore } from '@app/entities/agent'
 import type { AgentMessageRow } from '@shared/types'
 import { TurnItem } from './TurnItem'
 import { ChatComposer } from './ChatComposer'
@@ -210,7 +210,7 @@ export function ChatView({ agentId }: ChatViewProps) {
       </div>
     ) : null
 
-  const modelServiceName = agent?.provider ?? 'your saved AI service'
+  const modelServiceName = agent ? agentAiServiceLabel(agent.provider) : 'your saved AI service'
   const providerAgentBanner = isProviderAgent ? (
     <div
       data-testid="provider-agent-chat-banner"

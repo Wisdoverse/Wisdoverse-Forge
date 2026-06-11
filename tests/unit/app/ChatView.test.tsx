@@ -101,6 +101,26 @@ describe('ChatView', () => {
     await waitFor(() => expect(loadMessages).toHaveBeenCalledWith(providerAgent.id))
   })
 
+  test('does not expose raw AI service slugs in the chat-only banner', () => {
+    useAgentsStore.setState({
+      agents: [
+        {
+          ...providerAgent,
+          id: 'unknown-provider-agent',
+          provider: 'future_provider',
+        },
+      ],
+    })
+    seedChatState({ messages: [] })
+
+    render(<ChatView agentId="unknown-provider-agent" />)
+
+    const banner = screen.getByTestId('provider-agent-chat-banner')
+    expect(within(banner).getByText(/messages use AI service needs review/i)).toBeInTheDocument()
+    expect(banner).not.toHaveTextContent(/future_provider/i)
+    expect(banner).not.toHaveTextContent(/future provider/i)
+  })
+
   test('does not show banner for container CLI agent', async () => {
     const fetchEvents = vi.fn().mockResolvedValue(undefined)
     useAgentsStore.setState({ agents: [cliAgent] })

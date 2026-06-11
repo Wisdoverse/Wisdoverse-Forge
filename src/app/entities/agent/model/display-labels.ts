@@ -18,7 +18,26 @@ export function agentToolLabel(tool?: AgentInfo['cliTool']): string {
 export function agentAiServiceLabel(provider?: string | null): string {
   const label = provider?.trim()
   if (!label) return 'AI service not reported'
+  switch (label.toLowerCase()) {
+    case 'anthropic':
+      return 'Anthropic AI service'
+    case 'openai':
+      return 'OpenAI AI service'
+    case 'google':
+    case 'gemini':
+      return 'Google AI service'
+    case 'ollama':
+      return 'Ollama AI service'
+    case 'openrouter':
+      return 'OpenRouter AI service'
+    case 'together':
+      return 'Together AI service'
+    case 'openai_compatible':
+    case 'openai-compatible':
+      return 'OpenAI-compatible service'
+  }
   if (label.toLowerCase().includes('service')) return label
+  if (/^[a-z0-9]+(?:[_-][a-z0-9]+)+$/i.test(label)) return 'AI service needs review'
   return `${label} AI service`
 }
 
