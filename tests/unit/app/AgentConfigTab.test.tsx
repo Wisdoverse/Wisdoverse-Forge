@@ -125,9 +125,10 @@ describe('AgentConfigTab', () => {
     render(<AgentConfigTab agentId="future-provider" />)
 
     expect(screen.getByText(/AI service needs review/i)).toBeInTheDocument()
-    expect(screen.getByText(/Model: future-model-v1/i)).toBeInTheDocument()
+    expect(screen.getByText(/AI model selected/i)).toBeInTheDocument()
     expect(screen.queryByText(/future_provider/i)).toBeNull()
     expect(screen.queryByText(/future provider/i)).toBeNull()
+    expect(screen.queryByText(/future-model-v1/i)).toBeNull()
   })
 
   it('applies a prompt template and can reset the edit', () => {

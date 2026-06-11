@@ -54,7 +54,7 @@ function promptProfileSaveErrorMessage(): string {
 
 function modelLabel(model?: string | null): string {
   const label = model?.trim()
-  return label ? `Model: ${label}` : 'Model not reported'
+  return label ? 'AI model selected' : 'AI model not reported'
 }
 
 export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
