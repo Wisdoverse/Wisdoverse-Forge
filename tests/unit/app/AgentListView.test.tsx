@@ -45,25 +45,23 @@ describe('AgentListView', () => {
     expect(within(emptyState).queryByText(/text only/i)).toBeNull()
   })
 
-  test('waits for a selected project before showing a local-agent command', () => {
+  test('waits for a selected project before showing a command for this computer', () => {
     render(<AgentListView />)
 
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
     expect(within(enrollment).getByText(/starting project/i)).toBeDefined()
     expect(within(enrollment).getByText('Select a project first')).toBeDefined()
     expect(within(enrollment).getByLabelText(/work tool on this computer/i)).toHaveValue('codex')
-    expect(
-      within(enrollment).getByText(/Choose the tool already signed in on this computer/i)
-    ).toBeDefined()
+    expect(within(enrollment).getByText(/Choose the tool you already use here/i)).toBeDefined()
     expect(within(enrollment).getByTestId('host-cli-command-waiting')).toHaveTextContent(
-      /select a project in the sidebar first/i
+      /this panel will show the command to copy/i
     )
     expect(enrollment.textContent).not.toContain('<project-id>')
     expect(enrollment.textContent).not.toContain('agentforge agents enroll-local')
     expect(within(enrollment).getByRole('button', { name: /select project first/i })).toBeDisabled()
   })
 
-  test('shows beginner local-agent enrollment command for the selected project', () => {
+  test('shows beginner command steps for adding this computer to the selected project', () => {
     useNavigationStore.setState({
       selectedProjectId: 'p1',
       projects: {
@@ -83,9 +81,9 @@ describe('AgentListView', () => {
     render(<AgentListView />)
 
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
-    expect(within(enrollment).getByText('Connect This Computer as an Agent')).toBeDefined()
+    expect(within(enrollment).getByText('Add This Computer to Forge')).toBeDefined()
     expect(
-      within(enrollment).getByText(/agent should use files and tools on this computer/i)
+      within(enrollment).getByText(/files or tool sign-in already on this computer/i)
     ).toBeDefined()
     expect(within(enrollment).getByText('Project selected')).toBeDefined()
     expect(enrollment.textContent).not.toContain('Project: p1')
@@ -95,7 +93,9 @@ describe('AgentListView', () => {
     expect(enrollment.textContent).toContain('--project p1')
     expect(enrollment.textContent).not.toContain('<tool-name>')
     expect(enrollment.textContent).toContain('Choose the work tool above')
-    expect(within(enrollment).getByRole('button', { name: /copy join command/i })).toBeDefined()
+    expect(enrollment.textContent).toContain('Open Terminal or PowerShell in the project folder')
+    expect(enrollment.textContent).toContain('keep that window open while work runs')
+    expect(within(enrollment).getByRole('button', { name: /copy command to run/i })).toBeDefined()
 
     fireEvent.change(within(enrollment).getByLabelText(/work tool on this computer/i), {
       target: { value: 'opencode' },

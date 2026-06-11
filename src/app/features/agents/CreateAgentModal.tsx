@@ -146,11 +146,11 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
     return {
       title: `${cliToolLabel(cliTool)} on this computer`,
       detail:
-        'Best when the work tool already runs on this computer and Forge should manage the agent from the platform.',
+        'Best when the needed files or tool sign-in already exist on this computer. Forge sends tasks here after you run one command.',
       items: [
-        { label: 'Work type', value: 'Managed from Forge' },
-        { label: 'Files', value: 'Your local folder' },
-        { label: 'Before use', value: 'Run the join command here' },
+        { label: 'Work type', value: 'This computer' },
+        { label: 'Files', value: 'Folder you choose' },
+        { label: 'Before use', value: 'Run one command' },
       ],
     }
   }
@@ -382,7 +382,7 @@ export function CreateAgentModal() {
             id="create-agent-title"
             className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark"
           >
-            {localEnrollment ? 'Join agent on this computer' : 'New agent'}
+            {localEnrollment ? 'Connect this computer' : 'New agent'}
           </h2>
           <button
             type="button"
@@ -420,8 +420,8 @@ export function CreateAgentModal() {
                 </span>
               </div>
               <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Forge created the managed agent first. Copy the full command below and run it in the
-                project folder on this computer to connect this machine to that agent.
+                The agent is ready in Forge. Copy the command below and run it in the project folder
+                on this computer to connect the local tool.
               </p>
             </div>
 
@@ -430,11 +430,12 @@ export function CreateAgentModal() {
                 What to do next
               </p>
               <ol className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                <li>Open Terminal or PowerShell in this project folder.</li>
+                <li>Paste and run the command below.</li>
                 <li>
-                  Paste the command into the window where you run commands for this project folder.
+                  Keep that window open while the agent works. Run the same command again if you
+                  close it.
                 </li>
-                <li>Keep that window open while the agent is working.</li>
-                <li>If you close it, run the same command again to reconnect this agent.</li>
               </ol>
             </div>
 
@@ -443,7 +444,7 @@ export function CreateAgentModal() {
                 htmlFor="local-agent-command"
                 className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
               >
-                Join command
+                Command to run
               </label>
               <textarea
                 id="local-agent-command"
@@ -587,7 +588,7 @@ export function CreateAgentModal() {
                 {kind === 'cli'
                   ? 'Runs the selected work tool in a managed project workspace.'
                   : kind === 'local-cli'
-                    ? 'Runs a local work tool on your computer while Forge assigns tasks and tracks results.'
+                    ? 'Uses a work tool already installed on this computer. Forge still assigns tasks and shows progress here.'
                     : 'Uses a connected AI service for chat and planning; it does not work on files.'}
               </p>
             </div>
@@ -639,10 +640,10 @@ export function CreateAgentModal() {
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {selectedProject
                   ? kind === 'local-cli'
-                    ? 'Project ready. New tasks start in this project. File access stays on the joined computer.'
+                    ? 'Project ready. New tasks start here. The agent uses the project folder where you run the command.'
                     : 'Project ready. New tasks start in this project. File access uses the selected project workspace.'
                   : kind === 'local-cli'
-                    ? 'Choose a starting project first. Tasks can still be assigned later. Select a project in the sidebar before creating.'
+                    ? 'Select a project in the sidebar before creating. It tells Forge where this computer should receive tasks.'
                     : 'Choose a starting project first. Tasks can still be assigned later. Select a project in the sidebar to set the work area.'}
               </p>
             </div>
@@ -750,7 +751,7 @@ export function CreateAgentModal() {
                 />
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                   {kind === 'local-cli'
-                    ? 'Leave blank to use the folder where you run the join command.'
+                    ? 'Leave blank to use the folder where you run the command.'
                     : 'The managed workspace can include several projects. Starting Project chooses where new tasks begin; it is not a private user folder.'}
                 </p>
               </div>

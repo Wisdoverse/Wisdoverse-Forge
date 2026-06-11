@@ -309,12 +309,12 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
               aria-hidden="true"
             />
             <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              Connect This Computer as an Agent
+              Add This Computer to Forge
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Use this when the agent should use files and tools on this computer while Forge tracks
-            the work here.
+            Use this when work needs the files or tool sign-in already on this computer. Forge will
+            show it in this list and send it tasks.
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-apple-blue/[0.08] px-2 py-1 text-[10px] font-semibold text-apple-blue">
@@ -346,8 +346,7 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
             ))}
           </select>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Choose the tool already signed in on this computer. Forge will add it to the join
-            command.
+            Choose the tool you already use here. The command below will open it for Forge work.
           </p>
         </div>
 
@@ -406,22 +405,22 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
           data-testid="host-cli-command-waiting"
           className="mt-3 rounded-lg bg-apple-blue/10 px-3 py-2 text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          Select a project in the sidebar first. Forge will add it to the join command for you.
+          Select a project in the sidebar first. Then this panel will show the command to copy.
         </div>
       )}
 
       <div className="mt-3 grid gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
         {commandReady ? (
           <>
-            <p>1. Install Forge on the computer that will do the work.</p>
+            <p>1. Open Terminal or PowerShell in the project folder.</p>
             <p>2. Choose the work tool above.</p>
-            <p>3. Run the join command from the project folder this agent should use.</p>
+            <p>3. Copy the command above, run it, and keep that window open while work runs.</p>
           </>
         ) : (
           <>
             <p>1. Select the project where this computer agent should receive tasks.</p>
             <p>2. Choose whether this computer is macOS / Linux or Windows.</p>
-            <p>3. Copy the join command after the project is selected.</p>
+            <p>3. Come back here and copy the command that appears.</p>
           </>
         )}
       </div>
@@ -443,7 +442,7 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
           <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
         )}
         <span>
-          {commandReady ? (copied ? 'Copied' : 'Copy join command') : 'Select project first'}
+          {commandReady ? (copied ? 'Copied' : 'Copy command to run') : 'Select project first'}
         </span>
       </button>
     </section>

@@ -261,10 +261,12 @@ describe('CreateAgentModal', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
     expect(screen.getByText(/codex on this computer/i)).toBeInTheDocument()
-    expect(screen.getByText(/forge should manage the agent from the platform/i)).toBeInTheDocument()
-    expect(screen.getByText('Managed from Forge')).toBeInTheDocument()
+    expect(
+      screen.getByText(/Forge sends tasks here after you run one command/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText('Folder you choose')).toBeInTheDocument()
     expect(screen.queryByText(/local C[L]I sessions/i)).toBeNull()
-    expect(screen.getByText('Run the join command here')).toBeInTheDocument()
+    expect(screen.getByText('Run one command')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('radio', { name: /chat-only agent/i }))
     fireEvent.change(screen.getByLabelText(/^ai service$/i), { target: { value: 'google' } })
@@ -274,7 +276,7 @@ describe('CreateAgentModal', () => {
     })
   })
 
-  test('enrolls an agent on this computer and shows the join command', async () => {
+  test('enrolls an agent on this computer and shows beginner connection steps', async () => {
     const enrollLocalAgent = vi.fn().mockResolvedValue({
       ok: true,
       agent: {
@@ -316,17 +318,21 @@ describe('CreateAgentModal', () => {
       cliTool: 'codex',
       cwd: '/Users/me/project',
     })
-    expect(await screen.findByLabelText(/join command/i)).toHaveValue(
+    expect(await screen.findByLabelText(/command to run/i)).toHaveValue(
       "export AGENT_ID='a-local'\nagentforge-sidecar"
     )
     expect(screen.getByText('What to do next')).toBeInTheDocument()
-    expect(screen.getByText(/forge created the managed agent first/i)).toBeInTheDocument()
-    expect(screen.getByText(/connect this machine to that agent/i)).toBeInTheDocument()
+    expect(screen.getByText(/The agent is ready in Forge/i)).toBeInTheDocument()
+    expect(screen.getByText(/connect the local tool/i)).toBeInTheDocument()
     expect(screen.getByText(/project folder on this computer/i)).toBeInTheDocument()
-    expect(screen.getByText(/window where you run commands/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Open Terminal or PowerShell in this project folder/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Paste and run the command below/i)).toBeInTheDocument()
     expect(screen.getByText(/keep that window open/i)).toBeInTheDocument()
-    expect(screen.getByText(/run the same command again to reconnect/i)).toBeInTheDocument()
+    expect(screen.getByText(/Run the same command again if you close it/i)).toBeInTheDocument()
     expect(screen.queryByText(/command window/i)).toBeNull()
+    expect(screen.queryByText(/managed agent first/i)).toBeNull()
   })
 
   test('defaults to chat-only agent when a verified AI service exists', async () => {
