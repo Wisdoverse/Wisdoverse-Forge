@@ -1,6 +1,10 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { AgentTerminalTab } from '@app/features/agents/AgentTerminalTab'
+import {
+  AgentTerminalTab,
+  liveWorkStatusLabel,
+  liveWorkToolLabel,
+} from '@app/features/agents/AgentTerminalTab'
 
 const terminalMocks = vi.hoisted(() => ({
   send: vi.fn(),
@@ -120,10 +124,31 @@ describe('AgentTerminalTab', () => {
         'This managed workspace is selected, but live work access is still starting.'
       )
     ).toBeInTheDocument()
-    expect(screen.getByText('Not reported')).toBeInTheDocument()
+    expect(screen.getByText('Status not reported')).toBeInTheDocument()
     expect(screen.getByText('Starting')).toBeInTheDocument()
     expect(screen.queryByText(/command window/i)).toBeNull()
     expect(screen.queryByText(/terminal unavailable/i)).toBeNull()
     expect(screen.queryByText(/unknown/i)).toBeNull()
+    expect(screen.queryByText('cli')).toBeNull()
+  })
+
+  test('labels unavailable live work with readable tool and status names', () => {
+    expect(liveWorkToolLabel('codex')).toBe('Codex')
+    expect(liveWorkStatusLabel('idle')).toBe('Ready')
+
+    render(
+      <AgentTerminalTab
+        agentId="agent-1"
+        agentName="Runner"
+        cliTool="codex"
+        agentStatus="idle"
+      />
+    )
+
+    const unavailable = screen.getByTestId('agent-terminal-unavailable')
+    expect(within(unavailable).getAllByText('Codex').length).toBeGreaterThan(0)
+    expect(within(unavailable).getByText('Ready')).toBeInTheDocument()
+    expect(unavailable.textContent).not.toContain('codex')
+    expect(unavailable.textContent).not.toContain('idle')
   })
 })

@@ -3,6 +3,7 @@ import { ChevronLeft } from 'lucide-react'
 import { FitAddon } from '@xterm/addon-fit'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
+import { agentStatusLabel, agentToolLabel } from '@app/entities/agent'
 import { cn } from '@app/shared/lib/utils'
 import { useWebSocket } from '@app/shared/model/websocket.context'
 import { NAV_KEYS, NUM_KEYS, UTIL_KEYS, type KeyDef } from './lib/terminalKeys'
@@ -19,6 +20,14 @@ interface AgentTerminalTabProps {
 const KEY_GROUPS: KeyDef[][] = [NAV_KEYS, NUM_KEYS, UTIL_KEYS]
 const LIVE_WORK_CONNECTION_NOTICE =
   'Live work notice: Live work disconnected. Refresh this page, or restart the workspace if it stays offline.'
+
+export function liveWorkToolLabel(cliTool?: CliTool): string {
+  return agentToolLabel(cliTool)
+}
+
+export function liveWorkStatusLabel(status?: string): string {
+  return agentStatusLabel(status)
+}
 
 export function AgentTerminalTab({
   agentId,
@@ -165,6 +174,7 @@ export function AgentTerminalTab({
 
   const isLive = status === 'connected'
   const statusLabel = isLive ? 'Live' : status === 'connecting' ? 'Connecting' : 'Disconnected'
+  const toolLabel = liveWorkToolLabel(cliTool)
 
   if (!containerId) {
     return (
@@ -179,7 +189,7 @@ export function AgentTerminalTab({
           <span className="text-white/30">$</span>
           <span className="truncate">{agentName ?? agentId}</span>
           <span className="rounded bg-white/10 px-1.5 py-0.5 uppercase tracking-wide">
-            {cliTool ?? 'cli'}
+            {toolLabel}
           </span>
         </div>
         <div>
@@ -190,9 +200,9 @@ export function AgentTerminalTab({
         </div>
         <div className="grid grid-cols-2 gap-2 text-[11px] text-white/55">
           <span>Agent status</span>
-          <span className="text-white/80">{agentStatus ?? 'Not reported'}</span>
+          <span className="text-white/80">{liveWorkStatusLabel(agentStatus)}</span>
           <span>Work tool</span>
-          <span className="text-white/80">{cliTool ?? 'work tool'}</span>
+          <span className="text-white/80">{toolLabel}</span>
           <span>Workspace</span>
           <span className="text-white/80">Starting</span>
         </div>
