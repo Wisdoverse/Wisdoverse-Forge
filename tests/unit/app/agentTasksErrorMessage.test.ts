@@ -4,7 +4,7 @@ import { agentTasksErrorMessage } from '@app/features/agents/model/taskErrorMess
 describe('agentTasksErrorMessage', () => {
   test('maps permission failures to task queue access guidance', () => {
     expect(agentTasksErrorMessage(new Error('HTTP 403'))).toBe(
-      'This agent task list could not be loaded. Ask an owner or admin to give you access to this agent or its task queue.'
+      "This agent's work list could not be loaded. Ask an owner or admin to give you access to this agent or its task queue."
     )
   })
 
@@ -12,7 +12,7 @@ describe('agentTasksErrorMessage', () => {
     const message = agentTasksErrorMessage('Server error (503)')
 
     expect(message).toBe(
-      "This agent task list could not be loaded. Forge could not load this task list right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check this agent's task setup."
+      "This agent's work list could not be loaded. Forge could not load this work list right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check this agent's task setup."
     )
     expect(message).not.toContain('503')
     expect(message).not.toContain('platform')
@@ -22,7 +22,7 @@ describe('agentTasksErrorMessage', () => {
     const message = agentTasksErrorMessage(new TypeError('Failed to fetch'))
 
     expect(message).toBe(
-      'This agent task list could not be loaded. Forge could not connect while loading this task list. Check your connection, then try again.'
+      "This agent's work list could not be loaded. Forge could not connect while loading this work list. Check your connection, then try again."
     )
     expect(message).not.toContain('Failed to fetch')
   })

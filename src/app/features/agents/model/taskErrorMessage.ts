@@ -21,7 +21,7 @@ function isNetworkError(err: unknown): boolean {
 }
 
 export function agentTasksErrorMessage(err: unknown): string {
-  const base = 'This agent task list could not be loaded.'
+  const base = "This agent's work list could not be loaded."
   const code = statusCode(err)
   const text = rawErrorMessage(err).toLowerCase()
 
@@ -38,10 +38,10 @@ export function agentTasksErrorMessage(err: unknown): string {
     return `${base} Too many task requests are happening right now. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
-    return `${base} Forge could not load this task list right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check this agent's task setup.`
+    return `${base} Forge could not load this work list right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check this agent's task setup.`
   }
   if (isNetworkError(err)) {
-    return `${base} Forge could not connect while loading this task list. Check your connection, then try again.`
+    return `${base} Forge could not connect while loading this work list. Check your connection, then try again.`
   }
 
   return `${base} Try again. If it still fails, ask an owner or admin to check this agent's task setup.`

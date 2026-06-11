@@ -70,17 +70,17 @@ const TASK_FILTERS: { value: AgentTaskFilter; label: string }[] = [
 const AGENT_TASK_EMPTY_STEPS: { title: string; description: string; Icon: LucideIcon }[] = [
   {
     title: 'Open Tasks',
-    description: 'Create work and send it to this agent or its task queue.',
+    description: 'Create work, then choose this agent or a task queue it can receive.',
     Icon: ListFilter,
   },
   {
     title: 'Check the task queue',
-    description: 'Make sure new work is sent to a task queue this agent can receive.',
+    description: 'Open Agents > Task Queues and make sure this agent is attached.',
     Icon: CircleDot,
   },
   {
     title: 'Use Needs help after tasks arrive',
-    description: 'Blocked or failed work will appear there so you know what needs help.',
+    description: 'Blocked or failed work appears there first, so you know what to fix.',
     Icon: AlertTriangle,
   },
 ]
@@ -144,7 +144,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
           'animate-pulse text-center text-ui-body text-secondary-light dark:text-secondary-dark'
         )}
       >
-        Loading this agent's tasks...
+        Checking this agent's work list...
       </div>
     )
   }
@@ -160,7 +160,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
           'text-center text-ui-body text-apple-red'
         )}
       >
-        <p className="font-medium">Agent tasks need attention.</p>
+        <p className="font-medium">This agent's work list needs attention.</p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {error}
         </p>
@@ -335,6 +335,9 @@ function AgentTasksEmptyState() {
           </li>
         ))}
       </ol>
+      <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
+        Success looks like a task showing Waiting to start or Doing now in this list.
+      </p>
     </section>
   )
 }

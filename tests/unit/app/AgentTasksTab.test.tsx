@@ -49,6 +49,11 @@ describe('AgentTasksTab', () => {
     expect(within(emptyState).getByText('Open Tasks')).toBeDefined()
     expect(within(emptyState).getByText('Check the task queue')).toBeDefined()
     expect(within(emptyState).getByText('Use Needs help after tasks arrive')).toBeDefined()
+    expect(
+      within(emptyState).getByText(
+        'Success looks like a task showing Waiting to start or Doing now in this list.'
+      )
+    ).toBeDefined()
     expect(emptyState.textContent).not.toContain('routed')
     expect(emptyState.textContent).not.toContain('routing')
     expect(emptyState.textContent).not.toContain('Needs action')
@@ -104,7 +109,7 @@ describe('AgentTasksTab', () => {
     render(<AgentTasksTab agentId="agent-1" />)
 
     const alert = await screen.findByRole('alert')
-    expect(within(alert).getByText('Agent tasks need attention.')).toBeDefined()
+    expect(within(alert).getByText("This agent's work list needs attention.")).toBeDefined()
     expect(alert.textContent).toContain(
       'Ask an owner or admin to give you access to this agent or its task queue.'
     )
