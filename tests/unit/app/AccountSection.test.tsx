@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { AccountSection } from '@app/features/settings/AccountSection'
 import { useNavigationStore } from '@app/entities/navigation'
+import { useSettingsStore } from '@app/shared/model/settings.store'
 import { AuthContext, type AuthContextValue } from '@app/shared/model/auth.context'
 import { I18nContext } from '@app/shared/model/i18n.context'
 import { ThemeContext } from '@app/shared/model/theme.context'
@@ -14,7 +15,11 @@ vi.mock('@app/shared/api/legacy', () => ({
   }),
 }))
 
+const loadPreferencesMock = vi.fn().mockResolvedValue(undefined)
+const setGettingStartedDismissedMock = vi.fn()
 const originalUpdateOrg = useNavigationStore.getState().updateOrg
+const originalLoadPreferences = useSettingsStore.getState().loadPreferences
+const originalSetGettingStartedDismissed = useSettingsStore.getState().setGettingStartedDismissed
 
 function renderAccountSection() {
   const authValue: AuthContextValue = {
@@ -49,6 +54,8 @@ function renderAccountSection() {
 
 beforeEach(() => {
   changePasswordMock.mockResolvedValue(undefined)
+  loadPreferencesMock.mockClear()
+  setGettingStartedDismissedMock.mockReset().mockResolvedValue(true)
   useNavigationStore.setState({
     orgs: [
       {
@@ -62,6 +69,13 @@ beforeEach(() => {
     selectedOrgId: 'org-1',
     updateOrg: vi.fn().mockResolvedValue(undefined),
   })
+  useSettingsStore.setState({
+    preferences: {},
+    preferencesLoaded: true,
+    preferencesLoading: false,
+    loadPreferences: loadPreferencesMock,
+    setGettingStartedDismissed: setGettingStartedDismissedMock,
+  })
 })
 
 afterEach(() => {
@@ -72,6 +86,13 @@ afterEach(() => {
     orgs: [],
     selectedOrgId: null,
     updateOrg: originalUpdateOrg,
+  })
+  useSettingsStore.setState({
+    preferences: null,
+    preferencesLoaded: false,
+    preferencesLoading: false,
+    loadPreferences: originalLoadPreferences,
+    setGettingStartedDismissed: originalSetGettingStartedDismissed,
   })
 })
 
@@ -137,5 +158,55 @@ describe('AccountSection', () => {
         'Select an organization from the sidebar before changing organization settings.'
       )
     ).toBeDefined()
+  })
+
+  test('restores a hidden Getting Started guide and confirms the result', async () => {
+    useSettingsStore.setState({
+      preferences: { gettingStartedDismissed: true },
+      preferencesLoaded: true,
+    })
+
+    renderAccountSection()
+
+    expect(loadPreferencesMock).toHaveBeenCalled()
+    expect(screen.getByText(/Hidden after you finish or skip it/)).toBeDefined()
+    expect(screen.getByText(/The guide is hidden right now/)).toBeDefined()
+
+    const restoreButton = screen.getByRole('button', { name: /show the guide again/i })
+    expect(restoreButton).not.toBeDisabled()
+    fireEvent.click(restoreButton)
+
+    await waitFor(() => expect(setGettingStartedDismissedMock).toHaveBeenCalledWith(false))
+    expect(
+      screen.getByText('The guide is back. Open Start in the sidebar to continue the checklist.')
+    ).toBeDefined()
+  })
+
+  test('keeps the restore action honest while the guide is already visible', () => {
+    useSettingsStore.setState({ preferences: {}, preferencesLoaded: true })
+
+    renderAccountSection()
+
+    expect(screen.getByText(/The guide is already visible in the sidebar/)).toBeDefined()
+    expect(screen.getByRole('button', { name: /show the guide again/i })).toBeDisabled()
+  })
+
+  test('reports a failed restore instead of pretending it worked', async () => {
+    setGettingStartedDismissedMock.mockResolvedValue(false)
+    useSettingsStore.setState({
+      preferences: { gettingStartedDismissed: true },
+      preferencesLoaded: true,
+    })
+
+    renderAccountSection()
+
+    fireEvent.click(screen.getByRole('button', { name: /show the guide again/i }))
+
+    expect(
+      await screen.findByText('The guide could not be restored. Check your connection and try again.')
+    ).toBeDefined()
+    expect(
+      screen.queryByText('The guide is back. Open Start in the sidebar to continue the checklist.')
+    ).toBeNull()
   })
 })
