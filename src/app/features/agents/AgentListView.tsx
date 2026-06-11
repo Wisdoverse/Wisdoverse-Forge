@@ -551,7 +551,7 @@ function FleetControls({
           ))}
         </FilterButtonGroup>
 
-        <FilterButtonGroup label="Runtime">
+        <FilterButtonGroup label="Work location">
           {RUNTIME_FILTERS.map((filter) => (
             <FilterButton
               key={filter.value}

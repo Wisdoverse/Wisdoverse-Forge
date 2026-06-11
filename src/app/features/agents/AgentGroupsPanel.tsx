@@ -401,7 +401,7 @@ export function AgentGroupsPanel() {
               </p>
               <div
                 role="group"
-                aria-label="Task queue type shortcuts"
+                aria-label="Task queue templates"
                 className="grid gap-2 sm:grid-cols-3"
               >
                 {TASK_GROUP_TEMPLATES.map((template) => (

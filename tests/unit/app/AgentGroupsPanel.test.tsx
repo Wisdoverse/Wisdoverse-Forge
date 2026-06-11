@@ -206,7 +206,7 @@ describe('AgentGroupsPanel', () => {
     render(<AgentGroupsPanel />)
 
     fireEvent.click(screen.getByRole('button', { name: /^create task queue$/i }))
-    expect(screen.getByRole('group', { name: /task queue type shortcuts/i })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: /task queue templates/i })).toBeInTheDocument()
     fireEvent.submit(screen.getByRole('button', { name: /create task queue/i }).closest('form')!)
 
     expect(screen.getByRole('alert')).toHaveTextContent(

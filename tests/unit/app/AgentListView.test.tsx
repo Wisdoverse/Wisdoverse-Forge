@@ -53,7 +53,9 @@ describe('AgentListView', () => {
     expect(enrollment.textContent).toContain('This computer')
     expect(enrollment.textContent).toContain('Advanced: connect by pasting a command')
     expect(enrollment.textContent).toContain('Computer type')
-    expect(within(enrollment).getByRole('group', { name: /choose this computer type/i })).toBeDefined()
+    expect(
+      within(enrollment).getByRole('group', { name: /choose this computer type/i })
+    ).toBeDefined()
     expect(within(enrollment).getByText(/project:/i)).toBeDefined()
     expect(within(enrollment).getByText('Select a project')).toBeDefined()
     expect(enrollment.textContent).not.toContain('<project-id>')
@@ -199,19 +201,19 @@ describe('AgentListView', () => {
     expect(screen.queryByText('Build Runner')).toBeNull()
 
     fireEvent.change(screen.getByTestId('agent-search'), { target: { value: '' } })
-    const runtimeFilters = screen.getByRole('group', { name: /runtime filter/i })
-    expect(within(runtimeFilters).queryByRole('button', { name: /text only\s*1/i })).toBeNull()
+    const workLocationFilters = screen.getByRole('group', { name: /work location filter/i })
+    expect(within(workLocationFilters).queryByRole('button', { name: /text only\s*1/i })).toBeNull()
     fireEvent.click(
-      within(runtimeFilters).getByRole('button', { name: /chat-only AI service\s*1/i })
+      within(workLocationFilters).getByRole('button', { name: /chat-only AI service\s*1/i })
     )
     expect(screen.getByText('Review Analyst')).toBeDefined()
     expect(screen.queryByText('Build Runner')).toBeNull()
 
-    fireEvent.click(within(runtimeFilters).getByRole('button', { name: /this computer\s*1/i }))
+    fireEvent.click(within(workLocationFilters).getByRole('button', { name: /this computer\s*1/i }))
     expect(screen.getByText('Local Agent')).toBeDefined()
     expect(screen.queryByText('Build Runner')).toBeNull()
 
-    fireEvent.click(within(runtimeFilters).getByRole('button', { name: /all agents\s*4/i }))
+    fireEvent.click(within(workLocationFilters).getByRole('button', { name: /all agents\s*4/i }))
     const statusFilters = screen.getByRole('group', { name: /status filter/i })
     fireEvent.click(within(statusFilters).getByRole('button', { name: /offline\s*1/i }))
     expect(screen.getByText('Legacy Worker')).toBeDefined()
