@@ -118,6 +118,19 @@ describe('AgentDetailView', () => {
     expect(screen.queryByText('idle')).toBeNull()
   })
 
+  test('labels unknown agent statuses without exposing raw backend values', () => {
+    render(
+      <AgentDetailView
+        agent={{ ...containerAgent, status: 'warming_up' as never }}
+        onBack={() => {}}
+      />
+    )
+
+    expect(screen.getAllByText('Status needs review').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/warming_up/i)).toBeNull()
+    expect(screen.queryByText(/warming up/i)).toBeNull()
+  })
+
   test('prompt agent hides live work and labels chat as Chat', () => {
     render(<AgentDetailView agent={providerAgent} onBack={() => {}} />)
     expect(screen.getByRole('button', { name: 'Overview' })).toBeDefined()

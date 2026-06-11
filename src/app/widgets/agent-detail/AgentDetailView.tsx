@@ -2,10 +2,11 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { AlertTriangle, ArrowRight, CheckCircle2, Info } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import {
+  agentStatusKey,
+  agentStatusLabel,
   isHostCliAgent,
   useAgentsStore,
   type AgentInfo,
-  type AgentStatus,
 } from '@app/entities/agent'
 import { AgentConfigTab } from '@app/features/agents/AgentConfigTab'
 import { AgentControlPanel } from '@app/features/agents/AgentControlPanel'
@@ -21,17 +22,13 @@ const AgentTerminalTab = lazy(() =>
   import('@app/features/agents/AgentTerminalTab').then((m) => ({ default: m.AgentTerminalTab }))
 )
 
-const STATUS_COLORS: Record<AgentStatus, string> = {
+const STATUS_COLORS: Record<string, string> = {
   working: 'bg-[#1d1d1f] dark:bg-white',
   idle: 'bg-[#7a7a7a]',
   offline: 'bg-[#d2d2d7]',
 }
 
-const STATUS_LABELS: Record<AgentStatus, string> = {
-  working: 'Working',
-  idle: 'Ready',
-  offline: 'Offline',
-}
+const STATUS_FALLBACK_COLOR = 'bg-[#d2d2d7]'
 
 function defaultGradient(): string {
   return 'bg-[#f5f5f7] text-[#1d1d1f] dark:bg-white/[0.08] dark:text-white'
@@ -152,6 +149,8 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
   const [recentTasks, setRecentTasks] = useState<TaskSummary[]>([])
   const ratePercent = Math.round(agent.successRate * 100)
   const tabs = tabsFor(agent)
+  const statusKey = agentStatusKey(agent.status)
+  const statusLabel = agentStatusLabel(agent.status)
 
   useEffect(() => {
     if (!tabs.some((tab) => tab.id === activeTab)) setActiveTab('overview')
@@ -221,9 +220,14 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
             'border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#2a2a2c]'
           )}
         >
-          <div className={cn('w-2 h-2 rounded-full shrink-0', STATUS_COLORS[agent.status])} />
+          <div
+            className={cn(
+              'w-2 h-2 rounded-full shrink-0',
+              STATUS_COLORS[statusKey] ?? STATUS_FALLBACK_COLOR
+            )}
+          />
           <span className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
-            {STATUS_LABELS[agent.status]}
+            {statusLabel}
           </span>
         </div>
       </div>
@@ -277,7 +281,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
             </span>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-ui-caption">
               <DetailRow label="Where it works" value={agentRuntimeLabel(agent)} />
-              <DetailRow label="Status" value={STATUS_LABELS[agent.status]} />
+              <DetailRow label="Status" value={statusLabel} />
               <DetailRow
                 label="Workspace it can use"
                 value={agent.workspaceName ?? 'Default workspace'}
@@ -537,7 +541,7 @@ function AssignmentFitCard({
                 : 'bg-apple-gray-5 text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
           )}
         >
-          {STATUS_LABELS[agent.status]}
+          {agentStatusLabel(agent.status)}
         </span>
       </div>
 

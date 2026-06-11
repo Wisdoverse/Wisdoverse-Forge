@@ -1,4 +1,5 @@
 export type { AgentInfo, AgentRuntimeKind, AgentStatus, CliTool } from './model/types'
+export { agentStatusKey, agentStatusLabel } from './model/status-labels'
 export {
   isHostCliAgent,
   isContainerAgent,
