@@ -214,7 +214,9 @@ describe('CreateAgentModal', () => {
       screen.queryByLabelText(/project files folder|project folder on this computer/i)
     ).toBeNull()
     expect(screen.getByLabelText(/^ai service$/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/^model$/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/^model$/i)).toHaveAccessibleDescription(
+      /keep the suggested model/i
+    )
     expect(screen.queryByText(/command window/i)).toBeNull()
   })
 

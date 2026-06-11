@@ -700,9 +700,16 @@ export function CreateAgentModal() {
                   <input
                     id="agent-model"
                     {...register('model')}
+                    aria-describedby="agent-model-help"
                     className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                     placeholder="e.g. claude-sonnet-4-6…"
                   />
+                  <p
+                    id="agent-model-help"
+                    className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+                  >
+                    If you are not sure, keep the suggested model from the selected AI service.
+                  </p>
                 </div>
                 <div>
                   <label
