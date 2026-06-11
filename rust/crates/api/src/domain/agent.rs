@@ -281,7 +281,7 @@ impl JoinCode {
 
     pub(crate) fn generate() -> Self {
         use base64::Engine as _;
-        use rand::RngCore as _;
+        use rand::Rng as _;
         let mut bytes = [0u8; 32];
         rand::rng().fill_bytes(&mut bytes);
         Self(format!("{}{}", Self::PREFIX, base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)))

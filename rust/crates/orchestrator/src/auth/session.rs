@@ -4,7 +4,7 @@ use std::sync::Mutex;
 use anyhow::ensure;
 use chrono::{Duration, Utc};
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode};
-use rand::RngCore;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
