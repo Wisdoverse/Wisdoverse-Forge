@@ -50,7 +50,7 @@ describe('AgentListView', () => {
     expect(within(enrollment).getByText(/connect this computer/i)).toBeDefined()
     expect(enrollment.textContent).toContain('Create an agent for this computer')
     expect(enrollment.textContent).toContain('This computer')
-    expect(enrollment.textContent).toContain('Advanced: connect with a command')
+    expect(enrollment.textContent).toContain('Advanced: connect by pasting a command')
     expect(enrollment.textContent).toContain('Computer type')
     expect(within(enrollment).getByRole('group', { name: /choose this computer type/i })).toBeDefined()
     expect(within(enrollment).getByText(/project:/i)).toBeDefined()
@@ -95,7 +95,7 @@ describe('AgentListView', () => {
     expect(enrollment.textContent).toContain('--project p1')
     expect(enrollment.textContent).toContain('Replace <tool-name> with the tool you already use')
     expect(enrollment.textContent).toContain('Run the command from the folder')
-    expect(within(enrollment).getByRole('button', { name: /copy command/i })).toBeDefined()
+    expect(within(enrollment).getByRole('button', { name: /copy setup command/i })).toBeDefined()
 
     fireEvent.click(within(enrollment).getByRole('button', { name: /windows/i }))
     expect(enrollment.textContent).toContain('--shell-format powershell')

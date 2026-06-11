@@ -191,7 +191,7 @@ describe('CreateAgentModal', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
     expect(screen.getByText(/codex on this computer/i)).toBeInTheDocument()
-    expect(screen.getByText('Run the join command')).toBeInTheDocument()
+    expect(screen.getByText('Run the setup command')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('radio', { name: /chat-only ai service/i }))
     fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'google' } })
@@ -201,7 +201,7 @@ describe('CreateAgentModal', () => {
     })
   })
 
-  test('enrolls an agent on this computer and shows the join command', async () => {
+  test('enrolls an agent on this computer and shows the setup command', async () => {
     const enrollLocalAgent = vi.fn().mockResolvedValue({
       ok: true,
       agent: {
@@ -243,14 +243,14 @@ describe('CreateAgentModal', () => {
       cliTool: 'codex',
       cwd: '/Users/me/project',
     })
-    expect(await screen.findByLabelText(/join command/i)).toHaveValue(
+    expect(await screen.findByLabelText(/setup command/i)).toHaveValue(
       "export AGENT_ID='a-local'\nagentforge-sidecar"
     )
     expect(screen.getByText(/where the work tool is installed/i)).toBeInTheDocument()
     expect(screen.queryByText(/where the CLI is installed/i)).toBeNull()
   })
 
-  test('shows the one-command join with an OS toggle when the server mints a join code', async () => {
+  test('shows the setup command with an OS toggle when the server mints a join code', async () => {
     const joinCommand =
       'curl -fsSL https://forge.example.com/api/v1/agents/local-join/script | sh -s -- --code afj_test'
     const joinCommandPowershell =
@@ -287,8 +287,8 @@ describe('CreateAgentModal', () => {
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
-    // One-command join leads; the pasted command tracks the OS toggle.
-    const oneLiner = await screen.findByLabelText(/one-command join/i)
+    // The setup command leads; the pasted command tracks the OS toggle.
+    const oneLiner = await screen.findByLabelText(/setup command/i)
     expect(oneLiner).toHaveValue(joinCommand)
     expect(screen.getByRole('group', { name: /computer type/i })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /windows/i }))

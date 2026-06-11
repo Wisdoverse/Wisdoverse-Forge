@@ -165,7 +165,7 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
       items: [
         { label: 'Work style', value: 'This computer' },
         { label: 'Files', value: 'Your chosen folder' },
-        { label: 'Before use', value: 'Run the join command' },
+        { label: 'Before use', value: 'Run the setup command' },
       ],
     }
   }
@@ -449,7 +449,7 @@ export function CreateAgentModal() {
               </div>
               <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {localEnrollment.enrollment?.joinCommand
-                  ? 'Paste one command into a terminal on the machine where the agent should work. It downloads what is missing and connects this agent.'
+                  ? 'Paste the setup command into Terminal or PowerShell on the computer where the agent should work. It downloads what is missing and connects this agent.'
                   : 'Copy this command and run it on the machine where the work tool is installed. The agent will appear online after the connection helper starts.'}
               </p>
             </div>
@@ -458,7 +458,7 @@ export function CreateAgentModal() {
               <div>
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                    Join command
+                    Setup command
                   </span>
                   <div role="group" aria-label="Computer type" className="flex gap-1">
                     {(
@@ -489,7 +489,7 @@ export function CreateAgentModal() {
                 </div>
                 <textarea
                   id="local-agent-join-command"
-                  aria-label="One-command join"
+                  aria-label="Setup command"
                   readOnly
                   value={
                     (joinOs === 'posix'
@@ -509,8 +509,8 @@ export function CreateAgentModal() {
                     Manual connection setup
                   </summary>
                   <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                    Use this only if the one-command join cannot run on this machine. Export this
-                    environment and start the connection helper yourself.
+                    Use this only if the setup command cannot run on this machine. Export this
+                    connection setup and start the connection helper yourself.
                   </p>
                   <textarea
                     id="local-agent-command"
@@ -542,7 +542,7 @@ export function CreateAgentModal() {
                   htmlFor="local-agent-command"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  Join command
+                  Setup command
                 </label>
                 <textarea
                   id="local-agent-command"
@@ -579,7 +579,7 @@ export function CreateAgentModal() {
                   ) : (
                     <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
                   )}
-                  {copiedJoin ? 'Copied' : 'Copy join command'}
+                  {copiedJoin ? 'Copied' : 'Copy setup command'}
                 </button>
               ) : (
                 <button
@@ -592,7 +592,7 @@ export function CreateAgentModal() {
                   ) : (
                     <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
                   )}
-                  {copiedCommand ? 'Copied' : 'Copy command'}
+                  {copiedCommand ? 'Copied' : 'Copy setup command'}
                 </button>
               )}
               <button
@@ -861,7 +861,7 @@ export function CreateAgentModal() {
                 />
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                   {kind === 'local-cli'
-                    ? 'Leave blank to use the folder where you run the join command.'
+                    ? 'Leave blank to use the folder where you run the setup command.'
                     : 'Use /workspace unless an owner gives you a different path. It can include multiple projects. Primary Project sets the default task context.'}
                 </p>
               </div>

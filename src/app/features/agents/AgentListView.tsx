@@ -59,13 +59,13 @@ const HOST_CLI_PLATFORMS: {
   {
     value: 'posix',
     label: 'macOS / Linux',
-    detail: 'Terminal, bash, zsh',
+    detail: 'Terminal app',
     Icon: Laptop,
   },
   {
     value: 'windows',
     label: 'Windows',
-    detail: 'PowerShell',
+    detail: 'PowerShell app',
     Icon: Monitor,
   },
 ]
@@ -284,8 +284,8 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
             Use this when work should run on your computer and still be tracked here. Create an
-            agent for this computer, then paste its one-command join into a terminal on that
-            computer.
+            agent for this computer, then paste its setup command into Terminal or PowerShell on
+            that computer.
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-apple-blue/[0.08] px-2 py-1 text-[10px] font-semibold text-apple-blue">
@@ -304,7 +304,7 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
 
       <details className="mt-3">
         <summary className="cursor-pointer text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Advanced: connect with a command
+          Advanced: connect by pasting a command
         </summary>
         <div className="mt-3">
           <p className="mb-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
@@ -393,7 +393,7 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
             <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
           )}
           <span>
-            {commandReady ? (copied ? 'Copied' : 'Copy Command') : 'Select Project First'}
+            {commandReady ? (copied ? 'Copied' : 'Copy setup command') : 'Select project first'}
           </span>
         </button>
       </details>
