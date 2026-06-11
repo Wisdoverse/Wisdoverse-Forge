@@ -56,6 +56,7 @@ describe('DescriptionTab', () => {
   test('keeps result and context actions available for completed tasks', () => {
     const onOpenResult = vi.fn()
     const onOpenContext = vi.fn()
+    const onDraftSkill = vi.fn()
 
     render(
       <DescriptionTab
@@ -68,6 +69,7 @@ describe('DescriptionTab', () => {
         }}
         onOpenResult={onOpenResult}
         onOpenContext={onOpenContext}
+        onDraftSkill={onDraftSkill}
       />
     )
 
@@ -77,9 +79,18 @@ describe('DescriptionTab', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /open result files/i }))
     fireEvent.click(screen.getByRole('button', { name: /^review context/i }))
+    fireEvent.click(screen.getByRole('button', { name: /review save ideas/i }))
+    fireEvent.click(screen.getByRole('button', { name: /draft saved instruction/i }))
 
     expect(onOpenResult).toHaveBeenCalledOnce()
-    expect(onOpenContext).toHaveBeenCalledOnce()
+    expect(onOpenContext).toHaveBeenCalledTimes(2)
+    expect(onDraftSkill).toHaveBeenCalledOnce()
+    expect(screen.getByText('Reuse what worked')).toBeDefined()
+    expect(
+      screen.getByText('Completed work can become saved instructions after review.')
+    ).toBeDefined()
+    expect(screen.queryByText('Reusable learning')).toBeNull()
+    expect(screen.queryByText(/governed skill/i)).toBeNull()
     expect(screen.queryByText(/result artifact/i)).toBeNull()
   })
 

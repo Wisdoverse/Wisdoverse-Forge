@@ -71,6 +71,24 @@ describe('beginner error translations', () => {
     expect(zh.skills.detail.unknownAuthor).toContain('暂未列出')
   })
 
+  test('getting started reuse copy explains saved instructions without expert terms', () => {
+    expect(en.gettingStarted.readyDetail).toContain('review saved instructions')
+    expect(en.gettingStarted.steps.reuse.title).toBe('Reuse what worked')
+    expect(en.gettingStarted.steps.reuse.empty).toContain('save for next time')
+    expect(en.gettingStarted.steps.reuse.ready).toContain('Saved instructions')
+    expect(en.gettingStarted.steps.reuse.open).toBe('Show saved instructions')
+    expect(JSON.stringify(en.gettingStarted.steps.reuse)).not.toContain('skill candidates')
+    expect(JSON.stringify(en.gettingStarted.steps.reuse)).not.toContain('applied skill context')
+
+    expect(zh.gettingStarted.readyDetail).toContain('保存好的指令')
+    expect(zh.gettingStarted.steps.reuse.title).toBe('复用有效做法')
+    expect(zh.gettingStarted.steps.reuse.empty).toContain('保存到下次使用')
+    expect(zh.gettingStarted.steps.reuse.ready).toContain('保存好的指令')
+    expect(zh.gettingStarted.steps.reuse.open).toBe('查看保存的指令')
+    expect(JSON.stringify(zh.gettingStarted.steps.reuse)).not.toContain('技能候选')
+    expect(JSON.stringify(zh.gettingStarted.steps.reuse)).not.toContain('技能上下文')
+  })
+
   test('this-computer agent join errors avoid request-header and connection-policy jargon', () => {
     const englishJoin = en.errors.agent.enroll.missing_idempotency_key
     const englishSecure = en.errors.agent.enroll.plaintext_nats_blocked

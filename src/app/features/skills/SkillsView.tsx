@@ -13,7 +13,7 @@ const SKILL_FILTER_LABELS: Record<SkillFilter, string> = {
   all: 'All',
   installed: 'Installed',
   available: 'Available',
-  cli: 'Tool-specific',
+  cli: 'For one work tool',
 }
 
 export function SkillsView() {
@@ -111,12 +111,12 @@ export function SkillsView() {
               <SkillStat label="Total" value={stats.total} Icon={BrainCircuit} />
               <SkillStat label="Installed" value={stats.installed} Icon={CheckCircle2} />
               <SkillStat label="Available" value={stats.available} Icon={Circle} />
-              <SkillStat label="Tool-specific" value={stats.cliScoped} Icon={Terminal} />
+              <SkillStat label="For one work tool" value={stats.cliScoped} Icon={Terminal} />
             </div>
             <div className="rounded-card border border-black/[0.08] bg-white p-3 dark:border-white/[0.1] dark:bg-[#2a2a2c]">
               <div className="mb-2 flex items-center gap-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                 <Filter size={14} strokeWidth={2.25} aria-hidden="true" />
-                <span>Reuse view</span>
+                <span>Show skills</span>
               </div>
               <div role="group" aria-label="Skill filter" className="flex flex-wrap gap-1.5">
                 {(Object.keys(SKILL_FILTER_LABELS) as SkillFilter[]).map((filter) => (

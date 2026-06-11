@@ -161,11 +161,14 @@ describe('SkillsView', () => {
     expect(within(summary).getByText('Total')).toBeDefined()
     expect(within(summary).getAllByText('Installed').length).toBeGreaterThan(0)
     expect(within(summary).getAllByText('Available').length).toBeGreaterThan(0)
-    expect(within(summary).getAllByText('Tool-specific').length).toBeGreaterThan(0)
+    expect(within(summary).getAllByText('For one work tool').length).toBeGreaterThan(0)
+    expect(within(summary).getByText('Show skills')).toBeDefined()
+    expect(within(summary).queryByText('Tool-specific')).toBeNull()
+    expect(within(summary).queryByText('Reuse view')).toBeNull()
     expect(within(summary).queryByText(/C[L]I scoped/)).toBeNull()
 
     const filters = within(summary).getByRole('group', { name: /skill filter/i })
-    fireEvent.click(within(filters).getByRole('button', { name: /tool-specific\s*1/i }))
+    fireEvent.click(within(filters).getByRole('button', { name: /for one work tool\s*1/i }))
 
     expect(screen.getByText('cli-review')).toBeDefined()
     expect(screen.queryByText('release-draft')).toBeNull()

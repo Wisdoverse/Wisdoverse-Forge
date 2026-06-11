@@ -119,8 +119,8 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByText(/approve or update the task/i)).toBeDefined()
     expect(screen.getByText('Task story')).toBeDefined()
     expect(screen.getByText('Agent work history')).toBeDefined()
-    expect(await screen.findByText('Work attempt: In Progress')).toBeDefined()
-    expect(screen.getByText(/used desktop app/i)).toBeDefined()
+    expect(await screen.findByText('Work attempt: In progress')).toBeDefined()
+    expect(screen.getByText(/used a work tool that needs review/i)).toBeDefined()
     expect(screen.getByText(/support reference run-1234/i)).toBeDefined()
     expect(screen.getAllByText(/waiting for account access/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/waiting for api credentials/i)).toBeNull()
@@ -292,12 +292,12 @@ describe('TaskDetailPanel', () => {
       />
     )
 
-    expect(screen.getByText(/completed work can become a governed skill/i)).toBeDefined()
+    expect(screen.getByText(/completed work can become saved instructions/i)).toBeDefined()
     expect(screen.getByTestId('task-handoff-checklist')).toBeDefined()
     expect(screen.getByText('Outcome')).toBeDefined()
     expect(screen.getByText(/solves the original request/i)).toBeDefined()
     expect(screen.getByText(/open result files or context/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: /review skill suggestions/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /review save ideas/i })).toBeDefined()
   })
 
   test('guides beginner review on the result tab', async () => {

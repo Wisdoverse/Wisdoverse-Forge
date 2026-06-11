@@ -173,6 +173,14 @@ describe('GettingStartedView', () => {
     expect(await screen.findByText('100%')).toBeDefined()
     expect(screen.getByText('Ready to run work')).toBeDefined()
     expect(screen.getByText(/The basic path is complete/i)).toBeDefined()
+    expect(screen.getAllByText('Reuse what worked').length).toBeGreaterThan(0)
+    expect(screen.getByText('Saved instructions are available for future tasks.')).toBeDefined()
+    expect(
+      screen.getAllByRole('button', { name: /show saved instructions/i }).length
+    ).toBeGreaterThan(0)
+    expect(screen.queryByText('Reusable learning')).toBeNull()
+    expect(screen.queryByText(/applied skill context/i)).toBeNull()
+    expect(screen.queryByText(/skill candidates/i)).toBeNull()
     expect(loadOrgsMock).toHaveBeenCalled()
     expect(loadProvidersMock).toHaveBeenCalled()
     expect(loadRuntimeSettingsMock).toHaveBeenCalled()

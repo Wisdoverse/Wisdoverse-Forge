@@ -184,12 +184,12 @@ export function DescriptionTab({
         </div>
       </ReviewSection>
 
-      <ReviewSection title="Reusable learning" Icon={WandSparkles}>
+      <ReviewSection title="Reuse what worked" Icon={WandSparkles}>
         <div className="space-y-2 text-xs text-secondary-light dark:text-secondary-dark">
           <p>
             {task.state === 'completed'
-              ? 'Completed work can become a governed skill after review.'
-              : 'The save-as-skill path becomes available once useful work is completed.'}
+              ? 'Completed work can become saved instructions after review.'
+              : 'The save-for-next-time path becomes available once useful work is completed.'}
           </p>
           {task.state === 'completed' && (
             <div className="flex flex-wrap gap-2">
@@ -200,7 +200,7 @@ export function DescriptionTab({
                   className="inline-flex h-8 items-center gap-1.5 rounded-full bg-apple-blue px-3 text-ui-button font-medium text-white transition-colors hover:bg-apple-blue-focus"
                 >
                   <WandSparkles size={13} strokeWidth={2.25} aria-hidden="true" />
-                  <span>Review skill suggestions</span>
+                  <span>Review save ideas</span>
                 </button>
               )}
               {onDraftSkill && (
@@ -209,7 +209,7 @@ export function DescriptionTab({
                   onClick={onDraftSkill}
                   className="inline-flex h-8 items-center gap-1.5 rounded-full bg-black/[0.04] px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.08] dark:bg-white/[0.06] dark:text-foreground-dark dark:hover:bg-white/[0.1]"
                 >
-                  <span>Draft reusable skill</span>
+                  <span>Draft saved instruction</span>
                   <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
                 </button>
               )}
