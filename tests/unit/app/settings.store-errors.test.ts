@@ -88,14 +88,14 @@ describe('settingsActionErrorMessage', () => {
   test('turns field validation details into a provider setup step', () => {
     expectBeginnerError(
       settingsActionErrorMessage('providers', 'save', statusError(422, 'model is required')),
-      'Choose a supported model for this AI service, then save again.'
+      'Keep the suggested model or choose a supported model, then save again.'
     )
   })
 
   test('turns general provider validation into AI service setup guidance', () => {
     expectBeginnerError(
       settingsActionErrorMessage('providers', 'save', statusError(422, 'invalid provider')),
-      'Check the AI service name, model, and service access key, then save again.'
+      'Choose an AI service from the list, then save again.'
     )
   })
 
@@ -141,7 +141,7 @@ describe('useSettingsStore errors', () => {
     expect(result).toBeNull()
     expectBeginnerError(
       useSettingsStore.getState().providersError,
-      'Enter the service access key from the AI service, choose a model, then save again.'
+      'Paste the service access key from the selected AI service, then save again.'
     )
   })
 

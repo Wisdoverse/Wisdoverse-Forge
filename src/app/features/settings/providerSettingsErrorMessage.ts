@@ -60,6 +60,7 @@ function actionFromText(text: string): ProviderSettingsAction {
     lower.includes('api key is required') ||
     lower.includes('model is required') ||
     lower.includes('base url is required') ||
+    lower.includes('base_url is required') ||
     lower.includes('invalid provider') ||
     lower.includes('already exists') ||
     lower.includes('duplicate')
@@ -73,6 +74,22 @@ function baseMessage(action: ProviderSettingsAction): string {
   if (action === 'save') return 'AI service could not be saved.'
   if (action === 'remove') return 'AI service could not be removed.'
   return 'AI service settings could not be loaded.'
+}
+
+function validationGuidance(lower: string): string {
+  if (lower.includes('api key') || lower.includes('token') || lower.includes('key')) {
+    return 'Paste the service access key from the selected AI service, then save again.'
+  }
+  if (lower.includes('model')) {
+    return 'Keep the suggested model or choose a supported model, then save again.'
+  }
+  if (lower.includes('base url') || lower.includes('base_url')) {
+    return 'Add the service address for this AI service, then save again.'
+  }
+  if (lower.includes('provider')) {
+    return 'Choose an AI service from the list, then save again.'
+  }
+  return 'Choose the AI service, confirm the model, add the service access key if needed, then save again.'
 }
 
 export function providerSettingsErrorMessage(error: unknown): string {
@@ -98,7 +115,7 @@ export function providerSettingsErrorMessage(error: unknown): string {
     lower.includes('base url') ||
     lower.includes('invalid provider')
   ) {
-    return `${base} Choose the AI service, confirm the model, add the service access key, and add the service address if needed. Then save again.`
+    return `${base} ${validationGuidance(lower)}`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
     return `${base} Forge is receiving too many AI service requests right now. Wait a minute, then try again.`

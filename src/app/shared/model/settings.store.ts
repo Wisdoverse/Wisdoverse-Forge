@@ -208,12 +208,18 @@ function settingsValidationMessage(
       normalized.includes('token') ||
       normalized.includes('key')
     ) {
-      return 'Enter the service access key from the AI service, choose a model, then save again.'
+      return 'Paste the service access key from the selected AI service, then save again.'
     }
     if (normalized.includes('model')) {
-      return 'Choose a supported model for this AI service, then save again.'
+      return 'Keep the suggested model or choose a supported model, then save again.'
     }
-    return 'Check the AI service name, model, and service access key, then save again.'
+    if (normalized.includes('base url') || normalized.includes('base_url')) {
+      return 'Add the service address for this AI service, then save again.'
+    }
+    if (normalized.includes('provider')) {
+      return 'Choose an AI service from the list, then save again.'
+    }
+    return 'Choose the AI service, confirm the model, add the service access key if needed, then save again.'
   }
 
   if (area === 'apiKeys') {

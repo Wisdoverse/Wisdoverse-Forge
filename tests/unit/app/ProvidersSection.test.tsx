@@ -139,7 +139,7 @@ describe('ProvidersSection', () => {
 
     const nextStep = await screen.findByTestId('provider-next-step')
     expect(within(nextStep).getByText('Add Your First AI Service')).toBeDefined()
-    expect(within(nextStep).getByText(/confirm the model, add its access key/i)).toBeDefined()
+    expect(within(nextStep).getByText(/start with add AI service/i)).toBeDefined()
 
     fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
 
@@ -149,7 +149,7 @@ describe('ProvidersSection', () => {
     expect(screen.getAllByText(/service access key from/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/API key/i)).toBeNull()
     expect(screen.getByText('Save and check')).toBeDefined()
-    expect(screen.getByText(/run check before using this service/i)).toBeDefined()
+    expect(screen.getByText(/ready means chat-only agents can use it/i)).toBeDefined()
     expect(screen.getByLabelText(/^AI service$/i)).toBeDefined()
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
       /next: add the service access key/i
@@ -181,6 +181,29 @@ describe('ProvidersSection', () => {
         })
       )
     )
+  })
+
+  test('points users to the model field before saving without a model', async () => {
+    useSettingsStore.setState({ providers: [] })
+
+    render(<ProvidersSection />)
+
+    fireEvent.click(
+      within(await screen.findByTestId('provider-next-step')).getByRole('button', {
+        name: /add AI service/i,
+      })
+    )
+    fireEvent.change(screen.getByLabelText(/^model$/i), {
+      target: { value: '' },
+    })
+    fireEvent.change(screen.getByLabelText(/service access key/i), {
+      target: { value: 'sk-test' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save AI service/i }))
+
+    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/next: confirm the model/i)
+    expect(screen.getByText('Confirm the model before saving this AI service.')).toBeDefined()
+    expect(saveProviderMock).not.toHaveBeenCalled()
   })
 
   test('does not treat disabled-only providers as ready', async () => {
@@ -264,17 +287,16 @@ describe('ProvidersSection', () => {
   test('shows a beginner recovery step instead of raw provider setting details', async () => {
     useSettingsStore.setState({
       providers: [],
-      providersError:
-        'Check the required fields for provider, then try again. Code: 422. Details: API key is required',
+      providersError: 'Paste the service access key from the selected AI service, then save again.',
     })
 
     render(<ProvidersSection />)
 
     await waitFor(() => expect(loadProvidersMock).toHaveBeenCalledTimes(1))
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'AI service could not be saved. Choose the AI service, confirm the model, add the service access key, and add the service address if needed. Then save again.'
+      'Paste the service access key from the selected AI service, then save again.'
     )
     expect(screen.getByRole('alert')).not.toHaveTextContent(/model service/i)
-    expect(screen.queryByText(/Details: API key is required/i)).toBeNull()
+    expect(screen.queryByText(/Details:/i)).toBeNull()
   })
 })

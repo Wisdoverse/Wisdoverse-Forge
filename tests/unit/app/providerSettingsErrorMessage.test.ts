@@ -14,7 +14,21 @@ describe('providerSettingsErrorMessage', () => {
       providerSettingsErrorMessage(
         'Check the required fields for provider, then try again. Code: 422. Details: API key is required'
       ),
-      'AI service could not be saved. Choose the AI service, confirm the model, add the service access key, and add the service address if needed. Then save again.'
+      'AI service could not be saved. Paste the service access key from the selected AI service, then save again.'
+    )
+  })
+
+  test('turns missing model errors into a model step', () => {
+    expectBeginnerMessage(
+      providerSettingsErrorMessage('HTTP 422: model is required'),
+      'AI service could not be saved. Keep the suggested model or choose a supported model, then save again.'
+    )
+  })
+
+  test('turns missing service address errors into an address step', () => {
+    expectBeginnerMessage(
+      providerSettingsErrorMessage('HTTP 422: base_url is required'),
+      'AI service could not be saved. Add the service address for this AI service, then save again.'
     )
   })
 

@@ -12,7 +12,6 @@ import type {
 } from '@app/shared/api/legacy/settingsApi'
 import { getSettingsApi } from '@app/shared/api/legacy'
 import { providerTestErrorMessage } from './providerTestErrorMessage'
-import { providerSettingsErrorMessage } from './providerSettingsErrorMessage'
 
 // ============================================================================
 // Types
@@ -64,15 +63,17 @@ const DEFAULT_FORM: AddProviderForm = {
 const PROVIDER_SETUP_STEPS = [
   {
     label: 'Choose AI service',
-    value: 'Pick the company or gateway that provides the model.',
+    value:
+      'Pick the service your team already uses. Keep the suggested model unless an owner gave you another model name.',
   },
   {
     label: 'Add service access key',
-    value: 'Paste the service access key from your AI service. It stays hidden after saving.',
+    value:
+      'Paste the key from that service. It is not your account password and stays hidden after saving.',
   },
   {
     label: 'Save and check',
-    value: 'Run Check before using this service with agents.',
+    value: 'Save first, then run Check. Ready means chat-only agents can use it.',
   },
 ]
 
@@ -232,9 +233,9 @@ function providerFormReadiness({
   if (!form.model.trim()) {
     return {
       ready: false,
-      title: 'Next: Choose a model',
-      detail: 'Use the suggested model, or choose one from the list.',
-      error: 'Choose a model before saving this AI service.',
+      title: 'Next: Confirm the model',
+      detail: 'Keep the suggested model, or paste the model name your owner gave you.',
+      error: 'Confirm the model before saving this AI service.',
       fieldId: modelInputId,
     }
   }
@@ -310,8 +311,8 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
     return {
       title: 'Add Your First AI Service',
       detail:
-        'An AI service gives chat-only agents a model to use. Choose the service, confirm the model, add its access key, then check the connection.',
-      success: 'At least 1 AI service is saved and ready for a connection check.',
+        'Start with Add AI service. Pick the service your team uses, keep the suggested model unless you have a specific one, paste the service access key, then run Check.',
+      success: 'The AI service is saved, checked, and marked Ready.',
       ready: false,
       action: 'add-provider',
       actionLabel: 'Add AI service',
@@ -322,7 +323,7 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
     const firstProvider = needsTestProviders[0]
     return {
       title: 'Check AI Service Connection',
-      detail: `Check ${firstProvider.displayName} before assigning work so agent creation does not fail on the first run.`,
+      detail: `Run Check for ${firstProvider.displayName} before creating chat-only agents so the first agent works right away.`,
       success: 'The AI service shows Ready and can be used by chat-only agents.',
       ready: false,
       action: 'show-needs-test',
@@ -949,7 +950,7 @@ function AddProviderFormPanel({
             id={baseUrlHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Leave this alone unless you use a local model server or compatible gateway.
+            Leave blank unless you use a local model server or compatible gateway.
           </p>
           <input
             id={baseUrlInputId}
@@ -1103,7 +1104,7 @@ export function ProvidersSection() {
       {/* Error */}
       {providersError && (
         <div role="alert" aria-live="polite" className={uiStyles.error}>
-          {providerSettingsErrorMessage(providersError)}
+          {providersError}
         </div>
       )}
 
@@ -1165,8 +1166,8 @@ export function ProvidersSection() {
               No AI services connected
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Add one AI service, confirm the model, add its access key, save it, then run Check
-              before creating chat-only agents.
+              Use Add AI service. Keep the suggested model unless you have a specific one, paste the
+              service access key, then run Check before creating chat-only agents.
             </p>
           </div>
         ) : filteredProviders.length === 0 && !showForm ? (
