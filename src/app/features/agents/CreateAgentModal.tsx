@@ -146,11 +146,11 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
     return {
       title: `${cliToolLabel(cliTool)} on this computer`,
       detail:
-        'Best when the work tool already runs on this computer and Forge should assign tasks and track results.',
+        'Best when the work tool already runs on this computer and Forge should manage the agent from the platform.',
       items: [
-        { label: 'Work type', value: 'This computer' },
+        { label: 'Work type', value: 'Managed from Forge' },
         { label: 'Files', value: 'Your local folder' },
-        { label: 'Before use', value: 'Run the join command' },
+        { label: 'Before use', value: 'Run the join command here' },
       ],
     }
   }
@@ -420,8 +420,8 @@ export function CreateAgentModal() {
                 </span>
               </div>
               <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Copy the full command below and run it in the project folder on this computer. The
-                agent will appear online after the connection tool starts.
+                Forge created the managed agent first. Copy the full command below and run it in the
+                project folder on this computer to connect this machine to that agent.
               </p>
             </div>
 

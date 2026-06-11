@@ -261,9 +261,10 @@ describe('CreateAgentModal', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
     expect(screen.getByText(/codex on this computer/i)).toBeInTheDocument()
-    expect(screen.getByText(/work tool already runs on this computer/i)).toBeInTheDocument()
+    expect(screen.getByText(/forge should manage the agent from the platform/i)).toBeInTheDocument()
+    expect(screen.getByText('Managed from Forge')).toBeInTheDocument()
     expect(screen.queryByText(/local C[L]I sessions/i)).toBeNull()
-    expect(screen.getByText('Run the join command')).toBeInTheDocument()
+    expect(screen.getByText('Run the join command here')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('radio', { name: /chat-only agent/i }))
     fireEvent.change(screen.getByLabelText(/^ai service$/i), { target: { value: 'google' } })
@@ -319,6 +320,8 @@ describe('CreateAgentModal', () => {
       "export AGENT_ID='a-local'\nagentforge-sidecar"
     )
     expect(screen.getByText('What to do next')).toBeInTheDocument()
+    expect(screen.getByText(/forge created the managed agent first/i)).toBeInTheDocument()
+    expect(screen.getByText(/connect this machine to that agent/i)).toBeInTheDocument()
     expect(screen.getByText(/project folder on this computer/i)).toBeInTheDocument()
     expect(screen.getByText(/window where you run commands/i)).toBeInTheDocument()
     expect(screen.getByText(/keep that window open/i)).toBeInTheDocument()
