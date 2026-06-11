@@ -99,6 +99,20 @@ describe('settingsActionErrorMessage', () => {
     )
   })
 
+  test('turns GitHub or GitLab site validation into a site choice step', () => {
+    expectBeginnerError(
+      settingsActionErrorMessage('gitCredentials', 'save', statusError(422, 'invalid provider')),
+      'Choose GitHub or GitLab, then save repository access again.'
+    )
+  })
+
+  test('turns GitHub or GitLab address validation into an address step', () => {
+    expectBeginnerError(
+      settingsActionErrorMessage('gitCredentials', 'save', statusError(422, 'invalid host')),
+      'Check the GitHub or GitLab address. Leave it blank for github.com or gitlab.com, then save again.'
+    )
+  })
+
   test('turns raw network errors into connection guidance', () => {
     const message = settingsActionErrorMessage('sshKeys', 'load', 'Network error')
 
@@ -168,7 +182,7 @@ describe('useSettingsStore errors', () => {
 
     expectBeginnerError(
       useSettingsStore.getState().gitCredentialsError,
-      'Repository access is not configured yet. Ask an owner or admin to configure the Git provider, then refresh repository tokens.'
+      'Repository access is not configured yet. Ask an owner or admin to finish GitHub or GitLab setup, then refresh repository access.'
     )
   })
 })

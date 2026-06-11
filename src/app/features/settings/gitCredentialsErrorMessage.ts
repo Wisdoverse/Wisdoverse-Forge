@@ -52,7 +52,18 @@ function isNetworkError(error: unknown): boolean {
 }
 
 function actionFromText(text: string): GitCredentialAction {
-  if (/\b(save|saving|saved|create|created|update|updated)\b/i.test(text)) return 'save'
+  const lower = text.toLowerCase()
+  if (
+    /\b(save|saving|saved|create|created|update|updated)\b/i.test(text) ||
+    lower.includes('invalid token') ||
+    lower.includes('bad credentials') ||
+    lower.includes('expired token') ||
+    lower.includes('token expired') ||
+    lower.includes('invalid host') ||
+    lower.includes('invalid provider')
+  ) {
+    return 'save'
+  }
   if (/\b(delete|deleted|remove|removed|removing)\b/i.test(text)) return 'remove'
   return 'load'
 }
@@ -61,6 +72,16 @@ function baseMessage(action: GitCredentialAction): string {
   if (action === 'save') return 'Repository access could not be saved.'
   if (action === 'remove') return 'Repository access could not be removed.'
   return 'Repository access could not be loaded.'
+}
+
+function validationGuidance(lower: string): string {
+  if (lower.includes('invalid provider')) {
+    return 'Choose GitHub or GitLab, then save repository access again.'
+  }
+  if (lower.includes('invalid host')) {
+    return 'Check the GitHub or GitLab address. Leave it blank for github.com or gitlab.com, then save again.'
+  }
+  return 'Check the selected site, repository access key, and GitHub or GitLab address, then save again.'
 }
 
 export function gitCredentialsErrorMessage(error: unknown): string {
@@ -88,7 +109,7 @@ export function gitCredentialsErrorMessage(error: unknown): string {
     return `${base} Repository access for this GitHub or GitLab choice already exists. Remove the old entry first or choose the other site.`
   }
   if (code === 422 || lower.includes('invalid host') || lower.includes('invalid provider')) {
-    return `${base} Check the selected site, repository access key, and GitHub or GitLab address, then try again.`
+    return `${base} ${validationGuidance(lower)}`
   }
   if (
     lower.includes('not configured') ||

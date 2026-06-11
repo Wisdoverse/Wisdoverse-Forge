@@ -3,7 +3,6 @@ import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import type { GitCredential, GitProvider } from '@app/entities/agent'
-import { gitCredentialsErrorMessage } from './gitCredentialsErrorMessage'
 
 // ============================================================================
 // Helpers
@@ -398,7 +397,7 @@ export function GitCredentialsSection() {
       {/* Error */}
       {gitCredentialsError && (
         <div role="alert" aria-live="polite" className={uiStyles.error}>
-          {gitCredentialsErrorMessage(gitCredentialsError)}
+          {gitCredentialsError}
         </div>
       )}
 

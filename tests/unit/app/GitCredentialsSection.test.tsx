@@ -98,14 +98,15 @@ describe('GitCredentialsSection', () => {
 
   test('shows a beginner recovery step instead of raw git credential details', async () => {
     useSettingsStore.setState({
-      gitCredentialsError: 'Settings could not save Git credential. Details: invalid token',
+      gitCredentialsError:
+        'Paste the repository access key from GitHub or GitLab, then save again.',
     })
 
     render(<GitCredentialsSection />)
 
     await waitFor(() => expect(loadGitCredentialsMock).toHaveBeenCalled())
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Repository access could not be saved. Paste a new repository access key from GitHub or GitLab, then save again.'
+      'Paste the repository access key from GitHub or GitLab, then save again.'
     )
     expect(screen.queryByText(/Details: invalid token/i)).toBeNull()
   })

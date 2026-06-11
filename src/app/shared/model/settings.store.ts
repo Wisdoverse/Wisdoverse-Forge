@@ -229,10 +229,19 @@ function settingsValidationMessage(
   }
 
   if (area === 'gitCredentials') {
-    if (normalized.includes('not configured') || normalized.includes('provider')) {
-      return 'Repository access is not configured yet. Ask an owner or admin to configure the Git provider, then refresh repository tokens.'
+    if (normalized.includes('not configured')) {
+      return 'Repository access is not configured yet. Ask an owner or admin to finish GitHub or GitLab setup, then refresh repository access.'
     }
-    return 'Choose the Git provider, add the repository token, then save repository access again.'
+    if (normalized.includes('provider')) {
+      return 'Choose GitHub or GitLab, then save repository access again.'
+    }
+    if (normalized.includes('host')) {
+      return 'Check the GitHub or GitLab address. Leave it blank for github.com or gitlab.com, then save again.'
+    }
+    if (normalized.includes('token') || normalized.includes('key')) {
+      return 'Paste the repository access key from GitHub or GitLab, then save again.'
+    }
+    return 'Choose GitHub or GitLab, paste the repository access key, then save again.'
   }
 
   if (area === 'sshKeys') {

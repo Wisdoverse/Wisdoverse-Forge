@@ -19,7 +19,14 @@ describe('gitCredentialsErrorMessage', () => {
   test('turns validation failures into clear fields to check', () => {
     expectBeginnerMessage(
       gitCredentialsErrorMessage('Code: 422 Details: invalid provider'),
-      'Repository access could not be loaded. Check the selected site, repository access key, and GitHub or GitLab address, then try again.'
+      'Repository access could not be saved. Choose GitHub or GitLab, then save repository access again.'
+    )
+  })
+
+  test('turns invalid address failures into an address step', () => {
+    expectBeginnerMessage(
+      gitCredentialsErrorMessage('HTTP 422: invalid host'),
+      'Repository access could not be saved. Check the GitHub or GitLab address. Leave it blank for github.com or gitlab.com, then save again.'
     )
   })
 
