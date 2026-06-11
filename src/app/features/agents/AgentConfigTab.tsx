@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FileText, RotateCcw, Save, Scissors, ShieldCheck, Sparkles } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
-import { isHostCliAgent, useAgentsStore, type AgentInfo } from '@app/entities/agent'
+import {
+  agentAiServiceLabel,
+  isHostCliAgent,
+  useAgentsStore,
+  type AgentInfo,
+} from '@app/entities/agent'
 
 interface AgentConfigTabProps {
   agentId: string
@@ -45,6 +50,11 @@ function promptStats(value: string): PromptStats {
 
 function promptProfileSaveErrorMessage(): string {
   return 'Agent instructions were not saved. Refresh this agent, confirm it is still a chat-only agent, then save again. Ask an admin to check your agent access if it keeps failing.'
+}
+
+function modelLabel(model?: string | null): string {
+  const label = model?.trim()
+  return label ? `Model: ${label}` : 'Model not reported'
 }
 
 export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
@@ -128,7 +138,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            {agent.provider} · {agent.model}
+            {agentAiServiceLabel(agent.provider)}. {modelLabel(agent.model)}
           </p>
         </div>
         <span

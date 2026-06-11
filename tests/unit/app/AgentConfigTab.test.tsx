@@ -63,6 +63,17 @@ describe('AgentConfigTab', () => {
           runtimeId: 'af-future-tool-container-123',
           runtimeKind: 'container' as const,
         },
+        {
+          id: 'future-provider',
+          name: 'Future Provider Agent',
+          provider: 'future_provider',
+          model: 'future-model-v1',
+          status: 'idle' as const,
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+          systemPrompt: 'plain instructions',
+        },
       ],
       updateAgentSystemPrompt,
     } as never)
@@ -108,6 +119,15 @@ describe('AgentConfigTab', () => {
       /this agent already has saved instructions/i
     )
     expect(screen.queryByText(/system prompt/i)).toBeNull()
+  })
+
+  it('does not expose raw AI service slugs in instruction setup', () => {
+    render(<AgentConfigTab agentId="future-provider" />)
+
+    expect(screen.getByText(/AI service needs review/i)).toBeInTheDocument()
+    expect(screen.getByText(/Model: future-model-v1/i)).toBeInTheDocument()
+    expect(screen.queryByText(/future_provider/i)).toBeNull()
+    expect(screen.queryByText(/future provider/i)).toBeNull()
   })
 
   it('applies a prompt template and can reset the edit', () => {
