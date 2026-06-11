@@ -1,6 +1,8 @@
 //! Admin endpoints (nested under `/api/v1`).
 //!
 //! - `GET    /api/v1/admin/users`              — paginated user list (`{ ok, users, total, page, limit, totalPages }`)
+//! - `PUT    /api/v1/admin/users/:id`          — change a user's global access level (`{ ok, user }`)
+//! - `DELETE /api/v1/admin/users/:id`          — remove (soft-delete) a user account
 //! - `GET    /api/v1/admin/organizations`      — org list with member/team counts (`{ ok, organizations, total }`)
 //! - `GET    /api/v1/admin/agents`             — list agents across all tenants
 //! - `GET    /api/v1/admin/agents/:id`         — agent detail with recent events
@@ -16,7 +18,7 @@
 
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
-use axum::routing::{get, post};
+use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use serde::Deserialize;
 use uuid::Uuid;
@@ -28,7 +30,7 @@ use crate::health::AppState;
 use crate::services::admin::{
     AdminAgentListInput, AdminService, admin_agent_detail_response, admin_agent_list_response,
     admin_bulk_delete_response, admin_data_response, admin_delete_response, admin_org_list_response,
-    admin_user_list_response,
+    admin_user_list_response, admin_user_role_response,
 };
 use crate::services::cli_image::cli_image_status_response;
 use crate::services::cli_image_build::{LocalBuildToolPolicy, cli_image_build_response};
@@ -86,6 +88,40 @@ async fn list_users(
     let service = make_service(&state);
     let page = service.list_user_page(query.page, query.limit, query.search.as_deref()).await?;
     Ok(Json(admin_user_list_response(page)))
+}
+
+/// Body for `PUT /admin/users/:id` — the new access level
+/// (`"admin" | "member"`).
+#[derive(Debug, Deserialize)]
+pub struct UpdateUserRoleRequest {
+    pub role: String,
+}
+
+/// `PUT /api/v1/admin/users/:id` — change a user's global access level
+/// (admin only). Answers `{ ok, user }` with the updated user projection.
+async fn update_admin_user_role(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+    Json(body): Json<UpdateUserRoleRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    AdminService::require_admin(&auth.role)?;
+    let service = make_service(&state);
+    let user = service.update_user_role(&auth.scope, id, &body.role).await?;
+    Ok(Json(admin_user_role_response(user)))
+}
+
+/// `DELETE /api/v1/admin/users/:id` — remove (soft-delete) a user account
+/// (admin only).
+async fn delete_admin_user(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    AdminService::require_admin(&auth.role)?;
+    let service = make_service(&state);
+    service.delete_user(&auth.scope, id).await?;
+    Ok(Json(admin_delete_response()))
 }
 
 /// `GET /api/v1/admin/organizations` — list all organizations with member and
@@ -314,6 +350,7 @@ async fn build_cli_image(
 pub fn admin_routes() -> Router<AppState> {
     Router::new()
         .route("/admin/users", get(list_users))
+        .route("/admin/users/{id}", put(update_admin_user_role).delete(delete_admin_user))
         .route("/admin/organizations", get(list_organizations))
         .route("/admin/agents", get(list_admin_agents).delete(bulk_delete_admin_agents))
         .route("/admin/agents/{id}", get(get_admin_agent).delete(delete_admin_agent))
@@ -358,6 +395,22 @@ mod tests {
         assert_eq!(query.page, 3);
         assert_eq!(query.limit, 50);
         assert_eq!(query.search.as_deref(), Some("alice"));
+    }
+
+    #[test]
+    fn update_user_role_request_deserialization() {
+        let req: UpdateUserRoleRequest = serde_json::from_str(r#"{"role": "admin"}"#).unwrap();
+        assert_eq!(req.role, "admin");
+        let req: UpdateUserRoleRequest = serde_json::from_str(r#"{"role": "member"}"#).unwrap();
+        assert_eq!(req.role, "member");
+    }
+
+    #[test]
+    fn update_user_role_request_requires_role() {
+        // The wire value is validated by the domain (`AdminRoleChange::parse`);
+        // the body shape itself only requires the `role` key to exist.
+        assert!(serde_json::from_str::<UpdateUserRoleRequest>(r#"{}"#).is_err());
+        assert!(serde_json::from_str::<UpdateUserRoleRequest>(r#"{"role": 1}"#).is_err());
     }
 
     #[test]
