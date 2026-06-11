@@ -108,7 +108,7 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'Check the agent name, work tool, and project access, then run the join command again.'
+      'Check the agent name, work tool, and project access, then run the setup command again.'
     )
     expect(message).not.toContain('CLI')
     expect(message).not.toContain('local agent')

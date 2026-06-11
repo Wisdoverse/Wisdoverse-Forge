@@ -80,7 +80,7 @@ function agentActionPhrase(action: AgentErrorAction): string {
     case 'delete':
       return 'delete the agent'
     case 'sendPrompt':
-      return 'send the prompt'
+      return 'send the instruction'
     case 'start':
       return 'start the agent'
     case 'restart':
@@ -219,7 +219,7 @@ function agentValidationMessage(action: AgentErrorAction, detail: string | null)
   }
 
   if (action === 'enrollLocal') {
-    return 'Check the agent name, work tool, and project access, then run the join command again.'
+    return 'Check the agent name, work tool, and project access, then run the setup command again.'
   }
   if (action === 'sendPrompt') {
     return 'Write one clear instruction and make sure the agent is not already working, then send again.'

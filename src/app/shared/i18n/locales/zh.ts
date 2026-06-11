@@ -513,24 +513,24 @@ export const zh: TranslationKeys = {
     agent: {
       lifecycle: {
         restart_host_cli: {
-          title: '请在这台电脑上重启连接工具',
-          detail: '平台不能替你重启这个连接工具。请在那台电脑上重新运行加入命令。',
+          title: '请在这台电脑上重启连接助手',
+          detail: 'Forge 不能替你重启它。请在那台电脑上重新运行设置命令。',
         },
         restart_api: {
           title: '没有可重启的工作区',
-          detail: '该 Agent 使用只处理文字的模型服务。再发送一次 prompt 即可使用模型。',
+          detail: '该 Agent 通过 AI 服务回复消息。请重新发送一条消息再试一次。',
         },
         start_host_cli: {
-          title: '请在这台电脑上启动连接工具',
-          detail: '请在那台电脑上重新运行加入命令，让 Agent 上线。',
+          title: '请在这台电脑上启动连接助手',
+          detail: '请在那台电脑上重新运行设置命令，让 Agent 上线。',
         },
         start_api: {
           title: '没有可启动的工作区',
           detail: '只处理文字的模型 Agent 没有可启动的命令窗口。',
         },
         stop_host_cli: {
-          title: '请在这台电脑上停止连接工具',
-          detail: '平台不能替你停止这个连接工具。请在那台电脑上停止它。',
+          title: '请在这台电脑上停止连接助手',
+          detail: 'Forge 不能替你停止它。请关闭那台电脑上的 Terminal 或 PowerShell 窗口。',
         },
         stop_api: {
           title: '没有可停止的工作区',
@@ -557,9 +557,9 @@ export const zh: TranslationKeys = {
       },
       enroll: {
         missing_idempotency_key: {
-          title: '需要重新发送加入请求',
+          title: '需要重新运行设置命令',
           detail:
-            '请在这台电脑上重新运行加入命令。如果反复出现，请让管理员检查这台电脑的 Agent 工作设置。',
+            '请在这台电脑上重新运行设置命令。如果反复出现，请让管理员检查这台电脑的 Agent 工作设置。',
         },
         plaintext_nats_blocked: {
           title: '这台电脑的连接需要安全通道',

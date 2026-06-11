@@ -524,27 +524,26 @@ export const en = {
     agent: {
       lifecycle: {
         restart_host_cli: {
-          title: 'Restart the connection tool on your computer',
-          detail:
-            'The platform cannot restart that connection tool for you. Re-run the join command on that computer.',
+          title: 'Restart the connection helper on your computer',
+          detail: 'Forge cannot restart it for you. Run the setup command on that computer again.',
         },
         restart_api: {
           title: 'No workspace to restart',
           detail:
-            'This chat-only agent uses an AI service. Send a new prompt to use the model again.',
+            'This chat-only agent replies through an AI service. Send a new message to try again.',
         },
         start_host_cli: {
-          title: 'Start the connection tool on your computer',
-          detail: 'Re-run the join command on that computer to bring the agent online.',
+          title: 'Start the connection helper on your computer',
+          detail: 'Run the setup command on that computer again to bring the agent online.',
         },
         start_api: {
           title: 'No workspace to start',
           detail: 'Chat-only agents do not have live work to start.',
         },
         stop_host_cli: {
-          title: 'Stop the connection tool on your computer',
+          title: 'Stop the connection helper on your computer',
           detail:
-            'The platform cannot stop that connection tool for you. Stop it on that computer.',
+            'Forge cannot stop it for you. Close the Terminal or PowerShell window on that computer.',
         },
         stop_api: {
           title: 'No workspace to stop',
@@ -572,9 +571,9 @@ export const en = {
       },
       enroll: {
         missing_idempotency_key: {
-          title: 'Join request needs to be sent again',
+          title: 'Setup command needs to be run again',
           detail:
-            'Run the join command on this computer again. If this repeats, ask an owner to check Agent Work Setup for this computer.',
+            'Run the setup command on this computer again. If this repeats, ask an owner to check Agent Work Setup for this computer.',
         },
         plaintext_nats_blocked: {
           title: 'Secure connection required for this computer',
