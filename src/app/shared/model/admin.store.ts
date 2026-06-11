@@ -32,22 +32,25 @@ export interface AdminAgent {
   lastActivity: number
 }
 
+/** One user row as returned by `GET /api/v1/admin/users`. */
 export interface AdminUser {
   id: string
   email: string
   displayName: string
+  /** `'admin' | 'member'` — derived from `users.is_admin` on the backend. */
   role: string
   status: 'active' | 'inactive'
+  /** RFC3339 timestamp string. */
   createdAt: string | null
+  /** RFC3339 timestamp string, or null when the user never signed in. */
   lastLoginAt: string | null
-  sessionsCount: number
 }
 
+/** One organization row as returned by `GET /api/v1/admin/organizations`. */
 export interface AdminOrg {
   id: string
   name: string
   slug: string
-  plan: string
   membersCount: number
   teamsCount: number
   createdAt: string
@@ -62,28 +65,41 @@ export interface ComponentHealth {
 export interface SystemHealth {
   status: 'healthy' | 'degraded' | 'unhealthy'
   checks: {
-    database?: ComponentHealth & { pool?: { total: number; idle: number; waiting: number } }
-    redis?: ComponentHealth & { mode?: string; circuitState?: string }
+    database?: ComponentHealth
+    redis?: ComponentHealth
     nats?: ComponentHealth
-    platform?: ComponentHealth & { version?: string; uptime?: number }
-    bullmq?: ComponentHealth
+    docker?: ComponentHealth
   }
   uptime?: number
   version?: string
 }
 
 /**
- * One work tool's image-update state, as returned per-tool by
+ * One Container CLI tool's image-update state, as returned per-tool by
  * `GET /api/v1/admin/cli-images`. `pending` means the auto-updater has not yet
- * run a check for this tool (it is off by default).
+ * run a check for this tool (it is off by default). `update_available` is
+ * claude-only: a newer npm version exists and can be built locally.
  */
-export type CliImageToolState = 'pending' | 'up_to_date' | 'updated' | 'failed'
+export type CliImageToolState = 'pending' | 'up_to_date' | 'update_available' | 'updated' | 'failed'
+
+/**
+ * How a tool's image is kept current: pulled from a public registry, or built
+ * locally on the server (claude — its license forbids a public image).
+ */
+export type CliImageUpdateMode = 'registry' | 'local_build'
 
 export interface CliImageTool {
   tool: string
   state: CliImageToolState
+  updateMode: CliImageUpdateMode
   localDigest: string | null
   remoteDigest: string | null
+  /** Local-build tools: version baked into the local image (null = unknown). */
+  localVersion: string | null
+  /** Local-build tools: latest version published on npm. */
+  remoteVersion: string | null
+  /** True while a server-side local build is running for this tool. */
+  building: boolean
   lastCheckedUnix: number | null
   lastUpdatedUnix: number | null
   lastError: string | null
@@ -136,14 +152,14 @@ export interface CliImageRollReport {
 /** Full report from `GET /api/v1/admin/cli-images`. */
 export interface CliImageStatus {
   autoUpdateEnabled: boolean
+  /** Whether the sweep auto-builds the claude image (zero clicks). */
+  claudeAutoBuildEnabled: boolean
   pollIntervalSecs: number
   registry: string
   imageTag: string
   tools: CliImageTool[]
   prune: CliImagePruneStatus
 }
-
-export type AdminActionResult = { ok: true } | { ok: false; error: string }
 
 interface AdminState {
   // Navigation
@@ -156,6 +172,12 @@ interface AdminState {
   usersLoading: boolean
   usersError: string | null
   userSearch: string
+  /**
+   * Error from the most recent per-user action (role change or removal).
+   * Backend guard rejections (own account, last admin) land here verbatim so
+   * the panel can show exactly why the change was refused.
+   */
+  userActionError: string | null
 
   // Orgs
   orgs: AdminOrg[]
@@ -174,7 +196,7 @@ interface AdminState {
   healthLoading: boolean
   healthError: string | null
 
-  // Agent tool updates
+  // CLI agent images
   cliImages: CliImageStatus | null
   cliImagesLoading: boolean
   cliImagesError: string | null
@@ -184,13 +206,30 @@ interface AdminState {
   cliImageRollResult: CliImageRollReport | null
   cliImageRollError: string | null
 
+  // claude local image build (image-level; never touches running agents)
+  cliImageBuildError: string | null
+
   // Actions
   setActiveSection: (section: AdminSection) => void
   setUserSearch: (search: string) => void
 
   loadUsers: (page?: number) => Promise<void>
-  updateUserRole: (id: string, role: string) => Promise<AdminActionResult>
+  /**
+   * Change a user's access level via `PUT /api/v1/admin/users/{id}`. On
+   * success the row is swapped for the backend's updated projection and the
+   * call resolves `true`; on rejection the reason lands in `userActionError`
+   * and the call resolves `false`.
+   */
+  updateUserRole: (id: string, role: 'admin' | 'member') => Promise<boolean>
+  /**
+   * Remove a user account via `DELETE /api/v1/admin/users/{id}` (the backend
+   * soft-deletes; sign-in stops immediately). On success the row leaves the
+   * list and the total drops by one; on rejection the reason lands in
+   * `userActionError`.
+   */
   deleteUser: (id: string) => Promise<boolean>
+  /** Dismiss the last user-action error (e.g. when the operator cancels). */
+  clearUserActionError: () => void
 
   loadOrgs: () => Promise<void>
 
@@ -207,22 +246,31 @@ interface AdminState {
    */
   applyCliImageUpdate: (update: {
     tool: string
-    state: 'updated' | 'failed'
+    state: 'updated' | 'failed' | 'update_available'
     localDigest: string | null
     remoteDigest: string | null
+    localVersion?: string | null
+    remoteVersion?: string | null
     lastError: string | null
     unix: number
   }) => void
   /**
-   * Move running managed workspace agents for one tool onto the new tool package
+   * Roll the running container agents of one tool onto the new image
    * (destructive — interrupts running agents). Sets the in-flight tool, then
    * the per-agent report or an error; refreshes the status report afterward.
    */
   rollCliImage: (tool: string) => Promise<void>
+  /**
+   * Start a server-side build of the claude agent image (claude has no public
+   * registry image). Optimistically marks the claude row as building — the 30s
+   * poll (or the completion toast) corrects it. Resolves `true` when the build
+   * was accepted (202), `false` on any error (which lands in
+   * `cliImageBuildError`). Image-level only; running agents are untouched.
+   */
+  buildClaudeImage: () => Promise<boolean>
 }
 
 type AdminResource = 'users' | 'organizations' | 'agents' | 'health' | 'cli-images'
-type AdminAction = 'update-user-role'
 
 class AdminUserFacingError extends Error {}
 
@@ -288,7 +336,7 @@ export function adminHttpErrorMessage(
   data: Record<string, unknown> = {}
 ): string {
   const label = adminResourceLabel(resource)
-  const detail = adminErrorDetail(data)?.toLowerCase() ?? ''
+  void data
 
   if (status === 401) {
     return `Your sign-in expired. Sign in again, then open Admin and reload the ${label}.`
@@ -299,12 +347,10 @@ export function adminHttpErrorMessage(
   if (status === 404) {
     return `The admin ${label} is not available from this Admin view. Refresh Admin, then try again. If it still fails, ask an owner or admin to check setup.`
   }
-  if (
-    status === 409 &&
-    resource === 'cli-images' &&
-    (detail.includes('progress') || detail.includes('busy') || detail.includes('running'))
-  ) {
-    return 'A CLI image roll is already in progress. Wait for the current roll to finish, refresh CLI images, then try again.'
+  if (status === 409) {
+    return resource === 'cli-images'
+      ? 'An agent tool update is already in progress. Wait for the current update to finish, refresh agent tool updates, then try again.'
+      : `The admin ${label} changed while you were working. Refresh Admin, review the latest state, then try again.`
   }
   if (status === 429) {
     return `Forge is receiving too many Admin requests right now. Wait a moment, then reload the ${label}.`
@@ -324,44 +370,62 @@ function adminErrorMessage(err: unknown, resource: AdminResource): string {
   return err instanceof AdminUserFacingError ? err.message : adminNetworkErrorMessage(resource)
 }
 
-function adminActionHttpErrorMessage(
-  action: AdminAction,
+// ---------------------------------------------------------------------------
+// Per-user action errors (role change / removal)
+// ---------------------------------------------------------------------------
+
+type AdminUserAction = 'change-role' | 'remove'
+
+function adminUserActionLabel(action: AdminUserAction): string {
+  return action === 'change-role' ? 'access change' : 'removal'
+}
+
+function adminUserActionRecovery(action: AdminUserAction): string {
+  return action === 'change-role' ? 'the access change' : 'the removal'
+}
+
+/**
+ * Beginner-first message for a failed user action. Guard rejections (own
+ * account, last admin, unknown access level) arrive as HTTP 422 with a
+ * ready-to-read sentence — those are shown directly, minus the protocol
+ * prefix, because the backend wording explains exactly what to do next.
+ */
+export function adminUserActionErrorMessage(
+  action: AdminUserAction,
   status: number,
-  _data: Record<string, unknown> = {}
+  data: Record<string, unknown> = {}
 ): string {
-  if (action === 'update-user-role') {
-    if (status === 401) {
-      return "Your sign-in expired. Sign in again, then reopen Admin and save this user's access."
-    }
-    if (status === 403) {
-      return 'You do not have access to change user access. Ask an owner or admin to update your role, then save again.'
-    }
-    if (status === 404) {
-      return 'This user could not be found. Refresh the user list, then choose the current user again.'
-    }
-    if (status === 409) {
-      return 'This user changed while you were editing. Refresh the user list, review the current access, then try again.'
-    }
-    if (status === 429) {
-      return "Forge is receiving too many Admin changes right now. Wait a moment, then save this user's access again."
-    }
-    if (status >= 500) {
-      return "Forge could not save user access right now. Refresh the user list, then save this user's access again. If it still fails, ask an owner or admin to check Admin setup."
-    }
+  const label = adminUserActionLabel(action)
+  const detail = adminErrorDetail(data)
+
+  if (status === 422 && detail) {
+    const message = detail.replace(/^unprocessable entity:\s*/i, '')
+    return message.charAt(0).toUpperCase() + message.slice(1)
   }
 
-  return 'User access could not be saved. Refresh the user list and try again.'
-}
-
-function adminActionNetworkErrorMessage(action: AdminAction): string {
-  if (action === 'update-user-role') {
-    return "Forge could not connect while saving user access. Check your connection, then save this user's access again."
+  if (status === 401) {
+    return `Your sign-in expired. Sign in again, then retry ${adminUserActionRecovery(action)}.`
   }
-  return 'Forge could not connect while saving this Admin change. Check your connection, then try again.'
+  if (status === 403) {
+    return action === 'change-role'
+      ? 'You do not have access to change user access. Ask an owner or admin to update your role, then save again.'
+      : 'You do not have access to remove user accounts. Ask an owner or admin to update your role, then try again.'
+  }
+  if (status === 404) {
+    return 'This user is no longer in the list. Reload the user list to see the latest accounts.'
+  }
+  if (status >= 500) {
+    return `Forge could not finish ${adminUserActionRecovery(action)} right now. Reload the user list, then try again. If it still fails, ask an owner or admin to check Admin setup.`
+  }
+  return `The ${label} did not go through. Refresh the user list, then try again.`
 }
 
-function adminActionErrorMessage(err: unknown, action: AdminAction): string {
-  return err instanceof AdminUserFacingError ? err.message : adminActionNetworkErrorMessage(action)
+function adminUserActionNetworkMessage(action: AdminUserAction): string {
+  return `The ${adminUserActionLabel(action)} could not reach the server. Check your connection and try again.`
+}
+
+function adminUserActionError(err: unknown, action: AdminUserAction): string {
+  return err instanceof AdminUserFacingError ? err.message : adminUserActionNetworkMessage(action)
 }
 
 // ============================================================================
@@ -377,6 +441,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   usersLoading: false,
   usersError: null,
   userSearch: '',
+  userActionError: null,
 
   orgs: [],
   orgsLoading: false,
@@ -400,6 +465,8 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   cliImageRollResult: null,
   cliImageRollError: null,
 
+  cliImageBuildError: null,
+
   setActiveSection: (activeSection) => set({ activeSection }),
   setUserSearch: (userSearch) => set({ userSearch }),
 
@@ -419,47 +486,81 @@ export const useAdminStore = create<AdminState>((set, get) => ({
           adminHttpErrorMessage('users', res.status, await readAdminErrorPayload(res))
         )
       }
-      const data = (await res.json()) as { users: AdminUser[]; total: number; page: number }
-      set({ users: data.users, usersTotal: data.total, usersPage: data.page, usersLoading: false })
+      // Parse `{ users, total, page, totalPages }` defensively: a missing
+      // `users` array (e.g. a legacy `{ ok, data }` body) must render an empty
+      // table, never crash the page.
+      const data = (await res.json().catch(() => ({}))) as {
+        users?: AdminUser[]
+        total?: number
+        page?: number
+        totalPages?: number
+      } | null
+      set({
+        users: data?.users ?? [],
+        usersTotal: data?.total ?? 0,
+        usersPage: data?.page ?? 1,
+        usersLoading: false,
+      })
     } catch (err) {
       set({ usersLoading: false, usersError: adminErrorMessage(err, 'users') })
     }
   },
 
   updateUserRole: async (id, role) => {
+    set({ userActionError: null })
     try {
-      const res = await adminFetch(`/api/v1/admin/users/${id}`, {
+      const res = await adminFetch(`/api/v1/admin/users/${encodeURIComponent(id)}`, {
         method: 'PUT',
         body: JSON.stringify({ role }),
       })
-      if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as {
+        ok?: boolean
+        user?: AdminUser
+      } | null
+      if (!res.ok || !body || body.ok === false || !body.user) {
         throw userFacingError(
-          adminActionHttpErrorMessage(
-            'update-user-role',
+          adminUserActionErrorMessage(
+            'change-role',
             res.status,
-            await readAdminErrorPayload(res)
+            (body ?? {}) as Record<string, unknown>
           )
         )
       }
-      set((state) => ({
-        users: state.users.map((u) => (u.id === id ? { ...u, role } : u)),
-      }))
-      return { ok: true }
+      // Swap in the backend's updated projection so the row shows exactly
+      // what was saved (role, status, timestamps) — no optimistic guessing.
+      const updated = body.user
+      set((s) => ({ users: s.users.map((user) => (user.id === id ? updated : user)) }))
+      return true
     } catch (err) {
-      return { ok: false, error: adminActionErrorMessage(err, 'update-user-role') }
+      set({ userActionError: adminUserActionError(err, 'change-role') })
+      return false
     }
   },
 
   deleteUser: async (id) => {
+    set({ userActionError: null })
     try {
-      const res = await adminFetch(`/api/v1/admin/users/${id}`, { method: 'DELETE' })
-      if (!res.ok) return false
-      set((state) => ({ users: state.users.filter((u) => u.id !== id) }))
+      const res = await adminFetch(`/api/v1/admin/users/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      })
+      const body = (await res.json().catch(() => null)) as { ok?: boolean } | null
+      if (!res.ok || !body || body.ok === false) {
+        throw userFacingError(
+          adminUserActionErrorMessage('remove', res.status, (body ?? {}) as Record<string, unknown>)
+        )
+      }
+      set((s) => ({
+        users: s.users.filter((user) => user.id !== id),
+        usersTotal: Math.max(0, s.usersTotal - 1),
+      }))
       return true
-    } catch {
+    } catch (err) {
+      set({ userActionError: adminUserActionError(err, 'remove') })
       return false
     }
   },
+
+  clearUserActionError: () => set({ userActionError: null }),
 
   // ---------------------------------------------------------------------------
   // Orgs
@@ -468,14 +569,17 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   loadOrgs: async () => {
     set({ orgsLoading: true, orgsError: null })
     try {
-      const res = await adminFetch('/api/v1/admin/orgs')
+      const res = await adminFetch('/api/v1/admin/organizations')
       if (!res.ok) {
         throw userFacingError(
           adminHttpErrorMessage('organizations', res.status, await readAdminErrorPayload(res))
         )
       }
-      const data = (await res.json()) as { orgs: AdminOrg[] }
-      set({ orgs: data.orgs, orgsLoading: false })
+      const data = (await res.json().catch(() => ({}))) as {
+        organizations?: AdminOrg[]
+        total?: number
+      } | null
+      set({ orgs: data?.organizations ?? [], orgsLoading: false })
     } catch (err) {
       set({ orgsLoading: false, orgsError: adminErrorMessage(err, 'organizations') })
     }
@@ -518,22 +622,47 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   loadHealth: async () => {
     set({ healthLoading: true, healthError: null })
     try {
-      // Use admin-authed call to get detailed health info
-      const res = await adminFetch('/api/v1/health')
-      if (!res.ok) {
+      // `GET /api/health` is the deep readiness probe. It answers
+      // `{ ok, status: 'ready' | 'degraded', checks: { database, redis, nats,
+      // docker } }` with boolean checks — and uses HTTP 503 when a required
+      // dependency is down, so a body that still carries `checks` is a health
+      // REPORT to render, not a failed request.
+      const res = await adminFetch('/api/health')
+      const body = (await res.json().catch(() => null)) as {
+        ok?: boolean
+        status?: string
+        checks?: {
+          database?: boolean
+          redis?: boolean
+          nats?: boolean
+          docker?: boolean
+        }
+      } | null
+      if (!body || typeof body.checks !== 'object' || body.checks === null) {
         throw userFacingError(
-          adminHttpErrorMessage('health', res.status, await readAdminErrorPayload(res))
+          adminHttpErrorMessage('health', res.status, (body ?? {}) as Record<string, unknown>)
         )
       }
-      const data = (await res.json()) as SystemHealth
-      set({ health: data, healthLoading: false })
+      const toComponent = (up: boolean | undefined): ComponentHealth => ({
+        status: up ? 'up' : 'down',
+      })
+      const health: SystemHealth = {
+        status: body.ok === false ? 'unhealthy' : body.status === 'ready' ? 'healthy' : 'degraded',
+        checks: {
+          database: toComponent(body.checks.database),
+          redis: toComponent(body.checks.redis),
+          nats: toComponent(body.checks.nats),
+          docker: toComponent(body.checks.docker),
+        },
+      }
+      set({ health, healthLoading: false })
     } catch (err) {
       set({ healthLoading: false, healthError: adminErrorMessage(err, 'health') })
     }
   },
 
   // ---------------------------------------------------------------------------
-  // Agent tool updates
+  // CLI agent images
   // ---------------------------------------------------------------------------
 
   loadCliImages: async () => {
@@ -573,6 +702,11 @@ export const useAdminStore = create<AdminState>((set, get) => ({
               state: update.state,
               localDigest: update.localDigest,
               remoteDigest: update.remoteDigest,
+              localVersion: update.localVersion ?? t.localVersion,
+              remoteVersion: update.remoteVersion ?? t.remoteVersion,
+              // `updated`/`failed` are build/check outcomes — the build (if
+              // any) is over. `update_available` leaves an in-flight flag as-is.
+              building: update.state === 'update_available' ? t.building : false,
               lastError: update.lastError,
               lastCheckedUnix: update.unix,
               lastUpdatedUnix: update.state === 'updated' ? update.unix : t.lastUpdatedUnix,
@@ -604,6 +738,40 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       await get().loadCliImages()
     } catch (err) {
       set({ cliImageRollingTool: null, cliImageRollError: adminErrorMessage(err, 'cli-images') })
+    }
+  },
+
+  buildClaudeImage: async () => {
+    const patchClaudeBuilding = (building: boolean) =>
+      set((s) => {
+        if (!s.cliImages) return {}
+        const tools = s.cliImages.tools.map((t) => (t.tool === 'claude' ? { ...t, building } : t))
+        return { cliImages: { ...s.cliImages, tools } }
+      })
+
+    set({ cliImageBuildError: null })
+    // Optimistic: show "building" immediately; the 30s poll refresh (or the
+    // completion toast) carries the server's real state afterward.
+    patchClaudeBuilding(true)
+    try {
+      const res = await adminFetch('/api/v1/admin/cli-images/claude/build', { method: 'POST' })
+      const body = (await res.json().catch(() => null)) as {
+        ok?: boolean
+        started?: boolean
+        targetVersion?: string
+      } | null
+      if (!res.ok || !body || body.ok === false) {
+        throw userFacingError(
+          adminHttpErrorMessage('cli-images', res.status, (body ?? {}) as Record<string, unknown>)
+        )
+      }
+      return true
+    } catch (err) {
+      // The build did not start — roll the optimistic flag back so the Build
+      // button unlocks, and explain what happened.
+      patchClaudeBuilding(false)
+      set({ cliImageBuildError: adminErrorMessage(err, 'cli-images') })
+      return false
     }
   },
 }))

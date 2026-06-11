@@ -66,6 +66,18 @@ administrator.
 
 `NODE_ENV` may still appear in Compose or frontend tooling, but the Rust API configuration source of truth is `ENVIRONMENT`.
 
+## Local Agent Join Variables
+
+These control the one-command Host CLI join flow
+(see [Host CLI Agent Enrollment](../runbooks/host-cli-agent-enrollment.md)).
+
+| Variable                    | Default                           | Required | Purpose                                                                                                               |
+| --------------------------- | --------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------- |
+| `APP_URL`                   | none                              | No       | Public URL of this deployment; required for the join commands to be generated                                         |
+| `NATS_AGENT_URL`            | none                              | No       | NATS address reachable from operator machines; must be `tls://` unless plaintext is explicitly allowed                |
+| `ALLOW_PLAINTEXT_HOST_NATS` | `false`                           | No       | Permit `nats://` (plaintext) Host CLI enrollment — isolated dev/test only                                             |
+| `HOST_JOIN_BINARY_BASE_URL` | this repo's GitHub latest release | No       | Where the join script downloads `agentforge-sidecar` binaries; point at an internal mirror for air-gapped deployments |
+
 ## Attachment Storage Variables
 
 The Rust API owns attachment metadata and object access. Metadata is stored in
@@ -150,20 +162,28 @@ Prerequisites: set `CLI_IMAGE_AUTO_UPDATE_ENABLED=true` and make Docker availabl
 to the Rust API service (the same requirement as `MCP_ENABLED=true`). The updater
 is deployment-global and has no tenant scope, because image state is per host.
 
-| Variable                              | Default                               | Purpose                                                                                      |
-| ------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `CLI_IMAGE_AUTO_UPDATE_ENABLED`       | `false`                               | Enables the background CLI agent-image auto-updater                                          |
-| `CLI_IMAGE_AUTO_UPDATE_INTERVAL_SECS` | `900`                                 | Registry poll interval in seconds (15 min); clamped to a 60-second minimum                   |
-| `CLI_IMAGE_PRUNE_ENABLED`             | `false`                               | Prunes superseded dangling agent overlays after each sweep; only runs when auto-update is on |
-| `AGENT_REGISTRY`                      | `ghcr.io/wisdoverse/wisdoverse-forge` | Registry base the updater pulls overlays from, as `${AGENT_REGISTRY}/agent-<tool>:<tag>`     |
-| `AGENT_CLI_IMAGE_TAG`                 | `latest`                              | Image tag the updater tracks, used as the `<tag>` in the remote ref above                    |
+| Variable                              | Default                               | Purpose                                                                                                                                                  |
+| ------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLI_IMAGE_AUTO_UPDATE_ENABLED`       | `false`                               | Enables the background CLI agent-image auto-updater                                                                                                      |
+| `CLI_IMAGE_AUTO_UPDATE_INTERVAL_SECS` | `900`                                 | Registry poll interval in seconds (15 min); clamped to a 60-second minimum                                                                               |
+| `CLI_IMAGE_PRUNE_ENABLED`             | `false`                               | Prunes superseded dangling agent overlays after each sweep; only runs when auto-update is on                                                             |
+| `CLI_IMAGE_CLAUDE_AUTO_BUILD`         | `false`                               | Builds the local `claude` image automatically when npm publishes a newer Claude Code; off = detect-only with a one-click Build button in the admin panel |
+| `CLI_IMAGE_NPM_REGISTRY`              | `https://registry.npmjs.org`          | npm registry base for the claude version check and build; point at a mirror (e.g. `https://registry.npmmirror.com`) behind restrictive networks          |
+| `AGENT_REGISTRY`                      | `ghcr.io/wisdoverse/wisdoverse-forge` | Registry base the updater pulls overlays from, as `${AGENT_REGISTRY}/agent-<tool>:<tag>`                                                                 |
+| `AGENT_CLI_IMAGE_TAG`                 | `latest`                              | Image tag the updater tracks, used as the `<tag>` in the remote ref above                                                                                |
 
 Success looks like newly spawned agents picking up the current CLI overlay
 without an operator running `make update-agents` by hand. Confirm status at the
 admin-only `GET /api/v1/admin/cli-images` endpoint, which surfaces the resolved
 `registry`, `imageTag`, and `pollIntervalSecs`, plus per-tool digests and prune
 counters (JSON is camelCase).
-`claude` is excluded from the poll set because it has no public registry image.
+`claude` is excluded from the registry poll set because it has no public
+registry image (the license requires a self-build). Instead, the same sweep
+compares the local `agentforge-agent:claude` image's version label against the
+npm registry and reports `update_available` in the admin panel, where one click
+builds the image on the server — or set `CLI_IMAGE_CLAUDE_AUTO_BUILD=true` to
+build with zero clicks. See the "Claude (local build)" section of
+`docs/guides/cli-image-auto-update.md`.
 
 When `CLI_IMAGE_PRUNE_ENABLED=true`, the prune pass runs inside the updater loop
 and is image-level only: it removes solely the deployment's own dangling agent
@@ -193,6 +213,57 @@ guide, including the operator-initiated image roll.
 | `STORAGE_PROVIDER`           | Attachment object storage provider                                                                                           |
 | `STORAGE_LOCAL_PATH`         | Writable mount path for local attachment storage                                                                             |
 | `MINIO_*`                    | MinIO/S3 settings when using the `storage` profile                                                                           |
+
+## Mainstream China-Region LLM Providers
+
+The LLM gateway ships first-class entries for the mainstream Chinese model
+vendors. You do not need environment variables for these. Open
+Settings -> Providers, choose Add Provider, pick the vendor entry, paste the
+API key, and save — the matching vendor endpoint is filled in for you.
+
+Two things matter before you pick an entry:
+
+- Each vendor sells two separate products. The plain entry (for example
+  `zhipu`) takes the vendor's pay-as-you-go API key and talks to its
+  OpenAI-compatible endpoint. The Coding Plan entry (for example
+  `zhipu_coding`) takes the vendor's coding subscription key and talks to its
+  Anthropic-compatible endpoint. The keys are different products and are not
+  interchangeable — use the key from the product you bought.
+- The default Base URL is the China endpoint. If your account lives on the
+  vendor's global/international platform, paste the global endpoint from the
+  table below into the Base URL field. The Providers form shows the same
+  global URL as a hint under the field.
+
+| Provider entry                                | Product           | China endpoint (default)                               | Global endpoint (paste into Base URL)                       |
+| --------------------------------------------- | ----------------- | ------------------------------------------------------ | ----------------------------------------------------------- |
+| Zhipu GLM (`zhipu`)                           | Pay-as-you-go API | `https://open.bigmodel.cn/api/paas/v4`                 | `https://api.z.ai/api/paas/v4`                              |
+| Zhipu GLM Coding Plan (`zhipu_coding`)        | Coding Plan       | `https://open.bigmodel.cn/api/anthropic`               | `https://api.z.ai/api/anthropic`                            |
+| MiniMax (`minimax`)                           | Pay-as-you-go API | `https://api.minimaxi.com/v1`                          | `https://api.minimax.io/v1`                                 |
+| MiniMax Coding Plan (`minimax_coding`)        | Coding Plan       | `https://api.minimaxi.com/anthropic`                   | `https://api.minimax.io/anthropic`                          |
+| Moonshot Kimi (`moonshot`)                    | Pay-as-you-go API | `https://api.moonshot.cn/v1`                           | `https://api.moonshot.ai/v1`                                |
+| Moonshot Kimi Coding Plan (`moonshot_coding`) | Coding Plan       | `https://api.moonshot.cn/anthropic`                    | `https://api.moonshot.ai/anthropic`                         |
+| Alibaba Qwen (`dashscope`)                    | Pay-as-you-go API | `https://dashscope.aliyuncs.com/compatible-mode/v1`    | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`    |
+| Alibaba Qwen Coding Plan (`dashscope_coding`) | Coding Plan       | `https://coding.dashscope.aliyuncs.com/apps/anthropic` | `https://coding-intl.dashscope.aliyuncs.com/apps/anthropic` |
+| Tencent Hunyuan (`hunyuan`)                   | Pay-as-you-go API | `https://api.hunyuan.cloud.tencent.com/v1`             | None — China endpoint only today                            |
+| Xiaomi MiMo (`xiaomi`)                        | Pay-as-you-go API | `https://api.xiaomimimo.com/v1`                        | Same host serves all regions                                |
+| Xiaomi MiMo Coding Plan (`xiaomi_coding`)     | Coding Plan       | `https://api.xiaomimimo.com/anthropic`                 | See the Xiaomi note below                                   |
+
+Success looks like: after saving, the provider row's Test button returns
+"Connection ready", and the provider appears when creating a Provider + Prompt
+agent.
+
+Notes:
+
+- Tencent Hunyuan has no Anthropic-compatible coding endpoint today, so there
+  is no `hunyuan_coding` entry.
+- Xiaomi MiMo Token Plan subscribers receive a dedicated endpoint host from
+  the Xiaomi console (for example `token-plan-cn.xiaomimimo.com`). If your
+  console shows one, paste it into the Base URL field instead of the default.
+- Common vendor spellings work as aliases when calling the API directly:
+  `glm`/`bigmodel`/`z-ai` resolve to `zhipu`, `kimi` to `moonshot`,
+  `qwen`/`alibaba`/`aliyun` to `dashscope`, `mimo` to `xiaomi`, and `tencent`
+  to `hunyuan`. The same aliases with a `_coding` suffix resolve to the
+  matching Coding Plan entry.
 
 ## Guidance
 

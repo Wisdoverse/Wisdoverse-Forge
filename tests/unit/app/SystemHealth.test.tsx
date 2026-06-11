@@ -24,7 +24,7 @@ describe('SystemHealth', () => {
           database: { status: 'up', latencyMs: 12 },
           redis: { status: 'degraded' },
           nats: { status: 'down' },
-          platform: { status: 'degraded' },
+          // docker intentionally absent so it renders as "Not checked".
         },
       },
       healthLoading: false,
@@ -45,28 +45,45 @@ describe('SystemHealth', () => {
     expect(screen.getByText('Fast response helper')).toBeDefined()
     expect(screen.getByText('Progress update delivery')).toBeDefined()
     expect(screen.getByText('Agent Work Starter')).toBeDefined()
-    expect(screen.getByText('Agent work service')).toBeDefined()
-    expect(screen.getByText('Delayed Work')).toBeDefined()
-    expect(screen.getByText('Delayed work helper')).toBeDefined()
-    expect(screen.getByText(/work waiting to start may wait longer/i)).toBeDefined()
-    expect(screen.getByText(/retry once work starts moving again/i)).toBeDefined()
-    expect(screen.getByText(/agent work service before sending new agent work/i)).toBeDefined()
-    expect(screen.queryByText(/Background Jobs/i)).toBeNull()
-    expect(screen.queryByText(/background job service/i)).toBeNull()
-    expect(screen.queryByText(/queue/i)).toBeNull()
-    expect(screen.queryByText(/PostgreSQL/i)).toBeNull()
-    expect(screen.queryByText(/Redis/i)).toBeNull()
-    expect(screen.queryByText(/NATS/i)).toBeNull()
-    expect(screen.queryByText(/message bus/i)).toBeNull()
-    expect(screen.queryByText(/runner/i)).toBeNull()
-    expect(screen.queryByText(/container host/i)).toBeNull()
-    expect(screen.queryByText(/container platform/i)).toBeNull()
+    expect(screen.getByText('Agent container service')).toBeDefined()
+    expect(
+      screen.getByText(/agent container service before sending new agent file work/i)
+    ).toBeDefined()
     expect(screen.getByText('12 ms response')).toBeDefined()
     expect(screen.getByText('Ready')).toBeDefined()
     expect(screen.getAllByText('Needs attention').length).toBeGreaterThan(0)
     expect(screen.getByText('Unavailable')).toBeDefined()
     expect(screen.getAllByText('Not checked').length).toBeGreaterThan(0)
     expect(screen.getByText(/Service has been running for 2h/i)).toBeDefined()
+    expect(screen.queryByText(/Background Jobs/i)).toBeNull()
+    expect(screen.queryByText(/PostgreSQL/i)).toBeNull()
+    expect(screen.queryByText(/Redis/i)).toBeNull()
+    expect(screen.queryByText(/NATS/i)).toBeNull()
+    expect(screen.queryByText(/Docker runtime/i)).toBeNull()
+  })
+
+  test('shows every check as ready when the probe reports all dependencies up', () => {
+    useAdminStore.setState({
+      ...originalAdminState,
+      health: {
+        status: 'healthy',
+        checks: {
+          database: { status: 'up' },
+          redis: { status: 'up' },
+          nats: { status: 'up' },
+          docker: { status: 'up' },
+        },
+      },
+      healthLoading: false,
+      healthError: null,
+      loadHealth: vi.fn(),
+    })
+
+    render(<SystemHealth />)
+
+    expect(screen.getByText('All services are ready')).toBeDefined()
+    expect(screen.getAllByText('Ready').length).toBe(4)
+    expect(screen.queryByText('Not checked')).toBeNull()
   })
 
   test('pauses automatic checks while the admin page is hidden', async () => {
@@ -78,6 +95,9 @@ describe('SystemHealth', () => {
         status: 'healthy',
         checks: {
           database: { status: 'up' },
+          redis: { status: 'up' },
+          nats: { status: 'up' },
+          docker: { status: 'up' },
         },
       },
       healthLoading: false,
@@ -138,7 +158,7 @@ describe('SystemHealth', () => {
       health: {
         status: 'unhealthy',
         checks: {
-          platform: {
+          docker: {
             status: 'down',
             error: 'missing runtime configuration value',
           },

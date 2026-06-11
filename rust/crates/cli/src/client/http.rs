@@ -485,7 +485,7 @@ impl Client {
 }
 
 fn jitter() -> std::time::Duration {
-    use rand::Rng;
+    use rand::RngExt;
     let ms = rand::rng().random_range(0..500);
     std::time::Duration::from_millis(ms)
 }

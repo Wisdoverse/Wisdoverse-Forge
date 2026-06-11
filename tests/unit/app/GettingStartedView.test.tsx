@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import '@app/i18n'
 import { GettingStartedView } from '@app/pages/getting-started'
 import { useNavigationStore } from '@app/entities/navigation'
@@ -24,11 +24,15 @@ vi.mock('@app/shared/api/orchestration', () => ({
 const loadOrgsMock = vi.fn().mockResolvedValue(undefined)
 const loadProvidersMock = vi.fn().mockResolvedValue(undefined)
 const loadRuntimeSettingsMock = vi.fn().mockResolvedValue(undefined)
+const loadPreferencesMock = vi.fn().mockResolvedValue(undefined)
+const setGettingStartedDismissedMock = vi.fn()
 const loadAgentsMock = vi.fn().mockResolvedValue(undefined)
 const loadSkillsMock = vi.fn().mockResolvedValue(undefined)
 const originalLoadOrgs = useNavigationStore.getState().loadOrgs
 const originalLoadProviders = useSettingsStore.getState().loadProviders
 const originalLoadRuntimeSettings = useSettingsStore.getState().loadRuntimeSettings
+const originalLoadPreferences = useSettingsStore.getState().loadPreferences
+const originalSetGettingStartedDismissed = useSettingsStore.getState().setGettingStartedDismissed
 const originalLoadAgents = useAgentsStore.getState().loadAgents
 const originalLoadSkills = useSkillsStore.getState().loadSkills
 
@@ -38,6 +42,8 @@ beforeEach(() => {
   loadOrgsMock.mockClear()
   loadProvidersMock.mockClear()
   loadRuntimeSettingsMock.mockClear()
+  loadPreferencesMock.mockClear()
+  setGettingStartedDismissedMock.mockReset().mockResolvedValue(true)
   loadAgentsMock.mockClear()
   loadSkillsMock.mockClear()
   useNavigationStore.getState().reset()
@@ -50,8 +56,13 @@ beforeEach(() => {
     runtimeSettings: null,
     runtimeLoading: false,
     runtimeError: null,
+    preferences: {},
+    preferencesLoaded: true,
+    preferencesLoading: false,
     loadProviders: loadProvidersMock,
     loadRuntimeSettings: loadRuntimeSettingsMock,
+    loadPreferences: loadPreferencesMock,
+    setGettingStartedDismissed: setGettingStartedDismissedMock,
   })
   useNavigationStore.setState({ loadOrgs: loadOrgsMock })
   useAgentsStore.setState({ loadAgents: loadAgentsMock })
@@ -67,12 +78,110 @@ afterEach(() => {
   useSettingsStore.setState({
     providers: [],
     runtimeSettings: null,
+    preferences: null,
+    preferencesLoaded: false,
+    preferencesLoading: false,
     loadProviders: originalLoadProviders,
     loadRuntimeSettings: originalLoadRuntimeSettings,
+    loadPreferences: originalLoadPreferences,
+    setGettingStartedDismissed: originalSetGettingStartedDismissed,
   })
   useAgentsStore.setState({ loadAgents: originalLoadAgents })
   useSkillsStore.setState({ loadSkills: originalLoadSkills })
 })
+
+/**
+ * Seed every store so all eight checklist steps read complete. Mirrors the
+ * fixture used by the "shows the first-run checklist" test.
+ */
+function seedCompletedSetup() {
+  useNavigationStore.setState({
+    teams: [
+      {
+        id: 'team-1',
+        orgId: 'org-1',
+        name: 'Launch Team',
+        slug: 'launch-team',
+        visibility: 'open',
+        description: '',
+      },
+    ],
+    projects: {
+      'team-1': [
+        {
+          id: 'project-1',
+          teamId: 'team-1',
+          name: 'Launch Project',
+          slug: 'launch-project',
+          color: '#007AFF',
+          description: '',
+        },
+      ],
+    },
+    selectedProjectId: 'project-1',
+    agentGroups: [{ id: 'group-1', projectId: 'project-1', name: 'Default' }],
+  })
+  useSettingsStore.setState({
+    providers: [
+      {
+        id: 'provider-1',
+        provider: 'model-service',
+        displayName: 'Model Service',
+        model: 'general-model',
+        isEnabled: true,
+        isDefault: true,
+        lastTestStatus: 'passed',
+      } as any,
+    ],
+    runtimeSettings: {
+      defaultRuntime: 'container',
+      availableRuntimes: ['container', 'api'],
+      defaultCliTool: 'workspace-tool',
+      availableCliTools: ['workspace-tool', 'review-tool'],
+      cliToolDetails: [
+        {
+          cliTool: 'workspace-tool',
+          image: 'agentforge-agent:workspace-tool',
+          version: '1.0.0',
+          imagePresent: true,
+          versionSource: 'docker-label',
+        },
+      ],
+    },
+  })
+  useAgentsStore.setState({
+    agents: [
+      {
+        id: 'agent-1',
+        name: 'Starter Agent',
+        provider: 'model-service',
+        model: 'general-model',
+        status: 'idle',
+        tasksCompleted: 0,
+        tasksInProgress: 0,
+        successRate: 0,
+      },
+    ],
+  })
+  getTasksMock.mockResolvedValueOnce([
+    {
+      id: 'task-1',
+      groupId: 'group-1',
+      state: 'completed',
+      method: 'tasks/send',
+      params: { task: 'Ship first flow', message: 'Review output' },
+      assignedTo: 'agent-1',
+      assignedAgentName: 'Starter Agent',
+      priority: 'normal',
+      progress: 100,
+      result: [{ name: 'summary.md', mimeType: 'text/markdown', data: 'Done' }],
+      contextCounts: { appliedMemories: 0, appliedSkills: 1, total: 1 },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+    },
+  ])
+}
 
 describe('GettingStartedView', () => {
   test('shows the first-run checklist from current workspace state', async () => {
@@ -440,5 +549,62 @@ describe('GettingStartedView', () => {
     fireEvent.click(await screen.findByRole('button', { name: /choose work location/i }))
 
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/runtime' })
+  })
+
+  test('loads stored preferences alongside the other first-run data', async () => {
+    render(<GettingStartedView />)
+
+    expect(await screen.findByTestId('page-start')).toBeDefined()
+    expect(loadPreferencesMock).toHaveBeenCalled()
+  })
+
+  test('skip action persists the dismissal and moves to the task board', async () => {
+    render(<GettingStartedView />)
+
+    fireEvent.click(await screen.findByTestId('getting-started-skip'))
+
+    expect(setGettingStartedDismissedMock).toHaveBeenCalledWith(true)
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/tasks' })
+  })
+
+  test('auto-dismisses exactly once when every step is complete', async () => {
+    seedCompletedSetup()
+
+    const view = render(<GettingStartedView />)
+    expect(await screen.findByText('100%')).toBeDefined()
+
+    await waitFor(() => expect(setGettingStartedDismissedMock).toHaveBeenCalledTimes(1))
+    expect(setGettingStartedDismissedMock).toHaveBeenCalledWith(true)
+
+    // The same mounted page re-rendering with unchanged completion state must
+    // not fire the persistence again (the mock does not update the store, so
+    // only the ref guard prevents a second call here).
+    view.rerender(<GettingStartedView />)
+    expect(await screen.findByText('100%')).toBeDefined()
+    expect(setGettingStartedDismissedMock).toHaveBeenCalledTimes(1)
+  })
+
+  test('does not auto-dismiss while preferences are still loading', async () => {
+    seedCompletedSetup()
+    useSettingsStore.setState({ preferences: null, preferencesLoaded: false })
+
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText('100%')).toBeDefined()
+    expect(screen.getByText('Ready to run work')).toBeDefined()
+    expect(setGettingStartedDismissedMock).not.toHaveBeenCalled()
+  })
+
+  test('does not re-persist a dismissal that is already stored', async () => {
+    seedCompletedSetup()
+    useSettingsStore.setState({
+      preferences: { gettingStartedDismissed: true },
+      preferencesLoaded: true,
+    })
+
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText('100%')).toBeDefined()
+    expect(setGettingStartedDismissedMock).not.toHaveBeenCalled()
   })
 })

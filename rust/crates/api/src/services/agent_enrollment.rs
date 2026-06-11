@@ -13,16 +13,18 @@
 
 use std::collections::BTreeMap;
 
-use agentforge_core::{AgentId, AppConfig, AppError, AppResult, CliToolKind, TenantScope};
+use agentforge_core::{AgentId, AppConfig, AppError, AppResult, CliToolKind, RuntimeKind, TenantScope};
+use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+pub(crate) use crate::domain::agent::agent_join_claim_response;
 use crate::domain::agent::{
-    AgentContainerEnvInput, AgentContainerEnvPolicy, AgentName, EnrolledHostCli, HostAgentEnrollment,
-    HostAgentEnrollmentPolicy, HostCliIdentity, NewAgent,
+    AgentContainerEnvInput, AgentContainerEnvPolicy, AgentName, ClaimedHostAgentJoin, EnrolledHostCli,
+    HostAgentEnrollment, HostAgentEnrollmentPolicy, HostCliIdentity, JoinCode, NewAgent,
 };
 use crate::domain::context::{ContextFeature, ContextFeatureFlags};
-use crate::repositories::agent::{AgentListItem, AgentRepository};
+use crate::repositories::agent::{AgentJoinCodeRepository, AgentListItem, AgentRepository};
 use crate::repositories::enrollment_idempotency::EnrollmentIdempotencyRepository;
 use crate::services::agent_workspace::AgentWorkspaceService;
 
@@ -44,12 +46,28 @@ struct HostAgentEnrollmentSettings {
     codex_default_model: String,
     context_injection_enabled: bool,
     allow_plaintext_host_nats: bool,
+    host_join_binary_base_url: Option<String>,
 }
+
+/// Shell flavor of the join bootstrap script served to operators.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum JoinScriptShell {
+    Sh,
+    PowerShell,
+}
+
+const JOIN_SCRIPT_SH: &str = include_str!("scripts/local_join.sh");
+const JOIN_SCRIPT_PS1: &str = include_str!("scripts/local_join.ps1");
+
+/// Default download base for sidecar release binaries. Overridable per
+/// deployment with `HOST_JOIN_BINARY_BASE_URL` (e.g. an internal mirror).
+const DEFAULT_BINARY_BASE_URL: &str = "https://github.com/Wisdoverse/Wisdoverse-Forge/releases/latest/download";
 
 pub(crate) struct HostAgentEnrollmentService {
     pool: PgPool,
     agents: AgentRepository,
     idempotency: EnrollmentIdempotencyRepository,
+    join_codes: AgentJoinCodeRepository,
     workspaces: AgentWorkspaceService,
     settings: HostAgentEnrollmentSettings,
 }
@@ -59,6 +77,7 @@ impl HostAgentEnrollmentService {
         Self {
             agents: AgentRepository::new(pool.clone()),
             idempotency: EnrollmentIdempotencyRepository::new(pool.clone()),
+            join_codes: AgentJoinCodeRepository::new(pool.clone()),
             workspaces: AgentWorkspaceService::from_pool(pool.clone()),
             settings: HostAgentEnrollmentSettings {
                 nats_agent_url: config.nats_agent_url.clone(),
@@ -67,9 +86,25 @@ impl HostAgentEnrollmentService {
                 codex_default_model: config.codex_default_model.clone(),
                 context_injection_enabled: context_features.enabled(ContextFeature::Injection),
                 allow_plaintext_host_nats: config.allow_plaintext_host_nats,
+                host_join_binary_base_url: config.host_join_binary_base_url.clone(),
             },
             pool,
         }
+    }
+
+    /// Render the join bootstrap for the requested shell with this
+    /// deployment's server URL and binary download base baked in. The
+    /// rendered script carries no secrets.
+    pub(crate) fn join_script(&self, shell: JoinScriptShell) -> String {
+        let template = match shell {
+            JoinScriptShell::Sh => JOIN_SCRIPT_SH,
+            JoinScriptShell::PowerShell => JOIN_SCRIPT_PS1,
+        };
+        let server_url = self.settings.server_url.as_deref().unwrap_or_default();
+        let binary_base = self.settings.host_join_binary_base_url.as_deref().unwrap_or(DEFAULT_BINARY_BASE_URL);
+        template
+            .replace("__AGENTFORGE_SERVER_URL__", server_url.trim_end_matches('/'))
+            .replace("__AGENTFORGE_BINARY_BASE_URL__", binary_base.trim_end_matches('/'))
     }
 
     pub(crate) async fn enroll(
@@ -94,11 +129,16 @@ impl HostAgentEnrollmentService {
         let org_id = scope.org_id().as_uuid();
         let user_id = scope.user_id().as_uuid();
 
-        // 3. Idempotency fast path.
+        // 3. Idempotency fast path. The original join code is never stored in
+        //    plaintext, so a replay mints a fresh one (older codes stay valid
+        //    until their own expiry).
         if let Some(existing_id) = self.idempotency.lookup(org_id, user_id, idempotency_key).await? {
             metrics::counter!("agents_idempotency_replay_total").increment(1);
             let agent = self.agents.find_with_owner_by_id(scope, AgentId::from(existing_id)).await?;
-            let enrollment = self.rebuild_enrollment_view(scope, &agent, existing_id, &nats_base_url).await?;
+            let mut enrollment = self.rebuild_enrollment_view(scope, &agent, existing_id, &nats_base_url).await?;
+            let (code, expires_at) = (JoinCode::generate(), JoinCode::expires_at_from(Utc::now()));
+            self.join_codes.store(org_id, existing_id, &code.hash_hex(), expires_at).await?;
+            self.attach_join_code(&mut enrollment, &code, expires_at);
             return Ok((agent, enrollment));
         }
 
@@ -120,9 +160,11 @@ impl HostAgentEnrollmentService {
             input.project_id,
         )?;
 
+        let (code, code_expires_at) = (JoinCode::generate(), JoinCode::expires_at_from(Utc::now()));
         let mut tx = self.pool.begin().await.map_err(AppError::from)?;
         let id = self.agents.create_aggregate_in_tx(&mut tx, scope, new_agent).await?;
         EnrollmentIdempotencyRepository::store_in_tx(&mut tx, org_id, user_id, idempotency_key, id).await?;
+        AgentJoinCodeRepository::store_in_tx(&mut tx, org_id, id, &code.hash_hex(), code_expires_at).await?;
         tx.commit().await.map_err(AppError::from)?;
 
         metrics::counter!(
@@ -132,8 +174,83 @@ impl HostAgentEnrollmentService {
         .increment(1);
 
         let agent = self.agents.find_with_owner_by_id(scope, AgentId::from(id)).await?;
-        let enrollment = self.build_enrollment_view(&agent, &identity, &nats_base_url);
+        let mut enrollment = self.build_enrollment_view(&agent, &identity, &nats_base_url);
+        self.attach_join_code(&mut enrollment, &code, code_expires_at);
         Ok((agent, enrollment))
+    }
+
+    /// Decorate an enrollment view with the freshly minted pairing code and,
+    /// when the deployment knows its public URL, the copy-paste join commands.
+    fn attach_join_code(&self, enrollment: &mut HostAgentEnrollment, code: &JoinCode, expires_at: DateTime<Utc>) {
+        enrollment.join_code = Some(code.as_str().to_string());
+        enrollment.join_code_expires_at = Some(expires_at);
+        if let Some(server_url) = self.settings.server_url.as_deref() {
+            enrollment.join_command = Some(HostAgentEnrollmentPolicy::join_command(server_url, code.as_str()));
+            enrollment.join_command_powershell =
+                Some(HostAgentEnrollmentPolicy::join_command_powershell(server_url, code.as_str()));
+        }
+    }
+
+    /// Exchange a pairing code for the agent's sidecar environment.
+    ///
+    /// Unauthenticated by design: the code is the credential. Unknown,
+    /// expired, malformed, and non-host-CLI codes all collapse into one
+    /// opaque rejection so the endpoint cannot be used as an oracle. The
+    /// enrollment TLS gate is re-checked because the claim re-derives the
+    /// NATS URL from current settings.
+    pub(crate) async fn claim(&self, raw_code: &str) -> AppResult<ClaimedHostAgentJoin> {
+        let code = JoinCode::parse(raw_code)?;
+        let nats_base_url = HostAgentEnrollmentPolicy::require_nats_base_url(
+            self.settings.nats_agent_url.as_deref(),
+            self.settings.nats_url.as_deref(),
+        )?;
+        if !nats_base_url.starts_with("tls://") && !self.settings.allow_plaintext_host_nats {
+            return Err(HostAgentEnrollmentPolicy::plaintext_nats_blocked_error());
+        }
+
+        let Some(row) = self.join_codes.find_valid_claim(&code.hash_hex()).await? else {
+            metrics::counter!("agents_join_claim_rejected_total").increment(1);
+            return Err(HostAgentEnrollmentPolicy::invalid_join_code_error());
+        };
+        if row.runtime_kind != RuntimeKind::Cli.as_str() {
+            metrics::counter!("agents_join_claim_rejected_total").increment(1);
+            return Err(HostAgentEnrollmentPolicy::invalid_join_code_error());
+        }
+        let (Some(hmac_secret), Some(nats_connect_password)) =
+            (row.hmac_secret.as_deref(), row.nats_connect_password.as_deref())
+        else {
+            metrics::counter!("agents_join_claim_rejected_total").increment(1);
+            return Err(HostAgentEnrollmentPolicy::invalid_join_code_error());
+        };
+
+        self.join_codes.record_claim(row.join_code_id).await?;
+        metrics::counter!("agents_join_claimed_total").increment(1);
+
+        let env = AgentContainerEnvPolicy::build(AgentContainerEnvInput {
+            agent_id: row.agent_id,
+            org_id: row.organization_id,
+            cli_tool: row.cli_tool.as_deref(),
+            cli_model: row.model.as_deref(),
+            codex_default_model: Some(self.settings.codex_default_model.as_str()),
+            nats_base_url: Some(&nats_base_url),
+            nats_connect_password,
+            container_server_url: self.settings.server_url.as_deref(),
+            workspace_host_path: None,
+            hmac_secret,
+            context_injection_enabled: self.settings.context_injection_enabled,
+        });
+        let mut env_map: BTreeMap<String, String> = HostAgentEnrollmentPolicy::env_map(env);
+        env_map.insert("AGENTFORGE_RUNTIME_KIND".to_string(), "cli".to_string());
+
+        Ok(ClaimedHostAgentJoin {
+            agent_id: row.agent_id,
+            agent_name: row.agent_name.clone(),
+            cli_tool: row.cli_tool.clone(),
+            shell_export_lines: HostAgentEnrollmentPolicy::shell_export_lines(&env_map),
+            powershell_export_lines: HostAgentEnrollmentPolicy::powershell_export_lines(&env_map),
+            sidecar_command: HostAgentEnrollmentPolicy::SIDECAR_COMMAND.to_string(),
+            env: env_map,
+        })
     }
 
     fn build_enrollment_view(
@@ -166,6 +283,10 @@ impl HostAgentEnrollmentService {
             shell_exports,
             sidecar_command: HostAgentEnrollmentPolicy::SIDECAR_COMMAND.to_string(),
             server_url: self.settings.server_url.clone(),
+            join_code: None,
+            join_code_expires_at: None,
+            join_command: None,
+            join_command_powershell: None,
         }
     }
 
@@ -230,6 +351,10 @@ impl HostAgentEnrollmentService {
             shell_exports,
             sidecar_command: HostAgentEnrollmentPolicy::SIDECAR_COMMAND.to_string(),
             server_url: self.settings.server_url.clone(),
+            join_code: None,
+            join_code_expires_at: None,
+            join_command: None,
+            join_command_powershell: None,
         })
     }
 }
@@ -275,6 +400,7 @@ mod tests {
         HostAgentEnrollmentService {
             agents: AgentRepository::new(pool.clone()),
             idempotency: EnrollmentIdempotencyRepository::new(pool.clone()),
+            join_codes: AgentJoinCodeRepository::new(pool.clone()),
             workspaces: AgentWorkspaceService::from_pool(pool.clone()),
             settings: HostAgentEnrollmentSettings {
                 nats_agent_url: Some("tls://nats:4222".to_string()),
@@ -283,9 +409,26 @@ mod tests {
                 codex_default_model: "gpt-5.5".to_string(),
                 context_injection_enabled: false,
                 allow_plaintext_host_nats: false,
+                host_join_binary_base_url: None,
             },
             pool,
         }
+    }
+
+    /// The rendered bootstrap scripts embed this deployment's URLs, leave no
+    /// placeholders behind, and call the claim endpoint.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn join_scripts_render_with_deployment_urls(pool: PgPool) {
+        let svc = service_with_tls_nats(pool);
+        for shell in [JoinScriptShell::Sh, JoinScriptShell::PowerShell] {
+            let rendered = svc.join_script(shell);
+            assert!(!rendered.contains("__AGENTFORGE_"), "unrendered placeholder left in script");
+            assert!(rendered.contains("https://agentforge.example"), "server url baked in");
+            assert!(rendered.contains("/api/v1/agents/local-join/claim"), "script calls the claim endpoint");
+            assert!(rendered.contains(DEFAULT_BINARY_BASE_URL), "default binary base baked in");
+        }
+        assert!(svc.join_script(JoinScriptShell::Sh).starts_with("#!/bin/sh\n"));
+        assert!(svc.join_script(JoinScriptShell::Sh).contains("Codes expire after 15 minutes"));
     }
 
     /// Parity: enrolling a host-cli agent then replaying the same idempotency
@@ -378,5 +521,103 @@ mod tests {
             repo.fetch_host_cli_credentials(&scope, enrolled.inner().id).await.expect("fetch creds for host-cli");
         assert!(!hmac.is_empty(), "hmac_secret present");
         assert!(!nats_pw.is_empty(), "nats_connect_password present");
+    }
+
+    /// Enrollment mints a pairing code and, when the server URL is known,
+    /// both copy-paste join commands embedding that code.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn enroll_mints_join_code_and_commands(pool: PgPool) {
+        let (org_id, _ws, user_id) = seed_org_workspace_user(&pool).await;
+        let scope = crate::test_support::tenant_scope_for_ids(org_id, user_id);
+        let svc = service_with_tls_nats(pool);
+        let input = HostAgentEnrollmentInput { cli_tool: "claude", ..Default::default() };
+
+        let (_agent, enrollment) = svc.enroll(&scope, "key-join", input).await.expect("enroll");
+
+        let code = enrollment.join_code.as_deref().expect("join code minted");
+        assert!(code.starts_with("afj_"), "code carries scanning prefix, got {code}");
+        assert!(enrollment.join_code_expires_at.is_some(), "expiry returned");
+        let cmd = enrollment.join_command.as_deref().expect("join command present");
+        assert!(
+            cmd.contains("https://agentforge.example/api/v1/agents/local-join/script") && cmd.contains(code),
+            "bash command embeds server + code: {cmd}"
+        );
+        let ps = enrollment.join_command_powershell.as_deref().expect("powershell command present");
+        assert!(ps.contains("script.ps1") && ps.contains(code), "powershell command embeds code: {ps}");
+    }
+
+    /// Claiming the minted code returns the same env the enrollment produced,
+    /// plus eval-ready export lines for both shells.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn claim_returns_enrollment_env_parity(pool: PgPool) {
+        let (org_id, _ws, user_id) = seed_org_workspace_user(&pool).await;
+        let scope = crate::test_support::tenant_scope_for_ids(org_id, user_id);
+        let svc = service_with_tls_nats(pool);
+        let input = HostAgentEnrollmentInput { cli_tool: "claude", ..Default::default() };
+
+        let (agent, enrollment) = svc.enroll(&scope, "key-claim", input).await.expect("enroll");
+        let code = enrollment.join_code.as_deref().expect("join code");
+
+        let claimed = svc.claim(code).await.expect("claim succeeds");
+        assert_eq!(claimed.agent_id, agent.id);
+        assert_eq!(claimed.env, enrollment.env, "claimed env must match the enrollment env");
+        assert!(claimed.shell_export_lines.contains("export NATS_URL="), "bash exports carry NATS creds");
+        assert!(claimed.powershell_export_lines.contains("$env:NATS_URL ="), "powershell exports carry NATS creds");
+        assert!(!claimed.shell_export_lines.contains(HostAgentEnrollmentPolicy::SIDECAR_COMMAND));
+
+        // Codes stay claimable until expiry (interrupted bootstrap can retry).
+        let again = svc.claim(code).await.expect("re-claim within TTL");
+        assert_eq!(again.env, claimed.env);
+    }
+
+    /// Unknown, malformed, and expired codes all collapse into one opaque
+    /// NotFound — the public endpoint must not act as an oracle.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn claim_rejects_unknown_malformed_and_expired_codes(pool: PgPool) {
+        let (org_id, _ws, user_id) = seed_org_workspace_user(&pool).await;
+        let scope = crate::test_support::tenant_scope_for_ids(org_id, user_id);
+        let svc = service_with_tls_nats(pool.clone());
+
+        // Unknown (well-formed) code.
+        let unknown = format!("afj_{}", "a".repeat(43));
+        let err = svc.claim(&unknown).await.expect_err("unknown code rejected");
+        assert!(matches!(err.kind, ErrorKind::NotFound(_)), "unknown → NotFound, got {:?}", err.kind);
+
+        // Malformed code: same opaque shape.
+        let err = svc.claim("not-a-code").await.expect_err("malformed code rejected");
+        assert!(matches!(err.kind, ErrorKind::NotFound(_)), "malformed → NotFound, got {:?}", err.kind);
+
+        // Expired code.
+        let input = HostAgentEnrollmentInput { cli_tool: "claude", ..Default::default() };
+        let (_agent, enrollment) = svc.enroll(&scope, "key-expire", input).await.expect("enroll");
+        let code = enrollment.join_code.as_deref().expect("join code");
+        sqlx::query("UPDATE agent_join_codes SET expires_at = NOW() - INTERVAL '1 minute'")
+            .execute(&pool)
+            .await
+            .expect("expire codes");
+        let err = svc.claim(code).await.expect_err("expired code rejected");
+        assert!(matches!(err.kind, ErrorKind::NotFound(_)), "expired → NotFound, got {:?}", err.kind);
+    }
+
+    /// Idempotent replay returns the same agent but a FRESH pairing code —
+    /// the original plaintext is never stored so it cannot be re-shown.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn replay_mints_fresh_join_code_for_same_agent(pool: PgPool) {
+        let (org_id, _ws, user_id) = seed_org_workspace_user(&pool).await;
+        let scope = crate::test_support::tenant_scope_for_ids(org_id, user_id);
+        let svc = service_with_tls_nats(pool);
+        let input = HostAgentEnrollmentInput { cli_tool: "codex", ..Default::default() };
+
+        let (cold_agent, cold) = svc.enroll(&scope, "key-fresh", input).await.expect("cold enroll");
+        let (replay_agent, replay) = svc.enroll(&scope, "key-fresh", input).await.expect("replay enroll");
+
+        assert_eq!(cold_agent.id, replay_agent.id);
+        let cold_code = cold.join_code.as_deref().expect("cold code");
+        let replay_code = replay.join_code.as_deref().expect("replay code");
+        assert_ne!(cold_code, replay_code, "replay mints a fresh code");
+
+        // Both codes resolve to the same agent.
+        assert_eq!(svc.claim(cold_code).await.expect("cold claim").agent_id, cold_agent.id);
+        assert_eq!(svc.claim(replay_code).await.expect("replay claim").agent_id, cold_agent.id);
     }
 }

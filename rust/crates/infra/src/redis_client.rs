@@ -121,9 +121,12 @@ mod tests {
             smtp_from: None,
             smtp_secure: false,
             allow_plaintext_host_nats: false,
+            host_join_binary_base_url: None,
             cli_image_auto_update_enabled: false,
             cli_image_auto_update_interval_secs: 900,
             cli_image_prune_enabled: false,
+            cli_image_claude_auto_build: false,
+            cli_image_npm_registry: None,
         }
     }
 

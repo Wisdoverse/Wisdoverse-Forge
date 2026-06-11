@@ -4,6 +4,7 @@
 //! repositories and HTTP route DTOs.
 
 use agentforge_core::{AgentStatus, AppError, AppResult, ErrorKind, RuntimeKind};
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -96,12 +97,205 @@ impl AdminAgentListProjection {
     }
 }
 
+/// Admin-console user projection consumed by the React admin "User access"
+/// table. `role` is derived from `users.is_admin` (`"admin" | "member"`);
+/// `status` is always `"active"` because the list query filters soft-deleted
+/// rows — the field stays so the response contract is explicit.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AdminUserProjection {
+    pub(crate) id: Uuid,
+    pub(crate) email: String,
+    pub(crate) display_name: String,
+    pub(crate) role: String,
+    pub(crate) status: String,
+    pub(crate) created_at: DateTime<Utc>,
+    pub(crate) last_login_at: Option<DateTime<Utc>>,
+}
+
+/// Wire label for a user's global access level, derived from `users.is_admin`.
+///
+/// This maps the GLOBAL admin flag only. Org-membership roles
+/// (`organization_members.role`, which feed the JWT `role` claim at login) are
+/// intentionally NOT editable here — per-organization role management is
+/// future multi-tenant work.
+pub(crate) fn admin_role_label(is_admin: bool) -> &'static str {
+    if is_admin { "admin" } else { "member" }
+}
+
+impl From<agentforge_db::entities::User> for AdminUserProjection {
+    fn from(user: agentforge_db::entities::User) -> Self {
+        let display_name = match user.display_name.as_deref().map(str::trim) {
+            Some(name) if !name.is_empty() => name.to_string(),
+            // Fall back to the local part of the email so the admin table
+            // never renders a blank "Person" cell.
+            _ => user.email.split('@').next().unwrap_or(user.email.as_str()).to_string(),
+        };
+        Self {
+            id: user.id.as_uuid(),
+            display_name,
+            role: admin_role_label(user.is_admin).to_string(),
+            status: "active".to_string(),
+            created_at: user.created_at,
+            last_login_at: user.last_login_at,
+            email: user.email,
+        }
+    }
+}
+
+/// Requested access-level change from the admin console role editor.
+///
+/// Parses the wire role (`"admin" | "member"`, matching
+/// [`AdminUserProjection::role`]) into the `users.is_admin` boolean it sets.
+/// Only the GLOBAL admin flag is managed here; org-membership roles
+/// (`organization_members.role`) are out of scope — future multi-tenant work.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct AdminRoleChange;
+
+impl AdminRoleChange {
+    /// Map `"admin"` → `true` and `"member"` → `false`. Anything else is
+    /// rejected with HTTP 422 so a typo never silently changes access.
+    pub(crate) fn parse(role: &str) -> AppResult<bool> {
+        match role {
+            "admin" => Ok(true),
+            "member" => Ok(false),
+            other => Err(ErrorKind::Unprocessable(format!(
+                "unknown access level '{other}'. Choose \"admin\" or \"member\"."
+            ))
+            .into()),
+        }
+    }
+}
+
+/// The signed-in admin tried to change or remove their own account (422).
+pub(crate) fn cannot_modify_self_error() -> AppError {
+    ErrorKind::Unprocessable(
+        "you cannot change or remove your own account. Ask another admin to make this change for you.".into(),
+    )
+    .into()
+}
+
+/// The action would leave the deployment with zero admins (422).
+pub(crate) fn last_admin_error() -> AppError {
+    ErrorKind::Unprocessable(
+        "this is the only admin account left. Make another person an admin first, then retry this change.".into(),
+    )
+    .into()
+}
+
+/// The target user does not exist or was already removed (404).
+pub(crate) fn admin_user_not_found_error(user_id: Uuid) -> AppError {
+    ErrorKind::NotFound(format!("user {user_id}")).into()
+}
+
+/// The target is this organization's owner (422). Owners hold the org's root
+/// access and are not managed from the user console.
+pub(crate) fn owner_managed_error() -> AppError {
+    ErrorKind::Unprocessable(
+        "this person is the organization owner. Owner access cannot be changed or removed from this page.".into(),
+    )
+    .into()
+}
+
+/// Guards for admin-console user role changes and account removal.
+pub(crate) struct AdminUserModificationPolicy;
+
+impl AdminUserModificationPolicy {
+    /// An admin may not demote or delete their own account — that path locks
+    /// people out by accident. A different admin must do it.
+    pub(crate) fn ensure_not_self(current_user_id: Uuid, target_user_id: Uuid) -> AppResult<()> {
+        if current_user_id == target_user_id {
+            return Err(cannot_modify_self_error());
+        }
+        Ok(())
+    }
+
+    /// Called when the target is CURRENTLY an admin and is about to lose admin
+    /// access (demotion or deletion). The final remaining admin can never be
+    /// removed, otherwise nobody could administer the deployment.
+    pub(crate) fn ensure_another_admin_remains(active_admin_count: i64) -> AppResult<()> {
+        if active_admin_count <= 1 {
+            return Err(last_admin_error());
+        }
+        Ok(())
+    }
+}
+
+/// Audit action recorded when an admin changes a user's global access level.
+pub(crate) const ADMIN_USER_ROLE_UPDATED_ACTION: &str = "admin.user.role_updated";
+/// Audit action recorded when an admin removes (soft-deletes) a user account.
+pub(crate) const ADMIN_USER_DELETED_ACTION: &str = "admin.user.deleted";
+/// Audit resource type for admin user-management actions.
+pub(crate) const ADMIN_USER_AUDIT_RESOURCE: &str = "user";
+
+/// Audit payload for a role change: who changed from/to what.
+pub(crate) fn admin_user_role_audit_details(email: &str, old_role: &str, new_role: &str) -> Value {
+    json!({ "email": email, "oldRole": old_role, "newRole": new_role })
+}
+
+/// Audit payload for an account removal: who was removed and their last role.
+pub(crate) fn admin_user_deleted_audit_details(email: &str, role: &str) -> Value {
+    json!({ "email": email, "role": role })
+}
+
+/// Paginated admin-console user list projection.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AdminUserListProjection {
+    pub(crate) users: Vec<AdminUserProjection>,
+    pub(crate) total: i64,
+    pub(crate) page: i64,
+    pub(crate) limit: i64,
+    pub(crate) total_pages: i64,
+}
+
+impl AdminUserListProjection {
+    pub(crate) fn new(users: Vec<AdminUserProjection>, total: i64, page: i64, limit: i64) -> Self {
+        let total_pages = if limit > 0 { (total + limit - 1) / limit } else { 0 };
+        Self { users, total, page, limit, total_pages }
+    }
+}
+
+/// Admin-console organization projection. There is intentionally NO `plan`
+/// field: the organizations table has no plan column, so the contract must
+/// not pretend one exists.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AdminOrgProjection {
+    pub(crate) id: Uuid,
+    pub(crate) name: String,
+    pub(crate) slug: String,
+    pub(crate) created_at: DateTime<Utc>,
+    pub(crate) members_count: i64,
+    pub(crate) teams_count: i64,
+}
+
 pub(crate) fn admin_data_response<T: Serialize>(data: T) -> Value {
     json!({ "ok": true, "data": data })
 }
 
+pub(crate) fn admin_user_list_response(projection: AdminUserListProjection) -> Value {
+    json!({
+        "ok": true,
+        "users": projection.users,
+        "total": projection.total,
+        "page": projection.page,
+        "limit": projection.limit,
+        "totalPages": projection.total_pages,
+    })
+}
+
+pub(crate) fn admin_org_list_response(organizations: Vec<AdminOrgProjection>, total: i64) -> Value {
+    json!({ "ok": true, "organizations": organizations, "total": total })
+}
+
 pub(crate) fn admin_delete_response() -> Value {
     json!({ "ok": true })
+}
+
+/// Response for `PUT /admin/users/:id` — the updated user row, in the same
+/// projection shape the user list uses so the frontend can swap it in place.
+pub(crate) fn admin_user_role_response(user: AdminUserProjection) -> Value {
+    json!({ "ok": true, "user": user })
 }
 
 pub(crate) fn admin_bulk_delete_response(results: Vec<BulkDeleteResult>) -> Value {
@@ -573,6 +767,213 @@ mod tests {
         assert_eq!(value["tokens"]["current"], 1234);
         assert_eq!(value["tokens"]["cumulative"], 56789);
         assert_eq!(value["eventsCount"], 42);
+    }
+
+    /// Build a DB user entity for projection tests.
+    fn db_user(email: &str, display_name: Option<&str>, is_admin: bool) -> agentforge_db::entities::User {
+        use chrono::TimeZone;
+        agentforge_db::entities::User {
+            id: Uuid::nil().into(),
+            email: email.to_string(),
+            password_hash: None,
+            display_name: display_name.map(str::to_string),
+            is_admin,
+            last_login_at: Some(Utc.timestamp_millis_opt(1_700_000_200_000).unwrap()),
+            created_at: Utc.timestamp_millis_opt(1_700_000_000_000).unwrap(),
+            updated_at: Utc.timestamp_millis_opt(1_700_000_100_000).unwrap(),
+            deleted_at: None,
+        }
+    }
+
+    #[test]
+    fn admin_user_projection_serializes_camel_case_contract() {
+        let value =
+            serde_json::to_value(AdminUserProjection::from(db_user("alice@example.com", Some("Alice"), true))).unwrap();
+
+        assert_eq!(value["id"], json!(Uuid::nil()));
+        assert_eq!(value["email"], "alice@example.com");
+        assert_eq!(value["displayName"], "Alice");
+        assert_eq!(value["role"], "admin");
+        assert_eq!(value["status"], "active");
+        assert!(value["createdAt"].as_str().expect("createdAt RFC3339 string").starts_with("2023-11-14T"));
+        assert!(value["lastLoginAt"].as_str().expect("lastLoginAt RFC3339 string").starts_with("2023-11-14T"));
+        // snake_case keys must not leak.
+        assert!(value.get("display_name").is_none());
+        assert!(value.get("created_at").is_none());
+        assert!(value.get("last_login_at").is_none());
+    }
+
+    #[test]
+    fn admin_user_projection_falls_back_to_email_local_part() {
+        for missing in [None, Some(""), Some("   ")] {
+            let projection = AdminUserProjection::from(db_user("bob@example.com", missing, false));
+            assert_eq!(projection.display_name, "bob", "display_name {missing:?} must fall back to email local part");
+        }
+        let kept = AdminUserProjection::from(db_user("bob@example.com", Some("Bob B."), false));
+        assert_eq!(kept.display_name, "Bob B.");
+    }
+
+    #[test]
+    fn admin_user_projection_derives_role_from_is_admin() {
+        assert_eq!(AdminUserProjection::from(db_user("a@example.com", None, true)).role, "admin");
+        assert_eq!(AdminUserProjection::from(db_user("b@example.com", None, false)).role, "member");
+        assert_eq!(admin_role_label(true), "admin");
+        assert_eq!(admin_role_label(false), "member");
+    }
+
+    #[test]
+    fn admin_role_change_parses_known_roles() {
+        assert!(AdminRoleChange::parse("admin").unwrap(), "\"admin\" maps to is_admin = true");
+        assert!(!AdminRoleChange::parse("member").unwrap(), "\"member\" maps to is_admin = false");
+    }
+
+    #[test]
+    fn admin_role_change_rejects_unknown_roles_with_422() {
+        for raw in ["owner", "Admin", "ADMIN", "viewer", "", " admin "] {
+            let err = AdminRoleChange::parse(raw).expect_err("unknown role must be rejected");
+            assert!(
+                matches!(err.kind, ErrorKind::Unprocessable(ref msg) if msg.contains("admin") && msg.contains("member")),
+                "expected 422 naming the valid choices, got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn admin_user_modification_errors_carry_beginner_clear_messages() {
+        assert!(matches!(
+            cannot_modify_self_error().kind,
+            ErrorKind::Unprocessable(ref msg) if msg.contains("your own account") && msg.contains("another admin")
+        ));
+        assert!(matches!(
+            last_admin_error().kind,
+            ErrorKind::Unprocessable(ref msg) if msg.contains("only admin") && msg.contains("first")
+        ));
+        let user_id = Uuid::now_v7();
+        assert!(matches!(
+            admin_user_not_found_error(user_id).kind,
+            ErrorKind::NotFound(ref msg) if msg.contains(&user_id.to_string())
+        ));
+    }
+
+    #[test]
+    fn admin_user_modification_policy_rejects_self_target() {
+        let user_id = Uuid::now_v7();
+        assert!(matches!(
+            AdminUserModificationPolicy::ensure_not_self(user_id, user_id).expect_err("self target rejected").kind,
+            ErrorKind::Unprocessable(_)
+        ));
+        assert!(AdminUserModificationPolicy::ensure_not_self(user_id, Uuid::now_v7()).is_ok());
+    }
+
+    #[test]
+    fn admin_user_modification_policy_protects_the_last_admin() {
+        assert!(matches!(
+            AdminUserModificationPolicy::ensure_another_admin_remains(1).expect_err("last admin protected").kind,
+            ErrorKind::Unprocessable(_)
+        ));
+        assert!(matches!(
+            AdminUserModificationPolicy::ensure_another_admin_remains(0).expect_err("zero admins protected").kind,
+            ErrorKind::Unprocessable(_)
+        ));
+        assert!(AdminUserModificationPolicy::ensure_another_admin_remains(2).is_ok());
+    }
+
+    #[test]
+    fn admin_user_role_response_wraps_the_projection() {
+        let response =
+            admin_user_role_response(AdminUserProjection::from(db_user("alice@example.com", Some("Alice"), true)));
+        assert_eq!(response["ok"], true);
+        assert_eq!(response["user"]["email"], "alice@example.com");
+        assert_eq!(response["user"]["displayName"], "Alice");
+        assert_eq!(response["user"]["role"], "admin");
+        assert_eq!(response["user"]["status"], "active");
+    }
+
+    #[test]
+    fn admin_user_audit_details_carry_role_transition_and_email() {
+        let role = admin_user_role_audit_details("alice@example.com", "member", "admin");
+        assert_eq!(role["email"], "alice@example.com");
+        assert_eq!(role["oldRole"], "member");
+        assert_eq!(role["newRole"], "admin");
+
+        let deleted = admin_user_deleted_audit_details("bob@example.com", "member");
+        assert_eq!(deleted["email"], "bob@example.com");
+        assert_eq!(deleted["role"], "member");
+
+        assert_eq!(ADMIN_USER_ROLE_UPDATED_ACTION, "admin.user.role_updated");
+        assert_eq!(ADMIN_USER_DELETED_ACTION, "admin.user.deleted");
+        assert_eq!(ADMIN_USER_AUDIT_RESOURCE, "user");
+    }
+
+    #[test]
+    fn admin_user_list_projection_computes_total_pages() {
+        let page = AdminUserListProjection::new(vec![], 51, 2, 25);
+        assert_eq!(page.total_pages, 3);
+        assert_eq!(AdminUserListProjection::new(vec![], 50, 1, 25).total_pages, 2);
+        assert_eq!(AdminUserListProjection::new(vec![], 0, 1, 25).total_pages, 0);
+        assert_eq!(AdminUserListProjection::new(vec![], 10, 1, 0).total_pages, 0);
+    }
+
+    #[test]
+    fn admin_user_list_response_uses_camel_case_keys() {
+        let response = admin_user_list_response(AdminUserListProjection::new(
+            vec![AdminUserProjection::from(db_user("alice@example.com", Some("Alice"), true))],
+            26,
+            2,
+            25,
+        ));
+
+        assert_eq!(response["ok"], true);
+        assert_eq!(response["total"], 26);
+        assert_eq!(response["page"], 2);
+        assert_eq!(response["limit"], 25);
+        assert_eq!(response["totalPages"], 2);
+        assert_eq!(response["users"][0]["displayName"], "Alice");
+        assert_eq!(response["users"][0]["role"], "admin");
+    }
+
+    #[test]
+    fn admin_org_projection_serializes_camel_case_contract() {
+        use chrono::TimeZone;
+        let value = serde_json::to_value(AdminOrgProjection {
+            id: Uuid::nil(),
+            name: "Acme".into(),
+            slug: "acme".into(),
+            created_at: Utc.timestamp_millis_opt(1_700_000_000_000).unwrap(),
+            members_count: 6,
+            teams_count: 2,
+        })
+        .unwrap();
+
+        assert_eq!(value["name"], "Acme");
+        assert_eq!(value["slug"], "acme");
+        assert_eq!(value["membersCount"], 6);
+        assert_eq!(value["teamsCount"], 2);
+        assert!(value["createdAt"].as_str().expect("createdAt RFC3339 string").starts_with("2023-11-14T"));
+        // The organizations table has no plan column — the contract must not invent one.
+        assert!(value.get("plan").is_none());
+        assert!(value.get("members_count").is_none());
+    }
+
+    #[test]
+    fn admin_org_list_response_wraps_organizations_and_total() {
+        use chrono::TimeZone;
+        let response = admin_org_list_response(
+            vec![AdminOrgProjection {
+                id: Uuid::nil(),
+                name: "Acme".into(),
+                slug: "acme".into(),
+                created_at: Utc.timestamp_millis_opt(1_700_000_000_000).unwrap(),
+                members_count: 1,
+                teams_count: 0,
+            }],
+            7,
+        );
+
+        assert_eq!(response["ok"], true);
+        assert_eq!(response["total"], 7);
+        assert_eq!(response["organizations"][0]["slug"], "acme");
+        assert_eq!(response["organizations"][0]["teamsCount"], 0);
     }
 
     #[test]

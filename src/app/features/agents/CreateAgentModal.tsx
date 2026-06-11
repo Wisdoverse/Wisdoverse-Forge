@@ -17,7 +17,6 @@ import { useSettingsStore } from '@app/shared/model/settings.store'
 import type { LocalAgentEnrollmentResponse } from '@app/entities/agent'
 import type { LlmProviderConfig } from '@app/shared/api/legacy/settingsApi'
 import type { CliTool } from '@shared/types'
-import { createAgentWorkLaneErrorMessage } from './model/createAgentWorkLaneErrorMessage'
 
 type AgentKind = 'cli' | 'local-cli' | 'provider'
 
@@ -102,6 +101,24 @@ const PROVIDERS: { value: string; label: string; defaultModel: string }[] = [
   { value: 'ollama', label: 'Ollama (local)', defaultModel: 'llama3.2' },
   { value: 'groq', label: 'Groq', defaultModel: 'llama-3.3-70b-versatile' },
   { value: 'deepseek', label: 'DeepSeek', defaultModel: 'deepseek-chat' },
+  // Mainstream China-region vendors. "Coding Plan" entries are the vendors'
+  // subscription products on Anthropic-compatible endpoints — separate keys
+  // from the pay-as-you-go API entries above them.
+  { value: 'zhipu', label: 'Zhipu GLM', defaultModel: 'glm-4.7' },
+  { value: 'zhipu_coding', label: 'Zhipu GLM Coding Plan', defaultModel: 'glm-4.7' },
+  { value: 'minimax', label: 'MiniMax', defaultModel: 'MiniMax-M3' },
+  { value: 'minimax_coding', label: 'MiniMax Coding Plan', defaultModel: 'MiniMax-M3' },
+  { value: 'moonshot', label: 'Moonshot Kimi', defaultModel: 'kimi-k2.5' },
+  { value: 'moonshot_coding', label: 'Moonshot Kimi Coding Plan', defaultModel: 'kimi-k2.5' },
+  { value: 'dashscope', label: 'Alibaba Qwen (DashScope)', defaultModel: 'qwen3-coder-plus' },
+  {
+    value: 'dashscope_coding',
+    label: 'Alibaba Qwen Coding Plan',
+    defaultModel: 'qwen3-coder-plus',
+  },
+  { value: 'hunyuan', label: 'Tencent Hunyuan', defaultModel: 'hunyuan-turbo-latest' },
+  { value: 'xiaomi', label: 'Xiaomi MiMo', defaultModel: 'mimo-v2.5-pro' },
+  { value: 'xiaomi_coding', label: 'Xiaomi MiMo Coding Plan', defaultModel: 'mimo-v2.5-pro' },
   { value: 'xai', label: 'xAI', defaultModel: 'grok-3-mini' },
   { value: 'openrouter', label: 'OpenRouter', defaultModel: 'openai/gpt-4o-mini' },
   { value: 'together', label: 'Together AI', defaultModel: 'openai/gpt-oss-20b' },
@@ -131,37 +148,36 @@ function cliToolLabel(cliTool: CliTool): string {
 function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): RuntimeFitSummary {
   if (kind === 'cli') {
     return {
-      title: `${cliToolLabel(cliTool)} in a managed workspace`,
-      detail:
-        'Best when the task needs project files and a ready place to check, change, and verify them.',
+      title: `${cliToolLabel(cliTool)} container worker`,
+      detail: 'Best when the task needs repository files, terminal tools, or local CLI sessions.',
       items: [
-        { label: 'Work type', value: 'Managed workspace' },
-        { label: 'Files', value: 'Project files available' },
-        { label: 'Before use', value: 'Workspace must be online' },
+        { label: 'Execution', value: 'Container CLI' },
+        { label: 'Files', value: '/workspace mounted' },
+        { label: 'Before use', value: 'Runtime container must start' },
       ],
     }
   }
 
   if (kind === 'local-cli') {
     return {
-      title: `${cliToolLabel(cliTool)} on this computer`,
-      detail:
-        'Best when the needed files or tool sign-in already exist on this computer. Forge sends tasks here after you run one command.',
+      title: `${cliToolLabel(cliTool)} local worker`,
+      detail: 'Best when the CLI already runs on your computer and this platform should manage it.',
       items: [
-        { label: 'Work type', value: 'This computer' },
-        { label: 'Files', value: 'Folder you choose' },
-        { label: 'Before use', value: 'Run one command' },
+        { label: 'Execution', value: 'Local CLI' },
+        { label: 'Files', value: 'Your local folder' },
+        { label: 'Before use', value: 'Run the join command' },
       ],
     }
   }
 
   return {
-    title: `${providerLabel(provider)} chat-only agent`,
-    detail: 'Best for planning, review, and quick questions that do not need project files.',
+    title: `${providerLabel(provider)} prompt worker`,
+    detail:
+      'Best for planning, review, and lightweight coordination that does not need filesystem tools.',
     items: [
-      { label: 'Work type', value: 'Chat-only agent' },
-      { label: 'Files', value: 'Does not open project files' },
-      { label: 'Before use', value: 'AI service checked' },
+      { label: 'Execution', value: 'Provider API' },
+      { label: 'Files', value: 'No direct workspace mount' },
+      { label: 'Before use', value: 'Provider key must be ready' },
     ],
   }
 }
@@ -198,6 +214,8 @@ export function CreateAgentModal() {
   const [creatingGroup, setCreatingGroup] = useState(false)
   const [localEnrollment, setLocalEnrollment] = useState<LocalAgentEnrollmentResponse | null>(null)
   const [copiedCommand, setCopiedCommand] = useState(false)
+  const [joinOs, setJoinOs] = useState<'posix' | 'windows'>('posix')
+  const [copiedJoin, setCopiedJoin] = useState(false)
   const verifiedProvider = useMemo(
     () =>
       providers.find((provider) => provider.isEnabled && provider.lastTestStatus === 'passed') ??
@@ -242,6 +260,8 @@ export function CreateAgentModal() {
     setSelectedTemplateId(null)
     setLocalEnrollment(null)
     setCopiedCommand(false)
+    setCopiedJoin(false)
+    setJoinOs('posix')
     setError(null)
   }, [createModalOpen, defaultValues, reset, setError])
 
@@ -270,7 +290,7 @@ export function CreateAgentModal() {
 
   async function handleFormSubmit(data: CreateAgentFormData) {
     if (!data.name.trim()) {
-      setError('Name this agent before creating it. Example: Review Agent or File Work Agent.')
+      setError('Name is required')
       return
     }
     const base = {
@@ -281,7 +301,7 @@ export function CreateAgentModal() {
     }
     if (data.kind === 'provider') {
       if (!data.provider || !data.model.trim()) {
-        setError('Choose an AI service and model before creating this chat-only agent.')
+        setError('Provider and model are required')
         return
       }
       await createAgent({
@@ -310,7 +330,7 @@ export function CreateAgentModal() {
 
   async function handleCreateDefaultGroup() {
     if (!selectedProjectId) {
-      setError('Select a project before creating a task queue. Task queues belong to one project.')
+      setError('Select a project before creating a work lane. Work lanes belong to one project.')
       return
     }
 
@@ -318,12 +338,12 @@ export function CreateAgentModal() {
     setError(null)
     try {
       const group = await createAgentGroup(selectedProjectId, {
-        name: 'Default Task Queue',
-        description: 'This task queue lets agents receive board tasks.',
+        name: 'Default Work Lane',
+        description: 'This work lane lets agents receive board tasks.',
       })
       setValue('groupId', group.id, { shouldDirty: true })
     } catch (err) {
-      setError(createAgentWorkLaneErrorMessage(err))
+      setError(err instanceof Error ? err.message : 'Failed to create work lane')
     } finally {
       setCreatingGroup(false)
     }
@@ -340,6 +360,7 @@ export function CreateAgentModal() {
     setError(null)
     setLocalEnrollment(null)
     setCopiedCommand(false)
+    setCopiedJoin(false)
   }
 
   async function handleCopyCommand() {
@@ -353,9 +374,20 @@ export function CreateAgentModal() {
     }
   }
 
+  async function handleCopyJoinCommand(command: string) {
+    if (!navigator.clipboard?.writeText) return
+    try {
+      await navigator.clipboard.writeText(command)
+      setCopiedJoin(true)
+    } catch {
+      setCopiedJoin(false)
+    }
+  }
+
   function handleCreateAnother() {
     setLocalEnrollment(null)
     setCopiedCommand(false)
+    setCopiedJoin(false)
     setSelectedTemplateId(null)
     reset(defaultValues)
   }
@@ -373,7 +405,7 @@ export function CreateAgentModal() {
         aria-modal="true"
         aria-labelledby="create-agent-title"
         className={cn(
-          'relative max-h-[calc(100vh-2rem)] w-[480px] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-h-[80vh]',
+          'relative w-[480px] max-h-[80vh] overflow-y-auto',
           'rounded-panel border border-black/[0.08] bg-white p-6 dark:border-white/[0.1] dark:bg-[#2a2a2c]'
         )}
       >
@@ -382,7 +414,7 @@ export function CreateAgentModal() {
             id="create-agent-title"
             className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark"
           >
-            {localEnrollment ? 'Connect this computer' : 'New agent'}
+            {localEnrollment ? 'Local Agent Join' : 'New Agent'}
           </h2>
           <button
             type="button"
@@ -395,10 +427,7 @@ export function CreateAgentModal() {
         </div>
 
         {error && (
-          <div
-            role="alert"
-            className="mb-4 rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
-          >
+          <div className="mb-4 rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red">
             {error}
           </div>
         )}
@@ -416,44 +445,115 @@ export function CreateAgentModal() {
                   </div>
                 </div>
                 <span className="rounded-full border border-apple-green/20 bg-white px-2.5 py-1 text-ui-caption text-apple-green dark:bg-white/[0.04]">
-                  This computer
+                  Local CLI
                 </span>
               </div>
               <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                The agent is ready in Forge. Copy the command below and run it in the project folder
-                on this computer to connect the local tool.
+                {localEnrollment.enrollment?.joinCommand
+                  ? 'Paste one command into a terminal on the machine where the agent should work. It downloads what is missing and connects this agent.'
+                  : 'Copy this command and run it on the machine where the CLI is installed. The agent will appear online after the sidecar starts.'}
               </p>
             </div>
 
-            <div className="rounded-lg border border-black/[0.08] bg-white px-4 py-3 dark:border-white/[0.1] dark:bg-white/[0.04]">
-              <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                What to do next
-              </p>
-              <ol className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                <li>Open Terminal or PowerShell in this project folder.</li>
-                <li>Paste and run the command below.</li>
-                <li>
-                  Keep that window open while the agent works. Run the same command again if you
-                  close it.
-                </li>
-              </ol>
-            </div>
-
-            <div>
-              <label
-                htmlFor="local-agent-command"
-                className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
-              >
-                Command to run
-              </label>
-              <textarea
-                id="local-agent-command"
-                readOnly
-                value={localEnrollment.enrollment?.shellExports ?? ''}
-                rows={8}
-                className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-              />
-            </div>
+            {localEnrollment.enrollment?.joinCommand ? (
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                    Join command
+                  </span>
+                  <div role="group" aria-label="Local machine platform" className="flex gap-1">
+                    {(
+                      [
+                        { value: 'posix', label: 'macOS / Linux' },
+                        { value: 'windows', label: 'Windows' },
+                      ] as const
+                    ).map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={joinOs === option.value}
+                        onClick={() => {
+                          setJoinOs(option.value)
+                          setCopiedJoin(false)
+                        }}
+                        className={cn(
+                          'rounded-full px-3 py-1 text-ui-caption font-medium transition-colors',
+                          joinOs === option.value
+                            ? 'bg-apple-blue text-white'
+                            : 'border border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark'
+                        )}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <textarea
+                  id="local-agent-join-command"
+                  aria-label="One-command join"
+                  readOnly
+                  value={
+                    (joinOs === 'posix'
+                      ? localEnrollment.enrollment.joinCommand
+                      : localEnrollment.enrollment.joinCommandPowershell) ?? ''
+                  }
+                  rows={3}
+                  className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                />
+                <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  The pairing code inside expires in 15 minutes. If it expires, create the agent
+                  again to get a fresh command. Success looks like: this agent shows Online in the
+                  Agent Fleet.
+                </p>
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                    Manual setup (advanced)
+                  </summary>
+                  <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                    Already have <code>agentforge-sidecar</code> installed? Export this environment
+                    and start the sidecar yourself.
+                  </p>
+                  <textarea
+                    id="local-agent-command"
+                    aria-label="Manual setup environment"
+                    readOnly
+                    value={localEnrollment.enrollment?.shellExports ?? ''}
+                    rows={6}
+                    className="mt-2 w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                  />
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => void handleCopyCommand()}
+                      className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] px-3 py-1.5 text-ui-caption font-medium text-foreground-light dark:border-white/[0.1] dark:text-foreground-dark"
+                    >
+                      {copiedCommand ? (
+                        <Check size={13} strokeWidth={2.25} aria-hidden="true" />
+                      ) : (
+                        <Copy size={13} strokeWidth={2.25} aria-hidden="true" />
+                      )}
+                      {copiedCommand ? 'Copied' : 'Copy manual setup'}
+                    </button>
+                  </div>
+                </details>
+              </div>
+            ) : (
+              <div>
+                <label
+                  htmlFor="local-agent-command"
+                  className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
+                >
+                  Join command
+                </label>
+                <textarea
+                  id="local-agent-command"
+                  readOnly
+                  value={localEnrollment.enrollment?.shellExports ?? ''}
+                  rows={8}
+                  className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                />
+              </div>
+            )}
 
             <div className="flex flex-wrap justify-end gap-2">
               <button
@@ -463,18 +563,39 @@ export function CreateAgentModal() {
               >
                 Create another
               </button>
-              <button
-                type="button"
-                onClick={() => void handleCopyCommand()}
-                className="inline-flex items-center gap-2 rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
-              >
-                {copiedCommand ? (
-                  <Check size={14} strokeWidth={2.25} aria-hidden="true" />
-                ) : (
-                  <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
-                )}
-                {copiedCommand ? 'Copied' : 'Copy command'}
-              </button>
+              {localEnrollment.enrollment?.joinCommand ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const command =
+                      joinOs === 'posix'
+                        ? localEnrollment.enrollment?.joinCommand
+                        : localEnrollment.enrollment?.joinCommandPowershell
+                    if (command) void handleCopyJoinCommand(command)
+                  }}
+                  className="inline-flex items-center gap-2 rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
+                >
+                  {copiedJoin ? (
+                    <Check size={14} strokeWidth={2.25} aria-hidden="true" />
+                  ) : (
+                    <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
+                  )}
+                  {copiedJoin ? 'Copied' : 'Copy join command'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void handleCopyCommand()}
+                  className="inline-flex items-center gap-2 rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
+                >
+                  {copiedCommand ? (
+                    <Check size={14} strokeWidth={2.25} aria-hidden="true" />
+                  ) : (
+                    <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
+                  )}
+                  {copiedCommand ? 'Copied' : 'Copy command'}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleClose}
@@ -489,12 +610,10 @@ export function CreateAgentModal() {
             <div>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                  Starter role
+                  Role template
                 </span>
                 <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  {kind === 'provider'
-                    ? 'Adds a starter name and instructions'
-                    : 'Adds a starter name for file work'}
+                  {kind === 'provider' ? 'Prompt ready' : 'Name seeds CLI agents'}
                 </span>
               </div>
               <div
@@ -538,18 +657,18 @@ export function CreateAgentModal() {
               </label>
               <input
                 id="agent-name"
-                {...register('name')}
+                {...register('name', { required: true })}
                 className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                placeholder="e.g. Review work agent"
+                placeholder="e.g. Frontend Agent…"
                 autoFocus
               />
             </div>
 
             <div>
               <label className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Work type
+                Agent kind
               </label>
-              <div className="flex gap-2" role="radiogroup" aria-label="Agent work type">
+              <div className="flex gap-2" role="radiogroup" aria-label="Agent kind">
                 <label
                   className={cn(
                     'flex-1 cursor-pointer rounded-full px-4 py-2 text-center text-ui-button font-medium transition-transform active:scale-95',
@@ -559,7 +678,7 @@ export function CreateAgentModal() {
                   )}
                 >
                   <input type="radio" value="cli" {...register('kind')} className="sr-only" />
-                  Managed workspace
+                  Container CLI
                 </label>
                 <label
                   className={cn(
@@ -570,7 +689,7 @@ export function CreateAgentModal() {
                   )}
                 >
                   <input type="radio" value="local-cli" {...register('kind')} className="sr-only" />
-                  This computer
+                  Local CLI
                 </label>
                 <label
                   className={cn(
@@ -581,15 +700,15 @@ export function CreateAgentModal() {
                   )}
                 >
                   <input type="radio" value="provider" {...register('kind')} className="sr-only" />
-                  Chat-only agent
+                  Provider + Prompt
                 </label>
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {kind === 'cli'
-                  ? 'Runs the selected work tool in a managed project workspace.'
+                  ? 'Runs claude/codex/gemini/opencode inside a container.'
                   : kind === 'local-cli'
-                    ? 'Uses a work tool already installed on this computer. Forge still assigns tasks and shows progress here.'
-                    : 'Uses a connected AI service for chat and planning; it does not work on files.'}
+                    ? 'Runs a CLI on your machine while this platform manages identity and tasks.'
+                    : 'Calls the LLM provider directly — no container, no terminal.'}
               </p>
             </div>
 
@@ -600,14 +719,18 @@ export function CreateAgentModal() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                    Work fit
+                    Runtime fit
                   </p>
                   <p className="mt-0.5 text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
                     {runtimeFit.title}
                   </p>
                 </div>
                 <span className="shrink-0 rounded-full bg-apple-blue/10 px-2 py-0.5 text-ui-caption font-medium text-apple-blue">
-                  {kind === 'cli' ? 'File work' : kind === 'local-cli' ? 'Local work' : 'Chat work'}
+                  {kind === 'cli'
+                    ? 'File work'
+                    : kind === 'local-cli'
+                      ? 'Local work'
+                      : 'Prompt work'}
                 </span>
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -632,19 +755,19 @@ export function CreateAgentModal() {
 
             <div data-testid="agent-work-readiness">
               <div className="mb-1 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Starting Project
+                Primary Project
               </div>
               <div className="w-full rounded-[18px] border border-black/[0.08] bg-white px-4 py-2 text-ui-body text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark">
-                {selectedProject?.name ?? 'Choose a starting project'}
+                {selectedProject?.name ?? 'No primary project'}
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {selectedProject
                   ? kind === 'local-cli'
-                    ? 'Project ready. New tasks start here. The agent uses the project folder where you run the command.'
-                    : 'Project ready. New tasks start in this project. File access uses the selected project workspace.'
+                    ? 'Project ready. Tasks default to this project. Local filesystem access stays on the joined machine.'
+                    : 'Project ready. Tasks default to this project. Container access is the selected project workspace.'
                   : kind === 'local-cli'
-                    ? 'Select a project in the sidebar before creating. It tells Forge where this computer should receive tasks.'
-                    : 'Choose a starting project first. Tasks can still be assigned later. Select a project in the sidebar to set the work area.'}
+                    ? 'Choose a project first. Tasks can still be assigned later. Select a project in the sidebar before creating.'
+                    : 'Choose a project first. Tasks can still be assigned later. Select a project in the sidebar to set the execution boundary.'}
               </p>
             </div>
 
@@ -654,7 +777,7 @@ export function CreateAgentModal() {
                   htmlFor="agent-cli-tool"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  {kind === 'local-cli' ? 'Local work tool' : 'Managed work tool'}
+                  {kind === 'local-cli' ? 'Local CLI' : 'Container CLI'}
                 </label>
                 <select
                   id="agent-cli-tool"
@@ -677,7 +800,7 @@ export function CreateAgentModal() {
                     htmlFor="agent-provider"
                     className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                   >
-                    AI service
+                    Provider
                   </label>
                   <select
                     id="agent-provider"
@@ -700,35 +823,25 @@ export function CreateAgentModal() {
                   </label>
                   <input
                     id="agent-model"
-                    {...register('model')}
-                    aria-describedby="agent-model-help"
+                    {...register('model', { required: true })}
                     className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                     placeholder="e.g. claude-sonnet-4-6…"
                   />
-                  <p
-                    id="agent-model-help"
-                    className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
-                  >
-                    If you are not sure, keep the suggested model from the selected AI service.
-                  </p>
                 </div>
                 <div>
                   <label
                     htmlFor="systemPrompt"
                     className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                   >
-                    Instructions for this agent
+                    System prompt
                   </label>
                   <textarea
                     id="systemPrompt"
                     {...register('systemPrompt')}
                     rows={4}
-                    placeholder="e.g. Review code clearly, list risks first, and cite exact files."
+                    placeholder="e.g. You are a concise, Pythonic code reviewer…"
                     className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                   />
-                  <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                    Optional. Use this to tell the agent how to behave every time it works.
-                  </p>
                 </div>
               </>
             )}
@@ -739,9 +852,7 @@ export function CreateAgentModal() {
                   htmlFor="agent-cwd"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  {kind === 'local-cli'
-                    ? 'Project folder on this computer'
-                    : 'Project files folder'}
+                  {kind === 'local-cli' ? 'Local working directory' : 'Working Directory'}
                 </label>
                 <input
                   id="agent-cwd"
@@ -751,8 +862,8 @@ export function CreateAgentModal() {
                 />
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                   {kind === 'local-cli'
-                    ? 'Leave blank to use the folder where you run the command.'
-                    : 'The managed workspace can include several projects. Starting Project chooses where new tasks begin; it is not a private user folder.'}
+                    ? 'Leave blank to use the folder where you run the join command.'
+                    : '/workspace is the shared workspace mount and may contain multiple projects. Primary Project sets default context; it is not a private user directory.'}
                 </p>
               </div>
             )}
@@ -763,7 +874,7 @@ export function CreateAgentModal() {
                   htmlFor="agent-group"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  Task queue
+                  Task Group
                 </label>
                 {groups.length > 0 ? (
                   <>
@@ -772,7 +883,7 @@ export function CreateAgentModal() {
                       {...register('groupId')}
                       className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                     >
-                      <option value="">No task queue</option>
+                      <option value="">No task group</option>
                       {groups.map((g) => (
                         <option key={g.id} value={g.id}>
                           {g.name}
@@ -780,7 +891,7 @@ export function CreateAgentModal() {
                       ))}
                     </select>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      Choose the task queue this agent checks for board tasks.
+                      A task group is the work lane this agent listens to for board tasks.
                     </p>
                   </>
                 ) : (
@@ -797,17 +908,17 @@ export function CreateAgentModal() {
                       )}
                     >
                       <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-                      {creatingGroup ? 'Creating...' : 'Create task queue'}
+                      {creatingGroup ? 'Creating…' : 'Create Task Group'}
                     </button>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      This creates the first task queue so the agent can receive tasks.
+                      This creates the first work lane so the agent can receive tasks.
                     </p>
                   </div>
                 )}
               </div>
             )}
 
-            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <div className="flex justify-end gap-2 mt-2">
               <button
                 type="button"
                 onClick={handleClose}
@@ -824,7 +935,7 @@ export function CreateAgentModal() {
                   loading && 'opacity-50 cursor-not-allowed'
                 )}
               >
-                {loading ? 'Creating...' : 'Create agent'}
+                {loading ? 'Creating…' : 'Create Agent'}
               </button>
             </div>
           </form>

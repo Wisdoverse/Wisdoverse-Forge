@@ -64,6 +64,13 @@ export interface HostAgentEnrollment {
   shellExports: string
   sidecarCommand: string
   serverUrl?: string | null
+  /** Pairing code for the one-command join (short-lived, shown once). */
+  joinCode?: string | null
+  joinCodeExpiresAt?: string | null
+  /** One-command join for macOS/Linux; present when the server knows its public URL. */
+  joinCommand?: string | null
+  /** One-command join for Windows PowerShell. */
+  joinCommandPowershell?: string | null
 }
 
 export interface LocalAgentEnrollmentResponse extends ApiErrorFields {
@@ -1259,6 +1266,8 @@ export type { WorkspaceProject }
 
 export interface UserPreferences {
   defaultCliTool?: CliTool
+  /** True once the user skipped or completed the Getting Started guide. */
+  gettingStartedDismissed?: boolean
 }
 
 export interface UserPreferencesResponse {

@@ -400,6 +400,13 @@ pub struct AppConfig {
     #[serde(default = "default_false")]
     pub allow_plaintext_host_nats: bool,
 
+    /// Base URL the one-command join script downloads `agentforge-sidecar`
+    /// binaries from when the operator machine does not have one installed.
+    /// Defaults to this repository's GitHub latest-release downloads. Point it
+    /// at an internal mirror for air-gapped deployments
+    /// (`HOST_JOIN_BINARY_BASE_URL=https://mirror.example.com/agentforge`).
+    pub host_join_binary_base_url: Option<String>,
+
     /// Deployment-side CLI agent-image auto-updater rollout gate. When `false`
     /// (default) the backend does not spawn the updater and nothing polls the
     /// registry. When `true` (and a Docker daemon is available) a background
@@ -422,6 +429,25 @@ pub struct AppConfig {
     /// container references.
     #[serde(default = "default_false")]
     pub cli_image_prune_enabled: bool,
+
+    /// Auto-build the local `claude` agent image when a newer
+    /// `@anthropic-ai/claude-code` version is published on npm. `false`
+    /// (default) keeps the updater sweep detect-only for claude: the admin
+    /// panel shows "update available" with a one-click Build button. When
+    /// `true` (and `cli_image_auto_update_enabled` is on) the sweep builds the
+    /// overlay image server-side with zero clicks. `claude` has no public
+    /// registry image — its license requires a local build — so this is the
+    /// only auto-update path for that tool.
+    #[serde(default = "default_false")]
+    pub cli_image_claude_auto_build: bool,
+
+    /// npm registry base URL the claude version check and local build use.
+    /// Defaults to `https://registry.npmjs.org` at the use-site. Operators
+    /// behind a firewall (or in China) can point it at a mirror such as
+    /// `https://registry.npmmirror.com`; the value is also passed to the
+    /// generated Dockerfile as the `NPM_REGISTRY` build-arg so the in-image
+    /// `npm install` uses the same mirror.
+    pub cli_image_npm_registry: Option<String>,
 }
 
 fn default_cli_image_update_interval() -> u64 {
@@ -700,9 +726,12 @@ mod tests {
             smtp_from: None,
             smtp_secure: false,
             allow_plaintext_host_nats: false,
+            host_join_binary_base_url: None,
             cli_image_auto_update_enabled: false,
             cli_image_auto_update_interval_secs: 900,
             cli_image_prune_enabled: false,
+            cli_image_claude_auto_build: false,
+            cli_image_npm_registry: None,
         };
         assert!(cfg.is_production());
     }
@@ -1022,9 +1051,12 @@ mod tests {
             smtp_from: Some("Wisdoverse Forge <noreply@example.com>".to_string()),
             smtp_secure: true,
             allow_plaintext_host_nats: false,
+            host_join_binary_base_url: None,
             cli_image_auto_update_enabled: false,
             cli_image_auto_update_interval_secs: 900,
             cli_image_prune_enabled: false,
+            cli_image_claude_auto_build: false,
+            cli_image_npm_registry: None,
         };
         let dbg = format!("{cfg:?}");
         for needle in [

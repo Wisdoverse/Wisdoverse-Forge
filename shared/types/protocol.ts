@@ -104,13 +104,17 @@ export type ServerMessage =
   // Admin-only CLI agent-image auto-updater toast. Delivered on the global
   // `broadcast.admin.cli_image` subject, which only owner/admin connections
   // subscribe to. Mirrors `CLI_IMAGE_UPDATED_EVENT` in the Rust core.
+  // `update_available` and the version fields are claude's local-build mode
+  // (no public registry image; versions come from npm, digests stay null).
   | {
       type: 'cli_image.updated'
       payload: {
         tool: string
-        state: 'updated' | 'failed'
+        state: 'updated' | 'failed' | 'update_available'
         localDigest: string | null
         remoteDigest: string | null
+        localVersion: string | null
+        remoteVersion: string | null
         lastError: string | null
         eventId: string
         unix: number

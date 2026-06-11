@@ -12,7 +12,6 @@ const organizations: AdminOrg[] = [
     id: 'org-1',
     name: 'Acme Labs',
     slug: 'acme',
-    plan: 'enterprise',
     membersCount: 6,
     teamsCount: 2,
     createdAt: '2026-05-01T10:00:00.000Z',
@@ -21,7 +20,6 @@ const organizations: AdminOrg[] = [
     id: 'org-2',
     name: 'Beta Team',
     slug: 'beta',
-    plan: 'free',
     membersCount: 2,
     teamsCount: 1,
     createdAt: '2026-05-02T10:00:00.000Z',
@@ -55,20 +53,22 @@ describe('OrganizationsPanel', () => {
 
     const guide = await screen.findByTestId('admin-org-guide')
     expect(
-      within(guide).getByText('Use organizations to check people and team setup at a glance')
+      within(guide).getByText('Use organizations to check tenant setup at a glance')
     ).toBeDefined()
     expect(
       within(guide).getByText('8 members and 3 teams are spread across 2 organizations.')
     ).toBeDefined()
-    expect(within(guide).getByText('Plan shows limits')).toBeDefined()
-    expect(within(guide).getByText('Members show who has access')).toBeDefined()
+    expect(within(guide).getByText('Readiness shows setup gaps')).toBeDefined()
+    expect(within(guide).getByText('Members show access size')).toBeDefined()
     expect(within(guide).getByText('Teams show work areas')).toBeDefined()
     expect(within(guide).queryByText(/routing shape/i)).toBeNull()
 
     expect(screen.getByText('Acme Labs')).toBeDefined()
-    expect(screen.getByText('Link name: acme')).toBeDefined()
-    expect(screen.queryByText(/Organization URL name/i)).toBeNull()
-    expect(screen.getByText('Enterprise')).toBeDefined()
+    // The backend has no plan data — the panel must not pretend it does.
+    expect(screen.queryByText('Plan')).toBeNull()
+    expect(screen.queryByText('Enterprise')).toBeNull()
+    expect(screen.getByText('6')).toBeDefined()
+    expect(screen.getAllByText('2').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Review access when membership or teams change.').length).toBe(2)
     expect(loadOrgsMock).toHaveBeenCalled()
   })
@@ -81,16 +81,15 @@ describe('OrganizationsPanel', () => {
     const guide = await screen.findByTestId('admin-org-guide')
     expect(
       within(guide).getByText(
-        'Organizations appear here after setup. Teams, projects, and members need an organization first.'
+        'Organizations appear here after setup or sync. Teams, projects, and members need an organization first.'
       )
     ).toBeDefined()
 
     const emptyState = screen.getByTestId('admin-org-empty')
     expect(within(emptyState).getByText('No organizations are visible yet')).toBeDefined()
-    expect(within(emptyState).getByText(/create one organization first/i)).toBeDefined()
-    expect(within(emptyState).queryByText(/sync/i)).toBeNull()
-    expect(within(emptyState).getByText(/one row with a plan, member count/i)).toBeDefined()
-    expect(within(emptyState).getByText(/then create teams, projects, members/i)).toBeDefined()
+    expect(
+      within(emptyState).getByText(/Create or sync an organization before creating teams/i)
+    ).toBeDefined()
   })
 
   test('adds recovery guidance when organizations fail to load', async () => {
@@ -99,47 +98,11 @@ describe('OrganizationsPanel', () => {
     render(<OrganizationsPanel />)
 
     const error = await screen.findByTestId('admin-org-error')
-    expect(within(error).getByText('The admin organizations could not load.')).toBeDefined()
-    expect(within(error).queryByText('HTTP 503')).toBeNull()
+    expect(within(error).getByText('HTTP 503')).toBeDefined()
     expect(
       within(error).getByText(
-        'Refresh Admin, then try again. If it still fails, ask an owner or admin to check Admin setup and your role.'
+        'Refresh after the API is healthy, or confirm this account has admin access.'
       )
     ).toBeDefined()
-    expect(within(error).queryByText(/admin service/i)).toBeNull()
-  })
-
-  test('labels unknown organization plans without exposing backend plan values', async () => {
-    useAdminStore.setState({
-      orgs: [
-        {
-          id: 'org-3',
-          name: 'Gamma Team',
-          slug: 'gamma',
-          plan: 'pilot_plan',
-          membersCount: 1,
-          teamsCount: 1,
-          createdAt: '2026-05-03T10:00:00.000Z',
-        },
-        {
-          id: 'org-4',
-          name: 'Delta Team',
-          slug: 'delta',
-          plan: ' ',
-          membersCount: 1,
-          teamsCount: 1,
-          createdAt: '2026-05-04T10:00:00.000Z',
-        },
-      ],
-    })
-
-    render(<OrganizationsPanel />)
-
-    expect(await screen.findByText('Plan needs review')).toBeDefined()
-    expect(screen.getByText('Plan not listed')).toBeDefined()
-    expect(screen.getByText(/not in the standard list/i)).toBeDefined()
-    expect(screen.getByText(/choose a plan before relying on limits/i)).toBeDefined()
-    expect(screen.queryByText(/pilot_plan/i)).toBeNull()
-    expect(screen.queryByText('Unknown')).toBeNull()
   })
 })

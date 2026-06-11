@@ -3,7 +3,6 @@ import { Building2, CalendarDays, Network, Users, type LucideIcon } from 'lucide
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { type AdminOrg, useAdminStore } from '@app/shared/model/admin.store'
-import { ADMIN_PANEL_RECOVERY, adminPanelLoadErrorMessage } from './adminErrorCopy'
 
 function formatDate(iso: string): string {
   try {
@@ -14,41 +13,6 @@ function formatDate(iso: string): string {
     })
   } catch {
     return '—'
-  }
-}
-
-const PLAN_DETAILS: Record<string, { label: string; description: string }> = {
-  free: {
-    label: 'Free',
-    description: 'Limited capacity; useful for evaluation and small teams.',
-  },
-  pro: {
-    label: 'Pro',
-    description: 'Production-grade limits and support for growing teams.',
-  },
-  enterprise: {
-    label: 'Enterprise',
-    description: 'Custom limits and dedicated support for large deployments.',
-  },
-}
-
-function planDescription(plan: string): string {
-  return planDetails(plan).description
-}
-
-function planDetails(plan: string): { label: string; description: string } {
-  const planKey = normalizePlanKey(plan)
-  if (PLAN_DETAILS[planKey]) return PLAN_DETAILS[planKey]
-  if (!planKey) {
-    return {
-      label: 'Plan not listed',
-      description: 'Choose a plan before relying on limits or billing status.',
-    }
-  }
-  return {
-    label: 'Plan needs review',
-    description:
-      'This plan is not in the standard list. Check billing settings before relying on limits.',
   }
 }
 
@@ -78,39 +42,15 @@ function organizationReadiness(org: AdminOrg): {
   }
 }
 
-function PlanBadge({ plan }: { plan: string }) {
-  const planKey = normalizePlanKey(plan)
-  const details = planDetails(plan)
-  const colors: Record<string, string> = {
-    free: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
-    pro: 'bg-apple-blue/10 text-apple-blue',
-    enterprise: 'bg-apple-blue/[0.07] text-apple-blue',
-  }
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-ui-caption font-medium',
-        colors[planKey] ?? colors.free
-      )}
-    >
-      {details.label}
-    </span>
-  )
-}
-
-function normalizePlanKey(plan: string): string {
-  return plan.trim().toLowerCase()
-}
-
 const ORG_GUIDANCE: { title: string; description: string; Icon: LucideIcon }[] = [
   {
-    title: 'Plan shows limits',
-    description: 'Use it to see which organizations may need billing help or more room for work.',
+    title: 'Readiness shows setup gaps',
+    description: 'Use it to spot organizations that still need their first members or team.',
     Icon: Building2,
   },
   {
-    title: 'Members show who has access',
-    description: 'A sudden jump can mean onboarding worked or access needs review.',
+    title: 'Members show access size',
+    description: 'A sudden jump can mean onboarding succeeded or access needs review.',
     Icon: Users,
   },
   {
@@ -122,7 +62,7 @@ const ORG_GUIDANCE: { title: string; description: string; Icon: LucideIcon }[] =
 
 function organizationSummary(orgs: AdminOrg[]): string {
   if (orgs.length === 0) {
-    return 'Organizations appear here after setup. Teams, projects, and members need an organization first.'
+    return 'Organizations appear here after setup or sync. Teams, projects, and members need an organization first.'
   }
   const members = orgs.reduce((total, org) => total + org.membersCount, 0)
   const teams = orgs.reduce((total, org) => total + org.teamsCount, 0)
@@ -142,7 +82,7 @@ function OrganizationsGuide({ orgs }: { orgs: AdminOrg[] }) {
           Admin view
         </p>
         <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-          Use organizations to check people and team setup at a glance
+          Use organizations to check tenant setup at a glance
         </h3>
         <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
           {organizationSummary(orgs)}
@@ -181,10 +121,9 @@ function OrganizationsEmptyState() {
         No organizations are visible yet
       </p>
       <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
-        Create one organization first, or refresh Admin after an existing organization is connected.
-        Success looks like one row with a plan, member count, and team count. Then create teams,
-        projects, members, and agent task queues inside that organization. If you expected data
-        here, confirm your admin access, refresh Admin, and check again.
+        Create or sync an organization before creating teams, projects, members, or agent work
+        lanes. If you expected data here, confirm your admin access and refresh after the API is
+        healthy.
       </p>
     </div>
   )
@@ -203,7 +142,7 @@ export function OrganizationsPanel() {
         <div>
           <h2 className={uiStyles.sectionTitle}>Organizations</h2>
           <p className={uiStyles.sectionDescription}>
-            Check whether each organization has people, teams, and a plan that matches its use.
+            Check whether each organization has the people and teams it needs to start work.
           </p>
         </div>
       </div>
@@ -211,8 +150,10 @@ export function OrganizationsPanel() {
       {/* Error */}
       {orgsError && (
         <div data-testid="admin-org-error" role="alert" className={uiStyles.error}>
-          <p>{adminPanelLoadErrorMessage(orgsError, 'organizations')}</p>
-          <p className="mt-1 text-ui-caption">{ADMIN_PANEL_RECOVERY}</p>
+          <p>{orgsError}</p>
+          <p className="mt-1 text-ui-caption">
+            Refresh after the API is healthy, or confirm this account has admin access.
+          </p>
         </div>
       )}
 
@@ -233,7 +174,6 @@ export function OrganizationsPanel() {
             <thead className={uiStyles.tableHead}>
               <tr>
                 <th className={uiStyles.tableHeaderCell}>Name</th>
-                <th className={uiStyles.tableHeaderCell}>Plan</th>
                 <th className={uiStyles.tableHeaderCell}>Members</th>
                 <th className={uiStyles.tableHeaderCell}>Teams</th>
                 <th className={uiStyles.tableHeaderCell}>Readiness</th>
@@ -255,15 +195,7 @@ export function OrganizationsPanel() {
                           {org.name}
                         </p>
                         <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                          Link name: {org.slug}
-                        </p>
-                      </div>
-                    </td>
-                    <td className={uiStyles.tableCell}>
-                      <div className="grid gap-1">
-                        <PlanBadge plan={org.plan} />
-                        <p className="max-w-[220px] text-ui-caption text-secondary-light dark:text-secondary-dark">
-                          {planDescription(org.plan)}
+                          Organization URL name: {org.slug}
                         </p>
                       </div>
                     </td>

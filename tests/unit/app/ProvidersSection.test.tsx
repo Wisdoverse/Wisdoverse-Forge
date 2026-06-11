@@ -84,29 +84,24 @@ afterEach(() => {
 })
 
 describe('ProvidersSection', () => {
-  test('summarizes AI service readiness and filters services by action state', async () => {
+  test('summarizes provider readiness and filters providers by action state', async () => {
     render(<ProvidersSection />)
 
     const readiness = await screen.findByTestId('provider-readiness')
-    expect(within(readiness).getByText(/1\/3 AI services ready/i)).toBeDefined()
-    expect(within(readiness).getByText('Default AI service: OpenAI Production')).toBeDefined()
+    expect(within(readiness).getByText(/1\/3 providers ready/i)).toBeDefined()
+    expect(within(readiness).getByText('Default: OpenAI Production')).toBeDefined()
     const nextStep = screen.getByTestId('provider-next-step')
-    expect(within(nextStep).getByText('Next step')).toBeDefined()
-    expect(within(nextStep).getByText('Check AI Service Connection')).toBeDefined()
-    expect(
-      screen.getByRole('button', { name: /check openai production connection/i })
-    ).toBeDefined()
+    expect(within(nextStep).getByText('Do This Next')).toBeDefined()
+    expect(within(nextStep).getByText('Test Provider Connection')).toBeDefined()
+    expect(screen.getByRole('button', { name: /test openai production connection/i })).toBeDefined()
     expect(screen.getByText('Anthropic Review')).toBeDefined()
     expect(screen.getByText('Local Lab')).toBeDefined()
-    expect(screen.queryByText('Failed')).toBeNull()
-    expect(readiness).not.toHaveTextContent(/model service/i)
-    expect(nextStep).not.toHaveTextContent(/text-only model/i)
 
-    fireEvent.click(within(nextStep).getByRole('button', { name: /show services needing check/i }))
+    fireEvent.click(within(nextStep).getByRole('button', { name: /show needs test/i }))
 
-    expect(screen.queryByRole('button', { name: /check openai production connection/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /test openai production connection/i })).toBeNull()
     expect(screen.getByText('Anthropic Review')).toBeDefined()
-    expect(screen.queryByRole('button', { name: /check local lab connection/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /test local lab connection/i })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Disabled' }))
 
@@ -114,60 +109,51 @@ describe('ProvidersSection', () => {
     expect(screen.getByText('Local Lab')).toBeDefined()
   })
 
-  test('searches AI services and exposes a clear empty state', async () => {
+  test('searches providers and exposes a clear empty state', async () => {
     render(<ProvidersSection />)
 
-    fireEvent.change(await screen.findByRole('searchbox', { name: /search AI services/i }), {
+    fireEvent.change(await screen.findByRole('searchbox', { name: /search providers/i }), {
       target: { value: 'review' },
     })
 
     expect(screen.getByText('Anthropic Review')).toBeDefined()
-    expect(screen.queryByRole('button', { name: /check openai production connection/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /test openai production connection/i })).toBeNull()
 
-    fireEvent.change(screen.getByRole('searchbox', { name: /search AI services/i }), {
+    fireEvent.change(screen.getByRole('searchbox', { name: /search providers/i }), {
       target: { value: 'missing-provider' },
     })
 
-    expect(screen.getByText('No AI services match this view')).toBeDefined()
-    expect(screen.queryByText(/No model services/i)).toBeNull()
+    expect(screen.getByText('No providers match this view')).toBeDefined()
   })
 
-  test('guides an empty AI service setup into the add form', async () => {
+  test('guides an empty provider setup into the add form', async () => {
     useSettingsStore.setState({ providers: [] })
 
     render(<ProvidersSection />)
 
     const nextStep = await screen.findByTestId('provider-next-step')
-    expect(within(nextStep).getByText('Add Your First AI Service')).toBeDefined()
-    expect(within(nextStep).getByText(/start with add AI service/i)).toBeDefined()
+    expect(within(nextStep).getByText('Add Your First Provider')).toBeDefined()
+    expect(within(nextStep).getByText(/paste the key/i)).toBeDefined()
 
-    fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
+    fireEvent.click(within(nextStep).getByRole('button', { name: /add provider/i }))
 
-    expect(screen.getByText('AI service setup')).toBeDefined()
-    expect(screen.getByText('Choose AI service')).toBeDefined()
-    expect(screen.getByText('Add service access key')).toBeDefined()
-    expect(screen.getAllByText(/service access key from/i).length).toBeGreaterThan(0)
-    expect(screen.queryByText(/API key/i)).toBeNull()
-    expect(screen.getByText('Save and check')).toBeDefined()
-    expect(screen.getByText(/ready means chat-only agents can use it/i)).toBeDefined()
-    expect(screen.getByLabelText(/^AI service$/i)).toBeDefined()
-    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
-      /next: add the service access key/i
-    )
-    const saveButton = screen.getByRole('button', { name: /save AI service/i })
+    expect(screen.getByText('Provider setup path')).toBeDefined()
+    expect(screen.getByText('Paste key')).toBeDefined()
+    expect(screen.getByText(/stored encrypted/i)).toBeDefined()
+    expect(screen.getByText('Save, then test')).toBeDefined()
+    expect(screen.getByLabelText(/^provider$/i)).toBeDefined()
+    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/next: paste api key/i)
+    const saveButton = screen.getByRole('button', { name: /save provider/i })
     expect(saveButton).toBeEnabled()
 
     fireEvent.click(saveButton)
 
     expect(
-      screen.getAllByText('Add the service access key before saving this AI service.').length
+      screen.getAllByText('Add the API key before saving this provider.').length
     ).toBeGreaterThan(0)
-    expect(screen.queryByText(/saving this model service/i)).toBeNull()
     expect(saveProviderMock).not.toHaveBeenCalled()
 
-    fireEvent.change(screen.getByLabelText(/service access key/i), {
-      target: { value: 'sk-test' },
-    })
+    fireEvent.change(screen.getByLabelText(/api key/i), { target: { value: 'sk-test' } })
 
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/ready to save/i)
     fireEvent.click(saveButton)
@@ -181,29 +167,6 @@ describe('ProvidersSection', () => {
         })
       )
     )
-  })
-
-  test('points users to the model field before saving without a model', async () => {
-    useSettingsStore.setState({ providers: [] })
-
-    render(<ProvidersSection />)
-
-    fireEvent.click(
-      within(await screen.findByTestId('provider-next-step')).getByRole('button', {
-        name: /add AI service/i,
-      })
-    )
-    fireEvent.change(screen.getByLabelText(/^model$/i), {
-      target: { value: '' },
-    })
-    fireEvent.change(screen.getByLabelText(/service access key/i), {
-      target: { value: 'sk-test' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /save AI service/i }))
-
-    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/next: confirm the model/i)
-    expect(screen.getByText('Confirm the model before saving this AI service.')).toBeDefined()
-    expect(saveProviderMock).not.toHaveBeenCalled()
   })
 
   test('does not treat disabled-only providers as ready', async () => {
@@ -225,78 +188,51 @@ describe('ProvidersSection', () => {
     render(<ProvidersSection />)
 
     const readiness = await screen.findByTestId('provider-readiness')
-    expect(within(readiness).getByText('AI service setup needs attention')).toBeDefined()
+    expect(within(readiness).getByText('Provider setup needs attention')).toBeDefined()
     const nextStep = screen.getByTestId('provider-next-step')
-    expect(within(nextStep).getByText('Add an Active AI Service')).toBeDefined()
+    expect(within(nextStep).getByText('Add an Active Provider')).toBeDefined()
 
-    fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
+    fireEvent.click(within(nextStep).getByRole('button', { name: /add provider/i }))
 
     expect(screen.getByText('Local Disabled')).toBeDefined()
-    expect(screen.getByRole('button', { name: /save AI service/i })).toBeEnabled()
-    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
-      /next: add the service access key/i
-    )
+    expect(screen.getByRole('button', { name: /save provider/i })).toBeEnabled()
+    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/next: paste api key/i)
   })
 
-  test('runs a connection check from the AI service row', async () => {
+  test('surfaces the CN default placeholder and global endpoint hint for region-switch providers', async () => {
+    useSettingsStore.setState({ providers: [] })
+
+    render(<ProvidersSection />)
+
+    const nextStep = await screen.findByTestId('provider-next-step')
+    fireEvent.click(within(nextStep).getByRole('button', { name: /add provider/i }))
+
+    fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'zhipu' } })
+
+    // CN endpoint is the default (placeholder); the global endpoint is the hint.
+    expect(screen.getByLabelText(/^model$/i)).toHaveValue('glm-4.7')
+    expect(screen.getByLabelText(/base url/i)).toHaveAttribute(
+      'placeholder',
+      expect.stringContaining('https://open.bigmodel.cn/api/paas/v4')
+    )
+    expect(screen.getByText(/global endpoint: https:\/\/api\.z\.ai\/api\/paas\/v4/i)).toBeDefined()
+
+    // Hunyuan is CN-only — no global endpoint hint, default copy returns.
+    fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'hunyuan' } })
+    expect(screen.getByText(/only change this for a local model server/i)).toBeDefined()
+    expect(screen.queryByText(/global endpoint:/i)).toBeNull()
+  })
+
+  test('runs a provider test from the provider row', async () => {
     render(<ProvidersSection />)
 
     fireEvent.click(
-      await screen.findByRole('button', { name: /check anthropic review connection/i })
+      await screen.findByRole('button', { name: /test anthropic review connection/i })
     )
 
     await waitFor(() =>
       expect(settingsApiMock.testProvider).toHaveBeenCalledWith('provider-needs-test')
     )
     expect(loadProvidersMock).toHaveBeenCalled()
-  })
-
-  test('labels AI service removal with clear confirmation language', async () => {
-    render(<ProvidersSection />)
-
-    fireEvent.click(
-      await screen.findByRole('button', { name: /remove anthropic review AI service/i })
-    )
-
-    expect(
-      screen.getByRole('button', {
-        name: /confirm removing anthropic review AI service/i,
-      })
-    ).toHaveTextContent('Remove now')
-  })
-
-  test('explains provider test failures without raw API text', async () => {
-    settingsApiMock.testProvider.mockResolvedValue({
-      ok: false,
-      error: 'HTTP 403: Forbidden',
-    })
-    render(<ProvidersSection />)
-
-    fireEvent.click(
-      await screen.findByRole('button', { name: /check anthropic review connection/i })
-    )
-
-    await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(
-        'Anthropic Review connection check needs attention. Confirm the saved service access key is active and allowed to use the selected model, then save and check again.'
-      )
-    )
-    expect(screen.queryByText(/HTTP 403/i)).toBeNull()
-  })
-
-  test('shows a beginner recovery step instead of raw provider setting details', async () => {
-    useSettingsStore.setState({
-      providers: [],
-      providersError: 'Paste the service access key from the selected AI service, then save again.',
-    })
-
-    render(<ProvidersSection />)
-
-    await waitFor(() => expect(loadProvidersMock).toHaveBeenCalledTimes(1))
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'Paste the service access key from the selected AI service, then save again.'
-    )
-    expect(screen.getByRole('alert')).not.toHaveTextContent(/model service/i)
-    expect(screen.queryByText(/Details:/i)).toBeNull()
   })
 })

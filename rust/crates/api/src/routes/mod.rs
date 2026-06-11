@@ -1,6 +1,7 @@
 //! API route handlers, organized by domain.
 
 pub mod admin;
+pub mod agent_join;
 pub mod agents;
 pub mod analytics;
 pub mod api_keys;

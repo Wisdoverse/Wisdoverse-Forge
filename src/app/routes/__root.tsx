@@ -9,6 +9,7 @@ import { useEffect } from 'react'
 import { AppLayout } from '@app/layouts/AppLayout'
 import { useNavigationStore } from '@app/entities/navigation'
 import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
+import { useSettingsStore } from '@app/shared/model/settings.store'
 import { useWsDispatch } from '@app/hooks/useWsDispatch'
 import { useAuth } from '@app/shared/model/auth.context'
 import { buildResetPasswordLoginHref, getResetTokenFromLocation } from './public-auth'
@@ -70,16 +71,20 @@ function useInitNavigation() {
   const loadOrgs = useNavigationStore((s) => s.loadOrgs)
   const loadContextFeatures = useContextFeaturesStore((s) => s.load)
   const resetContextFeatures = useContextFeaturesStore((s) => s.reset)
+  const loadPreferences = useSettingsStore((s) => s.loadPreferences)
   const { isAuthenticated } = useAuth()
 
   useEffect(() => {
     if (isAuthenticated) {
       void loadOrgs()
       void loadContextFeatures()
+      // Sidebar visibility of the Getting Started entry depends on the
+      // per-user preferences document, so warm it with the other app stores.
+      void loadPreferences()
     } else {
       resetContextFeatures()
     }
-  }, [loadOrgs, loadContextFeatures, resetContextFeatures, isAuthenticated])
+  }, [loadOrgs, loadContextFeatures, resetContextFeatures, loadPreferences, isAuthenticated])
 }
 
 export const Route = createRootRoute({

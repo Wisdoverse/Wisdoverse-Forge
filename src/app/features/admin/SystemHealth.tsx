@@ -52,20 +52,12 @@ const SERVICE_DEFINITIONS: readonly ServiceDefinition[] = [
     action: 'Check the live update service, then confirm new progress appears after refresh.',
   },
   {
-    key: 'platform',
+    key: 'docker',
     name: 'Agent Work Starter',
-    supportName: 'Agent work service',
-    description: 'Starts and manages agent work sessions.',
-    impact: 'Starting new agent work may fail until this service is healthy again.',
-    action: 'Check the agent work service before sending new agent work.',
-  },
-  {
-    key: 'bullmq',
-    name: 'Delayed Work',
-    supportName: 'Delayed work helper',
-    description: 'Starts scheduled or delayed work without blocking the page.',
-    impact: 'Work waiting to start may wait longer before it begins.',
-    action: 'Check the delayed work helper, then retry once work starts moving again.',
+    supportName: 'Agent container service',
+    description: 'Starts and manages the container workspaces where agents do file work.',
+    impact: 'Starting new container agents may fail; agents already running may stop reporting.',
+    action: 'Check the agent container service before sending new agent file work.',
   },
 ]
 

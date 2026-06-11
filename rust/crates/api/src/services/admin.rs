@@ -3,21 +3,26 @@
 use std::sync::Arc;
 
 use agentforge_core::{AppResult, TenantScope};
-use agentforge_db::entities::{ImpersonationLog, Organization, User};
+use agentforge_db::entities::ImpersonationLog;
 use sqlx::PgPool;
 use uuid::Uuid;
 
 pub use crate::domain::admin::BulkDeleteResult;
 use crate::domain::admin::{
-    AdminAgentDetailProjection, AdminAgentEventProjection, AdminAgentFilterPolicy, AdminAgentFilterQuery,
-    AdminAgentListProjection, AdminAgentProjection, AdminAgentTokens, AdminBulkDeletePolicy, AdminImpersonationPolicy,
-    AdminListPage, AdminRolePolicy,
+    ADMIN_USER_AUDIT_RESOURCE, ADMIN_USER_DELETED_ACTION, ADMIN_USER_ROLE_UPDATED_ACTION, AdminAgentDetailProjection,
+    AdminAgentEventProjection, AdminAgentFilterPolicy, AdminAgentFilterQuery, AdminAgentListProjection,
+    AdminAgentProjection, AdminAgentTokens, AdminBulkDeletePolicy, AdminImpersonationPolicy, AdminListPage,
+    AdminOrgProjection, AdminRoleChange, AdminRolePolicy, AdminUserListProjection, AdminUserModificationPolicy,
+    AdminUserProjection, admin_role_label, admin_user_deleted_audit_details, admin_user_role_audit_details,
 };
 pub(crate) use crate::domain::admin::{
     admin_agent_detail_response, admin_agent_list_response, admin_bulk_delete_response, admin_data_response,
-    admin_delete_response,
+    admin_delete_response, admin_org_list_response, admin_user_list_response, admin_user_role_response,
 };
-use crate::repositories::admin::{AdminAgentEventRow, AdminAgentFilters, AdminAgentRow, AdminRepository, AdminStats};
+use crate::repositories::admin::{
+    AdminAgentEventRow, AdminAgentFilters, AdminAgentRow, AdminOrgRow, AdminRepository, AdminStats,
+};
+use crate::repositories::audit::AuditRepository;
 use crate::services::auth_callout::AuthCalloutService;
 
 /// Service input for the admin agent list endpoint. This is intentionally
@@ -65,19 +70,37 @@ impl From<AdminAgentEventRow> for AdminAgentEventProjection {
     }
 }
 
+impl From<AdminOrgRow> for AdminOrgProjection {
+    fn from(row: AdminOrgRow) -> Self {
+        Self {
+            id: row.id,
+            name: row.name,
+            slug: row.slug,
+            created_at: row.created_at,
+            members_count: row.members_count,
+            teams_count: row.teams_count,
+        }
+    }
+}
+
 /// Business logic layer for admin operations.
 pub struct AdminService {
     repo: AdminRepository,
+    /// User-management actions (role change, removal) write an audit trail.
+    /// Wired here directly — there is no shared service-layer audit facade yet;
+    /// `ContextGovernanceService::emit_audit` uses the same repository-direct
+    /// pattern.
+    audit: AuditRepository,
     auth_callout: Option<Arc<AuthCalloutService>>,
 }
 
 impl AdminService {
-    pub fn new(repo: AdminRepository) -> Self {
-        Self { repo, auth_callout: None }
+    pub fn new(repo: AdminRepository, audit: AuditRepository) -> Self {
+        Self { repo, audit, auth_callout: None }
     }
 
     pub fn from_runtime(pool: PgPool, auth_callout: Option<Arc<AuthCalloutService>>) -> Self {
-        Self::new(AdminRepository::new(pool)).with_auth_callout(auth_callout)
+        Self::new(AdminRepository::new(pool.clone()), AuditRepository::new(pool)).with_auth_callout(auth_callout)
     }
 
     pub(crate) fn with_auth_callout(mut self, auth_callout: Option<Arc<AuthCalloutService>>) -> Self {
@@ -85,16 +108,118 @@ impl AdminService {
         self
     }
 
-    /// List all users (admin only). Limit capped at 100.
-    pub async fn list_all_users(&self, limit: i64, offset: i64) -> AppResult<Vec<User>> {
-        let page = AdminListPage::new(limit, offset);
-        self.repo.list_all_users(page.limit(), page.offset()).await
+    /// List users as the admin-console paginated projection (admin only).
+    /// `page` is 1-based with a floor of 1; the limit is clamped to 1..=100 by
+    /// [`AdminListPage`].
+    pub(crate) async fn list_user_page(
+        &self,
+        page: i64,
+        limit: i64,
+        search: Option<&str>,
+    ) -> AppResult<AdminUserListProjection> {
+        let page = page.max(1);
+        let list_page = AdminListPage::new(limit, (page - 1).saturating_mul(limit));
+        let users = self.repo.list_all_users(list_page.limit(), list_page.offset(), search).await?;
+        let total = self.repo.count_users(search).await?;
+        let users = users.into_iter().map(AdminUserProjection::from).collect();
+        Ok(AdminUserListProjection::new(users, total, page, list_page.limit()))
     }
 
-    /// List all organizations (admin only). Limit capped at 100.
-    pub async fn list_all_organizations(&self, limit: i64, offset: i64) -> AppResult<Vec<Organization>> {
+    /// Change a user's access level (admin only). `role` is the wire value
+    /// `"admin" | "member"` and is written to BOTH `users.is_admin` (the
+    /// console's display/accounting source) and the target's
+    /// `organization_members.role` in this organization — the JWT `role`
+    /// claim is minted from the membership row at login/context-switch, so
+    /// without the dual write a "promotion" would never grant real access.
+    /// The new claim takes effect on the target's next sign-in or token
+    /// refresh. Cross-org memberships are untouched (future multi-tenant
+    /// work).
+    ///
+    /// Guards: admins cannot change their own account, organization owners
+    /// are not managed here, and the last remaining admin can never be
+    /// demoted. Setting a role the user already has is an idempotent
+    /// success. Each applied change writes an audit entry.
+    pub(crate) async fn update_user_role(
+        &self,
+        scope: &TenantScope,
+        target_user_id: Uuid,
+        role: &str,
+    ) -> AppResult<AdminUserProjection> {
+        let make_admin = AdminRoleChange::parse(role)?;
+        AdminUserModificationPolicy::ensure_not_self(scope.user_id().as_uuid(), target_user_id)?;
+
+        let target = self.repo.find_user_by_id(target_user_id).await?;
+        if self.repo.member_role(scope.org_id().as_uuid(), target_user_id).await?.as_deref() == Some("owner") {
+            return Err(crate::domain::admin::owner_managed_error());
+        }
+        // Only a demotion of a CURRENT admin can orphan the deployment; a
+        // member→member no-op or any promotion never trips the guard.
+        if target.is_admin && !make_admin {
+            AdminUserModificationPolicy::ensure_another_admin_remains(self.repo.count_active_admins().await?)?;
+        }
+
+        let old_role = admin_role_label(target.is_admin);
+        let updated = self.repo.set_user_admin(target_user_id, make_admin).await?;
+        self.repo.set_member_role(scope.org_id().as_uuid(), target_user_id, admin_role_label(make_admin)).await?;
+        let projection = AdminUserProjection::from(updated);
+
+        self.audit
+            .create(
+                scope.org_id(),
+                Some(scope.user_id()),
+                ADMIN_USER_ROLE_UPDATED_ACTION,
+                ADMIN_USER_AUDIT_RESOURCE,
+                Some(target_user_id),
+                &admin_user_role_audit_details(&projection.email, old_role, admin_role_label(make_admin)),
+                None,
+            )
+            .await?;
+
+        Ok(projection)
+    }
+
+    /// Remove (soft-delete) a user account (admin only). The user disappears
+    /// from the admin list and can no longer sign in; history rows stay.
+    ///
+    /// Guards: admins cannot delete their own account, organization owners
+    /// are not removable here, and the last remaining admin can never be
+    /// deleted. Each removal writes an audit entry.
+    pub(crate) async fn delete_user(&self, scope: &TenantScope, target_user_id: Uuid) -> AppResult<()> {
+        AdminUserModificationPolicy::ensure_not_self(scope.user_id().as_uuid(), target_user_id)?;
+
+        let target = self.repo.find_user_by_id(target_user_id).await?;
+        if self.repo.member_role(scope.org_id().as_uuid(), target_user_id).await?.as_deref() == Some("owner") {
+            return Err(crate::domain::admin::owner_managed_error());
+        }
+        // Deleting a non-admin can never orphan the deployment.
+        if target.is_admin {
+            AdminUserModificationPolicy::ensure_another_admin_remains(self.repo.count_active_admins().await?)?;
+        }
+
+        self.repo.soft_delete_user(target_user_id).await?;
+
+        self.audit
+            .create(
+                scope.org_id(),
+                Some(scope.user_id()),
+                ADMIN_USER_DELETED_ACTION,
+                ADMIN_USER_AUDIT_RESOURCE,
+                Some(target_user_id),
+                &admin_user_deleted_audit_details(&target.email, admin_role_label(target.is_admin)),
+                None,
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    /// List organizations with member/team counts plus the total org count
+    /// (admin only). Limit capped at 100.
+    pub(crate) async fn list_org_page(&self, limit: i64, offset: i64) -> AppResult<(Vec<AdminOrgProjection>, i64)> {
         let page = AdminListPage::new(limit, offset);
-        self.repo.list_all_organizations(page.limit(), page.offset()).await
+        let orgs = self.repo.list_all_organizations_with_counts(page.limit(), page.offset()).await?;
+        let total = self.repo.count_organizations().await?;
+        Ok((orgs.into_iter().map(AdminOrgProjection::from).collect(), total))
     }
 
     /// Start impersonation of a target user.
@@ -346,6 +471,294 @@ mod tests {
         })
         .expect_err("unknown runtimeKind must surface as an error");
         assert!(matches!(err.kind, ErrorKind::Unprocessable(_)), "expected 422 Unprocessable, got {err:?}");
+    }
+
+    /// Build an [`AdminService`] with real repositories over the test pool.
+    fn admin_service(pool: &PgPool) -> AdminService {
+        AdminService::new(AdminRepository::new(pool.clone()), AuditRepository::new(pool.clone()))
+    }
+
+    /// Seed `count` users so pagination math has data to work against.
+    async fn seed_users(pool: &PgPool, count: usize) {
+        for index in 0..count {
+            sqlx::query("INSERT INTO users (id, email, display_name) VALUES ($1, $2, $3)")
+                .bind(Uuid::new_v4())
+                .bind(format!("user-{index}@example.com"))
+                .bind(format!("User {index}"))
+                .execute(pool)
+                .await
+                .expect("seed user");
+        }
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn list_user_page_returns_correct_total_pages(pool: PgPool) {
+        let service = admin_service(&pool);
+        seed_users(&pool, 5).await;
+
+        let page = service.list_user_page(1, 2, None).await.expect("first page");
+        assert_eq!(page.total, 5);
+        assert_eq!(page.page, 1);
+        assert_eq!(page.limit, 2);
+        assert_eq!(page.total_pages, 3, "5 users at limit 2 span 3 pages");
+        assert_eq!(page.users.len(), 2);
+
+        let last = service.list_user_page(3, 2, None).await.expect("last page");
+        assert_eq!(last.page, 3);
+        assert_eq!(last.users.len(), 1, "last page carries the remainder");
+
+        // Page floor: page 0 behaves like page 1 instead of a negative offset.
+        let floored = service.list_user_page(0, 2, None).await.expect("floored page");
+        assert_eq!(floored.page, 1);
+        assert_eq!(floored.users.len(), 2);
+
+        // Search threads through to the projection and its pagination metadata.
+        let searched = service.list_user_page(1, 2, Some("user-3")).await.expect("searched page");
+        assert_eq!(searched.total, 1);
+        assert_eq!(searched.total_pages, 1);
+        assert_eq!(searched.users[0].email, "user-3@example.com");
+        assert_eq!(searched.users[0].display_name, "User 3");
+        assert_eq!(searched.users[0].role, "member");
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn list_org_page_projects_counts_and_total(pool: PgPool) {
+        let service = admin_service(&pool);
+        let org_id = Uuid::new_v4();
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, 'Acme', $2)")
+            .bind(org_id)
+            .bind(format!("org-{org_id}"))
+            .execute(&pool)
+            .await
+            .expect("seed organization");
+
+        let (orgs, total) = service.list_org_page(50, 0).await.expect("org page");
+        assert_eq!(total, 1);
+        assert_eq!(orgs.len(), 1);
+        assert_eq!(orgs[0].name, "Acme");
+        assert_eq!(orgs[0].members_count, 0);
+        assert_eq!(orgs[0].teams_count, 0);
+    }
+
+    // ========================================================================
+    // User role management + removal
+    // ========================================================================
+
+    /// Seed one organization row (audit entries FK onto it).
+    async fn seed_org(pool: &PgPool) -> Uuid {
+        let id = Uuid::new_v4();
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, 'Admin Org', $2)")
+            .bind(id)
+            .bind(format!("org-{id}"))
+            .execute(pool)
+            .await
+            .expect("seed organization");
+        id
+    }
+
+    /// Seed one live user with an explicit global admin flag.
+    async fn seed_user(pool: &PgPool, email: &str, is_admin: bool) -> Uuid {
+        let id = Uuid::new_v4();
+        sqlx::query("INSERT INTO users (id, email, is_admin) VALUES ($1, $2, $3)")
+            .bind(id)
+            .bind(email)
+            .bind(is_admin)
+            .execute(pool)
+            .await
+            .expect("seed user");
+        id
+    }
+
+    /// Seed an org membership with an explicit role.
+    async fn seed_membership(pool: &PgPool, org_id: Uuid, user_id: Uuid, role: &str) {
+        sqlx::query("INSERT INTO organization_members (organization_id, user_id, role) VALUES ($1, $2, $3)")
+            .bind(org_id)
+            .bind(user_id)
+            .bind(role)
+            .execute(pool)
+            .await
+            .expect("seed membership");
+    }
+
+    /// The membership role for (org, user), if any.
+    async fn membership_role(pool: &PgPool, org_id: Uuid, user_id: Uuid) -> Option<String> {
+        sqlx::query_scalar("SELECT role FROM organization_members WHERE organization_id = $1 AND user_id = $2")
+            .bind(org_id)
+            .bind(user_id)
+            .fetch_optional(pool)
+            .await
+            .expect("read membership role")
+    }
+
+    /// Tenant scope for the acting admin-console operator.
+    fn scope_for(org_id: Uuid, user_id: Uuid) -> TenantScope {
+        crate::test_support::tenant_scope_for_ids(org_id, user_id)
+    }
+
+    /// Read the audit trail rows written for the org, oldest first.
+    async fn audit_rows(pool: &PgPool, org_id: Uuid) -> Vec<(String, Option<Uuid>, serde_json::Value)> {
+        sqlx::query_as(
+            "SELECT action, resource_id, details FROM audit_log WHERE organization_id = $1 ORDER BY created_at",
+        )
+        .bind(org_id)
+        .fetch_all(pool)
+        .await
+        .expect("read audit rows")
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn update_user_role_promotes_and_demotes_with_audit_trail(pool: PgPool) {
+        let service = admin_service(&pool);
+        let org_id = seed_org(&pool).await;
+        let actor = seed_user(&pool, "operator@example.com", true).await;
+        let target = seed_user(&pool, "teammate@example.com", false).await;
+        let scope = scope_for(org_id, actor);
+
+        // Promote member → admin: the response role flips immediately.
+        let promoted = service.update_user_role(&scope, target, "admin").await.expect("promote");
+        assert_eq!(promoted.role, "admin");
+        assert_eq!(promoted.email, "teammate@example.com");
+
+        // Demote one of two admins back to member: allowed, role flips back.
+        let demoted = service.update_user_role(&scope, target, "member").await.expect("demote");
+        assert_eq!(demoted.role, "member");
+
+        // Re-applying the same role is an idempotent success, not an error.
+        let unchanged = service.update_user_role(&scope, target, "member").await.expect("idempotent demote");
+        assert_eq!(unchanged.role, "member");
+
+        let rows = audit_rows(&pool, org_id).await;
+        assert_eq!(rows.len(), 3, "every applied change writes an audit row");
+        let (action, resource_id, details) = &rows[0];
+        assert_eq!(action, "admin.user.role_updated");
+        assert_eq!(*resource_id, Some(target));
+        assert_eq!(details["email"], "teammate@example.com");
+        assert_eq!(details["oldRole"], "member");
+        assert_eq!(details["newRole"], "admin");
+        assert_eq!(rows[1].2["oldRole"], "admin");
+        assert_eq!(rows[1].2["newRole"], "member");
+    }
+
+    /// The JWT role claim is minted from `organization_members.role`, so a
+    /// role change must dual-write the membership row — and never touch an
+    /// owner from this surface.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn update_user_role_dual_writes_membership_and_protects_owner(pool: PgPool) {
+        let service = admin_service(&pool);
+        let org_id = seed_org(&pool).await;
+        let actor = seed_user(&pool, "operator@example.com", true).await;
+        let target = seed_user(&pool, "teammate@example.com", false).await;
+        let owner = seed_user(&pool, "owner@example.com", true).await;
+        seed_membership(&pool, org_id, actor, "admin").await;
+        seed_membership(&pool, org_id, target, "member").await;
+        seed_membership(&pool, org_id, owner, "owner").await;
+        let scope = scope_for(org_id, actor);
+
+        // Promotion flips the membership role so the next minted JWT is admin.
+        service.update_user_role(&scope, target, "admin").await.expect("promote");
+        assert_eq!(membership_role(&pool, org_id, target).await.as_deref(), Some("admin"));
+
+        // Demotion flips it back.
+        service.update_user_role(&scope, target, "member").await.expect("demote");
+        assert_eq!(membership_role(&pool, org_id, target).await.as_deref(), Some("member"));
+
+        // Owners are not managed from this surface — role change and removal
+        // both refuse, and the membership row is untouched.
+        let err = service.update_user_role(&scope, owner, "member").await.expect_err("owner role protected");
+        assert!(matches!(err.kind, ErrorKind::Unprocessable(_)), "owner change → 422, got {:?}", err.kind);
+        let err = service.delete_user(&scope, owner).await.expect_err("owner removal protected");
+        assert!(matches!(err.kind, ErrorKind::Unprocessable(_)), "owner delete → 422, got {:?}", err.kind);
+        assert_eq!(membership_role(&pool, org_id, owner).await.as_deref(), Some("owner"));
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn update_user_role_rejects_last_admin_demotion_and_self_change(pool: PgPool) {
+        let service = admin_service(&pool);
+        let org_id = seed_org(&pool).await;
+        let actor = seed_user(&pool, "operator@example.com", false).await;
+        let only_admin = seed_user(&pool, "solo-admin@example.com", true).await;
+        let scope = scope_for(org_id, actor);
+
+        // Demoting the final remaining admin is rejected with 422.
+        let err = service.update_user_role(&scope, only_admin, "member").await.expect_err("last admin protected");
+        assert!(matches!(err.kind, ErrorKind::Unprocessable(ref msg) if msg.contains("only admin")));
+
+        // Self-changes are rejected with 422 — even a self-promotion.
+        let self_err = service.update_user_role(&scope, actor, "admin").await.expect_err("self change rejected");
+        assert!(matches!(self_err.kind, ErrorKind::Unprocessable(ref msg) if msg.contains("your own account")));
+
+        // Unknown roles are rejected with 422 before any lookup.
+        let role_err = service.update_user_role(&scope, only_admin, "owner").await.expect_err("unknown role");
+        assert!(matches!(role_err.kind, ErrorKind::Unprocessable(_)));
+
+        // Unknown targets are a 404.
+        let missing = service.update_user_role(&scope, Uuid::new_v4(), "admin").await.expect_err("missing user");
+        assert!(matches!(missing.kind, ErrorKind::NotFound(_)));
+
+        // No rejected attempt wrote an audit row.
+        assert!(audit_rows(&pool, org_id).await.is_empty(), "rejections leave no audit rows");
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn delete_user_soft_deletes_members_and_writes_audit(pool: PgPool) {
+        let service = admin_service(&pool);
+        let org_id = seed_org(&pool).await;
+        let actor = seed_user(&pool, "operator@example.com", true).await;
+        let target = seed_user(&pool, "leaver@example.com", false).await;
+        let scope = scope_for(org_id, actor);
+
+        service.delete_user(&scope, target).await.expect("delete member");
+
+        let deleted_at: Option<chrono::DateTime<chrono::Utc>> =
+            sqlx::query_scalar("SELECT deleted_at FROM users WHERE id = $1")
+                .bind(target)
+                .fetch_one(&pool)
+                .await
+                .expect("read deleted_at");
+        assert!(deleted_at.is_some(), "removal is a soft delete");
+
+        // The admin user list no longer returns the removed account.
+        let page = service.list_user_page(1, 50, None).await.expect("user page");
+        assert!(page.users.iter().all(|user| user.id != target), "deleted user left the admin list");
+
+        let rows = audit_rows(&pool, org_id).await;
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].0, "admin.user.deleted");
+        assert_eq!(rows[0].1, Some(target));
+        assert_eq!(rows[0].2["email"], "leaver@example.com");
+        assert_eq!(rows[0].2["role"], "member");
+
+        // Deleting again is a 404 — the account is already gone.
+        let again = service.delete_user(&scope, target).await.expect_err("already removed");
+        assert!(matches!(again.kind, ErrorKind::NotFound(_)));
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn delete_user_rejects_self_and_last_admin(pool: PgPool) {
+        let service = admin_service(&pool);
+        let org_id = seed_org(&pool).await;
+        let actor = seed_user(&pool, "operator@example.com", false).await;
+        let only_admin = seed_user(&pool, "solo-admin@example.com", true).await;
+        let scope = scope_for(org_id, actor);
+
+        // Self-deletion is rejected with 422.
+        let self_err = service.delete_user(&scope, actor).await.expect_err("self deletion rejected");
+        assert!(matches!(self_err.kind, ErrorKind::Unprocessable(ref msg) if msg.contains("your own account")));
+
+        // Deleting the final remaining admin is rejected with 422.
+        let err = service.delete_user(&scope, only_admin).await.expect_err("last admin protected");
+        assert!(matches!(err.kind, ErrorKind::Unprocessable(ref msg) if msg.contains("only admin")));
+
+        // A second admin unblocks the deletion (deleting one of two succeeds).
+        let second_admin = seed_user(&pool, "second-admin@example.com", true).await;
+        service.delete_user(&scope, second_admin).await.expect("delete one of two admins");
+
+        // Both targets stay untouched / the deleted one is stamped.
+        let live_admins: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users WHERE is_admin AND deleted_at IS NULL")
+            .fetch_one(&pool)
+            .await
+            .expect("count admins");
+        assert_eq!(live_admins, 1, "exactly the protected admin remains");
     }
 
     #[test]

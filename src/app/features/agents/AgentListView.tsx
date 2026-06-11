@@ -10,6 +10,7 @@ import {
   Plus,
   Search,
   ShieldCheck,
+  Terminal,
 } from 'lucide-react'
 import {
   isHostCliAgent,
@@ -19,7 +20,6 @@ import {
 } from '@app/entities/agent'
 import { useNavigationStore } from '@app/entities/navigation'
 import { cn } from '@app/shared/lib/utils'
-import type { CliTool } from '@shared/types'
 import { AgentCard } from './AgentCard'
 import { AgentGroupsPanel } from './AgentGroupsPanel'
 import { CreateAgentModal } from './CreateAgentModal'
@@ -32,7 +32,7 @@ type HostCliPlatform = 'posix' | 'windows'
 const STATUS_FILTERS: { value: AgentStatusFilter; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'working', label: 'Working' },
-  { value: 'idle', label: 'Ready' },
+  { value: 'idle', label: 'Idle' },
   { value: 'offline', label: 'Offline' },
 ]
 
@@ -40,7 +40,7 @@ const RUNTIME_FILTERS: { value: AgentRuntimeFilter; label: string }[] = [
   { value: 'all', label: 'All agents' },
   { value: 'container', label: 'Managed workspace' },
   { value: 'host', label: 'This computer' },
-  { value: 'provider', label: 'Chat-only agent' },
+  { value: 'provider', label: 'Text only' },
 ]
 
 const SORT_OPTIONS: { value: AgentSortKey; label: string }[] = [
@@ -59,7 +59,7 @@ const HOST_CLI_PLATFORMS: {
   {
     value: 'posix',
     label: 'macOS / Linux',
-    detail: 'Terminal app',
+    detail: 'Terminal, bash, zsh',
     Icon: Laptop,
   },
   {
@@ -69,17 +69,6 @@ const HOST_CLI_PLATFORMS: {
     Icon: Monitor,
   },
 ]
-
-const LOCAL_AGENT_TOOLS: { value: CliTool; label: string }[] = [
-  { value: 'codex', label: 'Codex' },
-  { value: 'claude', label: 'Claude' },
-  { value: 'gemini', label: 'Gemini' },
-  { value: 'opencode', label: 'OpenCode' },
-]
-
-function localAgentToolLabel(tool: CliTool): string {
-  return LOCAL_AGENT_TOOLS.find((option) => option.value === tool)?.label ?? 'Agent tool'
-}
 
 export function AgentListView() {
   const { agents, selectAgent, setCreateModalOpen, loadAgents, loading } = useAgentsStore()
@@ -104,26 +93,6 @@ export function AgentListView() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="shrink-0 border-b border-black/5 px-4 py-4 dark:border-white/5 sm:px-6">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[560px]">
-            <FleetStat label="Total" value={agents.length} />
-            <FleetStat label="Working" value={statusCounts.working} />
-            <FleetStat label="Ready" value={statusCounts.idle} />
-            <FleetStat label="Offline" value={statusCounts.offline} />
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setCreateModalOpen(true)}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
-          >
-            <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
-            <span>New Agent</span>
-          </button>
-        </div>
-      </div>
-
       <div className="grid min-h-0 flex-1 grid-cols-1 content-start items-start gap-4 overflow-y-auto px-4 py-5 sm:px-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <section className="min-w-0">
           <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
@@ -135,11 +104,21 @@ export function AgentListView() {
                 Agents that can receive work. Choose one by where the work should happen.
               </p>
             </div>
-            <p className="shrink-0 text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
-              {agents.length === 0
-                ? 'No agents'
-                : `${filteredAgents.length}/${agents.length} agent${agents.length === 1 ? '' : 's'}`}
-            </p>
+            <div className="flex shrink-0 items-center gap-3">
+              <p className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
+                {agents.length === 0
+                  ? 'No agents'
+                  : `${filteredAgents.length}/${agents.length} agent${agents.length === 1 ? '' : 's'}`}
+              </p>
+              <button
+                type="button"
+                onClick={() => setCreateModalOpen(true)}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+              >
+                <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
+                <span>New Agent</span>
+              </button>
+            </div>
           </div>
 
           {hasFleetControls && (
@@ -162,10 +141,7 @@ export function AgentListView() {
               <p className="text-ui-body">Loading agents…</p>
             </div>
           ) : agents.length === 0 ? (
-            <div
-              data-testid="agent-empty-state"
-              className="flex min-h-72 flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-black/10 px-6 text-center dark:border-white/10"
-            >
+            <div className="flex min-h-72 flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-black/10 px-6 text-center dark:border-white/10">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-apple-blue/10 text-apple-blue">
                 <Bot size={28} strokeWidth={1.75} aria-hidden="true" />
               </div>
@@ -174,13 +150,9 @@ export function AgentListView() {
                   Create Your First Agent
                 </p>
                 <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-                  Start with Chat-only when you just need answers. Choose Managed workspace or This
-                  computer only when the task must read files or check the project.
+                  Start with a connected model for text-only work, or connect this computer when the
+                  task needs local files and commands.
                 </p>
-              </div>
-              <div className="max-w-sm rounded-lg bg-apple-blue/10 px-3 py-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Success looks like one Ready agent in this list. Then send a small first task before
-                assigning important work.
               </div>
               <button
                 type="button"
@@ -234,8 +206,8 @@ export function AgentListView() {
         </section>
 
         <aside className="space-y-4 xl:sticky xl:top-0 xl:self-start">
-          <HostCliEnrollmentPanel selectedProjectId={selectedProjectId} />
           <AgentGroupsPanel />
+          <HostCliEnrollmentPanel selectedProjectId={selectedProjectId} />
         </aside>
       </div>
 
@@ -246,16 +218,14 @@ export function AgentListView() {
 
 function buildLocalEnrollCommand(
   selectedProjectId: string | null,
-  platform: HostCliPlatform,
-  tool: CliTool
+  platform: HostCliPlatform
 ): string {
   const projectArg = selectedProjectId ?? '<project-id>'
-  const name = `${localAgentToolLabel(tool)} on this computer`
   if (platform === 'windows') {
     return [
       'agentforge agents enroll-local `',
-      `  --tool ${tool} \``,
-      `  --name "${name}" \``,
+      '  --tool codex `',
+      '  --name "Host Codex" `',
       `  --project ${projectArg} \``,
       '  --cwd "$($PWD.Path)" `',
       '  --shell-format powershell',
@@ -264,8 +234,8 @@ function buildLocalEnrollCommand(
 
   return [
     'agentforge agents enroll-local \\',
-    `  --tool ${tool} \\`,
-    `  --name "${name}" \\`,
+    '  --tool <tool-name> \\',
+    '  --name "Local Agent" \\',
     `  --project ${projectArg} \\`,
     '  --cwd "$PWD" \\',
     '  --shell-format bash',
@@ -273,15 +243,15 @@ function buildLocalEnrollCommand(
 }
 
 function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: string | null }) {
+  const setCreateModalOpen = useAgentsStore((s) => s.setCreateModalOpen)
   const [platform, setPlatform] = useState<HostCliPlatform>('posix')
-  const [tool, setTool] = useState<CliTool>('codex')
   const [copied, setCopied] = useState(false)
   const command = useMemo(
-    () => buildLocalEnrollCommand(selectedProjectId, platform, tool),
-    [platform, selectedProjectId, tool]
+    () => buildLocalEnrollCommand(selectedProjectId, platform),
+    [platform, selectedProjectId]
   )
+  const projectLabel = selectedProjectId ?? 'Select a project'
   const commandReady = Boolean(selectedProjectId)
-  const projectLabel = commandReady ? 'Project selected' : 'Select a project first'
 
   async function handleCopyCommand() {
     if (!commandReady || !navigator.clipboard?.writeText) return
@@ -302,59 +272,45 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <Laptop
+            <Terminal
               size={15}
               strokeWidth={2}
               className="text-secondary-light dark:text-secondary-dark"
               aria-hidden="true"
             />
             <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              Add This Computer to Forge
+              Connect a Local Agent
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Use this when work needs the files or tool sign-in already on this computer. Forge will
-            show it in this list and send it tasks.
+            Use this when work should run on your computer and still be tracked here. Create a{' '}
+            <span className="font-semibold">Local CLI</span> agent, then paste its one-command join
+            into a terminal on that computer.
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-apple-blue/[0.08] px-2 py-1 text-[10px] font-semibold text-apple-blue">
-          This computer
+          Local
         </span>
       </div>
 
-      <div className="mt-4 grid gap-3">
-        <div>
-          <label
-            htmlFor="local-agent-tool"
-            className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
-          >
-            Work tool on this computer
-          </label>
-          <select
-            id="local-agent-tool"
-            value={tool}
-            onChange={(event) => {
-              setTool(event.target.value as CliTool)
-              setCopied(false)
-            }}
-            className="h-10 w-full rounded-lg border border-black/[0.08] bg-white px-3 text-ui-body text-foreground-light outline-none transition-colors focus-visible:border-apple-blue/40 focus-visible:ring-2 focus-visible:ring-apple-blue/20 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-          >
-            {LOCAL_AGENT_TOOLS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Choose the tool you already use here. The command below will open it for Forge work.
-          </p>
-        </div>
+      <button
+        type="button"
+        onClick={() => setCreateModalOpen(true)}
+        className="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-full bg-apple-blue px-3 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
+      >
+        <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
+        New Local CLI agent
+      </button>
 
-        <div>
+      <details className="mt-3">
+        <summary className="cursor-pointer text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+          Advanced: enroll with the Platform CLI
+        </summary>
+        <div className="mt-3">
           <p className="mb-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-            What kind of computer is this?
+            Local machine
           </p>
-          <div role="group" aria-label="This computer platform" className="grid grid-cols-2 gap-2">
+          <div role="group" aria-label="Host CLI platform" className="grid grid-cols-2 gap-2">
             {HOST_CLI_PLATFORMS.map((option) => (
               <button
                 key={option.value}
@@ -382,69 +338,50 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
             ))}
           </div>
         </div>
-      </div>
 
-      <div className="mt-3 flex items-center gap-2 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.04]">
-        <ShieldCheck
-          size={15}
-          strokeWidth={2.1}
-          className="shrink-0 text-apple-green"
-          aria-hidden="true"
-        />
-        <p className="min-w-0 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Starting project: <span className="font-medium">{projectLabel}</span>
-        </p>
-      </div>
+        <div className="mt-3 flex items-center gap-2 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.04]">
+          <ShieldCheck
+            size={15}
+            strokeWidth={2.1}
+            className="shrink-0 text-apple-green"
+            aria-hidden="true"
+          />
+          <p className="min-w-0 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Project: <span className="font-mono">{projectLabel}</span>
+          </p>
+        </div>
 
-      {commandReady ? (
         <pre className="mt-3 max-h-36 overflow-auto rounded-lg bg-[#111318] p-3 text-left font-mono text-[11px] leading-relaxed text-white/85">
           <code className="whitespace-pre-wrap break-all">{command}</code>
         </pre>
-      ) : (
-        <div
-          data-testid="host-cli-command-waiting"
-          className="mt-3 rounded-lg bg-apple-blue/10 px-3 py-2 text-ui-caption text-secondary-light dark:text-secondary-dark"
-        >
-          Select a project in the sidebar first. Then this panel will show the command to copy.
+
+        <div className="mt-3 grid gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          <p>1. Install the Forge command on the computer that will do the work.</p>
+          <p>2. Replace &lt;tool-name&gt; with the tool you already use there.</p>
+          <p>3. Run the command from the folder this agent should work in.</p>
         </div>
-      )}
 
-      <div className="mt-3 grid gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-        {commandReady ? (
-          <>
-            <p>1. Open Terminal or PowerShell in the project folder.</p>
-            <p>2. Choose the work tool above.</p>
-            <p>3. Copy the command above, run it, and keep that window open while work runs.</p>
-          </>
-        ) : (
-          <>
-            <p>1. Select the project where this computer agent should receive tasks.</p>
-            <p>2. Choose whether this computer is macOS / Linux or Windows.</p>
-            <p>3. Come back here and copy the command that appears.</p>
-          </>
-        )}
-      </div>
-
-      <button
-        type="button"
-        onClick={() => void handleCopyCommand()}
-        disabled={!commandReady}
-        className={cn(
-          'mt-4 inline-flex h-9 w-full items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark',
-          commandReady
-            ? 'hover:border-apple-blue/35 hover:text-apple-blue'
-            : 'cursor-not-allowed opacity-60'
-        )}
-      >
-        {copied ? (
-          <Check size={14} strokeWidth={2.25} aria-hidden="true" />
-        ) : (
-          <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
-        )}
-        <span>
-          {commandReady ? (copied ? 'Copied' : 'Copy command to run') : 'Select project first'}
-        </span>
-      </button>
+        <button
+          type="button"
+          onClick={() => void handleCopyCommand()}
+          disabled={!commandReady}
+          className={cn(
+            'mt-4 inline-flex h-9 w-full items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark',
+            commandReady
+              ? 'hover:border-apple-blue/35 hover:text-apple-blue'
+              : 'cursor-not-allowed opacity-60'
+          )}
+        >
+          {copied ? (
+            <Check size={14} strokeWidth={2.25} aria-hidden="true" />
+          ) : (
+            <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
+          )}
+          <span>
+            {commandReady ? (copied ? 'Copied' : 'Copy Command') : 'Select Project First'}
+          </span>
+        </button>
+      </details>
     </section>
   )
 }
@@ -531,21 +468,6 @@ function countByRuntime(agents: AgentInfo[]): Record<AgentRuntimeFilter, number>
   )
 }
 
-function FleetStat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex min-w-0 items-center gap-3 rounded-card border border-black/[0.08] bg-white px-4 py-3 dark:border-white/[0.1] dark:bg-[#2a2a2c]">
-      <span className="min-w-0">
-        <span className="block text-ui-metric font-semibold tabular-nums text-foreground-light dark:text-foreground-dark">
-          {value}
-        </span>
-        <span className="mt-1 block truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {label}
-        </span>
-      </span>
-    </div>
-  )
-}
-
 interface FleetControlsProps {
   searchQuery: string
   onSearchQueryChange: (query: string) => void
@@ -614,7 +536,7 @@ function FleetControls({
           ))}
         </FilterButtonGroup>
 
-        <FilterButtonGroup label="Work type">
+        <FilterButtonGroup label="Runtime">
           {RUNTIME_FILTERS.map((filter) => (
             <FilterButton
               key={filter.value}

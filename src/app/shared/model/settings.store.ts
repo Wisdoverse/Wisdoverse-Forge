@@ -14,6 +14,7 @@ import type {
   UserSshKey,
   ResourceProfileOption,
 } from '@app/shared/api/agent-api-types'
+import type { UserPreferences } from '@app/shared/api/legacy/AgentAPI'
 import { getSettingsApi, getAgentApi } from '@app/shared/api/legacy'
 
 // ============================================================================
@@ -302,6 +303,11 @@ interface SettingsState {
   runtimeLoading: boolean
   runtimeError: string | null
 
+  // User Preferences (per-account UI preferences, persisted server-side)
+  preferences: UserPreferences | null
+  preferencesLoaded: boolean
+  preferencesLoading: boolean
+
   // Setters
   setActiveSection: (section: SettingsSection) => void
 
@@ -334,6 +340,10 @@ interface SettingsState {
     defaultRuntime?: RuntimeType
     defaultCliTool?: CliTool
   }) => Promise<boolean>
+
+  // User Preference actions
+  loadPreferences: () => Promise<void>
+  setGettingStartedDismissed: (dismissed: boolean) => Promise<boolean>
 }
 
 // ============================================================================
@@ -360,9 +370,12 @@ const initialState = {
   runtimeSettings: null as RuntimeSettings | null,
   runtimeLoading: false,
   runtimeError: null as string | null,
+  preferences: null as UserPreferences | null,
+  preferencesLoaded: false,
+  preferencesLoading: false,
 }
 
-export const useSettingsStore = create<SettingsState>((set) => ({
+export const useSettingsStore = create<SettingsState>((set, get) => ({
   ...initialState,
 
   setActiveSection: (activeSection) => set({ activeSection }),
@@ -583,5 +596,60 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       set({ runtimeError: settingsActionErrorMessage('runtime', 'update', err) })
       return false
     }
+  },
+
+  // ---------------------------------------------------------------------------
+  // User Preference actions
+  // ---------------------------------------------------------------------------
+
+  loadPreferences: async () => {
+    // One successful load per session is enough — preferences only change
+    // through setGettingStartedDismissed (which updates state itself). A
+    // failed load keeps preferencesLoaded=false so later callers retry.
+    const { preferencesLoaded, preferencesLoading } = get()
+    if (preferencesLoaded || preferencesLoading) return
+    set({ preferencesLoading: true })
+    try {
+      const result = await getAgentApi().getUserPreferences()
+      if (result.ok) {
+        set({
+          preferences: result.preferences ?? {},
+          preferencesLoaded: true,
+          preferencesLoading: false,
+        })
+        return
+      }
+    } catch {
+      // getAgentApi() throws before initLegacyApis() has run; treat it like a
+      // failed request so a later caller can retry after login finishes.
+    }
+    set({ preferencesLoading: false })
+  },
+
+  setGettingStartedDismissed: async (dismissed) => {
+    // Optimistic: the sidebar and Getting Started page react immediately;
+    // revert if the server rejects the patch.
+    const previous = get().preferences
+    set({ preferences: { ...(previous ?? {}), gettingStartedDismissed: dismissed } })
+    try {
+      const result = await getAgentApi().updateUserPreferences({
+        gettingStartedDismissed: dismissed,
+      })
+      if (result.ok) {
+        // The server returns the full merged document — treat it as authoritative.
+        set({
+          preferences: result.preferences ?? {
+            ...(previous ?? {}),
+            gettingStartedDismissed: dismissed,
+          },
+          preferencesLoaded: true,
+        })
+        return true
+      }
+    } catch {
+      // Fall through to the revert below.
+    }
+    set({ preferences: previous })
+    return false
   },
 }))

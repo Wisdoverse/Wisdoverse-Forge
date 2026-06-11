@@ -46,6 +46,7 @@ impl McpAgentStore for SqlxMcpAgentStore {
                 name: record.name,
                 status: record.status,
                 container_id: record.container_id,
+                cli_tool: record.cli_tool,
                 model: record.model,
                 provider: record.provider,
             })
@@ -64,6 +65,7 @@ impl McpAgentStore for SqlxMcpAgentStore {
             name: agent.name.unwrap_or_else(|| format!("Agent {}", &agent.id.to_string()[..8])),
             status: agent.status,
             container_id: agent.container_id,
+            cli_tool: agent.cli_tool,
             model: agent.model,
             provider: agent.provider,
             updated_at: Some(agent.updated_at),

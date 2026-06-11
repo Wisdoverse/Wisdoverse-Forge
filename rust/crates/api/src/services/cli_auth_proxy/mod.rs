@@ -46,7 +46,7 @@ use std::time::{Duration, SystemTime};
 use agentforge_core::{AppConfig, AppResult, CliToolKind, TenantScope, crypto};
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use rand::RngCore;
+use rand::Rng;
 use redis::AsyncCommands;
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
@@ -1149,9 +1149,12 @@ mod tests {
             smtp_from: None,
             smtp_secure: false,
             allow_plaintext_host_nats: false,
+            host_join_binary_base_url: None,
             cli_image_auto_update_enabled: false,
             cli_image_auto_update_interval_secs: 900,
             cli_image_prune_enabled: false,
+            cli_image_claude_auto_build: false,
+            cli_image_npm_registry: None,
         };
         let client = agentforge_infra::RedisClient::new(&cfg).await;
         let store = StateStore::Redis(Arc::new(RwLock::new(client)));

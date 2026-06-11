@@ -1,47 +1,32 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
+import { useAuth } from '@app/shared/model/auth.context'
 import { useAdminStore, type AdminUser } from '@app/shared/model/admin.store'
 
-const ROLE_OPTIONS = ['admin', 'operator', 'viewer'] as const
-type Role = (typeof ROLE_OPTIONS)[number]
-
-const ROLE_LABELS: Record<Role, string> = {
-  admin: 'Full access',
-  operator: 'Can run work',
-  viewer: 'View only',
-}
-
-const ROLE_HELP: Record<Role, string> = {
-  admin: 'Can manage users, billing, settings, and work.',
-  operator: 'Can run day-to-day agent and task work.',
-  viewer: 'Can review information without changing it.',
-}
-
-const UNKNOWN_ROLE_HELP =
-  'Saved access level is not listed. Choose Admin, Operator, or Viewer before saving changes.'
-
+/**
+ * Access levels the backend reports and accepts: `role` maps onto the global
+ * `users.is_admin` flag, so it is always `admin` or `member`. The backend
+ * refuses changes to your own account and protects the last remaining admin —
+ * those rejections surface in the row's error line.
+ */
 const ROLE_DETAILS: Record<Role, { label: string; description: string }> = {
   admin: {
     label: 'Admin',
     description: 'Can manage users, settings, and system configuration.',
   },
-  operator: {
-    label: 'Operator',
-    description: 'Can run daily workspace operations without changing admin settings.',
-  },
-  viewer: {
-    label: 'Viewer',
-    description: 'Can read workspace information without making changes.',
+  member: {
+    label: 'Member',
+    description: 'Can run day-to-day work without changing admin settings.',
   },
 }
 
-function knownRole(role: string): Role | null {
-  return ROLE_OPTIONS.includes(role as Role) ? (role as Role) : null
-}
+type Role = 'admin' | 'member'
 
-function editableRole(role: string): Role {
-  return knownRole(role) ?? 'viewer'
+const ROLE_OPTIONS: Role[] = ['admin', 'member']
+
+function normalizeRole(role: string): Role {
+  return role === 'admin' ? 'admin' : 'member'
 }
 
 function formatDate(iso: string | null): string {
@@ -58,21 +43,19 @@ function formatDate(iso: string | null): string {
 }
 
 function RoleBadge({ role }: { role: string }) {
-  const currentRole = knownRole(role)
-  const colors: Record<string, string> = {
+  const knownRole = normalizeRole(role)
+  const colors: Record<Role, string> = {
     admin: 'bg-apple-blue/10 text-apple-blue',
-    operator: 'bg-apple-blue/[0.07] text-apple-blue',
-    viewer: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
-    unknown: 'bg-apple-orange/10 text-apple-orange dark:bg-apple-orange/15 dark:text-apple-orange',
+    member: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
   }
   return (
     <span
       className={cn(
         'inline-flex items-center rounded-full px-2 py-0.5 text-ui-caption font-medium',
-        currentRole ? colors[currentRole] : colors.unknown
+        colors[knownRole]
       )}
     >
-      {currentRole ? ROLE_LABELS[currentRole] : 'Access needs review'}
+      {ROLE_DETAILS[knownRole].label}
     </span>
   )
 }
@@ -94,148 +77,209 @@ function StatusBadge({ status }: { status: AdminUser['status'] }) {
   )
 }
 
-function UserRow({ user }: { user: AdminUser }) {
+/**
+ * One user row with an inline access-level editor and a two-step Remove
+ * action. Your own row shows neither — the backend refuses self-changes, so
+ * the panel does not offer them in the first place.
+ */
+function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
+  const { updateUserRole, deleteUser, userActionError, clearUserActionError } = useAdminStore()
+  const role = normalizeRole(user.role)
+
   const [editing, setEditing] = useState(false)
-  const [selectedRole, setSelectedRole] = useState<Role>(editableRole(user.role))
+  const [selectedRole, setSelectedRole] = useState<Role>(role)
   const [saving, setSaving] = useState(false)
-  const [roleError, setRoleError] = useState<string | null>(null)
-  const updateUserRole = useAdminStore((s) => s.updateUserRole)
-  const currentRole = knownRole(user.role)
-  const selectedRoleDetails = ROLE_DETAILS[selectedRole]
-  const roleChanged = selectedRole !== currentRole
-  const editStatus = saving
-    ? `Saving ${selectedRoleDetails.label} access...`
-    : roleChanged
-      ? `Ready to save ${selectedRoleDetails.label} access.`
-      : 'Choose a different role before saving.'
+  const [confirmingRemove, setConfirmingRemove] = useState(false)
+  const [removing, setRemoving] = useState(false)
+  // Only the row whose action failed shows the shared error message.
+  const [actionFailed, setActionFailed] = useState(false)
 
-  useEffect(() => {
-    if (!editing) setSelectedRole(editableRole(user.role))
-  }, [user.role, editing])
-
-  async function handleSave() {
-    if (!roleChanged) {
-      return
-    }
-    setSaving(true)
-    setRoleError(null)
-    const result = await updateUserRole(user.id, selectedRole)
-    setSaving(false)
-    if (result.ok) {
-      setEditing(false)
-      return
-    }
-    setRoleError(result.error)
+  function startEdit() {
+    clearUserActionError()
+    setActionFailed(false)
+    setSelectedRole(role)
+    setEditing(true)
   }
 
-  function handleCancel() {
-    setSelectedRole(editableRole(user.role))
-    setRoleError(null)
+  function cancelEdit() {
+    clearUserActionError()
+    setActionFailed(false)
     setEditing(false)
   }
 
+  async function handleSaveRole() {
+    setSaving(true)
+    setActionFailed(false)
+    const ok = await updateUserRole(user.id, selectedRole)
+    setSaving(false)
+    if (ok) {
+      setEditing(false)
+    } else {
+      setActionFailed(true)
+    }
+  }
+
+  async function handleRemove() {
+    setRemoving(true)
+    setActionFailed(false)
+    const ok = await deleteUser(user.id)
+    // On success this row leaves the list and unmounts; only failures need
+    // local state put back.
+    if (!ok) {
+      setRemoving(false)
+      setConfirmingRemove(false)
+      setActionFailed(true)
+    }
+  }
+
   return (
-    <tr className="border-b border-black/[0.06] transition-colors hover:bg-black/[0.02] dark:border-white/[0.08] dark:hover:bg-white/[0.02]">
-      <td className={uiStyles.tableCell}>
-        <div>
-          <p className="max-w-[200px] truncate text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-            {user.displayName}
-          </p>
-          <p className="max-w-[200px] truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-            {user.email}
-          </p>
-        </div>
-      </td>
-      <td className={uiStyles.tableCell}>
-        {editing ? (
-          <div className="grid min-w-[260px] gap-2">
-            <select
-              aria-label={`Role for ${user.displayName}`}
-              value={selectedRole}
-              onChange={(e) => {
-                setSelectedRole(e.target.value as Role)
-                setRoleError(null)
-              }}
-              className={cn(uiStyles.select, 'h-8 text-ui-caption')}
-            >
-              {ROLE_OPTIONS.map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABELS[r]}
-                </option>
-              ))}
-            </select>
-            <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-              {selectedRoleDetails.description}
+    <>
+      <tr className="border-b border-black/[0.06] transition-colors hover:bg-black/[0.02] dark:border-white/[0.08] dark:hover:bg-white/[0.02]">
+        <td className={uiStyles.tableCell}>
+          <div>
+            <p className="max-w-[200px] truncate text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+              {user.displayName}
             </p>
-            <p
-              aria-live="polite"
-              className="text-ui-caption text-secondary-light dark:text-secondary-dark"
-            >
-              {editStatus}
+            <p className="max-w-[200px] truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {user.email}
             </p>
-            {roleError && (
-              <p role="alert" className="text-ui-caption text-red-600 dark:text-red-400">
-                {roleError}
-              </p>
-            )}
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => void handleSave()}
-                disabled={saving || !roleChanged}
-                aria-label={`Save role for ${user.displayName}`}
-                className={cn(uiStyles.primaryButton, 'h-8 px-3 text-ui-caption')}
-              >
-                {saving ? 'Saving...' : 'Save Role'}
-              </button>
-              <button
-                type="button"
-                onClick={handleCancel}
-                className={cn(uiStyles.secondaryButton, 'h-8 px-3 text-ui-caption')}
-              >
-                Cancel
-              </button>
-            </div>
           </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="group flex items-center gap-1.5"
-            title="Change what this user can do"
-          >
-            <RoleBadge role={user.role} />
-            <span className="text-ui-caption text-secondary-light opacity-0 transition-opacity group-hover:opacity-100 dark:text-secondary-dark">
-              change access
+        </td>
+        <td className={uiStyles.tableCell}>
+          {editing ? (
+            <div className="flex max-w-[240px] flex-col gap-2">
+              <label className="sr-only" htmlFor={`access-level-${user.id}`}>
+                Access level for {user.displayName}
+              </label>
+              <select
+                id={`access-level-${user.id}`}
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(normalizeRole(e.target.value))}
+                disabled={saving}
+                className={uiStyles.select}
+              >
+                {ROLE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {ROLE_DETAILS[option].label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                {ROLE_DETAILS[selectedRole].description}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleSaveRole()}
+                  disabled={saving}
+                  className={cn(uiStyles.primaryButton, 'h-8 px-3 text-ui-caption')}
+                >
+                  {saving ? 'Saving…' : 'Save access'}
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  disabled={saving}
+                  className={cn(uiStyles.secondaryButton, 'h-8 px-3 text-ui-caption')}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <RoleBadge role={user.role} />
+                {!isSelf && (
+                  <button
+                    type="button"
+                    onClick={startEdit}
+                    title="Change what this user can do"
+                    className={cn(uiStyles.subtleButton, 'h-7 px-2 text-ui-caption')}
+                  >
+                    Change access
+                  </button>
+                )}
+              </div>
+              <p className="mt-1 max-w-[220px] text-ui-caption text-secondary-light dark:text-secondary-dark">
+                {ROLE_DETAILS[role].description}
+              </p>
+            </>
+          )}
+        </td>
+        <td className={uiStyles.tableCell}>
+          <StatusBadge status={user.status} />
+        </td>
+        <td
+          className={cn(
+            uiStyles.tableCell,
+            'text-ui-caption text-secondary-light dark:text-secondary-dark'
+          )}
+        >
+          {formatDate(user.createdAt)}
+        </td>
+        <td
+          className={cn(
+            uiStyles.tableCell,
+            'text-ui-caption text-secondary-light dark:text-secondary-dark'
+          )}
+        >
+          {formatDate(user.lastLoginAt)}
+        </td>
+        <td className={uiStyles.tableCell}>
+          {isSelf ? (
+            <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+              This is you. Ask another admin to change or remove your account.
             </span>
-          </button>
-        )}
-        {!editing && (
-          <p className="mt-1 max-w-[220px] text-ui-caption text-secondary-light dark:text-secondary-dark">
-            {currentRole ? ROLE_HELP[currentRole] : UNKNOWN_ROLE_HELP}
-          </p>
-        )}
-      </td>
-      <td className={uiStyles.tableCell}>
-        <StatusBadge status={user.status} />
-      </td>
-      <td
-        className={cn(
-          uiStyles.tableCell,
-          'text-ui-caption text-secondary-light dark:text-secondary-dark'
-        )}
-      >
-        {formatDate(user.createdAt)}
-      </td>
-      <td
-        className={cn(
-          uiStyles.tableCell,
-          'text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark'
-        )}
-      >
-        {user.sessionsCount === 0 ? 'No active sessions' : `${user.sessionsCount} active`}
-      </td>
-    </tr>
+          ) : confirmingRemove ? (
+            <div className="flex max-w-[240px] flex-col gap-2">
+              <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                {user.displayName} loses sign-in access right away. Their past work stays.
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleRemove()}
+                  disabled={removing}
+                  className={uiStyles.dangerConfirmButton}
+                >
+                  {removing ? 'Removing…' : 'Remove account'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingRemove(false)}
+                  disabled={removing}
+                  className={cn(uiStyles.secondaryButton, 'h-8 px-3 text-ui-caption')}
+                >
+                  Keep account
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                clearUserActionError()
+                setActionFailed(false)
+                setConfirmingRemove(true)
+              }}
+              className={uiStyles.dangerButton}
+            >
+              Remove
+            </button>
+          )}
+        </td>
+      </tr>
+      {actionFailed && userActionError && (
+        <tr className="border-b border-black/[0.06] dark:border-white/[0.08]">
+          <td colSpan={6} className="px-4 pb-3 pt-0">
+            <p className="rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red">
+              {userActionError}
+            </p>
+          </td>
+        </tr>
+      )}
+    </>
   )
 }
 
@@ -250,6 +294,7 @@ export function UserManagement() {
     loadUsers,
     setUserSearch,
   } = useAdminStore()
+  const { user: signedInUser } = useAuth()
 
   useEffect(() => {
     void loadUsers(1)
@@ -268,7 +313,8 @@ export function UserManagement() {
         <div>
           <h2 className={uiStyles.sectionTitle}>User access</h2>
           <p className={uiStyles.sectionDescription}>
-            {usersTotal} people can be reviewed here. Change access only when their job changes.
+            {usersTotal} people can sign in. Change what each person can do, or remove accounts that
+            should no longer have access.
           </p>
         </div>
       </div>
@@ -315,12 +361,13 @@ export function UserManagement() {
                 <th className={uiStyles.tableHeaderCell}>Access level</th>
                 <th className={uiStyles.tableHeaderCell}>Sign-in status</th>
                 <th className={uiStyles.tableHeaderCell}>Added</th>
-                <th className={uiStyles.tableHeaderCell}>Active sessions</th>
+                <th className={uiStyles.tableHeaderCell}>Last sign-in</th>
+                <th className={uiStyles.tableHeaderCell}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {users.map((user) => (
-                <UserRow key={user.id} user={user} />
+                <UserRow key={user.id} user={user} isSelf={user.id === signedInUser?.id} />
               ))}
             </tbody>
           </table>

@@ -5,7 +5,7 @@ set -euo pipefail
 VERSION="${npm_package_version:?npm_package_version not set}"
 
 # ── 1. Generate changelog (most failure-prone — run first, before file writes)
-npx conventional-changelog -p angular -i CHANGELOG.md -s --release-count 1
+npx -y -p conventional-changelog-cli@5 -p conventional-changelog-angular@8 conventional-changelog -p angular -i CHANGELOG.md -s --release-count 1
 
 if ! git diff --quiet CHANGELOG.md 2>/dev/null; then
   echo "Changelog updated for version $VERSION."

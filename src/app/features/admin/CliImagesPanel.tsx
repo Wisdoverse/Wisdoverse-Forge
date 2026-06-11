@@ -22,6 +22,8 @@ function stateLabel(state: CliImageToolState): string {
   switch (state) {
     case 'up_to_date':
       return 'Up to date'
+    case 'update_available':
+      return 'Update available'
     case 'updated':
       return 'Just updated'
     case 'failed':
@@ -33,12 +35,14 @@ function stateLabel(state: CliImageToolState): string {
 
 function stateTone(state: CliImageToolState): string {
   if (state === 'failed') return 'bg-apple-red/10 text-apple-red'
+  if (state === 'update_available') return 'bg-apple-orange/10 text-apple-orange'
   if (state === 'up_to_date' || state === 'updated') return 'bg-apple-blue/10 text-apple-blue'
   return 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
 }
 
 function stateDot(state: CliImageToolState): string {
   if (state === 'failed') return 'bg-apple-red'
+  if (state === 'update_available') return 'bg-apple-orange'
   if (state === 'up_to_date' || state === 'updated') return 'bg-apple-blue'
   return 'bg-gray-400'
 }
@@ -182,8 +186,10 @@ interface RollControl {
 }
 
 function RollButton({ tool, control }: { tool: CliImageTool; control: RollControl }) {
-  // Only offer a roll when there is something to roll.
-  if (tool.agentsWithContainer === 0) return null
+  // Only offer a roll when there is something to roll. Local-build tools
+  // (claude) are not rollable — the backend rejects them with 422; restart
+  // those agents individually from the Agents view instead.
+  if (tool.agentsWithContainer === 0 || tool.updateMode === 'local_build') return null
 
   if (control.rolling) {
     return (
@@ -223,15 +229,70 @@ function RollButton({ tool, control }: { tool: CliImageTool; control: RollContro
   )
 }
 
+interface BuildControl {
+  /** Auto-build flag from deployment config (zero-click builds). */
+  autoBuildOn: boolean
+  onBuild: () => void
+}
+
+/**
+ * One-click local build for a `local_build` tool (claude). Prominent when an
+ * update is waiting; a disabled progress label while the server builds; and a
+ * quiet "Build latest" when nothing has been checked yet or the last attempt
+ * failed — the build endpoint looks up npm itself, so it works even while
+ * automatic checks are off.
+ */
+function BuildButton({ tool, control }: { tool: CliImageTool; control: BuildControl }) {
+  if (tool.updateMode !== 'local_build') return null
+
+  if (tool.building) {
+    return (
+      <button
+        type="button"
+        disabled
+        className="rounded-full bg-apple-blue/60 px-3 py-1 text-ui-caption font-medium text-white"
+      >
+        Building…
+      </button>
+    )
+  }
+  if (tool.state === 'update_available') {
+    return (
+      <button
+        type="button"
+        onClick={control.onBuild}
+        className="rounded-full bg-apple-blue px-3 py-1 text-ui-caption font-medium text-white"
+      >
+        Build {tool.remoteVersion ? `v${tool.remoteVersion}` : 'update'}
+      </button>
+    )
+  }
+  if (tool.state === 'pending' || tool.state === 'failed') {
+    return (
+      <button
+        type="button"
+        onClick={control.onBuild}
+        className="rounded-full border border-black/[0.1] px-3 py-1 text-ui-caption font-medium text-foreground-light dark:border-white/[0.12] dark:text-foreground-dark"
+      >
+        Build latest
+      </button>
+    )
+  }
+  return null
+}
+
 function ToolRow({
   tool,
   enabled,
   roll,
+  build,
 }: {
   tool: CliImageTool
   enabled: boolean
   roll: RollControl
+  build: BuildControl
 }) {
+  const localBuild = tool.updateMode === 'local_build'
   // `pending` means no check has recorded a result. Distinguish the common
   // cause — auto-update is off, so nothing will ever check — from "enabled but
   // the first tick hasn't run yet", so an operator can't read gray "pending" as
@@ -244,9 +305,16 @@ function ToolRow({
       <div className="flex min-w-0 gap-3">
         <span className={cn('mt-1.5 w-2 h-2 rounded-full flex-shrink-0', stateDot(tool.state))} />
         <div className="min-w-0">
-          <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-            {toolLabel(tool.tool)}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+              {toolLabel(tool.tool)}
+            </p>
+            {localBuild && (
+              <span className="rounded-full bg-black/[0.05] px-2 py-0.5 text-ui-caption text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+                Local build
+              </span>
+            )}
+          </div>
           <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
             {tool.agentsWithContainer === 1
               ? '1 agent is currently using this tool'
@@ -258,6 +326,18 @@ function ToolRow({
                 ? 'No result yet — the first check has not finished.'
                 : 'This tool has never been checked because automatic updates are off.'}
             </p>
+          ) : localBuild ? (
+            <div className="mt-1 grid gap-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {/* Built on this server (no public registry image), so versions —
+                  not registry digests — are the meaningful comparison. */}
+              <span className="font-mono">
+                installed: {tool.localVersion ? `v${tool.localVersion}` : 'unknown'}
+                {tool.state === 'update_available' && tool.remoteVersion
+                  ? ` → latest on npm: v${tool.remoteVersion}`
+                  : ''}
+              </span>
+              <span>last checked {relativeTime(tool.lastCheckedUnix)}</span>
+            </div>
           ) : (
             <div className="mt-1 grid gap-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
               {/* The locally-pulled image the NEXT agent will start from — not
@@ -270,6 +350,16 @@ function ToolRow({
               </span>
               <span>last checked {relativeTime(tool.lastCheckedUnix)}</span>
             </div>
+          )}
+          {localBuild && tool.state === 'update_available' && !tool.building && (
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Building only affects new agents — running agents keep working.
+            </p>
+          )}
+          {localBuild && tool.building && (
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Building on this server — usually a few minutes. You can leave this page.
+            </p>
           )}
           {tool.state === 'failed' && tool.lastError && (
             <div className="mt-2 rounded-card border border-apple-red/20 bg-apple-red/[0.04] px-3 py-2">
@@ -286,6 +376,12 @@ function ToolRow({
       </div>
       <div className="flex flex-col items-end gap-2 shrink-0 ml-4">
         <StateBadge state={tool.state} label={badgeLabel} />
+        <BuildButton tool={tool} control={build} />
+        {localBuild && build.autoBuildOn && (
+          <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Auto-build on — new versions build themselves
+          </span>
+        )}
         <RollButton tool={tool} control={roll} />
       </div>
     </div>
@@ -348,6 +444,8 @@ export function CliImagesPanel() {
     cliImageRollingTool,
     cliImageRollResult,
     cliImageRollError,
+    buildClaudeImage,
+    cliImageBuildError,
   } = useAdminStore()
   const [confirmTool, setConfirmTool] = useState<string | null>(null)
   const refreshMs = useMemo(
@@ -379,6 +477,11 @@ export function CliImagesPanel() {
       void rollCliImage(tool)
     },
   })
+
+  const buildControl: BuildControl = {
+    autoBuildOn: cliImages?.claudeAutoBuildEnabled ?? false,
+    onBuild: () => void buildClaudeImage(),
+  }
 
   return (
     <div>
@@ -448,10 +551,19 @@ export function CliImagesPanel() {
                   tool={tool}
                   enabled={cliImages.autoUpdateEnabled}
                   roll={rollControlFor(tool.tool)}
+                  build={buildControl}
                 />
               ))
             )}
           </div>
+
+          {cliImageBuildError && (
+            <div className={cn(uiStyles.error, 'mt-4')}>
+              The build could not be started. Nothing was changed — try again once the cause below
+              is fixed.
+              <span className="mt-1 block text-ui-caption">{cliImageBuildError}</span>
+            </div>
+          )}
 
           <RollResultBlock result={cliImageRollResult} error={cliImageRollError} />
 

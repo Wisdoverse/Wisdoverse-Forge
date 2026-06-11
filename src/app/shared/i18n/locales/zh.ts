@@ -87,6 +87,7 @@ export const zh: TranslationKeys = {
     eyebrow: '首次使用',
     title: '先按一条安全路径跑通',
     description: '一次只做一步。先完成创建 Agent、发送任务、验收结果这条最小路径。',
+    skip: '跳过引导',
     progressCount: '{{complete}} / {{total}}',
     nextTitle: '下一步先做这个',
     readyTitle: '已经可以开始工作',

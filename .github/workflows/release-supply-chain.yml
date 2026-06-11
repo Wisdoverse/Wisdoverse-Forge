@@ -64,7 +64,7 @@ jobs:
       # Fulcio OIDC identity is `...release-supply-chain.yml@refs/tags/<tag>`,
       # which is what `agentforge verify` pins. On workflow_dispatch the `tag`
       # input supplies the ref; on `release: published` the published tag does.
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: refs/tags/${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.release.tag_name }}
 
@@ -158,10 +158,24 @@ jobs:
             echo "::error::No agentforge-* release binaries or SBOMs found for tag ${{ steps.tag.outputs.tag }} — refusing green run with nothing signed"
             exit 1
           fi
+          # Sign once per unique content digest. Platform-independent SBOMs can
+          # be byte-identical across targets; signing the same digest twice in
+          # one run hits Rekor's transparency-log dedupe (409 conflict) because
+          # the certificate and digest match. The bundle binds to the digest,
+          # not the filename, so an identical file reuses the first bundle and
+          # `agentforge verify` still passes for every name.
+          declare -A bundle_for_digest=()
           for f in "${signables[@]}"; do
-            echo "Signing $f"
-            cosign sign-blob --yes "$f" \
-              --bundle "${f}.sig.bundle"
+            digest=$(sha256sum "$f" | cut -d' ' -f1)
+            if [ -n "${bundle_for_digest[$digest]:-}" ]; then
+              echo "Reusing signature for $f (content identical to ${bundle_for_digest[$digest]%.sig.bundle})"
+              cp "${bundle_for_digest[$digest]}" "${f}.sig.bundle"
+            else
+              echo "Signing $f"
+              cosign sign-blob --yes "$f" \
+                --bundle "${f}.sig.bundle"
+              bundle_for_digest[$digest]="${f}.sig.bundle"
+            fi
           done
 
       - name: Upload signatures and SBOMs to release

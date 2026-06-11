@@ -357,10 +357,12 @@ function handleCliImageUpdate(payload: Record<string, unknown> | null) {
   if (!payload) return
   const tool = stringField(payload.tool)
   const state = stringField(payload.state)
-  if (!tool || (state !== 'updated' && state !== 'failed')) return
+  if (!tool || (state !== 'updated' && state !== 'failed' && state !== 'update_available')) return
 
   const localDigest = stringField(payload.localDigest)
   const remoteDigest = stringField(payload.remoteDigest)
+  const localVersion = stringField(payload.localVersion)
+  const remoteVersion = stringField(payload.remoteVersion)
   const lastError = stringField(payload.lastError)
   const unix = numberField(payload.unix) ?? Math.floor(Date.now() / 1000)
   // The producer's stable dedup key; fall back to a derived one. addNotification
@@ -373,24 +375,31 @@ function handleCliImageUpdate(payload: Record<string, unknown> | null) {
     state,
     localDigest,
     remoteDigest,
+    localVersion,
+    remoteVersion,
     lastError,
     unix,
   })
 
   const display = displayCliTool(tool)
-  const failureMessage = `The ${display} tool package check failed. Open Admin and choose Check now after a few minutes, or ask an owner to check tool package access. New agents keep the current tool package until it succeeds.`
+  const title =
+    state === 'updated'
+      ? `${display} agent tool package updated`
+      : state === 'update_available'
+        ? `${display} update available${remoteVersion ? ` (v${remoteVersion})` : ''}`
+        : `${display} tool package check failed`
+  const message =
+    state === 'updated'
+      ? `New ${display} agents will start on the latest tool package. Running agents are unaffected.`
+      : state === 'update_available'
+        ? `A newer ${display} tool package is available. Build it from Admin, then new agents can use it. Running agents are unaffected.`
+        : `The ${display} tool package check failed. Open Admin and choose Check now after a few minutes, or ask an owner to check tool package access. New agents keep the current tool package until it succeeds.`
   useFeedStore.getState().addNotification({
     id: eventId,
     type: 'cli_image_updated',
     taskId: `cli-image:${tool}`,
-    taskTitle:
-      state === 'updated'
-        ? `${display} agent tool package updated`
-        : `${display} tool package check failed`,
-    message:
-      state === 'updated'
-        ? `New ${display} agents will start on the latest tool package. Running agents are unaffected.`
-        : failureMessage,
+    taskTitle: title,
+    message,
     taskHref: '/admin',
     read: false,
     timestamp: unix * 1000,

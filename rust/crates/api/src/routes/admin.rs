@@ -1,7 +1,9 @@
 //! Admin endpoints (nested under `/api/v1`).
 //!
-//! - `GET    /api/v1/admin/users`              — list all users (admin only)
-//! - `GET    /api/v1/admin/organizations`      — list all orgs (admin only)
+//! - `GET    /api/v1/admin/users`              — paginated user list (`{ ok, users, total, page, limit, totalPages }`)
+//! - `PUT    /api/v1/admin/users/:id`          — change a user's global access level (`{ ok, user }`)
+//! - `DELETE /api/v1/admin/users/:id`          — remove (soft-delete) a user account
+//! - `GET    /api/v1/admin/organizations`      — org list with member/team counts (`{ ok, organizations, total }`)
 //! - `GET    /api/v1/admin/agents`             — list agents across all tenants
 //! - `GET    /api/v1/admin/agents/:id`         — agent detail with recent events
 //! - `DELETE /api/v1/admin/agents/:id`         — hard-delete a single agent
@@ -12,9 +14,11 @@
 //! - `GET    /api/v1/admin/stats`              — system stats
 //! - `GET    /api/v1/admin/cli-images`         — CLI agent-image updater status
 //! - `POST   /api/v1/admin/cli-images/:tool/roll` — roll running agents of a tool
+//! - `POST   /api/v1/admin/cli-images/:tool/build` — build the claude image locally
 
 use axum::extract::{Path, Query, State};
-use axum::routing::{get, post};
+use axum::http::StatusCode;
+use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use serde::Deserialize;
 use uuid::Uuid;
@@ -25,9 +29,11 @@ use agentforge_core::AppResult;
 use crate::health::AppState;
 use crate::services::admin::{
     AdminAgentListInput, AdminService, admin_agent_detail_response, admin_agent_list_response,
-    admin_bulk_delete_response, admin_data_response, admin_delete_response,
+    admin_bulk_delete_response, admin_data_response, admin_delete_response, admin_org_list_response,
+    admin_user_list_response, admin_user_role_response,
 };
 use crate::services::cli_image::cli_image_status_response;
+use crate::services::cli_image_build::{LocalBuildToolPolicy, cli_image_build_response};
 use crate::services::cli_image_roll::{RollToolPolicy, cli_image_roll_response};
 
 /// Query parameters for paginated admin endpoints.
@@ -55,19 +61,71 @@ fn make_service(state: &AppState) -> AdminService {
     state.admin_service()
 }
 
-/// `GET /api/v1/admin/users` — list all users (admin only).
+/// Query parameters for `GET /admin/users`: 1-based `page`, `limit`
+/// (clamped to 1..=100 by the service), and an optional email/display-name
+/// `search` term.
+#[derive(Debug, Deserialize)]
+pub struct AdminUsersQuery {
+    #[serde(default = "default_page")]
+    pub page: i64,
+    #[serde(default = "default_users_limit")]
+    pub limit: i64,
+    #[serde(default)]
+    pub search: Option<String>,
+}
+
+fn default_users_limit() -> i64 {
+    25
+}
+
+/// `GET /api/v1/admin/users` — paginated user list (admin only).
 async fn list_users(
     State(state): State<AppState>,
     auth: AuthUser,
-    Query(query): Query<ListQuery>,
+    Query(query): Query<AdminUsersQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
     AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
-    let users = service.list_all_users(query.limit, query.offset).await?;
-    Ok(Json(admin_data_response(users)))
+    let page = service.list_user_page(query.page, query.limit, query.search.as_deref()).await?;
+    Ok(Json(admin_user_list_response(page)))
 }
 
-/// `GET /api/v1/admin/organizations` — list all organizations (admin only).
+/// Body for `PUT /admin/users/:id` — the new access level
+/// (`"admin" | "member"`).
+#[derive(Debug, Deserialize)]
+pub struct UpdateUserRoleRequest {
+    pub role: String,
+}
+
+/// `PUT /api/v1/admin/users/:id` — change a user's global access level
+/// (admin only). Answers `{ ok, user }` with the updated user projection.
+async fn update_admin_user_role(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+    Json(body): Json<UpdateUserRoleRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    AdminService::require_admin(&auth.role)?;
+    let service = make_service(&state);
+    let user = service.update_user_role(&auth.scope, id, &body.role).await?;
+    Ok(Json(admin_user_role_response(user)))
+}
+
+/// `DELETE /api/v1/admin/users/:id` — remove (soft-delete) a user account
+/// (admin only).
+async fn delete_admin_user(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    AdminService::require_admin(&auth.role)?;
+    let service = make_service(&state);
+    service.delete_user(&auth.scope, id).await?;
+    Ok(Json(admin_delete_response()))
+}
+
+/// `GET /api/v1/admin/organizations` — list all organizations with member and
+/// team counts (admin only).
 async fn list_organizations(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -75,8 +133,8 @@ async fn list_organizations(
 ) -> AppResult<Json<serde_json::Value>> {
     AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
-    let orgs = service.list_all_organizations(query.limit, query.offset).await?;
-    Ok(Json(admin_data_response(orgs)))
+    let (organizations, total) = service.list_org_page(query.limit, query.offset).await?;
+    Ok(Json(admin_org_list_response(organizations, total)))
 }
 
 /// `POST /api/v1/admin/impersonate` — start impersonation.
@@ -265,10 +323,34 @@ async fn roll_cli_image(
     Ok(Json(cli_image_roll_response(report)))
 }
 
+/// `POST /api/v1/admin/cli-images/{tool}/build` — build the `claude` agent
+/// image locally on this server (claude has no public registry image; its
+/// license requires a self-build). NON-destructive to agents: image-level
+/// only, running agents are untouched — the NEXT spawn picks up the new image.
+/// Answers `202 { ok, started, targetVersion }` and runs the docker build in
+/// the background; progress + outcome land in the status report and the admin
+/// toast. Admin-gated. A non-claude/unknown tool → 422, a build already in
+/// flight → 409, container runtime or npm registry unavailable → 503 (nothing
+/// started).
+async fn build_cli_image(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(tool): Path<String>,
+) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
+    AdminService::require_admin(&auth.role)?;
+    // Defense-in-depth: reject non-claude at the route too (the service
+    // re-checks). 422, not 404 — the path matched; the tool is just not built
+    // locally.
+    LocalBuildToolPolicy::ensure_local_buildable(&tool)?;
+    let target_version = state.cli_image_build_service().start_build(&tool).await?;
+    Ok((StatusCode::ACCEPTED, Json(cli_image_build_response(&target_version))))
+}
+
 /// Build admin routes sub-router.
 pub fn admin_routes() -> Router<AppState> {
     Router::new()
         .route("/admin/users", get(list_users))
+        .route("/admin/users/{id}", put(update_admin_user_role).delete(delete_admin_user))
         .route("/admin/organizations", get(list_organizations))
         .route("/admin/agents", get(list_admin_agents).delete(bulk_delete_admin_agents))
         .route("/admin/agents/{id}", get(get_admin_agent).delete(delete_admin_agent))
@@ -278,6 +360,7 @@ pub fn admin_routes() -> Router<AppState> {
         .route("/admin/stats", get(get_stats))
         .route("/admin/cli-images", get(list_cli_image_status))
         .route("/admin/cli-images/{tool}/roll", post(roll_cli_image))
+        .route("/admin/cli-images/{tool}/build", post(build_cli_image))
 }
 
 #[cfg(test)]
@@ -296,6 +379,38 @@ mod tests {
         let query: ListQuery = serde_json::from_str(r#"{"limit": 50, "offset": 10}"#).unwrap();
         assert_eq!(query.limit, 50);
         assert_eq!(query.offset, 10);
+    }
+
+    #[test]
+    fn admin_users_query_defaults() {
+        let query: AdminUsersQuery = serde_json::from_str("{}").unwrap();
+        assert_eq!(query.page, 1);
+        assert_eq!(query.limit, 25);
+        assert!(query.search.is_none());
+    }
+
+    #[test]
+    fn admin_users_query_custom_values() {
+        let query: AdminUsersQuery = serde_json::from_str(r#"{"page": 3, "limit": 50, "search": "alice"}"#).unwrap();
+        assert_eq!(query.page, 3);
+        assert_eq!(query.limit, 50);
+        assert_eq!(query.search.as_deref(), Some("alice"));
+    }
+
+    #[test]
+    fn update_user_role_request_deserialization() {
+        let req: UpdateUserRoleRequest = serde_json::from_str(r#"{"role": "admin"}"#).unwrap();
+        assert_eq!(req.role, "admin");
+        let req: UpdateUserRoleRequest = serde_json::from_str(r#"{"role": "member"}"#).unwrap();
+        assert_eq!(req.role, "member");
+    }
+
+    #[test]
+    fn update_user_role_request_requires_role() {
+        // The wire value is validated by the domain (`AdminRoleChange::parse`);
+        // the body shape itself only requires the `role` key to exist.
+        assert!(serde_json::from_str::<UpdateUserRoleRequest>(r#"{}"#).is_err());
+        assert!(serde_json::from_str::<UpdateUserRoleRequest>(r#"{"role": 1}"#).is_err());
     }
 
     #[test]

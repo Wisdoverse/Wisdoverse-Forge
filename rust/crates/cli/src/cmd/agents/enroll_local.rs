@@ -121,10 +121,23 @@ pub async fn run(args: EnrollLocalArgs, ctx: &CliContext, stdout: &mut dyn Write
         "name": name,
         "runtimeId": runtime_id
     });
-    let text = format!(
-        "Host CLI agent enrolled: {name} ({agent_id})\nRuntime: {runtime_id}\n\nRun on the local machine with {}:\n{launch_command}",
-        shell_format.label()
-    );
+    let join_command = data.get("enrollment").and_then(|enrollment| {
+        let key = match shell_format {
+            ShellFormat::Bash => "joinCommand",
+            ShellFormat::PowerShell => "joinCommandPowershell",
+        };
+        enrollment.get(key).and_then(Value::as_str)
+    });
+    let text = match join_command {
+        Some(join_command) => format!(
+            "Host CLI agent enrolled: {name} ({agent_id})\nRuntime: {runtime_id}\n\nJoin with one command on the local machine ({}):\n{join_command}\n\nManual setup (advanced):\n{launch_command}",
+            shell_format.label()
+        ),
+        None => format!(
+            "Host CLI agent enrolled: {name} ({agent_id})\nRuntime: {runtime_id}\n\nRun on the local machine with {}:\n{launch_command}",
+            shell_format.label()
+        ),
+    };
     output::format_action(stdout, &ctx.format, &text, &summary).map_err(|e| CliError::Other(e.to_string()))?;
     Ok(())
 }
