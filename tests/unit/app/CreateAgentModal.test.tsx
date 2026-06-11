@@ -49,8 +49,8 @@ describe('CreateAgentModal', () => {
 
     expect(screen.getByRole('radio', { name: /managed workspace/i })).toBeChecked()
     expect(screen.getByTestId('agent-runtime-fit')).toBeInTheDocument()
-    expect(screen.getByText('Start from a role')).toBeInTheDocument()
-    expect(screen.getByText('Fills the agent name')).toBeInTheDocument()
+    expect(screen.getByText('Start with an agent role template')).toBeInTheDocument()
+    expect(screen.getByText('Fills in the agent name')).toBeInTheDocument()
     expect(screen.getByText('Builds changes and checks them')).toBeInTheDocument()
     expect(screen.getByText(/claude in a managed workspace/i)).toBeInTheDocument()
     expect(screen.getByText('Project files included')).toBeInTheDocument()
@@ -175,7 +175,7 @@ describe('CreateAgentModal', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
 
-    expect(screen.getByText('Fills name and instructions')).toBeInTheDocument()
+    expect(screen.getByText('Fills in name and instructions')).toBeInTheDocument()
     expect(screen.getByText(/anthropic simple chat agent/i)).toBeInTheDocument()
     expect(screen.getByText(/questions, planning, writing, and review/i)).toBeInTheDocument()
     expect(screen.getByText(/does not open project files/i)).toBeInTheDocument()

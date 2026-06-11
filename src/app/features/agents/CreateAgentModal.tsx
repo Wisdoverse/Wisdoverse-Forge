@@ -609,10 +609,12 @@ export function CreateAgentModal() {
             <div>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                  Start from a role
+                  Start with an agent role template
                 </span>
                 <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  {kind === 'provider' ? 'Fills name and instructions' : 'Fills the agent name'}
+                  {kind === 'provider'
+                    ? 'Fills in name and instructions'
+                    : 'Fills in the agent name'}
                 </span>
               </div>
               <div
