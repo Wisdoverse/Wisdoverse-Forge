@@ -132,10 +132,40 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Settings could not load SSH keys. Forge could not connect while loading Settings. Check your connection, then try again.'
+      'Settings could not load repository SSH access. Forge could not connect while loading Settings. Check your connection, then try again.'
     )
+    expect(message).not.toContain('SSH keys')
     expect(message).not.toContain('Network error')
     expect(message).not.toContain('service')
+  })
+
+  test('uses product labels for repository access permission errors', () => {
+    const message = settingsActionErrorMessage(
+      'gitCredentials',
+      'save',
+      statusError(403, 'HTTP 403')
+    )
+
+    expectBeginnerError(
+      message,
+      'You do not have permission to save the repository access. Ask an owner or admin to let you manage code repository access.'
+    )
+    expect(message).not.toContain('Git credential')
+    expect(message).not.toContain('Git credentials')
+  })
+
+  test('uses product labels for work capacity validation errors', () => {
+    const message = settingsActionErrorMessage(
+      'resourceProfiles',
+      'load',
+      statusError(422, 'profile missing')
+    )
+
+    expectBeginnerError(
+      message,
+      'Ask an owner or admin to add an agent size, then refresh Settings.'
+    )
+    expect(message).not.toContain('resource profile')
   })
 })
 
@@ -180,7 +210,7 @@ describe('useSettingsStore errors', () => {
 
     expectBeginnerError(
       useSettingsStore.getState().sshKeysError,
-      'Settings could not load SSH keys. Forge could not connect while loading Settings. Check your connection, then try again.'
+      'Settings could not load repository SSH access. Forge could not connect while loading Settings. Check your connection, then try again.'
     )
     expect(useSettingsStore.getState().sshKeysError).not.toContain('Network error')
   })

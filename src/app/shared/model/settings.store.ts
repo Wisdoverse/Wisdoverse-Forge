@@ -75,18 +75,18 @@ type SettingsErrorAction = 'load' | 'save' | 'delete' | 'create' | 'revoke' | 'u
 const SETTINGS_AREA_LABELS: Record<SettingsErrorArea, string> = {
   providers: 'AI service settings',
   apiKeys: 'automation access keys',
-  gitCredentials: 'Git credentials',
-  sshKeys: 'SSH keys',
-  resourceProfiles: 'resource profiles',
+  gitCredentials: 'code repository access',
+  sshKeys: 'repository SSH access',
+  resourceProfiles: 'work capacity',
   runtime: 'agent work settings',
 }
 
 const SETTINGS_ITEM_LABELS: Record<SettingsErrorArea, string> = {
   providers: 'AI service',
   apiKeys: 'automation access key',
-  gitCredentials: 'Git credential',
-  sshKeys: 'SSH key',
-  resourceProfiles: 'resource profile',
+  gitCredentials: 'repository access',
+  sshKeys: 'repository SSH access',
+  resourceProfiles: 'agent size',
   runtime: 'agent work setting',
 }
 
@@ -155,6 +155,19 @@ function settingsUnavailableMessage(actionPhrase: string, action: SettingsErrorA
   return `Forge could not ${operation} right now. Refresh Settings, then try to ${actionPhrase} again. If it still fails, ask an owner or admin to check Settings.`
 }
 
+function settingsPermissionMessage(area: SettingsErrorArea, actionPhrase: string): string {
+  if (area === 'gitCredentials') {
+    return `You do not have permission to ${actionPhrase}. Ask an owner or admin to let you manage code repository access.`
+  }
+  if (area === 'sshKeys') {
+    return `You do not have permission to ${actionPhrase}. Ask an owner or admin to let you manage repository SSH access.`
+  }
+  if (area === 'resourceProfiles') {
+    return `You do not have permission to ${actionPhrase}. Ask an owner or admin to let you manage work capacity.`
+  }
+  return `You do not have permission to ${actionPhrase}. Ask an owner or admin to give you access to ${SETTINGS_AREA_LABELS[area]}.`
+}
+
 export function settingsActionErrorMessage(
   area: SettingsErrorArea,
   action: SettingsErrorAction,
@@ -175,7 +188,7 @@ export function settingsActionErrorMessage(
     return `Sign in again, then open Settings and try to ${actionPhrase} again.`
   }
   if (status === 403) {
-    return `You do not have permission to ${actionPhrase}. Ask an owner or admin to give you access to ${SETTINGS_AREA_LABELS[area]}.`
+    return settingsPermissionMessage(area, actionPhrase)
   }
   if (status === 404) {
     return `Settings for ${SETTINGS_AREA_LABELS[area]} are not ready yet. Refresh Settings, then try again.`
@@ -263,7 +276,7 @@ function settingsValidationMessage(
   }
 
   if (area === 'resourceProfiles') {
-    return 'Ask an owner or admin to add a resource profile, then refresh Settings.'
+    return 'Ask an owner or admin to add an agent size, then refresh Settings.'
   }
 
   return 'Choose an available work location and local tool, then save agent work settings again.'
