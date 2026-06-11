@@ -323,6 +323,18 @@ describe('AgentDetailView', () => {
     expect(screen.queryByText(/model service/i)).toBeNull()
   })
 
+  test('keeps review-needed AI service labels readable in agent details', () => {
+    render(
+      <AgentDetailView
+        agent={{ ...providerAgent, provider: 'AI service needs review' }}
+        onBack={() => {}}
+      />
+    )
+
+    expect(screen.getAllByText('AI service needs review').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/AI service needs review AI service/i)).toBeNull()
+  })
+
   test('shows back button', () => {
     render(<AgentDetailView agent={containerAgent} onBack={() => {}} />)
     expect(screen.getByTestId('agent-back')).toBeDefined()

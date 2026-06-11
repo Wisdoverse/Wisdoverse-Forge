@@ -4,6 +4,9 @@ import { cn } from '@app/shared/lib/utils'
 import {
   agentStatusKey,
   agentStatusLabel,
+  agentAvatarInitial,
+  agentRuntimeLabel,
+  agentToolLabel,
   isHostCliAgent,
   useAgentsStore,
   type AgentInfo,
@@ -102,27 +105,6 @@ function agentFolderLabel(agent: AgentInfo): string {
   return agent.cwd
 }
 
-function agentToolLabel(tool?: AgentInfo['cliTool']): string {
-  switch (tool) {
-    case 'claude':
-      return 'Claude'
-    case 'codex':
-      return 'Codex'
-    case 'gemini':
-      return 'Gemini'
-    case 'opencode':
-      return 'OpenCode'
-    default:
-      return 'Work tool'
-  }
-}
-
-function agentRuntimeLabel(agent: AgentInfo): string {
-  if (isHostCliAgent(agent)) return `${agentToolLabel(agent.cliTool)} on this computer`
-  if (agent.cliTool) return `${agentToolLabel(agent.cliTool)} in a managed workspace`
-  return `${agent.provider} AI service`
-}
-
 function agentSetupSummary(agent: AgentInfo): string {
   if (isHostCliAgent(agent)) return 'This computer'
   if (agent.cliTool) return 'Managed workspace'
@@ -198,7 +180,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
             defaultGradient()
           )}
         >
-          {agent.provider.charAt(0).toUpperCase()}
+          {agentAvatarInitial(agent)}
         </div>
 
         <div className="flex-1 min-w-0">

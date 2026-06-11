@@ -86,6 +86,24 @@ describe('AgentCard', () => {
     expect(screen.queryByText(/text-only model/i)).toBeNull()
   })
 
+  test('keeps review-needed AI service labels readable on chat-only cards', () => {
+    render(
+      <AgentCard
+        agent={{
+          ...mockAgent,
+          id: 'review-provider',
+          cliTool: undefined,
+          runtimeKind: 'api',
+          provider: 'AI service needs review',
+          model: 'Model not reported',
+        }}
+      />
+    )
+
+    expect(screen.getByText('AI service needs review')).toBeDefined()
+    expect(screen.queryByText('AI service needs review AI service')).toBeNull()
+  })
+
   test('warns before assigning work to an offline agent', () => {
     render(<AgentCard agent={{ ...mockAgent, status: 'offline' }} />)
 

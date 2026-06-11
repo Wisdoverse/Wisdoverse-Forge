@@ -1,5 +1,11 @@
 import { cn } from '@app/shared/lib/utils'
-import { isHostCliAgent, type AgentInfo, type AgentStatus } from '@app/entities/agent'
+import {
+  agentAvatarInitial,
+  agentServiceLabel,
+  isHostCliAgent,
+  type AgentInfo,
+  type AgentStatus,
+} from '@app/entities/agent'
 import { AgentKindBadge } from './AgentKindBadge'
 
 const PROVIDER_GRADIENTS: Record<string, string> = {
@@ -24,35 +30,6 @@ const STATUS_HELP: Record<AgentStatus, string> = {
   working: 'Running a task now',
   idle: 'Ready for a new task',
   offline: 'Reconnect before sending work',
-}
-
-function providerInitial(provider: string): string {
-  return provider.charAt(0).toUpperCase()
-}
-
-function agentToolLabel(tool?: AgentInfo['cliTool']): string {
-  switch (tool) {
-    case 'claude':
-      return 'Claude'
-    case 'codex':
-      return 'Codex'
-    case 'gemini':
-      return 'Gemini'
-    case 'opencode':
-      return 'OpenCode'
-    default:
-      return 'Work tool'
-  }
-}
-
-function agentServiceLabel(agent: AgentInfo): string {
-  if (agent.cliTool) return agentToolLabel(agent.cliTool)
-  return `${agent.provider} AI service`
-}
-
-function agentInitial(agent: AgentInfo): string {
-  if (agent.cliTool) return agentToolLabel(agent.cliTool).charAt(0)
-  return providerInitial(agent.provider)
 }
 
 function defaultGradient(provider: string): string {
@@ -99,7 +76,7 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
         )}
         aria-hidden="true"
       >
-        {agentInitial(agent)}
+        {agentAvatarInitial(agent)}
       </div>
 
       <div className="min-w-0 flex-1">
