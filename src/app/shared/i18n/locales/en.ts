@@ -435,20 +435,21 @@ export const en = {
     resetConfirm: 'Are you sure you want to reset all settings?',
     runtime: {
       title: 'Agent Work Setup',
-      description: 'Choose the default place agents work and see the next setup step.',
+      description:
+        'Choose where hands-on agents work, then check tools and sign-ins before assigning tasks.',
       saving: 'Saving...',
       loading: 'Loading work setup...',
       couldNotLoad: 'Could not load work setup',
-      defaultRuntimeLabel: 'Default place',
-      defaultRuntimeDescription: 'Where new agents should work by default',
-      defaultContainerCliLabel: 'Default work tool',
+      defaultRuntimeLabel: 'Default work place',
+      defaultRuntimeDescription:
+        'Choose Managed workspace unless an owner tells you this computer should run the work',
+      defaultContainerCliLabel: 'Default tool for project work',
       defaultContainerCliDescription:
-        'The tool agents use when they need project files or live work access',
+        'Claude Code, Codex, Gemini, or OpenCode when an agent edits files or runs commands',
       availableRuntimesLabel: 'Places agents can work',
-      availableRuntimesDescription: 'Work places this installation can use',
-      availableContainerClisLabel: 'Available work tools',
-      availableContainerClisDescription:
-        'Tools agents can use for project files and live work access',
+      availableRuntimesDescription: 'Places this installation can use for hands-on work',
+      availableContainerClisLabel: 'Tools agents can use',
+      availableContainerClisDescription: 'Installed tools for file edits, commands, and live work',
       runtimeLabels: {
         cli: 'This computer',
         api: 'Chat-only AI service',
