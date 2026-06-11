@@ -450,7 +450,7 @@ export function CreateAgentModal() {
               <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {localEnrollment.enrollment?.joinCommand
                   ? 'Paste one command into a terminal on the machine where the agent should work. It downloads what is missing and connects this agent.'
-                  : 'Copy this command and run it on the machine where the CLI is installed. The agent will appear online after the connection helper starts.'}
+                  : 'Copy this command and run it on the machine where the work tool is installed. The agent will appear online after the connection helper starts.'}
               </p>
             </div>
 
@@ -460,7 +460,7 @@ export function CreateAgentModal() {
                   <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                     Join command
                   </span>
-                  <div role="group" aria-label="Local machine platform" className="flex gap-1">
+                  <div role="group" aria-label="Computer type" className="flex gap-1">
                     {(
                       [
                         { value: 'posix', label: 'macOS / Linux' },
@@ -612,7 +612,7 @@ export function CreateAgentModal() {
                   Role template
                 </span>
                 <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  {kind === 'provider' ? 'Prompt ready' : 'Name seeds CLI agents'}
+                  {kind === 'provider' ? 'Instructions ready' : 'Name sets up this agent'}
                 </span>
               </div>
               <div

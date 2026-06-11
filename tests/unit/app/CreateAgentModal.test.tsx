@@ -49,6 +49,7 @@ describe('CreateAgentModal', () => {
 
     expect(screen.getByRole('radio', { name: /managed workspace/i })).toBeChecked()
     expect(screen.getByTestId('agent-runtime-fit')).toBeInTheDocument()
+    expect(screen.getByText('Name sets up this agent')).toBeInTheDocument()
     expect(screen.getByText(/claude in a managed workspace/i)).toBeInTheDocument()
     expect(screen.getByText('Project files included')).toBeInTheDocument()
     expect(screen.getByText(/workspace must be ready/i)).toBeInTheDocument()
@@ -62,6 +63,7 @@ describe('CreateAgentModal', () => {
     )
     expect(screen.queryByLabelText(/^provider$/i)).toBeNull()
     expect(screen.queryByLabelText(/^model$/i)).toBeNull()
+    expect(screen.queryByText(/Name seeds CLI agents/i)).toBeNull()
   })
 
   test('shows selected project as the primary project context', () => {
@@ -169,6 +171,7 @@ describe('CreateAgentModal', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /chat-only ai service/i }))
 
+    expect(screen.getByText('Instructions ready')).toBeInTheDocument()
     expect(screen.getByText(/anthropic chat-only agent/i)).toBeInTheDocument()
     expect(screen.getByText(/does not open project files/i)).toBeInTheDocument()
     expect(screen.getByText(/ai service must be ready/i)).toBeInTheDocument()
@@ -243,6 +246,8 @@ describe('CreateAgentModal', () => {
     expect(await screen.findByLabelText(/join command/i)).toHaveValue(
       "export AGENT_ID='a-local'\nagentforge-sidecar"
     )
+    expect(screen.getByText(/where the work tool is installed/i)).toBeInTheDocument()
+    expect(screen.queryByText(/where the CLI is installed/i)).toBeNull()
   })
 
   test('shows the one-command join with an OS toggle when the server mints a join code', async () => {
@@ -285,6 +290,7 @@ describe('CreateAgentModal', () => {
     // One-command join leads; the pasted command tracks the OS toggle.
     const oneLiner = await screen.findByLabelText(/one-command join/i)
     expect(oneLiner).toHaveValue(joinCommand)
+    expect(screen.getByRole('group', { name: /computer type/i })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /windows/i }))
     expect(oneLiner).toHaveValue(joinCommandPowershell)
 
