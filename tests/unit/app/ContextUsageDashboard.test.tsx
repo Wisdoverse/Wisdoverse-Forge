@@ -1,7 +1,9 @@
-import { render, screen } from '@testing-library/react'
-import { describe, expect, test } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, test } from 'vitest'
 import { ContextUsageDashboard } from '@app/features/analytics/ContextUsageDashboard'
 import type { ContextUsageAnalytics } from '@app/shared/api/orchestration'
+
+afterEach(cleanup)
 
 function analytics(overrides: Partial<ContextUsageAnalytics> = {}): ContextUsageAnalytics {
   return {
@@ -83,7 +85,46 @@ describe('ContextUsageDashboard', () => {
 
     expect(screen.getByText('Updated time not available')).toBeDefined()
     const item = screen.getByTestId('context-usage-item')
-    expect(item.textContent).toContain('Builder Agent · Not listed yet · Not listed yet')
+    expect(item.textContent).toContain(
+      'Builder Agent · Work location not listed · Task type not listed'
+    )
     expect(screen.queryByText(/^unknown$/i)).toBeNull()
+  })
+
+  test('labels unknown analytics group values without exposing raw slugs', () => {
+    render(
+      <ContextUsageDashboard
+        data={analytics({
+          topUseful: [
+            {
+              itemId: 'context-1',
+              itemKind: 'future_context_kind' as never,
+              itemTitle: 'Release checklist',
+              taskKind: 'future_task_kind',
+              runtime: 'future_runtime',
+              agentId: 'agent-1',
+              agentName: 'Builder Agent',
+              appliedCount: 2,
+              completedCount: 2,
+              successRate: 1,
+              feedbackTotalCount: 1,
+              feedbackUsefulCount: 1,
+              feedbackNegativeCount: 0,
+              negativeFeedbackRate: 0,
+              lastUsedAt: '2026-05-20T12:00:00.000Z',
+            },
+          ],
+        })}
+      />
+    )
+
+    const item = screen.getByTestId('context-usage-item')
+    expect(item.textContent).toContain('Context item needs review')
+    expect(item.textContent).toContain(
+      'Builder Agent · Work location needs review · Task type needs review'
+    )
+    expect(screen.queryByText(/future context kind/i)).toBeNull()
+    expect(screen.queryByText(/future runtime/i)).toBeNull()
+    expect(screen.queryByText(/future task kind/i)).toBeNull()
   })
 })

@@ -10,16 +10,11 @@ interface ContextUsageDashboardProps {
 
 const percent = (value: number): string => `${Math.round(value * 100)}%`
 
-const ITEM_KIND_LABELS: Record<ContextUsageItem['itemKind'], string> = {
-  memory: 'Saved memory',
-  skill: 'Reusable skill',
-}
-
 const RUNTIME_LABELS: Record<string, string> = {
-  api: 'Model service',
+  api: 'Chat-only AI service',
   container: 'Managed workspace',
-  provider: 'Model service',
-  local: 'Local agent',
+  provider: 'Chat-only AI service',
+  local: 'This computer',
   cli: 'This computer',
 }
 
@@ -56,26 +51,27 @@ function relativeAge(timestamp: string): string {
   return `${Math.floor(seconds / 86_400)}d ago`
 }
 
-function humanizeMachineValue(value: string): string {
-  const normalized = value
-    .trim()
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/[_-]+/g, ' ')
-
-  if (!normalized) return 'Not listed yet'
-
-  return normalized
-    .split(/\s+/)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(' ')
-}
-
 function runtimeLabel(runtime: string): string {
-  return RUNTIME_LABELS[runtime] ?? humanizeMachineValue(runtime)
+  const normalized = runtime.trim().toLowerCase()
+  if (!normalized) return 'Work location not listed'
+  return RUNTIME_LABELS[normalized] ?? 'Work location needs review'
 }
 
 function taskKindLabel(taskKind: string): string {
-  return TASK_KIND_LABELS[taskKind] ?? humanizeMachineValue(taskKind)
+  const normalized = taskKind.trim().toLowerCase()
+  if (!normalized) return 'Task type not listed'
+  return TASK_KIND_LABELS[normalized] ?? 'Task type needs review'
+}
+
+function contextItemKindLabel(itemKind: string): string {
+  switch (itemKind) {
+    case 'memory':
+      return 'Saved memory'
+    case 'skill':
+      return 'Reusable skill'
+    default:
+      return 'Context item needs review'
+  }
 }
 
 export function ContextUsageDashboard({ data, loading = false }: ContextUsageDashboardProps) {
@@ -249,7 +245,7 @@ function UsageList({
 
 function UsageItem({ item }: { item: ContextUsageItem }) {
   const Icon = item.itemKind === 'memory' ? Brain : WandSparkles
-  const itemKindLabel = ITEM_KIND_LABELS[item.itemKind]
+  const itemKindLabel = contextItemKindLabel(item.itemKind)
   const negative = item.feedbackNegativeCount > 0
 
   return (
