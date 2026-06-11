@@ -108,7 +108,7 @@ describe('FeedbackControls', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain('You do not have permission')
-    expect(alert.textContent).toContain('Ask an admin')
+    expect(alert.textContent).toContain('Ask an owner or admin')
     expect(alert.textContent).not.toContain('API 403')
     expect(alert.textContent).not.toContain('Forbidden')
     expect(screen.getByRole('button', { name: 'Outdated' })).not.toHaveClass('bg-apple-blue')

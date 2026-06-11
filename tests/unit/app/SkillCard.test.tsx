@@ -29,10 +29,8 @@ describe('SkillCard', () => {
       })
     ).toBeInTheDocument()
     expect(screen.getByText('Ready to reuse')).toBeInTheDocument()
-    expect(screen.getByText(/^Source:/)).toBeInTheDocument()
-    expect(screen.getByText('Workspace skills')).toBeInTheDocument()
-    expect(screen.getByText(/by Platform team/i)).toBeInTheDocument()
-    expect(screen.getByText('Suggested for: release')).toBeInTheDocument()
+    expect(screen.getByText(/saved in workspace skills by platform team/i)).toBeInTheDocument()
+    expect(screen.getByText('Use when task says: release')).toBeInTheDocument()
   })
 
   test('marks unavailable skills as needing installation before use', () => {

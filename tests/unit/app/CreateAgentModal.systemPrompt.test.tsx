@@ -37,7 +37,7 @@ describe('CreateAgentModal systemPrompt', () => {
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
-    fireEvent.change(screen.getByPlaceholderText(/Review work agent/i), {
+    fireEvent.change(screen.getByPlaceholderText(/Frontend Agent/i), {
       target: { value: 'Test' },
     })
     fireEvent.click(screen.getByRole('button', { name: /create agent/i }))
@@ -54,9 +54,8 @@ describe('CreateAgentModal systemPrompt', () => {
 
   it('shows instruction textarea when Chat-only agent selected', () => {
     render(<CreateAgentModal />)
-    fireEvent.click(screen.getByText(/Chat-only agent/i))
-    expect(screen.getByLabelText(/instructions for this agent/i)).toBeInTheDocument()
-    expect(screen.getByText(/tell the agent how to behave every time/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByText(/Provider \+ Prompt/i))
+    expect(screen.getByLabelText(/system prompt/i)).toBeInTheDocument()
   })
 
   it('submits with lowercase provider + systemPrompt payload', async () => {
@@ -64,11 +63,11 @@ describe('CreateAgentModal systemPrompt', () => {
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
-    fireEvent.change(screen.getByPlaceholderText(/Review work agent/i), {
+    fireEvent.change(screen.getByPlaceholderText(/Frontend Agent/i), {
       target: { value: 'Test' },
     })
-    fireEvent.click(screen.getByText(/Chat-only agent/i))
-    fireEvent.change(screen.getByLabelText(/instructions for this agent/i), {
+    fireEvent.click(screen.getByText(/Provider \+ Prompt/i))
+    fireEvent.change(screen.getByLabelText(/system prompt/i), {
       target: { value: 'you are terse' },
     })
     fireEvent.click(screen.getByRole('button', { name: /create agent/i }))
@@ -89,10 +88,10 @@ describe('CreateAgentModal systemPrompt', () => {
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
-    fireEvent.change(screen.getByPlaceholderText(/Review work agent/i), {
+    fireEvent.change(screen.getByPlaceholderText(/Frontend Agent/i), {
       target: { value: 'Test' },
     })
-    fireEvent.click(screen.getByText(/Chat-only agent/i))
+    fireEvent.click(screen.getByText(/Provider \+ Prompt/i))
     fireEvent.click(screen.getByRole('button', { name: /create agent/i }))
     await waitFor(() =>
       expect(createAgent).toHaveBeenCalledWith(

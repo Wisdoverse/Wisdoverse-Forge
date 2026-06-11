@@ -351,15 +351,26 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
           </p>
         </div>
 
-        <pre className="mt-3 max-h-36 overflow-auto rounded-lg bg-[#111318] p-3 text-left font-mono text-[11px] leading-relaxed text-white/85">
-          <code className="whitespace-pre-wrap break-all">{command}</code>
-        </pre>
+        {commandReady ? (
+          <>
+            <pre className="mt-3 max-h-36 overflow-auto rounded-lg bg-[#111318] p-3 text-left font-mono text-[11px] leading-relaxed text-white/85">
+              <code className="whitespace-pre-wrap break-all">{command}</code>
+            </pre>
 
-        <div className="mt-3 grid gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          <p>1. Install the Forge command on the computer that will do the work.</p>
-          <p>2. Replace &lt;tool-name&gt; with the tool you already use there.</p>
-          <p>3. Run the command from the folder this agent should work in.</p>
-        </div>
+            <div className="mt-3 grid gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              <p>1. Install the Forge command on the computer that will do the work.</p>
+              <p>2. Replace &lt;tool-name&gt; with the tool you already use there.</p>
+              <p>3. Run the command from the folder this agent should work in.</p>
+            </div>
+          </>
+        ) : (
+          <div
+            data-testid="host-cli-command-waiting"
+            className="mt-3 rounded-lg border border-dashed border-black/[0.12] px-3 py-3 text-ui-caption text-secondary-light dark:border-white/[0.12] dark:text-secondary-dark"
+          >
+            Select a project first. Then this panel will show the command to copy.
+          </div>
+        )}
 
         <button
           type="button"

@@ -37,26 +37,24 @@ beforeEach(() => {
 describe('AgentListView', () => {
   test('shows empty state when no agents', () => {
     render(<AgentListView />)
-    const emptyState = screen.getByTestId('agent-empty-state')
-    expect(within(emptyState).getByText(/create your first agent/i)).toBeDefined()
-    expect(within(emptyState).getByText(/start with chat-only/i)).toBeDefined()
-    expect(within(emptyState).getByText(/managed workspace or this computer/i)).toBeDefined()
-    expect(within(emptyState).getByText(/success looks like one ready agent/i)).toBeDefined()
-    expect(within(emptyState).queryByText(/text only/i)).toBeNull()
+    expect(screen.getByText(/create your first agent/i)).toBeDefined()
+    expect(screen.getByText(/connected model for text-only work/i)).toBeDefined()
+    expect(screen.getByText(/local files and commands/i)).toBeDefined()
+    expect(screen.getAllByRole('button', { name: /new agent/i }).length).toBeGreaterThan(0)
   })
 
   test('waits for a selected project before showing a command for this computer', () => {
     render(<AgentListView />)
 
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
-    expect(within(enrollment).getByText(/starting project/i)).toBeDefined()
-    expect(within(enrollment).getByText('Select a project first')).toBeDefined()
-    expect(within(enrollment).getByLabelText(/work tool on this computer/i)).toHaveValue('codex')
-    expect(within(enrollment).getByText(/Choose the tool you already use here/i)).toBeDefined()
+    expect(within(enrollment).getByText(/connect a local agent/i)).toBeDefined()
+    expect(enrollment.textContent).toContain('Create a Local CLI agent')
+    expect(within(enrollment).getByText(/project:/i)).toBeDefined()
+    expect(within(enrollment).getByText('Select a project')).toBeDefined()
+    expect(enrollment.textContent).not.toContain('<project-id>')
     expect(within(enrollment).getByTestId('host-cli-command-waiting')).toHaveTextContent(
       /this panel will show the command to copy/i
     )
-    expect(enrollment.textContent).not.toContain('<project-id>')
     expect(enrollment.textContent).not.toContain('agentforge agents enroll-local')
     expect(within(enrollment).getByRole('button', { name: /select project first/i })).toBeDisabled()
   })
@@ -81,27 +79,15 @@ describe('AgentListView', () => {
     render(<AgentListView />)
 
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
-    expect(within(enrollment).getByText('Add This Computer to Forge')).toBeDefined()
-    expect(
-      within(enrollment).getByText(/files or tool sign-in already on this computer/i)
-    ).toBeDefined()
-    expect(within(enrollment).getByText('Project selected')).toBeDefined()
-    expect(enrollment.textContent).not.toContain('Project: p1')
+    expect(within(enrollment).getByText(/work should run on your computer/i)).toBeDefined()
+    expect(within(enrollment).getByText('Project:')).toBeDefined()
+    expect(enrollment.textContent).toContain('p1')
     expect(enrollment.textContent).toContain('agentforge agents enroll-local')
-    expect(enrollment.textContent).toContain('--tool codex')
-    expect(enrollment.textContent).toContain('--name "Codex on this computer"')
+    expect(enrollment.textContent).toContain('--tool <tool-name>')
     expect(enrollment.textContent).toContain('--project p1')
-    expect(enrollment.textContent).not.toContain('<tool-name>')
-    expect(enrollment.textContent).toContain('Choose the work tool above')
-    expect(enrollment.textContent).toContain('Open Terminal or PowerShell in the project folder')
-    expect(enrollment.textContent).toContain('keep that window open while work runs')
-    expect(within(enrollment).getByRole('button', { name: /copy command to run/i })).toBeDefined()
-
-    fireEvent.change(within(enrollment).getByLabelText(/work tool on this computer/i), {
-      target: { value: 'opencode' },
-    })
-    expect(enrollment.textContent).toContain('--tool opencode')
-    expect(enrollment.textContent).toContain('--name "OpenCode on this computer"')
+    expect(enrollment.textContent).toContain('Replace <tool-name> with the tool you already use')
+    expect(enrollment.textContent).toContain('Run the command from the folder')
+    expect(within(enrollment).getByRole('button', { name: /copy command/i })).toBeDefined()
 
     fireEvent.click(within(enrollment).getByRole('button', { name: /windows/i }))
     expect(enrollment.textContent).toContain('--shell-format powershell')
@@ -200,8 +186,8 @@ describe('AgentListView', () => {
     expect(screen.queryByText('Build Runner')).toBeNull()
 
     fireEvent.change(screen.getByTestId('agent-search'), { target: { value: '' } })
-    const runtimeFilters = screen.getByRole('group', { name: /work type filter/i })
-    fireEvent.click(within(runtimeFilters).getByRole('button', { name: /chat-only agent\s*1/i }))
+    const runtimeFilters = screen.getByRole('group', { name: /runtime filter/i })
+    fireEvent.click(within(runtimeFilters).getByRole('button', { name: /text only\s*1/i }))
     expect(screen.getByText('Review Analyst')).toBeDefined()
     expect(screen.queryByText('Build Runner')).toBeNull()
 

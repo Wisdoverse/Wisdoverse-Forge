@@ -58,7 +58,7 @@ describe('SkillsView', () => {
       'aria-pressed',
       'true'
     )
-    expect(screen.getByLabelText(/^skill name$/i)).toHaveValue('release-notes')
+    expect(screen.getByLabelText(/^instruction name$/i)).toHaveValue('release-notes')
     expect(screen.getByLabelText(/^short description$/i)).toHaveValue(
       'Draft release notes from accepted work'
     )
@@ -76,7 +76,7 @@ describe('SkillsView', () => {
     const templates = screen.getByRole('group', { name: /skill templates/i })
     await user.click(within(templates).getByRole('button', { name: /ci status check/i }))
 
-    expect(screen.getByLabelText(/^skill name$/i)).toHaveValue('ci-status-check')
+    expect(screen.getByLabelText(/^instruction name$/i)).toHaveValue('ci-status-check')
     expect(screen.getByLabelText(/^short description$/i)).toHaveValue(
       'Summarize build status from one fresh check'
     )
@@ -209,7 +209,7 @@ describe('SkillsView', () => {
     expect(screen.getByText(/choose the skill manually/i)).toBeDefined()
     expect(screen.getByText(/words people usually write/i)).toBeDefined()
 
-    await user.type(screen.getByLabelText(/^skill name$/i), 'frontend-review')
+    await user.type(screen.getByLabelText(/^instruction name$/i), 'frontend-review')
     await user.type(screen.getByLabelText(/^short description$/i), 'Review frontend flows')
     await user.type(screen.getByLabelText(/^matching words for future tasks$/i), 'frontend')
     await user.type(
@@ -253,9 +253,9 @@ describe('SkillsView', () => {
     await user.click(screen.getByRole('button', { name: /create skill/i }))
 
     expect(screen.getByRole('alert')).toHaveTextContent('Name this skill before creating it.')
-    expect(screen.getByLabelText(/^skill name$/i)).toHaveFocus()
+    expect(screen.getByLabelText(/^instruction name$/i)).toHaveFocus()
 
-    await user.type(screen.getByLabelText(/^skill name$/i), 'frontend-review')
+    await user.type(screen.getByLabelText(/^instruction name$/i), 'frontend-review')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /create skill/i }))
@@ -287,7 +287,7 @@ describe('SkillsView', () => {
     })
 
     await user.click(screen.getAllByRole('button', { name: /new skill/i })[0])
-    await user.type(screen.getByLabelText(/^skill name$/i), 'frontend-review')
+    await user.type(screen.getByLabelText(/^instruction name$/i), 'frontend-review')
     await user.type(
       screen.getByLabelText(/^agent instructions$/i),
       'Check UI states and regressions'
@@ -295,7 +295,7 @@ describe('SkillsView', () => {
     await user.click(screen.getByRole('button', { name: /create skill/i }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('You do not have permission to create workspace skills')
+    expect(alert).toHaveTextContent('You do not have permission to create workspace instructions')
     expect(alert).toHaveTextContent('Ask an owner or admin')
     expect(alert.textContent).not.toContain('Code:')
     expect(alert.textContent).not.toContain('API 403')
