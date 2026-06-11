@@ -346,8 +346,8 @@ export const zh: TranslationKeys = {
   // 提示输入
   // =========================================================================
   prompt: {
-    placeholder: '在此输入提示...',
-    placeholderShort: '输入提示...',
+    placeholder: '输入一条给 Agent 的指令...',
+    placeholderShort: '输入一条指令...',
     send: '发送',
     sending: '发送中...',
     cancel: '取消',
@@ -360,7 +360,7 @@ export const zh: TranslationKeys = {
     processing: '处理中...',
     characterCount: '{{count}} / {{max}} 字符',
     characterLimitWarning: '接近字符限制',
-    emptyPrompt: '请输入提示',
+    emptyPrompt: '请先输入一条指令。',
     selectAgent: '请先选择一个 Agent',
     noAgentSelected: '未选择 Agent',
     multipleAgentsSelected: '已选择 {{count}} 个 Agent',

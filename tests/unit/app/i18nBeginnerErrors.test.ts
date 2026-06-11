@@ -71,6 +71,21 @@ describe('beginner error translations', () => {
     expect(zh.skills.detail.unknownAuthor).toContain('暂未列出')
   })
 
+  test('shared instruction input copy avoids prompt jargon', () => {
+    expect(en.prompt.placeholder).toBe('Type one instruction for the agent...')
+    expect(en.prompt.placeholderShort).toBe('Type an instruction...')
+    expect(en.prompt.emptyPrompt).toBe('Type an instruction before sending.')
+    expect(en.prompt.selectAgent).toBe('Choose an agent first.')
+    expect(JSON.stringify(en.prompt)).not.toContain('Type your prompt')
+    expect(JSON.stringify(en.prompt)).not.toContain('Please select a agent')
+
+    expect(zh.prompt.placeholder).toBe('输入一条给 Agent 的指令...')
+    expect(zh.prompt.placeholderShort).toBe('输入一条指令...')
+    expect(zh.prompt.emptyPrompt).toBe('请先输入一条指令。')
+    expect(JSON.stringify(zh.prompt)).not.toContain('输入提示')
+    expect(JSON.stringify(zh.prompt)).not.toContain('请输入提示')
+  })
+
   test('getting started reuse copy explains saved instructions without expert terms', () => {
     expect(en.gettingStarted.readyDetail).toContain('review saved instructions')
     expect(en.gettingStarted.steps.reuse.title).toBe('Reuse what worked')

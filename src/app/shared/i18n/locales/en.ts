@@ -351,8 +351,8 @@ export const en = {
   // Prompt Input
   // =========================================================================
   prompt: {
-    placeholder: 'Type your prompt here...',
-    placeholderShort: 'Type a prompt...',
+    placeholder: 'Type one instruction for the agent...',
+    placeholderShort: 'Type an instruction...',
     send: 'Send',
     sending: 'Sending...',
     cancel: 'Cancel',
@@ -365,8 +365,8 @@ export const en = {
     processing: 'Processing...',
     characterCount: '{{count}} / {{max}} characters',
     characterLimitWarning: 'Approaching character limit',
-    emptyPrompt: 'Please enter a prompt',
-    selectAgent: 'Please select a agent first',
+    emptyPrompt: 'Type an instruction before sending.',
+    selectAgent: 'Choose an agent first.',
     noAgentSelected: 'No agent selected',
     multipleAgentsSelected: '{{count}} agents selected',
     shortcuts: {
