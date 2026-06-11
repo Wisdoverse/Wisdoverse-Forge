@@ -13,6 +13,7 @@ const CACHE_VERSION = 1
 const DEFAULT_CACHE_TTL_SECONDS = 900
 const DEFAULT_REFRESH_COOLDOWN_SECONDS = 60
 const DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS = 60
+const MIN_MONITOR_CACHE_TTL_SECONDS = DEFAULT_CACHE_TTL_SECONDS
 
 const GH_FIELDS = [
   'autoMergeRequest',
@@ -59,6 +60,7 @@ function parseArgs(args) {
     json: false,
     limit: 120,
     minRemoteReadIntervalSeconds: DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS,
+    monitor: false,
     noCache: false,
     refresh: false,
     refreshCooldownSeconds: DEFAULT_REFRESH_COOLDOWN_SECONDS,
@@ -73,6 +75,9 @@ function parseArgs(args) {
     } else if (arg === '--json') {
       options.json = true
     } else if (arg === '--fail-on-action') {
+      options.failOnAction = true
+    } else if (arg === '--monitor') {
+      options.monitor = true
       options.failOnAction = true
     } else if (arg === '--refresh') {
       options.refresh = true
@@ -121,7 +126,48 @@ function parseArgs(args) {
     }
   }
 
+  enforceMonitorSnapshotMode(options)
+
   return options
+}
+
+function enforceMonitorSnapshotMode(options) {
+  const errors = getMonitorSnapshotModeErrors(options)
+  if (errors.length > 0) {
+    throwUsageError(errors.join(' '))
+  }
+}
+
+function getMonitorSnapshotModeErrors(options) {
+  if (!options.monitor) return []
+
+  const errors = []
+  if (options.refresh || options.forceRefresh) {
+    errors.push(
+      '--monitor cannot use refresh flags; it must let the cache decide when to read GitHub.'
+    )
+  }
+  if (options.noCache) {
+    errors.push(
+      '--monitor cannot use --no-cache because monitoring must keep repeat-read protection.'
+    )
+  }
+  if (options.allowRepeatRemoteRead) {
+    errors.push(
+      '--monitor cannot use --allow-repeat-remote-read because monitoring must not bypass the guard.'
+    )
+  }
+  if (options.cacheTtlSeconds < MIN_MONITOR_CACHE_TTL_SECONDS) {
+    errors.push(
+      `--monitor requires --cache-ttl-seconds >= ${MIN_MONITOR_CACHE_TTL_SECONDS} to avoid frequent remote checks.`
+    )
+  }
+  if (options.minRemoteReadIntervalSeconds < DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS) {
+    errors.push(
+      `--monitor requires --min-remote-read-interval-seconds >= ${DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS}.`
+    )
+  }
+  return errors
 }
 
 function readPullRequestSnapshot(options, now = Date.now()) {
@@ -391,6 +437,7 @@ Options:
   --state <state>    open, closed, or all. Default: open
   --refresh          Query GitHub unless the latest snapshot is inside the refresh cooldown
   --force-refresh    Bypass the refresh cooldown, but keep the repeat-read guard
+  --monitor          Snapshot-only automation mode; fail only on ACTION and reject refresh bypasses
   --no-cache         Query GitHub and do not read or write the local cache; requires --allow-repeat-remote-read
   --allow-repeat-remote-read
                      Permit an immediate uncached or forced GitHub read for a one-time manual check
@@ -426,6 +473,7 @@ export {
   DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS,
   DEFAULT_REFRESH_COOLDOWN_SECONDS,
   formatCacheNotice,
+  getMonitorSnapshotModeErrors,
   isRepeatRemoteReadSuppressed,
   isUsableCacheEntry,
   isReusableCacheEntry,

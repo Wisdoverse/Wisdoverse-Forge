@@ -152,6 +152,12 @@ fix. It uses the same 15-minute snapshot reuse window as the quick check, so a
 monitor scheduled too frequently still reads cached state instead of repeatedly
 calling GitHub.
 
+The monitor command also rejects refresh bypasses such as `--refresh`,
+`--force-refresh`, `--no-cache`, `--allow-repeat-remote-read`, or a cache window
+shorter than 15 minutes. If you need an immediate one-time answer, run the
+manual refresh command from the previous section instead of changing the
+scheduled monitor.
+
 ## Offline Review
 
 The script can read a saved `gh pr list` JSON file:

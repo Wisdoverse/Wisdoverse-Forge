@@ -10,6 +10,7 @@ import {
   DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS,
   DEFAULT_REFRESH_COOLDOWN_SECONDS,
   formatCacheNotice,
+  getMonitorSnapshotModeErrors,
   isRepeatRemoteReadSuppressed,
   isReusableCacheEntry,
   isUsableCacheEntry,
@@ -107,6 +108,7 @@ describe('PR status summary', () => {
       allowRepeatRemoteRead: false,
       forceRefresh: false,
       minRemoteReadIntervalSeconds: DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS,
+      monitor: false,
       noCache: false,
       refresh: false,
       refreshCooldownSeconds: DEFAULT_REFRESH_COOLDOWN_SECONDS,
@@ -121,6 +123,40 @@ describe('PR status summary', () => {
       forceRefresh: true,
       refresh: true,
     })
+  })
+
+  it('uses snapshot-only defaults for monitor mode', () => {
+    const options = parseArgs(['--monitor'])
+
+    expect(options).toMatchObject({
+      cacheTtlSeconds: 900,
+      failOnAction: true,
+      minRemoteReadIntervalSeconds: DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS,
+      monitor: true,
+      noCache: false,
+      refresh: false,
+    })
+    expect(getMonitorSnapshotModeErrors(options)).toEqual([])
+  })
+
+  it('rejects refresh bypasses in monitor mode', () => {
+    const options = parseArgs(['--monitor'])
+
+    expect(getMonitorSnapshotModeErrors({ ...options, refresh: true })).toContain(
+      '--monitor cannot use refresh flags; it must let the cache decide when to read GitHub.'
+    )
+    expect(getMonitorSnapshotModeErrors({ ...options, noCache: true })).toContain(
+      '--monitor cannot use --no-cache because monitoring must keep repeat-read protection.'
+    )
+    expect(getMonitorSnapshotModeErrors({ ...options, allowRepeatRemoteRead: true })).toContain(
+      '--monitor cannot use --allow-repeat-remote-read because monitoring must not bypass the guard.'
+    )
+    expect(getMonitorSnapshotModeErrors({ ...options, cacheTtlSeconds: 300 })).toContain(
+      '--monitor requires --cache-ttl-seconds >= 900 to avoid frequent remote checks.'
+    )
+    expect(getMonitorSnapshotModeErrors({ ...options, minRemoteReadIntervalSeconds: 0 })).toContain(
+      '--monitor requires --min-remote-read-interval-seconds >= 60.'
+    )
   })
 
   it('keeps a repeat-read guard even for forced refreshes', () => {
