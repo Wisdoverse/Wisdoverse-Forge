@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { CliImagesPanel } from '@app/features/admin/CliImagesPanel'
-import { useAdminStore, type CliImageStatus } from '@app/shared/model/admin.store'
+import {
+  useAdminStore,
+  type CliImageStatus,
+  type CliImageTool,
+} from '@app/shared/model/admin.store'
 
 const originalAdminState = useAdminStore.getState()
 
@@ -11,9 +15,29 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+/** A claude row in the local-build contract (no digests; npm versions). */
+function claudeTool(overrides: Partial<CliImageTool> = {}): CliImageTool {
+  return {
+    tool: 'claude',
+    state: 'update_available',
+    updateMode: 'local_build',
+    localDigest: null,
+    remoteDigest: null,
+    localVersion: '2.1.100',
+    remoteVersion: '2.1.173',
+    building: false,
+    lastCheckedUnix: Math.floor(Date.now() / 1000) - 30,
+    lastUpdatedUnix: null,
+    lastError: null,
+    agentsWithContainer: 0,
+    ...overrides,
+  }
+}
+
 function sampleStatus(overrides: Partial<CliImageStatus> = {}): CliImageStatus {
   return {
     autoUpdateEnabled: true,
+    claudeAutoBuildEnabled: false,
     pollIntervalSecs: 900,
     registry: 'ghcr.io/wisdoverse/wisdoverse-forge',
     imageTag: 'latest',
@@ -21,8 +45,12 @@ function sampleStatus(overrides: Partial<CliImageStatus> = {}): CliImageStatus {
       {
         tool: 'codex',
         state: 'up_to_date',
+        updateMode: 'registry',
         localDigest: 'sha256:aaaaaaaaaaaa1111',
         remoteDigest: 'sha256:aaaaaaaaaaaa1111',
+        localVersion: null,
+        remoteVersion: null,
+        building: false,
         lastCheckedUnix: Math.floor(Date.now() / 1000) - 30,
         lastUpdatedUnix: null,
         lastError: null,
@@ -31,8 +59,12 @@ function sampleStatus(overrides: Partial<CliImageStatus> = {}): CliImageStatus {
       {
         tool: 'gemini',
         state: 'failed',
+        updateMode: 'registry',
         localDigest: null,
         remoteDigest: null,
+        localVersion: null,
+        remoteVersion: null,
+        building: false,
         lastCheckedUnix: Math.floor(Date.now() / 1000) - 120,
         lastUpdatedUnix: null,
         lastError: 'registry timeout',
@@ -166,8 +198,12 @@ describe('CliImagesPanel', () => {
           {
             tool: 'codex',
             state: 'pending',
+            updateMode: 'registry',
             localDigest: null,
             remoteDigest: null,
+            localVersion: null,
+            remoteVersion: null,
+            building: false,
             lastCheckedUnix: null,
             lastUpdatedUnix: null,
             lastError: null,
@@ -308,5 +344,150 @@ describe('CliImagesPanel', () => {
     render(<CliImagesPanel />)
     expect(screen.getByText(/The roll could not be started/i)).toBeDefined()
     expect(screen.getByText(/already in progress/)).toBeDefined()
+  })
+
+  // --------------------------------------------------------------------
+  // claude local build
+  // --------------------------------------------------------------------
+
+  test('claude row shows the local-build chip, versions, and a one-click build', () => {
+    const buildClaudeImage = vi.fn()
+    useAdminStore.setState({
+      ...originalAdminState,
+      cliImages: sampleStatus({ tools: [claudeTool()] }),
+      cliImagesLoading: false,
+      cliImagesError: null,
+      loadCliImages: vi.fn(),
+      buildClaudeImage,
+    })
+
+    render(<CliImagesPanel />)
+
+    expect(screen.getByText('Local build')).toBeDefined()
+    expect(screen.getByText('Update available')).toBeDefined()
+    // installed vs latest, in plain versions (claude has no registry digests).
+    expect(screen.getByText(/installed: v2\.1\.100/)).toBeDefined()
+    expect(screen.getByText(/latest on npm: v2\.1\.173/)).toBeDefined()
+
+    // ONE click builds — no confirm step (image-level, agents untouched).
+    const build = screen.getByRole('button', { name: 'Build v2.1.173' })
+    fireEvent.click(build)
+    expect(buildClaudeImage).toHaveBeenCalledOnce()
+  })
+
+  test('claude row disables the build button with a progress label while building', () => {
+    useAdminStore.setState({
+      ...originalAdminState,
+      cliImages: sampleStatus({ tools: [claudeTool({ building: true })] }),
+      cliImagesLoading: false,
+      cliImagesError: null,
+      loadCliImages: vi.fn(),
+    })
+
+    render(<CliImagesPanel />)
+
+    expect(screen.getByRole('button', { name: 'Building…' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /Build v/ })).toBeNull()
+    expect(screen.getByText(/usually a few minutes/i)).toBeDefined()
+  })
+
+  test('claude row notes when auto-build is on and hides the roll control', () => {
+    useAdminStore.setState({
+      ...originalAdminState,
+      cliImages: sampleStatus({
+        claudeAutoBuildEnabled: true,
+        // claude has live agents, but local-build tools are not rollable.
+        tools: [claudeTool({ agentsWithContainer: 3 })],
+      }),
+      cliImagesLoading: false,
+      cliImagesError: null,
+      loadCliImages: vi.fn(),
+    })
+
+    render(<CliImagesPanel />)
+
+    expect(screen.getByText(/Auto-build on/)).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Roll onto new image' })).toBeNull()
+  })
+
+  test('claude up to date shows no build button', () => {
+    useAdminStore.setState({
+      ...originalAdminState,
+      cliImages: sampleStatus({
+        tools: [claudeTool({ state: 'up_to_date', localVersion: '2.1.173' })],
+      }),
+      cliImagesLoading: false,
+      cliImagesError: null,
+      loadCliImages: vi.fn(),
+    })
+
+    render(<CliImagesPanel />)
+
+    expect(screen.getByText('Up to date')).toBeDefined()
+    expect(screen.queryByRole('button', { name: /Build/ })).toBeNull()
+  })
+
+  test('claude never-checked still offers Build latest (works with checks off)', () => {
+    // With auto-update off nothing ever flips claude to update_available — the
+    // build endpoint resolves npm itself, so the row must still offer a build.
+    const buildClaudeImage = vi.fn()
+    useAdminStore.setState({
+      ...originalAdminState,
+      cliImages: sampleStatus({
+        autoUpdateEnabled: false,
+        tools: [
+          claudeTool({
+            state: 'pending',
+            localVersion: null,
+            remoteVersion: null,
+            lastCheckedUnix: null,
+          }),
+        ],
+      }),
+      cliImagesLoading: false,
+      cliImagesError: null,
+      loadCliImages: vi.fn(),
+      buildClaudeImage,
+    })
+
+    render(<CliImagesPanel />)
+
+    const build = screen.getByRole('button', { name: 'Build latest' })
+    fireEvent.click(build)
+    expect(buildClaudeImage).toHaveBeenCalledOnce()
+  })
+
+  test('claude failed check offers a Build latest retry', () => {
+    useAdminStore.setState({
+      ...originalAdminState,
+      cliImages: sampleStatus({
+        tools: [claudeTool({ state: 'failed', lastError: 'npm registry timeout' })],
+      }),
+      cliImagesLoading: false,
+      cliImagesError: null,
+      loadCliImages: vi.fn(),
+    })
+
+    render(<CliImagesPanel />)
+
+    expect(screen.getByText(/npm registry timeout/)).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Build latest' })).toBeDefined()
+  })
+
+  test('surfaces a build error without losing the report', () => {
+    useAdminStore.setState({
+      ...originalAdminState,
+      cliImages: sampleStatus({ tools: [claudeTool()] }),
+      cliImagesLoading: false,
+      cliImagesError: null,
+      loadCliImages: vi.fn(),
+      cliImageBuildError: 'a claude image build is already in progress',
+    })
+
+    render(<CliImagesPanel />)
+    expect(screen.getByText(/The build could not be started/i)).toBeDefined()
+    expect(screen.getByText(/already in progress/)).toBeDefined()
+    // the row still renders for retry.
+    expect(screen.getByRole('button', { name: 'Build v2.1.173' })).toBeDefined()
   })
 })

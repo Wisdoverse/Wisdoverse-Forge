@@ -12,8 +12,10 @@
 //! - `GET    /api/v1/admin/stats`              — system stats
 //! - `GET    /api/v1/admin/cli-images`         — CLI agent-image updater status
 //! - `POST   /api/v1/admin/cli-images/:tool/roll` — roll running agents of a tool
+//! - `POST   /api/v1/admin/cli-images/:tool/build` — build the claude image locally
 
 use axum::extract::{Path, Query, State};
+use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::Deserialize;
@@ -29,6 +31,7 @@ use crate::services::admin::{
     admin_user_list_response,
 };
 use crate::services::cli_image::cli_image_status_response;
+use crate::services::cli_image_build::{LocalBuildToolPolicy, cli_image_build_response};
 use crate::services::cli_image_roll::{RollToolPolicy, cli_image_roll_response};
 
 /// Query parameters for paginated admin endpoints.
@@ -284,6 +287,29 @@ async fn roll_cli_image(
     Ok(Json(cli_image_roll_response(report)))
 }
 
+/// `POST /api/v1/admin/cli-images/{tool}/build` — build the `claude` agent
+/// image locally on this server (claude has no public registry image; its
+/// license requires a self-build). NON-destructive to agents: image-level
+/// only, running agents are untouched — the NEXT spawn picks up the new image.
+/// Answers `202 { ok, started, targetVersion }` and runs the docker build in
+/// the background; progress + outcome land in the status report and the admin
+/// toast. Admin-gated. A non-claude/unknown tool → 422, a build already in
+/// flight → 409, container runtime or npm registry unavailable → 503 (nothing
+/// started).
+async fn build_cli_image(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(tool): Path<String>,
+) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
+    AdminService::require_admin(&auth.role)?;
+    // Defense-in-depth: reject non-claude at the route too (the service
+    // re-checks). 422, not 404 — the path matched; the tool is just not built
+    // locally.
+    LocalBuildToolPolicy::ensure_local_buildable(&tool)?;
+    let target_version = state.cli_image_build_service().start_build(&tool).await?;
+    Ok((StatusCode::ACCEPTED, Json(cli_image_build_response(&target_version))))
+}
+
 /// Build admin routes sub-router.
 pub fn admin_routes() -> Router<AppState> {
     Router::new()
@@ -297,6 +323,7 @@ pub fn admin_routes() -> Router<AppState> {
         .route("/admin/stats", get(get_stats))
         .route("/admin/cli-images", get(list_cli_image_status))
         .route("/admin/cli-images/{tool}/roll", post(roll_cli_image))
+        .route("/admin/cli-images/{tool}/build", post(build_cli_image))
 }
 
 #[cfg(test)]

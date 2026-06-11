@@ -21,6 +21,9 @@ chrono.workspace = true
 uuid.workspace = true
 anyhow.workspace = true
 metrics.workspace = true
+# npm "latest" lookup for the claude local-build detector (no public registry
+# image, so version drift is detected against the npm registry instead).
+reqwest.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }

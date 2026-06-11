@@ -43,9 +43,11 @@ pub mod worker;
 
 pub use auth_lookup::{AgentNatsIdentity, NatsConnectPasswordLookup, SqlxNatsConnectPasswordLookup};
 pub use cli_image_updater::{
+    CLAUDE_NPM_PACKAGE, CLAUDE_OVERLAY_DOCKERFILE, CLAUDE_VERSION_LABEL, ClaudeBuildContext, ClaudeBuildSlot,
     CliImagePruneSummary, CliImageUpdateStatus, CliImageUpdater, CliToolImageState,
-    DEFAULT_INTERVAL as CLI_IMAGE_UPDATE_DEFAULT_INTERVAL, configured_image_tag, configured_registry,
-    effective_interval_secs, pollable_tool_names,
+    DEFAULT_INTERVAL as CLI_IMAGE_UPDATE_DEFAULT_INTERVAL, DEFAULT_NPM_REGISTRY, UPDATE_MODE_LOCAL_BUILD,
+    UPDATE_MODE_REGISTRY, build_claude_overlay, configured_image_tag, configured_registry, effective_interval_secs,
+    execute_claude_build, fetch_claude_latest_version, pollable_tool_names, reported_tool_names, update_mode_for,
 };
 pub use credential_consumer::{
     AgentOwner, AgentOwnerLookup, CredentialStreamWorker, CredentialWriter, HandleError as CredentialHandleError,

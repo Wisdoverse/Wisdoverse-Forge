@@ -1,19 +1,21 @@
-//! Image operations: pull, digest inspection (local + remote), re-tag.
+//! Image operations: pull, digest/label inspection (local + remote), re-tag,
+//! and a Dockerfile-only `docker build`.
 //!
 //! Used by the deployment-side CLI agent-image auto-updater to detect when a
 //! Container CLI overlay (`agent-<tool>:latest`) has a newer manifest on the
-//! registry and to refresh the local image the runtime spawns from. All four
-//! operations are image-level only — they NEVER create a container, build a
-//! `HostConfig`, or touch `security.rs`, so the container-creation
-//! defense-in-depth is unaffected.
+//! registry and to refresh the local image the runtime spawns from, and by the
+//! claude local-build path (no public registry image) to build the overlay
+//! server-side. All operations are image-level only — they NEVER create a
+//! container, build a `HostConfig`, or touch `security.rs`, so the
+//! container-creation defense-in-depth is unaffected.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use bollard::auth::DockerCredentials;
 use bollard::models::ImageInspect;
 use bollard::query_parameters::{
-    CreateImageOptionsBuilder, ListContainersOptionsBuilder, ListImagesOptionsBuilder, RemoveImageOptionsBuilder,
-    TagImageOptionsBuilder,
+    BuildImageOptionsBuilder, CreateImageOptionsBuilder, ListContainersOptionsBuilder, ListImagesOptionsBuilder,
+    RemoveImageOptionsBuilder, TagImageOptionsBuilder,
 };
 use futures_util::StreamExt;
 
@@ -110,6 +112,62 @@ impl DockerClient {
         self.inner().tag_image(source_ref, Some(options)).await.map_err(PlatformError::Docker)
     }
 
+    /// The `Config.Labels` map of a locally-present image, or `Ok(None)` when
+    /// the image does not exist on this host. Used by the claude local-build
+    /// detector to read the baked `org.agentforge.cli-version` label without
+    /// the caller hand-rolling missing-image error classification.
+    pub async fn image_labels(&self, image_ref: &str) -> Result<Option<HashMap<String, String>>, PlatformError> {
+        match self.inner().inspect_image(image_ref).await {
+            Ok(info) => Ok(Some(info.config.and_then(|config| config.labels).unwrap_or_default())),
+            Err(err) => {
+                let platform_err = PlatformError::Docker(err);
+                if platform_err.is_missing_image() || platform_err.is_not_found() {
+                    Ok(None)
+                } else {
+                    Err(platform_err)
+                }
+            }
+        }
+    }
+
+    /// Whether `image_ref` exists locally. Same not-found classification as
+    /// [`Self::image_labels`]; any other daemon error propagates.
+    pub async fn image_exists(&self, image_ref: &str) -> Result<bool, PlatformError> {
+        Ok(self.image_labels(image_ref).await?.is_some())
+    }
+
+    /// Build an image from an in-memory, Dockerfile-only build context and tag
+    /// it `tag`. The context tar contains a single `Dockerfile` entry — no host
+    /// directory is ever sent to the daemon — and `build_args` map onto the
+    /// Dockerfile's `ARG`s. The progress stream is drained fully and any
+    /// in-stream daemon error (`errorDetail` frame) is surfaced as
+    /// [`PlatformError::Build`], so `Ok(())` means the image really landed.
+    pub async fn build_image_from_dockerfile(
+        &self,
+        dockerfile: &str,
+        tag: &str,
+        build_args: &HashMap<String, String>,
+    ) -> Result<(), PlatformError> {
+        let context = dockerfile_tar_context(dockerfile)?;
+        let options = BuildImageOptionsBuilder::default()
+            .dockerfile("Dockerfile")
+            .t(tag)
+            .rm(true)
+            .forcerm(true)
+            .buildargs(build_args)
+            .build();
+        let mut stream = self.inner().build_image(options, None, Some(bollard::body_full(context.into())));
+        while let Some(item) = stream.next().await {
+            let info = item.map_err(|err| PlatformError::Build(err.to_string()))?;
+            // The classic builder reports failures as in-stream `errorDetail`
+            // JSON frames, not transport errors — check that surface explicitly.
+            if let Some(detail) = info.error_detail.and_then(|d| d.message).filter(|m| !m.is_empty()) {
+                return Err(PlatformError::Build(detail));
+            }
+        }
+        Ok(())
+    }
+
     /// The set of image content-ids (`sha256:...`) referenced by ANY container,
     /// running OR stopped (`all=true`). The prune path subtracts this set so an
     /// image a stopped container could restart from is never removed.
@@ -161,6 +219,24 @@ impl DockerClient {
     }
 }
 
+/// Serialize a single-entry (`Dockerfile`) uncompressed tar archive in memory,
+/// the minimal build context `POST /build` accepts. Identity encoding — the
+/// daemon also accepts gzip/bzip2/xz, but compressing a <2 KB Dockerfile buys
+/// nothing.
+fn dockerfile_tar_context(dockerfile: &str) -> Result<Vec<u8>, PlatformError> {
+    let bytes = dockerfile.as_bytes();
+    let mut header = tar::Header::new_gnu();
+    header.set_size(bytes.len() as u64);
+    header.set_mode(0o644);
+    header.set_cksum();
+
+    let mut builder = tar::Builder::new(Vec::new());
+    builder
+        .append_data(&mut header, "Dockerfile", bytes)
+        .map_err(|err| PlatformError::Build(format!("tar context: {err}")))?;
+    builder.into_inner().map_err(|err| PlatformError::Build(format!("tar context: {err}")))
+}
+
 /// Split a `repo[:tag]` reference into `(repo, tag)`, defaulting the tag to
 /// `latest`. A `:` that appears before a `/` is a registry `host:port`, not a
 /// tag, so only a `:` in the final path segment counts as the tag separator.
@@ -196,6 +272,26 @@ mod tests {
         // host:port present, tag absent -> the port is NOT mistaken for a tag.
         assert_eq!(split_image_ref("registry:5000/agent-codex"), ("registry:5000/agent-codex".into(), "latest".into()));
         assert_eq!(split_image_ref("agent-codex"), ("agent-codex".into(), "latest".into()));
+    }
+
+    #[test]
+    fn dockerfile_tar_context_contains_single_dockerfile_entry() {
+        let content = "FROM scratch\nLABEL x=y\n";
+        let archive = dockerfile_tar_context(content).expect("tar build");
+
+        let mut entries = tar::Archive::new(archive.as_slice());
+        let mut found = Vec::new();
+        for entry in entries.entries().expect("entries") {
+            let mut entry = entry.expect("entry");
+            let path = entry.path().expect("path").to_string_lossy().to_string();
+            let mut body = String::new();
+            use std::io::Read;
+            entry.read_to_string(&mut body).expect("read entry");
+            found.push((path, body));
+        }
+        assert_eq!(found.len(), 1, "exactly one entry — no host context is ever sent");
+        assert_eq!(found[0].0, "Dockerfile");
+        assert_eq!(found[0].1, content);
     }
 
     #[test]

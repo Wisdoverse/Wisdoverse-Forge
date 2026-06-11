@@ -77,15 +77,29 @@ export interface SystemHealth {
 /**
  * One Container CLI tool's image-update state, as returned per-tool by
  * `GET /api/v1/admin/cli-images`. `pending` means the auto-updater has not yet
- * run a check for this tool (it is off by default).
+ * run a check for this tool (it is off by default). `update_available` is
+ * claude-only: a newer npm version exists and can be built locally.
  */
-export type CliImageToolState = 'pending' | 'up_to_date' | 'updated' | 'failed'
+export type CliImageToolState = 'pending' | 'up_to_date' | 'update_available' | 'updated' | 'failed'
+
+/**
+ * How a tool's image is kept current: pulled from a public registry, or built
+ * locally on the server (claude — its license forbids a public image).
+ */
+export type CliImageUpdateMode = 'registry' | 'local_build'
 
 export interface CliImageTool {
   tool: string
   state: CliImageToolState
+  updateMode: CliImageUpdateMode
   localDigest: string | null
   remoteDigest: string | null
+  /** Local-build tools: version baked into the local image (null = unknown). */
+  localVersion: string | null
+  /** Local-build tools: latest version published on npm. */
+  remoteVersion: string | null
+  /** True while a server-side local build is running for this tool. */
+  building: boolean
   lastCheckedUnix: number | null
   lastUpdatedUnix: number | null
   lastError: string | null
@@ -138,6 +152,8 @@ export interface CliImageRollReport {
 /** Full report from `GET /api/v1/admin/cli-images`. */
 export interface CliImageStatus {
   autoUpdateEnabled: boolean
+  /** Whether the sweep auto-builds the claude image (zero clicks). */
+  claudeAutoBuildEnabled: boolean
   pollIntervalSecs: number
   registry: string
   imageTag: string
@@ -184,6 +200,9 @@ interface AdminState {
   cliImageRollResult: CliImageRollReport | null
   cliImageRollError: string | null
 
+  // claude local image build (image-level; never touches running agents)
+  cliImageBuildError: string | null
+
   // Actions
   setActiveSection: (section: AdminSection) => void
   setUserSearch: (search: string) => void
@@ -205,9 +224,11 @@ interface AdminState {
    */
   applyCliImageUpdate: (update: {
     tool: string
-    state: 'updated' | 'failed'
+    state: 'updated' | 'failed' | 'update_available'
     localDigest: string | null
     remoteDigest: string | null
+    localVersion?: string | null
+    remoteVersion?: string | null
     lastError: string | null
     unix: number
   }) => void
@@ -217,6 +238,14 @@ interface AdminState {
    * the per-agent report or an error; refreshes the status report afterward.
    */
   rollCliImage: (tool: string) => Promise<void>
+  /**
+   * Start a server-side build of the claude agent image (claude has no public
+   * registry image). Optimistically marks the claude row as building — the 30s
+   * poll (or the completion toast) corrects it. Resolves `true` when the build
+   * was accepted (202), `false` on any error (which lands in
+   * `cliImageBuildError`). Image-level only; running agents are untouched.
+   */
+  buildClaudeImage: () => Promise<boolean>
 }
 
 type AdminResource = 'users' | 'organizations' | 'agents' | 'health' | 'cli-images'
@@ -351,6 +380,8 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   cliImageRollingTool: null,
   cliImageRollResult: null,
   cliImageRollError: null,
+
+  cliImageBuildError: null,
 
   setActiveSection: (activeSection) => set({ activeSection }),
   setUserSearch: (userSearch) => set({ userSearch }),
@@ -531,6 +562,11 @@ export const useAdminStore = create<AdminState>((set, get) => ({
               state: update.state,
               localDigest: update.localDigest,
               remoteDigest: update.remoteDigest,
+              localVersion: update.localVersion ?? t.localVersion,
+              remoteVersion: update.remoteVersion ?? t.remoteVersion,
+              // `updated`/`failed` are build/check outcomes — the build (if
+              // any) is over. `update_available` leaves an in-flight flag as-is.
+              building: update.state === 'update_available' ? t.building : false,
               lastError: update.lastError,
               lastCheckedUnix: update.unix,
               lastUpdatedUnix: update.state === 'updated' ? update.unix : t.lastUpdatedUnix,
@@ -562,6 +598,40 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       await get().loadCliImages()
     } catch (err) {
       set({ cliImageRollingTool: null, cliImageRollError: adminErrorMessage(err, 'cli-images') })
+    }
+  },
+
+  buildClaudeImage: async () => {
+    const patchClaudeBuilding = (building: boolean) =>
+      set((s) => {
+        if (!s.cliImages) return {}
+        const tools = s.cliImages.tools.map((t) => (t.tool === 'claude' ? { ...t, building } : t))
+        return { cliImages: { ...s.cliImages, tools } }
+      })
+
+    set({ cliImageBuildError: null })
+    // Optimistic: show "building" immediately; the 30s poll refresh (or the
+    // completion toast) carries the server's real state afterward.
+    patchClaudeBuilding(true)
+    try {
+      const res = await adminFetch('/api/v1/admin/cli-images/claude/build', { method: 'POST' })
+      const body = (await res.json().catch(() => null)) as {
+        ok?: boolean
+        started?: boolean
+        targetVersion?: string
+      } | null
+      if (!res.ok || !body || body.ok === false) {
+        throw userFacingError(
+          adminHttpErrorMessage('cli-images', res.status, (body ?? {}) as Record<string, unknown>)
+        )
+      }
+      return true
+    } catch (err) {
+      // The build did not start — roll the optimistic flag back so the Build
+      // button unlocks, and explain what happened.
+      patchClaudeBuilding(false)
+      set({ cliImageBuildError: adminErrorMessage(err, 'cli-images') })
+      return false
     }
   },
 }))

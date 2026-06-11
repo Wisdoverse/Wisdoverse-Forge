@@ -110,8 +110,10 @@ async fn non_admin_is_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-/// An admin sees the canonical pollable tool set, every tool `pending` (worker
-/// off in tests), and the auto-update flag reported as off.
+/// An admin sees every reported tool — claude first-class as `local_build`
+/// (never registry-polled; the pull-set exclusion is covered in the jobs
+/// crate), the registry trio as `registry` — every tool `pending` (worker
+/// off in tests), and both update flags reported as off.
 #[sqlx::test(migrations = "../db/migrations")]
 async fn admin_sees_pending_pollable_tools(pool: PgPool) {
     let (org_id, _ws, user_id) = seed_admin_org(&pool).await;
@@ -122,11 +124,19 @@ async fn admin_sees_pending_pollable_tools(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "body: {body}");
     assert_eq!(body["ok"], true);
     assert_eq!(body["data"]["autoUpdateEnabled"], false);
+    assert_eq!(body["data"]["claudeAutoBuildEnabled"], false);
 
     let tools = body["data"]["tools"].as_array().expect("tools array");
     let mut names: Vec<&str> = tools.iter().filter_map(|t| t["tool"].as_str()).collect();
     names.sort();
-    assert_eq!(names, vec!["codex", "gemini", "opencode"], "claude must never be polled: {body}");
+    assert_eq!(names, vec!["claude", "codex", "gemini", "opencode"], "all tools reported: {body}");
+    for tool in tools {
+        let expected_mode = if tool["tool"] == "claude" { "local_build" } else { "registry" };
+        assert_eq!(tool["updateMode"], expected_mode, "update mode per tool: {body}");
+    }
+    let claude = tools.iter().find(|t| t["tool"] == "claude").expect("claude entry");
+    assert_eq!(claude["localDigest"], serde_json::Value::Null, "local-build rows carry no digests: {body}");
+    assert_eq!(claude["building"], false, "no build in flight: {body}");
     assert!(tools.iter().all(|t| t["state"] == "pending"), "no tick ran, all pending: {body}");
     assert!(tools.iter().all(|t| t["agentsWithContainer"] == 0), "no containers seeded: {body}");
 
