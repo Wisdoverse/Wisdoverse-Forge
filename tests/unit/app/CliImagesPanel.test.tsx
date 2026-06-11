@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { CliImagesPanel } from '@app/features/admin/CliImagesPanel'
 import { useAdminStore, type CliImageStatus } from '@app/shared/model/admin.store'
 
 const originalAdminState = useAdminStore.getState()
 
 afterEach(() => {
+  vi.useRealTimers()
   cleanup()
   useAdminStore.setState(originalAdminState, true)
   vi.restoreAllMocks()
@@ -82,6 +83,39 @@ describe('CliImagesPanel', () => {
     expect(screen.queryByText(/registry timeout/i)).toBeNull()
     expect(screen.queryByText(/Reported detail/i)).toBeNull()
     expect(screen.getByText('2 agents are currently using this tool')).toBeDefined()
+  })
+
+  test('uses the saved update cadence and pauses hidden tabs', async () => {
+    vi.useFakeTimers()
+    const loadCliImages = vi.fn()
+    useAdminStore.setState({
+      ...originalAdminState,
+      cliImages: sampleStatus({ pollIntervalSecs: 120 }),
+      cliImagesLoading: false,
+      cliImagesError: null,
+      loadCliImages,
+    })
+
+    render(<CliImagesPanel />)
+
+    expect(loadCliImages).toHaveBeenCalledOnce()
+    expect(screen.getByText(/about every 2 minutes while visible/i)).toBeDefined()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000)
+    })
+    expect(loadCliImages).toHaveBeenCalledOnce()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(90_000)
+    })
+    expect(loadCliImages).toHaveBeenCalledTimes(2)
+
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120_000)
+    })
+    expect(loadCliImages).toHaveBeenCalledTimes(2)
   })
 
   test('shows the prune sweep summary when pruning is enabled', () => {

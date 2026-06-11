@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import { SystemHealth } from '@app/features/admin/SystemHealth'
 import { useAdminStore } from '@app/shared/model/admin.store'
 
 const originalAdminState = useAdminStore.getState()
 
 afterEach(() => {
+  vi.useRealTimers()
   cleanup()
   useAdminStore.setState(originalAdminState, true)
   vi.restoreAllMocks()
@@ -66,6 +67,39 @@ describe('SystemHealth', () => {
     expect(screen.getByText('Unavailable')).toBeDefined()
     expect(screen.getAllByText('Not checked').length).toBeGreaterThan(0)
     expect(screen.getByText(/Service has been running for 2h/i)).toBeDefined()
+  })
+
+  test('pauses automatic checks while the admin page is hidden', async () => {
+    vi.useFakeTimers()
+    const loadHealth = vi.fn()
+    useAdminStore.setState({
+      ...originalAdminState,
+      health: {
+        status: 'healthy',
+        checks: {
+          database: { status: 'up' },
+        },
+      },
+      healthLoading: false,
+      healthError: null,
+      loadHealth,
+    })
+
+    render(<SystemHealth />)
+
+    expect(loadHealth).toHaveBeenCalledOnce()
+    expect(screen.getByText(/every 30 seconds while this page is visible/i)).toBeDefined()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000)
+    })
+    expect(loadHealth).toHaveBeenCalledTimes(2)
+
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000)
+    })
+    expect(loadHealth).toHaveBeenCalledTimes(2)
   })
 
   test('hides raw service error details from readiness rows', async () => {

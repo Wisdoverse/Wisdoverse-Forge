@@ -8,6 +8,8 @@ import {
 } from '@app/shared/model/admin.store'
 import { systemHealthErrorMessage } from './systemHealthErrorMessage'
 
+const SYSTEM_HEALTH_REFRESH_MS = 30_000
+
 // ============================================================================
 // Status badge
 // ============================================================================
@@ -298,8 +300,10 @@ export function SystemHealth() {
 
   useEffect(() => {
     void loadHealth()
-    // Refresh every 30 seconds
-    const interval = setInterval(() => void loadHealth(), 30_000)
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
+      void loadHealth()
+    }, SYSTEM_HEALTH_REFRESH_MS)
     return () => clearInterval(interval)
   }, [loadHealth])
 
@@ -311,7 +315,8 @@ export function SystemHealth() {
         <div>
           <h2 className={uiStyles.sectionTitle}>Service readiness</h2>
           <p className={uiStyles.sectionDescription}>
-            Auto-checks every 30 seconds. Start with anything marked Needs attention or Unavailable.
+            Checks when opened, then every 30 seconds while this page is visible. Hidden tabs pause
+            checks. Start with anything marked Needs attention or Unavailable.
           </p>
         </div>
         <button

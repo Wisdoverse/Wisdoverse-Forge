@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import {
@@ -9,6 +9,9 @@ import {
   type CliImageToolState,
 } from '@app/shared/model/admin.store'
 import { CLI_IMAGE_RECOVERY, cliImageStatusErrorMessage } from './adminErrorCopy'
+
+const MIN_STATUS_REFRESH_MS = 60_000
+const DEFAULT_STATUS_REFRESH_MS = 5 * 60_000
 
 // ============================================================================
 // Presentation helpers
@@ -55,6 +58,18 @@ function relativeTime(unix: number | null): string {
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
   if (seconds < 86_400) return `${Math.floor(seconds / 3600)}h ago`
   return `${Math.floor(seconds / 86_400)}d ago`
+}
+
+function statusRefreshMs(pollIntervalSecs?: number): number {
+  if (!pollIntervalSecs || pollIntervalSecs <= 0) return DEFAULT_STATUS_REFRESH_MS
+  return Math.max(pollIntervalSecs * 1000, MIN_STATUS_REFRESH_MS)
+}
+
+function statusRefreshLabel(ms: number): string {
+  const minutes = Math.max(1, Math.round(ms / 60_000))
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'}`
+  const hours = Math.round(minutes / 60)
+  return `${hours} hour${hours === 1 ? '' : 's'}`
 }
 
 function toolLabel(tool: string): string {
@@ -335,12 +350,24 @@ export function CliImagesPanel() {
     cliImageRollError,
   } = useAdminStore()
   const [confirmTool, setConfirmTool] = useState<string | null>(null)
+  const refreshMs = useMemo(
+    () => statusRefreshMs(cliImages?.pollIntervalSecs),
+    [cliImages?.pollIntervalSecs]
+  )
+  const refreshLabel = statusRefreshLabel(refreshMs)
+  const firstLoadRequestedRef = useRef(false)
 
   useEffect(() => {
-    void loadCliImages()
-    const interval = setInterval(() => void loadCliImages(), 30_000)
+    if (!firstLoadRequestedRef.current) {
+      firstLoadRequestedRef.current = true
+      void loadCliImages()
+    }
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
+      void loadCliImages()
+    }, refreshMs)
     return () => clearInterval(interval)
-  }, [loadCliImages])
+  }, [loadCliImages, refreshMs])
 
   const rollControlFor = (tool: string): RollControl => ({
     confirming: confirmTool === tool,
@@ -360,7 +387,8 @@ export function CliImagesPanel() {
           <h2 className={uiStyles.sectionTitle}>Agent tool updates</h2>
           <p className={uiStyles.sectionDescription}>
             Shows whether each agent tool package is up to date. New agents use the latest checked
-            package. Refreshes every 30 seconds.
+            package. This page checks when opened, then about every {refreshLabel} while visible.
+            Hidden tabs pause checks.
           </p>
         </div>
         <button
