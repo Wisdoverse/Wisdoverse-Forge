@@ -17,9 +17,9 @@ export function AgentGroupSelector({
   const disabledHelp = !selectedProjectId
     ? 'Choose a project before selecting a task queue.'
     : groups.length === 0
-      ? 'Create a task queue in Agents > Task Queues before assigning tasks.'
+      ? 'Open Agents, then Task Queues, and create one before assigning tasks.'
       : null
-  const selectTitle = disabledHelp ?? 'Choose the task queue where new tasks will wait.'
+  const selectTitle = disabledHelp ?? 'Choose where new tasks should wait.'
 
   return (
     <div className="hidden items-center gap-2 rounded-full border border-black/[0.08] bg-white p-0.5 pl-3 dark:border-white/[0.1] dark:bg-white/[0.06] md:flex">

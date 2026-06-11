@@ -122,8 +122,8 @@ export function AssignmentReadinessPanel({
             Connect an agent before sending work
           </p>
           <p className="mt-0.5 text-ui-caption leading-snug text-secondary-light dark:text-secondary-dark">
-            Open Agents / Task Queues, choose this task queue, then attach an available agent. Until
-            then, backlog tasks stay in this queue.
+            Open Agents, then Task Queues, choose this task queue, and attach an available agent.
+            Until then, backlog tasks stay here.
           </p>
         </div>
       ) : participants.length > 0 ? (

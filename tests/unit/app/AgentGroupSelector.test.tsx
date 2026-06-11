@@ -7,7 +7,7 @@ afterEach(() => {
   cleanup()
 })
 
-const groups: NavAgentGroup[] = [{ id: 'lane-1', name: 'Delivery Lane', projectId: 'project-1' }]
+const groups: NavAgentGroup[] = [{ id: 'queue-1', name: 'Delivery Queue', projectId: 'project-1' }]
 
 describe('AgentGroupSelector', () => {
   test('explains that a project is needed before choosing a task queue', () => {
@@ -45,7 +45,7 @@ describe('AgentGroupSelector', () => {
     }) as HTMLSelectElement
 
     expect(select.disabled).toBe(true)
-    expect(select.title).toContain('Create a task queue')
+    expect(select.title).toContain('Open Agents, then Task Queues')
     expect(screen.getByRole('option', { name: /create a task queue first/i })).toBeDefined()
   })
 
@@ -66,10 +66,10 @@ describe('AgentGroupSelector', () => {
     }) as HTMLSelectElement
 
     expect(select.disabled).toBe(false)
-    expect(select.title).toContain('where new tasks will wait')
+    expect(select.title).toContain('where new tasks should wait')
 
-    fireEvent.change(select, { target: { value: 'lane-1' } })
+    fireEvent.change(select, { target: { value: 'queue-1' } })
 
-    expect(onSelectGroup).toHaveBeenCalledWith('lane-1')
+    expect(onSelectGroup).toHaveBeenCalledWith('queue-1')
   })
 })

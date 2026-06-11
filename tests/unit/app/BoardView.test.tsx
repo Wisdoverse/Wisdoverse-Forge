@@ -57,9 +57,9 @@ describe('BoardView', () => {
 
     render(<BoardView />)
 
-    expect(screen.getByText(/set up a task queue first/i)).toBeDefined()
+    expect(screen.getByText(/create a task queue first/i)).toBeDefined()
     expect(screen.getByText(/a task queue is where new tasks wait/i)).toBeDefined()
-    expect(screen.getByText(/agents > task queues/i)).toBeDefined()
+    expect(screen.getByText(/open agents, then task queues/i)).toBeDefined()
   })
 
   test('renders task lifecycle columns with correct headers', async () => {

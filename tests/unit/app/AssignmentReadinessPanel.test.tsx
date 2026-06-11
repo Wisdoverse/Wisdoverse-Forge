@@ -27,8 +27,8 @@ describe('AssignmentReadinessPanel', () => {
 
     const emptyState = screen.getByTestId('assignment-readiness-empty')
     expect(within(emptyState).getByText('Connect an agent before sending work')).toBeDefined()
-    expect(within(emptyState).getByText(/Agents \/ Task Queues/)).toBeDefined()
-    expect(within(emptyState).getByText(/backlog tasks stay in this queue/)).toBeDefined()
+    expect(within(emptyState).getByText(/Open Agents, then Task Queues/)).toBeDefined()
+    expect(within(emptyState).getByText(/backlog tasks stay here/)).toBeDefined()
     expect(emptyState.textContent).not.toContain('dispatch')
   })
 

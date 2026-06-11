@@ -371,7 +371,7 @@ export function TaskFormModal({
               )}
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">
-                  {workLaneReady ? 'Ready to Send' : 'Set Up a Task Queue First'}
+                  {workLaneReady ? 'Ready to Send' : 'Create a Task Queue First'}
                 </p>
                 <p className="mt-0.5 text-secondary-light dark:text-secondary-dark">
                   {workLaneReady

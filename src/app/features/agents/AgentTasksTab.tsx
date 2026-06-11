@@ -75,7 +75,7 @@ const AGENT_TASK_EMPTY_STEPS: { title: string; description: string; Icon: Lucide
   },
   {
     title: 'Check the task queue',
-    description: 'Open Agents > Task Queues and make sure this agent is attached.',
+    description: 'Open Agents, then Task Queues, and make sure this agent is attached.',
     Icon: CircleDot,
   },
   {

@@ -279,11 +279,11 @@ export function BoardView() {
         </div>
         <div className="space-y-1">
           <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            {selectedProjectId ? 'Set Up a Task Queue First' : 'Pick a Project to Start'}
+            {selectedProjectId ? 'Create a Task Queue First' : 'Pick a Project to Start'}
           </p>
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
             {selectedProjectId
-              ? 'A task queue is where new tasks wait until an agent is ready. Create one in Agents > Task Queues, then come back here.'
+              ? 'A task queue is where new tasks wait until an agent is ready. Open Agents, then Task Queues, create one, and come back here.'
               : 'Choose a project from the sidebar first. A project keeps tasks, agents, and task queues together.'}
           </p>
         </div>

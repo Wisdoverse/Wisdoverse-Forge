@@ -22,7 +22,7 @@ describe('TaskFormModal', () => {
         projects={[project]}
         selectedProjectId={project.id}
         selectedTaskGroupId="lane-1"
-        selectedTaskGroupName="Starter Lane"
+        selectedTaskGroupName="Starter Queue"
       />
     )
 
@@ -60,7 +60,7 @@ describe('TaskFormModal', () => {
         projects={[project]}
         selectedProjectId={project.id}
         selectedTaskGroupId="lane-1"
-        selectedTaskGroupName="Starter Lane"
+        selectedTaskGroupName="Starter Queue"
       />
     )
 
@@ -85,7 +85,7 @@ describe('TaskFormModal', () => {
         projects={[project]}
         selectedProjectId={project.id}
         selectedTaskGroupId="lane-1"
-        selectedTaskGroupName="Starter Lane"
+        selectedTaskGroupName="Starter Queue"
       />
     )
 
@@ -118,7 +118,7 @@ describe('TaskFormModal', () => {
       />
     )
 
-    expect(screen.getByText('Set Up a Task Queue First')).toBeDefined()
+    expect(screen.getByText('Create a Task Queue First')).toBeDefined()
     expect(
       screen.getByText(/A task queue is where new work waits until an agent is ready/i)
     ).toBeDefined()
@@ -142,7 +142,7 @@ describe('TaskFormModal', () => {
         projects={[project]}
         selectedProjectId={project.id}
         selectedTaskGroupId="lane-1"
-        selectedTaskGroupName="Starter Lane"
+        selectedTaskGroupName="Starter Queue"
       />
     )
 
@@ -175,7 +175,7 @@ describe('TaskFormModal', () => {
         projects={[project]}
         selectedProjectId={project.id}
         selectedTaskGroupId="lane-1"
-        selectedTaskGroupName="Starter Lane"
+        selectedTaskGroupName="Starter Queue"
       />
     )
 
