@@ -191,6 +191,28 @@ describe('GettingStartedView', () => {
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/providers' })
   })
 
+  test('does not expose raw AI service keys in the first-run checklist', async () => {
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-future',
+          provider: 'future_provider',
+          displayName: '',
+          model: 'future-model',
+          isEnabled: true,
+          isDefault: true,
+          lastTestStatus: 'passed',
+        } as any,
+      ],
+    })
+
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText('AI service needs review')).toBeDefined()
+    expect(screen.queryByText(/future_provider/i)).toBeNull()
+    expect(screen.queryByText(/future provider/i)).toBeNull()
+  })
+
   test('accepts a local agent as work access', async () => {
     useSettingsStore.setState({
       runtimeSettings: {

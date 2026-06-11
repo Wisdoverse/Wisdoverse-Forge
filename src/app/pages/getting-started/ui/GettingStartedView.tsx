@@ -20,9 +20,10 @@ import {
   taskResultArtifacts,
   type TaskSummary,
 } from '@app/shared/api/orchestration'
-import { isHostCliAgent, useAgentsStore } from '@app/entities/agent'
+import { agentAiServiceLabel, isHostCliAgent, useAgentsStore } from '@app/entities/agent'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useSettingsStore } from '@app/shared/model/settings.store'
+import type { LlmProviderConfig } from '@app/shared/api/legacy/settingsApi'
 import { useSkillsStore } from '@app/shared/model/skills.store'
 import { cn } from '@app/shared/lib/utils'
 
@@ -103,6 +104,7 @@ export function GettingStartedView() {
     runtimeSettings.availableCliTools.length > 0
   )
   const executionCredentialReady = Boolean(verifiedProvider || cliExecutionAgent)
+  const verifiedProviderLabel = verifiedProvider ? providerDisplayLabel(verifiedProvider) : null
   const executionCredentialPath = verifiedProvider
     ? '/settings/providers'
     : providers.length > 0
@@ -153,8 +155,8 @@ export function GettingStartedView() {
       {
         id: 'provider',
         title: t('gettingStarted.steps.provider.title'),
-        detail: verifiedProvider
-          ? verifiedProvider.displayName || verifiedProvider.provider
+        detail: verifiedProviderLabel
+          ? verifiedProviderLabel
           : cliExecutionAgent
             ? t('gettingStarted.steps.provider.cliReady', {
                 name: cliExecutionAgent.name,
@@ -281,6 +283,7 @@ export function GettingStartedView() {
       t,
       teams,
       verifiedProvider,
+      verifiedProviderLabel,
       workspaceDetail,
     ]
   )
@@ -434,6 +437,11 @@ function workLocationLabel(runtime: string, t: (key: string) => string): string 
     default:
       return t('gettingStarted.workLocations.ready')
   }
+}
+
+function providerDisplayLabel(provider: LlmProviderConfig): string {
+  const displayName = provider.displayName.trim()
+  return displayName || agentAiServiceLabel(provider.provider)
 }
 
 function SetupStepItem({
