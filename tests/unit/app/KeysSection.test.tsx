@@ -57,11 +57,13 @@ describe('KeysSection', () => {
     await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
     const emptyState = screen.getByTestId('platform-key-empty-state')
 
-    expect(screen.getByRole('heading', { name: 'Platform access keys' })).toBeDefined()
-    expect(within(emptyState).getByText('No platform access keys yet')).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Automation access keys' })).toBeDefined()
+    expect(within(emptyState).getByText('No automation access keys yet')).toBeDefined()
     expect(within(emptyState).getByText(/trusted outside tool/i)).toBeDefined()
     expect(within(emptyState).getByText(/tool you trust/i)).toBeDefined()
-    expect(within(emptyState).getByText(/password manager before closing this message/i)).toBeDefined()
+    expect(
+      within(emptyState).getByText(/password manager before closing this message/i)
+    ).toBeDefined()
     expect(within(emptyState).queryByText(/platform A[P]I keys/i)).toBeNull()
 
     fireEvent.click(within(emptyState).getByRole('button', { name: /create access key/i }))
@@ -108,7 +110,7 @@ describe('KeysSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /create access key/i }))
 
     await waitFor(() => expect(createApiKeyMock).toHaveBeenCalledWith('Production deploy pipeline'))
-    expect(screen.getByText(/Platform access key created - save it now/i)).toBeDefined()
+    expect(screen.getByText(/Automation access key created - save it now/i)).toBeDefined()
     expect(screen.getByText(/only time the full key is shown/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /copy key/i })).toBeDefined()
     expect(screen.getByRole('button', { name: /i saved it/i })).toBeDefined()
@@ -122,16 +124,16 @@ describe('KeysSection', () => {
 
     render(<KeysSection />)
 
-    expect(await screen.findByRole('table', { name: /platform access keys/i })).toBeDefined()
+    expect(await screen.findByRole('table', { name: /automation access keys/i })).toBeDefined()
     expect(screen.getByText('Starts with')).toBeDefined()
 
     fireEvent.click(
-      screen.getByRole('button', { name: /remove release automation platform access key/i })
+      screen.getByRole('button', { name: /remove automation access key named release automation/i })
     )
 
     expect(
       screen.getByRole('button', {
-        name: /confirm removing release automation platform access key/i,
+        name: /confirm removing automation access key named release automation/i,
       })
     ).toHaveTextContent('Remove now')
   })
@@ -146,7 +148,7 @@ describe('KeysSection', () => {
 
     await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Platform access key could not be created. Ask an owner or admin to let you create or remove platform access keys.'
+      'Automation access key could not be created. Ask an owner or admin to let you create or remove automation access keys.'
     )
     expect(screen.queryByText(/Details: Forbidden/i)).toBeNull()
   })

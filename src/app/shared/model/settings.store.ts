@@ -74,7 +74,7 @@ type SettingsErrorAction = 'load' | 'save' | 'delete' | 'create' | 'revoke' | 'u
 
 const SETTINGS_AREA_LABELS: Record<SettingsErrorArea, string> = {
   providers: 'AI service settings',
-  apiKeys: 'platform access keys',
+  apiKeys: 'automation access keys',
   gitCredentials: 'Git credentials',
   sshKeys: 'SSH keys',
   resourceProfiles: 'resource profiles',
@@ -83,7 +83,7 @@ const SETTINGS_AREA_LABELS: Record<SettingsErrorArea, string> = {
 
 const SETTINGS_ITEM_LABELS: Record<SettingsErrorArea, string> = {
   providers: 'AI service',
-  apiKeys: 'platform access key',
+  apiKeys: 'automation access key',
   gitCredentials: 'Git credential',
   sshKeys: 'SSH key',
   resourceProfiles: 'resource profile',
@@ -225,8 +225,8 @@ function settingsValidationMessage(
 
   if (area === 'apiKeys') {
     return action === 'load'
-      ? 'Refresh platform access keys. If they still do not load, ask an owner or admin for access.'
-      : 'Name this platform access key, choose the allowed access, then create it again.'
+      ? 'Refresh automation access keys. If they still do not load, ask an owner or admin for access.'
+      : 'Name this automation access key, choose the allowed access, then create it again.'
   }
 
   if (area === 'gitCredentials') {

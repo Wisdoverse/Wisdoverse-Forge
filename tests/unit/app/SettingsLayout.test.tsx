@@ -29,7 +29,7 @@ describe('SettingsLayout', () => {
     expect(within(desktopNav).getByText('Product Info')).toBeInTheDocument()
     expect(within(desktopNav).getByRole('button', { name: 'AI Services' })).toBeInTheDocument()
     expect(
-      within(desktopNav).getByRole('button', { name: 'Platform Access Keys' })
+      within(desktopNav).getByRole('button', { name: 'Automation Access Keys' })
     ).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('button', { name: 'Code Repository Access' })
