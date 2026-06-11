@@ -413,7 +413,7 @@ export function CreateAgentModal() {
             id="create-agent-title"
             className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark"
           >
-            {localEnrollment ? 'Local Agent Join' : 'New Agent'}
+            {localEnrollment ? 'Connect this computer' : 'New Agent'}
           </h2>
           <button
             type="button"
@@ -437,7 +437,7 @@ export function CreateAgentModal() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                    Managed agent
+                    Agent managed by Forge
                   </div>
                   <div className="mt-1 text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
                     {localEnrollment.agent?.name ?? 'Local agent'}
@@ -449,8 +449,8 @@ export function CreateAgentModal() {
               </div>
               <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {localEnrollment.enrollment?.joinCommand
-                  ? 'Paste the setup command into Terminal or PowerShell on the computer where the agent should work. It downloads what is missing and connects this agent.'
-                  : 'Copy this command and run it on the machine where the work tool is installed. The agent will appear online after the connection helper starts.'}
+                  ? 'Paste the setup command into Terminal or PowerShell on the computer where this agent should work. It downloads what is missing and lets Forge assign tasks to this agent.'
+                  : 'Copy this command and run it on the computer where the work tool is installed. Keep it running so Forge can manage this agent.'}
               </p>
             </div>
 
@@ -502,7 +502,7 @@ export function CreateAgentModal() {
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                   The pairing code inside expires in 15 minutes. If it expires, create the agent
                   again to get a fresh command. Success looks like: this agent shows Online in the
-                  Agent Fleet.
+                  Agents page.
                 </p>
                 <details className="mt-3">
                   <summary className="cursor-pointer text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
@@ -862,7 +862,7 @@ export function CreateAgentModal() {
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                   {kind === 'local-cli'
                     ? 'Leave blank to use the folder where you run the setup command.'
-                    : 'Use /workspace unless an owner gives you a different path. It can include multiple projects. Primary Project sets the default task context.'}
+                    : 'Use /workspace unless an owner gives you a different path. It can include multiple projects. New tasks start from the Primary Project selected above.'}
                 </p>
               </div>
             )}

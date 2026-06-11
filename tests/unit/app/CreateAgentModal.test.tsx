@@ -55,7 +55,8 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText(/workspace must be ready/i)).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /^work tool$/i })).toBeInTheDocument()
     expect(screen.getByLabelText(/project folder/i)).toBeInTheDocument()
-    expect(screen.getByText(/primary project sets the default task context/i)).toBeInTheDocument()
+    expect(screen.getByText(/new tasks start from the primary project/i)).toBeInTheDocument()
+    expect(screen.queryByText(/default task context/i)).toBeNull()
     expect(screen.getAllByText(/primary project/i).length).toBeGreaterThan(0)
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/choose a project first/i)
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
@@ -248,8 +249,11 @@ describe('CreateAgentModal', () => {
     expect(await screen.findByLabelText(/setup command/i)).toHaveValue(
       "export AGENT_ID='a-local'\nagentforge-sidecar"
     )
-    expect(screen.getByText(/where the work tool is installed/i)).toBeInTheDocument()
+    expect(screen.getByText('Connect this computer')).toBeInTheDocument()
+    expect(screen.getByText(/agent managed by forge/i)).toBeInTheDocument()
+    expect(screen.getByText(/keep it running so forge can manage this agent/i)).toBeInTheDocument()
     expect(screen.queryByText(/where the CLI is installed/i)).toBeNull()
+    expect(screen.queryByText(/local agent join/i)).toBeNull()
   })
 
   test('shows the setup command with an OS toggle when the server mints a join code', async () => {
@@ -292,6 +296,9 @@ describe('CreateAgentModal', () => {
     // The setup command leads; the pasted command tracks the OS toggle.
     const oneLiner = await screen.findByLabelText(/setup command/i)
     expect(oneLiner).toHaveValue(joinCommand)
+    expect(screen.getByText(/lets forge assign tasks to this agent/i)).toBeInTheDocument()
+    expect(screen.getByText(/shows online in the agents page/i)).toBeInTheDocument()
+    expect(screen.queryByText(/agent fleet/i)).toBeNull()
     expect(screen.getByRole('group', { name: /computer type/i })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /windows/i }))
     expect(oneLiner).toHaveValue(joinCommandPowershell)
