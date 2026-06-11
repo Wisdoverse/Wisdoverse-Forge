@@ -333,9 +333,9 @@ function providerFormReadiness({
   if (!form.model.trim()) {
     return {
       ready: false,
-      title: 'Next: choose a model name',
+      title: 'Next: choose the model to use',
       detail: 'Keep the suggested model unless your AI service instructions gave you another name.',
-      error: 'Choose a model name before saving this AI service.',
+      error: 'Choose the model to use before saving this AI service.',
       fieldId: modelInputId,
     }
   }
@@ -581,8 +581,8 @@ function ProviderCard({ providerConfig, onTest, onDelete }: ProviderCardProps) {
           onClick={handleTest}
           disabled={testing || !isEnabled}
           className={uiStyles.secondaryButton}
-          aria-label={`Check ${displayName} connection`}
-          title="Check connection"
+          aria-label={`Check ${displayName} AI service connection`}
+          title="Check AI service connection"
         >
           <Activity className="h-4 w-4" aria-hidden="true" />
           <span>{testing ? 'Checking' : 'Check'}</span>
@@ -895,7 +895,7 @@ function AddProviderFormPanel({
         {/* Model */}
         <div>
           <label htmlFor={modelInputId} className={uiStyles.label}>
-            Model name
+            Model to use
           </label>
           <p
             id={modelHelpId}

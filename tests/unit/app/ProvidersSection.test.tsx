@@ -96,16 +96,20 @@ describe('ProvidersSection', () => {
     expect(within(nextStep).getByText('Do This Next')).toBeDefined()
     expect(within(nextStep).getByText('Check the AI service connection')).toBeDefined()
     expect(
-      screen.getByRole('button', { name: /check openai production connection/i })
+      screen.getByRole('button', { name: /check openai production AI service connection/i })
     ).toBeDefined()
     expect(screen.getByText('Anthropic Review')).toBeDefined()
     expect(screen.getByText('Local Lab')).toBeDefined()
 
     fireEvent.click(within(nextStep).getByRole('button', { name: /show needs check/i }))
 
-    expect(screen.queryByRole('button', { name: /check openai production connection/i })).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: /check openai production AI service connection/i })
+    ).toBeNull()
     expect(screen.getByText('Anthropic Review')).toBeDefined()
-    expect(screen.queryByRole('button', { name: /check local lab connection/i })).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: /check local lab AI service connection/i })
+    ).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Disabled' }))
 
@@ -224,7 +228,7 @@ describe('ProvidersSection', () => {
     fireEvent.change(screen.getByLabelText(/^AI service$/i), { target: { value: 'zhipu' } })
 
     // China address is the default (placeholder); the global address is the hint.
-    expect(screen.getByLabelText(/^model name$/i)).toHaveValue('glm-4.7')
+    expect(screen.getByLabelText(/^model to use$/i)).toHaveValue('glm-4.7')
     expect(screen.getByLabelText(/service address/i)).toHaveAttribute(
       'placeholder',
       expect.stringContaining('https://open.bigmodel.cn/api/paas/v4')
@@ -243,7 +247,7 @@ describe('ProvidersSection', () => {
     render(<ProvidersSection />)
 
     fireEvent.click(
-      await screen.findByRole('button', { name: /check anthropic review connection/i })
+      await screen.findByRole('button', { name: /check anthropic review AI service connection/i })
     )
 
     await waitFor(() =>
