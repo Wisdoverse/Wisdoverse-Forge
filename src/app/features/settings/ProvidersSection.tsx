@@ -47,7 +47,7 @@ interface ProviderFormReadiness {
 const PROVIDER_FILTERS: { id: ProviderFilter; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'ready', label: 'Ready' },
-  { id: 'needs-test', label: 'Needs Test' },
+  { id: 'needs-test', label: 'Needs check' },
   { id: 'disabled', label: 'Disabled' },
 ]
 
@@ -65,7 +65,7 @@ const PROVIDER_SETUP_STEPS = [
     label: 'Paste secret key',
     value: 'Use the secret key from that account. It is stored encrypted.',
   },
-  { label: 'Save, then test', value: 'Run Test before creating chat-only agents.' },
+  { label: 'Save, then check', value: 'Check the connection before creating chat-only agents.' },
 ]
 
 const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
@@ -333,7 +333,7 @@ function providerFormReadiness({
   if (!form.model.trim()) {
     return {
       ready: false,
-      title: 'Next: Add Model',
+      title: 'Next: Add model name',
       detail: 'Choose a model from the list or keep the suggested default.',
       error: 'Add a model before saving this AI service.',
       fieldId: modelInputId,
@@ -362,8 +362,8 @@ function providerFormReadiness({
 
   return {
     ready: true,
-    title: 'Ready to Save',
-    detail: 'Save this AI service, then run Test so agents can use it safely.',
+    title: 'Ready to save',
+    detail: 'Save this AI service, then check the connection so agents can use it safely.',
     error: null,
     fieldId: null,
   }
@@ -378,7 +378,7 @@ function providerStatusLabel(provider: LlmProviderConfig): string {
   if (!provider.isEnabled) return 'Disabled'
   if (provider.lastTestStatus === 'passed') return 'Ready'
   if (provider.lastTestStatus === 'failed') return 'Failed'
-  return 'Needs Test'
+  return 'Needs check'
 }
 
 function providerStatusTone(provider: LlmProviderConfig): string {
@@ -411,8 +411,8 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
     return {
       title: 'Add Your First AI Service',
       detail:
-        'An AI service gives agents a model to use. Pick a service, paste the secret key, save it, then run a connection test.',
-      success: 'At least 1 AI service is saved and ready for a test.',
+        'An AI service gives agents a model to use. Pick a service, paste the secret key, save it, then check the connection.',
+      success: 'At least 1 AI service is saved and ready for a connection check.',
       ready: false,
       action: 'add-provider',
       actionLabel: 'Add AI Service',
@@ -422,12 +422,12 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
   if (needsTestProviders.length > 0) {
     const firstProvider = needsTestProviders[0]
     return {
-      title: 'Test AI Service Connection',
-      detail: `Test ${firstProvider.displayName} before assigning work so agent creation does not fail on the first run.`,
+      title: 'Check AI Service Connection',
+      detail: `Check ${firstProvider.displayName} before assigning work so agent creation does not fail on the first run.`,
       success: 'The AI service shows Ready and can be used by chat-only agents.',
       ready: false,
       action: 'show-needs-test',
-      actionLabel: 'Show Needs Test',
+      actionLabel: 'Show needs check',
     }
   }
 
@@ -579,11 +579,11 @@ function ProviderCard({ providerConfig, onTest, onDelete }: ProviderCardProps) {
           onClick={handleTest}
           disabled={testing || !isEnabled}
           className={uiStyles.secondaryButton}
-          aria-label={`Test ${displayName} connection`}
-          title="Test connection"
+          aria-label={`Check ${displayName} connection`}
+          title="Check connection"
         >
           <Activity className="h-4 w-4" aria-hidden="true" />
-          <span>{testing ? 'Testing' : 'Test'}</span>
+          <span>{testing ? 'Checking' : 'Check'}</span>
         </button>
         <button
           type="button"
@@ -643,10 +643,10 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
           </div>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
             {total === 0
-              ? 'Add and test an AI service before creating chat-only agents.'
+              ? 'Add and check an AI service before creating chat-only agents.'
               : `${ready}/${total} AI service${total === 1 ? '' : 's'} ready, ${needsTest} need${
                   needsTest === 1 ? 's' : ''
-                } a connection test, ${disabled} disabled.`}
+                } a connection check, ${disabled} disabled.`}
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-black/[0.04] px-2.5 py-1 text-ui-caption font-semibold text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
@@ -657,7 +657,7 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
       <div className="mt-4 grid gap-3 sm:grid-cols-4">
         <ProviderReadinessMetric label="Ready" value={String(ready)} ready={ready > 0} />
         <ProviderReadinessMetric
-          label="Needs Test"
+          label="Needs check"
           value={String(needsTest)}
           ready={needsTest === 0}
         />

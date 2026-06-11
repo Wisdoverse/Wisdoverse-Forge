@@ -92,16 +92,20 @@ describe('ProvidersSection', () => {
     expect(within(readiness).getByText('Default: OpenAI Production')).toBeDefined()
     const nextStep = screen.getByTestId('provider-next-step')
     expect(within(nextStep).getByText('Do This Next')).toBeDefined()
-    expect(within(nextStep).getByText('Test AI Service Connection')).toBeDefined()
-    expect(screen.getByRole('button', { name: /test openai production connection/i })).toBeDefined()
+    expect(within(nextStep).getByText('Check AI Service Connection')).toBeDefined()
+    expect(
+      screen.getByRole('button', { name: /check openai production connection/i })
+    ).toBeDefined()
     expect(screen.getByText('Anthropic Review')).toBeDefined()
     expect(screen.getByText('Local Lab')).toBeDefined()
 
-    fireEvent.click(within(nextStep).getByRole('button', { name: /show needs test/i }))
+    fireEvent.click(within(nextStep).getByRole('button', { name: /show needs check/i }))
 
-    expect(screen.queryByRole('button', { name: /test openai production connection/i })).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: /check openai production connection/i })
+    ).toBeNull()
     expect(screen.getByText('Anthropic Review')).toBeDefined()
-    expect(screen.queryByRole('button', { name: /test local lab connection/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /check local lab connection/i })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Disabled' }))
 
@@ -117,7 +121,9 @@ describe('ProvidersSection', () => {
     })
 
     expect(screen.getByText('Anthropic Review')).toBeDefined()
-    expect(screen.queryByRole('button', { name: /test openai production connection/i })).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: /check openai production connection/i })
+    ).toBeNull()
 
     fireEvent.change(screen.getByRole('searchbox', { name: /search AI services/i }), {
       target: { value: 'missing-provider' },
@@ -140,7 +146,7 @@ describe('ProvidersSection', () => {
     expect(screen.getByText('AI service setup path')).toBeDefined()
     expect(screen.getByText('Paste secret key')).toBeDefined()
     expect(screen.getByText(/stored encrypted/i)).toBeDefined()
-    expect(screen.getByText('Save, then test')).toBeDefined()
+    expect(screen.getByText('Save, then check')).toBeDefined()
     expect(screen.getByLabelText(/^AI service$/i)).toBeDefined()
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
       /next: paste secret key/i
@@ -233,7 +239,7 @@ describe('ProvidersSection', () => {
     render(<ProvidersSection />)
 
     fireEvent.click(
-      await screen.findByRole('button', { name: /test anthropic review connection/i })
+      await screen.findByRole('button', { name: /check anthropic review connection/i })
     )
 
     await waitFor(() =>
