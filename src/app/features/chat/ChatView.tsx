@@ -170,44 +170,21 @@ export function ChatView({ agentId }: ChatViewProps) {
 
   if (error && !isProviderAgent) {
     return (
-      <div
-        className={cn(
-          'bg-white dark:bg-[#2c2c2e] rounded-xl px-4 py-6',
-          'shadow-card dark:shadow-card-dark',
-          'flex flex-col items-center gap-3'
-        )}
-      >
-        <span className="text-sm text-apple-red">{error}</span>
-        <button
-          type="button"
-          onClick={() => void fetchEvents(agentId)}
-          className={cn(
-            'px-3 py-1.5 rounded-lg text-xs font-medium',
-            'bg-apple-blue/10 text-apple-blue',
-            'hover:bg-apple-blue/20 transition-colors'
-          )}
-        >
-          Retry
-        </button>
-      </div>
+      <ChatErrorNotice
+        message={error}
+        actionLabel="Retry conversation"
+        onAction={() => void fetchEvents(agentId)}
+      />
     )
   }
 
   const banner =
     isProviderAgent && error ? (
-      <div
-        className={cn(
-          'rounded-xl px-4 py-3 text-xs flex items-center justify-between',
-          'bg-apple-red/10 text-apple-red border border-apple-red/20'
-        )}
-      >
-        <span>{error}</span>
-        {error.includes('context') && (
-          <button type="button" onClick={() => void clearMessages(agentId)} className="underline">
-            Clear chat
-          </button>
-        )}
-      </div>
+      <ChatErrorNotice
+        message={error}
+        actionLabel={error.includes('context') ? 'Clear chat' : undefined}
+        onAction={error.includes('context') ? () => void clearMessages(agentId) : undefined}
+      />
     ) : null
 
   const modelServiceName = agent ? agentAiServiceLabel(agent.provider) : 'your saved AI service'
@@ -425,6 +402,49 @@ export function ChatView({ agentId }: ChatViewProps) {
           disabled={offline || messagesLoading || streaming}
           disabledReason={composerDisabledReason}
         />
+      )}
+    </div>
+  )
+}
+
+function ChatErrorNotice({
+  message,
+  actionLabel,
+  onAction,
+}: {
+  message: string
+  actionLabel?: string
+  onAction?: () => void
+}) {
+  return (
+    <div
+      role="alert"
+      aria-live="polite"
+      className={cn(
+        'rounded-xl border border-apple-red/20 bg-apple-red/10 px-4 py-3 text-left text-apple-red',
+        'flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'
+      )}
+    >
+      <span className="flex min-w-0 items-start gap-2">
+        <AlertTriangle
+          size={15}
+          strokeWidth={2.25}
+          className="mt-0.5 shrink-0"
+          aria-hidden="true"
+        />
+        <span className="min-w-0">
+          <span className="block text-ui-caption font-semibold">Conversation needs attention</span>
+          <span className="mt-0.5 block text-ui-caption">{message}</span>
+        </span>
+      </span>
+      {actionLabel && onAction && (
+        <button
+          type="button"
+          onClick={onAction}
+          className="shrink-0 rounded-full bg-white/70 px-3 py-1.5 text-ui-button font-medium text-apple-red transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30 dark:bg-black/20 dark:hover:bg-black/30"
+        >
+          {actionLabel}
+        </button>
       )}
     </div>
   )

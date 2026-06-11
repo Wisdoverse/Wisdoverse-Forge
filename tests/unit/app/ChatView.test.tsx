@@ -161,6 +161,45 @@ describe('ChatView', () => {
     ).toBeInTheDocument()
   })
 
+  test('shows a clear retry path when workspace conversation history cannot load', () => {
+    const fetchEvents = vi.fn().mockResolvedValue(undefined)
+    useAgentsStore.setState({ agents: [cliAgent] })
+    seedChatState({
+      error:
+        'Conversation history could not be loaded. Forge could not connect while loading this conversation. Check your connection, then try again.',
+      fetchEvents,
+    })
+
+    render(<ChatView agentId={cliAgent.id} />)
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent('Conversation needs attention')
+    expect(alert).toHaveTextContent('Check your connection, then try again.')
+    expect(alert).not.toHaveTextContent('HTTP')
+    expect(alert).not.toHaveTextContent('Failed to fetch')
+
+    fireEvent.click(screen.getByRole('button', { name: /retry conversation/i }))
+    expect(fetchEvents).toHaveBeenCalledWith(cliAgent.id)
+  })
+
+  test('shows provider chat errors as attention without raw transport details', () => {
+    useAgentsStore.setState({ agents: [providerAgent] })
+    seedChatState({
+      messages: [message('Earlier answer')],
+      error:
+        'Conversation history could not be loaded. Forge could not load this conversation right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check chat setup.',
+    })
+
+    render(<ChatView agentId={providerAgent.id} />)
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent('Conversation needs attention')
+    expect(alert).toHaveTextContent('ask an owner or admin to check chat setup')
+    expect(alert).not.toHaveTextContent('HTTP 500')
+    expect(alert).not.toHaveTextContent('Server error')
+    expect(screen.getByText('Earlier answer')).toBeInTheDocument()
+  })
+
   test('summarizes provider conversation handoff and filters updates', () => {
     useAgentsStore.setState({ agents: [providerAgent] })
     seedChatState({
