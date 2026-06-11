@@ -96,11 +96,12 @@ describe('OrganizationsPanel', () => {
     render(<OrganizationsPanel />)
 
     const error = await screen.findByTestId('admin-org-error')
-    expect(within(error).getByText('HTTP 503')).toBeDefined()
+    expect(within(error).getByText('The admin organization list could not load.')).toBeDefined()
     expect(
       within(error).getByText(
-        'Refresh after Forge is healthy, or confirm this account has admin access.'
+        'Refresh Admin, then try again. If it still fails, ask an owner or admin to check Admin setup and your role.'
       )
     ).toBeDefined()
+    expect(within(error).queryByText('HTTP 503')).toBeNull()
   })
 })
