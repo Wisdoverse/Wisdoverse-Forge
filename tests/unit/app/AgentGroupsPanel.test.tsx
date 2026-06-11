@@ -36,8 +36,8 @@ function seedRoutingState(tasks: TaskSummary[]) {
       ],
     },
     agentGroups: [
-      { id: 'group-delivery', projectId: 'project-1', name: 'Delivery Group' },
-      { id: 'group-review', projectId: 'project-1', name: 'Review Group' },
+      { id: 'group-delivery', projectId: 'project-1', name: 'Delivery Queue' },
+      { id: 'group-review', projectId: 'project-1', name: 'Review Queue' },
     ],
   } as never)
   useBoardStore.getState().setSelectedGroupId('group-delivery')
@@ -205,7 +205,8 @@ describe('AgentGroupsPanel', () => {
 
     render(<AgentGroupsPanel />)
 
-    fireEvent.click(screen.getByRole('button', { name: /new queue/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^create task queue$/i }))
+    expect(screen.getByRole('group', { name: /task queue type shortcuts/i })).toBeInTheDocument()
     fireEvent.submit(screen.getByRole('button', { name: /create task queue/i }).closest('form')!)
 
     expect(screen.getByRole('alert')).toHaveTextContent(
@@ -220,7 +221,7 @@ describe('AgentGroupsPanel', () => {
 
     render(<AgentGroupsPanel />)
 
-    fireEvent.click(screen.getByRole('button', { name: /new queue/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^create task queue$/i }))
     fireEvent.change(screen.getByLabelText(/task queue name/i), {
       target: { value: 'Delivery Queue' },
     })

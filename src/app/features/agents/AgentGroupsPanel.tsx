@@ -245,7 +245,7 @@ export function AgentGroupsPanel() {
             )}
           >
             <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-            New Queue
+            Create task queue
           </button>
         )}
       </div>
@@ -396,12 +396,12 @@ export function AgentGroupsPanel() {
           {formOpen && (
             <form onSubmit={handleCreateGroup} className="grid gap-2">
               <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Pick a starter task queue or name one yourself. New tasks can use it as soon as it
-                is created.
+                Choose what kind of work this queue should hold, or name one yourself. New tasks can
+                use it as soon as it is created.
               </p>
               <div
                 role="group"
-                aria-label="Task queue templates"
+                aria-label="Task queue type shortcuts"
                 className="grid gap-2 sm:grid-cols-3"
               >
                 {TASK_GROUP_TEMPLATES.map((template) => (
