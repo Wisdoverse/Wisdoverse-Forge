@@ -100,8 +100,10 @@ describe('SkillsView', () => {
       expect(screen.getByText('webui-review')).toBeDefined()
     })
     expect(screen.getByText('Review WebUI flows')).toBeDefined()
-    expect(screen.getByText('Suggested for: webui')).toBeDefined()
-    expect(screen.getByText('Global skills')).toBeDefined()
+    expect(screen.getByText('Use when task says: webui')).toBeDefined()
+    expect(screen.getByText('Saved in Global skills')).toBeDefined()
+    expect(screen.queryByText(/^Source:/i)).toBeNull()
+    expect(screen.queryByText(/Suggested for:/i)).toBeNull()
     expect(screen.getByText('1 skill')).toBeDefined()
   })
 
