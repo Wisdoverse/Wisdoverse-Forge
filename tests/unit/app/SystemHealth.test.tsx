@@ -13,7 +13,7 @@ afterEach(() => {
 })
 
 describe('SystemHealth', () => {
-  test('explains service readiness with user-facing labels', async () => {
+  test('explains app readiness with user-facing labels', async () => {
     const loadHealth = vi.fn()
     useAdminStore.setState({
       ...originalAdminState,
@@ -35,26 +35,26 @@ describe('SystemHealth', () => {
     render(<SystemHealth />)
 
     await waitFor(() => expect(loadHealth).toHaveBeenCalledOnce())
-    expect(screen.getByText('Service readiness')).toBeDefined()
-    expect(screen.getByText('Some services need attention')).toBeDefined()
+    expect(screen.getByText('App readiness')).toBeDefined()
+    expect(screen.getByText('Some areas need attention')).toBeDefined()
     expect(
       screen.getByText(/slow screens, delayed updates, or work waiting to start/i)
     ).toBeDefined()
     expect(screen.getByText('Saved Data')).toBeDefined()
-    expect(screen.getByText('App records service')).toBeDefined()
-    expect(screen.getByText('Fast response helper')).toBeDefined()
-    expect(screen.getByText('Progress update delivery')).toBeDefined()
+    expect(screen.getByText('Keeps saved work available')).toBeDefined()
+    expect(screen.getByText('Helps pages load quickly')).toBeDefined()
+    expect(screen.getByText('Shows new progress in the browser')).toBeDefined()
     expect(screen.getByText('Agent Work Starter')).toBeDefined()
-    expect(screen.getByText('Managed workspace starter')).toBeDefined()
+    expect(screen.getByText('Starts file-work agents')).toBeDefined()
     expect(
-      screen.getByText(/managed workspace setup before sending new file work to agents/i)
+      screen.getByText(/ask an owner or admin to check managed workspace setup/i)
     ).toBeDefined()
-    expect(screen.getByText('12 ms response')).toBeDefined()
+    expect(screen.getByText('responds in 12 ms')).toBeDefined()
     expect(screen.getByText('Ready')).toBeDefined()
     expect(screen.getAllByText('Needs attention').length).toBeGreaterThan(0)
     expect(screen.getByText('Unavailable')).toBeDefined()
     expect(screen.getAllByText('Not checked').length).toBeGreaterThan(0)
-    expect(screen.getByText(/Service has been running for 2h/i)).toBeDefined()
+    expect(screen.getByText(/Forge has been running for 2h/i)).toBeDefined()
     expect(screen.queryByText(/Background Jobs/i)).toBeNull()
     expect(screen.queryByText(/PostgreSQL/i)).toBeNull()
     expect(screen.queryByText(/Redis/i)).toBeNull()
@@ -82,7 +82,7 @@ describe('SystemHealth', () => {
 
     render(<SystemHealth />)
 
-    expect(screen.getByText('All services are ready')).toBeDefined()
+    expect(screen.getByText('All areas are ready')).toBeDefined()
     expect(screen.getAllByText('Ready').length).toBe(4)
     expect(screen.queryByText('Not checked')).toBeNull()
   })
@@ -144,8 +144,8 @@ describe('SystemHealth', () => {
     render(<SystemHealth />)
 
     await waitFor(() => expect(loadHealth).toHaveBeenCalledOnce())
-    expect(screen.getByText(/Support note:/i)).toBeDefined()
-    expect(screen.getByText(/The service reported a connection problem/i)).toBeDefined()
+    expect(screen.getByText(/Owner\/admin note:/i)).toBeDefined()
+    expect(screen.getByText(/This area reported a connection problem/i)).toBeDefined()
     expect(screen.queryByText(/postgres\.internal/i)).toBeNull()
     expect(screen.queryByText(/5432/i)).toBeNull()
     expect(screen.queryByText(/stack trace/i)).toBeNull()
@@ -173,7 +173,7 @@ describe('SystemHealth', () => {
     render(<SystemHealth />)
 
     await waitFor(() => expect(loadHealth).toHaveBeenCalledOnce())
-    expect(screen.getByText(/Ask an owner or admin to check service setup/i)).toBeDefined()
+    expect(screen.getByText(/Ask an owner or admin to check app setup/i)).toBeDefined()
     expect(screen.queryByText(/runtime configuration/i)).toBeNull()
   })
 
@@ -188,7 +188,7 @@ describe('SystemHealth', () => {
 
     render(<SystemHealth />)
 
-    expect(screen.getByText('Checking service readiness...')).toBeDefined()
+    expect(screen.getByText('Checking app readiness...')).toBeDefined()
     expect(screen.getByRole('button', { name: 'Checking...' })).toBeDisabled()
   })
 
@@ -204,11 +204,12 @@ describe('SystemHealth', () => {
     render(<SystemHealth />)
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Forge could not check service readiness. Refresh Admin, then choose Check now. If it still fails, ask an owner or admin to check service readiness setup.'
+      'Forge could not check app readiness. Refresh Admin, then choose Check now. If it still fails, ask an owner or admin to check app readiness setup.'
     )
     expect(screen.queryByText('HTTP 500')).toBeNull()
     expect(screen.queryByText(/temporarily unavailable/i)).toBeNull()
     expect(screen.queryByText(/admin service/i)).toBeNull()
+    expect(screen.queryByText(/service readiness/i)).toBeNull()
     expect(screen.getByRole('button', { name: 'Check now' })).toBeDefined()
   })
 })
