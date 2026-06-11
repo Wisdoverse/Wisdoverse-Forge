@@ -47,11 +47,18 @@ describe('AgentListView', () => {
     render(<AgentListView />)
 
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
-    expect(within(enrollment).getByText(/connect a local agent/i)).toBeDefined()
+    expect(within(enrollment).getByText(/connect this computer/i)).toBeDefined()
     expect(enrollment.textContent).toContain('Create an agent for this computer')
+    expect(enrollment.textContent).toContain('This computer')
+    expect(enrollment.textContent).toContain('Advanced: connect with a command')
+    expect(enrollment.textContent).toContain('Computer type')
+    expect(within(enrollment).getByRole('group', { name: /choose this computer type/i })).toBeDefined()
     expect(within(enrollment).getByText(/project:/i)).toBeDefined()
     expect(within(enrollment).getByText('Select a project')).toBeDefined()
     expect(enrollment.textContent).not.toContain('<project-id>')
+    expect(enrollment.textContent).not.toContain('Platform CLI')
+    expect(enrollment.textContent).not.toContain('Host CLI platform')
+    expect(enrollment.textContent).not.toContain('Connect a Local Agent')
     expect(within(enrollment).getByTestId('host-cli-command-waiting')).toHaveTextContent(
       /this panel will show the command to copy/i
     )
@@ -83,6 +90,7 @@ describe('AgentListView', () => {
     expect(within(enrollment).getByText('Project:')).toBeDefined()
     expect(enrollment.textContent).toContain('p1')
     expect(enrollment.textContent).toContain('agentforge agents enroll-local')
+    expect(enrollment.textContent).toContain('--name "This Computer Agent"')
     expect(enrollment.textContent).toContain('--tool <tool-name>')
     expect(enrollment.textContent).toContain('--project p1')
     expect(enrollment.textContent).toContain('Replace <tool-name> with the tool you already use')
@@ -92,6 +100,8 @@ describe('AgentListView', () => {
     fireEvent.click(within(enrollment).getByRole('button', { name: /windows/i }))
     expect(enrollment.textContent).toContain('--shell-format powershell')
     expect(enrollment.textContent).toContain('--cwd "$($PWD.Path)"')
+    expect(enrollment.textContent).toContain('--name "This Computer Codex"')
+    expect(enrollment.textContent).not.toContain('Host Codex')
   })
 
   test('renders agent cards', () => {

@@ -225,7 +225,7 @@ function buildLocalEnrollCommand(
     return [
       'agentforge agents enroll-local `',
       '  --tool codex `',
-      '  --name "Host Codex" `',
+      '  --name "This Computer Codex" `',
       `  --project ${projectArg} \``,
       '  --cwd "$($PWD.Path)" `',
       '  --shell-format powershell',
@@ -235,7 +235,7 @@ function buildLocalEnrollCommand(
   return [
     'agentforge agents enroll-local \\',
     '  --tool <tool-name> \\',
-    '  --name "Local Agent" \\',
+    '  --name "This Computer Agent" \\',
     `  --project ${projectArg} \\`,
     '  --cwd "$PWD" \\',
     '  --shell-format bash',
@@ -279,7 +279,7 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
               aria-hidden="true"
             />
             <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              Connect a Local Agent
+              Connect this computer
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -289,7 +289,7 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-apple-blue/[0.08] px-2 py-1 text-[10px] font-semibold text-apple-blue">
-          Local
+          This computer
         </span>
       </div>
 
@@ -304,13 +304,17 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
 
       <details className="mt-3">
         <summary className="cursor-pointer text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Advanced: enroll with the Platform CLI
+          Advanced: connect with a command
         </summary>
         <div className="mt-3">
           <p className="mb-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-            Local machine
+            Computer type
           </p>
-          <div role="group" aria-label="Host CLI platform" className="grid grid-cols-2 gap-2">
+          <div
+            role="group"
+            aria-label="Choose this computer type"
+            className="grid grid-cols-2 gap-2"
+          >
             {HOST_CLI_PLATFORMS.map((option) => (
               <button
                 key={option.value}
