@@ -61,8 +61,8 @@ describe('CreateAgentModal', () => {
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
       /select a project in the sidebar/i
     )
-    expect(screen.queryByLabelText(/^provider$/i)).toBeNull()
-    expect(screen.queryByLabelText(/^model$/i)).toBeNull()
+    expect(screen.queryByLabelText(/^ai service$/i)).toBeNull()
+    expect(screen.queryByLabelText(/^model name$/i)).toBeNull()
     expect(screen.queryByText(/Name seeds CLI agents/i)).toBeNull()
   })
 
@@ -166,7 +166,7 @@ describe('CreateAgentModal', () => {
     })
   })
 
-  test('switching to chat-only AI service hides work tool fields and shows Provider/Model', () => {
+  test('switching to chat-only AI service hides work tool fields and shows AI service details', () => {
     render(<CreateAgentModal />)
 
     fireEvent.click(screen.getByRole('radio', { name: /chat-only ai service/i }))
@@ -177,8 +177,10 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText(/ai service must be ready/i)).toBeInTheDocument()
     expect(screen.queryByRole('combobox', { name: /^work tool$/i })).toBeNull()
     expect(screen.queryByLabelText(/project folder/i)).toBeNull()
-    expect(screen.getByLabelText(/^provider$/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/^model$/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/^ai service$/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/^model name$/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/^provider$/i)).toBeNull()
+    expect(screen.queryByLabelText(/^model$/i)).toBeNull()
   })
 
   test('updates runtime fit when the operator changes runtime choices', async () => {
@@ -194,7 +196,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText('Run the setup command')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('radio', { name: /chat-only ai service/i }))
-    fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'google' } })
+    fireEvent.change(screen.getByLabelText(/^ai service$/i), { target: { value: 'google' } })
 
     await waitFor(() => {
       expect(screen.getByText(/google chat-only agent/i)).toBeInTheDocument()
@@ -326,8 +328,8 @@ describe('CreateAgentModal', () => {
 
     expect(screen.getByRole('radio', { name: /chat-only ai service/i })).toBeChecked()
     expect(screen.queryByRole('combobox', { name: /^work tool$/i })).toBeNull()
-    expect(screen.getByLabelText(/^provider$/i)).toHaveValue('openai')
-    expect(screen.getByLabelText(/^model$/i)).toHaveValue('gpt-5.5')
+    expect(screen.getByLabelText(/^ai service$/i)).toHaveValue('openai')
+    expect(screen.getByLabelText(/^model name$/i)).toHaveValue('gpt-5.5')
 
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
@@ -345,10 +347,10 @@ describe('CreateAgentModal', () => {
     render(<CreateAgentModal />)
 
     fireEvent.click(screen.getByRole('radio', { name: /chat-only ai service/i }))
-    fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'openai' } })
+    fireEvent.change(screen.getByLabelText(/^ai service$/i), { target: { value: 'openai' } })
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/^model$/i)).toHaveValue('gpt-4o')
+      expect(screen.getByLabelText(/^model name$/i)).toHaveValue('gpt-4o')
     })
   })
 
@@ -357,7 +359,7 @@ describe('CreateAgentModal', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /chat-only ai service/i }))
 
-    const providerSelect = screen.getByLabelText(/^provider$/i)
+    const providerSelect = screen.getByLabelText(/^ai service$/i)
     expect(within(providerSelect).getByRole('option', { name: 'Zhipu GLM' })).toBeInTheDocument()
     expect(
       within(providerSelect).getByRole('option', { name: 'Zhipu GLM Coding Plan' })
@@ -375,7 +377,7 @@ describe('CreateAgentModal', () => {
     fireEvent.change(providerSelect, { target: { value: 'zhipu' } })
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/^model$/i)).toHaveValue('glm-4.7')
+      expect(screen.getByLabelText(/^model name$/i)).toHaveValue('glm-4.7')
     })
   })
 

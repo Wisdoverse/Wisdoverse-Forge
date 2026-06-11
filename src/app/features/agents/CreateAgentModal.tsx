@@ -300,7 +300,7 @@ export function CreateAgentModal() {
     }
     if (data.kind === 'provider') {
       if (!data.provider || !data.model.trim()) {
-        setError('Provider and model are required')
+        setError('Choose an AI service and model name before creating this agent.')
         return
       }
       await createAgent({
@@ -799,7 +799,7 @@ export function CreateAgentModal() {
                     htmlFor="agent-provider"
                     className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                   >
-                    Provider
+                    AI service
                   </label>
                   <select
                     id="agent-provider"
@@ -818,7 +818,7 @@ export function CreateAgentModal() {
                     htmlFor="agent-model"
                     className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                   >
-                    Model
+                    Model name
                   </label>
                   <input
                     id="agent-model"
