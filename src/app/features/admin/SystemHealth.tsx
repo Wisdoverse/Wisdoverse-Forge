@@ -54,10 +54,10 @@ const SERVICE_DEFINITIONS: readonly ServiceDefinition[] = [
   {
     key: 'docker',
     name: 'Agent Work Starter',
-    supportName: 'Agent container service',
-    description: 'Starts and manages the container workspaces where agents do file work.',
-    impact: 'Starting new container agents may fail; agents already running may stop reporting.',
-    action: 'Check the agent container service before sending new agent file work.',
+    supportName: 'Managed workspace starter',
+    description: 'Starts and manages the prepared workspaces where agents do file work.',
+    impact: 'Starting new managed workspace agents may fail; agents already running may stop reporting.',
+    action: 'Check managed workspace setup before sending new file work to agents.',
   },
 ]
 

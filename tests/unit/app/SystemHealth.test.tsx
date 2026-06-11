@@ -45,9 +45,9 @@ describe('SystemHealth', () => {
     expect(screen.getByText('Fast response helper')).toBeDefined()
     expect(screen.getByText('Progress update delivery')).toBeDefined()
     expect(screen.getByText('Agent Work Starter')).toBeDefined()
-    expect(screen.getByText('Agent container service')).toBeDefined()
+    expect(screen.getByText('Managed workspace starter')).toBeDefined()
     expect(
-      screen.getByText(/agent container service before sending new agent file work/i)
+      screen.getByText(/managed workspace setup before sending new file work to agents/i)
     ).toBeDefined()
     expect(screen.getByText('12 ms response')).toBeDefined()
     expect(screen.getByText('Ready')).toBeDefined()
@@ -60,6 +60,7 @@ describe('SystemHealth', () => {
     expect(screen.queryByText(/Redis/i)).toBeNull()
     expect(screen.queryByText(/NATS/i)).toBeNull()
     expect(screen.queryByText(/Docker runtime/i)).toBeNull()
+    expect(screen.queryByText(/container service/i)).toBeNull()
   })
 
   test('shows every check as ready when the probe reports all dependencies up', () => {

@@ -88,11 +88,11 @@ describe('ProvidersSection', () => {
     render(<ProvidersSection />)
 
     const readiness = await screen.findByTestId('provider-readiness')
-    expect(within(readiness).getByText(/1\/3 providers ready/i)).toBeDefined()
+    expect(within(readiness).getByText(/1\/3 AI services ready/i)).toBeDefined()
     expect(within(readiness).getByText('Default: OpenAI Production')).toBeDefined()
     const nextStep = screen.getByTestId('provider-next-step')
     expect(within(nextStep).getByText('Do This Next')).toBeDefined()
-    expect(within(nextStep).getByText('Test Provider Connection')).toBeDefined()
+    expect(within(nextStep).getByText('Test AI Service Connection')).toBeDefined()
     expect(screen.getByRole('button', { name: /test openai production connection/i })).toBeDefined()
     expect(screen.getByText('Anthropic Review')).toBeDefined()
     expect(screen.getByText('Local Lab')).toBeDefined()
@@ -112,18 +112,18 @@ describe('ProvidersSection', () => {
   test('searches providers and exposes a clear empty state', async () => {
     render(<ProvidersSection />)
 
-    fireEvent.change(await screen.findByRole('searchbox', { name: /search providers/i }), {
+    fireEvent.change(await screen.findByRole('searchbox', { name: /search AI services/i }), {
       target: { value: 'review' },
     })
 
     expect(screen.getByText('Anthropic Review')).toBeDefined()
     expect(screen.queryByRole('button', { name: /test openai production connection/i })).toBeNull()
 
-    fireEvent.change(screen.getByRole('searchbox', { name: /search providers/i }), {
+    fireEvent.change(screen.getByRole('searchbox', { name: /search AI services/i }), {
       target: { value: 'missing-provider' },
     })
 
-    expect(screen.getByText('No providers match this view')).toBeDefined()
+    expect(screen.getByText('No AI services match this view')).toBeDefined()
   })
 
   test('guides an empty provider setup into the add form', async () => {
@@ -132,28 +132,30 @@ describe('ProvidersSection', () => {
     render(<ProvidersSection />)
 
     const nextStep = await screen.findByTestId('provider-next-step')
-    expect(within(nextStep).getByText('Add Your First Provider')).toBeDefined()
-    expect(within(nextStep).getByText(/paste the key/i)).toBeDefined()
+    expect(within(nextStep).getByText('Add Your First AI Service')).toBeDefined()
+    expect(within(nextStep).getByText(/paste the secret key/i)).toBeDefined()
 
-    fireEvent.click(within(nextStep).getByRole('button', { name: /add provider/i }))
+    fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
 
-    expect(screen.getByText('Provider setup path')).toBeDefined()
-    expect(screen.getByText('Paste key')).toBeDefined()
+    expect(screen.getByText('AI service setup path')).toBeDefined()
+    expect(screen.getByText('Paste secret key')).toBeDefined()
     expect(screen.getByText(/stored encrypted/i)).toBeDefined()
     expect(screen.getByText('Save, then test')).toBeDefined()
-    expect(screen.getByLabelText(/^provider$/i)).toBeDefined()
-    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/next: paste api key/i)
-    const saveButton = screen.getByRole('button', { name: /save provider/i })
+    expect(screen.getByLabelText(/^AI service$/i)).toBeDefined()
+    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
+      /next: paste secret key/i
+    )
+    const saveButton = screen.getByRole('button', { name: /save AI service/i })
     expect(saveButton).toBeEnabled()
 
     fireEvent.click(saveButton)
 
     expect(
-      screen.getAllByText('Add the API key before saving this provider.').length
+      screen.getAllByText('Add the secret key before saving this AI service.').length
     ).toBeGreaterThan(0)
     expect(saveProviderMock).not.toHaveBeenCalled()
 
-    fireEvent.change(screen.getByLabelText(/api key/i), { target: { value: 'sk-test' } })
+    fireEvent.change(screen.getByLabelText(/secret key/i), { target: { value: 'sk-test' } })
 
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/ready to save/i)
     fireEvent.click(saveButton)
@@ -188,15 +190,17 @@ describe('ProvidersSection', () => {
     render(<ProvidersSection />)
 
     const readiness = await screen.findByTestId('provider-readiness')
-    expect(within(readiness).getByText('Provider setup needs attention')).toBeDefined()
+    expect(within(readiness).getByText('AI service setup needs attention')).toBeDefined()
     const nextStep = screen.getByTestId('provider-next-step')
-    expect(within(nextStep).getByText('Add an Active Provider')).toBeDefined()
+    expect(within(nextStep).getByText('Add an Active AI Service')).toBeDefined()
 
-    fireEvent.click(within(nextStep).getByRole('button', { name: /add provider/i }))
+    fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
 
     expect(screen.getByText('Local Disabled')).toBeDefined()
-    expect(screen.getByRole('button', { name: /save provider/i })).toBeEnabled()
-    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/next: paste api key/i)
+    expect(screen.getByRole('button', { name: /save AI service/i })).toBeEnabled()
+    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
+      /next: paste secret key/i
+    )
   })
 
   test('surfaces the CN default placeholder and global endpoint hint for region-switch providers', async () => {
@@ -205,22 +209,24 @@ describe('ProvidersSection', () => {
     render(<ProvidersSection />)
 
     const nextStep = await screen.findByTestId('provider-next-step')
-    fireEvent.click(within(nextStep).getByRole('button', { name: /add provider/i }))
+    fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
 
-    fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'zhipu' } })
+    fireEvent.change(screen.getByLabelText(/^AI service$/i), { target: { value: 'zhipu' } })
 
-    // CN endpoint is the default (placeholder); the global endpoint is the hint.
+    // CN service address is the default (placeholder); the global service address is the hint.
     expect(screen.getByLabelText(/^model$/i)).toHaveValue('glm-4.7')
-    expect(screen.getByLabelText(/base url/i)).toHaveAttribute(
+    expect(screen.getByLabelText(/service url/i)).toHaveAttribute(
       'placeholder',
       expect.stringContaining('https://open.bigmodel.cn/api/paas/v4')
     )
-    expect(screen.getByText(/global endpoint: https:\/\/api\.z\.ai\/api\/paas\/v4/i)).toBeDefined()
+    expect(
+      screen.getByText(/global service address: https:\/\/api\.z\.ai\/api\/paas\/v4/i)
+    ).toBeDefined()
 
-    // Hunyuan is CN-only — no global endpoint hint, default copy returns.
-    fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'hunyuan' } })
+    // Hunyuan is CN-only — no global service-address hint, default copy returns.
+    fireEvent.change(screen.getByLabelText(/^AI service$/i), { target: { value: 'hunyuan' } })
     expect(screen.getByText(/only change this for a local model server/i)).toBeDefined()
-    expect(screen.queryByText(/global endpoint:/i)).toBeNull()
+    expect(screen.queryByText(/global service address:/i)).toBeNull()
   })
 
   test('runs a provider test from the provider row', async () => {
