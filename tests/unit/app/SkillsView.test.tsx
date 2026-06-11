@@ -33,25 +33,26 @@ describe('SkillsView', () => {
     // Title is rendered by TopBar outside SkillsView — verify the
     // toolbar count replaces the old duplicate page heading.
     render(<SkillsView />)
-    expect(screen.getByPlaceholderText(/search skills/i)).toBeDefined()
+    expect(screen.getByPlaceholderText(/search saved instructions/i)).toBeDefined()
   })
 
   test('shows search input', () => {
     render(<SkillsView />)
-    expect(screen.getByPlaceholderText(/search skills/i)).toBeDefined()
+    expect(screen.getByPlaceholderText(/search saved instructions/i)).toBeDefined()
   })
 
-  test('shows a create skill entry point', () => {
+  test('shows a create saved instruction entry point', () => {
     render(<SkillsView />)
-    expect(screen.getAllByRole('button', { name: /new skill/i }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /new instruction/i }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: /new skill/i })).toBeNull()
   })
 
   test('fills a skill draft from a common starting point', async () => {
     const user = userEvent.setup()
     render(<SkillsView />)
 
-    await user.click(screen.getAllByRole('button', { name: /new skill/i })[0])
-    const templates = screen.getByRole('group', { name: /skill templates/i })
+    await user.click(screen.getAllByRole('button', { name: /new instruction/i })[0])
+    const templates = screen.getByRole('group', { name: /instruction templates/i })
     await user.click(within(templates).getByRole('button', { name: /release notes/i }))
 
     expect(within(templates).getByRole('button', { name: /release notes/i })).toHaveAttribute(
@@ -72,8 +73,8 @@ describe('SkillsView', () => {
     const user = userEvent.setup()
     render(<SkillsView />)
 
-    await user.click(screen.getAllByRole('button', { name: /new skill/i })[0])
-    const templates = screen.getByRole('group', { name: /skill templates/i })
+    await user.click(screen.getAllByRole('button', { name: /new instruction/i })[0])
+    const templates = screen.getByRole('group', { name: /instruction templates/i })
     await user.click(within(templates).getByRole('button', { name: /ci status check/i }))
 
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveValue('ci-status-check')
@@ -91,7 +92,7 @@ describe('SkillsView', () => {
   test('shows empty state after load with no skills', async () => {
     render(<SkillsView />)
     await waitFor(() => {
-      expect(screen.getByText(/create your first skill/i)).toBeDefined()
+      expect(screen.getByText(/create your first saved instruction/i)).toBeDefined()
     })
   })
 
@@ -121,10 +122,11 @@ describe('SkillsView', () => {
     })
     expect(screen.getByText('Review WebUI flows')).toBeDefined()
     expect(screen.getByText('Use when task says: webui')).toBeDefined()
-    expect(screen.getByText('Saved in Global skills')).toBeDefined()
+    expect(screen.getByText('Saved in Global saved instructions')).toBeDefined()
+    expect(screen.queryByText('Saved in Global skills')).toBeNull()
     expect(screen.queryByText(/^Source:/i)).toBeNull()
     expect(screen.queryByText(/Suggested for:/i)).toBeNull()
-    expect(screen.getByText('1 skill')).toBeDefined()
+    expect(screen.getByText('1 saved instruction')).toBeDefined()
   })
 
   test('summarizes reuse readiness and filters tool-specific skills', async () => {
@@ -162,12 +164,13 @@ describe('SkillsView', () => {
     expect(within(summary).getAllByText('Installed').length).toBeGreaterThan(0)
     expect(within(summary).getAllByText('Available').length).toBeGreaterThan(0)
     expect(within(summary).getAllByText('For one work tool').length).toBeGreaterThan(0)
-    expect(within(summary).getByText('Show skills')).toBeDefined()
+    expect(within(summary).getByText('Show saved instructions')).toBeDefined()
+    expect(within(summary).queryByText('Show skills')).toBeNull()
     expect(within(summary).queryByText('Tool-specific')).toBeNull()
     expect(within(summary).queryByText('Reuse view')).toBeNull()
     expect(within(summary).queryByText(/C[L]I scoped/)).toBeNull()
 
-    const filters = within(summary).getByRole('group', { name: /skill filter/i })
+    const filters = within(summary).getByRole('group', { name: /saved instruction filter/i })
     fireEvent.click(within(filters).getByRole('button', { name: /for one work tool\s*1/i }))
 
     expect(screen.getByText('cli-review')).toBeDefined()
@@ -200,10 +203,10 @@ describe('SkillsView', () => {
     render(<SkillsView />)
 
     await waitFor(() => {
-      expect(screen.getByText(/create your first skill/i)).toBeDefined()
+      expect(screen.getByText(/create your first saved instruction/i)).toBeDefined()
     })
 
-    await user.click(screen.getAllByRole('button', { name: /new skill/i })[0])
+    await user.click(screen.getAllByRole('button', { name: /new instruction/i })[0])
     expect(screen.getByText(/check before creating/i)).toBeDefined()
     expect(screen.getByText('Safe to share')).toBeDefined()
     expect(screen.getByText(/choose the skill manually/i)).toBeDefined()
@@ -216,7 +219,7 @@ describe('SkillsView', () => {
       screen.getByLabelText(/^agent instructions$/i),
       'Check UI states and regressions'
     )
-    await user.click(screen.getByRole('button', { name: /create skill/i }))
+    await user.click(screen.getByRole('button', { name: /create instruction/i }))
 
     await waitFor(() => {
       expect(screen.getByText('frontend-review')).toBeDefined()
@@ -246,11 +249,11 @@ describe('SkillsView', () => {
     render(<SkillsView />)
 
     await waitFor(() => {
-      expect(screen.getByText(/create your first skill/i)).toBeDefined()
+      expect(screen.getByText(/create your first saved instruction/i)).toBeDefined()
     })
 
-    await user.click(screen.getAllByRole('button', { name: /new skill/i })[0])
-    await user.click(screen.getByRole('button', { name: /create skill/i }))
+    await user.click(screen.getAllByRole('button', { name: /new instruction/i })[0])
+    await user.click(screen.getByRole('button', { name: /create instruction/i }))
 
     expect(screen.getByRole('alert')).toHaveTextContent('Name this skill before creating it.')
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveFocus()
@@ -258,7 +261,7 @@ describe('SkillsView', () => {
     await user.type(screen.getByLabelText(/^instruction name$/i), 'frontend-review')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /create skill/i }))
+    await user.click(screen.getByRole('button', { name: /create instruction/i }))
 
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Add the instructions this skill should apply.'
@@ -283,16 +286,16 @@ describe('SkillsView', () => {
     render(<SkillsView />)
 
     await waitFor(() => {
-      expect(screen.getByText(/create your first skill/i)).toBeDefined()
+      expect(screen.getByText(/create your first saved instruction/i)).toBeDefined()
     })
 
-    await user.click(screen.getAllByRole('button', { name: /new skill/i })[0])
+    await user.click(screen.getAllByRole('button', { name: /new instruction/i })[0])
     await user.type(screen.getByLabelText(/^instruction name$/i), 'frontend-review')
     await user.type(
       screen.getByLabelText(/^agent instructions$/i),
       'Check UI states and regressions'
     )
-    await user.click(screen.getByRole('button', { name: /create skill/i }))
+    await user.click(screen.getByRole('button', { name: /create instruction/i }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('You do not have permission to create workspace instructions')
@@ -305,6 +308,6 @@ describe('SkillsView', () => {
   test('shows loading state while fetching', () => {
     useSkillsStore.setState({ loading: true })
     render(<SkillsView />)
-    expect(screen.getByText(/loading skills/i)).toBeDefined()
+    expect(screen.getByText(/loading saved instructions/i)).toBeDefined()
   })
 })

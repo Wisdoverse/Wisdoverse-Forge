@@ -34,7 +34,8 @@ describe('SkillDetailModal', () => {
     expect(screen.getByText('Best with Codex')).toBeInTheDocument()
     expect(screen.queryByText(/Codex C[L]I/)).toBeNull()
     expect(screen.getByText('Where it came from')).toBeInTheDocument()
-    expect(screen.getByText('Workspace skills')).toBeInTheDocument()
+    expect(screen.getByText('Workspace saved instructions')).toBeInTheDocument()
+    expect(screen.queryByText('Workspace skills')).toBeNull()
     expect(screen.getByText('Maintainer')).toBeInTheDocument()
     expect(screen.getByText('Platform team')).toBeInTheDocument()
     expect(screen.getByText('Available to')).toBeInTheDocument()
@@ -45,12 +46,16 @@ describe('SkillDetailModal', () => {
     expect(screen.getByText('Check deployment steps before release.')).toBeInTheDocument()
     expect(screen.getByText('When this helps')).toBeInTheDocument()
     expect(
-      screen.getByText('When a task uses words like these, agents know this skill may help.')
+      screen.getByText(
+        'When a task uses words like these, agents know this saved instruction may help.'
+      )
     ).toBeInTheDocument()
     expect(screen.getByText('deploy')).toBeInTheDocument()
     expect(screen.getByText('Reusable instructions')).toBeInTheDocument()
     expect(
-      screen.getByText('Review this text to understand what the skill adds to agent work.')
+      screen.getByText(
+        'Review this text to understand what the saved instruction adds to agent work.'
+      )
     ).toBeInTheDocument()
     expect(
       screen.getByText('Verify health checks, rollback notes, and user-facing release status.')
@@ -77,16 +82,18 @@ describe('SkillDetailModal', () => {
 
     expect(screen.getByText('Needs install before agents can use it')).toBeInTheDocument()
     expect(screen.getByText('Works with any agent')).toBeInTheDocument()
-    expect(screen.getByText('Skills library')).toBeInTheDocument()
+    expect(screen.getByText('Saved instructions library')).toBeInTheDocument()
     expect(screen.getByText('Maintainer not listed yet')).toBeInTheDocument()
     expect(screen.queryByText('Unknown')).toBeNull()
     expect(screen.getByText('Latest saved copy')).toBeInTheDocument()
     expect(
-      screen.getByText('No summary yet. Review the instructions below before using this skill.')
+      screen.getByText(
+        'No summary yet. Review the instructions below before using this saved instruction.'
+      )
     ).toBeInTheDocument()
     expect(
       screen.getByText(
-        'No reusable instructions have been saved yet. Add instructions before asking agents to use this skill.'
+        'No reusable instructions have been saved yet. Add instructions before asking agents to use this saved instruction.'
       )
     ).toBeInTheDocument()
   })

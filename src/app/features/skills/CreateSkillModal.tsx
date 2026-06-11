@@ -215,7 +215,11 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
                 Common starting points
               </h3>
             </div>
-            <div role="group" aria-label="Skill templates" className="grid gap-2 sm:grid-cols-2">
+            <div
+              role="group"
+              aria-label="Instruction templates"
+              className="grid gap-2 sm:grid-cols-2"
+            >
               {skillTemplates.map((template) => (
                 <button
                   key={template.id}
@@ -344,7 +348,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
               Cancel
             </button>
             <button type="submit" disabled={submitting} className={uiStyles.primaryButton}>
-              {submitting ? 'Creating...' : 'Create Skill'}
+              {submitting ? 'Creating...' : 'Create instruction'}
             </button>
           </div>
         </form>

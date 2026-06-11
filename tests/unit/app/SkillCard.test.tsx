@@ -29,7 +29,10 @@ describe('SkillCard', () => {
       })
     ).toBeInTheDocument()
     expect(screen.getByText('Ready to reuse')).toBeInTheDocument()
-    expect(screen.getByText(/saved in workspace skills by platform team/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/saved in workspace saved instructions by platform team/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/workspace skills/i)).toBeNull()
     expect(screen.getByText('Use when task says: release')).toBeInTheDocument()
   })
 
@@ -44,10 +47,12 @@ describe('SkillCard', () => {
 
     expect(
       screen.getByRole('button', {
-        name: /release-review\. ready to reuse\. no summary yet\. open details before using this skill/i,
+        name: /release-review\. ready to reuse\. no summary yet\. open details before using this saved instruction/i,
       })
     ).toBeInTheDocument()
-    expect(screen.getByText('No summary yet. Open details before using this skill.')).toBeDefined()
+    expect(
+      screen.getByText('No summary yet. Open details before using this saved instruction.')
+    ).toBeDefined()
   })
 
   test('opens the selected skill', () => {

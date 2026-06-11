@@ -481,17 +481,20 @@ export const en = {
       authorLabel: 'Maintainer',
       availabilityLabel: 'Available to',
       descriptionHeading: 'What this helps with',
-      noDescription: 'No summary yet. Review the instructions below before using this skill.',
+      noDescription:
+        'No summary yet. Review the instructions below before using this saved instruction.',
       triggerHeading: 'When this helps',
-      triggerHelper: 'When a task uses words like these, agents know this skill may help.',
+      triggerHelper:
+        'When a task uses words like these, agents know this saved instruction may help.',
       detailsHeading: 'Reusable instructions',
-      detailsHelper: 'Review this text to understand what the skill adds to agent work.',
+      detailsHelper:
+        'Review this text to understand what the saved instruction adds to agent work.',
       noContent:
-        'No reusable instructions have been saved yet. Add instructions before asking agents to use this skill.',
+        'No reusable instructions have been saved yet. Add instructions before asking agents to use this saved instruction.',
       unknownAuthor: 'Maintainer not listed yet',
-      unknownSource: 'Skills library',
+      unknownSource: 'Saved instructions library',
       availabilityWorkspace: 'This workspace',
-      availabilityGlobal: 'Skills library',
+      availabilityGlobal: 'Saved instructions library',
       availabilityProject: 'This project',
       availabilityLatest: 'Latest saved copy',
     },

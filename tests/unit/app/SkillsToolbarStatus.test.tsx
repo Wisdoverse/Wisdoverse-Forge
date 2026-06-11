@@ -24,8 +24,8 @@ describe('Skills toolbar status', () => {
   test('keeps the empty catalog status visible for first-time users', async () => {
     render(<SkillsView />)
 
-    await waitFor(() => expect(screen.getByText('No skills yet')).toBeInTheDocument())
-    expect(screen.getByText(/skills store reusable instructions/i)).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('No saved instructions yet')).toBeInTheDocument())
+    expect(screen.getByText(/saved instructions are reusable steps/i)).toBeInTheDocument()
   })
 
   test('explains when search hides every saved instruction', async () => {
@@ -49,11 +49,11 @@ describe('Skills toolbar status', () => {
     render(<SkillsView />)
 
     await screen.findByText('release-review')
-    fireEvent.change(screen.getByLabelText(/search skills/i), {
+    fireEvent.change(screen.getByLabelText(/search saved instructions/i), {
       target: { value: 'database' },
     })
 
-    expect(screen.getByText('No skills match search')).toBeInTheDocument()
+    expect(screen.getByText('No saved instructions match search')).toBeInTheDocument()
     expect(screen.getByText(/adjust search or filters/i)).toBeInTheDocument()
   })
 })

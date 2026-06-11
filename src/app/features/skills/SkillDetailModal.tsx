@@ -15,7 +15,9 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
     ? skillAvailabilityLabel(skill.marketplace, (key) => t(key))
     : t('skills.detail.availabilityLatest')
   const author = skill.pluginAuthor || t('skills.detail.unknownAuthor')
-  const source = skill.plugin || t('skills.detail.unknownSource')
+  const source = skill.plugin
+    ? savedInstructionSource(skill.plugin)
+    : t('skills.detail.unknownSource')
   const cliLabel = skill.cliTool
     ? t('skills.detail.cliFit', { tool: cliToolLabel(skill.cliTool) })
     : t('skills.detail.allAgentsFit')
@@ -172,6 +174,10 @@ function cliToolLabel(tool: string): string {
         .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
         .join(' ')
   }
+}
+
+function savedInstructionSource(source: string): string {
+  return source.replace(/\bskills\b/gi, 'saved instructions')
 }
 
 function skillAvailabilityLabel(value: string, translate: (key: string) => string): string {
