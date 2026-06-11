@@ -21,6 +21,7 @@ pub mod billing;
 pub mod cli_auth_proxy;
 pub mod cli_credential;
 pub mod cli_image;
+pub mod cli_image_build;
 pub mod cli_image_roll;
 pub mod context;
 pub mod context_envelope;

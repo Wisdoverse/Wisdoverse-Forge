@@ -107,6 +107,9 @@ temporalio-common = "0.4.0"
 
 # Docker
 bollard = "0.21"
+# In-memory tar build context for the server-side claude overlay image build
+# (`POST /admin/cli-images/claude/build` + the updater's opt-in auto-build).
+tar = "0.4"
 
 # Infrastructure
 redis = { version = "1", features = ["tokio-comp", "connection-manager"] }

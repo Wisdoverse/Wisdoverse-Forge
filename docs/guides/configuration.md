@@ -167,6 +167,8 @@ is deployment-global and has no tenant scope, because image state is per host.
 | `CLI_IMAGE_AUTO_UPDATE_ENABLED`       | `false`                               | Enables the background CLI agent-image auto-updater                                          |
 | `CLI_IMAGE_AUTO_UPDATE_INTERVAL_SECS` | `900`                                 | Registry poll interval in seconds (15 min); clamped to a 60-second minimum                   |
 | `CLI_IMAGE_PRUNE_ENABLED`             | `false`                               | Prunes superseded dangling agent overlays after each sweep; only runs when auto-update is on |
+| `CLI_IMAGE_CLAUDE_AUTO_BUILD`         | `false`                               | Builds the local `claude` image automatically when npm publishes a newer Claude Code; off = detect-only with a one-click Build button in the admin panel |
+| `CLI_IMAGE_NPM_REGISTRY`              | `https://registry.npmjs.org`          | npm registry base for the claude version check and build; point at a mirror (e.g. `https://registry.npmmirror.com`) behind restrictive networks |
 | `AGENT_REGISTRY`                      | `ghcr.io/wisdoverse/wisdoverse-forge` | Registry base the updater pulls overlays from, as `${AGENT_REGISTRY}/agent-<tool>:<tag>`     |
 | `AGENT_CLI_IMAGE_TAG`                 | `latest`                              | Image tag the updater tracks, used as the `<tag>` in the remote ref above                    |
 
@@ -175,7 +177,13 @@ without an operator running `make update-agents` by hand. Confirm status at the
 admin-only `GET /api/v1/admin/cli-images` endpoint, which surfaces the resolved
 `registry`, `imageTag`, and `pollIntervalSecs`, plus per-tool digests and prune
 counters (JSON is camelCase).
-`claude` is excluded from the poll set because it has no public registry image.
+`claude` is excluded from the registry poll set because it has no public
+registry image (the license requires a self-build). Instead, the same sweep
+compares the local `agentforge-agent:claude` image's version label against the
+npm registry and reports `update_available` in the admin panel, where one click
+builds the image on the server — or set `CLI_IMAGE_CLAUDE_AUTO_BUILD=true` to
+build with zero clicks. See the "Claude (local build)" section of
+`docs/guides/cli-image-auto-update.md`.
 
 When `CLI_IMAGE_PRUNE_ENABLED=true`, the prune pass runs inside the updater loop
 and is image-level only: it removes solely the deployment's own dangling agent

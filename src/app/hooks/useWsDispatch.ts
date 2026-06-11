@@ -292,10 +292,12 @@ function handleCliImageUpdate(payload: Record<string, unknown> | null) {
   if (!payload) return
   const tool = stringField(payload.tool)
   const state = stringField(payload.state)
-  if (!tool || (state !== 'updated' && state !== 'failed')) return
+  if (!tool || (state !== 'updated' && state !== 'failed' && state !== 'update_available')) return
 
   const localDigest = stringField(payload.localDigest)
   const remoteDigest = stringField(payload.remoteDigest)
+  const localVersion = stringField(payload.localVersion)
+  const remoteVersion = stringField(payload.remoteVersion)
   const lastError = stringField(payload.lastError)
   const unix = numberField(payload.unix) ?? Math.floor(Date.now() / 1000)
   // The producer's stable dedup key; fall back to a derived one. addNotification
@@ -308,21 +310,31 @@ function handleCliImageUpdate(payload: Record<string, unknown> | null) {
     state,
     localDigest,
     remoteDigest,
+    localVersion,
+    remoteVersion,
     lastError,
     unix,
   })
 
   const display = displayCliTool(tool)
+  const title =
+    state === 'updated'
+      ? `${display} agent image updated`
+      : state === 'update_available'
+        ? `${display} update available${remoteVersion ? ` (v${remoteVersion})` : ''}`
+        : `${display} image check failed`
+  const message =
+    state === 'updated'
+      ? `New ${display} agents will start on the latest CLI. Running agents are unaffected.`
+      : state === 'update_available'
+        ? `A newer ${display} CLI is on npm. Build it with one click from Admin → CLI agent images; running agents are unaffected.`
+        : `The ${display} image check failed${lastError ? `: ${lastError}` : ''}. New agents keep the current image until it succeeds.`
   useFeedStore.getState().addNotification({
     id: eventId,
     type: 'cli_image_updated',
     taskId: `cli-image:${tool}`,
-    taskTitle:
-      state === 'updated' ? `${display} agent image updated` : `${display} image check failed`,
-    message:
-      state === 'updated'
-        ? `New ${display} agents will start on the latest CLI. Running agents are unaffected.`
-        : `The ${display} image check failed${lastError ? `: ${lastError}` : ''}. New agents keep the current image until it succeeds.`,
+    taskTitle: title,
+    message,
     taskHref: '/admin',
     read: false,
     timestamp: unix * 1000,

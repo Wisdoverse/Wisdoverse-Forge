@@ -229,6 +229,8 @@ mod tests {
             cli_image_auto_update_enabled: false,
             cli_image_auto_update_interval_secs: 900,
             cli_image_prune_enabled: false,
+            cli_image_claude_auto_build: false,
+            cli_image_npm_registry: None,
         }
     }
 

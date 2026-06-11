@@ -7,6 +7,11 @@
 # Build: docker build -f docker/Dockerfile.agent \
 #          --build-arg CLI_TOOL=opencode --build-arg CLI_VERSION=1.14.41 \
 #          -t agentforge-agent-opencode:1.14.41 .
+#
+# KEEP IN SYNC: the Rust server embeds a claude-only mirror of this file
+# (every instruction after the ARG block) for the server-side local build —
+# rust/crates/jobs/src/cli_image_updater.rs (CLAUDE_OVERLAY_DOCKERFILE).
+# Change the install/ENV/LABEL steps in both places together.
 # =============================================================================
 
 ARG BASE_IMAGE=agentforge-agent-base:latest
@@ -36,3 +41,5 @@ RUN case "$CLI_TOOL" in \
 ENV AGENTFORGE_CLI_TOOL=$CLI_TOOL
 ENV AGENTFORGE_CLI_VERSION=$CLI_VERSION
 LABEL org.wisdoverse.cli-version=$CLI_VERSION
+# Read back by the server's claude local-build detector (CLAUDE_VERSION_LABEL).
+LABEL org.agentforge.cli-version=$CLI_VERSION
