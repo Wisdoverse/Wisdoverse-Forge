@@ -46,6 +46,28 @@ describe('TaskCard', () => {
     expect(screen.getByText('High')).toBeDefined()
   })
 
+  test('labels unknown status and priority without exposing raw codes', () => {
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'waiting_for_agent' as never,
+          priority: 'future_priority' as never,
+          progress: 0,
+        }}
+      />
+    )
+
+    expect(screen.getByText('Priority needs review')).toBeDefined()
+    expect(screen.getByTestId('task-next-step').textContent).toBe(
+      'Open details to check the current status before taking action.'
+    )
+    expect(screen.queryByText(/waiting_for_agent/i)).toBeNull()
+    expect(screen.queryByText(/waiting for agent/i)).toBeNull()
+    expect(screen.queryByText(/future_priority/i)).toBeNull()
+    expect(screen.queryByText(/future priority/i)).toBeNull()
+  })
+
   test('shows context badge when applied memory or skill counts are present', () => {
     render(
       <TaskCard

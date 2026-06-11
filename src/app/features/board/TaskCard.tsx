@@ -4,6 +4,7 @@ import { Brain, Send, WandSparkles } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
+import { taskMachineKey, taskPriorityLabel } from '@app/entities/task'
 import {
   taskResultArtifacts,
   type TaskContextCounts,
@@ -18,13 +19,6 @@ const STATE_DOTS: Record<string, string> = {
   completed: 'bg-apple-gray-2',
   failed: 'bg-apple-red',
   canceled: 'bg-apple-gray-3',
-}
-
-const PRIORITY_LABELS: Record<string, string> = {
-  urgent: 'Urgent',
-  high: 'High',
-  normal: 'Normal',
-  low: 'Low',
 }
 
 const PRIORITY_STYLES: Record<string, string> = {
@@ -56,6 +50,8 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
   const contextCounts = normalizedContextCounts(task.contextCounts)
   const showContextBadge = contextCounts.total > 0
   const hasAssignee = Boolean(task.assignedAgentName || task.assignedTo)
+  const stateKey = taskMachineKey(task.state)
+  const priorityKey = taskMachineKey(task.priority)
   const canPublish =
     task.state === 'backlog' ||
     task.state === 'queued' ||
@@ -70,6 +66,7 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
       })
   const failurePreview =
     task.state === 'failed' && task.error ? taskFailurePreview(task.error) : null
+  const showPriorityBadge = priorityKey !== 'normal'
 
   function trackPressStart(e: PointerEvent<HTMLDivElement> | MouseEvent<HTMLDivElement>) {
     if (e.button !== 0) return
@@ -123,20 +120,22 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
     >
       <div className={cn('flex items-center justify-between', compact ? 'mb-1.5' : 'mb-2')}>
         <div className="flex items-center gap-1.5">
-          <div className={cn('h-1.5 w-1.5 rounded-full', STATE_DOTS[task.state])} />
+          <div
+            className={cn('h-1.5 w-1.5 rounded-full', STATE_DOTS[stateKey] ?? STATE_DOTS.backlog)}
+          />
           <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
             {task.id.slice(0, 8)}
           </span>
         </div>
         <div className="flex items-center gap-1">
-          {task.priority !== 'normal' && (
+          {showPriorityBadge && (
             <span
               className={cn(
                 'rounded-full border px-2 py-0.5 text-ui-caption font-medium',
-                PRIORITY_STYLES[task.priority] ?? PRIORITY_STYLES.low
+                PRIORITY_STYLES[priorityKey] ?? PRIORITY_STYLES.low
               )}
             >
-              {PRIORITY_LABELS[task.priority]}
+              {taskPriorityLabel(task.priority)}
             </span>
           )}
           {canPublish && onPublish && (
@@ -309,7 +308,7 @@ function taskNextStep(task: TaskSummary, options: TaskNextStepOptions): string |
     case 'canceled':
       return 'Open details to see why it was canceled.'
     default:
-      return null
+      return 'Open details to check the current status before taking action.'
   }
 }
 
