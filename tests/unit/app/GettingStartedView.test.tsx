@@ -191,6 +191,90 @@ describe('GettingStartedView', () => {
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/providers' })
   })
 
+  test('explains task routing as a beginner-friendly queue', async () => {
+    useNavigationStore.setState({
+      teams: [
+        {
+          id: 'team-1',
+          orgId: 'org-1',
+          name: 'Launch Team',
+          slug: 'launch-team',
+          visibility: 'open',
+          description: '',
+        },
+      ],
+      projects: {
+        'team-1': [
+          {
+            id: 'project-1',
+            teamId: 'team-1',
+            name: 'Launch Project',
+            slug: 'launch-project',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+      selectedProjectId: 'project-1',
+      agentGroups: [],
+    })
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-1',
+          provider: 'model-service',
+          displayName: 'Model Service',
+          model: 'general-model',
+          isEnabled: true,
+          isDefault: true,
+          lastTestStatus: 'passed',
+        } as any,
+      ],
+      runtimeSettings: {
+        defaultRuntime: 'container',
+        availableRuntimes: ['container'],
+        defaultCliTool: 'workspace-tool',
+        availableCliTools: ['workspace-tool'],
+        cliToolDetails: [
+          {
+            cliTool: 'workspace-tool',
+            image: 'agentforge-agent:workspace-tool',
+            version: '1.0.0',
+            imagePresent: true,
+            versionSource: 'docker-label',
+          },
+        ],
+      },
+    })
+    useAgentsStore.setState({
+      agents: [
+        {
+          id: 'agent-1',
+          name: 'Starter Agent',
+          provider: 'model-service',
+          model: 'general-model',
+          status: 'idle',
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+        },
+      ],
+    })
+
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText('Do this next')).toBeDefined()
+    expect(screen.getAllByText('Task queue').length).toBeGreaterThan(0)
+    expect(screen.getByText('Create a task queue for this project.')).toBeDefined()
+    expect(
+      screen.getAllByText(
+        'A task queue is the place new work waits until an agent is ready to pick it up.'
+      ).length
+    ).toBeGreaterThanOrEqual(2)
+    expect(screen.getByText('Create a task queue before the first task.')).toBeDefined()
+    expect(screen.queryByText(/work lane/i)).toBeNull()
+  })
+
   test('does not expose raw AI service keys in the first-run checklist', async () => {
     useSettingsStore.setState({
       providers: [
@@ -332,9 +416,7 @@ describe('GettingStartedView', () => {
 
     expect(await screen.findByText('Check the AI service before giving agents work.')).toBeDefined()
     expect(screen.getByText('Do this next')).toBeDefined()
-    expect(
-      screen.getAllByText(/Agents need one ready option/i).length
-    ).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Agents need one ready option/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/checked model service/i)).toBeNull()
     expect(screen.queryByText(/assigning work/i)).toBeNull()
     expect(screen.queryByText('100%')).toBeNull()

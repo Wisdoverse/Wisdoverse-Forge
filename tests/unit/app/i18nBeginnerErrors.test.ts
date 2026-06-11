@@ -108,6 +108,8 @@ describe('beginner error translations', () => {
     expect(zh.nav.agents).toBe('Agent')
     expect(zh.agents.title).toBe('Agent')
     expect(zh.gettingStarted.steps.agent.create).toBe('创建 Agent')
+    expect(zh.gettingStarted.steps.routing.title).toBe('任务队列')
+    expect(JSON.stringify(zh.gettingStarted)).not.toContain('工作通道')
     expect(zh.admin.agents.title).toBe('Agent 管理')
     expect(JSON.stringify(zh)).not.toContain('会话')
   })
