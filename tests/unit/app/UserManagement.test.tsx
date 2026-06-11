@@ -101,6 +101,33 @@ describe('UserManagement', () => {
     await waitFor(() => expect(updateUserRole).toHaveBeenCalledWith('user-1', 'operator'))
   })
 
+  test('flags an unsupported saved role instead of presenting it as view-only access', async () => {
+    const user = userEvent.setup()
+    const updateUserRole = vi.fn().mockResolvedValue({ ok: true })
+    useAdminStore.setState({
+      ...originalAdminState,
+      users: [{ ...mockUser, role: 'billing_admin' }],
+      usersTotal: 1,
+      usersPage: 1,
+      usersLoading: false,
+      usersError: null,
+      userSearch: '',
+      loadUsers: vi.fn(),
+      updateUserRole,
+    })
+
+    render(<UserManagement />)
+
+    expect(screen.getByText('Access needs review')).toBeDefined()
+    expect(screen.getByText(/Saved access level is not listed/i)).toBeDefined()
+    expect(screen.queryByText('billing_admin')).toBeNull()
+
+    await user.click(screen.getByTitle('Change what this user can do'))
+    await user.click(screen.getByRole('button', { name: /save role/i }))
+
+    await waitFor(() => expect(updateUserRole).toHaveBeenCalledWith('user-1', 'viewer'))
+  })
+
   test('shows the store recovery step when role saving fails', async () => {
     const user = userEvent.setup()
     const updateUserRole = vi.fn().mockResolvedValue({

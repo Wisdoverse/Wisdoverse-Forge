@@ -18,6 +18,9 @@ const ROLE_HELP: Record<Role, string> = {
   viewer: 'Can review information without changing it.',
 }
 
+const UNKNOWN_ROLE_HELP =
+  'Saved access level is not listed. Choose Admin, Operator, or Viewer before saving changes.'
+
 const ROLE_DETAILS: Record<Role, { label: string; description: string }> = {
   admin: {
     label: 'Admin',
@@ -33,8 +36,12 @@ const ROLE_DETAILS: Record<Role, { label: string; description: string }> = {
   },
 }
 
-function normalizeRole(role: string): Role {
-  return ROLE_OPTIONS.includes(role as Role) ? (role as Role) : 'viewer'
+function knownRole(role: string): Role | null {
+  return ROLE_OPTIONS.includes(role as Role) ? (role as Role) : null
+}
+
+function editableRole(role: string): Role {
+  return knownRole(role) ?? 'viewer'
 }
 
 function formatDate(iso: string | null): string {
@@ -51,20 +58,21 @@ function formatDate(iso: string | null): string {
 }
 
 function RoleBadge({ role }: { role: string }) {
-  const knownRole = ROLE_OPTIONS.includes(role as Role) ? (role as Role) : 'viewer'
+  const currentRole = knownRole(role)
   const colors: Record<string, string> = {
     admin: 'bg-apple-blue/10 text-apple-blue',
     operator: 'bg-apple-blue/[0.07] text-apple-blue',
     viewer: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
+    unknown: 'bg-apple-orange/10 text-apple-orange dark:bg-apple-orange/15 dark:text-apple-orange',
   }
   return (
     <span
       className={cn(
         'inline-flex items-center rounded-full px-2 py-0.5 text-ui-caption font-medium',
-        colors[knownRole]
+        currentRole ? colors[currentRole] : colors.unknown
       )}
     >
-      {ROLE_LABELS[knownRole]}
+      {currentRole ? ROLE_LABELS[currentRole] : 'Access needs review'}
     </span>
   )
 }
@@ -88,11 +96,11 @@ function StatusBadge({ status }: { status: AdminUser['status'] }) {
 
 function UserRow({ user }: { user: AdminUser }) {
   const [editing, setEditing] = useState(false)
-  const [selectedRole, setSelectedRole] = useState<Role>(normalizeRole(user.role))
+  const [selectedRole, setSelectedRole] = useState<Role>(editableRole(user.role))
   const [saving, setSaving] = useState(false)
   const [roleError, setRoleError] = useState<string | null>(null)
   const updateUserRole = useAdminStore((s) => s.updateUserRole)
-  const currentRole = normalizeRole(user.role)
+  const currentRole = knownRole(user.role)
   const selectedRoleDetails = ROLE_DETAILS[selectedRole]
   const roleChanged = selectedRole !== currentRole
   const editStatus = saving
@@ -102,8 +110,8 @@ function UserRow({ user }: { user: AdminUser }) {
       : 'Choose a different role before saving.'
 
   useEffect(() => {
-    if (!editing) setSelectedRole(currentRole)
-  }, [currentRole, editing])
+    if (!editing) setSelectedRole(editableRole(user.role))
+  }, [user.role, editing])
 
   async function handleSave() {
     if (!roleChanged) {
@@ -121,7 +129,7 @@ function UserRow({ user }: { user: AdminUser }) {
   }
 
   function handleCancel() {
-    setSelectedRole(currentRole)
+    setSelectedRole(editableRole(user.role))
     setRoleError(null)
     setEditing(false)
   }
@@ -204,7 +212,7 @@ function UserRow({ user }: { user: AdminUser }) {
         )}
         {!editing && (
           <p className="mt-1 max-w-[220px] text-ui-caption text-secondary-light dark:text-secondary-dark">
-            {ROLE_HELP[ROLE_OPTIONS.includes(user.role as Role) ? (user.role as Role) : 'viewer']}
+            {currentRole ? ROLE_HELP[currentRole] : UNKNOWN_ROLE_HELP}
           </p>
         )}
       </td>
