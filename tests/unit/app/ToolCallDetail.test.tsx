@@ -21,7 +21,8 @@ describe('ToolCallDetail', () => {
     render(<ToolCallDetail call={baseCall} />)
 
     expect(screen.getByText(/Agent recorded a work step/i)).toBeInTheDocument()
-    expect(screen.getByText(/Step type: shell/i)).toBeInTheDocument()
+    expect(screen.getByText(/Work step: Command runner/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Step type: shell/i)).toBeNull()
     expect(screen.getByText('Completed cleanly')).toBeInTheDocument()
     expect(screen.getByText(/This step finished without reporting a problem/i)).toBeInTheDocument()
     expect(screen.getByText('Took 1.2s')).toBeInTheDocument()
@@ -31,7 +32,7 @@ describe('ToolCallDetail', () => {
   test('opens beginner summaries before support details', () => {
     render(<ToolCallDetail call={baseCall} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /show step details for shell/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command runner/i }))
 
     expect(
       screen.getByText(
@@ -75,7 +76,7 @@ describe('ToolCallDetail', () => {
     expect(screen.getByText('Needs review')).toBeInTheDocument()
     expect(screen.getByText(/This step reported a problem/i)).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /show step details for deploy/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show step details for deployment/i }))
 
     expect(
       screen.getByText('Review this result before relying on the final answer.')
@@ -106,5 +107,20 @@ describe('ToolCallDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: /show step details for search/i }))
 
     expect(screen.getByText('No result has been recorded for this step yet.')).toBeInTheDocument()
+  })
+
+  test('turns unknown tool slugs into readable step names', () => {
+    render(
+      <ToolCallDetail
+        call={{
+          ...baseCall,
+          tool: 'future_tool_runner',
+          input: { summary: 'Checked the release branch' },
+        }}
+      />
+    )
+
+    expect(screen.getByText(/Work step: Future Tool Runner/i)).toBeInTheDocument()
+    expect(screen.queryByText(/future_tool_runner/i)).toBeNull()
   })
 })

@@ -56,6 +56,23 @@ function formatDuration(duration: number): string {
   return duration < 1000 ? `${duration}ms` : `${(duration / 1000).toFixed(1)}s`
 }
 
+function toolDisplayName(tool: string): string {
+  const normalized = tool.trim().toLowerCase()
+  if (!normalized) return 'Work step'
+
+  if (['shell', 'bash', 'terminal', 'command'].includes(normalized)) return 'Command runner'
+  if (['grep', 'ripgrep', 'search', 'web_search'].includes(normalized)) return 'Search'
+  if (['read_file', 'file_read', 'open_file'].includes(normalized)) return 'File reader'
+  if (['write_file', 'edit_file', 'apply_patch'].includes(normalized)) return 'File editor'
+  if (['deploy', 'deployment'].includes(normalized)) return 'Deployment'
+
+  return normalized
+    .split(/[_\-\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
 function toolDataSummary(data: Record<string, unknown>, kind: 'request' | 'result'): string {
   const directSummary = firstString(data.summary, data.message, data.title, data.description)
   if (directSummary) return safeToolString(directSummary)
@@ -145,6 +162,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
   const isTruncated = outputLines.length > MAX_OUTPUT_LINES
   const outcome = toolOutcome(call)
   const OutcomeIcon = outcome.Icon
+  const readableTool = toolDisplayName(call.tool)
 
   return (
     <div
@@ -159,7 +177,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
         type="button"
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
-        aria-label={`${expanded ? 'Hide' : 'Show'} step details for ${call.tool}`}
+        aria-label={`${expanded ? 'Hide' : 'Show'} step details for ${readableTool}`}
         className={cn(
           'w-full flex items-center gap-2 px-3 py-2 text-left',
           'hover:bg-black/[0.03] dark:hover:bg-white/[0.03]',
@@ -177,7 +195,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
             Agent recorded a work step
           </p>
           <p className="truncate text-[10px] text-secondary-light dark:text-secondary-dark">
-            Step type: {call.tool}. {outcome.helper}
+            Work step: {readableTool}. {outcome.helper}
           </p>
         </div>
         <span
