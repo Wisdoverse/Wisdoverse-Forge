@@ -212,7 +212,7 @@ function skillResponseErrorMessage(
 function skillValidationMessage(detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('trigger')) {
-    return 'Check the trigger pattern, then try again.'
+    return 'Check the matching words, then try again.'
   }
   if (normalized.includes('name')) {
     return 'Enter a skill name, then try again.'
@@ -220,7 +220,7 @@ function skillValidationMessage(detail: string | null): string {
   if (normalized.includes('content') || normalized.includes('instruction')) {
     return 'Enter the skill instructions, then try again.'
   }
-  return 'Check the skill name, trigger pattern, and content, then try again.'
+  return 'Check the skill name, matching words, and instructions, then try again.'
 }
 
 export const useSkillsStore = create<SkillsState>((set, get) => ({

@@ -80,7 +80,7 @@ describe('useSkillsStore errors', () => {
         trigger_pattern: '[',
         content: 'Review the task',
       })
-    ).rejects.toThrow('Check the trigger pattern, then try again.')
+    ).rejects.toThrow('Check the matching words, then try again.')
   })
 
   test('throws a connection recovery step when skill creation cannot reach the server', async () => {

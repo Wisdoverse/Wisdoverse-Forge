@@ -63,9 +63,29 @@ describe('SkillsView', () => {
       'Draft release notes from accepted work'
     )
     expect(screen.getByLabelText(/^matching words for future tasks$/i)).toHaveValue('release')
-    expect((screen.getByLabelText(/^content$/i) as HTMLTextAreaElement).value).toContain(
+    expect((screen.getByLabelText(/^agent instructions$/i) as HTMLTextAreaElement).value).toContain(
       'Group user-facing updates'
     )
+  })
+
+  test('offers a CI status skill that avoids repeated waiting', async () => {
+    const user = userEvent.setup()
+    render(<SkillsView />)
+
+    await user.click(screen.getAllByRole('button', { name: /new skill/i })[0])
+    const templates = screen.getByRole('group', { name: /skill templates/i })
+    await user.click(within(templates).getByRole('button', { name: /ci status check/i }))
+
+    expect(screen.getByLabelText(/^skill name$/i)).toHaveValue('ci-status-check')
+    expect(screen.getByLabelText(/^short description$/i)).toHaveValue(
+      'Summarize build status from one fresh check'
+    )
+    expect(screen.getByLabelText(/^matching words for future tasks$/i)).toHaveValue(
+      'ci status, checks, build status'
+    )
+    const instructions = screen.getByLabelText(/^agent instructions$/i) as HTMLTextAreaElement
+    expect(instructions.value).toContain('Check GitHub or GitLab build status once')
+    expect(instructions.value).toContain('instead of watching it repeatedly')
   })
 
   test('shows empty state after load with no skills', async () => {
@@ -189,7 +209,10 @@ describe('SkillsView', () => {
     await user.type(screen.getByLabelText(/^skill name$/i), 'frontend-review')
     await user.type(screen.getByLabelText(/^short description$/i), 'Review frontend flows')
     await user.type(screen.getByLabelText(/^matching words for future tasks$/i), 'frontend')
-    await user.type(screen.getByLabelText(/^content$/i), 'Check UI states and regressions')
+    await user.type(
+      screen.getByLabelText(/^agent instructions$/i),
+      'Check UI states and regressions'
+    )
     await user.click(screen.getByRole('button', { name: /create skill/i }))
 
     await waitFor(() => {
@@ -237,7 +260,7 @@ describe('SkillsView', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Add the instructions this skill should apply.'
     )
-    expect(screen.getByLabelText(/^content$/i)).toHaveFocus()
+    expect(screen.getByLabelText(/^agent instructions$/i)).toHaveFocus()
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
@@ -262,7 +285,10 @@ describe('SkillsView', () => {
 
     await user.click(screen.getAllByRole('button', { name: /new skill/i })[0])
     await user.type(screen.getByLabelText(/^skill name$/i), 'frontend-review')
-    await user.type(screen.getByLabelText(/^content$/i), 'Check UI states and regressions')
+    await user.type(
+      screen.getByLabelText(/^agent instructions$/i),
+      'Check UI states and regressions'
+    )
     await user.click(screen.getByRole('button', { name: /create skill/i }))
 
     const alert = await screen.findByRole('alert')

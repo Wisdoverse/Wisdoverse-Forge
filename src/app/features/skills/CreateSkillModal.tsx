@@ -52,6 +52,18 @@ const skillTemplates = [
     },
   },
   {
+    id: 'ci-status',
+    label: 'CI status check',
+    description: 'Check builds without waiting',
+    form: {
+      name: 'ci-status-check',
+      description: 'Summarize build status from one fresh check',
+      triggerPattern: 'ci status, checks, build status',
+      content:
+        'Check GitHub or GitLab build status once.\nSummarize whether it passed, failed, or is still running.\nIf it is still running, give the next safe time to check instead of watching it repeatedly.',
+    },
+  },
+  {
     id: 'incident',
     label: 'Incident notes',
     description: 'Capture facts and next steps',
@@ -203,7 +215,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
                 Common starting points
               </h3>
             </div>
-            <div role="group" aria-label="Skill templates" className="grid gap-2 sm:grid-cols-3">
+            <div role="group" aria-label="Skill templates" className="grid gap-2 sm:grid-cols-2">
               {skillTemplates.map((template) => (
                 <button
                   key={template.id}
@@ -315,7 +327,6 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
             <textarea
               id="skill-content"
               ref={contentInputRef}
-              aria-label="Content"
               value={form.content}
               onChange={(event) => updateField('content', event.target.value)}
               className={cn(
