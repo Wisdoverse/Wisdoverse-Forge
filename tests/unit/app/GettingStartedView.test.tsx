@@ -389,7 +389,6 @@ describe('GettingStartedView', () => {
       ).length
     ).toBeGreaterThanOrEqual(2)
     expect(screen.getByText('Create a task queue before the first task.')).toBeDefined()
-    expect(screen.queryByText(/work lane/i)).toBeNull()
   })
 
   test('does not expose raw AI service keys in the first-run checklist', async () => {

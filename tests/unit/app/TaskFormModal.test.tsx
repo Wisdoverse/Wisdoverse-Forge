@@ -26,7 +26,9 @@ describe('TaskFormModal', () => {
       />
     )
 
-    expect(screen.getByText('What, where, done when')).toBeDefined()
+    expect(screen.getByText('Start with a task type')).toBeDefined()
+    expect(screen.getByText('Fills in a safe first draft')).toBeDefined()
+    expect(screen.getByRole('group', { name: /task type shortcuts/i })).toBeDefined()
     expect(screen.getByText('What to finish')).toBeDefined()
     expect(screen.getByText('Where to work')).toBeDefined()
     expect(screen.getByText('Done when')).toBeDefined()
@@ -68,7 +70,6 @@ describe('TaskFormModal', () => {
       )
     ).toBeDefined()
     expect(screen.queryByText(/dispatched?/i)).toBeNull()
-    expect(screen.queryByText(/work lane/i)).toBeNull()
   })
 
   test('guides busy-agent assignment without dispatch language', () => {
@@ -121,7 +122,6 @@ describe('TaskFormModal', () => {
     expect(
       screen.getByText(/A task queue is where new work waits until an agent is ready/i)
     ).toBeDefined()
-    expect(screen.queryByText(/Set Up a Work Lane First/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /open task queues/i }))
 

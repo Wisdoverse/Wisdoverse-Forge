@@ -11,7 +11,7 @@ vi.mock('@app/entities/agent-group', () => ({
     getGroups: vi.fn().mockResolvedValue([]),
     createGroup: vi.fn().mockResolvedValue({
       id: 'group-new',
-      name: 'Default Work Lane',
+      name: 'Default Task Queue',
       projectId: 'p1',
     }),
   },
@@ -32,7 +32,7 @@ beforeEach(() => {
   vi.mocked(agentGroupApi.getGroups).mockResolvedValue([])
   vi.mocked(agentGroupApi.createGroup).mockResolvedValue({
     id: 'group-new',
-    name: 'Default Work Lane',
+    name: 'Default Task Queue',
     projectId: 'p1',
   })
   useAgentsStore.setState({
@@ -125,7 +125,7 @@ describe('CreateAgentModal', () => {
     })
   })
 
-  test('creates and selects a work lane for the selected project', async () => {
+  test('creates and selects a task queue for the selected project', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
     useNavigationStore.setState({
@@ -146,18 +146,18 @@ describe('CreateAgentModal', () => {
     })
 
     render(<CreateAgentModal />)
-    fireEvent.click(await screen.findByRole('button', { name: /create task lane/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /create task queue/i }))
 
     await waitFor(() =>
       expect(agentGroupApi.createGroup).toHaveBeenCalledWith({
         projectId: 'p1',
-        name: 'Default Work Lane',
-        description: 'This work lane lets agents receive board tasks.',
+        name: 'Default Task Queue',
+        description: 'This task queue lets agents receive board tasks.',
       })
     )
-    expect(screen.getByRole('combobox', { name: /task lane/i })).toHaveValue('group-new')
+    expect(screen.getByRole('combobox', { name: /task queue/i })).toHaveValue('group-new')
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/project ready/i)
-    expect(screen.getByText(/task lane is where this agent listens/i)).toBeInTheDocument()
+    expect(screen.getByText(/task queue is where this agent waits/i)).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'CLI Worker' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))

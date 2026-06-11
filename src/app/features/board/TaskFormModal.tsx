@@ -405,15 +405,15 @@ export function TaskFormModal({
           <div>
             <div className="mb-2 flex items-center justify-between gap-2">
               <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Start From a Brief
+                Start with a task type
               </span>
               <span className="hidden text-ui-caption text-secondary-light dark:text-secondary-dark sm:inline">
-                What, where, done when
+                Fills in a safe first draft
               </span>
             </div>
             <div
               role="group"
-              aria-label="Task brief templates"
+              aria-label="Task type shortcuts"
               className="grid gap-2 sm:grid-cols-2"
             >
               {TASK_BRIEF_TEMPLATES.map((template) => (
