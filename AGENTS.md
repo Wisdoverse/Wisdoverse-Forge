@@ -189,6 +189,18 @@ Use `gh` for GitHub PRs and `glab` for GitLab MRs and pipeline inspection. If
 CLI flags differ on this host, check `<tool> <command> --help` or use the
 provider API.
 
+For GitHub PR queue checks, prefer the low-token snapshot path:
+
+```bash
+npm run pr:summary
+```
+
+Treat `ACTION` as the only state that needs immediate fix work. Treat `WAIT` as
+the stop condition for the chat: review, CI, or the merge queue is still
+working, so do not repeatedly refresh status inside the conversation. For
+external monitoring, schedule `npm run pr:summary:monitor`; it reuses the local
+snapshot when run too soon and alerts only when a PR needs action.
+
 ## Backend Contracts
 
 - New HTTP, WebSocket, and MCP routes must be registered behind the auth
