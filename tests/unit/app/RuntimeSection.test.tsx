@@ -120,7 +120,8 @@ describe('RuntimeSection', () => {
     expect(nextStep).toHaveTextContent('Work tools')
     expect(screen.getByText('Before assigning work')).toBeDefined()
     expect(screen.getByText('2/4 ready')).toBeDefined()
-    expect(screen.getByText(/work places available/i)).toBeDefined()
+    expect(screen.getByText(/work locations available/i)).toBeDefined()
+    expect(screen.queryByText(/work places available/i)).toBeNull()
     expect(screen.getByText(/work tools available/i)).toBeDefined()
     expect(screen.getAllByText(/project files or live work access/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
@@ -188,6 +189,7 @@ describe('RuntimeSection', () => {
 
     expect(await screen.findByText('4/4 ready')).toBeDefined()
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Ready to start agent work')
+    expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('The work location')
     expect(screen.queryByRole('button', { name: /Reconnect GitHub account/i })).toBeNull()
     expect(screen.getByText(/1\/1 work tools are ready/i)).toBeDefined()
     expect(screen.getByText(/1\/1 tool account connections ready/i)).toBeDefined()

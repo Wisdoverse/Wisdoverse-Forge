@@ -218,7 +218,7 @@ export function RuntimeSection() {
             </div>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
               {runtimeSettings
-                ? `${runtimeSettings.availableRuntimes.length} work place${runtimeSettings.availableRuntimes.length === 1 ? '' : 's'} available, ${runtimeSettings.availableCliTools.length} work tool${runtimeSettings.availableCliTools.length === 1 ? '' : 's'} available, ${connectedCredentialCount} tool account${connectedCredentialCount === 1 ? '' : 's'} connected, ${participants.length} agent${participants.length === 1 ? '' : 's'} seen online.`
+                ? `${runtimeSettings.availableRuntimes.length} work location${runtimeSettings.availableRuntimes.length === 1 ? '' : 's'} available, ${runtimeSettings.availableCliTools.length} work tool${runtimeSettings.availableCliTools.length === 1 ? '' : 's'} available, ${connectedCredentialCount} tool account${connectedCredentialCount === 1 ? '' : 's'} connected, ${participants.length} agent${participants.length === 1 ? '' : 's'} seen online.`
                 : 'Agent Work Setup has not loaded yet.'}
             </p>
           </div>
@@ -521,7 +521,7 @@ function RuntimeNextStepPanel({
           </h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
             {allReady
-              ? 'The work place, work tools, tool account connections, and agent online status are ready.'
+              ? 'The work location, work tools, tool account connections, and agent online status are ready.'
               : item?.detail}
           </p>
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
