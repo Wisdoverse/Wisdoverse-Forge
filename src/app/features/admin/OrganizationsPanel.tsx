@@ -82,7 +82,7 @@ function OrganizationsGuide({ orgs }: { orgs: AdminOrg[] }) {
           Admin view
         </p>
         <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-          Use organizations to check tenant setup at a glance
+          Use organizations to check setup at a glance
         </h3>
         <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
           {organizationSummary(orgs)}
@@ -122,7 +122,7 @@ function OrganizationsEmptyState() {
       </p>
       <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
         Create or sync an organization before creating teams, projects, members, or agent work
-        lanes. If you expected data here, confirm your admin access and refresh after the API is
+        queues. If you expected data here, confirm your admin access and refresh after Forge is
         healthy.
       </p>
     </div>
@@ -152,7 +152,7 @@ export function OrganizationsPanel() {
         <div data-testid="admin-org-error" role="alert" className={uiStyles.error}>
           <p>{orgsError}</p>
           <p className="mt-1 text-ui-caption">
-            Refresh after the API is healthy, or confirm this account has admin access.
+            Refresh after Forge is healthy, or confirm this account has admin access.
           </p>
         </div>
       )}

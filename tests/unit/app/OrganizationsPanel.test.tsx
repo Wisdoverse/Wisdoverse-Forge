@@ -52,9 +52,7 @@ describe('OrganizationsPanel', () => {
     render(<OrganizationsPanel />)
 
     const guide = await screen.findByTestId('admin-org-guide')
-    expect(
-      within(guide).getByText('Use organizations to check tenant setup at a glance')
-    ).toBeDefined()
+    expect(within(guide).getByText('Use organizations to check setup at a glance')).toBeDefined()
     expect(
       within(guide).getByText('8 members and 3 teams are spread across 2 organizations.')
     ).toBeDefined()
@@ -101,7 +99,7 @@ describe('OrganizationsPanel', () => {
     expect(within(error).getByText('HTTP 503')).toBeDefined()
     expect(
       within(error).getByText(
-        'Refresh after the API is healthy, or confirm this account has admin access.'
+        'Refresh after Forge is healthy, or confirm this account has admin access.'
       )
     ).toBeDefined()
   })

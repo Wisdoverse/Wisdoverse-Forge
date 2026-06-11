@@ -289,7 +289,10 @@ describe('CreateAgentModal', () => {
     expect(oneLiner).toHaveValue(joinCommandPowershell)
 
     // Manual env block stays available behind the advanced section.
-    expect(screen.getByText(/manual setup \(advanced\)/i)).toBeInTheDocument()
+    expect(screen.getByText(/manual connection setup/i)).toBeInTheDocument()
+    const manualHelp = screen.getByText(/connection helper/i)
+    expect(manualHelp).toBeInTheDocument()
+    expect(manualHelp.textContent).not.toMatch(/sidecar/i)
     expect(screen.getByLabelText(/manual setup environment/i)).toHaveValue(
       "export AGENT_ID='a-local'\nagentforge-sidecar"
     )

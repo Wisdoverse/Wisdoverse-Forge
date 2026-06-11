@@ -451,7 +451,7 @@ export function CreateAgentModal() {
               <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {localEnrollment.enrollment?.joinCommand
                   ? 'Paste one command into a terminal on the machine where the agent should work. It downloads what is missing and connects this agent.'
-                  : 'Copy this command and run it on the machine where the CLI is installed. The agent will appear online after the sidecar starts.'}
+                  : 'Copy this command and run it on the machine where the CLI is installed. The agent will appear online after the connection helper starts.'}
               </p>
             </div>
 
@@ -507,11 +507,11 @@ export function CreateAgentModal() {
                 </p>
                 <details className="mt-3">
                   <summary className="cursor-pointer text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                    Manual setup (advanced)
+                    Manual connection setup
                   </summary>
                   <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                    Already have <code>agentforge-sidecar</code> installed? Export this environment
-                    and start the sidecar yourself.
+                    Use this only if the one-command join cannot run on this machine. Export this
+                    environment and start the connection helper yourself.
                   </p>
                   <textarea
                     id="local-agent-command"
