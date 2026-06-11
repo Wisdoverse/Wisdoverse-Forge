@@ -60,12 +60,12 @@ const DEFAULT_FORM: AddProviderForm = {
 }
 
 const PROVIDER_SETUP_STEPS = [
-  { label: 'Choose service', value: 'Choose the AI service agents will use.' },
+  { label: 'Choose AI account', value: 'Pick the service your team already uses.' },
   {
-    label: 'Paste secret key',
-    value: 'Use the secret key from that account. It is stored encrypted.',
+    label: 'Paste private key',
+    value: 'Use the key from that account. Forge hides it after saving.',
   },
-  { label: 'Save, then check', value: 'Check the connection before creating chat-only agents.' },
+  { label: 'Save and check', value: 'Run Check once so agents do not fail later.' },
 ]
 
 const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
@@ -333,9 +333,9 @@ function providerFormReadiness({
   if (!form.model.trim()) {
     return {
       ready: false,
-      title: 'Next: Add model name',
-      detail: 'Choose a model from the list or keep the suggested default.',
-      error: 'Add a model before saving this AI service.',
+      title: 'Next: choose a model name',
+      detail: 'Keep the suggested model unless your AI service instructions gave you another name.',
+      error: 'Choose a model name before saving this AI service.',
       fieldId: modelInputId,
     }
   }
@@ -343,9 +343,10 @@ function providerFormReadiness({
   if (needsApiKey && !form.apiKey.trim()) {
     return {
       ready: false,
-      title: 'Next: Paste Secret Key',
-      detail: 'Paste the secret key from your AI service account. It will be hidden after saving.',
-      error: 'Add the secret key before saving this AI service.',
+      title: 'Next: paste the private key',
+      detail:
+        'Find the key in your AI service account. It is sometimes called an API key, and it is hidden after saving.',
+      error: 'Paste the private key before saving this AI service.',
       fieldId: apiKeyInputId,
     }
   }
@@ -353,9 +354,10 @@ function providerFormReadiness({
   if (needsBaseUrl && !form.baseUrl.trim()) {
     return {
       ready: false,
-      title: 'Next: Add connection URL',
-      detail: 'Paste the custom connection address for this AI service.',
-      error: 'Add the connection URL before saving this AI service.',
+      title: 'Next: add the service address',
+      detail:
+        'Only custom AI services need this. Ask an owner for the exact address if you are unsure.',
+      error: 'Add the service address before saving this AI service.',
       fieldId: baseUrlInputId,
     }
   }
@@ -363,7 +365,7 @@ function providerFormReadiness({
   return {
     ready: true,
     title: 'Ready to save',
-    detail: 'Save this AI service, then check the connection so agents can use it safely.',
+    detail: 'Save this AI service, then run Check so agents can use it safely.',
     error: null,
     fieldId: null,
   }
@@ -409,9 +411,9 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
 
   if (total === 0) {
     return {
-      title: 'Add Your First AI Service',
+      title: 'Add your first AI service',
       detail:
-        'An AI service gives agents a model to use. Pick a service, paste the secret key, save it, then check the connection.',
+        'An AI service is the account agents use to answer. Pick a service, paste the private key, save it, then run Check.',
       success: 'At least 1 AI service is saved and ready for a connection check.',
       ready: false,
       action: 'add-provider',
@@ -422,9 +424,9 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
   if (needsTestProviders.length > 0) {
     const firstProvider = needsTestProviders[0]
     return {
-      title: 'Check AI Service Connection',
-      detail: `Check ${firstProvider.displayName} before assigning work so agent creation does not fail on the first run.`,
-      success: 'The AI service shows Ready and can be used by chat-only agents.',
+      title: 'Check the AI service connection',
+      detail: `Run Check for ${firstProvider.displayName} before assigning work so the first agent run does not fail.`,
+      success: 'The AI service shows Ready and can be used by simple chat agents.',
       ready: false,
       action: 'show-needs-test',
       actionLabel: 'Show needs check',
@@ -433,9 +435,9 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
 
   if (readyProviders.length === 0) {
     return {
-      title: 'Add an Active AI Service',
+      title: 'Add a working AI service',
       detail:
-        'All saved AI services are disabled. Add a working AI service so agents have a model to use.',
+        'All saved AI services are disabled. Add one working AI service so agents have an account to use.',
       success: 'At least 1 enabled AI service is tested and marked Ready.',
       ready: false,
       action: 'add-provider',
@@ -445,17 +447,17 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
 
   if (!defaultProvider && readyProviders.length > 0) {
     return {
-      title: 'Ready AI Service Available',
-      detail: `${readyProviders[0].displayName} is ready. Use it when creating a chat-only agent.`,
-      success: 'New chat-only agents can select a tested AI service.',
+      title: 'Ready AI service available',
+      detail: `${readyProviders[0].displayName} is ready. Choose it when creating a simple chat agent.`,
+      success: 'New simple chat agents can select a tested AI service.',
       ready: true,
     }
   }
 
   return {
-    title: 'Ready to Create Chat-Only Agents',
-    detail: `${defaultProvider?.displayName ?? readyProviders[0]?.displayName ?? 'An AI service'} is ready for chat-only agents.`,
-    success: 'Open Agents, choose New Agent, then select Chat-only AI service.',
+    title: 'Ready to create simple chat agents',
+    detail: `${defaultProvider?.displayName ?? readyProviders[0]?.displayName ?? 'An AI service'} is ready for agents that answer in chat.`,
+    success: 'Open Agents, choose New Agent, then select Simple chat agent.',
     ready: true,
   }
 }
@@ -643,7 +645,7 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
           </div>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
             {total === 0
-              ? 'Add and check an AI service before creating chat-only agents.'
+              ? 'Add and check an AI service before creating simple chat agents.'
               : `${ready}/${total} AI service${total === 1 ? '' : 's'} ready, ${needsTest} need${
                   needsTest === 1 ? 's' : ''
                 } a connection check, ${disabled} disabled.`}
@@ -792,6 +794,7 @@ function AddProviderFormPanel({
   const modelListId = `provider-models-${form.provider}`
   const providerInputId = 'provider-form-provider'
   const modelInputId = 'provider-form-model'
+  const modelHelpId = 'provider-form-model-help'
   const displayNameInputId = 'provider-form-display-name'
   const apiKeyInputId = 'provider-form-api-key'
   const apiKeyHelpId = 'provider-form-api-key-help'
@@ -849,7 +852,7 @@ function AddProviderFormPanel({
     >
       <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
         <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          AI service setup path
+          3 steps to connect an AI account
         </div>
         <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
           {PROVIDER_SETUP_STEPS.map((step) => (
@@ -892,8 +895,14 @@ function AddProviderFormPanel({
         {/* Model */}
         <div>
           <label htmlFor={modelInputId} className={uiStyles.label}>
-            Model
+            Model name
           </label>
+          <p
+            id={modelHelpId}
+            className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+          >
+            Keep the suggested model unless your AI service instructions gave you another name.
+          </p>
           {(selectedProvider?.allowCustomModels ?? true) ? (
             <>
               <input
@@ -906,7 +915,7 @@ function AddProviderFormPanel({
                 list={models.length > 0 ? modelListId : undefined}
                 autoComplete="off"
                 aria-invalid={visibleError !== null && readiness.fieldId === modelInputId}
-                aria-describedby={`${formStatusId}${
+                aria-describedby={`${formStatusId} ${modelHelpId}${
                   visibleError !== null && readiness.fieldId === modelInputId
                     ? ` ${modelErrorId}`
                     : ''
@@ -936,7 +945,7 @@ function AddProviderFormPanel({
                 value={form.model}
                 onChange={(e) => setForm({ ...form, model: e.target.value })}
                 aria-invalid={visibleError !== null && readiness.fieldId === modelInputId}
-                aria-describedby={`${formStatusId}${
+                aria-describedby={`${formStatusId} ${modelHelpId}${
                   visibleError !== null && readiness.fieldId === modelInputId
                     ? ` ${modelErrorId}`
                     : ''
@@ -966,7 +975,7 @@ function AddProviderFormPanel({
                 placeholder="e.g. llama3…"
                 autoComplete="off"
                 aria-invalid={visibleError !== null && readiness.fieldId === modelInputId}
-                aria-describedby={`${formStatusId}${
+                aria-describedby={`${formStatusId} ${modelHelpId}${
                   visibleError !== null && readiness.fieldId === modelInputId
                     ? ` ${modelErrorId}`
                     : ''
@@ -999,17 +1008,17 @@ function AddProviderFormPanel({
           />
         </div>
 
-        {/* Secret key */}
+        {/* Private key */}
         <div>
           <label htmlFor={apiKeyInputId} className={uiStyles.label}>
-            Secret key {needsApiKey && <span className="text-red-500">*</span>}
+            Private key {needsApiKey && <span className="text-red-500">*</span>}
           </label>
           <p
             id={apiKeyHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste the secret key from your AI service account. Some services call this an API key.
-            It is hidden after saving.
+            Paste the key from your AI service account. Some services call this an API key. Forge
+            hides it after saving.
           </p>
           <input
             id={apiKeyInputId}
@@ -1035,18 +1044,18 @@ function AddProviderFormPanel({
           )}
         </div>
 
-        {/* Connection URL (optional) */}
+        {/* Service address (optional) */}
         <div className="sm:col-span-2">
           <label htmlFor={baseUrlInputId} className={uiStyles.label}>
-            Connection URL {needsBaseUrl && <span className="text-red-500">*</span>}
+            Service address {needsBaseUrl && <span className="text-red-500">*</span>}
           </label>
           <p
             id={baseUrlHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
             {selectedProvider?.globalBaseUrl
-              ? `Leave blank to use the China address. Global address: ${selectedProvider.globalBaseUrl}`
-              : 'Only change this if an owner gives you a custom AI service address.'}
+              ? `Leave blank to use the China address. If your team uses the global address, paste this: ${selectedProvider.globalBaseUrl}`
+              : 'Leave blank unless an owner gives you a custom AI service address.'}
           </p>
           <input
             id={baseUrlInputId}
@@ -1073,13 +1082,16 @@ function AddProviderFormPanel({
       </div>
 
       <div className="flex items-center justify-between gap-2">
-        <p
+        <div
           id={formStatusId}
           data-testid="provider-form-status"
           className="text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          {readiness.title}
-        </p>
+          <span className="block font-semibold text-foreground-light dark:text-foreground-dark">
+            {readiness.title}
+          </span>
+          <span className="block">{readiness.detail}</span>
+        </div>
         <div className="flex gap-2">
           <button
             type="button"
@@ -1175,7 +1187,7 @@ export function ProvidersSection() {
         <div>
           <h2 className={uiStyles.sectionTitle}>AI Services</h2>
           <p className={uiStyles.sectionDescription}>
-            Add the AI service keys agents use for chat-only work.
+            Connect the AI accounts that simple chat agents use to answer questions.
           </p>
         </div>
         {!showForm && (
@@ -1215,7 +1227,11 @@ export function ProvidersSection() {
             className={cn(uiStyles.input, 'pl-9')}
           />
         </label>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter AI services by status">
+        <div
+          className="flex flex-wrap gap-2"
+          role="group"
+          aria-label="Filter AI services by status"
+        >
           {PROVIDER_FILTERS.map((filter) => (
             <button
               key={filter.id}
@@ -1247,7 +1263,7 @@ export function ProvidersSection() {
               No AI services configured
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Add an AI service to let chat-only agents answer safely.
+              Add one AI account, then run Check so agents can answer without setup surprises.
             </p>
           </div>
         ) : filteredProviders.length === 0 && !showForm ? (
