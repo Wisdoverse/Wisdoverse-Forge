@@ -64,7 +64,7 @@ export function ContextCandidatesList({ title, kind, candidates }: ContextCandid
 
 function sectionDescription(kind: ContextCandidateKind): string {
   return kind === 'skill'
-    ? 'These are skill suggestions. Review them before agents can reuse the workflow.'
+    ? 'These are instruction suggestions. Review them before agents can follow the workflow.'
     : 'These memory suggestions are not saved for future work until someone reviews them.'
 }
 
@@ -88,7 +88,7 @@ function candidatePreview(candidate: TaskContextCandidate): string {
   const value = candidate.proposedPreview.content_preview
   return typeof value === 'string' && value.trim().length > 0
     ? value
-    : 'No preview is available yet. Open reusable context review to inspect the full suggestion.'
+    : 'No preview is available yet. Open saved item review to inspect the full suggestion.'
 }
 
 function candidateKindLabel(candidate: TaskContextCandidate): string {
@@ -96,7 +96,7 @@ function candidateKindLabel(candidate: TaskContextCandidate): string {
     case 'memory':
       return 'Suggested memory'
     case 'skill':
-      return 'Skill suggestion'
+      return 'Instruction suggestion'
     default:
       return 'Suggestion needs review'
   }
@@ -114,7 +114,7 @@ function candidateNextStep(candidate: TaskContextCandidate): string {
     case 'memory':
       return 'Next step: review the wording before saving it for future tasks.'
     case 'skill':
-      return 'Next step: review the suggestion before agents can use it.'
+      return 'Next step: review the suggestion before agents can follow it.'
     default:
       return 'Next step: review this suggestion before agents can reuse it.'
   }

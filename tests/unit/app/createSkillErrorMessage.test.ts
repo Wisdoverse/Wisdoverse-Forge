@@ -10,25 +10,25 @@ describe('createSkillErrorMessage', () => {
 
   test('preserves existing beginner guidance from the skills store', () => {
     const message =
-      'Forge could not connect while creating this skill. Check your connection, then try again.'
+      'Forge could not connect while creating this instruction. Check your connection, then try again.'
 
     expect(createSkillErrorMessage(new Error(message))).toBe(message)
   })
 
   test('removes generic details from existing permission guidance', () => {
     const message =
-      'You do not have permission to create workspace skills. Ask an owner or admin to let you create reusable skills. Code: 403. Details: Forbidden'
+      'You do not have permission to create workspace instructions. Ask an owner or admin to let you create saved instructions. Code: 403. Details: Forbidden'
 
     expectBeginnerMessage(
       createSkillErrorMessage(new Error(message)),
-      'You do not have permission to create workspace skills. Ask an owner or admin to let you create reusable skills.'
+      'You do not have permission to create workspace instructions. Ask an owner or admin to let you create saved instructions.'
     )
   })
 
   test('turns raw network failures into recovery guidance', () => {
     const message = createSkillErrorMessage(new Error('Failed to fetch'))
 
-    expect(message).toContain('Forge could not connect while creating this skill')
+    expect(message).toContain('Forge could not connect while creating this instruction')
     expect(message).toContain('Check your connection')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('app could not reach')
@@ -37,7 +37,7 @@ describe('createSkillErrorMessage', () => {
   test('maps raw permission failures without exposing API text', () => {
     const message = createSkillErrorMessage(new Error('API 403: Forbidden'))
 
-    expect(message).toContain('You do not have permission to create workspace skills')
+    expect(message).toContain('You do not have permission to create workspace instructions')
     expect(message).toContain('Ask an owner or admin')
     expect(message).not.toContain('Code:')
     expect(message).not.toContain('API 403')
@@ -57,7 +57,7 @@ describe('createSkillErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Forge could not create the skill right now. Refresh Skills, then try again. If it still fails, ask an owner or admin to check skill setup.'
+      'Forge could not create the instruction right now. Refresh Saved instructions, then try again. If it still fails, ask an owner or admin to check instruction setup.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('service is temporarily unavailable')

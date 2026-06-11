@@ -78,13 +78,13 @@ describe('ApprovalQueueView', () => {
     render(<ApprovalQueueView />)
 
     expect(await screen.findByTestId('context-approval-path')).toBeDefined()
-    expect(screen.getByText('Review reusable context')).toBeDefined()
+    expect(screen.getByText('Review what agents can save')).toBeDefined()
     expect(screen.getByText('Review steps')).toBeDefined()
-    expect(screen.getByText(/choose the smallest sharing range/i)).toBeDefined()
+    expect(screen.getByText(/choose who can reuse it/i)).toBeDefined()
     expect(await screen.findByText('Use stable credentials')).toBeDefined()
     expect(screen.getByText('Saved memory')).toBeDefined()
     expect(screen.getAllByText('Only me').length).toBeGreaterThan(0)
-    expect(screen.getByText('Suggested sharing: Only me')).toBeDefined()
+    expect(screen.getByText('Who can reuse it: Only me')).toBeDefined()
     expect(screen.getByText('Original task preview available')).toBeDefined()
     expect(screen.queryByText(/^Workspace /)).toBeNull()
     expect(screen.queryByText(/^Owner /)).toBeNull()
@@ -94,7 +94,7 @@ describe('ApprovalQueueView', () => {
 
     expect(screen.getByTestId('context-decision-checklist')).toBeDefined()
     expect(screen.getByText('Approve only when')).toBeDefined()
-    expect(screen.getByText(/sharing range is limited to the people who need it/i)).toBeDefined()
+    expect(screen.getByText(/only the right people can reuse it/i)).toBeDefined()
     expect(screen.getByText(/sensitive details are hidden before saving/i)).toBeDefined()
     expect(screen.getByText('Who can reuse it')).toBeDefined()
     expect(screen.getByText(/support reference from Settings/i)).toBeDefined()
@@ -104,7 +104,7 @@ describe('ApprovalQueueView', () => {
 
     expect(screen.getByText('Team support reference')).toBeDefined()
     expect(screen.getByPlaceholderText(/Team support reference from Settings/i)).toBeDefined()
-    expect(screen.getByText(/Paste the Team support reference before approving/i)).toBeDefined()
+    expect(screen.getByText(/Paste the Team support reference before saving/i)).toBeDefined()
     expect(screen.queryByText(/exact I[D] from settings/i)).toBeNull()
   })
 
@@ -114,10 +114,8 @@ describe('ApprovalQueueView', () => {
     render(<ApprovalQueueView />)
 
     await waitFor(() => expect(listContextCandidates).toHaveBeenCalled())
-    expect(await screen.findByText('No items match these filters')).toBeDefined()
-    expect(
-      screen.getByText(/switch status to all or clear item and sharing filters/i)
-    ).toBeDefined()
+    expect(await screen.findByText('No saved items match these filters')).toBeDefined()
+    expect(screen.getByText(/switch status to all or clear item and reuse filters/i)).toBeDefined()
   })
 
   test('shows beginner network guidance when the review list cannot load', async () => {
@@ -126,8 +124,8 @@ describe('ApprovalQueueView', () => {
     render(<ApprovalQueueView />)
 
     const error = await screen.findByTestId('context-approval-error')
-    expect(error.textContent).toContain('reusable context review list could not load')
-    expect(error.textContent).toContain('Forge could not connect while loading reusable context')
+    expect(error.textContent).toContain('saved item review list could not load')
+    expect(error.textContent).toContain('Forge could not connect while loading saved items')
     expect(error.textContent).not.toMatch(/failed to fetch/i)
   })
 

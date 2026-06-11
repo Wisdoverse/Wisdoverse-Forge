@@ -30,20 +30,23 @@ describe('skillHttpErrorMessage', () => {
   }
 
   test('turns unauthorized catalog loads into a sign-in step', () => {
-    expectBeginnerMessage(skillHttpErrorMessage('load', 401), 'Sign in again, then refresh Skills.')
+    expectBeginnerMessage(
+      skillHttpErrorMessage('load', 401),
+      'Sign in again, then refresh Saved instructions.'
+    )
   })
 
   test('turns create permission failures into an admin role step', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('create', 403),
-      'You do not have permission to create workspace skills. Ask an owner or admin to let you create reusable skills.'
+      'You do not have permission to create workspace instructions. Ask an owner or admin to let you create saved instructions.'
     )
   })
 
   test('turns validation details into a field-specific next step', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('create', 422, { error: { message: 'content is required' } }),
-      'Enter the skill instructions, then try again.'
+      'Enter the saved instructions, then try again.'
     )
   })
 })
@@ -55,7 +58,7 @@ describe('useSkillsStore errors', () => {
     await useSkillsStore.getState().loadSkills()
 
     expect(useSkillsStore.getState().error).toBe(
-      'Forge could not load Skills right now. Refresh Skills, then try again. If it still fails, ask an owner or admin to check skill setup.'
+      'Forge could not load Saved instructions right now. Refresh Saved instructions, then try again. If it still fails, ask an owner or admin to check instruction setup.'
     )
     expect(useSkillsStore.getState().error).not.toContain('service is temporarily unavailable')
   })
@@ -66,7 +69,7 @@ describe('useSkillsStore errors', () => {
     await useSkillsStore.getState().loadSkills()
 
     expect(useSkillsStore.getState().error).toBe(
-      'Forge could not connect while loading Skills. Check your connection, then refresh the page.'
+      'Forge could not connect while loading Saved instructions. Check your connection, then refresh the page.'
     )
     expect(useSkillsStore.getState().error).not.toContain('Failed to fetch')
   })
@@ -92,7 +95,7 @@ describe('useSkillsStore errors', () => {
         content: 'Review the task',
       })
     ).rejects.toThrow(
-      'Forge could not connect while creating this skill. Check your connection, then try again.'
+      'Forge could not connect while creating this instruction. Check your connection, then try again.'
     )
   })
 })

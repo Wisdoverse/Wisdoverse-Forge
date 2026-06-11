@@ -277,7 +277,7 @@ describe('TaskDetailPanel', () => {
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
   })
 
-  test('surfaces reusable skill review after completed work', () => {
+  test('surfaces saved instruction review after completed work', () => {
     useContextFeaturesStore.setState({ governance: true, preview: true, injection: true })
     render(
       <TaskDetailPanel
@@ -326,7 +326,7 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByText(/review the result before closing/i)).toBeDefined()
     expect(screen.getByText(/compare with the brief/i)).toBeDefined()
     expect(screen.getByText(/1 result file attached for review/i)).toBeDefined()
-    expect(screen.getByText(/accept the result, draft reusable learning/i)).toBeDefined()
+    expect(screen.getByText(/accept the result, draft saved guidance/i)).toBeDefined()
     expect(screen.getByText(/if it does not answer the brief/i)).toBeDefined()
   })
 

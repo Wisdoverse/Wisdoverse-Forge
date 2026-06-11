@@ -14,7 +14,7 @@ export function AttentionZone({ items, onApprove, onView }: AttentionZoneProps) 
       <div className="mb-2">
         <div className="text-[10px] font-semibold text-apple-red">Needs your decision</div>
         <p className="mt-0.5 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
-          Review each request before approving so the agent can continue safely.
+          Open each request before choosing what happens next, so the agent can continue safely.
         </p>
       </div>
       <p className="mb-2 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">

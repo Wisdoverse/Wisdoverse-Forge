@@ -169,7 +169,7 @@ export function DescriptionTab({
           <p>
             {contextTotal > 0
               ? `${contextTotal} saved context item${contextTotal === 1 ? '' : 's'} helped this task.`
-              : 'Saved memories, proof, and reusable skill suggestions appear here as the task runs.'}
+              : 'Saved memories, proof, and saved instruction suggestions appear here as the task runs.'}
           </p>
           {onOpenContext && (
             <button
@@ -344,10 +344,10 @@ function nextActionForTask(
         title: 'Review the handoff',
         detail:
           artifactCount > 0
-            ? 'Open result files, review context, and draft reusable learning if the work should repeat.'
+            ? 'Open result files, review context, and draft saved guidance if the work should repeat.'
             : contextTotal > 0
-              ? 'Review context and decide whether the completed work should become reusable learning.'
-              : 'Confirm the outcome and decide whether follow-up evidence or reusable learning is needed.',
+              ? 'Review context and decide whether the completed work should become saved guidance.'
+              : 'Confirm the outcome and decide whether follow-up evidence or saved guidance is needed.',
         tone: 'success',
       }
     case 'failed':

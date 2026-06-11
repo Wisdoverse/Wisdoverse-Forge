@@ -156,43 +156,43 @@ export function skillHttpErrorMessage(
   data: Record<string, unknown> = {}
 ): string {
   const detail = errorDetail(data)
-  const actionText = action === 'create' ? 'create the skill' : 'refresh Skills'
+  const actionText = action === 'create' ? 'create the instruction' : 'refresh Saved instructions'
 
   if (status === 401) {
     return `Sign in again, then ${actionText}.`
   }
   if (status === 403) {
     return action === 'create'
-      ? 'You do not have permission to create workspace skills. Ask an owner or admin to let you create reusable skills.'
-      : 'You do not have permission to view workspace skills. Ask an owner or admin to update your workspace access.'
+      ? 'You do not have permission to create workspace instructions. Ask an owner or admin to let you create saved instructions.'
+      : 'You do not have permission to view workspace instructions. Ask an owner or admin to update your workspace access.'
   }
   if (status === 404) {
-    return 'Skills could not be opened from this page. Refresh Skills, then try again.'
+    return 'Saved instructions could not be opened from this page. Refresh Saved instructions, then try again.'
   }
   if (status === 409) {
-    return 'A skill with this name or trigger may already exist. Review the existing skills, then try again.'
+    return 'An instruction with this name or trigger may already exist. Review the existing instructions, then try again.'
   }
   if (status === 422) {
     return skillValidationMessage(detail)
   }
   if (status === 429) {
-    return `Skill setup is busy. Wait a moment, then ${actionText}.`
+    return `Instruction setup is busy. Wait a moment, then ${actionText}.`
   }
   if (status >= 500) {
     return action === 'create'
-      ? 'Forge could not create the skill right now. Refresh Skills, then try again. If it still fails, ask an owner or admin to check skill setup.'
-      : 'Forge could not load Skills right now. Refresh Skills, then try again. If it still fails, ask an owner or admin to check skill setup.'
+      ? 'Forge could not create the instruction right now. Refresh Saved instructions, then try again. If it still fails, ask an owner or admin to check instruction setup.'
+      : 'Forge could not load Saved instructions right now. Refresh Saved instructions, then try again. If it still fails, ask an owner or admin to check instruction setup.'
   }
 
   return action === 'create'
-    ? 'The skill could not be created. Review the fields and try again.'
-    : 'Skills could not load. Refresh Skills and try again.'
+    ? 'The instruction could not be created. Review the fields and try again.'
+    : 'Saved instructions could not load. Refresh Saved instructions and try again.'
 }
 
 function skillNetworkErrorMessage(action: SkillAction): string {
   return action === 'create'
-    ? 'Forge could not connect while creating this skill. Check your connection, then try again.'
-    : 'Forge could not connect while loading Skills. Check your connection, then refresh the page.'
+    ? 'Forge could not connect while creating this instruction. Check your connection, then try again.'
+    : 'Forge could not connect while loading Saved instructions. Check your connection, then refresh the page.'
 }
 
 function skillResponseErrorMessage(
@@ -203,10 +203,10 @@ function skillResponseErrorMessage(
   if (detail)
     return action === 'create'
       ? skillValidationMessage(detail)
-      : 'Skills could not load. Refresh Skills and try again.'
+      : 'Saved instructions could not load. Refresh Saved instructions and try again.'
   return action === 'create'
-    ? 'The skill could not be created. Review the fields and try again.'
-    : 'Skills could not load. Refresh the page and try again.'
+    ? 'The instruction could not be created. Review the fields and try again.'
+    : 'Saved instructions could not load. Refresh the page and try again.'
 }
 
 function skillValidationMessage(detail: string | null): string {
@@ -215,12 +215,12 @@ function skillValidationMessage(detail: string | null): string {
     return 'Check the matching words, then try again.'
   }
   if (normalized.includes('name')) {
-    return 'Enter a skill name, then try again.'
+    return 'Enter an instruction name, then try again.'
   }
   if (normalized.includes('content') || normalized.includes('instruction')) {
-    return 'Enter the skill instructions, then try again.'
+    return 'Enter the saved instructions, then try again.'
   }
-  return 'Check the skill name, matching words, and instructions, then try again.'
+  return 'Check the instruction name, matching words, and instructions, then try again.'
 }
 
 export const useSkillsStore = create<SkillsState>((set, get) => ({

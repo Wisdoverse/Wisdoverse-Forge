@@ -346,7 +346,7 @@ function taskCheckIn(task: TaskSummary): {
         detail:
           artifactCount > 0
             ? `${artifactCount} result item${artifactCount === 1 ? '' : 's'} ready to review.`
-            : 'Review the outcome and decide whether reusable learning should be drafted.',
+            : 'Review the outcome and decide whether saved guidance should be drafted.',
         tone: 'success',
         Icon: CheckCircle2,
       }

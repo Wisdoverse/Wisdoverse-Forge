@@ -757,7 +757,7 @@ function shortEventType(eventType: string): string {
 
 function auditItemKindLabel(kind: GovernanceAuditItemKind | null | undefined): string {
   if (kind === 'memory') return 'Saved memory'
-  if (kind === 'skill') return 'Reusable skill'
+  if (kind === 'skill') return 'Saved instruction'
   return 'Item hidden for safety'
 }
 

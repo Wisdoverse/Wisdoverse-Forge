@@ -57,10 +57,10 @@ describe('ContextCandidatesList', () => {
     expect(screen.getByText('Suggested from this task')).toBeInTheDocument()
   })
 
-  test('explains skill suggestions as review-only before agents can use them', () => {
+  test('explains instruction suggestions as review-only before agents can follow them', () => {
     render(
       <ContextCandidatesList
-        title="Suggested reusable skills"
+        title="Suggested saved instructions"
         kind="skill"
         candidates={[
           candidate({
@@ -76,17 +76,19 @@ describe('ContextCandidatesList', () => {
       />
     )
 
-    expect(screen.getByText('Suggested reusable skills')).toBeInTheDocument()
+    expect(screen.getByText('Suggested saved instructions')).toBeInTheDocument()
     expect(
-      screen.getByText(/skill suggestions.*before agents can reuse the workflow/i)
+      screen.getByText(/instruction suggestions.*before agents can follow the workflow/i)
     ).toBeInTheDocument()
     expect(screen.getByText('Release operator')).toBeInTheDocument()
-    expect(screen.getByText('Skill suggestion')).toBeInTheDocument()
+    expect(screen.getByText('Instruction suggestion')).toBeInTheDocument()
     expect(screen.getByText('Approved')).toBeInTheDocument()
     expect(
-      screen.getByText(/Open reusable context review to inspect the full suggestion/i)
+      screen.getByText(/Open saved item review to inspect the full suggestion/i)
     ).toBeInTheDocument()
-    expect(screen.getByText(/review the suggestion before agents can use it/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/review the suggestion before agents can follow it/i)
+    ).toBeInTheDocument()
     expect(screen.queryByText(/Context queue/i)).toBeNull()
   })
 
@@ -109,7 +111,9 @@ describe('ContextCandidatesList', () => {
 
     expect(screen.getByText('Suggested context item')).toBeInTheDocument()
     expect(screen.getByText('Suggestion needs review')).toBeInTheDocument()
-    expect(screen.getByText(/review this suggestion before agents can reuse it/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/review this suggestion before agents can reuse it/i)
+    ).toBeInTheDocument()
     expect(screen.queryByText(/future context kind/i)).toBeNull()
   })
 })

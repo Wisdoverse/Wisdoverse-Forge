@@ -26,18 +26,18 @@ function isNetworkError(error: unknown): boolean {
 }
 
 export function skillDraftErrorMessage(error: unknown): string {
-  const base = 'Skill was not published.'
+  const base = 'Instruction was not published.'
   const text = errorText(error).toLowerCase()
   const code = statusCode(error)
 
   if (code === 401 || text.includes('unauthorized') || text.includes('sign in again')) {
-    return `${base} Sign in again, reopen this task, and publish the skill again.`
+    return `${base} Sign in again, reopen this task, and publish the instruction again.`
   }
   if (code === 403 || text.includes('forbidden') || text.includes('permission')) {
-    return `${base} Ask an owner or admin to let you create reusable skills.`
+    return `${base} Ask an owner or admin to let you create saved instructions.`
   }
   if (code === 404) {
-    return `${base} Refresh the task. Skill publishing setup may have changed.`
+    return `${base} Refresh the task. Instruction publishing setup may have changed.`
   }
   if (
     code === 409 ||
@@ -45,20 +45,20 @@ export function skillDraftErrorMessage(error: unknown): string {
     text.includes('already exist') ||
     text.includes('duplicate')
   ) {
-    return `${base} A skill with this name may already exist. Rename it, then publish again.`
+    return `${base} An instruction with this name may already exist. Rename it, then publish again.`
   }
   if (code === 422 || text.includes('validation')) {
     return `${base} Check the name, trigger words, and reusable instructions, then publish again.`
   }
   if (code === 429 || text.includes('rate limit') || text.includes('too many')) {
-    return `${base} Too many skill changes are happening right now. Wait a minute, then publish again.`
+    return `${base} Too many instruction changes are happening right now. Wait a minute, then publish again.`
   }
   if (code != null && code >= 500) {
-    return `${base} Forge could not publish this skill right now. Wait a few minutes, then publish again. If it still fails, ask an owner or admin to check skill setup.`
+    return `${base} Forge could not publish this instruction right now. Wait a few minutes, then publish again. If it still fails, ask an owner or admin to check instruction setup.`
   }
   if (isNetworkError(error)) {
-    return `${base} Forge could not connect while publishing this skill. Check your connection, then publish again.`
+    return `${base} Forge could not connect while publishing this instruction. Check your connection, then publish again.`
   }
 
-  return `${base} Review the draft and try again. If it still fails, ask an owner or admin to check skill setup.`
+  return `${base} Review the draft and try again. If it still fails, ask an owner or admin to check instruction setup.`
 }

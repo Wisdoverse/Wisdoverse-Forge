@@ -115,7 +115,7 @@ describe('AuditLogView', () => {
     expect(screen.getByText('Skill approved')).toBeDefined()
     expect(screen.getAllByText(/Support event:/).length).toBeGreaterThan(0)
     expect(screen.getByText('Saved memory · Memory item')).toBeDefined()
-    expect(screen.getByText('Reusable skill · Skill')).toBeDefined()
+    expect(screen.getByText('Saved instruction · Skill')).toBeDefined()
     expect(screen.getAllByText('Changed item').length).toBeGreaterThan(0)
     expect(screen.getByText('Changed by')).toBeDefined()
     expect(screen.getByText('Verification')).toBeDefined()

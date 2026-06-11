@@ -32,7 +32,7 @@ afterEach(() => {
 })
 
 describe('SkillDraftModal', () => {
-  test('keeps the user in flow after publishing a reusable skill', async () => {
+  test('keeps the user in flow after publishing a saved instruction', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -61,15 +61,15 @@ describe('SkillDraftModal', () => {
     expect(screen.getByLabelText(/^use when$/i)).toBeDefined()
     expect(screen.getByText(/check before publishing/i)).toBeDefined()
     expect(screen.getByText('No secrets')).toBeDefined()
-    expect(screen.getByText(/choose the agents that should use it/i)).toBeDefined()
+    expect(screen.getByText(/choose the agents that should follow it/i)).toBeDefined()
 
-    await userEvent.setup().click(screen.getByRole('button', { name: /publish skill/i }))
+    await userEvent.setup().click(screen.getByRole('button', { name: /publish instruction/i }))
 
     expect(await screen.findByTestId('skill-published-state')).toBeDefined()
-    expect(screen.getByText('Skill published')).toBeDefined()
+    expect(screen.getByText('Instruction published')).toBeDefined()
     expect(screen.getByText('refactor-database-migration')).toBeDefined()
 
-    const openSkills = screen.getByRole('link', { name: /open skills/i })
+    const openSkills = screen.getByRole('link', { name: /open saved instructions/i })
     const chooseAgent = screen.getByRole('link', { name: /choose agent/i })
     expect(openSkills.getAttribute('href')).toBe('/skills')
     expect(chooseAgent.getAttribute('href')).toBe('/agents')
@@ -99,17 +99,19 @@ describe('SkillDraftModal', () => {
 
     expect(screen.getByText(/check 3 things before publishing/i)).toBeDefined()
 
-    await user.clear(screen.getByLabelText(/^skill name$/i))
-    await user.click(screen.getByRole('button', { name: /publish skill/i }))
+    await user.clear(screen.getByLabelText(/^instruction name$/i))
+    await user.click(screen.getByRole('button', { name: /publish instruction/i }))
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Name this skill before publishing it.')
-    expect(screen.getByLabelText(/^skill name$/i)).toHaveFocus()
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Name this instruction before publishing it.'
+    )
+    expect(screen.getByLabelText(/^instruction name$/i)).toHaveFocus()
 
-    await user.type(screen.getByLabelText(/^skill name$/i), 'migration-review')
+    await user.type(screen.getByLabelText(/^instruction name$/i), 'migration-review')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 
     await user.clear(screen.getByLabelText(/^reusable instructions$/i))
-    await user.click(screen.getByRole('button', { name: /publish skill/i }))
+    await user.click(screen.getByRole('button', { name: /publish instruction/i }))
 
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Keep or rewrite the reusable instructions before publishing.'
@@ -135,10 +137,10 @@ describe('SkillDraftModal', () => {
       />
     )
 
-    await user.click(screen.getByRole('button', { name: /publish skill/i }))
+    await user.click(screen.getByRole('button', { name: /publish instruction/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Skill was not published. Ask an owner or admin to let you create reusable skills.'
+      'Instruction was not published. Ask an owner or admin to let you create saved instructions.'
     )
     expect(screen.queryByText(/HTTP 403/i)).toBeNull()
   })

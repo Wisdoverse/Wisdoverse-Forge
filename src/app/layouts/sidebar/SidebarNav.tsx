@@ -56,7 +56,7 @@ const NAV_ITEMS: NavItem[] = [
     id: 'context',
     Icon: ClipboardCheck,
     labelKey: 'nav.context',
-    description: 'approve reusable knowledge',
+    description: 'review saved guidance',
     path: '/context',
   },
   {

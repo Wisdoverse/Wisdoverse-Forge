@@ -171,7 +171,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 id="create-skill-title" className={uiStyles.sectionTitle}>
-              New reusable skill
+              New saved instruction
             </h2>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Save instructions your agents can reuse on future tasks. Keep it general and safe
@@ -242,7 +242,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
 
           <div>
             <label htmlFor="skill-name" className={uiStyles.label}>
-              Skill name
+              Instruction name
             </label>
             <input
               id="skill-name"
@@ -267,7 +267,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
               value={form.description}
               onChange={(event) => updateField('description', event.target.value)}
               className={uiStyles.input}
-              placeholder="Short summary shown in the skill list"
+              placeholder="Short summary shown in the saved instruction list"
             />
             <p
               id="skill-description-help"

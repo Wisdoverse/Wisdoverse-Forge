@@ -4,7 +4,7 @@ const ACTION_FALLBACKS: Record<ApprovalQueueErrorAction, string> = {
   approveCandidate:
     'The item was not approved. Check who can reuse it and the original task preview, then try again.',
   loadQueue:
-    'The reusable context review list could not load. Refresh the list so you see the latest items.',
+    'The saved item review list could not load. Refresh the list so you see the latest items.',
   rejectCandidate: 'The item was not rejected. Refresh the list, then try the reject action again.',
 }
 
@@ -22,7 +22,7 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   }
 
   if (status === 403) {
-    return 'You do not have permission to manage reusable context. Ask an owner or admin to let you review reusable context.'
+    return 'You do not have permission to review saved items. Ask an owner or admin to let you approve saved memories and instructions.'
   }
 
   if (status === 404) {
@@ -38,7 +38,7 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   }
 
   if (status === 429) {
-    return 'The reusable context review list is busy. Wait a moment, then try again.'
+    return 'The saved item review list is busy. Wait a moment, then try again.'
   }
 
   if (status && status >= 500) {
@@ -50,16 +50,16 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
 
 function networkRecoveryMessage(action: ApprovalQueueErrorAction): string {
   if (action === 'loadQueue') {
-    return 'Forge could not connect while loading reusable context. Check your connection, then refresh the page.'
+    return 'Forge could not connect while loading saved items. Check your connection, then refresh the page.'
   }
   return 'Forge could not connect while saving this review decision. Check your connection, then try again.'
 }
 
 function serviceRecoveryMessage(action: ApprovalQueueErrorAction): string {
   if (action === 'loadQueue') {
-    return `${ACTION_FALLBACKS[action]} Forge could not load reusable context right now. Refresh the list, then try again. If it still fails, ask an owner or admin to check reusable context setup.`
+    return `${ACTION_FALLBACKS[action]} Forge could not load saved items right now. Refresh the list, then try again. If it still fails, ask an owner or admin to check saved item setup.`
   }
-  return `${ACTION_FALLBACKS[action]} Forge could not save this review decision right now. Refresh the list, then try again. If it still fails, ask an owner or admin to check reusable context setup.`
+  return `${ACTION_FALLBACKS[action]} Forge could not save this review decision right now. Refresh the list, then try again. If it still fails, ask an owner or admin to check saved item setup.`
 }
 
 function errorDetail(err: unknown): string {
@@ -115,7 +115,7 @@ function validationMessage(action: ApprovalQueueErrorAction, detail: string): st
   const normalized = detail.toLowerCase()
   if (normalized.includes('scope')) {
     return action === 'loadQueue'
-      ? 'The reusable context review list could not load. Refresh the list, then check the selected sharing range.'
+      ? 'The saved item review list could not load. Refresh the list, then check who can reuse the selected items.'
       : 'Choose who can reuse it and review the original task preview, then try again.'
   }
   if (normalized.includes('sensitivity')) {

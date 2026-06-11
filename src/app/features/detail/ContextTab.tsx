@@ -168,14 +168,14 @@ export function ContextTab({
         candidates={context.suggestedMemoryUpdates}
       />
       <ContextAppliedList
-        title="Applied skills"
+        title="Applied instructions"
         kind="skill"
         items={grouped.skills}
         onReadMemoryContent={readMemoryContent}
         onRecordFeedback={(item, label) => recordFeedback(item, label)}
       />
       <ContextCandidatesList
-        title="Suggested reusable skills"
+        title="Suggested saved instructions"
         kind="skill"
         candidates={context.skillCandidates}
       />
@@ -257,7 +257,7 @@ function ContextEmptyState() {
               No context has been applied yet
             </h3>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-              Context appears here after an agent run uses saved memories, reusable skills, or
+              Context appears here after an agent run uses saved memories, saved instructions, or
               evidence for this task.
             </p>
           </div>

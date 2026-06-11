@@ -53,7 +53,7 @@ describe('SidebarNav', () => {
       screen.getByRole('button', { name: /tasks: create and review agent work/i })
     ).toHaveAttribute('aria-current', 'page')
     expect(
-      screen.getByRole('button', { name: /context: approve reusable knowledge/i })
+      screen.getByRole('button', { name: /context: review saved guidance/i })
     ).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: /agents: create and manage agents/i })
@@ -91,14 +91,28 @@ describe('SidebarNav', () => {
 
   test('owners see the admin link (matches the backend require_admin gate)', () => {
     authState.role = 'owner'
-    render(<SidebarNav expanded={false} activePath="/settings" onNavigate={() => {}} section="secondary" />)
+    render(
+      <SidebarNav
+        expanded={false}
+        activePath="/settings"
+        onNavigate={() => {}}
+        section="secondary"
+      />
+    )
     expect(screen.getByRole('button', adminItem)).toBeInTheDocument()
   })
 
   test('non-admin/owner roles do not see the admin link', () => {
     for (const role of ['member', 'viewer', 'user']) {
       authState.role = role
-      render(<SidebarNav expanded={false} activePath="/settings" onNavigate={() => {}} section="secondary" />)
+      render(
+        <SidebarNav
+          expanded={false}
+          activePath="/settings"
+          onNavigate={() => {}}
+          section="secondary"
+        />
+      )
       expect(screen.queryByRole('button', adminItem)).not.toBeInTheDocument()
       cleanup()
     }

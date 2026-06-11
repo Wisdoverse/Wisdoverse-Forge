@@ -3,14 +3,14 @@ const RAW_STATUS_ERRORS = [/^API\s+\d{3}/i, /^HTTP\s+\d{3}/i, /^Server error\s*\
 const GENERIC_BODY_TEXT = /^(Unauthorized|Forbidden|Not Found|Internal Server Error)$/i
 
 const USER_FACING_STARTS = [
-  'The skill could not be created',
+  'The instruction could not be created',
   'Forge could not',
   'Skills could not',
   'Sign in again',
   'You do not have permission',
-  'Skill setup',
-  'A skill with this name',
-  'Check the skill name',
+  'Instruction setup',
+  'An instruction with this name',
+  'Check the instruction name',
 ]
 
 export function createSkillErrorMessage(error?: unknown): string {
@@ -25,32 +25,32 @@ export function createSkillErrorMessage(error?: unknown): string {
     if (safeDetail) {
       return validationMessage(safeDetail)
     }
-    return 'Forge could not connect while creating this skill. Check your connection, then try again.'
+    return 'Forge could not connect while creating this instruction. Check your connection, then try again.'
   }
 
   if (status === 401) {
-    return 'Sign in again, then create the skill.'
+    return 'Sign in again, then create the instruction.'
   }
   if (status === 403) {
-    return 'You do not have permission to create workspace skills. Ask an owner or admin to let you create reusable skills.'
+    return 'You do not have permission to create workspace instructions. Ask an owner or admin to let you create saved instructions.'
   }
   if (status === 404) {
     return 'Skills could not be opened from this page. Refresh Skills, then try again.'
   }
   if (status === 409) {
-    return 'A skill with this name or trigger may already exist. Review the existing skills, then try again.'
+    return 'An instruction with this name or trigger may already exist. Review the existing instructions, then try again.'
   }
   if (status === 422) {
     return validationMessage(safeDetail)
   }
   if (status === 429) {
-    return 'Skill setup is busy. Wait a moment, then create the skill.'
+    return 'Instruction setup is busy. Wait a moment, then create the instruction.'
   }
   if (status >= 500) {
-    return 'Forge could not create the skill right now. Refresh Skills, then try again. If it still fails, ask an owner or admin to check skill setup.'
+    return 'Forge could not create the instruction right now. Refresh Saved instructions, then try again. If it still fails, ask an owner or admin to check instruction setup.'
   }
 
-  return 'The skill could not be created. Review the fields and try again.'
+  return 'The instruction could not be created. Review the fields and try again.'
 }
 
 function rawDetail(error: unknown): string | null {
@@ -138,12 +138,12 @@ function validationMessage(detail: string | null): string {
     return 'Check the matching words, then try again.'
   }
   if (normalized.includes('name')) {
-    return 'Enter a skill name, then try again.'
+    return 'Enter an instruction name, then try again.'
   }
   if (normalized.includes('content') || normalized.includes('instruction')) {
-    return 'Enter the skill instructions, then try again.'
+    return 'Enter the saved instructions, then try again.'
   }
-  return 'Check the skill name, matching words, and instructions, then try again.'
+  return 'Check the instruction name, matching words, and instructions, then try again.'
 }
 
 function stripInternalErrorSuffix(detail: string): string {

@@ -28,7 +28,7 @@ describe('Skills toolbar status', () => {
     expect(screen.getByText(/skills store reusable instructions/i)).toBeInTheDocument()
   })
 
-  test('explains when search hides every reusable skill', async () => {
+  test('explains when search hides every saved instruction', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({

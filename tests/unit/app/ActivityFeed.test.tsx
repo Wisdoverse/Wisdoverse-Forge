@@ -26,7 +26,7 @@ describe('ActivityFeed', () => {
     expect(screen.getByTestId('attention-zone')).toBeDefined()
     expect(screen.getByText('Deploy staging')).toBeDefined()
     expect(screen.getByText('Needs your decision')).toBeDefined()
-    expect(screen.getByText(/review each request before approving/i)).toBeDefined()
+    expect(screen.getByText(/open each request before choosing what happens next/i)).toBeDefined()
     expect(screen.getByText('Agent Two is waiting: Needs SSH key')).toBeDefined()
     expect(screen.getByRole('button', { name: /review request/i })).toBeDefined()
     expect(screen.getByRole('button', { name: /approve request/i })).toBeDefined()

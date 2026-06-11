@@ -57,11 +57,11 @@ const STATE_FILTERS: Array<{ value: StateFilter; label: string }> = [
 const KIND_FILTERS: Array<{ value: KindFilter; label: string }> = [
   { value: 'all', label: 'All items' },
   { value: 'memory', label: 'Saved memories' },
-  { value: 'skill', label: 'Reusable skills' },
+  { value: 'skill', label: 'Saved instructions' },
 ]
 
 const SCOPE_FILTERS: Array<{ value: ScopeFilter; label: string }> = [
-  { value: 'all', label: 'All sharing ranges' },
+  { value: 'all', label: 'All reuse options' },
   { value: 'user', label: 'Only me' },
   { value: 'team', label: 'My team' },
   { value: 'project', label: 'This project' },
@@ -75,20 +75,20 @@ const SENSITIVITIES: Array<{ value: ContextSensitivity; label: string }> = [
 ]
 
 const APPROVAL_PATH_STEPS = [
-  'Open the item and check what will be saved.',
-  'Approve only if it will help future work, then choose the smallest sharing range.',
+  'Open the item and check what agents would save.',
+  'Approve only if it will help future work, then choose who can reuse it.',
   'Reject it if it is outdated, unsafe, duplicated, or unclear.',
 ]
 
 const APPROVE_CHECKLIST = [
-  'Original task is complete and the saved note is still useful.',
-  'Sharing range is limited to the people who need it.',
+  'The original task is complete and the saved note still helps.',
+  'Only the right people can reuse it.',
   'Sensitive details are hidden before saving.',
 ]
 
 const REJECT_CHECKLIST = [
-  'Reject when the item is wrong, duplicated, unsafe, or too narrow to reuse.',
-  'Add a short reason so the next operator knows what happened.',
+  'Reject when the item is wrong, duplicated, unsafe, or too narrow to help later.',
+  'Add a short reason so the next reviewer knows what happened.',
 ]
 
 export function ApprovalQueueView() {
@@ -210,9 +210,9 @@ export function ApprovalQueueView() {
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-ui-caption font-semibold text-apple-blue">
               <ShieldCheck size={14} strokeWidth={2} aria-hidden="true" />
-              <span>Reusable context review</span>
+              <span>Saved item review</span>
             </div>
-            <h1 className="mt-1 text-ui-title font-semibold">Review reusable context</h1>
+            <h1 className="mt-1 text-ui-title font-semibold">Review what agents can save</h1>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
               {totalLabel}
             </p>
@@ -243,7 +243,7 @@ export function ApprovalQueueView() {
                 Review steps
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Decide which memories or skills are safe to save for future work.
+                Decide which memories or instructions are useful and safe to save for future work.
               </p>
             </div>
             <ol className="list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -294,7 +294,7 @@ export function ApprovalQueueView() {
           {loading && candidates.length === 0 ? (
             <div className="flex h-64 items-center justify-center gap-2 text-ui-body text-secondary-light dark:text-secondary-dark">
               <Loader2 size={18} strokeWidth={2} className="animate-spin" aria-hidden="true" />
-              <span>Loading reusable context review list...</span>
+              <span>Checking saved items...</span>
             </div>
           ) : candidates.length === 0 ? (
             <div className="flex h-64 flex-col items-center justify-center rounded-card border border-dashed border-black/[0.12] text-center dark:border-white/[0.12]">
@@ -304,12 +304,12 @@ export function ApprovalQueueView() {
                 className="text-apple-blue"
                 aria-hidden="true"
               />
-              <p className="mt-2 text-ui-section font-medium">No items match these filters</p>
+              <p className="mt-2 text-ui-section font-medium">No saved items match these filters</p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                New memories and skills appear here after completed work.
+                New memory and instruction suggestions appear here after completed work.
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Switch Status to All or clear item and sharing filters if you expected older
+                Switch Status to All or clear item and reuse filters if you expected older
                 decisions.
               </p>
             </div>
@@ -397,7 +397,7 @@ function CandidateRow({
           </p>
         )}
         <div className="mt-3 flex flex-wrap items-center gap-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          <span>Suggested sharing: {reuseRangeLabel(candidate.proposed_scope_kind)}</span>
+          <span>Who can reuse it: {reuseRangeLabel(candidate.proposed_scope_kind)}</span>
           {candidate.source_run_id && (
             <span>
               {candidate.source_available
@@ -420,7 +420,7 @@ function CandidateRow({
               className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:bg-black/20 disabled:text-black/45 dark:disabled:bg-white/10 dark:disabled:text-white/35"
               title={
                 candidate.source_available
-                  ? 'Approve and save for reuse'
+                  ? 'Approve and save this item'
                   : 'Original task preview is unavailable'
               }
             >
@@ -471,14 +471,14 @@ function DecisionPanel({
     (!requiresScopeId || (form.scopeId.trim().length > 0 && form.confirmExpansion))
   const approvalStatusId = `context-approval-status-${candidate.id}`
   const approvalStatus = !candidate.source_available
-    ? 'This item cannot be approved because the original task preview is unavailable.'
+    ? 'This cannot be saved because the original task preview is unavailable.'
     : !requiresScopeId
-      ? 'Ready to approve for your own account.'
+      ? 'Ready to save for your own account.'
       : !form.scopeId.trim()
-        ? `Paste the ${scopeTargetReferenceLabel(form.scopeKind)} before approving.`
+        ? `Paste the ${scopeTargetReferenceLabel(form.scopeKind)} before saving.`
         : !form.confirmExpansion
-          ? `Confirm ${reuseAudienceLabel(form.scopeKind)} can reuse this context before approving.`
-          : `Ready to approve for ${reuseAudienceLabel(form.scopeKind)}.`
+          ? `Confirm ${reuseAudienceLabel(form.scopeKind)} can reuse this safely before saving.`
+          : `Ready to save for ${reuseAudienceLabel(form.scopeKind)}.`
 
   function updateForm<K extends keyof ApprovalFormState>(key: K, value: ApprovalFormState[K]) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -512,7 +512,7 @@ function DecisionPanel({
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-ui-caption font-semibold text-apple-blue">
-                {approving ? 'Approve and save' : 'Reject this item'}
+                {approving ? 'Save for future work' : 'Do not save this'}
               </p>
               <h2 className="mt-1 truncate text-ui-title font-semibold">{title}</h2>
             </div>
@@ -535,8 +535,8 @@ function DecisionPanel({
             {approving ? (
               <>
                 <div className="rounded-card bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
-                  Choose who can reuse this context. Only me is the safest choice. My team or This
-                  project shares it more broadly and needs the support reference from Settings.
+                  Choose who can reuse it. Only me is the safest choice. My team or This project
+                  shares it more broadly and needs the support reference from Settings.
                 </div>
 
                 {!candidate.source_available && (
@@ -548,7 +548,7 @@ function DecisionPanel({
                       aria-hidden="true"
                     />
                     <span>
-                      Approval is blocked because the original task preview is unavailable.
+                      This cannot be saved because the original task preview is unavailable.
                     </span>
                   </div>
                 )}
@@ -639,7 +639,7 @@ function DecisionPanel({
                     <Checkbox
                       checked={form.confirmExpansion}
                       onChange={(checked) => updateForm('confirmExpansion', checked)}
-                      label={`I checked ${reuseAudienceLabel(form.scopeKind)} can reuse this context`}
+                      label={`I checked ${reuseAudienceLabel(form.scopeKind)} can reuse this safely`}
                     />
                   )}
                 </div>
@@ -650,7 +650,7 @@ function DecisionPanel({
                   value={rejectReason}
                   onChange={(event) => setRejectReason(event.target.value)}
                   className={cn(fieldClassName, 'min-h-32 resize-y py-2')}
-                  placeholder="Why should this not be saved for reuse?"
+                  placeholder="Why should this not be saved?"
                   name="rejectReason"
                   data-testid="context-reject-reason"
                 />
@@ -692,7 +692,7 @@ function DecisionPanel({
                 {loading ? (
                   <Loader2 size={15} strokeWidth={2} className="animate-spin" aria-hidden="true" />
                 ) : null}
-                <span>{approving ? 'Approve and save' : 'Reject this item'}</span>
+                <span>{approving ? 'Approve and save' : 'Do not save'}</span>
               </button>
             </div>
           </div>
@@ -892,12 +892,12 @@ function candidateTitle(candidate: ContextCandidateSummary): string {
     previewString(candidate, 'title') ||
     previewString(candidate, 'name') ||
     previewString(candidate, 'description') ||
-    `${contextItemKindLabel(candidate.item_kind)} awaiting review`
+    `${contextItemKindLabel(candidate.item_kind)} ready to review`
   )
 }
 
 function contextItemKindLabel(value: ContextCandidateKind): string {
-  return value === 'skill' ? 'Reusable skill' : 'Saved memory'
+  return value === 'skill' ? 'Saved instruction' : 'Saved memory'
 }
 
 function reuseRangeLabel(value: ContextCandidateSummary['proposed_scope_kind']): string {

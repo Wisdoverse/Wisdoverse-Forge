@@ -68,7 +68,7 @@ function contextItemKindLabel(itemKind: string): string {
     case 'memory':
       return 'Saved memory'
     case 'skill':
-      return 'Reusable skill'
+      return 'Saved instruction'
     default:
       return 'Context item needs review'
   }

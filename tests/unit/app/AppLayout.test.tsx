@@ -156,13 +156,13 @@ describe('AppLayout', () => {
     expect(screen.queryByText(/providers/i)).toBeNull()
   })
 
-  test('uses beginner-facing reusable knowledge page metadata', () => {
+  test('uses beginner-facing saved guidance page metadata', () => {
     routerState.path = '/context'
 
     render(<MemoryRouter />)
 
-    expect(screen.getByText('Reusable knowledge')).toBeDefined()
-    expect(screen.getByText('Review what agents can save and reuse')).toBeDefined()
+    expect(screen.getByText('Saved guidance')).toBeDefined()
+    expect(screen.getByText('Review what agents can save for later')).toBeDefined()
     expect(screen.queryByText(/approval queue/i)).toBeNull()
     expect(screen.queryByText(/governed context/i)).toBeNull()
   })
