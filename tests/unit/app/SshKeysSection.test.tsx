@@ -55,6 +55,7 @@ describe('SshKeysSection', () => {
 
     expect(await screen.findByText('No repository SSH access yet')).toBeDefined()
     expect(screen.getAllByText(/addresses.*start.*git@/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/code repository addresses/i)).toBeDefined()
     expect(screen.getByText(/address starts with https:\/\//i)).toBeDefined()
 
     fireEvent.click(screen.getByRole('button', { name: /add ssh access/i }))
@@ -111,12 +112,22 @@ describe('SshKeysSection', () => {
     render(<SshKeysSection />)
 
     await waitFor(() => expect(loadSshKeysMock).toHaveBeenCalledTimes(1))
+    expect(screen.getByText('Saved key ID')).toBeDefined()
+    expect(screen.getByText('Key kind')).toBeDefined()
+    expect(screen.getByText('Modern SSH key')).toBeDefined()
+    expect(screen.queryByText('Saved key fingerprint')).toBeNull()
+    expect(screen.queryByText('SSH type')).toBeNull()
+
     fireEvent.click(
       screen.getByRole('button', { name: /remove work laptop repository ssh access/i })
     )
 
     expect(deleteSshKeyMock).not.toHaveBeenCalled()
-    expect(screen.getByText(/removing this access can block agents/i)).toBeDefined()
+    expect(
+      screen.getByText(
+        'Removing this access can block agents that use code repositories that are not public.'
+      )
+    ).toBeDefined()
 
     fireEvent.click(
       screen.getByRole('button', { name: /confirm removing work laptop repository ssh access/i })

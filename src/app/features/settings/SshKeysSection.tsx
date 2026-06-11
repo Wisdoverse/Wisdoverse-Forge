@@ -17,6 +17,12 @@ function formatDate(dateStr: string): string {
   })
 }
 
+function describeKeyType(keyType: string): string {
+  if (keyType === 'ssh-ed25519') return 'Modern SSH key'
+  if (keyType === 'ssh-rsa') return 'RSA SSH key'
+  return keyType
+}
+
 const SSH_KEY_SETUP_STEPS = [
   { label: 'Name this access', value: 'Use a device, team, or repository name.' },
   {
@@ -65,7 +71,7 @@ function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
       </td>
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {sshKey.keyType}
+          {describeKeyType(sshKey.keyType)}
         </span>
       </td>
       <td className={uiStyles.tableCell}>
@@ -89,7 +95,7 @@ function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
         </button>
         {confirming && (
           <p id={removeWarningId} className="ml-auto mt-1 max-w-44 text-ui-caption text-apple-red">
-            Removing this access can block agents that use private repositories.
+            Removing this access can block agents that use code repositories that are not public.
           </p>
         )}
       </td>
@@ -202,7 +208,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
             id={publicKeyHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Copy the one-line public SSH key from the tool that generated it.
+            Copy the one-line shareable SSH key from the tool that generated it.
           </p>
           <textarea
             id={publicKeyInputId}
@@ -278,8 +284,8 @@ export function SshKeysSection() {
 
   const tableHeaders: { label: string; className?: string }[] = [
     { label: 'Key name' },
-    { label: 'Saved key fingerprint' },
-    { label: 'SSH type' },
+    { label: 'Saved key ID' },
+    { label: 'Key kind' },
     { label: 'Added on' },
     { label: '', className: 'w-20' },
   ]
@@ -291,7 +297,8 @@ export function SshKeysSection() {
         <div>
           <h2 className={uiStyles.sectionTitle}>Repository SSH access</h2>
           <p className={uiStyles.sectionDescription}>
-            Let agents open private repositories that use SSH addresses starting with git@.
+            Let agents open code repositories that are not public and use addresses starting with
+            git@.
           </p>
         </div>
         {!showForm && (
@@ -325,8 +332,8 @@ export function SshKeysSection() {
               No repository SSH access yet
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Private repository addresses that start with git@ need this. If the address starts
-              with https://, use repository access instead.
+              Code repository addresses that start with git@ need this. If the address starts with
+              https://, use repository access instead.
             </p>
           </div>
         ) : (
