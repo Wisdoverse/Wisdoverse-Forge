@@ -44,6 +44,8 @@ export interface ProviderInfo {
   displayName: string
   defaultModel?: string
   defaultBaseUrl?: string
+  /** Alternate-region endpoint hint (e.g. global host when the default base URL is the China-region endpoint). */
+  globalBaseUrl?: string
   requiresApiKey: boolean
   allowCustomModels: boolean
   models: { model: string; displayName: string }[]
@@ -216,6 +218,7 @@ function mapProviderInfo(value: unknown): ProviderInfo {
     displayName: stringField(data, 'displayName', 'display_name') ?? provider,
     defaultModel: stringField(data, 'defaultModel', 'default_model'),
     defaultBaseUrl: stringField(data, 'defaultBaseUrl', 'default_base_url'),
+    globalBaseUrl: stringField(data, 'globalBaseUrl', 'global_base_url'),
     requiresApiKey: boolField(data, true, 'requiresApiKey', 'requires_api_key'),
     allowCustomModels: boolField(data, true, 'allowCustomModels', 'allow_custom_models'),
     models,

@@ -341,6 +341,31 @@ describe('CreateAgentModal', () => {
     })
   })
 
+  test('lists China-region providers and seeds the Zhipu GLM default model', async () => {
+    render(<CreateAgentModal />)
+
+    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+
+    const providerSelect = screen.getByLabelText(/^provider$/i)
+    expect(within(providerSelect).getByRole('option', { name: 'Zhipu GLM' })).toBeInTheDocument()
+    expect(
+      within(providerSelect).getByRole('option', { name: 'Zhipu GLM Coding Plan' })
+    ).toBeInTheDocument()
+    expect(within(providerSelect).getByRole('option', { name: 'Moonshot Kimi' })).toBeInTheDocument()
+    expect(
+      within(providerSelect).getByRole('option', { name: 'Alibaba Qwen (DashScope)' })
+    ).toBeInTheDocument()
+    expect(
+      within(providerSelect).getByRole('option', { name: 'Tencent Hunyuan' })
+    ).toBeInTheDocument()
+
+    fireEvent.change(providerSelect, { target: { value: 'zhipu' } })
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^model$/i)).toHaveValue('glm-4.7')
+    })
+  })
+
   test('submits cli kind without provider/model fields', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)

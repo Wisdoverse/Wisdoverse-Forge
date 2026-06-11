@@ -101,6 +101,20 @@ const PROVIDERS: { value: string; label: string; defaultModel: string }[] = [
   { value: 'ollama', label: 'Ollama (local)', defaultModel: 'llama3.2' },
   { value: 'groq', label: 'Groq', defaultModel: 'llama-3.3-70b-versatile' },
   { value: 'deepseek', label: 'DeepSeek', defaultModel: 'deepseek-chat' },
+  // Mainstream China-region vendors. "Coding Plan" entries are the vendors'
+  // subscription products on Anthropic-compatible endpoints — separate keys
+  // from the pay-as-you-go API entries above them.
+  { value: 'zhipu', label: 'Zhipu GLM', defaultModel: 'glm-4.7' },
+  { value: 'zhipu_coding', label: 'Zhipu GLM Coding Plan', defaultModel: 'glm-4.7' },
+  { value: 'minimax', label: 'MiniMax', defaultModel: 'MiniMax-M3' },
+  { value: 'minimax_coding', label: 'MiniMax Coding Plan', defaultModel: 'MiniMax-M3' },
+  { value: 'moonshot', label: 'Moonshot Kimi', defaultModel: 'kimi-k2.5' },
+  { value: 'moonshot_coding', label: 'Moonshot Kimi Coding Plan', defaultModel: 'kimi-k2.5' },
+  { value: 'dashscope', label: 'Alibaba Qwen (DashScope)', defaultModel: 'qwen3-coder-plus' },
+  { value: 'dashscope_coding', label: 'Alibaba Qwen Coding Plan', defaultModel: 'qwen3-coder-plus' },
+  { value: 'hunyuan', label: 'Tencent Hunyuan', defaultModel: 'hunyuan-turbo-latest' },
+  { value: 'xiaomi', label: 'Xiaomi MiMo', defaultModel: 'mimo-v2.5-pro' },
+  { value: 'xiaomi_coding', label: 'Xiaomi MiMo Coding Plan', defaultModel: 'mimo-v2.5-pro' },
   { value: 'xai', label: 'xAI', defaultModel: 'grok-3-mini' },
   { value: 'openrouter', label: 'OpenRouter', defaultModel: 'openai/gpt-4o-mini' },
   { value: 'together', label: 'Together AI', defaultModel: 'openai/gpt-oss-20b' },

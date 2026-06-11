@@ -206,6 +206,57 @@ guide, including the operator-initiated image roll.
 | `STORAGE_LOCAL_PATH`         | Writable mount path for local attachment storage                                                                             |
 | `MINIO_*`                    | MinIO/S3 settings when using the `storage` profile                                                                           |
 
+## Mainstream China-Region LLM Providers
+
+The LLM gateway ships first-class entries for the mainstream Chinese model
+vendors. You do not need environment variables for these. Open
+Settings -> Providers, choose Add Provider, pick the vendor entry, paste the
+API key, and save — the matching vendor endpoint is filled in for you.
+
+Two things matter before you pick an entry:
+
+- Each vendor sells two separate products. The plain entry (for example
+  `zhipu`) takes the vendor's pay-as-you-go API key and talks to its
+  OpenAI-compatible endpoint. The Coding Plan entry (for example
+  `zhipu_coding`) takes the vendor's coding subscription key and talks to its
+  Anthropic-compatible endpoint. The keys are different products and are not
+  interchangeable — use the key from the product you bought.
+- The default Base URL is the China endpoint. If your account lives on the
+  vendor's global/international platform, paste the global endpoint from the
+  table below into the Base URL field. The Providers form shows the same
+  global URL as a hint under the field.
+
+| Provider entry                                | Product           | China endpoint (default)                               | Global endpoint (paste into Base URL)                       |
+| --------------------------------------------- | ----------------- | ------------------------------------------------------ | ----------------------------------------------------------- |
+| Zhipu GLM (`zhipu`)                           | Pay-as-you-go API | `https://open.bigmodel.cn/api/paas/v4`                 | `https://api.z.ai/api/paas/v4`                              |
+| Zhipu GLM Coding Plan (`zhipu_coding`)        | Coding Plan       | `https://open.bigmodel.cn/api/anthropic`               | `https://api.z.ai/api/anthropic`                            |
+| MiniMax (`minimax`)                           | Pay-as-you-go API | `https://api.minimaxi.com/v1`                          | `https://api.minimax.io/v1`                                 |
+| MiniMax Coding Plan (`minimax_coding`)        | Coding Plan       | `https://api.minimaxi.com/anthropic`                   | `https://api.minimax.io/anthropic`                          |
+| Moonshot Kimi (`moonshot`)                    | Pay-as-you-go API | `https://api.moonshot.cn/v1`                           | `https://api.moonshot.ai/v1`                                |
+| Moonshot Kimi Coding Plan (`moonshot_coding`) | Coding Plan       | `https://api.moonshot.cn/anthropic`                    | `https://api.moonshot.ai/anthropic`                         |
+| Alibaba Qwen (`dashscope`)                    | Pay-as-you-go API | `https://dashscope.aliyuncs.com/compatible-mode/v1`    | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`    |
+| Alibaba Qwen Coding Plan (`dashscope_coding`) | Coding Plan       | `https://coding.dashscope.aliyuncs.com/apps/anthropic` | `https://coding-intl.dashscope.aliyuncs.com/apps/anthropic` |
+| Tencent Hunyuan (`hunyuan`)                   | Pay-as-you-go API | `https://api.hunyuan.cloud.tencent.com/v1`             | None — China endpoint only today                            |
+| Xiaomi MiMo (`xiaomi`)                        | Pay-as-you-go API | `https://api.xiaomimimo.com/v1`                        | Same host serves all regions                                |
+| Xiaomi MiMo Coding Plan (`xiaomi_coding`)     | Coding Plan       | `https://api.xiaomimimo.com/anthropic`                 | See the Xiaomi note below                                   |
+
+Success looks like: after saving, the provider row's Test button returns
+"Connection ready", and the provider appears when creating a Provider + Prompt
+agent.
+
+Notes:
+
+- Tencent Hunyuan has no Anthropic-compatible coding endpoint today, so there
+  is no `hunyuan_coding` entry.
+- Xiaomi MiMo Token Plan subscribers receive a dedicated endpoint host from
+  the Xiaomi console (for example `token-plan-cn.xiaomimimo.com`). If your
+  console shows one, paste it into the Base URL field instead of the default.
+- Common vendor spellings work as aliases when calling the API directly:
+  `glm`/`bigmodel`/`z-ai` resolve to `zhipu`, `kimi` to `moonshot`,
+  `qwen`/`alibaba`/`aliyun` to `dashscope`, `mimo` to `xiaomi`, and `tencent`
+  to `hunyuan`. The same aliases with a `_coding` suffix resolve to the
+  matching Coding Plan entry.
+
 ## Guidance
 
 - Keep `MCP_TOKEN`, `ORCHESTRATOR_MCP_TOKEN`, and `ORCHESTRATOR_INTERNAL_TOKEN` aligned in trusted deployments.
