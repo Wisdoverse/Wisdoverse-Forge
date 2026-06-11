@@ -140,6 +140,7 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
           testId="context-usage-top-useful"
           title="Top useful"
           description="Keep these available; users marked them helpful after use."
+          nextStep="Next: keep this available for similar tasks."
           icon="useful"
           items={data?.topUseful ?? []}
           loading={loading}
@@ -149,6 +150,7 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
           testId="context-usage-needs-review"
           title="Needs review"
           description="Check these before reuse because feedback says they may be unsafe or wrong."
+          nextStep="Next: open the latest task result, then update or remove this before reuse."
           icon="review"
           items={data?.needsReview ?? []}
           loading={loading}
@@ -158,6 +160,7 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
           testId="context-usage-stale-items"
           title="May be outdated"
           description="Verify these before agents rely on them again."
+          nextStep="Next: verify this still matches current team guidance before reuse."
           icon="stale"
           items={data?.staleItems ?? []}
           loading={loading}
@@ -172,6 +175,7 @@ function UsageList({
   testId,
   title,
   description,
+  nextStep,
   icon,
   items,
   loading,
@@ -180,6 +184,7 @@ function UsageList({
   testId: string
   title: string
   description: string
+  nextStep: string
   icon: 'useful' | 'review' | 'stale'
   items: ContextUsageItem[]
   loading: boolean
@@ -235,6 +240,7 @@ function UsageList({
             <UsageItem
               key={`${item.itemId}:${item.agentId}:${item.taskKind}:${item.runtime}`}
               item={item}
+              nextStep={nextStep}
             />
           ))}
         </div>
@@ -243,7 +249,7 @@ function UsageList({
   )
 }
 
-function UsageItem({ item }: { item: ContextUsageItem }) {
+function UsageItem({ item, nextStep }: { item: ContextUsageItem; nextStep: string }) {
   const Icon = item.itemKind === 'memory' ? Brain : WandSparkles
   const itemKindLabel = contextItemKindLabel(item.itemKind)
   const negative = item.feedbackNegativeCount > 0
@@ -290,6 +296,9 @@ function UsageItem({ item }: { item: ContextUsageItem }) {
           className={negative ? 'text-apple-red' : undefined}
         />
       </div>
+      <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+        {nextStep}
+      </p>
     </div>
   )
 }

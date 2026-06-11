@@ -88,6 +88,7 @@ describe('ContextUsageDashboard', () => {
     expect(item.textContent).toContain(
       'Builder Agent · Work location not listed · Task type not listed'
     )
+    expect(item.textContent).toContain('Next: keep this available for similar tasks.')
     expect(screen.queryByText(/^unknown$/i)).toBeNull()
   })
 
@@ -126,5 +127,38 @@ describe('ContextUsageDashboard', () => {
     expect(screen.queryByText(/future context kind/i)).toBeNull()
     expect(screen.queryByText(/future runtime/i)).toBeNull()
     expect(screen.queryByText(/future task kind/i)).toBeNull()
+  })
+
+  test('adds a plain next step for context that needs review', () => {
+    render(
+      <ContextUsageDashboard
+        data={analytics({
+          needsReview: [
+            {
+              itemId: 'memory-1',
+              itemKind: 'memory',
+              itemTitle: 'Old release note',
+              taskKind: 'review',
+              runtime: 'cli',
+              agentId: 'agent-1',
+              agentName: 'Reviewer Agent',
+              appliedCount: 3,
+              completedCount: 1,
+              successRate: 0.33,
+              feedbackTotalCount: 2,
+              feedbackUsefulCount: 0,
+              feedbackNegativeCount: 2,
+              negativeFeedbackRate: 1,
+              lastUsedAt: '2026-05-20T12:00:00.000Z',
+            },
+          ],
+        })}
+      />
+    )
+
+    const item = screen.getByTestId('context-usage-item')
+    expect(item.textContent).toContain(
+      'Next: open the latest task result, then update or remove this before reuse.'
+    )
   })
 })

@@ -51,22 +51,26 @@ describe('ContextUsageDashboard', () => {
     expect(screen.getByText('Completed work after context was used.')).toBeDefined()
     expect(screen.getByText('Times users marked the context helpful.')).toBeDefined()
     expect(screen.getByText('Signals to check before reuse.')).toBeDefined()
-    expect(screen.getByText('Snapshot refreshed 15m ago')).toBeDefined()
+    expect(screen.getByText('Updated 15m ago')).toBeDefined()
   })
 
   test('turns empty lists into next-step guidance', () => {
     render(<ContextUsageDashboard data={baseData} />)
 
     expect(
-      screen.getByText('Helpful items appear after users mark applied context as useful.')
-    ).toBeDefined()
-    expect(
       screen.getByText(
-        'Items show here when feedback says context may be outdated, incorrect, or sensitive.'
+        'Helpful saved memories and skills appear after people mark them useful in task results.'
       )
     ).toBeDefined()
     expect(
-      screen.getByText('Nothing has crossed the stale threshold for this workspace.')
+      screen.getByText(
+        'Items appear here when feedback says they may be outdated, incorrect, or too sensitive.'
+      )
+    ).toBeDefined()
+    expect(
+      screen.getByText(
+        'Saved memories and skills appear here when they are old enough to check again.'
+      )
     ).toBeDefined()
   })
 
@@ -74,7 +78,7 @@ describe('ContextUsageDashboard', () => {
     render(<ContextUsageDashboard data={{ ...baseData, isStale: true }} />)
 
     expect(screen.getByTestId('context-usage-stale-banner').textContent).toContain(
-      'Refresh analytics before acting on these numbers.'
+      'Refresh analytics before making decisions from them.'
     )
   })
 
@@ -114,6 +118,7 @@ describe('ContextUsageDashboard', () => {
 
     expect(screen.getByText('Saved memory')).toBeDefined()
     expect(screen.getByText('Planner Agent · Managed workspace · Code change')).toBeDefined()
+    expect(screen.getByText('Next: keep this available for similar tasks.')).toBeDefined()
     expect(screen.getByText('review')).toBeDefined()
     expect(screen.queryByText('memory')).toBeNull()
     expect(screen.queryByText('Planner Agent · container · coding')).toBeNull()
