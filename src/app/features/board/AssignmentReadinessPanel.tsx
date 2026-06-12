@@ -179,9 +179,12 @@ function MetricPill({
 function summarizeHandoff(workload: BoardWorkloadSnapshot, availableCount: number): string {
   if (workload.unassigned > 0) {
     const taskLabel = pluralize(workload.unassigned, 'task')
+    const verb = workload.unassigned === 1 ? 'needs' : 'need'
+    const pronoun = workload.unassigned === 1 ? 'it' : 'them'
+
     return availableCount > 0
-      ? `${workload.unassigned} ${taskLabel} need an agent and can start now.`
-      : `${workload.unassigned} ${taskLabel} need an agent before they can start.`
+      ? `${workload.unassigned} ${taskLabel} ${verb} an agent. Choose an available agent to start ${pronoun}.`
+      : `${workload.unassigned} ${taskLabel} ${verb} an agent. Connect or free up an agent before ${pronoun} can start.`
   }
 
   if (workload.blocked > 0) {
