@@ -49,8 +49,12 @@ describe('TimelineView', () => {
     ).toBeDefined()
     expect(screen.getByText('Start a task from the board')).toBeDefined()
     expect(
+      screen.getByText('Watch tasks move through waiting, working, help needed, and finished steps')
+    ).toBeDefined()
+    expect(
       screen.getByText('Open a task when the timeline shows something that needs attention')
     ).toBeDefined()
+    expect(screen.queryByText(/blocked and completed/i)).toBeNull()
   })
 
   test('keeps the timeline canvas mounted for the route smoke test', () => {
