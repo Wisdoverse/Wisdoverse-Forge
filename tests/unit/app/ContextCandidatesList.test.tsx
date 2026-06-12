@@ -92,6 +92,28 @@ describe('ContextCandidatesList', () => {
     expect(screen.queryByText(/Context queue/i)).toBeNull()
   })
 
+  test('uses saved-instruction wording when an instruction suggestion has no title', () => {
+    render(
+      <ContextCandidatesList
+        title="Suggested saved instructions"
+        kind="skill"
+        candidates={[
+          candidate({
+            id: 'candidate-untitled-skill',
+            itemKind: 'skill',
+            proposedPreview: {
+              content_preview: 'Review this reusable instruction before saving it.',
+            },
+          }),
+        ]}
+      />
+    )
+
+    expect(screen.getByText('Suggested saved instruction')).toBeInTheDocument()
+    expect(screen.getByText('Instruction suggestion')).toBeInTheDocument()
+    expect(screen.queryByText(new RegExp(['Suggested', 'skill'].join('\\s+')))).toBeNull()
+  })
+
   test('labels unknown suggestion types without pretending they are memories', () => {
     render(
       <ContextCandidatesList

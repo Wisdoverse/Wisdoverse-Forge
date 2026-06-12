@@ -78,7 +78,7 @@ function candidateTitle(candidate: TaskContextCandidate): string {
     case 'memory':
       return 'Suggested memory'
     case 'skill':
-      return 'Suggested skill'
+      return 'Suggested saved instruction'
     default:
       return 'Suggested context item'
   }
