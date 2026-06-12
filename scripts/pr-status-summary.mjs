@@ -61,6 +61,7 @@ function parseArgs(args) {
     inputPath: '',
     json: false,
     limit: 120,
+    localOnly: false,
     minRemoteReadIntervalSeconds: DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS,
     monitor: false,
     noCache: false,
@@ -81,6 +82,8 @@ function parseArgs(args) {
     } else if (arg === '--monitor') {
       options.monitor = true
       options.failOnAction = true
+    } else if (arg === '--local-only') {
+      options.localOnly = true
     } else if (arg === '--refresh') {
       options.refresh = true
     } else if (arg === '--force-refresh') {
@@ -134,9 +137,35 @@ function parseArgs(args) {
   }
 
   enforceMonitorSnapshotMode(options)
+  enforceLocalOnlyMode(options)
   enforceRemoteReadProtection(options)
 
   return options
+}
+
+function enforceLocalOnlyMode(options) {
+  const errors = getLocalOnlyModeErrors(options)
+  if (errors.length > 0) {
+    throwUsageError(errors.join(' '))
+  }
+}
+
+function getLocalOnlyModeErrors(options) {
+  if (!options.localOnly) return []
+
+  const errors = []
+  if (options.refresh || options.forceRefresh) {
+    errors.push('--local-only cannot use refresh flags because it must never read GitHub.')
+  }
+  if (options.noCache) {
+    errors.push('--local-only cannot use --no-cache because it only reads the local snapshot.')
+  }
+  if (options.allowRepeatRemoteRead) {
+    errors.push(
+      '--local-only cannot use --allow-repeat-remote-read because no remote read is allowed.'
+    )
+  }
+  return errors
 }
 
 function enforceRemoteReadProtection(options) {
@@ -207,6 +236,10 @@ function readPullRequestSnapshot(options, now = Date.now()) {
   }
 
   const cachePath = resolveCachePath(options.cacheFile)
+  if (options.localOnly) {
+    return readLocalOnlyCache(cachePath, options, now)
+  }
+
   if (options.noCache && !options.allowRepeatRemoteRead) {
     throwUsageError(
       '--no-cache disables repeat-read protection; pass --allow-repeat-remote-read only for a one-time manual check'
@@ -298,6 +331,37 @@ function readRepeatRemoteReadGuard(cachePath, options, now) {
     }
   } catch {
     return null
+  }
+}
+
+function readLocalOnlyCache(cachePath, options, now) {
+  if (!existsSync(cachePath)) {
+    throwUsageError(
+      'no local PR snapshot found; run npm run pr:summary:refresh once when a fresh remote read is acceptable'
+    )
+  }
+
+  try {
+    const cache = JSON.parse(readFileSync(cachePath, 'utf8'))
+    if (!isMatchingCacheEntry(cache, options)) {
+      throwUsageError(
+        'local PR snapshot does not match this query; run npm run pr:summary:refresh once when a fresh remote read is acceptable'
+      )
+    }
+    return {
+      pullRequests: cache.pullRequests,
+      source: cachePath,
+      cacheHit: true,
+      cacheAgeSeconds: Math.max(0, Math.floor((now - cache.fetchedAt) / 1000)),
+      localOnly: true,
+      localOnlyStale: !isUsableCacheEntry(cache, options, now),
+    }
+  } catch (error) {
+    if (error?.code === undefined && error?.message?.startsWith?.('[pr-summary]')) {
+      throw error
+    }
+    const message = error instanceof Error ? error.message : String(error)
+    throwUsageError(`unable to read local PR snapshot: ${message}`)
   }
 }
 
@@ -412,6 +476,15 @@ function cacheQuery(options) {
 }
 
 function formatCacheNotice(snapshot) {
+  if (snapshot.localOnly) {
+    return `[pr-summary] using local-only GitHub snapshot from ${formatAge(
+      snapshot.cacheAgeSeconds
+    )}; no remote read was made${
+      snapshot.localOnlyStale
+        ? '; the snapshot is older than the normal reuse window, so run npm run pr:summary:refresh once when a fresh remote read is acceptable'
+        : ''
+    }`
+  }
   if (snapshot.repeatRemoteReadSuppressed) {
     return `[pr-summary] remote refresh skipped because GitHub was checked ${formatAge(
       snapshot.cacheAgeSeconds
@@ -465,6 +538,7 @@ Options:
   --refresh          Query GitHub unless the latest snapshot is inside the refresh cooldown
   --force-refresh    Bypass the refresh cooldown, but keep the repeat-read guard
   --monitor          Snapshot-only automation mode; fail only on ACTION and reject refresh bypasses
+  --local-only       Read only the local snapshot and never call GitHub
   --no-cache         Query GitHub and do not read or write the local cache; requires --allow-repeat-remote-read
   --allow-repeat-remote-read
                      Permit an immediate uncached or forced GitHub read for a one-time manual check
@@ -502,6 +576,7 @@ export {
   DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS,
   DEFAULT_REFRESH_COOLDOWN_SECONDS,
   formatCacheNotice,
+  getLocalOnlyModeErrors,
   getMonitorSnapshotModeErrors,
   getRemoteReadProtectionErrors,
   isRepeatRemoteReadSuppressed,

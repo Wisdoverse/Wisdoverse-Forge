@@ -55,6 +55,7 @@
     "migrate:down": "node scripts/rust-migrate-unsupported.mjs down",
     "migrate:status": "node scripts/rust-migrate-unsupported.mjs status",
     "pr:summary": "node scripts/pr-status-summary.mjs",
+    "pr:summary:local": "node scripts/pr-status-summary.mjs --local-only",
     "pr:summary:refresh": "node scripts/pr-status-summary.mjs --refresh",
     "pr:summary:force-refresh": "node scripts/pr-status-summary.mjs --force-refresh",
     "pr:summary:monitor": "node scripts/pr-status-summary.mjs --monitor",

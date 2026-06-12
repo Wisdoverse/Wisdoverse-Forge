@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import {
   classifyPullRequest,
   renderSummary,
@@ -11,12 +14,14 @@ import {
   DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS,
   DEFAULT_REFRESH_COOLDOWN_SECONDS,
   formatCacheNotice,
+  getLocalOnlyModeErrors,
   getMonitorSnapshotModeErrors,
   getRemoteReadProtectionErrors,
   isRepeatRemoteReadSuppressed,
   isReusableCacheEntry,
   isUsableCacheEntry,
   parseArgs,
+  readPullRequestSnapshot,
 } from '../../../scripts/pr-status-summary.mjs'
 
 function pr(overrides: Record<string, unknown> = {}) {
@@ -115,6 +120,7 @@ describe('PR status summary', () => {
       cacheTtlSeconds: 900,
       allowRepeatRemoteRead: false,
       forceRefresh: false,
+      localOnly: false,
       minRemoteReadIntervalSeconds: DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS,
       monitor: false,
       noCache: false,
@@ -131,6 +137,64 @@ describe('PR status summary', () => {
       forceRefresh: true,
       refresh: true,
     })
+  })
+
+  it('keeps local-only checks from reading GitHub', () => {
+    const options = parseArgs(['--local-only'])
+
+    expect(options).toMatchObject({
+      localOnly: true,
+      noCache: false,
+      refresh: false,
+    })
+    expect(getLocalOnlyModeErrors(options)).toEqual([])
+    expect(getLocalOnlyModeErrors({ ...options, refresh: true })).toContain(
+      '--local-only cannot use refresh flags because it must never read GitHub.'
+    )
+    expect(getLocalOnlyModeErrors({ ...options, noCache: true })).toContain(
+      '--local-only cannot use --no-cache because it only reads the local snapshot.'
+    )
+    expect(getLocalOnlyModeErrors({ ...options, allowRepeatRemoteRead: true })).toContain(
+      '--local-only cannot use --allow-repeat-remote-read because no remote read is allowed.'
+    )
+  })
+
+  it('uses stale cache in local-only mode instead of refreshing remotely', () => {
+    const now = Date.parse('2026-06-05T12:00:00Z')
+    const tmp = mkdtempSync(join(tmpdir(), 'pr-summary-'))
+    const cacheFile = join(tmp, 'cache.json')
+    const options = parseArgs([
+      '--local-only',
+      '--cache-file',
+      cacheFile,
+      '--cache-ttl-seconds',
+      '60',
+    ])
+
+    try {
+      writeFileSync(
+        cacheFile,
+        `${JSON.stringify({
+          version: CACHE_VERSION,
+          fetchedAt: now - 3_600_000,
+          query: cacheQuery(options),
+          pullRequests: [pr()],
+        })}\n`
+      )
+
+      const snapshot = readPullRequestSnapshot(options, now)
+
+      expect(snapshot).toMatchObject({
+        cacheHit: true,
+        cacheAgeSeconds: 3600,
+        localOnly: true,
+        localOnlyStale: true,
+        pullRequests: [expect.objectContaining({ number: 101 })],
+      })
+      expect(formatCacheNotice(snapshot)).toContain('no remote read was made')
+    } finally {
+      rmSync(tmp, { force: true, recursive: true })
+    }
   })
 
   it('uses snapshot-only defaults for monitor mode', () => {

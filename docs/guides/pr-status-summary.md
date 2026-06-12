@@ -41,6 +41,18 @@ When the output says it used a cached snapshot, that is expected. Treat the
 result as a recent point-in-time view, not a live watch. The cache notice also
 tells you when another remote read would be useful again.
 
+If the instruction is "do not poll" or "do not read remote again", use the
+local-only command:
+
+```bash
+npm run pr:summary:local
+```
+
+This command never calls GitHub. It reads the last saved snapshot, prints how
+old it is, and tells you when a fresh remote read is needed. If no saved
+snapshot exists yet, run `npm run pr:summary:refresh` once only when a fresh
+remote read is acceptable.
+
 When the output says `WAIT: stop here` or `WAIT: token-safe action`, the correct
 next step is to leave the conversation or monitor quiet. Do not ask an agent to
 refresh again unless the cache has expired or someone pushed, approved, failed,
@@ -152,6 +164,15 @@ npm run pr:summary:force-refresh
 Even forced refresh keeps a 60-second repeat-read guard for the same query. That
 prevents an agent, shell loop, or impatient operator from hitting GitHub over and
 over while nothing useful changed.
+
+When you only want to reuse what was already checked, do not refresh:
+
+```bash
+npm run pr:summary:local
+```
+
+The local-only command will show a stale snapshot if that is all it has, but it
+will not make a hidden remote request.
 
 If an emergency manual check must read GitHub again immediately, make that
 choice explicit:
