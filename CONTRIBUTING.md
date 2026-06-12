@@ -104,6 +104,8 @@ That command reuses the local snapshot when it runs too soon and exits with an
 alert only when a PR needs action. See
 [docs/guides/pr-status-summary.md](docs/guides/pr-status-summary.md) for the
 refresh rules and emergency one-time override.
+Do not lower the repeat-read guard below 60 seconds or put the emergency
+override in scripts, aliases, scheduled jobs, or agent instructions.
 
 ### Merge requirements
 

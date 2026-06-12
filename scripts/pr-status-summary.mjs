@@ -127,8 +127,28 @@ function parseArgs(args) {
   }
 
   enforceMonitorSnapshotMode(options)
+  enforceRemoteReadProtection(options)
 
   return options
+}
+
+function enforceRemoteReadProtection(options) {
+  const errors = getRemoteReadProtectionErrors(options)
+  if (errors.length > 0) {
+    throwUsageError(errors.join(' '))
+  }
+}
+
+function getRemoteReadProtectionErrors(options) {
+  if (options.inputPath || options.allowRepeatRemoteRead) return []
+
+  const errors = []
+  if (options.minRemoteReadIntervalSeconds < DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS) {
+    errors.push(
+      `--min-remote-read-interval-seconds must be >= ${DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS}; pass --allow-repeat-remote-read only for a one-time manual check.`
+    )
+  }
+  return errors
 }
 
 function enforceMonitorSnapshotMode(options) {
@@ -474,6 +494,7 @@ export {
   DEFAULT_REFRESH_COOLDOWN_SECONDS,
   formatCacheNotice,
   getMonitorSnapshotModeErrors,
+  getRemoteReadProtectionErrors,
   isRepeatRemoteReadSuppressed,
   isUsableCacheEntry,
   isReusableCacheEntry,

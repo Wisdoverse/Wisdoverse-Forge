@@ -115,6 +115,10 @@ Change the repeat-read guard only for a one-time manual session:
 npm run pr:summary:refresh -- --min-remote-read-interval-seconds 120
 ```
 
+The command refuses values below 60 seconds unless you also pass the emergency
+`--allow-repeat-remote-read` flag. That keeps agents, aliases, and shell loops
+from turning a status check into repeated GitHub reads.
+
 Do not put `npm run pr:summary:refresh` or `npm run pr:summary:force-refresh`
 in a tight loop. This command is a snapshot tool, not a chat-based live watch.
 For monitoring, schedule it at a fixed interval such as 10 or 15 minutes and

@@ -11,6 +11,7 @@ import {
   DEFAULT_REFRESH_COOLDOWN_SECONDS,
   formatCacheNotice,
   getMonitorSnapshotModeErrors,
+  getRemoteReadProtectionErrors,
   isRepeatRemoteReadSuppressed,
   isReusableCacheEntry,
   isUsableCacheEntry,
@@ -163,6 +164,28 @@ describe('PR status summary', () => {
     expect(getMonitorSnapshotModeErrors({ ...options, minRemoteReadIntervalSeconds: 0 })).toContain(
       '--monitor requires --min-remote-read-interval-seconds >= 60.'
     )
+  })
+
+  it('rejects repeated remote reads unless the operator makes a one-time bypass explicit', () => {
+    const options = parseArgs([])
+
+    expect(getRemoteReadProtectionErrors({ ...options, minRemoteReadIntervalSeconds: 0 })).toContain(
+      '--min-remote-read-interval-seconds must be >= 60; pass --allow-repeat-remote-read only for a one-time manual check.'
+    )
+    expect(
+      getRemoteReadProtectionErrors({
+        ...options,
+        allowRepeatRemoteRead: true,
+        minRemoteReadIntervalSeconds: 0,
+      })
+    ).toEqual([])
+    expect(
+      getRemoteReadProtectionErrors({
+        ...options,
+        inputPath: '/tmp/prs.json',
+        minRemoteReadIntervalSeconds: 0,
+      })
+    ).toEqual([])
   })
 
   it('keeps a repeat-read guard even for forced refreshes', () => {

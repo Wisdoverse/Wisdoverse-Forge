@@ -202,6 +202,8 @@ external monitoring, schedule `npm run pr:summary:monitor`; it reuses the local
 snapshot when run too soon and alerts only when a PR needs action.
 Do not use `gh pr checks --watch`, `gh run watch`, shell loops, or repeated
 forced refreshes from the chat unless the user explicitly asks for a live watch.
+Do not lower the script's repeat-read guard below 60 seconds or save the
+emergency bypass flag into reusable commands.
 If a bounded local waiter is necessary, it must print only terminal output and
 must be stopped before sending the final response.
 
