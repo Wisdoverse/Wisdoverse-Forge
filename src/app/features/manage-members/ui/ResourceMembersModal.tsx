@@ -290,7 +290,7 @@ export function ResourceMembersModal({
                   value={memberFilter}
                   onChange={(event) => setMemberFilter(event.target.value)}
                   disabled={loading || candidateUsers.length === 0}
-                  aria-label="Filter organization members"
+                  aria-label="Filter team-space people"
                   aria-describedby={addStatusId}
                   autoComplete="off"
                   placeholder="Search people by name or email…"
@@ -388,7 +388,7 @@ export function ResourceMembersModal({
                     No direct members yet
                   </span>
                   <p className="max-w-md text-ui-caption">
-                    Add a person from the organization above to give them access to this{' '}
+                    Add a person from the team space above to give them access to this{' '}
                     {resourceLabel.toLowerCase()}. Start with Member unless they need to manage who
                     can get in.
                   </p>
@@ -504,8 +504,8 @@ function MemberRoleGuide({ resourceLabel }: { resourceLabel: 'Team' | 'Project' 
           Add people only when they need this {resourceLabel.toLowerCase()}
         </h3>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Only organization users can be added here. Invite the person to the organization first if
-          they do not appear in the list.
+          Only people in this team space can be added here. Invite the person to the team space
+          first if they do not appear in the list.
         </p>
       </div>
       <div className="grid gap-2 sm:grid-cols-3">
@@ -540,26 +540,26 @@ function describeCandidateStatus({
 }): { selectLabel: string; detail: string } {
   if (loading) {
     return {
-      selectLabel: 'Loading organization members',
-      detail: 'Loading organization users and the people already listed below.',
+      selectLabel: 'Loading team-space people',
+      detail: 'Loading people in this team space and the people already listed below.',
     }
   }
   if (users.length === 0) {
     return {
-      selectLabel: 'No organization users available',
-      detail: 'Invite the person to the organization first, then return here to give access.',
+      selectLabel: 'No team-space people available',
+      detail: 'Invite the person to the team space first, then return here to give access.',
     }
   }
   if (candidateUsers.length === 0) {
     return {
       selectLabel: 'Everyone already has access',
-      detail: 'Every organization user is already listed below for this team or project.',
+      detail: 'Every team-space person is already listed below for this team or project.',
     }
   }
   if (query.trim() && filteredCandidateUsers.length === 0) {
     return {
-      selectLabel: 'No matching organization members',
-      detail: 'Clear the filter or invite the person to the organization before adding them here.',
+      selectLabel: 'No matching team-space people',
+      detail: 'Clear the filter or invite the person to the team space before adding them here.',
     }
   }
   return {

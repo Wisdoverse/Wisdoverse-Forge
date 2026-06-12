@@ -123,13 +123,16 @@ describe('ResourceMembersModal', () => {
     expect(screen.getByText('builder')).toBeDefined()
   })
 
-  test('explains that organization users must exist before members can be added', async () => {
+  test('explains that team-space people must exist before members can be added', async () => {
     renderMembersModal({ users: [] })
 
-    expect(await screen.findByText('No organization users available')).toBeDefined()
+    expect(await screen.findByText('No team-space people available')).toBeDefined()
     expect(
-      screen.getByText('Invite the person to the organization first, then return here to give access.')
+      screen.getByText(
+        'Invite the person to the team space first, then return here to give access.'
+      )
     ).toBeDefined()
+    expect(screen.queryByText(/organization users/i)).toBeNull()
     expect(screen.getByLabelText('Select person to add')).toBeDisabled()
   })
 
@@ -143,16 +146,17 @@ describe('ResourceMembersModal', () => {
     })
 
     expect(await screen.findByText('owner')).toBeDefined()
-    fireEvent.change(screen.getByLabelText('Filter organization members'), {
+    fireEvent.change(screen.getByLabelText('Filter team-space people'), {
       target: { value: 'missing-user' },
     })
 
-    expect(screen.getByText('No matching organization members')).toBeDefined()
+    expect(screen.getByText('No matching team-space people')).toBeDefined()
     expect(
       screen.getByText(
-        'Clear the filter or invite the person to the organization before adding them here.'
+        'Clear the filter or invite the person to the team space before adding them here.'
       )
     ).toBeDefined()
+    expect(screen.queryByText(/organization members/i)).toBeNull()
     expect(screen.getByText('owner@example.com')).toBeDefined()
   })
 
