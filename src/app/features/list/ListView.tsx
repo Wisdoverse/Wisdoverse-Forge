@@ -138,7 +138,7 @@ export function ListView() {
             />
             <ListMetric
               testId="list-metric-backlog"
-              label="Backlog"
+              label="Not sent yet"
               value={workload.backlog}
               icon={<Clock3 size={15} strokeWidth={2.15} aria-hidden="true" />}
               tone="neutral"
@@ -207,7 +207,7 @@ export function ListView() {
         <div className="grid min-w-[720px] select-none grid-cols-[minmax(220px,1fr)_120px_140px_96px_96px] px-4 py-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
           <span>Task result</span>
           <span>Status</span>
-          <span>Assignee</span>
+          <span>Agent</span>
           <span>Priority</span>
           <span>Updated</span>
         </div>
@@ -461,8 +461,8 @@ function listNextStep(
 
   if (workload.backlog > 0) {
     return {
-      title: `Move ${workload.backlog} backlog task${workload.backlog === 1 ? '' : 's'} forward.`,
-      detail: 'Assign an agent or send ready work into the next lane when the scope is clear.',
+      title: `Send ${workload.backlog} task${workload.backlog === 1 ? '' : 's'} when ready.`,
+      detail: 'Choose an agent or task queue before asking work to start.',
     }
   }
 
@@ -477,7 +477,7 @@ function taskNextAction(task: TaskSummary): string {
     case 'backlog':
       return task.assignedAgentName || task.assignedTo
         ? 'Send this when you are ready for the agent to start.'
-        : 'Assign an agent or move it into a ready task queue.'
+        : 'Choose an agent or task queue before sending it.'
     case 'queued':
       return 'Wait for the next ready agent to start it; check again if it stays here.'
     case 'working':

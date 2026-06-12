@@ -12,7 +12,8 @@ describe('ListView', () => {
     expect(screen.getByText('Task result')).toBeDefined()
     expect(screen.queryByText('Title')).toBeNull()
     expect(screen.getByText('Status')).toBeDefined()
-    expect(screen.getByText('Assignee')).toBeDefined()
+    expect(screen.getByText('Agent')).toBeDefined()
+    expect(screen.queryByText('Assignee')).toBeNull()
     expect(screen.getByText('Priority')).toBeDefined()
   })
 
@@ -40,6 +41,7 @@ describe('ListView', () => {
     render(<ListView />)
     expect(screen.getByText('Task A')).toBeDefined()
     expect(screen.getByText('Task B')).toBeDefined()
+    expect(screen.getByText('Choose an agent or task queue before sending it.')).toBeDefined()
   })
 
   test('shows waiting tasks without queue wording', () => {
@@ -123,9 +125,31 @@ describe('ListView', () => {
     expect(screen.getByText(/Open the blocked or failed work first/i)).toBeDefined()
     expect(within(screen.getByTestId('list-metric-active')).getByText('1')).toBeDefined()
     expect(within(screen.getByTestId('list-metric-backlog')).getByText('1')).toBeDefined()
+    expect(within(screen.getByTestId('list-metric-backlog')).getByText('Not sent yet')).toBeDefined()
     expect(within(screen.getByTestId('list-metric-attention')).getByText('1')).toBeDefined()
     expect(within(screen.getByTestId('list-metric-completed')).getByText('1')).toBeDefined()
     expect(screen.getByText(/Resolve blocker: Waiting on approval/i)).toBeDefined()
+  })
+
+  test('summarizes unsent tasks without backlog or lane wording', () => {
+    useBoardStore.getState().setTasks([
+      {
+        id: 'draft-1',
+        state: 'backlog',
+        params: { task: 'Draft onboarding checklist', message: '' },
+        priority: 'normal',
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+    ])
+
+    render(<ListView />)
+
+    expect(screen.getByTestId('list-next-step')).toHaveTextContent('Send 1 task when ready.')
+    expect(screen.getByText(/Choose an agent or task queue before asking work to start/i)).toBeDefined()
+    expect(screen.getByTestId('list-work-register').textContent).not.toContain('backlog task')
+    expect(screen.getByTestId('list-work-register').textContent).not.toContain('next lane')
   })
 
   test('filters task list by attention state and search', () => {
