@@ -47,7 +47,7 @@ type NavigationErrorArea = 'organizations' | 'teamProjects' | 'workLanes' | 'wor
 type NavigationErrorAction = 'load' | 'create'
 
 const NAVIGATION_AREA_LABELS: Record<NavigationErrorArea, string> = {
-  organizations: 'organizations',
+  organizations: 'team spaces',
   teamProjects: 'teams and projects',
   workLanes: 'task queues',
   workLane: 'task queue',
@@ -210,7 +210,7 @@ function navigationValidationMessage(
   }
 
   if (area === 'teamProjects') {
-    return 'Choose an organization you can access, refresh the sidebar, then load its teams and projects again.'
+    return 'Choose a team space you can access, refresh the sidebar, then load its teams and projects again.'
   }
 
   return `Check the ${NAVIGATION_AREA_LABELS[area]} selection, refresh the sidebar, then try again.`

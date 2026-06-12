@@ -48,7 +48,7 @@ describe('navigation.store', () => {
         'load',
         apiError(401, { error: 'token expired' })
       ),
-      'Sign in again, then open the workspace sidebar and try to load organizations again.'
+      'Sign in again, then open the workspace sidebar and try to load team spaces again.'
     )
   })
 
@@ -70,6 +70,20 @@ describe('navigation.store', () => {
       'You do not have permission to load teams and projects. Ask an owner or admin to update your workspace access.'
     )
     expect(message).not.toContain('owner policy denied')
+  })
+
+  it('turns team and project validation failures into team-space guidance', () => {
+    const message = navigationActionErrorMessage(
+      'teamProjects',
+      'load',
+      apiError(422, { error: 'organization is required' })
+    )
+
+    expectBeginnerError(
+      message,
+      'Choose a team space you can access, refresh the sidebar, then load its teams and projects again.'
+    )
+    expect(message).not.toContain('organization')
   })
 
   it('turns raw network failures into connection guidance', () => {
@@ -299,6 +313,7 @@ describe('navigation.store', () => {
       'Forge could not load workspace navigation right now. Refresh the sidebar, then try again. If it still fails, ask an owner or admin to check workspace navigation.'
     )
     expect(useNavigationStore.getState().error).not.toContain('temporarily unavailable')
+    expect(useNavigationStore.getState().error).not.toContain('organization')
     expect(useNavigationStore.getState().loading).toBe(false)
   })
 

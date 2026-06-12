@@ -111,6 +111,10 @@ describe('AgentsPanel', () => {
       'This computer',
       'Chat-only AI service',
     ])
+    expect(
+      screen.getByText('Review agents across every team space and filter them by work location.')
+    ).toBeDefined()
+    expect(screen.queryByText(/every organization/i)).toBeNull()
     expect(loadAgentsMock).toHaveBeenCalled()
   })
 
@@ -168,7 +172,9 @@ describe('AgentsPanel', () => {
     const emptyState = await screen.findByTestId('admin-agents-empty')
     expect(within(emptyState).getByText(/create the first agent from agents/i)).toBeDefined()
     expect(within(emptyState).getByText(/confirm it becomes ready or working/i)).toBeDefined()
+    expect(within(emptyState).getByText(/review it across team spaces/i)).toBeDefined()
     expect(within(emptyState).getByText(/refresh admin and check again/i)).toBeDefined()
+    expect(within(emptyState).queryByText(/organizations/i)).toBeNull()
   })
 
   test('guides admins to clear a work location filter before assuming an agent is missing', async () => {
