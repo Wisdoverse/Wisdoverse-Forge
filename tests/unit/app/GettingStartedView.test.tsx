@@ -387,7 +387,7 @@ describe('GettingStartedView', () => {
     expect(screen.getByText('Create a task queue for this project.')).toBeDefined()
     expect(
       screen.getAllByText(
-        'A task queue is the place new work waits until an agent is ready to pick it up.'
+        'A task queue gives new work a place to wait for the next available agent.'
       ).length
     ).toBeGreaterThanOrEqual(2)
     expect(screen.getByText('Create a task queue before the first task.')).toBeDefined()

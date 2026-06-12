@@ -460,9 +460,10 @@ function listNextStep(
   }
 
   if (workload.backlog > 0) {
+    const pronoun = workload.backlog === 1 ? 'it' : 'they'
     return {
-      title: `Send ${workload.backlog} task${workload.backlog === 1 ? '' : 's'} when ready.`,
-      detail: 'Choose an agent or task queue before asking work to start.',
+      title: `Send ${workload.backlog} task${workload.backlog === 1 ? '' : 's'} after choosing where ${pronoun} should run.`,
+      detail: 'Choose an agent or task queue, then send the work.',
     }
   }
 
@@ -476,10 +477,10 @@ function taskNextAction(task: TaskSummary): string {
   switch (task.state) {
     case 'backlog':
       return task.assignedAgentName || task.assignedTo
-        ? 'Send this when you are ready for the agent to start.'
-        : 'Choose an agent or task queue before sending it.'
+        ? 'Review the task, then send it to the agent.'
+        : 'Choose an agent or task queue, then send it.'
     case 'queued':
-      return 'Wait for the next ready agent to start it; check again if it stays here.'
+      return 'Wait for an available agent to start it; check again if it stays here.'
     case 'working':
       return `Follow progress at ${task.progress}%; open it if updates stop.`
     case 'blocked':

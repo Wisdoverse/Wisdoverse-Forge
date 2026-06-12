@@ -585,7 +585,7 @@ function routedTaskNextStep(task: TaskSummary): string {
         ? 'Ready to send'
         : 'Choose an agent before sending it'
     case 'queued':
-      return 'Waiting for the next ready agent to start it'
+      return 'Waiting for an available agent to start it'
     case 'working':
       return 'Watch live progress'
     case 'blocked':

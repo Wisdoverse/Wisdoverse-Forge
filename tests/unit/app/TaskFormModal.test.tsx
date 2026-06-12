@@ -93,13 +93,13 @@ describe('TaskFormModal', () => {
 
     expect(
       screen.getByText(
-        'No agents are ready right now. Keep the default choice so the next available agent can pick it up.'
+        'No agents are available right now. Keep the default choice so the next available agent can pick it up.'
       )
     ).toBeDefined()
     expect(
       screen.getByRole('option', { name: /let the next available agent pick it up/i })
     ).toBeDefined()
-    expect(screen.getByText(/any ready agent can do the work/i)).toBeDefined()
+    expect(screen.getByText(/any available agent can do the work/i)).toBeDefined()
     expect(screen.queryByText(/unassigned/i)).toBeNull()
     expect(screen.getByText(/people are waiting on it now/i)).toBeDefined()
     expect(screen.queryByText(/dispatch/i)).toBeNull()
@@ -120,10 +120,12 @@ describe('TaskFormModal', () => {
     )
 
     expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain(
-      "Starter Queue is ready. Agents look here for this project's work."
+      "Starter Queue has a place for this work. Agents check this queue for this project's tasks."
     )
-    expect(screen.getByText(/Keep this choice when any ready agent can do the work/i)).toBeDefined()
-    expect(screen.queryByText(/agents check/i)).toBeNull()
+    expect(
+      screen.getByText(/Keep this choice when any available agent can do the work/i)
+    ).toBeDefined()
+    expect(screen.getByTestId('task-work-lane-readiness').textContent).not.toContain('is ready')
     expect(screen.queryByText(/Leave this unassigned/i)).toBeNull()
   })
 
@@ -144,9 +146,10 @@ describe('TaskFormModal', () => {
     )
 
     expect(screen.getByText('Create a Task Queue First')).toBeDefined()
-    expect(
-      screen.getByText(/A task queue is where new work waits until an agent is ready/i)
-    ).toBeDefined()
+    expect(screen.getByText(/A task queue gives new work a place to wait/i)).toBeDefined()
+    expect(screen.getByTestId('task-work-lane-readiness').textContent).not.toContain(
+      ['agent', 'is', 'ready'].join(' ')
+    )
 
     fireEvent.click(screen.getByRole('button', { name: /open task queues/i }))
 

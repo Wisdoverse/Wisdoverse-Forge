@@ -157,7 +157,7 @@ describe('AgentGroupsPanel', () => {
 
     expect(screen.getByText('Deploy settings')).toBeInTheDocument()
     expect(
-      screen.getByText(/assigned agent .* waiting for the next ready agent to start it/i)
+      screen.getByText(/assigned agent .* waiting for an available agent to start it/i)
     ).toBeInTheDocument()
     expect(screen.queryByText(/unassigned/i)).toBeNull()
   })

@@ -153,7 +153,7 @@ export const en = {
         title: 'Task queue',
         emptyWithProject: 'Create a task queue for this project.',
         emptyWithoutProject: 'Select a project, then create a task queue.',
-        why: 'A task queue is the place new work waits until an agent is ready to pick it up.',
+        why: 'A task queue gives new work a place to wait for the next available agent.',
         success: 'A task queue exists for the selected project.',
         create: 'Create task queue',
         review: 'Review task queues',

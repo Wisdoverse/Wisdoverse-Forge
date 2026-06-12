@@ -337,8 +337,8 @@ export function TaskFormModal({
               aria-hidden="true"
             />
             <span>
-              No agents are ready right now. Keep the default choice so the next available agent can
-              pick it up.
+              No agents are available right now. Keep the default choice so the next available agent
+              can pick it up.
             </span>
           </div>
         )}
@@ -375,8 +375,8 @@ export function TaskFormModal({
                 </p>
                 <p className="mt-0.5 text-secondary-light dark:text-secondary-dark">
                   {workLaneReady
-                    ? `${selectedTaskGroupName ?? 'Selected task queue'} is ready. Agents look here for this project's work.`
-                    : 'A task queue is where new work waits until an agent is ready. Create one once, then return here.'}
+                    ? `${selectedTaskGroupName ?? 'Selected task queue'} has a place for this work. Agents check this queue for this project's tasks.`
+                    : 'A task queue gives new work a place to wait. Create one once, then return here.'}
                 </p>
               </div>
             </div>
@@ -554,7 +554,7 @@ export function TaskFormModal({
                 ))}
               </select>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Keep this choice when any ready agent can do the work.
+                Keep this choice when any available agent can do the work.
               </p>
             </div>
           </div>

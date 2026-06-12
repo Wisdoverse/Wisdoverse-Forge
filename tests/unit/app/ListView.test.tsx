@@ -41,7 +41,7 @@ describe('ListView', () => {
     render(<ListView />)
     expect(screen.getByText('Task A')).toBeDefined()
     expect(screen.getByText('Task B')).toBeDefined()
-    expect(screen.getByText('Choose an agent or task queue before sending it.')).toBeDefined()
+    expect(screen.getByText('Choose an agent or task queue, then send it.')).toBeDefined()
   })
 
   test('shows waiting tasks without queue wording', () => {
@@ -62,7 +62,7 @@ describe('ListView', () => {
 
     expect(screen.getByText('Prepare release notes')).toBeDefined()
     expect(screen.getByText('Waiting to start')).toBeDefined()
-    expect(screen.getByText(/next ready agent to start it/i)).toBeDefined()
+    expect(screen.getByText(/available agent to start it/i)).toBeDefined()
     expect(screen.queryByText('Queued')).toBeNull()
     expect(screen.queryByText(/queue/i)).toBeNull()
   })
@@ -125,7 +125,9 @@ describe('ListView', () => {
     expect(screen.getByText(/Open the blocked or failed work first/i)).toBeDefined()
     expect(within(screen.getByTestId('list-metric-active')).getByText('1')).toBeDefined()
     expect(within(screen.getByTestId('list-metric-backlog')).getByText('1')).toBeDefined()
-    expect(within(screen.getByTestId('list-metric-backlog')).getByText('Not sent yet')).toBeDefined()
+    expect(
+      within(screen.getByTestId('list-metric-backlog')).getByText('Not sent yet')
+    ).toBeDefined()
     expect(within(screen.getByTestId('list-metric-attention')).getByText('1')).toBeDefined()
     expect(within(screen.getByTestId('list-metric-completed')).getByText('1')).toBeDefined()
     expect(screen.getByText(/Resolve blocker: Waiting on approval/i)).toBeDefined()
@@ -146,8 +148,11 @@ describe('ListView', () => {
 
     render(<ListView />)
 
-    expect(screen.getByTestId('list-next-step')).toHaveTextContent('Send 1 task when ready.')
-    expect(screen.getByText(/Choose an agent or task queue before asking work to start/i)).toBeDefined()
+    expect(screen.getByTestId('list-next-step')).toHaveTextContent(
+      'Send 1 task after choosing where it should run.'
+    )
+    expect(screen.getByText(/Choose an agent or task queue, then send the work/i)).toBeDefined()
+    expect(screen.getByTestId('list-next-step').textContent).not.toContain('when ready')
     expect(screen.getByTestId('list-work-register').textContent).not.toContain('backlog task')
     expect(screen.getByTestId('list-work-register').textContent).not.toContain('next lane')
   })
@@ -217,7 +222,9 @@ describe('ListView', () => {
 
     render(<ListView />)
 
-    expect(screen.getByText(/Resolve blocker: Free capacity or ask an owner/i)).toBeDefined()
+    expect(
+      screen.getByText(/Resolve blocker: Pause lower-priority work or ask an owner/i)
+    ).toBeDefined()
     expect(screen.queryByText(/quota_exceeded/i)).toBeNull()
     expect(screen.queryByText(/docker socket/i)).toBeNull()
     expect(screen.queryByText(/secret token/i)).toBeNull()
