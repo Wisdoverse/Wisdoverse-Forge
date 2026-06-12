@@ -22,6 +22,8 @@ describe('TaskMetadata', () => {
   test('explains unassigned backlog tasks in beginner language', () => {
     render(<TaskMetadata task={mockTask} />)
 
+    expect(screen.getByText('Not sent yet')).toBeDefined()
+    expect(screen.queryByText('Backlog')).toBeNull()
     expect(screen.getByTestId('task-metadata-guidance').textContent).toContain(
       'Assign an agent before it can start.'
     )
@@ -126,9 +128,7 @@ describe('TaskMetadata', () => {
     expect(screen.getByText('Needs review')).toBeDefined()
     expect(screen.queryByText('Failed')).toBeNull()
     expect(screen.getByText('High')).toBeDefined()
-    expect(screen.getByTestId('task-metadata-guidance').textContent).toContain(
-      'AI service is busy'
-    )
+    expect(screen.getByTestId('task-metadata-guidance').textContent).toContain('AI service is busy')
     expect(screen.getByTestId('task-metadata-guidance').textContent).not.toMatch(
       /read the error|429|provider/i
     )

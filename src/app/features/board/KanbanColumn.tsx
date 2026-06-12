@@ -8,7 +8,7 @@ type BoardDisplayMode = 'comfortable' | 'compact'
 
 const COLUMN_CONFIG: Record<string, { label: string; dot: string; surface: string }> = {
   backlog: {
-    label: 'Backlog',
+    label: 'Not sent yet',
     dot: 'bg-apple-gray-2',
     surface: 'bg-white/70 dark:bg-white/[0.03]',
   },
@@ -46,7 +46,7 @@ const COLUMN_CONFIG: Record<string, { label: string; dot: string; surface: strin
 
 const COLUMN_EMPTY_STATE: Record<string, { title: string; detail: string }> = {
   backlog: {
-    title: 'No draft tasks',
+    title: 'No tasks waiting to send',
     detail: 'Add a draft task below with the result you want the agent to finish.',
   },
   queued: {

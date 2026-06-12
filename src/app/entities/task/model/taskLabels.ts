@@ -1,7 +1,7 @@
 import type { TaskSummary } from '@app/shared/api/orchestration'
 
 const TASK_STATE_LABELS: Record<string, string> = {
-  backlog: 'Backlog',
+  backlog: 'Not sent yet',
   queued: 'Waiting to start',
   working: 'Working',
   blocked: 'Blocked',

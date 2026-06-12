@@ -209,6 +209,9 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
           <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
             Started {formatRelativeTime(run.startedAt)} · {finished} · Used {runSource}
           </p>
+          <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
+            Support reference {supportRunReference(run.id)}
+          </p>
         </div>
         <span className="shrink-0 rounded-full bg-black/[0.05] px-2 py-0.5 text-[10px] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
           {status}
@@ -216,6 +219,12 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
       </div>
     </div>
   )
+}
+
+function supportRunReference(id: string): string {
+  const trimmed = id.trim()
+  if (!trimmed) return 'not listed'
+  return trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed
 }
 
 function runSourceLabel(run: TaskRunSummary): string {
@@ -308,7 +317,7 @@ function taskCheckIn(task: TaskSummary): {
           }
         : {
             title: 'No agent assigned yet',
-            detail: 'Select an available agent before this task can leave the backlog.',
+            detail: 'Choose an available agent before this task can start.',
             tone: 'warn',
             Icon: Bot,
           }

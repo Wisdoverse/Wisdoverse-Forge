@@ -66,8 +66,9 @@ describe('BoardView', () => {
     useBoardStore.getState().setSelectedGroupId('test-group')
     render(<BoardView />)
     await waitFor(() => {
-      expect(screen.getAllByText('Backlog').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('Not sent yet').length).toBeGreaterThan(0)
     })
+    expect(screen.queryByText('Backlog')).toBeNull()
     expect(screen.getByText('Waiting to start')).toBeDefined()
     expect(screen.getByText('Working')).toBeDefined()
     expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)

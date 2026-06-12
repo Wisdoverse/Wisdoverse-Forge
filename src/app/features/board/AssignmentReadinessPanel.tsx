@@ -98,7 +98,11 @@ export function AssignmentReadinessPanel({
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-black/[0.06] pt-2 dark:border-white/[0.08]">
-        <MetricPill label="Backlog" value={workload.backlog} />
+        <MetricPill
+          label="Not sent yet"
+          value={workload.backlog}
+          testId="assignment-metric-backlog"
+        />
         <MetricPill label="Unassigned" value={workload.unassigned} />
         <MetricPill label="In flight" value={workload.inFlight} />
         <MetricPill
@@ -123,7 +127,7 @@ export function AssignmentReadinessPanel({
           </p>
           <p className="mt-0.5 text-ui-caption leading-snug text-secondary-light dark:text-secondary-dark">
             Open Agents, then Task Queues, choose this task queue, and attach an available agent.
-            Until then, backlog tasks stay here.
+            Until then, tasks that are not sent yet will wait here.
           </p>
         </div>
       ) : participants.length > 0 ? (
@@ -141,14 +145,16 @@ function MetricPill({
   label,
   value,
   tone = 'default',
+  testId,
 }: {
   label: string
   value: number
   tone?: 'default' | 'success' | 'warn'
+  testId?: string
 }) {
   return (
     <span
-      data-testid={`assignment-metric-${label.toLowerCase().replace(/\s+/g, '-')}`}
+      data-testid={testId ?? `assignment-metric-${label.toLowerCase().replace(/\s+/g, '-')}`}
       className={cn(
         'inline-flex h-7 items-center gap-1.5 rounded-full px-2 text-ui-caption',
         tone === 'success'
