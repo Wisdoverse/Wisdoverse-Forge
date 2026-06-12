@@ -56,7 +56,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText(/claude in a managed workspace/i)).toBeInTheDocument()
     expect(screen.getByText('Project files included')).toBeInTheDocument()
     expect(screen.getByText('Agent location')).toBeInTheDocument()
-    expect(screen.getByText(/check agent work setup/i)).toBeInTheDocument()
+    expect(screen.getByText('Check Agent Work Setup in Settings')).toBeInTheDocument()
     expect(screen.getByText('Can edit files')).toBeInTheDocument()
     expect(screen.queryByText(/workspace must be ready/i)).toBeNull()
     expect(screen.queryByText('File work')).toBeNull()
@@ -238,7 +238,8 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText(/anthropic simple chat agent/i)).toBeInTheDocument()
     expect(screen.getByText(/questions, planning, writing, and review/i)).toBeInTheDocument()
     expect(screen.getByText(/does not open project files/i)).toBeInTheDocument()
-    expect(screen.getByText(/ai service must be checked/i)).toBeInTheDocument()
+    expect(screen.getByText('Check AI service in Settings')).toBeInTheDocument()
+    expect(screen.queryByText(/ai service must be checked/i)).toBeNull()
     expect(screen.queryByRole('combobox', { name: /^work tool$/i })).toBeNull()
     expect(screen.queryByLabelText(/work folder/i)).toBeNull()
     expect(screen.getByLabelText(/^ai service$/i)).toBeInTheDocument()
@@ -268,7 +269,7 @@ describe('CreateAgentModal', () => {
       screen.getByText(/Forge can still assign tasks, show status, and save task history here/i)
     ).toBeInTheDocument()
     expect(screen.queryByText(/Forge gives it tasks/i)).toBeNull()
-    expect(screen.getByText('Run the setup command')).toBeInTheDocument()
+    expect(screen.getByText('Run setup command on this computer')).toBeInTheDocument()
     expect(screen.getByText('Uses this computer')).toBeInTheDocument()
     expect(
       screen.queryByText(new RegExp(['work tool', 'installed', 'your computer'].join('.*'), 'i'))
@@ -282,6 +283,10 @@ describe('CreateAgentModal', () => {
       expect(screen.getByText(/google simple chat agent/i)).toBeInTheDocument()
     })
     expect(screen.getByText('Chat-only AI service')).toBeInTheDocument()
+    expect(screen.getByText('Check AI service in Settings')).toBeInTheDocument()
+    expect(
+      screen.queryByText(new RegExp(['AI service', 'must be checked'].join('.*'), 'i'))
+    ).toBeNull()
   })
 
   test('enrolls an agent on this computer and shows the setup command', async () => {

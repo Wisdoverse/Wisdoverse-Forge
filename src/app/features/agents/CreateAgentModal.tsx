@@ -154,7 +154,7 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
       items: [
         { label: 'Agent location', value: 'Managed workspace' },
         { label: 'Files', value: 'Project files included' },
-        { label: 'Before use', value: 'Check Agent Work Setup' },
+        { label: 'Before use', value: 'Check Agent Work Setup in Settings' },
       ],
     }
   }
@@ -167,7 +167,7 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
       items: [
         { label: 'Agent location', value: 'This computer' },
         { label: 'Files', value: 'Your chosen folder' },
-        { label: 'Before use', value: 'Run the setup command' },
+        { label: 'Before use', value: 'Run setup command on this computer' },
       ],
     }
   }
@@ -178,7 +178,7 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
     items: [
       { label: 'Agent location', value: 'Chat-only AI service' },
       { label: 'Files', value: 'Does not open project files' },
-      { label: 'Before use', value: 'AI service must be checked' },
+      { label: 'Before use', value: 'Check AI service in Settings' },
     ],
   }
 }
