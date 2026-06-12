@@ -269,7 +269,7 @@ function HostCliEnrollmentPanel({
   )
   const projectLabel = selectedProjectId
     ? (selectedProjectName ?? 'Selected project')
-    : 'Select a project from the sidebar first.'
+    : 'Choose a project from the sidebar first.'
   const commandReady = Boolean(selectedProjectId)
 
   async function handleCopyCommand() {
@@ -400,7 +400,7 @@ function HostCliEnrollmentPanel({
             data-testid="host-cli-command-waiting"
             className="mt-3 rounded-lg border border-dashed border-black/[0.12] px-3 py-3 text-ui-caption text-secondary-light dark:border-white/[0.12] dark:text-secondary-dark"
           >
-            Select a project first. Then this panel will show the command to copy.
+            Choose a project first. Then Forge will show the setup command here.
           </div>
         )}
 
@@ -421,7 +421,7 @@ function HostCliEnrollmentPanel({
             <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
           )}
           <span>
-            {commandReady ? (copied ? 'Copied' : 'Copy setup command') : 'Select project first'}
+            {commandReady ? (copied ? 'Copied' : 'Copy setup command') : 'Choose project first'}
           </span>
         </button>
       </details>

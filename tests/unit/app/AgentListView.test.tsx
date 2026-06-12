@@ -64,9 +64,12 @@ describe('AgentListView', () => {
     ).toBeDefined()
     expect(within(enrollment).getByText(/project:/i)).toBeDefined()
     expect(within(enrollment).getByTestId('host-cli-project-label')).toHaveTextContent(
-      'Project: Select a project from the sidebar first.'
+      'Project: Choose a project from the sidebar first.'
     )
     expect(enrollment.textContent).not.toContain('<project-id>')
+    expect(enrollment.textContent).not.toMatch(
+      new RegExp(['select', 'a project first'].join(' '), 'i')
+    )
     expect(enrollment.textContent).not.toContain('Advanced:')
     expect(enrollment.textContent).not.toContain('Manual setup for this computer')
     expect(enrollment.textContent).not.toContain('Forge CLI')
@@ -75,10 +78,10 @@ describe('AgentListView', () => {
     expect(enrollment.textContent).not.toContain('Connect a Local Agent')
     expect(enrollment.textContent).not.toContain('Already installed the setup tool')
     expect(within(enrollment).getByTestId('host-cli-command-waiting')).toHaveTextContent(
-      /this panel will show the command to copy/i
+      /Forge will show the setup command here/i
     )
     expect(enrollment.textContent).not.toContain('agentforge agents enroll-local')
-    expect(within(enrollment).getByRole('button', { name: /select project first/i })).toBeDisabled()
+    expect(within(enrollment).getByRole('button', { name: /choose project first/i })).toBeDisabled()
   })
 
   test('shows beginner command steps for adding this computer to the selected project', () => {
