@@ -23,7 +23,7 @@ const COLUMN_CONFIG: Record<string, { label: string; dot: string; surface: strin
     surface: 'bg-apple-green/[0.04] dark:bg-apple-green/[0.08]',
   },
   blocked: {
-    label: 'Blocked',
+    label: 'Needs help',
     dot: 'bg-apple-red',
     surface: 'bg-apple-red/[0.045] dark:bg-apple-red/[0.08]',
   },
@@ -58,8 +58,8 @@ const COLUMN_EMPTY_STATE: Record<string, { title: string; detail: string }> = {
     detail: 'Running work appears here once an agent starts the task.',
   },
   blocked: {
-    title: 'No blockers',
-    detail: 'Tasks needing owner input or missing details will collect here.',
+    title: 'Nothing needs help',
+    detail: 'Tasks waiting for your answer or missing details will collect here.',
   },
   done: {
     title: 'Nothing ready for review',

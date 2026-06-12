@@ -45,4 +45,17 @@ describe('KanbanColumn', () => {
     expect(emptyState.textContent).not.toMatch(/queue|queued/i)
     expect(emptyState.textContent).not.toContain('dispatch')
   })
+
+  test('explains empty help-needed tasks without blocker jargon', () => {
+    renderColumn('blocked')
+
+    expect(screen.getByText('Needs help')).toBeDefined()
+    expect(screen.queryByText('Blocked')).toBeNull()
+    const emptyState = screen.getByTestId('kanban-empty-blocked')
+    expect(within(emptyState).getByText('Nothing needs help')).toBeDefined()
+    expect(
+      within(emptyState).getByText(/waiting for your answer or missing details/i)
+    ).toBeDefined()
+    expect(emptyState.textContent).not.toMatch(/blocker|owner input/i)
+  })
 })

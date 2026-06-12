@@ -131,6 +131,32 @@ describe('AssignmentReadinessPanel', () => {
     expect(screen.getAllByText('Available').length).toBeGreaterThan(0)
   })
 
+  test('summarizes tasks that need help without blocked-task wording', () => {
+    render(
+      <AssignmentReadinessPanel
+        participants={[
+          {
+            id: 'participant-1',
+            agentId: 'agent-1',
+            name: 'Busy Agent',
+            status: 'busy',
+            capabilities: ['codex'],
+          },
+        ]}
+        workload={{ ...emptyWorkload, blocked: 2 }}
+        loading={false}
+        error={null}
+        onRefresh={vi.fn()}
+      />
+    )
+
+    const readiness = screen.getByTestId('assignment-readiness')
+    expect(readiness.textContent).toContain('2 tasks need help before they can continue.')
+    expect(screen.getByTestId('assignment-metric-blocked').textContent).toContain('Needs help')
+    expect(readiness.textContent).not.toContain('blocked tasks')
+    expect(readiness.textContent).not.toContain('Blocked')
+  })
+
   test('uses plain offline agent activity labels', () => {
     const participants: ParticipantSummary[] = [
       {

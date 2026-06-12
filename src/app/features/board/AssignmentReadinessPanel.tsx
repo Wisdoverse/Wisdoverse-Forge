@@ -110,9 +110,10 @@ export function AssignmentReadinessPanel({
         />
         <MetricPill label="In flight" value={workload.inFlight} />
         <MetricPill
-          label="Blocked"
+          label="Needs help"
           value={workload.blocked}
           tone={workload.blocked > 0 ? 'warn' : 'default'}
+          testId="assignment-metric-blocked"
         />
         <MetricPill
           label="Review"
@@ -188,7 +189,11 @@ function summarizeHandoff(workload: BoardWorkloadSnapshot, availableCount: numbe
   }
 
   if (workload.blocked > 0) {
-    return `${workload.blocked} blocked ${pluralize(workload.blocked, 'task')} need follow-up.`
+    const taskLabel = pluralize(workload.blocked, 'task')
+    const verb = workload.blocked === 1 ? 'needs' : 'need'
+    const pronoun = workload.blocked === 1 ? 'it' : 'they'
+
+    return `${workload.blocked} ${taskLabel} ${verb} help before ${pronoun} can continue.`
   }
 
   if (workload.review > 0) {

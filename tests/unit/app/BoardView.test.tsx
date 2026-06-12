@@ -71,7 +71,8 @@ describe('BoardView', () => {
     expect(screen.queryByText('Backlog')).toBeNull()
     expect(screen.getByText('Waiting to start')).toBeDefined()
     expect(screen.getByText('Working')).toBeDefined()
-    expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Needs help').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Blocked')).toBeNull()
     expect(screen.getByText('Done')).toBeDefined()
     expect(screen.getByText(/check results and save repeatable steps/i)).toBeDefined()
     expect(screen.queryByText(/saved guidance/i)).toBeNull()
@@ -176,7 +177,7 @@ describe('BoardView', () => {
       {
         id: 'blocked-1',
         state: 'blocked',
-        params: { task: 'Blocked task', message: '' },
+        params: { task: 'Task waiting for help', message: '' },
         assignedTo: 'agent-1',
         assignedAgentName: 'Ready Agent',
         priority: 'high',
@@ -208,6 +209,7 @@ describe('BoardView', () => {
     expect(screen.getByTestId('assignment-metric-unassigned').textContent).toContain('Needs agent')
     expect(screen.getByTestId('assignment-metric-in-flight').textContent).toContain('1')
     expect(screen.getByTestId('assignment-metric-blocked').textContent).toContain('1')
+    expect(screen.getByTestId('assignment-metric-blocked').textContent).toContain('Needs help')
     expect(screen.getByTestId('assignment-metric-review').textContent).toContain('1')
   })
 
