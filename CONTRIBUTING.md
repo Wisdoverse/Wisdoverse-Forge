@@ -80,18 +80,24 @@ Every PR should include:
 
 ### Low-token PR status checks
 
-Do not repeatedly refresh PR or CI status inside an agent chat. Use one compact
-snapshot first:
+Do not repeatedly refresh PR, MR, or CI status inside an agent chat. Use one
+compact snapshot first.
+
+For GitHub pull requests:
 
 ```bash
 npm run pr:summary
 ```
 
+For GitLab merge requests or pipelines, use one `glab` snapshot with the fields
+needed for `ACTION`, `WAIT`, or `DONE`; do not use watch mode from chat.
+
 Read the buckets this way:
 
 - `ACTION`: fix the listed PRs or checks now.
-- `WAIT`: stop checking in chat; review, CI, or the merge queue is still working.
-- `DONE`: no action is needed for that PR.
+- `WAIT`: stop checking in chat; review, CI, or the merge queue is still
+  working.
+- `DONE`: no action is needed for that PR or MR.
 
 For an external monitor, schedule the low-noise command instead of asking an
 agent to watch a loop:

@@ -1,15 +1,21 @@
-# PR Status Summary
+# PR And CI Status Summary
 
-Use the PR summary script when you need to know whether any pull request needs
-human action without reading every GitHub check line.
+Use a status snapshot when you need to know whether a pull request, merge
+request, or CI pipeline needs human action without reading every remote status
+line.
+
+The rule is simple: take one compact snapshot, classify the result, then stop
+unless there is something specific to fix.
 
 ## Prerequisites
 
-- Install the GitHub CLI: `gh`.
-- Log in once: `gh auth login`.
+- For GitHub pull requests, install the GitHub CLI: `gh`.
+- For GitLab merge requests or pipelines, install the GitLab CLI: `glab`.
+- Install `jq` for the JSON examples.
+- Log in once with the CLI you use: `gh auth login` or `glab auth login`.
 - Run the command from the repository checkout.
 
-## Quick Check
+## GitHub Quick Check
 
 ```bash
 npm run pr:summary
@@ -70,6 +76,59 @@ scheduled job. The chat should only receive the compact result when `ACTION`
 appears or when someone explicitly asks for a new snapshot. The monitor command
 keeps a 1-hour snapshot by default so a short scheduler interval does not become
 a hidden polling loop.
+
+## GitLab Quick Check
+
+Use GitLab checks the same way: one compact snapshot, then classify the result
+as `ACTION`, `WAIT`, or `DONE`.
+
+For a merge request:
+
+```bash
+glab mr view --output json \
+  | jq -r '[
+      "state="+.state,
+      "sha="+.sha,
+      "merge_status="+(.detailed_merge_status // .merge_status // "unknown"),
+      "pipeline_status="+(.head_pipeline.status // "none"),
+      "url="+.web_url
+    ] | .[]'
+```
+
+For a standalone pipeline:
+
+```bash
+glab pipeline list --ref <branch> --per-page 5
+```
+
+Use the snapshot this way:
+
+- `ACTION`: the pipeline failed, was canceled, needs a manual job, has a merge
+  conflict, or shows another concrete blocker. Fetch only the failed job list
+  and the shortest useful trace tail.
+- `WAIT`: the pipeline is running, pending, queued, or already covered by
+  merge-when-pipeline-succeeds. Stop checking in chat.
+- `DONE`: the merge request is merged, or the pinned pipeline finished
+  successfully.
+
+Do not run GitLab watch mode, shell loops, or repeated `glab pipeline list`
+refreshes from the chat. If a merge request should merge after CI passes,
+enable GitLab's server-side merge-when-pipeline-succeeds and leave the
+conversation at `WAIT` unless someone asked for a bounded final answer.
+
+When a failed GitLab job needs investigation, keep the output small:
+
+```bash
+glab api "projects/<project_id>/pipelines/<pipeline_id>/jobs?per_page=100" \
+  | jq -r '.[] | select(.status=="failed" or .status=="canceled" or .status=="manual") | [.id,.name,.stage,.status,.failure_reason,.web_url] | @tsv'
+
+glab api "projects/<project_id>/jobs/<job_id>/trace" | tail -n 160
+```
+
+Use a local bounded waiter only when a human explicitly asks for a definitive
+merged, passed, or blocked answer. The waiter should print nothing while the
+remote state is merely pending, print one terminal JSON result, and stop on a
+timeout. Do not leave a waiter running after the chat response is sent.
 
 ## Refresh Only When Needed
 
