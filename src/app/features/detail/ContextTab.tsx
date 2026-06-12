@@ -183,7 +183,7 @@ export function ContextTab({
       {context.provenance.length > 0 && (
         <section className="space-y-2" data-testid="context-provenance">
           <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
-            Where saved context came from
+            Where saved notes or instructions came from
           </h3>
           <div className="space-y-1.5">
             {context.provenance.map((item) => (
@@ -194,7 +194,7 @@ export function ContextTab({
                 <span className="font-medium text-foreground-light dark:text-foreground-dark">
                   {item.title}
                 </span>{' '}
-                came from {contextSourceLabel(item.source)} and was used during this agent run.
+                came from {contextSourceLabel(item.source)} and helped during this run.
               </div>
             ))}
           </div>
@@ -234,7 +234,7 @@ function normalizeRunStatus(status: string): string {
 }
 
 function contextSourceLabel(source: TaskContextResponse['provenance'][number]['source']): string {
-  return source?.title ?? 'the context selection step'
+  return source?.title ?? 'the saved content check'
 }
 
 function ContextEmptyState() {
