@@ -49,9 +49,11 @@ describe('AgentListView', () => {
 
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
     expect(within(enrollment).getByText(/connect this computer/i)).toBeDefined()
-    expect(enrollment.textContent).toContain('Create an agent for this computer')
+    expect(enrollment.textContent).toContain('tool installed on your computer')
     expect(enrollment.textContent).toContain('This computer')
-    expect(enrollment.textContent).toContain('Advanced: connect by pasting a command')
+    expect(enrollment.textContent).toContain(
+      'Advanced: manual command if you already installed the Forge CLI'
+    )
     expect(enrollment.textContent).toContain('Computer type')
     expect(
       within(enrollment).getByRole('group', { name: /choose this computer type/i })
@@ -89,15 +91,16 @@ describe('AgentListView', () => {
     render(<AgentListView />)
 
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
-    expect(within(enrollment).getByText(/work should run on your computer/i)).toBeDefined()
+    expect(within(enrollment).getByText(/Forge should assign work/i)).toBeDefined()
     expect(within(enrollment).getByText('Project:')).toBeDefined()
     expect(enrollment.textContent).toContain('p1')
     expect(enrollment.textContent).toContain('agentforge agents enroll-local')
-    expect(enrollment.textContent).toContain('--name "This Computer Agent"')
-    expect(enrollment.textContent).toContain('--tool <tool-name>')
+    expect(enrollment.textContent).toContain('--name "This Computer Codex"')
+    expect(enrollment.textContent).toContain('--tool codex')
     expect(enrollment.textContent).toContain('--project p1')
-    expect(enrollment.textContent).toContain('Replace <tool-name> with the tool you already use')
-    expect(enrollment.textContent).toContain('Run the command from the folder')
+    expect(enrollment.textContent).toContain('Use the New agent button above')
+    expect(enrollment.textContent).toContain('Run this manual command from the folder')
+    expect(enrollment.textContent).toContain('Change codex only if')
     expect(within(enrollment).getByRole('button', { name: /copy setup command/i })).toBeDefined()
 
     fireEvent.click(within(enrollment).getByRole('button', { name: /windows/i }))
