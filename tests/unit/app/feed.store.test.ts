@@ -53,6 +53,20 @@ describe('Feed Store', () => {
     expect(useFeedStore.getState().attentionItems).toHaveLength(1)
   })
 
+  test('addAttentionItem stores beginner-safe reasons', () => {
+    useFeedStore.getState().addAttentionItem({
+      id: 't1',
+      taskTitle: 'Deploy staging',
+      agentName: 'GPT-1',
+      reason: 'Needs SSH key approval',
+      timestamp: Date.now(),
+    })
+
+    const [item] = useFeedStore.getState().attentionItems
+    expect(item.reason).toContain('Waiting for account access')
+    expect(item.reason).not.toContain('SSH key')
+  })
+
   test('removeAttentionItem removes by id', () => {
     const store = useFeedStore.getState()
     store.addAttentionItem({

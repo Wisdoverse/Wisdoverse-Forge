@@ -1,4 +1,4 @@
-import type { AttentionItem } from '@app/shared/model/feed.store'
+import { attentionReasonPreview, type AttentionItem } from '@app/shared/model/feed.store'
 
 interface AttentionZoneProps {
   items: AttentionItem[]
@@ -23,36 +23,39 @@ export function AttentionZone({ items, onApprove, onView }: AttentionZoneProps) 
       <p className="mb-2 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
         Approve only after checking the request and confirming the agent can continue safely.
       </p>
-      {items.map((item) => (
-        <div
-          key={item.id}
-          className="mb-2 rounded-[10px] border-l-[3px] border-l-apple-red bg-white p-3 shadow-card last:mb-0 dark:bg-[#2c2c2e] dark:shadow-card-dark"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="min-w-0 truncate text-xs font-semibold">{item.taskTitle}</span>
-            <span className="text-[9px] text-apple-red">{formatTime(item.timestamp)}</span>
+      {items.map((item) => {
+        const reason = attentionReasonPreview(item.reason)
+        return (
+          <div
+            key={item.id}
+            className="mb-2 rounded-[10px] border-l-[3px] border-l-apple-red bg-white p-3 shadow-card last:mb-0 dark:bg-[#2c2c2e] dark:shadow-card-dark"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="min-w-0 truncate text-xs font-semibold">{item.taskTitle}</span>
+              <span className="text-[9px] text-apple-red">{formatTime(item.timestamp)}</span>
+            </div>
+            <div className="mt-1 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+              {item.agentName} is waiting: {reason}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => onView?.(item.id)}
+                className="rounded-badge bg-black/[0.04] px-2.5 py-1 text-[9px] font-medium dark:bg-white/[0.06]"
+              >
+                Review request
+              </button>
+              <button
+                type="button"
+                onClick={() => onApprove?.(item.id)}
+                className="rounded-badge bg-apple-blue px-2.5 py-1 text-[9px] font-medium text-white"
+              >
+                Approve request
+              </button>
+            </div>
           </div>
-          <div className="mt-1 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
-            {item.agentName} is waiting: {item.reason}
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => onView?.(item.id)}
-              className="rounded-badge bg-black/[0.04] px-2.5 py-1 text-[9px] font-medium dark:bg-white/[0.06]"
-            >
-              Review request
-            </button>
-            <button
-              type="button"
-              onClick={() => onApprove?.(item.id)}
-              className="rounded-badge bg-apple-blue px-2.5 py-1 text-[9px] font-medium text-white"
-            >
-              Approve request
-            </button>
-          </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
+import { taskBlockedPreview } from '@app/shared/lib/taskFailureCopy'
 import type { FeedItem as FeedItemType } from '@app/shared/model/feed.store'
 
 const TYPE_ICONS: Record<string, LucideIcon> = {
@@ -112,6 +113,9 @@ export function FeedItem({ item }: { item: FeedItemType }) {
 }
 
 function displayFeedDetail(item: FeedItemType): string {
+  if (item.type === 'task.blocked') {
+    return taskBlockedPreview({ blockedHint: item.detail })
+  }
   if (item.type !== 'task.failed') return item.detail
 
   const raw = item.detail.toLowerCase()
@@ -120,7 +124,8 @@ function displayFeedDetail(item: FeedItemType): string {
     /\b(?:http|api)\s+\d{3}\b/.test(raw) ||
     raw.includes('unauthorized') ||
     raw.includes('non-zero') ||
-    raw.includes('provider')
+    raw.includes('provider') ||
+    /\b(?:credential|credentials|key|keys|token|tokens|secret|secrets)\b/i.test(item.detail)
 
   if (!exposesRawFailure) return item.detail
 

@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, test } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
 import { FeedItem } from '@app/features/feed/FeedItem'
 import type { FeedItem as FeedItemType } from '@app/shared/model/feed.store'
 
@@ -12,6 +12,8 @@ const baseItem: FeedItemType = {
   timestamp: new Date('2026-05-25T12:00:00.000Z').getTime(),
 }
 
+afterEach(cleanup)
+
 describe('FeedItem', () => {
   test('uses outcome labels that explain task updates to non-specialists', () => {
     render(
@@ -20,6 +22,8 @@ describe('FeedItem', () => {
 
     expect(screen.getByText('Needs help')).toBeDefined()
     expect(screen.queryByText('Blocked')).toBeNull()
+    expect(screen.getByText(/Waiting for account access/i)).toBeDefined()
+    expect(screen.queryByText(/repository key/i)).toBeNull()
     expect(
       screen.getByLabelText(
         /needs help: builder on update checkout flow\. the task is waiting for someone to clear a blocker/i
@@ -39,6 +43,15 @@ describe('FeedItem', () => {
     expect(screen.getByText(/follow the recovery note, then retry when ready/i)).toBeDefined()
     expect(screen.queryByText('Command exited 1')).toBeNull()
     expect(screen.queryByText(/read the error/i)).toBeNull()
+  })
+
+  test('hides sensitive failed task details', () => {
+    render(<FeedItem item={{ ...baseItem, type: 'task.failed', detail: 'SSH key rejected' }} />)
+
+    expect(
+      screen.getByText('Open details to see the recovery note, then retry or reassign when ready.')
+    ).toBeDefined()
+    expect(screen.queryByText(/SSH key rejected/i)).toBeNull()
   })
 
   test('keeps readable failed task details when they are already safe', () => {

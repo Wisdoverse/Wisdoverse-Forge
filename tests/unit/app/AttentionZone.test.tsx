@@ -20,7 +20,25 @@ describe('AttentionZone', () => {
     expect(screen.getByText('Needs your decision')).toBeDefined()
     expect(screen.getByText(/approve only after checking the request/i)).toBeDefined()
     expect(screen.getByText('Deploy staging')).toBeDefined()
-    expect(screen.getByText(/Agent Two is waiting: Needs SSH key/i)).toBeDefined()
+    expect(screen.getByText(/Agent Two is waiting: Waiting for account access/i)).toBeDefined()
+    expect(screen.queryByText(/Needs SSH key/i)).toBeNull()
+  })
+
+  test('renders safe attention reasons from the feed store', () => {
+    render(
+      <AttentionZone
+        items={[
+          {
+            ...attentionItem,
+            reason:
+              'Waiting for account access. Add or reconnect the required service access, then retry.',
+          },
+        ]}
+      />
+    )
+
+    expect(screen.getByText(/Agent Two is waiting: Waiting for account access/i)).toBeDefined()
+    expect(screen.queryByText(/SSH key/i)).toBeNull()
   })
 
   test('keeps review and approve actions explicit', () => {
