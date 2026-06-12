@@ -379,7 +379,7 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
         <RuntimeRow
           label="Starting folder"
           value={
-            agent.cwd ?? (hostCli ? 'Folder where you ran the command' : 'Workspace project folder')
+            agent.cwd ?? (hostCli ? 'Folder where you ran the command' : 'Default project folder')
           }
         />
       </div>

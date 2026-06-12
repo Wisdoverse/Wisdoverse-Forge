@@ -197,9 +197,12 @@ describe('AgentConfigTab', () => {
     expect(screen.getByText('Starting project')).toBeInTheDocument()
     expect(screen.getByText('Choose a project from the sidebar first.')).toBeInTheDocument()
     expect(screen.getByText('Starting folder')).toBeInTheDocument()
-    expect(screen.getByText('Workspace project folder')).toBeInTheDocument()
+    expect(screen.getByText('Default project folder')).toBeInTheDocument()
     expect(screen.queryByText('Connection ID')).toBeNull()
     expect(screen.queryByText('No starting project selected')).toBeNull()
+    expect(
+      screen.queryByText(new RegExp(['workspace', 'project folder'].join(' '), 'i'))
+    ).toBeNull()
     expect(screen.queryByText('claude')).toBeNull()
     expect(screen.queryByText('af-claude-container-123')).toBeNull()
     expect(screen.queryByText('/workspace')).toBeNull()
