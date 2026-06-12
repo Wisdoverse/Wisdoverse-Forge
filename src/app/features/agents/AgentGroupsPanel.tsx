@@ -15,7 +15,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
-import { taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
+import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { useBoardStore } from '@app/shared/model/board.store'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 import { useNavigationStore } from '@app/entities/navigation'
@@ -589,7 +589,11 @@ function routedTaskNextStep(task: TaskSummary): string {
     case 'working':
       return 'Watch live progress'
     case 'blocked':
-      return task.blockedHint ?? 'Resolve blocker'
+      return taskBlockedPreview({
+        blockedHint: task.blockedHint,
+        blockedReason: task.blockedReason,
+        error: task.error,
+      })
     case 'failed':
       return taskFailurePreview(task.error)
     case 'completed':

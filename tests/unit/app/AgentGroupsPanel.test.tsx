@@ -154,6 +154,24 @@ describe('AgentGroupsPanel', () => {
     expect(screen.queryByText(/unassigned/i)).toBeNull()
   })
 
+  test('hides sensitive blocked hints in routed task next steps', () => {
+    seedRoutingState([
+      makeTask({
+        id: 'blocked-credentials',
+        state: 'blocked',
+        params: { task: 'Connect repository access', message: '' },
+        blockedHint: 'Missing token secret for git provider.',
+      }),
+    ])
+
+    render(<AgentGroupsPanel />)
+
+    expect(screen.getByText('Connect repository access')).toBeInTheDocument()
+    expect(screen.getByText(/needs agent .* waiting for account access/i)).toBeInTheDocument()
+    expect(screen.queryByText(/token secret/i)).toBeNull()
+    expect(screen.queryByText(/git provider/i)).toBeNull()
+  })
+
   test('filters the routed work queue by search', () => {
     seedRoutingState([
       makeTask({

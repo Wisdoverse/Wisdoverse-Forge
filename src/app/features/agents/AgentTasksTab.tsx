@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
-import { taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
+import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { orchestrationApi, type TaskState, type TaskSummary } from '@app/shared/api/orchestration'
 import { agentTasksErrorMessage } from './model/taskErrorMessage'
 
@@ -441,6 +441,14 @@ function AgentTaskRow({ task }: { task: TaskSummary }) {
   const showProgress = task.state === 'working' && task.progress > 0
   const failurePreview =
     task.state === 'failed' && task.error ? taskFailurePreview(task.error) : null
+  const blockedPreview =
+    task.state === 'blocked' && task.blockedHint
+      ? taskBlockedPreview({
+          blockedHint: task.blockedHint,
+          blockedReason: task.blockedReason,
+          error: task.error,
+        })
+      : null
 
   return (
     <li
@@ -470,14 +478,14 @@ function AgentTaskRow({ task }: { task: TaskSummary }) {
         </div>
       )}
 
-      {task.state === 'blocked' && task.blockedHint && (
+      {blockedPreview && (
         <p
           data-testid={`agent-task-blocked-${task.id}`}
           className="flex items-start gap-1 text-ui-caption font-medium text-apple-red"
-          title={task.blockedHint}
+          title={blockedPreview}
         >
           <AlertTriangle size={12} strokeWidth={2.25} className="mt-0.5 shrink-0" />
-          <span className="line-clamp-2">Needs help: {task.blockedHint}</span>
+          <span className="line-clamp-2">Needs help: {blockedPreview}</span>
         </p>
       )}
 
