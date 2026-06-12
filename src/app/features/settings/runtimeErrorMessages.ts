@@ -4,9 +4,9 @@ const ACTION_FALLBACKS: Record<RuntimeErrorAction, string> = {
   loadAgentSignals:
     'Agent connection status could not load. Start or wake an agent, then refresh this page.',
   loadCliSignIn:
-    'Tool account connection could not be checked. Refresh this page before starting agents that use work tools.',
+    'Work tool sign-in could not be checked. Refresh this page before starting agents that use work tools.',
   startCliSignIn:
-    'Tool account connection did not start. Check the connected AI service, then reconnect the account.',
+    'Work tool sign-in did not start. Check the connected AI service, then reconnect the account.',
 }
 
 export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): string {
@@ -83,7 +83,7 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
   }
 
   if (status === 422) {
-    return `${base} Choose an available work location and local tool, then save again.`
+    return `${base} Choose an available agent location and work tool, then save again.`
   }
 
   if (status === 429) {
@@ -151,16 +151,16 @@ function runtimeValidationMessage(action: RuntimeErrorAction, detail: string): s
 
   if (action === 'startCliSignIn') {
     if (normalized.includes('provider') || normalized.includes('configured')) {
-      return 'Choose and save an AI service first, then reconnect the tool account.'
+      return 'Choose and save an AI service first, then reconnect the work tool sign-in.'
     }
     if (normalized.includes('tool') || normalized.includes('cli')) {
-      return 'Choose an available local tool, then reconnect the tool account.'
+      return 'Choose an available work tool, then reconnect the work tool sign-in.'
     }
-    return 'Check the connected AI service and selected local tool, then reconnect the tool account.'
+    return 'Check the connected AI service and selected work tool, then reconnect the work tool sign-in.'
   }
 
   if (action === 'loadCliSignIn') {
-    return 'Tool account connection could not be checked. Refresh this page, then reconnect the tool account.'
+    return 'Work tool sign-in could not be checked. Refresh this page, then reconnect the work tool sign-in.'
   }
 
   return 'Agent connection status could not load. Start or wake an agent, then refresh this page.'

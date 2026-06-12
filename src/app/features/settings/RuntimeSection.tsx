@@ -218,7 +218,7 @@ export function RuntimeSection() {
             </div>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
               {runtimeSettings
-                ? `${runtimeSettings.availableRuntimes.length} place${runtimeSettings.availableRuntimes.length === 1 ? '' : 's'} agents can work from, ${runtimeSettings.availableCliTools.length} tool${runtimeSettings.availableCliTools.length === 1 ? '' : 's'} like Claude or Codex available, ${connectedCredentialCount} tool account sign-in${connectedCredentialCount === 1 ? '' : 's'} connected, ${participants.length} agent${participants.length === 1 ? '' : 's'} seen online.`
+                ? `${runtimeSettings.availableRuntimes.length} agent location${runtimeSettings.availableRuntimes.length === 1 ? '' : 's'} available, ${runtimeSettings.availableCliTools.length} work tool${runtimeSettings.availableCliTools.length === 1 ? '' : 's'} like Claude or Codex available, ${connectedCredentialCount} work tool sign-in${connectedCredentialCount === 1 ? '' : 's'} connected, ${participants.length} agent${participants.length === 1 ? '' : 's'} seen online.`
                 : 'Agent Work Setup has not loaded yet.'}
             </p>
           </div>
@@ -240,7 +240,7 @@ export function RuntimeSection() {
 
         <div className="mt-4 grid gap-3 md:grid-cols-4">
           <RuntimeReadinessMetric
-            label="Default work place"
+            label="Default agent location"
             value={runtimeSettings ? runtimeLabel(runtimeSettings.defaultRuntime) : 'Not set yet'}
             ready={Boolean(
               runtimeSettings?.availableRuntimes.includes(runtimeSettings.defaultRuntime)
@@ -263,7 +263,7 @@ export function RuntimeSection() {
             ready={Boolean(latestHeartbeat)}
           />
           <RuntimeReadinessMetric
-            label="Tool account sign-ins"
+            label="Work tool sign-ins"
             value={
               cliStatuses.length > 0
                 ? `${connectedCredentialCount}/${cliStatuses.length} signed in`
@@ -399,7 +399,7 @@ export function RuntimeSection() {
           </div>
         ) : (
           <>
-            {/* Default work location */}
+            {/* Default agent location */}
             <SettingRow
               label={t('settings.runtime.defaultRuntimeLabel')}
               description={t('settings.runtime.defaultRuntimeDescription')}
@@ -437,7 +437,7 @@ export function RuntimeSection() {
               </select>
             </SettingRow>
 
-            {/* Read-only: available work locations */}
+            {/* Read-only: available agent locations */}
             <SettingRow
               label={t('settings.runtime.availableRuntimesLabel')}
               description={t('settings.runtime.availableRuntimesDescription')}
@@ -451,7 +451,7 @@ export function RuntimeSection() {
               </div>
             </SettingRow>
 
-            {/* Read-only: available local tools */}
+            {/* Read-only: available work tools */}
             <SettingRow
               label={t('settings.runtime.availableContainerClisLabel')}
               description={t('settings.runtime.availableContainerClisDescription')}
@@ -521,7 +521,7 @@ function RuntimeNextStepPanel({
           </h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
             {allReady
-              ? 'The work place, tools, tool account sign-ins, and agent online status are ready.'
+              ? 'The agent location, work tools, sign-ins, and online status are ready.'
               : item?.detail}
           </p>
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -659,10 +659,10 @@ function CredentialStatusRow({
   const detail = status.connected
     ? status.lastRefresh
       ? `Last checked ${formatRelativeTime(status.lastRefresh)}`
-      : 'Tool account signed in'
+      : 'Work tool signed in'
     : status.revokeReason || status.revokedAt
       ? 'Sign in again before starting agents that use this tool'
-      : 'No tool account sign-in saved'
+      : 'No work tool sign-in saved'
 
   return (
     <div className="flex flex-col gap-2 rounded-lg bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04] sm:flex-row sm:items-center sm:justify-between">
@@ -730,12 +730,12 @@ function runtimeLaunchChecklistItems(
     runtimeSettings.availableCliTools.includes(runtimeSettings.defaultCliTool)
   items.push({
     id: 'defaults',
-    title: 'Default work place and tool',
+    title: 'Default agent location and work tool',
     detail: defaultRuntimeReady
       ? `${runtimeLabel(runtimeSettings.defaultRuntime)} with ${cliToolLabel(
           runtimeSettings.defaultCliTool
         )} is selected for new agents.`
-      : 'Choose where new agents work and which tool, such as Claude or Codex, they use.',
+      : 'Choose where new agents run and which tool, such as Claude or Codex, they use.',
     ready: defaultRuntimeReady,
   })
 
@@ -775,14 +775,14 @@ function runtimeLaunchChecklistItems(
   const credentialReady = !cliStatusError && (!disconnectedCredential || cliStatuses.length === 0)
   items.push({
     id: 'credentials',
-    title: 'Tool account sign-ins',
+    title: 'Work tool sign-ins',
     detail: cliStatusError
-      ? 'Tool account sign-in status could not be checked. Check status. If it still cannot be checked, ask an owner or admin to check tool accounts.'
+      ? 'Work tool sign-in status could not be checked. Check status. If it still cannot be checked, ask an owner or admin to check work tool sign-ins.'
       : cliStatuses.length === 0
-        ? 'No tool account sign-ins are required.'
+        ? 'No work tool sign-ins are required.'
         : disconnectedCredential
-          ? `${connectedCredentialCount}/${cliStatuses.length} tool account sign-ins ready. Sign in to ${disconnectedCredential.displayName} before starting agents that use this tool.`
-          : `${connectedCredentialCount}/${cliStatuses.length} tool account sign-ins ready.`,
+          ? `${connectedCredentialCount}/${cliStatuses.length} work tool sign-ins ready. Sign in to ${disconnectedCredential.displayName} before starting agents that use this tool.`
+          : `${connectedCredentialCount}/${cliStatuses.length} work tool sign-ins ready.`,
     ready: credentialReady,
     action: cliStatusError ? 'refresh' : disconnectedCredential ? 'connect' : undefined,
     actionLabel: cliStatusError
@@ -824,7 +824,7 @@ function fallbackRuntimeLabel(runtime: string): string {
     case 'container':
       return 'Managed workspace'
     default:
-      return runtime.trim() ? 'Work location needs review' : 'Work location not listed'
+      return runtime.trim() ? 'Agent location needs review' : 'Agent location not listed'
   }
 }
 

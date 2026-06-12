@@ -440,15 +440,15 @@ export const en = {
       saving: 'Saving...',
       loading: 'Loading work setup...',
       couldNotLoad: 'Could not load work setup',
-      defaultRuntimeLabel: 'Default work place',
+      defaultRuntimeLabel: 'Default agent location',
       defaultRuntimeDescription:
-        'Choose Managed workspace unless an owner tells you this computer should run the work',
+        'Choose Managed workspace unless an owner tells you agents should run on this computer',
       defaultContainerCliLabel: 'Default tool for project work',
       defaultContainerCliDescription:
         'Claude Code, Codex, Gemini, or OpenCode when an agent edits files or runs commands',
-      availableRuntimesLabel: 'Places agents can work',
-      availableRuntimesDescription: 'Places this installation can use for hands-on work',
-      availableContainerClisLabel: 'Tools agents can use',
+      availableRuntimesLabel: 'Agent locations available',
+      availableRuntimesDescription: 'Where this installation can run hands-on agents',
+      availableContainerClisLabel: 'Work tools agents can use',
       availableContainerClisDescription: 'Installed tools for file edits, commands, and live work',
       runtimeLabels: {
         cli: 'This computer',

@@ -22,7 +22,7 @@ describe('runtimeErrorMessage', () => {
   test('explains network failures without exposing only a transport error', () => {
     const message = runtimeErrorMessage('loadCliSignIn', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('Tool account connection could not be checked')
+    expect(message).toContain('Work tool sign-in could not be checked')
     expect(message).toContain('Forge could not connect while checking Agent Work Setup')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('app could not reach')
@@ -42,7 +42,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Choose and save an AI service first, then reconnect the tool account.'
+      'Choose and save an AI service first, then reconnect the work tool sign-in.'
     )
     expect(message).not.toContain('provider')
   })
@@ -54,7 +54,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check the connected AI service and selected local tool, then reconnect the tool account.'
+      'Check the connected AI service and selected work tool, then reconnect the work tool sign-in.'
     )
     expect(message).not.toContain('provider')
   })
@@ -64,7 +64,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Tool account connection did not start. Check the connected AI service, then reconnect the account. Forge could not connect while checking Agent Work Setup. Check your connection, then refresh Settings.'
+      'Work tool sign-in did not start. Check the connected AI service, then reconnect the account. Forge could not connect while checking Agent Work Setup. Check your connection, then refresh Settings.'
     )
     expect(message).not.toContain('provider')
     expect(message).not.toContain('Failed to fetch')
@@ -99,7 +99,7 @@ describe('runtimeSettingsErrorMessage', () => {
         'Check the required fields for runtime setting, then try again. Code: 422. Details: default CLI tool is not available'
       )
     ).toBe(
-      'Agent Work Setup could not be saved. Choose an available work location and local tool, then save again.'
+      'Agent Work Setup could not be saved. Choose an available agent location and work tool, then save again.'
     )
   })
 

@@ -120,7 +120,7 @@ describe('RuntimeSection', () => {
     expect(nextStep).toHaveTextContent('Tools installed')
     expect(screen.getByText('Before assigning work')).toBeDefined()
     expect(screen.getByText('2/4 ready')).toBeDefined()
-    expect(screen.getByText(/places agents can work from/i)).toBeDefined()
+    expect(screen.getAllByText(/agent locations available/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/work places available/i)).toBeNull()
     expect(screen.getByText(/tools like Claude or Codex available/i)).toBeDefined()
     expect(
@@ -141,8 +141,8 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText(/package check/i)).toBeNull()
     expect(screen.getByText('Setup needed')).toBeDefined()
     expect(screen.getByText('Installed and ready')).toBeDefined()
-    expect(screen.getAllByText(/tool account sign-ins/i).length).toBeGreaterThan(0)
-    expect(screen.getByText(/1\/2 tool account sign-ins ready/i)).toBeDefined()
+    expect(screen.getAllByText(/work tool sign-ins/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/1\/2 work tool sign-ins ready/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /Sign in to GitHub/i })).toBeDefined()
     expect(screen.getByRole('button', { name: /Check status/i })).toBeDefined()
     expect(screen.queryByRole('button', { name: /^Refresh$/i })).toBeNull()
@@ -194,10 +194,10 @@ describe('RuntimeSection', () => {
 
     expect(await screen.findByText('4/4 ready')).toBeDefined()
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Ready to give agents work')
-    expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('The work place')
+    expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('The agent location')
     expect(screen.queryByRole('button', { name: /Sign in to GitHub/i })).toBeNull()
     expect(screen.getByText(/1\/1 tools are installed and ready/i)).toBeDefined()
-    expect(screen.getByText(/1\/1 tool account sign-ins ready/i)).toBeDefined()
+    expect(screen.getByText(/1\/1 work tool sign-ins ready/i)).toBeDefined()
     expect(screen.getAllByText(/agent online status/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/agent tools are checked/i)).toBeNull()
     expect(screen.queryByText(/agent check-ins/i)).toBeNull()
@@ -217,7 +217,7 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText('Unknown')).toBeNull()
   })
 
-  test('labels unknown work location and tool values without exposing backend codes', async () => {
+  test('labels unknown agent location and tool values without exposing backend codes', async () => {
     useSettingsStore.setState({
       runtimeSettings: {
         defaultRuntime: 'future_runtime' as never,
@@ -238,19 +238,19 @@ describe('RuntimeSection', () => {
 
     render(<RuntimeSection />)
 
-    expect((await screen.findAllByText('Work location needs review')).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText('Agent location needs review')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Work tool needs review').length).toBeGreaterThan(0)
     expect(screen.queryByText(/future_runtime/i)).toBeNull()
     expect(screen.queryByText(/future_tool/i)).toBeNull()
     expect(screen.queryByText('Unknown')).toBeNull()
   })
 
-  test('shows beginner guidance when local tool sign-in status cannot load', async () => {
+  test('shows beginner guidance when work tool sign-in status cannot load', async () => {
     agentApiMock.getCliAuthProxyStatus.mockRejectedValueOnce(new TypeError('Failed to fetch'))
 
     render(<RuntimeSection />)
 
-    expect(await screen.findByText(/tool account connection could not be checked/i)).toBeDefined()
+    expect(await screen.findByText(/work tool sign-in could not be checked/i)).toBeDefined()
     expect(
       screen.getByText(/Forge could not connect while checking Agent Work Setup/i)
     ).toBeDefined()
@@ -271,7 +271,7 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText(/service is healthy/i)).toBeNull()
   })
 
-  test('shows beginner guidance when local tool sign-in cannot start', async () => {
+  test('shows beginner guidance when work tool sign-in cannot start', async () => {
     agentApiMock.startCliAuthProxyLogin.mockResolvedValueOnce({
       ok: false,
       error: '403 Forbidden',
@@ -299,7 +299,7 @@ describe('RuntimeSection', () => {
 
     await screen.findByTestId('runtime-launch-checklist')
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Agent Work Setup could not be saved. Choose an available work location and local tool, then save again.'
+      'Agent Work Setup could not be saved. Choose an available agent location and work tool, then save again.'
     )
     expect(screen.queryByText(/Details: default CLI tool is not available/i)).toBeNull()
   })
