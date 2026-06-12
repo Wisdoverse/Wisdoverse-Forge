@@ -59,6 +59,19 @@ describe('navigation.store', () => {
     )
   })
 
+  it('turns structured permission failures into workspace access guidance', () => {
+    const message = navigationActionErrorMessage('teamProjects', 'load', {
+      serverError: 'owner policy denied for team list',
+      status: '403',
+    })
+
+    expectBeginnerError(
+      message,
+      'You do not have permission to load teams and projects. Ask an owner or admin to update your workspace access.'
+    )
+    expect(message).not.toContain('owner policy denied')
+  })
+
   it('turns raw network failures into connection guidance', () => {
     const message = navigationActionErrorMessage(
       'workLanes',
@@ -72,6 +85,16 @@ describe('navigation.store', () => {
     )
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('service')
+  })
+
+  it('uses structured validation details for task queue names', () => {
+    const message = navigationActionErrorMessage('workLane', 'create', {
+      code: '422',
+      details: { reason: 'name is required' },
+    })
+
+    expectBeginnerError(message, 'Name this task queue, choose its project, then create it again.')
+    expect(message).not.toContain('name is required')
   })
 
   it('loadOrgs fetches and stores orgs, auto-selects first', async () => {
@@ -318,5 +341,25 @@ describe('navigation.store', () => {
       useNavigationStore.getState().error,
       'Name this task queue, choose its project, then create it again.'
     )
+  })
+
+  it('stores field guidance when task queue creation returns structured details', async () => {
+    vi.mocked(agentGroupApi.createGroup).mockRejectedValue({
+      statusCode: '422',
+      details: { reason: 'project is required' },
+    })
+
+    await expect(
+      useNavigationStore.getState().createAgentGroup('', {
+        name: 'Review',
+        description: 'Agents in this group can receive tasks from the board.',
+      })
+    ).rejects.toMatchObject({ statusCode: '422' })
+
+    expectBeginnerError(
+      useNavigationStore.getState().error,
+      'Choose the project that should hold this task queue, then try again.'
+    )
+    expect(useNavigationStore.getState().error).not.toContain('project is required')
   })
 })

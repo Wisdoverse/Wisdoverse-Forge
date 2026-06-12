@@ -65,13 +65,16 @@ function navigationActionPhrase(area: NavigationErrorArea, action: NavigationErr
 function rawNavigationErrorMessage(error: unknown): string | null {
   if (typeof error === 'string' && error.trim()) return error.trim()
   if (error instanceof Error && error.message.trim()) return error.message.trim()
-  if (error && typeof error === 'object' && 'error' in error) {
-    const value = (error as { error?: unknown }).error
-    if (typeof value === 'string' && value.trim()) return value.trim()
-  }
-  if (error && typeof error === 'object' && 'message' in error) {
-    const value = (error as { message?: unknown }).message
-    if (typeof value === 'string' && value.trim()) return value.trim()
+  if (error && typeof error === 'object') {
+    const details = (error as { details?: { reason?: unknown } }).details
+    if (typeof details?.reason === 'string' && details.reason.trim()) {
+      return details.reason.trim()
+    }
+
+    for (const key of ['serverError', 'detail', 'error', 'message', 'reason'] as const) {
+      const value = (error as Record<string, unknown>)[key]
+      if (typeof value === 'string' && value.trim()) return value.trim()
+    }
   }
   return null
 }
@@ -84,7 +87,13 @@ function detailFromPayload(payload: unknown): string | null {
     const message = (nestedError as { message?: unknown }).message
     if (typeof message === 'string' && message.trim()) return message.trim()
   }
-  for (const key of ['error', 'message', 'detail']) {
+  const details = record.details
+  if (details && typeof details === 'object' && !Array.isArray(details)) {
+    const reason = (details as { reason?: unknown }).reason
+    if (typeof reason === 'string' && reason.trim()) return reason.trim()
+  }
+
+  for (const key of ['serverError', 'error', 'message', 'detail', 'reason']) {
     const value = record[key]
     if (typeof value === 'string' && value.trim()) return value.trim()
   }
@@ -111,14 +120,22 @@ function navigationErrorDetail(error: unknown): string | null {
 }
 
 function navigationErrorStatus(error: unknown): number | null {
-  if (error && typeof error === 'object' && 'statusCode' in error) {
-    const statusCode = (error as { statusCode?: unknown }).statusCode
-    if (typeof statusCode === 'number') return statusCode
+  if (error && typeof error === 'object') {
+    for (const key of ['statusCode', 'status', 'code'] as const) {
+      const status = numericStatus((error as Record<string, unknown>)[key])
+      if (status) return status
+    }
   }
 
   const raw = rawNavigationErrorMessage(error)
   const match = raw?.match(/\b(?:API|HTTP|Server error \()? ?(\d{3})\b/)
   return match ? Number(match[1]) : null
+}
+
+function numericStatus(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && /^\d{3}$/.test(value.trim())) return Number(value.trim())
+  return null
 }
 
 function isRawNavigationFailure(detail: string | null): boolean {
