@@ -42,7 +42,7 @@ const STATE_HELP: Record<TaskState, string> = {
   working: 'The agent is actively working on these tasks.',
   queued: 'These tasks are next in line for this agent.',
   backlog: 'These tasks already have an agent, but work has not started yet.',
-  blocked: 'These tasks need a person to unblock them.',
+  blocked: 'These tasks need a person to help them move forward.',
   completed: 'These tasks are finished.',
   failed: 'These tasks stopped before finishing.',
   canceled: 'These tasks were stopped on purpose.',
@@ -239,7 +239,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by task name, blocker, or result"
+            placeholder="Search by task name, problem, or result"
             className={cn(
               'h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-ui-body outline-none',
               'text-foreground-light placeholder:text-secondary-light dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:placeholder:text-secondary-dark',

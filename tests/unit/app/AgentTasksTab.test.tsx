@@ -94,7 +94,11 @@ describe('AgentTasksTab', () => {
     expect(
       screen.getByText('These tasks already have an agent, but work has not started yet.')
     ).toBeDefined()
+    expect(screen.getByText('These tasks need a person to help them move forward.')).toBeDefined()
     expect(screen.queryByText(/assigned.*not started/i)).toBeNull()
+    expect(screen.queryByText(new RegExp(['unblock', 'them'].join('\\s+'), 'i'))).toBeNull()
+    expect(screen.getByPlaceholderText('Search by task name, problem, or result')).toBeDefined()
+    expect(screen.queryByPlaceholderText(/blocker/i)).toBeNull()
     expect(
       within(screen.getByTestId('agent-task-metric-needs-action')).getByText('2')
     ).toBeDefined()
