@@ -123,11 +123,13 @@ describe('AgentTerminalTab', () => {
     expect(screen.getByText('Live work is still starting')).toBeInTheDocument()
     expect(
       screen.getByText(
-        'Wait until this agent shows Ready. If it stays Offline, open Controls and start or restart the workspace before using Live work.'
+        'Wait until this agent shows Ready. If it stays Offline, open Controls and start or restart this agent before using Live work.'
       )
     ).toBeInTheDocument()
     expect(screen.getByText('Status not reported')).toBeInTheDocument()
-    expect(screen.getByText('Waiting for workspace')).toBeInTheDocument()
+    expect(screen.getByText('Agent startup')).toBeInTheDocument()
+    expect(screen.getByText('Waiting for this agent')).toBeInTheDocument()
+    expect(screen.queryByText(new RegExp(['restart', 'the workspace'].join(' '), 'i'))).toBeNull()
     expect(screen.queryByText(/command window/i)).toBeNull()
     expect(screen.queryByText(/terminal unavailable/i)).toBeNull()
     expect(screen.queryByText(/unknown/i)).toBeNull()
@@ -139,12 +141,7 @@ describe('AgentTerminalTab', () => {
     expect(liveWorkStatusLabel('idle')).toBe('Ready')
 
     render(
-      <AgentTerminalTab
-        agentId="agent-1"
-        agentName="Runner"
-        cliTool="codex"
-        agentStatus="idle"
-      />
+      <AgentTerminalTab agentId="agent-1" agentName="Runner" cliTool="codex" agentStatus="idle" />
     )
 
     const unavailable = screen.getByTestId('agent-terminal-unavailable')
