@@ -246,6 +246,27 @@ describe('AppLayout', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
+  test('shows beginner guidance when New Task does not return a created task', async () => {
+    seedProjectNavigation('p1')
+    useBoardStore.getState().setSelectedGroupId('group-1')
+    mockCreateTask.mockResolvedValueOnce({ ok: true, task: null })
+
+    render(<MemoryRouter />)
+    fireEvent.click(screen.getByRole('button', { name: /\+ task/i }))
+
+    await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
+      target: { value: 'Modal task without result' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create task/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'The task was not created. Check the project, task queue, and result, then try again.'
+    )
+    expect(alert.textContent).not.toContain('API')
+  })
+
   test('applies a task template before creating a New Task', async () => {
     seedProjectNavigation('p1')
     useBoardStore.getState().setSelectedGroupId('group-1')

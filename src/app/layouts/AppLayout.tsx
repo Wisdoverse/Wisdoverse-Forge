@@ -301,7 +301,7 @@ export function AppLayout({
             upsertTask(response.task)
             return
           }
-          throw new Error('Task API did not return the created task.')
+          throw response
         }}
       />
     </div>

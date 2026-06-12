@@ -33,7 +33,11 @@ export const agentGroupApi = {
       }
     )
     const group = res.group ?? res.data
-    if (!group) throw new Error('Group API did not return the created group.')
+    if (!group) {
+      throw new Error(
+        'Task queue was not created. Check the task queue name and project, then try again.'
+      )
+    }
     return normalizeGroup(group, input.projectId)
   },
 }

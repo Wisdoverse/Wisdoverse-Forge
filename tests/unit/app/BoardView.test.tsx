@@ -336,6 +336,23 @@ describe('BoardView', () => {
     expect(screen.getByText('Copy review')).toBeDefined()
   })
 
+  test('shows beginner guidance when quick task creation returns no task', async () => {
+    useBoardStore.getState().setSelectedGroupId('test-group')
+    render(<BoardView />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /\+ add draft task/i }))
+    fireEvent.change(screen.getByLabelText(/task result/i), {
+      target: { value: 'Draft task without result' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^add draft task$/i }))
+
+    const alert = await screen.findByTestId('board-action-error')
+    expect(alert).toHaveTextContent(
+      'The task was not created. Check the project, task queue, and result, then try again.'
+    )
+    expect(alert.textContent).not.toContain('API')
+  })
+
   test('shows column task count', async () => {
     const tasks = [
       {

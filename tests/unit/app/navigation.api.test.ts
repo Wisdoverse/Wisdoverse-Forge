@@ -280,6 +280,23 @@ describe('navigation entity APIs', () => {
     )
   })
 
+  it('createGroup explains missing created task queue without API wording', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ ok: true, group: null }),
+    })
+
+    await expect(
+      agentGroupApi.createGroup({
+        projectId: 'p1',
+        name: 'Review',
+        description: 'Agents in this group can receive tasks from the board.',
+      })
+    ).rejects.toThrow(
+      'Task queue was not created. Check the task queue name and project, then try again.'
+    )
+  })
+
   it('updateOrg sends PATCH with JSON body and returns org', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

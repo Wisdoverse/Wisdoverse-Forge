@@ -202,7 +202,7 @@ export function BoardView() {
       })
       if (response.ok && response.task) {
         upsertTask(response.task)
-      } else if (!response.ok) {
+      } else {
         setActionError(boardActionErrorMessage('createTask', response))
       }
     } catch (err) {
