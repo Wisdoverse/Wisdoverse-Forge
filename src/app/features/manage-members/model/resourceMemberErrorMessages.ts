@@ -88,6 +88,10 @@ function validationMessage(
   detail?: string | null
 ): string {
   const normalized = detail?.toLowerCase() ?? ''
+  if (normalized.includes(`no ${resource} selected`)) {
+    return `This ${resource} is no longer selected. Close members, choose the ${resource} again, then add or change people.`
+  }
+
   switch (action) {
     case 'load':
       return `Members could not load for this ${resource}. Refresh the page and try again.`

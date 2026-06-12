@@ -182,6 +182,21 @@ describe('ResourceMembersModal', () => {
     expect(alert.textContent).not.toContain('Forbidden')
   })
 
+  test('shows recovery guidance when the selected project changes before adding a member', async () => {
+    renderMembersModal({ addMemberError: new Error('No project selected') })
+
+    await screen.findByText('No direct members yet')
+    fireEvent.change(screen.getByLabelText('Select person to add'), {
+      target: { value: 'user-1' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /add/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('This project is no longer selected')
+    expect(alert.textContent).toContain('choose the project again')
+    expect(alert.textContent).not.toContain('No project selected')
+  })
+
   test('shows refresh guidance when role changes conflict', async () => {
     renderMembersModal({
       members: [makeMember({})],
