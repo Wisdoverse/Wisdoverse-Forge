@@ -375,7 +375,7 @@ export function TaskFormModal({
                 </p>
                 <p className="mt-0.5 text-secondary-light dark:text-secondary-dark">
                   {workLaneReady
-                    ? `${selectedTaskGroupName ?? 'Selected task queue'} has a place for this work. Agents check this queue for this project's tasks.`
+                    ? `New tasks will wait in ${selectedTaskGroupName ?? 'this task queue'} until an available agent picks them up.`
                     : 'A task queue gives new work a place to wait. Create one once, then return here.'}
                 </p>
               </div>

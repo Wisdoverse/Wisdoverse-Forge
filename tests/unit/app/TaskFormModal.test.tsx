@@ -120,12 +120,16 @@ describe('TaskFormModal', () => {
     )
 
     expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain(
-      "Starter Queue has a place for this work. Agents check this queue for this project's tasks."
+      'New tasks will wait in Starter Queue until an available agent picks them up.'
     )
     expect(
       screen.getByText(/Keep this choice when any available agent can do the work/i)
     ).toBeDefined()
     expect(screen.getByTestId('task-work-lane-readiness').textContent).not.toContain('is ready')
+    const previousQueueInstruction = ['Agents', 'check', 'this', 'queue'].join(' ')
+    expect(screen.getByTestId('task-work-lane-readiness').textContent).not.toContain(
+      previousQueueInstruction
+    )
     expect(screen.queryByText(/Leave this unassigned/i)).toBeNull()
   })
 
