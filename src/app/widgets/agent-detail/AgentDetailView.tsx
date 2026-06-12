@@ -371,8 +371,8 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
   if (activeTask) {
     return {
       title: 'Review Current Work',
-      detail: `${agent.name} is already handling "${activeTask.params.task}". Open Tasks to follow progress or unblock it.`,
-      success: 'You can see the active task state and decide whether it needs owner input.',
+      detail: `${agent.name} is already handling "${activeTask.params.task}". Open Tasks to follow progress or handle anything that needs your help.`,
+      success: 'You can see the active task state and decide whether someone needs to step in.',
       ready: false,
       targetTab: 'tasks',
       actionLabel: 'Open Tasks',

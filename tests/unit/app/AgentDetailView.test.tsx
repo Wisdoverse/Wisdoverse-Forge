@@ -226,6 +226,14 @@ describe('AgentDetailView', () => {
 
     expect(await screen.findByText('Review Current Work')).toBeDefined()
     expect(screen.getAllByText(/Fix onboarding copy/).length).toBeGreaterThan(0)
+    expect(
+      screen.getByText(
+        'Build Agent is already handling "Fix onboarding copy". Open Tasks to follow progress or handle anything that needs your help.'
+      )
+    ).toBeDefined()
+    expect(screen.getByText(/Success: You can see the active task state/)).toBeDefined()
+    expect(screen.queryByText(new RegExp(['unblock', 'it'].join('\\s+'), 'i'))).toBeNull()
+    expect(screen.queryByText(/owner input/i)).toBeNull()
     expect(screen.getByText('Do This Next')).toBeDefined()
   })
 
