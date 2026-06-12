@@ -15,6 +15,13 @@ describe('workspaceSettingsErrorMessage', () => {
     )
   })
 
+  test('maps structured auth failures to a sign-in step', () => {
+    expectBeginnerMessage(
+      workspaceSettingsErrorMessage('team', 'load', { statusCode: '401' }),
+      'Workspace teams could not be loaded. Sign in again, then return to Settings.'
+    )
+  })
+
   test('maps validation failures to beginner-safe create guidance', () => {
     const message = workspaceSettingsErrorMessage('project', 'create', new Error('API 422'))
 
@@ -22,6 +29,19 @@ describe('workspaceSettingsErrorMessage', () => {
       message,
       'The project was not created. Check the name and required fields, then try again.'
     )
+  })
+
+  test('uses structured validation details to name the field to fix', () => {
+    const message = workspaceSettingsErrorMessage('project', 'create', {
+      status: 422,
+      detail: 'name is required',
+    })
+
+    expectBeginnerMessage(
+      message,
+      'The project was not created. Enter a project name, then try again.'
+    )
+    expect(message).not.toContain('name is required')
   })
 
   test('maps duplicate create failures to a name change next step', () => {
@@ -45,6 +65,20 @@ describe('workspaceSettingsErrorMessage', () => {
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('temporarily unavailable')
     expect(message).not.toContain('service')
+  })
+
+  test('turns structured server details into an owner recovery step', () => {
+    const message = workspaceSettingsErrorMessage('project', 'load', {
+      status: 503,
+      message: 'database unavailable',
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Workspace projects could not be loaded. Forge could not load workspace settings right now. Refresh Settings, then try again. If it still fails, ask an owner or admin to check workspace setup.'
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('503')
   })
 
   test('maps network failures to retryable setup guidance', () => {
