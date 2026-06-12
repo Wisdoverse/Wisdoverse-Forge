@@ -233,6 +233,14 @@ describe('AgentGroupsPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /^create task queue$/i }))
     expect(screen.getByRole('group', { name: /task queue templates/i })).toBeInTheDocument()
+    const reviewSummary = screen.getByText('Check before release')
+    expect(reviewSummary).toBeInTheDocument()
+    expect(screen.queryByText(['Risk', 'and', 'readiness'].join(' '))).toBeNull()
+    fireEvent.click(reviewSummary.closest('button')!)
+    expect(screen.getByLabelText(/task queue description/i)).toHaveValue(
+      'Review completed work for broken behavior, missing tests, and anything that could block release.'
+    )
+    fireEvent.change(screen.getByLabelText(/task queue name/i), { target: { value: '' } })
     fireEvent.submit(screen.getByRole('button', { name: /create task queue/i }).closest('form')!)
 
     expect(screen.getByRole('alert')).toHaveTextContent(

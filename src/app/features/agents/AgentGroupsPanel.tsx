@@ -82,9 +82,10 @@ const TASK_GROUP_TEMPLATES: TaskGroupTemplate[] = [
   {
     id: 'review',
     label: 'Review',
-    summary: 'Risk and readiness',
+    summary: 'Check before release',
     name: 'Review Queue',
-    description: 'Review completed work for regressions, missing tests, and release risk.',
+    description:
+      'Review completed work for broken behavior, missing tests, and anything that could block release.',
     Icon: ShieldCheck,
   },
   {
