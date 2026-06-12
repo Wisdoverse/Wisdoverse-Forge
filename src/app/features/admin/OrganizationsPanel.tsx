@@ -24,33 +24,33 @@ function organizationReadiness(org: AdminOrg): {
 } {
   if (org.membersCount <= 0) {
     return {
-      label: 'Needs members',
+      label: 'Needs people',
       tone: 'text-apple-red',
-      nextStep: 'Invite at least one member so someone can use this organization.',
+      nextStep: 'Invite at least one person so someone can use this team space.',
     }
   }
   if (org.teamsCount <= 0) {
     return {
       label: 'Needs a team',
       tone: 'text-secondary-light dark:text-secondary-dark',
-      nextStep: 'Create a team so members have a place to organize projects.',
+      nextStep: 'Create a team so people have a place to organize projects.',
     }
   }
   return {
     label: 'Ready to use',
     tone: 'text-apple-blue',
-    nextStep: 'Members can create projects and start work from their teams.',
+    nextStep: 'People can create projects and start work from their teams.',
   }
 }
 
 const ORG_GUIDANCE: { title: string; description: string; Icon: LucideIcon }[] = [
   {
     title: 'Readiness shows setup gaps',
-    description: 'Use it to spot organizations that still need their first members or team.',
+    description: 'Use it to spot team spaces that still need their first people or team.',
     Icon: Building2,
   },
   {
-    title: 'Members show access size',
+    title: 'People show access size',
     description: 'A sudden jump can mean onboarding succeeded or access needs review.',
     Icon: Users,
   },
@@ -63,11 +63,11 @@ const ORG_GUIDANCE: { title: string; description: string; Icon: LucideIcon }[] =
 
 function organizationSummary(orgs: AdminOrg[]): string {
   if (orgs.length === 0) {
-    return 'Organizations appear here after setup or sync. Teams, projects, and members need an organization first.'
+    return 'Team spaces appear here after setup or sync. Create one before adding teams, projects, people, or agent work queues.'
   }
   const members = orgs.reduce((total, org) => total + org.membersCount, 0)
   const teams = orgs.reduce((total, org) => total + org.teamsCount, 0)
-  return `${members} members and ${teams} teams are spread across ${orgs.length} organization${
+  return `${members} people and ${teams} teams are spread across ${orgs.length} team space${
     orgs.length === 1 ? '' : 's'
   }.`
 }
@@ -83,7 +83,7 @@ function OrganizationsGuide({ orgs }: { orgs: AdminOrg[] }) {
           Admin view
         </p>
         <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-          Use organizations to check setup at a glance
+          Use team spaces to check setup at a glance
         </h3>
         <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
           {organizationSummary(orgs)}
@@ -119,12 +119,11 @@ function OrganizationsEmptyState() {
         <Building2 size={18} strokeWidth={2} />
       </div>
       <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-        No organizations are visible yet
+        No team spaces are visible yet
       </p>
       <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
-        Create or sync an organization before creating teams, projects, members, or agent work
-        queues. If you expected data here, confirm your admin access and refresh after Forge is
-        healthy.
+        Create or sync a team space before creating teams, projects, people, or agent work queues.
+        If you expected data here, confirm your admin access and refresh after Forge is ready.
       </p>
     </div>
   )
@@ -141,9 +140,9 @@ export function OrganizationsPanel() {
     <div>
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Organizations</h2>
+          <h2 className={uiStyles.sectionTitle}>Team spaces</h2>
           <p className={uiStyles.sectionDescription}>
-            Check whether each organization has the people and teams it needs to start work.
+            Check whether each team space has the people and teams it needs to start work.
           </p>
         </div>
       </div>
@@ -151,7 +150,7 @@ export function OrganizationsPanel() {
       {/* Error */}
       {orgsError && (
         <div data-testid="admin-org-error" role="alert" className={uiStyles.error}>
-          <p>{adminPanelLoadErrorMessage(orgsError, 'organization list')}</p>
+          <p>{adminPanelLoadErrorMessage(orgsError, 'team space list')}</p>
           <p className="mt-1 text-ui-caption">{ADMIN_PANEL_RECOVERY}</p>
         </div>
       )}
@@ -163,7 +162,7 @@ export function OrganizationsPanel() {
         {orgsLoading && orgs.length === 0 ? (
           <div className="flex items-center justify-center py-12">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              Loading organizations…
+              Loading team spaces…
             </p>
           </div>
         ) : orgs.length === 0 ? (
@@ -172,8 +171,8 @@ export function OrganizationsPanel() {
           <table className={uiStyles.table}>
             <thead className={uiStyles.tableHead}>
               <tr>
-                <th className={uiStyles.tableHeaderCell}>Name</th>
-                <th className={uiStyles.tableHeaderCell}>Members</th>
+                <th className={uiStyles.tableHeaderCell}>Team space</th>
+                <th className={uiStyles.tableHeaderCell}>People</th>
                 <th className={uiStyles.tableHeaderCell}>Teams</th>
                 <th className={uiStyles.tableHeaderCell}>Readiness</th>
                 <th className={uiStyles.tableHeaderCell}>Created</th>
@@ -194,7 +193,7 @@ export function OrganizationsPanel() {
                           {org.name}
                         </p>
                         <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                          Organization URL name: {org.slug}
+                          URL name: {org.slug}
                         </p>
                       </div>
                     </td>
@@ -235,7 +234,7 @@ export function OrganizationsPanel() {
                     <td className={uiStyles.tableCell}>
                       <span className="inline-flex items-center gap-1.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
                         <CalendarDays size={12} strokeWidth={2} aria-hidden="true" />
-                        Review access when membership or teams change.
+                        Review access when people or teams change.
                       </span>
                     </td>
                   </tr>

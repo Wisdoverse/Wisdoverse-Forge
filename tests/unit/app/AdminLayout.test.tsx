@@ -31,9 +31,11 @@ describe('AdminLayout', () => {
       'aria-current',
       'page'
     )
+    expect(screen.getByRole('button', { name: 'Team spaces' })).toBeInTheDocument()
     expect(screen.getByText('App setup')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'App readiness' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Agent tool updates' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Organizations' })).toBeNull()
     expect(screen.queryByText(['System', 'status'].join(' '))).toBeNull()
     expect(screen.queryByRole('button', { name: ['Service', 'health'].join(' ') })).toBeNull()
     expect(screen.queryByText(['Agent work', '-tool images'].join(''))).toBeNull()

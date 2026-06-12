@@ -52,22 +52,23 @@ describe('OrganizationsPanel', () => {
     render(<OrganizationsPanel />)
 
     const guide = await screen.findByTestId('admin-org-guide')
-    expect(within(guide).getByText('Use organizations to check setup at a glance')).toBeDefined()
+    expect(within(guide).getByText('Use team spaces to check setup at a glance')).toBeDefined()
     expect(
-      within(guide).getByText('8 members and 3 teams are spread across 2 organizations.')
+      within(guide).getByText('8 people and 3 teams are spread across 2 team spaces.')
     ).toBeDefined()
     expect(within(guide).getByText('Readiness shows setup gaps')).toBeDefined()
-    expect(within(guide).getByText('Members show access size')).toBeDefined()
+    expect(within(guide).getByText('People show access size')).toBeDefined()
     expect(within(guide).getByText('Teams show work areas')).toBeDefined()
     expect(within(guide).queryByText(/routing shape/i)).toBeNull()
 
+    expect(screen.getByRole('heading', { name: 'Team spaces' })).toBeDefined()
     expect(screen.getByText('Acme Labs')).toBeDefined()
     // The backend has no plan data — the panel must not pretend it does.
     expect(screen.queryByText('Plan')).toBeNull()
     expect(screen.queryByText('Enterprise')).toBeNull()
     expect(screen.getByText('6')).toBeDefined()
     expect(screen.getAllByText('2').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Review access when membership or teams change.').length).toBe(2)
+    expect(screen.getAllByText('Review access when people or teams change.').length).toBe(2)
     expect(loadOrgsMock).toHaveBeenCalled()
   })
 
@@ -79,14 +80,14 @@ describe('OrganizationsPanel', () => {
     const guide = await screen.findByTestId('admin-org-guide')
     expect(
       within(guide).getByText(
-        'Organizations appear here after setup or sync. Teams, projects, and members need an organization first.'
+        'Team spaces appear here after setup or sync. Create one before adding teams, projects, people, or agent work queues.'
       )
     ).toBeDefined()
 
     const emptyState = screen.getByTestId('admin-org-empty')
-    expect(within(emptyState).getByText('No organizations are visible yet')).toBeDefined()
+    expect(within(emptyState).getByText('No team spaces are visible yet')).toBeDefined()
     expect(
-      within(emptyState).getByText(/Create or sync an organization before creating teams/i)
+      within(emptyState).getByText(/Create or sync a team space before creating teams/i)
     ).toBeDefined()
   })
 
@@ -96,7 +97,7 @@ describe('OrganizationsPanel', () => {
     render(<OrganizationsPanel />)
 
     const error = await screen.findByTestId('admin-org-error')
-    expect(within(error).getByText('The admin organization list could not load.')).toBeDefined()
+    expect(within(error).getByText('The admin team space list could not load.')).toBeDefined()
     expect(
       within(error).getByText(
         'Refresh Admin, then try again. If it still fails, ask an owner or admin to check Admin setup and your role.'

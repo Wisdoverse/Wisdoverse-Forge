@@ -301,7 +301,7 @@ function adminResourceLabel(resource: AdminResource): string {
     case 'users':
       return 'user list'
     case 'organizations':
-      return 'organization list'
+      return 'team space list'
     case 'agents':
       return 'agent list'
     case 'health':

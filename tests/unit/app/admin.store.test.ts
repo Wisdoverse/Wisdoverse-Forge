@@ -69,7 +69,7 @@ describe('adminHttpErrorMessage', () => {
   test('turns admin permission failures into an owner role step', () => {
     expectBeginnerError(
       adminHttpErrorMessage('organizations', 403),
-      'You do not have access to the admin organization list. Ask an owner or admin to update your role, then reload Admin.'
+      'You do not have access to the admin team space list. Ask an owner or admin to update your role, then reload Admin.'
     )
   })
 
@@ -122,7 +122,7 @@ describe('useAdminStore loading errors', () => {
     await useAdminStore.getState().loadOrgs()
 
     expect(useAdminStore.getState().orgsError).toBe(
-      'Forge could not connect while loading the admin organization list. Check your connection, then refresh Admin.'
+      'Forge could not connect while loading the admin team space list. Check your connection, then refresh Admin.'
     )
     expect(useAdminStore.getState().orgsError).not.toContain('could not reach the service')
   })
