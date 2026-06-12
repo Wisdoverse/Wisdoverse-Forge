@@ -159,6 +159,9 @@ describe('ProvidersSection', () => {
     expect(screen.getByText('Paste service access key')).toBeDefined()
     expect(screen.getAllByText(/forge hides it after saving/i).length).toBeGreaterThan(0)
     expect(screen.getByText('Save and check')).toBeDefined()
+    expect(
+      screen.getByText(/click Check once to confirm agents can use this service/i)
+    ).toBeDefined()
     expect(screen.getByLabelText(/^AI service$/i)).toBeDefined()
     expect(screen.getByLabelText(/^Name in Forge$/i)).toBeDefined()
     expect(screen.queryByText(/paste private key/i)).toBeNull()
@@ -184,8 +187,15 @@ describe('ProvidersSection', () => {
       target: { value: 'sk-test' },
     })
 
-    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/ready to save/i)
-    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/run Check/i)
+    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
+      /ready to save this service/i
+    )
+    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
+      /click Check to confirm agents can use it/i
+    )
+    expect(screen.getByTestId('provider-form-status').textContent).not.toMatch(
+      new RegExp(['run', 'Check'].join('\\s+'), 'i')
+    )
     fireEvent.click(saveButton)
 
     await waitFor(() =>

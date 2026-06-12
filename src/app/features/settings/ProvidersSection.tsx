@@ -66,7 +66,10 @@ const PROVIDER_SETUP_STEPS = [
     label: 'Paste service access key',
     value: 'Use the access key from that account. Forge hides it after saving.',
   },
-  { label: 'Save and check', value: 'Run Check once so agents do not fail later.' },
+  {
+    label: 'Save and check',
+    value: 'After saving, click Check once to confirm agents can use this service.',
+  },
 ]
 
 const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
@@ -365,8 +368,8 @@ function providerFormReadiness({
 
   return {
     ready: true,
-    title: 'Ready to save',
-    detail: 'Save this AI service, then run Check so agents can use it safely.',
+    title: 'Ready to save this service',
+    detail: 'Save it, then click Check to confirm agents can use it.',
     error: null,
     fieldId: null,
   }
@@ -413,7 +416,7 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
     return {
       title: 'Add your first AI service',
       detail:
-        'An AI service is the account agents use to answer. Pick a service, paste the service access key, save it, then run Check.',
+        'An AI service is the account agents use to answer. Pick a service, paste the service access key, save it, then click Check.',
       success: 'At least 1 AI service is saved and ready for a connection check.',
       ready: false,
       action: 'add-provider',
@@ -425,7 +428,7 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
     const firstProvider = needsTestProviders[0]
     return {
       title: 'Check the AI service connection',
-      detail: `Run Check for ${firstProvider.displayName} before assigning work so the first agent run does not fail.`,
+      detail: `Click Check for ${firstProvider.displayName} before assigning work so agents do not fail on the first answer.`,
       success: 'The AI service shows Ready and can be used by simple chat agents.',
       ready: false,
       action: 'show-needs-test',
@@ -1286,7 +1289,7 @@ export function ProvidersSection() {
               No AI services configured
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Add one AI account, then run Check so agents can answer without setup surprises.
+              Add one AI account, then click Check so agents can answer without setup surprises.
             </p>
           </div>
         ) : filteredProviders.length === 0 && !showForm ? (
