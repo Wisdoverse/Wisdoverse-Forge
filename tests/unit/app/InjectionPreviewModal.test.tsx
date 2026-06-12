@@ -43,6 +43,7 @@ describe('InjectionPreviewModal', () => {
     expect(screen.getAllByLabelText('Close saved notes review')).toHaveLength(2)
     expect(screen.queryByText(/publish/i)).toBeNull()
     expect(screen.queryByText(/selected context/i)).toBeNull()
+    expect(screen.queryByText(new RegExp(['skill', 'instructions'].join('\\s+'), 'i'))).toBeNull()
   })
 
   test('explains note space without context-unit jargon', () => {
@@ -126,5 +127,50 @@ describe('InjectionPreviewModal', () => {
     expect(
       screen.queryByText(new RegExp(['Context', 'item', 'needs', 'review'].join('\\s+')))
     ).toBeNull()
+  })
+
+  test('uses plain saved-item wording for optional and reusable items', () => {
+    render(
+      <InjectionPreviewModal
+        isOpen
+        preview={{
+          ...preview,
+          items: [
+            {
+              ...preview.items[0],
+              itemKind: 'skill',
+            },
+          ],
+          suggestedItems: [
+            {
+              ...preview.items[0],
+              id: 'suggested-1',
+              title: 'Suggested checklist',
+            },
+          ],
+          previouslyPinned: [
+            {
+              ...preview.items[0],
+              id: 'kept-1',
+              title: 'Kept checklist',
+              pinned: true,
+            },
+          ],
+        }}
+        onClose={() => {}}
+        onConfirm={() => {}}
+      />
+    )
+
+    expect(screen.getByText('Saved instruction')).toBeDefined()
+    expect(screen.getByText('More saved items you can include')).toBeDefined()
+    expect(screen.getByText('Kept easy to reuse')).toBeDefined()
+    expect(screen.getByText('These saved items stay easy to reuse for this task.')).toBeDefined()
+    expect(screen.getByLabelText('Keep Deploy checklist easy to reuse')).toBeDefined()
+    expect(screen.getByLabelText('Stop keeping Kept checklist easy to reuse')).toBeDefined()
+    expect(screen.queryByText(new RegExp(['Skill', 'instruction'].join('\\s+')))).toBeNull()
+    expect(screen.queryByText(new RegExp(['Optional', 'matches'].join('\\s+')))).toBeNull()
+    expect(screen.queryByText(new RegExp(['Pinned', 'for', 'later'].join('\\s+')))).toBeNull()
+    expect(screen.queryByLabelText(new RegExp(['Stop', 'pinning'].join('\\s+')))).toBeNull()
   })
 })

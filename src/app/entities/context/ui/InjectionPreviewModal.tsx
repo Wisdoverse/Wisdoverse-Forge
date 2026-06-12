@@ -121,7 +121,7 @@ export function InjectionPreviewModal({
               {selectedSummary} · {budget}
             </p>
             <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
-              These are the saved notes and skill instructions the agent will see next. Remove
+              These are the saved notes and saved instructions the agent will see next. Remove
               anything that does not belong.
             </p>
           </div>
@@ -188,7 +188,7 @@ export function InjectionPreviewModal({
                 onTogglePinned={togglePinned}
               />
               <PreviewSection
-                title="Optional matches"
+                title="More saved items you can include"
                 helper="These may help, but they stay out unless you choose them."
                 items={preview.suggestedItems}
                 empty="No extra matches were found."
@@ -198,10 +198,10 @@ export function InjectionPreviewModal({
                 onTogglePinned={togglePinned}
               />
               <PreviewSection
-                title="Pinned for later"
-                helper="Pinned items are kept easy to reuse for this task."
+                title="Kept easy to reuse"
+                helper="These saved items stay easy to reuse for this task."
                 items={preview.previouslyPinned}
-                empty="Nothing is pinned yet."
+                empty="Nothing is kept yet."
                 selectedIds={selectedIds}
                 pinnedIds={pinnedIds}
                 onToggleSelected={toggleSelected}
@@ -368,7 +368,9 @@ function PreviewItemRow({
         <button
           type="button"
           onClick={() => onTogglePinned(item.id)}
-          aria-label={pinned ? `Stop pinning ${item.title}` : `Keep ${item.title} pinned`}
+          aria-label={
+            pinned ? `Stop keeping ${item.title} easy to reuse` : `Keep ${item.title} easy to reuse`
+          }
           className={cn(
             'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
             pinned
@@ -450,7 +452,7 @@ function itemKindLabel(kind: string): string {
     case 'memory':
       return 'Saved note'
     case 'skill':
-      return 'Skill instruction'
+      return 'Saved instruction'
     default:
       return 'Saved item needs review'
   }
