@@ -427,11 +427,37 @@ function completionSummary(task: TaskSummary): string {
   if (Array.isArray(result)) {
     return `${result.length} result artifact${result.length === 1 ? '' : 's'}`
   }
-  if (typeof result.message === 'string' && result.message.trim()) return result.message
+  if (typeof result.message === 'string' && result.message.trim()) {
+    return safeCompletionMessage(result.message)
+  }
   if (typeof result.stdout === 'string' && result.stdout.trim()) {
     return 'Finished with a text result. Open details to review it.'
   }
   return 'Completed'
+}
+
+function safeCompletionMessage(message: string): string {
+  const trimmed = message.trim()
+  const lower = trimmed.toLowerCase()
+  const looksLikeSupportDetail =
+    trimmed.length > 180 ||
+    trimmed.includes('\n') ||
+    /\b(token|secret|password|api[_\s-]?key|credential|credentials)\b/i.test(trimmed) ||
+    /\b(401|403|500|502|503|504)\b/.test(trimmed) ||
+    lower.includes('unauthorized') ||
+    lower.includes('forbidden') ||
+    lower.includes('panic') ||
+    lower.includes('stack trace') ||
+    lower.includes('traceback') ||
+    lower.includes('exception') ||
+    lower.includes('database') ||
+    lower.includes('raw command output')
+
+  if (looksLikeSupportDetail) {
+    return 'Finished with a summary that needs review. Open details before using the result.'
+  }
+
+  return trimmed
 }
 
 function mapAgentStatus(status: unknown): 'working' | 'idle' | 'blocked' | 'offline' {
