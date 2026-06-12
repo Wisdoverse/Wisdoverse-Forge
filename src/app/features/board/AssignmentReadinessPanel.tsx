@@ -62,7 +62,7 @@ export function AssignmentReadinessPanel({
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
               <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-                Assignment readiness
+                Agent readiness
               </h2>
               <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {loading ? 'Checking agents…' : summary}
@@ -84,8 +84,8 @@ export function AssignmentReadinessPanel({
             onClick={onRefresh}
             disabled={loading}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-secondary-light transition-colors hover:bg-black/[0.05] hover:text-foreground-light disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
-            aria-label="Refresh assignment readiness"
-            title="Refresh assignment readiness"
+            aria-label="Refresh agent readiness"
+            title="Refresh agent readiness"
           >
             <RefreshCw
               size={14}
