@@ -22,7 +22,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/start': { title: 'Start', subtitle: 'First-run setup and launch checklist' },
   '/tasks': { title: 'Tasks', subtitle: 'Plan, assign, and track agent work' },
   '/inbox': { title: 'Inbox', subtitle: 'Notifications and updates' },
-  '/context/audit': { title: 'Review history', subtitle: 'See past reuse decisions and exports' },
+  '/context/audit': { title: 'Review history', subtitle: 'See what was reviewed or reused' },
   '/context': {
     title: 'Saved memories and instructions',
     subtitle: 'Review what agents may reuse later',

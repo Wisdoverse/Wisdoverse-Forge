@@ -189,13 +189,14 @@ describe('AppLayout', () => {
     expect(screen.queryByText(/performance and activity metrics/i)).toBeNull()
   })
 
-  test('uses plain review history metadata for context exports', () => {
+  test('uses plain review history metadata', () => {
     routerState.path = '/context/audit'
 
     render(<MemoryRouter />)
 
     expect(screen.getByText('Review history')).toBeDefined()
-    expect(screen.getByText('See past reuse decisions and exports')).toBeDefined()
+    expect(screen.getByText('See what was reviewed or reused')).toBeDefined()
+    expect(screen.queryByText(/exports/i)).toBeNull()
     expect(screen.queryByText(/governance event/i)).toBeNull()
   })
 
