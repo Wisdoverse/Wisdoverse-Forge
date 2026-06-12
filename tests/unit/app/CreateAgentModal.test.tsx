@@ -406,6 +406,45 @@ describe('CreateAgentModal', () => {
     expect(payload).not.toHaveProperty('cliTool')
   })
 
+  test('empty name shows a visible error instead of silently ignoring the click', async () => {
+    const createAgent = vi.fn().mockResolvedValue(true)
+    useAgentsStore.setState({ createAgent } as never)
+
+    render(<CreateAgentModal />)
+    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+
+    await waitFor(() => expect(screen.getByText('Name is required')).toBeInTheDocument())
+    expect(createAgent).not.toHaveBeenCalled()
+  })
+
+  test('whitespace-only name shows the same error', async () => {
+    const createAgent = vi.fn().mockResolvedValue(true)
+    useAgentsStore.setState({ createAgent } as never)
+
+    render(<CreateAgentModal />)
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: '   ' } })
+    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+
+    await waitFor(() => expect(screen.getByText('Name is required')).toBeInTheDocument())
+    expect(createAgent).not.toHaveBeenCalled()
+  })
+
+  test('provider kind with an empty model shows a visible error', async () => {
+    const createAgent = vi.fn().mockResolvedValue(true)
+    useAgentsStore.setState({ createAgent } as never)
+
+    render(<CreateAgentModal />)
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
+    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+    fireEvent.change(screen.getByLabelText(/^model$/i), { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+
+    await waitFor(() =>
+      expect(screen.getByText('Provider and model are required')).toBeInTheDocument()
+    )
+    expect(createAgent).not.toHaveBeenCalled()
+  })
+
   test('applies a role template to a provider agent prompt', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
