@@ -423,6 +423,8 @@ describe('AppLayout', () => {
     )
     expect(screen.getByText(/a task queue gives new work a place to wait/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /open task queues/i })).toBeDefined()
+    const previousQueueInstruction = ['agents', 'check', 'task', 'queues'].join(' ')
+    expect(screen.queryByText(new RegExp(previousQueueInstruction, 'i'))).toBeNull()
     expect(createButton).toBeDisabled()
     expect(mockCreateGroup).not.toHaveBeenCalled()
     expect(mockCreateTask).not.toHaveBeenCalled()
