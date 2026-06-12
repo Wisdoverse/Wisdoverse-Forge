@@ -184,6 +184,7 @@ mod tests {
             redis_url: None,
             nats_url,
             nats_agent_url: None,
+            nats_container_url: None,
             nats_callout: agentforge_core::NatsCalloutConfig::default(),
             stripe: agentforge_core::StripeConfig::default(),
             jwt_secret: test_jwt_secret(),
