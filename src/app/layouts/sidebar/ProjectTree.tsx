@@ -25,7 +25,7 @@ interface ProjectTreeProps {
   expandedTeams: string[]
   selectedProjectId: string | null
   onToggleTeam: (teamId: string) => void
-  onSelectProject: (projectId: string) => void | Promise<void>
+  onSelectProject: (projectId: string) => void | boolean | Promise<void | boolean>
   onUpdateTeam: (teamId: string, input: { name?: string }) => Promise<void>
   onDeleteTeam: (teamId: string) => Promise<void>
   onUpdateProject: (projectId: string, input: { name?: string }) => Promise<void>
