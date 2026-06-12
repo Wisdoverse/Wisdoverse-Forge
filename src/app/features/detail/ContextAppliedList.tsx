@@ -166,15 +166,15 @@ function AppliedContextCard({
 function scopeKindLabel(scopeKind: string): string {
   switch (scopeKind) {
     case 'org':
-      return 'Team space-level'
+      return 'Team space'
     case 'team':
-      return 'Team-level'
+      return 'Team'
     case 'project':
-      return 'Project-level'
+      return 'Project'
     case 'user':
       return 'Only you'
     default:
-      return 'Scope needs review'
+      return 'Sharing setting needs review'
   }
 }
 
@@ -189,7 +189,7 @@ function sensitivityLabel(sensitivity: string): string {
     case 'secret_detected':
       return 'May contain secrets'
     default:
-      return 'Sensitivity needs review'
+      return 'Safety label needs review'
   }
 }
 
