@@ -24,7 +24,7 @@ const SKILL_REVIEW_POINTS = [
   { label: 'Saved instruction', value: 'Keep only instructions future work should repeat.' },
   {
     label: 'No secrets',
-    value: 'Remove tokens, customer data, one-time paths, and private notes.',
+    value: 'Remove secret keys, customer data, one-time paths, and private notes.',
   },
   { label: 'Next owner', value: 'After publishing, choose the agents that should follow it.' },
 ]
@@ -173,7 +173,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                   Use when
                 </label>
                 <p
-                  id="skill-draft-trigger-help"
+                  id="skill-draft-trigger-intro"
                   className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
                 >
                   Short phrase that tells agents when this instruction fits.
@@ -184,7 +184,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                   autoComplete="off"
                   value={form.triggerPattern}
                   onChange={(event) => updateField('triggerPattern', event.target.value)}
-                  aria-describedby="skill-draft-trigger-help"
+                  aria-describedby="skill-draft-trigger-intro skill-draft-trigger-help"
                   className={cn(uiStyles.input, 'font-mono')}
                 />
                 <p

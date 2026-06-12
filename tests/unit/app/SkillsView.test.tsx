@@ -210,6 +210,8 @@ describe('SkillsView', () => {
     await user.click(screen.getAllByRole('button', { name: /new instruction/i })[0])
     expect(screen.getByText(/check before creating/i)).toBeDefined()
     expect(screen.getByText('Safe to share')).toBeDefined()
+    expect(screen.getByText(/leave out secret keys/i)).toBeDefined()
+    expect(screen.queryByText(/tokens/i)).toBeNull()
     expect(screen.getByText(/choose this instruction manually/i)).toBeDefined()
     expect(screen.getByText(/words people usually write/i)).toBeDefined()
 

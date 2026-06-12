@@ -21,7 +21,7 @@ const SKILL_REVIEW_POINTS = [
   { label: 'Repeatable', value: 'Use this for work your team expects to repeat.' },
   {
     label: 'Safe to share',
-    value: 'Leave out tokens, private notes, and one-time project details.',
+    value: 'Leave out secret keys, private notes, and one-time project details.',
   },
   { label: 'Agent ready', value: 'Write steps an agent can follow without extra context.' },
 ]

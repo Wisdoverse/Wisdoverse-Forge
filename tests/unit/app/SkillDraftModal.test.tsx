@@ -61,6 +61,8 @@ describe('SkillDraftModal', () => {
     expect(screen.getByLabelText(/^use when$/i)).toBeDefined()
     expect(screen.getByText(/check before publishing/i)).toBeDefined()
     expect(screen.getByText('No secrets')).toBeDefined()
+    expect(screen.getByText(/remove secret keys/i)).toBeDefined()
+    expect(screen.queryByText(/tokens/i)).toBeNull()
     expect(screen.getByText(/choose the agents that should follow it/i)).toBeDefined()
 
     await userEvent.setup().click(screen.getByRole('button', { name: /publish instruction/i }))
@@ -98,6 +100,12 @@ describe('SkillDraftModal', () => {
     )
 
     expect(screen.getByText(/check 3 things before publishing/i)).toBeDefined()
+    expect(document.querySelectorAll('[id="skill-draft-trigger-help"]')).toHaveLength(1)
+    expect(document.querySelectorAll('[id="skill-draft-trigger-intro"]')).toHaveLength(1)
+    expect(screen.getByLabelText(/^use when$/i)).toHaveAttribute(
+      'aria-describedby',
+      'skill-draft-trigger-intro skill-draft-trigger-help'
+    )
 
     await user.clear(screen.getByLabelText(/^instruction name$/i))
     await user.click(screen.getByRole('button', { name: /publish instruction/i }))
