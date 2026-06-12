@@ -60,7 +60,7 @@ const skillTemplates = [
       description: 'Summarize build status from one fresh check',
       triggerPattern: 'ci status, checks, build status',
       content:
-        'Take one compact GitHub or GitLab status snapshot. Use `npm run pr:summary` first when this project provides it, and reuse its cached result instead of forcing a refresh.\nClassify the result as ACTION, WAIT, or DONE.\nFor ACTION, inspect only the failed check or job log needed for the fix.\nFor WAIT, stop monitoring in chat, report when a fresh check is useful, and suggest `npm run pr:summary:monitor` or a scheduled monitor instead of watching repeatedly.',
+        'Check GitHub or GitLab once and summarize only the fields needed to decide the next step. If the project already has a recent PR or CI summary, reuse it instead of refreshing.\nClassify the result as ACTION, WAIT, or DONE.\nFor ACTION, inspect only the failed check or job details needed for the fix.\nFor WAIT, stop monitoring in chat. Tell the user when another single check is useful, and suggest a background monitor if the project has one.\nFor DONE, report the final status and stop.',
     },
   },
   {
