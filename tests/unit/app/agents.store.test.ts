@@ -108,9 +108,23 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'Check the agent name, work tool, and project access, then run the setup command again.'
+      'Check the agent name, work tool, and project access, then choose Create Agent again.'
     )
     expect(message).not.toContain('CLI')
+    expect(message).not.toContain('local agent')
+  })
+
+  test('explains this-computer enrollment server failures before setup commands exist', () => {
+    const message = agentActionErrorMessage(
+      'enrollLocal',
+      apiError(503, { message: 'database unavailable' })
+    )
+
+    expectBeginnerError(
+      message,
+      'Forge could not prepare the setup command for this computer right now. Wait a moment, then choose Create Agent again. If it still fails, ask an owner or admin to check Agent Work Setup.'
+    )
+    expect(message).not.toContain('database')
     expect(message).not.toContain('local agent')
   })
 
@@ -238,9 +252,29 @@ describe('Agents Store', () => {
     expect(result).toBeNull()
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Forge could not connect the agent from this computer. It could not connect while updating Agents. Check your connection, then refresh Agents.'
+      'Forge could not prepare the setup command for this computer. Check your connection, then choose Create Agent again.'
     )
     expect(useAgentsStore.getState().error).not.toContain('Network error')
+    expect(useAgentsStore.getState().error).not.toContain('local agent')
+  })
+
+  test('stores setup command retry guidance when this-computer enrollment is unavailable', async () => {
+    agentApiMock.enrollLocalAgent.mockResolvedValue({
+      ok: false,
+      error: 'database unavailable',
+    })
+
+    const result = await useAgentsStore.getState().enrollLocalAgent({
+      name: 'Local Agent',
+      cliTool: 'codex',
+    })
+
+    expect(result).toBeNull()
+    expectBeginnerError(
+      useAgentsStore.getState().error,
+      'Forge could not prepare the setup command for this computer right now. Wait a moment, then choose Create Agent again. If it still fails, ask an owner or admin to check Agent Work Setup.'
+    )
+    expect(useAgentsStore.getState().error).not.toContain('database')
     expect(useAgentsStore.getState().error).not.toContain('local agent')
   })
 

@@ -161,7 +161,21 @@ function isRawAgentFailure(detail: string | null): boolean {
   )
 }
 
+function isAgentServiceUnavailable(detail: string | null): boolean {
+  const normalized = detail?.toLowerCase() ?? ''
+  return (
+    normalized.includes('database') ||
+    normalized.includes('unavailable') ||
+    normalized.includes('timeout') ||
+    normalized.includes('temporarily') ||
+    normalized.includes('internal server')
+  )
+}
+
 function agentConnectionMessage(actionPhrase: string, action: AgentErrorAction): string {
+  if (action === 'enrollLocal') {
+    return 'Forge could not prepare the setup command for this computer. Check your connection, then choose Create Agent again.'
+  }
   const operation = action === 'load' ? 'loading Agents' : 'updating Agents'
   return `Forge could not ${actionPhrase}. It could not connect while ${operation}. Check your connection, then refresh Agents.`
 }
@@ -172,6 +186,9 @@ export function agentActionErrorMessage(action: AgentErrorAction, error?: unknow
   const detail = agentErrorDetail(error)
 
   if (!status) {
+    if (action === 'enrollLocal' && isAgentServiceUnavailable(detail)) {
+      return agentServerMessage(action)
+    }
     if (!isRawAgentFailure(detail)) {
       return agentValidationMessage(action, detail)
     }
@@ -219,7 +236,7 @@ function agentValidationMessage(action: AgentErrorAction, detail: string | null)
   }
 
   if (action === 'enrollLocal') {
-    return 'Check the agent name, work tool, and project access, then run the setup command again.'
+    return 'Check the agent name, work tool, and project access, then choose Create Agent again.'
   }
   if (action === 'sendPrompt') {
     return 'Write one clear instruction and make sure the agent is not already working, then send again.'
@@ -246,6 +263,9 @@ function agentConflictMessage(action: AgentErrorAction, detail: string | null): 
 }
 
 function agentServerMessage(action: AgentErrorAction): string {
+  if (action === 'enrollLocal') {
+    return 'Forge could not prepare the setup command for this computer right now. Wait a moment, then choose Create Agent again. If it still fails, ask an owner or admin to check Agent Work Setup.'
+  }
   if (action === 'start' || action === 'restart' || action === 'create') {
     return "Forge could not prepare this agent's workspace right now. Wait a moment, then try again. If it still fails, ask an owner or admin to check Agent Work Setup."
   }
