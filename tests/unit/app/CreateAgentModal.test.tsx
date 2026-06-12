@@ -72,7 +72,7 @@ describe('CreateAgentModal', () => {
       /select a project in the sidebar/i
     )
     expect(screen.queryByLabelText(/^ai service$/i)).toBeNull()
-    expect(screen.queryByLabelText(/^model name$/i)).toBeNull()
+    expect(screen.queryByLabelText(/^ai model$/i)).toBeNull()
     expect(screen.queryByText(/Name seeds CLI agents/i)).toBeNull()
   })
 
@@ -234,7 +234,9 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByRole('combobox', { name: /^work tool$/i })).toBeNull()
     expect(screen.queryByLabelText(/work folder/i)).toBeNull()
     expect(screen.getByLabelText(/^ai service$/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/^model name$/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/^ai model$/i)).toBeInTheDocument()
+    expect(screen.getByText(/keep the suggested AI model/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/^model name$/i)).toBeNull()
     expect(screen.queryByLabelText(/^provider$/i)).toBeNull()
     expect(screen.queryByLabelText(/^model$/i)).toBeNull()
   })
@@ -405,7 +407,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByRole('radio', { name: /simple chat agent/i })).toBeChecked()
     expect(screen.queryByRole('combobox', { name: /^work tool$/i })).toBeNull()
     expect(screen.getByLabelText(/^ai service$/i)).toHaveValue('openai')
-    expect(screen.getByLabelText(/^model name$/i)).toHaveValue('gpt-5.5')
+    expect(screen.getByLabelText(/^ai model$/i)).toHaveValue('gpt-5.5')
 
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
@@ -426,7 +428,7 @@ describe('CreateAgentModal', () => {
     fireEvent.change(screen.getByLabelText(/^ai service$/i), { target: { value: 'openai' } })
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/^model name$/i)).toHaveValue('gpt-4o')
+      expect(screen.getByLabelText(/^ai model$/i)).toHaveValue('gpt-4o')
     })
   })
 
@@ -453,7 +455,7 @@ describe('CreateAgentModal', () => {
     fireEvent.change(providerSelect, { target: { value: 'zhipu' } })
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/^model name$/i)).toHaveValue('glm-4.7')
+      expect(screen.getByLabelText(/^ai model$/i)).toHaveValue('glm-4.7')
     })
   })
 

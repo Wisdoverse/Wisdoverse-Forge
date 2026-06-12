@@ -301,7 +301,7 @@ export function CreateAgentModal() {
     }
     if (data.kind === 'provider') {
       if (!data.provider || !data.model.trim()) {
-        setError('Choose an AI service and model name before creating this agent.')
+        setError('Choose an AI service and AI model before creating this agent.')
         return
       }
       await createAgent({
@@ -835,14 +835,21 @@ export function CreateAgentModal() {
                     htmlFor="agent-model"
                     className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                   >
-                    Model name
+                    AI model
                   </label>
                   <input
                     id="agent-model"
                     {...register('model', { required: true })}
+                    aria-describedby="agent-model-help"
                     className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                     placeholder="e.g. claude-sonnet-4-6…"
                   />
+                  <p
+                    id="agent-model-help"
+                    className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+                  >
+                    Keep the suggested AI model unless an owner gives you a different one.
+                  </p>
                 </div>
                 <div>
                   <label
