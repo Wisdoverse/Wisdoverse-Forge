@@ -340,7 +340,7 @@ export function CreateAgentModal() {
     try {
       const group = await createAgentGroup(selectedProjectId, {
         name: 'Default Task Queue',
-        description: 'This task queue lets agents receive board tasks.',
+        description: 'This task queue gives project tasks a place to wait for an available agent.',
       })
       setValue('groupId', group.id, { shouldDirty: true })
     } catch (err) {
@@ -915,7 +915,7 @@ export function CreateAgentModal() {
                       ))}
                     </select>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      A task queue is where this agent waits for board tasks.
+                      A task queue gives work a place to wait until this agent can take it.
                     </p>
                   </>
                 ) : (

@@ -21,7 +21,8 @@ import type { TaskSummary } from '@app/shared/api/orchestration'
 import { useNavigationStore } from '@app/entities/navigation'
 import { agentGroupErrorMessage } from './model/agentGroupErrorMessage'
 
-const DEFAULT_GROUP_DESCRIPTION = 'This task queue lets agents receive board tasks.'
+const DEFAULT_GROUP_DESCRIPTION =
+  'This task queue gives project tasks a place to wait for an available agent.'
 
 const TASK_STATE_LABELS: Record<TaskSummary['state'], string> = {
   backlog: 'Not sent yet',

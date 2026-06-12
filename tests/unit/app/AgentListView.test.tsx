@@ -308,7 +308,8 @@ describe('AgentListView', () => {
         'p1',
         expect.objectContaining({
           name: 'Frontend Delivery',
-          description: 'This task queue lets agents receive board tasks.',
+          description:
+            'This task queue gives project tasks a place to wait for an available agent.',
         })
       )
     )
