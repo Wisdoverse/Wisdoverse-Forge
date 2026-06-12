@@ -358,7 +358,7 @@ function taskCheckIn(task: TaskSummary): {
         detail:
           artifactCount > 0
             ? `${artifactCount} result item${artifactCount === 1 ? '' : 's'} ready to review.`
-            : 'Review the outcome and decide whether saved guidance should be drafted.',
+            : 'Review the outcome, then save repeatable steps or create a follow-up task if something is missing.',
         tone: 'success',
         Icon: CheckCircle2,
       }
@@ -459,7 +459,7 @@ function taskUpdateGuide(task: TaskSummary): string {
     case 'blocked':
       return 'The task needs your input. Read the reason, decide what to provide, then approve or update the task.'
     case 'completed':
-      return 'Open Results next. Confirm the answer matches the brief before reusing the work.'
+      return 'Open Results next. Check the answer, then accept it, save repeatable steps, or create a follow-up task.'
     case 'failed':
       return 'Read the latest attempt, fix the cause if you can, then retry or create a clearer follow-up task.'
     case 'canceled':

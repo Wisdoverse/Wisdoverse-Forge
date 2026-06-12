@@ -248,6 +248,26 @@ describe('HistoryTab', () => {
     expect(screen.queryByText('Queued')).toBeNull()
   })
 
+  test('guides completed tasks toward result review without saved guidance jargon', async () => {
+    getTaskRunsMock.mockResolvedValue([])
+
+    render(
+      <HistoryTab
+        task={makeTask({
+          state: 'completed',
+          progress: 100,
+          completedAt: '2026-04-25T06:20:00Z',
+        })}
+      />
+    )
+
+    expect(await screen.findByText('Build Agent finished the task')).toBeInTheDocument()
+    expect(screen.getByText(/Review the outcome, then save repeatable steps/i)).toBeInTheDocument()
+    expect(screen.getByText(/Open Results next. Check the answer/i)).toBeInTheDocument()
+    expect(screen.queryByText(/saved guidance/i)).toBeNull()
+    expect(screen.queryByText(/Confirm the answer matches the brief/i)).toBeNull()
+  })
+
   test('summarizes blocked task history without raw reason codes', async () => {
     getTaskRunsMock.mockResolvedValue([])
 
