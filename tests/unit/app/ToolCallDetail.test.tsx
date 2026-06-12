@@ -55,8 +55,10 @@ describe('ToolCallDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: /show support details for setup/i }))
     fireEvent.click(screen.getByRole('button', { name: /show support details for result/i }))
 
-    expect(screen.getByText(/cwd/i)).toBeInTheDocument()
-    expect(screen.getByText(/durationMs/i)).toBeInTheDocument()
+    expect(screen.getByText(/Folder: \/workspace\/app/i)).toBeInTheDocument()
+    expect(screen.getByText(/Duration: 1.2s/i)).toBeInTheDocument()
+    expect(screen.queryByText(/cwd/i)).toBeNull()
+    expect(screen.queryByText(/durationMs/i)).toBeNull()
   })
 
   test('flags failed tool output as something to review before trusting the answer', () => {
@@ -86,7 +88,9 @@ describe('ToolCallDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: /show support details for setup/i }))
 
     expect(screen.getByText(/Hidden for safety/i)).toBeInTheDocument()
+    expect(screen.getByText(/Account access:/i)).toBeInTheDocument()
     expect(screen.queryByText(/Missing token/i)).toBeNull()
+    expect(screen.queryByText(/token:/i)).toBeNull()
     expect(screen.queryByText(/secret-token-value/i)).toBeNull()
   })
 

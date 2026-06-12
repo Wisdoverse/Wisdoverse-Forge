@@ -10,10 +10,72 @@ const MISSING_ACCESS_MESSAGE =
 
 function formatSupportDetails(data: Record<string, unknown>): string {
   try {
-    return JSON.stringify(safeToolValue(data), null, 2)
+    const safeData = safeToolValue(data)
+    if (!safeData || typeof safeData !== 'object' || Array.isArray(safeData)) {
+      return formatSupportValue(safeData)
+    }
+
+    const lines = Object.entries(safeData as Record<string, unknown>).map(
+      ([key, value]) => `${supportDetailLabel(key)}: ${formatSupportValue(value, key)}`
+    )
+    return lines.length > 0 ? lines.join('\n') : 'No support details were recorded.'
   } catch {
     return 'Support details were recorded but could not be shown safely.'
   }
+}
+
+function supportDetailLabel(key: string): string {
+  if (isSensitiveKey(key)) return 'Account access'
+
+  const normalized = key
+    .trim()
+    .toLowerCase()
+    .replace(/[-_\s]/g, '')
+  const labels: Record<string, string> = {
+    command: 'Command',
+    cwd: 'Folder',
+    durationms: 'Duration',
+    ok: 'Finished cleanly',
+    summary: 'Summary',
+    message: 'Message',
+    description: 'Description',
+    title: 'Title',
+    query: 'Search text',
+    path: 'Path',
+    file: 'File',
+    url: 'Address',
+    target: 'Target',
+    reason: 'Reason',
+    error: 'Problem',
+  }
+  return labels[normalized] ?? humanizeSupportKey(key)
+}
+
+function humanizeSupportKey(key: string): string {
+  return key
+    .trim()
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .split(/[_\-\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
+}
+
+function formatSupportValue(value: unknown, key = ''): string {
+  if (
+    typeof value === 'number' &&
+    key
+      .trim()
+      .toLowerCase()
+      .replace(/[-_\s]/g, '') === 'durationms'
+  ) {
+    return formatDuration(value)
+  }
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (typeof value === 'string') return value
+  if (value === null || value === undefined) return 'Not recorded'
+  if (typeof value === 'number') return String(value)
+  return JSON.stringify(value, null, 2)
 }
 
 function safeToolValue(value: unknown, key = ''): unknown {
