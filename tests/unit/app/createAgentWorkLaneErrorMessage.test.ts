@@ -8,10 +8,34 @@ describe('createAgentWorkLaneErrorMessage', () => {
     )
   })
 
+  test('turns structured permission failures into an owner or admin next step', () => {
+    const message = createAgentWorkLaneErrorMessage({
+      statusCode: '403',
+      detail: 'owner role required',
+    })
+
+    expect(message).toBe(
+      'Task queue was not created. Ask an owner or admin to let you create and manage task queues in this project.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   test('turns duplicate queue failures into an existing queue step', () => {
     expect(createAgentWorkLaneErrorMessage(new Error('API 409: duplicate lane'))).toBe(
       'Task queue was not created. A starter queue may already exist. Refresh the project, then choose the existing queue.'
     )
+  })
+
+  test('turns structured duplicate failures into an existing queue step', () => {
+    const message = createAgentWorkLaneErrorMessage({
+      code: '409',
+      reason: 'duplicate lane',
+    })
+
+    expect(message).toBe(
+      'Task queue was not created. A starter queue may already exist. Refresh the project, then choose the existing queue.'
+    )
+    expect(message).not.toContain('duplicate lane')
   })
 
   test('turns invalid queue setup into a project selection step', () => {
@@ -37,5 +61,18 @@ describe('createAgentWorkLaneErrorMessage', () => {
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('platform')
+  })
+
+  test('turns structured service failures into a safe retry and owner check', () => {
+    const message = createAgentWorkLaneErrorMessage({
+      status: '503',
+      message: 'database unavailable',
+    })
+
+    expect(message).toBe(
+      'Task queue was not created. Forge could not create the task queue right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check task queue setup.'
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('503')
   })
 })

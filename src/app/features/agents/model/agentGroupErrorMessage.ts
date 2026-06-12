@@ -1,13 +1,41 @@
 function errorText(err: unknown): string {
   if (err instanceof Error) return err.message
-  return typeof err === 'string' ? err : ''
+  if (typeof err === 'string') return err
+  if (!err || typeof err !== 'object') return ''
+
+  const value = err as {
+    detail?: unknown
+    error?: unknown
+    message?: unknown
+    reason?: unknown
+  }
+
+  for (const candidate of [value.detail, value.error, value.message, value.reason]) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+  }
+
+  return ''
 }
 
 function statusCode(err: unknown): number | null {
+  if (err && typeof err === 'object') {
+    const value = err as { status?: unknown; statusCode?: unknown; code?: unknown }
+    for (const candidate of [value.status, value.statusCode, value.code]) {
+      const code = numericStatus(candidate)
+      if (code) return code
+    }
+  }
+
   const match = errorText(err).match(/\b(?:HTTP|API|Server error)\s*\(?(\d{3})\b/i)
   if (!match) return null
   const code = Number.parseInt(match[1] ?? '', 10)
   return Number.isFinite(code) ? code : null
+}
+
+function numericStatus(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && /^\d+$/.test(value)) return Number(value)
+  return null
 }
 
 function isNetworkError(err: unknown): boolean {

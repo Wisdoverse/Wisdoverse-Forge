@@ -1,18 +1,41 @@
 function errorText(error: unknown): string {
   if (error instanceof Error) return error.message
-  return typeof error === 'string' ? error : ''
+  if (typeof error === 'string') return error
+  if (!error || typeof error !== 'object') return ''
+
+  const value = error as {
+    detail?: unknown
+    error?: unknown
+    message?: unknown
+    reason?: unknown
+  }
+
+  for (const candidate of [value.detail, value.error, value.message, value.reason]) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+  }
+
+  return ''
 }
 
 function statusCode(error: unknown): number | null {
-  if (error && typeof error === 'object' && 'statusCode' in error) {
-    const statusCode = (error as { statusCode?: unknown }).statusCode
-    if (typeof statusCode === 'number') return statusCode
+  if (error && typeof error === 'object') {
+    const value = error as { status?: unknown; statusCode?: unknown; code?: unknown }
+    for (const candidate of [value.status, value.statusCode, value.code]) {
+      const code = numericStatus(candidate)
+      if (code) return code
+    }
   }
 
   const match = errorText(error).match(/\b(?:HTTP|API|Server error|Code:)\s*\(?(\d{3})\b/i)
   if (!match) return null
   const code = Number.parseInt(match[1] ?? '', 10)
   return Number.isFinite(code) ? code : null
+}
+
+function numericStatus(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && /^\d+$/.test(value)) return Number(value)
+  return null
 }
 
 function isNetworkError(error: unknown): boolean {
