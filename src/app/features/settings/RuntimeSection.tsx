@@ -238,7 +238,7 @@ export function RuntimeSection() {
               className={cn(cliStatusLoading && 'animate-spin')}
               aria-hidden="true"
             />
-            <span>{cliStatusLoading ? 'Checking' : 'Check status'}</span>
+            <span>{cliStatusLoading ? 'Checking setup' : 'Check setup'}</span>
           </button>
         </div>
 
@@ -517,7 +517,7 @@ function RuntimeNextStepPanel({
               />
             )}
             <p className="text-ui-caption font-semibold uppercase text-secondary-light dark:text-secondary-dark">
-              {allReady ? 'Ready' : 'Do this next'}
+              {allReady ? 'Ready' : 'Next step'}
             </p>
           </div>
           <h3 className="mt-1 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
@@ -719,7 +719,7 @@ function runtimeLaunchChecklistItems(
         id: 'runtime-api',
         title: 'Agent work setup status',
         detail:
-          'Agent Work Setup has not loaded yet. Check status. If it still does not load, ask an owner or admin to check Agent Work Setup.',
+          'Agent Work Setup has not loaded yet. Check setup. If it still does not load, ask an owner or admin to check Agent Work Setup.',
         ready: false,
         action: 'refresh',
         actionLabel: 'Check again',
@@ -781,7 +781,7 @@ function runtimeLaunchChecklistItems(
     id: 'credentials',
     title: 'Work tool sign-ins',
     detail: cliStatusError
-      ? 'Work tool sign-in status could not be checked. Check status. If it still cannot be checked, ask an owner or admin to check work tool sign-ins.'
+      ? 'Work tool sign-ins could not be checked. Check setup. If they still cannot be checked, ask an owner or admin to check work tool sign-ins.'
       : cliStatuses.length === 0
         ? 'No work tool sign-ins are required.'
         : disconnectedCredential
@@ -801,7 +801,7 @@ function runtimeLaunchChecklistItems(
     id: 'heartbeats',
     title: 'Agent online status',
     detail: participantsError
-      ? 'Agent online status could not be checked. Check status. If it still cannot be checked, ask an owner or admin to check Agent Work Setup.'
+      ? 'Agent online status could not be checked. Check setup. If it still cannot be checked, ask an owner or admin to check Agent Work Setup.'
       : latestHeartbeat
         ? `An agent was online ${formatRelativeTime(latestHeartbeat)}.`
         : 'No agent has been seen online yet. Start or wake an agent, then check again.',
