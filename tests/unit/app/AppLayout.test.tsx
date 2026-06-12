@@ -168,6 +168,17 @@ describe('AppLayout', () => {
     expect(screen.queryByText(/governed context/i)).toBeNull()
   })
 
+  test('uses beginner-facing agents page metadata', () => {
+    routerState.path = '/agents'
+
+    render(<MemoryRouter />)
+
+    expect(screen.getByText('Agents')).toBeDefined()
+    expect(screen.getByText('Create and manage agents that handle tasks')).toBeDefined()
+    expect(screen.queryByText(/deploy and manage/i)).toBeNull()
+    expect(screen.queryByText(/AI coding agents/i)).toBeNull()
+  })
+
   test('uses plain review history metadata for context exports', () => {
     routerState.path = '/context/audit'
 
