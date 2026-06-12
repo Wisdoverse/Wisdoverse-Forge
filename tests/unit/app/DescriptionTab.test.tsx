@@ -89,9 +89,26 @@ describe('DescriptionTab', () => {
     expect(
       screen.getByText('Completed work can become saved instructions after review.')
     ).toBeDefined()
+    expect(
+      screen.getByText('Draft a saved instruction only when the steps should help future tasks.')
+    ).toBeDefined()
     expect(screen.queryByText('Reusable learning')).toBeNull()
     expect(screen.queryByText(/governed skill/i)).toBeNull()
-    expect(screen.queryByText(/result artifact/i)).toBeNull()
+    expect(screen.queryByText(new RegExp(['Draft a', 'skill'].join('\\s+')))).toBeNull()
+    expect(screen.queryByText(new RegExp(['result', 'artifact'].join('\\s+'), 'i'))).toBeNull()
+  })
+
+  test('uses plain context wording before a task has saved context', () => {
+    render(<DescriptionTab task={mockTask} />)
+
+    expect(
+      screen.getByText(
+        'Saved memories, evidence, and saved instruction suggestions appear here as the task runs.'
+      )
+    ).toBeDefined()
+    expect(
+      screen.queryByText(new RegExp(['Saved memories', 'proof'].join(',\\s+'), 'i'))
+    ).toBeNull()
   })
 
   test('summarizes failed task errors without raw service details', () => {

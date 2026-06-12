@@ -425,7 +425,7 @@ function completionSummary(task: TaskSummary): string {
   const result = task.result
   if (!result) return 'No completion summary was provided'
   if (Array.isArray(result)) {
-    return `${result.length} result artifact${result.length === 1 ? '' : 's'}`
+    return `${result.length} result file${result.length === 1 ? '' : 's'}`
   }
   if (typeof result.message === 'string' && result.message.trim()) {
     return safeCompletionMessage(result.message)

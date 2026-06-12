@@ -390,6 +390,40 @@ describe('dispatchWsMessage', () => {
     expect(notifications[0].message).toContain('Patch merged')
   })
 
+  it('describes completed result arrays as result files in owner notifications', () => {
+    localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
+
+    dispatchWsMessage({
+      type: 'orchestration:task_update',
+      payload: {
+        task: {
+          id: 'task-owner-result-files',
+          groupId: 'g1',
+          state: 'completed',
+          method: 'code',
+          params: { task: 'Write release summary', message: '' },
+          createdBy: 'user-owner',
+          assignedAgentName: 'Codex',
+          result: [
+            { name: 'summary.md', mimeType: 'text/markdown', data: 'Done' },
+            { name: 'checks.md', mimeType: 'text/markdown', data: 'Passed' },
+          ],
+          priority: 'normal',
+          progress: 100,
+          createdAt: '2026-04-03T00:00:00Z',
+          updatedAt: '2026-04-03T00:01:00Z',
+        },
+      },
+    })
+
+    const notifications = useFeedStore.getState().notifications
+    expect(notifications).toHaveLength(1)
+    expect(notifications[0].message).toContain('2 result files')
+    expect(notifications[0].message).not.toContain(
+      ['result', 'artifact'].join(' ')
+    )
+  })
+
   it('hides raw completed task stdout in owner notifications', () => {
     localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
 
