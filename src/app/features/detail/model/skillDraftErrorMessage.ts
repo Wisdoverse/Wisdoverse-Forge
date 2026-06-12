@@ -3,20 +3,36 @@ function errorText(error: unknown): string {
   return typeof error === 'string' ? error : ''
 }
 
+function structuredErrorText(error: unknown): string {
+  if (!error || typeof error !== 'object') return errorText(error)
+  for (const key of ['detail', 'error', 'message', 'reason'] as const) {
+    const value = (error as Record<string, unknown>)[key]
+    if (typeof value === 'string' && value.trim()) return value
+  }
+  return errorText(error)
+}
+
 function statusCode(error: unknown): number | null {
-  if (error && typeof error === 'object' && 'statusCode' in error) {
-    const statusCode = (error as { statusCode?: unknown }).statusCode
-    if (typeof statusCode === 'number') return statusCode
+  if (error && typeof error === 'object') {
+    for (const key of ['statusCode', 'status', 'code'] as const) {
+      const value = (error as Record<string, unknown>)[key]
+      if (typeof value === 'number' && Number.isFinite(value)) return value
+      if (typeof value === 'string' && /^\d{3}$/.test(value.trim())) {
+        return Number.parseInt(value, 10)
+      }
+    }
   }
 
-  const match = errorText(error).match(/\b(?:HTTP|API|Server error|Code:)\s*\(?(\d{3})\b/i)
+  const match = structuredErrorText(error).match(
+    /\b(?:HTTP|API|Server error|Code:)\s*\(?(\d{3})\b/i
+  )
   if (!match) return null
   const code = Number.parseInt(match[1] ?? '', 10)
   return Number.isFinite(code) ? code : null
 }
 
 function isNetworkError(error: unknown): boolean {
-  const text = errorText(error).toLowerCase()
+  const text = structuredErrorText(error).toLowerCase()
   return (
     error instanceof TypeError ||
     text.includes('failed to fetch') ||
@@ -27,7 +43,7 @@ function isNetworkError(error: unknown): boolean {
 
 export function skillDraftErrorMessage(error: unknown): string {
   const base = 'Instruction was not published.'
-  const text = errorText(error).toLowerCase()
+  const text = structuredErrorText(error).toLowerCase()
   const code = statusCode(error)
 
   if (code === 401 || text.includes('unauthorized') || text.includes('sign in again')) {

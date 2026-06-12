@@ -5,15 +5,34 @@ function errorText(err: unknown): string {
   return typeof err === 'string' ? err : ''
 }
 
+function structuredErrorText(err: unknown): string {
+  if (!err || typeof err !== 'object') return errorText(err)
+  for (const key of ['detail', 'error', 'message', 'reason'] as const) {
+    const value = (err as Record<string, unknown>)[key]
+    if (typeof value === 'string' && value.trim()) return value
+  }
+  return errorText(err)
+}
+
 function statusCode(err: unknown): number | null {
-  const match = errorText(err).match(/\b(?:HTTP|API|Server error)\s*\(?(\d{3})\b/i)
+  if (err && typeof err === 'object') {
+    for (const key of ['statusCode', 'status', 'code'] as const) {
+      const value = (err as Record<string, unknown>)[key]
+      if (typeof value === 'number' && Number.isFinite(value)) return value
+      if (typeof value === 'string' && /^\d{3}$/.test(value.trim())) {
+        return Number.parseInt(value, 10)
+      }
+    }
+  }
+
+  const match = structuredErrorText(err).match(/\b(?:HTTP|API|Server error)\s*\(?(\d{3})\b/i)
   if (!match) return null
   const code = Number.parseInt(match[1] ?? '', 10)
   return Number.isFinite(code) ? code : null
 }
 
 function isNetworkError(err: unknown): boolean {
-  const text = errorText(err).toLowerCase()
+  const text = structuredErrorText(err).toLowerCase()
   return (
     err instanceof TypeError ||
     text.includes('failed to fetch') ||
@@ -31,6 +50,7 @@ function prefix(action: AgentPluginErrorAction): string {
 export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unknown): string {
   const code = statusCode(err)
   const base = prefix(action)
+  const text = structuredErrorText(err).toLowerCase()
 
   if (code === 401) {
     return `${base} Sign in again, then reopen this agent.`
@@ -53,7 +73,7 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
   if (isNetworkError(err)) {
     return `${base} Forge could not connect while checking this agent's tools. Check your connection, then try again.`
   }
-  if (errorText(err).toLowerCase().includes('ok: false')) {
+  if (text.includes('ok: false')) {
     return `${base} Forge could not read this agent's tool list. Refresh the page. If it still fails, ask an owner or admin to check workspace tools.`
   }
 

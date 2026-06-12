@@ -14,6 +14,42 @@ describe('skillDraftErrorMessage', () => {
     )
   })
 
+  test('explains structured duplicate names without leaking raw API text', () => {
+    const message = skillDraftErrorMessage({
+      detail: 'duplicate saved instruction name',
+      statusCode: 409,
+    })
+
+    expect(message).toBe(
+      'Instruction was not published. An instruction with this name may already exist. Rename it, then publish again.'
+    )
+    expect(message).not.toContain('duplicate saved instruction name')
+  })
+
+  test('turns structured validation failures into field guidance', () => {
+    const message = skillDraftErrorMessage({
+      code: '422',
+      error: 'validation failed: trigger words empty',
+    })
+
+    expect(message).toBe(
+      'Instruction was not published. Check the name, trigger words, and reusable instructions, then publish again.'
+    )
+    expect(message).not.toContain('trigger words empty')
+  })
+
+  test('turns structured rate limits into a short wait step', () => {
+    const message = skillDraftErrorMessage({
+      message: 'too many publish attempts',
+      status: 429,
+    })
+
+    expect(message).toBe(
+      'Instruction was not published. Too many instruction changes are happening right now. Wait a minute, then publish again.'
+    )
+    expect(message).not.toContain('too many publish attempts')
+  })
+
   test('turns network failures into a publish retry path', () => {
     const message = skillDraftErrorMessage(new TypeError('Failed to fetch'))
 

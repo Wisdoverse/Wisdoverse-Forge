@@ -8,6 +8,30 @@ describe('agentPluginErrorMessage', () => {
     )
   })
 
+  test('turns structured permission errors into operator recovery guidance', () => {
+    const message = agentPluginErrorMessage('load', {
+      detail: 'Forbidden: missing plugin permission',
+      statusCode: 403,
+    })
+
+    expect(message).toBe(
+      "Agent tools could not be loaded. Ask an owner or admin to give you access to this agent's tools."
+    )
+    expect(message).not.toContain('missing plugin permission')
+  })
+
+  test('turns structured save conflicts into a wait and retry step', () => {
+    const message = agentPluginErrorMessage('save', {
+      code: '409',
+      reason: 'plugin update already in progress',
+    })
+
+    expect(message).toBe(
+      'Tool change was not saved. The switch was returned to its previous setting. Another change is still being saved. Wait a moment, then try again.'
+    )
+    expect(message).not.toContain('plugin update already in progress')
+  })
+
   test('explains failed saves without exposing transport details', () => {
     const message = agentPluginErrorMessage('save', new Error('HTTP 500'))
 
@@ -15,6 +39,19 @@ describe('agentPluginErrorMessage', () => {
       "Tool change was not saved. The switch was returned to its previous setting. Forge could not finish this tool request right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check this agent's tool setup."
     )
     expect(message).not.toContain('HTTP 500')
+    expect(message).not.toContain('platform')
+  })
+
+  test('explains structured service failures without raw response details', () => {
+    const message = agentPluginErrorMessage('save', {
+      error: 'plugin platform gateway stack trace',
+      status: 503,
+    })
+
+    expect(message).toBe(
+      "Tool change was not saved. The switch was returned to its previous setting. Forge could not finish this tool request right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check this agent's tool setup."
+    )
+    expect(message).not.toContain('gateway stack trace')
     expect(message).not.toContain('platform')
   })
 
