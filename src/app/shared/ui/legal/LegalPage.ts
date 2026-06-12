@@ -265,15 +265,15 @@ export class LegalPage {
         <ul class="legal-list">
           <li>Provide accurate, current, and complete information during the registration process</li>
           <li>Maintain and promptly update your account information to keep it accurate and complete</li>
-          <li>Maintain the security and confidentiality of your login credentials, including your password and any API keys</li>
+          <li>Maintain the security and confidentiality of your login credentials, including your password and any access keys</li>
           <li>Accept responsibility for all activities that occur under your account</li>
           <li>Notify us immediately of any unauthorized use of your account or any other breach of security</li>
         </ul>
         <p class="legal-text">
           Passwords must meet our security requirements, which include a minimum of 12 characters containing uppercase
           and lowercase letters, numbers, and special characters, in accordance with NIST SP 800-63B guidelines. You may
-          also authenticate via supported third-party providers (GitHub, Google) through our single sign-on (SSO)
-          integration.
+          also sign in through supported third-party providers, such as GitHub or Google, when your organization enables
+          that option.
         </p>
         <p class="legal-text">
           We reserve the right to suspend or terminate accounts that violate these Terms, that have been inactive for an
@@ -784,8 +784,8 @@ export class LegalPage {
         <ul class="legal-list">
           <li>Audio volume and mute preferences</li>
           <li>Keyboard shortcut customizations</li>
-          <li>Draw mode artwork data</li>
-          <li>Zone elevation preferences</li>
+          <li>Visual workspace preferences, such as saved view settings</li>
+          <li>Navigation and layout preferences that make the interface easier to reuse</li>
           <li>Theme and display settings</li>
           <li>Login session data that keeps you signed in</li>
         </ul>
@@ -812,7 +812,7 @@ export class LegalPage {
           <li><strong>Audit logs:</strong> 1 year from creation, retained for security monitoring and compliance purposes (anonymized upon account deletion)</li>
           <li><strong>Image attachments (prompt images):</strong> 7 days (automatic lifecycle policy)</li>
           <li><strong>Image attachments (general):</strong> 30 days (automatic lifecycle policy)</li>
-          <li><strong>Refresh tokens:</strong> Automatically expired and cleaned up according to their configured lifetime</li>
+          <li><strong>Saved login sessions:</strong> Automatically expired and cleaned up according to their configured lifetime</li>
           <li><strong>Payment records:</strong> Retained as required by applicable tax and financial regulations (typically 7 years)</li>
           <li><strong>Error tracking data (Sentry):</strong> Subject to Sentry's retention policies (typically 90 days)</li>
         </ul>
