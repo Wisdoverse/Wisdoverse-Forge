@@ -302,8 +302,8 @@ function HostCliEnrollmentPanel({
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Use this when an agent needs files or commands on your computer. Start with the button
-            below; Forge will give you a setup command to paste into Terminal or PowerShell.
+            Use this when an agent needs files or commands on your computer. After it connects,
+            Forge shows it here and manages it with your other agents.
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-apple-blue/[0.08] px-2 py-1 text-[10px] font-semibold text-apple-blue">

@@ -52,6 +52,7 @@ describe('AgentListView', () => {
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
     expect(within(enrollment).getByText(/connect this computer/i)).toBeDefined()
     expect(enrollment.textContent).toContain('files or commands on your computer')
+    expect(enrollment.textContent).toContain('manages it with your other agents')
     expect(enrollment.textContent).toContain('This computer')
     expect(enrollment.textContent).toContain('If the button does not work')
     expect(enrollment.textContent).toContain(
@@ -105,6 +106,7 @@ describe('AgentListView', () => {
 
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
     expect(within(enrollment).getByText(/agent needs files or commands/i)).toBeDefined()
+    expect(enrollment.textContent).toContain('Forge shows it here')
     expect(within(enrollment).getByTestId('host-cli-project-label')).toHaveTextContent(
       'Project: Platform'
     )
@@ -357,7 +359,7 @@ describe('AgentListView', () => {
 
     expect(screen.getByLabelText(/task queue name/i)).toHaveValue('Review Queue')
     expect((screen.getByLabelText(/task queue description/i) as HTMLInputElement).value).toContain(
-      'release risk'
+      'block release'
     )
 
     fireEvent.click(screen.getByRole('button', { name: /^create task queue$/i }))
@@ -367,7 +369,7 @@ describe('AgentListView', () => {
         'p1',
         expect.objectContaining({
           name: 'Review Queue',
-          description: expect.stringContaining('release risk'),
+          description: expect.stringContaining('block release'),
         })
       )
     )
