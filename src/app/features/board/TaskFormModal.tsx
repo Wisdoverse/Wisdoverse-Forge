@@ -100,7 +100,9 @@ interface TaskFormModalProps {
   selectedProjectId?: string | null
   selectedTaskGroupId?: string | null
   selectedTaskGroupName?: string | null
-  onProjectChange?: (projectId: string) => void | Promise<void>
+  /** May resolve `false` to signal the project switched but its work lanes
+   * failed to load (the modal shows a retry message in that case). */
+  onProjectChange?: (projectId: string) => void | boolean | Promise<void | boolean>
   onOpenTaskRouting?: () => void
 }
 
@@ -122,7 +124,7 @@ export function TaskFormModal({
     reset,
     setValue,
     watch,
-    formState: { isSubmitting },
+    formState: { isSubmitting, submitCount },
   } = useForm<TaskFormData>({
     defaultValues: {
       projectId: selectedProjectId ?? '',
@@ -137,6 +139,7 @@ export function TaskFormModal({
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
 
   const dialogRef = useRef<HTMLDivElement>(null)
+  const errorBannerRef = useRef<HTMLDivElement>(null)
   const projectId = watch('projectId')
   const selectedProject = projects.find((project) => project.id === projectId)
   const projectSelectionSettled = Boolean(projectId && selectedProjectId === projectId)
@@ -145,12 +148,15 @@ export function TaskFormModal({
   const projectGroups = useMemo(() => groupProjectsByTeam(projects), [projects])
   const projectField = register('projectId')
 
-  // The error banner renders at the top of a scrollable dialog while the
-  // submit button sits at the bottom, so without this the banner can appear
-  // entirely off-screen and a failed submit looks like a dead click.
+  // The error banner renders partway down a scrollable dialog (below the
+  // header and project panels) while the submit button sits at the bottom, so
+  // a failed submit can leave the banner off-screen and look like a dead
+  // click. Scroll the banner itself into view, and include `submitCount` so a
+  // repeat submit with the SAME message scrolls again.
   useEffect(() => {
-    if (submitError) dialogRef.current?.scrollTo?.({ top: 0, behavior: 'smooth' })
-  }, [submitError])
+    if (submitError)
+      errorBannerRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [submitError, submitCount])
 
   useEffect(() => {
     if (isOpen) {
@@ -189,12 +195,13 @@ export function TaskFormModal({
       return
     }
     try {
-      await onSubmit(data)
-      reset()
-      onClose()
+      await onSubmit({ ...data, title: data.title.trim() })
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to create task')
+      return
     }
+    reset()
+    onClose()
   }
 
   async function handleProjectChange(projectId: string) {
@@ -202,7 +209,10 @@ export function TaskFormModal({
     if (!projectId || !onProjectChange) return
     setSelectingProject(true)
     try {
-      await onProjectChange(projectId)
+      const ok = await onProjectChange(projectId)
+      if (ok === false) {
+        setSubmitError('Could not load work lanes for this project. Select it again to retry.')
+      }
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to select project')
     } finally {
@@ -396,6 +406,7 @@ export function TaskFormModal({
 
         {submitError && (
           <div
+            ref={errorBannerRef}
             role="alert"
             className="mb-4 rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
           >

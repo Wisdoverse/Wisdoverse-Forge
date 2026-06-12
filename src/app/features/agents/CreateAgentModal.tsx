@@ -216,6 +216,8 @@ export function CreateAgentModal() {
   const [copiedCommand, setCopiedCommand] = useState(false)
   const [joinOs, setJoinOs] = useState<'posix' | 'windows'>('posix')
   const [copiedJoin, setCopiedJoin] = useState(false)
+  const [copyError, setCopyError] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
   const verifiedProvider = useMemo(
     () =>
       providers.find((provider) => provider.isEnabled && provider.lastTestStatus === 'passed') ??
@@ -224,7 +226,14 @@ export function CreateAgentModal() {
   )
   const defaultValues = useMemo(() => buildDefaultValues(verifiedProvider), [verifiedProvider])
 
-  const { register, handleSubmit, reset, watch, setValue } = useForm<CreateAgentFormData>({
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    setValue,
+    formState: { submitCount },
+  } = useForm<CreateAgentFormData>({
     defaultValues,
   })
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
@@ -239,13 +248,17 @@ export function CreateAgentModal() {
         .find((project) => project.id === selectedProjectId) ?? null)
     : null
   const dialogRef = useRef<HTMLDivElement>(null)
+  const errorBannerRef = useRef<HTMLDivElement>(null)
+  const displayedError = formError ?? error
 
-  // The error banner renders at the top of a scrollable dialog while the
-  // submit button sits at the bottom, so without this the banner can appear
-  // entirely off-screen and a failed submit looks like a dead click.
+  // The error banner sits above the form in a scrollable dialog while the
+  // submit button sits at the bottom, so a failed submit can leave the banner
+  // entirely off-screen and look like a dead click. `submitCount` is in the
+  // dependencies so a repeat submit with the SAME message scrolls again.
   useEffect(() => {
-    if (error) dialogRef.current?.scrollTo?.({ top: 0, behavior: 'smooth' })
-  }, [error])
+    if (displayedError)
+      errorBannerRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [displayedError, submitCount])
 
   useEffect(() => {
     if (!createModalOpen) return
@@ -253,6 +266,7 @@ export function CreateAgentModal() {
       if (e.key === 'Escape') {
         setCreateModalOpen(false)
         setError(null)
+        setFormError(null)
       }
     }
     document.addEventListener('keydown', handleKeyDown)
@@ -270,6 +284,8 @@ export function CreateAgentModal() {
     setCopiedJoin(false)
     setJoinOs('posix')
     setError(null)
+    setFormError(null)
+    setCopyError(null)
   }, [createModalOpen, defaultValues, reset, setError])
 
   // When the user switches provider, seed the model box with that provider's default
@@ -296,8 +312,9 @@ export function CreateAgentModal() {
   if (!createModalOpen) return null
 
   async function handleFormSubmit(data: CreateAgentFormData) {
+    setFormError(null)
     if (!data.name.trim()) {
-      setError('Name is required')
+      setFormError('Name is required')
       return
     }
     const base = {
@@ -308,7 +325,7 @@ export function CreateAgentModal() {
     }
     if (data.kind === 'provider') {
       if (!data.provider || !data.model.trim()) {
-        setError('Provider and model are required')
+        setFormError('Provider and model are required')
         return
       }
       await createAgent({
@@ -365,29 +382,45 @@ export function CreateAgentModal() {
   function handleClose() {
     setCreateModalOpen(false)
     setError(null)
+    setFormError(null)
+    setCopyError(null)
     setLocalEnrollment(null)
     setCopiedCommand(false)
     setCopiedJoin(false)
   }
 
+  const CLIPBOARD_UNAVAILABLE =
+    'Copy is unavailable here (no clipboard access) — select the command text and copy it manually.'
+
   async function handleCopyCommand() {
     const command = localEnrollment?.enrollment?.shellExports
-    if (!command || !navigator.clipboard?.writeText) return
+    if (!command) return
+    if (!navigator.clipboard?.writeText) {
+      setCopyError(CLIPBOARD_UNAVAILABLE)
+      return
+    }
     try {
       await navigator.clipboard.writeText(command)
       setCopiedCommand(true)
+      setCopyError(null)
     } catch {
       setCopiedCommand(false)
+      setCopyError(CLIPBOARD_UNAVAILABLE)
     }
   }
 
   async function handleCopyJoinCommand(command: string) {
-    if (!navigator.clipboard?.writeText) return
+    if (!navigator.clipboard?.writeText) {
+      setCopyError(CLIPBOARD_UNAVAILABLE)
+      return
+    }
     try {
       await navigator.clipboard.writeText(command)
       setCopiedJoin(true)
+      setCopyError(null)
     } catch {
       setCopiedJoin(false)
+      setCopyError(CLIPBOARD_UNAVAILABLE)
     }
   }
 
@@ -433,9 +466,13 @@ export function CreateAgentModal() {
           </button>
         </div>
 
-        {error && (
-          <div className="mb-4 rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red">
-            {error}
+        {displayedError && (
+          <div
+            ref={errorBannerRef}
+            role="alert"
+            className="mb-4 rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
+          >
+            {displayedError}
           </div>
         )}
 
@@ -560,6 +597,12 @@ export function CreateAgentModal() {
                   className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                 />
               </div>
+            )}
+
+            {copyError && (
+              <p role="alert" className="text-ui-caption text-apple-red">
+                {copyError}
+              </p>
             )}
 
             <div className="flex flex-wrap justify-end gap-2">

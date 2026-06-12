@@ -57,7 +57,9 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText(/shared workspace mount/i)).toBeInTheDocument()
     expect(screen.getAllByText(/primary project/i).length).toBeGreaterThan(0)
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/choose a project first/i)
-    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/select a project in the sidebar/i)
+    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
+      /select a project in the sidebar/i
+    )
     expect(screen.queryByLabelText(/^provider$/i)).toBeNull()
     expect(screen.queryByLabelText(/^model$/i)).toBeNull()
   })
@@ -351,7 +353,9 @@ describe('CreateAgentModal', () => {
     expect(
       within(providerSelect).getByRole('option', { name: 'Zhipu GLM Coding Plan' })
     ).toBeInTheDocument()
-    expect(within(providerSelect).getByRole('option', { name: 'Moonshot Kimi' })).toBeInTheDocument()
+    expect(
+      within(providerSelect).getByRole('option', { name: 'Moonshot Kimi' })
+    ).toBeInTheDocument()
     expect(
       within(providerSelect).getByRole('option', { name: 'Alibaba Qwen (DashScope)' })
     ).toBeInTheDocument()
@@ -413,7 +417,7 @@ describe('CreateAgentModal', () => {
     render(<CreateAgentModal />)
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
-    await waitFor(() => expect(screen.getByText('Name is required')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Name is required'))
     expect(createAgent).not.toHaveBeenCalled()
   })
 
@@ -425,7 +429,7 @@ describe('CreateAgentModal', () => {
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: '   ' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
-    await waitFor(() => expect(screen.getByText('Name is required')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Name is required'))
     expect(createAgent).not.toHaveBeenCalled()
   })
 
@@ -440,9 +444,58 @@ describe('CreateAgentModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
     await waitFor(() =>
-      expect(screen.getByText('Provider and model are required')).toBeInTheDocument()
+      expect(screen.getByRole('alert')).toHaveTextContent('Provider and model are required')
     )
     expect(createAgent).not.toHaveBeenCalled()
+  })
+
+  test('a second failed submit with the same message scrolls the banner again', async () => {
+    const scrollSpy = vi
+      .spyOn(Element.prototype, 'scrollIntoView')
+      .mockImplementation(() => undefined)
+    const createAgent = vi.fn().mockResolvedValue(true)
+    useAgentsStore.setState({ createAgent } as never)
+
+    render(<CreateAgentModal />)
+    const submit = screen.getByRole('button', { name: /^create agent$/i })
+
+    fireEvent.click(submit)
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Name is required'))
+    const callsAfterFirst = scrollSpy.mock.calls.length
+    expect(callsAfterFirst).toBeGreaterThan(0)
+
+    fireEvent.click(submit)
+    await waitFor(() => expect(scrollSpy.mock.calls.length).toBeGreaterThan(callsAfterFirst))
+    expect(createAgent).not.toHaveBeenCalled()
+    scrollSpy.mockRestore()
+  })
+
+  test('clipboard failure on the join screen shows a manual-copy message', async () => {
+    const enrollLocalAgent = vi.fn().mockResolvedValue({
+      ok: true,
+      agent: { id: 'a1', name: 'Local Worker' },
+      enrollment: { shellExports: 'export AGENTFORGE_NATS_URL=nats://example:4222' },
+    })
+    useAgentsStore.setState({
+      enrollLocalAgent: async (opts: never) => {
+        const result = await enrollLocalAgent(opts)
+        return result
+      },
+    } as never)
+
+    render(<CreateAgentModal />)
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Local Worker' } })
+    fireEvent.click(screen.getByRole('radio', { name: /local cli/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+
+    const copyButton = await screen.findByRole('button', { name: /copy command/i })
+    // jsdom has no navigator.clipboard, which is exactly the non-secure-context
+    // (plain HTTP) deployment case the message exists for.
+    fireEvent.click(copyButton)
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/copy is unavailable here/i)
+    )
   })
 
   test('applies a role template to a provider agent prompt', async () => {
