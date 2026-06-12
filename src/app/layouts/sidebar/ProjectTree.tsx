@@ -87,7 +87,20 @@ const PROJECT_MENU_SIZE = { width: 280, height: 456 }
 type RenameTarget = 'team' | 'project'
 
 function parseApiStatus(error: unknown): { status: number | null; detail: string | null } {
-  if (!(error instanceof Error)) return { status: null, detail: null }
+  if (error && typeof error === 'object' && !(error instanceof Error)) {
+    const record = error as Record<string, unknown>
+    return {
+      status: firstStatus(record.statusCode, record.status, record.code),
+      detail: detailFromRecord(record),
+    }
+  }
+
+  if (!(error instanceof Error)) {
+    return typeof error === 'string' && error.trim()
+      ? { status: null, detail: error.trim() }
+      : { status: null, detail: null }
+  }
+
   const message = error.message.trim()
   const match = /^API\s+(\d{3}):\s*(.*)$/s.exec(message)
   if (!match) return { status: null, detail: message || null }
@@ -99,19 +112,42 @@ function parseApiStatus(error: unknown): { status: number | null; detail: string
   try {
     const parsed = JSON.parse(body) as unknown
     if (parsed && typeof parsed === 'object') {
-      const data = parsed as Record<string, unknown>
-      if (typeof data.error === 'string' && data.error.trim()) {
-        return { status, detail: data.error.trim() }
-      }
-      if (typeof data.message === 'string' && data.message.trim()) {
-        return { status, detail: data.message.trim() }
-      }
+      const detail = detailFromRecord(parsed as Record<string, unknown>)
+      if (detail) return { status, detail }
     }
   } catch {
     // Preserve plain-text server details below.
   }
 
   return { status, detail: body }
+}
+
+function firstStatus(...values: unknown[]): number | null {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value === 'string' && /^\d{3}$/.test(value.trim())) return Number(value.trim())
+  }
+  return null
+}
+
+function detailFromRecord(record: Record<string, unknown>): string | null {
+  const nestedError = record.error
+  if (nestedError && typeof nestedError === 'object' && !Array.isArray(nestedError)) {
+    const detail = detailFromRecord(nestedError as Record<string, unknown>)
+    if (detail) return detail
+  }
+
+  const details = record.details
+  if (details && typeof details === 'object' && !Array.isArray(details)) {
+    const detail = detailFromRecord(details as Record<string, unknown>)
+    if (detail) return detail
+  }
+
+  for (const key of ['serverError', 'error', 'message', 'detail', 'reason'] as const) {
+    const value = record[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return null
 }
 
 function renameErrorMessage(target: RenameTarget, error: unknown): string {
@@ -161,11 +197,11 @@ function renameValidationMessage(target: RenameTarget, detail: string | null): s
   const title = target === 'team' ? 'Team' : 'Project'
   const normalized = detail?.toLowerCase() ?? ''
 
-  if (normalized.includes('name')) {
-    return `Enter a ${label} name, then save again.`
-  }
   if (normalized.includes('duplicate') || normalized.includes('already')) {
     return `Choose a different ${label} name, refresh the sidebar, then save again.`
+  }
+  if (normalized.includes('name')) {
+    return `Enter a ${label} name, then save again.`
   }
 
   return `${title} name could not be saved. Refresh the sidebar and try again.`

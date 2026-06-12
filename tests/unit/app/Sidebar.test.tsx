@@ -353,6 +353,28 @@ describe('Sidebar', () => {
     expect(screen.queryByText(/Details:/i)).not.toBeInTheDocument()
   })
 
+  it('explains structured team rename permission failures without raw policy text', async () => {
+    seedProjectTree()
+    vi.mocked(teamApi.updateTeam).mockRejectedValueOnce({
+      status: '403',
+      serverError: 'owner role required for team rename',
+    })
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit team details/i }))
+    fireEvent.change(screen.getByLabelText(/team name people see/i), {
+      target: { value: 'Renamed Team' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(
+      await screen.findByText(/You do not have permission to rename this team/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/owner role required/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/403/i)).not.toBeInTheDocument()
+  })
+
   it('explains team rename connection failures without raw network text', async () => {
     seedProjectTree()
     vi.mocked(teamApi.updateTeam).mockRejectedValueOnce(new TypeError('Failed to fetch'))
@@ -450,6 +472,28 @@ describe('Sidebar', () => {
     expect(screen.queryByText(/API 422/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Code:/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Details:/i)).not.toBeInTheDocument()
+  })
+
+  it('explains structured project rename duplicates without raw details', async () => {
+    seedProjectTree()
+    vi.mocked(projectApi.updateProject).mockRejectedValueOnce({
+      statusCode: '422',
+      details: { reason: 'project name already exists' },
+    })
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /rename project/i }))
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Renamed Project' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(
+      await screen.findByText(/Choose a different project name, refresh the sidebar/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/project name already exists/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/422/i)).not.toBeInTheDocument()
   })
 
   it('explains project rename server failures without temporary service language', async () => {
