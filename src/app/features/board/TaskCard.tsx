@@ -3,7 +3,7 @@ import { useDraggable } from '@dnd-kit/core'
 import { Brain, Send, WandSparkles } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
-import { taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
+import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { taskMachineKey, taskPriorityLabel } from '@app/entities/task'
 import {
   taskResultArtifacts,
@@ -66,6 +66,14 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
       })
   const failurePreview =
     task.state === 'failed' && task.error ? taskFailurePreview(task.error) : null
+  const blockedPreview =
+    task.state === 'blocked' && task.blockedHint
+      ? taskBlockedPreview({
+          blockedHint: task.blockedHint,
+          blockedReason: task.blockedReason,
+          error: task.error,
+        })
+      : null
   const showPriorityBadge = priorityKey !== 'normal'
 
   function trackPressStart(e: PointerEvent<HTMLDivElement> | MouseEvent<HTMLDivElement>) {
@@ -187,14 +195,14 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
         </p>
       )}
 
-      {task.state === 'blocked' && task.blockedHint && (
+      {blockedPreview && (
         <p
           data-testid={`task-blocked-hint-${task.id}`}
           className="mb-1.5 flex items-start gap-1 text-ui-caption font-medium text-apple-red"
-          title={task.blockedHint}
+          title={blockedPreview}
         >
           <span aria-hidden="true">⚠</span>
-          <span>{task.blockedHint}</span>
+          <span>{blockedPreview}</span>
         </p>
       )}
 

@@ -150,6 +150,28 @@ describe('TaskCard', () => {
     expect(screen.queryByTestId('task-next-step')).toBeNull()
   })
 
+  test('shows beginner-safe blocked guidance without sensitive raw hints', () => {
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'blocked',
+          blockedReason: 'waiting_input',
+          blockedHint: 'Missing token secret for git provider.',
+        }}
+      />
+    )
+
+    const hint = screen.getByTestId('task-blocked-hint-task-1')
+    expect(hint.textContent).toContain('Waiting for account access')
+    expect(hint.textContent).not.toContain('token')
+    expect(hint.textContent).not.toContain('secret')
+    expect(hint.getAttribute('title')).toContain('Waiting for account access')
+    expect(hint.getAttribute('title')).not.toContain('token')
+    expect(hint.getAttribute('title')).not.toContain('secret')
+    expect(screen.queryByTestId('task-next-step')).toBeNull()
+  })
+
   test('hides beginner next steps in compact mode', () => {
     render(
       <TaskCard
