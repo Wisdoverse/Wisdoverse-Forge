@@ -30,8 +30,35 @@ describe('AssignmentReadinessPanel', () => {
     expect(within(emptyState).getByText(/Open Agents, then Task Queues/)).toBeDefined()
     expect(within(emptyState).getByText(/tasks that are not sent yet will wait here/)).toBeDefined()
     expect(screen.getByTestId('assignment-metric-backlog').textContent).toContain('Not sent yet')
+    expect(screen.getByTestId('assignment-metric-unassigned').textContent).toContain('Needs agent')
     expect(emptyState.textContent).not.toContain('backlog')
     expect(emptyState.textContent).not.toContain('dispatch')
+  })
+
+  test('summarizes tasks that need an agent without handoff wording', () => {
+    render(
+      <AssignmentReadinessPanel
+        participants={[
+          {
+            id: 'participant-1',
+            agentId: 'agent-1',
+            name: 'Ready Agent',
+            status: 'available',
+            capabilities: ['codex'],
+          },
+        ]}
+        workload={{ ...emptyWorkload, backlog: 2, unassigned: 2 }}
+        loading={false}
+        error={null}
+        onRefresh={vi.fn()}
+      />
+    )
+
+    const readiness = screen.getByTestId('assignment-readiness')
+    expect(readiness.textContent).toContain('2 tasks need an agent and can start now.')
+    expect(readiness.textContent).not.toContain('unassigned tasks')
+    expect(readiness.textContent).not.toContain('handed off')
+    expect(screen.getByTestId('assignment-metric-unassigned').textContent).toContain('Needs agent')
   })
 
   test('keeps connected agent chips visible when participants are available', () => {

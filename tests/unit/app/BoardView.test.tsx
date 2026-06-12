@@ -199,9 +199,10 @@ describe('BoardView', () => {
 
     render(<BoardView />)
 
-    expect(await screen.findByText(/2 unassigned tasks can be handed off/i)).toBeDefined()
+    expect(await screen.findByText(/2 tasks need an agent and can start now/i)).toBeDefined()
     expect(screen.getByTestId('assignment-metric-backlog').textContent).toContain('2')
     expect(screen.getByTestId('assignment-metric-unassigned').textContent).toContain('2')
+    expect(screen.getByTestId('assignment-metric-unassigned').textContent).toContain('Needs agent')
     expect(screen.getByTestId('assignment-metric-in-flight').textContent).toContain('1')
     expect(screen.getByTestId('assignment-metric-blocked').textContent).toContain('1')
     expect(screen.getByTestId('assignment-metric-review').textContent).toContain('1')

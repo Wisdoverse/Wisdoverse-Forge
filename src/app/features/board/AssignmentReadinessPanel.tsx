@@ -103,7 +103,11 @@ export function AssignmentReadinessPanel({
           value={workload.backlog}
           testId="assignment-metric-backlog"
         />
-        <MetricPill label="Unassigned" value={workload.unassigned} />
+        <MetricPill
+          label="Needs agent"
+          value={workload.unassigned}
+          testId="assignment-metric-unassigned"
+        />
         <MetricPill label="In flight" value={workload.inFlight} />
         <MetricPill
           label="Blocked"
@@ -176,8 +180,8 @@ function summarizeHandoff(workload: BoardWorkloadSnapshot, availableCount: numbe
   if (workload.unassigned > 0) {
     const taskLabel = pluralize(workload.unassigned, 'task')
     return availableCount > 0
-      ? `${workload.unassigned} unassigned ${taskLabel} can be handed off.`
-      : `${workload.unassigned} unassigned ${taskLabel} waiting for capacity.`
+      ? `${workload.unassigned} ${taskLabel} need an agent and can start now.`
+      : `${workload.unassigned} ${taskLabel} need an agent before they can start.`
   }
 
   if (workload.blocked > 0) {

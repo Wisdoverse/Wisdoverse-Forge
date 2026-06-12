@@ -234,8 +234,8 @@ export function TaskFormModal({
               Tell an Agent What to Do
             </h2>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Write the result you want. A template can add scope and proof so the agent knows when
-              the work is done.
+              Write the result you want. A template can add what to include and how to check the
+              work.
             </p>
           </div>
           <button
@@ -322,7 +322,7 @@ export function TaskFormModal({
               aria-hidden="true"
             />
             <span>
-              No online agents available. New tasks will wait in this task queue until an agent
+              No agents are online. You can create the task now; it will wait here until an agent
               comes online.
             </span>
           </div>
@@ -337,8 +337,8 @@ export function TaskFormModal({
               aria-hidden="true"
             />
             <span>
-              No agents are ready right now. Leave the task unassigned so the next available agent
-              can pick it up.
+              No agents are ready right now. Keep the default choice so the next available agent can
+              pick it up.
             </span>
           </div>
         )}
@@ -375,7 +375,7 @@ export function TaskFormModal({
                 </p>
                 <p className="mt-0.5 text-secondary-light dark:text-secondary-dark">
                   {workLaneReady
-                    ? `${selectedTaskGroupName ?? 'Selected task queue'} is the task queue agents check for this project.`
+                    ? `${selectedTaskGroupName ?? 'Selected task queue'} is ready. Agents look here for this project's work.`
                     : 'A task queue is where new work waits until an agent is ready. Create one once, then return here.'}
                 </p>
               </div>
@@ -554,7 +554,7 @@ export function TaskFormModal({
                 ))}
               </select>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Leave this unassigned when any ready agent can do the work.
+                Keep this choice when any ready agent can do the work.
               </p>
             </div>
           </div>

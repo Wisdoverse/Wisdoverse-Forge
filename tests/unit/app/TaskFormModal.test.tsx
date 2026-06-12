@@ -28,10 +28,12 @@ describe('TaskFormModal', () => {
 
     expect(screen.getByText('Start with a task template')).toBeDefined()
     expect(screen.getByText('Fills in a safe first draft')).toBeDefined()
+    expect(screen.getByText(/what to include and how to check the work/i)).toBeDefined()
     expect(screen.getByRole('group', { name: /task templates/i })).toBeDefined()
     expect(screen.getByText('What to finish')).toBeDefined()
     expect(screen.getByText('Where to work')).toBeDefined()
     expect(screen.getByText('Done when')).toBeDefined()
+    expect(screen.queryByText(/scope and proof/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /feature/i }))
 
@@ -66,7 +68,7 @@ describe('TaskFormModal', () => {
 
     expect(
       screen.getByText(
-        'No online agents available. New tasks will wait in this task queue until an agent comes online.'
+        'No agents are online. You can create the task now; it will wait here until an agent comes online.'
       )
     ).toBeDefined()
     expect(screen.queryByText(/dispatched?/i)).toBeNull()
@@ -91,15 +93,38 @@ describe('TaskFormModal', () => {
 
     expect(
       screen.getByText(
-        'No agents are ready right now. Leave the task unassigned so the next available agent can pick it up.'
+        'No agents are ready right now. Keep the default choice so the next available agent can pick it up.'
       )
     ).toBeDefined()
     expect(
       screen.getByRole('option', { name: /let the next available agent pick it up/i })
     ).toBeDefined()
     expect(screen.getByText(/any ready agent can do the work/i)).toBeDefined()
+    expect(screen.queryByText(/unassigned/i)).toBeNull()
     expect(screen.getByText(/people are waiting on it now/i)).toBeDefined()
     expect(screen.queryByText(/dispatch/i)).toBeNull()
+  })
+
+  test('explains a ready task queue without internal checking language', () => {
+    render(
+      <TaskFormModal
+        isOpen
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        agents={[{ id: 'agent-1', name: 'Agent One', status: 'available' }]}
+        projects={[project]}
+        selectedProjectId={project.id}
+        selectedTaskGroupId="lane-1"
+        selectedTaskGroupName="Starter Queue"
+      />
+    )
+
+    expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain(
+      "Starter Queue is ready. Agents look here for this project's work."
+    )
+    expect(screen.getByText(/Keep this choice when any ready agent can do the work/i)).toBeDefined()
+    expect(screen.queryByText(/agents check/i)).toBeNull()
+    expect(screen.queryByText(/Leave this unassigned/i)).toBeNull()
   })
 
   test('explains task queue readiness before creating work', () => {
