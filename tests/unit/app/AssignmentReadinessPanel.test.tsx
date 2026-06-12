@@ -26,8 +26,8 @@ describe('AssignmentReadinessPanel', () => {
     )
 
     const emptyState = screen.getByTestId('assignment-readiness-empty')
-    expect(screen.getByRole('heading', { name: 'Agent readiness' })).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Refresh agent readiness' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Agent status' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Refresh agent status' })).toBeDefined()
     expect(within(emptyState).getByText('Connect an agent before sending work')).toBeDefined()
     expect(within(emptyState).getByText(/Open Agents, then Task Queues/)).toBeDefined()
     expect(within(emptyState).getByText(/add an available agent to it/i)).toBeDefined()
@@ -38,8 +38,12 @@ describe('AssignmentReadinessPanel', () => {
     expect(emptyState.textContent).not.toContain(previousActionPhrase)
     const previousPanelTitle = ['Assignment', 'readiness'].join(' ')
     expect(screen.queryByText(previousPanelTitle)).toBeNull()
+    expect(screen.queryByText(['Agent', 'readiness'].join(' '))).toBeNull()
     expect(
       screen.queryByRole('button', { name: ['Refresh', 'assignment', 'readiness'].join(' ') })
+    ).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: ['Refresh', 'agent', 'readiness'].join(' ') })
     ).toBeNull()
     expect(emptyState.textContent).not.toContain('backlog')
     expect(emptyState.textContent).not.toContain('dispatch')
