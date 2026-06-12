@@ -56,12 +56,15 @@ describe('OrganizationsPanel', () => {
     expect(
       within(guide).getByText('8 people and 3 teams are spread across 2 team spaces.')
     ).toBeDefined()
-    expect(within(guide).getByText('Readiness shows setup gaps')).toBeDefined()
+    expect(within(guide).getByText('Setup status shows what is missing')).toBeDefined()
+    expect(within(guide).queryByText('Readiness shows setup gaps')).toBeNull()
     expect(within(guide).getByText('People show access size')).toBeDefined()
     expect(within(guide).getByText('Teams show work areas')).toBeDefined()
     expect(within(guide).queryByText(/routing shape/i)).toBeNull()
 
     expect(screen.getByRole('heading', { name: 'Team spaces' })).toBeDefined()
+    expect(screen.getByRole('columnheader', { name: 'Setup status' })).toBeDefined()
+    expect(screen.queryByRole('columnheader', { name: 'Readiness' })).toBeNull()
     expect(screen.getByText('Acme Labs')).toBeDefined()
     // The backend has no plan data — the panel must not pretend it does.
     expect(screen.queryByText('Plan')).toBeNull()

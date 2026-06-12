@@ -45,7 +45,7 @@ function organizationReadiness(org: AdminOrg): {
 
 const ORG_GUIDANCE: { title: string; description: string; Icon: LucideIcon }[] = [
   {
-    title: 'Readiness shows setup gaps',
+    title: 'Setup status shows what is missing',
     description: 'Use it to spot team spaces that still need their first people or team.',
     Icon: Building2,
   },
@@ -174,7 +174,7 @@ export function OrganizationsPanel() {
                 <th className={uiStyles.tableHeaderCell}>Team space</th>
                 <th className={uiStyles.tableHeaderCell}>People</th>
                 <th className={uiStyles.tableHeaderCell}>Teams</th>
-                <th className={uiStyles.tableHeaderCell}>Readiness</th>
+                <th className={uiStyles.tableHeaderCell}>Setup status</th>
                 <th className={uiStyles.tableHeaderCell}>Created</th>
                 <th className={uiStyles.tableHeaderCell}>Admin hint</th>
               </tr>
