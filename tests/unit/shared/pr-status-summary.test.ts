@@ -99,6 +99,9 @@ describe('PR status summary', () => {
 
     expect(renderSummary(summary)).toContain('ACTION 1 | WAIT 1 | DONE 0')
     expect(renderSummary(summary)).toContain('WAIT: 1 PR(s) waiting')
+    expect(renderSummary(summary)).toContain(
+      'WAIT: stop here; refresh only after cache expiry or a known remote change'
+    )
     expect(renderSummary(summary)).not.toContain('#101 codex/example')
   })
 

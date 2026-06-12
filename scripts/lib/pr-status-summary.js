@@ -177,6 +177,7 @@ function appendWaitLines(lines, items, showWait) {
   if (!showWait) {
     lines.push(`WAIT: ${items.length} PR(s) waiting on review, CI, draft state, or merge queue`)
     lines.push('WAIT: use --show-wait to list them when a human needs the full queue')
+    lines.push('WAIT: stop here; refresh only after cache expiry or a known remote change')
     return
   }
 

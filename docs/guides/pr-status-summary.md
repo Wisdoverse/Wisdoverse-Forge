@@ -27,11 +27,16 @@ Success looks like this:
 ACTION: none
 WAIT: 42 PR(s) waiting on review, CI, draft state, or merge queue
 WAIT: use --show-wait to list them when a human needs the full queue
+WAIT: stop here; refresh only after cache expiry or a known remote change
 ```
 
 When the output says it used a cached snapshot, that is expected. Treat the
 result as a recent point-in-time view, not a live watch. The cache notice also
 tells you when another remote read would be useful again.
+
+When the output says `WAIT: stop here`, the correct next step is to leave the
+conversation or monitor quiet. Do not ask an agent to refresh again unless the
+cache has expired or someone pushed, approved, failed, or merged the PR.
 
 ## Do Not Poll In Chat
 
