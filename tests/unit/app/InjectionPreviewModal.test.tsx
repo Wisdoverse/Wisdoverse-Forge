@@ -30,7 +30,7 @@ const preview: ContextPreviewResponse = {
 }
 
 describe('InjectionPreviewModal', () => {
-  test('uses send wording for the task context review', () => {
+  test('uses send wording for the saved notes review', () => {
     render(
       <InjectionPreviewModal isOpen preview={preview} onClose={() => {}} onConfirm={() => {}} />
     )
@@ -40,6 +40,7 @@ describe('InjectionPreviewModal', () => {
       screen.getByText('Checked items will be shared with the agent when you send the task.')
     ).toBeDefined()
     expect(screen.getByRole('button', { name: 'Send task with selected notes' })).toBeDefined()
+    expect(screen.getAllByLabelText('Close saved notes review')).toHaveLength(2)
     expect(screen.queryByText(/publish/i)).toBeNull()
     expect(screen.queryByText(/selected context/i)).toBeNull()
   })
@@ -75,6 +76,55 @@ describe('InjectionPreviewModal', () => {
     ).toBeDefined()
     expect(
       screen.queryByText(new RegExp(['limited', 'context', 'room'].join('\\s+'), 'i'))
+    ).toBeNull()
+  })
+
+  test('uses plain saved-notes wording for loading and empty states', () => {
+    render(
+      <InjectionPreviewModal
+        isOpen
+        preview={null}
+        loading
+        onClose={() => {}}
+        onConfirm={() => {}}
+      />
+    )
+
+    expect(screen.getByText('Loading saved notes review…')).toBeDefined()
+    expect(screen.queryByText(new RegExp(['Loading', 'context', 'review'].join('\\s+')))).toBeNull()
+
+    cleanup()
+
+    render(<InjectionPreviewModal isOpen preview={null} onClose={() => {}} onConfirm={() => {}} />)
+
+    expect(screen.getByText('No saved notes review is available yet.')).toBeDefined()
+    expect(screen.queryByText(new RegExp(['No', 'context', 'review'].join('\\s+')))).toBeNull()
+  })
+
+  test('describes unknown saved items and helper-agent limits without jargon', () => {
+    render(
+      <InjectionPreviewModal
+        isOpen
+        preview={{
+          ...preview,
+          degradation: ['no_subagents'],
+          items: [
+            {
+              ...preview.items[0],
+              itemKind: 'future_item_kind' as never,
+            },
+          ],
+        }}
+        onClose={() => {}}
+        onConfirm={() => {}}
+      />
+    )
+
+    expect(screen.getByText('Saved item needs review')).toBeDefined()
+    expect(screen.getByText('Notes meant only for helper agents will be skipped')).toBeDefined()
+    expect(screen.queryByText(new RegExp(['Subagent-specific', 'context'].join('\\s+')))).toBeNull()
+    expect(
+      screen.queryByText(new RegExp(['Context', 'item', 'needs', 'review'].join('\\s+')))
     ).toBeNull()
   })
 })

@@ -92,7 +92,7 @@ export function InjectionPreviewModal({
       <button
         type="button"
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        aria-label="Close context review"
+        aria-label="Close saved notes review"
         onClick={() => {
           if (!publishing) onClose()
         }}
@@ -129,7 +129,7 @@ export function InjectionPreviewModal({
             type="button"
             onClick={onClose}
             disabled={publishing}
-            aria-label="Close context review"
+            aria-label="Close saved notes review"
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
           >
             <X size={15} strokeWidth={2} aria-hidden="true" />
@@ -140,7 +140,7 @@ export function InjectionPreviewModal({
           {loading ? (
             <div className="flex items-center gap-2 py-8 text-ui-body text-secondary-light dark:text-secondary-dark">
               <RefreshCw size={14} strokeWidth={2} className="animate-spin" aria-hidden="true" />
-              Loading context review…
+              Loading saved notes review…
             </div>
           ) : preview ? (
             <div className="space-y-4">
@@ -210,7 +210,7 @@ export function InjectionPreviewModal({
             </div>
           ) : (
             <div className="py-8 text-ui-body text-secondary-light dark:text-secondary-dark">
-              No context review is available yet.
+              No saved notes review is available yet.
             </div>
           )}
         </div>
@@ -439,7 +439,7 @@ function degradationLabel(reason: string): string {
     case 'runtime_capability_fallback':
       return 'Using safe defaults because agent setup details were incomplete'
     case 'no_subagents':
-      return 'Subagent-specific context will be skipped'
+      return 'Notes meant only for helper agents will be skipped'
     default:
       return 'Some note limits need review'
   }
@@ -452,7 +452,7 @@ function itemKindLabel(kind: string): string {
     case 'skill':
       return 'Skill instruction'
     default:
-      return 'Context item needs review'
+      return 'Saved item needs review'
   }
 }
 
