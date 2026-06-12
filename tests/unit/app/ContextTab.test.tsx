@@ -89,17 +89,20 @@ describe('ContextTab', () => {
     render(<ContextTab taskId="task-1" loadContext={async () => context({ runs: [] })} />)
 
     const emptyState = await screen.findByTestId('context-empty-state')
-    expect(within(emptyState).getByText('No context has been applied yet')).toBeDefined()
+    expect(within(emptyState).getByText('No saved notes or run details yet')).toBeDefined()
     expect(
-      within(emptyState).getByText(/Context appears here after an agent run uses saved memories/i)
+      within(emptyState).getByText(/page fills in after an agent uses saved notes/i)
     ).toBeDefined()
     expect(
       within(emptyState).getByText(
-        /Publish or run the task so Forge can choose saved memories and saved instructions/i
+        /Run the task so Forge can choose saved notes and saved instructions/i
       )
     ).toBeDefined()
+    expect(within(emptyState).queryByText('No context has been applied yet')).toBeNull()
+    expect(within(emptyState).queryByText(/Context appears here/i)).toBeNull()
     expect(within(emptyState).queryByText(/choose memories and skills/i)).toBeNull()
-    expect(within(emptyState).getByText(/Use feedback on applied items/i)).toBeDefined()
+    expect(within(emptyState).getByText(/Mark which saved items helped/i)).toBeDefined()
+    expect(within(emptyState).queryByText(/Use feedback on applied items/i)).toBeNull()
   })
 
   test('shows beginner recovery guidance when task context fails to load', async () => {

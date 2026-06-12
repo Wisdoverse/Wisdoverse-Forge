@@ -25,9 +25,9 @@ interface ContextTabProps {
 }
 
 const EMPTY_CONTEXT_STEPS = [
-  'Publish or run the task so Forge can choose saved memories and saved instructions.',
+  'Run the task so Forge can choose saved notes and saved instructions.',
   'Review ideas from a run to keep useful notes for next time.',
-  'Use feedback on applied items so future runs learn what helped.',
+  'Mark which saved items helped so future runs get better.',
 ]
 
 export function ContextTab({
@@ -254,11 +254,11 @@ function ContextEmptyState() {
               id="context-empty-title"
               className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark"
             >
-              No context has been applied yet
+              No saved notes or run details yet
             </h3>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-              Context appears here after an agent run uses saved memories, saved instructions, or
-              run details for this task.
+              This page fills in after an agent uses saved notes, saved instructions, or run details
+              for this task.
             </p>
           </div>
         </div>
