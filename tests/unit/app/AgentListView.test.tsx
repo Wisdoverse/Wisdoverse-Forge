@@ -37,6 +37,8 @@ beforeEach(() => {
 describe('AgentListView', () => {
   test('shows empty state when no agents', () => {
     render(<AgentListView />)
+    expect(screen.getByText('Agents')).toBeDefined()
+    expect(screen.queryByText('Agent Fleet')).toBeNull()
     expect(screen.getByText(/create your first agent/i)).toBeDefined()
     expect(screen.getByText(/chat-only AI service for planning and review/i)).toBeDefined()
     expect(screen.getByText(/files and commands on your machine/i)).toBeDefined()
@@ -51,9 +53,9 @@ describe('AgentListView', () => {
     expect(within(enrollment).getByText(/connect this computer/i)).toBeDefined()
     expect(enrollment.textContent).toContain('files or commands on your computer')
     expect(enrollment.textContent).toContain('This computer')
-    expect(enrollment.textContent).toContain(
-      'Already installed the setup tool? Show the copyable command'
-    )
+    expect(enrollment.textContent).toContain('Manual setup for this computer')
+    expect(enrollment.textContent).toContain('Use this only when your team already installed')
+    expect(enrollment.textContent).toContain('choose New agent on this computer above')
     expect(enrollment.textContent).toContain('Computer type')
     expect(
       within(enrollment).getByRole('group', { name: /choose this computer type/i })
@@ -68,6 +70,7 @@ describe('AgentListView', () => {
     expect(enrollment.textContent).not.toContain('Platform CLI')
     expect(enrollment.textContent).not.toContain('Host CLI platform')
     expect(enrollment.textContent).not.toContain('Connect a Local Agent')
+    expect(enrollment.textContent).not.toContain('Already installed the setup tool')
     expect(within(enrollment).getByTestId('host-cli-command-waiting')).toHaveTextContent(
       /this panel will show the command to copy/i
     )
@@ -105,9 +108,11 @@ describe('AgentListView', () => {
     expect(enrollment.textContent).toContain('--name "This Computer Codex"')
     expect(enrollment.textContent).toContain('--tool codex')
     expect(enrollment.textContent).toContain('--project p1')
-    expect(enrollment.textContent).toContain('Use the New agent button above')
-    expect(enrollment.textContent).toContain('Run this command from the folder')
-    expect(enrollment.textContent).toContain('Keep codex unless')
+    expect(enrollment.textContent).toContain('Open the folder this agent should work in')
+    expect(enrollment.textContent).toContain(
+      'Copy this command and paste it into Terminal or PowerShell'
+    )
+    expect(enrollment.textContent).toContain('Leave the work tool as Codex unless')
     expect(enrollment.textContent).not.toContain('Run this manual command')
     expect(enrollment.textContent).not.toContain('Change codex only if')
     expect(within(enrollment).getByRole('button', { name: /copy setup command/i })).toBeDefined()

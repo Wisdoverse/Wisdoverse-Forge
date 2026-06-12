@@ -106,7 +106,7 @@ export function AgentListView() {
           <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
             <div className="min-w-0">
               <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-                Agent Fleet
+                Agents
               </h2>
               <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 Agents that can receive work. Choose one by where the work should happen.
@@ -322,8 +322,12 @@ function HostCliEnrollmentPanel({
 
       <details className="mt-3">
         <summary className="cursor-pointer text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Already installed the setup tool? Show the copyable command
+          Manual setup for this computer
         </summary>
+        <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          Use this only when your team already installed the setup tool. Otherwise choose New agent
+          on this computer above.
+        </p>
         <div className="mt-3">
           <p className="mb-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
             Computer type
@@ -386,9 +390,9 @@ function HostCliEnrollmentPanel({
             </pre>
 
             <div className="mt-3 grid gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              <p>1. Use the New agent button above if you want Forge to guide you.</p>
-              <p>2. Run this command from the folder this agent should work in.</p>
-              <p>3. Keep codex unless your team told you to use another work tool.</p>
+              <p>1. Open the folder this agent should work in.</p>
+              <p>2. Copy this command and paste it into Terminal or PowerShell.</p>
+              <p>3. Leave the work tool as Codex unless your team tells you otherwise.</p>
             </div>
           </>
         ) : (
