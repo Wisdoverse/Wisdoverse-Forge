@@ -2,6 +2,7 @@ import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 import { taskMachineKey, taskPriorityLabel, taskStateLabel } from '@app/entities/task'
+import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 
 const STATE_COLORS: Record<string, string> = {
   backlog: 'bg-apple-gray-1 text-white',
@@ -116,27 +117,18 @@ function taskMetadataGuidance(task: TaskSummary, hasAssignee: boolean): string {
     case 'working':
       return 'An agent is working now. Watch progress here and check Updates for recent activity.'
     case 'blocked':
-      return task.blockedHint
-        ? beginnerBlockedHint(task.blockedHint)
-        : 'The task needs attention before work can continue. Check Updates for the blocker.'
+      return taskBlockedPreview({
+        blockedHint: task.blockedHint,
+        blockedReason: task.blockedReason,
+        error: task.error,
+      })
     case 'completed':
       return 'The task is finished. Review the Result tab or the final answer before closing the loop.'
     case 'failed':
-      return 'The task stopped before finishing. Read the error, fix the cause, then retry.'
+      return taskFailurePreview(task.error)
     case 'canceled':
       return 'The task was stopped intentionally. Open Updates to see the last recorded activity.'
     default:
       return 'Open Updates to review the latest task activity.'
   }
-}
-
-function beginnerBlockedHint(hint: string): string {
-  const trimmed = hint.trim()
-  if (!trimmed) {
-    return 'The task needs attention before work can continue. Check Updates for the blocker.'
-  }
-  if (/\b(api\s*)?(credential|credentials|key|keys|token|tokens|secret|secrets)\b/i.test(trimmed)) {
-    return 'Waiting for account access. Add or reconnect the required service access, then retry.'
-  }
-  return trimmed
 }

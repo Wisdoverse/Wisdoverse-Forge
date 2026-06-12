@@ -93,13 +93,31 @@ describe('TaskMetadata', () => {
     expect(screen.getByText('Waiting for your answer before continuing.')).toBeDefined()
   })
 
+  test('explains blocked task reasons without leaking raw service details', () => {
+    render(
+      <TaskMetadata
+        task={{
+          ...mockTask,
+          state: 'blocked',
+          assignedTo: 'agent-1',
+          blockedReason: 'quota_exceeded',
+          error: 'quota_exceeded: docker socket denied secret token abc',
+        }}
+      />
+    )
+
+    const guidance = screen.getByTestId('task-metadata-guidance')
+    expect(guidance.textContent).toContain('Free capacity or ask an owner to raise the limit')
+    expect(guidance.textContent).not.toMatch(/quota_exceeded|docker socket|secret token/i)
+  })
+
   test('explains failed task recovery without hiding the status badge', () => {
     render(
       <TaskMetadata
         task={{
           ...mockTask,
           state: 'failed',
-          error: 'Runtime exited before producing a result.',
+          error: 'Rate limit exceeded: 429 from provider',
           priority: 'high',
         }}
       />
@@ -109,7 +127,10 @@ describe('TaskMetadata', () => {
     expect(screen.queryByText('Failed')).toBeNull()
     expect(screen.getByText('High')).toBeDefined()
     expect(screen.getByTestId('task-metadata-guidance').textContent).toContain(
-      'fix the cause, then retry.'
+      'AI service is busy'
+    )
+    expect(screen.getByTestId('task-metadata-guidance').textContent).not.toMatch(
+      /read the error|429|provider/i
     )
   })
 
