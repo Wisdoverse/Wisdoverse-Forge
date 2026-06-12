@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { SshKeysSection } from '@app/features/settings/SshKeysSection'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import type { UserSshKey } from '@app/entities/agent'
@@ -54,12 +54,15 @@ describe('SshKeysSection', () => {
     render(<SshKeysSection />)
 
     expect(await screen.findByText('No repository SSH access yet')).toBeDefined()
-    expect(screen.getAllByText(/starts with git@/i).length).toBeGreaterThan(0)
-    expect(screen.getByText(/starts with https:\/\//i)).toBeDefined()
-    expect(screen.getByText(/Code Repository Access/i)).toBeDefined()
+    const emptyState = screen.getByTestId('ssh-access-empty-state')
+    expect(within(emptyState).getAllByText(/starts with git@/i).length).toBeGreaterThan(0)
+    expect(within(emptyState).getByText(/starts with https:\/\//i)).toBeDefined()
+    expect(within(emptyState).getByText(/Code Repository Access/i)).toBeDefined()
+    expect(within(emptyState).getByRole('button', { name: /add ssh access/i })).toBeDefined()
 
-    fireEvent.click(screen.getByRole('button', { name: /add ssh access/i }))
+    fireEvent.click(within(emptyState).getByRole('button', { name: /add ssh access/i }))
 
+    expect(screen.queryByTestId('ssh-access-empty-state')).toBeNull()
     expect(
       screen.getByText('Add repository SSH access for git@ repository addresses')
     ).toBeDefined()

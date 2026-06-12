@@ -328,7 +328,7 @@ export function SshKeysSection() {
             Loading repository SSH access...
           </div>
         ) : sshKeys.length === 0 && !showForm ? (
-          <div className="px-4 py-6 text-center">
+          <div className="px-4 py-6 text-center" data-testid="ssh-access-empty-state">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
               No repository SSH access yet
             </p>
@@ -336,6 +336,13 @@ export function SshKeysSection() {
               If the repository address starts with git@, add this. If it starts with https://, use
               Code Repository Access instead.
             </p>
+            <button
+              type="button"
+              onClick={() => setShowForm(true)}
+              className={cn(uiStyles.primaryButton, 'mx-auto mt-3')}
+            >
+              Add SSH access
+            </button>
           </div>
         ) : (
           <>
