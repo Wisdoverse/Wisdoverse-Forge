@@ -98,7 +98,9 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
 function agentFolderLabel(agent: AgentInfo): string {
   if (!agent.cliTool) return 'No file access needed'
   if (!agent.cwd || agent.cwd === '/workspace') {
-    return isHostCliAgent(agent) ? 'Folder where you ran the setup command' : 'Workspace project folder'
+    return isHostCliAgent(agent)
+      ? 'Folder where you ran the setup command'
+      : 'Workspace project folder'
   }
   return agent.cwd
 }
@@ -115,6 +117,9 @@ export function agentDetailHeaderSubtitle(agent: AgentInfo): string {
 
 function agentConnectionStatus(agent: AgentInfo): string {
   if (isHostCliAgent(agent)) {
+    if (agent.status === 'offline') {
+      return 'Run setup again on this computer'
+    }
     return agent.runtimeId
       ? 'Connected from this computer'
       : 'Run the setup command on this computer again'

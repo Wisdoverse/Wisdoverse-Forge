@@ -292,6 +292,8 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Run the setup command on this computer again')).toBeDefined()
     expect(screen.getByText(/open Terminal or PowerShell in the project folder/i)).toBeDefined()
     expect(screen.getByText(/keep that window open/i)).toBeDefined()
+    expect(screen.getByText('Run setup again on this computer')).toBeDefined()
+    expect(screen.queryByText('Connected from this computer')).toBeNull()
     expect(screen.queryByRole('button', { name: /open terminal/i })).toBeNull()
   })
 
