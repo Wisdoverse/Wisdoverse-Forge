@@ -454,7 +454,7 @@ function ResultReviewGuide({ task, artifactCount }: { task: TaskSummary; artifac
           title="Choose the next action"
           detail={
             completed
-              ? 'Accept the result, draft saved guidance, or create a follow-up task if something is missing.'
+              ? 'Accept the result, save repeatable steps, or create a follow-up task if something is missing.'
               : 'Use Work or Updates to decide whether the agent needs more input.'
           }
         />

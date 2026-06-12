@@ -363,7 +363,9 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByText(/review the result before closing/i)).toBeDefined()
     expect(screen.getByText(/compare with the brief/i)).toBeDefined()
     expect(screen.getByText(/1 result file attached for review/i)).toBeDefined()
-    expect(screen.getByText(/accept the result, draft saved guidance/i)).toBeDefined()
+    expect(screen.getByText(/accept the result, save repeatable steps/i)).toBeDefined()
+    const previousResultReuseCopy = new RegExp(['draft', 'saved guidance'].join('.*'), 'i')
+    expect(screen.queryByText(previousResultReuseCopy)).toBeNull()
     expect(screen.getByText(/if it does not answer the brief/i)).toBeDefined()
   })
 
