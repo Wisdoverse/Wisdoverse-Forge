@@ -149,7 +149,7 @@ function authSignInErrorMessage(error: unknown): string {
     lowerDetail.includes('client') ||
     lowerDetail.includes('not configured')
   ) {
-    return 'Sign-in provider is not ready. Ask an owner or admin to check sign-in setup.'
+    return 'This sign-in option is not ready. Ask an owner or admin to check sign-in setup.'
   }
 
   return 'Sign-in could not finish. Choose a sign-in option and try again. If it still fails, ask an owner or admin to check sign-in setup.'

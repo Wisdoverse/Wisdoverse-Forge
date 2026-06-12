@@ -55,7 +55,7 @@ describe('AuthPage beginner guidance', () => {
     )
   })
 
-  test('explains provider sign-in and account creation in beginner language', async () => {
+  test('explains sign-in options and account creation in beginner language', async () => {
     const page = new AuthPage(
       createAuthManager({
         getProviders: vi.fn().mockResolvedValue([{ name: 'github', displayName: 'GitHub' }]),
@@ -108,6 +108,20 @@ describe('AuthPage beginner guidance', () => {
     )
     expect(bodyText()).not.toContain('Failed to fetch')
     expect(bodyText()).not.toContain('could not reach the service')
+    expect(window.location.search).toBe('')
+  })
+
+  test('explains sign-in setup failures without provider wording', async () => {
+    window.history.replaceState({}, '', '/login?auth_error=provider_not_configured')
+    const page = new AuthPage(createAuthManager())
+
+    await page.show()
+
+    expect(bodyText()).toContain(
+      'This sign-in option is not ready. Ask an owner or admin to check sign-in setup.'
+    )
+    expect(bodyText()).not.toContain('provider_not_configured')
+    expect(bodyText()).not.toContain('Sign-in provider')
     expect(window.location.search).toBe('')
   })
 
