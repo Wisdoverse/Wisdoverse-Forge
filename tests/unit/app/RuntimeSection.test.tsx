@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import '@app/i18n'
 import { RuntimeSection } from '@app/features/settings/RuntimeSection'
 import { useSettingsStore } from '@app/shared/model/settings.store'
@@ -115,14 +115,26 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     expect(await screen.findByTestId('runtime-launch-checklist')).toBeDefined()
+    const readiness = screen.getByTestId('runtime-readiness')
     const nextStep = screen.getByTestId('runtime-next-step')
     expect(nextStep).toHaveTextContent('Do this next')
     expect(nextStep).toHaveTextContent('Tools installed')
     expect(screen.getByText('Before assigning work')).toBeDefined()
     expect(screen.getByText('2/4 ready')).toBeDefined()
-    expect(screen.getAllByText(/agent locations available/i).length).toBeGreaterThan(0)
+    expect(
+      screen.getByText(/Setup has 2 agent locations and 2 work tools like Claude or Codex/i)
+    ).toBeDefined()
+    expect(
+      screen.getByText(/1 work tool sign-in is connected, and 1 agent is online/i)
+    ).toBeDefined()
+    expect(
+      within(readiness).queryByText(new RegExp('agent locations\\s+available', 'i'))
+    ).toBeNull()
     expect(screen.queryByText(/work places available/i)).toBeNull()
-    expect(screen.getByText(/tools like Claude or Codex available/i)).toBeDefined()
+    expect(
+      screen.queryByText(new RegExp('tools like Claude or Codex\\s+available', 'i'))
+    ).toBeNull()
+    expect(screen.queryByText(/seen online/i)).toBeNull()
     expect(
       screen.getAllByText(/project files, commands, or live work access/i).length
     ).toBeGreaterThan(0)
@@ -193,6 +205,12 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     expect(await screen.findByText('4/4 ready')).toBeDefined()
+    expect(
+      screen.getByText(/Setup has 1 agent location and 1 work tool like Claude or Codex/i)
+    ).toBeDefined()
+    expect(
+      screen.getByText(/1 work tool sign-in is connected, and 1 agent is online/i)
+    ).toBeDefined()
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Ready to give agents work')
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('The agent location')
     expect(screen.queryByRole('button', { name: /Sign in to GitHub/i })).toBeNull()

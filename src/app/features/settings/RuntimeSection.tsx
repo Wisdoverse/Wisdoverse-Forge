@@ -218,7 +218,11 @@ export function RuntimeSection() {
             </div>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
               {runtimeSettings
-                ? `${runtimeSettings.availableRuntimes.length} agent location${runtimeSettings.availableRuntimes.length === 1 ? '' : 's'} available, ${runtimeSettings.availableCliTools.length} work tool${runtimeSettings.availableCliTools.length === 1 ? '' : 's'} like Claude or Codex available, ${connectedCredentialCount} work tool sign-in${connectedCredentialCount === 1 ? '' : 's'} connected, ${participants.length} agent${participants.length === 1 ? '' : 's'} seen online.`
+                ? runtimeReadinessSummary(
+                    runtimeSettings,
+                    connectedCredentialCount,
+                    participants.length
+                  )
                 : 'Agent Work Setup has not loaded yet.'}
             </p>
           </div>
@@ -813,6 +817,31 @@ function versionSourceLabel(source: string, imagePresent: boolean): string {
   if (source === 'docker-label') return 'ready'
   if (source === 'image-tag') return imagePresent ? 'ready' : 'needs attention'
   return 'needs attention'
+}
+
+function runtimeReadinessSummary(
+  runtimeSettings: RuntimeSettings,
+  connectedCredentialCount: number,
+  onlineAgentCount: number
+): string {
+  const locations = countPhrase(runtimeSettings.availableRuntimes.length, 'agent location')
+  const tools = countPhrase(runtimeSettings.availableCliTools.length, 'work tool')
+  const signIns =
+    connectedCredentialCount === 0
+      ? 'No work tool sign-ins are connected yet'
+      : `${countPhrase(connectedCredentialCount, 'work tool sign-in')} ${
+          connectedCredentialCount === 1 ? 'is' : 'are'
+        } connected`
+  const onlineAgents =
+    onlineAgentCount === 0
+      ? 'no agents are online yet'
+      : `${countPhrase(onlineAgentCount, 'agent')} ${onlineAgentCount === 1 ? 'is' : 'are'} online`
+
+  return `Setup has ${locations} and ${tools} like Claude or Codex. ${signIns}, and ${onlineAgents}.`
+}
+
+function countPhrase(count: number, singular: string): string {
+  return `${count} ${singular}${count === 1 ? '' : 's'}`
 }
 
 function fallbackRuntimeLabel(runtime: string): string {
