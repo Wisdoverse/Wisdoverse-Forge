@@ -1034,7 +1034,13 @@ impl AgentContainerEnvPolicy {
         agent_url: Option<&str>,
         backend_url: Option<&str>,
     ) -> Option<String> {
-        let source = container_url.or(agent_url).or(backend_url)?;
+        // Compose passes `NATS_CONTAINER_URL=${NATS_CONTAINER_URL:-}`, so an
+        // unset deployment value arrives as Some("") — a blank must fall
+        // through to the next URL instead of short-circuiting the chain.
+        fn non_blank(url: Option<&str>) -> Option<&str> {
+            url.filter(|value| !value.trim().is_empty())
+        }
+        let source = non_blank(container_url).or_else(|| non_blank(agent_url)).or_else(|| non_blank(backend_url))?;
         Self::strip_nats_url_user_info(source)
     }
 
@@ -1745,6 +1751,16 @@ mod tests {
             "nats://nats:4222"
         );
         assert_eq!(AgentContainerEnvPolicy::pick_container_nats_base_url(None, None, None), None);
+        // Compose's `${NATS_CONTAINER_URL:-}` default delivers an empty
+        // string, which must fall through rather than poison the chain.
+        assert_eq!(
+            AgentContainerEnvPolicy::pick_container_nats_base_url(Some(""), agent, backend).unwrap(),
+            "nats://198.51.100.7:4222"
+        );
+        assert_eq!(
+            AgentContainerEnvPolicy::pick_container_nats_base_url(Some("  "), None, backend).unwrap(),
+            "nats://nats:4222"
+        );
     }
 
     #[test]
