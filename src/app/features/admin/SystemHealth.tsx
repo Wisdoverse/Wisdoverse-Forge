@@ -50,15 +50,15 @@ const SERVICE_DEFINITIONS: readonly ServiceDefinition[] = [
     supportName: 'Shows new progress in the browser',
     description: 'Moves events from running agents into the browser in near real time.',
     impact: 'Runs may continue, but users may not see progress updates immediately.',
-    action:
-      'Ask an owner or admin to check live updates, then refresh and look for new progress.',
+    action: 'Ask an owner or admin to check live updates, then refresh and look for new progress.',
   },
   {
     key: 'docker',
     name: 'Agent Work Starter',
     supportName: 'Starts file-work agents',
     description: 'Starts and manages the prepared workspaces where agents do file work.',
-    impact: 'Starting new managed workspace agents may fail; agents already running may stop reporting.',
+    impact:
+      'Starting new managed workspace agents may fail; agents already running may stop reporting.',
     action:
       'Ask an owner or admin to check managed workspace setup before sending new file work to agents.',
   },
@@ -308,7 +308,7 @@ export function SystemHealth() {
     <div>
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>App readiness</h2>
+          <h2 className={uiStyles.sectionTitle}>App health check</h2>
           <p className={uiStyles.sectionDescription}>
             Checks when opened, then every 30 seconds while this page is visible. Hidden tabs pause
             checks. Start with anything marked Unavailable, then items marked Needs attention.
@@ -335,7 +335,7 @@ export function SystemHealth() {
       {healthLoading && !health && (
         <div className="flex items-center justify-center py-12">
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-            Checking app readiness...
+            Checking app health...
           </p>
         </div>
       )}

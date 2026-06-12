@@ -13,7 +13,7 @@ afterEach(() => {
 })
 
 describe('SystemHealth', () => {
-  test('explains app readiness with user-facing labels', async () => {
+  test('explains app health with user-facing labels', async () => {
     const loadHealth = vi.fn()
     useAdminStore.setState({
       ...originalAdminState,
@@ -35,7 +35,7 @@ describe('SystemHealth', () => {
     render(<SystemHealth />)
 
     await waitFor(() => expect(loadHealth).toHaveBeenCalledOnce())
-    expect(screen.getByText('App readiness')).toBeDefined()
+    expect(screen.getByText('App health check')).toBeDefined()
     expect(screen.getByText('Some areas need attention')).toBeDefined()
     expect(
       screen.getByText(/slow screens, delayed updates, or work waiting to start/i)
@@ -123,7 +123,7 @@ describe('SystemHealth', () => {
     expect(loadHealth).toHaveBeenCalledTimes(2)
   })
 
-  test('hides raw service error details from readiness rows', async () => {
+  test('hides raw service error details from health check rows', async () => {
     const loadHealth = vi.fn()
     useAdminStore.setState({
       ...originalAdminState,
@@ -177,7 +177,7 @@ describe('SystemHealth', () => {
     expect(screen.queryByText(/runtime configuration/i)).toBeNull()
   })
 
-  test('uses clear loading copy while readiness is being checked', () => {
+  test('uses clear loading copy while app health is being checked', () => {
     useAdminStore.setState({
       ...originalAdminState,
       health: null,
@@ -188,11 +188,11 @@ describe('SystemHealth', () => {
 
     render(<SystemHealth />)
 
-    expect(screen.getByText('Checking app readiness...')).toBeDefined()
+    expect(screen.getByText('Checking app health...')).toBeDefined()
     expect(screen.getByRole('button', { name: 'Checking...' })).toBeDisabled()
   })
 
-  test('explains what to do when readiness cannot load', () => {
+  test('explains what to do when app health cannot load', () => {
     useAdminStore.setState({
       ...originalAdminState,
       health: null,
@@ -204,12 +204,13 @@ describe('SystemHealth', () => {
     render(<SystemHealth />)
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Forge could not check app readiness. Refresh Admin, then choose Check now. If it still fails, ask an owner or admin to check app readiness setup.'
+      'Forge could not check app health. Refresh Admin, then choose Check now. If it still fails, ask an owner or admin to check app health setup.'
     )
     expect(screen.queryByText('HTTP 500')).toBeNull()
     expect(screen.queryByText(/temporarily unavailable/i)).toBeNull()
     expect(screen.queryByText(/admin service/i)).toBeNull()
     expect(screen.queryByText(/service readiness/i)).toBeNull()
+    expect(screen.queryByText(new RegExp(['app', 'readiness'].join(' '), 'i'))).toBeNull()
     expect(screen.getByRole('button', { name: 'Check now' })).toBeDefined()
   })
 })

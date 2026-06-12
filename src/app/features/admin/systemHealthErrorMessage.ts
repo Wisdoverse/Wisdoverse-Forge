@@ -57,7 +57,7 @@ function isNetworkError(error: unknown): boolean {
 }
 
 export function systemHealthErrorMessage(error: unknown): string {
-  const base = 'Forge could not check app readiness.'
+  const base = 'Forge could not check app health.'
   const text = errorText(error).toLowerCase()
   const code = statusCode(error)
 
@@ -65,20 +65,20 @@ export function systemHealthErrorMessage(error: unknown): string {
     return `${base} Your sign-in expired. Sign in again, then open Admin and choose Check now.`
   }
   if (code === 403 || text.includes('permission') || text.includes('forbidden')) {
-    return `${base} You do not have access to app readiness. Ask an owner or admin to update your role, then choose Check now.`
+    return `${base} You do not have access to app health checks. Ask an owner or admin to update your role, then choose Check now.`
   }
   if (code === 404 || text.includes('endpoint is not available')) {
-    return `${base} App readiness is not available from this Admin view. Refresh Admin, then choose Check now. If it still fails, ask an owner or admin to check setup.`
+    return `${base} App health checks are not available from this Admin view. Refresh Admin, then choose Check now. If it still fails, ask an owner or admin to check setup.`
   }
   if (code === 429 || text.includes('busy') || text.includes('too many')) {
-    return `${base} Forge is receiving too many readiness checks right now. Wait a minute, then choose Check now.`
+    return `${base} Forge is receiving too many health checks right now. Wait a minute, then choose Check now.`
   }
   if (code != null && code >= 500) {
-    return `${base} Refresh Admin, then choose Check now. If it still fails, ask an owner or admin to check app readiness setup.`
+    return `${base} Refresh Admin, then choose Check now. If it still fails, ask an owner or admin to check app health setup.`
   }
   if (isNetworkError(error)) {
-    return `${base} Forge could not connect while checking app readiness. Check your connection, then choose Check now.`
+    return `${base} Forge could not connect while checking app health. Check your connection, then choose Check now.`
   }
 
-  return `${base} Choose Check now again. If it still fails, ask an owner or admin to check app readiness setup.`
+  return `${base} Choose Check now again. If it still fails, ask an owner or admin to check app health setup.`
 }
