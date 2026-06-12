@@ -19,7 +19,7 @@ export function ContextEvidenceList({ evidence, revokedItems }: ContextEvidenceL
     <section className="space-y-2" data-testid="context-evidence">
       <div>
         <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
-          Evidence
+          What the agent used
         </h3>
         <p className="mt-0.5 text-[11px] leading-relaxed text-secondary-light dark:text-secondary-dark">
           These records show what the agent used or saved so you can understand the result before
@@ -74,7 +74,7 @@ export function ContextEvidenceList({ evidence, revokedItems }: ContextEvidenceL
                 </p>
                 <p className="mt-1 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
                   Most users can rely on the summary above. Open support details only when checking
-                  an unexpected result or sharing evidence with support.
+                  an unexpected result or sharing run details with support.
                 </p>
                 <details className="mt-2 text-[10px] text-secondary-light dark:text-secondary-dark">
                   <summary className="cursor-pointer select-none font-medium text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/30 dark:text-foreground-dark">
@@ -98,7 +98,7 @@ function evidenceTitle(item: TaskContextEvidence): string {
   if (item.sourceType === 'tool_call') return 'Tool activity'
   if (item.sourceType === 'artifact') return 'Saved result file'
   if (item.sourceType === 'source_message') return 'Source message'
-  return 'Run evidence'
+  return 'Run details'
 }
 
 function evidenceDescription(item: TaskContextEvidence): string {
@@ -114,7 +114,7 @@ function evidenceDescription(item: TaskContextEvidence): string {
   if (item.sourceType === 'source_message') {
     return 'A message the agent used while preparing the result.'
   }
-  return 'Supporting information recorded during the run.'
+  return 'Extra information recorded during the run.'
 }
 
 function payloadSummary(payload: Record<string, unknown>): string {
@@ -127,10 +127,12 @@ function payloadSummary(payload: Record<string, unknown>): string {
 
   const keys = Object.keys(payload)
   if (keys.length > 0) {
-    return `Additional evidence with ${keys.length} ${keys.length === 1 ? 'piece' : 'pieces'} of information.`
+    return `Additional run details with ${keys.length} ${
+      keys.length === 1 ? 'piece' : 'pieces'
+    } of information.`
   }
 
-  return 'Detailed evidence was recorded for this run.'
+  return 'Run details were recorded for this task.'
 }
 
 function formatTechnicalDetails(payload: Record<string, unknown>): string {

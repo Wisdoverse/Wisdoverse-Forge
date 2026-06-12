@@ -23,7 +23,7 @@ interface DescriptionTabProps {
 
 const HANDOFF_REVIEW_POINTS = [
   { label: 'Outcome', value: 'Confirm the result solves the original request.' },
-  { label: 'Evidence', value: 'Open result files or context before accepting the work.' },
+  { label: 'Check work', value: 'Open result files or what the agent used before accepting.' },
   {
     label: 'Reuse',
     value: 'Save the repeatable steps only when they should help future tasks.',
@@ -183,7 +183,7 @@ export function DescriptionTab({
           <p>
             {contextTotal > 0
               ? `${contextTotal} saved context item${contextTotal === 1 ? '' : 's'} helped this task.`
-              : 'Saved memories, evidence, and saved instruction suggestions appear here as the task runs.'}
+              : 'Saved memories, run details, and saved instruction suggestions appear here as the task runs.'}
           </p>
           {onOpenContext && (
             <button

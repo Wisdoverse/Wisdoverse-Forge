@@ -103,6 +103,11 @@ describe('DescriptionTab', () => {
     expect(
       screen.getByText('Save the repeatable steps only when they should help future tasks.')
     ).toBeDefined()
+    expect(screen.getByText('Check work')).toBeDefined()
+    expect(
+      screen.getByText('Open result files or what the agent used before accepting.')
+    ).toBeDefined()
+    expect(screen.queryByText('Evidence')).toBeNull()
     const previousReuseCopy = new RegExp(['Completed work', 'saved instructions'].join('.*'), 'i')
     expect(screen.queryByText(previousReuseCopy)).toBeNull()
     expect(screen.queryByText('Reusable learning')).toBeNull()
@@ -117,9 +122,12 @@ describe('DescriptionTab', () => {
 
     expect(
       screen.getByText(
-        'Saved memories, evidence, and saved instruction suggestions appear here as the task runs.'
+        'Saved memories, run details, and saved instruction suggestions appear here as the task runs.'
       )
     ).toBeDefined()
+    expect(
+      screen.queryByText(/Saved memories, evidence, and saved instruction suggestions/i)
+    ).toBeNull()
     expect(
       screen.queryByText(new RegExp(['Saved memories', 'proof'].join(',\\s+'), 'i'))
     ).toBeNull()

@@ -61,15 +61,18 @@ describe('ContextEvidenceList', () => {
   test('explains task result evidence before showing technical details', () => {
     render(<ContextEvidenceList evidence={[evidence()]} revokedItems={[]} />)
 
-    expect(screen.getByText('Evidence')).toBeInTheDocument()
+    expect(screen.getByText('What the agent used')).toBeInTheDocument()
     expect(screen.getByText(/what the agent used or saved/i)).toBeInTheDocument()
     expect(screen.getByText('Task result')).toBeInTheDocument()
     expect(screen.getByText(/Final answer or status saved from the agent run/i)).toBeInTheDocument()
     expect(screen.getByText('Health check completed successfully.')).toBeInTheDocument()
     expect(
-      screen.getByText(/Most users can rely on the summary above.*sharing evidence with support/i)
+      screen.getByText(
+        /Most users can rely on the summary above.*sharing run details with support/i
+      )
     ).toBeInTheDocument()
     expect(screen.getByText('Show support details')).toBeInTheDocument()
+    expect(screen.queryByText('Evidence')).toBeNull()
     expect(screen.queryByText(/technical details/i)).toBeNull()
     expect(screen.queryByText(/raw details/i)).toBeNull()
   })
@@ -107,8 +110,9 @@ describe('ContextEvidenceList', () => {
     )
 
     expect(
-      screen.getByText('Additional evidence with 2 pieces of information.')
+      screen.getByText('Additional run details with 2 pieces of information.')
     ).toBeInTheDocument()
+    expect(screen.queryByText(/Additional evidence/i)).toBeNull()
     expect(screen.queryByText(/fields/i)).toBeNull()
   })
 
@@ -171,9 +175,10 @@ describe('ContextEvidenceList', () => {
       />
     )
 
-    expect(screen.getByText('Run evidence')).toBeInTheDocument()
-    expect(screen.getByText('Supporting information recorded during the run.')).toBeInTheDocument()
+    expect(screen.getByText('Run details')).toBeInTheDocument()
+    expect(screen.getByText('Extra information recorded during the run.')).toBeInTheDocument()
     expect(screen.getByText('The recorded result needs attention.')).toBeInTheDocument()
+    expect(screen.queryByText('Run evidence')).toBeNull()
     expect(screen.queryByText('Custom Probe')).toBeNull()
   })
 
