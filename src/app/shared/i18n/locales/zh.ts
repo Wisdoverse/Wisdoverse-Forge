@@ -435,7 +435,8 @@ export const zh: TranslationKeys = {
       loading: '加载工作设置...',
       couldNotLoad: '无法加载工作设置',
       defaultRuntimeLabel: '默认 Agent 运行位置',
-      defaultRuntimeDescription: '除非负责人要求 Agent 在这台电脑上运行，否则优先选择托管工作区',
+      defaultRuntimeDescription:
+        '托管工作区最简单。只有要把这台电脑接入为可管理的本地 Agent 时，才选择这台电脑。',
       defaultContainerCliLabel: '项目工作默认工具',
       defaultContainerCliDescription:
         'Agent 编辑文件或运行命令时使用的 Claude Code、Codex、Gemini 或 OpenCode',

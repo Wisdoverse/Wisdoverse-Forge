@@ -442,7 +442,7 @@ export const en = {
       couldNotLoad: 'Could not load work setup',
       defaultRuntimeLabel: 'Default agent location',
       defaultRuntimeDescription:
-        'Choose Managed workspace unless an owner tells you agents should run on this computer',
+        'Managed workspace is the simplest choice. Choose This computer only when this machine should join as a managed local agent.',
       defaultContainerCliLabel: 'Default tool for project work',
       defaultContainerCliDescription:
         'Claude Code, Codex, Gemini, or OpenCode when an agent edits files or runs commands',

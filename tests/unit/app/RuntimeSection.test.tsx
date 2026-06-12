@@ -138,6 +138,12 @@ describe('RuntimeSection', () => {
     expect(
       screen.getAllByText(/project files, commands, or live work access/i).length
     ).toBeGreaterThan(0)
+    expect(
+      screen.getByText(
+        'Managed workspace is the simplest choice. Choose This computer only when this machine should join as a managed local agent.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByText(new RegExp(['unless', 'owner', 'tells'].join('.*'), 'i'))).toBeNull()
     expect(screen.getAllByText(/work tool setup/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/tool install status/i)).toBeNull()
     expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
