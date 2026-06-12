@@ -162,7 +162,8 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
   if (kind === 'local-cli') {
     return {
       title: `${cliToolLabel(cliTool)} on this computer`,
-      detail: 'Best when files or tools must stay on a computer you control.',
+      detail:
+        'Best when files or tools must stay on this computer. Forge can still assign tasks, show status, and save task history here.',
       items: [
         { label: 'Agent location', value: 'This computer' },
         { label: 'Files', value: 'Your chosen folder' },
@@ -723,7 +724,7 @@ export function CreateAgentModal() {
                 {kind === 'cli'
                   ? 'Uses a ready workspace managed by Forge for file and command work.'
                   : kind === 'local-cli'
-                    ? 'Uses files and commands on your computer while Forge gives it tasks.'
+                    ? 'Uses files and commands on your computer while Forge assigns tasks and shows status here.'
                     : 'Uses a connected AI service for planning, writing, and review. It does not open files or run commands.'}
               </p>
             </div>

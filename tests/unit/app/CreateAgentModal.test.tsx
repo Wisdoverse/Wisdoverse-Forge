@@ -251,11 +251,21 @@ describe('CreateAgentModal', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
     expect(screen.getByText(/codex on this computer/i)).toBeInTheDocument()
-    expect(screen.getByText(/files and commands on your computer/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /files and commands on your computer while Forge assigns tasks and shows status here/i
+      )
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/Forge can still assign tasks, show status, and save task history here/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Forge gives it tasks/i)).toBeNull()
     expect(screen.getByText('Run the setup command')).toBeInTheDocument()
     expect(screen.getByText('Uses this computer')).toBeInTheDocument()
-    expect(screen.queryByText(/work tool installed on your computer/i)).toBeNull()
-    expect(screen.queryByText('Local work')).toBeNull()
+    expect(
+      screen.queryByText(new RegExp(['work tool', 'installed', 'your computer'].join('.*'), 'i'))
+    ).toBeNull()
+    expect(screen.queryByText(new RegExp(['Local', 'work'].join('\\s+')))).toBeNull()
 
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
     fireEvent.change(screen.getByLabelText(/^ai service$/i), { target: { value: 'google' } })
@@ -315,7 +325,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText(/agent managed by forge/i)).toBeInTheDocument()
     expect(screen.getByText(/keep it running so forge can manage this agent/i)).toBeInTheDocument()
     expect(screen.queryByText(/where the CLI is installed/i)).toBeNull()
-    expect(screen.queryByText(/local agent join/i)).toBeNull()
+    expect(screen.queryByText(new RegExp(['local', 'agent', 'join'].join('.*'), 'i'))).toBeNull()
   })
 
   test('shows the setup command with an OS toggle when the server mints a join code', async () => {
