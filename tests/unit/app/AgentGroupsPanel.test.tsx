@@ -126,7 +126,8 @@ describe('AgentGroupsPanel', () => {
     expect(screen.queryByText('Queued')).not.toBeInTheDocument()
     expect(screen.queryByText('Failed')).not.toBeInTheDocument()
     expect(screen.queryByText(/routed/i)).toBeNull()
-    expect(screen.getByPlaceholderText('Search tasks, agents, or blockers...')).toBeDefined()
+    expect(screen.getByPlaceholderText('Search tasks, agents, or problems...')).toBeDefined()
+    expect(screen.queryByPlaceholderText(/blockers/i)).toBeNull()
     expect(screen.queryByPlaceholderText(new RegExp(['assig', 'nees'].join(''), 'i'))).toBeNull()
     expect(
       screen.getByText(/needs agent .* choose an agent before sending it/i)
@@ -233,6 +234,12 @@ describe('AgentGroupsPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /^create task queue$/i }))
     expect(screen.getByRole('group', { name: /task queue templates/i })).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Build and verify').closest('button')!)
+    expect(screen.getByLabelText(/task queue description/i)).toHaveValue(
+      'Build the requested changes, keep work moving, and run checks before sharing results.'
+    )
+    expect(screen.queryByDisplayValue(/scoped changes/i)).toBeNull()
+    expect(screen.queryByDisplayValue(/handoff/i)).toBeNull()
     const reviewSummary = screen.getByText('Check before release')
     expect(reviewSummary).toBeInTheDocument()
     expect(screen.queryByText(['Risk', 'and', 'readiness'].join(' '))).toBeNull()

@@ -76,7 +76,8 @@ const TASK_GROUP_TEMPLATES: TaskGroupTemplate[] = [
     label: 'Delivery',
     summary: 'Build and verify',
     name: 'Delivery Queue',
-    description: 'Build scoped changes, keep work moving, and verify before handoff.',
+    description:
+      'Build the requested changes, keep work moving, and run checks before sharing results.',
     Icon: Wrench,
   },
   {
@@ -93,7 +94,8 @@ const TASK_GROUP_TEMPLATES: TaskGroupTemplate[] = [
     label: 'Triage',
     summary: 'Clarify and assign',
     name: 'Triage Queue',
-    description: 'Clarify incoming work, identify blockers, and send tasks to the right agent.',
+    description:
+      'Clarify incoming work, find what is blocking it, and send tasks to the right agent.',
     Icon: ClipboardCheck,
   },
 ]
@@ -352,7 +354,7 @@ export function AgentGroupsPanel() {
                   value={routingSearch}
                   onChange={(event) => setRoutingSearch(event.target.value)}
                   className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-ui-body text-foreground-light outline-none placeholder:text-secondary-light focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:text-foreground-dark dark:placeholder:text-secondary-dark"
-                  placeholder="Search tasks, agents, or blockers..."
+                  placeholder="Search tasks, agents, or problems..."
                 />
               </label>
 
