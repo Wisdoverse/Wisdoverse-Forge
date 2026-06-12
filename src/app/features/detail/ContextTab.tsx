@@ -25,7 +25,7 @@ interface ContextTabProps {
 }
 
 const EMPTY_CONTEXT_STEPS = [
-  'Publish or run the task so Forge can choose memories and skills.',
+  'Publish or run the task so Forge can choose saved memories and saved instructions.',
   'Open suggested memory updates after a run to keep useful context for next time.',
   'Use feedback on applied items so future runs learn what helped.',
 ]

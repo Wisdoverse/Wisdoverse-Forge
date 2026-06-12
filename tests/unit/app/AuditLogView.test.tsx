@@ -85,13 +85,15 @@ describe('AuditLogView', () => {
     expect(screen.getAllByText('All context changes').length).toBeGreaterThan(0)
 
     const quickViews = screen.getByRole('group', { name: /common audit views/i })
-    fireEvent.click(within(quickViews).getByRole('button', { name: /skill decisions/i }))
+    fireEvent.click(
+      within(quickViews).getByRole('button', { name: /saved instruction decisions/i })
+    )
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(2))
-    expect(within(quickViews).getByRole('button', { name: /skill decisions/i })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    )
+    expect(
+      within(quickViews).getByRole('button', { name: /saved instruction decisions/i })
+    ).toHaveAttribute('aria-pressed', 'true')
+    expect(within(quickViews).queryByRole('button', { name: /skill decisions/i })).toBeNull()
     expect(fetchGovernanceAudit).toHaveBeenLastCalledWith(
       expect.objectContaining({
         eventPrefix: 'governance.context.skill.',
@@ -130,10 +132,12 @@ describe('AuditLogView', () => {
     expect(screen.getAllByTestId('governance-audit-row')).toHaveLength(2)
     expect(screen.getByText('Change')).toBeDefined()
     expect(screen.getByText('Feedback recorded')).toBeDefined()
-    expect(screen.getByText('Skill approved')).toBeDefined()
+    expect(screen.getByText('Saved instruction approved')).toBeDefined()
+    expect(screen.queryByText('Skill approved')).toBeNull()
     expect(screen.getAllByText('Show support event').length).toBeGreaterThan(0)
     expect(screen.getByText('Saved memory · Memory item')).toBeDefined()
-    expect(screen.getByText('Saved instruction · Skill')).toBeDefined()
+    expect(screen.getByText('Saved instruction · Instruction record')).toBeDefined()
+    expect(screen.queryByText('Saved instruction · Skill')).toBeNull()
     expect(screen.getAllByText('Changed item').length).toBeGreaterThan(0)
     expect(screen.getByText('Changed by')).toBeDefined()
     expect(screen.getByText('Verification')).toBeDefined()
@@ -244,7 +248,8 @@ describe('AuditLogView', () => {
 
     expect(await screen.findByText('No audit history in this view')).toBeDefined()
     expect(screen.getByText(/Try All context changes or widen the time range/i)).toBeDefined()
-    expect(screen.getByText(/approve a skill or record context feedback/i)).toBeDefined()
+    expect(screen.getByText(/approve saved instructions or record context feedback/i)).toBeDefined()
+    expect(screen.queryByText(/approve a skill/i)).toBeNull()
   })
 
   test('shows beginner network guidance when audit records cannot load', async () => {

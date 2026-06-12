@@ -94,8 +94,11 @@ describe('ContextTab', () => {
       within(emptyState).getByText(/Context appears here after an agent run uses saved memories/i)
     ).toBeDefined()
     expect(
-      within(emptyState).getByText(/Publish or run the task so Forge can choose memories/i)
+      within(emptyState).getByText(
+        /Publish or run the task so Forge can choose saved memories and saved instructions/i
+      )
     ).toBeDefined()
+    expect(within(emptyState).queryByText(/choose memories and skills/i)).toBeNull()
     expect(within(emptyState).getByText(/Use feedback on applied items/i)).toBeDefined()
   })
 

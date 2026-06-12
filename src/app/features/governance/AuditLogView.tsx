@@ -70,7 +70,7 @@ const QUICK_AUDIT_VIEWS: QuickAuditView[] = [
   },
   {
     id: 'skill-decisions',
-    label: 'Skill decisions',
+    label: 'Saved instruction decisions',
     description: 'Check who approved or updated saved instructions.',
     Icon: ClipboardCheck,
     filters: {
@@ -93,7 +93,7 @@ const QUICK_AUDIT_VIEWS: QuickAuditView[] = [
 const ITEM_KIND_OPTIONS: { value: ItemKindFilter; label: string }[] = [
   { value: 'all', label: 'All items' },
   { value: 'memory', label: 'Memory' },
-  { value: 'skill', label: 'Skill' },
+  { value: 'skill', label: 'Saved instruction' },
 ]
 
 const SCOPE_KIND_OPTIONS: { value: ScopeKindFilter; label: string }[] = [
@@ -452,7 +452,8 @@ export function AuditLogView() {
                       </p>
                       <p className="mt-1 text-secondary-light dark:text-secondary-dark">
                         Try All context changes or widen the time range. If this is a new workspace,
-                        approve a skill or record context feedback, then refresh this view.
+                        approve saved instructions or record context feedback, then refresh this
+                        view.
                       </p>
                     </td>
                   </tr>
@@ -757,8 +758,8 @@ function formatDate(value: string): string {
 function auditEventLabel(eventType: string): string {
   const labels: Record<string, string> = {
     'governance.context.feedback.recorded': 'Feedback recorded',
-    'governance.context.skill.approved': 'Skill approved',
-    'governance.context.skill.reviewed': 'Skill reviewed',
+    'governance.context.skill.approved': 'Saved instruction approved',
+    'governance.context.skill.reviewed': 'Saved instruction reviewed',
     'governance.context.memory.updated': 'Saved memory updated',
     'governance.context.memory.rejected': 'Saved memory rejected',
   }
@@ -788,6 +789,8 @@ function auditItemKindLabel(kind: GovernanceAuditItemKind | null | undefined): s
 }
 
 function resourceTypeLabel(value: string): string {
+  const normalized = value.trim().toLowerCase()
+  if (normalized === 'skill' || normalized === 'skills') return 'Instruction record'
   return readableCodeLabel(value, { fallback: 'Resource not listed' })
 }
 
