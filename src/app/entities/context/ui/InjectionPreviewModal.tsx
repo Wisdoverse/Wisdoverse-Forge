@@ -248,7 +248,7 @@ function PreviewMeta({ preview }: { preview: ContextPreviewResponse }) {
     <div className="grid gap-2 text-ui-caption sm:grid-cols-3">
       <MetaCell label="Agent will use" value={formatCodeLabel(cli)} />
       <MetaCell label="Work location" value={runtimeLabel(runtime)} />
-      <MetaCell label="Limits applied" value={degradationSummary(preview.degradation)} />
+      <MetaCell label="Note limits" value={degradationSummary(preview.degradation)} />
     </div>
   )
 }
@@ -343,7 +343,7 @@ function PreviewItemRow({
           checked={selected}
           onChange={() => onToggleSelected(item.id)}
           aria-label={
-            selected ? `Remove ${item.title} from context` : `Include ${item.title} in context`
+            selected ? `Remove ${item.title} from this task` : `Include ${item.title} for the agent`
           }
           className="mt-1 h-4 w-4 shrink-0 accent-apple-blue focus:ring-apple-blue"
         />
@@ -360,7 +360,7 @@ function PreviewItemRow({
             {item.why}
           </p>
           <div className="mt-2 flex flex-wrap gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            <span>Needs about {item.estimatedTokens} context units</span>
+            <span>Uses about {item.estimatedTokens} units of note space</span>
             {item.lastUsedAt && <span>Used {formatRelativeTime(item.lastUsedAt)}</span>}
             {item.lastVerifiedAt && <span>Verified {formatRelativeTime(item.lastVerifiedAt)}</span>}
           </div>
@@ -398,8 +398,8 @@ function Badge({ children }: { children: string }) {
 function budgetLabel(capability?: Record<string, unknown>): string {
   const tokens = capability?.max_context_tokens
   return typeof tokens === 'number'
-    ? `Fits in this agent's context (${tokens.toLocaleString()} context units available)`
-    : "Checking this agent's context room"
+    ? `Fits in this agent's note space (${tokens.toLocaleString()} units available)`
+    : "Checking this agent's note space"
 }
 
 function stringValue(value: unknown): string | null {
@@ -428,20 +428,20 @@ function runtimeLabel(runtime: string | null): string {
 }
 
 function degradationSummary(reasons: string[]): string {
-  if (reasons.length === 0) return 'No limits applied'
+  if (reasons.length === 0) return 'No note limits right now'
   return reasons.map(degradationLabel).join(', ')
 }
 
 function degradationLabel(reason: string): string {
   switch (reason) {
     case 'budget_truncated':
-      return 'Some notes will be left out because this agent has limited context room'
+      return 'Some notes will be left out because this agent has limited note space'
     case 'runtime_capability_fallback':
       return 'Using safe defaults because agent setup details were incomplete'
     case 'no_subagents':
       return 'Subagent-specific context will be skipped'
     default:
-      return 'Some context limits need review'
+      return 'Some note limits need review'
   }
 }
 
