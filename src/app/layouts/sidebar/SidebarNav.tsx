@@ -88,7 +88,7 @@ const BOTTOM_ITEMS: NavItem[] = [
     id: 'billing',
     Icon: CreditCard,
     labelKey: 'nav.billing',
-    description: 'review plan and invoices',
+    description: 'review plan, payments, and invoices',
     path: '/billing',
   },
   {
