@@ -17,6 +17,7 @@ import { useSettingsStore } from '@app/shared/model/settings.store'
 import type { LocalAgentEnrollmentResponse } from '@app/entities/agent'
 import type { LlmProviderConfig } from '@app/shared/api/legacy/settingsApi'
 import type { CliTool } from '@shared/types'
+import { createAgentWorkLaneErrorMessage } from './model/createAgentWorkLaneErrorMessage'
 
 type AgentKind = 'cli' | 'local-cli' | 'provider'
 
@@ -289,7 +290,7 @@ export function CreateAgentModal() {
 
   async function handleFormSubmit(data: CreateAgentFormData) {
     if (!data.name.trim()) {
-      setError('Name is required')
+      setError('Name this agent before creating it.')
       return
     }
     const base = {
@@ -342,7 +343,7 @@ export function CreateAgentModal() {
       })
       setValue('groupId', group.id, { shouldDirty: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create task queue')
+      setError(createAgentWorkLaneErrorMessage(err))
     } finally {
       setCreatingGroup(false)
     }
@@ -426,7 +427,11 @@ export function CreateAgentModal() {
         </div>
 
         {error && (
-          <div className="mb-4 rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red">
+          <div
+            role="alert"
+            aria-live="polite"
+            className="mb-4 rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
+          >
             {error}
           </div>
         )}
@@ -658,7 +663,7 @@ export function CreateAgentModal() {
               </label>
               <input
                 id="agent-name"
-                {...register('name', { required: true })}
+                {...register('name')}
                 className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                 placeholder="e.g. Frontend Agent…"
                 autoFocus

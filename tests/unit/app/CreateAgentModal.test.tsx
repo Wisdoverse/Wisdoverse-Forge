@@ -24,6 +24,7 @@ afterEach(() => {
 
 beforeEach(() => {
   useAgentsStore.getState().reset()
+  useNavigationStore.getState().reset()
   useSettingsStore.setState({
     providers: [],
     providersLoading: false,
@@ -40,7 +41,6 @@ beforeEach(() => {
     loading: false,
     error: null,
   })
-  useNavigationStore.setState({ selectedProjectId: null, projects: {} })
 })
 
 describe('CreateAgentModal', () => {
@@ -125,6 +125,19 @@ describe('CreateAgentModal', () => {
     })
   })
 
+  test('guides users to name the agent before creating it', async () => {
+    const createAgent = vi.fn().mockResolvedValue(true)
+    useAgentsStore.setState({ createAgent } as never)
+
+    render(<CreateAgentModal />)
+    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Name this agent before creating it.'
+    )
+    expect(createAgent).not.toHaveBeenCalled()
+  })
+
   test('creates and selects a task queue for the selected project', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
@@ -168,6 +181,37 @@ describe('CreateAgentModal', () => {
       projectId: 'p1',
       groupId: 'group-new',
     })
+  })
+
+  test('hides raw task queue creation errors while creating a default queue', async () => {
+    vi.mocked(agentGroupApi.createGroup).mockRejectedValueOnce(
+      new Error('HTTP 500: database unavailable')
+    )
+    useNavigationStore.setState({
+      selectedProjectId: 'p1',
+      projects: {
+        t1: [
+          {
+            id: 'p1',
+            teamId: 't1',
+            workspaceId: 'w1',
+            name: 'Platform',
+            slug: 'platform',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+    })
+
+    render(<CreateAgentModal />)
+    fireEvent.click(await screen.findByRole('button', { name: /create task queue/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Task queue was not created.')
+    expect(alert).toHaveTextContent('ask an owner or admin to check task queue setup')
+    expect(alert).not.toHaveTextContent('HTTP 500')
+    expect(alert).not.toHaveTextContent('database unavailable')
   })
 
   test('switching to simple chat agent hides work tool fields and shows AI service details', () => {
