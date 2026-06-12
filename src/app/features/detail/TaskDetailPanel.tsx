@@ -55,6 +55,8 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   const [skillDraftOpen, setSkillDraftOpen] = useState(false)
   const [recoveryAction, setRecoveryAction] = useState<'retry' | 'approve' | null>(null)
   const [recoveryError, setRecoveryError] = useState<string | null>(null)
+  const [taskAction, setTaskAction] = useState<'block' | 'cancel' | null>(null)
+  const [taskActionError, setTaskActionError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!contextVisible && activeTab === 'context') setActiveTab('description')
@@ -137,6 +139,24 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       )
     } finally {
       setRecoveryAction(null)
+    }
+  }
+
+  async function handleTaskAction(action: 'block' | 'cancel') {
+    setTaskAction(action)
+    setTaskActionError(null)
+    try {
+      const response =
+        action === 'block'
+          ? await orchestrationApi.updateTask(task.id, { state: 'blocked' })
+          : await orchestrationApi.cancelTask(task.id)
+      if (response.ok && response.task) upsertTask(response.task)
+    } catch (err) {
+      setTaskActionError(
+        taskDetailErrorMessage(action === 'block' ? 'blockTask' : 'cancelTask', err)
+      )
+    } finally {
+      setTaskAction(null)
     }
   }
 
@@ -335,31 +355,43 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       )}
 
       {showActions && (
-        <div className="flex gap-2 pt-3 border-t border-black/[0.04] dark:border-white/[0.04]">
-          <button
-            onClick={() => {
-              orchestrationApi.updateTask(task.id, { state: 'blocked' }).catch(console.error)
-            }}
-            className={cn(
-              'flex-1 text-xs font-medium py-1.5 rounded-button',
-              'bg-apple-orange/10 text-apple-orange',
-              'hover:bg-apple-orange/20 transition-colors'
-            )}
-          >
-            Block
-          </button>
-          <button
-            onClick={() => {
-              orchestrationApi.cancelTask(task.id).catch(console.error)
-            }}
-            className={cn(
-              'flex-1 text-xs font-medium py-1.5 rounded-button',
-              'bg-apple-red/10 text-apple-red',
-              'hover:bg-apple-red/20 transition-colors'
-            )}
-          >
-            Cancel
-          </button>
+        <div className="space-y-2 pt-3 border-t border-black/[0.04] dark:border-white/[0.04]">
+          {taskActionError && (
+            <div
+              role="alert"
+              className="rounded-lg bg-apple-red/10 px-3 py-2 text-xs text-apple-red"
+            >
+              {taskActionError}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => void handleTaskAction('block')}
+              disabled={taskAction !== null}
+              className={cn(
+                'flex-1 text-xs font-medium py-1.5 rounded-button',
+                'bg-apple-orange/10 text-apple-orange',
+                'hover:bg-apple-orange/20 transition-colors',
+                'disabled:cursor-not-allowed disabled:opacity-50'
+              )}
+            >
+              {taskAction === 'block' ? 'Blocking…' : 'Block'}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleTaskAction('cancel')}
+              disabled={taskAction !== null}
+              className={cn(
+                'flex-1 text-xs font-medium py-1.5 rounded-button',
+                'bg-apple-red/10 text-apple-red',
+                'hover:bg-apple-red/20 transition-colors',
+                'disabled:cursor-not-allowed disabled:opacity-50'
+              )}
+            >
+              {taskAction === 'cancel' ? 'Canceling…' : 'Cancel'}
+            </button>
+          </div>
         </div>
       )}
 

@@ -49,6 +49,16 @@ describe('taskDetailErrorMessage', () => {
     expect(message).not.toContain('services')
   })
 
+  test('turns cancel failures into a safe task refresh step', () => {
+    const message = taskDetailErrorMessage('cancelTask', new Error('HTTP 500'))
+
+    expectBeginnerMessage(
+      message,
+      'The task was not canceled. Refresh the task, then choose Cancel again. Forge could not finish this task action right now. Refresh the task, then try again. If it still fails, ask an owner or admin to check task setup.'
+    )
+    expect(message).not.toContain('HTTP 500')
+  })
+
   test('turns running-task details into a wait step', () => {
     expectBeginnerMessage(
       taskDetailErrorMessage('retryTask', {

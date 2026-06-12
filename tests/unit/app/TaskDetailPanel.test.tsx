@@ -158,6 +158,42 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByText('Cancel')).toBeDefined()
   })
 
+  test('blocks working tasks and updates the board store', async () => {
+    const blockedTask = {
+      ...mockTask,
+      state: 'blocked' as const,
+      blockedReason: 'waiting_input' as const,
+    }
+    orchestrationApiMock.updateTask.mockResolvedValueOnce({ ok: true, task: blockedTask })
+
+    render(<TaskDetailPanel task={mockTask} onClose={() => {}} />)
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /^block$/i }))
+
+    await waitFor(() =>
+      expect(orchestrationApiMock.updateTask).toHaveBeenCalledWith('task-1', {
+        state: 'blocked',
+      })
+    )
+    expect(useBoardStore.getState().columns.blocked[0]).toMatchObject({
+      id: 'task-1',
+      state: 'blocked',
+    })
+  })
+
+  test('shows beginner guidance when cancel fails', async () => {
+    orchestrationApiMock.cancelTask.mockRejectedValueOnce(new Error('HTTP 500'))
+
+    render(<TaskDetailPanel task={mockTask} onClose={() => {}} />)
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /^cancel$/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('The task was not canceled.')
+    expect(alert).toHaveTextContent('Refresh the task, then try again.')
+    expect(alert).not.toHaveTextContent('HTTP 500')
+  })
+
   test('shows next action guidance for blocked tasks', () => {
     render(
       <TaskDetailPanel
