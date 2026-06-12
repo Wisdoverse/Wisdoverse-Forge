@@ -299,11 +299,11 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 'bg-apple-blue text-white transition-colors hover:bg-apple-blue/90',
                 'disabled:cursor-not-allowed disabled:opacity-50'
               )}
-              aria-label="Preview and publish task"
-              title="Preview and publish task"
+              aria-label="Preview and send task"
+              title="Preview and send task"
             >
               <Send size={14} strokeWidth={2} />
-              <span>Preview and publish</span>
+              <span>Preview and send</span>
             </button>
           </div>
         </div>

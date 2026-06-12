@@ -67,4 +67,13 @@ describe('taskDetailErrorMessage', () => {
       'This task is already running. Wait for the current run to finish, then refresh the task.'
     )
   })
+
+  test('describes context send failures without publish wording', () => {
+    const message = taskDetailErrorMessage('publishTask', new Error('HTTP 500'))
+
+    expect(message).toContain('The task was not sent with selected notes.')
+    expect(message).toContain('Review the saved notes, then try again.')
+    expect(message).not.toMatch(/published|publish|selected context/i)
+    expect(message).not.toContain('HTTP 500')
+  })
 })

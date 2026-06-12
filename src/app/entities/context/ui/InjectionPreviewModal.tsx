@@ -112,7 +112,7 @@ export function InjectionPreviewModal({
               id="context-preview-title"
               className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark"
             >
-              Review context before publishing
+              Review saved notes before sending
             </h2>
             <p
               className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
@@ -179,7 +179,7 @@ export function InjectionPreviewModal({
 
               <PreviewSection
                 title="Will be included"
-                helper="Checked items will be shared with the agent when you publish."
+                helper="Checked items will be shared with the agent when you send the task."
                 items={preview.items}
                 empty="Nothing will be shared yet."
                 selectedIds={selectedIds}
@@ -230,7 +230,7 @@ export function InjectionPreviewModal({
             disabled={!preview || loading || publishing}
             className="rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {publishing ? 'Publishing…' : 'Publish with selected context'}
+            {publishing ? 'Sending…' : 'Send task with selected notes'}
           </button>
         </div>
       </div>

@@ -332,7 +332,8 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByTestId('task-handoff-checklist')).toBeDefined()
     expect(screen.getByText('Outcome')).toBeDefined()
     expect(screen.getByText(/solves the original request/i)).toBeDefined()
-    expect(screen.getByText(/open result files or context/i)).toBeDefined()
+    expect(screen.getByText(/open result files or what the agent used/i)).toBeDefined()
+    expect(screen.queryByText(/open result files or context/i)).toBeNull()
     expect(screen.getByText(/future tasks should reuse them/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /review save ideas/i })).toBeDefined()
   })
@@ -441,6 +442,7 @@ describe('TaskDetailPanel', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: /review agent/i }))
 
     expect(screen.getAllByText('Selected').length).toBe(1)
-    expect(screen.getByRole('button', { name: /preview and publish/i })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /preview and send/i })).toBeEnabled()
+    expect(screen.queryByRole('button', { name: /preview and publish/i })).toBeNull()
   })
 })

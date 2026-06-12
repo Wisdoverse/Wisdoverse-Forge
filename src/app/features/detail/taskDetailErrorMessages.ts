@@ -19,8 +19,7 @@ const ACTION_FALLBACKS: Record<TaskDetailErrorAction, string> = {
   loadRuns:
     'Agent work history could not load. Refresh Updates before deciding whether to retry this task.',
   previewContext: 'The context review could not load. Choose an available agent, then try again.',
-  publishTask:
-    'The task was not published with selected context. Review the context choices, then try again.',
+  publishTask: 'The task was not sent with selected notes. Review the saved notes, then try again.',
   retryTask: 'The task was not retried. Refresh the task, then try Retry task again.',
 }
 
@@ -150,13 +149,13 @@ function validationMessage(action: TaskDetailErrorAction, detail: string): strin
     return 'Choose an available agent, then try again.'
   }
   if (normalized.includes('context')) {
-    return 'Review the selected context, then try again.'
+    return 'Review the selected saved notes, then try again.'
   }
   if (normalized.includes('approval') || normalized.includes('approve')) {
     return 'Check that the task is still waiting for approval, then try again.'
   }
   if (normalized.includes('publish')) {
-    return 'Review the task details, then publish again.'
+    return 'Review the task details, then send again.'
   }
   return ACTION_FALLBACKS[action]
 }

@@ -39,8 +39,9 @@ describe('TaskMetadata', () => {
     expect(screen.queryByText('Assigned agent')).toBeNull()
     expect(screen.queryByText('Unassigned')).toBeNull()
     expect(screen.getByTestId('task-metadata-guidance').textContent).toContain(
-      'Preview the context, then publish it.'
+      'Preview the saved notes, then send it to the agent.'
     )
+    expect(screen.getByTestId('task-metadata-guidance').textContent).not.toContain('publish')
     expect(screen.getByTestId('task-metadata-guidance').textContent).not.toContain('when ready')
   })
 
