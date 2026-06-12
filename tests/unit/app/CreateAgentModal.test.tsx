@@ -166,20 +166,25 @@ describe('CreateAgentModal', () => {
     })
 
     render(<CreateAgentModal />)
+    expect(
+      screen.getByText(/starter queue for this project so new tasks have a clear place to wait/i)
+    ).toBeInTheDocument()
     fireEvent.click(await screen.findByRole('button', { name: /create task queue/i }))
 
     await waitFor(() =>
       expect(agentGroupApi.createGroup).toHaveBeenCalledWith({
         projectId: 'p1',
         name: 'Default Task Queue',
-        description: 'This task queue gives project tasks a place to wait for an available agent.',
+        description:
+          'Starter queue for this project. New tasks wait here until an agent can take them.',
       })
     )
     expect(screen.getByRole('combobox', { name: /task queue/i })).toHaveValue('group-new')
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/project ready/i)
     expect(
-      screen.getByText(/work a place to wait until this agent can take it/i)
+      screen.getByText(/new tasks can wait in this queue until an available agent can take them/i)
     ).toBeInTheDocument()
+    expect(screen.queryByText(/work a place to wait until this agent can take it/i)).toBeNull()
     expect(screen.queryByText(new RegExp('board\\s+tasks', 'i'))).toBeNull()
 
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'CLI Worker' } })
