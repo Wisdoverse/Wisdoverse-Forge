@@ -112,10 +112,12 @@ function validationMessage(
 function statusFromResourceMemberError(error: unknown): number | null {
   if (error && typeof error === 'object') {
     const status = (error as { status?: unknown }).status
-    if (typeof status === 'number') return status
+    const parsedStatus = numericStatus(status)
+    if (parsedStatus) return parsedStatus
 
     const statusCode = (error as { statusCode?: unknown }).statusCode
-    if (typeof statusCode === 'number') return statusCode
+    const parsedStatusCode = numericStatus(statusCode)
+    if (parsedStatusCode) return parsedStatusCode
   }
 
   const detail = rawDetailFromResourceMemberError(error)
@@ -123,15 +125,26 @@ function statusFromResourceMemberError(error: unknown): number | null {
   return match ? Number(match[1]) : null
 }
 
+function numericStatus(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && /^\d+$/.test(value)) return Number(value)
+  return null
+}
+
 function rawDetailFromResourceMemberError(error: unknown): string | null {
   if (typeof error === 'string' && error.trim()) return error.trim()
   if (error instanceof Error && error.message.trim()) return error.message.trim()
   if (error && typeof error === 'object') {
-    const errorValue = (error as { error?: unknown }).error
-    if (typeof errorValue === 'string' && errorValue.trim()) return errorValue.trim()
+    const record = error as {
+      detail?: unknown
+      error?: unknown
+      message?: unknown
+      reason?: unknown
+    }
 
-    const messageValue = (error as { message?: unknown }).message
-    if (typeof messageValue === 'string' && messageValue.trim()) return messageValue.trim()
+    for (const candidate of [record.detail, record.error, record.message, record.reason]) {
+      if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+    }
   }
   return null
 }

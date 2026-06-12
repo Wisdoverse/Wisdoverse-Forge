@@ -39,6 +39,32 @@ describe('resourceMemberErrorMessage', () => {
     expect(message).not.toContain('Forbidden')
   })
 
+  test('maps structured permission failures without raw API text', () => {
+    const message = resourceMemberErrorMessage('updateRole', 'Team', {
+      statusCode: '403',
+      detail: 'owner role required',
+    })
+
+    expectBeginnerMessage(
+      message,
+      'You do not have permission to manage people for this team. Ask an owner or admin to update what you can do.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
+  test('uses structured validation details to explain missing access choices', () => {
+    const message = resourceMemberErrorMessage('add', 'Project', {
+      status: '422',
+      reason: 'role is required',
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Choose this person and what they can do, then add them again.'
+    )
+    expect(message).not.toContain('role is required')
+  })
+
   test('turns last-owner style remove failures into a clear owner step', () => {
     const message = resourceMemberErrorMessage(
       'remove',
@@ -53,6 +79,19 @@ describe('resourceMemberErrorMessage', () => {
     expect(message).not.toContain('API 422')
   })
 
+  test('turns structured last-owner failures into a clear owner step', () => {
+    const message = resourceMemberErrorMessage('updateRole', 'Project', {
+      status: 422,
+      detail: 'Choose a different owner first.',
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Choose a different owner first, then change what this person can do on this project.'
+    )
+    expect(message).not.toContain('Choose a different owner first.')
+  })
+
   test('turns service failures into a people access settings step', () => {
     const message = resourceMemberErrorMessage('load', 'Team', new Error('HTTP 500'))
 
@@ -64,5 +103,19 @@ describe('resourceMemberErrorMessage', () => {
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')
     expect(message).not.toContain('service')
+  })
+
+  test('turns structured service failures into a people access settings step', () => {
+    const message = resourceMemberErrorMessage('remove', 'Team', {
+      statusCode: '503',
+      message: 'database unavailable',
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Forge could not update people access right now. Refresh members, then remove the person again. If it still fails, ask an owner or admin to check people access settings.'
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('503')
   })
 })
