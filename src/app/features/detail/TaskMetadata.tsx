@@ -108,7 +108,7 @@ function taskMetadataGuidance(task: TaskSummary, hasAssignee: boolean): string {
   switch (task.state) {
     case 'backlog':
       return hasAssignee
-        ? 'This task is prepared but not started. Preview the context and publish it when ready.'
+        ? 'This task is prepared but not started. Preview the context, then publish it.'
         : 'This task is still a draft. Choose an agent before it can start.'
     case 'queued':
       return hasAssignee

@@ -292,7 +292,7 @@ function taskNextStep(task: TaskSummary, options: TaskNextStepOptions): string |
           : 'Choose an agent before this task can start.'
       }
       return options.canOpenPublishPreview
-        ? 'Preview context, then publish when ready.'
+        ? 'Preview context, then publish.'
         : 'Open details to finish preparing this task.'
     case 'queued':
       return options.hasAssignee

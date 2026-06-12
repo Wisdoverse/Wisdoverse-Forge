@@ -450,7 +450,7 @@ function taskUpdateGuide(task: TaskSummary): string {
   switch (task.state) {
     case 'backlog':
       return task.assignedAgentName
-        ? 'The task has an agent. Start it when the brief is ready.'
+        ? 'The task has an agent. Review the brief, then start the task.'
         : 'Choose an agent first, then start the task.'
     case 'queued':
       return 'The task is waiting to begin. Check back if it stays here longer than expected.'

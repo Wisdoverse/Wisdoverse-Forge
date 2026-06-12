@@ -319,13 +319,12 @@ function nextActionForTask(
       return task.assignedTo || task.assignedAgentName
         ? {
             title: 'Ready to send',
-            detail: 'Review the brief, then send it to this agent when ready.',
+            detail: 'Review the brief, then send it to this agent.',
             tone: 'default',
           }
         : {
             title: 'Assign an agent',
-            detail:
-              'Choose an available agent, then send the task with the suggested context when ready.',
+            detail: 'Choose an available agent, review the suggested context, then send the task.',
             tone: 'warn',
           }
     case 'queued':

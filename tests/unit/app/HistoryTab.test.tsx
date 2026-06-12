@@ -38,6 +38,18 @@ function makeTask(overrides: Partial<TaskSummary> = {}): TaskSummary {
 }
 
 describe('HistoryTab', () => {
+  test('gives assigned backlog tasks a direct start step', async () => {
+    getTaskRunsMock.mockResolvedValue([])
+
+    render(<HistoryTab task={makeTask({ state: 'backlog', progress: 0 })} />)
+
+    expect(
+      await screen.findByText('The task has an agent. Review the brief, then start the task.')
+    ).toBeInTheDocument()
+    expect(screen.queryByText(new RegExp(['brief', 'is', 'ready'].join('\\s+'), 'i'))).toBeNull()
+    expect(screen.queryByText(/when ready/i)).toBeNull()
+  })
+
   test('shows beginner recovery guidance when work history fails to load', async () => {
     getTaskRunsMock.mockRejectedValue(new Error('HTTP 403'))
 

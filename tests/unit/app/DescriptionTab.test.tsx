@@ -25,8 +25,9 @@ describe('DescriptionTab', () => {
       'Choose an agent before this task can start.'
     )
     expect(screen.getByTestId('task-next-action').textContent).toContain(
-      'Choose an available agent, then send the task with the suggested context when ready.'
+      'Choose an available agent, review the suggested context, then send the task.'
     )
+    expect(screen.getByTestId('task-next-action').textContent).not.toContain('when ready')
     expect(screen.getByTestId('task-work-review').textContent).not.toContain('leave the backlog')
     expect(screen.getByTestId('task-work-review').textContent).not.toContain('publish with context')
   })
@@ -40,8 +41,9 @@ describe('DescriptionTab', () => {
       'An agent was chosen, but its display name has not loaded yet.'
     )
     expect(screen.getByTestId('task-next-action').textContent).toContain(
-      'Review the brief, then send it to this agent when ready.'
+      'Review the brief, then send it to this agent.'
     )
+    expect(screen.getByTestId('task-next-action').textContent).not.toContain('when ready')
     expect(screen.queryByText('Assigned agent')).toBeNull()
     expect(screen.queryByText('Unassigned')).toBeNull()
     expect(screen.queryByText(/dispatch/i)).toBeNull()

@@ -131,6 +131,23 @@ describe('TaskCard', () => {
     )
   })
 
+  test('shows a direct publish next step after an agent is selected', () => {
+    const onPublish = vi.fn()
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'backlog',
+          progress: 0,
+        }}
+        onPublish={onPublish}
+      />
+    )
+
+    expect(screen.getByTestId('task-next-step').textContent).toBe('Preview context, then publish.')
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('when ready')
+  })
+
   test('shows a recovery next step for failed tasks', () => {
     render(
       <TaskCard

@@ -39,8 +39,9 @@ describe('TaskMetadata', () => {
     expect(screen.queryByText('Assigned agent')).toBeNull()
     expect(screen.queryByText('Unassigned')).toBeNull()
     expect(screen.getByTestId('task-metadata-guidance').textContent).toContain(
-      'Preview the context and publish it when ready.'
+      'Preview the context, then publish it.'
     )
+    expect(screen.getByTestId('task-metadata-guidance').textContent).not.toContain('when ready')
   })
 
   test('labels waiting tasks without queue wording', () => {
