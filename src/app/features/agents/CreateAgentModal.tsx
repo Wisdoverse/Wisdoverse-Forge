@@ -520,16 +520,16 @@ export function CreateAgentModal() {
                 </div>
                 <details className="mt-3">
                   <summary className="cursor-pointer text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                    Manual connection setup
+                    If the setup command does not work
                   </summary>
                   <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                    Use this only if the setup command cannot run on this machine. Copy this
-                    advanced setup into the same Terminal or PowerShell session, then start the
-                    connection helper.
+                    Use this backup only if the setup command above does not run on this computer.
+                    Copy these backup setup values into the same Terminal or PowerShell window, then
+                    keep that window open.
                   </p>
                   <textarea
                     id="local-agent-command"
-                    aria-label="Manual setup environment"
+                    aria-label="Backup setup values"
                     readOnly
                     value={localEnrollment.enrollment?.shellExports ?? ''}
                     rows={6}
@@ -546,7 +546,7 @@ export function CreateAgentModal() {
                       ) : (
                         <Copy size={13} strokeWidth={2.25} aria-hidden="true" />
                       )}
-                      {copiedCommand ? 'Copied' : 'Copy manual setup'}
+                      {copiedCommand ? 'Copied' : 'Copy backup setup'}
                     </button>
                   </div>
                 </details>

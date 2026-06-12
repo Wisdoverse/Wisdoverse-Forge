@@ -359,20 +359,25 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText(/lets forge assign tasks to this agent/i)).toBeInTheDocument()
     expect(screen.getByText('1. Copy this setup command.')).toBeInTheDocument()
     expect(screen.getByText(/paste it into terminal or powershell/i)).toBeInTheDocument()
-    expect(screen.getByText(/changes from Offline to Ready on the Agents page/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/changes from Offline to Ready on the Agents page/i)
+    ).toBeInTheDocument()
     expect(screen.queryByText(/shows online/i)).toBeNull()
     expect(screen.queryByText(/agent fleet/i)).toBeNull()
     expect(screen.getByRole('group', { name: /computer type/i })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /windows/i }))
     expect(oneLiner).toHaveValue(joinCommandPowershell)
 
-    // Manual env block stays available behind the advanced section.
-    expect(screen.getByText(/manual connection setup/i)).toBeInTheDocument()
-    const manualHelp = screen.getByText(/connection helper/i)
-    expect(manualHelp).toBeInTheDocument()
-    expect(manualHelp.textContent).toMatch(/same Terminal or PowerShell session/)
-    expect(manualHelp.textContent).not.toMatch(/sidecar/i)
-    expect(screen.getByLabelText(/manual setup environment/i)).toHaveValue(
+    // Backup values stay available without exposing advanced connection jargon.
+    expect(screen.getByText(/if the setup command does not work/i)).toBeInTheDocument()
+    const backupHelp = screen.getByText(/backup setup values/i)
+    expect(backupHelp).toBeInTheDocument()
+    expect(backupHelp.textContent).toMatch(/same Terminal or PowerShell window/)
+    expect(backupHelp.textContent).not.toMatch(/advanced/i)
+    expect(backupHelp.textContent).not.toMatch(/sidecar/i)
+    expect(screen.queryByText(/manual connection setup/i)).toBeNull()
+    expect(screen.getByRole('button', { name: /copy backup setup/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/backup setup values/i)).toHaveValue(
       "export AGENT_ID='a-local'\nagentforge-sidecar"
     )
   })

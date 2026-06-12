@@ -322,11 +322,11 @@ function HostCliEnrollmentPanel({
 
       <details className="mt-3">
         <summary className="cursor-pointer text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Manual setup for this computer
+          If the button does not work
         </summary>
         <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Use this only when your team already installed the setup tool. Otherwise choose New agent
-          on this computer above.
+          Use this backup only when your team already installed the setup tool. Most people should
+          choose New agent on this computer above.
         </p>
         <div className="mt-3">
           <p className="mb-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">

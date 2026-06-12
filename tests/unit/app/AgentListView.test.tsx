@@ -53,8 +53,10 @@ describe('AgentListView', () => {
     expect(within(enrollment).getByText(/connect this computer/i)).toBeDefined()
     expect(enrollment.textContent).toContain('files or commands on your computer')
     expect(enrollment.textContent).toContain('This computer')
-    expect(enrollment.textContent).toContain('Manual setup for this computer')
-    expect(enrollment.textContent).toContain('Use this only when your team already installed')
+    expect(enrollment.textContent).toContain('If the button does not work')
+    expect(enrollment.textContent).toContain(
+      'Use this backup only when your team already installed'
+    )
     expect(enrollment.textContent).toContain('choose New agent on this computer above')
     expect(enrollment.textContent).toContain('Computer type')
     expect(
@@ -66,6 +68,7 @@ describe('AgentListView', () => {
     )
     expect(enrollment.textContent).not.toContain('<project-id>')
     expect(enrollment.textContent).not.toContain('Advanced:')
+    expect(enrollment.textContent).not.toContain('Manual setup for this computer')
     expect(enrollment.textContent).not.toContain('Forge CLI')
     expect(enrollment.textContent).not.toContain('Platform CLI')
     expect(enrollment.textContent).not.toContain('Host CLI platform')
