@@ -151,19 +151,21 @@ describe('ProvidersSection', () => {
 
     const nextStep = await screen.findByTestId('provider-next-step')
     expect(within(nextStep).getByText('Add your first AI service')).toBeDefined()
-    expect(within(nextStep).getByText(/paste the private key/i)).toBeDefined()
+    expect(within(nextStep).getByText(/paste the service access key/i)).toBeDefined()
 
     fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
 
     expect(screen.getByText('3 steps to connect an AI account')).toBeDefined()
-    expect(screen.getByText('Paste private key')).toBeDefined()
+    expect(screen.getByText('Paste service access key')).toBeDefined()
     expect(screen.getAllByText(/forge hides it after saving/i).length).toBeGreaterThan(0)
     expect(screen.getByText('Save and check')).toBeDefined()
     expect(screen.getByLabelText(/^AI service$/i)).toBeDefined()
     expect(screen.getByLabelText(/^Name in Forge$/i)).toBeDefined()
+    expect(screen.queryByText(/paste private key/i)).toBeNull()
+    expect(screen.queryByLabelText(/^private key/i)).toBeNull()
     expect(screen.queryByLabelText(/^Display Name$/i)).toBeNull()
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
-      /next: paste the private key/i
+      /next: paste the service access key/i
     )
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
       /sometimes called an API key/i
@@ -174,11 +176,13 @@ describe('ProvidersSection', () => {
     fireEvent.click(saveButton)
 
     expect(
-      screen.getAllByText('Paste the private key before saving this AI service.').length
+      screen.getAllByText('Paste the service access key before saving this AI service.').length
     ).toBeGreaterThan(0)
     expect(saveProviderMock).not.toHaveBeenCalled()
 
-    fireEvent.change(screen.getByLabelText(/private key/i), { target: { value: 'sk-test' } })
+    fireEvent.change(screen.getByLabelText(/service access key/i), {
+      target: { value: 'sk-test' },
+    })
 
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/ready to save/i)
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/run Check/i)
@@ -226,7 +230,7 @@ describe('ProvidersSection', () => {
     expect(screen.getByText('Local Disabled')).toBeDefined()
     expect(screen.getByRole('button', { name: /save AI service/i })).toBeEnabled()
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
-      /next: paste the private key/i
+      /next: paste the service access key/i
     )
   })
 

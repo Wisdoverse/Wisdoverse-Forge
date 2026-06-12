@@ -63,8 +63,8 @@ const DEFAULT_FORM: AddProviderForm = {
 const PROVIDER_SETUP_STEPS = [
   { label: 'Choose AI account', value: 'Pick the service your team already uses.' },
   {
-    label: 'Paste private key',
-    value: 'Use the key from that account. Forge hides it after saving.',
+    label: 'Paste service access key',
+    value: 'Use the access key from that account. Forge hides it after saving.',
   },
   { label: 'Save and check', value: 'Run Check once so agents do not fail later.' },
 ]
@@ -344,10 +344,10 @@ function providerFormReadiness({
   if (needsApiKey && !form.apiKey.trim()) {
     return {
       ready: false,
-      title: 'Next: paste the private key',
+      title: 'Next: paste the service access key',
       detail:
-        'Find the key in your AI service account. It is sometimes called an API key, and it is hidden after saving.',
-      error: 'Paste the private key before saving this AI service.',
+        'Find the access key in your AI service account. It is sometimes called an API key, and it is hidden after saving.',
+      error: 'Paste the service access key before saving this AI service.',
       fieldId: apiKeyInputId,
     }
   }
@@ -413,7 +413,7 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
     return {
       title: 'Add your first AI service',
       detail:
-        'An AI service is the account agents use to answer. Pick a service, paste the private key, save it, then run Check.',
+        'An AI service is the account agents use to answer. Pick a service, paste the service access key, save it, then run Check.',
       success: 'At least 1 AI service is saved and ready for a connection check.',
       ready: false,
       action: 'add-provider',
@@ -1031,17 +1031,17 @@ function AddProviderFormPanel({
           />
         </div>
 
-        {/* Private key */}
+        {/* Service access key */}
         <div>
           <label htmlFor={apiKeyInputId} className={uiStyles.label}>
-            Private key {needsApiKey && <span className="text-red-500">*</span>}
+            Service access key {needsApiKey && <span className="text-red-500">*</span>}
           </label>
           <p
             id={apiKeyHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste the key from your AI service account. Some services call this an API key. Forge
-            hides it after saving.
+            Paste the access key from your AI service account. Some services call this an API key.
+            Forge hides it after saving.
           </p>
           <input
             id={apiKeyInputId}
