@@ -19,7 +19,7 @@ interface AgentTerminalTabProps {
 
 const KEY_GROUPS: KeyDef[][] = [NAV_KEYS, NUM_KEYS, UTIL_KEYS]
 const LIVE_WORK_CONNECTION_NOTICE =
-  'Live work notice: Live work disconnected. Refresh this page, or restart the workspace if it stays offline.'
+  'Live work notice: Connection dropped. Refresh this page first. If this managed workspace stays Offline, go to Controls and choose Restart agent.'
 
 export function liveWorkToolLabel(cliTool?: CliTool): string {
   return agentToolLabel(cliTool)
@@ -193,9 +193,10 @@ export function AgentTerminalTab({
           </span>
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-white">Live work not ready</h3>
+          <h3 className="text-sm font-semibold text-white">Live work is still starting</h3>
           <p className="mt-1 text-xs leading-relaxed text-white/60">
-            This managed workspace is selected, but live work access is still starting.
+            Wait until this agent shows Ready. If it stays Offline, open Controls and start or
+            restart the workspace before using Live work.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2 text-[11px] text-white/55">
@@ -204,7 +205,7 @@ export function AgentTerminalTab({
           <span>Work tool</span>
           <span className="text-white/80">{toolLabel}</span>
           <span>Workspace</span>
-          <span className="text-white/80">Starting</span>
+          <span className="text-white/80">Waiting for workspace</span>
         </div>
       </div>
     )
@@ -227,7 +228,7 @@ export function AgentTerminalTab({
       >
         <span className="text-white/40">$</span>
         <span className="truncate text-white/40">Agent: {(agentName ?? agentId).slice(0, 24)}</span>
-        <span className="truncate text-white/25">Workspace ready</span>
+        <span className="truncate text-white/25">Ready for live work</span>
         <span className="flex-1" />
         <span
           className={cn(
@@ -264,7 +265,7 @@ function KeyToolbar({ onKeys, disabled }: KeyToolbarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const toggleLabel = collapsed ? 'Show virtual keyboard' : 'Hide virtual keyboard'
   const keyboardHint = disabled
-    ? 'Connect live work to use keys'
+    ? 'Wait for live work before using keys'
     : 'Shortcut keys send to live work'
 
   return (

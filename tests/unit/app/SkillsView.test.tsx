@@ -86,7 +86,8 @@ describe('SkillsView', () => {
     )
     const instructions = screen.getByLabelText(/^agent instructions$/i) as HTMLTextAreaElement
     expect(instructions.value).toContain('Check GitHub or GitLab build status once')
-    expect(instructions.value).toContain('instead of watching it repeatedly')
+    expect(instructions.value).toContain('stop monitoring in chat')
+    expect(instructions.value).toContain('scheduled monitor instead of watching repeatedly')
   })
 
   test('shows empty state after load with no skills', async () => {

@@ -14,6 +14,9 @@ const ACTION_MERGE_STATES = new Map([
   ['BEHIND', 'base branch changed'],
   ['DIRTY', 'merge conflict'],
 ])
+const WAIT_STOP_LINE = 'WAIT: stop here; refresh only after cache expiry or a known remote change'
+const WAIT_TOKEN_SAFE_LINE =
+  'WAIT: token-safe action: do not poll in chat; use scheduled monitoring for the next check'
 
 export function summarizePullRequests(pullRequests) {
   const items = Array.isArray(pullRequests) ? pullRequests.map(classifyPullRequest) : []
@@ -177,7 +180,8 @@ function appendWaitLines(lines, items, showWait) {
   if (!showWait) {
     lines.push(`WAIT: ${items.length} PR(s) waiting on review, CI, draft state, or merge queue`)
     lines.push('WAIT: use --show-wait to list them when a human needs the full queue')
-    lines.push('WAIT: stop here; refresh only after cache expiry or a known remote change')
+    lines.push(WAIT_STOP_LINE)
+    lines.push(WAIT_TOKEN_SAFE_LINE)
     return
   }
 
@@ -186,6 +190,8 @@ function appendWaitLines(lines, items, showWait) {
     lines.push(formatItemLine(item))
     lines.push(`  reason: ${item.reasons.join('; ')}`)
   }
+  lines.push(WAIT_STOP_LINE)
+  lines.push(WAIT_TOKEN_SAFE_LINE)
 }
 
 function appendDoneLines(lines, items) {

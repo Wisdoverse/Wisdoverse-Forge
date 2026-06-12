@@ -60,7 +60,7 @@ const skillTemplates = [
       description: 'Summarize build status from one fresh check',
       triggerPattern: 'ci status, checks, build status',
       content:
-        'Check GitHub or GitLab build status once.\nSummarize whether it passed, failed, or is still running.\nIf it is still running, give the next safe time to check instead of watching it repeatedly.',
+        "Check GitHub or GitLab build status once, using the project's PR status summary script when available.\nSummarize whether it passed, failed, or is still running.\nIf it is still running, stop monitoring in chat, give the next safe time to check, and suggest a scheduled monitor instead of watching repeatedly.",
     },
   },
   {

@@ -102,6 +102,9 @@ describe('PR status summary', () => {
     expect(renderSummary(summary)).toContain(
       'WAIT: stop here; refresh only after cache expiry or a known remote change'
     )
+    expect(renderSummary(summary)).toContain(
+      'WAIT: token-safe action: do not poll in chat; use scheduled monitoring for the next check'
+    )
     expect(renderSummary(summary)).not.toContain('#101 codex/example')
   })
 

@@ -28,15 +28,17 @@ ACTION: none
 WAIT: 42 PR(s) waiting on review, CI, draft state, or merge queue
 WAIT: use --show-wait to list them when a human needs the full queue
 WAIT: stop here; refresh only after cache expiry or a known remote change
+WAIT: token-safe action: do not poll in chat; use scheduled monitoring for the next check
 ```
 
 When the output says it used a cached snapshot, that is expected. Treat the
 result as a recent point-in-time view, not a live watch. The cache notice also
 tells you when another remote read would be useful again.
 
-When the output says `WAIT: stop here`, the correct next step is to leave the
-conversation or monitor quiet. Do not ask an agent to refresh again unless the
-cache has expired or someone pushed, approved, failed, or merged the PR.
+When the output says `WAIT: stop here` or `WAIT: token-safe action`, the correct
+next step is to leave the conversation or monitor quiet. Do not ask an agent to
+refresh again unless the cache has expired or someone pushed, approved, failed,
+or merged the PR.
 
 ## Do Not Poll In Chat
 
@@ -62,6 +64,10 @@ Agent rule: after a `WAIT` snapshot, do not ask the agent to keep checking in
 the conversation. The next useful check is either the cache expiry time printed
 by the script or a real remote change, such as a push, review, failed check, or
 merge.
+
+If a human wants background monitoring, use `npm run pr:summary:monitor` from a
+scheduled job. The chat should only receive the compact result when `ACTION`
+appears or when someone explicitly asks for a new snapshot.
 
 ## Refresh Only When Needed
 
