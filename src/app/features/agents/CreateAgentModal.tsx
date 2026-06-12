@@ -152,9 +152,9 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
       title: `${cliToolLabel(cliTool)} in a managed workspace`,
       detail: 'Best when the task needs project files or work tools prepared by Forge.',
       items: [
-        { label: 'Work style', value: 'Managed workspace' },
+        { label: 'Agent location', value: 'Managed workspace' },
         { label: 'Files', value: 'Project files included' },
-        { label: 'Before use', value: 'Workspace must be ready' },
+        { label: 'Before use', value: 'Check Agent Work Setup' },
       ],
     }
   }
@@ -164,7 +164,7 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
       title: `${cliToolLabel(cliTool)} on this computer`,
       detail: 'Best when files or tools must stay on a computer you control.',
       items: [
-        { label: 'Work style', value: 'This computer' },
+        { label: 'Agent location', value: 'This computer' },
         { label: 'Files', value: 'Your chosen folder' },
         { label: 'Before use', value: 'Run the setup command' },
       ],
@@ -175,7 +175,7 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
     title: `${providerLabel(provider)} simple chat agent`,
     detail: 'Best for questions, planning, writing, and review that do not need project files.',
     items: [
-      { label: 'Work style', value: 'Simple chat agent' },
+      { label: 'Agent location', value: 'Chat-only AI service' },
       { label: 'Files', value: 'Does not open project files' },
       { label: 'Before use', value: 'AI service must be checked' },
     ],
@@ -414,7 +414,7 @@ export function CreateAgentModal() {
             id="create-agent-title"
             className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark"
           >
-            {localEnrollment ? 'Connect this computer' : 'New Agent'}
+            {localEnrollment ? 'Connect this computer' : 'Create an agent'}
           </h2>
           <button
             type="button"
@@ -614,7 +614,7 @@ export function CreateAgentModal() {
             <div>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                  Start with an agent role template
+                  Start with a role
                 </span>
                 <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
                   {kind === 'provider'
@@ -732,7 +732,11 @@ export function CreateAgentModal() {
                   </p>
                 </div>
                 <span className="shrink-0 rounded-full bg-apple-blue/10 px-2 py-0.5 text-ui-caption font-medium text-apple-blue">
-                  {kind === 'cli' ? 'File work' : kind === 'local-cli' ? 'Local work' : 'Chat only'}
+                  {kind === 'cli'
+                    ? 'Can edit files'
+                    : kind === 'local-cli'
+                      ? 'Uses this computer'
+                      : 'Chat only'}
                 </span>
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">

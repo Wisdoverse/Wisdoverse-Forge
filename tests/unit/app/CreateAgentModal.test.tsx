@@ -47,14 +47,19 @@ describe('CreateAgentModal', () => {
   test('renders managed workspace fields by default', () => {
     render(<CreateAgentModal />)
 
+    expect(screen.getByRole('heading', { name: 'Create an agent' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: /managed workspace/i })).toBeChecked()
     expect(screen.getByTestId('agent-runtime-fit')).toBeInTheDocument()
-    expect(screen.getByText('Start with an agent role template')).toBeInTheDocument()
+    expect(screen.getByText('Start with a role')).toBeInTheDocument()
     expect(screen.getByText('Fills in the agent name')).toBeInTheDocument()
     expect(screen.getByText('Builds changes and checks them')).toBeInTheDocument()
     expect(screen.getByText(/claude in a managed workspace/i)).toBeInTheDocument()
     expect(screen.getByText('Project files included')).toBeInTheDocument()
-    expect(screen.getByText(/workspace must be ready/i)).toBeInTheDocument()
+    expect(screen.getByText('Agent location')).toBeInTheDocument()
+    expect(screen.getByText(/check agent work setup/i)).toBeInTheDocument()
+    expect(screen.getByText('Can edit files')).toBeInTheDocument()
+    expect(screen.queryByText(/workspace must be ready/i)).toBeNull()
+    expect(screen.queryByText('File work')).toBeNull()
     expect(screen.getByRole('combobox', { name: /^work tool$/i })).toBeInTheDocument()
     expect(screen.getByLabelText(/project folder/i)).toBeInTheDocument()
     expect(screen.getByText(/new tasks start from the primary project/i)).toBeInTheDocument()
@@ -243,6 +248,8 @@ describe('CreateAgentModal', () => {
     fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
     expect(screen.getByText(/codex on this computer/i)).toBeInTheDocument()
     expect(screen.getByText('Run the setup command')).toBeInTheDocument()
+    expect(screen.getByText('Uses this computer')).toBeInTheDocument()
+    expect(screen.queryByText('Local work')).toBeNull()
 
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
     fireEvent.change(screen.getByLabelText(/^ai service$/i), { target: { value: 'google' } })
@@ -250,6 +257,7 @@ describe('CreateAgentModal', () => {
     await waitFor(() => {
       expect(screen.getByText(/google simple chat agent/i)).toBeInTheDocument()
     })
+    expect(screen.getByText('Chat-only AI service')).toBeInTheDocument()
   })
 
   test('enrolls an agent on this computer and shows the setup command', async () => {
