@@ -71,6 +71,19 @@ describe('settingsActionErrorMessage', () => {
     )
   })
 
+  test('turns structured permission failures into an admin role step', () => {
+    const message = settingsActionErrorMessage('apiKeys', 'create', {
+      detail: 'outside tool policy denied',
+      status: '403',
+    })
+
+    expectBeginnerError(
+      message,
+      'You do not have permission to create the outside tool access key. Ask an owner or admin to give you access to outside tool access keys.'
+    )
+    expect(message).not.toContain('policy denied')
+  })
+
   test('turns platform key validation details into access-key guidance', () => {
     const message = settingsActionErrorMessage(
       'apiKeys',
@@ -83,6 +96,24 @@ describe('settingsActionErrorMessage', () => {
       'Name this outside tool access key, choose the allowed access, then create it again.'
     )
     expect(message).not.toMatch(/A[P]I key/)
+  })
+
+  test('uses Settings API server details for provider field guidance', () => {
+    const message = settingsActionErrorMessage(
+      'providers',
+      'save',
+      Object.assign(new Error('HTTP 422: Unprocessable Entity'), {
+        serverError: 'base url is required',
+        statusCode: 422,
+      })
+    )
+
+    expectBeginnerError(
+      message,
+      'Add the service address for this AI service, then save again.'
+    )
+    expect(message).not.toContain('Unprocessable')
+    expect(message).not.toContain('base url is required')
   })
 
   test('turns field validation details into a provider setup step', () => {
@@ -137,6 +168,32 @@ describe('settingsActionErrorMessage', () => {
     expect(message).not.toContain('SSH keys')
     expect(message).not.toContain('Network error')
     expect(message).not.toContain('service')
+  })
+
+  test('turns structured connection failures into connection guidance', () => {
+    const message = settingsActionErrorMessage('providers', 'load', {
+      detail: 'connection refused by settings gateway',
+    })
+
+    expectBeginnerError(
+      message,
+      'Settings could not load AI service settings. Forge could not connect while loading Settings. Check your connection, then try again.'
+    )
+    expect(message).not.toContain('connection refused')
+    expect(message).not.toContain('gateway')
+  })
+
+  test('turns structured rate limits into a wait and retry step', () => {
+    const message = settingsActionErrorMessage('runtime', 'update', {
+      code: '429',
+      reason: 'too many runtime writes',
+    })
+
+    expectBeginnerError(
+      message,
+      'The Settings page is busy. Wait a moment, then try to update agent work settings again.'
+    )
+    expect(message).not.toContain('runtime writes')
   })
 
   test('uses product labels for repository access permission errors', () => {

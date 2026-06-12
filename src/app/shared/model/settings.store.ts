@@ -110,9 +110,11 @@ function settingsActionPhrase(area: SettingsErrorArea, action: SettingsErrorActi
 }
 
 function statusFromSettingsError(error: unknown): number | null {
-  if (error && typeof error === 'object' && 'statusCode' in error) {
-    const statusCode = (error as { statusCode?: unknown }).statusCode
-    if (typeof statusCode === 'number') return statusCode
+  if (error && typeof error === 'object') {
+    for (const key of ['statusCode', 'status', 'code'] as const) {
+      const status = numericStatus((error as Record<string, unknown>)[key])
+      if (status) return status
+    }
   }
 
   const message = settingsErrorDetail(error)
@@ -120,18 +122,36 @@ function statusFromSettingsError(error: unknown): number | null {
   return match ? Number(match[1]) : null
 }
 
-function settingsErrorDetail(error: unknown): string | null {
-  if (typeof error === 'string' && error.trim()) return error.trim()
-  if (error instanceof Error && error.message.trim()) return error.message.trim()
-  if (error && typeof error === 'object' && 'error' in error) {
-    const value = (error as { error?: unknown }).error
-    if (typeof value === 'string' && value.trim()) return value.trim()
-  }
-  if (error && typeof error === 'object' && 'message' in error) {
-    const value = (error as { message?: unknown }).message
-    if (typeof value === 'string' && value.trim()) return value.trim()
+function numericStatus(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && /^\d{3}$/.test(value.trim())) {
+    return Number.parseInt(value, 10)
   }
   return null
+}
+
+function settingsErrorDetail(error: unknown): string | null {
+  if (typeof error === 'string' && error.trim()) return error.trim()
+  if (error && typeof error === 'object') {
+    for (const key of ['serverError', 'detail', 'error', 'message', 'reason'] as const) {
+      const value = (error as Record<string, unknown>)[key]
+      if (typeof value === 'string' && value.trim()) return value.trim()
+    }
+  }
+  return null
+}
+
+function isSettingsConnectionFailure(detail: string | null): boolean {
+  if (!detail) return true
+  const normalized = detail.toLowerCase()
+  return (
+    normalized === 'network error' ||
+    normalized === 'failed to fetch' ||
+    normalized === 'load failed' ||
+    normalized.includes('networkerror') ||
+    normalized.includes('connection refused') ||
+    normalized.includes('could not reach')
+  )
 }
 
 function isRawSettingsFailure(detail: string | null): boolean {
@@ -178,6 +198,9 @@ export function settingsActionErrorMessage(
   const detail = settingsErrorDetail(error)
 
   if (!status) {
+    if (isSettingsConnectionFailure(detail)) {
+      return settingsConnectionMessage(actionPhrase, action)
+    }
     if (!isRawSettingsFailure(detail)) {
       return settingsValidationMessage(area, action, detail)
     }
