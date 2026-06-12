@@ -13,7 +13,11 @@ describe('QuickCreate', () => {
     fireEvent.click(screen.getByRole('button', { name: /\+ add draft task/i }))
 
     expect(screen.getByRole('textbox', { name: /task result/i })).toHaveFocus()
+    expect(screen.getByRole('textbox', { name: /task result/i })).toHaveAccessibleDescription(
+      /write one visible outcome/i
+    )
     expect(screen.getByPlaceholderText(/example: fix the login error/i)).toBeDefined()
+    expect(screen.getByText(/write one visible outcome/i)).toBeDefined()
     expect(screen.queryByRole('textbox', { name: /task title/i })).toBeNull()
     expect(screen.getByRole('button', { name: /^add draft task$/i })).toBeDisabled()
     expect(screen.getByRole('button', { name: /^cancel$/i })).toBeEnabled()
@@ -30,6 +34,24 @@ describe('QuickCreate', () => {
 
     expect(onSubmit).not.toHaveBeenCalled()
     expect(input).toBeInTheDocument()
+  })
+
+  test('shows a next step when Enter is pressed without a task result', () => {
+    const onSubmit = vi.fn()
+    render(<QuickCreate columnId="backlog" onSubmit={onSubmit} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /\+ add draft task/i }))
+    const input = screen.getByRole('textbox', { name: /task result/i })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Write the result you want before creating the draft task.'
+    )
+    expect(input).toHaveFocus()
+
+    fireEvent.change(input, { target: { value: 'Fix the login error' } })
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   test('submits with the add button and closes', () => {

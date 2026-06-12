@@ -9,29 +9,39 @@ interface QuickCreateProps {
 export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [title, setTitle] = useState('')
+  const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const submittedRef = useRef(false)
   const trimmedTitle = title.trim()
+  const helpId = `${columnId}-quick-task-help`
+  const errorId = `${columnId}-quick-task-error`
 
   useEffect(() => {
     if (isOpen) {
       submittedRef.current = false
+      setError(null)
       inputRef.current?.focus()
     }
   }, [isOpen])
 
   function handleSubmit() {
     if (submittedRef.current) return
-    if (!trimmedTitle) return
+    if (!trimmedTitle) {
+      setError('Write the result you want before creating the draft task.')
+      inputRef.current?.focus()
+      return
+    }
     submittedRef.current = true
     onSubmit(trimmedTitle, columnId)
     setTitle('')
+    setError(null)
     setIsOpen(false)
   }
 
   function handleCancel() {
     submittedRef.current = true
     setTitle('')
+    setError(null)
     setIsOpen(false)
   }
 
@@ -55,7 +65,12 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
         name={`${columnId}-quick-task-title`}
         autoComplete="off"
         value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        aria-invalid={error ? 'true' : undefined}
+        aria-describedby={error ? `${helpId} ${errorId}` : helpId}
+        onChange={(e) => {
+          setTitle(e.target.value)
+          if (error) setError(null)
+        }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             e.preventDefault()
@@ -70,6 +85,14 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
           'placeholder:text-secondary-light dark:placeholder:text-secondary-dark'
         )}
       />
+      <p id={helpId} className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+        Write one visible outcome. Example: fix the login error.
+      </p>
+      {error && (
+        <p id={errorId} role="alert" className="text-ui-caption font-medium text-apple-red">
+          {error}
+        </p>
+      )}
       <div className="flex items-center gap-2">
         <button
           type="button"
