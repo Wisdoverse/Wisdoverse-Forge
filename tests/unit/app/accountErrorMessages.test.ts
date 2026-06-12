@@ -49,11 +49,12 @@ describe('accountErrorMessage', () => {
     expect(message).not.toContain('HTTP 422')
   })
 
-  test('maps organization permission failures to an owner or admin action', () => {
+  test('maps team space permission failures to an owner or admin action', () => {
     const message = accountErrorMessage('renameOrganization', new Error('API 403: Forbidden'))
 
-    expect(message).toContain('You do not have permission to rename this organization')
+    expect(message).toContain('You do not have permission to rename this team space')
     expect(message).toContain('Ask an owner or admin')
+    expect(message).not.toContain('organization')
     expect(message).not.toContain('Code: 403.')
     expect(message).not.toContain('API 403')
     expect(message).not.toContain('Forbidden')
@@ -64,14 +65,16 @@ describe('accountErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Organization name could not be saved. Refresh Settings, then try again. If it still fails, ask an owner or admin to check account settings.'
+      'Team space name could not be saved. Refresh Settings, then try again. If it still fails, ask an owner or admin to check account settings.'
     )
+    expect(message).not.toContain('Organization')
+    expect(message).not.toContain('organization')
     expect(message).not.toContain('backend')
     expect(message).not.toContain('service')
     expect(message).not.toContain('temporarily unavailable')
   })
 
-  test('turns organization validation details into a recovery step', () => {
+  test('turns team space validation details into a recovery step', () => {
     const message = accountErrorMessage(
       'renameOrganization',
       Object.assign(new Error('HTTP 422'), {
@@ -81,8 +84,9 @@ describe('accountErrorMessage', () => {
     )
 
     expect(message).toBe(
-      'That organization name is already in use. Choose a different display name, then try again.'
+      'That team space name is already in use. Choose a different display name, then try again.'
     )
+    expect(message).not.toContain('organization')
     expect(message).not.toContain('Details:')
   })
 
@@ -96,7 +100,7 @@ describe('accountErrorMessage', () => {
   test('turns unsupported account status into an owner or admin setup step', () => {
     expectBeginnerMessage(
       accountErrorMessage('renameOrganization', { status: 418 }),
-      'Account settings could not rename the organization. Refresh Settings, then try again. If it still fails, ask an owner or admin to check account settings.'
+      'Account settings could not rename the team space. Refresh Settings, then try again. If it still fails, ask an owner or admin to check account settings.'
     )
   })
 })

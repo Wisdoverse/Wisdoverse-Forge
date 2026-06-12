@@ -201,7 +201,7 @@ function PasswordChangeForm() {
 }
 
 // ============================================================================
-// Organization Rename Form
+// Team Space Rename Form
 // ============================================================================
 
 function OrgRenameForm() {
@@ -232,7 +232,7 @@ function OrgRenameForm() {
   if (!currentOrg) {
     return (
       <div className="rounded-card border border-black/[0.08] bg-black/[0.02] px-3 py-2 text-ui-body text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark">
-        Select an organization from the sidebar before changing organization settings.
+        Select a team space from the sidebar before changing team space settings.
       </div>
     )
   }
@@ -289,12 +289,12 @@ function OrgRenameForm() {
       )}
       {success && (
         <div className="rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
-          Organization name updated. Teammates will see the new name in navigation.
+          Team space name updated. Teammates will see the new name in navigation.
         </div>
       )}
       <div>
         <label htmlFor="account-organization-name" className={uiStyles.label}>
-          Organization Name
+          Team Space Name
         </label>
         <input
           id="account-organization-name"
@@ -313,7 +313,7 @@ function OrgRenameForm() {
         </p>
         {!canEdit && (
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Only owners and admins can rename this organization.
+            Only owners and admins can rename this team space.
           </p>
         )}
       </div>
@@ -324,7 +324,7 @@ function OrgRenameForm() {
             disabled={saving || !dirty || !valid}
             className={uiStyles.primaryButton}
           >
-            {saving ? 'Saving...' : 'Save Organization Name'}
+            {saving ? 'Saving...' : 'Save Team Space Name'}
           </button>
         </div>
       )}
@@ -449,9 +449,9 @@ export function AccountSection() {
         </div>
       </div>
 
-      {/* Organization */}
+      {/* Team Space */}
       <div>
-        <h3 className={uiStyles.groupLabel}>Organization</h3>
+        <h3 className={uiStyles.groupLabel}>Team space</h3>
         <div className={uiStyles.cardPadded}>
           <OrgRenameForm />
         </div>

@@ -43,35 +43,33 @@ export function accountErrorMessage(action: AccountErrorAction, error?: unknown)
 function actionFailureBase(action: AccountErrorAction): string {
   return action === 'changePassword'
     ? 'Password could not be changed.'
-    : 'Organization name could not be saved.'
+    : 'Team space name could not be saved.'
 }
 
 function actionPhrase(action: AccountErrorAction): string {
-  return action === 'changePassword' ? 'change your password' : 'rename the organization'
+  return action === 'changePassword' ? 'change your password' : 'rename the team space'
 }
 
 function retryPhrase(action: AccountErrorAction): string {
-  return action === 'changePassword'
-    ? 'change your password again'
-    : 'rename the organization again'
+  return action === 'changePassword' ? 'change your password again' : 'rename the team space again'
 }
 
 function settingsAreaLabel(action: AccountErrorAction): string {
-  return action === 'changePassword' ? 'Password settings' : 'Organization settings'
+  return action === 'changePassword' ? 'Password settings' : 'Team space settings'
 }
 
 function permissionMessage(action: AccountErrorAction): string {
   if (action === 'changePassword') {
     return 'You do not have permission to change this password. Ask an owner or admin to check your account.'
   }
-  return 'You do not have permission to rename this organization. Ask an owner or admin to update your role.'
+  return 'You do not have permission to rename this team space. Ask an owner or admin to update your role.'
 }
 
 function conflictMessage(action: AccountErrorAction): string {
   if (action === 'changePassword') {
     return 'Your account changed while this form was open. Refresh the page, then try again.'
   }
-  return 'This organization changed while you were editing. Refresh organization settings, review the current name, then try again.'
+  return 'This team space changed while you were editing. Refresh team space settings, review the current name, then try again.'
 }
 
 function validationMessage(action: AccountErrorAction, detail?: string | null): string {
@@ -86,9 +84,9 @@ function validationMessage(action: AccountErrorAction, detail?: string | null): 
     return 'Check the current password and make sure the new password meets the requirements, then try again.'
   }
   if (normalizedDetail.includes('already exists') || normalizedDetail.includes('taken')) {
-    return 'That organization name is already in use. Choose a different display name, then try again.'
+    return 'That team space name is already in use. Choose a different display name, then try again.'
   }
-  return 'Use an organization name between 1 and 100 characters, then try again.'
+  return 'Use a team space name between 1 and 100 characters, then try again.'
 }
 
 function shouldUseDetail(status: number | null): boolean {

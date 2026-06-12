@@ -125,7 +125,7 @@ describe('AccountSection', () => {
     ).toBeDefined()
   })
 
-  test('makes organization rename consequences and the save action explicit', async () => {
+  test('makes team space rename consequences and the save action explicit', async () => {
     const updateOrg = vi.fn().mockResolvedValue(undefined)
     useNavigationStore.setState({ updateOrg })
 
@@ -137,26 +137,25 @@ describe('AccountSection', () => {
       )
     ).toBeDefined()
 
-    fireEvent.change(screen.getByLabelText('Organization Name'), {
+    fireEvent.change(screen.getByLabelText('Team Space Name'), {
       target: { value: 'Acme Support' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /save organization name/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save team space name/i }))
 
     await waitFor(() => expect(updateOrg).toHaveBeenCalledWith('org-1', { name: 'Acme Support' }))
     expect(
-      screen.getByText('Organization name updated. Teammates will see the new name in navigation.')
+      screen.getByText('Team space name updated. Teammates will see the new name in navigation.')
     ).toBeDefined()
+    expect(screen.queryByText('Organization name updated.')).toBeNull()
   })
 
-  test('guides users when no organization is selected', () => {
+  test('guides users when no team space is selected', () => {
     useNavigationStore.setState({ orgs: [], selectedOrgId: null })
 
     renderAccountSection()
 
     expect(
-      screen.getByText(
-        'Select an organization from the sidebar before changing organization settings.'
-      )
+      screen.getByText('Select a team space from the sidebar before changing team space settings.')
     ).toBeDefined()
   })
 
@@ -190,19 +189,20 @@ describe('AccountSection', () => {
     expect(alert.textContent).not.toContain('token expired')
   })
 
-  test('shows permission guidance when organization rename is denied', async () => {
+  test('shows permission guidance when team space rename is denied', async () => {
     const updateOrg = vi.fn().mockRejectedValue(new Error('API 403: Forbidden'))
     useNavigationStore.setState({ updateOrg })
     renderAccountSection()
 
-    fireEvent.change(screen.getByLabelText('Organization Name'), {
+    fireEvent.change(screen.getByLabelText('Team Space Name'), {
       target: { value: 'Acme Support' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /save organization name/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save team space name/i }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert.textContent).toContain('You do not have permission to rename this organization')
+    expect(alert.textContent).toContain('You do not have permission to rename this team space')
     expect(alert.textContent).toContain('Ask an owner or admin')
+    expect(alert.textContent).not.toContain('organization')
     expect(alert.textContent).not.toContain('API 403')
     expect(alert.textContent).not.toContain('Forbidden')
   })
