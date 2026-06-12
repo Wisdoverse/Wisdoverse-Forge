@@ -196,7 +196,7 @@ export function SidebarNav({
           id: 'admin',
           Icon: Shield,
           labelKey: 'nav.admin',
-          description: 'manage organizations, users, and system health',
+          description: 'manage team spaces, users, and system health',
           path: '/admin',
         })}
       <button

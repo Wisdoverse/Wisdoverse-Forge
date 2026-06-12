@@ -88,7 +88,7 @@ describe('SidebarNav', () => {
     ).toHaveAttribute('aria-current', 'page')
     expect(
       screen.getByRole('button', {
-        name: /admin: manage organizations, users, and system health/i,
+        name: /admin: manage team spaces, users, and system health/i,
       })
     ).toBeInTheDocument()
 
@@ -98,7 +98,7 @@ describe('SidebarNav', () => {
     expect(navigateMock).toHaveBeenCalledWith({ to: '/login', search: {} })
   })
 
-  const adminItem = { name: /admin: manage organizations, users, and system health/i }
+  const adminItem = { name: /admin: manage team spaces, users, and system health/i }
 
   test('owners see the admin link (matches the backend require_admin gate)', () => {
     authState.role = 'owner'
