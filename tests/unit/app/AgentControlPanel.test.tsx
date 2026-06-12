@@ -43,6 +43,12 @@ const hostCliAgent: AgentInfo = {
   runtimeKind: 'cli',
 }
 
+const offlineHostCliAgent: AgentInfo = {
+  ...hostCliAgent,
+  id: 'offline-host-agent',
+  status: 'offline',
+}
+
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
@@ -157,17 +163,33 @@ describe('AgentControlPanel', () => {
     render(<AgentControlPanel agent={hostCliAgent} onDeleted={() => {}} />)
 
     expect(screen.getByText('This computer is connected')).toBeDefined()
-    expect(screen.getByText(/setup command on that computer/i)).toBeDefined()
+    expect(screen.getByText(/setup command is already connected/i)).toBeDefined()
+    expect(screen.getByText(/close that window only when you want it offline/i)).toBeDefined()
     expect(screen.queryByText(/connection command/i)).toBeNull()
-    expect(screen.getByText('Keep the setup command running')).toBeDefined()
+    expect(screen.queryByText(/bring it online/i)).toBeNull()
+    expect(screen.getByText('Keep this computer online')).toBeDefined()
     expect(
       screen.getByText(
-        'Keep the Terminal or PowerShell window open on that computer while it works. Use this page for quick messages, tracked tasks, or cleanup.'
+        'Leave Terminal or PowerShell open on that computer while it works. Use this page for quick messages, tracked tasks, or cleanup.'
       )
     ).toBeDefined()
     expect(screen.queryByRole('button', { name: /start agent/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /restart agent/i })).toBeNull()
     expect(screen.queryByText(/No recovery action needed/i)).toBeNull()
+  })
+
+  test('explains how to reconnect a joined-computer agent when it is offline', () => {
+    render(<AgentControlPanel agent={offlineHostCliAgent} onDeleted={() => {}} />)
+
+    expect(screen.getByText('This computer is offline')).toBeDefined()
+    expect(screen.getByText(/run the setup command on that computer again/i)).toBeDefined()
+    expect(screen.getByText('Run setup command to reconnect')).toBeDefined()
+    expect(
+      screen.getByText(/run the setup command from its work folder, then come back here/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/already connected/i)).toBeNull()
+    expect(screen.queryByRole('button', { name: /start agent/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /restart agent/i })).toBeNull()
   })
 
   test('shows start guidance for pending agent workspaces', async () => {

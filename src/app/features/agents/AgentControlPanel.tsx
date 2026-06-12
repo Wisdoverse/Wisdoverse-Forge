@@ -301,12 +301,7 @@ function getControlSummary(
   }
 
   if (hostCli) {
-    return {
-      title: 'This computer is connected',
-      detail:
-        'Run the setup command on that computer to bring it online. Keep the Terminal or PowerShell window open while it works; close that window when you want to stop it.',
-      Icon: CheckCircle2,
-    }
+    return hostCliControlSummary(agent.status)
   }
 
   if (agent.cliTool) {
@@ -330,11 +325,7 @@ function getReadyActionInfo(
   { hostCli }: { hostCli: boolean }
 ): { title: string; detail: string } {
   if (hostCli) {
-    return {
-      title: 'Keep the setup command running',
-      detail:
-        'Keep the Terminal or PowerShell window open on that computer while it works. Use this page for quick messages, tracked tasks, or cleanup.',
-    }
+    return hostCliReadyActionInfo(agent.status)
   }
 
   if (agent.cliTool) {
@@ -349,6 +340,44 @@ function getReadyActionInfo(
     title: 'Ready for chat and tracked tasks',
     detail:
       'Send a quick instruction here, or create a Task when you need planning or review with a clear result.',
+  }
+}
+
+function hostCliControlSummary(status: AgentInfo['status']): {
+  title: string
+  detail: string
+  Icon: LucideIcon
+} {
+  if (status === 'offline') {
+    return {
+      title: 'This computer is offline',
+      detail:
+        'Run the setup command on that computer again. Leave Terminal or PowerShell open after it connects.',
+      Icon: AlertTriangle,
+    }
+  }
+
+  return {
+    title: 'This computer is connected',
+    detail:
+      'The setup command is already connected. Leave Terminal or PowerShell open while it works; close that window only when you want it offline.',
+    Icon: CheckCircle2,
+  }
+}
+
+function hostCliReadyActionInfo(status: AgentInfo['status']): { title: string; detail: string } {
+  if (status === 'offline') {
+    return {
+      title: 'Run setup command to reconnect',
+      detail:
+        'Open Terminal or PowerShell on that computer, run the setup command from its work folder, then come back here to send messages or tasks.',
+    }
+  }
+
+  return {
+    title: 'Keep this computer online',
+    detail:
+      'Leave Terminal or PowerShell open on that computer while it works. Use this page for quick messages, tracked tasks, or cleanup.',
   }
 }
 
