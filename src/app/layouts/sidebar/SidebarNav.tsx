@@ -71,14 +71,14 @@ const NAV_ITEMS: NavItem[] = [
     id: 'skills',
     Icon: Zap,
     labelKey: 'nav.skills',
-    description: 'reuse saved instructions',
+    description: 'reuse instructions',
     path: '/skills',
   },
   {
     id: 'analytics',
     Icon: BarChart3,
     labelKey: 'nav.analytics',
-    description: 'review usage and outcomes',
+    description: 'see agent activity and results',
     path: '/analytics',
   },
 ]

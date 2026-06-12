@@ -135,6 +135,23 @@ describe('Sidebar', () => {
     expect(onNavigate).toHaveBeenCalledWith('/agents')
   })
 
+  it('labels analytics navigation in beginner-facing language', () => {
+    useNavigationStore.setState({
+      orgs: [{ id: 'org1', name: 'My Org', slug: 'my-org', plan: 'pro', role: 'owner' }],
+      selectedOrgId: 'org1',
+      sidebarExpanded: true,
+      teams: [],
+      projects: {},
+    })
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+
+    expect(
+      screen.getByRole('button', { name: 'nav.analytics: see agent activity and results' })
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /usage and outcomes/i })).not.toBeInTheDocument()
+  })
+
   it('renders project tree with teams and projects', () => {
     seedProjectTree()
 
