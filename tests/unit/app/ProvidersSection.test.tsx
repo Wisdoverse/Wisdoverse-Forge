@@ -100,6 +100,11 @@ describe('ProvidersSection', () => {
     ).toBeDefined()
     expect(screen.getByText('Anthropic Review')).toBeDefined()
     expect(screen.getByText('Local Lab')).toBeDefined()
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Anthropic Review connection check needs attention.'
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent('service access key')
+    expect(screen.queryByText('Invalid key')).toBeNull()
 
     fireEvent.click(within(nextStep).getByRole('button', { name: /show needs check/i }))
 
@@ -254,5 +259,23 @@ describe('ProvidersSection', () => {
       expect(settingsApiMock.testProvider).toHaveBeenCalledWith('provider-needs-test')
     )
     expect(loadProvidersMock).toHaveBeenCalled()
+  })
+
+  test('hides raw provider check failures from the provider row', async () => {
+    settingsApiMock.testProvider.mockResolvedValueOnce({
+      ok: false,
+      error: 'HTTP 500: provider gateway stack trace',
+    })
+
+    render(<ProvidersSection />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /check anthropic review AI service connection/i })
+    )
+
+    const alert = await screen.findByText(/Forge could not check this AI service right now/i)
+    expect(alert).toHaveTextContent('ask an owner or admin to check AI service settings')
+    expect(alert).not.toHaveTextContent('HTTP 500')
+    expect(alert).not.toHaveTextContent('provider gateway stack trace')
   })
 })
