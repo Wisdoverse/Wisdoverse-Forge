@@ -18,8 +18,11 @@ describe('boardActionErrorMessage', () => {
   test('explains network failures without exposing only a transport error', () => {
     const message = boardActionErrorMessage('loadReadiness', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('Agent readiness could not load')
+    expect(message).toContain('Agent status could not load')
+    expect(message).toContain('Refresh the board before sending work')
     expect(message).toContain('Forge could not connect while loading the board')
+    const previousActionPhrase = ['assigning', 'or', 'publishing', 'work'].join(' ')
+    expect(message).not.toContain(previousActionPhrase)
     expect(message).not.toContain('API')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('app could not reach')

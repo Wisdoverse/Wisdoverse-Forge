@@ -10,8 +10,7 @@ export type BoardErrorAction =
 const ACTION_FALLBACKS: Record<BoardErrorAction, string> = {
   createTask:
     'The task was not created. Check the project, task queue, and result, then try again.',
-  loadReadiness:
-    'Agent readiness could not load. Refresh readiness before assigning or publishing work.',
+  loadReadiness: 'Agent status could not load. Refresh the board before sending work.',
   loadTasks: 'The task board could not load. Refresh the board, then try again.',
   moveTask: 'The task was moved back because the board change was not saved.',
   previewContext: 'The context preview could not load. Choose an available agent, then try again.',
