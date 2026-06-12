@@ -119,4 +119,40 @@ describe('AssignmentReadinessPanel', () => {
     expect(screen.getByText('Ready Agent')).toBeDefined()
     expect(screen.getAllByText('Available').length).toBeGreaterThan(0)
   })
+
+  test('uses plain offline agent activity labels', () => {
+    const participants: ParticipantSummary[] = [
+      {
+        id: 'participant-1',
+        agentId: 'agent-1',
+        name: 'Recently Offline Agent',
+        status: 'offline',
+        capabilities: [],
+        lastHeartbeatAt: new Date().toISOString(),
+      },
+      {
+        id: 'participant-2',
+        agentId: 'agent-2',
+        name: 'Disconnected Agent',
+        status: 'offline',
+        capabilities: [],
+      },
+    ]
+
+    render(
+      <AssignmentReadinessPanel
+        participants={participants}
+        workload={emptyWorkload}
+        loading={false}
+        error={null}
+        onRefresh={vi.fn()}
+      />
+    )
+
+    const readiness = screen.getByTestId('assignment-readiness')
+    expect(within(readiness).getByText(/Last seen/i)).toBeDefined()
+    expect(within(readiness).getByText('No recent activity')).toBeDefined()
+    const previousStatusWord = ['heart', 'beat'].join('')
+    expect(readiness.textContent).not.toContain(previousStatusWord)
+  })
 })

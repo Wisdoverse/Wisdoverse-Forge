@@ -209,8 +209,8 @@ function ParticipantChip({ participant }: { participant: ParticipantSummary }) {
       : participant.status === 'busy'
         ? 'Already working'
         : participant.lastHeartbeatAt
-          ? `Last heartbeat ${formatRelativeTime(participant.lastHeartbeatAt)}`
-          : 'No recent heartbeat'
+          ? `Last seen ${formatRelativeTime(participant.lastHeartbeatAt)}`
+          : 'No recent activity'
 
   return (
     <div className="flex min-w-[180px] items-center justify-between gap-2 rounded-lg bg-black/[0.03] px-2.5 py-2 dark:bg-white/[0.04]">
