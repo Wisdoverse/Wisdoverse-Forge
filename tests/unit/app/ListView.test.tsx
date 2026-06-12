@@ -122,7 +122,8 @@ describe('ListView', () => {
     expect(screen.getByTestId('list-next-step')).toHaveTextContent(
       /Start with 1 task needing action/
     )
-    expect(screen.getByText(/Open the blocked or failed work first/i)).toBeDefined()
+    expect(screen.getByText(/Open work that needs help or recovery first/i)).toBeDefined()
+    expect(screen.queryByText(/Open the blocked or failed work first/i)).toBeNull()
     expect(within(screen.getByTestId('list-metric-active')).getByText('1')).toBeDefined()
     expect(within(screen.getByTestId('list-metric-backlog')).getByText('1')).toBeDefined()
     expect(
@@ -130,7 +131,8 @@ describe('ListView', () => {
     ).toBeDefined()
     expect(within(screen.getByTestId('list-metric-attention')).getByText('1')).toBeDefined()
     expect(within(screen.getByTestId('list-metric-completed')).getByText('1')).toBeDefined()
-    expect(screen.getByText(/Resolve blocker: Waiting on approval/i)).toBeDefined()
+    expect(screen.getByText(/Help needed: Waiting on approval/i)).toBeDefined()
+    expect(screen.queryByText(/Resolve blocker/i)).toBeNull()
   })
 
   test('summarizes unsent tasks without backlog or lane wording', () => {
@@ -199,7 +201,9 @@ describe('ListView', () => {
     expect(screen.getByTestId('list-filter-empty')).toBeDefined()
 
     expect(screen.getByText(/narrow by task result/i)).toBeDefined()
+    expect(screen.getByText(/help needed/i)).toBeDefined()
     expect(screen.queryByText(/task title/i)).toBeNull()
+    expect(screen.queryByText(/blocker/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /show all tasks/i }))
     expect(screen.getByText('Build settings')).toBeDefined()
@@ -223,8 +227,9 @@ describe('ListView', () => {
     render(<ListView />)
 
     expect(
-      screen.getByText(/Resolve blocker: Pause lower-priority work or ask an owner/i)
+      screen.getByText(/Help needed: Pause lower-priority work or ask an owner/i)
     ).toBeDefined()
+    expect(screen.queryByText(/Resolve blocker/i)).toBeNull()
     expect(screen.queryByText(/quota_exceeded/i)).toBeNull()
     expect(screen.queryByText(/docker socket/i)).toBeNull()
     expect(screen.queryByText(/secret token/i)).toBeNull()

@@ -173,7 +173,7 @@ export function ListView() {
                 type="search"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search tasks, agents, blockers…"
+                placeholder="Search tasks, agents, or help needed…"
                 className="h-9 w-full rounded-lg border border-black/[0.08] bg-black/[0.02] pl-9 pr-3 text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light focus:border-apple-blue/40 focus:bg-white focus:ring-2 focus:ring-apple-blue/20 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark dark:focus:bg-white/[0.06]"
               />
             </label>
@@ -238,7 +238,7 @@ export function ListView() {
             No tasks match this view
           </span>
           <span className="max-w-sm text-ui-caption leading-relaxed">
-            Show all tasks first, then narrow by task result, agent name, blocker, or priority.
+            Show all tasks first, then narrow by task result, agent name, help needed, or priority.
           </span>
           {hasActiveFilter && (
             <button
@@ -448,7 +448,7 @@ function listNextStep(
   if (workload.attention > 0) {
     return {
       title: `Start with ${workload.attention} task${workload.attention === 1 ? '' : 's'} needing action.`,
-      detail: 'Open the blocked or failed work first so the agent is not waiting on you.',
+      detail: 'Open work that needs help or recovery first so the agent is not waiting on you.',
     }
   }
 
@@ -484,7 +484,7 @@ function taskNextAction(task: TaskSummary): string {
     case 'working':
       return `Follow progress at ${task.progress}%; open it if updates stop.`
     case 'blocked':
-      return `Resolve blocker: ${taskBlockedPreview({
+      return `Help needed: ${taskBlockedPreview({
         blockedHint: task.blockedHint,
         blockedReason: task.blockedReason,
         error: task.error,
