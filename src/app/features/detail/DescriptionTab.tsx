@@ -26,7 +26,7 @@ const HANDOFF_REVIEW_POINTS = [
   { label: 'Evidence', value: 'Open result files or context before accepting the work.' },
   {
     label: 'Reuse',
-    value: 'Draft a saved instruction only when the steps should help future tasks.',
+    value: 'Save the repeatable steps only when they should help future tasks.',
   },
 ]
 
@@ -202,7 +202,7 @@ export function DescriptionTab({
         <div className="space-y-2 text-xs text-secondary-light dark:text-secondary-dark">
           <p>
             {task.state === 'completed'
-              ? 'Completed work can become saved instructions after review.'
+              ? 'After review, save the repeatable steps if future tasks should reuse them.'
               : 'The save-for-next-time path becomes available once useful work is completed.'}
           </p>
           {task.state === 'completed' && (

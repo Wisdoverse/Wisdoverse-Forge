@@ -95,11 +95,13 @@ describe('DescriptionTab', () => {
     expect(onDraftSkill).toHaveBeenCalledOnce()
     expect(screen.getByText('Reuse what worked')).toBeDefined()
     expect(
-      screen.getByText('Completed work can become saved instructions after review.')
+      screen.getByText('After review, save the repeatable steps if future tasks should reuse them.')
     ).toBeDefined()
     expect(
-      screen.getByText('Draft a saved instruction only when the steps should help future tasks.')
+      screen.getByText('Save the repeatable steps only when they should help future tasks.')
     ).toBeDefined()
+    const previousReuseCopy = new RegExp(['Completed work', 'saved instructions'].join('.*'), 'i')
+    expect(screen.queryByText(previousReuseCopy)).toBeNull()
     expect(screen.queryByText('Reusable learning')).toBeNull()
     expect(screen.queryByText(/governed skill/i)).toBeNull()
     expect(screen.queryByText(new RegExp(['Draft a', 'skill'].join('\\s+')))).toBeNull()

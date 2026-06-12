@@ -328,11 +328,12 @@ describe('TaskDetailPanel', () => {
       />
     )
 
-    expect(screen.getByText(/completed work can become saved instructions/i)).toBeDefined()
+    expect(screen.getAllByText(/save the repeatable steps/i).length).toBeGreaterThanOrEqual(2)
     expect(screen.getByTestId('task-handoff-checklist')).toBeDefined()
     expect(screen.getByText('Outcome')).toBeDefined()
     expect(screen.getByText(/solves the original request/i)).toBeDefined()
     expect(screen.getByText(/open result files or context/i)).toBeDefined()
+    expect(screen.getByText(/future tasks should reuse them/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /review save ideas/i })).toBeDefined()
   })
 
