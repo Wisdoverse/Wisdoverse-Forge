@@ -98,7 +98,7 @@ const ITEM_KIND_OPTIONS: { value: ItemKindFilter; label: string }[] = [
 
 const SCOPE_KIND_OPTIONS: { value: ScopeKindFilter; label: string }[] = [
   { value: 'all', label: 'All areas' },
-  { value: 'org', label: 'Organization' },
+  { value: 'org', label: 'Team space' },
   { value: 'workspace', label: 'Workspace' },
   { value: 'team', label: 'Team' },
   { value: 'project', label: 'Project' },
@@ -347,7 +347,7 @@ export function AuditLogView() {
               name="scopeId"
               autoComplete="off"
               onChange={(event) => updateFilter('scopeId', event.target.value)}
-              placeholder="Paste an organization, workspace, team, or project reference"
+              placeholder="Paste a team space, workspace, team, or project reference"
               className={INPUT_CLASS}
             />
           </Field>
@@ -797,7 +797,7 @@ function resourceTypeLabel(value: string): string {
 function auditAreaLabel(kind: GovernanceAuditScopeKind | null | undefined): string {
   switch (kind) {
     case 'org':
-      return 'Organization'
+      return 'Team space'
     case 'workspace':
       return 'Workspace'
     case 'team':

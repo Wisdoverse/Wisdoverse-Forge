@@ -125,8 +125,10 @@ describe('AuditLogView', () => {
     ).toBeDefined()
     expect(screen.getByText('Work area reference')).toBeDefined()
     expect(
-      screen.getByPlaceholderText(/organization, workspace, team, or project reference/i)
+      screen.getByPlaceholderText(/team space, workspace, team, or project reference/i)
     ).toBeDefined()
+    expect(screen.getByRole('option', { name: 'Team space' })).toBeDefined()
+    expect(screen.queryByRole('option', { name: 'Organization' })).toBeNull()
     expect(screen.getByText('Person reference')).toBeDefined()
     expect(screen.getByPlaceholderText(/user reference when needed/i)).toBeDefined()
     expect(screen.getAllByTestId('governance-audit-row')).toHaveLength(2)

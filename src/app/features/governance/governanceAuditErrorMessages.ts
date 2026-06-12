@@ -126,7 +126,7 @@ function validationMessage(action: GovernanceAuditErrorAction, detail: string): 
     return 'Choose a common audit view or paste a support event name, then apply the audit filters again.'
   }
   if (normalized.includes('id')) {
-    return 'Check the selected organization, workspace, user, or task support reference, then apply the audit filters again.'
+    return 'Check the selected team space, workspace, user, or task support reference, then apply the audit filters again.'
   }
   return ACTION_FALLBACKS[action]
 }

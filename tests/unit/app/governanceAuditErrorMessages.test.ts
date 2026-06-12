@@ -93,8 +93,9 @@ describe('governanceAuditErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check the selected organization, workspace, user, or task support reference, then apply the audit filters again.'
+      'Check the selected team space, workspace, user, or task support reference, then apply the audit filters again.'
     )
+    expect(message).not.toContain('selected organization')
     expect(message).not.toMatch(/task I[D]/)
   })
 })
