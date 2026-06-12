@@ -1022,6 +1022,22 @@ impl AgentContainerEnvPolicy {
         Self::strip_nats_url_user_info(source)
     }
 
+    /// Pick the NATS base URL for CONTAINER-backed agents.
+    ///
+    /// Container agents live on the Docker agent network, where the public
+    /// `NATS_AGENT_URL` address may be firewalled (host hairpin). A dedicated
+    /// `NATS_CONTAINER_URL` wins when set; otherwise this falls back to the
+    /// Host-CLI/agent URL and finally the backend URL, preserving the old
+    /// behavior for deployments that never set the container-specific URL.
+    pub(crate) fn pick_container_nats_base_url(
+        container_url: Option<&str>,
+        agent_url: Option<&str>,
+        backend_url: Option<&str>,
+    ) -> Option<String> {
+        let source = container_url.or(agent_url).or(backend_url)?;
+        Self::strip_nats_url_user_info(source)
+    }
+
     /// Strip any `user:password@` user-info segment from a `nats://...` URL.
     pub(crate) fn strip_nats_url_user_info(url: &str) -> Option<String> {
         let (scheme, rest) = url.split_once("://")?;
@@ -1707,6 +1723,28 @@ mod tests {
             "nats://nats:4222"
         );
         assert_eq!(AgentContainerEnvPolicy::pick_nats_base_url(None, None), None);
+    }
+
+    #[test]
+    fn agent_container_env_picks_container_nats_url_before_agent_and_backend() {
+        let container = Some("nats://agentforge-nats:4222");
+        let agent = Some("nats://agent:pw1@198.51.100.7:4222");
+        let backend = Some("nats://backend:pw2@nats:4222");
+
+        assert_eq!(
+            AgentContainerEnvPolicy::pick_container_nats_base_url(container, agent, backend).unwrap(),
+            "nats://agentforge-nats:4222"
+        );
+        // Unset container URL falls back to the agent URL (old behavior).
+        assert_eq!(
+            AgentContainerEnvPolicy::pick_container_nats_base_url(None, agent, backend).unwrap(),
+            "nats://198.51.100.7:4222"
+        );
+        assert_eq!(
+            AgentContainerEnvPolicy::pick_container_nats_base_url(None, None, backend).unwrap(),
+            "nats://nats:4222"
+        );
+        assert_eq!(AgentContainerEnvPolicy::pick_container_nats_base_url(None, None, None), None);
     }
 
     #[test]
