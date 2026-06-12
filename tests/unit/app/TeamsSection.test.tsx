@@ -51,20 +51,23 @@ describe('TeamsSection', () => {
 
     await waitFor(() => expect(getTeams).toHaveBeenCalledWith('org-1'))
     expect(screen.getByText('Teams and access groups')).toBeDefined()
-    expect(screen.getByText(/teams group people and projects/i)).toBeDefined()
+    expect(
+      screen.getByText(/teams group people and projects inside this team space/i)
+    ).toBeDefined()
     expect(screen.getByRole('button', { name: 'New Team' })).toBeDefined()
     expect(screen.getByText('Create a team first')).toBeDefined()
     expect(screen.getByText(/Teams group projects and decide who can manage work/i)).toBeDefined()
   })
 
-  test('guides users to choose an organization before creating teams', () => {
+  test('guides users to choose a team space before creating teams', () => {
     authState.user = { id: 'user-1', role: 'owner' }
 
     render(<TeamsSection />)
 
     expect(getTeams).not.toHaveBeenCalled()
-    expect(screen.getByText('Choose an organization first')).toBeDefined()
+    expect(screen.getByText('Choose a team space first')).toBeDefined()
     expect(screen.getByText(/Select or create one before adding people/i)).toBeDefined()
+    expect(screen.queryByText(/Choose an organization first/i)).toBeNull()
   })
 
   test('shows a beginner recovery step when teams cannot load', async () => {
@@ -102,7 +105,7 @@ describe('TeamsSection', () => {
     await waitFor(() => expect(getTeams).toHaveBeenCalledWith('org-1'))
     fireEvent.click(screen.getByRole('button', { name: 'New Team' }))
     fireEvent.change(screen.getByLabelText(/team name/i), { target: { value: 'Design' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Create Team' }))
+    fireEvent.click(screen.getByRole('button', { name: /create team/i }))
 
     expect(await screen.findByText(/Enter a team name, then try again/i)).toBeDefined()
     expect(screen.queryByText(/team name is required/i)).toBeNull()

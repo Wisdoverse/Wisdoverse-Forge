@@ -141,6 +141,17 @@ describe('workspace settings empty states', () => {
     expect(screen.queryByRole('button', { name: /new project/i })).not.toBeInTheDocument()
   })
 
+  it('guides users to choose a team space before creating projects', () => {
+    mocks.user = { role: 'owner' } as typeof mocks.user
+
+    render(<ProjectsSection />)
+
+    expect(mocks.getTeams).not.toHaveBeenCalled()
+    expect(screen.getByText('Choose a team space first')).toBeInTheDocument()
+    expect(screen.getByText(/Projects belong to teams inside a team space/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Choose an organization first/i)).not.toBeInTheDocument()
+  })
+
   it('shows beginner recovery guidance when projects fail to load', async () => {
     mocks.getTeams.mockRejectedValue(new Error('HTTP 500'))
 
@@ -159,7 +170,9 @@ describe('workspace settings empty states', () => {
 
     render(<ProjectsSection />)
 
-    expect(await screen.findByText(/Forge could not load workspace settings right now/i)).toBeInTheDocument()
+    expect(
+      await screen.findByText(/Forge could not load workspace settings right now/i)
+    ).toBeInTheDocument()
     expect(screen.getByText(/ask an owner or admin to check workspace setup/i)).toBeInTheDocument()
     expect(screen.queryByText(/database unavailable/i)).not.toBeInTheDocument()
   })

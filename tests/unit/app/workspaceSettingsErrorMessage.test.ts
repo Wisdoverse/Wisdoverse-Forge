@@ -51,6 +51,16 @@ describe('workspaceSettingsErrorMessage', () => {
     )
   })
 
+  test('maps missing setup resources to team-space language', () => {
+    const message = workspaceSettingsErrorMessage('team', 'load', new Error('HTTP 404'))
+
+    expectBeginnerMessage(
+      message,
+      'Workspace teams could not be loaded. Refresh Settings; the team space, team, or project may have changed.'
+    )
+    expect(message).not.toContain('organization')
+  })
+
   test('turns server details into an owner recovery step', () => {
     const message = workspaceSettingsErrorMessage(
       'team',

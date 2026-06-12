@@ -129,7 +129,7 @@ export function workspaceSettingsErrorMessage(
     return `${base} Ask an owner or admin to update your workspace access.`
   }
   if (code === 404 || text.includes('endpoint is not available')) {
-    return `${base} Refresh Settings; the organization, team, or project may have changed.`
+    return `${base} Refresh Settings; the team space, team, or project may have changed.`
   }
   if (code === 409 || text.includes('already exists')) {
     return action === 'create'

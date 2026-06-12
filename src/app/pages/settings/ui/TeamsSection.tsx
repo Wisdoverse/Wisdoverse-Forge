@@ -110,7 +110,7 @@ export function TeamsSection() {
           <h2 className={uiStyles.sectionTitle}>Teams and access groups</h2>
           <p className={uiStyles.sectionDescription}>
             {teams.length} {teams.length === 1 ? 'team groups people' : 'teams group people'} and
-            projects inside this organization
+            projects inside this team space
           </p>
         </div>
         {!showForm && canCreateTeam && (
@@ -139,10 +139,10 @@ export function TeamsSection() {
         ) : !user?.orgId ? (
           <div className="px-4 py-6 text-center">
             <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              Choose an organization first
+              Choose a team space first
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Teams belong to an organization. Select or create one before adding people.
+              Teams belong to a team space. Select or create one before adding people.
             </p>
           </div>
         ) : teams.length === 0 && !showForm ? (

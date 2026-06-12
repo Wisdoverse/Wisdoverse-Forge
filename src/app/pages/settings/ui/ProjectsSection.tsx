@@ -28,14 +28,14 @@ export function ProjectsSection() {
   const hasTeams = teams.length > 0
   const canCreateProject = projectCreatableTeams.length > 0
   const projectEmptyTitle = !user?.orgId
-    ? 'Choose an organization first'
+    ? 'Choose a team space first'
     : !hasTeams
       ? 'Create a team before adding projects'
       : canCreateProject
         ? 'Create your first project'
         : 'Ask a team admin to let you create projects'
   const projectEmptyDescription = !user?.orgId
-    ? 'Projects belong to teams inside an organization. Switch to one before setting up work.'
+    ? 'Projects belong to teams inside a team space. Switch to one before setting up work.'
     : !hasTeams
       ? 'Projects live inside teams. Open Teams first, create one team, then come back here.'
       : canCreateProject
