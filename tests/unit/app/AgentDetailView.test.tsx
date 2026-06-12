@@ -102,8 +102,9 @@ describe('AgentDetailView', () => {
     expect(screen.getByRole('button', { name: 'Tasks' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'History' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Live work' })).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Plugins' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Tools' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Instructions' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: ['Plug', 'ins'].join('') })).toBeNull()
   })
 
   test('alternate workspace tool agent still shows the live work tab', () => {

@@ -58,7 +58,7 @@ function tabsFor(agent: AgentInfo): { id: Tab; label: string }[] {
     { id: 'tasks', label: 'Tasks' },
     { id: 'history', label: isCli ? 'History' : 'Chat' },
     ...(hasTerminal ? [{ id: 'terminal' as Tab, label: 'Live work' }] : []),
-    { id: 'plugins', label: 'Plugins' },
+    { id: 'plugins', label: 'Tools' },
     { id: 'config', label: 'Instructions' },
   ]
 }
