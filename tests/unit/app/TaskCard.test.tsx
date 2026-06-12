@@ -24,6 +24,14 @@ describe('TaskCard', () => {
     expect(screen.getByText('Refactor database migration')).toBeDefined()
   })
 
+  test('shows readable status and update time instead of the internal task id', () => {
+    render(<TaskCard task={mockTask} />)
+
+    expect(screen.getByText('Working')).toBeDefined()
+    expect(screen.getByText(/Updated (just now|\d+[mhd] ago)/)).toBeDefined()
+    expect(screen.queryByText('task-1')).toBeNull()
+  })
+
   test('shows agent name when assigned', () => {
     render(<TaskCard task={mockTask} />)
     expect(screen.getByText('Claude-2')).toBeDefined()
@@ -59,6 +67,7 @@ describe('TaskCard', () => {
     )
 
     expect(screen.getByText('Priority needs review')).toBeDefined()
+    expect(screen.getByText('Status needs review')).toBeDefined()
     expect(screen.getByTestId('task-next-step').textContent).toBe(
       'Open details to check the current status before taking action.'
     )

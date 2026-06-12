@@ -4,7 +4,7 @@ import { Brain, Send, WandSparkles } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
-import { taskMachineKey, taskPriorityLabel } from '@app/entities/task'
+import { taskMachineKey, taskPriorityLabel, taskStateLabel } from '@app/entities/task'
 import {
   taskResultArtifacts,
   type TaskContextCounts,
@@ -51,6 +51,7 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
   const showContextBadge = contextCounts.total > 0
   const hasAssignee = Boolean(task.assignedAgentName || task.assignedTo)
   const stateKey = taskMachineKey(task.state)
+  const stateLabel = taskStateLabel(task.state)
   const priorityKey = taskMachineKey(task.priority)
   const canPublish =
     task.state === 'backlog' ||
@@ -132,7 +133,7 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
             className={cn('h-1.5 w-1.5 rounded-full', STATE_DOTS[stateKey] ?? STATE_DOTS.backlog)}
           />
           <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-            {task.id.slice(0, 8)}
+            {stateLabel}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -254,7 +255,7 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
               {resultArtifacts.length} file{resultArtifacts.length === 1 ? '' : 's'}
             </span>
           )}
-          <span>{formatRelativeTime(task.createdAt)}</span>
+          <span>Updated {formatRelativeTime(task.updatedAt || task.createdAt)}</span>
         </span>
       </div>
     </div>
