@@ -24,16 +24,19 @@ describe('TaskMetadata', () => {
 
     expect(screen.getByText('Not sent yet')).toBeDefined()
     expect(screen.queryByText('Backlog')).toBeNull()
+    expect(screen.getByText('Agent')).toBeDefined()
     expect(screen.getByTestId('task-metadata-guidance').textContent).toContain(
-      'Assign an agent before it can start.'
+      'Choose an agent before it can start.'
     )
-    expect(screen.getByText('Unassigned')).toBeDefined()
+    expect(screen.getByText('Needs agent')).toBeDefined()
+    expect(screen.queryByText('Unassigned')).toBeNull()
   })
 
   test('does not call a task unassigned when only the agent id is loaded', () => {
     render(<TaskMetadata task={{ ...mockTask, assignedTo: 'agent-1' }} />)
 
-    expect(screen.getByText('Assigned agent')).toBeDefined()
+    expect(screen.getByText('Agent details loading')).toBeDefined()
+    expect(screen.queryByText('Assigned agent')).toBeNull()
     expect(screen.queryByText('Unassigned')).toBeNull()
     expect(screen.getByTestId('task-metadata-guidance').textContent).toContain(
       'Preview the context and publish it when ready.'
@@ -53,7 +56,7 @@ describe('TaskMetadata', () => {
 
     expect(screen.getByText('Waiting to start')).toBeDefined()
     expect(screen.getByTestId('task-metadata-guidance').textContent).toContain(
-      'waiting for the assigned agent to start.'
+      'waiting for the chosen agent to start.'
     )
     expect(screen.queryByText('Queued')).toBeNull()
     expect(screen.getByTestId('task-metadata-guidance').textContent).not.toMatch(
@@ -109,8 +112,9 @@ describe('TaskMetadata', () => {
     )
 
     const guidance = screen.getByTestId('task-metadata-guidance')
-    expect(guidance.textContent).toContain('Free capacity or ask an owner to raise the limit')
+    expect(guidance.textContent).toContain('Pause lower-priority work or ask an owner')
     expect(guidance.textContent).not.toMatch(/quota_exceeded|docker socket|secret token/i)
+    expect(guidance.textContent).not.toContain('Free capacity')
   })
 
   test('explains failed task recovery without hiding the status badge', () => {

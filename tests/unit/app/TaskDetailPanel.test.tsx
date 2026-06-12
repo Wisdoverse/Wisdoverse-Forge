@@ -405,6 +405,13 @@ describe('TaskDetailPanel', () => {
         status: 'available',
         capabilities: ['review'],
       },
+      {
+        id: 'participant-3',
+        agentId: 'agent-3',
+        name: 'Ready Agent',
+        status: 'available',
+        capabilities: [],
+      },
     ])
 
     render(
@@ -422,8 +429,11 @@ describe('TaskDetailPanel', () => {
     expect(await screen.findByText('Available agents')).toBeDefined()
     expect(screen.getByText('Builder Agent')).toBeDefined()
     expect(screen.getByText('Review Agent')).toBeDefined()
+    expect(screen.getByText('Ready Agent')).toBeDefined()
     expect(screen.getByText('implementation, review')).toBeDefined()
-    expect(screen.getByText('2 ready')).toBeDefined()
+    expect(screen.getByText('Ready to take this task')).toBeDefined()
+    expect(screen.queryByText('Ready for assignment')).toBeNull()
+    expect(screen.getByText('3 ready')).toBeDefined()
 
     await userEvent.setup().click(screen.getByRole('button', { name: /review agent/i }))
 

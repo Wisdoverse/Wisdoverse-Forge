@@ -291,14 +291,14 @@ function assignmentSummary(task: TaskSummary): {
   if (task.assignedAgentName) {
     return {
       label: task.assignedAgentName,
-      detail: 'This agent owns the next run for this task.',
+      detail: 'This agent will handle the next run for this task.',
       hasAgent: true,
     }
   }
   if (task.assignedTo) {
     return {
-      label: 'Assigned agent',
-      detail: 'An agent is assigned, but its display name has not loaded yet.',
+      label: 'Agent details loading',
+      detail: 'An agent was chosen, but its display name has not loaded yet.',
       hasAgent: true,
     }
   }
@@ -319,7 +319,7 @@ function nextActionForTask(
       return task.assignedTo || task.assignedAgentName
         ? {
             title: 'Ready to send',
-            detail: 'Review the brief, then send it to the assigned agent when ready.',
+            detail: 'Review the brief, then send it to this agent when ready.',
             tone: 'default',
           }
         : {
@@ -331,7 +331,7 @@ function nextActionForTask(
     case 'queued':
       return {
         title: 'Waiting for the agent to start',
-        detail: 'Keep the brief current while the assigned agent gets ready to start.',
+        detail: 'Keep the brief current while the chosen agent gets ready to start.',
         tone: 'default',
       }
     case 'working':

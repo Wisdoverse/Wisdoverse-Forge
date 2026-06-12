@@ -28,22 +28,21 @@ describe('DescriptionTab', () => {
       'Choose an available agent, then send the task with the suggested context when ready.'
     )
     expect(screen.getByTestId('task-work-review').textContent).not.toContain('leave the backlog')
-    expect(screen.getByTestId('task-work-review').textContent).not.toContain(
-      'publish with context'
-    )
+    expect(screen.getByTestId('task-work-review').textContent).not.toContain('publish with context')
   })
 
   test('does not call a task unassigned when only the agent id is loaded', () => {
     render(<DescriptionTab task={{ ...mockTask, assignedTo: 'agent-1' }} />)
 
-    expect(screen.getByText('Assigned agent')).toBeDefined()
+    expect(screen.getByText('Agent details loading')).toBeDefined()
     expect(screen.getByText('Ready to send')).toBeDefined()
     expect(screen.getByTestId('task-assignment-guidance').textContent).toBe(
-      'An agent is assigned, but its display name has not loaded yet.'
+      'An agent was chosen, but its display name has not loaded yet.'
     )
     expect(screen.getByTestId('task-next-action').textContent).toContain(
-      'Review the brief, then send it to the assigned agent when ready.'
+      'Review the brief, then send it to this agent when ready.'
     )
+    expect(screen.queryByText('Assigned agent')).toBeNull()
     expect(screen.queryByText('Unassigned')).toBeNull()
     expect(screen.queryByText(/dispatch/i)).toBeNull()
   })
@@ -54,7 +53,7 @@ describe('DescriptionTab', () => {
     expect(screen.getByText('Waiting to start')).toBeDefined()
     expect(screen.getByText('Waiting for the agent to start')).toBeDefined()
     expect(screen.getByTestId('task-next-action').textContent).toContain(
-      'Keep the brief current while the assigned agent gets ready to start.'
+      'Keep the brief current while the chosen agent gets ready to start.'
     )
     expect(screen.queryByText('Queued')).toBeNull()
     expect(screen.queryByText(/execution|runtime/i)).toBeNull()
@@ -81,7 +80,7 @@ describe('DescriptionTab', () => {
     )
 
     expect(screen.getByTestId('task-assignment-guidance').textContent).toBe(
-      'This agent owns the next run for this task.'
+      'This agent will handle the next run for this task.'
     )
 
     fireEvent.click(screen.getByRole('button', { name: /open result files/i }))
@@ -150,8 +149,9 @@ describe('DescriptionTab', () => {
     )
 
     expect(screen.getByTestId('task-next-action').textContent).toContain(
-      'Free capacity or ask an owner to raise the limit'
+      'Pause lower-priority work or ask an owner'
     )
+    expect(screen.queryByText(/Free capacity/i)).toBeNull()
     expect(screen.queryByText(/quota_exceeded/i)).toBeNull()
     expect(screen.queryByText(/docker socket/i)).toBeNull()
     expect(screen.queryByText(/secret token/i)).toBeNull()

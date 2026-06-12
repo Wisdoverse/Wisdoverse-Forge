@@ -50,7 +50,7 @@ export function taskBlockedPreview({
     case 'waiting_approval':
       return 'Review the approval request, then approve or decline it.'
     case 'quota_exceeded':
-      return 'Free capacity or ask an owner to raise the limit, then retry.'
+      return 'Pause lower-priority work or ask an owner to raise the limit, then retry.'
     default:
       return blockedErrorPreview(error)
   }
@@ -81,7 +81,7 @@ function blockedErrorPreview(error?: string | null): string {
     return 'This task needs access before it can continue. Ask an owner or admin for help.'
   }
   if (detail.includes('quota') || detail.includes('rate limit') || /\b429\b/.test(detail)) {
-    return 'This task is waiting for available capacity. Retry after capacity is available or ask an owner for help.'
+    return 'The workspace is busy. Retry later or ask an owner for help.'
   }
   if (detail.includes('timeout') || detail.includes('timed out')) {
     return 'A required service did not answer in time. Open details and retry when it is ready.'

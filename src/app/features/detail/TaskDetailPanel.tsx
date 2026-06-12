@@ -527,7 +527,7 @@ function AgentChoice({
         <span className="block truncate text-[10px] text-secondary-light dark:text-secondary-dark">
           {participant.capabilities.length > 0
             ? participant.capabilities.join(', ')
-            : 'Ready for assignment'}
+            : 'Ready to take this task'}
         </span>
       </span>
       <span

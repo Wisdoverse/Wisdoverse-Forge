@@ -53,15 +53,15 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
         </span>
       </div>
 
-      {/* Assignee */}
+      {/* Agent */}
       <div className="flex items-center justify-between text-xs">
-        <span className="text-secondary-light dark:text-secondary-dark">Assigned to</span>
+        <span className="text-secondary-light dark:text-secondary-dark">Agent</span>
         {hasAssignee ? (
           <span className="font-medium text-apple-purple">
-            {task.assignedAgentName ?? 'Assigned agent'}
+            {task.assignedAgentName ?? 'Agent details loading'}
           </span>
         ) : (
-          <span className="text-secondary-light dark:text-secondary-dark">Unassigned</span>
+          <span className="text-secondary-light dark:text-secondary-dark">Needs agent</span>
         )}
       </div>
 
@@ -109,10 +109,10 @@ function taskMetadataGuidance(task: TaskSummary, hasAssignee: boolean): string {
     case 'backlog':
       return hasAssignee
         ? 'This task is prepared but not started. Preview the context and publish it when ready.'
-        : 'This task is still a draft. Assign an agent before it can start.'
+        : 'This task is still a draft. Choose an agent before it can start.'
     case 'queued':
       return hasAssignee
-        ? 'The task is waiting for the assigned agent to start.'
+        ? 'The task is waiting for the chosen agent to start.'
         : 'The task is waiting for the next available agent to start.'
     case 'working':
       return 'An agent is working now. Watch progress here and check Updates for recent activity.'

@@ -103,6 +103,7 @@ describe('HistoryTab', () => {
 
     expect(await screen.findByText('Agent work history')).toBeInTheDocument()
     expect(screen.getByText(/Used a work tool that needs review/i)).toBeInTheDocument()
+    expect(screen.getByText(/Support reference run-tool/i)).toBeInTheDocument()
     expect(screen.queryByText(/future_tool/i)).toBeNull()
     expect(screen.queryByText(/future tool/i)).toBeNull()
     expect(screen.queryByText('Unknown')).toBeNull()
@@ -248,7 +249,8 @@ describe('HistoryTab', () => {
       />
     )
 
-    expect(await screen.findAllByText(/Free capacity or ask an owner/i)).toHaveLength(2)
+    expect(await screen.findAllByText(/Pause lower-priority work or ask an owner/i)).toHaveLength(2)
+    expect(screen.queryByText(/Free capacity/i)).toBeNull()
     expect(screen.queryByText(/quota_exceeded/i)).toBeNull()
     expect(screen.queryByText(/docker socket/i)).toBeNull()
     expect(screen.queryByText(/secret token/i)).toBeNull()

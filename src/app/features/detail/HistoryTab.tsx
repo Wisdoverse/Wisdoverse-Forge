@@ -173,7 +173,7 @@ function AgentCheckIn({ task }: { task: TaskSummary }) {
         </div>
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <CheckInMetric label="Agent" value={task.assignedAgentName ?? 'Unassigned'} />
+        <CheckInMetric label="Agent" value={task.assignedAgentName ?? 'Needs agent'} />
         <CheckInMetric label="State" value={taskStateLabel(task.state)} />
         <CheckInMetric label="Updated" value={formatRelativeTime(task.updatedAt)} />
       </div>
@@ -198,6 +198,7 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
   const runSource = runSourceLabel(run)
   const finished = run.finishedAt ? formatRelativeTime(run.finishedAt) : 'Still running'
   const status = readableRunStatus(run.status)
+  const showSupportReference = runSource.includes('needs review')
 
   return (
     <div className="rounded-lg bg-apple-gray-6/70 px-3 py-2 dark:bg-white/[0.035]">
@@ -209,9 +210,11 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
           <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
             Started {formatRelativeTime(run.startedAt)} · {finished} · Used {runSource}
           </p>
-          <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-            Support reference {supportRunReference(run.id)}
-          </p>
+          {showSupportReference && (
+            <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
+              Support reference {supportRunReference(run.id)}
+            </p>
+          )}
         </div>
         <span className="shrink-0 rounded-full bg-black/[0.05] px-2 py-0.5 text-[10px] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
           {status}
@@ -243,7 +246,7 @@ function runSourceLabel(run: TaskRunSummary): string {
     case 'provider':
       return 'an AI service'
     default:
-      return run.maxContextTokens ? 'the assigned agent' : 'an agent'
+      return run.maxContextTokens ? 'the chosen agent' : 'an agent'
   }
 }
 
@@ -397,8 +400,8 @@ function taskHistoryEvents(task: TaskSummary): { id: string; title: string; deta
   if (task.assignedAgentName) {
     events.push({
       id: 'assigned',
-      title: `Assigned to ${task.assignedAgentName}`,
-      detail: 'This agent is responsible for the next step.',
+      title: `Agent chosen: ${task.assignedAgentName}`,
+      detail: 'This agent will handle the next step.',
     })
   }
 
