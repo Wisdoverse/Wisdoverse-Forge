@@ -144,6 +144,23 @@ describe('AgentGroupsPanel', () => {
     expect(screen.queryByText('Other group work')).toBeNull()
   })
 
+  test('describes completed task review without handoff wording', () => {
+    seedRoutingState([
+      makeTask({
+        id: 'done-1',
+        state: 'completed',
+        params: { task: 'Document setup', message: '' },
+        assignedAgentName: 'Docs Agent',
+        progress: 100,
+      }),
+    ])
+
+    render(<AgentGroupsPanel />)
+
+    expect(screen.getByText(/docs agent .* review what the agent finished/i)).toBeInTheDocument()
+    expect(screen.queryByText(new RegExp(['completed', 'handoff'].join('\\s+'), 'i'))).toBeNull()
+  })
+
   test('does not call routed work unassigned when only the agent id is loaded', () => {
     seedRoutingState([
       makeTask({

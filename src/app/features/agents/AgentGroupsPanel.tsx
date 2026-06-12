@@ -601,7 +601,7 @@ function routedTaskNextStep(task: TaskSummary): string {
     case 'failed':
       return taskFailurePreview(task.error)
     case 'completed':
-      return 'Review completed handoff'
+      return 'Review what the agent finished'
     case 'canceled':
       return 'Stopped before completion'
   }
