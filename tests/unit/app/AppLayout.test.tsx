@@ -167,6 +167,16 @@ describe('AppLayout', () => {
     expect(screen.queryByText(/track agent work/i)).toBeNull()
   })
 
+  test('uses beginner-facing inbox page metadata', () => {
+    routerState.path = '/inbox'
+
+    render(<MemoryRouter />)
+
+    expect(screen.getByText('Inbox')).toBeDefined()
+    expect(screen.getByText('See what needs your attention')).toBeDefined()
+    expect(screen.queryByText(/notifications and updates/i)).toBeNull()
+  })
+
   test('uses beginner-facing settings page metadata', () => {
     routerState.path = '/settings'
 
