@@ -54,17 +54,14 @@ const BILLING_AREA_LABEL: Record<BillingErrorArea, string> = {
 }
 
 function isBillingNotConfigured(err: unknown): boolean {
-  if (err instanceof Error) {
-    const msg = err.message.toLowerCase()
-    // 404 or "not configured" or "billing" + "disabled"
-    if (msg.includes('404') || msg.includes('not configured') || msg.includes('not found')) {
-      return true
-    }
-    // Check statusCode on BillingApiError
-    const asAny = err as { statusCode?: number }
-    if (asAny.statusCode === 404 || asAny.statusCode === 501 || asAny.statusCode === 503) {
-      return true
-    }
+  const code = statusCode(err)
+  if (code === 404 || code === 501 || code === 503) {
+    return true
+  }
+
+  const msg = structuredErrorText(err).toLowerCase()
+  if (msg.includes('404') || msg.includes('not configured') || msg.includes('not found')) {
+    return true
   }
   return false
 }
@@ -74,18 +71,34 @@ function errorText(err: unknown): string {
   return typeof err === 'string' ? err : ''
 }
 
-function statusCode(err: unknown): number | null {
-  const status = (err as { statusCode?: unknown } | null)?.statusCode
-  if (typeof status === 'number' && Number.isFinite(status)) return status
+function structuredErrorText(err: unknown): string {
+  if (!err || typeof err !== 'object') return errorText(err)
+  for (const key of ['serverError', 'detail', 'error', 'message', 'reason'] as const) {
+    const value = (err as Record<string, unknown>)[key]
+    if (typeof value === 'string' && value.trim()) return value
+  }
+  return errorText(err)
+}
 
-  const match = errorText(err).match(/\b(?:HTTP|API|Server error|Code:)\s*\(?(\d{3})\b/i)
+function statusCode(err: unknown): number | null {
+  if (err && typeof err === 'object') {
+    for (const key of ['statusCode', 'status', 'code'] as const) {
+      const value = (err as Record<string, unknown>)[key]
+      if (typeof value === 'number' && Number.isFinite(value)) return value
+      if (typeof value === 'string' && /^\d{3}$/.test(value.trim())) {
+        return Number.parseInt(value, 10)
+      }
+    }
+  }
+
+  const match = structuredErrorText(err).match(/\b(?:HTTP|API|Server error|Code:)\s*\(?(\d{3})\b/i)
   if (!match) return null
   const code = Number.parseInt(match[1] ?? '', 10)
   return Number.isFinite(code) ? code : null
 }
 
 function isNetworkError(err: unknown): boolean {
-  const text = errorText(err).toLowerCase()
+  const text = structuredErrorText(err).toLowerCase()
   return (
     err instanceof TypeError ||
     text.includes('failed to fetch') ||
@@ -97,7 +110,7 @@ function isNetworkError(err: unknown): boolean {
 
 export function billingErrorMessage(err: unknown, area: BillingErrorArea): string {
   const base = `${BILLING_AREA_LABEL[area]} could not be loaded.`
-  const text = errorText(err).toLowerCase()
+  const text = structuredErrorText(err).toLowerCase()
   const code = statusCode(err)
 
   if (code === 401 || text.includes('sign in again') || text.includes('unauthorized')) {
