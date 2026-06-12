@@ -304,7 +304,7 @@ function assignmentSummary(task: TaskSummary): {
   }
   return {
     label: 'Needs agent',
-    detail: 'Choose an agent before this task can leave the backlog.',
+    detail: 'Choose an agent before this task can start.',
     hasAgent: false,
   }
 }
@@ -325,7 +325,7 @@ function nextActionForTask(
         : {
             title: 'Assign an agent',
             detail:
-              'Choose an available agent or publish with context so the task leaves the backlog.',
+              'Choose an available agent, then send the task with the suggested context when ready.',
             tone: 'warn',
           }
     case 'queued':
