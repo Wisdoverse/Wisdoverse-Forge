@@ -80,7 +80,8 @@ describe('AgentCard', () => {
 
     expect(screen.getByText('OpenAI AI service')).toBeDefined()
     expect(screen.getByText('Chat-only AI service')).toBeDefined()
-    expect(screen.getByText('Choose a starting project')).toBeDefined()
+    expect(screen.getByText('Choose a project from the sidebar first.')).toBeDefined()
+    expect(screen.queryByText('Choose a starting project')).toBeNull()
     expect(screen.queryByText('Chat-only agent')).toBeNull()
     expect(screen.queryByText('OpenAI · gpt-4o-mini')).toBeNull()
     expect(screen.queryByText(/model service/i)).toBeNull()
