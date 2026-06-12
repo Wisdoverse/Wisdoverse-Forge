@@ -251,11 +251,11 @@ export function RuntimeSection() {
             )}
           />
           <RuntimeReadinessMetric
-            label="Tool install status"
+            label="Work tool setup"
             value={
               cliToolDetails.length > 0
-                ? `${reportedVersionCount}/${cliToolDetails.length} tools installed`
-                : 'No tool status yet'
+                ? `${reportedVersionCount}/${cliToolDetails.length} work tools ready`
+                : 'No work tool status yet'
             }
             ready={cliToolDetails.length > 0 && reportedVersionCount === cliToolDetails.length}
           />
@@ -295,10 +295,10 @@ export function RuntimeSection() {
           <div className="mt-4 space-y-2" data-testid="runtime-cli-versions">
             <div className="flex items-center justify-between gap-2">
               <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Tool install status
+                Work tool setup
               </p>
               <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {reportedVersionCount} tool{reportedVersionCount === 1 ? '' : 's'} installed
+                {reportedVersionCount} work tool{reportedVersionCount === 1 ? '' : 's'} ready
               </p>
             </div>
             {cliToolDetails.map((detail) => (
@@ -752,22 +752,22 @@ function runtimeLaunchChecklistItems(
     runtimeSettings.cliToolDetails.length > 0 &&
     missingImages.length === 0 &&
     reportedVersionCount === runtimeSettings.cliToolDetails.length
-  let imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} tools are installed and ready.`
+  let imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} work tools are ready.`
   if (runtimeSettings.availableCliTools.length === 0) {
     imageDetail =
       'Enable at least one tool before giving agents tasks that need project files, commands, or live work access.'
   } else if (runtimeSettings.cliToolDetails.length === 0) {
-    imageDetail = 'No tool install status yet. Check again after the tools finish installing.'
+    imageDetail = 'No work tool setup status yet. Check again after the tools finish setting up.'
   } else if (missingImages.length > 0) {
     imageDetail = `${missingImages.length} tool${
       missingImages.length === 1 ? '' : 's'
-    } need setup. Ask an owner to rebuild the tools, then check again.`
+    } need setup. Ask an owner to finish setting up the tools, then check again.`
   } else if (reportedVersionCount !== runtimeSettings.cliToolDetails.length) {
-    imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} tools are installed and ready. Ask an owner to rebuild the tools that still need setup.`
+    imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} work tools are ready. Ask an owner to finish setting up the tools that still need attention.`
   }
   items.push({
     id: 'images',
-    title: 'Tools installed',
+    title: 'Work tools ready',
     detail: imageDetail,
     ready: imageInventoryReady,
     action: imageInventoryReady ? undefined : 'refresh',

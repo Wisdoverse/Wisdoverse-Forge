@@ -118,7 +118,7 @@ describe('RuntimeSection', () => {
     const readiness = screen.getByTestId('runtime-readiness')
     const nextStep = screen.getByTestId('runtime-next-step')
     expect(nextStep).toHaveTextContent('Next step')
-    expect(nextStep).toHaveTextContent('Tools installed')
+    expect(nextStep).toHaveTextContent('Work tools ready')
     expect(screen.getByText('Before assigning work')).toBeDefined()
     expect(screen.getByText('2/4 ready')).toBeDefined()
     expect(
@@ -138,6 +138,8 @@ describe('RuntimeSection', () => {
     expect(
       screen.getAllByText(/project files, commands, or live work access/i).length
     ).toBeGreaterThan(0)
+    expect(screen.getAllByText(/work tool setup/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/tool install status/i)).toBeNull()
     expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Chat-only AI service').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Codex').length).toBeGreaterThan(0)
@@ -146,7 +148,9 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText('container')).toBeNull()
     expect(screen.queryByText('api')).toBeNull()
     expect(screen.queryByText('codex')).toBeNull()
-    expect(screen.getAllByText(/ask an owner to rebuild the tools/i).length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText(/ask an owner to finish setting up the tools/i).length
+    ).toBeGreaterThan(0)
     expect(screen.queryByText(/agent tools/i)).toBeNull()
     expect(screen.queryByText(/agent check-in/i)).toBeNull()
     expect(screen.queryByText(/tool check|not reported|not checked/i)).toBeNull()
@@ -217,7 +221,7 @@ describe('RuntimeSection', () => {
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Ready to give agents work')
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('The agent location')
     expect(screen.queryByRole('button', { name: /Sign in to GitHub/i })).toBeNull()
-    expect(screen.getByText(/1\/1 tools are installed and ready/i)).toBeDefined()
+    expect(screen.getByText(/1\/1 work tools are ready/i)).toBeDefined()
     expect(screen.getByText(/1\/1 work tool sign-ins ready/i)).toBeDefined()
     expect(screen.getAllByText(/agent online status/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/agent tools are checked/i)).toBeNull()
