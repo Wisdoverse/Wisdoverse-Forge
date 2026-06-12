@@ -145,6 +145,17 @@ describe('AppLayout', () => {
     expect(screen.getByPlaceholderText(/search commands/i)).toBeDefined()
   })
 
+  test('uses beginner-facing start page metadata', () => {
+    routerState.path = '/start'
+
+    render(<MemoryRouter />)
+
+    expect(screen.getByText('Start')).toBeDefined()
+    expect(screen.getByText('Set up Forge and send your first task')).toBeDefined()
+    expect(screen.queryByText(/first-run setup/i)).toBeNull()
+    expect(screen.queryByText(/launch checklist/i)).toBeNull()
+  })
+
   test('uses beginner-facing settings page metadata', () => {
     routerState.path = '/settings'
 
