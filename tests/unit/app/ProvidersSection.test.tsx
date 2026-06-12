@@ -100,6 +100,8 @@ describe('ProvidersSection', () => {
     ).toBeDefined()
     expect(screen.getByText('Anthropic Review')).toBeDefined()
     expect(screen.getByText('Local Lab')).toBeDefined()
+    expect(screen.getAllByText('Needs check').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Failed')).toBeNull()
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Anthropic Review connection check needs attention.'
     )
