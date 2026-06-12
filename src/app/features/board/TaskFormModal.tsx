@@ -143,9 +143,14 @@ export function TaskFormModal({
   const workLaneReady = Boolean(projectSelectionSettled && selectedTaskGroupId)
   const assignableAgents = agents.filter((agent) => agentCanTakeTask(agent.status))
   const projectGroups = useMemo(() => groupProjectsByTeam(projects), [projects])
-  const projectField = register('projectId', {
-    required: 'Choose a project before creating a task.',
-  })
+  const projectField = register('projectId')
+
+  // The error banner renders at the top of a scrollable dialog while the
+  // submit button sits at the bottom, so without this the banner can appear
+  // entirely off-screen and a failed submit looks like a dead click.
+  useEffect(() => {
+    if (submitError) dialogRef.current?.scrollTo?.({ top: 0, behavior: 'smooth' })
+  }, [submitError])
 
   useEffect(() => {
     if (isOpen) {
@@ -171,6 +176,10 @@ export function TaskFormModal({
 
   async function handleFormSubmit(data: TaskFormData) {
     setSubmitError(null)
+    if (!data.title.trim()) {
+      setSubmitError('Add a title before creating a task.')
+      return
+    }
     if (!data.projectId) {
       setSubmitError('Choose a project before creating a task.')
       return
@@ -466,7 +475,7 @@ export function TaskFormModal({
             <input
               id="task-title"
               autoComplete="off"
-              {...register('title', { required: true })}
+              {...register('title')}
               className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
               placeholder="What needs to be done…"
               autoFocus
