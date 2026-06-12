@@ -39,8 +39,15 @@ describe('ContextUsageDashboard', () => {
     render(<ContextUsageDashboard data={analytics()} />)
 
     expect(screen.getByText('Nothing looks outdated')).toBeDefined()
+    expect(screen.getByText(/saved memories and saved instructions appear here/i)).toBeDefined()
+    expect(
+      screen.getByText(/helpful saved memories and saved instructions appear/i)
+    ).toBeDefined()
     expect(screen.getByText(/old enough to check again/i)).toBeDefined()
     expect(screen.getByText('Nothing needs review')).toBeDefined()
+    expect(
+      screen.queryByText(new RegExp(['saved memories', 'skills'].join(' and '), 'i'))
+    ).toBeNull()
     expect(screen.queryByText(/stale threshold/i)).toBeNull()
     expect(screen.queryByText(/^Stale$/)).toBeNull()
     expect(screen.queryByText(/Snapshot/i)).toBeNull()

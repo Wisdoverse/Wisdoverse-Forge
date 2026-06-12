@@ -29,7 +29,8 @@ const TASK_KIND_LABELS: Record<string, string> = {
 
 const EMPTY_TOP_USEFUL = {
   title: 'No useful context yet',
-  detail: 'Helpful saved memories and skills appear after people mark them useful in task results.',
+  detail:
+    'Helpful saved memories and saved instructions appear after people mark them useful in task results.',
 }
 
 const EMPTY_NEEDS_REVIEW = {
@@ -39,7 +40,8 @@ const EMPTY_NEEDS_REVIEW = {
 
 const EMPTY_STALE = {
   title: 'Nothing looks outdated',
-  detail: 'Saved memories and skills appear here when they are old enough to check again.',
+  detail:
+    'Saved memories and saved instructions appear here when they are old enough to check again.',
 }
 
 function relativeAge(timestamp: string): string {
