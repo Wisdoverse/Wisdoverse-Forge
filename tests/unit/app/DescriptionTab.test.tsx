@@ -131,6 +131,10 @@ describe('DescriptionTab', () => {
     expect(screen.getByText('Needs review')).toBeDefined()
     expect(screen.queryByText('Failed')).toBeNull()
     expect(screen.getAllByText(/AI service is busy/i).length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText(/Wait a minute, then open details and retry/i).length
+    ).toBeGreaterThan(0)
+    expect(screen.queryByText(/when ready/i)).toBeNull()
     expect(screen.queryByText(/model service is busy/i)).toBeNull()
     expect(screen.queryByText(/429/)).toBeNull()
     expect(screen.queryByText(/provider/i)).toBeNull()

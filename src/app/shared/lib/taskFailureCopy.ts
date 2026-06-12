@@ -4,7 +4,7 @@ export function taskFailurePreview(error?: string | null): string {
 
   const lowerMessage = message.toLowerCase()
   if (lowerMessage.includes('rate limit') || /\b429\b/.test(message)) {
-    return 'Stopped because the AI service is busy. Open details to retry when ready.'
+    return 'Stopped because the AI service is busy. Wait a minute, then open details and retry.'
   }
   if (lowerMessage.includes('timeout') || lowerMessage.includes('timed out')) {
     return 'Stopped because the task took too long. Open details to retry.'

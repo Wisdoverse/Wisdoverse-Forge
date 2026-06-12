@@ -133,6 +133,10 @@ describe('TaskMetadata', () => {
     expect(screen.queryByText('Failed')).toBeNull()
     expect(screen.getByText('High')).toBeDefined()
     expect(screen.getByTestId('task-metadata-guidance').textContent).toContain('AI service is busy')
+    expect(screen.getByTestId('task-metadata-guidance').textContent).toContain(
+      'Wait a minute, then open details and retry'
+    )
+    expect(screen.getByTestId('task-metadata-guidance').textContent).not.toContain('when ready')
     expect(screen.getByTestId('task-metadata-guidance').textContent).not.toMatch(
       /read the error|429|provider/i
     )
