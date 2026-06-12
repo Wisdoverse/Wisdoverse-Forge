@@ -219,8 +219,8 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
     return (
       <div className="flex items-center justify-center py-8">
         <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-          No tools are available for this agent yet. Add tools to the workspace before assigning
-          them here.
+          No tools are available for this agent yet. Add tools to the workspace before choosing them
+          for this agent.
         </p>
       </div>
     )

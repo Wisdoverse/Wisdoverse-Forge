@@ -102,12 +102,21 @@ describe('AgentGroupsPanel', () => {
     expect(screen.getByTestId('task-routing-workload')).toBeInTheDocument()
     expect(screen.getByText('6 tasks here')).toBeInTheDocument()
     expect(within(screen.getByTestId('routing-metric-active')).getByText('2')).toBeInTheDocument()
+    expect(
+      within(screen.getByTestId('routing-metric-active')).getByText('Working now')
+    ).toBeInTheDocument()
     expect(within(screen.getByTestId('routing-metric-backlog')).getByText('1')).toBeInTheDocument()
     expect(
       within(screen.getByTestId('routing-metric-needs-action')).getByText('2')
     ).toBeInTheDocument()
     expect(
+      within(screen.getByTestId('routing-metric-needs-action')).getByText('Needs help')
+    ).toBeInTheDocument()
+    expect(
       within(screen.getByTestId('routing-metric-completed')).getByText('1')
+    ).toBeInTheDocument()
+    expect(
+      within(screen.getByTestId('routing-metric-completed')).getByText('Done')
     ).toBeInTheDocument()
     expect(screen.getByText('Auth handoff blocked')).toBeInTheDocument()
     expect(screen.getByText('Waiting to start')).toBeInTheDocument()
@@ -117,9 +126,8 @@ describe('AgentGroupsPanel', () => {
     expect(screen.queryByText('Queued')).not.toBeInTheDocument()
     expect(screen.queryByText('Failed')).not.toBeInTheDocument()
     expect(screen.queryByText(/routed/i)).toBeNull()
-    expect(
-      screen.getByPlaceholderText('Search this queue, assignees, or blockers...')
-    ).toBeDefined()
+    expect(screen.getByPlaceholderText('Search tasks, agents, or blockers...')).toBeDefined()
+    expect(screen.queryByPlaceholderText(new RegExp(['assig', 'nees'].join(''), 'i'))).toBeNull()
     expect(
       screen.getByText(/needs agent .* choose an agent before sending it/i)
     ).toBeInTheDocument()

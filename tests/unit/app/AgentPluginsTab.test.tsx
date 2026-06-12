@@ -74,8 +74,12 @@ describe('AgentPluginsTab', () => {
     expect(screen.getByText('Shell Tools')).toBeDefined()
     expect(screen.getByText('Browser Tools')).toBeDefined()
     expect(screen.getByText('Deploy Tools')).toBeDefined()
-    expect(screen.getByText('Following workspace setting - the workspace normally allows this tool')).toBeDefined()
-    expect(screen.getByText('Changed here - the workspace normally keeps this tool off')).toBeDefined()
+    expect(
+      screen.getByText('Following workspace setting - the workspace normally allows this tool')
+    ).toBeDefined()
+    expect(
+      screen.getByText('Changed here - the workspace normally keeps this tool off')
+    ).toBeDefined()
     expect(screen.queryByText(/workspace default/i)).toBeNull()
   })
 
@@ -147,7 +151,9 @@ describe('AgentPluginsTab', () => {
 
     const alert = await screen.findByRole('alert')
     expect(within(alert).getByText('Agent tools need attention.')).toBeDefined()
-    expect(alert.textContent).toContain("Ask an owner or admin to give you access to this agent's tools.")
+    expect(alert.textContent).toContain(
+      "Ask an owner or admin to give you access to this agent's tools."
+    )
     expect(alert.textContent).not.toContain('HTTP 403')
     expect(alert.textContent).not.toContain('Details:')
   })
@@ -171,7 +177,9 @@ describe('AgentPluginsTab', () => {
     expect(alert.textContent).toContain(
       'Tool change was not saved. The switch was returned to its previous setting.'
     )
-    expect(alert.textContent).toContain("Ask an owner or admin to give you access to this agent's tools.")
+    expect(alert.textContent).toContain(
+      "Ask an owner or admin to give you access to this agent's tools."
+    )
     expect(alert.textContent).not.toContain('HTTP 403')
     expect(shellSwitch).toHaveAttribute('aria-checked', 'true')
   })
@@ -186,8 +194,9 @@ describe('AgentPluginsTab', () => {
 
     expect(
       await screen.findByText(
-        'No tools are available for this agent yet. Add tools to the workspace before assigning them here.'
+        'No tools are available for this agent yet. Add tools to the workspace before choosing them for this agent.'
       )
     ).toBeDefined()
+    expect(screen.queryByText(new RegExp(['assign', 'ing them here'].join(''), 'i'))).toBeNull()
   })
 })

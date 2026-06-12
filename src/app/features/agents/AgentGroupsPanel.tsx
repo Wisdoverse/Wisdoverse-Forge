@@ -308,7 +308,7 @@ export function AgentGroupsPanel() {
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <RoutingMetric
                   testId="routing-metric-active"
-                  label="Active"
+                  label="Working now"
                   value={workload.active}
                   Icon={CircleDot}
                   tone="active"
@@ -322,14 +322,14 @@ export function AgentGroupsPanel() {
                 />
                 <RoutingMetric
                   testId="routing-metric-needs-action"
-                  label="Needs action"
+                  label="Needs help"
                   value={workload.needsAction}
                   Icon={AlertTriangle}
                   tone="warn"
                 />
                 <RoutingMetric
                   testId="routing-metric-completed"
-                  label="Completed"
+                  label="Done"
                   value={workload.completed}
                   Icon={CheckCircle2}
                   tone="success"
@@ -350,7 +350,7 @@ export function AgentGroupsPanel() {
                   value={routingSearch}
                   onChange={(event) => setRoutingSearch(event.target.value)}
                   className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-ui-body text-foreground-light outline-none placeholder:text-secondary-light focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:text-foreground-dark dark:placeholder:text-secondary-dark"
-                  placeholder="Search this queue, assignees, or blockers..."
+                  placeholder="Search tasks, agents, or blockers..."
                 />
               </label>
 
