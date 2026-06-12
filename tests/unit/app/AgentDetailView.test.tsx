@@ -207,6 +207,8 @@ describe('AgentDetailView', () => {
     expect(screen.getByTestId('agent-next-step')).toBeDefined()
     expect(screen.getAllByText('Ready').length).toBeGreaterThan(0)
     expect(screen.getByText('Send a small first task')).toBeDefined()
+    expect(screen.getByText(/Choose this agent, or choose a task queue/i)).toBeDefined()
+    expect(screen.queryByText(/unassigned/i)).toBeNull()
     expect(screen.getByRole('button', { name: /open tasks/i })).toBeDefined()
   })
 
