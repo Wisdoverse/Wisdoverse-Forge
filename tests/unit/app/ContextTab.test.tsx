@@ -227,9 +227,7 @@ describe('ContextTab', () => {
     ).toBeDefined()
     expect(screen.queryByText(/notes and skills/i)).toBeNull()
     expect(screen.queryByText(/These skills were selected/i)).toBeNull()
-    expect(screen.getAllByText(/selected for the agent before it worked/i).length).toBe(
-      2
-    )
+    expect(screen.getAllByText(/selected for the agent before it worked/i).length).toBe(2)
     expect(screen.getAllByText('Prod deploy memory').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Project-level').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Internal only').length).toBeGreaterThan(0)
@@ -245,6 +243,8 @@ describe('ContextTab', () => {
     expect(screen.queryByText(/limited context/i)).toBeNull()
     expect(screen.getByText('Applied instructions')).toBeDefined()
     expect(screen.getByText('Release checklist')).toBeDefined()
+    expect(screen.getByText('Team space-level')).toBeDefined()
+    expect(screen.queryByText('Organization-level')).toBeNull()
     expect(screen.getByText('Suggested memory updates')).toBeDefined()
     expect(screen.getByText('New release memory')).toBeDefined()
     expect(screen.getByText('Suggested saved instructions')).toBeDefined()

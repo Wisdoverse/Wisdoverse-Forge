@@ -901,7 +901,7 @@ function contextItemKindLabel(value: ContextCandidateKind): string {
 }
 
 function reuseRangeLabel(value: ContextCandidateSummary['proposed_scope_kind']): string {
-  if (value === 'org') return 'Organization'
+  if (value === 'org') return 'Team space'
   if (value === 'user') return 'Only me'
   if (value === 'team') return 'My team'
   if (value === 'project') return 'This project'
@@ -909,7 +909,7 @@ function reuseRangeLabel(value: ContextCandidateSummary['proposed_scope_kind']):
 }
 
 function reuseAudienceLabel(value: ContextCandidateSummary['proposed_scope_kind']): string {
-  if (value === 'org') return 'everyone in the organization'
+  if (value === 'org') return 'everyone in the team space'
   if (value === 'user') return 'your own account'
   if (value === 'team') return 'your team'
   if (value === 'project') return 'this project'

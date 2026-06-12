@@ -269,7 +269,7 @@ export function ResourceMembersModal({
           <div className="rounded-card border border-black/[0.08] bg-black/[0.015] p-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
             <div className="mb-3">
               <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-                Add People Already in Your Organization
+                Add People Already in Your Team Space
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 Search for a person, choose what they can do, then add them to this{' '}

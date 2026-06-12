@@ -166,7 +166,7 @@ function AppliedContextCard({
 function scopeKindLabel(scopeKind: string): string {
   switch (scopeKind) {
     case 'org':
-      return 'Organization-level'
+      return 'Team space-level'
     case 'team':
       return 'Team-level'
     case 'project':

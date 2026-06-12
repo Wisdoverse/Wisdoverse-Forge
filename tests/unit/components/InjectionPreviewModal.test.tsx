@@ -75,13 +75,21 @@ function preview(overrides: Partial<ContextPreviewResponse> = {}): ContextPrevie
 
 describe('InjectionPreviewModal', () => {
   test('renders a beginner-readable review before publishing context', () => {
+    const review = preview()
+    review.items = [
+      review.items[0],
+      {
+        ...review.items[1],
+        id: 'memory-team-space',
+        title: 'Team space setup note',
+        scopeKind: 'org',
+        scopeId: 'org-1',
+      },
+    ]
+    review.degradation = ['budget_truncated']
+
     render(
-      <InjectionPreviewModal
-        isOpen
-        preview={preview({ degradation: ['budget_truncated'] })}
-        onClose={() => {}}
-        onConfirm={() => {}}
-      />
+      <InjectionPreviewModal isOpen preview={review} onClose={() => {}} onConfirm={() => {}} />
     )
 
     expect(screen.getByRole('dialog', { name: 'Review context before publishing' })).toBeDefined()
@@ -112,6 +120,8 @@ describe('InjectionPreviewModal', () => {
     expect(screen.getByText('Pinned for later')).toBeDefined()
     expect(screen.getAllByText('Saved note').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Project').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Team space').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Organization')).toBeNull()
     expect(screen.getAllByText('Internal').length).toBeGreaterThan(0)
     expect(screen.getByText('Needs about 120 context units')).toBeDefined()
   })

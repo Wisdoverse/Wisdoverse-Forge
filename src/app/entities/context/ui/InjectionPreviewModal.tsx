@@ -459,7 +459,7 @@ function itemKindLabel(kind: string): string {
 function scopeKindLabel(scope: string): string {
   switch (scope) {
     case 'org':
-      return 'Organization'
+      return 'Team space'
     case 'user':
       return 'Only me'
     case 'team':

@@ -105,6 +105,8 @@ describe('ResourceMembersModal', () => {
     expect(
       screen.getByText('Choose a person, pick the safest access level, then add them here.')
     ).toBeDefined()
+    expect(screen.getByText('Add People Already in Your Team Space')).toBeDefined()
+    expect(screen.queryByText('Add People Already in Your Organization')).toBeNull()
 
     const emptyState = screen.getByTestId('members-empty-state')
     expect(within(emptyState).getByText('No direct members yet')).toBeDefined()

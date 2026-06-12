@@ -101,6 +101,15 @@ describe('ApprovalQueueView', () => {
     mockQueue([
       candidate(),
       candidate({
+        id: 'candidate-team-space',
+        proposed_scope_kind: 'org',
+        proposed_preview: {
+          title: 'Team space reuse memory',
+          content_preview: 'Shared setup advice for this team space.',
+          sensitivity: 'internal',
+        },
+      }),
+      candidate({
         id: 'candidate-missing',
         source_available: false,
         proposed_preview: {
@@ -113,10 +122,15 @@ describe('ApprovalQueueView', () => {
     render(<ApprovalQueueView />)
 
     expect(await screen.findByText('Prod deploy memory')).toBeDefined()
+    expect(screen.getByText('Team space reuse memory')).toBeDefined()
+    expect(screen.getAllByText('Team space').length).toBeGreaterThan(0)
+    expect(screen.getByText('Who can reuse it: Team space')).toBeDefined()
+    expect(screen.queryByText('Organization')).toBeNull()
+    expect(screen.queryByText('Who can reuse it: Organization')).toBeNull()
     expect(screen.getByText('Missing source memory')).toBeDefined()
     expect(screen.getByTestId('context-source-unavailable-candidate-missing')).toBeDefined()
     expect(screen.getByTestId('context-approve-candidate-missing')).toBeDisabled()
-    expect(useContextStore.getState().pendingCandidateCount).toBe(2)
+    expect(useContextStore.getState().pendingCandidateCount).toBe(3)
   })
 
   test('passes selected filters to the list API', async () => {
