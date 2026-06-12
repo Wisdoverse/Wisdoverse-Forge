@@ -12,28 +12,28 @@ describe('sshKeysErrorMessage', () => {
   test('turns invalid public key errors into a clear recovery step', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage('Settings could not save SSH key. Details: invalid public key'),
-      'Repository SSH access could not be saved. Paste only the shareable one-line SSH key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'
+      'git@ repository access could not be saved. Paste only the shareable one-line SSH key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'
     )
   })
 
   test('explains permission errors without exposing raw backend details', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage('HTTP 403'),
-      'Repository SSH access could not be loaded. Ask an owner or admin for access to manage repository SSH access.'
+      'git@ repository access could not be loaded. Ask an owner or admin for access to manage git@ repository access.'
     )
   })
 
   test('explains duplicate keys with a safe next action', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage('API 409 duplicate key'),
-      'Repository SSH access could not be saved. This public SSH key line is already saved. Choose the saved access or remove the old one first.'
+      'git@ repository access could not be saved. This public SSH key line is already saved. Choose the saved access or remove the old one first.'
     )
   })
 
   test('explains missing fields as the next form fields to fix', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage('Code: 422 Details: public key is required'),
-      'Repository SSH access could not be saved. Paste the public SSH key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+      'git@ repository access could not be saved. Paste the public SSH key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
     )
   })
 
@@ -42,7 +42,7 @@ describe('sshKeysErrorMessage', () => {
       sshKeysErrorMessage(
         'Add a label, paste a valid public SSH key, then save the SSH key again.'
       ),
-      'Repository SSH access could not be saved. Add a name for this access, then save again.'
+      'git@ repository access could not be saved. Add a name for this access, then save again.'
     )
   })
 
@@ -51,7 +51,7 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Repository SSH access could not be loaded. Forge could not connect while opening repository SSH access. Check your connection, then try again.'
+      'git@ repository access could not be loaded. Forge could not connect while opening git@ repository access. Check your connection, then try again.'
     )
     expect(message).not.toContain('service')
     expect(message).not.toContain('Failed to fetch')
@@ -62,7 +62,7 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Repository SSH access could not be loaded. Refresh Settings, then try again. If it still fails, ask an owner or admin to check repository SSH access settings.'
+      'git@ repository access could not be loaded. Refresh Settings, then try again. If it still fails, ask an owner or admin to check git@ repository access settings.'
     )
     expect(message).not.toContain('temporarily unavailable')
   })
@@ -70,7 +70,7 @@ describe('sshKeysErrorMessage', () => {
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage({ code: '429' }),
-      'Repository SSH access could not be loaded. Forge is receiving too many repository SSH access requests right now. Wait a minute, then try again.'
+      'git@ repository access could not be loaded. Forge is receiving too many git@ repository access requests right now. Wait a minute, then try again.'
     )
   })
 
@@ -79,7 +79,7 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Repository SSH access could not be loaded. Try again. If it still fails, ask an owner or admin to check repository SSH access settings.'
+      'git@ repository access could not be loaded. Try again. If it still fails, ask an owner or admin to check git@ repository access settings.'
     )
     expect(message).not.toContain('parser')
   })

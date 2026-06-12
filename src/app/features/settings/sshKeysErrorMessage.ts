@@ -72,9 +72,9 @@ function actionFromText(text: string): SshKeyAction {
 }
 
 function baseMessage(action: SshKeyAction): string {
-  if (action === 'save') return 'Repository SSH access could not be saved.'
-  if (action === 'remove') return 'Repository SSH access could not be removed.'
-  return 'Repository SSH access could not be loaded.'
+  if (action === 'save') return 'git@ repository access could not be saved.'
+  if (action === 'remove') return 'git@ repository access could not be removed.'
+  return 'git@ repository access could not be loaded.'
 }
 
 export function sshKeysErrorMessage(error: unknown): string {
@@ -85,10 +85,10 @@ export function sshKeysErrorMessage(error: unknown): string {
   const base = baseMessage(action)
 
   if (code === 401 || lower.includes('sign in again') || lower.includes('unauthorized')) {
-    return `${base} Your sign-in expired. Sign in again, then open Settings and try repository SSH access again.`
+    return `${base} Your sign-in expired. Sign in again, then open Settings and try git@ repository access again.`
   }
   if (code === 403 || lower.includes('permission') || lower.includes('forbidden')) {
-    return `${base} Ask an owner or admin for access to manage repository SSH access.`
+    return `${base} Ask an owner or admin for access to manage git@ repository access.`
   }
   if (
     lower.includes('add a name') ||
@@ -122,14 +122,14 @@ export function sshKeysErrorMessage(error: unknown): string {
     return `${base} Check the access name and public SSH key line, then try again.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return `${base} Forge is receiving too many repository SSH access requests right now. Wait a minute, then try again.`
+    return `${base} Forge is receiving too many git@ repository access requests right now. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
-    return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check repository SSH access settings.`
+    return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check git@ repository access settings.`
   }
   if (isNetworkError(error)) {
-    return `${base} Forge could not connect while opening repository SSH access. Check your connection, then try again.`
+    return `${base} Forge could not connect while opening git@ repository access. Check your connection, then try again.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner or admin to check repository SSH access settings.`
+  return `${base} Try again. If it still fails, ask an owner or admin to check git@ repository access settings.`
 }

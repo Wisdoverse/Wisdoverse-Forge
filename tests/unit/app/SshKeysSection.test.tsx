@@ -50,21 +50,21 @@ afterEach(() => {
 })
 
 describe('SshKeysSection', () => {
-  test('guides first-time repository SSH access setup and saves only after required fields are filled', async () => {
+  test('guides first-time git@ repository access setup and saves only after required fields are filled', async () => {
     render(<SshKeysSection />)
 
-    expect(await screen.findByText('No repository SSH access yet')).toBeDefined()
+    expect(await screen.findByText('No git@ repository access yet')).toBeDefined()
     const emptyState = screen.getByTestId('ssh-access-empty-state')
     expect(within(emptyState).getAllByText(/starts with git@/i).length).toBeGreaterThan(0)
     expect(within(emptyState).getByText(/starts with https:\/\//i)).toBeDefined()
     expect(within(emptyState).getByText(/Code Repository Access/i)).toBeDefined()
-    expect(within(emptyState).getByRole('button', { name: /add ssh access/i })).toBeDefined()
+    expect(within(emptyState).getByRole('button', { name: /add git@ access/i })).toBeDefined()
 
-    fireEvent.click(within(emptyState).getByRole('button', { name: /add ssh access/i }))
+    fireEvent.click(within(emptyState).getByRole('button', { name: /add git@ access/i }))
 
     expect(screen.queryByTestId('ssh-access-empty-state')).toBeNull()
     expect(
-      screen.getByText('Add repository SSH access for git@ repository addresses')
+      screen.getByText('Add access for repository addresses that start with git@')
     ).toBeDefined()
     expect(screen.getByText('Paste the public line')).toBeDefined()
     expect(screen.getByText(/one-line \.pub key/i)).toBeDefined()
@@ -80,7 +80,7 @@ describe('SshKeysSection', () => {
     const form = nameInput.closest('form')
     expect(form).toBeTruthy()
 
-    const saveButton = screen.getByRole('button', { name: /save ssh access/i })
+    const saveButton = screen.getByRole('button', { name: /save git@ access/i })
     expect(saveButton).toBeDisabled()
 
     fireEvent.submit(form!)
@@ -112,7 +112,7 @@ describe('SshKeysSection', () => {
     )
   })
 
-  test('explains the impact before removing repository SSH access', async () => {
+  test('explains the impact before removing git@ repository access', async () => {
     useSettingsStore.setState({ sshKeys: [sshKey()] })
 
     render(<SshKeysSection />)
@@ -125,7 +125,7 @@ describe('SshKeysSection', () => {
     expect(screen.queryByText('Key kind')).toBeNull()
 
     fireEvent.click(
-      screen.getByRole('button', { name: /remove work laptop repository ssh access/i })
+      screen.getByRole('button', { name: /remove work laptop git@ repository access/i })
     )
 
     expect(deleteSshKeyMock).not.toHaveBeenCalled()
@@ -136,7 +136,7 @@ describe('SshKeysSection', () => {
     ).toBeDefined()
 
     fireEvent.click(
-      screen.getByRole('button', { name: /confirm removing work laptop repository ssh access/i })
+      screen.getByRole('button', { name: /confirm removing work laptop git@ repository access/i })
     )
 
     expect(deleteSshKeyMock).toHaveBeenCalledWith('ssh-key-1')
@@ -151,7 +151,7 @@ describe('SshKeysSection', () => {
 
     await waitFor(() => expect(loadSshKeysMock).toHaveBeenCalled())
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Repository SSH access could not be saved. Paste only the shareable one-line SSH key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'
+      'git@ repository access could not be saved. Paste only the shareable one-line SSH key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'
     )
     expect(screen.queryByText(/Details: invalid public key/i)).toBeNull()
   })
@@ -165,7 +165,7 @@ describe('SshKeysSection', () => {
 
     await waitFor(() => expect(loadSshKeysMock).toHaveBeenCalled())
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Repository SSH access could not be saved. Add a name for this access, then save again.'
+      'git@ repository access could not be saved. Add a name for this access, then save again.'
     )
     expect(screen.queryByText(/could not be loaded/i)).toBeNull()
   })
