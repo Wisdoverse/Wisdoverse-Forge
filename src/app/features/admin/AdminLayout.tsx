@@ -21,11 +21,11 @@ const SECTIONS: SectionItem[] = [
   { id: 'users', label: 'User access', group: 'Management' },
   { id: 'organizations', label: 'Organizations', group: 'Management' },
   { id: 'agents', label: 'Agents', group: 'Management' },
-  { id: 'health', label: 'Service health', group: 'System status' },
-  { id: 'cli-images', label: 'Agent tool updates', group: 'System status' },
+  { id: 'health', label: 'App readiness', group: 'App setup' },
+  { id: 'cli-images', label: 'Agent tool updates', group: 'App setup' },
 ]
 
-const GROUPS = ['Management', 'System status']
+const GROUPS = ['Management', 'App setup']
 
 // ============================================================================
 // Content router

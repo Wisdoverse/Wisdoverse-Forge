@@ -12,7 +12,7 @@ vi.mock('@app/features/admin/OrganizationsPanel', () => ({
 }))
 
 vi.mock('@app/features/admin/SystemHealth', () => ({
-  SystemHealth: () => <div>Service health panel</div>,
+  SystemHealth: () => <div>App readiness panel</div>,
 }))
 
 beforeEach(() => {
@@ -31,18 +31,21 @@ describe('AdminLayout', () => {
       'aria-current',
       'page'
     )
-    expect(screen.getByRole('button', { name: 'Service health' })).toBeInTheDocument()
+    expect(screen.getByText('App setup')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'App readiness' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Agent tool updates' })).toBeInTheDocument()
+    expect(screen.queryByText(['System', 'status'].join(' '))).toBeNull()
+    expect(screen.queryByRole('button', { name: ['Service', 'health'].join(' ') })).toBeNull()
     expect(screen.queryByText(['Agent work', '-tool images'].join(''))).toBeNull()
   })
 
   test('switches to the selected admin area', () => {
     render(<AdminLayout />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Service health' }))
+    fireEvent.click(screen.getByRole('button', { name: 'App readiness' }))
 
-    expect(screen.getByText('Service health panel')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Service health' })).toHaveAttribute(
+    expect(screen.getByText('App readiness panel')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'App readiness' })).toHaveAttribute(
       'aria-current',
       'page'
     )
