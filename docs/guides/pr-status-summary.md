@@ -67,7 +67,9 @@ merge.
 
 If a human wants background monitoring, use `npm run pr:summary:monitor` from a
 scheduled job. The chat should only receive the compact result when `ACTION`
-appears or when someone explicitly asks for a new snapshot.
+appears or when someone explicitly asks for a new snapshot. The monitor command
+keeps a 1-hour snapshot by default so a short scheduler interval does not become
+a hidden polling loop.
 
 ## Refresh Only When Needed
 
@@ -121,8 +123,10 @@ from turning a status check into repeated GitHub reads.
 
 Do not put `npm run pr:summary:refresh` or `npm run pr:summary:force-refresh`
 in a tight loop. This command is a snapshot tool, not a chat-based live watch.
-For monitoring, schedule it at a fixed interval such as 10 or 15 minutes and
-alert only when the `ACTION` count is greater than zero.
+For monitoring, schedule `npm run pr:summary:monitor` at a fixed interval such
+as hourly and alert only when the `ACTION` count is greater than zero. If the
+monitor runs more often, it should still reuse the 1-hour local snapshot instead
+of reading GitHub every time.
 
 `--no-cache` is intentionally blocked unless you also pass
 `--allow-repeat-remote-read`. It removes the local protection that stops repeated
@@ -155,7 +159,7 @@ npm run pr:summary -- --fail-on-action
 The command exits with status `1` only when one or more PRs are in `ACTION`.
 That keeps monitors quiet while PRs are merely waiting for review or CI.
 
-For a low-noise monitor, schedule this command every 10 to 15 minutes:
+For a low-noise monitor, schedule this command hourly:
 
 ```bash
 npm run pr:summary:monitor
@@ -163,13 +167,12 @@ npm run pr:summary:monitor
 
 The monitor command prints one compact summary, exits cleanly for `WAIT` and
 `DONE` states, and only fails when a person or agent has something specific to
-fix. It uses the same 15-minute snapshot reuse window as the quick check, so a
-monitor scheduled too frequently still reads cached state instead of repeatedly
-calling GitHub.
+fix. It uses a 1-hour snapshot reuse window, so a monitor scheduled too
+frequently still reads cached state instead of repeatedly calling GitHub.
 
 The monitor command also rejects refresh bypasses such as `--refresh`,
 `--force-refresh`, `--no-cache`, `--allow-repeat-remote-read`, or a cache window
-shorter than 15 minutes. If you need an immediate one-time answer, run the
+shorter than 1 hour. If you need an immediate one-time answer, run the
 manual refresh command from the previous section instead of changing the
 scheduled monitor.
 

@@ -100,12 +100,13 @@ agent to watch a loop:
 npm run pr:summary:monitor
 ```
 
-That command reuses the local snapshot when it runs too soon and exits with an
-alert only when a PR needs action. See
+That command reuses the local snapshot for 1 hour when it runs too soon and
+exits with an alert only when a PR needs action. See
 [docs/guides/pr-status-summary.md](docs/guides/pr-status-summary.md) for the
 refresh rules and emergency one-time override.
 Do not lower the repeat-read guard below 60 seconds or put the emergency
-override in scripts, aliases, scheduled jobs, or agent instructions.
+override in scripts, aliases, scheduled jobs, or agent instructions. Do not
+lower the monitor cache below 1 hour in scheduled jobs.
 
 ### Merge requirements
 

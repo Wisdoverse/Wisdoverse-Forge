@@ -7,6 +7,7 @@ import {
 import {
   CACHE_VERSION,
   cacheQuery,
+  DEFAULT_MONITOR_CACHE_TTL_SECONDS,
   DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS,
   DEFAULT_REFRESH_COOLDOWN_SECONDS,
   formatCacheNotice,
@@ -136,7 +137,7 @@ describe('PR status summary', () => {
     const options = parseArgs(['--monitor'])
 
     expect(options).toMatchObject({
-      cacheTtlSeconds: 900,
+      cacheTtlSeconds: DEFAULT_MONITOR_CACHE_TTL_SECONDS,
       failOnAction: true,
       minRemoteReadIntervalSeconds: DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS,
       monitor: true,
@@ -159,17 +160,29 @@ describe('PR status summary', () => {
       '--monitor cannot use --allow-repeat-remote-read because monitoring must not bypass the guard.'
     )
     expect(getMonitorSnapshotModeErrors({ ...options, cacheTtlSeconds: 300 })).toContain(
-      '--monitor requires --cache-ttl-seconds >= 900 to avoid frequent remote checks.'
+      '--monitor requires --cache-ttl-seconds >= 3600 to avoid frequent remote checks.'
     )
     expect(getMonitorSnapshotModeErrors({ ...options, minRemoteReadIntervalSeconds: 0 })).toContain(
       '--monitor requires --min-remote-read-interval-seconds >= 60.'
     )
   })
 
+  it('keeps monitor snapshots on an hourly floor without overriding explicit longer windows', () => {
+    const monitorOptions = parseArgs(['--monitor'])
+
+    expect(monitorOptions.cacheTtlSeconds).toBe(DEFAULT_MONITOR_CACHE_TTL_SECONDS)
+    expect(parseArgs(['--cache-ttl-seconds', '7200', '--monitor']).cacheTtlSeconds).toBe(7200)
+    expect(getMonitorSnapshotModeErrors({ ...monitorOptions, cacheTtlSeconds: 1800 })).toContain(
+      '--monitor requires --cache-ttl-seconds >= 3600 to avoid frequent remote checks.'
+    )
+  })
+
   it('rejects repeated remote reads unless the operator makes a one-time bypass explicit', () => {
     const options = parseArgs([])
 
-    expect(getRemoteReadProtectionErrors({ ...options, minRemoteReadIntervalSeconds: 0 })).toContain(
+    expect(
+      getRemoteReadProtectionErrors({ ...options, minRemoteReadIntervalSeconds: 0 })
+    ).toContain(
       '--min-remote-read-interval-seconds must be >= 60; pass --allow-repeat-remote-read only for a one-time manual check.'
     )
     expect(

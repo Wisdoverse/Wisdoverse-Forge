@@ -11,9 +11,10 @@ import {
 
 const CACHE_VERSION = 1
 const DEFAULT_CACHE_TTL_SECONDS = 900
+const DEFAULT_MONITOR_CACHE_TTL_SECONDS = 3600
 const DEFAULT_REFRESH_COOLDOWN_SECONDS = 60
 const DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS = 60
-const MIN_MONITOR_CACHE_TTL_SECONDS = DEFAULT_CACHE_TTL_SECONDS
+const MIN_MONITOR_CACHE_TTL_SECONDS = DEFAULT_MONITOR_CACHE_TTL_SECONDS
 
 const GH_FIELDS = [
   'autoMergeRequest',
@@ -50,6 +51,7 @@ function main() {
 }
 
 function parseArgs(args) {
+  let cacheTtlSecondsExplicit = false
   const options = {
     cacheFile: '',
     cacheTtlSeconds: DEFAULT_CACHE_TTL_SECONDS,
@@ -92,6 +94,7 @@ function parseArgs(args) {
       options.limit = parsePositiveInt(readValue(args, index, arg), options.limit)
       index += 1
     } else if (arg === '--cache-ttl-seconds') {
+      cacheTtlSecondsExplicit = true
       options.cacheTtlSeconds = parseNonNegativeInt(
         readValue(args, index, arg),
         options.cacheTtlSeconds
@@ -124,6 +127,10 @@ function parseArgs(args) {
     } else {
       throwUsageError(`unknown option: ${arg}`)
     }
+  }
+
+  if (options.monitor && !cacheTtlSecondsExplicit) {
+    options.cacheTtlSeconds = DEFAULT_MONITOR_CACHE_TTL_SECONDS
   }
 
   enforceMonitorSnapshotMode(options)
@@ -463,6 +470,7 @@ Options:
                      Permit an immediate uncached or forced GitHub read for a one-time manual check
   --cache-ttl-seconds <n>
                      Reuse a local GitHub snapshot for this many seconds. Default: 900
+                     Monitor mode raises the default and minimum to 3600
   --refresh-cooldown-seconds <n>
                      Reuse a very recent snapshot even when --refresh is passed. Default: 60
   --min-remote-read-interval-seconds <n>
@@ -490,6 +498,7 @@ export {
   CACHE_VERSION,
   cacheQuery,
   classifyPullRequest,
+  DEFAULT_MONITOR_CACHE_TTL_SECONDS,
   DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS,
   DEFAULT_REFRESH_COOLDOWN_SECONDS,
   formatCacheNotice,
