@@ -31,7 +31,7 @@ const STATE_ORDER: TaskState[] = [
 const STATE_LABELS: Record<TaskState, string> = {
   working: 'Doing now',
   queued: 'Waiting to start',
-  backlog: 'Ready for later',
+  backlog: 'Ready, not started',
   blocked: 'Needs your help',
   completed: 'Done',
   failed: 'Stopped with an error',
@@ -41,7 +41,7 @@ const STATE_LABELS: Record<TaskState, string> = {
 const STATE_HELP: Record<TaskState, string> = {
   working: 'The agent is actively working on these tasks.',
   queued: 'These tasks are next in line for this agent.',
-  backlog: 'These tasks are assigned but not started yet.',
+  backlog: 'These tasks already have an agent, but work has not started yet.',
   blocked: 'These tasks need a person to unblock them.',
   completed: 'These tasks are finished.',
   failed: 'These tasks stopped before finishing.',

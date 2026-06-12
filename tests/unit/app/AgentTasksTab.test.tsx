@@ -90,6 +90,11 @@ describe('AgentTasksTab', () => {
     expect(within(summary).getByText('Needs help')).toBeDefined()
     expect(within(screen.getByTestId('agent-task-metric-active')).getByText('2')).toBeDefined()
     expect(within(screen.getByTestId('agent-task-metric-backlog')).getByText('1')).toBeDefined()
+    expect(screen.getByText('Ready, not started')).toBeDefined()
+    expect(
+      screen.getByText('These tasks already have an agent, but work has not started yet.')
+    ).toBeDefined()
+    expect(screen.queryByText(/assigned.*not started/i)).toBeNull()
     expect(
       within(screen.getByTestId('agent-task-metric-needs-action')).getByText('2')
     ).toBeDefined()
