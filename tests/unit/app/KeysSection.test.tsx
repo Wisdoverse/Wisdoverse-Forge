@@ -57,8 +57,8 @@ describe('KeysSection', () => {
     await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
     const emptyState = screen.getByTestId('platform-key-empty-state')
 
-    expect(screen.getByRole('heading', { name: 'Automation access keys' })).toBeDefined()
-    expect(within(emptyState).getByText('No automation access keys yet')).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Outside tool access' })).toBeDefined()
+    expect(within(emptyState).getByText('No outside tool access keys yet')).toBeDefined()
     expect(within(emptyState).getByText(/trusted outside tool/i)).toBeDefined()
     expect(within(emptyState).getByText(/tool you trust/i)).toBeDefined()
     expect(
@@ -110,7 +110,7 @@ describe('KeysSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /create access key/i }))
 
     await waitFor(() => expect(createApiKeyMock).toHaveBeenCalledWith('Production deploy pipeline'))
-    expect(screen.getByText(/Automation access key created - save it now/i)).toBeDefined()
+    expect(screen.getByText(/Outside tool access key created - save it now/i)).toBeDefined()
     expect(screen.getByText(/only time the full key is shown/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /copy key/i })).toBeDefined()
     expect(screen.getByRole('button', { name: /i saved it/i })).toBeDefined()
@@ -124,12 +124,14 @@ describe('KeysSection', () => {
 
     render(<KeysSection />)
 
-    expect(await screen.findByRole('table', { name: /automation access keys/i })).toBeDefined()
+    expect(await screen.findByRole('table', { name: /outside tool access keys/i })).toBeDefined()
     expect(screen.getByText('Key preview')).toBeDefined()
     expect(screen.queryByText('Starts with')).toBeNull()
 
     fireEvent.click(
-      screen.getByRole('button', { name: /remove automation access key named release automation/i })
+      screen.getByRole('button', {
+        name: /remove outside tool access key named release automation/i,
+      })
     )
 
     expect(revokeApiKeyMock).not.toHaveBeenCalled()
@@ -138,13 +140,13 @@ describe('KeysSection', () => {
     ).toBeDefined()
     expect(
       screen.getByRole('button', {
-        name: /confirm removing automation access key named release automation/i,
+        name: /confirm removing outside tool access key named release automation/i,
       })
     ).toHaveTextContent('Remove now')
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: /confirm removing automation access key named release automation/i,
+        name: /confirm removing outside tool access key named release automation/i,
       })
     )
 
@@ -161,7 +163,7 @@ describe('KeysSection', () => {
 
     await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Automation access key could not be created. Ask an owner or admin to let you create or remove automation access keys.'
+      'Outside tool access key could not be created. Ask an owner or admin to let you create or remove outside tool access keys.'
     )
     expect(screen.queryByText(/Details: Forbidden/i)).toBeNull()
   })

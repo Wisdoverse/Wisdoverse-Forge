@@ -14,7 +14,7 @@ describe('platformKeyErrorMessage', () => {
       platformKeyErrorMessage(
         'You do not have permission to create the platform API key. Code: 403. Details: Forbidden'
       ),
-      'Automation access key could not be created. Ask an owner or admin to let you create or remove automation access keys.'
+      'Outside tool access key could not be created. Ask an owner or admin to let you create or remove outside tool access keys.'
     )
   })
 
@@ -23,14 +23,14 @@ describe('platformKeyErrorMessage', () => {
       platformKeyErrorMessage(
         'Check the required fields for platform API key, then try again. Code: 422. Details: name is required'
       ),
-      'Automation access key could not be created. Enter the tool or job name, then try again.'
+      'Outside tool access key could not be created. Enter the tool or job name, then try again.'
     )
   })
 
   test('explains duplicate keys with a safe next action', () => {
     expectBeginnerMessage(
       platformKeyErrorMessage('API 409 duplicate key'),
-      'Automation access key could not be created. An automation access key with this name already exists. Refresh the list, then choose a different name or remove the old key first.'
+      'Outside tool access key could not be created. An outside tool access key with this name already exists. Refresh the list, then choose a different name or remove the old key first.'
     )
   })
 
@@ -39,18 +39,18 @@ describe('platformKeyErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Automation access keys could not be loaded. Forge could not connect while opening automation access key settings. Check your connection, then try again.'
+      'Outside tool access keys could not be loaded. Forge could not connect while opening outside tool access settings. Check your connection, then try again.'
     )
     expect(message).not.toContain('the service')
     expect(message).not.toContain('Failed to fetch')
   })
 
-  test('turns temporary failures into an automation access key settings recovery step', () => {
+  test('turns temporary failures into an outside tool access settings recovery step', () => {
     const message = platformKeyErrorMessage('HTTP 500')
 
     expectBeginnerMessage(
       message,
-      'Automation access keys could not be loaded. Refresh Settings, then try again. If it still fails, ask an owner or admin to check automation access key settings.'
+      'Outside tool access keys could not be loaded. Refresh Settings, then try again. If it still fails, ask an owner or admin to check outside tool access settings.'
     )
     expect(message).not.toContain('access key service')
     expect(message).not.toContain('temporarily unavailable')
@@ -59,7 +59,7 @@ describe('platformKeyErrorMessage', () => {
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       platformKeyErrorMessage({ statusCode: '429' }),
-      'Automation access keys could not be loaded. Forge is receiving too many automation access key requests right now. Wait a minute, then try again.'
+      'Outside tool access keys could not be loaded. Forge is receiving too many outside tool access requests right now. Wait a minute, then try again.'
     )
   })
 
@@ -68,7 +68,7 @@ describe('platformKeyErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Automation access keys could not be loaded. Try again. If it still fails, ask an owner or admin to check automation access key settings.'
+      'Outside tool access keys could not be loaded. Try again. If it still fails, ask an owner or admin to check outside tool access settings.'
     )
     expect(message).not.toContain('parser')
   })

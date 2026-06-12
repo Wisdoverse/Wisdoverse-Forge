@@ -75,8 +75,8 @@ function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
           onClick={handleRevoke}
           aria-label={
             confirming
-              ? `Confirm removing automation access key named ${apiKey.name}`
-              : `Remove automation access key named ${apiKey.name}`
+              ? `Confirm removing outside tool access key named ${apiKey.name}`
+              : `Remove outside tool access key named ${apiKey.name}`
           }
           aria-describedby={confirming ? removeWarningId : undefined}
           className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
@@ -121,7 +121,7 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <p className="mb-1 text-ui-caption font-semibold">
-            Automation access key created - save it now
+            Outside tool access key created - save it now
           </p>
           <p className="mb-2 text-ui-caption text-apple-blue/80">
             This is the only time the full key is shown. Copy it into a password manager before
@@ -277,7 +277,7 @@ export function KeysSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Automation access keys</h2>
+          <h2 className={uiStyles.sectionTitle}>Outside tool access</h2>
           <p className={uiStyles.sectionDescription}>
             Let a trusted outside tool connect to Forge without asking a person to sign in.
           </p>
@@ -321,7 +321,7 @@ export function KeysSection() {
           ) : apiKeys.length === 0 ? (
             <PlatformKeyEmptyState onCreate={() => setShowForm(true)} />
           ) : (
-            <table className={uiStyles.table} aria-label="Automation access keys">
+            <table className={uiStyles.table} aria-label="Outside tool access keys">
               <thead className={uiStyles.tableHead}>
                 <tr>
                   {tableHeaders.map((h) => (
@@ -361,7 +361,7 @@ function PlatformKeyEmptyState({ onCreate }: { onCreate: () => void }) {
               id="platform-key-empty-title"
               className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark"
             >
-              No automation access keys yet
+              No outside tool access keys yet
             </h3>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
               Use this only when a trusted outside tool needs to connect without a person signing

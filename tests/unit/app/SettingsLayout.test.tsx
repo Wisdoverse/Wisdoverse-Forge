@@ -29,7 +29,7 @@ describe('SettingsLayout', () => {
     expect(within(desktopNav).getByText('Product Info')).toBeInTheDocument()
     expect(within(desktopNav).getByRole('button', { name: 'AI Services' })).toBeInTheDocument()
     expect(
-      within(desktopNav).getByRole('button', { name: 'Automation Access Keys' })
+      within(desktopNav).getByRole('button', { name: 'Outside Tool Access' })
     ).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('button', { name: 'Code Repository Access' })
@@ -42,6 +42,7 @@ describe('SettingsLayout', () => {
     expect(screen.getByRole('group', { name: 'AI Setup' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Work Setup' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'AI Services' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Outside Tool Access' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Repository SSH Access' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Work Capacity' })).toBeInTheDocument()
 

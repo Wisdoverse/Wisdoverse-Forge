@@ -67,7 +67,7 @@ describe('settingsActionErrorMessage', () => {
   test('turns permission failures into an admin role step', () => {
     expectBeginnerError(
       settingsActionErrorMessage('apiKeys', 'create', statusError(403, 'Forbidden')),
-      'You do not have permission to create the automation access key. Ask an owner or admin to give you access to automation access keys.'
+      'You do not have permission to create the outside tool access key. Ask an owner or admin to give you access to outside tool access keys.'
     )
   })
 
@@ -80,7 +80,7 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Name this automation access key, choose the allowed access, then create it again.'
+      'Name this outside tool access key, choose the allowed access, then create it again.'
     )
     expect(message).not.toMatch(/A[P]I key/)
   })

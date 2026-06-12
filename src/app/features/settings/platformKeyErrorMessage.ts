@@ -71,9 +71,9 @@ function actionFromText(text: string): PlatformKeyAction {
 }
 
 function baseMessage(action: PlatformKeyAction): string {
-  if (action === 'create') return 'Automation access key could not be created.'
-  if (action === 'remove') return 'Automation access key could not be removed.'
-  return 'Automation access keys could not be loaded.'
+  if (action === 'create') return 'Outside tool access key could not be created.'
+  if (action === 'remove') return 'Outside tool access key could not be removed.'
+  return 'Outside tool access keys could not be loaded.'
 }
 
 export function platformKeyErrorMessage(error: unknown): string {
@@ -84,13 +84,13 @@ export function platformKeyErrorMessage(error: unknown): string {
   const base = baseMessage(action)
 
   if (code === 401 || lower.includes('sign in again') || lower.includes('unauthorized')) {
-    return `${base} Your sign-in expired. Sign in again, then open Settings and try automation access keys again.`
+    return `${base} Your sign-in expired. Sign in again, then open Settings and try outside tool access again.`
   }
   if (code === 403 || lower.includes('permission') || lower.includes('forbidden')) {
-    return `${base} Ask an owner or admin to let you create or remove automation access keys.`
+    return `${base} Ask an owner or admin to let you create or remove outside tool access keys.`
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
-    return `${base} An automation access key with this name already exists. Refresh the list, then choose a different name or remove the old key first.`
+    return `${base} An outside tool access key with this name already exists. Refresh the list, then choose a different name or remove the old key first.`
   }
   if (
     code === 422 ||
@@ -101,14 +101,14 @@ export function platformKeyErrorMessage(error: unknown): string {
     return `${base} Enter the tool or job name, then try again.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return `${base} Forge is receiving too many automation access key requests right now. Wait a minute, then try again.`
+    return `${base} Forge is receiving too many outside tool access requests right now. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
-    return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check automation access key settings.`
+    return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check outside tool access settings.`
   }
   if (isNetworkError(error)) {
-    return `${base} Forge could not connect while opening automation access key settings. Check your connection, then try again.`
+    return `${base} Forge could not connect while opening outside tool access settings. Check your connection, then try again.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner or admin to check automation access key settings.`
+  return `${base} Try again. If it still fails, ask an owner or admin to check outside tool access settings.`
 }
