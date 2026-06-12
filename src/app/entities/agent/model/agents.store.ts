@@ -186,10 +186,12 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
               status: 'idle',
             }
           } else {
+            // Keep the modal open: it is the only surface that renders this
+            // store's error, so closing it here would throw the message away
+            // and leave the user staring at an unexplained offline agent.
             set((state) => ({
               agents: [...state.agents, newAgent],
               loading: false,
-              createModalOpen: false,
               error: `Agent created, but container start failed: ${extractApiError(startResult, 'Failed to start agent')}`,
             }))
             return true
