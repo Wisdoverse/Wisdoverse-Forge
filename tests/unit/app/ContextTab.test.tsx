@@ -217,20 +217,18 @@ describe('ContextTab', () => {
     expect(screen.getByText('Agent work checked for context')).toBeDefined()
     expect(screen.getByText('Work run 1')).toBeDefined()
     expect(screen.getByText('Finished')).toBeDefined()
-    expect(screen.getByText('Applied memories')).toBeDefined()
+    expect(screen.getByText('Saved notes used')).toBeDefined()
+    expect(screen.queryByText('Applied memories')).toBeNull()
     expect(
-      screen.getByText(
-        'These saved memories were selected for the agent before it worked on this task.'
-      )
+      screen.getByText('These saved notes helped the agent before it worked on this task.')
     ).toBeDefined()
     expect(
-      screen.getByText(
-        'These saved instructions were selected for the agent before it worked on this task.'
-      )
+      screen.getByText('These saved instructions helped the agent before it worked on this task.')
     ).toBeDefined()
     expect(screen.queryByText(/notes and skills/i)).toBeNull()
     expect(screen.queryByText(/These skills were selected/i)).toBeNull()
-    expect(screen.getAllByText(/selected for the agent before it worked/i).length).toBe(2)
+    expect(screen.queryByText(/selected for the agent before it worked/i)).toBeNull()
+    expect(screen.getAllByText(/helped the agent before it worked/i).length).toBe(2)
     expect(screen.getAllByText('Prod deploy memory').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Project').length).toBeGreaterThan(0)
     expect(screen.queryByText('Project-level')).toBeNull()
@@ -245,7 +243,8 @@ describe('ContextTab', () => {
     expect(screen.getByText(/Review the full item before relying on it/i)).toBeDefined()
     expect(screen.queryByText(/source snapshot/i)).toBeNull()
     expect(screen.queryByText(/limited context/i)).toBeNull()
-    expect(screen.getByText('Applied instructions')).toBeDefined()
+    expect(screen.getByText('Instructions used')).toBeDefined()
+    expect(screen.queryByText('Applied instructions')).toBeNull()
     expect(screen.getByText('Release checklist')).toBeDefined()
     expect(screen.getByText('Team space')).toBeDefined()
     expect(screen.queryByText('Team space-level')).toBeNull()

@@ -58,9 +58,9 @@ export function ContextAppliedList({
 
 function appliedContextDescription(kind: ContextCandidateKind): string {
   if (kind === 'skill') {
-    return 'These saved instructions were selected for the agent before it worked on this task.'
+    return 'These saved instructions helped the agent before it worked on this task.'
   }
-  return 'These saved memories were selected for the agent before it worked on this task.'
+  return 'These saved notes helped the agent before it worked on this task.'
 }
 
 interface AppliedContextCardProps {
@@ -145,7 +145,7 @@ function AppliedContextCard({
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-[10px] text-secondary-light dark:text-secondary-dark">
-        <span>Applied {formatRelativeTime(item.appliedAt)}</span>
+        <span>Used {formatRelativeTime(item.appliedAt)}</span>
         <span>Last used {formatRelativeTime(item.lastUsedAt ?? item.appliedAt)}</span>
         {item.sourceTaskId && <span className="truncate">Saved from an earlier task</span>}
         {item.adapter && <span className="truncate">Prepared before the agent worked</span>}

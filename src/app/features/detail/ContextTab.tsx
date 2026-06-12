@@ -156,7 +156,7 @@ export function ContextTab({
       )}
 
       <ContextAppliedList
-        title="Applied memories"
+        title="Saved notes used"
         kind="memory"
         items={grouped.memories}
         onReadMemoryContent={readMemoryContent}
@@ -168,7 +168,7 @@ export function ContextTab({
         candidates={context.suggestedMemoryUpdates}
       />
       <ContextAppliedList
-        title="Applied instructions"
+        title="Instructions used"
         kind="skill"
         items={grouped.skills}
         onReadMemoryContent={readMemoryContent}
