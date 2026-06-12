@@ -353,7 +353,10 @@ describe('CreateAgentModal', () => {
     const oneLiner = await screen.findByLabelText(/setup command/i)
     expect(oneLiner).toHaveValue(joinCommand)
     expect(screen.getByText(/lets forge assign tasks to this agent/i)).toBeInTheDocument()
-    expect(screen.getByText(/shows online in the agents page/i)).toBeInTheDocument()
+    expect(screen.getByText('1. Copy this setup command.')).toBeInTheDocument()
+    expect(screen.getByText(/paste it into terminal or powershell/i)).toBeInTheDocument()
+    expect(screen.getByText(/changes from Offline to Ready on the Agents page/i)).toBeInTheDocument()
+    expect(screen.queryByText(/shows online/i)).toBeNull()
     expect(screen.queryByText(/agent fleet/i)).toBeNull()
     expect(screen.getByRole('group', { name: /computer type/i })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /windows/i }))
@@ -363,6 +366,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText(/manual connection setup/i)).toBeInTheDocument()
     const manualHelp = screen.getByText(/connection helper/i)
     expect(manualHelp).toBeInTheDocument()
+    expect(manualHelp.textContent).toMatch(/same Terminal or PowerShell session/)
     expect(manualHelp.textContent).not.toMatch(/sidecar/i)
     expect(screen.getByLabelText(/manual setup environment/i)).toHaveValue(
       "export AGENT_ID='a-local'\nagentforge-sidecar"

@@ -506,16 +506,26 @@ export function CreateAgentModal() {
                 />
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                   The pairing code inside expires in 15 minutes. If it expires, create the agent
-                  again to get a fresh command. Success looks like: this agent shows Online in the
-                  Agents page.
+                  again to get a fresh command.
                 </p>
+                <div className="mt-2 grid gap-1.5 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 text-ui-caption text-secondary-light dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-secondary-dark">
+                  <p>1. Copy this setup command.</p>
+                  <p>
+                    2. Paste it into Terminal or PowerShell on the computer that will do the work.
+                  </p>
+                  <p>
+                    3. Keep that window open. Success looks like: the agent changes from Offline to
+                    Ready on the Agents page.
+                  </p>
+                </div>
                 <details className="mt-3">
                   <summary className="cursor-pointer text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                     Manual connection setup
                   </summary>
                   <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                    Use this only if the setup command cannot run on this machine. Export this
-                    connection setup and start the connection helper yourself.
+                    Use this only if the setup command cannot run on this machine. Copy this
+                    advanced setup into the same Terminal or PowerShell session, then start the
+                    connection helper.
                   </p>
                   <textarea
                     id="local-agent-command"
