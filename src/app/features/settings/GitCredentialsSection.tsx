@@ -25,7 +25,8 @@ const GIT_CREDENTIAL_SETUP_STEPS = [
   { label: 'Choose where code lives', value: 'Pick GitHub or GitLab.' },
   {
     label: 'Create a repository access key',
-    value: 'On GitHub or GitLab, look for a personal access token with repository access.',
+    value:
+      'Create an access key on GitHub or GitLab and allow it to read the repositories agents need.',
   },
   {
     label: 'Leave address blank for cloud',
