@@ -100,12 +100,12 @@ function filterPlugins(plugins: PluginItem[], filter: PluginFilter, query: strin
 export function pluginSettingNote(
   plugin: Pick<PluginItem, 'defaultEnabled' | 'hasOverride'>
 ): string {
-  const workspaceSetting = plugin.defaultEnabled
-    ? 'the workspace normally allows this tool'
-    : 'the workspace normally keeps this tool off'
+  const teamSetting = plugin.defaultEnabled
+    ? 'normally available for agents'
+    : 'normally off for agents'
   return plugin.hasOverride
-    ? `Changed here - ${workspaceSetting}`
-    : `Following workspace setting - ${workspaceSetting}`
+    ? `Changed for this agent - ${teamSetting}`
+    : `Using team setting - ${teamSetting}`
 }
 
 interface AgentPluginsTabProps {
@@ -219,8 +219,8 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
     return (
       <div className="flex items-center justify-center py-8">
         <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-          No tools are available for this agent yet. Add tools to the workspace before choosing them
-          for this agent.
+          No tools are available for this agent yet. Ask an owner or admin to add tools before
+          choosing them for this agent.
         </p>
       </div>
     )

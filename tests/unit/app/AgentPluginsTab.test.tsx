@@ -74,21 +74,18 @@ describe('AgentPluginsTab', () => {
     expect(screen.getByText('Shell Tools')).toBeDefined()
     expect(screen.getByText('Browser Tools')).toBeDefined()
     expect(screen.getByText('Deploy Tools')).toBeDefined()
-    expect(
-      screen.getByText('Following workspace setting - the workspace normally allows this tool')
-    ).toBeDefined()
-    expect(
-      screen.getByText('Changed here - the workspace normally keeps this tool off')
-    ).toBeDefined()
-    expect(screen.queryByText(/workspace default/i)).toBeNull()
+    expect(screen.getByText('Using team setting - normally available for agents')).toBeDefined()
+    expect(screen.getByText('Changed for this agent - normally off for agents')).toBeDefined()
+    expect(screen.queryByText(new RegExp(['workspace', 'default'].join(' '), 'i'))).toBeNull()
+    expect(screen.queryByText(new RegExp(['workspace', 'setting'].join(' '), 'i'))).toBeNull()
   })
 
   test('explains per-agent tool settings without raw on and off jargon', () => {
     expect(pluginSettingNote({ defaultEnabled: true, hasOverride: false })).toBe(
-      'Following workspace setting - the workspace normally allows this tool'
+      'Using team setting - normally available for agents'
     )
     expect(pluginSettingNote({ defaultEnabled: false, hasOverride: true })).toBe(
-      'Changed here - the workspace normally keeps this tool off'
+      'Changed for this agent - normally off for agents'
     )
   })
 
@@ -194,7 +191,7 @@ describe('AgentPluginsTab', () => {
 
     expect(
       await screen.findByText(
-        'No tools are available for this agent yet. Add tools to the workspace before choosing them for this agent.'
+        'No tools are available for this agent yet. Ask an owner or admin to add tools before choosing them for this agent.'
       )
     ).toBeDefined()
     expect(screen.queryByText(new RegExp(['assign', 'ing them here'].join(''), 'i'))).toBeNull()
