@@ -111,7 +111,11 @@ const PROVIDERS: { value: string; label: string; defaultModel: string }[] = [
   { value: 'moonshot', label: 'Moonshot Kimi', defaultModel: 'kimi-k2.5' },
   { value: 'moonshot_coding', label: 'Moonshot Kimi Coding Plan', defaultModel: 'kimi-k2.5' },
   { value: 'dashscope', label: 'Alibaba Qwen (DashScope)', defaultModel: 'qwen3-coder-plus' },
-  { value: 'dashscope_coding', label: 'Alibaba Qwen Coding Plan', defaultModel: 'qwen3-coder-plus' },
+  {
+    value: 'dashscope_coding',
+    label: 'Alibaba Qwen Coding Plan',
+    defaultModel: 'qwen3-coder-plus',
+  },
   { value: 'hunyuan', label: 'Tencent Hunyuan', defaultModel: 'hunyuan-turbo-latest' },
   { value: 'xiaomi', label: 'Xiaomi MiMo', defaultModel: 'mimo-v2.5-pro' },
   { value: 'xiaomi_coding', label: 'Xiaomi MiMo Coding Plan', defaultModel: 'mimo-v2.5-pro' },
@@ -235,6 +239,13 @@ export function CreateAgentModal() {
         .find((project) => project.id === selectedProjectId) ?? null)
     : null
   const dialogRef = useRef<HTMLDivElement>(null)
+
+  // The error banner renders at the top of a scrollable dialog while the
+  // submit button sits at the bottom, so without this the banner can appear
+  // entirely off-screen and a failed submit looks like a dead click.
+  useEffect(() => {
+    if (error) dialogRef.current?.scrollTo?.({ top: 0, behavior: 'smooth' })
+  }, [error])
 
   useEffect(() => {
     if (!createModalOpen) return
@@ -653,7 +664,7 @@ export function CreateAgentModal() {
               </label>
               <input
                 id="agent-name"
-                {...register('name', { required: true })}
+                {...register('name')}
                 className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                 placeholder="e.g. Frontend Agent…"
                 autoFocus
@@ -819,7 +830,7 @@ export function CreateAgentModal() {
                   </label>
                   <input
                     id="agent-model"
-                    {...register('model', { required: true })}
+                    {...register('model')}
                     className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                     placeholder="e.g. claude-sonnet-4-6…"
                   />
