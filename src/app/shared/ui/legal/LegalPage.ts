@@ -240,18 +240,16 @@ export class LegalPage {
       <div class="legal-section">
         <h2 class="legal-section-title">2. Description of Service</h2>
         <p class="legal-text">
-          Wisdoverse Forge is a real-time 3D visualization platform for Claude Code activity. The Service provides:
+          Wisdoverse Forge is a self-hosted governed AI workbench for teams. The Service provides:
         </p>
         <ul class="legal-list">
-          <li>Real-time visualization of Claude Code tool usage as an interactive 3D workshop environment</li>
-          <li>Multi-agent management for monitoring and controlling multiple Claude Code instances</li>
-          <li>Multi-agent orchestration for coordinating automated workflows across agents</li>
-          <li>Spatial audio feedback and notification systems for tool activity events</li>
-          <li>Prompt routing to Claude Code via integrated terminal agent management</li>
-          <li>WebSocket-based event streaming with persistent event history</li>
-          <li>Group agent management for collaborative team environments</li>
-          <li>Multi-provider LLM gateway with intelligent routing strategies</li>
-          <li>API access for programmatic integration and automation</li>
+          <li>Agent management for creating, starting, stopping, and reviewing managed AI agents</li>
+          <li>Task boards and work history so teams can track what each agent is doing</li>
+          <li>Evidence, saved instructions, and context review tools that help you understand agent results</li>
+          <li>Team, project, and workspace controls for keeping work separated by organization</li>
+          <li>Connections to supported AI services and work tools chosen by your organization</li>
+          <li>Live activity updates and notifications for important task and agent changes</li>
+          <li>Operator tools for setup, troubleshooting, and supported automation</li>
         </ul>
         <p class="legal-text">
           We reserve the right to modify, suspend, or discontinue any part of the Service at any time, with or without
@@ -549,8 +547,8 @@ export class LegalPage {
         <ul class="legal-list">
           <li>Email address (used as your primary identifier and for account communications)</li>
           <li>Display name (shown within the Service interface)</li>
-          <li>Password (stored using argon2 cryptographic hashing; we never store plaintext passwords)</li>
-          <li>OAuth provider identifiers (if you sign in via GitHub or Google SSO)</li>
+          <li>Password (stored as a protected password hash; we never store plaintext passwords)</li>
+          <li>Sign-in provider identifiers (if you sign in through GitHub, Google, or another supported option)</li>
           <li>Organization membership and role information (if applicable)</li>
         </ul>
         <h3 class="legal-subsection-title">Usage Data</h3>
@@ -558,12 +556,12 @@ export class LegalPage {
           We automatically collect information about how you interact with the Service:
         </p>
         <ul class="legal-list">
-          <li>Agent metadata, including agent creation time, duration, and status transitions</li>
-          <li>Tool usage events (the types of tools invoked, such as Read, Write, Bash, Edit, Grep, and their execution status)</li>
-          <li>Git repository metadata (branch names, commit hashes, file change counts; we do not collect the content of your code files)</li>
-          <li>Feature usage patterns (views accessed, settings configured, features enabled)</li>
-          <li>API request logs (endpoint, method, response status, timestamp)</li>
-          <li>WebSocket connection events and message types</li>
+          <li>Agent records, including when an agent was created and whether it is ready, working, or unavailable</li>
+          <li>Tool activity records, such as which kind of action ran and whether it succeeded</li>
+          <li>Project repository details, such as branch names, commit hashes, and file change counts; we do not collect the content of your code files</li>
+          <li>Feature usage patterns, such as views opened, settings changed, and features enabled</li>
+          <li>Service request records, such as the action requested, status, and time</li>
+          <li>Live update connection records, such as connection status and message type</li>
         </ul>
         <h3 class="legal-subsection-title">Device & Technical Data</h3>
         <p class="legal-text">
@@ -593,9 +591,9 @@ export class LegalPage {
         <h3 class="legal-subsection-title">Service Delivery</h3>
         <ul class="legal-list">
           <li>To create and manage your account</li>
-          <li>To provide the core Wisdoverse Forge visualization and agent management functionality</li>
-          <li>To process and display real-time tool usage events in the 3D workshop view</li>
-          <li>To manage multi-agent and multi-agent orchestration</li>
+          <li>To provide the core Wisdoverse Forge agent, task, context, and workspace functionality</li>
+          <li>To show live task, agent, and evidence updates in the product interface</li>
+          <li>To coordinate team workflows across managed agents</li>
           <li>To authenticate your identity and authorize access to protected resources</li>
           <li>To process payments and manage subscriptions</li>
         </ul>
@@ -635,24 +633,24 @@ export class LegalPage {
         </p>
         <h3 class="legal-subsection-title">Encryption</h3>
         <ul class="legal-list">
-          <li><strong>At rest:</strong> All data stored in PostgreSQL databases is encrypted at rest using AES-256 encryption. LLM provider API keys are additionally encrypted with AES-256-GCM using HKDF-derived keys.</li>
-          <li><strong>In transit:</strong> All communications between your browser and our servers are encrypted using TLS 1.2 or higher. Internal service-to-service communication uses encrypted channels.</li>
+          <li><strong>Stored data:</strong> Data stored by the Service is protected with encryption. Saved access keys receive additional protection.</li>
+          <li><strong>Data in transit:</strong> Communications between your browser and our servers are encrypted using secure HTTPS connections. Internal service communication uses protected channels.</li>
         </ul>
         <h3 class="legal-subsection-title">Authentication Security</h3>
         <ul class="legal-list">
-          <li>Passwords are hashed using the argon2 algorithm, a memory-hard function resistant to GPU and ASIC attacks</li>
-          <li>Authentication tokens (JWT) are signed and expire automatically</li>
-          <li>Refresh token rotation is enforced to prevent token reuse</li>
-          <li>Login attempt tracking with automatic account lockout after repeated failures</li>
-          <li>Rate limiting using Redis sliding window algorithms to prevent brute-force attacks</li>
+          <li>Passwords are stored as protected hashes rather than readable passwords</li>
+          <li>Login sessions are signed and expire automatically</li>
+          <li>Longer-lived login sessions are rotated to reduce reuse risk</li>
+          <li>Repeated failed login attempts may temporarily lock the account</li>
+          <li>Repeated sign-in and request attempts may be slowed or blocked to protect the Service</li>
         </ul>
         <h3 class="legal-subsection-title">Infrastructure Security</h3>
         <ul class="legal-list">
-          <li>Circuit breaker patterns for database and cache resilience</li>
-          <li>PII (Personally Identifiable Information) filtering in error tracking to prevent accidental exposure of passwords, tokens, and credit card numbers</li>
-          <li>Parameterized SQL queries with field whitelists to prevent injection attacks</li>
-          <li>Strict CORS policies with origin validation</li>
-          <li>Regular security auditing through comprehensive audit logging</li>
+          <li>Protective checks that help the Service recover when supporting systems are unhealthy</li>
+          <li>Sensitive data filtering in error tracking to reduce accidental exposure of passwords, access keys, and credit card numbers</li>
+          <li>Safe database query practices to reduce injection risk</li>
+          <li>Browser access policies that limit which sites can call the Service</li>
+          <li>Security review supported by audit logging</li>
         </ul>
       </div>
 
@@ -747,24 +745,24 @@ export class LegalPage {
       <div class="legal-section">
         <h2 class="legal-section-title">6. Data Export & Deletion</h2>
         <p class="legal-text">
-          We provide self-service tools for data export and account deletion through our API:
+          We provide self-service tools for data export and account deletion where available:
         </p>
         <h3 class="legal-subsection-title">Data Export</h3>
         <p class="legal-text">
-          You can export a copy of all your personal data by making a request to <code>GET /users/me/export</code>
-          through the API or via the account settings page. The export includes your profile information, agent data,
-          event history, and configuration settings in a machine-readable JSON format.
+          You can request a copy of your personal data through the account settings page or a supported export flow.
+          The export includes your profile information, agent records, event history, and configuration settings in a
+          file format that can be read by other tools.
         </p>
         <h3 class="legal-subsection-title">Account Deletion</h3>
         <p class="legal-text">
-          You can permanently delete your account and all associated data by making a request to
-          <code>DELETE /users/me</code> through the API or via the account settings page. Upon deletion:
+          You can permanently delete your account and associated data through the account settings page or a supported
+          deletion flow. Upon deletion:
         </p>
         <ul class="legal-list">
           <li>Your profile information is permanently removed</li>
-          <li>Active agents are terminated</li>
+          <li>Active agents are stopped</li>
           <li>Event history and agent data are deleted</li>
-          <li>Refresh tokens and API keys are revoked</li>
+          <li>Saved login sessions and access keys are revoked</li>
           <li>Audit logs referencing your account are anonymized (the log entries are retained for compliance but your personal identifiers are removed)</li>
           <li>Payment records are retained as required by applicable tax and financial regulations</li>
         </ul>
@@ -789,16 +787,16 @@ export class LegalPage {
           <li>Draw mode artwork data</li>
           <li>Zone elevation preferences</li>
           <li>Theme and display settings</li>
-          <li>Authentication tokens (for maintaining your login agent)</li>
+          <li>Login session data that keeps you signed in</li>
         </ul>
         <p class="legal-text">
-          This data is stored only on your local device and is not transmitted to our servers except for authentication
-          tokens that are included in API requests. You can clear this data at any time through your browser settings.
+          This data is stored only on your local device and is not transmitted to our servers except for login session
+          data used to keep your account signed in. You can clear this data at any time through your browser settings.
         </p>
         <h3 class="legal-subsection-title">Cookies</h3>
         <p class="legal-text">
           We do not use tracking cookies, advertising cookies, or third-party analytics cookies. The Service may use
-          essential agent cookies strictly necessary for authentication and security purposes.
+          essential login cookies strictly necessary for authentication and security purposes.
         </p>
       </div>
 
