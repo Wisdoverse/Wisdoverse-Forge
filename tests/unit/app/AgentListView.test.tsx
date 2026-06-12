@@ -59,7 +59,9 @@ describe('AgentListView', () => {
       within(enrollment).getByRole('group', { name: /choose this computer type/i })
     ).toBeDefined()
     expect(within(enrollment).getByText(/project:/i)).toBeDefined()
-    expect(within(enrollment).getByText('Select a project')).toBeDefined()
+    expect(within(enrollment).getByTestId('host-cli-project-label')).toHaveTextContent(
+      'Project: Select a project from the sidebar first.'
+    )
     expect(enrollment.textContent).not.toContain('<project-id>')
     expect(enrollment.textContent).not.toContain('Advanced:')
     expect(enrollment.textContent).not.toContain('Forge CLI')
@@ -94,7 +96,10 @@ describe('AgentListView', () => {
 
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
     expect(within(enrollment).getByText(/agent needs files or commands/i)).toBeDefined()
-    expect(within(enrollment).getByText('Project:')).toBeDefined()
+    expect(within(enrollment).getByTestId('host-cli-project-label')).toHaveTextContent(
+      'Project: Platform'
+    )
+    expect(within(enrollment).getByTestId('host-cli-project-label')).not.toHaveTextContent('p1')
     expect(enrollment.textContent).toContain('p1')
     expect(enrollment.textContent).toContain('agentforge agents enroll-local')
     expect(enrollment.textContent).toContain('--name "This Computer Codex"')

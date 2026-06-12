@@ -73,6 +73,14 @@ const HOST_CLI_PLATFORMS: {
 export function AgentListView() {
   const { agents, selectAgent, setCreateModalOpen, loadAgents, loading } = useAgentsStore()
   const selectedProjectId = useNavigationStore((state) => state.selectedProjectId)
+  const selectedProjectName = useNavigationStore((state) => {
+    if (!state.selectedProjectId) return null
+    for (const projects of Object.values(state.projects)) {
+      const selectedProject = projects.find((project) => project.id === state.selectedProjectId)
+      if (selectedProject) return selectedProject.name
+    }
+    return null
+  })
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<AgentStatusFilter>('all')
   const [runtimeFilter, setRuntimeFilter] = useState<AgentRuntimeFilter>('all')
@@ -207,7 +215,10 @@ export function AgentListView() {
 
         <aside className="space-y-4 xl:sticky xl:top-0 xl:self-start">
           <AgentGroupsPanel />
-          <HostCliEnrollmentPanel selectedProjectId={selectedProjectId} />
+          <HostCliEnrollmentPanel
+            selectedProjectId={selectedProjectId}
+            selectedProjectName={selectedProjectName}
+          />
         </aside>
       </div>
 
@@ -242,7 +253,13 @@ function buildLocalEnrollCommand(
   ].join('\n')
 }
 
-function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: string | null }) {
+function HostCliEnrollmentPanel({
+  selectedProjectId,
+  selectedProjectName,
+}: {
+  selectedProjectId: string | null
+  selectedProjectName: string | null
+}) {
   const setCreateModalOpen = useAgentsStore((s) => s.setCreateModalOpen)
   const [platform, setPlatform] = useState<HostCliPlatform>('posix')
   const [copied, setCopied] = useState(false)
@@ -250,7 +267,9 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
     () => buildLocalEnrollCommand(selectedProjectId, platform),
     [platform, selectedProjectId]
   )
-  const projectLabel = selectedProjectId ?? 'Select a project'
+  const projectLabel = selectedProjectId
+    ? (selectedProjectName ?? 'Selected project')
+    : 'Select a project from the sidebar first.'
   const commandReady = Boolean(selectedProjectId)
 
   async function handleCopyCommand() {
@@ -349,8 +368,14 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
             className="shrink-0 text-apple-green"
             aria-hidden="true"
           />
-          <p className="min-w-0 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Project: <span className="font-mono">{projectLabel}</span>
+          <p
+            data-testid="host-cli-project-label"
+            className="min-w-0 text-ui-caption text-secondary-light dark:text-secondary-dark"
+          >
+            Project:{' '}
+            <span className="font-medium text-foreground-light dark:text-foreground-dark">
+              {projectLabel}
+            </span>
           </p>
         </div>
 
