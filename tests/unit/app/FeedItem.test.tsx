@@ -26,10 +26,13 @@ describe('FeedItem', () => {
     expect(screen.queryByText(/repository key/i)).toBeNull()
     expect(
       screen.getByLabelText(
-        /needs help: builder on update checkout flow\. the task is waiting for someone to clear a blocker/i
+        /needs help: builder on update checkout flow\. the task is waiting for someone to provide what is needed/i
       )
     ).toBeDefined()
-    expect(screen.getByText(/next step: open the task and clear the blocker/i)).toBeDefined()
+    expect(
+      screen.getByText(/next step: open the task and provide what is missing or reconnect access/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/clear the blocker/i)).toBeNull()
   })
 
   test('shows a retry-safe next step for failed task updates', () => {

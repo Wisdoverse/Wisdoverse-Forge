@@ -24,7 +24,7 @@ const STATUS_COPY: Record<
   },
   blocked: {
     label: 'Needs help',
-    description: 'This agent is waiting for someone to clear a blocker.',
+    description: 'This agent is waiting for help before it can continue.',
     container: 'bg-apple-red/8',
   },
   offline: {

@@ -37,7 +37,7 @@ const TYPE_COPY: Record<string, { label: string; description: string }> = {
   },
   'task.blocked': {
     label: 'Needs help',
-    description: 'The task is waiting for someone to clear a blocker.',
+    description: 'The task is waiting for someone to provide what is needed.',
   },
   'task.failed': {
     label: 'Needs review',
@@ -59,7 +59,7 @@ const TYPE_COLORS: Record<string, string> = {
 }
 
 const NEXT_ACTION_COPY: Record<string, string> = {
-  'task.blocked': 'Next step: open the task and clear the blocker or missing access.',
+  'task.blocked': 'Next step: open the task and provide what is missing or reconnect access.',
   'task.failed':
     'Next step: open the task, follow the recovery note, then retry or choose another agent.',
 }

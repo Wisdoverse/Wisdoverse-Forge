@@ -50,8 +50,9 @@ describe('AgentStatusBar', () => {
     ).toBeDefined()
     expect(
       screen.getByLabelText(
-        /deployer: needs help\. this agent is waiting for someone to clear a blocker/i
+        /deployer: needs help\. this agent is waiting for help before it can continue/i
       )
     ).toBeDefined()
+    expect(screen.queryByLabelText(/clear a blocker/i)).toBeNull()
   })
 })
