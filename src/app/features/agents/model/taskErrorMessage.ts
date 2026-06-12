@@ -3,15 +3,34 @@ function rawErrorMessage(err: unknown): string {
   return typeof err === 'string' ? err : ''
 }
 
+function structuredErrorMessage(err: unknown): string {
+  if (!err || typeof err !== 'object') return rawErrorMessage(err)
+  for (const key of ['detail', 'error', 'message', 'reason'] as const) {
+    const value = (err as Record<string, unknown>)[key]
+    if (typeof value === 'string' && value.trim()) return value
+  }
+  return rawErrorMessage(err)
+}
+
 function statusCode(err: unknown): number | null {
-  const match = rawErrorMessage(err).match(/\b(?:HTTP|API|Server error)\s*\(?(\d{3})\b/i)
+  if (err && typeof err === 'object') {
+    for (const key of ['statusCode', 'status', 'code'] as const) {
+      const value = (err as Record<string, unknown>)[key]
+      if (typeof value === 'number' && Number.isFinite(value)) return value
+      if (typeof value === 'string' && /^\d{3}$/.test(value.trim())) {
+        return Number.parseInt(value, 10)
+      }
+    }
+  }
+
+  const match = structuredErrorMessage(err).match(/\b(?:HTTP|API|Server error)\s*\(?(\d{3})\b/i)
   if (!match) return null
   const code = Number.parseInt(match[1] ?? '', 10)
   return Number.isFinite(code) ? code : null
 }
 
 function isNetworkError(err: unknown): boolean {
-  const text = rawErrorMessage(err).toLowerCase()
+  const text = structuredErrorMessage(err).toLowerCase()
   return (
     err instanceof TypeError ||
     text.includes('failed to fetch') ||
@@ -23,7 +42,7 @@ function isNetworkError(err: unknown): boolean {
 export function agentTasksErrorMessage(err: unknown): string {
   const base = "This agent's work list could not be loaded."
   const code = statusCode(err)
-  const text = rawErrorMessage(err).toLowerCase()
+  const text = structuredErrorMessage(err).toLowerCase()
 
   if (code === 401 || text.includes('unauthorized')) {
     return `${base} Sign in again, then reopen this agent.`

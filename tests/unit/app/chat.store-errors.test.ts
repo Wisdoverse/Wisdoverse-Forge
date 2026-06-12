@@ -30,6 +30,42 @@ describe('chatErrorMessage', () => {
     )
   })
 
+  test('maps structured sign-in errors without exposing token details', () => {
+    const message = chatErrorMessage('load', {
+      code: '401',
+      detail: 'unauthorized chat token expired',
+    })
+
+    expect(message).toBe(
+      'Conversation history could not be loaded. Sign in again, then reopen this chat.'
+    )
+    expect(message).not.toContain('chat token expired')
+  })
+
+  test('maps structured clear conflicts to a wait and retry step', () => {
+    const message = chatErrorMessage('clear', {
+      reason: 'conversation delete already in progress',
+      statusCode: 409,
+    })
+
+    expect(message).toBe(
+      'Chat was not cleared. Another chat action is still saving. Wait a moment, then try again.'
+    )
+    expect(message).not.toContain('delete already in progress')
+  })
+
+  test('maps structured rate limits without raw provider text', () => {
+    const message = chatErrorMessage('load', {
+      error: 'too many provider history reads',
+      status: 429,
+    })
+
+    expect(message).toBe(
+      'Conversation history could not be loaded. Too many chat requests are happening right now. Wait a minute, then try again.'
+    )
+    expect(message).not.toContain('provider history')
+  })
+
   test('maps server errors without exposing transport text', () => {
     const message = chatErrorMessage('clear', 'Server error (503)')
 
