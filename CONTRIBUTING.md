@@ -96,7 +96,8 @@ Read the buckets this way:
 
 - `ACTION`: fix the listed PRs or checks now.
 - `WAIT`: stop checking in chat; review, CI, or the merge queue is still
-  working.
+  working. Reuse `npm run pr:summary:local` if you only need to show the last
+  saved snapshot.
 - `DONE`: no action is needed for that PR or MR.
 
 For an external monitor, schedule the low-noise command instead of asking an

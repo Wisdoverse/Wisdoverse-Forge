@@ -14,6 +14,7 @@ import {
   DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS,
   DEFAULT_REFRESH_COOLDOWN_SECONDS,
   formatCacheNotice,
+  formatFreshSnapshotNotice,
   getLocalOnlyModeErrors,
   getMonitorSnapshotModeErrors,
   getRemoteReadProtectionErrors,
@@ -107,7 +108,7 @@ describe('PR status summary', () => {
     expect(renderSummary(summary)).toContain('ACTION 1 | WAIT 1 | DONE 0')
     expect(renderSummary(summary)).toContain('WAIT: 1 PR(s) waiting')
     expect(renderSummary(summary)).toContain(
-      'WAIT: stop here; refresh only after cache expiry or a known remote change'
+      'WAIT: stop here; use npm run pr:summary:local until cache expiry or a known remote change'
     )
     expect(renderSummary(summary)).toContain(
       'WAIT: token-safe action: do not poll in chat; use scheduled monitoring for the next check'
@@ -320,6 +321,18 @@ describe('PR status summary', () => {
         source: 'cache',
       })
     ).toContain('it expires in 13m')
+  })
+
+  it('tells operators how to reuse a fresh snapshot instead of polling again', () => {
+    expect(formatFreshSnapshotNotice(parseArgs([]))).toBe(
+      '[pr-summary] fresh GitHub snapshot saved; use npm run pr:summary:local or cached npm run pr:summary for the next 15m; repeat remote reads are blocked for 1m'
+    )
+    expect(formatFreshSnapshotNotice(parseArgs(['--cache-ttl-seconds', '0']))).toBe(
+      '[pr-summary] fresh GitHub snapshot saved, but cache reuse is disabled; repeat remote reads are still guarded for 1m'
+    )
+    expect(formatFreshSnapshotNotice(parseArgs(['--no-cache', '--allow-repeat-remote-read']))).toBe(
+      '[pr-summary] fresh GitHub read completed with --no-cache; no snapshot was saved, so do not use this in loops'
+    )
   })
 
   it('reuses only fresh cache entries for the same GitHub query', () => {

@@ -37,6 +37,8 @@ function main() {
 
   if (snapshot.cacheHit) {
     console.error(formatCacheNotice(snapshot))
+  } else if (snapshot.source === 'GitHub') {
+    console.error(formatFreshSnapshotNotice(options))
   }
 
   if (options.json) {
@@ -506,6 +508,21 @@ function formatCacheNotice(snapshot) {
   )}; pass --refresh only after a known remote change`
 }
 
+function formatFreshSnapshotNotice(options) {
+  if (options.noCache) {
+    return '[pr-summary] fresh GitHub read completed with --no-cache; no snapshot was saved, so do not use this in loops'
+  }
+
+  const guard = formatDuration(options.minRemoteReadIntervalSeconds)
+  if (options.cacheTtlSeconds <= 0) {
+    return `[pr-summary] fresh GitHub snapshot saved, but cache reuse is disabled; repeat remote reads are still guarded for ${guard}`
+  }
+
+  return `[pr-summary] fresh GitHub snapshot saved; use npm run pr:summary:local or cached npm run pr:summary for the next ${formatDuration(
+    options.cacheTtlSeconds
+  )}; repeat remote reads are blocked for ${guard}`
+}
+
 function secondsRemaining(fetchedAt, limitSeconds, now) {
   if (!Number.isFinite(fetchedAt) || !Number.isFinite(limitSeconds) || limitSeconds <= 0) {
     return 0
@@ -576,6 +593,7 @@ export {
   DEFAULT_MIN_REMOTE_READ_INTERVAL_SECONDS,
   DEFAULT_REFRESH_COOLDOWN_SECONDS,
   formatCacheNotice,
+  formatFreshSnapshotNotice,
   getLocalOnlyModeErrors,
   getMonitorSnapshotModeErrors,
   getRemoteReadProtectionErrors,

@@ -29,11 +29,12 @@ checks. This is a point-in-time status tool, not a live watch command.
 Success looks like this:
 
 ```text
+[pr-summary] fresh GitHub snapshot saved; use npm run pr:summary:local or cached npm run pr:summary for the next 15m; repeat remote reads are blocked for 1m
 [pr-summary] ACTION 0 | WAIT 42 | DONE 0
 ACTION: none
 WAIT: 42 PR(s) waiting on review, CI, draft state, or merge queue
 WAIT: use --show-wait to list them when a human needs the full queue
-WAIT: stop here; refresh only after cache expiry or a known remote change
+WAIT: stop here; use npm run pr:summary:local until cache expiry or a known remote change
 WAIT: token-safe action: do not poll in chat; use scheduled monitoring for the next check
 ```
 
@@ -54,9 +55,10 @@ snapshot exists yet, run `npm run pr:summary:refresh` once only when a fresh
 remote read is acceptable.
 
 When the output says `WAIT: stop here` or `WAIT: token-safe action`, the correct
-next step is to leave the conversation or monitor quiet. Do not ask an agent to
-refresh again unless the cache has expired or someone pushed, approved, failed,
-or merged the PR.
+next step is to leave the conversation or monitor quiet. If you only need to
+repeat the same view, use `npm run pr:summary:local`; do not ask an agent to
+refresh remote state again unless the cache has expired or someone pushed,
+approved, failed, or merged the PR.
 
 ## Do Not Poll In Chat
 

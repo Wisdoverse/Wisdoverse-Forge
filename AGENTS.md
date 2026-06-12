@@ -201,7 +201,8 @@ npm run pr:summary
 
 Treat `ACTION` as the only state that needs immediate fix work. Treat `WAIT` as
 the stop condition for the chat: review, CI, or the merge queue is still
-working, so do not repeatedly refresh status inside the conversation. For
+working, so do not repeatedly refresh status inside the conversation. If you
+only need to show the same view again, use `npm run pr:summary:local`. For
 external monitoring, schedule `npm run pr:summary:monitor`; it reuses the local
 snapshot when run too soon and alerts only when a PR needs action.
 

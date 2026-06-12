@@ -14,7 +14,8 @@ const ACTION_MERGE_STATES = new Map([
   ['BEHIND', 'base branch changed'],
   ['DIRTY', 'merge conflict'],
 ])
-const WAIT_STOP_LINE = 'WAIT: stop here; refresh only after cache expiry or a known remote change'
+const WAIT_STOP_LINE =
+  'WAIT: stop here; use npm run pr:summary:local until cache expiry or a known remote change'
 const WAIT_TOKEN_SAFE_LINE =
   'WAIT: token-safe action: do not poll in chat; use scheduled monitoring for the next check'
 
