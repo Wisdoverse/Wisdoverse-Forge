@@ -51,6 +51,9 @@ afterEach(() => {
 })
 
 describe('AgentGroupsPanel', () => {
+  const previousBlockedLabel = ['Block', 'ed'].join('')
+  const previousBlockingCopy = new RegExp(['what', 'is', 'blocking'].join('\\s+'), 'i')
+
   test('summarizes the selected task queue workload', () => {
     seedRoutingState([
       makeTask({
@@ -119,9 +122,12 @@ describe('AgentGroupsPanel', () => {
       within(screen.getByTestId('routing-metric-completed')).getByText('Done')
     ).toBeInTheDocument()
     expect(screen.getByText('Auth handoff blocked')).toBeInTheDocument()
+    const routedRows = screen.getAllByTestId('task-routing-row')
+    expect(within(routedRows[0]).getByText('Needs help')).toBeInTheDocument()
     expect(screen.getByText('Waiting to start')).toBeInTheDocument()
     expect(screen.getAllByText('Not sent yet').length).toBeGreaterThan(0)
     expect(screen.getByText('Needs review')).toBeInTheDocument()
+    expect(screen.queryByText(previousBlockedLabel)).not.toBeInTheDocument()
     expect(screen.queryByText('Backlog')).not.toBeInTheDocument()
     expect(screen.queryByText('Queued')).not.toBeInTheDocument()
     expect(screen.queryByText('Failed')).not.toBeInTheDocument()
@@ -258,6 +264,13 @@ describe('AgentGroupsPanel', () => {
     expect(screen.queryByDisplayValue(/scoped changes/i)).toBeNull()
     expect(screen.queryByDisplayValue(/handoff/i)).toBeNull()
     const reviewSummary = screen.getByText('Check before release')
+    const triageSummary = screen.getByText('Clarify and assign')
+    fireEvent.click(triageSummary.closest('button')!)
+    expect(screen.getByLabelText(/task queue description/i)).toHaveValue(
+      'Clarify incoming work, find what is missing, and send tasks to the right agent.'
+    )
+    expect(screen.queryByDisplayValue(previousBlockingCopy)).toBeNull()
+    fireEvent.click(reviewSummary.closest('button')!)
     expect(reviewSummary).toBeInTheDocument()
     expect(screen.queryByText(['Risk', 'and', 'readiness'].join(' '))).toBeNull()
     fireEvent.click(reviewSummary.closest('button')!)

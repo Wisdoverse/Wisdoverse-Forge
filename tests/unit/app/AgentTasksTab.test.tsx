@@ -34,6 +34,8 @@ function makeTask(overrides: Partial<TaskSummary>): TaskSummary {
 }
 
 describe('AgentTasksTab', () => {
+  const previousEmptyNeedsHelpCopy = new RegExp(['Blocked', 'or', 'failed', 'work'].join('\\s+'))
+
   test('guides users when no tasks have reached the agent', async () => {
     getTasksByAgentMock.mockResolvedValue([])
 
@@ -51,9 +53,15 @@ describe('AgentTasksTab', () => {
     expect(within(emptyState).getByText('Use Needs help after tasks arrive')).toBeDefined()
     expect(
       within(emptyState).getByText(
+        'Work that needs help or stopped early appears there first, so you know what to fix.'
+      )
+    ).toBeDefined()
+    expect(
+      within(emptyState).getByText(
         'Success looks like a task showing Waiting to start or Doing now in this list.'
       )
     ).toBeDefined()
+    expect(emptyState.textContent).not.toMatch(previousEmptyNeedsHelpCopy)
     expect(emptyState.textContent).not.toContain('routed')
     expect(emptyState.textContent).not.toContain('routing')
     expect(emptyState.textContent).not.toContain('Needs action')

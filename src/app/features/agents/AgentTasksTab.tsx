@@ -80,7 +80,8 @@ const AGENT_TASK_EMPTY_STEPS: { title: string; description: string; Icon: Lucide
   },
   {
     title: 'Use Needs help after tasks arrive',
-    description: 'Blocked or failed work appears there first, so you know what to fix.',
+    description:
+      'Work that needs help or stopped early appears there first, so you know what to fix.',
     Icon: AlertTriangle,
   },
 ]

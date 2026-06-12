@@ -28,7 +28,7 @@ const TASK_STATE_LABELS: Record<TaskSummary['state'], string> = {
   backlog: 'Not sent yet',
   queued: 'Waiting to start',
   working: 'Working',
-  blocked: 'Blocked',
+  blocked: 'Needs help',
   completed: 'Done',
   failed: 'Needs review',
   canceled: 'Canceled',
@@ -94,8 +94,7 @@ const TASK_GROUP_TEMPLATES: TaskGroupTemplate[] = [
     label: 'Triage',
     summary: 'Clarify and assign',
     name: 'Triage Queue',
-    description:
-      'Clarify incoming work, find what is blocking it, and send tasks to the right agent.',
+    description: 'Clarify incoming work, find what is missing, and send tasks to the right agent.',
     Icon: ClipboardCheck,
   },
 ]
