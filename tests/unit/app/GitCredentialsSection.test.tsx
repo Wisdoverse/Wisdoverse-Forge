@@ -45,7 +45,7 @@ describe('GitCredentialsSection', () => {
 
     expect(await screen.findByText('No repository access saved yet')).toBeDefined()
     expect(screen.getByText(/use HTTPS addresses/i)).toBeDefined()
-    expect(screen.getByText(/use git@ repository access/i)).toBeDefined()
+    expect(screen.getByText(/use Repository SSH Access/i)).toBeDefined()
 
     fireEvent.click(screen.getByRole('button', { name: /add repository access/i }))
 

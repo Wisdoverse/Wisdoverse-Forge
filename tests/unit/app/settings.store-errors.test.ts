@@ -108,10 +108,7 @@ describe('settingsActionErrorMessage', () => {
       })
     )
 
-    expectBeginnerError(
-      message,
-      'Add the service address for this AI service, then save again.'
-    )
+    expectBeginnerError(message, 'Add the service address for this AI service, then save again.')
     expect(message).not.toContain('Unprocessable')
     expect(message).not.toContain('base url is required')
   })
@@ -147,7 +144,7 @@ describe('settingsActionErrorMessage', () => {
   test('turns git@ access label validation into a naming step', () => {
     expectBeginnerError(
       settingsActionErrorMessage('sshKeys', 'create', statusError(422, 'label is required')),
-      'Add a name for this git@ access, then save again.'
+      'Add a name for this repository SSH access, then save again.'
     )
   })
 
@@ -163,7 +160,7 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Settings could not load git@ repository access. Forge could not connect while loading Settings. Check your connection, then try again.'
+      'Settings could not load repository SSH access. Forge could not connect while loading Settings. Check your connection, then try again.'
     )
     expect(message).not.toContain('SSH keys')
     expect(message).not.toContain('Network error')
@@ -267,7 +264,7 @@ describe('useSettingsStore errors', () => {
 
     expectBeginnerError(
       useSettingsStore.getState().sshKeysError,
-      'Settings could not load git@ repository access. Forge could not connect while loading Settings. Check your connection, then try again.'
+      'Settings could not load repository SSH access. Forge could not connect while loading Settings. Check your connection, then try again.'
     )
     expect(useSettingsStore.getState().sshKeysError).not.toContain('Network error')
   })

@@ -415,7 +415,7 @@ export function GitCredentialsSection() {
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Add GitHub or GitLab repository access for private repositories that use HTTPS
-              addresses, such as https://github.com/team/repo.git. Use git@ Repository Access for
+              addresses, such as https://github.com/team/repo.git. Use Repository SSH Access for
               addresses that start with git@.
             </p>
           </div>

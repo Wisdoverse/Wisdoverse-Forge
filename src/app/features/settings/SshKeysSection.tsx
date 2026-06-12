@@ -85,8 +85,8 @@ function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
           onClick={handleDelete}
           aria-label={
             confirming
-              ? `Confirm removing ${sshKey.label} git@ repository access`
-              : `Remove ${sshKey.label} git@ repository access`
+              ? `Confirm removing ${sshKey.label} repository SSH access`
+              : `Remove ${sshKey.label} repository SSH access`
           }
           aria-describedby={confirming ? removeWarningId : undefined}
           className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
@@ -251,7 +251,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
           disabled={saving || !label.trim() || !publicKey.trim()}
           className={uiStyles.primaryButton}
         >
-          {saving ? 'Saving...' : 'Save git@ access'}
+          {saving ? 'Saving...' : 'Save repository SSH access'}
         </button>
       </div>
     </form>
@@ -296,7 +296,7 @@ export function SshKeysSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>git@ repository access</h2>
+          <h2 className={uiStyles.sectionTitle}>Repository SSH access</h2>
           <p className={uiStyles.sectionDescription}>
             Use this when a private repository gives you an address that starts with git@. Agents
             can then read that repository during their work.
@@ -309,7 +309,7 @@ export function SshKeysSection() {
             className={uiStyles.primaryButton}
           >
             <span>+</span>
-            <span>Add git@ access</span>
+            <span>Add repository SSH access</span>
           </button>
         )}
       </div>
@@ -325,12 +325,12 @@ export function SshKeysSection() {
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {sshKeysLoading && sshKeys.length === 0 ? (
           <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading git@ repository access...
+            Loading repository SSH access...
           </div>
         ) : sshKeys.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center" data-testid="ssh-access-empty-state">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No git@ repository access yet
+              No repository SSH access yet
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               If the repository address starts with git@, add this. If it starts with https://, use
@@ -341,13 +341,13 @@ export function SshKeysSection() {
               onClick={() => setShowForm(true)}
               className={cn(uiStyles.primaryButton, 'mx-auto mt-3')}
             >
-              Add git@ access
+              Add repository SSH access
             </button>
           </div>
         ) : (
           <>
             {sshKeys.length > 0 && (
-              <table className={uiStyles.table} aria-label="git@ repository access">
+              <table className={uiStyles.table} aria-label="Repository SSH access">
                 <thead className={uiStyles.tableHead}>
                   <tr>
                     {tableHeaders.map((h) => (
