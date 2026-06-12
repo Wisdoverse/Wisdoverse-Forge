@@ -111,6 +111,59 @@ describe('AuthPage beginner guidance', () => {
     expect(window.location.search).toBe('')
   })
 
+  test('keeps email sign-in backend failures beginner-safe', async () => {
+    const page = new AuthPage(
+      createAuthManager({
+        login: vi.fn().mockResolvedValue({
+          ok: false,
+          error: 'database unavailable: connection refused HTTP 500',
+        }),
+      })
+    )
+
+    await page.show()
+    const emailInput = document.querySelector<HTMLInputElement>('#login-email')
+    const passwordInput = document.querySelector<HTMLInputElement>('#login-password')
+    if (emailInput) emailInput.value = 'operator@example.com'
+    if (passwordInput) passwordInput.value = 'LongPassword123!'
+    document
+      .querySelector<HTMLFormElement>('#login-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushAsyncWork()
+
+    expect(bodyText()).toContain(
+      'We could not sign you in right now. Try again in a minute. If it still fails, ask an owner or admin to check sign-in setup.'
+    )
+    expect(bodyText()).not.toContain('database unavailable')
+    expect(bodyText()).not.toContain('HTTP 500')
+  })
+
+  test('explains email sign-in connection failures without raw network text', async () => {
+    const page = new AuthPage(
+      createAuthManager({
+        login: vi.fn().mockResolvedValue({
+          ok: false,
+          error: 'Network error',
+        }),
+      })
+    )
+
+    await page.show()
+    const emailInput = document.querySelector<HTMLInputElement>('#login-email')
+    const passwordInput = document.querySelector<HTMLInputElement>('#login-password')
+    if (emailInput) emailInput.value = 'operator@example.com'
+    if (passwordInput) passwordInput.value = 'LongPassword123!'
+    document
+      .querySelector<HTMLFormElement>('#login-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushAsyncWork()
+
+    expect(bodyText()).toContain(
+      'Sign-in could not finish. Forge could not connect while signing you in. Check your connection, then try again.'
+    )
+    expect(bodyText()).not.toContain('Network error')
+  })
+
   test('guides password recovery without exposing account existence', async () => {
     const page = new AuthPage(createAuthManager())
 
@@ -146,6 +199,35 @@ describe('AuthPage beginner guidance', () => {
     expect(bodyText()).toContain('Check your email')
     expect(bodyText()).toContain('Open that email to finish creating your account.')
     expect(bodyText()).toContain('Back to sign in')
+  })
+
+  test('turns duplicate account registration failures into a next step', async () => {
+    const page = new AuthPage(
+      createAuthManager({
+        register: vi.fn().mockResolvedValue({
+          ok: false,
+          errorCode: 'EMAIL_ALREADY_EXISTS',
+          error: 'duplicate key value violates unique constraint users_email_key',
+        }),
+      })
+    )
+
+    await page.show()
+    document.querySelector<HTMLButtonElement>('[data-tab="register"]')?.click()
+    const emailInput = document.querySelector<HTMLInputElement>('#register-email')
+    const passwordInput = document.querySelector<HTMLInputElement>('#register-password')
+    if (emailInput) emailInput.value = 'new@example.com'
+    if (passwordInput) passwordInput.value = 'LongPassword123!'
+    document
+      .querySelector<HTMLFormElement>('#register-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushAsyncWork()
+
+    expect(bodyText()).toContain(
+      'An account may already exist for this email. Sign in instead, or reset the password if you cannot access it.'
+    )
+    expect(bodyText()).not.toContain('duplicate key')
+    expect(bodyText()).not.toContain('users_email_key')
   })
 
   test('shows reset-token users what password change will affect', async () => {

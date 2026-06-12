@@ -2,12 +2,114 @@
  * AuthPage - Full-screen login/registration page with tech-themed dark UI
  */
 
-import type { AuthManager } from '@app/shared/auth/AuthManager'
+import type { AuthManager, LoginResult } from '@app/shared/auth/AuthManager'
 import { config } from '@app/shared/config'
 import { iconSuccess } from '@app/shared/ui/icons'
 
 type AuthTab = 'login' | 'register'
 type AuthRecoveryAction = 'resend-verification' | 'forgot-password' | 'reset-password'
+type AuthFailure = Pick<LoginResult, 'error' | 'errorCode'>
+
+function authFailureDetail(result: AuthFailure): {
+  code: string
+  detail: string
+  lowerDetail: string
+} {
+  const code = typeof result.errorCode === 'string' ? result.errorCode.trim().toUpperCase() : ''
+  const detail = typeof result.error === 'string' ? result.error.trim() : ''
+  return { code, detail, lowerDetail: detail.toLowerCase() }
+}
+
+function authLoginErrorMessage(result: AuthFailure): string {
+  const { code, lowerDetail } = authFailureDetail(result)
+  const networkFailed =
+    lowerDetail.includes('network') ||
+    lowerDetail.includes('failed to fetch') ||
+    lowerDetail.includes('load failed')
+
+  if (networkFailed) {
+    return 'Sign-in could not finish. Forge could not connect while signing you in. Check your connection, then try again.'
+  }
+  if (
+    code.includes('RATE') ||
+    code.includes('TOO_MANY') ||
+    lowerDetail.includes('too many') ||
+    lowerDetail.includes('rate limit') ||
+    lowerDetail.includes('429')
+  ) {
+    return 'Too many sign-in attempts. Wait a few minutes, then try again.'
+  }
+  if (
+    code.includes('INVALID') ||
+    code.includes('UNAUTHORIZED') ||
+    lowerDetail.includes('invalid credential') ||
+    lowerDetail.includes('invalid email') ||
+    lowerDetail.includes('incorrect password') ||
+    lowerDetail.includes('wrong password') ||
+    lowerDetail.includes('not found') ||
+    lowerDetail.includes('unauthorized')
+  ) {
+    return 'We could not sign you in. Check your email and password, then try again.'
+  }
+  if (
+    lowerDetail.includes('disabled') ||
+    lowerDetail.includes('locked') ||
+    lowerDetail.includes('suspended') ||
+    lowerDetail.includes('forbidden')
+  ) {
+    return 'This account is not allowed to sign in here. Ask an owner or admin to check your access.'
+  }
+
+  return 'We could not sign you in right now. Try again in a minute. If it still fails, ask an owner or admin to check sign-in setup.'
+}
+
+function authRegisterErrorMessage(result: AuthFailure): string {
+  const { code, lowerDetail } = authFailureDetail(result)
+  const networkFailed =
+    lowerDetail.includes('network') ||
+    lowerDetail.includes('failed to fetch') ||
+    lowerDetail.includes('load failed')
+
+  if (networkFailed) {
+    return 'Account could not be created. Forge could not connect while creating it. Check your connection, then try again.'
+  }
+  if (
+    code.includes('RATE') ||
+    code.includes('TOO_MANY') ||
+    lowerDetail.includes('too many') ||
+    lowerDetail.includes('rate limit') ||
+    lowerDetail.includes('429')
+  ) {
+    return 'Too many account creation attempts. Wait a few minutes, then try again.'
+  }
+  if (
+    code.includes('EMAIL_ALREADY') ||
+    code.includes('ALREADY_EXISTS') ||
+    code.includes('CONFLICT') ||
+    lowerDetail.includes('already exists') ||
+    lowerDetail.includes('already registered') ||
+    lowerDetail.includes('duplicate') ||
+    lowerDetail.includes('conflict')
+  ) {
+    return 'An account may already exist for this email. Sign in instead, or reset the password if you cannot access it.'
+  }
+  if (
+    code.includes('WEAK_PASSWORD') ||
+    lowerDetail.includes('password') ||
+    lowerDetail.includes('too short')
+  ) {
+    return 'Use a stronger password. It needs at least 12 characters and a mix of letters, numbers, and symbols.'
+  }
+  if (
+    code.includes('INVALID_EMAIL') ||
+    lowerDetail.includes('invalid email') ||
+    lowerDetail.includes('email address')
+  ) {
+    return 'Enter a valid email address, then try creating the account again.'
+  }
+
+  return 'We could not create the account right now. Check the fields, then try again. If it still fails, ask an owner or admin to check account setup.'
+}
 
 function authSignInErrorMessage(error: unknown): string {
   const detail =
@@ -494,9 +596,7 @@ export class AuthPage {
       this.setError('')
       this.showVerificationBanner(email)
     } else {
-      this.setError(
-        result.error || 'We could not sign you in. Check your email and password, then try again.'
-      )
+      this.setError(authLoginErrorMessage(result))
       this.shakeCard()
     }
   }
@@ -522,9 +622,7 @@ export class AuthPage {
         this.showVerificationPending(email)
       }
     } else {
-      this.setError(
-        result.error || 'We could not create the account yet. Check the fields and try again.'
-      )
+      this.setError(authRegisterErrorMessage(result))
       this.shakeCard()
     }
   }
