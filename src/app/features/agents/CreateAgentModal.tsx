@@ -723,7 +723,7 @@ export function CreateAgentModal() {
                 {kind === 'cli'
                   ? 'Uses a ready workspace managed by Forge for file and command work.'
                   : kind === 'local-cli'
-                    ? 'Uses a work tool installed on your computer while Forge gives it tasks.'
+                    ? 'Uses files and commands on your computer while Forge gives it tasks.'
                     : 'Uses a connected AI service for planning, writing, and review. It does not open files or run commands.'}
               </p>
             </div>

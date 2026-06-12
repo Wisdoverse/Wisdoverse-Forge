@@ -283,9 +283,8 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Use this when Forge should assign work to a tool installed on your computer. The easiest
-            path is to create the agent here, then paste the setup command it gives you into
-            Terminal or PowerShell.
+            Use this when an agent needs files or commands on your computer. Start with the button
+            below; Forge will give you a setup command to paste into Terminal or PowerShell.
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-apple-blue/[0.08] px-2 py-1 text-[10px] font-semibold text-apple-blue">
@@ -304,7 +303,7 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
 
       <details className="mt-3">
         <summary className="cursor-pointer text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Advanced: manual command if you already installed the Forge CLI
+          Already installed the setup tool? Show the copyable command
         </summary>
         <div className="mt-3">
           <p className="mb-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
@@ -362,9 +361,9 @@ function HostCliEnrollmentPanel({ selectedProjectId }: { selectedProjectId: stri
             </pre>
 
             <div className="mt-3 grid gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              <p>1. Use the New agent button above if you want the guided setup command.</p>
-              <p>2. Run this manual command from the folder this agent should work in.</p>
-              <p>3. Change codex only if you already use another supported work tool there.</p>
+              <p>1. Use the New agent button above if you want Forge to guide you.</p>
+              <p>2. Run this command from the folder this agent should work in.</p>
+              <p>3. Keep codex unless your team told you to use another work tool.</p>
             </div>
           </>
         ) : (

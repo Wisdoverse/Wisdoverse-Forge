@@ -247,8 +247,10 @@ describe('CreateAgentModal', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
     expect(screen.getByText(/codex on this computer/i)).toBeInTheDocument()
+    expect(screen.getByText(/files and commands on your computer/i)).toBeInTheDocument()
     expect(screen.getByText('Run the setup command')).toBeInTheDocument()
     expect(screen.getByText('Uses this computer')).toBeInTheDocument()
+    expect(screen.queryByText(/work tool installed on your computer/i)).toBeNull()
     expect(screen.queryByText('Local work')).toBeNull()
 
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
