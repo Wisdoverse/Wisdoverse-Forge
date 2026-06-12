@@ -197,7 +197,7 @@ function CheckInMetric({ label, value }: { label: string; value: string }) {
 function TaskRunRow({ run }: { run: TaskRunSummary }) {
   const runSource = runSourceLabel(run)
   const finished = run.finishedAt ? formatRelativeTime(run.finishedAt) : 'Still running'
-  const supportReference = run.id.slice(0, 8)
+  const status = readableRunStatus(run.status)
 
   return (
     <div className="rounded-lg bg-apple-gray-6/70 px-3 py-2 dark:bg-white/[0.035]">
@@ -211,7 +211,7 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-black/[0.05] px-2 py-0.5 text-[10px] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-          Support reference {supportReference}
+          {status}
         </span>
       </div>
     </div>
