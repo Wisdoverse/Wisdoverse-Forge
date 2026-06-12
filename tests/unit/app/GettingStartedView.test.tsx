@@ -393,6 +393,97 @@ describe('GettingStartedView', () => {
     expect(screen.getByText('Create a task queue before the first task.')).toBeDefined()
   })
 
+  test('explains the first task as a small queue pickup', async () => {
+    useNavigationStore.setState({
+      teams: [
+        {
+          id: 'team-1',
+          orgId: 'org-1',
+          name: 'Launch Team',
+          slug: 'launch-team',
+          visibility: 'open',
+          description: '',
+        },
+      ],
+      projects: {
+        'team-1': [
+          {
+            id: 'project-1',
+            teamId: 'team-1',
+            name: 'Launch Project',
+            slug: 'launch-project',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+      selectedProjectId: 'project-1',
+      agentGroups: [{ id: 'group-1', projectId: 'project-1', name: 'Default' }],
+    })
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-1',
+          provider: 'model-service',
+          displayName: 'Model Service',
+          model: 'general-model',
+          isEnabled: true,
+          isDefault: true,
+          lastTestStatus: 'passed',
+        } as any,
+      ],
+      runtimeSettings: {
+        defaultRuntime: 'container',
+        availableRuntimes: ['container'],
+        defaultCliTool: 'workspace-tool',
+        availableCliTools: ['workspace-tool'],
+        cliToolDetails: [
+          {
+            cliTool: 'workspace-tool',
+            image: 'agentforge-agent:workspace-tool',
+            version: '1.0.0',
+            imagePresent: true,
+            versionSource: 'docker-label',
+          },
+        ],
+      },
+    })
+    useAgentsStore.setState({
+      agents: [
+        {
+          id: 'agent-1',
+          name: 'Starter Agent',
+          provider: 'model-service',
+          model: 'general-model',
+          status: 'idle',
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+        },
+      ],
+    })
+
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText('Do this next')).toBeDefined()
+    expect(screen.getAllByText('First task').length).toBeGreaterThan(0)
+    expect(
+      screen.getByText(
+        'Write one small task. Forge adds it to the queue so the next available agent can pick it up.'
+      )
+    ).toBeDefined()
+    expect(
+      screen.getAllByText(
+        'The task appears on the board, either waiting in the queue or assigned to an agent.'
+      ).length
+    ).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /write first task/i }).length).toBeGreaterThan(0)
+    const previousTaskInstruction = ['Create a task', 'assign it', 'and watch the run start.'].join(
+      ', '
+    )
+    expect(screen.queryByText(previousTaskInstruction)).toBeNull()
+  })
+
   test('does not expose raw AI service keys in the first-run checklist', async () => {
     useSettingsStore.setState({
       providers: [

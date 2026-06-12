@@ -160,12 +160,14 @@ export const en = {
       },
       task: {
         title: 'First task',
-        emptyWithRouting: 'Create a task, assign it, and watch the run start.',
+        emptyWithRouting:
+          'Write one small task. Forge adds it to the queue so the next available agent can pick it up.',
         emptyWithoutRouting: 'Create a task queue before the first task.',
         ready: '{{count}} task on the board.',
         why: 'A small first task proves the setup works before you depend on it for real work.',
-        success: 'A task appears on the board and is assigned or waiting to start.',
-        create: 'Create task',
+        success:
+          'The task appears on the board, either waiting in the queue or assigned to an agent.',
+        create: 'Write first task',
         open: 'Open board',
       },
       review: {
