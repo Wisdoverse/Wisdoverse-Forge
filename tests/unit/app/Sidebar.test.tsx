@@ -135,6 +135,25 @@ describe('Sidebar', () => {
     expect(onNavigate).toHaveBeenCalledWith('/agents')
   })
 
+  it('labels tasks navigation in beginner-facing language', () => {
+    useNavigationStore.setState({
+      orgs: [{ id: 'org1', name: 'My Org', slug: 'my-org', plan: 'pro', role: 'owner' }],
+      selectedOrgId: 'org1',
+      sidebarExpanded: true,
+      teams: [],
+      projects: {},
+    })
+
+    render(<Sidebar activePath="/agents" onNavigate={vi.fn()} />)
+
+    expect(
+      screen.getByRole('button', { name: 'nav.tasks: create tasks and review progress' })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /create and review agent work/i })
+    ).not.toBeInTheDocument()
+  })
+
   it('labels analytics navigation in beginner-facing language', () => {
     useNavigationStore.setState({
       orgs: [{ id: 'org1', name: 'My Org', slug: 'my-org', plan: 'pro', role: 'owner' }],
