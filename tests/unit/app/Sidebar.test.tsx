@@ -147,8 +147,11 @@ describe('Sidebar', () => {
     render(<Sidebar activePath="/agents" onNavigate={vi.fn()} />)
 
     expect(
-      screen.getByRole('button', { name: 'nav.tasks: create tasks and review progress' })
+      screen.getByRole('button', { name: 'nav.tasks: see tasks and review progress' })
     ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /create tasks and review progress/i })
+    ).not.toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: /create and review agent work/i })
     ).not.toBeInTheDocument()

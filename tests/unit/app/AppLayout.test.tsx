@@ -183,7 +183,8 @@ describe('AppLayout', () => {
     render(<MemoryRouter />)
 
     expect(screen.getByText('Settings')).toBeDefined()
-    expect(screen.getByText('Account, AI services, and workspace')).toBeDefined()
+    expect(screen.getByText('Set up your account, AI services, and team')).toBeDefined()
+    expect(screen.queryByText(/Account, AI services, and workspace/i)).toBeNull()
     expect(screen.queryByText(/model services/i)).toBeNull()
     expect(screen.queryByText(/providers/i)).toBeNull()
   })

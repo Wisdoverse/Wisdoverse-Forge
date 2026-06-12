@@ -53,7 +53,7 @@ describe('SidebarNav', () => {
       screen.getByRole('button', { name: /start: follow the setup checklist/i })
     ).toHaveAttribute('title', 'Start: follow the setup checklist')
     expect(
-      screen.getByRole('button', { name: /tasks: create and review agent work/i })
+      screen.getByRole('button', { name: /tasks: see tasks and review progress/i })
     ).toHaveAttribute('aria-current', 'page')
     expect(
       screen.getByRole('button', { name: /context: review saved memories and instructions/i })
@@ -64,7 +64,7 @@ describe('SidebarNav', () => {
     ).toBeInTheDocument()
     expect(
       screen.getByRole('button', {
-        name: /saved instructions: reuse saved instructions/i,
+        name: /saved instructions: reuse instructions/i,
       })
     ).toBeInTheDocument()
     expect(
@@ -143,7 +143,7 @@ describe('SidebarNav', () => {
     expect(screen.queryByRole('button', startItem)).not.toBeInTheDocument()
     // The rest of the primary navigation is unaffected.
     expect(
-      screen.getByRole('button', { name: /tasks: create and review agent work/i })
+      screen.getByRole('button', { name: /tasks: see tasks and review progress/i })
     ).toBeInTheDocument()
   })
 

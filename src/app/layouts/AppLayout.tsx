@@ -31,7 +31,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/skills': { title: 'Saved instructions', subtitle: 'Instructions agents can follow again' },
   '/analytics': { title: 'Analytics', subtitle: 'See agent activity and results' },
   '/billing': { title: 'Billing', subtitle: 'Plan, payments, and invoices' },
-  '/settings': { title: 'Settings', subtitle: 'Account, AI services, and workspace' },
+  '/settings': { title: 'Settings', subtitle: 'Set up your account, AI services, and team' },
   '/admin': { title: 'Admin', subtitle: 'System health and user management' },
 }
 

@@ -43,7 +43,7 @@ const NAV_ITEMS: NavItem[] = [
     id: 'tasks',
     Icon: CheckSquare,
     labelKey: 'nav.tasks',
-    description: 'create tasks and review progress',
+    description: 'see tasks and review progress',
     path: '/tasks',
   },
   {
