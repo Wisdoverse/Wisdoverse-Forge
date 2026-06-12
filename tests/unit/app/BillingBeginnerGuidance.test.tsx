@@ -80,6 +80,8 @@ describe('Billing beginner guidance', () => {
     expect(screen.getByText('$0')).toBeInTheDocument()
     expect(screen.getByText(/No paid plan is active yet/i)).toBeInTheDocument()
     expect(screen.getByText(/Upgrade when your team needs more agents/i)).toBeInTheDocument()
+    expect(screen.getByText(/AI message use/i)).toBeInTheDocument()
+    expect(screen.queryByText(new RegExp('AI text\\s+usage', 'i'))).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /upgrade plan/i })).toHaveTextContent('Upgrade plan')
   })
 
@@ -94,9 +96,11 @@ describe('Billing beginner guidance', () => {
     expect(screen.getByText('Agents')).toBeInTheDocument()
     expect(screen.getByText('Almost full')).toBeInTheDocument()
     expect(screen.getByText(/Archive unused agents or upgrade/i)).toBeInTheDocument()
-    expect(screen.getByText('AI text usage')).toBeInTheDocument()
+    expect(screen.getByText('AI message use')).toBeInTheDocument()
+    expect(screen.getByText(/Messages and replies processed/i)).toBeInTheDocument()
     expect(screen.getByText('No limit set')).toBeInTheDocument()
     expect(screen.getByText('1.2K used')).toBeInTheDocument()
+    expect(screen.queryByText(/tokens/i)).not.toBeInTheDocument()
   })
 
   test('gives invoices beginner-safe status descriptions and record links', () => {

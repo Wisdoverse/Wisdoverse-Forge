@@ -69,7 +69,7 @@ function nextStep(plan: BillingPlan | null, subscription: BillingSubscription | 
   if (!subscription) {
     return plan
       ? 'Upgrade only when your team needs this paid capacity.'
-      : 'Start here. Upgrade when your team needs more agents, history, or AI text usage.'
+      : 'Start here. Upgrade when your team needs more agents, history, or AI message use.'
   }
 
   if (subscription.cancelAtPeriodEnd) {
