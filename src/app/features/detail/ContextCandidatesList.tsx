@@ -51,7 +51,7 @@ export function ContextCandidatesList({ title, kind, candidates }: ContextCandid
                 </p>
                 <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-secondary-light dark:text-secondary-dark">
                   <span>Created {formatRelativeTime(candidate.createdAt)}</span>
-                  {candidate.sourceRunId && <span>Suggested from this task</span>}
+                  {candidate.sourceRunId && <span>From this task</span>}
                 </div>
               </div>
             </div>
@@ -64,8 +64,8 @@ export function ContextCandidatesList({ title, kind, candidates }: ContextCandid
 
 function sectionDescription(kind: ContextCandidateKind): string {
   return kind === 'skill'
-    ? 'These are instruction suggestions. Review them before agents can follow the workflow.'
-    : 'These memory suggestions are not saved for future work until someone reviews them.'
+    ? 'These are draft instructions from the run. Review one before agents can follow it.'
+    : 'These are draft notes from the run. Review one before saving it for future tasks.'
 }
 
 function candidateTitle(candidate: TaskContextCandidate): string {
@@ -76,11 +76,11 @@ function candidateTitle(candidate: TaskContextCandidate): string {
   }
   switch (candidate.itemKind) {
     case 'memory':
-      return 'Suggested memory'
+      return 'Untitled memory idea'
     case 'skill':
-      return 'Suggested saved instruction'
+      return 'Untitled instruction idea'
     default:
-      return 'Suggested context item'
+      return 'Idea needs review'
   }
 }
 
@@ -88,17 +88,17 @@ function candidatePreview(candidate: TaskContextCandidate): string {
   const value = candidate.proposedPreview.content_preview
   return typeof value === 'string' && value.trim().length > 0
     ? value
-    : 'No preview is available yet. Open saved item review to inspect the full suggestion.'
+    : 'No preview is available yet. Open saved item review to inspect the full idea.'
 }
 
 function candidateKindLabel(candidate: TaskContextCandidate): string {
   switch (candidate.itemKind) {
     case 'memory':
-      return 'Suggested memory'
+      return 'Memory idea'
     case 'skill':
-      return 'Instruction suggestion'
+      return 'Instruction idea'
     default:
-      return 'Suggestion needs review'
+      return 'Idea needs review'
   }
 }
 
@@ -114,8 +114,8 @@ function candidateNextStep(candidate: TaskContextCandidate): string {
     case 'memory':
       return 'Next step: review the wording before saving it for future tasks.'
     case 'skill':
-      return 'Next step: review the suggestion before agents can follow it.'
+      return 'Next step: review this instruction before agents can follow it.'
     default:
-      return 'Next step: review this suggestion before agents can reuse it.'
+      return 'Next step: review this idea before agents can reuse it.'
   }
 }

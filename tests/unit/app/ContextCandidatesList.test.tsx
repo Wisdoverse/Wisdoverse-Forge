@@ -27,7 +27,7 @@ afterEach(cleanup)
 describe('ContextCandidatesList', () => {
   test('does not render an empty candidate section', () => {
     const { container } = render(
-      <ContextCandidatesList title="Suggested memory updates" kind="memory" candidates={[]} />
+      <ContextCandidatesList title="Save ideas from this run" kind="memory" candidates={[]} />
     )
 
     expect(container).toBeEmptyDOMElement()
@@ -36,31 +36,30 @@ describe('ContextCandidatesList', () => {
   test('explains suggested memories as review-only before reuse', () => {
     render(
       <ContextCandidatesList
-        title="Suggested memory updates"
+        title="Save ideas from this run"
         kind="memory"
         candidates={[candidate()]}
       />
     )
 
-    expect(screen.getByText('Suggested memory updates')).toBeInTheDocument()
+    expect(screen.getByText('Save ideas from this run')).toBeInTheDocument()
     expect(
-      screen.getByText(
-        /memory suggestions are not saved for future work until someone reviews them/i
-      )
+      screen.getByText(/draft notes from the run.*saving it for future tasks/i)
     ).toBeInTheDocument()
     expect(screen.getByText('Release memory')).toBeInTheDocument()
-    expect(screen.getByText('Suggested memory')).toBeInTheDocument()
+    expect(screen.getByText('Memory idea')).toBeInTheDocument()
     expect(screen.getByText('Waiting for review')).toBeInTheDocument()
     expect(
       screen.getByText(/review the wording before saving it for future tasks/i)
     ).toBeInTheDocument()
-    expect(screen.getByText('Suggested from this task')).toBeInTheDocument()
+    expect(screen.getByText('From this task')).toBeInTheDocument()
+    expect(screen.queryByText('Suggested from this task')).toBeNull()
   })
 
   test('explains instruction suggestions as review-only before agents can follow them', () => {
     render(
       <ContextCandidatesList
-        title="Suggested saved instructions"
+        title="Instruction ideas from this run"
         kind="skill"
         candidates={[
           candidate({
@@ -76,26 +75,25 @@ describe('ContextCandidatesList', () => {
       />
     )
 
-    expect(screen.getByText('Suggested saved instructions')).toBeInTheDocument()
+    expect(screen.getByText('Instruction ideas from this run')).toBeInTheDocument()
     expect(
-      screen.getByText(/instruction suggestions.*before agents can follow the workflow/i)
+      screen.getByText(/draft instructions from the run.*before agents can follow it/i)
     ).toBeInTheDocument()
     expect(screen.getByText('Release operator')).toBeInTheDocument()
-    expect(screen.getByText('Instruction suggestion')).toBeInTheDocument()
+    expect(screen.getByText('Instruction idea')).toBeInTheDocument()
     expect(screen.getByText('Approved')).toBeInTheDocument()
+    expect(screen.getByText(/Open saved item review to inspect the full idea/i)).toBeInTheDocument()
     expect(
-      screen.getByText(/Open saved item review to inspect the full suggestion/i)
-    ).toBeInTheDocument()
-    expect(
-      screen.getByText(/review the suggestion before agents can follow it/i)
+      screen.getByText(/review this instruction before agents can follow it/i)
     ).toBeInTheDocument()
     expect(screen.queryByText(/Context queue/i)).toBeNull()
+    expect(screen.queryByText(/instruction suggestions/i)).toBeNull()
   })
 
   test('uses saved-instruction wording when an instruction suggestion has no title', () => {
     render(
       <ContextCandidatesList
-        title="Suggested saved instructions"
+        title="Instruction ideas from this run"
         kind="skill"
         candidates={[
           candidate({
@@ -109,15 +107,16 @@ describe('ContextCandidatesList', () => {
       />
     )
 
-    expect(screen.getByText('Suggested saved instruction')).toBeInTheDocument()
-    expect(screen.getByText('Instruction suggestion')).toBeInTheDocument()
+    expect(screen.getByText('Untitled instruction idea')).toBeInTheDocument()
+    expect(screen.getByText('Instruction idea')).toBeInTheDocument()
+    expect(screen.queryByText('Suggested saved instruction')).toBeNull()
     expect(screen.queryByText(new RegExp(['Suggested', 'skill'].join('\\s+')))).toBeNull()
   })
 
   test('labels unknown suggestion types without pretending they are memories', () => {
     render(
       <ContextCandidatesList
-        title="Suggested memory updates"
+        title="Save ideas from this run"
         kind="memory"
         candidates={[
           candidate({
@@ -131,11 +130,10 @@ describe('ContextCandidatesList', () => {
       />
     )
 
-    expect(screen.getByText('Suggested context item')).toBeInTheDocument()
-    expect(screen.getByText('Suggestion needs review')).toBeInTheDocument()
-    expect(
-      screen.getByText(/review this suggestion before agents can reuse it/i)
-    ).toBeInTheDocument()
+    expect(screen.getAllByText('Idea needs review').length).toBeGreaterThan(0)
+    expect(screen.getByText(/review this idea before agents can reuse it/i)).toBeInTheDocument()
+    expect(screen.queryByText('Suggested context item')).toBeNull()
+    expect(screen.queryByText('Suggestion needs review')).toBeNull()
     expect(screen.queryByText(/future context kind/i)).toBeNull()
   })
 })

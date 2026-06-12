@@ -26,7 +26,7 @@ interface ContextTabProps {
 
 const EMPTY_CONTEXT_STEPS = [
   'Publish or run the task so Forge can choose saved memories and saved instructions.',
-  'Open suggested memory updates after a run to keep useful context for next time.',
+  'Review ideas from a run to keep useful notes for next time.',
   'Use feedback on applied items so future runs learn what helped.',
 ]
 
@@ -163,7 +163,7 @@ export function ContextTab({
         onRecordFeedback={(item, label) => recordFeedback(item, label)}
       />
       <ContextCandidatesList
-        title="Suggested memory updates"
+        title="Save ideas from this run"
         kind="memory"
         candidates={context.suggestedMemoryUpdates}
       />
@@ -175,7 +175,7 @@ export function ContextTab({
         onRecordFeedback={(item, label) => recordFeedback(item, label)}
       />
       <ContextCandidatesList
-        title="Suggested saved instructions"
+        title="Instruction ideas from this run"
         kind="skill"
         candidates={context.skillCandidates}
       />
@@ -258,7 +258,7 @@ function ContextEmptyState() {
             </h3>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
               Context appears here after an agent run uses saved memories, saved instructions, or
-              evidence for this task.
+              run details for this task.
             </p>
           </div>
         </div>
