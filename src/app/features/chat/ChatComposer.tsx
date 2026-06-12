@@ -49,7 +49,7 @@ export function ChatComposer({
     const trimmed = value.trim()
     if (!trimmed) {
       setError(
-        'Write a message before sending it to this agent. Try asking for a summary, what is blocked, or the next safe step.'
+        'Write a message before sending it to this agent. Try asking for a summary, what needs help, or the next safe step.'
       )
       textareaRef.current?.focus()
       return
@@ -119,7 +119,7 @@ export function ChatComposer({
         {statusText}
       </p>
       <p id={examplesId} className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-        Need a starting point? Ask for a short summary, what is blocked, or the next safe step.
+        Need a starting point? Ask for a short summary, what needs help, or the next safe step.
       </p>
       {error && (
         <p id={errorId} role="alert" className="text-ui-caption font-medium text-apple-red">

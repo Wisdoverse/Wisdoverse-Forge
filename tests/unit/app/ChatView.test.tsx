@@ -80,6 +80,9 @@ afterEach(() => {
 })
 
 describe('ChatView', () => {
+  const previousFindHelpCopy = new RegExp(['find', 'blockers'].join('\\s+'), 'i')
+  const previousHandoffTitle = ['Agent updates', 'blockers'].join(' and ')
+
   test('shows chat-only AI service banner when agent has no cliTool', async () => {
     const loadMessages = vi.fn().mockResolvedValue(undefined)
     useAgentsStore.setState({ agents: [providerAgent] })
@@ -144,7 +147,9 @@ describe('ChatView', () => {
     expect(screen.getByTestId('conversation-empty-state')).toBeInTheDocument()
     expect(screen.getByText('Start by asking this agent')).toBeInTheDocument()
     expect(screen.getByText('Ask for one outcome at a time.')).toBeInTheDocument()
+    expect(screen.getByText('Use Attention after a reply to find what needs help.')).toBeVisible()
     expect(screen.getByText(/old messages are no longer useful/i)).toBeInTheDocument()
+    expect(screen.queryByText(previousFindHelpCopy)).toBeNull()
     expect(screen.queryByText(/old context/i)).toBeNull()
   })
 
@@ -159,6 +164,10 @@ describe('ChatView', () => {
     expect(
       screen.getByText('Open Tasks and assign work to this agent or its lane.')
     ).toBeInTheDocument()
+    expect(
+      screen.getByText('Check Attention once work starts to see what needs help.')
+    ).toBeVisible()
+    expect(screen.queryByText(previousFindHelpCopy)).toBeNull()
   })
 
   test('shows a clear retry path when workspace conversation history cannot load', () => {
@@ -230,6 +239,9 @@ describe('ChatView', () => {
     render(<ChatView agentId={providerAgent.id} />)
 
     expect(screen.getByTestId('conversation-handoff-summary')).toBeInTheDocument()
+    expect(screen.getByText('Agent updates and help needed')).toBeInTheDocument()
+    expect(screen.queryByText(previousHandoffTitle)).toBeNull()
+    expect(screen.getByPlaceholderText('Search updates, help needed, steps...')).toBeInTheDocument()
     expect(
       within(screen.getByTestId('conversation-metric-operator')).getByText('Your messages')
     ).toBeInTheDocument()

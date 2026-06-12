@@ -5,6 +5,8 @@ import { ChatComposer } from '@app/features/chat/ChatComposer'
 afterEach(cleanup)
 
 describe('ChatComposer', () => {
+  const previousBlockedPrompt = new RegExp(['what', 'is', 'blocked'].join('\\s+'), 'i')
+
   it('calls onSend with trimmed content on Cmd+Enter', () => {
     const onSend = vi.fn()
     render(<ChatComposer onSend={onSend} onAbort={() => {}} streaming={false} disabled={false} />)
@@ -36,8 +38,9 @@ describe('ChatComposer', () => {
     render(<ChatComposer onSend={() => {}} onAbort={() => {}} streaming={false} disabled={false} />)
 
     expect(
-      screen.getByText(/ask for a short summary, what is blocked, or the next safe step/i)
+      screen.getByText(/ask for a short summary, what needs help, or the next safe step/i)
     ).toBeVisible()
+    expect(screen.queryByText(previousBlockedPrompt)).toBeNull()
     expect(screen.getByRole('textbox')).toHaveAccessibleDescription(
       /write one clear instruction or question.*ask for a short summary/i
     )
@@ -52,8 +55,9 @@ describe('ChatComposer', () => {
 
     expect(onSend).not.toHaveBeenCalled()
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Write a message before sending it to this agent. Try asking for a summary, what is blocked, or the next safe step.'
+      'Write a message before sending it to this agent. Try asking for a summary, what needs help, or the next safe step.'
     )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(previousBlockedPrompt)
     expect(textarea).toHaveFocus()
 
     fireEvent.change(textarea, { target: { value: 'review the latest task' } })

@@ -37,7 +37,7 @@ const PROVIDER_EMPTY_COPY = {
   detail: 'Send a short request below when you need planning, review, or a direct answer.',
   steps: [
     'Ask for one outcome at a time.',
-    'Use Attention after a reply to find blockers.',
+    'Use Attention after a reply to find what needs help.',
     'Clear chat only when old messages are no longer useful.',
   ],
 }
@@ -47,7 +47,7 @@ const WORKSPACE_AGENT_EMPTY_COPY = {
   detail: 'Updates appear after this workspace agent receives work or reports progress.',
   steps: [
     'Open Tasks and assign work to this agent or its lane.',
-    'Check Attention once work starts to find blockers.',
+    'Check Attention once work starts to see what needs help.',
     'Refresh if the agent just came online.',
   ],
 }
@@ -221,7 +221,7 @@ export function ChatView({ agentId }: ChatViewProps) {
               Conversation handoff
             </p>
             <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              Agent updates and blockers
+              Agent updates and help needed
             </h3>
           </div>
         </div>
@@ -278,7 +278,7 @@ export function ChatView({ agentId }: ChatViewProps) {
             type="search"
             value={conversationSearch}
             onChange={(event) => setConversationSearch(event.target.value)}
-            placeholder="Search updates, blockers, steps..."
+            placeholder="Search updates, help needed, steps..."
             className={cn(
               'h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-ui-body outline-none',
               'text-foreground-light placeholder:text-secondary-light dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:placeholder:text-secondary-dark',
