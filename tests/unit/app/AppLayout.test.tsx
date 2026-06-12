@@ -179,6 +179,16 @@ describe('AppLayout', () => {
     expect(screen.queryByText(/AI coding agents/i)).toBeNull()
   })
 
+  test('uses beginner-facing analytics page metadata', () => {
+    routerState.path = '/analytics'
+
+    render(<MemoryRouter />)
+
+    expect(screen.getByText('Analytics')).toBeDefined()
+    expect(screen.getByText('See agent activity and results')).toBeDefined()
+    expect(screen.queryByText(/performance and activity metrics/i)).toBeNull()
+  })
+
   test('uses plain review history metadata for context exports', () => {
     routerState.path = '/context/audit'
 

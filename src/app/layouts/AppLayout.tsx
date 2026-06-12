@@ -29,7 +29,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   },
   '/agents': { title: 'Agents', subtitle: 'Create and manage agents that handle tasks' },
   '/skills': { title: 'Saved instructions', subtitle: 'Instructions agents can follow again' },
-  '/analytics': { title: 'Analytics', subtitle: 'Agent performance and activity metrics' },
+  '/analytics': { title: 'Analytics', subtitle: 'See agent activity and results' },
   '/billing': { title: 'Billing', subtitle: 'Plan, usage, and invoices' },
   '/settings': { title: 'Settings', subtitle: 'Account, AI services, and workspace' },
   '/admin': { title: 'Admin', subtitle: 'System health and user management' },
