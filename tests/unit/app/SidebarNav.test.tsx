@@ -56,8 +56,9 @@ describe('SidebarNav', () => {
       screen.getByRole('button', { name: /tasks: create and review agent work/i })
     ).toHaveAttribute('aria-current', 'page')
     expect(
-      screen.getByRole('button', { name: /context: review saved guidance/i })
+      screen.getByRole('button', { name: /context: review saved memories and instructions/i })
     ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /context: review saved guidance/i })).toBeNull()
     expect(
       screen.getByRole('button', { name: /agents: create and manage agents/i })
     ).toBeInTheDocument()

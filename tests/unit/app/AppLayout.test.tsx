@@ -156,13 +156,14 @@ describe('AppLayout', () => {
     expect(screen.queryByText(/providers/i)).toBeNull()
   })
 
-  test('uses beginner-facing saved guidance page metadata', () => {
+  test('uses beginner-facing saved context page metadata', () => {
     routerState.path = '/context'
 
     render(<MemoryRouter />)
 
-    expect(screen.getByText('Saved guidance')).toBeDefined()
-    expect(screen.getByText('Review what agents can save for later')).toBeDefined()
+    expect(screen.getByText('Saved memories and instructions')).toBeDefined()
+    expect(screen.getByText('Review what agents may reuse later')).toBeDefined()
+    expect(screen.queryByText('Saved guidance')).toBeNull()
     expect(screen.queryByText(/approval queue/i)).toBeNull()
     expect(screen.queryByText(/governed context/i)).toBeNull()
   })
@@ -355,7 +356,7 @@ describe('AppLayout', () => {
         'Create a Task Queue First'
       )
     )
-    expect(screen.getByText(/a task queue is where new work waits/i)).toBeDefined()
+    expect(screen.getByText(/a task queue gives new work a place to wait/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /open task queues/i })).toBeDefined()
     expect(createButton).toBeDisabled()
     expect(mockCreateGroup).not.toHaveBeenCalled()

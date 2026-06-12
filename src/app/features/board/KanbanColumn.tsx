@@ -63,7 +63,7 @@ const COLUMN_EMPTY_STATE: Record<string, { title: string; detail: string }> = {
   },
   done: {
     title: 'Nothing ready for review',
-    detail: 'Completed tasks move here so you can check results and saved guidance.',
+    detail: 'Completed tasks move here so you can check results and save repeatable steps.',
   },
   failed: {
     title: 'No work needing recovery',

@@ -73,6 +73,8 @@ describe('BoardView', () => {
     expect(screen.getByText('Working')).toBeDefined()
     expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
     expect(screen.getByText('Done')).toBeDefined()
+    expect(screen.getByText(/check results and save repeatable steps/i)).toBeDefined()
+    expect(screen.queryByText(/saved guidance/i)).toBeNull()
     expect(screen.getByText('Needs review')).toBeDefined()
     expect(screen.queryByText('Failed')).toBeNull()
     expect(screen.getByText('Canceled')).toBeDefined()
@@ -199,7 +201,8 @@ describe('BoardView', () => {
 
     render(<BoardView />)
 
-    expect(await screen.findByText(/2 tasks need an agent and can start now/i)).toBeDefined()
+    expect(await screen.findByText(/2 tasks need an agent/i)).toBeDefined()
+    expect(screen.getByText(/choose an available agent to start them/i)).toBeDefined()
     expect(screen.getByTestId('assignment-metric-backlog').textContent).toContain('2')
     expect(screen.getByTestId('assignment-metric-unassigned').textContent).toContain('2')
     expect(screen.getByTestId('assignment-metric-unassigned').textContent).toContain('Needs agent')

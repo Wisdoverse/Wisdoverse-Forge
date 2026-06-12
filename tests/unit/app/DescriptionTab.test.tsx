@@ -94,6 +94,9 @@ describe('DescriptionTab', () => {
     expect(onOpenContext).toHaveBeenCalledTimes(2)
     expect(onDraftSkill).toHaveBeenCalledOnce()
     expect(screen.getByText('Reuse what worked')).toBeDefined()
+    expect(screen.getByTestId('task-next-action').textContent).toContain(
+      'check what the agent reused'
+    )
     expect(
       screen.getByText('After review, save the repeatable steps if future tasks should reuse them.')
     ).toBeDefined()
@@ -103,6 +106,7 @@ describe('DescriptionTab', () => {
     const previousReuseCopy = new RegExp(['Completed work', 'saved instructions'].join('.*'), 'i')
     expect(screen.queryByText(previousReuseCopy)).toBeNull()
     expect(screen.queryByText('Reusable learning')).toBeNull()
+    expect(screen.queryByText(/saved guidance/i)).toBeNull()
     expect(screen.queryByText(/governed skill/i)).toBeNull()
     expect(screen.queryByText(new RegExp(['Draft a', 'skill'].join('\\s+')))).toBeNull()
     expect(screen.queryByText(new RegExp(['result', 'artifact'].join('\\s+'), 'i'))).toBeNull()

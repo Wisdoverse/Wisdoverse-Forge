@@ -357,10 +357,10 @@ function nextActionForTask(
         title: 'Review the handoff',
         detail:
           artifactCount > 0
-            ? 'Open result files, review context, and draft saved guidance if the work should repeat.'
+            ? 'Open result files, check what the agent reused, and save repeatable steps if future tasks should use them.'
             : contextTotal > 0
-              ? 'Review context and decide whether the completed work should become saved guidance.'
-              : 'Confirm the outcome and decide whether follow-up evidence or saved guidance is needed.',
+              ? 'Check what the agent reused, then save repeatable steps if future tasks should use them.'
+              : 'Confirm the outcome, then save repeatable steps or create a follow-up task if something is missing.',
         tone: 'success',
       }
     case 'failed':

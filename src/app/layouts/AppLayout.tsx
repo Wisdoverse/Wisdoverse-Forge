@@ -23,7 +23,10 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/tasks': { title: 'Tasks', subtitle: 'Plan, assign, and track agent work' },
   '/inbox': { title: 'Inbox', subtitle: 'Notifications and updates' },
   '/context/audit': { title: 'Review history', subtitle: 'See past reuse decisions and exports' },
-  '/context': { title: 'Saved guidance', subtitle: 'Review what agents can save for later' },
+  '/context': {
+    title: 'Saved memories and instructions',
+    subtitle: 'Review what agents may reuse later',
+  },
   '/agents': { title: 'Agents', subtitle: 'Deploy and manage AI coding agents' },
   '/skills': { title: 'Saved instructions', subtitle: 'Instructions agents can follow again' },
   '/analytics': { title: 'Analytics', subtitle: 'Agent performance and activity metrics' },

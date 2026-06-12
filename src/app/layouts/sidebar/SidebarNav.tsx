@@ -57,7 +57,7 @@ const NAV_ITEMS: NavItem[] = [
     id: 'context',
     Icon: ClipboardCheck,
     labelKey: 'nav.context',
-    description: 'review saved guidance',
+    description: 'review saved memories and instructions',
     path: '/context',
   },
   {
