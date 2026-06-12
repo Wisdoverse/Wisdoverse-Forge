@@ -40,6 +40,7 @@ describe('InboxView', () => {
     expect(screen.getByText(/all caught up/i)).toBeDefined()
     expect(screen.getByText('Inbox triage path')).toBeDefined()
     expect(screen.getByText(/start with needs action/i)).toBeDefined()
+    expect(screen.getByText(/tasks that need help/i)).toBeDefined()
     expect(screen.getByText(/work that stopped early/i)).toBeDefined()
     expect(screen.getByText(/account access notices/i)).toBeDefined()
     expect(
@@ -63,9 +64,10 @@ describe('InboxView', () => {
     expect(screen.getByText('Deploy staging')).toBeDefined()
     const item = screen.getByTestId('inbox-notification-n1')
     expect(item.getAttribute('data-template')).toBe('task-lifecycle')
-    expect(screen.getByText('Blocked task')).toBeDefined()
-    expect(screen.getByText('Review blocker')).toBeDefined()
+    expect(screen.getByText('Needs help')).toBeDefined()
+    expect(screen.getByText('Review what needs help')).toBeDefined()
     expect(screen.getByText(/provide the requested input/i)).toBeDefined()
+    expect(screen.queryByText(/review blocker/i)).toBeNull()
   })
 
   test('loads persisted failed owner notifications', async () => {
@@ -133,9 +135,10 @@ describe('InboxView', () => {
 
     const nextStep = screen.getByTestId('inbox-next-step')
     expect(nextStep).toHaveTextContent('Do This Next')
-    expect(nextStep).toHaveTextContent('Review the blocker that is stopping work')
+    expect(nextStep).toHaveTextContent('Review what is stopping work')
     expect(nextStep).toHaveTextContent('This is the only item that needs action')
-    expect(screen.getByRole('button', { name: /open blocked task/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /^open task$/i })).toBeDefined()
+    expect(nextStep).not.toHaveTextContent(/blocker/i)
   })
 
   test('prioritizes expired account access because it can block future runs', () => {
@@ -316,8 +319,9 @@ describe('InboxView', () => {
     await userEvent.setup().click(screen.getByTestId('inbox-filter-needs-action'))
 
     expect(screen.getByTestId('inbox-filter-empty')).toHaveTextContent(
-      'No blockers, stopped tasks, or account access issues need action right now.'
+      'No tasks that need help, stopped work, or account access issues need action right now.'
     )
+    expect(screen.getByTestId('inbox-filter-empty')).not.toHaveTextContent(/blockers/i)
     expect(screen.getByTestId('inbox-filter-empty')).not.toHaveTextContent(/failures/i)
   })
 

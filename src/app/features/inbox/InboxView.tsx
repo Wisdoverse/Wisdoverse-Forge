@@ -17,7 +17,7 @@ const FILTERS: { id: InboxFilter; label: string; empty: string }[] = [
   {
     id: 'needs-action',
     label: 'Needs action',
-    empty: 'No blockers, stopped tasks, or account access issues need action right now.',
+    empty: 'No tasks that need help, stopped work, or account access issues need action right now.',
   },
   {
     id: 'credentials',
@@ -27,7 +27,7 @@ const FILTERS: { id: InboxFilter; label: string; empty: string }[] = [
 ]
 
 const INBOX_TRIAGE_STEPS = [
-  'Start with Needs action to find blocked tasks and work that stopped early.',
+  'Start with Needs action to find tasks that need help and work that stopped early.',
   'Use Account access when an agent needs a connection restored.',
   'Mark items read after the task or setting has been handled.',
 ]
@@ -179,8 +179,8 @@ export function InboxView() {
             Inbox
           </h1>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Start with blockers and account access issues. Completed work can wait until review
-            time.
+            Start with tasks that need help and account access issues. Completed work can wait until
+            review time.
           </p>
         </header>
         {nextStepNotification && (
@@ -340,7 +340,7 @@ function nextStepTitle(notification: Notification): string {
     case 'credential_expired':
       return 'Reconnect account access before more agent work starts'
     case 'blocked':
-      return 'Review the blocker that is stopping work'
+      return 'Review what is stopping work'
     case 'failed':
       return 'Review the recovery note before retrying'
     case 'completed':
@@ -368,10 +368,10 @@ function nextStepDescription(
   if (notification.type === 'blocked' || notification.type === 'failed') {
     return needsActionCount === 1
       ? 'This is the only item that needs action. Open it and decide the next owner step.'
-      : `${needsActionCount} items need action. Start with the newest blocker or recovery item first.`
+      : `${needsActionCount} items need action. Start with the newest item that needs help or recovery item first.`
   }
 
-  return 'There are no urgent blockers. Open this update only if you need to review the latest work.'
+  return 'There are no urgent items that need help. Open this update only if you need to review the latest work.'
 }
 
 function nextStepActionLabel(notification: Notification): string {
@@ -379,7 +379,7 @@ function nextStepActionLabel(notification: Notification): string {
     case 'credential_expired':
       return 'Open Settings'
     case 'blocked':
-      return 'Open Blocked Task'
+      return 'Open Task'
     case 'failed':
       return 'Review Recovery'
     case 'completed':
