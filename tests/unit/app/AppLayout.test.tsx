@@ -156,6 +156,17 @@ describe('AppLayout', () => {
     expect(screen.queryByText(/launch checklist/i)).toBeNull()
   })
 
+  test('uses beginner-facing tasks page metadata', () => {
+    routerState.path = '/tasks'
+
+    render(<MemoryRouter />)
+
+    expect(screen.getByText('Tasks')).toBeDefined()
+    expect(screen.getByText('Create tasks and follow agent progress')).toBeDefined()
+    expect(screen.queryByText(/assign/i)).toBeNull()
+    expect(screen.queryByText(/track agent work/i)).toBeNull()
+  })
+
   test('uses beginner-facing settings page metadata', () => {
     routerState.path = '/settings'
 
