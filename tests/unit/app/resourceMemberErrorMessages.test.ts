@@ -58,10 +58,7 @@ describe('resourceMemberErrorMessage', () => {
       reason: 'role is required',
     })
 
-    expectBeginnerMessage(
-      message,
-      'Choose this person and what they can do, then add them again.'
-    )
+    expectBeginnerMessage(message, 'Choose this person and what they can do, then add them again.')
     expect(message).not.toContain('role is required')
   })
 
@@ -90,6 +87,19 @@ describe('resourceMemberErrorMessage', () => {
       'Choose a different owner first, then change what this person can do on this project.'
     )
     expect(message).not.toContain('Choose a different owner first.')
+  })
+
+  test('uses server error details for last-owner failures', () => {
+    const message = resourceMemberErrorMessage('remove', 'Team', {
+      statusCode: 422,
+      serverError: 'owner must remain on team',
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Choose a different owner first, then remove this person from this team.'
+    )
+    expect(message).not.toContain('owner must remain')
   })
 
   test('turns service failures into a people access settings step', () => {

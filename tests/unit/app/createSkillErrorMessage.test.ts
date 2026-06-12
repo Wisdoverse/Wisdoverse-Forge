@@ -59,6 +59,15 @@ describe('createSkillErrorMessage', () => {
     expect(message).not.toContain('trigger is invalid')
   })
 
+  test('uses server error details for field-specific guidance', () => {
+    const message = createSkillErrorMessage({
+      serverError: 'trigger words are required',
+    })
+
+    expectBeginnerMessage(message, 'Check the matching words, then try again.')
+    expect(message).not.toContain('trigger words are required')
+  })
+
   test('turns service failures into a skill setup recovery step', () => {
     const message = createSkillErrorMessage(new Error('HTTP 500'))
 

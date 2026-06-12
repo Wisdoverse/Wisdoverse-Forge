@@ -166,7 +166,7 @@ function firstPayloadString(value: unknown): string | null {
   if (!value || typeof value !== 'object') return null
 
   const record = value as Record<string, unknown>
-  for (const key of ['message', 'error', 'detail', 'reason']) {
+  for (const key of ['serverError', 'message', 'error', 'detail', 'reason']) {
     const found = firstPayloadString(record[key])
     if (found) return found
   }

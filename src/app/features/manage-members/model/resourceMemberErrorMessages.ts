@@ -136,13 +136,20 @@ function rawDetailFromResourceMemberError(error: unknown): string | null {
   if (error instanceof Error && error.message.trim()) return error.message.trim()
   if (error && typeof error === 'object') {
     const record = error as {
+      serverError?: unknown
       detail?: unknown
       error?: unknown
       message?: unknown
       reason?: unknown
     }
 
-    for (const candidate of [record.detail, record.error, record.message, record.reason]) {
+    for (const candidate of [
+      record.serverError,
+      record.detail,
+      record.error,
+      record.message,
+      record.reason,
+    ]) {
       if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
     }
   }
@@ -190,7 +197,7 @@ function firstPayloadString(value: unknown): string | null {
   if (!value || typeof value !== 'object') return null
 
   const record = value as Record<string, unknown>
-  for (const key of ['message', 'error', 'detail', 'reason']) {
+  for (const key of ['serverError', 'message', 'error', 'detail', 'reason']) {
     const found = firstPayloadString(record[key])
     if (found) return found
   }

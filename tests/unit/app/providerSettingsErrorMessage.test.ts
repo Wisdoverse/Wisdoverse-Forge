@@ -32,6 +32,19 @@ describe('providerSettingsErrorMessage', () => {
     )
   })
 
+  test('uses server error details for missing service addresses', () => {
+    const message = providerSettingsErrorMessage({
+      serverError: 'base url is required',
+      statusCode: 422,
+    })
+
+    expectBeginnerMessage(
+      message,
+      'AI service could not be saved. Add the service address for this AI service, then save again.'
+    )
+    expect(message).not.toContain('base url is required')
+  })
+
   test('turns permission errors into an owner or admin step', () => {
     expectBeginnerMessage(
       providerSettingsErrorMessage(

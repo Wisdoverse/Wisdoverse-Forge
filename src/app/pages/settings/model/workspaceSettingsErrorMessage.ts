@@ -53,13 +53,20 @@ function errorDetail(err: unknown): string {
 function structuredErrorDetail(err: unknown): string {
   if (!err || typeof err !== 'object') return ''
   const value = err as {
+    serverError?: unknown
     detail?: unknown
     error?: unknown
     message?: unknown
     reason?: unknown
   }
 
-  for (const candidate of [value.detail, value.error, value.message, value.reason]) {
+  for (const candidate of [
+    value.serverError,
+    value.detail,
+    value.error,
+    value.message,
+    value.reason,
+  ]) {
     if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
   }
 

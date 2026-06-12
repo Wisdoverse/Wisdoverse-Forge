@@ -5,7 +5,7 @@ function errorText(error: unknown): string {
 
 function structuredErrorText(error: unknown): string {
   if (!error || typeof error !== 'object') return errorText(error)
-  for (const key of ['detail', 'error', 'message', 'reason'] as const) {
+  for (const key of ['serverError', 'detail', 'error', 'message', 'reason'] as const) {
     const value = (error as Record<string, unknown>)[key]
     if (typeof value === 'string' && value.trim()) return value
   }

@@ -32,6 +32,18 @@ describe('agentTasksErrorMessage', () => {
     expect(message).not.toContain('task query requests')
   })
 
+  test('maps server error rate limits without leaking raw queue details', () => {
+    const message = agentTasksErrorMessage({
+      serverError: 'too many task query requests',
+      statusCode: 429,
+    })
+
+    expect(message).toBe(
+      "This agent's work list could not be loaded. Too many task requests are happening right now. Wait a minute, then try again."
+    )
+    expect(message).not.toContain('task query requests')
+  })
+
   test('maps service failures without exposing transport details', () => {
     const message = agentTasksErrorMessage('Server error (503)')
 

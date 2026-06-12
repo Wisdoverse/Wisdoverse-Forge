@@ -57,11 +57,20 @@ function rawDetail(error: unknown): string | null {
   if (typeof error === 'string' && error.trim()) return error.trim()
   if (error instanceof Error && error.message.trim()) return error.message.trim()
   if (error && typeof error === 'object') {
+    const serverError = (error as { serverError?: unknown }).serverError
+    if (typeof serverError === 'string' && serverError.trim()) return serverError.trim()
+
     const message = (error as { message?: unknown }).message
     if (typeof message === 'string' && message.trim()) return message.trim()
 
+    const detail = (error as { detail?: unknown }).detail
+    if (typeof detail === 'string' && detail.trim()) return detail.trim()
+
     const errorValue = (error as { error?: unknown }).error
     if (typeof errorValue === 'string' && errorValue.trim()) return errorValue.trim()
+
+    const reason = (error as { reason?: unknown }).reason
+    if (typeof reason === 'string' && reason.trim()) return reason.trim()
   }
   return null
 }
@@ -118,7 +127,7 @@ function firstPayloadString(value: unknown): string | null {
   if (!value || typeof value !== 'object') return null
 
   const record = value as Record<string, unknown>
-  for (const key of ['message', 'error', 'detail', 'reason']) {
+  for (const key of ['serverError', 'message', 'error', 'detail', 'reason']) {
     const found = firstPayloadString(record[key])
     if (found) return found
   }

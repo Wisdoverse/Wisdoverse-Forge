@@ -6,13 +6,20 @@ function errorText(error: unknown): string {
   if (!error || typeof error !== 'object') return ''
 
   const value = error as {
+    serverError?: unknown
     detail?: unknown
     error?: unknown
     message?: unknown
     reason?: unknown
   }
 
-  for (const candidate of [value.detail, value.error, value.message, value.reason]) {
+  for (const candidate of [
+    value.serverError,
+    value.detail,
+    value.error,
+    value.message,
+    value.reason,
+  ]) {
     if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
   }
 

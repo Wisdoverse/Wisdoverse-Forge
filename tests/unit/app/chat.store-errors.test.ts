@@ -42,6 +42,18 @@ describe('chatErrorMessage', () => {
     expect(message).not.toContain('chat token expired')
   })
 
+  test('uses server error details for structured sign-in failures', () => {
+    const message = chatErrorMessage('load', {
+      serverError: 'unauthorized chat session expired',
+      statusCode: '401',
+    })
+
+    expect(message).toBe(
+      'Conversation history could not be loaded. Sign in again, then reopen this chat.'
+    )
+    expect(message).not.toContain('chat session expired')
+  })
+
   test('maps structured clear conflicts to a wait and retry step', () => {
     const message = chatErrorMessage('clear', {
       reason: 'conversation delete already in progress',
