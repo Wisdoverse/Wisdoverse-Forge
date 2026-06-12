@@ -61,14 +61,22 @@ describe('beginner error translations', () => {
   test('empty states include a next step', () => {
     expect(en.common.noResults).toContain('clear the filters')
     expect(en.agents.noAgents).toContain('Create one agent')
+    expect(en.gettingStarted.noProject).toBe('Choose a project from the sidebar first.')
+    expect(en.prompt.noAgentSelected).toBe('Choose an agent before sending work.')
     expect(en.skills.detail.noDescription).toContain('Review the instructions')
     expect(en.skills.detail.noContent).toContain('Add instructions')
     expect(en.skills.detail.unknownAuthor).toContain('not listed yet')
     expect(zh.common.noResults).toContain('清除筛选')
     expect(zh.agents.noAgents).toContain('创建一个 Agent')
+    expect(zh.gettingStarted.noProject).toBe('请先在侧边栏选择一个项目。')
+    expect(zh.prompt.noAgentSelected).toBe('请先选择一个 Agent，再发送任务。')
     expect(zh.skills.detail.noDescription).toContain('查看下面的说明')
     expect(zh.skills.detail.noContent).toContain('先补充说明')
     expect(zh.skills.detail.unknownAuthor).toContain('暂未列出')
+    expect(en.gettingStarted.noProject).not.toBe('No project selected')
+    expect(en.prompt.noAgentSelected).not.toBe('No agent selected')
+    expect(zh.gettingStarted.noProject).not.toBe('未选择项目')
+    expect(zh.prompt.noAgentSelected).not.toBe('未选择 Agent')
   })
 
   test('shared instruction input copy avoids prompt jargon', () => {

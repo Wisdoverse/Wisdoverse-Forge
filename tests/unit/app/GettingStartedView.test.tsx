@@ -302,6 +302,8 @@ describe('GettingStartedView', () => {
     render(<GettingStartedView />)
 
     expect(await screen.findByText('Do this next')).toBeDefined()
+    expect(screen.getByText('Choose a project from the sidebar first.')).toBeDefined()
+    expect(screen.queryByText('No project selected')).toBeNull()
     expect(screen.getAllByText(/A project gives tasks a clear home/i).length).toBeGreaterThan(0)
     fireEvent.click(await screen.findByRole('button', { name: /add AI service/i }))
 

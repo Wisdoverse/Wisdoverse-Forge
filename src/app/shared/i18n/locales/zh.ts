@@ -94,7 +94,7 @@ export const zh: TranslationKeys = {
     readyDetail: '基础路径已经跑通。现在可以继续创建任务，或整理保存好的指令。',
     successLabel: '成功的样子：',
     currentProject: '当前项目',
-    noProject: '未选择项目',
+    noProject: '请先在侧边栏选择一个项目。',
     projects: '项目',
     workLocations: {
       managed: '托管工作区',
@@ -362,7 +362,7 @@ export const zh: TranslationKeys = {
     characterLimitWarning: '接近字符限制',
     emptyPrompt: '请先输入一条指令。',
     selectAgent: '请先选择一个 Agent',
-    noAgentSelected: '未选择 Agent',
+    noAgentSelected: '请先选择一个 Agent，再发送任务。',
     multipleAgentsSelected: '已选择 {{count}} 个 Agent',
     shortcuts: {
       send: '按 Enter 发送',

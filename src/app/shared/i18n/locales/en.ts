@@ -95,7 +95,7 @@ export const en = {
       'The basic path is complete. You can create more tasks or review saved instructions.',
     successLabel: 'Success looks like:',
     currentProject: 'Current project',
-    noProject: 'No project selected',
+    noProject: 'Choose a project from the sidebar first.',
     projects: 'Projects',
     workLocations: {
       managed: 'a managed workspace',
@@ -367,7 +367,7 @@ export const en = {
     characterLimitWarning: 'Approaching character limit',
     emptyPrompt: 'Type an instruction before sending.',
     selectAgent: 'Choose an agent first.',
-    noAgentSelected: 'No agent selected',
+    noAgentSelected: 'Choose an agent before sending work.',
     multipleAgentsSelected: '{{count}} agents selected',
     shortcuts: {
       send: 'Press Enter to send',
