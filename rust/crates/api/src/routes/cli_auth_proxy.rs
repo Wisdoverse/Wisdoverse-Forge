@@ -51,6 +51,7 @@ fn default_test_config() -> agentforge_core::AppConfig {
         redis_url: None,
         nats_url: None,
         nats_agent_url: None,
+        nats_container_url: None,
         nats_callout: agentforge_core::NatsCalloutConfig::default(),
         stripe: agentforge_core::StripeConfig::default(),
         jwt_secret: secrecy::SecretString::from("a".repeat(32)),

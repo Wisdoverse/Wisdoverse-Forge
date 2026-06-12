@@ -227,6 +227,15 @@ pub struct AppConfig {
     /// exactly the pre-#38 posture.
     pub nats_agent_url: Option<String>,
 
+    /// NATS connection URL injected into CONTAINER-backed agents only. Falls
+    /// back to `nats_agent_url` (then `nats_url`) when unset.
+    ///
+    /// Deployments that firewall the host's public NATS port away from the
+    /// Docker bridge must set this to an address reachable from the agent
+    /// network (e.g. `nats://agentforge-nats:4222`), while `nats_agent_url`
+    /// keeps the public address that off-host Host CLI agents join against.
+    pub nats_container_url: Option<String>,
+
     /// NATS auth callout configuration (issue #38 phase 2). Grouped into a
     /// sub-struct so additional callout fields in future phases do NOT
     /// require every external `AppConfig { ... }` literal to change —
@@ -634,6 +643,7 @@ mod tests {
                 assert!(cfg.redis_url.is_none());
                 assert!(cfg.nats_url.is_none());
                 assert!(cfg.nats_agent_url.is_none());
+                assert!(cfg.nats_container_url.is_none());
                 assert!(cfg.nats_callout.auth_service_password.is_none());
                 assert!(cfg.nats_callout.issuer_seed.is_none());
                 assert!(cfg.nats_callout.account_signing_key_seed.is_none());
@@ -685,6 +695,7 @@ mod tests {
             redis_url: None,
             nats_url: None,
             nats_agent_url: None,
+            nats_container_url: None,
             nats_callout: NatsCalloutConfig::default(),
             stripe: StripeConfig::default(),
             jwt_secret: test_jwt_secret(),
@@ -995,6 +1006,7 @@ mod tests {
             redis_url: None,
             nats_url: None,
             nats_agent_url: None,
+            nats_container_url: None,
             nats_callout: NatsCalloutConfig {
                 auth_service_password: Some(SecretString::from("nats-auth-svc-supersecret".to_string())),
                 issuer_seed: Some(SecretString::from(

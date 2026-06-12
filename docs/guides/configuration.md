@@ -71,12 +71,13 @@ administrator.
 These control the one-command Host CLI join flow
 (see [Host CLI Agent Enrollment](../runbooks/host-cli-agent-enrollment.md)).
 
-| Variable                    | Default                           | Required | Purpose                                                                                                               |
-| --------------------------- | --------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------- |
-| `APP_URL`                   | none                              | No       | Public URL of this deployment; required for the join commands to be generated                                         |
-| `NATS_AGENT_URL`            | none                              | No       | NATS address reachable from operator machines; must be `tls://` unless plaintext is explicitly allowed                |
-| `ALLOW_PLAINTEXT_HOST_NATS` | `false`                           | No       | Permit `nats://` (plaintext) Host CLI enrollment — isolated dev/test only                                             |
-| `HOST_JOIN_BINARY_BASE_URL` | this repo's GitHub latest release | No       | Where the join script downloads `agentforge-sidecar` binaries; point at an internal mirror for air-gapped deployments |
+| Variable                    | Default                           | Required | Purpose                                                                                                                                                                            |
+| --------------------------- | --------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `APP_URL`                   | none                              | No       | Public URL of this deployment; required for the join commands to be generated                                                                                                      |
+| `NATS_AGENT_URL`            | none                              | No       | NATS address reachable from operator machines; must be `tls://` unless plaintext is explicitly allowed                                                                             |
+| `NATS_CONTAINER_URL`        | falls back to `NATS_AGENT_URL`    | No       | NATS address reachable from agent containers on the Docker network (e.g. `nats://agentforge-nats:4222`); set it when the host firewall blocks containers from the public NATS port |
+| `ALLOW_PLAINTEXT_HOST_NATS` | `false`                           | No       | Permit `nats://` (plaintext) Host CLI enrollment — isolated dev/test only                                                                                                          |
+| `HOST_JOIN_BINARY_BASE_URL` | this repo's GitHub latest release | No       | Where the join script downloads `agentforge-sidecar` binaries; point at an internal mirror for air-gapped deployments                                                              |
 
 ## Attachment Storage Variables
 
@@ -162,15 +163,15 @@ Prerequisites: set `CLI_IMAGE_AUTO_UPDATE_ENABLED=true` and make Docker availabl
 to the Rust API service (the same requirement as `MCP_ENABLED=true`). The updater
 is deployment-global and has no tenant scope, because image state is per host.
 
-| Variable                              | Default                               | Purpose                                                                                      |
-| ------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `CLI_IMAGE_AUTO_UPDATE_ENABLED`       | `false`                               | Enables the background CLI agent-image auto-updater                                          |
-| `CLI_IMAGE_AUTO_UPDATE_INTERVAL_SECS` | `900`                                 | Registry poll interval in seconds (15 min); clamped to a 60-second minimum                   |
-| `CLI_IMAGE_PRUNE_ENABLED`             | `false`                               | Prunes superseded dangling agent overlays after each sweep; only runs when auto-update is on |
+| Variable                              | Default                               | Purpose                                                                                                                                                  |
+| ------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLI_IMAGE_AUTO_UPDATE_ENABLED`       | `false`                               | Enables the background CLI agent-image auto-updater                                                                                                      |
+| `CLI_IMAGE_AUTO_UPDATE_INTERVAL_SECS` | `900`                                 | Registry poll interval in seconds (15 min); clamped to a 60-second minimum                                                                               |
+| `CLI_IMAGE_PRUNE_ENABLED`             | `false`                               | Prunes superseded dangling agent overlays after each sweep; only runs when auto-update is on                                                             |
 | `CLI_IMAGE_CLAUDE_AUTO_BUILD`         | `false`                               | Builds the local `claude` image automatically when npm publishes a newer Claude Code; off = detect-only with a one-click Build button in the admin panel |
-| `CLI_IMAGE_NPM_REGISTRY`              | `https://registry.npmjs.org`          | npm registry base for the claude version check and build; point at a mirror (e.g. `https://registry.npmmirror.com`) behind restrictive networks |
-| `AGENT_REGISTRY`                      | `ghcr.io/wisdoverse/wisdoverse-forge` | Registry base the updater pulls overlays from, as `${AGENT_REGISTRY}/agent-<tool>:<tag>`     |
-| `AGENT_CLI_IMAGE_TAG`                 | `latest`                              | Image tag the updater tracks, used as the `<tag>` in the remote ref above                    |
+| `CLI_IMAGE_NPM_REGISTRY`              | `https://registry.npmjs.org`          | npm registry base for the claude version check and build; point at a mirror (e.g. `https://registry.npmmirror.com`) behind restrictive networks          |
+| `AGENT_REGISTRY`                      | `ghcr.io/wisdoverse/wisdoverse-forge` | Registry base the updater pulls overlays from, as `${AGENT_REGISTRY}/agent-<tool>:<tag>`                                                                 |
+| `AGENT_CLI_IMAGE_TAG`                 | `latest`                              | Image tag the updater tracks, used as the `<tag>` in the remote ref above                                                                                |
 
 Success looks like newly spawned agents picking up the current CLI overlay
 without an operator running `make update-agents` by hand. Confirm status at the

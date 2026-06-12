@@ -49,6 +49,7 @@ fn test_app_config(database_url: &str) -> AppConfig {
         redis_url: None,
         nats_url: None,
         nats_agent_url: None,
+        nats_container_url: None,
         nats_callout: NatsCalloutConfig::default(),
         stripe: StripeConfig::default(),
         jwt_secret: SecretString::from(TEST_JWT_SECRET.to_string()),

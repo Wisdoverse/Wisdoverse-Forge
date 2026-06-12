@@ -31,6 +31,7 @@ use crate::services::orchestration::OrchestrationService;
 
 pub(crate) struct AgentContainerControlSettings {
     pub(crate) workspace_root: String,
+    pub(crate) nats_container_url: Option<String>,
     pub(crate) nats_agent_url: Option<String>,
     pub(crate) nats_url: Option<String>,
     pub(crate) container_server_url: Option<String>,
@@ -46,6 +47,7 @@ impl AgentContainerControlSettings {
     ) -> Self {
         Self {
             workspace_root,
+            nats_container_url: config.nats_container_url.clone(),
             nats_agent_url: config.nats_agent_url.clone(),
             nats_url: config.nats_url.clone(),
             container_server_url: config.container_server_url.clone(),
@@ -169,7 +171,8 @@ impl AgentContainerControlService {
         let nats_connect_password = Uuid::new_v4().to_string();
         let workspace_paths = self.prepare_workspace(scope, &agent).await?;
         let workspace_host_path = workspace_paths.host_projects_root.to_string_lossy().into_owned();
-        let nats_base_url = AgentContainerEnvPolicy::pick_nats_base_url(
+        let nats_base_url = AgentContainerEnvPolicy::pick_container_nats_base_url(
+            self.settings.nats_container_url.as_deref(),
             self.settings.nats_agent_url.as_deref(),
             self.settings.nats_url.as_deref(),
         );
@@ -366,6 +369,7 @@ mod tests {
     fn control_settings_keep_runtime_urls_optional() {
         let settings = AgentContainerControlSettings {
             workspace_root: "/tmp/workspaces".to_string(),
+            nats_container_url: None,
             nats_agent_url: None,
             nats_url: None,
             container_server_url: None,
@@ -374,7 +378,8 @@ mod tests {
         };
 
         assert!(
-            AgentContainerEnvPolicy::pick_nats_base_url(
+            AgentContainerEnvPolicy::pick_container_nats_base_url(
+                settings.nats_container_url.as_deref(),
                 settings.nats_agent_url.as_deref(),
                 settings.nats_url.as_deref()
             )
