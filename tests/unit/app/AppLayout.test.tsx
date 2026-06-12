@@ -189,6 +189,16 @@ describe('AppLayout', () => {
     expect(screen.queryByText(/performance and activity metrics/i)).toBeNull()
   })
 
+  test('uses beginner-facing billing page metadata', () => {
+    routerState.path = '/billing'
+
+    render(<MemoryRouter />)
+
+    expect(screen.getByText('Billing')).toBeDefined()
+    expect(screen.getByText('Plan, payments, and invoices')).toBeDefined()
+    expect(screen.queryByText(/usage/i)).toBeNull()
+  })
+
   test('uses plain review history metadata', () => {
     routerState.path = '/context/audit'
 
