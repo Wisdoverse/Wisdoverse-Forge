@@ -39,11 +39,13 @@ describe('InjectionPreviewModal', () => {
     expect(
       screen.getByText('Checked items will be shared with the agent when you send the task.')
     ).toBeDefined()
+    expect(screen.getByText('No other saved items were found.')).toBeDefined()
     expect(screen.getByRole('button', { name: 'Send task with selected notes' })).toBeDefined()
     expect(screen.getAllByLabelText('Close saved notes review')).toHaveLength(2)
     expect(screen.queryByText(/publish/i)).toBeNull()
     expect(screen.queryByText(/selected context/i)).toBeNull()
     expect(screen.queryByText(new RegExp(['skill', 'instructions'].join('\\s+'), 'i'))).toBeNull()
+    expect(screen.queryByText(new RegExp(['extra', 'matches'].join('\\s+'), 'i'))).toBeNull()
   })
 
   test('explains note space without context-unit jargon', () => {
@@ -164,12 +166,14 @@ describe('InjectionPreviewModal', () => {
 
     expect(screen.getByText('Saved instruction')).toBeDefined()
     expect(screen.getByText('More saved items you can include')).toBeDefined()
+    expect(screen.getByText('These are not shared unless you add them.')).toBeDefined()
     expect(screen.getByText('Kept easy to reuse')).toBeDefined()
     expect(screen.getByText('These saved items stay easy to reuse for this task.')).toBeDefined()
     expect(screen.getByLabelText('Keep Deploy checklist easy to reuse')).toBeDefined()
     expect(screen.getByLabelText('Stop keeping Kept checklist easy to reuse')).toBeDefined()
     expect(screen.queryByText(new RegExp(['Skill', 'instruction'].join('\\s+')))).toBeNull()
     expect(screen.queryByText(new RegExp(['Optional', 'matches'].join('\\s+')))).toBeNull()
+    expect(screen.queryByText(new RegExp(['stay', 'out'].join('\\s+'), 'i'))).toBeNull()
     expect(screen.queryByText(new RegExp(['Pinned', 'for', 'later'].join('\\s+')))).toBeNull()
     expect(screen.queryByLabelText(new RegExp(['Stop', 'pinning'].join('\\s+')))).toBeNull()
   })

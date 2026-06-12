@@ -189,9 +189,9 @@ export function InjectionPreviewModal({
               />
               <PreviewSection
                 title="More saved items you can include"
-                helper="These may help, but they stay out unless you choose them."
+                helper="These are not shared unless you add them."
                 items={preview.suggestedItems}
-                empty="No extra matches were found."
+                empty="No other saved items were found."
                 selectedIds={selectedIds}
                 pinnedIds={pinnedIds}
                 onToggleSelected={toggleSelected}
