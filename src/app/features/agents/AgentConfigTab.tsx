@@ -75,7 +75,11 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
   }, [agent?.systemPrompt])
 
   if (!agent) {
-    return <div className="text-ui-body text-secondary-light">Agent not found.</div>
+    return (
+      <div className="text-ui-body text-secondary-light">
+        This agent could not be found. Open Agents, choose a current agent, then return to settings.
+      </div>
+    )
   }
 
   if (agent.cliTool) {

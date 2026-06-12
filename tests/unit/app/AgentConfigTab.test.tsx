@@ -233,8 +233,10 @@ describe('AgentConfigTab', () => {
     expect(screen.queryByText('Unknown')).toBeNull()
   })
 
-  it('renders "Agent not found" for unknown id', () => {
+  it('shows a recovery step when the agent is no longer available', () => {
     render(<AgentConfigTab agentId="missing" />)
-    expect(screen.getByText(/agent not found/i)).toBeInTheDocument()
+    expect(screen.getByText(/this agent could not be found/i)).toBeInTheDocument()
+    expect(screen.getByText(/open agents, choose a current agent/i)).toBeInTheDocument()
+    expect(screen.queryByText('Agent not found.')).toBeNull()
   })
 })
