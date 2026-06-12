@@ -60,7 +60,8 @@ const TYPE_COLORS: Record<string, string> = {
 
 const NEXT_ACTION_COPY: Record<string, string> = {
   'task.blocked': 'Next step: open the task and clear the blocker or missing access.',
-  'task.failed': 'Next step: open the task, follow the recovery note, then retry when ready.',
+  'task.failed':
+    'Next step: open the task, follow the recovery note, then retry or choose another agent.',
 }
 
 export function FeedItem({ item }: { item: FeedItemType }) {
@@ -129,7 +130,7 @@ function displayFeedDetail(item: FeedItemType): string {
 
   if (!exposesRawFailure) return item.detail
 
-  return 'Open details to see the recovery note, then retry or reassign when ready.'
+  return 'Open details to see the recovery note, then retry or choose another agent.'
 }
 
 function formatTime(ts: number): string {

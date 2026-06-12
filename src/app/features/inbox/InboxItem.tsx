@@ -51,7 +51,7 @@ const TYPE_CONFIG: Record<
     dot: 'bg-apple-red',
     label: 'Needs review',
     actionLabel: 'Review recovery',
-    guidance: 'Open the task, review the recovery note, then retry or reassign when ready.',
+    guidance: 'Open the task, review the recovery note, then retry or choose another agent.',
     template: 'task-lifecycle',
   },
   assigned: {
@@ -195,7 +195,7 @@ function failedNotificationMessage(message: string): string {
 
   if (!exposesRawFailure) return message
 
-  return 'The task stopped before finishing. Open it, review the recovery note, then retry or reassign when ready.'
+  return 'The task stopped before finishing. Open it, review the recovery note, then retry or choose another agent.'
 }
 
 function displayNotificationTitle(notification: Notification): string {

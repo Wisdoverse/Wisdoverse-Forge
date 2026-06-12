@@ -99,9 +99,11 @@ describe('InboxView', () => {
     expect(screen.getByText('Deploy production')).toBeDefined()
     expect(
       screen.getByText(
-        'The task stopped before finishing. Open it, review the recovery note, then retry or reassign when ready.'
+        'The task stopped before finishing. Open it, review the recovery note, then retry or choose another agent.'
       )
     ).toBeDefined()
+    expect(screen.queryByText(/when ready/i)).toBeNull()
+    expect(screen.queryByText(/reassign/i)).toBeNull()
     expect(screen.queryByText(/failed to complete this task/i)).toBeNull()
     expect(screen.queryByText(/exit 1/i)).toBeNull()
   })

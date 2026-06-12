@@ -248,7 +248,7 @@ function taskNotificationMessage(
     case 'blocked':
       return `${actor} is blocked and needs owner input: ${detail}`
     case 'failed':
-      return `${actor} stopped before finishing. Open the task, review the recovery note, then retry or reassign when ready. ${detail}`
+      return `${actor} stopped before finishing. Open the task, review the recovery note, then retry or choose another agent. ${detail}`
     case 'completed':
       return `${actor} completed this task: ${detail}`
   }

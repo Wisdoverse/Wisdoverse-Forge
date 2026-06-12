@@ -38,9 +38,13 @@ describe('FeedItem', () => {
     expect(screen.getByText('Needs review')).toBeDefined()
     expect(screen.queryByText('Failed')).toBeNull()
     expect(
-      screen.getByText('Open details to see the recovery note, then retry or reassign when ready.')
+      screen.getByText('Open details to see the recovery note, then retry or choose another agent.')
     ).toBeDefined()
-    expect(screen.getByText(/follow the recovery note, then retry when ready/i)).toBeDefined()
+    expect(
+      screen.getByText(/follow the recovery note, then retry or choose another agent/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/when ready/i)).toBeNull()
+    expect(screen.queryByText(/reassign/i)).toBeNull()
     expect(screen.queryByText('Command exited 1')).toBeNull()
     expect(screen.queryByText(/read the error/i)).toBeNull()
   })
@@ -49,8 +53,10 @@ describe('FeedItem', () => {
     render(<FeedItem item={{ ...baseItem, type: 'task.failed', detail: 'SSH key rejected' }} />)
 
     expect(
-      screen.getByText('Open details to see the recovery note, then retry or reassign when ready.')
+      screen.getByText('Open details to see the recovery note, then retry or choose another agent.')
     ).toBeDefined()
+    expect(screen.queryByText(/when ready/i)).toBeNull()
+    expect(screen.queryByText(/reassign/i)).toBeNull()
     expect(screen.queryByText(/SSH key rejected/i)).toBeNull()
   })
 

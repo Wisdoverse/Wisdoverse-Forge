@@ -236,7 +236,7 @@ describe('dispatchWsMessage', () => {
     const notifications = useFeedStore.getState().notifications
     expect(notifications).toHaveLength(1)
     expect(notifications[0].message).toContain(
-      'Free capacity or ask an owner to raise the limit, then retry.'
+      'Pause lower-priority work or ask an owner to raise the limit, then retry.'
     )
     expect(notifications[0].message).not.toContain('quota_exceeded')
     expect(notifications[0].message).not.toContain('docker socket')
@@ -315,8 +315,10 @@ describe('dispatchWsMessage', () => {
       'Stopped because sign-in or service access needs attention.'
     )
     expect(notifications[0].message).toContain(
-      'stopped before finishing. Open the task, review the recovery note, then retry or reassign when ready.'
+      'stopped before finishing. Open the task, review the recovery note, then retry or choose another agent.'
     )
+    expect(notifications[0].message).not.toContain('when ready')
+    expect(notifications[0].message).not.toContain('reassign')
     expect(notifications[0].message).not.toContain('failed to complete this task')
     expect(notifications[0].message).not.toContain('401 Unauthorized')
   })
@@ -419,9 +421,7 @@ describe('dispatchWsMessage', () => {
     const notifications = useFeedStore.getState().notifications
     expect(notifications).toHaveLength(1)
     expect(notifications[0].message).toContain('2 result files')
-    expect(notifications[0].message).not.toContain(
-      ['result', 'artifact'].join(' ')
-    )
+    expect(notifications[0].message).not.toContain(['result', 'artifact'].join(' '))
   })
 
   it('hides raw completed task stdout in owner notifications', () => {
