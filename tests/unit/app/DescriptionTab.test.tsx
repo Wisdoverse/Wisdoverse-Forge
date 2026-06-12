@@ -133,6 +133,27 @@ describe('DescriptionTab', () => {
     expect(screen.queryByText(/secret token/i)).toBeNull()
   })
 
+  test('summarizes blocked assignment hints without exposing service access details', () => {
+    render(
+      <DescriptionTab
+        task={{
+          ...mockTask,
+          state: 'blocked',
+          blockedReason: 'waiting_input',
+          blockedHint: 'Needs API token secret for registry access',
+          error: 'registry auth failed with token secret',
+        }}
+      />
+    )
+
+    expect(screen.getByTestId('task-assignment-blocked-guidance').textContent).toContain(
+      'Waiting for account access'
+    )
+    expect(screen.getAllByText(/Waiting for account access/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/API token secret/i)).toBeNull()
+    expect(screen.queryByText(/registry auth/i)).toBeNull()
+  })
+
   test('labels unknown assignment state without exposing raw codes', () => {
     render(<DescriptionTab task={{ ...mockTask, state: 'waiting_for_agent' as never }} />)
 

@@ -39,6 +39,14 @@ export function DescriptionTab({
   const nextAction = nextActionForTask(task, resultArtifacts.length, contextTotal)
   const assignment = assignmentSummary(task)
   const failurePreview = task.error ? taskFailurePreview(task.error) : null
+  const blockedPreview =
+    task.state === 'blocked' && task.blockedHint
+      ? taskBlockedPreview({
+          blockedHint: task.blockedHint,
+          blockedReason: task.blockedReason,
+          error: task.error,
+        })
+      : null
 
   return (
     <div className="space-y-3 py-3" data-testid="task-work-review">
@@ -108,9 +116,12 @@ export function DescriptionTab({
           >
             {assignment.detail}
           </p>
-          {task.blockedHint && (
-            <p className="rounded-lg bg-apple-red/10 px-2 py-1.5 text-apple-red">
-              {task.blockedHint}
+          {blockedPreview && (
+            <p
+              data-testid="task-assignment-blocked-guidance"
+              className="rounded-lg bg-apple-red/10 px-2 py-1.5 text-apple-red"
+            >
+              {blockedPreview}
             </p>
           )}
         </div>
