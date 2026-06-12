@@ -868,7 +868,7 @@ export function CreateAgentModal() {
                   htmlFor="agent-cwd"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  {kind === 'local-cli' ? 'Folder on this computer' : 'Project folder'}
+                  {kind === 'local-cli' ? 'Folder on this computer' : 'Work folder'}
                 </label>
                 <input
                   id="agent-cwd"
@@ -879,7 +879,7 @@ export function CreateAgentModal() {
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                   {kind === 'local-cli'
                     ? 'Leave blank to use the folder where you run the setup command.'
-                    : 'Use /workspace unless an owner gives you a different path. It can include multiple projects. New tasks start from the Primary Project selected above.'}
+                    : 'Keep the suggested folder unless an owner gives you a different one. New tasks start from the Primary Project selected above.'}
                 </p>
               </div>
             )}
