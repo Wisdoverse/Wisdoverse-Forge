@@ -650,9 +650,7 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
             {total === 0
               ? 'Add and check an AI service before creating simple chat agents.'
-              : `${ready}/${total} AI service${total === 1 ? '' : 's'} ready, ${needsTest} need${
-                  needsTest === 1 ? 's' : ''
-                } a connection check, ${disabled} disabled.`}
+              : providerReadinessSummary(ready, needsTest, disabled)}
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-black/[0.04] px-2.5 py-1 text-ui-caption font-semibold text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
@@ -676,6 +674,27 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
       </div>
     </section>
   )
+}
+
+function providerReadinessSummary(ready: number, needsTest: number, disabled: number): string {
+  const readyText =
+    ready === 0
+      ? 'No AI services are ready to use yet'
+      : `${providerCount(ready)} ${ready === 1 ? 'is' : 'are'} ready to use`
+  const needsTestText =
+    needsTest === 0
+      ? 'none need Check'
+      : `${providerCount(needsTest)} still ${needsTest === 1 ? 'needs' : 'need'} Check`
+  const disabledText =
+    disabled === 0
+      ? 'none are disabled'
+      : `${providerCount(disabled)} ${disabled === 1 ? 'is' : 'are'} disabled`
+
+  return `${readyText}. ${needsTestText}, and ${disabledText}.`
+}
+
+function providerCount(count: number): string {
+  return `${count} AI service${count === 1 ? '' : 's'}`
 }
 
 function ProviderNextStepPanel({

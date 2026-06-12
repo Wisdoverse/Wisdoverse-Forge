@@ -88,7 +88,10 @@ describe('ProvidersSection', () => {
     render(<ProvidersSection />)
 
     const readiness = await screen.findByTestId('provider-readiness')
-    expect(within(readiness).getByText(/1\/3 AI services ready/i)).toBeDefined()
+    expect(within(readiness).getByText(/1 AI service is ready to use/i)).toBeDefined()
+    expect(within(readiness).getByText(/1 AI service still needs Check/i)).toBeDefined()
+    expect(within(readiness).getByText(/1 AI service is disabled/i)).toBeDefined()
+    expect(within(readiness).queryByText(new RegExp('1/3 AI services\\s+ready', 'i'))).toBeNull()
     expect(within(readiness).getByText('Default: OpenAI Production')).toBeDefined()
     expect(within(readiness).getByText('Default AI service')).toBeDefined()
     expect(within(readiness).queryByText('Default Route')).toBeNull()
@@ -212,6 +215,9 @@ describe('ProvidersSection', () => {
 
     const readiness = await screen.findByTestId('provider-readiness')
     expect(within(readiness).getByText('AI service setup needs attention')).toBeDefined()
+    expect(within(readiness).getByText(/No AI services are ready to use yet/i)).toBeDefined()
+    expect(within(readiness).getByText(/none need Check/i)).toBeDefined()
+    expect(within(readiness).getByText(/1 AI service is disabled/i)).toBeDefined()
     const nextStep = screen.getByTestId('provider-next-step')
     expect(within(nextStep).getByText('Add a working AI service')).toBeDefined()
 
