@@ -30,7 +30,7 @@ describe('AgentGroupSelector', () => {
     expect(screen.getByRole('option', { name: /choose a project first/i })).toBeDefined()
   })
 
-  test('explains that a task queue must be created before assigning tasks', () => {
+  test('explains how to create a task queue before sending work', () => {
     render(
       <AgentGroupSelector
         groups={[]}
@@ -45,7 +45,9 @@ describe('AgentGroupSelector', () => {
     }) as HTMLSelectElement
 
     expect(select.disabled).toBe(true)
-    expect(select.title).toContain('Open Agents, then Task Queues')
+    expect(select.title).toBe('Open Agents, then Task Queues, create one, and come back here.')
+    const previousActionPhrase = ['assigning', 'tasks'].join(' ')
+    expect(select.title).not.toContain(previousActionPhrase)
     expect(screen.getByRole('option', { name: /create a task queue first/i })).toBeDefined()
   })
 
