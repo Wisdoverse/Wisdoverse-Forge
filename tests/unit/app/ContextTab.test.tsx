@@ -215,8 +215,20 @@ describe('ContextTab', () => {
     expect(screen.getByText('Work run 1')).toBeDefined()
     expect(screen.getByText('Finished')).toBeDefined()
     expect(screen.getByText('Applied memories')).toBeDefined()
-    expect(screen.getAllByText(/selected for the agent before it worked/i).length).toBeGreaterThan(
-      0
+    expect(
+      screen.getByText(
+        'These saved memories were selected for the agent before it worked on this task.'
+      )
+    ).toBeDefined()
+    expect(
+      screen.getByText(
+        'These saved instructions were selected for the agent before it worked on this task.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByText(/notes and skills/i)).toBeNull()
+    expect(screen.queryByText(/These skills were selected/i)).toBeNull()
+    expect(screen.getAllByText(/selected for the agent before it worked/i).length).toBe(
+      2
     )
     expect(screen.getAllByText('Prod deploy memory').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Project-level').length).toBeGreaterThan(0)

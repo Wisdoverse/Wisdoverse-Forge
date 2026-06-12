@@ -39,7 +39,7 @@ export function ContextAppliedList({
           {title}
         </h3>
         <p className="mt-0.5 text-[11px] text-secondary-light dark:text-secondary-dark">
-          These notes and skills were selected for the agent before it worked on this task.
+          {appliedContextDescription(kind)}
         </p>
       </div>
       <div className="space-y-2">
@@ -54,6 +54,13 @@ export function ContextAppliedList({
       </div>
     </section>
   )
+}
+
+function appliedContextDescription(kind: ContextCandidateKind): string {
+  if (kind === 'skill') {
+    return 'These saved instructions were selected for the agent before it worked on this task.'
+  }
+  return 'These saved memories were selected for the agent before it worked on this task.'
 }
 
 interface AppliedContextCardProps {
