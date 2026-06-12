@@ -33,7 +33,7 @@ function supportDetailLabel(key: string): string {
     .replace(/[-_\s]/g, '')
   const labels: Record<string, string> = {
     command: 'Command',
-    cwd: 'Folder',
+    cwd: 'Project folder',
     durationms: 'Duration',
     ok: 'Finished cleanly',
     summary: 'Summary',

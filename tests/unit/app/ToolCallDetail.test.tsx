@@ -40,9 +40,7 @@ describe('ToolCallDetail', () => {
       )
     ).toBeInTheDocument()
     expect(screen.getByText('Step setup')).toBeInTheDocument()
-    expect(
-      screen.getByText('Settings or instructions recorded for this step.')
-    ).toBeInTheDocument()
+    expect(screen.getByText('Settings or instructions recorded for this step.')).toBeInTheDocument()
     expect(screen.getByText('Step result')).toBeInTheDocument()
     expect(screen.getByText('What happened when this step finished.')).toBeInTheDocument()
     expect(screen.getByText('Command the agent used: npm run typecheck')).toBeInTheDocument()
@@ -55,7 +53,7 @@ describe('ToolCallDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: /show support details for setup/i }))
     fireEvent.click(screen.getByRole('button', { name: /show support details for result/i }))
 
-    expect(screen.getByText(/Folder: \/workspace\/app/i)).toBeInTheDocument()
+    expect(screen.getByText(/Project folder: \/workspace\/app/i)).toBeInTheDocument()
     expect(screen.getByText(/Duration: 1.2s/i)).toBeInTheDocument()
     expect(screen.queryByText(/cwd/i)).toBeNull()
     expect(screen.queryByText(/durationMs/i)).toBeNull()
