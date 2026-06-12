@@ -372,12 +372,12 @@ export const zh: TranslationKeys = {
   },
 
   // =========================================================================
-  // 工作坊（3D 场景）
+  // 视觉地图
   // =========================================================================
   workshop: {
-    title: '工作坊',
-    loading: '加载工作坊...',
-    loadError: '工作坊无法加载。等 Agent 可用后刷新，再试一次。',
+    title: '视觉地图',
+    loading: '加载视觉地图...',
+    loadError: '视觉地图无法加载。等 Agent 可用后刷新，再试一次。',
     controls: {
       zoom: '滚动缩放',
       pan: '中键平移',
@@ -389,7 +389,7 @@ export const zh: TranslationKeys = {
       escape: '按 Esc 取消选择',
       help: '按 ? 获取帮助',
       fullscreen: '按 F 全屏',
-      drawMode: '按 D 绘图模式',
+      drawMode: '按 D 添加绘图备注',
     },
     performance: {
       fps: '{{value}} FPS',

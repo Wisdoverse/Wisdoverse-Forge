@@ -58,7 +58,7 @@ export const Route = createRoute({
     if (viewMode === '3d')
       return (
         <div data-testid="page-tasks" className="h-full">
-          <Suspense fallback={<TaskViewLoadingFallback viewName="3D workshop" />}>
+          <Suspense fallback={<TaskViewLoadingFallback viewName="visual map" />}>
             <Workshop3DView />
           </Suspense>
         </div>

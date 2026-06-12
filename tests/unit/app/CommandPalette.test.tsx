@@ -37,6 +37,15 @@ describe('CommandPalette', () => {
     expect(screen.getByText('Start a new piece of work.')).toBeDefined()
   })
 
+  test('uses beginner-safe view names instead of old scene jargon', () => {
+    render(<CommandPalette isOpen={true} onClose={() => {}} />)
+
+    expect(screen.getByText('Visual map')).toBeDefined()
+    expect(screen.getByText('See agents and tasks on a visual map.')).toBeDefined()
+    expect(screen.queryByText('3D view')).toBeNull()
+    expect(screen.queryByText(/workshop/i)).toBeNull()
+  })
+
   test('searches beginner descriptions and shows an empty state', async () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
 

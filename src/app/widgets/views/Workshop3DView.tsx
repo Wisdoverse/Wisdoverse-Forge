@@ -85,7 +85,7 @@ export function Workshop3DEmptyState() {
       className="space-y-3 px-2 py-1 text-xs leading-5 text-white/70"
     >
       <div>
-        <p className="text-sm font-medium leading-5 text-white">No agents in the workshop yet</p>
+        <p className="text-sm font-medium leading-5 text-white">No agents on the visual map yet</p>
         <p className="mt-1">
           If this is your first agent, create it from Agents. If you already have one, start or wake
           it there, then refresh this view.
@@ -642,7 +642,7 @@ export function Workshop3DView() {
     renderer.shadowMap.enabled = true
     renderer.domElement.dataset.testid = 'workshop-3d-canvas'
     renderer.domElement.className = 'block h-full w-full'
-    renderer.domElement.setAttribute('aria-label', 'Robot workshop agent activity scene')
+    renderer.domElement.setAttribute('aria-label', 'Agent activity visual map')
     container.appendChild(renderer.domElement)
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.38)
@@ -861,7 +861,7 @@ export function Workshop3DView() {
       className="relative h-full min-h-[420px] w-full overflow-hidden bg-[#080a0f]"
     >
       <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-white shadow-lg backdrop-blur sm:left-4 sm:top-4">
-        <div className="text-[11px] font-semibold text-white/55">Robot Workshop</div>
+        <div className="text-[11px] font-semibold text-white/55">Agent Map</div>
         <div data-testid="workshop-3d-agent-count" className="mt-1 text-sm font-medium">
           {loading && agents.length === 0
             ? 'Syncing agents'

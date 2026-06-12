@@ -34,7 +34,7 @@ const VIEW_COMMANDS = [
   { id: 'view:board', label: 'Board view', description: 'Move tasks through simple columns.' },
   { id: 'view:list', label: 'List view', description: 'Scan tasks in one sortable table.' },
   { id: 'view:timeline', label: 'Timeline view', description: 'See when work happened.' },
-  { id: 'view:3d', label: '3D view', description: 'Inspect work and agents in a visual map.' },
+  { id: 'view:3d', label: 'Visual map', description: 'See agents and tasks on a visual map.' },
 ]
 
 const COMMAND_DISCOVERY_STEPS = [

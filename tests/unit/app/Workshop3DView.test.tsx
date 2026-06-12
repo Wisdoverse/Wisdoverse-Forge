@@ -15,12 +15,13 @@ describe('Workshop3DEmptyState', () => {
 
     const emptyState = screen.getByTestId('workshop-3d-empty-state')
 
-    expect(within(emptyState).getByText('No agents in the workshop yet')).toBeDefined()
+    expect(within(emptyState).getByText('No agents on the visual map yet')).toBeDefined()
     expect(
       within(emptyState).getByText(
         'If this is your first agent, create it from Agents. If you already have one, start or wake it there, then refresh this view.'
       )
     ).toBeDefined()
+    expect(within(emptyState).queryByText(/workshop/i)).toBeNull()
     expect(within(emptyState).getByText('Open Agents and create one if none exists')).toBeDefined()
     expect(
       within(emptyState).getByText('Start or wake the agent if it is already listed')

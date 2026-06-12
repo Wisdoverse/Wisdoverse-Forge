@@ -377,12 +377,12 @@ export const en = {
   },
 
   // =========================================================================
-  // Workshop (3D Scene)
+  // Visual map
   // =========================================================================
   workshop: {
-    title: 'Workshop',
-    loading: 'Loading workshop...',
-    loadError: 'Workshop could not load. Refresh after agents are available, then try again.',
+    title: 'Visual map',
+    loading: 'Loading visual map...',
+    loadError: 'Visual map could not load. Refresh after agents are available, then try again.',
     controls: {
       zoom: 'Scroll to zoom',
       pan: 'Middle-click to pan',
@@ -394,7 +394,7 @@ export const en = {
       escape: 'Press Esc to deselect',
       help: 'Press ? for help',
       fullscreen: 'Press F for fullscreen',
-      drawMode: 'Press D for draw mode',
+      drawMode: 'Press D to add drawing notes',
     },
     performance: {
       fps: '{{value}} FPS',

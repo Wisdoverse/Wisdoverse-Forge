@@ -21,12 +21,13 @@ describe('Routing', () => {
   })
 
   test('explains lazy task view loading for first-time users', () => {
-    render(<TaskViewLoadingFallback viewName="3D workshop" />)
+    render(<TaskViewLoadingFallback viewName="visual map" />)
 
     expect(screen.getByTestId('task-view-loading')).toBeDefined()
-    expect(screen.getByText('Opening 3D workshop')).toBeDefined()
+    expect(screen.getByText('Opening visual map')).toBeDefined()
     expect(screen.getByText(/can take a few seconds the first time/i)).toBeDefined()
     expect(screen.getByText(/task board is still available/i)).toBeDefined()
+    expect(screen.queryByText(/3D workshop/i)).toBeNull()
   })
 
   test('renders inbox page at /inbox', async () => {

@@ -104,6 +104,20 @@ describe('beginner error translations', () => {
     expect(JSON.stringify(zh.gettingStarted.steps.reuse)).not.toContain('技能上下文')
   })
 
+  test('visual map labels avoid old scene and draw-mode jargon', () => {
+    expect(en.workshop.title).toBe('Visual map')
+    expect(en.workshop.loading).toBe('Loading visual map...')
+    expect(en.workshop.shortcuts.drawMode).toBe('Press D to add drawing notes')
+    expect(JSON.stringify(en.workshop)).not.toContain('Workshop')
+    expect(JSON.stringify(en.workshop)).not.toContain('draw mode')
+
+    expect(zh.workshop.title).toBe('视觉地图')
+    expect(zh.workshop.loading).toBe('加载视觉地图...')
+    expect(zh.workshop.shortcuts.drawMode).toBe('按 D 添加绘图备注')
+    expect(JSON.stringify(zh.workshop)).not.toContain('工作坊')
+    expect(JSON.stringify(zh.workshop)).not.toContain('绘图模式')
+  })
+
   test('this-computer agent join errors avoid request-header and connection-policy jargon', () => {
     const englishJoin = en.errors.agent.enroll.missing_idempotency_key
     const englishSecure = en.errors.agent.enroll.plaintext_nats_blocked
