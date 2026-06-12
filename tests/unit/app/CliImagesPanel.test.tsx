@@ -590,7 +590,8 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
     expect(screen.getByText(/The build could not be started/i)).toBeDefined()
-    expect(screen.getByText(/tool update service is busy/i)).toBeDefined()
+    expect(screen.getByText(/Another tool update is already running/i)).toBeDefined()
+    expect(screen.queryByText(/tool update service is busy/i)).toBeNull()
     expect(screen.queryByText(/a claude image build is already in progress/i)).toBeNull()
     // the row still renders for retry.
     expect(screen.getByRole('button', { name: 'Build v2.1.173' })).toBeDefined()

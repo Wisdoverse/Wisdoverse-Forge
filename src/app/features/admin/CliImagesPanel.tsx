@@ -109,7 +109,7 @@ function cliImageIssueNote(error: string, context: CliImageIssueContext): string
     if (context === 'restart') {
       return 'Another restart is already running. Wait for it to finish, then check this page again.'
     }
-    return 'The tool update service is busy. Wait a minute, then choose Check now.'
+    return 'Another tool update is already running. Wait a minute, then choose Check now.'
   }
   if (
     detail.includes('password') ||
