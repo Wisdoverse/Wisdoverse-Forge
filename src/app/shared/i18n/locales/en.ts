@@ -68,7 +68,7 @@ export const en = {
     inbox: 'Inbox',
     context: 'Context',
     agents: 'Agents',
-    skills: 'Skills',
+    skills: 'Saved instructions',
     analytics: 'Analytics',
     billing: 'Billing',
     settings: 'Settings',

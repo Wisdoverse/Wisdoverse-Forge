@@ -17,11 +17,15 @@ const NAV_COMMANDS = [
     description: 'Review knowledge before agents use it in tasks.',
   },
   { id: 'nav:agents', label: 'Agents', description: 'Create or check agents that handle work.' },
-  { id: 'nav:skills', label: 'Skills', description: 'Reuse instructions for repeated work.' },
+  {
+    id: 'nav:skills',
+    label: 'Saved instructions',
+    description: 'Reuse instructions for repeated work.',
+  },
   {
     id: 'nav:settings',
     label: 'Settings',
-    description: 'Connect tools, keys, teams, and projects.',
+    description: 'Connect tools, account access, teams, and projects.',
   },
 ]
 
@@ -96,7 +100,8 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
                 No command matches that search
               </p>
               <p className="mt-1">
-                Try Tasks, Inbox, Agents, Skills, or Settings to jump to a common workflow.
+                Try Tasks, Inbox, Agents, Saved instructions, or Settings to jump to a common
+                workflow.
               </p>
               <p className="mt-1 text-ui-caption">
                 Clear the search if you are not sure what to type; the full command list will come

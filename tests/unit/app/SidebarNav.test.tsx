@@ -61,6 +61,14 @@ describe('SidebarNav', () => {
     expect(
       screen.getByRole('button', { name: /agents: create and manage agents/i })
     ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', {
+        name: /saved instructions: reuse saved instructions/i,
+      })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /skills: reuse proven work steps/i })
+    ).not.toBeInTheDocument()
   })
 
   test('labels secondary navigation and signs out from the workspace', () => {

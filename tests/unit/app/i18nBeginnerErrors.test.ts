@@ -152,6 +152,10 @@ describe('beginner error translations', () => {
   })
 
   test('Chinese agent-facing copy uses the current Agent vocabulary', () => {
+    expect(en.nav.skills).toBe('Saved instructions')
+    expect(en.nav.skills).not.toBe('Skills')
+    expect(zh.nav.skills).toBe('保存的指令')
+    expect(zh.nav.skills).not.toBe('技能')
     expect(zh.nav.agents).toBe('Agent')
     expect(zh.agents.title).toBe('Agent')
     expect(zh.gettingStarted.steps.agent.create).toBe('创建 Agent')

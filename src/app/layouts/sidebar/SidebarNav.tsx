@@ -71,7 +71,7 @@ const NAV_ITEMS: NavItem[] = [
     id: 'skills',
     Icon: Zap,
     labelKey: 'nav.skills',
-    description: 'reuse proven work steps',
+    description: 'reuse saved instructions',
     path: '/skills',
   },
   {

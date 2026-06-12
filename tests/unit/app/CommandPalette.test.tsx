@@ -27,7 +27,12 @@ describe('CommandPalette', () => {
     expect(screen.getByText('Inbox')).toBeDefined()
     expect(screen.getByText('Agents')).toBeDefined()
     expect(screen.getByText('Create or check agents that handle work.')).toBeDefined()
+    expect(screen.getByText('Saved instructions')).toBeDefined()
+    expect(screen.getByText('Reuse instructions for repeated work.')).toBeDefined()
+    expect(screen.getByText('Connect tools, account access, teams, and projects.')).toBeDefined()
     expect(screen.queryByText(/workers doing tasks/i)).toBeNull()
+    expect(screen.queryByText(/^Skills$/)).toBeNull()
+    expect(screen.queryByText(/tools, keys/i)).toBeNull()
   })
 
   test('shows action commands', () => {
@@ -61,7 +66,9 @@ describe('CommandPalette', () => {
     await waitFor(() => {
       expect(screen.getByText('No command matches that search')).toBeDefined()
     })
-    expect(screen.getByText(/try tasks, inbox, agents, skills, or settings/i)).toBeDefined()
+    expect(
+      screen.getByText(/try tasks, inbox, agents, saved instructions, or settings/i)
+    ).toBeDefined()
     expect(screen.getByText(/clear the search if you are not sure what to type/i)).toBeDefined()
   })
 
@@ -73,7 +80,9 @@ describe('CommandPalette', () => {
     })
 
     expect(screen.getByText('No command matches that search')).toBeDefined()
-    expect(screen.getByText(/try tasks, inbox, agents, skills, or settings/i)).toBeDefined()
+    expect(
+      screen.getByText(/try tasks, inbox, agents, saved instructions, or settings/i)
+    ).toBeDefined()
     expect(screen.getByText(/the full command list will come back/i)).toBeDefined()
   })
 })
