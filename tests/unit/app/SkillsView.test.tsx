@@ -85,7 +85,10 @@ describe('SkillsView', () => {
       'ci status, checks, build status'
     )
     const instructions = screen.getByLabelText(/^agent instructions$/i) as HTMLTextAreaElement
-    expect(instructions.value).toContain('Check GitHub or GitLab build status once')
+    expect(instructions.value).toContain('Take one compact GitHub or GitLab status snapshot')
+    expect(instructions.value).toContain('npm run pr:summary')
+    expect(instructions.value).toContain('Classify the result as ACTION, WAIT, or DONE')
+    expect(instructions.value).toContain('inspect only the failed check or job log')
     expect(instructions.value).toContain('stop monitoring in chat')
     expect(instructions.value).toContain('scheduled monitor instead of watching repeatedly')
   })
