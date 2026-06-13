@@ -91,7 +91,7 @@ describe('TaskCard', () => {
     expect(badge).toBeDefined()
     expect(badge.textContent).toContain('2')
     expect(badge.textContent).toContain('1')
-    expect(badge.getAttribute('aria-label')).toBe('2 saved notes added, 1 skill instruction added')
+    expect(badge.getAttribute('aria-label')).toBe('2 saved notes added, 1 saved instruction added')
   })
 
   test('hides context badge when no context has been applied', () => {
@@ -144,8 +144,11 @@ describe('TaskCard', () => {
       />
     )
 
-    expect(screen.getByTestId('task-next-step').textContent).toBe('Preview context, then publish.')
+    expect(screen.getByTestId('task-next-step').textContent).toBe(
+      'Review saved items, then publish.'
+    )
     expect(screen.getByTestId('task-next-step').textContent).not.toContain('when ready')
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('context')
   })
 
   test('shows a recovery next step for failed tasks', () => {

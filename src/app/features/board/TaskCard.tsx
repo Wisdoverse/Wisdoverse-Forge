@@ -292,7 +292,7 @@ function taskNextStep(task: TaskSummary, options: TaskNextStepOptions): string |
           : 'Choose an agent before this task can start.'
       }
       return options.canOpenPublishPreview
-        ? 'Preview context, then publish.'
+        ? 'Review saved items, then publish.'
         : 'Open details to finish preparing this task.'
     case 'queued':
       return options.hasAssignee
@@ -330,7 +330,7 @@ function formatContextCountsLabel(counts: TaskContextCounts): string {
   }
   if (counts.appliedSkills > 0) {
     parts.push(
-      `${counts.appliedSkills} skill ${counts.appliedSkills === 1 ? 'instruction' : 'instructions'} added`
+      `${counts.appliedSkills} saved ${counts.appliedSkills === 1 ? 'instruction' : 'instructions'} added`
     )
   }
   return parts.join(', ')
