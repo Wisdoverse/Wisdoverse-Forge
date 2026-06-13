@@ -257,6 +257,7 @@ dependencies = [
  "chrono",
  "futures",
  "metrics",
+ "redis",
  "reqwest",
  "serde",
  "serde_json",

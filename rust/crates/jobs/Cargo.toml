@@ -8,6 +8,8 @@ license-file.workspace = true
 agentforge-core.workspace = true
 agentforge-db.workspace = true
 agentforge-platform.workspace = true
+agentforge-infra.workspace = true
+redis.workspace = true
 async-trait.workspace = true
 async-nats.workspace = true
 futures.workspace = true
@@ -28,4 +30,3 @@ reqwest.workspace = true
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
 async-trait.workspace = true
-agentforge-infra.workspace = true

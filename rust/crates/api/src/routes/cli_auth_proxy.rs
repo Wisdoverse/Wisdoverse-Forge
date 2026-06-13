@@ -49,6 +49,7 @@ fn default_test_config() -> agentforge_core::AppConfig {
         host: "0.0.0.0".into(),
         database_url: "postgres://test".into(),
         redis_url: None,
+        presence_redis_enabled: false,
         nats_url: None,
         nats_agent_url: None,
         nats_container_url: None,

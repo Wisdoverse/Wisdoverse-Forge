@@ -2,8 +2,10 @@
 
 ## Status
 
-Accepted (Phase 1). Phase 2 (Redis presence offload) is **deferred behind a
-measurement gate** defined below.
+Accepted (Phase 1). Phase 2 (Redis presence offload) is **implemented but
+flag-gated dark** (`PRESENCE_REDIS_ENABLED`, default off) and should be **enabled
+only after the measurement gate below fires** — it ships so the architecture is
+in place and can be dark-launched on staging, not because the gate has fired.
 
 ## Context
 
@@ -102,27 +104,49 @@ The default `heartbeat_interval_secs` stays at 30s; widening it is an
 orthogonal config lever (it trades offline-detection latency) and is not part
 of this change.
 
-### Phase 2 — Redis TTL presence offload (DEFERRED, measurement-gated)
+### Phase 2 — Redis TTL presence offload (IMPLEMENTED, flag-gated dark)
 
-If, after Phase 1 ships and the host-contention issue is addressed, the
-per-beat `last_heartbeat_at` write is still a proven bottleneck at higher agent
-counts, move the **ephemeral liveness signal** off the durable primary:
+The ephemeral liveness signal can move off the durable primary, gated by
+`PRESENCE_REDIS_ENABLED` (default off). When the flag is on AND Redis is
+connected (`presence_store::PresenceBackend`):
 
-- `last_seen` lives in Redis as `presence:{org}:{agent}` with `EX = stale_after`;
-  a heartbeat is `SET … EX 90` (O(1), no durable write). TTL expiry replaces the
-  30s stale sweeper for the common case.
+- A heartbeat is `SET af:presence:{agent} 1 EX <stale_after> GET`. The returned
+  prior value distinguishes a steady-state beat (key existed → zero PostgreSQL,
+  no broadcast, no auto-dispatch) from a transition (key absent → the Phase 1 PG
+  write runs so `busy`/`available` + `last_heartbeat_at` are correct).
 - PostgreSQL `participants` / `agents` remain the **durable, lease-relevant
   source of truth**, written only on real transitions (claim, result, lease
-  expiry) — never per beat. A low-cadence reconciliation keeps them consistent.
-- Because Redis is optional, the worker must **degrade to the Phase-1
-  PostgreSQL path** when Redis is absent or erroring, so liveness and the
-  `agent_lost` lease sweeper stay correct during a Redis outage.
+  expiry, and these resurrections) — never on a steady-state beat.
+- The offline sweep uses **Redis key existence** (a pipelined `EXISTS` over
+  non-offline participants) instead of `last_heartbeat_at`. The Phase 1 reconcile
+  backstop for orphaned `busy` rows still runs.
 
-**Gate to start Phase 2:** `participant_heartbeats_total` write rate (or its
-share of PostgreSQL time in `pg_stat_statements`) is a measured top contributor
-_after_ Phase 1, at a realistic agent count — not before. Building an ephemeral
-presence service while the proximate cause is host oversubscription would
-relocate the symptom and add a reconciliation surface for no proven gain.
+Degradation (Redis optional): any missing connection or Redis error makes
+`record`/`dead_agents` report unavailable and the worker uses the Phase 1
+PostgreSQL path. Because `last_heartbeat_at` is not written on steady-state Redis
+beats, a fallback would see stale timestamps; the backend therefore **grace-skips
+the PG offline sweep for `stale_after`** after any fallback so PG-path beats
+repopulate `last_heartbeat_at` before offline detection resumes. The
+`agent_lost` lease sweeper (which reads `participants.status = 'busy'`) is
+unaffected — `busy`/`available` never leaves PostgreSQL.
+
+Trade-off: a steady-state beat skips not only the PG write but also the
+per-beat auto-dispatch claim, so dispatch for an already-online idle agent is
+bounded by the 30s `drain_available_participants` sweep instead of the agent's
+next beat (both are ~30s, so worst-case dispatch latency is unchanged in order;
+a task can never be left undispatched — drain still runs every tick).
+
+Metrics: `presence_redis_steady_total` (the win), `presence_redis_transition_total`,
+`presence_redis_fallback_total`, `presence_redis_errors_total{op}`.
+
+**Enablement gate:** keep `PRESENCE_REDIS_ENABLED=false` until the Phase 1
+attribution metrics (`participant_heartbeats_total` write rate, or its share of
+PostgreSQL time in `pg_stat_statements`) show the per-beat write is a measured
+top contributor at a realistic agent count — and the host-contention issue is
+addressed. Enabling it while the proximate cause is host oversubscription
+relocates the symptom. Enable on staging first; watch `presence_redis_fallback_total`
+(should stay ~0) and confirm agents still go offline/online correctly before any
+production change.
 
 ## Consequences
 

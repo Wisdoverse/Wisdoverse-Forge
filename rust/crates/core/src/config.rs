@@ -212,6 +212,16 @@ pub struct AppConfig {
     /// Redis connection URL (optional — graceful degradation when absent).
     pub redis_url: Option<String>,
 
+    /// ADR 0008 Phase 2 rollout gate. When `true` AND Redis is connected, agent
+    /// liveness (`last_seen` / offline detection) is served from a Redis TTL key
+    /// instead of a per-heartbeat PostgreSQL write; `participants`/`agents`
+    /// remain the durable source of truth for lease-relevant `busy`/`available`
+    /// status. When `false` (default) or Redis is unavailable, the worker uses
+    /// the Phase 1 PostgreSQL path. Default `false` for a dark, flag-gated
+    /// rollout: deploying the code changes nothing until this is flipped.
+    #[serde(default = "default_false")]
+    pub presence_redis_enabled: bool,
+
     /// NATS connection URL for the backend (optional). Under the account
     /// split introduced in issue #38 this URL carries the backend user's
     /// credentials (`nats://backend:<password>@nats:4222`); production
@@ -641,6 +651,7 @@ mod tests {
                 assert_eq!(cfg.environment, "development");
                 assert_eq!(cfg.log_level, "info");
                 assert!(cfg.redis_url.is_none());
+                assert!(!cfg.presence_redis_enabled);
                 assert!(cfg.nats_url.is_none());
                 assert!(cfg.nats_agent_url.is_none());
                 assert!(cfg.nats_container_url.is_none());
@@ -693,6 +704,7 @@ mod tests {
             host: "0.0.0.0".to_string(),
             database_url: "postgres://localhost/test".to_string(),
             redis_url: None,
+            presence_redis_enabled: false,
             nats_url: None,
             nats_agent_url: None,
             nats_container_url: None,
@@ -1004,6 +1016,7 @@ mod tests {
             host: "0.0.0.0".to_string(),
             database_url: "postgres://localhost/test".to_string(),
             redis_url: None,
+            presence_redis_enabled: false,
             nats_url: None,
             nats_agent_url: None,
             nats_container_url: None,
