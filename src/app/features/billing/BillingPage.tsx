@@ -33,8 +33,8 @@ function BillingNotConfigured() {
         Billing is not ready yet
       </h2>
       <p className="max-w-sm text-ui-body text-secondary-light dark:text-secondary-dark">
-        Billing is not enabled for this workspace yet. Nothing can be charged from this page until
-        an owner or admin connects billing.
+        Billing is not enabled for this workspace yet. Ask an owner or admin to connect billing
+        before changing plans or payment methods.
       </p>
       <div className="mt-2 max-w-sm text-left">
         <p className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">

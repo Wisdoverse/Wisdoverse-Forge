@@ -325,6 +325,26 @@ describe('InboxView', () => {
     expect(screen.getByTestId('inbox-filter-empty')).not.toHaveTextContent(/failures/i)
   })
 
+  test('guides unread empty state back to older updates', async () => {
+    useFeedStore.getState().addNotification({
+      id: 'n-read',
+      type: 'completed',
+      taskId: 't-done',
+      taskTitle: 'Completed cleanup',
+      message: 'Ready for review',
+      read: true,
+      timestamp: Date.now(),
+    })
+
+    render(<InboxView />)
+
+    await userEvent.setup().click(screen.getByTestId('inbox-filter-unread'))
+
+    expect(screen.getByTestId('inbox-filter-empty')).toHaveTextContent(
+      'Nothing new is waiting for you. Open All to review older updates.'
+    )
+  })
+
   test('shows a recoverable message when older notifications cannot load', async () => {
     orchestrationApiMock.fetchInboxNotifications.mockRejectedValue(new Error('offline'))
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)

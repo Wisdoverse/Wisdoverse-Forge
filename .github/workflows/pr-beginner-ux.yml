@@ -28,3 +28,5 @@ jobs:
           install: 'false'
       - name: Check PR body
         run: node scripts/check-pr-beginner-ux.mjs --event "$GITHUB_EVENT_PATH"
+      - name: Check UI copy
+        run: node scripts/check-beginner-ux-copy.mjs

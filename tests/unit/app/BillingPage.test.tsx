@@ -87,7 +87,9 @@ describe('BillingPage', () => {
     render(<BillingPage />)
 
     expect(await screen.findByText('Billing setup path')).toBeDefined()
-    expect(screen.getByText(/nothing can be charged/i)).toBeDefined()
+    expect(
+      screen.getByText(/connect billing before changing plans or payment methods/i)
+    ).toBeDefined()
     expect(screen.getByText(/turn on billing for this workspace/i)).toBeDefined()
     expect(screen.getByText(/do not paste secret payment settings/i)).toBeDefined()
     expect(screen.getByText(/after billing is turned on/i)).toBeDefined()

@@ -13,7 +13,11 @@ type InboxFilter = 'all' | 'unread' | 'needs-action' | 'credentials'
 
 const FILTERS: { id: InboxFilter; label: string; empty: string }[] = [
   { id: 'all', label: 'All', empty: 'No notifications match this view.' },
-  { id: 'unread', label: 'Unread', empty: 'Nothing new is waiting for you.' },
+  {
+    id: 'unread',
+    label: 'Unread',
+    empty: 'Nothing new is waiting for you. Open All to review older updates.',
+  },
   {
     id: 'needs-action',
     label: 'Needs action',

@@ -201,7 +201,7 @@ export function InjectionPreviewModal({
                 title="Kept easy to reuse"
                 helper="These saved items stay easy to reuse for this task."
                 items={preview.previouslyPinned}
-                empty="Nothing is kept yet."
+                empty="Nothing is kept yet. Choose the pin button on a saved item to keep it easy to reuse."
                 selectedIds={selectedIds}
                 pinnedIds={pinnedIds}
                 onToggleSelected={toggleSelected}
