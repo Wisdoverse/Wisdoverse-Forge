@@ -34,8 +34,8 @@ const EMPTY_TOP_USEFUL = {
 }
 
 const EMPTY_NEEDS_REVIEW = {
-  title: 'Nothing needs review',
-  detail: 'Items appear here when feedback says they may be outdated, incorrect, or too sensitive.',
+  title: 'Nothing to check right now',
+  detail: 'Items appear here when people report they may be outdated, incorrect, or too sensitive.',
 }
 
 const EMPTY_STALE = {
@@ -87,7 +87,7 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
             Updated {data ? relativeAge(data.lastRefreshedAt) : 'when data is available'}
           </p>
           <p className="mt-1 max-w-2xl text-ui-body text-secondary-light dark:text-secondary-dark">
-            Use this panel to keep saved notes and instructions that help work finish, and review
+            Use this panel to keep saved notes and instructions that help work finish, and check
             items that may be outdated, incorrect, or too sensitive before agents reuse them.
           </p>
         </div>
@@ -128,9 +128,9 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
           accent="blue"
         />
         <StatCard
-          title="Needs Review"
+          title="Check first"
           value={data?.summary.feedbackNegativeCount ?? 0}
-          subtitle="Signals to check before reuse."
+          subtitle="Items people marked for another look."
           loading={loading}
           accent="red"
         />
@@ -149,8 +149,8 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
         />
         <UsageList
           testId="context-usage-needs-review"
-          title="Needs review"
-          description="Check these before reuse because feedback says they may be unsafe or wrong."
+          title="Check before reuse"
+          description="Review these before reuse because people reported they may be outdated, incorrect, or sensitive."
           nextStep="Next: open the latest task result, then update or remove this before reuse."
           icon="review"
           items={data?.needsReview ?? []}
@@ -292,7 +292,7 @@ function UsageItem({ item, nextStep }: { item: ContextUsageItem; nextStep: strin
         <Metric label="success" value={percent(item.successRate)} />
         <Metric label="useful" value={item.feedbackUsefulCount} />
         <Metric
-          label="review"
+          label="check"
           value={item.feedbackNegativeCount}
           className={negative ? 'text-apple-red' : undefined}
         />

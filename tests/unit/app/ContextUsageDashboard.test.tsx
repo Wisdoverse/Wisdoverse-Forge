@@ -48,11 +48,16 @@ describe('ContextUsageDashboard', () => {
       screen.getByText(/helpful saved notes and saved instructions appear here/i)
     ).toBeDefined()
     expect(screen.getByText(/old enough to check again/i)).toBeDefined()
-    expect(screen.getByText('Nothing needs review')).toBeDefined()
+    expect(screen.getByText('Nothing to check right now')).toBeDefined()
+    expect(screen.getByText(/people report they may be outdated/i)).toBeDefined()
+    expect(screen.getByText('Check first')).toBeDefined()
+    expect(screen.getByText('Items people marked for another look.')).toBeDefined()
     expect(screen.queryByText(previousSavedNotesCopy)).toBeNull()
     expect(screen.queryByText(/stale threshold/i)).toBeNull()
     expect(screen.queryByText(/^Stale$/)).toBeNull()
     expect(screen.queryByText(/Snapshot/i)).toBeNull()
+    expect(screen.queryByText('Needs Review')).toBeNull()
+    expect(screen.queryByText('Signals to check before reuse.')).toBeNull()
   })
 
   test('tells users to refresh old analytics before deciding from them', () => {

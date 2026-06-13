@@ -45,7 +45,7 @@ describe('ContextUsageDashboard', () => {
     expect(screen.getByText('Saved item reuse')).toBeDefined()
     expect(
       screen.getByText(
-        'Use this panel to keep saved notes and instructions that help work finish, and review items that may be outdated, incorrect, or too sensitive before agents reuse them.'
+        'Use this panel to keep saved notes and instructions that help work finish, and check items that may be outdated, incorrect, or too sensitive before agents reuse them.'
       )
     ).toBeDefined()
     expect(
@@ -53,8 +53,9 @@ describe('ContextUsageDashboard', () => {
     ).toBeDefined()
     expect(screen.getByText('Completed work after saved items were used.')).toBeDefined()
     expect(screen.getByText('Times users marked saved items helpful.')).toBeDefined()
-    expect(screen.getByText('Signals to check before reuse.')).toBeDefined()
+    expect(screen.getByText('Items people marked for another look.')).toBeDefined()
     expect(screen.getByText('Updated 15m ago')).toBeDefined()
+    expect(screen.queryByText('Signals to check before reuse.')).toBeNull()
   })
 
   test('turns empty lists into next-step guidance', () => {
@@ -62,12 +63,12 @@ describe('ContextUsageDashboard', () => {
 
     expect(
       screen.getByText(
-        'Helpful saved notes and saved instructions appear after people mark them useful in task results.'
+        'Helpful saved notes and saved instructions appear here after people mark them useful in task results.'
       )
     ).toBeDefined()
     expect(
       screen.getByText(
-        'Items appear here when feedback says they may be outdated, incorrect, or too sensitive.'
+        'Items appear here when people report they may be outdated, incorrect, or too sensitive.'
       )
     ).toBeDefined()
     expect(
@@ -122,7 +123,7 @@ describe('ContextUsageDashboard', () => {
     expect(screen.getByText('Saved note')).toBeDefined()
     expect(screen.getByText('Planner Agent · Managed workspace · Code change')).toBeDefined()
     expect(screen.getByText('Next: keep this available for similar tasks.')).toBeDefined()
-    expect(screen.getByText('review')).toBeDefined()
+    expect(screen.getByText('check')).toBeDefined()
     expect(screen.queryByText(/Saved\s+memory/)).toBeNull()
     expect(screen.queryByText('memory')).toBeNull()
     expect(screen.queryByText('Planner Agent · container · coding')).toBeNull()
