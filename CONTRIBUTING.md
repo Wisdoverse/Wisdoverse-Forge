@@ -38,6 +38,35 @@ npm run dev
 
 For workflow runtime work, use the full platform loop unless you have already provisioned a compatible Temporal and orchestrator database locally.
 
+### Fast inner loop (sub-minute backend reload)
+
+`make dev` rebuilds the backend Docker image on each change. For tight backend
+iteration, run only the infrastructure in Docker and run the Rust server locally
+so a change recompiles in seconds instead of rebuilding an image:
+
+```bash
+cargo install cargo-watch   # one-time
+make dev-infra              # PostgreSQL (5432), Redis (6379), NATS (4222) only
+make backend-watch          # cargo watch -x 'run --bin agentforge-server'
+npm run dev                 # frontend, separate terminal
+```
+
+`make backend-watch` recompiles and reruns `agentforge-server` on every save.
+Point the server's `DATABASE_URL` / `REDIS_URL` / `NATS_URL` at the
+`dev-infra` services on `localhost` (the ports above).
+
+What is already hot — no rebuild needed:
+
+- **Frontend:** `npm run dev` (Vite) is live-reload and proxies `/api` + `/ws`
+  to the local server; frontend changes never rebuild the backend.
+- **Configuration and feature flags:** the server is fully env-driven, so
+  flipping a flag (for example `PRESENCE_REDIS_ENABLED`) or rotating config
+  needs only a server restart — never a rebuild.
+
+For an already-deployed external-profile stack, redeploy a single backend
+service with `make deploy-server` / `make deploy-orchestrator` instead of
+rebuilding the whole stack (see `docs/guides/deployment.md`).
+
 ## Repository Boundaries
 
 | Path                                           | Status | Notes                                                                      |
