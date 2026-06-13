@@ -293,7 +293,7 @@ export const zh: TranslationKeys = {
     createGroup: '创建分组',
     editGroup: '编辑分组',
     deleteGroup: '删除分组',
-    noGroups: '暂无分组',
+    noGroups: '暂无分组。可以创建一个分组，用角色、项目或工作流来整理 Agent。',
     groupName: '分组名称',
     groupColor: '分组颜色',
     addToGroup: '添加到分组',
@@ -311,7 +311,7 @@ export const zh: TranslationKeys = {
   // =========================================================================
   feed: {
     title: '活动',
-    noActivity: '暂无活动',
+    noActivity: '暂无活动。先启动一个任务，后续更新会显示在这里。',
     clearActivity: '清除活动',
     filterByType: '按类型筛选',
     filterByAgent: '按 Agent 筛选',

@@ -300,7 +300,7 @@ export const en = {
     createGroup: 'Create Group',
     editGroup: 'Edit Group',
     deleteGroup: 'Delete Group',
-    noGroups: 'No groups yet',
+    noGroups: 'No groups yet. Create a group to organize agents by role, project, or workflow.',
     groupName: 'Group Name',
     groupColor: 'Group Color',
     addToGroup: 'Add to Group',
@@ -318,7 +318,7 @@ export const en = {
   // =========================================================================
   feed: {
     title: 'Activity',
-    noActivity: 'No activity yet',
+    noActivity: 'No activity yet. Start a task, then updates will appear here.',
     clearActivity: 'Clear Activity',
     filterByType: 'Filter by type',
     filterByAgent: 'Filter by agent',

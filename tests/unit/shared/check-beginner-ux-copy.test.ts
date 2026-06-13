@@ -108,6 +108,42 @@ export function skillSummary(totalCount: number) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags i18n empty-state keys without a next action', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  groups: {
+    noGroups: 'No groups yet',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'empty-state-next-action',
+        location: 'src/app/shared/i18n/locales/en.ts:4',
+      }),
+    ])
+  })
+
+  it('accepts i18n empty-state keys with a clear next action', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  users: {
+    noUsers: 'No users match this view. Clear search or invite a user first.',
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('ignores raw failure strings inside error parsers', () => {
     const cwd = fixture({
       'src/app/features/chat/chatErrorMessage.ts': `

@@ -13,7 +13,7 @@ const EMPTY_STATE_PATTERNS = [
 ]
 
 const NEXT_ACTION_PATTERN =
-  /\b(Add|Ask|Check|Choose|Clear|Connect|Create|Keep|Open|Refresh|Review|Run|Save|Select|Send|Start|Try|Use|Wait)\b/i
+  /\b(Add|Ask|Check|Choose|Clear|Connect|Create|Invite|Keep|Open|Refresh|Review|Run|Save|Select|Send|Start|Try|Use|Wait)\b/i
 
 const RAW_USER_VISIBLE_PATTERNS = [
   /\bFailed to fetch\b/,
@@ -72,6 +72,7 @@ function isUiCopyFile(relFile) {
 
 function isLikelyEmptyStateContext(lines, index, line) {
   if (/\bempty\s*[:=]/i.test(line)) return true
+  if (/^\s*no[A-Z][A-Za-z0-9_]*\s*:/.test(line)) return true
 
   const start = Math.max(0, index - 20)
   const end = Math.min(lines.length, index + 4)
