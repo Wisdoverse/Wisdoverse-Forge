@@ -38,6 +38,13 @@ describe('taskDetailErrorMessage', () => {
     )
   })
 
+  test('uses saved item wording when the review preview cannot load', () => {
+    const message = taskDetailErrorMessage('previewContext', new Error('HTTP 500'))
+
+    expect(message).toContain('The saved item review could not load.')
+    expect(message).not.toMatch(new RegExp(['context', 'review'].join('\\s+'), 'i'))
+  })
+
   test('turns service failures into a task setup recovery step', () => {
     const message = taskDetailErrorMessage('loadContext', new Error('HTTP 500'))
 
@@ -84,7 +91,9 @@ describe('taskDetailErrorMessage', () => {
 
     expect(message).toContain('The task was not sent with selected notes.')
     expect(message).toContain('Review the saved notes, then try again.')
-    expect(message).not.toMatch(/published|publish|selected context/i)
+    expect(message).not.toMatch(
+      new RegExp(['published', 'publish', ['selected', 'context'].join('\\s+')].join('|'), 'i')
+    )
     expect(message).not.toContain('HTTP 500')
   })
 })

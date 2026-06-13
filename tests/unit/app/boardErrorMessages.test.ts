@@ -30,7 +30,20 @@ describe('boardActionErrorMessage', () => {
 
   test('gives a clear next step when no agent can preview context', () => {
     expect(boardActionErrorMessage('previewContext', new Error('No available agent'))).toBe(
-      'No agent is available for context preview. Start an agent or wait for one to finish, then try again.'
+      'No agent is available for saved item preview. Start an agent or wait for one to finish, then try again.'
+    )
+  })
+
+  test('uses saved item wording when board send fails', () => {
+    const message = boardActionErrorMessage('publishTask', new Error('HTTP 500'))
+
+    expect(message).toContain('The task was not sent with selected saved items.')
+    expect(message).toContain('Review the saved item preview, then try again.')
+    expect(message).not.toMatch(
+      new RegExp(
+        ['published', 'publish', ['context', 'preview'].join('\\s+'), ['published', 'with', 'context'].join('\\s+')].join('|'),
+        'i'
+      )
     )
   })
 

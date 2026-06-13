@@ -13,8 +13,10 @@ const ACTION_FALLBACKS: Record<BoardErrorAction, string> = {
   loadReadiness: 'Agent status could not load. Refresh the board before sending work.',
   loadTasks: 'The task board could not load. Refresh the board, then try again.',
   moveTask: 'The task was moved back because the board change was not saved.',
-  previewContext: 'The context preview could not load. Choose an available agent, then try again.',
-  publishTask: 'The task was not published with context. Review the preview, then try again.',
+  previewContext:
+    'The saved item preview could not load. Choose an available agent, then try again.',
+  publishTask:
+    'The task was not sent with selected saved items. Review the saved item preview, then try again.',
   selectProject: 'The project was not selected. Choose the project again, then create the task.',
 }
 
@@ -24,7 +26,7 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
   const status = errorStatus(err, normalized)
 
   if (/no available agent|no agent.*available/.test(normalized)) {
-    return 'No agent is available for context preview. Start an agent or wait for one to finish, then try again.'
+    return 'No agent is available for saved item preview. Start an agent or wait for one to finish, then try again.'
   }
 
   if (isNetworkError(normalized)) {

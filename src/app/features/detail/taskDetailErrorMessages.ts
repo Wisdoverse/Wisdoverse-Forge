@@ -19,7 +19,8 @@ const ACTION_FALLBACKS: Record<TaskDetailErrorAction, string> = {
   loadContext: 'Task context could not load. Refresh the detail panel, then try again.',
   loadRuns:
     'Agent work history could not load. Refresh Updates before deciding whether to retry this task.',
-  previewContext: 'The context review could not load. Choose an available agent, then try again.',
+  previewContext:
+    'The saved item review could not load. Choose an available agent, then try again.',
   publishTask: 'The task was not sent with selected notes. Review the saved notes, then try again.',
   retryTask: 'The task was not retried. Refresh the task, then try Retry task again.',
 }
