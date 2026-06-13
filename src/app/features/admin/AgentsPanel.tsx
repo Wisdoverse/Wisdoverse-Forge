@@ -34,7 +34,7 @@ const RUNTIME_KIND_FILTER_OPTIONS: FilterOption[] = [
 // ============================================================================
 
 function formatLastActivity(epochMs: number): string {
-  if (!epochMs) return '—'
+  if (!epochMs) return 'No activity yet'
   try {
     return new Date(epochMs).toLocaleString(undefined, {
       month: 'short',
@@ -43,7 +43,7 @@ function formatLastActivity(epochMs: number): string {
       minute: '2-digit',
     })
   } catch {
-    return '—'
+    return 'Activity time needs review'
   }
 }
 
@@ -57,6 +57,33 @@ function agentStatusLabel(status: string): string {
       return 'Offline'
     default:
       return status.trim() ? 'Needs review' : 'Status not reported'
+  }
+}
+
+function readableValue(value: string | null | undefined, fallback: string): string {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : fallback
+}
+
+function agentOwnerLabel(agent: AdminAgent): string {
+  return readableValue(
+    agent.ownerUsername,
+    readableValue(agent.ownerEmail, 'Owner not reported yet')
+  )
+}
+
+function workToolLabel(tool: string): string {
+  switch (tool.trim().toLowerCase()) {
+    case 'claude':
+      return 'Claude'
+    case 'codex':
+      return 'Codex'
+    case 'gemini':
+      return 'Gemini'
+    case 'opencode':
+      return 'OpenCode'
+    default:
+      return 'Work tool needs review'
   }
 }
 
@@ -272,7 +299,7 @@ export function AgentsPanel() {
                     </p>
                     {agent.cliTool && (
                       <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                        Work tool: {agent.cliTool}
+                        Work tool: {workToolLabel(agent.cliTool)}
                       </p>
                     )}
                   </td>
@@ -293,7 +320,7 @@ export function AgentsPanel() {
                       'text-ui-caption text-secondary-light dark:text-secondary-dark'
                     )}
                   >
-                    {agent.ownerUsername ?? agent.ownerEmail ?? '—'}
+                    {agentOwnerLabel(agent)}
                   </td>
                   <td
                     className={cn(
@@ -301,7 +328,7 @@ export function AgentsPanel() {
                       'text-ui-caption text-secondary-light dark:text-secondary-dark'
                     )}
                   >
-                    {agent.projectName ?? '—'}
+                    {readableValue(agent.projectName, 'Project not reported yet')}
                   </td>
                   <td
                     className={cn(

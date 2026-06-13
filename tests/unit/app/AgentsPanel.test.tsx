@@ -135,8 +135,20 @@ describe('AgentsPanel', () => {
     expect(screen.getByText('Status not reported')).toBeDefined()
     expect(screen.queryByText('paused')).toBeNull()
     expect(screen.queryByText('Unknown')).toBeNull()
+    expect(screen.queryByText('Work tool: codex')).toBeNull()
+    expect(screen.getAllByText('Work tool: Codex')).toHaveLength(2)
+    expect(screen.getByText('Work tool: Claude')).toBeDefined()
 
     expect(screen.getAllByTestId('admin-agent-row')).toHaveLength(5)
+  })
+
+  test('explains missing admin agent fields instead of showing placeholder symbols', async () => {
+    render(<AgentsPanel />)
+
+    expect(await screen.findByText('Owner not reported yet')).toBeDefined()
+    expect(screen.getAllByText('Project not reported yet')).toHaveLength(2)
+    expect(screen.getByText('No activity yet')).toBeDefined()
+    expect(screen.queryByText('—')).toBeNull()
   })
 
   test('selecting a work location triggers the filtered fetch', async () => {
