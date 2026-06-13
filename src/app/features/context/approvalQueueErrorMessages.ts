@@ -22,7 +22,7 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   }
 
   if (status === 403) {
-    return 'You do not have permission to review saved items. Ask an owner or admin to let you approve saved memories and instructions.'
+    return 'You do not have permission to review saved items. Ask an owner or admin to let you approve saved notes and instructions.'
   }
 
   if (status === 404) {

@@ -36,18 +36,20 @@ function analytics(overrides: Partial<ContextUsageAnalytics> = {}): ContextUsage
 
 describe('ContextUsageDashboard', () => {
   test('explains empty reuse states without stale-threshold jargon', () => {
+    const previousSavedNotesCopy = new RegExp(['saved', 'memories'].join('\\s+'), 'i')
+
     render(<ContextUsageDashboard data={analytics()} />)
 
     expect(screen.getByText('Nothing looks outdated')).toBeDefined()
-    expect(screen.getByText(/saved memories and saved instructions appear here/i)).toBeDefined()
     expect(
-      screen.getByText(/helpful saved memories and saved instructions appear/i)
+      screen.getByText(/saved notes and saved instructions appear here when they are old enough/i)
+    ).toBeDefined()
+    expect(
+      screen.getByText(/helpful saved notes and saved instructions appear here/i)
     ).toBeDefined()
     expect(screen.getByText(/old enough to check again/i)).toBeDefined()
     expect(screen.getByText('Nothing needs review')).toBeDefined()
-    expect(
-      screen.queryByText(new RegExp(['saved memories', 'skills'].join(' and '), 'i'))
-    ).toBeNull()
+    expect(screen.queryByText(previousSavedNotesCopy)).toBeNull()
     expect(screen.queryByText(/stale threshold/i)).toBeNull()
     expect(screen.queryByText(/^Stale$/)).toBeNull()
     expect(screen.queryByText(/Snapshot/i)).toBeNull()
@@ -127,7 +129,8 @@ describe('ContextUsageDashboard', () => {
     )
 
     const item = screen.getByTestId('context-usage-item')
-    expect(item.textContent).toContain('Context item needs review')
+    expect(item.textContent).toContain('Saved item')
+    expect(item.textContent).not.toContain(['Con', 'text item needs review'].join(''))
     expect(item.textContent).toContain(
       'Builder Agent · Work location needs review · Task type needs review'
     )

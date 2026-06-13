@@ -30,7 +30,7 @@ const TASK_KIND_LABELS: Record<string, string> = {
 const EMPTY_TOP_USEFUL = {
   title: 'No useful saved items yet',
   detail:
-    'Helpful saved notes and saved instructions appear after people mark them useful in task results.',
+    'Helpful saved notes and saved instructions appear here after people mark them useful in task results.',
 }
 
 const EMPTY_NEEDS_REVIEW = {
@@ -71,7 +71,7 @@ function contextItemKindLabel(itemKind: string): string {
     case 'skill':
       return 'Saved instruction'
     default:
-      return 'Saved item needs review'
+      return 'Saved item'
   }
 }
 

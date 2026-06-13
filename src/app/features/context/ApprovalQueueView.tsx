@@ -81,7 +81,7 @@ const APPROVAL_PATH_STEPS = [
 ]
 
 const APPROVE_CHECKLIST = [
-  'The original task is complete and the saved note still helps.',
+  'The original task is complete and this saved item still helps.',
   'Only the right people can reuse it.',
   'Sensitive details are hidden before saving.',
 ]
@@ -243,7 +243,8 @@ export function ApprovalQueueView() {
                 Review steps
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Decide which memories or instructions are useful and safe to save for future work.
+                Decide which saved notes or instructions are useful and safe to save for future
+                work.
               </p>
             </div>
             <ol className="list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -306,7 +307,7 @@ export function ApprovalQueueView() {
               />
               <p className="mt-2 text-ui-section font-medium">No saved items match these filters</p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                New memory and instruction suggestions appear here after completed work.
+                New saved note and saved instruction suggestions appear here after completed work.
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 Switch Status to All or clear item and reuse filters if you expected older

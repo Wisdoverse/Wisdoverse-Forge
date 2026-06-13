@@ -80,6 +80,7 @@ describe('ApprovalQueueView', () => {
     expect(await screen.findByTestId('context-approval-path')).toBeDefined()
     expect(screen.getByText('Review what agents can save')).toBeDefined()
     expect(screen.getByText('Review steps')).toBeDefined()
+    expect(screen.getByText(/saved notes or instructions are useful/i)).toBeDefined()
     expect(screen.getByText(/choose who can reuse it/i)).toBeDefined()
     expect(await screen.findByText('Use stable credentials')).toBeDefined()
     expect(screen.getByText('Saved note')).toBeDefined()
@@ -95,6 +96,7 @@ describe('ApprovalQueueView', () => {
 
     expect(screen.getByTestId('context-decision-checklist')).toBeDefined()
     expect(screen.getByText('Approve only when')).toBeDefined()
+    expect(screen.getByText(/this saved item still helps/i)).toBeDefined()
     expect(screen.getByText(/only the right people can reuse it/i)).toBeDefined()
     expect(screen.getByText(/sensitive details are hidden before saving/i)).toBeDefined()
     expect(screen.getByText('Who can reuse it')).toBeDefined()
@@ -116,6 +118,7 @@ describe('ApprovalQueueView', () => {
 
     await waitFor(() => expect(listContextCandidates).toHaveBeenCalled())
     expect(await screen.findByText('No saved items match these filters')).toBeDefined()
+    expect(screen.getByText(/New saved note and saved instruction suggestions/i)).toBeDefined()
     expect(screen.getByText(/switch status to all or clear item and reuse filters/i)).toBeDefined()
   })
 

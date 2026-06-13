@@ -43,6 +43,14 @@ describe('approvalQueueErrorMessage', () => {
     expect(message).not.toContain('temporarily unavailable')
   })
 
+  test('keeps permission guidance in saved note wording', () => {
+    const message = approvalQueueErrorMessage('rejectCandidate', new Error('403 Forbidden'))
+
+    expect(message).toContain('approve saved notes and instructions')
+    expect(message).not.toContain('403 Forbidden')
+    expect(message).not.toContain(['saved', 'memories'].join(' '))
+  })
+
   test('turns validation details into a scope next step', () => {
     expectBeginnerMessage(
       approvalQueueErrorMessage('approveCandidate', {
