@@ -222,7 +222,7 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
             {task.assignedAgentName ?? 'Assigned agent'}
           </span>
         ) : (
-          <span>No assignee</span>
+          <span>Needs agent</span>
         )}
         <span className="flex shrink-0 items-center gap-1.5">
           {showContextBadge && (

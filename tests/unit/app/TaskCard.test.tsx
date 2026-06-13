@@ -44,6 +44,13 @@ describe('TaskCard', () => {
     expect(screen.queryByText('No assignee')).toBeNull()
   })
 
+  test('labels tasks without any agent as needing an agent', () => {
+    render(<TaskCard task={{ ...mockTask, assignedTo: undefined, assignedAgentName: undefined }} />)
+
+    expect(screen.getByText('Needs agent')).toBeDefined()
+    expect(screen.queryByText('No assignee')).toBeNull()
+  })
+
   test('shows progress bar for working state', () => {
     render(<TaskCard task={mockTask} />)
     expect(screen.getByTestId('progress-bar')).toBeDefined()
