@@ -26,8 +26,31 @@ type Role = 'admin' | 'member'
 
 const ROLE_OPTIONS: Role[] = ['admin', 'member']
 
+interface UserEmptyState {
+  title: string
+  detail: string
+  actionLabel?: string
+}
+
 function normalizeRole(role: string): Role {
   return role === 'admin' ? 'admin' : 'member'
+}
+
+function userEmptyState(search: string): UserEmptyState {
+  if (search.trim()) {
+    return {
+      title: 'Search did not find a matching person',
+      detail:
+        'Check the spelling or search by their email address. Clear the search to see everyone who can sign in.',
+      actionLabel: 'Clear search',
+    }
+  }
+
+  return {
+    title: 'No one is listed yet',
+    detail:
+      'People appear here after an owner or admin invites them. Use this page to change access or remove accounts after they are added.',
+  }
 }
 
 function formatDate(iso: string | null, missingLabel: string, invalidLabel: string): string {
@@ -304,7 +327,13 @@ export function UserManagement() {
     void loadUsers(1)
   }
 
+  function handleClearSearch() {
+    setUserSearch('')
+    void loadUsers(1)
+  }
+
   const totalPages = Math.ceil(usersTotal / 25)
+  const emptyState = userEmptyState(userSearch)
 
   return (
     <div>
@@ -319,14 +348,17 @@ export function UserManagement() {
       </div>
 
       {/* Search */}
-      <form onSubmit={handleSearch} className="mb-4 flex gap-2">
-        <input
-          type="text"
-          value={userSearch}
-          onChange={(e) => setUserSearch(e.target.value)}
-          placeholder="Search by name or email..."
-          className={cn(uiStyles.input, 'min-w-0 flex-1')}
-        />
+      <form onSubmit={handleSearch} className="mb-4 flex flex-col gap-2 sm:flex-row">
+        <label className="min-w-0 flex-1">
+          <span className="sr-only">Search people by name or email</span>
+          <input
+            type="text"
+            value={userSearch}
+            onChange={(e) => setUserSearch(e.target.value)}
+            placeholder="Search by name or email..."
+            className={cn(uiStyles.input, 'w-full min-w-0')}
+          />
+        </label>
         <button type="submit" className={uiStyles.primaryButton}>
           Find users
         </button>
@@ -349,13 +381,25 @@ export function UserManagement() {
             </p>
           </div>
         ) : users.length === 0 ? (
-          <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
+          <div
+            data-testid="admin-users-empty"
+            className="flex flex-col items-center justify-center px-6 py-12 text-center"
+          >
             <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              No users match this view
+              {emptyState.title}
             </p>
             <p className="mt-1 max-w-sm text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Try a different name or email. New teammates appear here after they are invited.
+              {emptyState.detail}
             </p>
+            {emptyState.actionLabel && (
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                className={cn(uiStyles.secondaryButton, 'mt-3')}
+              >
+                {emptyState.actionLabel}
+              </button>
+            )}
           </div>
         ) : (
           <table className={uiStyles.table}>

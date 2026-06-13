@@ -250,7 +250,8 @@ describe('UserManagement', () => {
     expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(1)
   })
 
-  test('explains an empty user search result without crashing on zero users', () => {
+  test('explains an empty user search result and lets operators reset it', async () => {
+    const loadUsers = vi.fn()
     useAdminStore.setState({
       ...originalAdminState,
       users: [],
@@ -259,16 +260,49 @@ describe('UserManagement', () => {
       usersLoading: false,
       usersError: null,
       userSearch: 'missing@example.com',
-      loadUsers: vi.fn(),
+      loadUsers,
     })
 
     render(<UserManagement />)
 
-    expect(screen.getByText('No users match this view')).toBeDefined()
-    expect(screen.getByText(/New teammates appear here after they are invited/i)).toBeDefined()
+    await waitFor(() => expect(loadUsers).toHaveBeenCalledWith(1))
+    loadUsers.mockClear()
+
+    expect(screen.getByText('Search did not find a matching person')).toBeDefined()
+    expect(screen.getByText(/clear the search to see everyone who can sign in/i)).toBeDefined()
+    expect(screen.queryByText('No users match this view')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+
+    expect(screen.getByLabelText('Search people by name or email')).toHaveValue('')
+    await waitFor(() => expect(loadUsers).toHaveBeenCalledWith(1))
     // Zero users → no pagination controls and no crash.
     expect(screen.queryByRole('button', { name: 'Previous' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Next' })).toBeNull()
+  })
+
+  test('explains a fully empty user list as an invitation starting point', async () => {
+    const loadUsers = vi.fn()
+    useAdminStore.setState({
+      ...originalAdminState,
+      users: [],
+      usersTotal: 0,
+      usersPage: 1,
+      usersLoading: false,
+      usersError: null,
+      userSearch: '',
+      loadUsers,
+    })
+
+    render(<UserManagement />)
+
+    await waitFor(() => expect(loadUsers).toHaveBeenCalledWith(1))
+    expect(screen.getByText('No one is listed yet')).toBeDefined()
+    expect(
+      screen.getByText(/people appear here after an owner or admin invites them/i)
+    ).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull()
+    expect(screen.queryByText('No users match this view')).toBeNull()
   })
 
   test('hides raw load errors behind a recovery step', async () => {
