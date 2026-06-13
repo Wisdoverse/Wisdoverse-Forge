@@ -92,7 +92,9 @@ function AppliedContextCard({
       const result = await onReadMemoryContent(item.itemId)
       setExpandedContent(result.content)
     } catch {
-      setContentError('The full saved note could not load. Try again before relying on it.')
+      setContentError(
+        'The full saved note could not load. Choose Show full saved note again before relying on it.'
+      )
     } finally {
       setLoadingContent(false)
     }
