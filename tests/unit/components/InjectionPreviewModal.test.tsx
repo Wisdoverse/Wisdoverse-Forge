@@ -92,38 +92,34 @@ describe('InjectionPreviewModal', () => {
       <InjectionPreviewModal isOpen preview={review} onClose={() => {}} onConfirm={() => {}} />
     )
 
-    expect(screen.getByRole('dialog', { name: 'Review context before publishing' })).toBeDefined()
+    expect(screen.getByRole('dialog', { name: 'Review saved notes before sending' })).toBeDefined()
     expect(
-      screen.getByText(/saved notes and skill instructions the agent will see next/i)
+      screen.getByText(/saved notes and saved instructions the agent will see next/i)
     ).toBeDefined()
     expect(
-      screen.getByText(
-        "2 items selected · Fits in this agent's context (1,200 context units available)"
-      )
+      screen.getByText("2 items selected · Fits in this agent's note space (1,200 units available)")
     ).toBeDefined()
     expect(screen.getByText('Agent will use')).toBeDefined()
     expect(screen.getByText('Claude')).toBeDefined()
     expect(screen.getByText('Work location')).toBeDefined()
     expect(screen.getByText('Managed workspace')).toBeDefined()
-    expect(screen.getByText('Limits applied')).toBeDefined()
+    expect(screen.getByText('Note limits')).toBeDefined()
     expect(
-      screen.getByText('Some notes will be left out because this agent has limited context room')
+      screen.getByText('Some notes will be left out because this agent has limited note space')
     ).toBeDefined()
     expect(screen.getByText('Will be included')).toBeDefined()
     expect(
-      screen.getByText('Checked items will be shared with the agent when you publish.')
+      screen.getByText('Checked items will be shared with the agent when you send the task.')
     ).toBeDefined()
-    expect(screen.getByText('Optional matches')).toBeDefined()
-    expect(
-      screen.getByText('These may help, but they stay out unless you choose them.')
-    ).toBeDefined()
-    expect(screen.getByText('Pinned for later')).toBeDefined()
+    expect(screen.getByText('More saved items you can include')).toBeDefined()
+    expect(screen.getByText('These are not shared unless you add them.')).toBeDefined()
+    expect(screen.getByText('Kept easy to reuse')).toBeDefined()
     expect(screen.getAllByText('Saved note').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Project').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Team space').length).toBeGreaterThan(0)
     expect(screen.queryByText('Organization')).toBeNull()
     expect(screen.getAllByText('Internal').length).toBeGreaterThan(0)
-    expect(screen.getByText('Needs about 120 context units')).toBeDefined()
+    expect(screen.getByText('Uses about 120 units of note space')).toBeDefined()
   })
 
   test('uses chat-only AI service wording for provider context reviews', () => {
@@ -218,10 +214,10 @@ describe('InjectionPreviewModal', () => {
     )
 
     expect(screen.getByText('Unknown badge memory')).toBeDefined()
-    expect(screen.getByText('Context item needs review')).toBeDefined()
-    expect(screen.getByText('Scope needs review')).toBeDefined()
-    expect(screen.getByText('Sensitivity needs review')).toBeDefined()
-    expect(screen.getByText('Some context limits need review')).toBeDefined()
+    expect(screen.getByText('Saved item needs review')).toBeDefined()
+    expect(screen.getByText('Sharing setting needs review')).toBeDefined()
+    expect(screen.getByText('Safety label needs review')).toBeDefined()
+    expect(screen.getByText('Some note limits need review')).toBeDefined()
     expect(screen.queryByText(/future context kind/i)).toBeNull()
     expect(screen.queryByText(/future limit reason/i)).toBeNull()
     expect(screen.queryByText(/global workspace/i)).toBeNull()
@@ -237,15 +233,17 @@ describe('InjectionPreviewModal', () => {
 
     await userEvent
       .setup()
-      .click(screen.getByRole('checkbox', { name: 'Remove Release rollback memory from context' }))
+      .click(
+        screen.getByRole('checkbox', { name: 'Remove Release rollback memory from this task' })
+      )
     const suggested = screen.getByText('Pinned migration note').closest('div')
     expect(suggested).not.toBeNull()
     await userEvent
       .setup()
-      .click(screen.getByRole('button', { name: 'Keep Pinned migration note pinned' }))
+      .click(screen.getByRole('button', { name: 'Keep Pinned migration note easy to reuse' }))
     await userEvent
       .setup()
-      .click(screen.getByRole('button', { name: 'Publish with selected context' }))
+      .click(screen.getByRole('button', { name: 'Send task with selected notes' }))
 
     expect(onConfirm).toHaveBeenCalledWith({
       pinnedIds: ['memory-3'],

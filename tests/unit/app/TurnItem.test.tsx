@@ -50,7 +50,8 @@ describe('TurnItem', () => {
       )
     ).toBeDefined()
     expect(
-      screen.getByRole('button', { name: /show step details for check_deployment/i })
+      screen.getByRole('button', { name: /show step details for check deployment/i })
     ).toBeDefined()
+    expect(screen.queryByText('check_deployment')).toBeNull()
   })
 })

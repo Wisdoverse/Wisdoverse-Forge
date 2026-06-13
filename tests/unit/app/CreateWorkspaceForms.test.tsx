@@ -24,7 +24,7 @@ describe('workspace setup create forms', () => {
     render(<CreateTeamForm onSave={onSave} onCancel={vi.fn()} saving={false} />)
 
     const status = screen.getByTestId('create-team-status')
-    expect(within(status).getByText('Next: Name the Team')).toBeInTheDocument()
+    expect(within(status).getByText('Next: name the team')).toBeInTheDocument()
     const createButton = screen.getByRole('button', { name: /create team/i })
     expect(createButton).not.toBeDisabled()
 
@@ -37,7 +37,7 @@ describe('workspace setup create forms', () => {
 
     fireEvent.change(nameInput, { target: { value: 'Support Ops' } })
 
-    expect(within(status).getByText('Ready to Create Team')).toBeInTheDocument()
+    expect(within(status).getByText('Ready to create team')).toBeInTheDocument()
     fireEvent.click(createButton)
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith('Support Ops'))
@@ -49,7 +49,7 @@ describe('workspace setup create forms', () => {
     render(<CreateProjectForm teams={[]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
 
     const status = screen.getByTestId('create-project-status')
-    expect(within(status).getByText('Next: Create a Team First')).toBeInTheDocument()
+    expect(within(status).getByText('Next: create a team first')).toBeInTheDocument()
     const createButton = screen.getByRole('button', { name: /create project/i })
     expect(createButton).not.toBeDisabled()
 
@@ -68,7 +68,7 @@ describe('workspace setup create forms', () => {
     render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
 
     const status = screen.getByTestId('create-project-status')
-    expect(within(status).getByText('Next: Name the Project')).toBeInTheDocument()
+    expect(within(status).getByText('Next: name the project')).toBeInTheDocument()
     const createButton = screen.getByRole('button', { name: /create project/i })
     expect(createButton).not.toBeDisabled()
 
@@ -81,7 +81,7 @@ describe('workspace setup create forms', () => {
 
     fireEvent.change(nameInput, { target: { value: 'Customer Portal' } })
 
-    expect(within(status).getByText('Ready to Create Project')).toBeInTheDocument()
+    expect(within(status).getByText('Ready to create project')).toBeInTheDocument()
     fireEvent.click(createButton)
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith('Customer Portal', 'team-1'))
