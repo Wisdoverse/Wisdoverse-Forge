@@ -75,6 +75,18 @@ describe('OrganizationsPanel', () => {
     expect(loadOrgsMock).toHaveBeenCalled()
   })
 
+  test('labels invalid created dates for team spaces without leaking Invalid Date', async () => {
+    useAdminStore.setState({
+      orgs: [{ ...organizations[0], createdAt: 'not-a-date' }],
+    })
+
+    render(<OrganizationsPanel />)
+
+    expect(await screen.findByText('Created date needs review')).toBeDefined()
+    expect(screen.queryByText('Invalid Date')).toBeNull()
+    expect(screen.queryByText('—')).toBeNull()
+  })
+
   test('guides administrators when no organizations are visible', async () => {
     useAdminStore.setState({ orgs: [] })
 

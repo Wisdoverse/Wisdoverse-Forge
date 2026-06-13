@@ -30,17 +30,15 @@ function normalizeRole(role: string): Role {
   return role === 'admin' ? 'admin' : 'member'
 }
 
-function formatDate(iso: string | null): string {
-  if (!iso) return '—'
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  } catch {
-    return '—'
-  }
+function formatDate(iso: string | null, missingLabel: string, invalidLabel: string): string {
+  if (!iso) return missingLabel
+  const date = new Date(iso)
+  if (!Number.isFinite(date.getTime())) return invalidLabel
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
 }
 
 function RoleBadge({ role }: { role: string }) {
@@ -217,7 +215,7 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
             'text-ui-caption text-secondary-light dark:text-secondary-dark'
           )}
         >
-          {formatDate(user.createdAt)}
+          {formatDate(user.createdAt, 'Added date not reported', 'Added date needs review')}
         </td>
         <td
           className={cn(
@@ -225,7 +223,7 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
             'text-ui-caption text-secondary-light dark:text-secondary-dark'
           )}
         >
-          {formatDate(user.lastLoginAt)}
+          {formatDate(user.lastLoginAt, 'Never signed in', 'Sign-in date needs review')}
         </td>
         <td className={uiStyles.tableCell}>
           {isSelf ? (

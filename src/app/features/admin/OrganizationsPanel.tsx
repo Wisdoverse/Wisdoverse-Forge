@@ -6,15 +6,13 @@ import { type AdminOrg, useAdminStore } from '@app/shared/model/admin.store'
 import { ADMIN_PANEL_RECOVERY, adminPanelLoadErrorMessage } from './adminErrorCopy'
 
 function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  } catch {
-    return '—'
-  }
+  const date = new Date(iso)
+  if (!Number.isFinite(date.getTime())) return 'Created date needs review'
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
 }
 
 function organizationReadiness(org: AdminOrg): {

@@ -75,6 +75,41 @@ describe('UserManagement', () => {
     expect(screen.queryByText('Active sessions')).toBeNull()
   })
 
+  test('explains missing and invalid user dates without placeholder symbols', async () => {
+    useAdminStore.setState({
+      ...originalAdminState,
+      users: [
+        {
+          ...mockUser,
+          id: 'user-missing-dates',
+          createdAt: null,
+          lastLoginAt: null,
+        },
+        {
+          ...mockUser,
+          id: 'user-invalid-dates',
+          createdAt: 'not-a-date',
+          lastLoginAt: 'not-a-date',
+        },
+      ],
+      usersTotal: 2,
+      usersPage: 1,
+      usersLoading: false,
+      usersError: null,
+      userSearch: '',
+      loadUsers: vi.fn(),
+    })
+
+    render(<UserManagement />)
+
+    expect(screen.getByText('Added date not reported')).toBeDefined()
+    expect(screen.getByText('Never signed in')).toBeDefined()
+    expect(screen.getByText('Added date needs review')).toBeDefined()
+    expect(screen.getByText('Sign-in date needs review')).toBeDefined()
+    expect(screen.queryByText('—')).toBeNull()
+    expect(screen.queryByText('Invalid Date')).toBeNull()
+  })
+
   test('saving a new access level calls the role update and closes the editor', async () => {
     const updateUserRole = vi.fn(async () => {
       // Mirror the real store: the row is swapped for the saved projection.
