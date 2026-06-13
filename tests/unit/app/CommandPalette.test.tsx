@@ -42,8 +42,9 @@ describe('CommandPalette', () => {
     expect(screen.getByText('See work that is planned, active, or done.')).toBeDefined()
     expect(screen.getByText('Inbox')).toBeDefined()
     expect(screen.getByText('Saved items')).toBeDefined()
-    expect(screen.getByText('Review saved notes and instructions before agents reuse them.'))
-      .toBeDefined()
+    expect(
+      screen.getByText('Review saved notes and instructions before agents reuse them.')
+    ).toBeDefined()
     expect(screen.getByText('Agents')).toBeDefined()
     expect(screen.getByText('Create or check agents that handle work.')).toBeDefined()
     expect(screen.getByText('Saved instructions')).toBeDefined()
@@ -90,7 +91,13 @@ describe('CommandPalette', () => {
     expect(
       screen.getByText(/try tasks, inbox, saved items, agents, saved instructions, or settings/i)
     ).toBeDefined()
-    expect(screen.getByText(/clear the search if you are not sure what to type/i)).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+
+    await waitFor(() => {
+      expect(input).toHaveValue('')
+      expect(screen.getByText('Tasks')).toBeDefined()
+    })
+    expect(screen.queryByText('No page or action matches that search')).toBeNull()
     expect(screen.queryByText(previousEmptyTitle)).toBeNull()
     expect(screen.queryByText(new RegExp(previousFullListCopy, 'i'))).toBeNull()
   })
@@ -106,7 +113,7 @@ describe('CommandPalette', () => {
     expect(
       screen.getByText(/try tasks, inbox, saved items, agents, saved instructions, or settings/i)
     ).toBeDefined()
-    expect(screen.getByText(/the full list will come back/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Clear search' })).toBeDefined()
     expect(screen.queryByText(previousEmptyTitle)).toBeNull()
     expect(screen.queryByText(new RegExp(previousFullListCopy, 'i'))).toBeNull()
   })

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Command } from 'cmdk'
 import { cn } from '@app/shared/lib/utils'
 import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
@@ -49,6 +50,7 @@ const COMMAND_DISCOVERY_STEPS = [
 
 export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProps) {
   const contextGovernanceEnabled = useContextFeaturesStore((s) => s.governance)
+  const [search, setSearch] = useState('')
   if (!isOpen) return null
   const navCommands = NAV_COMMANDS.filter(
     (cmd) => cmd.id !== 'nav:context' || contextGovernanceEnabled
@@ -86,6 +88,8 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
             </ol>
           </div>
           <Command.Input
+            value={search}
+            onValueChange={setSearch}
             placeholder="Search pages or actions, e.g. tasks, inbox, settings"
             className={cn(
               'w-full px-4 py-3 text-sm outline-none',
@@ -103,9 +107,13 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
                 Try Tasks, Inbox, Saved items, Agents, Saved instructions, or Settings to jump to a
                 common workflow.
               </p>
-              <p className="mt-1 text-ui-caption">
-                Clear the search if you are not sure what to type; the full list will come back.
-              </p>
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]"
+              >
+                Clear search
+              </button>
             </Command.Empty>
 
             <Command.Group
