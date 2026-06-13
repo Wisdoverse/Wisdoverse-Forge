@@ -326,7 +326,8 @@ function nextActionForTask(
           }
         : {
             title: 'Assign an agent',
-            detail: 'Choose an available agent, review the suggested context, then send the task.',
+            detail:
+              'Choose an available agent, review the suggested saved notes and instructions, then send the task.',
             tone: 'warn',
           }
     case 'queued':

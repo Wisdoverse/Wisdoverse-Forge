@@ -25,9 +25,10 @@ describe('DescriptionTab', () => {
       'Choose an agent before this task can start.'
     )
     expect(screen.getByTestId('task-next-action').textContent).toContain(
-      'Choose an available agent, review the suggested context, then send the task.'
+      'Choose an available agent, review the suggested saved notes and instructions, then send the task.'
     )
     expect(screen.getByTestId('task-next-action').textContent).not.toContain('when ready')
+    expect(screen.getByTestId('task-next-action').textContent).not.toMatch(/suggested\s+context/)
     expect(screen.getByTestId('task-work-review').textContent).not.toContain('leave the backlog')
     expect(screen.getByTestId('task-work-review').textContent).not.toContain('publish with context')
   })
