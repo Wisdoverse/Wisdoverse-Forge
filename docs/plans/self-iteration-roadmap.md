@@ -1,20 +1,38 @@
 # Self-iteration roadmap — fast/modular update + guarded autonomous fix loop
 
-Status: **Plan / proposal** (2026-06-13). Researched by a 5-agent survey of the
-build/deploy pipeline, existing self-update primitives, the agent/orchestration
+Status: **Living plan** (created 2026-06-13 from a 5-agent survey; updated
+2026-06-13 with per-item feasibility findings). Capability A is effectively
+**complete for this deployment** — see "Implementation status" below.
 
-- review/CI stack, and external best practices.
+> **This is a candidate plan, not a backlog.** A breadth-first research survey
+> lists options and generic best practices; it does **not** prove each item is
+> worth doing on _this_ system. Before acting on any phase, validate its
+> feasibility against the concrete deployment (host ports, boot timing,
+> migrations, edge networking, cache scoping). Two items below (Phase 1, Phase 2)
+> looked reasonable in the survey but were **dropped after that check** — the
+> reasons are recorded inline so nobody re-litigates them or treats this as a
+> to-do list.
+
+## Implementation status
+
+| Item                                      | Status                                                                                                                                                     |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Phase 0 — per-service deploy + inner loop | **Shipped** (#602 `make deploy-server`/`deploy-orchestrator`; #603 `make dev-infra`/`backend-watch` + overridable `COMPOSE_PARALLEL_LIMIT`)                |
+| Phase 3 — wider hot-config                | **Shipped** (#604 `PARTICIPANT_STALE_AFTER_SECS`/`PARTICIPANT_SWEEP_INTERVAL_SECS`; the server was already ~70 env flags so this was the one concrete gap) |
+| Phase 1 — unify build context             | **Dropped** — ROI collapsed once Phase 0 shipped (below)                                                                                                   |
+| Phase 2 — zero-downtime rolling deploy    | **Dropped** — measured cost ≫ benefit on this topology (below)                                                                                             |
+| Capability B (Phases 4–6)                 | **Not started** — multi-quarter; needs its own scoping                                                                                                     |
 
 ## Verdict — split into two capabilities, do NOT conflate them
 
-- **A) Fast / modular UPDATE mechanism — a boilable LAKE (~1–2 weeks).** The hard
-  parts are already done: `cargo-chef` + BuildKit registry/git/target cache
-  mounts + `mold` + a CI-tuned release profile are wired in every Rust Dockerfile.
-  A one-line change does **not** recompile dependencies. The slowness is the
-  _deploy orchestration_, not the build: `make prod-ext` rebuilds the whole
-  external stack serially (`COMPOSE_PARALLEL_LIMIT=1`) even for a one-service
-  change, and server + orchestrator compile the shared workspace from two
-  separate cache scopes (a double compile). These are config/Dockerfile fixes.
+- **A) Fast / modular UPDATE mechanism — the high-ROI parts are DONE.** The hard
+  build-speed parts were already wired (`cargo-chef` + BuildKit cache mounts +
+  `mold` + a CI-tuned release profile), so a one-line change never recompiled
+  dependencies. The real slowness was the deploy orchestration, and Phase 0/3
+  fixed the part that mattered: per-service deploy (don't rebuild the whole stack
+  for one service), a sub-minute non-Docker inner loop, and runtime-tunable
+  liveness timers. Phase 1 and Phase 2 were investigated and **not worth doing**
+  (see their entries) — capability A is effectively complete for this deployment.
 - **B) Autonomous self-iteration LOOP — a multi-quarter OCEAN.** A genuinely
   useful _human-gated assistant_ (issue → agent fix → draft PR → human-confirm →
   staging deploy) is ~6–10 weeks. Unattended self-modification of production is
@@ -22,45 +40,71 @@ build/deploy pipeline, existing self-update primitives, the agent/orchestration
   gates that make the platform governable, and today there is no scheduler, no
   merge primitive, and the CD workflow is a stub.
 
-**Recommendation: ship A in full first.** It pays for itself immediately and is
-the precondition for fast iteration whether or not B ever ships.
-
 ## Quick wins (cheapest high-value first moves)
 
-1. **Per-service deploy** — `make deploy-server` = `docker compose up -d --build
-agentforge-server` instead of the whole external profile. Biggest single
-   iteration-speed win; pure config, no architecture change (the build is already
-   cargo-chef-fast). _(This is the path already used by hand this session.)_
-2. **Parallelise multi-service builds** — drop/raise `COMPOSE_PARALLEL_LIMIT=1`;
-   images already have independent GHA cache scopes.
-3. **Document the inner loop** — `npm run server` (`cargo run --bin
-agentforge-server`) + `cargo-watch`/`bacon` for sub-minute save-on-change dev,
-   skipping Docker entirely. Frontend is already hot (`vite build` → webroot, no
-   backend rebuild); 70+ runtime env flags flip with a restart, no rebuild.
-4. **`docker-rollout`** (wowu/docker-rollout) as the drop-in zero-downtime swap
-   for one service once Docker healthchecks exist.
+1. **Per-service deploy** — `make deploy-server` instead of the whole external
+   profile. Biggest single iteration-speed win; pure config (the build is already
+   cargo-chef-fast). **Shipped (#602).**
+2. **Overridable build parallelism** — `COMPOSE_PARALLEL_LIMIT` is now a Make
+   variable (default 1 so constrained hosts don't OOM; capable hosts can raise
+   it). **Shipped (#603).** Note: with per-service deploy this only matters for
+   the now-rare full `make prod-ext` rebuild.
+3. **Inner loop** — `make dev-infra` (Postgres/Redis/NATS only) + `make
+backend-watch` (`cargo watch -x run`) for sub-minute save-on-change dev,
+   skipping Docker. Frontend is already hot (`vite build` → webroot); ~70 runtime
+   env flags flip with a restart, no rebuild. **Shipped (#603).**
+4. ~~**`docker-rollout`** zero-downtime swap~~ — **dropped after investigation.**
+   The server publishes a fixed host port `127.0.0.1:4003`, so docker-rollout's
+   two-replica swap can't run (port conflict), and the measured deploy gap is
+   only ~2–5s. See Phase 2.
 5. **First slice of the loop** — an issue → agent → **draft PR** assistant (no
    merge, no deploy) reusing the existing task state machine, auto-spawn-on-assign,
    and the `/workspace` mount. Independently useful and the staging ground for the
-   guardrails before any merge automation.
+   guardrails before any merge automation. (Capability B, not started.)
 
 ## Phases (each independently shippable, smallest-value-first)
 
 ### Capability A — fast/modular update
 
-- **Phase 0 — Per-service deploy + inner-loop fast path** (S, 2–4 days). `make
-deploy-server`/`deploy-orchestrator`; document the `cargo run` + watch inner
-  loop and the already-hot frontend/flag paths. No new product surface.
-- **Phase 1 — Unify server+orchestrator build context** (M, 3–6 days). Build both
-  from one context/Dockerfile so the shared workspace compiles once, halving cold
-  build time. Re-verify all four images **functionally**, not by "Image built"
-  (the binary lives only in the target cache mount and must be `cp`'d out before
-  the `RUN` ends).
-- **Phase 2 — Zero-downtime per-service rolling deploy** (M, 4–7 days). Docker
-  healthchecks + `docker-rollout`/proxy cutover so a redeploy is gap-free.
-- **Phase 3 — Wider hot-config surface** (S–M, 3–5 days). Push more _safe_
-  behavior behind runtime flags so more changes need only a restart. (Do **not**
-  hot-reload auth/security/migration logic.)
+- **Phase 0 — Per-service deploy + inner-loop fast path** — **SHIPPED (#602/#603).**
+  `make deploy-server`/`deploy-orchestrator` rebuild + recreate one service;
+  `make dev-infra` + `make backend-watch` give a sub-minute non-Docker inner
+  loop; `COMPOSE_PARALLEL_LIMIT` became overridable. CONTRIBUTING documents the
+  loop and the already-hot frontend/flag paths.
+- **Phase 1 — Unify server+orchestrator build context** — **DROPPED (ROI
+  collapsed after Phase 0).** The double compile of the shared workspace only
+  happens when **both** services are built together (`make prod-ext`). Once
+  per-service deploy shipped (#602), the daily path is `make deploy-server` —
+  one service, no duplicate — so Phase 1 now only speeds up the rare full-stack
+  rebuild. Worse, a unified builder stage would compile **both** binaries even
+  for a single-service deploy unless per-bin target logic is added. Cost (rewrite
+  the Dockerfiles + `compose*.yml` + `publish-images.yml`, which is **not**
+  validated by PR CI — only on push-to-main or `workflow_dispatch` — and risks
+  the GHCR images OSS operators consume) stayed high while the benefit fell to
+  near-zero on the common path. Revisit only if full rebuilds become frequent.
+- **Phase 2 — Zero-downtime rolling deploy** — **DROPPED (cost ≫ benefit on this
+  topology).** Measured: the Rust server boots in **~230 ms** (start → DB →
+  migrations → `Listening on 0.0.0.0:4003`), so a `make deploy-server` recreate
+  leaves a `:4003` gap of only ~2–5 s (container stop+start), not the 10–30 s the
+  survey assumed; the `HEALTHCHECK` `start-period` is a status gate, not a
+  traffic gate. The edge (`openresty proxy_pass http://127.0.0.1:4003`, no
+  `proxy_next_upstream`) 502s during that window, but it is brief and only on an
+  (now infrequent) deploy. Cost is far higher than "install a tool + a target":
+  the server publishes a **fixed host port** `127.0.0.1:4003`, so
+  `docker-rollout`'s two-replica swap cannot run (both replicas would bind
+  `:4003`) — true zero-downtime would require removing the host port, adding a
+  reverse proxy on the Docker network, and repointing openresty. Plus migrations
+  run on **every** boot (`main.rs` `run_migrations`), so an overlap deploy needs
+  backward-compatible migrations or a separate migrate step. Not worth it for a
+  self-hosted staging with infrequent deploys; revisit only with a real
+  zero-downtime SLA + high deploy frequency.
+- **Phase 3 — Wider hot-config surface** — **SHIPPED (#604).** The server was
+  already ~70 env flags; the one concrete gap was the hardcoded participant
+  liveness timers (`DEFAULT_STALE_AFTER`/`DEFAULT_STALE_SWEEP_INTERVAL`, builders
+  never called). `PARTICIPANT_STALE_AFTER_SECS` and `PARTICIPANT_SWEEP_INTERVAL_SECS`
+  now tune the offline window without a rebuild (single source for both the PG
+  sweep and the Phase 2 Redis presence TTL). Auth/security/migration logic is
+  intentionally **not** hot-reloadable.
 
 ### Capability B — guarded autonomous loop (defer until A is done)
 
@@ -105,22 +149,25 @@ warnings`/`cargo test --workspace`/`npm audit`/dangerous-pattern + secret-leak
 
 ## Risks
 
+- **Treating a survey as a backlog.** The biggest lesson from this plan: a
+  breadth-first research survey produces plausible-but-unvalidated items. Phase 1
+  (ROI assumed full rebuilds were the norm — they weren't after #602) and Phase 2
+  (assumed `docker-rollout` drops in — the fixed host port blocks it) both passed
+  the survey and failed the feasibility check. Validate each phase against the
+  concrete system before committing.
 - **Conflating A and B.** Different costs, owners, risk profiles. Ship A's value
   without waiting on B.
-- **sccache over-reach.** On ephemeral CI runners the target cache mount is lost
-  between builds; sccache needs a persisted/cloud backend or buys nothing. Treat
-  as a _measured_ Phase-1 add-on only if cold builds remain the bottleneck.
-- **Build-context unification regressing an image.** Re-verify all four images
-  functionally; the binary must be `cp`'d out of the cache mount before `RUN` ends.
-- **Blue/green doesn't cover DB migrations.** A non-backward-compatible migration
-  breaks rolling deploy; gate any migration-bearing PR on a human and run
-  migrations as a separate ordered step.
 - **Agentic refinement failure mode.** Agents merge narrow PRs well but
   ghost/abandon subjective-feedback PRs; without the creation-time circuit
   breaker + tight human gate the loop generates low-quality PRs that cost more
   review time than they save.
 - **Over-promising autonomy.** The realistic deliverable is a guarded, human-gated
   assistant — not unattended self-modification of prod.
+- **Migrations run on every boot** (`server` `run_migrations`). Any future deploy
+  scheme with running-container overlap (the dropped Phase 2, or Capability B's
+  auto-deploy) must keep migrations backward-compatible or run them as a separate
+  ordered step — a non-backward-compatible migration would break the old
+  container.
 
 ## Already-shipped primitives this reuses
 
