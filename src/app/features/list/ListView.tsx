@@ -35,6 +35,11 @@ const ROW_HEIGHT = 68
 
 type ListTaskFilter = 'all' | 'open' | 'attention' | 'completed'
 
+interface EmptyStateCopy {
+  title: string
+  detail: string
+}
+
 const LIST_FILTERS: { value: ListTaskFilter; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'open', label: 'Open' },
@@ -91,6 +96,7 @@ export function ListView() {
     [filter, searchQuery, tasks]
   )
   const hasActiveFilter = searchQuery.trim().length > 0 || filter !== 'all'
+  const filteredEmptyState = listFilterEmptyState(filter, searchQuery)
 
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -222,7 +228,7 @@ export function ListView() {
             <ListChecks size={18} strokeWidth={1.9} aria-hidden="true" />
           </div>
           <p className="font-semibold text-foreground-light dark:text-foreground-dark">
-            No tasks yet
+            Create your first small task
           </p>
           <p className="max-w-sm text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
             Create one small task from the board first. Start with the outcome you want, then add
@@ -235,10 +241,10 @@ export function ListView() {
           className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-ui-body text-secondary-light dark:text-secondary-dark"
         >
           <span className="font-medium text-foreground-light dark:text-foreground-dark">
-            No tasks match this view
+            {filteredEmptyState.title}
           </span>
           <span className="max-w-sm text-ui-caption leading-relaxed">
-            Show all tasks first, then narrow by task result, agent name, help needed, or priority.
+            {filteredEmptyState.detail}
           </span>
           {hasActiveFilter && (
             <button
@@ -470,6 +476,30 @@ function listNextStep(
   return {
     title: 'Review completed work.',
     detail: 'Open completed tasks to check the result, evidence, and anything worth reusing.',
+  }
+}
+
+function listFilterEmptyState(filter: ListTaskFilter, query: string): EmptyStateCopy {
+  const hasSearch = query.trim().length > 0
+  const hasFilter = filter !== 'all'
+
+  if (hasSearch && hasFilter) {
+    return {
+      title: 'Clear search or show all tasks',
+      detail: 'There are tasks here, but the current search and filter hide them.',
+    }
+  }
+
+  if (hasSearch) {
+    return {
+      title: 'Clear search to see tasks',
+      detail: 'There are tasks here, but this search hides them. Try a broader word.',
+    }
+  }
+
+  return {
+    title: 'Choose All to see tasks',
+    detail: 'There are tasks here, but this filter has no results yet.',
   }
 }
 

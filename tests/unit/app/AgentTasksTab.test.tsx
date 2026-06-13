@@ -194,11 +194,55 @@ describe('AgentTasksTab', () => {
     await waitFor(() => {
       expect(screen.getByTestId('agent-tasks-filter-empty')).toBeDefined()
     })
-    expect(screen.getByText("Try All or clear the search to see this agent's tasks.")).toBeDefined()
+    const filterEmpty = screen.getByTestId('agent-tasks-filter-empty')
+    expect(within(filterEmpty).getByText("Choose All to see this agent's work")).toBeDefined()
+    expect(filterEmpty.textContent).toContain(
+      'This agent has tasks, but this filter has no results yet.'
+    )
+    expect(filterEmpty.textContent).not.toContain('No tasks match this view')
 
-    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show all agent work/i }))
 
     expect(screen.getByText('Build frontend')).toBeDefined()
+  })
+
+  test('explains search-only and combined empty agent task filters', async () => {
+    getTasksByAgentMock.mockResolvedValue([
+      makeTask({
+        id: 'working',
+        state: 'working',
+        params: { task: 'Build frontend', message: 'Implement UI' },
+      }),
+      makeTask({
+        id: 'completed',
+        state: 'completed',
+        params: { task: 'Review docs', message: 'Docs updated' },
+      }),
+    ])
+
+    render(<AgentTasksTab agentId="agent-1" />)
+
+    await screen.findByText('Build frontend')
+    fireEvent.change(screen.getByTestId('agent-task-search'), { target: { value: 'missing' } })
+
+    const searchEmpty = screen.getByTestId('agent-tasks-filter-empty')
+    expect(within(searchEmpty).getByText("Clear search to see this agent's work")).toBeDefined()
+    expect(searchEmpty.textContent).toContain(
+      'This agent has tasks, but this search hides them. Try a broader word.'
+    )
+    expect(searchEmpty.textContent).not.toContain('No tasks match this view')
+
+    fireEvent.click(screen.getByRole('button', { name: /show all agent work/i }))
+    const filters = screen.getByTestId('agent-task-filter-group')
+    fireEvent.click(within(filters).getByRole('button', { name: /needs help\s*0/i }))
+    fireEvent.change(screen.getByTestId('agent-task-search'), { target: { value: 'frontend' } })
+
+    const combinedEmpty = screen.getByTestId('agent-tasks-filter-empty')
+    expect(within(combinedEmpty).getByText('Clear search or show all agent work')).toBeDefined()
+    expect(combinedEmpty.textContent).toContain(
+      'This agent has tasks, but the current search and filter hide them.'
+    )
+    expect(combinedEmpty.textContent).not.toContain('No tasks match this view')
   })
 
   test('shows beginner next steps when the agent has no assigned tasks', async () => {

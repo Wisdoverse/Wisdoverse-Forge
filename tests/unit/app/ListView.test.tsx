@@ -111,8 +111,10 @@ describe('ListView', () => {
   test('shows empty state when no tasks', () => {
     render(<ListView />)
     expect(screen.getByTestId('list-empty-state')).toBeDefined()
+    expect(screen.getByText('Create your first small task')).toBeDefined()
     expect(screen.getByText(/create one small task/i)).toBeDefined()
     expect(screen.getByText(/proof you expect the agent to return/i)).toBeDefined()
+    expect(screen.queryByText('No tasks yet')).toBeNull()
   })
 
   test('summarizes task work register across lifecycle states', () => {
@@ -239,15 +241,60 @@ describe('ListView', () => {
     fireEvent.change(screen.getByTestId('list-search'), {
       target: { value: 'missing task' },
     })
-    expect(screen.getByTestId('list-filter-empty')).toBeDefined()
+    const combinedEmpty = screen.getByTestId('list-filter-empty')
+    expect(within(combinedEmpty).getByText('Clear search or show all tasks')).toBeDefined()
+    expect(combinedEmpty.textContent).toContain(
+      'There are tasks here, but the current search and filter hide them.'
+    )
 
-    expect(screen.getByText(/narrow by task result/i)).toBeDefined()
-    expect(screen.getByText(/help needed/i)).toBeDefined()
+    expect(screen.queryByText(/narrow by task result/i)).toBeNull()
+    expect(screen.queryByText(/No tasks match this view/i)).toBeNull()
     expect(screen.queryByText(/task title/i)).toBeNull()
     expect(screen.queryByText(/blocker/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /show all tasks/i }))
     expect(screen.getByText('Build settings')).toBeDefined()
+  })
+
+  test('explains search-only and filter-only empty task lists', () => {
+    useBoardStore.getState().setTasks([
+      {
+        id: 'working-1',
+        state: 'working',
+        params: { task: 'Build settings', message: '' },
+        assignedAgentName: 'Build Runner',
+        priority: 'high',
+        progress: 40,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+    ])
+
+    render(<ListView />)
+
+    fireEvent.change(screen.getByTestId('list-search'), {
+      target: { value: 'missing task' },
+    })
+    const searchEmpty = screen.getByTestId('list-filter-empty')
+    expect(within(searchEmpty).getByText('Clear search to see tasks')).toBeDefined()
+    expect(searchEmpty.textContent).toContain(
+      'There are tasks here, but this search hides them. Try a broader word.'
+    )
+    expect(searchEmpty.textContent).not.toContain('No tasks match this view')
+
+    fireEvent.click(screen.getByRole('button', { name: /show all tasks/i }))
+    fireEvent.click(
+      within(screen.getByTestId('list-task-filter')).getByRole('button', {
+        name: /completed\s*0/i,
+      })
+    )
+
+    const filterEmpty = screen.getByTestId('list-filter-empty')
+    expect(within(filterEmpty).getByText('Choose All to see tasks')).toBeDefined()
+    expect(filterEmpty.textContent).toContain(
+      'There are tasks here, but this filter has no results yet.'
+    )
+    expect(filterEmpty.textContent).not.toContain('No tasks match this view')
   })
 
   test('shows blocked reason guidance without raw reason codes', () => {

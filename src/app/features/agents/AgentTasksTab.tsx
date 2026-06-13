@@ -18,6 +18,11 @@ interface AgentTasksTabProps {
   agentId: string
 }
 
+interface EmptyStateCopy {
+  title: string
+  detail: string
+}
+
 const STATE_ORDER: TaskState[] = [
   'working',
   'queued',
@@ -130,6 +135,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
   // Group tasks by state for compact rendering. STATE_ORDER puts active work
   // (working/queued/backlog/blocked) above terminal states (completed/failed/canceled).
   const grouped = useMemo(() => groupTasksByState(visibleTasks), [visibleTasks])
+  const filterEmptyState = agentTasksFilterEmptyState(filter, query)
   const resetTaskFilters = () => {
     setFilter('all')
     setQuery('')
@@ -297,7 +303,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
           )
         })
       ) : (
-        <AgentTasksFilterEmptyState onReset={resetTaskFilters} />
+        <AgentTasksFilterEmptyState copy={filterEmptyState} onReset={resetTaskFilters} />
       )}
     </div>
   )
@@ -344,7 +350,13 @@ function AgentTasksEmptyState() {
   )
 }
 
-function AgentTasksFilterEmptyState({ onReset }: { onReset: () => void }) {
+function AgentTasksFilterEmptyState({
+  copy,
+  onReset,
+}: {
+  copy: EmptyStateCopy
+  onReset: () => void
+}) {
   return (
     <div
       data-testid="agent-tasks-filter-empty"
@@ -353,10 +365,8 @@ function AgentTasksFilterEmptyState({ onReset }: { onReset: () => void }) {
         'text-center text-ui-body text-secondary-light dark:border-white/[0.12] dark:bg-[#2c2c2e] dark:text-secondary-dark'
       )}
     >
-      <p className="font-medium text-foreground-light dark:text-foreground-dark">
-        No tasks match this view.
-      </p>
-      <p className="mt-1 text-ui-caption">Try All or clear the search to see this agent's tasks.</p>
+      <p className="font-medium text-foreground-light dark:text-foreground-dark">{copy.title}</p>
+      <p className="mt-1 text-ui-caption">{copy.detail}</p>
       <button
         type="button"
         onClick={onReset}
@@ -366,10 +376,34 @@ function AgentTasksFilterEmptyState({ onReset }: { onReset: () => void }) {
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35'
         )}
       >
-        Clear filters
+        Show all agent work
       </button>
     </div>
   )
+}
+
+function agentTasksFilterEmptyState(filter: AgentTaskFilter, query: string): EmptyStateCopy {
+  const hasSearch = query.trim().length > 0
+  const hasFilter = filter !== 'all'
+
+  if (hasSearch && hasFilter) {
+    return {
+      title: 'Clear search or show all agent work',
+      detail: 'This agent has tasks, but the current search and filter hide them.',
+    }
+  }
+
+  if (hasSearch) {
+    return {
+      title: "Clear search to see this agent's work",
+      detail: 'This agent has tasks, but this search hides them. Try a broader word.',
+    }
+  }
+
+  return {
+    title: "Choose All to see this agent's work",
+    detail: 'This agent has tasks, but this filter has no results yet.',
+  }
 }
 
 function WorkloadMetric({
