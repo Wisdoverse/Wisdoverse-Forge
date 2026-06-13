@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -114,6 +114,7 @@ export function AgentGroupsPanel() {
   const [routingSearch, setRoutingSearch] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const nameInputRef = useRef<HTMLInputElement>(null)
 
   const selectedProject = useMemo(() => {
     if (!selectedProjectId) return null
@@ -178,6 +179,7 @@ export function AgentGroupsPanel() {
     const trimmedName = name.trim()
     if (!trimmedName) {
       setError('Name this task queue before creating it. Examples: Intake, Review, or Delivery.')
+      nameInputRef.current?.focus()
       return
     }
 
@@ -203,6 +205,7 @@ export function AgentGroupsPanel() {
     setSelectedTemplateId(template.id)
     setName(template.name)
     setDescription(template.description)
+    setError(null)
   }
 
   return (
@@ -442,11 +445,16 @@ export function AgentGroupsPanel() {
               </div>
 
               <input
+                ref={nameInputRef}
                 aria-label="Task queue name"
                 name="taskGroupName"
                 autoComplete="off"
                 value={name}
-                onChange={(event) => setName(event.target.value)}
+                aria-invalid={error && !name.trim() ? 'true' : undefined}
+                onChange={(event) => {
+                  setName(event.target.value)
+                  if (error) setError(null)
+                }}
                 className="h-10 rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                 placeholder="Task queue name…"
                 disabled={saving}

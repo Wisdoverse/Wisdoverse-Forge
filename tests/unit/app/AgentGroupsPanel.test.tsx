@@ -290,6 +290,12 @@ describe('AgentGroupsPanel', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Name this task queue before creating it. Examples: Intake, Review, or Delivery.'
     )
+    expect(screen.getByLabelText(/task queue name/i)).toHaveFocus()
+
+    fireEvent.change(screen.getByLabelText(/task queue name/i), {
+      target: { value: 'Intake Queue' },
+    })
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 
   test('explains task queue creation permission failures with a next step', async () => {
@@ -303,10 +309,17 @@ describe('AgentGroupsPanel', () => {
     fireEvent.change(screen.getByLabelText(/task queue name/i), {
       target: { value: 'Delivery Queue' },
     })
+    fireEvent.change(screen.getByLabelText(/task queue description/i), {
+      target: { value: 'Keep delivery tasks moving.' },
+    })
     fireEvent.submit(screen.getByRole('button', { name: /create task queue/i }).closest('form')!)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Task queue was not created. Ask an owner or admin to let you create and manage task queues in this project.'
+    )
+    expect(screen.getByLabelText(/task queue name/i)).toHaveValue('Delivery Queue')
+    expect(screen.getByLabelText(/task queue description/i)).toHaveValue(
+      'Keep delivery tasks moving.'
     )
     expect(screen.queryByText(/HTTP 403/i)).toBeNull()
   })
