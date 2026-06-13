@@ -149,6 +149,28 @@ describe('SshKeysSection', () => {
     expect(deleteSshKeyMock).toHaveBeenCalledWith('ssh-key-1')
   })
 
+  test('explains missing repository SSH access dates instead of showing raw date failures', async () => {
+    useSettingsStore.setState({
+      sshKeys: [
+        sshKey({ createdAt: '' }),
+        sshKey({
+          id: 'ssh-key-2',
+          label: 'Deploy runner',
+          fingerprint: 'SHA256:def456',
+          createdAt: 'not-a-date',
+        }),
+      ],
+    })
+
+    render(<SshKeysSection />)
+
+    expect(await screen.findByRole('table', { name: /repository ssh access/i })).toBeDefined()
+    expect(screen.getByText('Added date not reported')).toBeDefined()
+    expect(screen.getByText('Added date needs review')).toBeDefined()
+    expect(screen.queryByText('Invalid Date')).toBeNull()
+    expect(screen.queryByText('—')).toBeNull()
+  })
+
   test('shows a beginner recovery step instead of raw SSH key details', async () => {
     useSettingsStore.setState({
       sshKeysError: 'Settings could not save SSH key. Details: invalid public key',

@@ -3,19 +3,8 @@ import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import type { UserSshKey } from '@app/entities/agent'
+import { formatAccessDate } from './formatAccessDate'
 import { sshKeysErrorMessage } from './sshKeysErrorMessage'
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-}
 
 function describeKeyType(keyType: string): string {
   if (keyType === 'ssh-ed25519') return 'Modern SSH key'
@@ -76,7 +65,10 @@ function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
       </td>
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {formatDate(sshKey.createdAt)}
+          {formatAccessDate(sshKey.createdAt, {
+            missing: 'Added date not reported',
+            invalid: 'Added date needs review',
+          })}
         </span>
       </td>
       <td className={cn(uiStyles.tableCell, 'text-right')}>

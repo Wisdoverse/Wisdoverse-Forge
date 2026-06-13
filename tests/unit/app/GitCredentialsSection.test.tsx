@@ -131,6 +131,34 @@ describe('GitCredentialsSection', () => {
     })
   })
 
+  test('explains missing repository access dates instead of showing raw date failures', async () => {
+    const credentials: GitCredential[] = [
+      {
+        id: 'git-1',
+        provider: 'github',
+        host: null,
+        createdAt: '',
+        updatedAt: '2026-06-01T00:00:00Z',
+      },
+      {
+        id: 'git-2',
+        provider: 'gitlab',
+        host: 'gitlab.example.com',
+        createdAt: 'not-a-date',
+        updatedAt: '2026-06-01T00:00:00Z',
+      },
+    ]
+    useSettingsStore.setState({ gitCredentials: credentials })
+
+    render(<GitCredentialsSection />)
+
+    expect(await screen.findByRole('table', { name: /^repository access$/i })).toBeDefined()
+    expect(screen.getByText('Added date not reported')).toBeDefined()
+    expect(screen.getByText('Added date needs review')).toBeDefined()
+    expect(screen.queryByText('Invalid Date')).toBeNull()
+    expect(screen.queryByText('—')).toBeNull()
+  })
+
   test('shows a beginner recovery step instead of raw git credential details', async () => {
     useSettingsStore.setState({
       gitCredentialsError:

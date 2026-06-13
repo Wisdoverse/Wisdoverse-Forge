@@ -4,22 +4,8 @@ import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import type { ApiKeyRecord } from '@app/shared/api/legacy/settingsApi'
+import { formatAccessDate } from './formatAccessDate'
 import { platformKeyErrorMessage } from './platformKeyErrorMessage'
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-function formatDate(dateStr: string | null, labels: { missing: string; invalid: string }): string {
-  if (!dateStr) return labels.missing
-  const date = new Date(dateStr)
-  if (Number.isNaN(date.getTime())) return labels.invalid
-  return date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-}
 
 const ACCESS_KEY_EMPTY_STEPS = [
   'Create one only for a tool you trust.',
@@ -63,7 +49,7 @@ function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
       </td>
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {formatDate(apiKey.createdAt, {
+          {formatAccessDate(apiKey.createdAt, {
             missing: 'Created date not reported',
             invalid: 'Created date needs review',
           })}
@@ -71,7 +57,7 @@ function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
       </td>
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {formatDate(apiKey.lastUsedAt, {
+          {formatAccessDate(apiKey.lastUsedAt, {
             missing: 'Not used yet',
             invalid: 'Last used date needs review',
           })}
