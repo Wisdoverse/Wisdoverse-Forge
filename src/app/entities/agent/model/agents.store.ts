@@ -140,14 +140,26 @@ function agentErrorDetail(error: unknown): string | null {
 }
 
 function agentErrorStatus(error: unknown): number | null {
-  if (error && typeof error === 'object' && 'statusCode' in error) {
-    const statusCode = (error as { statusCode?: unknown }).statusCode
-    if (typeof statusCode === 'number') return statusCode
+  if (error && typeof error === 'object') {
+    const value = error as { status?: unknown; statusCode?: unknown; code?: unknown }
+    for (const candidate of [value.status, value.statusCode, value.code]) {
+      const status = numericStatus(candidate)
+      if (status) return status
+    }
   }
 
   const raw = rawAgentErrorMessage(error)
   const match = raw?.match(/\b(?:API|HTTP|Server error \()? ?(\d{3})\b/)
   return match ? Number(match[1]) : null
+}
+
+function numericStatus(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isInteger(value)) return value
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (/^\d{3}$/.test(trimmed)) return Number(trimmed)
+  }
+  return null
 }
 
 function isRawAgentFailure(detail: string | null): boolean {

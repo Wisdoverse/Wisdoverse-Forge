@@ -79,6 +79,17 @@ describe('Agents Store', () => {
     expect(message).not.toContain('service')
   })
 
+  test('turns status fields into a wait and retry step', () => {
+    expectBeginnerError(
+      agentActionErrorMessage('sendPrompt', {
+        ok: false,
+        status: '429',
+        error: 'rate limit exceeded',
+      }),
+      'The Agents page is busy. Wait a moment, then try to send the instruction again.'
+    )
+  })
+
   test('uses AI service language for create validation failures', () => {
     expectBeginnerError(
       agentActionErrorMessage('create', apiError(422, { message: 'provider and model required' })),
