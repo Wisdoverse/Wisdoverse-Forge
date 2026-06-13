@@ -137,12 +137,13 @@ describe('AppLayout', () => {
     render(<MemoryRouter />)
 
     const searchButton = screen.getByTestId('top-bar-command-search')
-    expect(searchButton).toHaveAccessibleName('Search commands and pages')
+    expect(searchButton).toHaveAccessibleName('Search pages and actions')
     expect(screen.getByText('Search')).toBeDefined()
 
     fireEvent.click(searchButton)
 
-    expect(screen.getByPlaceholderText(/search commands/i)).toBeDefined()
+    expect(screen.getByPlaceholderText(/search pages or actions/i)).toBeDefined()
+    expect(screen.queryByPlaceholderText(new RegExp(['search', 'commands'].join('\\s+'), 'i'))).toBeNull()
   })
 
   test('uses beginner-facing start page metadata', () => {
@@ -194,8 +195,9 @@ describe('AppLayout', () => {
 
     render(<MemoryRouter />)
 
-    expect(screen.getByText('Saved memories and instructions')).toBeDefined()
+    expect(screen.getByText('Saved notes and instructions')).toBeDefined()
     expect(screen.getByText('Review what agents may reuse later')).toBeDefined()
+    expect(screen.queryByText(/Saved\s+memories/i)).toBeNull()
     expect(screen.queryByText('Saved guidance')).toBeNull()
     expect(screen.queryByText(/approval queue/i)).toBeNull()
     expect(screen.queryByText(/governed context/i)).toBeNull()

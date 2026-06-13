@@ -137,9 +137,9 @@ export function TopBar({
             type="button"
             data-testid="top-bar-command-search"
             onClick={onCmdK}
-            aria-label="Search commands and pages"
+            aria-label="Search pages and actions"
             className="hidden items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 py-1.5 text-ui-caption font-medium text-secondary-light transition-colors hover:text-foreground-light active:scale-95 dark:bg-white/[0.06] dark:text-secondary-dark dark:hover:text-foreground-dark sm:flex"
-            title="Search commands and pages"
+            title="Search pages and actions"
           >
             <Search size={14} strokeWidth={2} aria-hidden="true" />
             <span>Search</span>

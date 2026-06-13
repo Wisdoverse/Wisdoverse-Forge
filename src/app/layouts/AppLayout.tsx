@@ -24,7 +24,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/inbox': { title: 'Inbox', subtitle: 'See what needs your attention' },
   '/context/audit': { title: 'Review history', subtitle: 'See what was reviewed or reused' },
   '/context': {
-    title: 'Saved memories and instructions',
+    title: 'Saved notes and instructions',
     subtitle: 'Review what agents may reuse later',
   },
   '/agents': { title: 'Agents', subtitle: 'Create and manage agents that handle tasks' },
