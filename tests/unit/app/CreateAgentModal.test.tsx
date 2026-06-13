@@ -44,6 +44,15 @@ beforeEach(() => {
 })
 
 describe('CreateAgentModal', () => {
+  const previousCliInstallCopy = new RegExp(
+    ['where', 'the', 'CLI', 'is', 'installed'].join('\\s+'),
+    'i'
+  )
+  const previousManualConnectionCopy = new RegExp(
+    ['manual', 'connection', 'setup'].join('\\s+'),
+    'i'
+  )
+
   test('renders managed workspace fields by default', () => {
     render(<CreateAgentModal />)
 
@@ -337,7 +346,13 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText('Connect this computer')).toBeInTheDocument()
     expect(screen.getByText(/agent managed by forge/i)).toBeInTheDocument()
     expect(screen.getByText(/keep it running so forge can manage this agent/i)).toBeInTheDocument()
-    expect(screen.queryByText(/where the CLI is installed/i)).toBeNull()
+    expect(screen.getByText('1. Copy this setup command.')).toBeInTheDocument()
+    expect(screen.getByText(/paste it into the terminal app/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/changes from Offline to Ready on the Agents page/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(previousCliInstallCopy)).toBeNull()
+    expect(screen.queryByText(previousManualConnectionCopy)).toBeNull()
     expect(screen.queryByText(new RegExp(['local', 'agent', 'join'].join('.*'), 'i'))).toBeNull()
   })
 
@@ -400,7 +415,7 @@ describe('CreateAgentModal', () => {
     expect(backupHelp.textContent).toMatch(/same Terminal or PowerShell window/)
     expect(backupHelp.textContent).not.toMatch(/advanced/i)
     expect(backupHelp.textContent).not.toMatch(/sidecar/i)
-    expect(screen.queryByText(/manual connection setup/i)).toBeNull()
+    expect(screen.queryByText(previousManualConnectionCopy)).toBeNull()
     expect(screen.getByRole('button', { name: /copy backup setup/i })).toBeInTheDocument()
     expect(screen.getByLabelText(/backup setup values/i)).toHaveValue(
       "export AGENT_ID='a-local'\nagentforge-sidecar"

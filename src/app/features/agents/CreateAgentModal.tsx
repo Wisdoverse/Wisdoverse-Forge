@@ -568,6 +568,14 @@ export function CreateAgentModal() {
                   rows={8}
                   className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                 />
+                <div className="mt-2 grid gap-1.5 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 text-ui-caption text-secondary-light dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-secondary-dark">
+                  <p>1. Copy this setup command.</p>
+                  <p>2. Paste it into the terminal app on the computer that will do the work.</p>
+                  <p>
+                    3. Keep that window open. Success looks like: the agent changes from Offline to
+                    Ready on the Agents page.
+                  </p>
+                </div>
               </div>
             )}
 
