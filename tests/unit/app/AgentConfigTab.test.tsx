@@ -7,6 +7,11 @@ afterEach(cleanup)
 
 describe('AgentConfigTab', () => {
   const updateAgentSystemPrompt = vi.fn()
+  const oldDeliveryTemplatePhrases = [
+    new RegExp(['Clarify', 'blockers', 'early'].join('\\s+'), 'i'),
+    new RegExp(['validation', 'evidence'].join('\\s+'), 'i'),
+    new RegExp(['each', 'handoff'].join('\\s+'), 'i'),
+  ]
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -146,6 +151,20 @@ describe('AgentConfigTab', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /reset/i }))
     expect(screen.getByLabelText(/instructions for this agent/i)).toHaveValue('old prompt')
+  })
+
+  it('uses plain-language delivery template instructions', () => {
+    render(<AgentConfigTab agentId="a1" />)
+    const deliveryTemplate = screen.getByRole('button', { name: /delivery/i })
+    fireEvent.click(deliveryTemplate)
+
+    const instructions = screen.getByLabelText(/instructions for this agent/i)
+    expect(instructions).toHaveValue(
+      'You are a delivery-focused agent. Ask early for missing information, keep changes scoped to the assigned task, preserve existing conventions, and report what you checked before sharing results.'
+    )
+    for (const phrase of oldDeliveryTemplatePhrases) {
+      expect(instructions).not.toHaveValue(expect.stringMatching(phrase))
+    }
   })
 
   it('calls updateAgentSystemPrompt with trimmed value on Save', async () => {

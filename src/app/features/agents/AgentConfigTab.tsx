@@ -23,7 +23,7 @@ const PROMPT_TEMPLATES = [
     id: 'delivery',
     label: 'Delivery',
     value:
-      'You are a delivery-focused implementation agent. Clarify blockers early, keep changes scoped to the assigned task, preserve existing conventions, and report validation evidence with each handoff.',
+      'You are a delivery-focused agent. Ask early for missing information, keep changes scoped to the assigned task, preserve existing conventions, and report what you checked before sharing results.',
   },
   {
     id: 'review',
