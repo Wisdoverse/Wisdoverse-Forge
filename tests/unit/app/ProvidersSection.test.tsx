@@ -157,13 +157,12 @@ describe('ProvidersSection', () => {
 
     expect(screen.getByText('3 steps to connect an AI account')).toBeDefined()
     expect(screen.getByText('Paste service access key')).toBeDefined()
-    expect(screen.getAllByText(/forge hides it after saving/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/copy its access key/i).length).toBeGreaterThan(0)
     expect(screen.getByText('Save and check')).toBeDefined()
-    expect(
-      screen.getByText(/click Check once to confirm agents can use this service/i)
-    ).toBeDefined()
+    expect(screen.getAllByText(/Ready means agents can use/i).length).toBeGreaterThan(0)
     expect(screen.getByLabelText(/^AI service$/i)).toBeDefined()
     expect(screen.getByLabelText(/^Name in Forge$/i)).toBeDefined()
+    expect(screen.getByText(/suggested model is safe to start with/i)).toBeDefined()
     expect(screen.queryByText(/paste private key/i)).toBeNull()
     expect(screen.queryByLabelText(/^private key/i)).toBeNull()
     expect(screen.queryByLabelText(/^Display Name$/i)).toBeNull()
@@ -171,8 +170,9 @@ describe('ProvidersSection', () => {
       /next: paste the service access key/i
     )
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
-      /sometimes called an API key/i
+      /some services call this an API key/i
     )
+    expect(screen.getByText(/Open your AI service account, copy its access key/i)).toBeDefined()
     const saveButton = screen.getByRole('button', { name: /save AI service/i })
     expect(saveButton).toBeEnabled()
 
@@ -191,7 +191,7 @@ describe('ProvidersSection', () => {
       /ready to save this service/i
     )
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
-      /click Check to confirm agents can use it/i
+      /Ready means agents can use it/i
     )
     expect(screen.getByTestId('provider-form-status').textContent).not.toMatch(
       new RegExp(['run', 'Check'].join('\\s+'), 'i')
@@ -266,7 +266,7 @@ describe('ProvidersSection', () => {
 
     // Hunyuan is China-only: no global address hint, default copy returns.
     fireEvent.change(screen.getByLabelText(/^AI service$/i), { target: { value: 'hunyuan' } })
-    expect(screen.getByText(/leave blank unless an owner gives you/i)).toBeDefined()
+    expect(screen.getByText(/Most users leave this blank/i)).toBeDefined()
     expect(screen.queryByText(/global address, paste this:/i)).toBeNull()
   })
 

@@ -61,14 +61,14 @@ const DEFAULT_FORM: AddProviderForm = {
 }
 
 const PROVIDER_SETUP_STEPS = [
-  { label: 'Choose AI account', value: 'Pick the service your team already uses.' },
+  { label: 'Choose AI account', value: 'Pick the service your team already pays for or runs.' },
   {
     label: 'Paste service access key',
-    value: 'Use the access key from that account. Forge hides it after saving.',
+    value: 'Open that account, copy its access key, and paste it here.',
   },
   {
     label: 'Save and check',
-    value: 'After saving, click Check once to confirm agents can use this service.',
+    value: 'Click Check after saving. Ready means agents can use this service.',
   },
 ]
 
@@ -338,7 +338,8 @@ function providerFormReadiness({
     return {
       ready: false,
       title: 'Next: choose the model to use',
-      detail: 'Keep the suggested model unless your AI service instructions gave you another name.',
+      detail:
+        'The suggested model is safe to start with. Change it only if your service guide gave you another model name.',
       error: 'Choose the model to use before saving this AI service.',
       fieldId: modelInputId,
     }
@@ -349,7 +350,7 @@ function providerFormReadiness({
       ready: false,
       title: 'Next: paste the service access key',
       detail:
-        'Find the access key in your AI service account. It is sometimes called an API key, and it is hidden after saving.',
+        'Open your AI service account, copy its access key, and paste it here. Some services call this an API key. Forge hides it after saving.',
       error: 'Paste the service access key before saving this AI service.',
       fieldId: apiKeyInputId,
     }
@@ -360,7 +361,7 @@ function providerFormReadiness({
       ready: false,
       title: 'Next: add the service address',
       detail:
-        'Only custom AI services need this. Ask an owner for the exact address if you are unsure.',
+        'Most users leave this blank. Fill it only when an owner gives you a custom AI service address.',
       error: 'Add the service address before saving this AI service.',
       fieldId: baseUrlInputId,
     }
@@ -369,7 +370,7 @@ function providerFormReadiness({
   return {
     ready: true,
     title: 'Ready to save this service',
-    detail: 'Save it, then click Check to confirm agents can use it.',
+    detail: 'Save it. When it appears in the list, click Check; Ready means agents can use it.',
     error: null,
     fieldId: null,
   }
@@ -927,7 +928,8 @@ function AddProviderFormPanel({
             id={modelHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Keep the suggested model unless your AI service instructions gave you another name.
+            The suggested model is safe to start with. Change it only if your service guide gave you
+            another model name.
           </p>
           {(selectedProvider?.allowCustomModels ?? true) ? (
             <>
@@ -1081,7 +1083,7 @@ function AddProviderFormPanel({
           >
             {selectedProvider?.globalBaseUrl
               ? `Leave blank to use the China address. If your team uses the global address, paste this: ${selectedProvider.globalBaseUrl}`
-              : 'Leave blank unless an owner gives you a custom AI service address.'}
+              : 'Most users leave this blank. Fill it only when an owner gives you a custom AI service address.'}
           </p>
           <input
             id={baseUrlInputId}
