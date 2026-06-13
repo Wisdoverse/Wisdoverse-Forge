@@ -45,6 +45,11 @@ interface ProviderFormReadiness {
   fieldId: string | null
 }
 
+interface ProviderFilterEmptyState {
+  title: string
+  detail: string
+}
+
 const PROVIDER_FILTERS: { id: ProviderFilter; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'ready', label: 'Ready' },
@@ -401,6 +406,33 @@ function providerMatchesSearch(provider: LlmProviderConfig, search: string): boo
   return [provider.displayName, provider.provider, provider.model, provider.apiKeyPrefix]
     .filter((value): value is string => Boolean(value))
     .some((value) => value.toLowerCase().includes(query))
+}
+
+function providerFilterEmptyState(
+  filter: ProviderFilter,
+  search: string
+): ProviderFilterEmptyState {
+  const hasSearch = search.trim().length > 0
+  const hasFilter = filter !== 'all'
+
+  if (hasSearch && hasFilter) {
+    return {
+      title: 'Clear search or show all AI services',
+      detail: 'Your AI services exist, but the current search and filter hide them.',
+    }
+  }
+
+  if (hasSearch) {
+    return {
+      title: 'Clear search to see AI services',
+      detail: 'Your AI services exist, but this search hides them. Try a broader name.',
+    }
+  }
+
+  return {
+    title: 'Choose All to see AI services',
+    detail: 'Your AI services exist, but this filter has no results yet.',
+  }
 }
 
 function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
@@ -1176,6 +1208,7 @@ export function ProvidersSection() {
       }),
     [providerFilter, providerSearch, providers]
   )
+  const filterEmptyState = providerFilterEmptyState(providerFilter, providerSearch)
 
   useEffect(() => {
     void loadProviders()
@@ -1205,6 +1238,11 @@ export function ProvidersSection() {
     const result = await getSettingsApi().testProvider(id)
     await loadProviders()
     return result
+  }
+
+  function resetProviderFilters() {
+    setProviderSearch('')
+    setProviderFilter('all')
   }
 
   function handleNextStepAction(action: ProviderNextAction) {
@@ -1306,13 +1344,20 @@ export function ProvidersSection() {
             </p>
           </div>
         ) : filteredProviders.length === 0 && !showForm ? (
-          <div className="px-4 py-6 text-center">
-            <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No AI services match this view
+          <div data-testid="provider-filter-empty" className="px-4 py-6 text-center">
+            <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+              {filterEmptyState.title}
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Clear search or switch filters to review every AI service.
+              {filterEmptyState.detail}
             </p>
+            <button
+              type="button"
+              onClick={resetProviderFilters}
+              className="mt-3 inline-flex h-8 items-center rounded-full px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+            >
+              Show all AI services
+            </button>
           </div>
         ) : (
           filteredProviders.map((provider) => (

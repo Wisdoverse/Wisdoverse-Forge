@@ -141,7 +141,57 @@ describe('ProvidersSection', () => {
       target: { value: 'missing-provider' },
     })
 
-    expect(screen.getByText('No AI services match this view')).toBeDefined()
+    const searchEmpty = screen.getByTestId('provider-filter-empty')
+    expect(within(searchEmpty).getByText('Clear search to see AI services')).toBeDefined()
+    expect(searchEmpty.textContent).toContain(
+      'Your AI services exist, but this search hides them. Try a broader name.'
+    )
+    expect(searchEmpty.textContent).not.toContain('No AI services match this view')
+
+    fireEvent.click(screen.getByRole('button', { name: /show all AI services/i }))
+    expect(screen.getAllByText('OpenAI Production').length).toBeGreaterThan(0)
+    expect(screen.getByText('Anthropic Review')).toBeDefined()
+    expect(screen.getByText('Local Lab')).toBeDefined()
+  })
+
+  test('explains filter-only and combined empty AI service views', async () => {
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-ready-only',
+          provider: 'openai',
+          displayName: 'OpenAI Production',
+          model: 'gpt-5.4',
+          priority: 1,
+          isEnabled: true,
+          isDefault: true,
+          lastTestStatus: 'passed',
+        },
+      ],
+    })
+
+    render(<ProvidersSection />)
+
+    expect((await screen.findAllByText('OpenAI Production')).length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('button', { name: 'Needs check' }))
+
+    const filterEmpty = screen.getByTestId('provider-filter-empty')
+    expect(within(filterEmpty).getByText('Choose All to see AI services')).toBeDefined()
+    expect(filterEmpty.textContent).toContain(
+      'Your AI services exist, but this filter has no results yet.'
+    )
+    expect(filterEmpty.textContent).not.toContain('No AI services match this view')
+
+    fireEvent.change(screen.getByRole('searchbox', { name: /search AI services/i }), {
+      target: { value: 'openai' },
+    })
+
+    const combinedEmpty = screen.getByTestId('provider-filter-empty')
+    expect(within(combinedEmpty).getByText('Clear search or show all AI services')).toBeDefined()
+    expect(combinedEmpty.textContent).toContain(
+      'Your AI services exist, but the current search and filter hide them.'
+    )
+    expect(combinedEmpty.textContent).not.toContain('No AI services match this view')
   })
 
   test('guides an empty provider setup into the add form', async () => {
