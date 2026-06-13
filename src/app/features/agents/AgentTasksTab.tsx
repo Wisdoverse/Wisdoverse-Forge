@@ -319,7 +319,8 @@ function AgentTasksEmptyState() {
         <div className="min-w-0">
           <h3 className="text-ui-section font-semibold">No tasks have reached this agent yet</h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-            Tasks appear here after work is sent to this agent or to a task queue it can receive.
+            Send a small task to this agent, or choose a task queue it can receive, then work will
+            appear here.
           </p>
         </div>
       </div>

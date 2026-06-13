@@ -8,14 +8,12 @@ const ROOTS = ['src/app']
 const EXTENSIONS = new Set(['.ts', '.tsx'])
 
 const EMPTY_STATE_PATTERNS = [
-  /\bNo [A-Z][^.!?\n]{0,80} yet\b/,
-  /\bNo [A-Z][^.!?\n]{0,80} found\b/,
-  /\bNo [A-Z][^.!?\n]{0,80} available\b/,
+  /\bNo [A-Za-z][^.!?\n]{0,80} (?:yet|found|available|to show)\b/,
   /\bNothing [^.!?\n]{0,80}\b/,
 ]
 
 const NEXT_ACTION_PATTERN =
-  /\b(Add|Ask|Check|Choose|Connect|Create|Open|Refresh|Review|Run|Save|Select|Start|Try|Use|Wait)\b/i
+  /\b(Add|Ask|Check|Choose|Clear|Connect|Create|Keep|Open|Refresh|Review|Run|Save|Select|Send|Start|Try|Use|Wait)\b/i
 
 const RAW_USER_VISIBLE_PATTERNS = [
   /\bFailed to fetch\b/,
@@ -72,8 +70,21 @@ function isUiCopyFile(relFile) {
   return true
 }
 
-function hasEmptyStateCopy(line) {
-  return EMPTY_STATE_PATTERNS.some((pattern) => pattern.test(line))
+function isLikelyEmptyStateContext(lines, index, line) {
+  if (/\bempty\s*[:=]/i.test(line)) return true
+
+  const start = Math.max(0, index - 20)
+  const end = Math.min(lines.length, index + 4)
+  const context = lines.slice(start, end).join('\n')
+  return /EmptyState\b/.test(context) || /\bempty[-_\s]?state\b/i.test(context)
+}
+
+function hasEmptyStateCopy(lines, index) {
+  const line = lines[index] ?? ''
+  return (
+    isLikelyEmptyStateContext(lines, index, line) &&
+    EMPTY_STATE_PATTERNS.some((pattern) => pattern.test(line))
+  )
 }
 
 function hasNextAction(lines, index) {
@@ -104,7 +115,7 @@ function scanFile(file, relFile) {
 
   lines.forEach((line, index) => {
     const location = `${relFile}:${index + 1}`
-    if (hasEmptyStateCopy(line) && !hasNextAction(lines, index)) {
+    if (hasEmptyStateCopy(lines, index) && !hasNextAction(lines, index)) {
       findings.push({
         type: 'empty-state-next-action',
         location,

@@ -32,7 +32,7 @@ describe('check-beginner-ux-copy.mjs', () => {
 export function TaskEmptyState() {
   return (
     <section>
-      <h2>No Tasks yet</h2>
+      <h2>No tasks yet</h2>
       <p>Create a task from the board so agents know what to work on.</p>
     </section>
   )
@@ -47,7 +47,7 @@ export function TaskEmptyState() {
     const cwd = fixture({
       'src/app/features/tasks/TaskEmptyState.tsx': `
 export function TaskEmptyState() {
-  return <h2>No Tasks yet</h2>
+  return <h2>No tasks yet</h2>
 }
 `,
     })
@@ -88,6 +88,19 @@ export function ChatError() {
       'src/app/features/admin/StatusBadge.tsx': `
 export function StatusBadge() {
   return <span>Unavailable</span>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('does not treat summary values outside empty-state UI as empty states', () => {
+    const cwd = fixture({
+      'src/app/features/skills/skillSummary.ts': `
+export function skillSummary(totalCount: number) {
+  if (totalCount === 0) return 'No saved instructions yet'
+  return 'Saved instructions are ready'
 }
 `,
     })

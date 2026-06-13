@@ -31,7 +31,9 @@ describe('Billing views', () => {
 
     await waitFor(() => expect(loadAll).toHaveBeenCalledOnce())
     expect(screen.getByText('Billing is not ready yet')).toBeDefined()
-    expect(screen.getByText(/owner or admin connects billing/i)).toBeDefined()
+    expect(
+      screen.getByText(/connect billing before changing plans or payment methods/i)
+    ).toBeDefined()
     expect(screen.getByText('Billing setup path')).toBeDefined()
   })
 

@@ -45,7 +45,7 @@ describe('AgentTasksTab', () => {
     expect(within(emptyState).getByText('No tasks have reached this agent yet')).toBeDefined()
     expect(
       within(emptyState).getByText(
-        'Tasks appear here after work is sent to this agent or to a task queue it can receive.'
+        'Send a small task to this agent, or choose a task queue it can receive, then work will appear here.'
       )
     ).toBeDefined()
     expect(within(emptyState).getByText('Open Tasks')).toBeDefined()
