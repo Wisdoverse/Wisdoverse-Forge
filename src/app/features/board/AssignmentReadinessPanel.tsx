@@ -216,6 +216,9 @@ function ParticipantChip({ participant }: { participant: ParticipantSummary }) {
         : participant.lastHeartbeatAt
           ? `Last seen ${formatRelativeTime(participant.lastHeartbeatAt)}`
           : 'No recent activity'
+  const capabilities = participant.capabilities.join(', ')
+  const detail =
+    participant.status === 'available' ? capabilities || reason : joinDetails(reason, capabilities)
 
   return (
     <div className="flex min-w-[180px] items-center justify-between gap-2 rounded-lg bg-black/[0.03] px-2.5 py-2 dark:bg-white/[0.04]">
@@ -224,7 +227,7 @@ function ParticipantChip({ participant }: { participant: ParticipantSummary }) {
           {participant.name}
         </p>
         <p className="truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {participant.capabilities.length > 0 ? participant.capabilities.join(', ') : reason}
+          {detail}
         </p>
       </div>
       <span
@@ -238,4 +241,8 @@ function ParticipantChip({ participant }: { participant: ParticipantSummary }) {
       </span>
     </div>
   )
+}
+
+function joinDetails(...parts: Array<string | undefined>): string {
+  return parts.filter(Boolean).join(' · ')
 }

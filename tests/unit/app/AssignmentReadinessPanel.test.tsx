@@ -101,6 +101,7 @@ describe('AssignmentReadinessPanel', () => {
     expect(readiness.textContent).toContain(
       '1 task needs an agent. Connect or free up an agent before it can start.'
     )
+    expect(screen.getByText('Already working · codex')).toBeDefined()
     expect(readiness.textContent).not.toContain('unassigned tasks')
     expect(readiness.textContent).not.toContain('handed off')
   })
