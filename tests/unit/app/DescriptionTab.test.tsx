@@ -86,7 +86,7 @@ describe('DescriptionTab', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: /open result files/i }))
-    fireEvent.click(screen.getByRole('button', { name: /^review context/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^review what was used/i }))
     fireEvent.click(screen.getByRole('button', { name: /review save ideas/i }))
     fireEvent.click(screen.getByRole('button', { name: /draft saved instruction/i }))
 
@@ -107,6 +107,8 @@ describe('DescriptionTab', () => {
     expect(
       screen.getByText('Open result files or what the agent used before accepting.')
     ).toBeDefined()
+    expect(screen.getByText('1 saved note or instruction helped this task.')).toBeDefined()
+    expect(screen.queryByText(new RegExp(['saved context', 'item'].join('\\s+'), 'i'))).toBeNull()
     expect(screen.queryByText('Evidence')).toBeNull()
     const previousReuseCopy = new RegExp(['Completed work', 'saved instructions'].join('.*'), 'i')
     expect(screen.queryByText(previousReuseCopy)).toBeNull()
@@ -122,14 +124,23 @@ describe('DescriptionTab', () => {
 
     expect(
       screen.getByText(
-        'Saved memories, run details, and saved instruction suggestions appear here as the task runs.'
+        'Saved notes, run details, and save-for-next-time ideas appear here as the task runs.'
       )
     ).toBeDefined()
+    expect(screen.queryByText(new RegExp(['Saved', 'memories'].join('\\s+'), 'i'))).toBeNull()
     expect(
-      screen.queryByText(/Saved memories, evidence, and saved instruction suggestions/i)
+      screen.queryByText(new RegExp(['saved instruction', 'suggestions'].join('\\s+'), 'i'))
     ).toBeNull()
     expect(
-      screen.queryByText(new RegExp(['Saved memories', 'proof'].join(',\\s+'), 'i'))
+      screen.queryByText(
+        new RegExp(
+          ['Saved\\s+memories', 'evidence', 'saved instruction\\s+suggestions'].join('.*'),
+          'i'
+        )
+      )
+    ).toBeNull()
+    expect(
+      screen.queryByText(new RegExp(['Saved\\s+memories', 'proof'].join(',\\s+'), 'i'))
     ).toBeNull()
   })
 
