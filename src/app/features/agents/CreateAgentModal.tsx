@@ -488,7 +488,7 @@ export function CreateAgentModal() {
                     Agent managed by Forge
                   </div>
                   <div className="mt-1 text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
-                    {localEnrollment.agent?.name ?? 'Local agent'}
+                    {localEnrollment.agent?.name ?? 'This computer agent'}
                   </div>
                 </div>
                 <span className="rounded-full border border-apple-green/20 bg-white px-2.5 py-1 text-ui-caption text-apple-green dark:bg-white/[0.04]">

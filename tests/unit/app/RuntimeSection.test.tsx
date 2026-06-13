@@ -140,7 +140,7 @@ describe('RuntimeSection', () => {
     ).toBeGreaterThan(0)
     expect(
       screen.getByText(
-        'Managed workspace is the simplest choice. Choose This computer only when this machine should join as a managed local agent.'
+        'Managed workspace is the simplest choice. Choose This computer only when this machine should join the workspace as a managed agent.'
       )
     ).toBeDefined()
     expect(screen.queryByText(new RegExp(['unless', 'owner', 'tells'].join('.*'), 'i'))).toBeNull()

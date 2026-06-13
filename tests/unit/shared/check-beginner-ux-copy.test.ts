@@ -229,6 +229,26 @@ export function chatErrorMessage() {
     ])
   })
 
+  it('flags agent location jargon in user-visible copy', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+export function CreateAgentModal() {
+  return <p>Connect a local agent with the Forge CLI.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'beginner-jargon-copy',
+        location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+      }),
+    ])
+  })
+
   it('ignores parser regexes and cleanup regexes inside error message helpers', () => {
     const cwd = fixture({
       'src/app/features/chat/chatErrorMessage.ts': `

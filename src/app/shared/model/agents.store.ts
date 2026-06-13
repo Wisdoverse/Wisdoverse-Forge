@@ -106,7 +106,7 @@ function cliToolToProvider(cliTool?: CliTool): string {
     case 'opencode':
       return 'OpenAI'
     default:
-      return 'Unknown'
+      return 'AI service not reported'
   }
 }
 
@@ -257,13 +257,16 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
         }))
         return result
       }
-      set({ loading: false, error: extractApiError(result, 'Failed to enroll local agent') })
+      set({
+        loading: false,
+        error: extractApiError(result, 'Could not prepare this computer setup command'),
+      })
       return null
     } catch (err) {
       console.error('enrollLocalAgent failed:', err)
       set({
         loading: false,
-        error: err instanceof Error ? err.message : 'Failed to enroll local agent',
+        error: err instanceof Error ? err.message : 'Could not prepare this computer setup command',
       })
       return null
     }

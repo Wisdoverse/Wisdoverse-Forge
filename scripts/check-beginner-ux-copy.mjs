@@ -30,6 +30,14 @@ const RAW_USER_VISIBLE_PATTERNS = [
   /\bdatabase unavailable\b/i,
 ]
 
+const BEGINNER_JARGON_PATTERNS = [
+  /\blocal agents?\b/i,
+  /\bmanaged local agent\b/i,
+  /\bHost CLI\b/i,
+  /\bPlatform CLI\b/i,
+  /\bForge CLI\b/i,
+]
+
 const NON_UI_PATH_PARTS = [
   '/api/',
   '/lib/',
@@ -138,6 +146,11 @@ function hasRawUserVisibleCopy(line) {
   return RAW_USER_VISIBLE_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasBeginnerJargon(line) {
+  if (isLikelyGuardOrParserLine(line)) return false
+  return BEGINNER_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -158,6 +171,15 @@ function scanFile(file, relFile) {
         type: 'raw-error-copy',
         location,
         message: 'User-visible copy must not expose raw transport or backend failure wording.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasBeginnerJargon(line)) {
+      findings.push({
+        type: 'beginner-jargon-copy',
+        location,
+        message: 'User-visible copy must use beginner-facing agent location wording.',
         sample: line.trim(),
       })
     }

@@ -445,7 +445,7 @@ export const en = {
         'Agent Work Setup could not load. Refresh this settings page. If it still fails, ask an owner or admin to check agent setup.',
       defaultRuntimeLabel: 'Default agent location',
       defaultRuntimeDescription:
-        'Managed workspace is the simplest choice. Choose This computer only when this machine should join as a managed local agent.',
+        'Managed workspace is the simplest choice. Choose This computer only when this machine should join the workspace as a managed agent.',
       defaultContainerCliLabel: 'Default tool for project work',
       defaultContainerCliDescription:
         'Claude Code, Codex, Gemini, or OpenCode when an agent edits files or runs commands',

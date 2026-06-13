@@ -320,7 +320,7 @@ export function createAgentAPI(
         })
         return await response.json()
       } catch (e) {
-        console.error('Error enrolling local agent:', e)
+        console.error('Error preparing this computer setup command:', e)
         return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },

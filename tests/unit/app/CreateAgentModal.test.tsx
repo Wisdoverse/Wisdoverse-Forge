@@ -424,6 +424,36 @@ describe('CreateAgentModal', () => {
     )
   })
 
+  test('uses a beginner fallback name when the setup response has no agent name', async () => {
+    const enrollLocalAgent = vi.fn().mockResolvedValue({
+      ok: true,
+      agent: {
+        id: 'a-local',
+        status: 'offline',
+        createdAt: Date.now(),
+        lastActivity: Date.now(),
+        cliTool: 'codex',
+        runtimeId: 'host-a-local',
+      },
+      enrollment: {
+        agentId: 'a-local',
+        runtimeId: 'host-a-local',
+        cliTool: 'codex',
+        shellExports: "export AGENT_ID='a-local'\nagentforge-sidecar",
+      },
+    })
+    useAgentsStore.setState({ enrollLocalAgent } as never)
+
+    render(<CreateAgentModal />)
+
+    fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
+    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+
+    expect(await screen.findByText('This computer agent')).toBeInTheDocument()
+    expect(screen.queryByText(new RegExp(['Local', 'agent'].join(' '), 'i'))).toBeNull()
+  })
+
   test('defaults to simple chat agent when a verified provider exists', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
