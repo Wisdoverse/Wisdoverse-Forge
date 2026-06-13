@@ -13,8 +13,8 @@ const NAV_COMMANDS = [
   { id: 'nav:inbox', label: 'Inbox', description: 'Review alerts that may need a person.' },
   {
     id: 'nav:context',
-    label: 'Context',
-    description: 'Review knowledge before agents use it in tasks.',
+    label: 'Saved items',
+    description: 'Review saved notes and instructions before agents reuse them.',
   },
   { id: 'nav:agents', label: 'Agents', description: 'Create or check agents that handle work.' },
   {
@@ -100,8 +100,8 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
                 No page or action matches that search
               </p>
               <p className="mt-1">
-                Try Tasks, Inbox, Agents, Saved instructions, or Settings to jump to a common
-                workflow.
+                Try Tasks, Inbox, Saved items, Agents, Saved instructions, or Settings to jump to a
+                common workflow.
               </p>
               <p className="mt-1 text-ui-caption">
                 Clear the search if you are not sure what to type; the full list will come back.

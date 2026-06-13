@@ -66,7 +66,7 @@ export const en = {
     dashboard: 'Dashboard',
     tasks: 'Tasks',
     inbox: 'Inbox',
-    context: 'Context',
+    context: 'Saved items',
     agents: 'Agents',
     skills: 'Saved instructions',
     analytics: 'Analytics',

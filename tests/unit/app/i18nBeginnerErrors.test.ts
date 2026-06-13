@@ -160,8 +160,15 @@ describe('beginner error translations', () => {
   })
 
   test('Chinese agent-facing copy uses the current Agent vocabulary', () => {
+    const previousContextNavLabel = ['Con', 'text'].join('')
+    const previousChineseContextNavLabel = ['上', '下', '文'].join('')
+
+    expect(en.nav.context).toBe('Saved items')
+    expect(en.nav.context).not.toBe(previousContextNavLabel)
     expect(en.nav.skills).toBe('Saved instructions')
     expect(en.nav.skills).not.toBe('Skills')
+    expect(zh.nav.context).toBe('保存内容')
+    expect(zh.nav.context).not.toBe(previousChineseContextNavLabel)
     expect(zh.nav.skills).toBe('保存的指令')
     expect(zh.nav.skills).not.toBe('技能')
     expect(zh.nav.agents).toBe('Agent')

@@ -1,13 +1,22 @@
 import { describe, test, expect, afterEach } from 'vitest'
 import { fireEvent, render, screen, cleanup, waitFor } from '@testing-library/react'
 import { CommandPalette } from '@app/features/cmdk/CommandPalette'
+import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  useContextFeaturesStore.getState().reset()
+})
 
 describe('CommandPalette', () => {
   const previousDiscoveryTitle = ['Command', 'discovery', 'path'].join(' ')
   const previousEmptyTitle = ['No', 'command', 'matches', 'that', 'search'].join(' ')
   const previousFullListCopy = ['full', 'command', 'list'].join(' ')
+  const previousSavedItemsLabel = new RegExp(`^${['Con', 'text'].join('')}$`)
+  const previousSavedItemsDescription = new RegExp(
+    ['Review', 'knowledge', 'before', 'agents', 'use', 'it', 'in', 'tasks'].join('\\s+'),
+    'i'
+  )
 
   test('renders when open', () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
@@ -25,17 +34,24 @@ describe('CommandPalette', () => {
   })
 
   test('shows navigation commands', () => {
+    useContextFeaturesStore.setState({ governance: true, loaded: true, loading: false })
+
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
     expect(screen.getByText('Go to a page')).toBeDefined()
     expect(screen.getByText('Tasks')).toBeDefined()
     expect(screen.getByText('See work that is planned, active, or done.')).toBeDefined()
     expect(screen.getByText('Inbox')).toBeDefined()
+    expect(screen.getByText('Saved items')).toBeDefined()
+    expect(screen.getByText('Review saved notes and instructions before agents reuse them.'))
+      .toBeDefined()
     expect(screen.getByText('Agents')).toBeDefined()
     expect(screen.getByText('Create or check agents that handle work.')).toBeDefined()
     expect(screen.getByText('Saved instructions')).toBeDefined()
     expect(screen.getByText('Reuse instructions for repeated work.')).toBeDefined()
     expect(screen.getByText('Connect tools, account access, teams, and projects.')).toBeDefined()
     expect(screen.queryByText(/workers doing tasks/i)).toBeNull()
+    expect(screen.queryByText(previousSavedItemsLabel)).toBeNull()
+    expect(screen.queryByText(previousSavedItemsDescription)).toBeNull()
     expect(screen.queryByText(/^Skills$/)).toBeNull()
     expect(screen.queryByText(/tools, keys/i)).toBeNull()
   })
@@ -72,7 +88,7 @@ describe('CommandPalette', () => {
       expect(screen.getByText('No page or action matches that search')).toBeDefined()
     })
     expect(
-      screen.getByText(/try tasks, inbox, agents, saved instructions, or settings/i)
+      screen.getByText(/try tasks, inbox, saved items, agents, saved instructions, or settings/i)
     ).toBeDefined()
     expect(screen.getByText(/clear the search if you are not sure what to type/i)).toBeDefined()
     expect(screen.queryByText(previousEmptyTitle)).toBeNull()
@@ -88,7 +104,7 @@ describe('CommandPalette', () => {
 
     expect(screen.getByText('No page or action matches that search')).toBeDefined()
     expect(
-      screen.getByText(/try tasks, inbox, agents, saved instructions, or settings/i)
+      screen.getByText(/try tasks, inbox, saved items, agents, saved instructions, or settings/i)
     ).toBeDefined()
     expect(screen.getByText(/the full list will come back/i)).toBeDefined()
     expect(screen.queryByText(previousEmptyTitle)).toBeNull()

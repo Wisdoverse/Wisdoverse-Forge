@@ -46,6 +46,11 @@ afterEach(() => {
 })
 
 describe('SidebarNav', () => {
+  const previousSavedItemNavCopy = new RegExp(
+    ['context:', 'review', 'saved', 'memories', 'and', 'instructions'].join('\\s+'),
+    'i'
+  )
+
   test('labels collapsed icon navigation with the purpose of each surface', () => {
     render(<SidebarNav expanded={false} activePath="/tasks" onNavigate={() => {}} />)
 
@@ -56,9 +61,10 @@ describe('SidebarNav', () => {
       screen.getByRole('button', { name: /tasks: see tasks and review progress/i })
     ).toHaveAttribute('aria-current', 'page')
     expect(
-      screen.getByRole('button', { name: /context: review saved memories and instructions/i })
+      screen.getByRole('button', { name: /saved items: review saved notes and instructions/i })
     ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /context: review saved guidance/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: previousSavedItemNavCopy })).toBeNull()
     expect(
       screen.getByRole('button', { name: /agents: create and manage agents/i })
     ).toBeInTheDocument()

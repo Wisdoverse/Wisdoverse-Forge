@@ -67,7 +67,7 @@ export const zh: TranslationKeys = {
     dashboard: '仪表板',
     tasks: '任务',
     inbox: '收件箱',
-    context: '上下文',
+    context: '保存内容',
     agents: 'Agent',
     skills: '保存的指令',
     analytics: '分析',
