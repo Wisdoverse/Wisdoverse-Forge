@@ -56,8 +56,9 @@ describe('AgentListView', () => {
     expect(enrollment.textContent).toContain('This computer')
     expect(enrollment.textContent).toContain('If the button does not work')
     expect(enrollment.textContent).toContain(
-      'Use this backup only when your team already installed'
+      'Use this backup if your browser cannot open the setup window'
     )
+    expect(enrollment.textContent).toContain('your team asks you to run a command')
     expect(enrollment.textContent).toContain('choose New agent on this computer above')
     expect(enrollment.textContent).toContain('Computer type')
     expect(
@@ -79,7 +80,10 @@ describe('AgentListView', () => {
     expect(enrollment.textContent).not.toContain('Connect a Local Agent')
     expect(enrollment.textContent).not.toContain('Already installed the setup tool')
     expect(within(enrollment).getByTestId('host-cli-command-waiting')).toHaveTextContent(
-      /Forge will show the setup command here/i
+      /project tells Forge where this computer can receive tasks/i
+    )
+    expect(within(enrollment).getByTestId('host-cli-command-waiting')).toHaveTextContent(
+      /setup command appears here/i
     )
     expect(enrollment.textContent).not.toContain('agentforge agents enroll-local')
     expect(within(enrollment).getByRole('button', { name: /choose project first/i })).toBeDisabled()
@@ -116,11 +120,15 @@ describe('AgentListView', () => {
     expect(enrollment.textContent).toContain('--name "This Computer Codex"')
     expect(enrollment.textContent).toContain('--tool codex')
     expect(enrollment.textContent).toContain('--project p1')
-    expect(enrollment.textContent).toContain('Open the folder this agent should work in')
-    expect(enrollment.textContent).toContain(
-      'Copy this command and paste it into Terminal or PowerShell'
-    )
+    expect(enrollment.textContent).toContain('Open Terminal on macOS/Linux or PowerShell')
+    expect(enrollment.textContent).toContain('Copy this setup command and paste it there')
     expect(enrollment.textContent).toContain('Leave the work tool as Codex unless')
+    expect(within(enrollment).getByTestId('host-cli-success-hint')).toHaveTextContent(
+      /new agent named This Computer Codex appears in this list/i
+    )
+    expect(within(enrollment).getByTestId('host-cli-success-hint')).toHaveTextContent(
+      /keep the command window open/i
+    )
     expect(enrollment.textContent).not.toContain('Run this manual command')
     expect(enrollment.textContent).not.toContain('Change codex only if')
     expect(within(enrollment).getByRole('button', { name: /copy setup command/i })).toBeDefined()

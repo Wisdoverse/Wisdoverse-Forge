@@ -325,8 +325,8 @@ function HostCliEnrollmentPanel({
           If the button does not work
         </summary>
         <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Use this backup only when your team already installed the setup tool. Most people should
-          choose New agent on this computer above.
+          Use this backup if your browser cannot open the setup window or your team asks you to run
+          a command. Most people should choose New agent on this computer above.
         </p>
         <div className="mt-3">
           <p className="mb-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
@@ -390,17 +390,28 @@ function HostCliEnrollmentPanel({
             </pre>
 
             <div className="mt-3 grid gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              <p>1. Open the folder this agent should work in.</p>
-              <p>2. Copy this command and paste it into Terminal or PowerShell.</p>
+              <p>
+                1. Open Terminal on macOS/Linux or PowerShell on Windows in the folder this agent
+                should work in.
+              </p>
+              <p>2. Copy this setup command and paste it there.</p>
               <p>3. Leave the work tool as Codex unless your team tells you otherwise.</p>
             </div>
+            <p
+              data-testid="host-cli-success-hint"
+              className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark"
+            >
+              When it works, a new agent named This Computer Codex appears in this list. Keep the
+              command window open while it works.
+            </p>
           </>
         ) : (
           <div
             data-testid="host-cli-command-waiting"
             className="mt-3 rounded-lg border border-dashed border-black/[0.12] px-3 py-3 text-ui-caption text-secondary-light dark:border-white/[0.12] dark:text-secondary-dark"
           >
-            Choose a project first. Then Forge will show the setup command here.
+            Choose a project first. The project tells Forge where this computer can receive tasks;
+            then the setup command appears here.
           </div>
         )}
 
