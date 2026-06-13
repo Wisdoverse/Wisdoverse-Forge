@@ -64,8 +64,8 @@ export function ContextCandidatesList({ title, kind, candidates }: ContextCandid
 
 function sectionDescription(kind: ContextCandidateKind): string {
   return kind === 'skill'
-    ? 'These are draft instructions from the run. Review one before agents can follow it.'
-    : 'These are draft notes from the run. Review one before saving it for future tasks.'
+    ? 'These are suggested instructions from the run. Review one before agents can follow it.'
+    : 'These are suggested notes from the run. Review one before saving it for future tasks.'
 }
 
 function candidateTitle(candidate: TaskContextCandidate): string {
@@ -76,11 +76,11 @@ function candidateTitle(candidate: TaskContextCandidate): string {
   }
   switch (candidate.itemKind) {
     case 'memory':
-      return 'Untitled memory idea'
+      return 'Untitled suggested note'
     case 'skill':
-      return 'Untitled instruction idea'
+      return 'Untitled suggested instruction'
     default:
-      return 'Idea needs review'
+      return 'Suggested item needs review'
   }
 }
 
@@ -88,17 +88,17 @@ function candidatePreview(candidate: TaskContextCandidate): string {
   const value = candidate.proposedPreview.content_preview
   return typeof value === 'string' && value.trim().length > 0
     ? value
-    : 'No preview is available yet. Open saved item review to inspect the full idea.'
+    : 'No preview is available yet. Open saved item review to inspect the full suggestion.'
 }
 
 function candidateKindLabel(candidate: TaskContextCandidate): string {
   switch (candidate.itemKind) {
     case 'memory':
-      return 'Memory idea'
+      return 'Suggested note'
     case 'skill':
-      return 'Instruction idea'
+      return 'Suggested instruction'
     default:
-      return 'Idea needs review'
+      return 'Review suggested item'
   }
 }
 
@@ -116,6 +116,6 @@ function candidateNextStep(candidate: TaskContextCandidate): string {
     case 'skill':
       return 'Next step: review this instruction before agents can follow it.'
     default:
-      return 'Next step: review this idea before agents can reuse it.'
+      return 'Next step: review this suggestion before agents can reuse it.'
   }
 }
