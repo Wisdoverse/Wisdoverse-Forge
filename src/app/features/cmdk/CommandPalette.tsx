@@ -77,7 +77,7 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
         <Command>
           <div className="border-b border-black/[0.08] px-4 py-3 dark:border-white/[0.08]">
             <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
-              Command discovery path
+              Find what you need
             </p>
             <ol className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
               {COMMAND_DISCOVERY_STEPS.map((step) => (
@@ -86,7 +86,7 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
             </ol>
           </div>
           <Command.Input
-            placeholder="Search commands, e.g. tasks, inbox, settings"
+            placeholder="Search pages or actions, e.g. tasks, inbox, settings"
             className={cn(
               'w-full px-4 py-3 text-sm outline-none',
               'bg-transparent border-b border-black/[0.08] dark:border-white/[0.08]',
@@ -97,15 +97,14 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
           <Command.List className="max-h-80 overflow-y-auto py-2">
             <Command.Empty className="px-4 py-6 text-center text-sm text-secondary-light dark:text-secondary-dark">
               <p className="font-medium text-foreground-light dark:text-foreground-dark">
-                No command matches that search
+                No page or action matches that search
               </p>
               <p className="mt-1">
                 Try Tasks, Inbox, Agents, Saved instructions, or Settings to jump to a common
                 workflow.
               </p>
               <p className="mt-1 text-ui-caption">
-                Clear the search if you are not sure what to type; the full command list will come
-                back.
+                Clear the search if you are not sure what to type; the full list will come back.
               </p>
             </Command.Empty>
 

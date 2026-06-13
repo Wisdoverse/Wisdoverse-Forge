@@ -5,13 +5,18 @@ import { CommandPalette } from '@app/features/cmdk/CommandPalette'
 afterEach(cleanup)
 
 describe('CommandPalette', () => {
+  const previousDiscoveryTitle = ['Command', 'discovery', 'path'].join(' ')
+  const previousEmptyTitle = ['No', 'command', 'matches', 'that', 'search'].join(' ')
+  const previousFullListCopy = ['full', 'command', 'list'].join(' ')
+
   test('renders when open', () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
     expect(screen.getByPlaceholderText(/search/i)).toBeDefined()
-    expect(screen.getByText('Command discovery path')).toBeDefined()
+    expect(screen.getByText('Find what you need')).toBeDefined()
     expect(screen.getByText(/use tasks when you want to plan or inspect work/i)).toBeDefined()
     expect(screen.getByText(/use settings when setup, account access/i)).toBeDefined()
     expect(screen.queryByText(/runtime status/i)).toBeNull()
+    expect(screen.queryByText(previousDiscoveryTitle)).toBeNull()
   })
 
   test('does not render when closed', () => {
@@ -54,7 +59,7 @@ describe('CommandPalette', () => {
   test('searches beginner descriptions and shows an empty state', async () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
 
-    const input = screen.getByPlaceholderText(/search commands/i)
+    const input = screen.getByPlaceholderText(/search pages or actions/i)
     fireEvent.change(input, { target: { value: 'alerts' } })
 
     await waitFor(() => {
@@ -64,25 +69,29 @@ describe('CommandPalette', () => {
     fireEvent.change(input, { target: { value: 'zzzzzz' } })
 
     await waitFor(() => {
-      expect(screen.getByText('No command matches that search')).toBeDefined()
+      expect(screen.getByText('No page or action matches that search')).toBeDefined()
     })
     expect(
       screen.getByText(/try tasks, inbox, agents, saved instructions, or settings/i)
     ).toBeDefined()
     expect(screen.getByText(/clear the search if you are not sure what to type/i)).toBeDefined()
+    expect(screen.queryByText(previousEmptyTitle)).toBeNull()
+    expect(screen.queryByText(new RegExp(previousFullListCopy, 'i'))).toBeNull()
   })
 
   test('suggests common workflow terms when search has no matches', () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
 
-    fireEvent.change(screen.getByPlaceholderText(/search commands/i), {
+    fireEvent.change(screen.getByPlaceholderText(/search pages or actions/i), {
       target: { value: 'missing workflow' },
     })
 
-    expect(screen.getByText('No command matches that search')).toBeDefined()
+    expect(screen.getByText('No page or action matches that search')).toBeDefined()
     expect(
       screen.getByText(/try tasks, inbox, agents, saved instructions, or settings/i)
     ).toBeDefined()
-    expect(screen.getByText(/the full command list will come back/i)).toBeDefined()
+    expect(screen.getByText(/the full list will come back/i)).toBeDefined()
+    expect(screen.queryByText(previousEmptyTitle)).toBeNull()
+    expect(screen.queryByText(new RegExp(previousFullListCopy, 'i'))).toBeNull()
   })
 })
