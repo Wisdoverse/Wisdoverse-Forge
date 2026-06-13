@@ -108,12 +108,14 @@ describe('CliImagesPanel', () => {
     expect(screen.queryByText(/^source:/i)).toBeNull()
     expect(screen.getByText('Codex')).toBeDefined()
     expect(screen.getByText('Up to date')).toBeDefined()
-    expect(screen.getByText(/current tool package ID for new agents: aaaaaaaaaaaa…/i)).toBeDefined()
-    expect(screen.getByText(/latest tool package ID found: aaaaaaaaaaaa…/i)).toBeDefined()
-    expect(screen.queryByText(/current package for new agents/i)).toBeNull()
-    expect(screen.queryByText(/latest package found/i)).toBeNull()
+    expect(screen.getByText(/Tool for new agents: aaaaaaaaaaaa…/i)).toBeDefined()
+    expect(screen.getByText(/Latest tool found: aaaaaaaaaaaa…/i)).toBeDefined()
+    expect(screen.queryByText(/package ID/i)).toBeNull()
+    expect(screen.queryByText('—')).toBeNull()
     // failed tool shows a safe next step instead of raw updater text
     expect(screen.getByText('Check failed')).toBeDefined()
+    expect(screen.getByText(/Tool for new agents: Not downloaded yet/i)).toBeDefined()
+    expect(screen.getByText(/Latest tool found: Not checked yet/i)).toBeDefined()
     expect(screen.getByText(/What to do:/i)).toBeDefined()
     expect(screen.getByText(/could not reach the tool package source/i)).toBeDefined()
     expect(screen.queryByText(/registry timeout/i)).toBeNull()
@@ -467,7 +469,7 @@ describe('CliImagesPanel', () => {
     expect(screen.getByText('Built here')).toBeDefined()
     expect(screen.getByText('Update available')).toBeDefined()
     // installed vs latest, in plain versions (claude has no registry digests).
-    expect(screen.getByText(/current version: v2\.1\.100/)).toBeDefined()
+    expect(screen.getByText(/Current version: v2\.1\.100/)).toBeDefined()
     expect(screen.getByText(/latest available: v2\.1\.173/)).toBeDefined()
     expect(screen.queryByText(/npm/i)).toBeNull()
 
@@ -576,6 +578,23 @@ describe('CliImagesPanel', () => {
     expect(screen.getByText(/could not reach the tool package source/i)).toBeDefined()
     expect(screen.queryByText(/npm registry timeout/)).toBeNull()
     expect(screen.getByRole('button', { name: 'Build latest' })).toBeDefined()
+  })
+
+  test('claude missing version uses a next-step label instead of unknown', () => {
+    useAdminStore.setState({
+      ...originalAdminState,
+      cliImages: sampleStatus({
+        tools: [claudeTool({ state: 'failed', localVersion: null, lastError: 'build failed' })],
+      }),
+      cliImagesLoading: false,
+      cliImagesError: null,
+      loadCliImages: vi.fn(),
+    })
+
+    render(<CliImagesPanel />)
+
+    expect(screen.getByText(/Current version: Version not reported yet/i)).toBeDefined()
+    expect(screen.queryByText(/current version: unknown/i)).toBeNull()
   })
 
   test('surfaces a build error without losing the report', () => {

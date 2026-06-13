@@ -47,11 +47,15 @@ function stateDot(state: CliImageToolState): string {
   return 'bg-gray-400'
 }
 
-/** `sha256:abcdef…` → `abcdef…` truncated for display. */
-function shortDigest(digest: string | null): string {
-  if (!digest) return '—'
+/** `sha256:abcdef…` -> `abcdef…` truncated for support-friendly display. */
+function packageMarker(digest: string | null, fallback: string): string {
+  if (!digest) return fallback
   const bare = digest.includes(':') ? (digest.split(':').pop() ?? digest) : digest
   return bare.length > 12 ? `${bare.slice(0, 12)}…` : bare
+}
+
+function versionMarker(version: string | null): string {
+  return version ? `v${version}` : 'Version not reported yet'
 }
 
 /** Unix seconds → coarse "x ago" relative to now. */
@@ -330,10 +334,10 @@ function ToolRow({
             <div className="mt-1 grid gap-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
               {/* Built on this server (no public registry image), so versions —
                   not registry digests — are the meaningful comparison. */}
-              <span className="font-mono">
-                current version: {tool.localVersion ? `v${tool.localVersion}` : 'unknown'}
+              <span>
+                Current version: {versionMarker(tool.localVersion)}
                 {tool.state === 'update_available' && tool.remoteVersion
-                  ? ` → latest available: v${tool.remoteVersion}`
+                  ? ` -> latest available: v${tool.remoteVersion}`
                   : ''}
               </span>
               <span>last checked {relativeTime(tool.lastCheckedUnix)}</span>
@@ -342,12 +346,10 @@ function ToolRow({
             <div className="mt-1 grid gap-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
               {/* The locally-pulled image the NEXT agent will start from — not
                   necessarily what already-running agents booted from. */}
-              <span className="font-mono">
-                current tool package ID for new agents: {shortDigest(tool.localDigest)}
+              <span>
+                Tool for new agents: {packageMarker(tool.localDigest, 'Not downloaded yet')}
               </span>
-              <span className="font-mono">
-                latest tool package ID found: {shortDigest(tool.remoteDigest)}
-              </span>
+              <span>Latest tool found: {packageMarker(tool.remoteDigest, 'Not checked yet')}</span>
               <span>last checked {relativeTime(tool.lastCheckedUnix)}</span>
             </div>
           )}
