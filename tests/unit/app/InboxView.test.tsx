@@ -274,8 +274,9 @@ describe('InboxView', () => {
     await userEvent.setup().click(screen.getByTestId('inbox-filter-credentials'))
 
     expect(screen.getByTestId('inbox-filter-empty')).toBeDefined()
-    expect(screen.getByText(/try all for the full history/i)).toBeDefined()
-    expect(screen.getByText(/needs action for items that still need a response/i)).toBeDefined()
+    expect(screen.getByText('No account access needs reconnecting')).toBeDefined()
+    expect(screen.getByText(/open all to review other updates/i)).toBeDefined()
+    expect(screen.queryByText(/try all for the full history/i)).toBeNull()
   })
 
   test('explains an empty filtered lane and lets the user return to all updates', async () => {
@@ -294,11 +295,12 @@ describe('InboxView', () => {
     const user = userEvent.setup()
     await user.click(screen.getByTestId('inbox-filter-credentials'))
 
-    expect(screen.getByTestId('inbox-filter-empty')).toHaveTextContent(
-      'No account access needs reconnecting right now.'
-    )
+    const emptyState = screen.getByTestId('inbox-filter-empty')
+    expect(emptyState).toHaveTextContent('No account access needs reconnecting')
+    expect(emptyState).toHaveTextContent('Account access is not blocking agent work right now.')
+    expect(emptyState).not.toHaveTextContent('No account access needs reconnecting right now.')
 
-    await user.click(screen.getByRole('button', { name: /show all notifications/i }))
+    await user.click(screen.getByRole('button', { name: /show all updates/i }))
 
     expect(screen.getByText('Completed cleanup')).toBeDefined()
   })
@@ -318,11 +320,16 @@ describe('InboxView', () => {
 
     await userEvent.setup().click(screen.getByTestId('inbox-filter-needs-action'))
 
-    expect(screen.getByTestId('inbox-filter-empty')).toHaveTextContent(
+    const emptyState = screen.getByTestId('inbox-filter-empty')
+    expect(emptyState).toHaveTextContent('Nothing needs action right now')
+    expect(emptyState).toHaveTextContent(
+      'No task needs help and no account access needs reconnecting.'
+    )
+    expect(emptyState).not.toHaveTextContent(
       'No tasks that need help, stopped work, or account access issues need action right now.'
     )
-    expect(screen.getByTestId('inbox-filter-empty')).not.toHaveTextContent(/blockers/i)
-    expect(screen.getByTestId('inbox-filter-empty')).not.toHaveTextContent(/failures/i)
+    expect(emptyState).not.toHaveTextContent(/blockers/i)
+    expect(emptyState).not.toHaveTextContent(/failures/i)
   })
 
   test('guides unread empty state back to older updates', async () => {
@@ -340,9 +347,12 @@ describe('InboxView', () => {
 
     await userEvent.setup().click(screen.getByTestId('inbox-filter-unread'))
 
-    expect(screen.getByTestId('inbox-filter-empty')).toHaveTextContent(
-      'Nothing new is waiting for you. Open All to review older updates.'
+    const emptyState = screen.getByTestId('inbox-filter-empty')
+    expect(emptyState).toHaveTextContent('No unread updates')
+    expect(emptyState).toHaveTextContent(
+      'Older updates are still in All. Open All if you need the full history.'
     )
+    expect(emptyState).not.toHaveTextContent('Nothing new is waiting for you.')
   })
 
   test('shows a recoverable message when older notifications cannot load', async () => {

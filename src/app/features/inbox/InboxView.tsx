@@ -11,23 +11,16 @@ import { InboxItem } from './InboxItem'
 
 type InboxFilter = 'all' | 'unread' | 'needs-action' | 'credentials'
 
-const FILTERS: { id: InboxFilter; label: string; empty: string }[] = [
-  { id: 'all', label: 'All', empty: 'No notifications match this view.' },
-  {
-    id: 'unread',
-    label: 'Unread',
-    empty: 'Nothing new is waiting for you. Open All to review older updates.',
-  },
-  {
-    id: 'needs-action',
-    label: 'Needs action',
-    empty: 'No tasks that need help, stopped work, or account access issues need action right now.',
-  },
-  {
-    id: 'credentials',
-    label: 'Account access',
-    empty: 'No account access needs reconnecting right now.',
-  },
+interface InboxFilterEmptyState {
+  title: string
+  detail: string
+}
+
+const FILTERS: { id: InboxFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'unread', label: 'Unread' },
+  { id: 'needs-action', label: 'Needs action' },
+  { id: 'credentials', label: 'Account access' },
 ]
 
 const INBOX_TRIAGE_STEPS = [
@@ -82,6 +75,7 @@ export function InboxView() {
     () => orderedNotifications.filter((notification) => matchesFilter(notification, activeFilter)),
     [activeFilter, orderedNotifications]
   )
+  const filterEmptyState = inboxFilterEmptyState(activeFilter)
   const filterCounts = useMemo(
     () =>
       FILTERS.reduce(
@@ -294,21 +288,18 @@ export function InboxView() {
             data-testid="inbox-filter-empty"
             className="flex h-full flex-col items-center justify-center px-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark"
           >
-            <p>
-              {FILTERS.find((f) => f.id === activeFilter)?.empty ??
-                'No notifications in this view.'}
+            <p className="font-medium text-foreground-light dark:text-foreground-dark">
+              {filterEmptyState.title}
             </p>
-            <p className="mt-1 max-w-sm text-ui-caption">
-              Try All for the full history, or Needs action for items that still need a response.
-            </p>
+            <p className="mt-1 max-w-sm text-ui-caption">{filterEmptyState.detail}</p>
             {activeFilter !== 'all' && (
               <button
                 type="button"
-                aria-label="Show all notifications"
+                aria-label="Show all updates"
                 onClick={() => setActiveFilter('all')}
                 className="mt-2 rounded-full px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
               >
-                Show all
+                Show all updates
               </button>
             )}
           </div>
@@ -316,6 +307,33 @@ export function InboxView() {
       </div>
     </div>
   )
+}
+
+function inboxFilterEmptyState(filter: InboxFilter): InboxFilterEmptyState {
+  switch (filter) {
+    case 'unread':
+      return {
+        title: 'No unread updates',
+        detail: 'Older updates are still in All. Open All if you need the full history.',
+      }
+    case 'needs-action':
+      return {
+        title: 'Nothing needs action right now',
+        detail:
+          'No task needs help and no account access needs reconnecting. Use All when you want to review older updates.',
+      }
+    case 'credentials':
+      return {
+        title: 'No account access needs reconnecting',
+        detail:
+          'Account access is not blocking agent work right now. Open All to review other updates.',
+      }
+    case 'all':
+      return {
+        title: 'No updates match this filter',
+        detail: 'Open another filter or refresh the inbox if you expected to see recent updates.',
+      }
+  }
 }
 
 function isActionNotification(notification: Notification): boolean {
