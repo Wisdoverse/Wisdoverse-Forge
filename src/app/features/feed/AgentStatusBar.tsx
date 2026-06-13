@@ -10,26 +10,30 @@ const STATUS_COLORS: Record<string, string> = {
 
 const STATUS_COPY: Record<
   AgentStatus['status'],
-  { label: string; description: string; container: string }
+  { label: string; description: string; visibleDetail: string; container: string }
 > = {
   working: {
     label: 'Working now',
     description: 'This agent is actively handling a task.',
+    visibleDetail: 'Handling a task',
     container: 'bg-apple-green/8',
   },
   idle: {
     label: 'Ready',
     description: 'This agent is connected and waiting for work.',
+    visibleDetail: 'Waiting for work',
     container: 'bg-black/[0.04] dark:bg-white/[0.06]',
   },
   blocked: {
     label: 'Needs help',
     description: 'This agent is waiting for help before it can continue.',
+    visibleDetail: 'Waiting for help',
     container: 'bg-apple-red/8',
   },
   offline: {
     label: 'Not connected',
     description: 'This agent is not reachable right now.',
+    visibleDetail: 'Start or wake it',
     container: 'bg-black/[0.04] dark:bg-white/[0.06]',
   },
 }
@@ -62,6 +66,9 @@ export function AgentStatusBar({ agents }: { agents: AgentStatus[] }) {
             <div className={cn('w-1.5 h-1.5 rounded-full', STATUS_COLORS[agent.status])} />
             <span className="font-medium">{agent.name}</span>
             <span className="text-secondary-light dark:text-secondary-dark">{status.label}</span>
+            <span className="text-secondary-light dark:text-secondary-dark">
+              {status.visibleDetail}
+            </span>
           </div>
         )
       })}
