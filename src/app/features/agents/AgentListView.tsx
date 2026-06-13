@@ -29,6 +29,12 @@ type AgentRuntimeFilter = 'all' | 'container' | 'host' | 'provider'
 type AgentSortKey = 'name' | 'status' | 'active' | 'success'
 type HostCliPlatform = 'posix' | 'windows'
 
+interface AgentFilterEmptyCopy {
+  title: string
+  detail: string
+  nextStep: string
+}
+
 const STATUS_FILTERS: { value: AgentStatusFilter; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'working', label: 'Working' },
@@ -91,9 +97,18 @@ export function AgentListView() {
     () => filterAndSortAgents(agents, searchQuery, statusFilter, runtimeFilter, sortKey),
     [agents, runtimeFilter, searchQuery, sortKey, statusFilter]
   )
+  const agentFilterEmpty = useMemo(
+    () => agentFilterEmptyCopy({ searchQuery, statusFilter, runtimeFilter }),
+    [runtimeFilter, searchQuery, statusFilter]
+  )
   const hasFleetControls = agents.length > 0
   const hasActiveFilter =
     searchQuery.trim().length > 0 || statusFilter !== 'all' || runtimeFilter !== 'all'
+  const clearAgentFilters = () => {
+    setSearchQuery('')
+    setStatusFilter('all')
+    setRuntimeFilter('all')
+  }
 
   useEffect(() => {
     void loadAgents()
@@ -184,23 +199,22 @@ export function AgentListView() {
               />
               <div className="max-w-sm space-y-1">
                 <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-                  No Agents Match This View
+                  {agentFilterEmpty.title}
                 </p>
                 <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-                  Clear search or switch filters to review every agent.
+                  {agentFilterEmpty.detail}
+                </p>
+                <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
+                  {agentFilterEmpty.nextStep}
                 </p>
               </div>
               {hasActiveFilter && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setSearchQuery('')
-                    setStatusFilter('all')
-                    setRuntimeFilter('all')
-                  }}
+                  onClick={clearAgentFilters}
                   className="inline-flex h-9 items-center justify-center rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-apple-blue/35 hover:text-apple-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:text-foreground-dark"
                 >
-                  Clear Filters
+                  Show all agents
                 </button>
               )}
             </div>
@@ -225,6 +239,51 @@ export function AgentListView() {
       <CreateAgentModal />
     </div>
   )
+}
+
+function agentFilterEmptyCopy({
+  searchQuery,
+  statusFilter,
+  runtimeFilter,
+}: {
+  searchQuery: string
+  statusFilter: AgentStatusFilter
+  runtimeFilter: AgentRuntimeFilter
+}): AgentFilterEmptyCopy {
+  const hasSearch = searchQuery.trim().length > 0
+  const hasStatus = statusFilter !== 'all'
+  const hasRuntime = runtimeFilter !== 'all'
+
+  if (hasSearch && !hasStatus && !hasRuntime) {
+    return {
+      title: 'Search is hiding every agent',
+      detail: 'Agents may still exist, but none match the words you typed.',
+      nextStep: 'Next: show all agents before creating another one.',
+    }
+  }
+
+  if (!hasSearch && hasStatus && !hasRuntime) {
+    return {
+      title: 'This status filter hides every agent',
+      detail: 'Agents may still exist in another status, such as working, idle, or offline.',
+      nextStep: 'Next: show all agents before deciding nobody is available.',
+    }
+  }
+
+  if (!hasSearch && !hasStatus && hasRuntime) {
+    return {
+      title: 'This work location hides every agent',
+      detail:
+        'Agents may still exist in another place, such as this computer or a managed workspace.',
+      nextStep: 'Next: show all agents before deciding one is missing.',
+    }
+  }
+
+  return {
+    title: 'Search and filters are hiding agents',
+    detail: 'Agents may still exist, but the current search and filters hide all of them.',
+    nextStep: 'Next: show all agents, then narrow the list one choice at a time.',
+  }
 }
 
 function buildLocalEnrollCommand(

@@ -268,9 +268,41 @@ describe('AgentListView', () => {
     render(<AgentListView />)
 
     fireEvent.change(screen.getByTestId('agent-search'), { target: { value: 'missing' } })
-    expect(screen.getByTestId('agent-filter-empty')).toBeDefined()
+    const emptyState = screen.getByTestId('agent-filter-empty')
+    expect(within(emptyState).getByText('Search is hiding every agent')).toBeDefined()
+    expect(within(emptyState).getByText(/none match the words you typed/i)).toBeDefined()
+    expect(within(emptyState).getByText(/before creating another one/i)).toBeDefined()
+    expect(emptyState.textContent).not.toContain('No Agents Match This View')
+    expect(emptyState.textContent).not.toContain('review every agent')
 
-    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }))
+    fireEvent.click(within(emptyState).getByRole('button', { name: /show all agents/i }))
+    expect(screen.getByTestId('agent-search')).toHaveValue('')
+    expect(screen.getByText('Build Runner')).toBeDefined()
+  })
+
+  test('explains when a status filter hides every agent', () => {
+    useAgentsStore.getState().setAgents([
+      makeAgent({
+        id: 'cli-agent',
+        name: 'Build Runner',
+        provider: 'Workspace Model',
+        model: 'workspace-runner',
+        cliTool: 'workspace-tool' as never,
+        status: 'working',
+      }),
+    ])
+
+    render(<AgentListView />)
+
+    const statusFilters = screen.getByRole('group', { name: /status filter/i })
+    fireEvent.click(within(statusFilters).getByRole('button', { name: /offline\s*0/i }))
+    const emptyState = screen.getByTestId('agent-filter-empty')
+    expect(within(emptyState).getByText('This status filter hides every agent')).toBeDefined()
+    expect(within(emptyState).getByText(/another status/i)).toBeDefined()
+    expect(within(emptyState).getByText(/before deciding nobody is available/i)).toBeDefined()
+    expect(emptyState.textContent).not.toContain('No Agents Match This View')
+
+    fireEvent.click(within(emptyState).getByRole('button', { name: /show all agents/i }))
     expect(screen.getByText('Build Runner')).toBeDefined()
   })
 
