@@ -29,7 +29,7 @@ const TYPE_COPY: Record<string, { label: string; description: string }> = {
   },
   'task.queued': {
     label: 'Waiting',
-    description: 'The task is waiting for an agent to start.',
+    description: 'The task is waiting for an agent to start work.',
   },
   'task.working': {
     label: 'Working now',
@@ -58,10 +58,19 @@ const TYPE_COLORS: Record<string, string> = {
   'task.progress': 'bg-apple-blue/12 text-apple-blue',
 }
 
-const NEXT_ACTION_COPY: Record<string, string> = {
-  'task.blocked': 'Next step: open the task and provide what is missing or reconnect access.',
-  'task.failed':
-    'Next step: open the task, follow the recovery note, then retry or choose another agent.',
+const NEXT_ACTION_COPY: Record<string, { text: string; className: string }> = {
+  'task.queued': {
+    text: 'Next step: keep this task open. If it stays waiting, start an available agent or choose another one.',
+    className: 'bg-apple-orange/[0.08] text-apple-orange',
+  },
+  'task.blocked': {
+    text: 'Next step: open the task and provide what is missing or reconnect access.',
+    className: 'bg-apple-red/[0.06] text-apple-red',
+  },
+  'task.failed': {
+    text: 'Next step: open the task, follow the recovery note, then retry or choose another agent.',
+    className: 'bg-apple-red/[0.06] text-apple-red',
+  },
 }
 
 export function FeedItem({ item }: { item: FeedItemType }) {
@@ -101,8 +110,13 @@ export function FeedItem({ item }: { item: FeedItemType }) {
           </div>
         )}
         {nextAction && (
-          <div className="mt-1 rounded-md bg-apple-red/[0.06] px-2 py-1 text-[10px] leading-relaxed text-apple-red">
-            {nextAction}
+          <div
+            className={cn(
+              'mt-1 rounded-md px-2 py-1 text-[10px] leading-relaxed',
+              nextAction.className
+            )}
+          >
+            {nextAction.text}
           </div>
         )}
         <div className="text-[9px] text-secondary-light dark:text-secondary-dark mt-0.5">

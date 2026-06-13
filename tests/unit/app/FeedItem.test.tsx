@@ -79,6 +79,16 @@ describe('FeedItem', () => {
 
     expect(screen.getByText('Waiting')).toBeDefined()
     expect(screen.queryByText('Queued')).toBeNull()
+    expect(
+      screen.getByLabelText(
+        /waiting: builder on update checkout flow\. the task is waiting for an agent to start work/i
+      )
+    ).toBeDefined()
+    expect(
+      screen.getByText(
+        /next step: keep this task open\. if it stays waiting, start an available agent or choose another one/i
+      )
+    ).toBeDefined()
 
     rerender(<FeedItem item={{ ...baseItem, type: 'task.completed' }} />)
 
