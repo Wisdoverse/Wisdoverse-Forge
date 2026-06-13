@@ -385,7 +385,7 @@ export function ResourceMembersModal({
                     <Users size={17} strokeWidth={2} />
                   </div>
                   <span className="font-medium text-foreground-light dark:text-foreground-dark">
-                    No direct members yet
+                    Add the first direct member
                   </span>
                   <p className="max-w-md text-ui-caption">
                     Add a person from the team space above to give them access to this{' '}
@@ -546,7 +546,7 @@ function describeCandidateStatus({
   }
   if (users.length === 0) {
     return {
-      selectLabel: 'No team-space people available',
+      selectLabel: 'Invite someone to the team space first',
       detail: 'Invite the person to the team space first, then return here to give access.',
     }
   }
@@ -558,7 +558,7 @@ function describeCandidateStatus({
   }
   if (query.trim() && filteredCandidateUsers.length === 0) {
     return {
-      selectLabel: 'No matching team-space people',
+      selectLabel: 'Clear search or invite this person first',
       detail: 'Clear the filter or invite the person to the team space before adding them here.',
     }
   }

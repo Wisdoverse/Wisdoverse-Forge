@@ -109,7 +109,8 @@ describe('ResourceMembersModal', () => {
     expect(screen.queryByText('Add People Already in Your Organization')).toBeNull()
 
     const emptyState = screen.getByTestId('members-empty-state')
-    expect(within(emptyState).getByText('No direct members yet')).toBeDefined()
+    expect(within(emptyState).getByText('Add the first direct member')).toBeDefined()
+    expect(within(emptyState).queryByText('No direct members yet')).toBeNull()
     expect(
       within(emptyState).getByText(/Start with Member unless they need to manage who can get in/i)
     ).toBeDefined()
@@ -128,12 +129,13 @@ describe('ResourceMembersModal', () => {
   test('explains that team-space people must exist before members can be added', async () => {
     renderMembersModal({ users: [] })
 
-    expect(await screen.findByText('No team-space people available')).toBeDefined()
+    expect(await screen.findByText('Invite someone to the team space first')).toBeDefined()
     expect(
       screen.getByText(
         'Invite the person to the team space first, then return here to give access.'
       )
     ).toBeDefined()
+    expect(screen.queryByText('No team-space people available')).toBeNull()
     expect(screen.queryByText(/organization users/i)).toBeNull()
     expect(screen.getByLabelText('Select person to add')).toBeDisabled()
   })
@@ -152,12 +154,13 @@ describe('ResourceMembersModal', () => {
       target: { value: 'missing-user' },
     })
 
-    expect(screen.getByText('No matching team-space people')).toBeDefined()
+    expect(screen.getByText('Clear search or invite this person first')).toBeDefined()
     expect(
       screen.getByText(
         'Clear the filter or invite the person to the team space before adding them here.'
       )
     ).toBeDefined()
+    expect(screen.queryByText('No matching team-space people')).toBeNull()
     expect(screen.queryByText(/organization members/i)).toBeNull()
     expect(screen.getByText('owner@example.com')).toBeDefined()
   })
@@ -175,7 +178,7 @@ describe('ResourceMembersModal', () => {
   test('shows permission guidance when adding a member fails', async () => {
     renderMembersModal({ addMemberError: new Error('API 403: Forbidden') })
 
-    await screen.findByText('No direct members yet')
+    await screen.findByText('Add the first direct member')
     fireEvent.change(screen.getByLabelText('Select person to add'), {
       target: { value: 'user-1' },
     })
@@ -191,7 +194,7 @@ describe('ResourceMembersModal', () => {
   test('shows recovery guidance when the selected project changes before adding a member', async () => {
     renderMembersModal({ addMemberError: new Error('No project selected') })
 
-    await screen.findByText('No direct members yet')
+    await screen.findByText('Add the first direct member')
     fireEvent.change(screen.getByLabelText('Select person to add'), {
       target: { value: 'user-1' },
     })
