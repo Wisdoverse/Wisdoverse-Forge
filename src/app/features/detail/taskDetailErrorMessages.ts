@@ -16,7 +16,8 @@ const ACTION_FALLBACKS: Record<TaskDetailErrorAction, string> = {
     'The task was not marked as needing help. Refresh the task, then choose Needs help again.',
   cancelTask: 'The task was not canceled. Refresh the task, then choose Cancel again.',
   loadAgents: 'Available agents could not load. Refresh this task before assigning it.',
-  loadContext: 'Task context could not load. Refresh the detail panel, then try again.',
+  loadContext:
+    'Saved notes and run details could not load. Refresh the detail panel, then try again.',
   loadRuns:
     'Agent work history could not load. Refresh Updates before deciding whether to retry this task.',
   previewContext:

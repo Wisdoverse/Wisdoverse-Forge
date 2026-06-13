@@ -50,8 +50,9 @@ describe('taskDetailErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Task context could not load. Refresh the detail panel, then try again. Forge could not load task details right now. Refresh the task, then try again. If it still fails, ask an owner or admin to check task setup.'
+      'Saved notes and run details could not load. Refresh the detail panel, then try again. Forge could not load task details right now. Refresh the task, then try again. If it still fails, ask an owner or admin to check task setup.'
     )
+    expect(message).not.toMatch(new RegExp(['task', 'context'].join('\\s+'), 'i'))
     expect(message).not.toContain('backend')
     expect(message).not.toContain('services')
   })
