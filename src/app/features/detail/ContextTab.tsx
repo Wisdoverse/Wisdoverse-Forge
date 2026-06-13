@@ -25,7 +25,7 @@ interface ContextTabProps {
 }
 
 const EMPTY_CONTEXT_STEPS = [
-  'Run the task so Forge can choose saved notes and saved instructions.',
+  'Start the task first. If it is still waiting, open Work or Updates to choose or start an agent.',
   'Review ideas from a run to keep useful notes for next time.',
   'Mark which saved items helped so future runs get better.',
 ]
@@ -258,7 +258,8 @@ function ContextEmptyState() {
             </h3>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
               This page fills in after an agent uses saved notes, saved instructions, or run details
-              for this task.
+              for this task. If nothing appears yet, make sure the task has an agent and has
+              started.
             </p>
           </div>
         </div>

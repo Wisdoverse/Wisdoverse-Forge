@@ -102,12 +102,16 @@ describe('ContextTab', () => {
     ).toBeDefined()
     expect(
       within(emptyState).getByText(
-        /Run the task so Forge can choose saved notes and saved instructions/i
+        /Start the task first\. If it is still waiting, open Work or Updates to choose or start an agent/i
       )
+    ).toBeDefined()
+    expect(
+      within(emptyState).getByText(/make sure the task has an agent and has started/i)
     ).toBeDefined()
     expect(within(emptyState).queryByText('No context has been applied yet')).toBeNull()
     expect(within(emptyState).queryByText(/Context appears here/i)).toBeNull()
     expect(within(emptyState).queryByText(/choose memories and skills/i)).toBeNull()
+    expect(within(emptyState).queryByText(/Run the task so Forge can choose/i)).toBeNull()
     expect(within(emptyState).getByText(/Mark which saved items helped/i)).toBeDefined()
     expect(within(emptyState).queryByText(/Use feedback on applied items/i)).toBeNull()
   })
