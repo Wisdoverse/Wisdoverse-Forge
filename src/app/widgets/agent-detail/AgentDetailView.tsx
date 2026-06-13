@@ -554,7 +554,7 @@ function AssignmentFitCard({
           value={
             appliedSkillCount > 0
               ? `${appliedSkillCount} saved instruction${appliedSkillCount === 1 ? '' : 's'} used in recent work`
-              : 'No saved instructions used in recent work yet'
+              : 'Finish a task, then save useful steps.'
           }
         />
         <ProfileSummaryRow label="Account and file access" value={credential} />

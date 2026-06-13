@@ -199,7 +199,7 @@ describe('AgentDetailView', () => {
     expect(screen.getByTestId('agent-assignment-fit')).toBeDefined()
     expect(screen.getByText('Can be assigned now')).toBeDefined()
     expect(screen.getByText('Implement onboarding flow')).toBeDefined()
-    expect(screen.getByText('No saved instructions used in recent work yet')).toBeDefined()
+    expect(screen.getByText('Finish a task, then save useful steps.')).toBeDefined()
     expect(screen.queryByText(/task\s+context/i)).toBeNull()
   })
 
