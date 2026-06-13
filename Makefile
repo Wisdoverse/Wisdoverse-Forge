@@ -23,6 +23,11 @@ COMPOSE_ENV_FILE ?= docker/.env
 COMPOSE := docker compose --env-file $(COMPOSE_ENV_FILE) -f docker/compose.yml
 SELFHOST_ENV := $(if $(HTTP_PORT),HTTP_PORT="$(HTTP_PORT)") $(if $(HTTPS_PORT),HTTPS_PORT="$(HTTPS_PORT)")
 
+# Parallelism for full-stack builds. Defaults to 1 (serial) so resource-
+# constrained hosts do not OOM on simultaneous Rust compiles; override with
+# e.g. `make prod-ext COMPOSE_PARALLEL_LIMIT=4` on a host with the headroom.
+COMPOSE_PARALLEL_LIMIT ?= 1
+
 # China mirror support: loads .env.local if present (create via: cp .env.example.cn .env.local)
 -include .env.local
 
@@ -106,6 +111,18 @@ dev: setup ## Start development environment with Rust backend
 dev-d: setup ## Start development environment (detached)
 	$(COMPOSE) -f docker/compose.dev.yml --profile dev up -d --build
 
+# Fast inner loop: run only the infra (PostgreSQL/Redis/NATS) in Docker and run
+# the Rust backend locally with `make backend-watch`, so a code change recompiles
+# in seconds instead of rebuilding a Docker image. The services publish to
+# localhost (db 5432, redis 6379, nats 4222).
+.PHONY: dev-infra
+dev-infra: setup ## Start only the dev infra (PostgreSQL/Redis/NATS) for a local backend
+	$(COMPOSE) -f docker/compose.dev.yml --profile dev up -d db redis nats
+
+.PHONY: backend-watch
+backend-watch: ## Auto-rebuild + rerun the API server on change (needs: cargo install cargo-watch; run `make dev-infra` first)
+	cd rust && cargo watch -x 'run --bin agentforge-server'
+
 .PHONY: dev-tools
 dev-tools: setup ## Start development with admin tools (Adminer, Redis Commander)
 	$(COMPOSE) -f docker/compose.dev.yml --profile dev --profile tools up --build
@@ -160,7 +177,7 @@ prod-logs: ## View production logs
 
 .PHONY: prod-ext
 prod-ext: setup-external ## Start production with external services
-	COMPOSE_PARALLEL_LIMIT=1 $(COMPOSE) -f docker/compose.external.yml --profile external up -d --build --remove-orphans
+	COMPOSE_PARALLEL_LIMIT=$(COMPOSE_PARALLEL_LIMIT) $(COMPOSE) -f docker/compose.external.yml --profile external up -d --build --remove-orphans
 
 # Per-service deploys for the external profile. Rebuild + recreate ONE service
 # instead of the whole stack, so a server-only change does not re-run the
