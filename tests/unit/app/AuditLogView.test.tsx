@@ -79,10 +79,10 @@ describe('AuditLogView', () => {
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
     expect(screen.getByText('Start with what you need to check')).toBeDefined()
-    expect(screen.getByText('See every saved-memory and saved-instruction change.')).toBeDefined()
+    expect(screen.getByText('See every saved note and saved instruction change.')).toBeDefined()
     expect(screen.getByText('Hidden item references')).toBeDefined()
     expect(screen.getByText('Selected view')).toBeDefined()
-    expect(screen.getAllByText('All context changes').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('All saved item changes').length).toBeGreaterThan(0)
 
     const quickViews = screen.getByRole('group', { name: /common audit views/i })
     fireEvent.click(
@@ -137,7 +137,7 @@ describe('AuditLogView', () => {
     expect(screen.getByText('Saved instruction approved')).toBeDefined()
     expect(screen.queryByText('Skill approved')).toBeNull()
     expect(screen.getAllByText('Show support event').length).toBeGreaterThan(0)
-    expect(screen.getByText('Saved memory · Memory item')).toBeDefined()
+    expect(screen.getByText('Saved note · Memory item')).toBeDefined()
     expect(screen.getByText('Saved instruction · Instruction record')).toBeDefined()
     expect(screen.queryByText('Saved instruction · Skill')).toBeNull()
     expect(screen.getAllByText('Changed item').length).toBeGreaterThan(0)
@@ -249,8 +249,10 @@ describe('AuditLogView', () => {
     render(<AuditLogView />)
 
     expect(await screen.findByText('No audit history in this view')).toBeDefined()
-    expect(screen.getByText(/Try All context changes or widen the time range/i)).toBeDefined()
-    expect(screen.getByText(/approve saved instructions or record context feedback/i)).toBeDefined()
+    expect(screen.getByText(/Try All saved item changes or widen the time range/i)).toBeDefined()
+    expect(
+      screen.getByText(/approve saved instructions or mark a saved note helpful/i)
+    ).toBeDefined()
     expect(screen.queryByText(/approve a skill/i)).toBeNull()
   })
 

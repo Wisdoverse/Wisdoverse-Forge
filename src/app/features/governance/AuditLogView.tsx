@@ -63,8 +63,8 @@ const DEFAULT_FILTERS: FilterState = {
 const QUICK_AUDIT_VIEWS: QuickAuditView[] = [
   {
     id: 'all',
-    label: 'All context changes',
-    description: 'See every saved-memory and saved-instruction change.',
+    label: 'All saved item changes',
+    description: 'See every saved note and saved instruction change.',
     Icon: Search,
     filters: {},
   },
@@ -80,8 +80,8 @@ const QUICK_AUDIT_VIEWS: QuickAuditView[] = [
   },
   {
     id: 'memory-feedback',
-    label: 'Memory feedback',
-    description: 'See whether saved memories helped or caused trouble.',
+    label: 'Saved note feedback',
+    description: 'See whether saved notes helped or caused trouble.',
     Icon: ShieldCheck,
     filters: {
       eventType: 'governance.context.feedback.recorded',
@@ -92,7 +92,7 @@ const QUICK_AUDIT_VIEWS: QuickAuditView[] = [
 
 const ITEM_KIND_OPTIONS: { value: ItemKindFilter; label: string }[] = [
   { value: 'all', label: 'All items' },
-  { value: 'memory', label: 'Memory' },
+  { value: 'memory', label: 'Saved note' },
   { value: 'skill', label: 'Saved instruction' },
 ]
 
@@ -451,9 +451,9 @@ export function AuditLogView() {
                         No audit history in this view
                       </p>
                       <p className="mt-1 text-secondary-light dark:text-secondary-dark">
-                        Try All context changes or widen the time range. If this is a new workspace,
-                        approve saved instructions or record context feedback, then refresh this
-                        view.
+                        Try All saved item changes or widen the time range. If this is a new
+                        workspace, approve saved instructions or mark a saved note helpful, then
+                        refresh this view.
                       </p>
                     </td>
                   </tr>
@@ -760,8 +760,8 @@ function auditEventLabel(eventType: string): string {
     'governance.context.feedback.recorded': 'Feedback recorded',
     'governance.context.skill.approved': 'Saved instruction approved',
     'governance.context.skill.reviewed': 'Saved instruction reviewed',
-    'governance.context.memory.updated': 'Saved memory updated',
-    'governance.context.memory.rejected': 'Saved memory rejected',
+    'governance.context.memory.updated': 'Saved note updated',
+    'governance.context.memory.rejected': 'Saved note rejected',
   }
   return (
     labels[eventType] ??
@@ -772,9 +772,9 @@ function auditEventLabel(eventType: string): string {
 }
 
 function auditViewMetricLabel(eventPrefix: string | undefined): string {
-  if (!eventPrefix || eventPrefix === 'governance.context.') return 'All context changes'
+  if (!eventPrefix || eventPrefix === 'governance.context.') return 'All saved item changes'
   if (eventPrefix === 'governance.context.skill.') return 'Saved instruction changes'
-  if (eventPrefix === 'governance.context.memory.') return 'Saved memory changes'
+  if (eventPrefix === 'governance.context.memory.') return 'Saved note changes'
   return 'Support-filtered view'
 }
 
@@ -783,7 +783,7 @@ function shortEventType(eventType: string): string {
 }
 
 function auditItemKindLabel(kind: GovernanceAuditItemKind | null | undefined): string {
-  if (kind === 'memory') return 'Saved memory'
+  if (kind === 'memory') return 'Saved note'
   if (kind === 'skill') return 'Saved instruction'
   return 'Item hidden for safety'
 }
