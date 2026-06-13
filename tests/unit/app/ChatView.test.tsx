@@ -160,7 +160,8 @@ describe('ChatView', () => {
     render(<ChatView agentId={cliAgent.id} />)
 
     expect(screen.getByTestId('conversation-empty-state')).toBeInTheDocument()
-    expect(screen.getByText('No updates from this agent yet')).toBeInTheDocument()
+    expect(screen.getByText('Send work from Tasks to start updates')).toBeInTheDocument()
+    expect(screen.getByText('Send work to create the first update.')).toBeInTheDocument()
     expect(
       screen.getByText(
         'Open Tasks and assign work to this agent or to a task queue it can receive.'
@@ -170,6 +171,8 @@ describe('ChatView', () => {
       screen.getByText('Check Attention once work starts to see what needs help.')
     ).toBeVisible()
     expect(screen.getByTestId('conversation-empty-state')).not.toHaveTextContent('lane')
+    expect(screen.queryByText('No updates from this agent yet')).toBeNull()
+    expect(screen.queryByText('No updates captured yet')).toBeNull()
     expect(screen.queryByText(previousFindHelpCopy)).toBeNull()
   })
 

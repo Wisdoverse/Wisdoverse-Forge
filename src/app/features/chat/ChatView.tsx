@@ -43,8 +43,8 @@ const PROVIDER_EMPTY_COPY = {
 }
 
 const WORKSPACE_AGENT_EMPTY_COPY = {
-  title: 'No updates from this agent yet',
-  detail: 'Updates appear after this workspace agent receives work or reports progress.',
+  title: 'Send work from Tasks to start updates',
+  detail: 'This history fills in after the agent receives work or reports progress.',
   steps: [
     'Open Tasks and assign work to this agent or to a task queue it can receive.',
     'Check Attention once work starts to see what needs help.',
@@ -260,7 +260,7 @@ export function ChatView({ agentId }: ChatViewProps) {
         <p className="mt-3 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
           {transcriptStats.lastUpdate
             ? `Last update ${transcriptStats.lastUpdate}`
-            : 'No updates captured yet'}
+            : 'Send work to create the first update.'}
         </p>
       </section>
 
