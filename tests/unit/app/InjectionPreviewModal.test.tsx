@@ -100,8 +100,29 @@ describe('InjectionPreviewModal', () => {
 
     render(<InjectionPreviewModal isOpen preview={null} onClose={() => {}} onConfirm={() => {}} />)
 
-    expect(screen.getByText('No saved notes review is available yet.')).toBeDefined()
+    expect(
+      screen.getByText(
+        'Saved notes review is not ready yet. Close this window, choose an available agent, then try sending again.'
+      )
+    ).toBeDefined()
     expect(screen.queryByText(new RegExp(['No', 'context', 'review'].join('\\s+')))).toBeNull()
+  })
+
+  test('shows the recovery reason when saved notes review cannot be prepared', () => {
+    render(
+      <InjectionPreviewModal
+        isOpen
+        preview={null}
+        error="No agent is available for saved item preview. Start an agent or wait for one to finish, then try again."
+        onClose={() => {}}
+        onConfirm={() => {}}
+      />
+    )
+
+    const alert = screen.getByRole('alert')
+    expect(alert.textContent).toContain('No agent is available for saved item preview')
+    expect(screen.getByText(/choose an available agent, then try sending again/i)).toBeDefined()
+    expect(screen.queryByText('No saved notes review is available yet.')).toBeNull()
   })
 
   test('describes unknown saved items and helper-agent limits without jargon', () => {

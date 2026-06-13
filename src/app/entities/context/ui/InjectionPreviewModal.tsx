@@ -209,8 +209,25 @@ export function InjectionPreviewModal({
               />
             </div>
           ) : (
-            <div className="py-8 text-ui-body text-secondary-light dark:text-secondary-dark">
-              No saved notes review is available yet.
+            <div className="space-y-3 py-8 text-ui-body text-secondary-light dark:text-secondary-dark">
+              {error && (
+                <div
+                  role="alert"
+                  className="flex gap-2 rounded-card bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red"
+                >
+                  <AlertTriangle
+                    size={14}
+                    strokeWidth={2}
+                    className="mt-0.5 shrink-0"
+                    aria-hidden="true"
+                  />
+                  <span>{error}</span>
+                </div>
+              )}
+              <p>
+                Saved notes review is not ready yet. Close this window, choose an available agent,
+                then try sending again.
+              </p>
             </div>
           )}
         </div>
