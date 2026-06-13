@@ -52,6 +52,52 @@ const WORKSPACE_AGENT_EMPTY_COPY = {
   ],
 }
 
+interface ConversationFilterEmptyCopy {
+  title: string
+  detail: string
+  nextStep: string
+}
+
+function conversationFilterEmptyCopy(
+  filter: ConversationFilter,
+  search: string
+): ConversationFilterEmptyCopy {
+  const hasSearch = search.trim().length > 0
+  const filterLabel =
+    CONVERSATION_FILTERS.find((item) => item.value === filter)?.label ?? 'selected'
+
+  if (hasSearch && filter !== 'all') {
+    return {
+      title: 'Search and filter are hiding updates',
+      detail:
+        'The search is only looking inside the selected view, so useful updates may be hidden.',
+      nextStep: 'Next: clear filters, review every update, then search again with one short word.',
+    }
+  }
+
+  if (hasSearch) {
+    return {
+      title: 'Search did not find a conversation update',
+      detail: 'Try one word from the update, such as the task name, result, or help request.',
+      nextStep: 'Next: clear the search to see every update again.',
+    }
+  }
+
+  if (filter === 'attention') {
+    return {
+      title: 'Nothing needs attention in this view',
+      detail: 'No update is currently marked as needing help.',
+      nextStep: 'Next: use All to read the full conversation.',
+    }
+  }
+
+  return {
+    title: `No updates from ${filterLabel} yet`,
+    detail: 'This selected view has no matching conversation updates right now.',
+    nextStep: 'Next: use All to see every update.',
+  }
+}
+
 export function ChatView({ agentId }: ChatViewProps) {
   const turns = useChatStore((s) => s.turns)
   const messages = useChatStore((s) => s.messages)
@@ -129,9 +175,6 @@ export function ChatView({ agentId }: ChatViewProps) {
       turns.filter((turn) => turnMatchesConversation(turn, conversationFilter, conversationSearch)),
     [conversationFilter, conversationSearch, turns]
   )
-  const hasActiveConversationFilter =
-    conversationSearch.trim().length > 0 || conversationFilter !== 'all'
-
   function resetConversationFilters() {
     setConversationFilter('all')
     setConversationSearch('')
@@ -320,22 +363,11 @@ export function ChatView({ agentId }: ChatViewProps) {
                 testId="conversation-empty-state"
               />
             ) : visibleMessages.length === 0 ? (
-              <div
-                data-testid="conversation-filter-empty"
-                className="flex flex-col items-center gap-2 text-center text-sm text-secondary-light"
-              >
-                <span>No conversation updates match the current filters.</span>
-                <span>Try All, Attention, or a shorter search term.</span>
-                {hasActiveConversationFilter && (
-                  <button
-                    type="button"
-                    onClick={resetConversationFilters}
-                    className="rounded-full bg-apple-blue/10 px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
-                  >
-                    Clear filters
-                  </button>
-                )}
-              </div>
+              <ConversationFilterEmptyState
+                filter={conversationFilter}
+                search={conversationSearch}
+                onClear={resetConversationFilters}
+              />
             ) : (
               visibleMessages.map((m) => {
                 const role = messageRoleKey(m.role)
@@ -372,22 +404,11 @@ export function ChatView({ agentId }: ChatViewProps) {
               testId="conversation-empty-state"
             />
           ) : visibleTurns.length === 0 ? (
-            <div
-              data-testid="conversation-filter-empty"
-              className="flex flex-col items-center gap-2 text-center text-sm text-secondary-light"
-            >
-              <span>No conversation updates match the current filters.</span>
-              <span>Try All, Attention, or a shorter search term.</span>
-              {hasActiveConversationFilter && (
-                <button
-                  type="button"
-                  onClick={resetConversationFilters}
-                  className="rounded-full bg-apple-blue/10 px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
-                >
-                  Clear filters
-                </button>
-              )}
-            </div>
+            <ConversationFilterEmptyState
+              filter={conversationFilter}
+              search={conversationSearch}
+              onClear={resetConversationFilters}
+            />
           ) : (
             visibleTurns.map((turn) => <TurnItem key={turn.id} turn={turn} />)
           )}
@@ -403,6 +424,37 @@ export function ChatView({ agentId }: ChatViewProps) {
           disabledReason={composerDisabledReason}
         />
       )}
+    </div>
+  )
+}
+
+function ConversationFilterEmptyState({
+  filter,
+  search,
+  onClear,
+}: {
+  filter: ConversationFilter
+  search: string
+  onClear: () => void
+}) {
+  const copy = conversationFilterEmptyCopy(filter, search)
+  return (
+    <div
+      data-testid="conversation-filter-empty"
+      className="flex flex-col items-center gap-2 text-center text-sm text-secondary-light"
+    >
+      <span className="font-medium text-foreground-light dark:text-foreground-dark">
+        {copy.title}
+      </span>
+      <span>{copy.detail}</span>
+      <span className="text-ui-caption">{copy.nextStep}</span>
+      <button
+        type="button"
+        onClick={onClear}
+        className="rounded-full bg-apple-blue/10 px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+      >
+        Clear filters
+      </button>
     </div>
   )
 }

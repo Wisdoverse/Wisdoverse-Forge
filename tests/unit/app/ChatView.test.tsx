@@ -276,9 +276,15 @@ describe('ChatView', () => {
     fireEvent.change(screen.getByTestId('conversation-search'), {
       target: { value: 'missing-term' },
     })
-    expect(screen.getByTestId('conversation-filter-empty')).toBeInTheDocument()
-    expect(screen.getByText('Try All, Attention, or a shorter search term.')).toBeInTheDocument()
+    const emptyState = screen.getByTestId('conversation-filter-empty')
+    expect(emptyState).toBeInTheDocument()
+    expect(within(emptyState).getByText('Search and filter are hiding updates')).toBeInTheDocument()
+    expect(within(emptyState).getByText(/useful updates may be hidden/i)).toBeInTheDocument()
+    expect(within(emptyState).getByText(/review every update/i)).toBeInTheDocument()
+    expect(emptyState).not.toHaveTextContent('No conversation updates match the current filters.')
+    expect(emptyState).not.toHaveTextContent('Try All, Attention, or a shorter search term.')
     fireEvent.click(screen.getByRole('button', { name: /clear filters/i }))
+    expect(screen.getByTestId('conversation-search')).toHaveValue('')
     expect(screen.getByText('Settings page shipped')).toBeInTheDocument()
   })
 
