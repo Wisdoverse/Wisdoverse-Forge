@@ -150,8 +150,16 @@ describe('ProvidersSection', () => {
     render(<ProvidersSection />)
 
     const nextStep = await screen.findByTestId('provider-next-step')
+    const readiness = screen.getByTestId('provider-readiness')
+    expect(within(readiness).getByText('Default: add an AI service first')).toBeDefined()
+    expect(within(readiness).getByText('Add first service')).toBeDefined()
+    expect(within(readiness).queryByText('Default: None')).toBeNull()
+    expect(within(readiness).queryByText('Not set')).toBeNull()
     expect(within(nextStep).getByText('Add your first AI service')).toBeDefined()
     expect(within(nextStep).getByText(/paste the service access key/i)).toBeDefined()
+    expect(screen.getAllByText('Add your first AI service').length).toBeGreaterThan(1)
+    expect(screen.getByText(/Use Do This Next above to add one AI account/i)).toBeDefined()
+    expect(screen.queryByText('No AI services configured')).toBeNull()
 
     fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
 
@@ -232,6 +240,10 @@ describe('ProvidersSection', () => {
     expect(within(readiness).getByText(/No AI services are ready to use yet/i)).toBeDefined()
     expect(within(readiness).getByText(/none need Check/i)).toBeDefined()
     expect(within(readiness).getByText(/1 AI service is disabled/i)).toBeDefined()
+    expect(within(readiness).getByText('Default: choose a ready AI service')).toBeDefined()
+    expect(within(readiness).getByText('Choose a default')).toBeDefined()
+    expect(within(readiness).queryByText('Default: None')).toBeNull()
+    expect(within(readiness).queryByText('Not set')).toBeNull()
     const nextStep = screen.getByTestId('provider-next-step')
     expect(within(nextStep).getByText('Add a working AI service')).toBeDefined()
 

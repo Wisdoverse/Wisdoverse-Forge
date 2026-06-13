@@ -73,7 +73,8 @@ describe('ResourcesSection', () => {
     render(<ResourcesSection />)
 
     const emptyState = await screen.findByTestId('resource-profiles-empty')
-    expect(within(emptyState).getByText('No agent sizes are available yet')).toBeDefined()
+    expect(within(emptyState).getByText('Ask an owner or admin to add agent sizes')).toBeDefined()
+    expect(within(emptyState).queryByText('No agent sizes are available yet')).toBeNull()
     expect(
       within(emptyState).getByText(
         'Agents need at least one size before users can choose safe work capacity.'

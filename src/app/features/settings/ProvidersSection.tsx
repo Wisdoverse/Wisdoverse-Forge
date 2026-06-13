@@ -625,6 +625,11 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
     (provider) => providerConnectionState(provider) === 'needs-test'
   ).length
   const defaultProvider = providers.find((provider) => provider.isDefault)
+  const defaultProviderLabel =
+    defaultProvider?.displayName ??
+    (total === 0 ? 'add an AI service first' : 'choose a ready AI service')
+  const defaultProviderMetric =
+    defaultProvider?.displayName ?? (total === 0 ? 'Add first service' : 'Choose a default')
   const allReady = ready > 0 && ready === total - disabled && needsTest === 0
 
   return (
@@ -663,7 +668,7 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-black/[0.04] px-2.5 py-1 text-ui-caption font-semibold text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-          Default: {defaultProvider?.displayName ?? 'None'}
+          Default: {defaultProviderLabel}
         </span>
       </div>
 
@@ -677,7 +682,7 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
         <ProviderReadinessMetric label="Disabled" value={String(disabled)} ready={disabled === 0} />
         <ProviderReadinessMetric
           label="Default AI service"
-          value={defaultProvider?.displayName ?? 'Not set'}
+          value={defaultProviderMetric}
           ready={Boolean(defaultProvider)}
         />
       </div>
@@ -1293,10 +1298,11 @@ export function ProvidersSection() {
         ) : providers.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No AI services configured
+              Add your first AI service
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Add one AI account, then click Check so agents can answer without setup surprises.
+              Use Do This Next above to add one AI account, then click Check so agents can answer
+              without setup surprises.
             </p>
           </div>
         ) : filteredProviders.length === 0 && !showForm ? (

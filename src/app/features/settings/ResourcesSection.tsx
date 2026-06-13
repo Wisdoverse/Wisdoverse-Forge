@@ -155,7 +155,7 @@ function ResourceProfilesEmptyState() {
   return (
     <div data-testid="resource-profiles-empty" className="px-4 py-6 text-center">
       <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-        No agent sizes are available yet
+        Ask an owner or admin to add agent sizes
       </p>
       <p className="mx-auto mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
         Agents need at least one size before users can choose safe work capacity.
