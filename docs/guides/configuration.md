@@ -51,18 +51,19 @@ administrator.
 
 ## Rust API Variables
 
-| Variable             | Default       | Required               | Purpose                                            |
-| -------------------- | ------------- | ---------------------- | -------------------------------------------------- |
-| `PORT`               | `4003`        | No                     | Rust API listen port                               |
-| `HOST`               | `0.0.0.0`     | No                     | Rust API bind host                                 |
-| `DATABASE_URL`       | none          | Yes                    | PostgreSQL connection string                       |
-| `REDIS_URL`          | none          | No                     | Redis connection string                            |
-| `NATS_URL`           | none          | No                     | NATS connection string                             |
-| `JWT_SECRET`         | none          | Yes                    | JWT signing secret; must be at least 32 characters |
-| `JWT_EXPIRY_SECONDS` | `900`         | No                     | Access token lifetime in seconds                   |
-| `ENVIRONMENT`        | `development` | No                     | Runtime mode                                       |
-| `LOG_LEVEL`          | `info`        | No                     | Tracing filter                                     |
-| `CORS_ORIGIN`        | none          | Required in production | Allowed browser origin for production CORS         |
+| Variable                 | Default       | Required               | Purpose                                                                                                                                                                                                                            |
+| ------------------------ | ------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                   | `4003`        | No                     | Rust API listen port                                                                                                                                                                                                               |
+| `HOST`                   | `0.0.0.0`     | No                     | Rust API bind host                                                                                                                                                                                                                 |
+| `DATABASE_URL`           | none          | Yes                    | PostgreSQL connection string                                                                                                                                                                                                       |
+| `REDIS_URL`              | none          | No                     | Redis connection string                                                                                                                                                                                                            |
+| `PRESENCE_REDIS_ENABLED` | `false`       | No                     | ADR 0008 Phase 2: serve agent liveness from a Redis TTL key instead of a per-heartbeat PostgreSQL write. Requires `REDIS_URL`; degrades to PostgreSQL if Redis is down. Keep off until the per-beat write is a measured bottleneck |
+| `NATS_URL`               | none          | No                     | NATS connection string                                                                                                                                                                                                             |
+| `JWT_SECRET`             | none          | Yes                    | JWT signing secret; must be at least 32 characters                                                                                                                                                                                 |
+| `JWT_EXPIRY_SECONDS`     | `900`         | No                     | Access token lifetime in seconds                                                                                                                                                                                                   |
+| `ENVIRONMENT`            | `development` | No                     | Runtime mode                                                                                                                                                                                                                       |
+| `LOG_LEVEL`              | `info`        | No                     | Tracing filter                                                                                                                                                                                                                     |
+| `CORS_ORIGIN`            | none          | Required in production | Allowed browser origin for production CORS                                                                                                                                                                                         |
 
 `NODE_ENV` may still appear in Compose or frontend tooling, but the Rust API configuration source of truth is `ENVIRONMENT`.
 

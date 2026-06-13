@@ -26,6 +26,7 @@ use uuid::Uuid;
 use crate::orchestration_realtime::{
     publish_broadcast, publish_task_update, realtime_projector_enabled, task_instruction,
 };
+use crate::presence_store::{PresenceBackend, RedisRecord};
 
 pub const HEARTBEAT_SUBJECT_PREFIX: &str = "sidecar";
 pub const HEARTBEAT_SUBJECT_SUFFIX: &str = "heartbeat";
@@ -119,6 +120,22 @@ pub(crate) const MARK_STALE_OFFLINE_SQL: &str = r#"UPDATE participants
                last_heartbeat_at IS NULL
                OR last_heartbeat_at < NOW() - ($1::text || ' seconds')::interval
            )
+        RETURNING *"#;
+
+/// Phase 2 (ADR 0008): non-offline participants the Redis sweep must probe for
+/// liveness (key existence). The Redis presence key, not `last_heartbeat_at`,
+/// decides offline in Redis mode.
+pub(crate) const NON_OFFLINE_PARTICIPANT_AGENTS_SQL: &str =
+    r#"SELECT agent_id FROM participants WHERE status <> 'offline'"#;
+
+/// Phase 2 (ADR 0008): mark the supplied agents offline (those whose Redis
+/// presence key expired). Tenant-safe by construction — the agent ids come from
+/// the participants table; the WHERE keeps it idempotent against concurrent
+/// transitions.
+pub(crate) const MARK_OFFLINE_BY_AGENT_IDS_SQL: &str = r#"UPDATE participants
+           SET status = 'offline'
+         WHERE status <> 'offline'
+           AND agent_id = ANY($1)
         RETURNING *"#;
 
 /// Reconcile backstop (ADR 0008). The per-beat heartbeat no longer recomputes
@@ -295,11 +312,18 @@ pub struct ParticipantLivenessWorker {
     pool: PgPool,
     stale_after: Duration,
     sweep_interval: Duration,
+    presence: PresenceBackend,
 }
 
 impl ParticipantLivenessWorker {
     pub fn new(client: Client, pool: PgPool) -> Self {
-        Self { client, pool, stale_after: DEFAULT_STALE_AFTER, sweep_interval: DEFAULT_STALE_SWEEP_INTERVAL }
+        Self {
+            client,
+            pool,
+            stale_after: DEFAULT_STALE_AFTER,
+            sweep_interval: DEFAULT_STALE_SWEEP_INTERVAL,
+            presence: PresenceBackend::postgres_only(DEFAULT_STALE_AFTER),
+        }
     }
 
     pub fn with_stale_after(mut self, stale_after: Duration) -> Self {
@@ -309,6 +333,14 @@ impl ParticipantLivenessWorker {
 
     pub fn with_sweep_interval(mut self, sweep_interval: Duration) -> Self {
         self.sweep_interval = sweep_interval;
+        self
+    }
+
+    /// Install the ADR 0008 Phase 2 presence backend. When the supplied backend
+    /// is Redis-enabled, steady-state heartbeats are served from Redis instead
+    /// of a PostgreSQL write; it degrades to the PG path on any Redis problem.
+    pub fn with_presence(mut self, presence: PresenceBackend) -> Self {
+        self.presence = presence;
         self
     }
 
@@ -348,7 +380,7 @@ impl ParticipantLivenessWorker {
                     match msg {
                         Some(nats_msg) => {
                             let subject = nats_msg.subject.to_string();
-                            if let Err(err) = handle_heartbeat(&self.client, &self.pool, &subject, &nats_msg.payload).await {
+                            if let Err(err) = handle_heartbeat(&self.client, &self.pool, &self.presence, &subject, &nats_msg.payload).await {
                                 tracing::warn!(error = %err, %subject, "Dropped sidecar heartbeat");
                             }
                         }
@@ -359,7 +391,7 @@ impl ParticipantLivenessWorker {
                     }
                 }
                 _ = ticker.tick() => {
-                    match mark_stale_offline(&self.client, &self.pool, self.stale_after).await {
+                    match sweep_offline(&self.client, &self.pool, &self.presence, self.stale_after).await {
                         Ok(0) => {}
                         Ok(n) => tracing::warn!(participants = n, "Marked stale orchestration participants offline"),
                         Err(err) => tracing::error!(error = ?err, "Participant stale sweep failed"),
@@ -453,7 +485,13 @@ pub async fn apply_heartbeat(
     Ok(Some((participant, status_changed)))
 }
 
-pub async fn handle_heartbeat(client: &Client, pool: &PgPool, subject: &str, payload: &[u8]) -> Result<()> {
+pub async fn handle_heartbeat(
+    client: &Client,
+    pool: &PgPool,
+    presence: &PresenceBackend,
+    subject: &str,
+    payload: &[u8],
+) -> Result<()> {
     let subject_agent = parse_heartbeat_agent_id(subject).ok_or_else(|| anyhow!("bad heartbeat subject {subject}"))?;
     let payload: HeartbeatPayload = serde_json::from_slice(payload).with_context(|| "decode heartbeat payload")?;
 
@@ -463,15 +501,30 @@ pub async fn handle_heartbeat(client: &Client, pool: &PgPool, subject: &str, pay
         return Err(anyhow!("heartbeat subject agent {subject_agent} disagrees with payload agent {payload_agent}"));
     }
 
+    metrics::counter!("agentforge_orchestration_participant_heartbeats_total").increment(1);
+
+    // ADR 0008 Phase 2: when Redis presence is active and the agent is already
+    // live, the beat is recorded entirely in Redis — no PostgreSQL write,
+    // broadcast, or auto-dispatch. A transition (first-seen / TTL resurrection)
+    // or any Redis fallback still runs the PostgreSQL path below.
+    if presence.record(subject_agent).await == RedisRecord::SteadyState {
+        metrics::counter!("agentforge_orchestration_presence_redis_steady_total").increment(1);
+        return Ok(());
+    }
+
     let capabilities = payload.normalized_capabilities();
     let Some((participant, status_changed)) = apply_heartbeat(pool, subject_agent, capabilities).await? else {
+        // The Redis `SET` already wrote the presence key (Transition), but there
+        // is no agent row to back it. Drop the key so the next beat retries the
+        // PG write instead of reading SteadyState and suppressing it for the TTL.
+        presence.forget(subject_agent).await;
         return Err(anyhow!("no agent row found for heartbeat agent {subject_agent}"));
     };
+    if presence.redis_enabled() {
+        metrics::counter!("agentforge_orchestration_presence_redis_transition_total").increment(1);
+    }
 
-    // Attribution metrics (ADR 0008): total beats vs the minority that actually
-    // moved agents.status. A low transition share confirms the per-beat write is
-    // pure liveness churn and is the gate input for the Phase 2 Redis offload.
-    metrics::counter!("agentforge_orchestration_participant_heartbeats_total").increment(1);
+    // Attribution metric (ADR 0008): beats that actually moved agents.status.
     if status_changed {
         metrics::counter!("agentforge_orchestration_participant_status_transitions_total").increment(1);
     }
@@ -494,6 +547,52 @@ pub async fn handle_heartbeat(client: &Client, pool: &PgPool, subject: &str, pay
     }
 
     Ok(())
+}
+
+/// Offline sweep dispatcher (ADR 0008). In Redis-presence mode, liveness is the
+/// presence key's existence: non-offline participants whose key has expired are
+/// marked offline. On any Redis unavailability it falls back to the Phase 1
+/// `last_heartbeat_at` sweep — but skips it during the post-fallback grace
+/// window, because `last_heartbeat_at` is stale until PG-path beats repopulate
+/// it (otherwise live agents would be wrongly marked offline).
+pub async fn sweep_offline(
+    client: &Client,
+    pool: &PgPool,
+    presence: &PresenceBackend,
+    stale_after: Duration,
+) -> Result<u64> {
+    if presence.redis_enabled() {
+        let candidates: Vec<Uuid> = sqlx::query_scalar(NON_OFFLINE_PARTICIPANT_AGENTS_SQL).fetch_all(pool).await?;
+        if let Some(dead) = presence.dead_agents(&candidates).await {
+            if dead.is_empty() {
+                return Ok(0);
+            }
+            return mark_offline_by_agent_ids(client, pool, &dead).await;
+        }
+        // Redis went unavailable mid-sweep; presence armed the grace window.
+        // Fall through to the (graced) PostgreSQL sweep below.
+    }
+
+    if presence.pg_sweep_within_grace() {
+        tracing::debug!("Skipping PostgreSQL stale sweep during post-fallback grace window");
+        return Ok(0);
+    }
+
+    mark_stale_offline(client, pool, stale_after).await
+}
+
+/// Mark the given agents offline (Redis-mode TTL expiry) and broadcast, reusing
+/// the same agents-mirror + WS path as the timestamp-based stale sweep.
+async fn mark_offline_by_agent_ids(client: &Client, pool: &PgPool, agent_ids: &[Uuid]) -> Result<u64> {
+    let participants =
+        sqlx::query_as::<_, Participant>(MARK_OFFLINE_BY_AGENT_IDS_SQL).bind(agent_ids).fetch_all(pool).await?;
+    for participant in &participants {
+        update_agent_status_offline(pool, participant).await?;
+        if let Err(err) = publish_participant_update(client, participant, "participant.offline").await {
+            tracing::warn!(error = %err, participant_id = %participant.id, "Failed to broadcast participant offline update");
+        }
+    }
+    Ok(participants.len() as u64)
 }
 
 pub async fn mark_stale_offline(client: &Client, pool: &PgPool, stale_after: Duration) -> Result<u64> {
@@ -867,6 +966,17 @@ mod tests {
         assert!(RECONCILE_ORPHANED_BUSY_SQL.contains("WHERE status = 'busy'"));
         assert!(RECONCILE_ORPHANED_BUSY_SQL.contains("NOT EXISTS"));
         assert!(RECONCILE_ORPHANED_BUSY_SQL.contains("task.status = 'working'"));
+    }
+
+    #[test]
+    fn redis_offline_sweep_sql_targets_non_offline_and_marks_by_agent_ids() {
+        // The Redis-mode sweep probes non-offline participants and marks the
+        // ones whose presence key expired (ADR 0008 Phase 2).
+        assert!(NON_OFFLINE_PARTICIPANT_AGENTS_SQL.contains("status <> 'offline'"));
+        assert!(NON_OFFLINE_PARTICIPANT_AGENTS_SQL.contains("SELECT agent_id"));
+        assert!(MARK_OFFLINE_BY_AGENT_IDS_SQL.contains("SET status = 'offline'"));
+        assert!(MARK_OFFLINE_BY_AGENT_IDS_SQL.contains("status <> 'offline'"));
+        assert!(MARK_OFFLINE_BY_AGENT_IDS_SQL.contains("agent_id = ANY($1)"));
     }
 
     #[test]

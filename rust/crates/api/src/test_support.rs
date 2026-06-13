@@ -47,6 +47,7 @@ fn test_app_config(database_url: &str) -> AppConfig {
         host: "0.0.0.0".to_string(),
         database_url: database_url.to_string(),
         redis_url: None,
+        presence_redis_enabled: false,
         nats_url: None,
         nats_agent_url: None,
         nats_container_url: None,

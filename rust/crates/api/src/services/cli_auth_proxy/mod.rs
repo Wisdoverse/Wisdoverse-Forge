@@ -1106,6 +1106,7 @@ mod tests {
             host: "0.0.0.0".to_string(),
             database_url: "postgres://localhost/test".to_string(),
             redis_url: None,
+            presence_redis_enabled: false,
             nats_url: None,
             nats_agent_url: None,
             nats_container_url: None,

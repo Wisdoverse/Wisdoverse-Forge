@@ -38,6 +38,7 @@ pub mod orchestration_outbox_publisher;
 mod orchestration_realtime;
 pub mod orchestration_result_consumer;
 pub mod participant_liveness;
+pub mod presence_store;
 pub mod queue;
 pub mod worker;
 
@@ -76,7 +77,9 @@ pub use participant_liveness::{
     handle_heartbeat as handle_participant_heartbeat, mark_stale_offline as mark_stale_participants_offline,
     parse_heartbeat_agent_id, reconcile_orphaned_busy as reconcile_orphaned_busy_participants,
     reconcile_orphaned_busy_rows as reconcile_orphaned_busy_participant_rows,
+    sweep_offline as sweep_participants_offline,
 };
+pub use presence_store::{PresenceBackend, RedisRecord};
 pub use queue::{JobEntry, complete, dequeue, enqueue, fail, release_stale_locks};
 pub use worker::Worker;
 
@@ -91,4 +94,5 @@ pub fn register_metrics() {
     orchestration_outbox_publisher::register_metrics();
     orchestration_result_consumer::register_metrics();
     participant_liveness::register_metrics();
+    presence_store::register_metrics();
 }
