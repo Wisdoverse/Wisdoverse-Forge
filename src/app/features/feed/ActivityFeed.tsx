@@ -15,6 +15,44 @@ const FEED_FILTERS: { value: FeedFilter; label: string }[] = [
   { value: 'completed', label: 'Completed' },
 ]
 
+interface FeedFilteredEmptyCopy {
+  title: string
+  detail: string
+  nextStep: string
+}
+
+function feedFilteredEmptyCopy(filter: FeedFilter): FeedFilteredEmptyCopy {
+  if (filter === 'needs-action') {
+    return {
+      title: 'No updates need action right now',
+      detail: 'No task is blocked or failed in recent activity.',
+      nextStep: 'Next: show all updates to see work that is still moving.',
+    }
+  }
+
+  if (filter === 'progress') {
+    return {
+      title: 'No progress updates in this view',
+      detail: 'Recent activity may still include completed work or items that need help.',
+      nextStep: 'Next: show all updates before assuming work is idle.',
+    }
+  }
+
+  if (filter === 'completed') {
+    return {
+      title: 'No completed updates in this view',
+      detail: 'Work may still be active, waiting, or asking for help.',
+      nextStep: 'Next: show all updates to see what happened most recently.',
+    }
+  }
+
+  return {
+    title: 'No updates in this view',
+    detail: 'No recent activity matches this view.',
+    nextStep: 'Next: check back after an agent reports progress.',
+  }
+}
+
 export function ActivityFeed() {
   const agents = useFeedStore((state) => state.agents)
   const attentionItems = useFeedStore((state) => state.attentionItems)
@@ -150,7 +188,7 @@ export function ActivityFeed() {
               ))}
             </div>
           ) : (
-            <FilteredEmptyState />
+            <FilteredEmptyState filter={activeFilter} onShowAll={() => setActiveFilter('all')} />
           )}
         </div>
       ) : (
@@ -238,18 +276,32 @@ function FeedFilterButton({
   )
 }
 
-function FilteredEmptyState() {
+function FilteredEmptyState({ filter, onShowAll }: { filter: FeedFilter; onShowAll: () => void }) {
+  const copy = feedFilteredEmptyCopy(filter)
   return (
-    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-black/[0.08] px-3 py-6 text-center dark:border-white/[0.1]">
+    <div
+      data-testid="feed-filter-empty"
+      className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-black/[0.08] px-3 py-6 text-center dark:border-white/[0.1]"
+    >
       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
         <ListFilter size={15} strokeWidth={1.9} aria-hidden="true" />
       </div>
       <p className="text-[11px] font-medium text-foreground-light dark:text-foreground-dark">
-        No updates in this view
+        {copy.title}
       </p>
       <p className="max-w-[220px] text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
-        Choose All to see every recent update, or check back when this type of work changes.
+        {copy.detail}
       </p>
+      <p className="max-w-[220px] text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+        {copy.nextStep}
+      </p>
+      <button
+        type="button"
+        onClick={onShowAll}
+        className="rounded-full bg-apple-blue/10 px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+      >
+        Show all updates
+      </button>
     </div>
   )
 }

@@ -158,9 +158,16 @@ describe('ActivityFeed', () => {
     render(<ActivityFeed />)
 
     fireEvent.click(screen.getByRole('button', { name: /completed\s*0/i }))
-    expect(screen.getByText(/no updates in this view/i)).toBeDefined()
-    expect(screen.getByText(/choose all to see every recent update/i)).toBeDefined()
+    const emptyState = screen.getByTestId('feed-filter-empty')
+    expect(within(emptyState).getByText('No completed updates in this view')).toBeDefined()
+    expect(within(emptyState).getByText(/work may still be active/i)).toBeDefined()
+    expect(within(emptyState).getByText(/see what happened most recently/i)).toBeDefined()
+    expect(emptyState.textContent).not.toContain('Choose All to see every recent update')
     expect(screen.queryByText('Fix auth')).toBeNull()
+
+    fireEvent.click(within(emptyState).getByRole('button', { name: /show all updates/i }))
+
+    expect(screen.getByText('Fix auth')).toBeDefined()
   })
 
   test('shows empty state when no feed items', () => {
