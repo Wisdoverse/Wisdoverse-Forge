@@ -137,7 +137,10 @@ describe('AuditLogView', () => {
     expect(screen.getByText('Saved instruction approved')).toBeDefined()
     expect(screen.queryByText('Skill approved')).toBeNull()
     expect(screen.getAllByText('Show support event').length).toBeGreaterThan(0)
-    expect(screen.getByText('Saved note · Memory item')).toBeDefined()
+    expect(screen.getByText('Saved note · Saved note record')).toBeDefined()
+    expect(
+      screen.queryByText(new RegExp(['Saved note', ['Memory', 'item'].join('\\s+')].join('.*'), 'i'))
+    ).toBeNull()
     expect(screen.getByText('Saved instruction · Instruction record')).toBeDefined()
     expect(screen.queryByText('Saved instruction · Skill')).toBeNull()
     expect(screen.getAllByText('Changed item').length).toBeGreaterThan(0)

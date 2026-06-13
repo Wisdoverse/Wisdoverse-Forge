@@ -790,6 +790,9 @@ function auditItemKindLabel(kind: GovernanceAuditItemKind | null | undefined): s
 
 function resourceTypeLabel(value: string): string {
   const normalized = value.trim().toLowerCase()
+  if (normalized === 'memory' || normalized === 'memories' || normalized === 'memory_item') {
+    return 'Saved note record'
+  }
   if (normalized === 'skill' || normalized === 'skills') return 'Instruction record'
   return readableCodeLabel(value, { fallback: 'Resource not listed' })
 }
