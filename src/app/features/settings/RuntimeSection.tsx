@@ -255,14 +255,16 @@ export function RuntimeSection() {
             value={
               cliToolDetails.length > 0
                 ? `${reportedVersionCount}/${cliToolDetails.length} work tools ready`
-                : 'No work tool status yet'
+                : 'Check setup after tools finish.'
             }
             ready={cliToolDetails.length > 0 && reportedVersionCount === cliToolDetails.length}
           />
           <RuntimeReadinessMetric
             label="Last agent online"
             value={
-              latestHeartbeat ? formatRelativeTime(latestHeartbeat) : 'No agent seen online yet'
+              latestHeartbeat
+                ? formatRelativeTime(latestHeartbeat)
+                : 'Start an agent, then check again.'
             }
             ready={Boolean(latestHeartbeat)}
           />

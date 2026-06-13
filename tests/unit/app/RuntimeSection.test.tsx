@@ -254,6 +254,30 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText('Unknown')).toBeNull()
   })
 
+  test('guides missing setup metrics toward the next action', async () => {
+    agentApiMock.getCliAuthProxyStatus.mockResolvedValueOnce({
+      ok: true,
+      statuses: [],
+    })
+    orchestrationApiMock.getParticipants.mockResolvedValueOnce([])
+    useSettingsStore.setState({
+      runtimeSettings: {
+        defaultRuntime: 'container',
+        availableRuntimes: ['container'],
+        defaultCliTool: 'codex',
+        availableCliTools: ['codex'],
+        cliToolDetails: [],
+      },
+    })
+
+    render(<RuntimeSection />)
+
+    expect(await screen.findByText('Check setup after tools finish.')).toBeDefined()
+    expect(screen.getByText('Start an agent, then check again.')).toBeDefined()
+    expect(screen.queryByText('No work tool status yet')).toBeNull()
+    expect(screen.queryByText('No agent seen online yet')).toBeNull()
+  })
+
   test('labels unknown agent location and tool values without exposing backend codes', async () => {
     useSettingsStore.setState({
       runtimeSettings: {
