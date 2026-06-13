@@ -106,7 +106,7 @@ export function ContextTab({
     return (
       <div className="py-8 flex items-center justify-center">
         <p className="text-xs text-secondary-light dark:text-secondary-dark">
-          Loading saved context...
+          Loading saved notes and instructions...
         </p>
       </div>
     )
@@ -132,7 +132,7 @@ export function ContextTab({
         <section className="rounded-lg bg-apple-gray-6/70 dark:bg-white/[0.035] p-3">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
-              Agent work checked for context
+              Agent work checked saved notes and instructions
             </h3>
             <span className="text-[10px] text-secondary-light dark:text-secondary-dark">
               {context.runs.length} record{context.runs.length === 1 ? '' : 's'}

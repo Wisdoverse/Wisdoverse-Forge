@@ -70,6 +70,13 @@ function context(overrides: Partial<TaskContextResponse> = {}): TaskContextRespo
 }
 
 describe('ContextTab', () => {
+  test('uses beginner wording while loading saved items', () => {
+    render(<ContextTab taskId="task-1" loadContext={async () => new Promise(() => {})} />)
+
+    expect(screen.getByText('Loading saved notes and instructions...')).toBeDefined()
+    expect(screen.queryByText(/saved\s+context/i)).toBeNull()
+  })
+
   test('shows beginner guidance when task context fails to load', async () => {
     render(
       <ContextTab
@@ -214,7 +221,7 @@ describe('ContextTab', () => {
     )
 
     expect(await screen.findByTestId('context-tab')).toBeDefined()
-    expect(screen.getByText('Agent work checked for context')).toBeDefined()
+    expect(screen.getByText('Agent work checked saved notes and instructions')).toBeDefined()
     expect(screen.getByText('Work run 1')).toBeDefined()
     expect(screen.getByText('Finished')).toBeDefined()
     expect(screen.getByText('Saved notes used')).toBeDefined()
@@ -306,7 +313,7 @@ describe('ContextTab', () => {
       />
     )
 
-    expect(await screen.findByText('Agent work checked for context')).toBeDefined()
+    expect(await screen.findByText('Agent work checked saved notes and instructions')).toBeDefined()
     expect(screen.getByText('Waiting to start')).toBeDefined()
     expect(screen.getByText('Status needs review')).toBeDefined()
     expect(screen.getByText('Status not reported')).toBeDefined()
