@@ -16,12 +16,19 @@ pub struct RedisClient {
 impl RedisClient {
     /// Create a Redis client. Returns `Ok` even if Redis is unavailable (graceful degradation).
     pub async fn new(config: &AppConfig) -> Self {
-        let Some(url) = &config.redis_url else {
+        Self::connect(config.redis_url.as_deref()).await
+    }
+
+    /// Connect from an explicit URL (or `None` to run without Redis). Same
+    /// graceful-degradation contract as [`RedisClient::new`]; kept public so
+    /// integration tests can build a client without a full `AppConfig`.
+    pub async fn connect(url: Option<&str>) -> Self {
+        let Some(url) = url else {
             tracing::info!("Redis URL not configured, running without Redis");
             return Self { connection: None };
         };
 
-        match Client::open(url.as_str()) {
+        match Client::open(url) {
             Ok(client) => match client.get_multiplexed_async_connection().await {
                 Ok(conn) => {
                     tracing::info!("Redis connected");
@@ -78,6 +85,7 @@ mod tests {
             host: "0.0.0.0".to_string(),
             database_url: "postgres://localhost/test".to_string(),
             redis_url,
+            presence_redis_enabled: false,
             nats_url: None,
             nats_agent_url: None,
             nats_container_url: None,

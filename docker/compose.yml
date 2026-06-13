@@ -160,6 +160,10 @@ services:
       - ORCHESTRATION_RESULT_CONSUMER_ENABLED=${ORCHESTRATION_RESULT_CONSUMER_ENABLED:-true}
       - ORCHESTRATION_ASSIGNMENT_OUTBOX_PUBLISHER_ENABLED=${ORCHESTRATION_ASSIGNMENT_OUTBOX_PUBLISHER_ENABLED:-true}
       - ORCHESTRATION_PARTICIPANT_LIVENESS_ENABLED=${ORCHESTRATION_PARTICIPANT_LIVENESS_ENABLED:-true}
+      # ADR 0008 Phase 2: serve agent liveness from a Redis TTL key instead of a
+      # per-heartbeat PostgreSQL write. Default off (dark); enable only after the
+      # Phase 1 attribution metrics show the per-beat write is a real bottleneck.
+      - PRESENCE_REDIS_ENABLED=${PRESENCE_REDIS_ENABLED:-false}
       - ORCHESTRATION_CONTROL_PLANE_METRICS_ENABLED=${ORCHESTRATION_CONTROL_PLANE_METRICS_ENABLED:-true}
       - ORCHESTRATION_WS_PROJECTOR_ENABLED=${ORCHESTRATION_WS_PROJECTOR_ENABLED:-true}
       # Governed context rollout flags. Defaults are intentionally off until

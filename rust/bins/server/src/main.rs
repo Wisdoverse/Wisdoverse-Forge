@@ -20,8 +20,9 @@ use agentforge_db::{create_pool, run_migrations};
 use agentforge_infra::{NatsClient, ObjectStorageClient, RedisClient};
 use agentforge_jobs::{
     DependencyReconcileWorker, EventStreamWorker, OrchestrationMetricsWorker, OrchestrationOutboxPublisher,
-    OrchestrationResultWorker, ParticipantLivenessWorker, SqlxAgentOwnerLookup, SqlxCredentialHmacSecretLookup,
-    SqlxHmacSecretLookup, SqlxNatsConnectPasswordLookup, SqlxParticipantLookup, SqlxTaskWriter,
+    OrchestrationResultWorker, PARTICIPANT_DEFAULT_STALE_AFTER, ParticipantLivenessWorker, PresenceBackend,
+    SqlxAgentOwnerLookup, SqlxCredentialHmacSecretLookup, SqlxHmacSecretLookup, SqlxNatsConnectPasswordLookup,
+    SqlxParticipantLookup, SqlxTaskWriter,
 };
 use anyhow::{Result, anyhow};
 use metrics_exporter_prometheus::{Matcher, PrometheusBuilder};
@@ -297,8 +298,16 @@ async fn main() -> Result<()> {
     // participants. This closes the "running sidecar but no schedulable
     // participant" gap without silently reassigning in-flight work.
     let participant_liveness_handle = if orchestration_liveness_enabled {
+        // ADR 0008 Phase 2: serve liveness from Redis when PRESENCE_REDIS_ENABLED
+        // is set and Redis is connected; otherwise (and on any Redis problem) the
+        // backend degrades to the Phase 1 PostgreSQL path.
+        let presence =
+            PresenceBackend::new(Some(redis.clone()), config.presence_redis_enabled, PARTICIPANT_DEFAULT_STALE_AFTER);
+        if config.presence_redis_enabled {
+            tracing::info!("ADR 0008 Phase 2: Redis-backed agent presence enabled");
+        }
         nats.client().cloned().map(|client| {
-            let worker = ParticipantLivenessWorker::new(client, pool.clone());
+            let worker = ParticipantLivenessWorker::new(client, pool.clone()).with_presence(presence);
             let worker_shutdown = shutdown_rx.clone();
             tokio::spawn(async move { worker.run(worker_shutdown).await })
         })
