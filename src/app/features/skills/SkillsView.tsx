@@ -287,10 +287,10 @@ function skillToolbarStatus({
   if (visibleCount > 0) {
     return `${visibleCount} saved instruction${visibleCount === 1 ? '' : 's'}`
   }
-  if (totalCount === 0) return 'No saved instructions yet'
-  if (searchQuery.trim()) return 'No saved instructions match search'
-  if (filter !== 'all') return 'No saved instructions match filter'
-  return 'No saved instructions to show'
+  if (totalCount === 0) return 'Choose New Instruction to start.'
+  if (searchQuery.trim()) return 'Clear search to see saved instructions.'
+  if (filter !== 'all') return 'Change filter to see saved instructions.'
+  return 'Choose New Instruction or refresh this page.'
 }
 
 function SkillStat({
