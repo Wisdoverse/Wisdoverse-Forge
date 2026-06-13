@@ -9,6 +9,7 @@ const EXTENSIONS = new Set(['.ts', '.tsx'])
 
 const EMPTY_STATE_PATTERNS = [
   /\bNo [A-Za-z][^.!?\n]{0,80} (?:yet|found|available|to show)\b/,
+  /\bNo (?:active|recent) [A-Za-z][^.!?\n]{0,80}\b/,
   /\bNothing [^.!?\n]{0,80}\b/,
 ]
 
@@ -105,7 +106,11 @@ function isLikelyEmptyStateContext(lines, index, line) {
   const start = Math.max(0, index - 20)
   const end = Math.min(lines.length, index + 4)
   const context = lines.slice(start, end).join('\n')
-  return /EmptyState\b/.test(context) || /\bempty[-_\s]?state\b/i.test(context)
+  return (
+    /EmptyState\b/.test(context) ||
+    /\bempty[-_\s]?state\b/i.test(context) ||
+    /ProfileSummaryRow\b/.test(context)
+  )
 }
 
 function hasEmptyStateCopy(lines, index) {

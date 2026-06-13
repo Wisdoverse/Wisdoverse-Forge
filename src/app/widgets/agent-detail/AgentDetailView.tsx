@@ -538,14 +538,14 @@ function AssignmentFitCard({
       <div className="grid gap-2 text-ui-caption sm:grid-cols-2">
         <ProfileSummaryRow
           label="Current work"
-          value={activeTask?.params.task ?? agent.currentTask ?? 'No active task'}
+          value={activeTask?.params.task ?? agent.currentTask ?? 'Ready for a task'}
         />
         <ProfileSummaryRow
           label="Recent update"
           value={
             latestTask
               ? `${latestTask.params.task} updated ${formatRelativeTime(latestTask.updatedAt)}`
-              : 'No recent task updates'
+              : 'Send a task to create the first update.'
           }
         />
         <ProfileSummaryRow label="Where it works" value={runtime} />

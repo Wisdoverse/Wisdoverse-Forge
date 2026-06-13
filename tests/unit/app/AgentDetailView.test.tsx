@@ -208,8 +208,12 @@ describe('AgentDetailView', () => {
 
     expect(screen.getByTestId('agent-next-step')).toBeDefined()
     expect(screen.getAllByText('Ready').length).toBeGreaterThan(0)
+    expect(screen.getByText('Ready for a task')).toBeDefined()
+    expect(screen.getByText('Send a task to create the first update.')).toBeDefined()
     expect(screen.getByText('Send a small first task')).toBeDefined()
     expect(screen.getByText(/Choose this agent, or choose a task queue/i)).toBeDefined()
+    expect(screen.queryByText('No active task')).toBeNull()
+    expect(screen.queryByText('No recent task updates')).toBeNull()
     expect(screen.queryByText(/unassigned/i)).toBeNull()
     expect(screen.getByRole('button', { name: /open tasks/i })).toBeDefined()
   })

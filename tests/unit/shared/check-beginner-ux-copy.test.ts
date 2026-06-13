@@ -161,6 +161,46 @@ export function skillSummary(totalCount: number) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags profile summary rows that leave beginners without a next step', () => {
+    const cwd = fixture({
+      'src/app/widgets/agents/AgentSummary.tsx': `
+function ProfileSummaryRow(_props: { label: string; value: string }) {
+  return null
+}
+
+export function AgentSummary() {
+  return <ProfileSummaryRow label="Saved instructions" value="No saved instructions used in recent work yet" />
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'empty-state-next-action',
+        location: 'src/app/widgets/agents/AgentSummary.tsx:7',
+      }),
+    ])
+  })
+
+  it('accepts profile summary rows when they include a next action', () => {
+    const cwd = fixture({
+      'src/app/widgets/agents/AgentSummary.tsx': `
+function ProfileSummaryRow(_props: { label: string; value: string }) {
+  return null
+}
+
+export function AgentSummary() {
+  return <ProfileSummaryRow label="Saved instructions" value="No saved instructions yet. Save useful steps after a task." />
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags i18n empty-state keys without a next action', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `
