@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useAgentsStore } from '@app/entities/agent'
 import {
   agentDetailHeaderSubtitle,
@@ -300,6 +300,39 @@ describe('AgentDetailView', () => {
     expect(alert).toHaveTextContent('ask an owner or admin to check this agent setup')
     expect(alert.textContent).not.toContain('Details:')
     expect(alert.textContent).not.toContain('Docker socket refused')
+  })
+
+  test('recovers the start button when starting the workspace fails unexpectedly', async () => {
+    useAgentsStore.setState({
+      error: null,
+      startAgent: vi.fn(async () => {
+        throw new Error('socket hang up')
+      }),
+    } as never)
+
+    render(
+      <AgentDetailView
+        agent={{
+          ...workspaceToolAgent,
+          id: 'pending-start-reject',
+          status: 'offline',
+          containerId: undefined,
+        }}
+        onBack={() => {}}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /open live work/i }))
+    const startButton = screen.getByRole('button', { name: /start workspace/i })
+    fireEvent.click(startButton)
+
+    await waitFor(() => expect(startButton).not.toBeDisabled())
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent('Start did not finish')
+    expect(alert).toHaveTextContent('try once more')
+    expect(alert).toHaveTextContent('ask an owner or admin to check this agent setup')
+    expect(alert.textContent).not.toContain('socket hang up')
   })
 
   test('guides offline agents joined from this computer back to the local connection', () => {

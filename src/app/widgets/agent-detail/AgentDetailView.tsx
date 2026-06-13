@@ -610,13 +610,23 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 function PendingTerminal({ agent }: { agent: AgentInfo }) {
   const { startAgent, error } = useAgentsStore()
   const [starting, setStarting] = useState(false)
+  const [startFailed, setStartFailed] = useState(false)
 
   async function handleStart() {
     if (starting || !agent.cliTool) return
     setStarting(true)
-    await startAgent(agent.id)
-    setStarting(false)
+    setStartFailed(false)
+    try {
+      const started = await startAgent(agent.id)
+      if (started === false) setStartFailed(true)
+    } catch {
+      setStartFailed(true)
+    } finally {
+      setStarting(false)
+    }
   }
+
+  const showStartProblem = Boolean(error || startFailed)
 
   return (
     <div
@@ -642,9 +652,10 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
           </span>
         )}
       </div>
-      {error && (
+      {showStartProblem && (
         <div
           role="alert"
+          aria-live="polite"
           className="rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
         >
           Start did not finish. Check the agent status, then try once more. If it keeps failing, ask
