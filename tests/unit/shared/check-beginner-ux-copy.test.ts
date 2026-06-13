@@ -208,4 +208,38 @@ export function isNetworkError(message: string) {
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
+
+  it('scans user-facing error message helpers for raw fallback copy', () => {
+    const cwd = fixture({
+      'src/app/features/chat/chatErrorMessage.ts': `
+export function chatErrorMessage() {
+  return 'Server error (503)'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'raw-error-copy',
+        location: 'src/app/features/chat/chatErrorMessage.ts:3',
+      }),
+    ])
+  })
+
+  it('ignores parser regexes and cleanup regexes inside error message helpers', () => {
+    const cwd = fixture({
+      'src/app/features/chat/chatErrorMessage.ts': `
+const GENERIC_BODY_TEXT = /^(Unauthorized|Forbidden|Not Found|Internal Server Error)$/i
+
+export function cleanMessage(value: string) {
+  return value.replace(/\\s+Details?:\\s*(Unauthorized|Forbidden|Not Found|Internal Server Error)\\.?$/i, '')
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
 })

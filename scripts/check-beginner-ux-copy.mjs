@@ -22,7 +22,7 @@ const RAW_USER_VISIBLE_PATTERNS = [
   /\bFailed to fetch\b/,
   /\bInternal Server Error\b/,
   /\bNetwork error\b/,
-  /\bServer error\s*\(\d{3}\)\b/,
+  /\bServer error\s*\(\d{3}\)/,
   /\bStack trace\b/i,
   /\bUnhandled exception\b/i,
   /\bSQL error\b/i,
@@ -49,6 +49,18 @@ const NON_UI_FILE_PATTERNS = [
   /\.store\.ts$/,
 ]
 
+const USER_VISIBLE_ERROR_FILE_PATTERNS = [
+  /ErrorMessages?\.ts$/,
+  /errors\.ts$/,
+  /\/model\/agents\.store\.ts$/,
+  /\/model\/navigation\.store\.ts$/,
+  /\/model\/settings\.store\.ts$/,
+  /\/model\/billing\.store\.ts$/,
+  /\/model\/admin\.store\.ts$/,
+  /\/model\/skills\.store\.ts$/,
+  /\/model\/analytics\.store\.ts$/,
+]
+
 function toPosix(value) {
   return value.split(path.sep).join('/')
 }
@@ -72,6 +84,7 @@ function walk(dir, files) {
 
 function isUiCopyFile(relFile) {
   if (relFile === 'src/app/shared/api/legacy/AgentAPI.ts') return true
+  if (USER_VISIBLE_ERROR_FILE_PATTERNS.some((pattern) => pattern.test(relFile))) return true
   if (NON_UI_FILE_PATTERNS.some((pattern) => pattern.test(relFile))) return false
   if (NON_UI_PATH_PARTS.some((part) => relFile.includes(part))) return false
   return true
@@ -104,9 +117,15 @@ function hasNextAction(lines, index) {
 function isLikelyGuardOrParserLine(line) {
   return (
     line.includes('includes(') ||
+    line.includes('match(') ||
     line.includes('.test(') ||
+    line.includes('.replace(/') ||
+    line.includes('= /') ||
     line.includes('new Error(') ||
+    line.includes('new TypeError(') ||
     line.includes('RAW_') ||
+    line.includes('===') ||
+    line.includes('!==') ||
     line.includes('throw ') ||
     line.trim().startsWith('/') ||
     line.trim().startsWith('//') ||
