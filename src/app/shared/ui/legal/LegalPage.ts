@@ -245,7 +245,7 @@ export class LegalPage {
         <ul class="legal-list">
           <li>Agent management for creating, starting, stopping, and reviewing managed AI agents</li>
           <li>Task boards and work history so teams can track what each agent is doing</li>
-          <li>Evidence, saved instructions, and context review tools that help you understand agent results</li>
+          <li>Result records, saved notes, and saved instructions that help you understand agent results</li>
           <li>Team, project, and workspace controls for keeping work separated by organization</li>
           <li>Connections to supported AI services and work tools chosen by your organization</li>
           <li>Live activity updates and notifications for important task and agent changes</li>

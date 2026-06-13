@@ -28,11 +28,12 @@ describe('LegalPage', () => {
     const text = document.body.textContent ?? ''
     expect(text).toContain('self-hosted governed AI workbench for teams')
     expect(text).toContain('Agent management for creating, starting, stopping, and reviewing')
-    expect(text).toContain('Evidence, saved instructions, and context review tools')
+    expect(text).toContain('Result records, saved notes, and saved instructions')
     expect(text).not.toContain('3D visualization platform')
     expect(text).not.toContain('Claude Code')
     expect(text).not.toContain('LLM gateway')
     expect(text).not.toContain('WebSocket-based')
+    expect(text).not.toMatch(/context\s+review\s+tools/i)
   })
 
   test('keeps privacy and security details readable for non-specialists', () => {
