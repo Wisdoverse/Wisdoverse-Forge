@@ -598,12 +598,17 @@ function ProviderCard({ providerConfig, onTest, onDelete }: ProviderCardProps) {
         <button
           type="button"
           onClick={handleDelete}
+          aria-label={
+            confirming
+              ? `Confirm removing ${displayName} AI service`
+              : `Remove ${displayName} AI service`
+          }
           className={cn(
             'shrink-0',
             confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton
           )}
         >
-          {confirming ? 'Confirm?' : 'Delete'}
+          {confirming ? 'Confirm remove' : 'Remove AI service'}
         </button>
       </div>
     </div>

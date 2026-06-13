@@ -283,6 +283,31 @@ describe('ProvidersSection', () => {
     expect(loadProvidersMock).toHaveBeenCalled()
   })
 
+  test('uses clear remove labels before deleting an AI service', async () => {
+    render(<ProvidersSection />)
+
+    const removeButton = await screen.findByRole('button', {
+      name: /remove anthropic review AI service/i,
+    })
+    expect(removeButton).toHaveTextContent('Remove AI service')
+
+    fireEvent.click(removeButton)
+
+    expect(deleteProviderMock).not.toHaveBeenCalled()
+    const confirmButton = screen.getByRole('button', {
+      name: /confirm removing anthropic review AI service/i,
+    })
+    expect(confirmButton).toHaveTextContent('Confirm remove')
+    expect(screen.queryByRole('button', { name: /^delete$/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^confirm\\?$/i })).toBeNull()
+
+    fireEvent.click(confirmButton)
+
+    await waitFor(() => {
+      expect(deleteProviderMock).toHaveBeenCalledWith('provider-needs-test')
+    })
+  })
+
   test('hides raw provider check failures from the provider row', async () => {
     settingsApiMock.testProvider.mockResolvedValueOnce({
       ok: false,
