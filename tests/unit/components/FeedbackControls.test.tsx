@@ -70,9 +70,9 @@ describe('FeedbackControls', () => {
   test('explains context feedback choices in beginner language', () => {
     render(<FeedbackControls item={contextItem()} onRecord={async (label) => outcome(label)} />)
 
-    expect(screen.getByText('Was this context helpful?')).toBeInTheDocument()
+    expect(screen.getByText('Was this saved item helpful?')).toBeInTheDocument()
     expect(
-      screen.getByText('Your answer helps future runs choose safer, more useful context.')
+      screen.getByText('Your answer helps future runs choose safer, more useful saved items.')
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Outdated' })).toHaveAttribute(
       'title',
@@ -108,6 +108,7 @@ describe('FeedbackControls', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain('You do not have permission')
+    expect(alert.textContent).toContain('this saved item')
     expect(alert.textContent).toContain('Ask an owner or admin')
     expect(alert.textContent).not.toContain('API 403')
     expect(alert.textContent).not.toContain('Forbidden')

@@ -17,13 +17,13 @@ export function feedbackErrorMessage(error?: unknown): string {
     return 'Sign in again, then save this feedback.'
   }
   if (status === 403) {
-    return 'You do not have permission to save feedback for this context. Ask an owner or admin to check your role.'
+    return 'You do not have permission to save feedback for this saved item. Ask an owner or admin to check your role.'
   }
   if (status === 404) {
-    return 'This context item could not be found. Refresh the task, then choose the context item again.'
+    return 'This saved item could not be found. Refresh the task, then choose it again.'
   }
   if (status === 409) {
-    return 'This context item changed while you were giving feedback. Refresh the task, review the item, then try again.'
+    return 'This saved item changed while you were giving feedback. Refresh the task, review it, then try again.'
   }
   if (status === 400 || status === 422) {
     return validationMessage(detail)
@@ -127,10 +127,10 @@ function validationMessage(detail: string | null): string {
     normalized.includes('vote') ||
     normalized.includes('rating')
   ) {
-    return 'Choose one feedback option for this context item, then try again.'
+    return 'Choose one feedback option for this saved item, then try again.'
   }
   if (normalized.includes('context')) {
-    return 'Refresh the task, choose the context item again, then save feedback.'
+    return 'Refresh the task, choose the saved item again, then save feedback.'
   }
-  return 'Choose one feedback option for this context item, then try again.'
+  return 'Choose one feedback option for this saved item, then try again.'
 }

@@ -20,7 +20,7 @@ describe('feedbackErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Choose one feedback option for this context item, then try again.'
+      'Choose one feedback option for this saved item, then try again.'
     )
     expect(message).not.toContain('HTTP 422')
     expect(message).not.toContain('vote is required')
@@ -38,9 +38,7 @@ describe('feedbackErrorMessage', () => {
   })
 
   test('turns server failures into an owner or admin recovery step', () => {
-    const message = feedbackErrorMessage(
-      new Error('HTTP 503: {"message":"database unavailable"}')
-    )
+    const message = feedbackErrorMessage(new Error('HTTP 503: {"message":"database unavailable"}'))
 
     expectBeginnerMessage(
       message,

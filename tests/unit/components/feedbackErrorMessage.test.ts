@@ -14,6 +14,7 @@ describe('feedbackErrorMessage', () => {
     const message = feedbackErrorMessage(new Error('API 403: Forbidden'))
 
     expect(message).toContain('You do not have permission')
+    expect(message).toContain('this saved item')
     expect(message).toContain('Ask an owner or admin')
     expect(message).not.toContain('Code:')
     expect(message).not.toContain('API 403')
