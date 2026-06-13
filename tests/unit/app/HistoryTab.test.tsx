@@ -244,8 +244,58 @@ describe('HistoryTab', () => {
 
     expect(await screen.findByText('Waiting to start')).toBeInTheDocument()
     expect(screen.getByText(/is waiting to start/i)).toBeInTheDocument()
-    expect(screen.getByText(/waiting to begin/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/check work history below, then choose another agent/i)
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/If this stays here, check the work history below/i)
+    ).toBeInTheDocument()
     expect(screen.queryByText('Queued')).toBeNull()
+    expect(screen.queryByText(/Nothing is needed yet/i)).toBeNull()
+    expect(screen.queryByText(/Check back/i)).toBeNull()
+  })
+
+  test('tells users how to start waiting history when no agent is assigned', async () => {
+    getTaskRunsMock.mockResolvedValue([])
+
+    render(
+      <HistoryTab
+        task={makeTask({
+          state: 'queued',
+          assignedAgentName: undefined,
+          assignedTo: undefined,
+          progress: 0,
+        })}
+      />
+    )
+
+    expect(await screen.findByText('Waiting for an available agent')).toBeInTheDocument()
+    expect(screen.getByText('Needs agent')).toBeInTheDocument()
+    expect(screen.getByText(/Choose or start an agent so this task/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Choose or start an agent before expecting work history/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/The agent is waiting/i)).toBeNull()
+    expect(screen.queryByText(/Nothing is needed yet/i)).toBeNull()
+  })
+
+  test('does not call a waiting task unassigned while agent details load', async () => {
+    getTaskRunsMock.mockResolvedValue([])
+
+    render(
+      <HistoryTab
+        task={makeTask({
+          state: 'queued',
+          assignedAgentName: undefined,
+          assignedTo: 'agent-1',
+          progress: 0,
+        })}
+      />
+    )
+
+    expect(await screen.findByText('The chosen agent is waiting to start')).toBeInTheDocument()
+    expect(screen.getByText('Agent details loading')).toBeInTheDocument()
+    expect(screen.queryByText('Needs agent')).toBeNull()
   })
 
   test('guides completed tasks toward result review without saved guidance jargon', async () => {

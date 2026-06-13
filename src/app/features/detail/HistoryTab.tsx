@@ -173,7 +173,12 @@ function AgentCheckIn({ task }: { task: TaskSummary }) {
         </div>
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <CheckInMetric label="Agent" value={task.assignedAgentName ?? 'Needs agent'} />
+        <CheckInMetric
+          label="Agent"
+          value={
+            task.assignedAgentName ?? (task.assignedTo ? 'Agent details loading' : 'Needs agent')
+          }
+        />
         <CheckInMetric label="State" value={taskStateLabel(task.state)} />
         <CheckInMetric label="Updated" value={formatRelativeTime(task.updatedAt)} />
       </div>
@@ -306,7 +311,8 @@ function taskCheckIn(task: TaskSummary): {
   tone: 'default' | 'success' | 'warn' | 'danger'
   Icon: LucideIcon
 } {
-  const agentName = task.assignedAgentName ?? 'The agent'
+  const hasAssignedAgent = Boolean(task.assignedAgentName || task.assignedTo)
+  const agentName = task.assignedAgentName ?? (task.assignedTo ? 'The chosen agent' : 'The agent')
   const artifactCount = taskResultArtifacts(task.result).length
 
   switch (task.state) {
@@ -325,12 +331,20 @@ function taskCheckIn(task: TaskSummary): {
             Icon: Bot,
           }
     case 'queued':
-      return {
-        title: `${agentName} is waiting to start`,
-        detail: 'Nothing is needed yet. The task will move to active work when an agent begins.',
-        tone: 'default',
-        Icon: Clock3,
-      }
+      return hasAssignedAgent
+        ? {
+            title: `${agentName} is waiting to start`,
+            detail:
+              'If this stays here, check the work history below. If nothing starts, choose another agent.',
+            tone: 'default',
+            Icon: Clock3,
+          }
+        : {
+            title: 'Waiting for an available agent',
+            detail: 'Choose or start an agent so this task has someone to begin the work.',
+            tone: 'warn',
+            Icon: Clock3,
+          }
     case 'working':
       return {
         title: `${agentName} is working at ${task.progress}%`,
@@ -453,7 +467,9 @@ function taskUpdateGuide(task: TaskSummary): string {
         ? 'The task has an agent. Review the brief, then start the task.'
         : 'Choose an agent first, then start the task.'
     case 'queued':
-      return 'The task is waiting to begin. Check back if it stays here longer than expected.'
+      return task.assignedAgentName || task.assignedTo
+        ? 'The task is waiting to begin. If it stays here, check work history below, then choose another agent if needed.'
+        : 'The task is waiting for an agent. Choose or start an agent before expecting work history.'
     case 'working':
       return 'The agent is working. Watch for requests that need your decision, then review the result when it finishes.'
     case 'blocked':
