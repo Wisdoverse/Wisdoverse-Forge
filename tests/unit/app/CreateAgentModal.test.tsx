@@ -83,6 +83,8 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByLabelText(/^ai service$/i)).toBeNull()
     expect(screen.queryByLabelText(/^ai model$/i)).toBeNull()
     expect(screen.queryByText(/Name seeds CLI agents/i)).toBeNull()
+    expect(screen.queryByLabelText(/^provider$/i)).toBeNull()
+    expect(screen.queryByLabelText(/^model$/i)).toBeNull()
   })
 
   test('shows selected project as the primary project context', () => {
@@ -535,6 +537,89 @@ describe('CreateAgentModal', () => {
       model: 'claude-sonnet-4-6',
     })
     expect(payload).not.toHaveProperty('cliTool')
+  })
+
+  test('whitespace-only name shows the same beginner-safe error', async () => {
+    const createAgent = vi.fn().mockResolvedValue(true)
+    useAgentsStore.setState({ createAgent } as never)
+
+    render(<CreateAgentModal />)
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: '   ' } })
+    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('Name this agent before creating it.')
+    )
+    expect(createAgent).not.toHaveBeenCalled()
+  })
+
+  test('provider kind with an empty model shows a visible error', async () => {
+    const createAgent = vi.fn().mockResolvedValue(true)
+    useAgentsStore.setState({ createAgent } as never)
+
+    render(<CreateAgentModal />)
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
+    fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
+    fireEvent.change(screen.getByLabelText(/^ai model$/i), { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Choose an AI service and AI model before creating this agent.'
+      )
+    )
+    expect(createAgent).not.toHaveBeenCalled()
+  })
+
+  test('a second failed submit with the same message scrolls the banner again', async () => {
+    const scrollSpy = vi
+      .spyOn(Element.prototype, 'scrollIntoView')
+      .mockImplementation(() => undefined)
+    const createAgent = vi.fn().mockResolvedValue(true)
+    useAgentsStore.setState({ createAgent } as never)
+
+    render(<CreateAgentModal />)
+    const submit = screen.getByRole('button', { name: /^create agent$/i })
+
+    fireEvent.click(submit)
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('Name this agent before creating it.')
+    )
+    const callsAfterFirst = scrollSpy.mock.calls.length
+    expect(callsAfterFirst).toBeGreaterThan(0)
+
+    fireEvent.click(submit)
+    await waitFor(() => expect(scrollSpy.mock.calls.length).toBeGreaterThan(callsAfterFirst))
+    expect(createAgent).not.toHaveBeenCalled()
+    scrollSpy.mockRestore()
+  })
+
+  test('clipboard failure on the join screen shows a manual-copy message', async () => {
+    const enrollLocalAgent = vi.fn().mockResolvedValue({
+      ok: true,
+      agent: { id: 'a1', name: 'Local Worker' },
+      enrollment: { shellExports: 'export AGENTFORGE_NATS_URL=nats://example:4222' },
+    })
+    useAgentsStore.setState({
+      enrollLocalAgent: async (opts: never) => {
+        const result = await enrollLocalAgent(opts)
+        return result
+      },
+    } as never)
+
+    render(<CreateAgentModal />)
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Local Worker' } })
+    fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+
+    const copyButton = await screen.findByRole('button', { name: /copy setup command/i })
+    // jsdom has no navigator.clipboard, which is exactly the non-secure-context
+    // (plain HTTP) deployment case the message exists for.
+    fireEvent.click(copyButton)
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/copy is unavailable here/i)
+    )
   })
 
   test('applies a role template to simple chat agent instructions', async () => {

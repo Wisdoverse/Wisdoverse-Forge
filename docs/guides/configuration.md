@@ -71,12 +71,13 @@ administrator.
 These control the one-command Host CLI join flow
 (see [Host CLI Agent Enrollment](../runbooks/host-cli-agent-enrollment.md)).
 
-| Variable                    | Default                           | Required | Purpose                                                                                                               |
-| --------------------------- | --------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------- |
-| `APP_URL`                   | none                              | No       | Public URL of this deployment; required for the join commands to be generated                                         |
-| `NATS_AGENT_URL`            | none                              | No       | NATS address reachable from operator machines; must be `tls://` unless plaintext is explicitly allowed                |
-| `ALLOW_PLAINTEXT_HOST_NATS` | `false`                           | No       | Permit `nats://` (plaintext) Host CLI enrollment — isolated dev/test only                                             |
-| `HOST_JOIN_BINARY_BASE_URL` | this repo's GitHub latest release | No       | Where the join script downloads `agentforge-sidecar` binaries; point at an internal mirror for air-gapped deployments |
+| Variable                    | Default                           | Required | Purpose                                                                                                                                                                            |
+| --------------------------- | --------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `APP_URL`                   | none                              | No       | Public URL of this deployment; required for the join commands to be generated                                                                                                      |
+| `NATS_AGENT_URL`            | none                              | No       | NATS address reachable from operator machines; must be `tls://` unless plaintext is explicitly allowed                                                                             |
+| `NATS_CONTAINER_URL`        | falls back to `NATS_AGENT_URL`    | No       | NATS address reachable from agent containers on the Docker network (e.g. `nats://agentforge-nats:4222`); set it when the host firewall blocks containers from the public NATS port |
+| `ALLOW_PLAINTEXT_HOST_NATS` | `false`                           | No       | Permit `nats://` (plaintext) Host CLI enrollment — isolated dev/test only                                                                                                          |
+| `HOST_JOIN_BINARY_BASE_URL` | this repo's GitHub latest release | No       | Where the join script downloads `agentforge-sidecar` binaries; point at an internal mirror for air-gapped deployments                                                              |
 
 ## Attachment Storage Variables
 

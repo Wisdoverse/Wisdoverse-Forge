@@ -80,6 +80,10 @@ services:
       # value is treated as a base URL (host:port only) after user-info strip.
       - NATS_URL=${NATS_URL:-nats://backend:${NATS_BACKEND_PASSWORD:?NATS_BACKEND_PASSWORD required}@nats:4222}
       - NATS_AGENT_URL=${NATS_AGENT_URL:-nats://nats:4222}
+      # Container agents prefer this address (e.g. the shared agent network)
+      # when the public NATS_AGENT_URL is firewalled from the Docker bridge.
+      # Empty means unset — AppConfig filters blank URLs out of the fallback.
+      - NATS_CONTAINER_URL=${NATS_CONTAINER_URL:-}
       # Auth callout secrets (issue #38 phase 2). All five are required when
       # NATS_URL is configured — `AppConfig::from_env` rejects partial
       # configurations. See docs/runbooks/nats-auth.md for rotation.

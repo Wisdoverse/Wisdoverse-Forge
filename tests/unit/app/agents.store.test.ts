@@ -215,7 +215,8 @@ describe('Agents Store', () => {
     )
   })
 
-  test('keeps created agent visible when container start needs operator action', async () => {
+  test('keeps created agent and modal visible when container start needs operator action', async () => {
+    useAgentsStore.setState({ createModalOpen: true })
     agentApiMock.createAgent.mockResolvedValue({
       ok: true,
       agent: managedAgent({ id: 'cli-1', cliTool: 'claude', model: null, provider: null }),
@@ -231,14 +232,37 @@ describe('Agents Store', () => {
       cliTool: 'claude',
     })
 
+    const state = useAgentsStore.getState()
     expect(result).toBe(true)
-    expect(useAgentsStore.getState().agents).toHaveLength(1)
+    expect(state.createModalOpen).toBe(true)
+    expect(state.agents).toHaveLength(1)
     expectBeginnerError(
-      useAgentsStore.getState().error,
+      state.error,
       'Agent was created, but its workspace is not ready yet. It will stay in the list. Ask an owner or admin to check Agent Work Setup, then start this agent from the card.'
     )
-    expect(useAgentsStore.getState().error).not.toContain('worker')
-    expect(useAgentsStore.getState().error).not.toContain('Docker')
+    expect(state.error).not.toContain('worker')
+    expect(state.error).not.toContain('Docker')
+  })
+
+  test('closes the create modal when the managed workspace starts', async () => {
+    useAgentsStore.setState({ createModalOpen: true })
+    agentApiMock.createAgent.mockResolvedValue({
+      ok: true,
+      agent: managedAgent({ id: 'cli-1', cliTool: 'claude', model: null, provider: null }),
+    })
+    agentApiMock.startAgent.mockResolvedValue({ ok: true, containerId: 'container-1' })
+
+    const result = await useAgentsStore.getState().createAgent({
+      name: 'CLI Agent',
+      kind: 'cli',
+      cliTool: 'claude',
+    })
+
+    const state = useAgentsStore.getState()
+    expect(result).toBe(true)
+    expect(state.createModalOpen).toBe(false)
+    expect(state.error).toBeNull()
+    expect(state.agents[0].containerId).toBe('container-1')
   })
 
   test('stores connection guidance when this-computer agent enrollment cannot reach the server', async () => {

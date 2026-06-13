@@ -155,7 +155,11 @@ export function AppLayout({
 
   const handleCreateTaskForProject = useCallback(
     async (projectId: string) => {
-      await selectProject(projectId)
+      if (!(await selectProject(projectId))) {
+        // One retry: the common cause is a transient fetch failure, and the
+        // task form would otherwise claim the project has no work lanes.
+        await selectProject(projectId)
+      }
       handleNavigate('/tasks')
       setTaskFormOpen(true)
     },
@@ -284,9 +288,15 @@ export function AppLayout({
             throw new Error('Choose a project before creating a task.')
           }
           let groupId = useBoardStore.getState().selectedGroupId
+          let lanesLoaded = true
           if (useNavigationStore.getState().selectedProjectId !== data.projectId || !groupId) {
-            await selectProject(data.projectId)
+            lanesLoaded = await selectProject(data.projectId)
             groupId = useBoardStore.getState().selectedGroupId
+          }
+          if (!groupId && !lanesLoaded) {
+            throw new Error(
+              'Could not load work lanes for this project. Try creating the task again.'
+            )
           }
           if (!groupId) {
             throw new Error(

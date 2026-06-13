@@ -159,6 +159,18 @@ describe('navigation.store', () => {
     expect(useBoardStore.getState().selectedGroupId).toBe('g1')
   })
 
+  it('selectProject resolves true on success and false when group loading fails', async () => {
+    vi.mocked(agentGroupApi.getGroups).mockResolvedValueOnce([])
+    await expect(useNavigationStore.getState().selectProject('p1')).resolves.toBe(true)
+
+    vi.mocked(agentGroupApi.getGroups).mockRejectedValueOnce(new Error('network down'))
+    await expect(useNavigationStore.getState().selectProject('p1')).resolves.toBe(false)
+    expect(useNavigationStore.getState().error).toBe(
+      'Refresh the selected project, then load task queues again.'
+    )
+    expect(useNavigationStore.getState().error).not.toContain('network down')
+  })
+
   it('selectProject clears group when no groups exist', async () => {
     useBoardStore.getState().setSelectedGroupId('g-old')
     vi.mocked(agentGroupApi.getGroups).mockResolvedValue([])
