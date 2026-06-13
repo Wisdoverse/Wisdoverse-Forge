@@ -7,6 +7,7 @@ mod streams;
 
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use agentforge_api::health::ContextFeatureFlags;
 use agentforge_api::repositories::credential::cli::CliCredentialRepository;
@@ -20,9 +21,9 @@ use agentforge_db::{create_pool, run_migrations};
 use agentforge_infra::{NatsClient, ObjectStorageClient, RedisClient};
 use agentforge_jobs::{
     DependencyReconcileWorker, EventStreamWorker, OrchestrationMetricsWorker, OrchestrationOutboxPublisher,
-    OrchestrationResultWorker, PARTICIPANT_DEFAULT_STALE_AFTER, ParticipantLivenessWorker, PresenceBackend,
-    SqlxAgentOwnerLookup, SqlxCredentialHmacSecretLookup, SqlxHmacSecretLookup, SqlxNatsConnectPasswordLookup,
-    SqlxParticipantLookup, SqlxTaskWriter,
+    OrchestrationResultWorker, PARTICIPANT_DEFAULT_STALE_AFTER, PARTICIPANT_DEFAULT_STALE_SWEEP_INTERVAL,
+    ParticipantLivenessWorker, PresenceBackend, SqlxAgentOwnerLookup, SqlxCredentialHmacSecretLookup,
+    SqlxHmacSecretLookup, SqlxNatsConnectPasswordLookup, SqlxParticipantLookup, SqlxTaskWriter,
 };
 use anyhow::{Result, anyhow};
 use metrics_exporter_prometheus::{Matcher, PrometheusBuilder};
@@ -54,6 +55,24 @@ fn env_flag(name: &str, default: bool) -> Result<bool> {
             "0" | "false" | "no" | "off" => Ok(false),
             _ => Err(anyhow!("{name} must be boolean when set (true/false/1/0/yes/no/on/off)")),
         },
+        Err(_) => Ok(default),
+    }
+}
+
+/// Parse a positive-seconds env var, falling back to `default`. Rejects 0 and
+/// non-numeric values so a typo cannot silently disable a timer.
+fn env_secs(name: &str, default: u64) -> Result<u64> {
+    match std::env::var(name) {
+        Ok(value) => {
+            let secs: u64 = value
+                .trim()
+                .parse()
+                .map_err(|_| anyhow!("{name} must be a positive integer number of seconds when set"))?;
+            if secs == 0 {
+                return Err(anyhow!("{name} must be greater than 0"));
+            }
+            Ok(secs)
+        }
         Err(_) => Ok(default),
     }
 }
@@ -298,16 +317,33 @@ async fn main() -> Result<()> {
     // participants. This closes the "running sidecar but no schedulable
     // participant" gap without silently reassigning in-flight work.
     let participant_liveness_handle = if orchestration_liveness_enabled {
+        // Tunable without a rebuild. The stale window must be a small multiple of
+        // the sidecar heartbeat interval (default 30s -> 3 missed beats = 90s);
+        // the Redis presence TTL and the offline sweep share this single value.
+        let stale_after =
+            Duration::from_secs(env_secs("PARTICIPANT_STALE_AFTER_SECS", PARTICIPANT_DEFAULT_STALE_AFTER.as_secs())?);
+        let sweep_interval = Duration::from_secs(env_secs(
+            "PARTICIPANT_SWEEP_INTERVAL_SECS",
+            PARTICIPANT_DEFAULT_STALE_SWEEP_INTERVAL.as_secs(),
+        )?);
         // ADR 0008 Phase 2: serve liveness from Redis when PRESENCE_REDIS_ENABLED
         // is set and Redis is connected; otherwise (and on any Redis problem) the
-        // backend degrades to the Phase 1 PostgreSQL path.
-        let presence =
-            PresenceBackend::new(Some(redis.clone()), config.presence_redis_enabled, PARTICIPANT_DEFAULT_STALE_AFTER);
+        // backend degrades to the Phase 1 PostgreSQL path. The TTL is stale_after,
+        // matching the sweep, so the two backends agree on the offline window.
+        let presence = PresenceBackend::new(Some(redis.clone()), config.presence_redis_enabled, stale_after);
         if config.presence_redis_enabled {
             tracing::info!("ADR 0008 Phase 2: Redis-backed agent presence enabled");
         }
+        tracing::info!(
+            stale_after_secs = stale_after.as_secs(),
+            sweep_interval_secs = sweep_interval.as_secs(),
+            "participant liveness timers resolved"
+        );
         nats.client().cloned().map(|client| {
-            let worker = ParticipantLivenessWorker::new(client, pool.clone()).with_presence(presence);
+            let worker = ParticipantLivenessWorker::new(client, pool.clone())
+                .with_stale_after(stale_after)
+                .with_sweep_interval(sweep_interval)
+                .with_presence(presence);
             let worker_shutdown = shutdown_rx.clone();
             tokio::spawn(async move { worker.run(worker_shutdown).await })
         })
