@@ -44,6 +44,47 @@ describe('ListView', () => {
     expect(screen.getByText('Choose an agent or task queue, then send it.')).toBeDefined()
   })
 
+  test('explains task agent fallbacks without placeholder symbols or raw ids', () => {
+    useBoardStore.getState().setTasks([
+      {
+        id: 'draft-without-agent',
+        state: 'backlog',
+        params: { task: 'Draft setup guide', message: '' },
+        priority: 'normal',
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+      {
+        id: 'working-with-id',
+        state: 'working',
+        params: { task: 'Run smoke test', message: '' },
+        assignedTo: 'agent-123',
+        priority: 'normal',
+        progress: 10,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+      {
+        id: 'working-missing-agent',
+        state: 'working',
+        params: { task: 'Check deploy logs', message: '' },
+        priority: 'normal',
+        progress: 10,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+    ])
+
+    render(<ListView />)
+
+    expect(screen.getByText('Choose where it runs')).toBeDefined()
+    expect(screen.getByText('Assigned agent')).toBeDefined()
+    expect(screen.getByText('Agent not reported yet')).toBeDefined()
+    expect(screen.queryByText('agent-123')).toBeNull()
+    expect(screen.queryByText('—')).toBeNull()
+  })
+
   test('shows waiting tasks without queue wording', () => {
     useBoardStore.getState().setTasks([
       {

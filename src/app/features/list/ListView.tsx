@@ -312,7 +312,7 @@ export function ListView() {
 
                   {/* Assignee */}
                   <span className="truncate text-ui-body text-secondary-light dark:text-secondary-dark">
-                    {task.assignedAgentName ?? task.assignedTo ?? '—'}
+                    {taskAgentLabel(task)}
                   </span>
 
                   {/* Priority badge */}
@@ -498,6 +498,16 @@ function taskNextAction(task: TaskSummary): string {
     default:
       return 'Open the task to decide the next safe step.'
   }
+}
+
+function taskAgentLabel(task: TaskSummary): string {
+  const assignedName = task.assignedAgentName?.trim()
+  if (assignedName) return assignedName
+
+  const assignedId = task.assignedTo?.trim()
+  if (assignedId) return 'Assigned agent'
+
+  return task.state === 'backlog' ? 'Choose where it runs' : 'Agent not reported yet'
 }
 
 function filterListTasks(
