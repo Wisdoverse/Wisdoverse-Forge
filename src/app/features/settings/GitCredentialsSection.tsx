@@ -411,7 +411,7 @@ export function GitCredentialsSection() {
         ) : gitCredentials.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No repository access saved yet
+              Add repository access for HTTPS private repos
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Add GitHub or GitLab repository access for private repositories that use HTTPS

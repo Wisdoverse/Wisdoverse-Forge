@@ -43,9 +43,10 @@ describe('GitCredentialsSection', () => {
   test('guides first-time repository access setup before saving a key', async () => {
     render(<GitCredentialsSection />)
 
-    expect(await screen.findByText('No repository access saved yet')).toBeDefined()
+    expect(await screen.findByText('Add repository access for HTTPS private repos')).toBeDefined()
     expect(screen.getByText(/use HTTPS addresses/i)).toBeDefined()
     expect(screen.getByText(/use Repository SSH Access/i)).toBeDefined()
+    expect(screen.queryByText('No repository access saved yet')).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /add repository access/i }))
 

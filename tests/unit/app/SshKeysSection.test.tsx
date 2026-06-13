@@ -53,7 +53,9 @@ describe('SshKeysSection', () => {
   test('guides first-time repository SSH access setup and saves only after required fields are filled', async () => {
     render(<SshKeysSection />)
 
-    expect(await screen.findByText('No repository SSH access yet')).toBeDefined()
+    expect(
+      await screen.findByText('Add SSH access for repository addresses that start with git@')
+    ).toBeDefined()
     const emptyState = screen.getByTestId('ssh-access-empty-state')
     expect(within(emptyState).getAllByText(/starts with git@/i).length).toBeGreaterThan(0)
     expect(within(emptyState).getByText(/starts with https:\/\//i)).toBeDefined()
@@ -61,6 +63,7 @@ describe('SshKeysSection', () => {
     expect(
       within(emptyState).getByRole('button', { name: /add repository ssh access/i })
     ).toBeDefined()
+    expect(within(emptyState).queryByText('No repository SSH access yet')).toBeNull()
 
     fireEvent.click(within(emptyState).getByRole('button', { name: /add repository ssh access/i }))
 

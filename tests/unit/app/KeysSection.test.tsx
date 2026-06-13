@@ -58,12 +58,15 @@ describe('KeysSection', () => {
     const emptyState = screen.getByTestId('platform-key-empty-state')
 
     expect(screen.getByRole('heading', { name: 'Outside tool access' })).toBeDefined()
-    expect(within(emptyState).getByText('No outside tool access keys yet')).toBeDefined()
-    expect(within(emptyState).getByText(/trusted outside tool/i)).toBeDefined()
+    expect(
+      within(emptyState).getByText('Add a key only for a trusted outside tool')
+    ).toBeDefined()
+    expect(within(emptyState).getAllByText(/trusted outside tool/i).length).toBeGreaterThan(0)
     expect(within(emptyState).getByText(/tool you trust/i)).toBeDefined()
     expect(
       within(emptyState).getByText(/password manager before closing this message/i)
     ).toBeDefined()
+    expect(within(emptyState).queryByText('No outside tool access keys yet')).toBeNull()
     expect(within(emptyState).queryByText(/platform A[P]I keys/i)).toBeNull()
 
     fireEvent.click(within(emptyState).getByRole('button', { name: /create access key/i }))

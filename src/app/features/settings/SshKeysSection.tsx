@@ -330,7 +330,7 @@ export function SshKeysSection() {
         ) : sshKeys.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center" data-testid="ssh-access-empty-state">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No repository SSH access yet
+              Add SSH access for repository addresses that start with git@
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               If the repository address starts with git@, add this. If it starts with https://, use

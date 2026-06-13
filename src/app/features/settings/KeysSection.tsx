@@ -361,7 +361,7 @@ function PlatformKeyEmptyState({ onCreate }: { onCreate: () => void }) {
               id="platform-key-empty-title"
               className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark"
             >
-              No outside tool access keys yet
+              Add a key only for a trusted outside tool
             </h3>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
               Use this only when a trusted outside tool needs to connect without a person signing
