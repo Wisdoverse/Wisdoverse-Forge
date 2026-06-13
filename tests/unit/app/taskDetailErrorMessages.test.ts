@@ -59,6 +59,17 @@ describe('taskDetailErrorMessage', () => {
     expect(message).not.toContain('HTTP 500')
   })
 
+  test('turns needs-help failures into a safe task refresh step', () => {
+    const message = taskDetailErrorMessage('blockTask', new Error('HTTP 500'))
+
+    expectBeginnerMessage(
+      message,
+      'The task was not marked as needing help. Refresh the task, then choose Needs help again. Forge could not finish this task action right now. Refresh the task, then try again. If it still fails, ask an owner or admin to check task setup.'
+    )
+    expect(message).not.toContain('HTTP 500')
+    expect(message).not.toContain('blocked')
+  })
+
   test('turns running-task details into a wait step', () => {
     expectBeginnerMessage(
       taskDetailErrorMessage('retryTask', {

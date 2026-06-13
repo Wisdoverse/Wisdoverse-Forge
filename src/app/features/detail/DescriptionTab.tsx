@@ -339,12 +339,12 @@ function nextActionForTask(
         detail:
           task.progress >= 80
             ? 'Prepare to review result files when the agent completes the run.'
-            : 'Watch progress and use Block if the agent needs owner input.',
+            : 'Watch progress and use Needs help if the agent needs your input.',
         tone: 'default',
       }
     case 'blocked':
       return {
-        title: 'Resolve the blocker',
+        title: 'Provide what is missing',
         detail: taskBlockedPreview({
           blockedHint: task.blockedHint,
           blockedReason: task.blockedReason,

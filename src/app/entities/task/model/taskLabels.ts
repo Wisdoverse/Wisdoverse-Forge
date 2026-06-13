@@ -4,7 +4,7 @@ const TASK_STATE_LABELS: Record<string, string> = {
   backlog: 'Not sent yet',
   queued: 'Waiting to start',
   working: 'Working',
-  blocked: 'Blocked',
+  blocked: 'Needs help',
   completed: 'Completed',
   failed: 'Needs review',
   canceled: 'Canceled',

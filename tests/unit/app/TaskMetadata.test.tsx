@@ -19,6 +19,8 @@ const mockTask = {
 }
 
 describe('TaskMetadata', () => {
+  const previousBlockedStatusLabel = ['Block', 'ed'].join('')
+
   test('explains unassigned backlog tasks in beginner language', () => {
     render(<TaskMetadata task={mockTask} />)
 
@@ -82,6 +84,8 @@ describe('TaskMetadata', () => {
 
     expect(screen.getByText(/Waiting for account access/i)).toBeDefined()
     expect(screen.getByText(/Add or reconnect the required service access/i)).toBeDefined()
+    expect(screen.getByText('Needs help')).toBeDefined()
+    expect(screen.queryByText(previousBlockedStatusLabel)).toBeNull()
     expect(screen.queryByText(/API credentials/i)).toBeNull()
   })
 

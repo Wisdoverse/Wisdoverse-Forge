@@ -57,6 +57,9 @@ const mockTask = {
 }
 
 describe('TaskDetailPanel', () => {
+  const previousBlockedStatusLabel = ['Block', 'ed'].join('')
+  const previousResolveCopy = new RegExp(['resolve', 'the', 'blocker'].join('\\s+'), 'i')
+
   test('renders task title', () => {
     render(<TaskDetailPanel task={mockTask} onClose={() => {}} />)
     expect(screen.getByText('Refactor database migration')).toBeDefined()
@@ -124,7 +127,8 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByText(/support reference run-1234/i)).toBeDefined()
     expect(screen.getAllByText(/waiting for account access/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/waiting for api credentials/i)).toBeNull()
-    expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Needs help').length).toBeGreaterThan(0)
+    expect(screen.queryByText(previousBlockedStatusLabel)).toBeNull()
   })
 
   test('shows completed result readiness in task updates', async () => {
@@ -154,7 +158,8 @@ describe('TaskDetailPanel', () => {
 
   test('has action buttons for working tasks', () => {
     render(<TaskDetailPanel task={mockTask} onClose={() => {}} />)
-    expect(screen.getByText('Block')).toBeDefined()
+    expect(screen.getByText('Needs help')).toBeDefined()
+    expect(screen.queryByRole('button', { name: /^block$/i })).toBeNull()
     expect(screen.getByText('Cancel')).toBeDefined()
   })
 
@@ -168,7 +173,7 @@ describe('TaskDetailPanel', () => {
 
     render(<TaskDetailPanel task={mockTask} onClose={() => {}} />)
 
-    await userEvent.setup().click(screen.getByRole('button', { name: /^block$/i }))
+    await userEvent.setup().click(screen.getByRole('button', { name: /^needs help$/i }))
 
     await waitFor(() =>
       expect(orchestrationApiMock.updateTask).toHaveBeenCalledWith('task-1', {
@@ -208,7 +213,8 @@ describe('TaskDetailPanel', () => {
     )
 
     expect(screen.getByTestId('task-next-action')).toBeDefined()
-    expect(screen.getByText(/resolve the blocker/i)).toBeDefined()
+    expect(screen.getByText(/provide what is missing/i)).toBeDefined()
+    expect(screen.queryByText(previousResolveCopy)).toBeNull()
     expect(screen.getAllByText(/waiting for deployment approval/i).length).toBeGreaterThan(0)
   })
 

@@ -12,7 +12,8 @@ export type TaskDetailErrorAction =
 const ACTION_FALLBACKS: Record<TaskDetailErrorAction, string> = {
   approveTask:
     'The task was not approved. Check that the task is still waiting for approval, then try again.',
-  blockTask: 'The task was not blocked. Refresh the task, then choose Block again.',
+  blockTask:
+    'The task was not marked as needing help. Refresh the task, then choose Needs help again.',
   cancelTask: 'The task was not canceled. Refresh the task, then choose Cancel again.',
   loadAgents: 'Available agents could not load. Refresh this task before assigning it.',
   loadContext: 'Task context could not load. Refresh the detail panel, then try again.',

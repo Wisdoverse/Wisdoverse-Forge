@@ -376,7 +376,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 'disabled:cursor-not-allowed disabled:opacity-50'
               )}
             >
-              {taskAction === 'block' ? 'Blocking…' : 'Block'}
+              {taskAction === 'block' ? 'Marking…' : 'Needs help'}
             </button>
             <button
               type="button"
