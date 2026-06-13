@@ -16,11 +16,14 @@ const NEXT_ACTION_PATTERN =
   /\b(Add|Ask|Check|Choose|Clear|Connect|Create|Invite|Keep|Open|Refresh|Review|Run|Save|Select|Send|Start|Try|Use|Wait)\b/i
 
 const RAW_USER_VISIBLE_PATTERNS = [
+  /\bAn error occurred\b/,
+  /\bError occurred\b/,
   /\bFailed to fetch\b/,
   /\bInternal Server Error\b/,
   /\bStack trace\b/i,
   /\bUnhandled exception\b/i,
   /\bSQL error\b/i,
+  /\bUnknown error\b/,
   /\bdatabase unavailable\b/i,
 ]
 

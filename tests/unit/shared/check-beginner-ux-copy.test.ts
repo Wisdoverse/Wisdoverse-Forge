@@ -83,6 +83,28 @@ export function ChatError() {
     ])
   })
 
+  it('flags generic error copy that gives beginners no recovery step', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  common: {
+    error: 'An error occurred',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'raw-error-copy',
+        location: 'src/app/shared/i18n/locales/en.ts:4',
+      }),
+    ])
+  })
+
   it('does not treat status badges as empty states', () => {
     const cwd = fixture({
       'src/app/features/admin/StatusBadge.tsx': `

@@ -24,7 +24,10 @@ export interface ApiErrorFields {
  * Extract a human-readable error message from any API error response.
  * Priority: details.reason > message > error code > fallback.
  */
-export function extractApiError(data: ApiErrorFields, fallback = 'Unknown error'): string {
+export function extractApiError(
+  data: ApiErrorFields,
+  fallback = 'Forge did not return a clear error. Refresh, then try again.'
+): string {
   const rawError = (data as Record<string, unknown>).error
   const nestedError =
     rawError && typeof rawError === 'object' && !Array.isArray(rawError)
