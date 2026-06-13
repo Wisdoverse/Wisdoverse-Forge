@@ -37,19 +37,22 @@ afterEach(() => {
 })
 
 describe('ContextUsageDashboard', () => {
-  test('explains context reuse metrics for beginner operators', () => {
+  test('explains saved item reuse metrics for beginner operators', () => {
     vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-05-25T12:00:00Z').getTime())
 
     render(<ContextUsageDashboard data={baseData} />)
 
+    expect(screen.getByText('Saved item reuse')).toBeDefined()
     expect(
       screen.getByText(
-        'Use this panel to keep context that helps work finish and review items that may be outdated, incorrect, or too sensitive before agents reuse them.'
+        'Use this panel to keep saved notes and instructions that help work finish, and review items that may be outdated, incorrect, or too sensitive before agents reuse them.'
       )
     ).toBeDefined()
-    expect(screen.getByText('Times context was added to agent work.')).toBeDefined()
-    expect(screen.getByText('Completed work after context was used.')).toBeDefined()
-    expect(screen.getByText('Times users marked the context helpful.')).toBeDefined()
+    expect(
+      screen.getByText('Times saved notes or instructions were added to agent work.')
+    ).toBeDefined()
+    expect(screen.getByText('Completed work after saved items were used.')).toBeDefined()
+    expect(screen.getByText('Times users marked saved items helpful.')).toBeDefined()
     expect(screen.getByText('Signals to check before reuse.')).toBeDefined()
     expect(screen.getByText('Updated 15m ago')).toBeDefined()
   })
@@ -59,7 +62,7 @@ describe('ContextUsageDashboard', () => {
 
     expect(
       screen.getByText(
-        'Helpful saved memories and skills appear after people mark them useful in task results.'
+        'Helpful saved notes and saved instructions appear after people mark them useful in task results.'
       )
     ).toBeDefined()
     expect(
@@ -69,7 +72,7 @@ describe('ContextUsageDashboard', () => {
     ).toBeDefined()
     expect(
       screen.getByText(
-        'Saved memories and skills appear here when they are old enough to check again.'
+        'Saved notes and saved instructions appear here when they are old enough to check again.'
       )
     ).toBeDefined()
   })
@@ -116,10 +119,11 @@ describe('ContextUsageDashboard', () => {
       />
     )
 
-    expect(screen.getByText('Saved memory')).toBeDefined()
+    expect(screen.getByText('Saved note')).toBeDefined()
     expect(screen.getByText('Planner Agent · Managed workspace · Code change')).toBeDefined()
     expect(screen.getByText('Next: keep this available for similar tasks.')).toBeDefined()
     expect(screen.getByText('review')).toBeDefined()
+    expect(screen.queryByText(/Saved\s+memory/)).toBeNull()
     expect(screen.queryByText('memory')).toBeNull()
     expect(screen.queryByText('Planner Agent · container · coding')).toBeNull()
     expect(screen.queryByText('negative')).toBeNull()

@@ -28,9 +28,9 @@ const TASK_KIND_LABELS: Record<string, string> = {
 }
 
 const EMPTY_TOP_USEFUL = {
-  title: 'No useful context yet',
+  title: 'No useful saved items yet',
   detail:
-    'Helpful saved memories and saved instructions appear after people mark them useful in task results.',
+    'Helpful saved notes and saved instructions appear after people mark them useful in task results.',
 }
 
 const EMPTY_NEEDS_REVIEW = {
@@ -40,8 +40,7 @@ const EMPTY_NEEDS_REVIEW = {
 
 const EMPTY_STALE = {
   title: 'Nothing looks outdated',
-  detail:
-    'Saved memories and saved instructions appear here when they are old enough to check again.',
+  detail: 'Saved notes and saved instructions appear here when they are old enough to check again.',
 }
 
 function relativeAge(timestamp: string): string {
@@ -68,11 +67,11 @@ function taskKindLabel(taskKind: string): string {
 function contextItemKindLabel(itemKind: string): string {
   switch (itemKind) {
     case 'memory':
-      return 'Saved memory'
+      return 'Saved note'
     case 'skill':
       return 'Saved instruction'
     default:
-      return 'Context item needs review'
+      return 'Saved item needs review'
   }
 }
 
@@ -82,14 +81,14 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            Context reuse
+            Saved item reuse
           </h2>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
             Updated {data ? relativeAge(data.lastRefreshedAt) : 'when data is available'}
           </p>
           <p className="mt-1 max-w-2xl text-ui-body text-secondary-light dark:text-secondary-dark">
-            Use this panel to keep context that helps work finish and review items that may be
-            outdated, incorrect, or too sensitive before agents reuse them.
+            Use this panel to keep saved notes and instructions that help work finish, and review
+            items that may be outdated, incorrect, or too sensitive before agents reuse them.
           </p>
         </div>
         {data?.isStale && (
@@ -110,21 +109,21 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
         <StatCard
           title="Applied"
           value={data?.summary.appliedCount ?? 0}
-          subtitle="Times context was added to agent work."
+          subtitle="Times saved notes or instructions were added to agent work."
           loading={loading}
           accent="blue"
         />
         <StatCard
           title="Success"
           value={data ? percent(data.summary.successRate) : '0%'}
-          subtitle="Completed work after context was used."
+          subtitle="Completed work after saved items were used."
           loading={loading}
           accent="blue"
         />
         <StatCard
           title="Useful"
           value={data?.summary.feedbackUsefulCount ?? 0}
-          subtitle="Times users marked the context helpful."
+          subtitle="Times users marked saved items helpful."
           loading={loading}
           accent="blue"
         />
