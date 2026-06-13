@@ -21,7 +21,10 @@ const originalUpdateOrg = useNavigationStore.getState().updateOrg
 const originalLoadPreferences = useSettingsStore.getState().loadPreferences
 const originalSetGettingStartedDismissed = useSettingsStore.getState().setGettingStartedDismissed
 
-function renderAccountSection(role = 'owner') {
+function renderAccountSection(
+  role = 'owner',
+  userOverrides: Partial<NonNullable<AuthContextValue['user']>> = {}
+) {
   const authValue: AuthContextValue = {
     authManager: {} as AuthContextValue['authManager'],
     user: {
@@ -30,6 +33,7 @@ function renderAccountSection(role = 'owner') {
       username: 'Operator',
       role,
       orgId: 'org-1',
+      ...userOverrides,
     },
     isAuthenticated: true,
     isLoading: false,
@@ -165,6 +169,17 @@ describe('AccountSection', () => {
     expect(screen.getByText('Access level needs review')).toBeDefined()
     expect(screen.queryByText('billing_admin')).toBeNull()
     expect(screen.queryByText('billing admin')).toBeNull()
+  })
+
+  test('explains missing profile fields without placeholder symbols', () => {
+    renderAccountSection('owner', {
+      email: ' ',
+      username: '',
+    })
+
+    expect(screen.getByText('Username not reported yet')).toBeDefined()
+    expect(screen.getByText('Email not reported yet')).toBeDefined()
+    expect(screen.queryByText('—')).toBeNull()
   })
 
   test('shows sign-in guidance when password update is not authorized', async () => {

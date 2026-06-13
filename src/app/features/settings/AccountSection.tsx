@@ -10,6 +10,11 @@ import { useNavigationStore } from '@app/entities/navigation'
 import { userRoleLabel } from '@app/entities/user'
 import { accountErrorMessage } from './accountErrorMessages'
 
+function reportedAccountValue(value: string | null | undefined, fallback: string): string {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : fallback
+}
+
 // ============================================================================
 // Password Change Form
 // ============================================================================
@@ -431,7 +436,7 @@ export function AccountSection() {
               Username
             </span>
             <span className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              {user?.username ?? '—'}
+              {reportedAccountValue(user?.username, 'Username not reported yet')}
             </span>
           </div>
           <div className="flex items-center justify-between px-4 py-3">
@@ -439,7 +444,7 @@ export function AccountSection() {
               Email
             </span>
             <span className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              {user?.email ?? '—'}
+              {reportedAccountValue(user?.email, 'Email not reported yet')}
             </span>
           </div>
           <div className="flex items-center justify-between px-4 py-3">
