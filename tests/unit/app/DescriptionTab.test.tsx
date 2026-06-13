@@ -39,7 +39,7 @@ describe('DescriptionTab', () => {
     expect(screen.getByText('Agent details loading')).toBeDefined()
     expect(screen.getByText('Ready to send')).toBeDefined()
     expect(screen.getByTestId('task-assignment-guidance').textContent).toBe(
-      'An agent was chosen, but its display name has not loaded yet.'
+      'An agent was chosen, but its name has not loaded yet. Refresh this task so you can confirm the right agent before sending it.'
     )
     expect(screen.getByTestId('task-next-action').textContent).toContain(
       'Review the brief, then send it to this agent.'

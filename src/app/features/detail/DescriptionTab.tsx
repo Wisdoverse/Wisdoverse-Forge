@@ -300,7 +300,8 @@ function assignmentSummary(task: TaskSummary): {
   if (task.assignedTo) {
     return {
       label: 'Agent details loading',
-      detail: 'An agent was chosen, but its display name has not loaded yet.',
+      detail:
+        'An agent was chosen, but its name has not loaded yet. Refresh this task so you can confirm the right agent before sending it.',
       hasAgent: true,
     }
   }
