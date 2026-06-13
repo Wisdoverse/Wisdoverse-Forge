@@ -128,6 +128,35 @@ describe('SkillDraftModal', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  test('uses the task message for saved instruction defaults when the title is empty', () => {
+    render(
+      <SkillDraftModal
+        open
+        task={{
+          ...completedTask,
+          id: 'task-1234567890',
+          params: {
+            task: '',
+            message: 'Check release readiness before launch\nInclude validation notes.',
+          },
+        }}
+        artifacts={[]}
+        onClose={() => {}}
+      />
+    )
+
+    expect(screen.getByLabelText(/^instruction name$/i)).toHaveValue(
+      'check-release-readiness-before-launch'
+    )
+    expect(screen.getByLabelText(/^use when$/i)).toHaveValue(
+      'check release readiness before launch'
+    )
+    expect((screen.getByLabelText(/^reusable instructions$/i) as HTMLTextAreaElement).value).toContain(
+      '# Instruction: Check release readiness before launch'
+    )
+    expect(screen.queryByDisplayValue(/task-1234567890/i)).toBeNull()
+  })
+
   test('explains publish permission failures without raw API text', async () => {
     const user = userEvent.setup()
     fetchMock.mockResolvedValueOnce({

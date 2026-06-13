@@ -164,8 +164,8 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] font-mono text-secondary-light dark:text-secondary-dark">
-          {task.id.slice(0, 8)}
+        <span className="text-[10px] text-secondary-light dark:text-secondary-dark">
+          {taskSupportReference(task.id)}
         </span>
         <button
           data-testid="detail-close"
@@ -414,6 +414,12 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       />
     </div>
   )
+}
+
+function taskSupportReference(id: string): string {
+  const trimmed = id.trim()
+  if (!trimmed) return 'Support reference not reported'
+  return `Support reference ${trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed}`
 }
 
 function ResultReviewGuide({ task, artifactCount }: { task: TaskSummary; artifactCount: number }) {

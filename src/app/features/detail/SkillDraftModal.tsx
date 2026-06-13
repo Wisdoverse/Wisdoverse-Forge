@@ -357,7 +357,7 @@ function NextReuseLink({
 }
 
 function buildSkillDraft(task: TaskSummary, artifacts: TaskResultArtifact[]): DraftForm {
-  const title = task.params.task.trim() || `Task ${task.id.slice(0, 8)}`
+  const title = draftTitle(task)
   const artifactContent = artifacts
     .map((artifact) => `# ${artifact.name}\n\n${artifact.data}`)
     .join('\n\n---\n\n')
@@ -365,7 +365,7 @@ function buildSkillDraft(task: TaskSummary, artifacts: TaskResultArtifact[]): Dr
   const source = artifactContent || task.params.message.trim() || title
 
   return {
-    name: slugify(title) || `task-${task.id.slice(0, 8)}-instruction`,
+    name: slugify(title) || 'completed-task-instructions',
     description: `Reusable instructions extracted from completed task: ${title}`,
     triggerPattern: title.toLowerCase().slice(0, 80),
     content: `# Instruction: ${title}
@@ -376,6 +376,16 @@ Use this instruction when a future task needs the same judgment, workflow, or im
 ## Reusable instructions
 ${source}`,
   }
+}
+
+function draftTitle(task: TaskSummary): string {
+  const taskTitle = task.params.task.trim()
+  if (taskTitle) return taskTitle
+
+  const messageTitle = task.params.message.trim().split(/\r?\n/)[0]?.trim()
+  if (messageTitle) return messageTitle
+
+  return 'Completed task instructions'
 }
 
 function slugify(value: string): string {

@@ -77,6 +77,13 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByTestId('detail-close')).toBeDefined()
   })
 
+  test('labels the task support reference instead of showing a bare task id', () => {
+    render(<TaskDetailPanel task={mockTask} onClose={() => {}} />)
+
+    expect(screen.getByText('Support reference task-1')).toBeDefined()
+    expect(screen.queryByText(/^task-1$/)).toBeNull()
+  })
+
   test('calls onClose when close button clicked', async () => {
     const onClose = vi.fn()
     render(<TaskDetailPanel task={mockTask} onClose={onClose} />)
