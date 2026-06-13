@@ -110,7 +110,7 @@ export const zh: TranslationKeys = {
     steps: {
       workspace: {
         title: '工作区',
-        empty: '需要路由时再创建团队和项目。',
+        empty: '先创建一个团队和项目，让任务有明确归属。',
         why: '项目能让任务有明确归属，避免不知道任务该给谁处理。',
         success: '已经有团队和项目，并且当前项目已被选中。',
         create: '创建工作区',
