@@ -129,7 +129,9 @@ describe('KeysSection', () => {
 
     expect(await screen.findByRole('table', { name: /outside tool access keys/i })).toBeDefined()
     expect(screen.getByText('Key preview')).toBeDefined()
+    expect(screen.getByText('Not used yet')).toBeDefined()
     expect(screen.queryByText('Starts with')).toBeNull()
+    expect(screen.queryByText('—')).toBeNull()
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -154,6 +156,26 @@ describe('KeysSection', () => {
     )
 
     expect(revokeApiKeyMock).toHaveBeenCalledWith('key-1')
+  })
+
+  test('explains missing access key dates instead of showing placeholders', async () => {
+    useSettingsStore.setState({
+      apiKeys: [
+        apiKey({
+          name: 'Scheduled report export',
+          createdAt: '',
+          lastUsedAt: 'not-a-date',
+        }),
+      ],
+    })
+
+    render(<KeysSection />)
+
+    expect(await screen.findByRole('table', { name: /outside tool access keys/i })).toBeDefined()
+    expect(screen.getByText('Created date not reported')).toBeDefined()
+    expect(screen.getByText('Last used date needs review')).toBeDefined()
+    expect(screen.queryByText('Invalid Date')).toBeNull()
+    expect(screen.queryByText('—')).toBeNull()
   })
 
   test('shows a beginner recovery step instead of raw platform key details', async () => {
