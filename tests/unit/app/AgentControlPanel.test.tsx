@@ -139,6 +139,26 @@ describe('AgentControlPanel', () => {
     expect(screen.getByLabelText(/send one instruction/i)).toHaveValue('')
   })
 
+  test('keeps the message box usable when sending fails unexpectedly', async () => {
+    sendPromptMock.mockRejectedValueOnce(new Error('socket hang up'))
+
+    render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
+
+    const instructionInput = screen.getByLabelText(/send one instruction/i)
+    const sendButton = screen.getByRole('button', { name: /send instruction/i })
+    fireEvent.change(instructionInput, { target: { value: 'Check recent work' } })
+    fireEvent.click(sendButton)
+
+    await waitFor(() => expect(sendButton).not.toBeDisabled())
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent('Action did not finish')
+    expect(alert).toHaveTextContent(/Refresh this agent and confirm the latest status/i)
+    expect(alert).toHaveTextContent(/ask an owner or admin/i)
+    expect(alert).not.toHaveTextContent(/socket hang up/i)
+    expect(instructionInput).toHaveValue('Check recent work')
+  })
+
   test('focuses the instruction box when users try to send blank text', () => {
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
@@ -227,6 +247,29 @@ describe('AgentControlPanel', () => {
     })
   })
 
+  test('recovers the start control when a pending workspace does not start', async () => {
+    startAgentMock.mockResolvedValueOnce(false)
+
+    render(
+      <AgentControlPanel
+        agent={{ ...containerAgent, id: 'pending-start-failed', containerId: undefined }}
+        onDeleted={() => {}}
+      />
+    )
+
+    const startButton = screen.getByRole('button', { name: /start workspace/i })
+    fireEvent.click(startButton)
+
+    await waitFor(() => expect(startButton).not.toBeDisabled())
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent('Action did not finish')
+    expect(alert).toHaveTextContent(/wait for Ready or Working/i)
+    expect(alert).toHaveTextContent(/ask an owner or admin/i)
+    expect(alert).not.toHaveTextContent(/agent control action failed/i)
+    expect(screen.getByRole('button', { name: /start workspace/i })).toBeEnabled()
+  })
+
   test('warns before restarting a running agent workspace', async () => {
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
@@ -249,6 +292,26 @@ describe('AgentControlPanel', () => {
     })
   })
 
+  test('returns to the restart card when restart fails unexpectedly', async () => {
+    restartAgentMock.mockRejectedValueOnce(new Error('restart socket failed'))
+
+    render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /restart agent/i }))
+    fireEvent.click(screen.getByRole('button', { name: /restart now/i }))
+
+    await waitFor(() => {
+      expect(restartAgentMock).toHaveBeenCalledWith('agent-1')
+      expect(screen.getByText('Fix a stuck workspace')).toBeDefined()
+    })
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent('Action did not finish')
+    expect(alert).toHaveTextContent(/Refresh this agent/i)
+    expect(alert).not.toHaveTextContent(/restart socket failed/i)
+    expect(screen.queryByText('Restart this agent?')).toBeNull()
+  })
+
   test('warns before removing and calls the close handler only after success', async () => {
     const onDeleted = vi.fn()
     render(<AgentControlPanel agent={containerAgent} onDeleted={onDeleted} />)
@@ -268,5 +331,22 @@ describe('AgentControlPanel', () => {
       expect(deleteAgentMock).toHaveBeenCalledWith('agent-1')
       expect(onDeleted).toHaveBeenCalledTimes(1)
     })
+  })
+
+  test('keeps the agent visible when removal fails', async () => {
+    const onDeleted = vi.fn()
+    deleteAgentMock.mockResolvedValueOnce(false)
+
+    render(<AgentControlPanel agent={containerAgent} onDeleted={onDeleted} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /remove agent/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^remove agent$/i }))
+
+    await waitFor(() => expect(deleteAgentMock).toHaveBeenCalledWith('agent-1'))
+
+    expect(onDeleted).not.toHaveBeenCalled()
+    expect(screen.getByText('Remove this agent')).toBeDefined()
+    expect(screen.queryByText('Remove this agent?')).toBeNull()
+    expect(screen.getByRole('alert')).toHaveTextContent(/Action did not finish/i)
   })
 })

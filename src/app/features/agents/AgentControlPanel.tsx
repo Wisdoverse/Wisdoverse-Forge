@@ -21,6 +21,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
 
   const [prompt, setPrompt] = useState('')
   const [promptError, setPromptError] = useState<string | null>(null)
+  const [localActionError, setLocalActionError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [starting, setStarting] = useState(false)
   const [confirmRestart, setConfirmRestart] = useState(false)
@@ -40,6 +41,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
   })
   const readyActionInfo = getReadyActionInfo(agent, { hostCli })
   const ControlSummaryIcon = controlSummary.Icon
+  const controlError = error ?? localActionError
 
   async function handleSendPrompt() {
     if (sending) return
@@ -50,41 +52,76 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
       return
     }
     setPromptError(null)
+    setLocalActionError(null)
     setSending(true)
-    const ok = await sendPrompt(agent.id, trimmedPrompt)
-    setSending(false)
-    if (ok) setPrompt('')
+    try {
+      const ok = await sendPrompt(agent.id, trimmedPrompt)
+      if (ok) {
+        setPrompt('')
+      } else {
+        setLocalActionError('agent control action failed')
+      }
+    } catch {
+      setLocalActionError('agent control action failed')
+    } finally {
+      setSending(false)
+    }
   }
 
   async function handleStart() {
     if (starting) return
+    setLocalActionError(null)
     setStarting(true)
-    await startAgent(agent.id)
-    setStarting(false)
+    try {
+      const ok = await startAgent(agent.id)
+      if (!ok) setLocalActionError('agent control action failed')
+    } catch {
+      setLocalActionError('agent control action failed')
+    } finally {
+      setStarting(false)
+    }
   }
 
   async function handleRestart() {
-    await restartAgent(agent.id)
-    setConfirmRestart(false)
+    setLocalActionError(null)
+    try {
+      const ok = await restartAgent(agent.id)
+      if (!ok) setLocalActionError('agent control action failed')
+    } catch {
+      setLocalActionError('agent control action failed')
+    } finally {
+      setConfirmRestart(false)
+    }
   }
 
   async function handleDelete() {
-    const ok = await deleteAgent(agent.id)
-    if (ok) onDeleted()
-    setConfirmDelete(false)
+    setLocalActionError(null)
+    try {
+      const ok = await deleteAgent(agent.id)
+      if (ok) {
+        onDeleted()
+      } else {
+        setLocalActionError('agent control action failed')
+      }
+    } catch {
+      setLocalActionError('agent control action failed')
+    } finally {
+      setConfirmDelete(false)
+    }
   }
 
   return (
     <div className="flex flex-col gap-3">
-      {error && (
+      {controlError && (
         <div
           role="alert"
+          aria-live="polite"
           className="flex gap-3 rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
         >
           <AlertTriangle size={16} strokeWidth={2} aria-hidden="true" className="mt-0.5 shrink-0" />
           <div className="flex flex-col gap-1">
             <span className="font-medium">Action did not finish</span>
-            <span>{agentControlErrorMessage(error)}</span>
+            <span>{agentControlErrorMessage(controlError)}</span>
           </div>
         </div>
       )}
