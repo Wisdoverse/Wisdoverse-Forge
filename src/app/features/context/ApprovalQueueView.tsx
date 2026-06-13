@@ -91,6 +91,50 @@ const REJECT_CHECKLIST = [
   'Add a short reason so the next reviewer knows what happened.',
 ]
 
+interface ApprovalQueueEmptyState {
+  title: string
+  detail: string
+  nextStep: string
+  actionLabel?: string
+}
+
+function approvalQueueEmptyState({
+  stateFilter,
+  kindFilter,
+  scopeFilter,
+}: {
+  stateFilter: StateFilter
+  kindFilter: KindFilter
+  scopeFilter: ScopeFilter
+}): ApprovalQueueEmptyState {
+  if (kindFilter !== 'all' || scopeFilter !== 'all') {
+    return {
+      title: 'Filters are hiding saved items',
+      detail:
+        'This view only shows the selected item type and reuse option. Clear filters before assuming nothing needs review.',
+      nextStep: 'Next: review everything first, then narrow the list again only if it is long.',
+      actionLabel: 'Clear filters',
+    }
+  }
+
+  if (stateFilter === 'all') {
+    return {
+      title: 'No saved item history yet',
+      detail:
+        'Approved and rejected saved notes or instructions appear here after the first review.',
+      nextStep: 'Next: switch back to Pending when you only want items waiting for a decision.',
+      actionLabel: 'Show pending reviews',
+    }
+  }
+
+  return {
+    title: 'No saved items need review',
+    detail:
+      'When an agent suggests a saved note or saved instruction, it will appear here before anyone can reuse it.',
+    nextStep: 'Next: finish a task, then come back here if you want agents to reuse what worked.',
+  }
+}
+
 export function ApprovalQueueView() {
   const { subscribe } = useWebSocket()
   const pendingCandidateCount = useContextStore((s) => s.pendingCandidateCount)
@@ -145,6 +189,17 @@ export function ApprovalQueueView() {
     const suffix = pendingCandidateCount === 1 ? 'pending item' : 'pending items'
     return `${pendingCandidateCount} ${suffix}`
   }, [pendingCandidateCount])
+
+  const emptyState = useMemo(
+    () => approvalQueueEmptyState({ stateFilter, kindFilter, scopeFilter }),
+    [kindFilter, scopeFilter, stateFilter]
+  )
+
+  const resetFilters = useCallback(() => {
+    setStateFilter('pending')
+    setKindFilter('all')
+    setScopeFilter('all')
+  }, [])
 
   const handleDecisionComplete = useCallback(
     (candidateId: string, state: Extract<ContextCandidateState, 'approved' | 'rejected'>) => {
@@ -298,21 +353,32 @@ export function ApprovalQueueView() {
               <span>Checking saved items...</span>
             </div>
           ) : candidates.length === 0 ? (
-            <div className="flex h-64 flex-col items-center justify-center rounded-card border border-dashed border-black/[0.12] text-center dark:border-white/[0.12]">
+            <div
+              data-testid="context-approval-empty"
+              className="flex h-64 flex-col items-center justify-center rounded-card border border-dashed border-black/[0.12] px-4 text-center dark:border-white/[0.12]"
+            >
               <CheckCircle2
                 size={24}
                 strokeWidth={2}
                 className="text-apple-blue"
                 aria-hidden="true"
               />
-              <p className="mt-2 text-ui-section font-medium">No saved items match these filters</p>
+              <p className="mt-2 text-ui-section font-medium">{emptyState.title}</p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                New saved note and saved instruction suggestions appear here after completed work.
+                {emptyState.detail}
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Switch Status to All or clear item and reuse filters if you expected older
-                decisions.
+                {emptyState.nextStep}
               </p>
+              {emptyState.actionLabel && (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="mt-3 inline-flex h-9 items-center justify-center rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+                >
+                  {emptyState.actionLabel}
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid gap-3">

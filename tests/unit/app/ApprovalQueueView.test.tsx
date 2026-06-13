@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { ApprovalQueueView } from '@app/features/context/ApprovalQueueView'
 import { orchestrationApi } from '@app/shared/api/orchestration'
@@ -117,9 +117,43 @@ describe('ApprovalQueueView', () => {
     render(<ApprovalQueueView />)
 
     await waitFor(() => expect(listContextCandidates).toHaveBeenCalled())
-    expect(await screen.findByText('No saved items match these filters')).toBeDefined()
-    expect(screen.getByText(/New saved note and saved instruction suggestions/i)).toBeDefined()
-    expect(screen.getByText(/switch status to all or clear item and reuse filters/i)).toBeDefined()
+    const emptyState = await screen.findByTestId('context-approval-empty')
+    expect(within(emptyState).getByText('No saved items need review')).toBeDefined()
+    expect(
+      within(emptyState).getByText(
+        /when an agent suggests a saved note or saved instruction, it will appear here/i
+      )
+    ).toBeDefined()
+    expect(within(emptyState).getByText(/finish a task, then come back here/i)).toBeDefined()
+    expect(within(emptyState).queryByRole('button')).toBeNull()
+    expect(emptyState.textContent).not.toContain('No saved items match these filters')
+  })
+
+  test('clears item filters when they hide saved items from a new reviewer', async () => {
+    listContextCandidates.mockImplementation(async (query) => {
+      if (query.itemKind === 'skill') return []
+      return [candidate]
+    })
+
+    const user = userEvent.setup()
+    render(<ApprovalQueueView />)
+
+    expect(await screen.findByText('Use stable credentials')).toBeDefined()
+
+    await user.selectOptions(screen.getByLabelText('Item type'), 'skill')
+
+    const emptyState = await screen.findByTestId('context-approval-empty')
+    expect(within(emptyState).getByText('Filters are hiding saved items')).toBeDefined()
+    expect(
+      within(emptyState).getByText(/clear filters before assuming nothing needs review/i)
+    ).toBeDefined()
+    expect(within(emptyState).getByText(/review everything first/i)).toBeDefined()
+    expect(emptyState.textContent).not.toContain('No saved items match these filters')
+
+    await user.click(within(emptyState).getByRole('button', { name: /clear filters/i }))
+
+    expect(await screen.findByText('Use stable credentials')).toBeDefined()
+    expect(screen.getByLabelText('Item type')).toHaveValue('all')
   })
 
   test('shows beginner network guidance when the review list cannot load', async () => {
