@@ -317,7 +317,7 @@ function AgentTasksEmptyState() {
           <ListFilter size={17} strokeWidth={2.15} aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <h3 className="text-ui-section font-semibold">No tasks have reached this agent yet</h3>
+          <h3 className="text-ui-section font-semibold">Open Tasks to send this agent work</h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
             Send a small task to this agent, or choose a task queue it can receive, then work will
             appear here.

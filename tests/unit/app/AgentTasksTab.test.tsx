@@ -42,7 +42,7 @@ describe('AgentTasksTab', () => {
     render(<AgentTasksTab agentId="agent-1" />)
 
     const emptyState = await screen.findByTestId('agent-tasks-empty')
-    expect(within(emptyState).getByText('No tasks have reached this agent yet')).toBeDefined()
+    expect(within(emptyState).getByText('Open Tasks to send this agent work')).toBeDefined()
     expect(
       within(emptyState).getByText(
         'Send a small task to this agent, or choose a task queue it can receive, then work will appear here.'
@@ -65,6 +65,7 @@ describe('AgentTasksTab', () => {
     expect(emptyState.textContent).not.toContain('routed')
     expect(emptyState.textContent).not.toContain('routing')
     expect(emptyState.textContent).not.toContain('Needs action')
+    expect(emptyState.textContent).not.toContain('No tasks have reached this agent yet')
   })
 
   test('summarizes an agent task load', async () => {
@@ -205,6 +206,7 @@ describe('AgentTasksTab', () => {
 
     render(<AgentTasksTab agentId="agent-1" />)
 
-    expect(await screen.findByText('No tasks have reached this agent yet')).toBeDefined()
+    expect(await screen.findByText('Open Tasks to send this agent work')).toBeDefined()
+    expect(screen.queryByText('No tasks have reached this agent yet')).toBeNull()
   })
 })
