@@ -118,7 +118,7 @@ function CredentialRow({ credential, onDelete }: CredentialRowProps) {
           }
           className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
         >
-          {confirming ? 'Remove access?' : 'Remove'}
+          {confirming ? 'Remove access now' : 'Remove'}
         </button>
       </td>
     </tr>

@@ -97,6 +97,39 @@ describe('GitCredentialsSection', () => {
     )
   })
 
+  test('uses a clear confirmation label before removing repository access', async () => {
+    const credential: GitCredential = {
+      id: 'git-1',
+      provider: 'github',
+      host: null,
+      createdAt: '2026-06-01T00:00:00Z',
+      updatedAt: '2026-06-01T00:00:00Z',
+    }
+    useSettingsStore.setState({ gitCredentials: [credential] })
+
+    render(<GitCredentialsSection />)
+
+    const removeButton = await screen.findByRole('button', {
+      name: /remove github repository access/i,
+    })
+    expect(removeButton).toHaveTextContent('Remove')
+
+    fireEvent.click(removeButton)
+
+    expect(deleteGitCredentialMock).not.toHaveBeenCalled()
+    const confirmButton = screen.getByRole('button', {
+      name: /confirm removing github repository access/i,
+    })
+    expect(confirmButton).toHaveTextContent('Remove access now')
+    expect(confirmButton).not.toHaveTextContent('Remove access?')
+
+    fireEvent.click(confirmButton)
+
+    await waitFor(() => {
+      expect(deleteGitCredentialMock).toHaveBeenCalledWith('git-1')
+    })
+  })
+
   test('shows a beginner recovery step instead of raw git credential details', async () => {
     useSettingsStore.setState({
       gitCredentialsError:
