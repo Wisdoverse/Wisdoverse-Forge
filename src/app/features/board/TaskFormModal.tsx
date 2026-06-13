@@ -147,6 +147,16 @@ export function TaskFormModal({
   const selectedProject = projects.find((project) => project.id === projectId)
   const projectSelectionSettled = Boolean(projectId && selectedProjectId === projectId)
   const workLaneReady = Boolean(projectSelectionSettled && selectedTaskGroupId)
+  const readinessTitle = selectingProject
+    ? 'Preparing This Project'
+    : workLaneReady
+      ? 'Ready to Send'
+      : 'Create a Task Queue First'
+  const readinessDetail = selectingProject
+    ? 'Forge is loading the task queue for this project. Wait a moment before creating the task.'
+    : workLaneReady
+      ? `New tasks will wait in ${selectedTaskGroupName ?? 'this task queue'} until an available agent picks them up.`
+      : 'A task queue gives new work a place to wait. Create one once, then return here.'
   const assignableAgents = agents.filter((agent) => agentCanTakeTask(agent.status))
   const projectGroups = useMemo(() => groupProjectsByTeam(projects), [projects])
   const projectField = register('projectId')
@@ -391,13 +401,9 @@ export function TaskFormModal({
                 />
               )}
               <div className="min-w-0 flex-1">
-                <p className="font-semibold">
-                  {workLaneReady ? 'Ready to Send' : 'Create a Task Queue First'}
-                </p>
+                <p className="font-semibold">{readinessTitle}</p>
                 <p className="mt-0.5 text-secondary-light dark:text-secondary-dark">
-                  {workLaneReady
-                    ? `New tasks will wait in ${selectedTaskGroupName ?? 'this task queue'} until an available agent picks them up.`
-                    : 'A task queue gives new work a place to wait. Create one once, then return here.'}
+                  {readinessDetail}
                 </p>
               </div>
             </div>
@@ -601,7 +607,11 @@ export function TaskFormModal({
               aria-busy={isSubmitting || selectingProject}
               className="w-full rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
-              {selectingProject ? 'Selecting…' : isSubmitting ? 'Creating…' : 'Create Task'}
+              {selectingProject
+                ? 'Preparing Project...'
+                : isSubmitting
+                  ? 'Creating…'
+                  : 'Create Task'}
             </button>
           </div>
         </form>

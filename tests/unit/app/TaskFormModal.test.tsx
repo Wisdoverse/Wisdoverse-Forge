@@ -293,4 +293,24 @@ describe('TaskFormModal', () => {
       expect(screen.getByRole('alert')).toHaveTextContent(/task queues could not load/i)
     )
   })
+
+  test('explains that a newly selected project is still preparing', async () => {
+    const onProjectChange = vi.fn(() => new Promise<void>(() => undefined))
+    renderModal(vi.fn(), {
+      projects: [project, otherProject],
+      onProjectChange,
+    })
+
+    fireEvent.change(screen.getByLabelText(/^project$/i), { target: { value: otherProject.id } })
+
+    await waitFor(() => expect(onProjectChange).toHaveBeenCalledWith(otherProject.id))
+
+    const readiness = screen.getByTestId('task-work-lane-readiness')
+    expect(readiness).toHaveTextContent('Preparing This Project')
+    expect(readiness).toHaveTextContent(
+      'Forge is loading the task queue for this project. Wait a moment before creating the task.'
+    )
+    expect(readiness).not.toHaveTextContent('Create a Task Queue First')
+    expect(screen.getByRole('button', { name: /preparing project/i })).toBeDisabled()
+  })
 })
