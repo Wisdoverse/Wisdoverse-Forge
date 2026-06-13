@@ -162,6 +162,20 @@ prod-logs: ## View production logs
 prod-ext: setup-external ## Start production with external services
 	COMPOSE_PARALLEL_LIMIT=1 $(COMPOSE) -f docker/compose.external.yml --profile external up -d --build --remove-orphans
 
+# Per-service deploys for the external profile. Rebuild + recreate ONE service
+# instead of the whole stack, so a server-only change does not re-run the
+# orchestrator/frontend build stages. The Rust images use cargo-chef + cache
+# mounts, so an unchanged-dependency build only recompiles app code. Use these
+# for incremental redeploys once `make prod-ext` has stood the stack up once;
+# they reuse the running PostgreSQL/Redis/NATS untouched.
+.PHONY: deploy-server
+deploy-server: setup-external ## Rebuild + restart only the API server (fast incremental deploy)
+	$(COMPOSE) -f docker/compose.external.yml --profile external up -d --build agentforge-server
+
+.PHONY: deploy-orchestrator
+deploy-orchestrator: setup-external ## Rebuild + restart only the orchestrator (fast incremental deploy)
+	$(COMPOSE) -f docker/compose.external.yml --profile external up -d --build agentforge-orchestrator
+
 .PHONY: prod-ext-down
 prod-ext-down: ## Stop production with external services
 	$(COMPOSE) -f docker/compose.external.yml --profile external down
