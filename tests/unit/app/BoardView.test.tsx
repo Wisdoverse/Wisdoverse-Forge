@@ -297,9 +297,14 @@ describe('BoardView', () => {
     expect(screen.getByText('Dashboard polish')).toBeDefined()
 
     fireEvent.change(screen.getByTestId('board-search'), { target: { value: 'missing' } })
-    expect(screen.getByTestId('board-filter-empty')).toBeDefined()
+    const emptyState = screen.getByTestId('board-filter-empty')
+    expect(within(emptyState).getByText('Search is hiding every task')).toBeDefined()
+    expect(within(emptyState).getByText(/none match the words you typed/i)).toBeDefined()
+    expect(within(emptyState).getByText(/before assuming the board is empty/i)).toBeDefined()
+    expect(emptyState.textContent).not.toContain('No Tasks Match This Board View')
+    expect(emptyState.textContent).not.toContain('full workflow')
 
-    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }))
+    fireEvent.click(within(emptyState).getByRole('button', { name: /show all tasks/i }))
     expect(screen.getByText('API migration')).toBeDefined()
     expect(screen.getByText('Dashboard polish')).toBeDefined()
   })

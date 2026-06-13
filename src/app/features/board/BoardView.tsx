@@ -36,6 +36,12 @@ const COLUMN_ORDER: ColumnId[] = [
 const BOARD_FALLBACK_REFRESH_MS = 30_000
 const TAP_DRAG_DISTANCE_PX = 6
 
+interface BoardFilterEmptyCopy {
+  title: string
+  detail: string
+  nextStep: string
+}
+
 export function BoardView() {
   const {
     columns,
@@ -80,8 +86,14 @@ export function BoardView() {
     () => summarizeBoardFilters(columns, visibleColumns),
     [columns, visibleColumns]
   )
+  const boardFilterEmpty = useMemo(() => boardFilterEmptyCopy(boardFilters), [boardFilters])
   const hasActiveBoardFilter =
     searchQuery.trim().length > 0 || priorityFilter !== 'all' || assigneeFilter !== 'all'
+  const clearBoardFilters = () => {
+    setSearchQuery('')
+    setPriorityFilter('all')
+    setAssigneeFilter('all')
+  }
 
   useEffect(() => {
     wsStatusRef.current = wsStatus
@@ -333,11 +345,7 @@ export function BoardView() {
           displayMode={displayMode}
           onDisplayModeChange={setDisplayMode}
           counts={filterCounts}
-          onClear={() => {
-            setSearchQuery('')
-            setPriorityFilter('all')
-            setAssigneeFilter('all')
-          }}
+          onClear={clearBoardFilters}
         />
         {actionError ? (
           <div
@@ -354,21 +362,20 @@ export function BoardView() {
             className="flex min-h-64 flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-black/10 px-6 text-center dark:border-white/10"
           >
             <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              No Tasks Match This Board View
+              {boardFilterEmpty.title}
             </p>
             <p className="max-w-sm text-ui-body text-secondary-light dark:text-secondary-dark">
-              Adjust search, priority, or assignee filters to return to the full workflow.
+              {boardFilterEmpty.detail}
+            </p>
+            <p className="max-w-sm text-ui-body text-secondary-light dark:text-secondary-dark">
+              {boardFilterEmpty.nextStep}
             </p>
             <button
               type="button"
-              onClick={() => {
-                setSearchQuery('')
-                setPriorityFilter('all')
-                setAssigneeFilter('all')
-              }}
+              onClick={clearBoardFilters}
               className="inline-flex h-9 items-center justify-center rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-apple-blue/35 hover:text-apple-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:text-foreground-dark"
             >
-              Clear Filters
+              Show all tasks
             </button>
           </div>
         ) : (
@@ -406,6 +413,42 @@ export function BoardView() {
       />
     </DndContext>
   )
+}
+
+function boardFilterEmptyCopy(filters: BoardFilters): BoardFilterEmptyCopy {
+  const hasSearch = filters.searchQuery.trim().length > 0
+  const hasPriority = filters.priorityFilter !== 'all'
+  const hasAssignee = filters.assigneeFilter !== 'all'
+
+  if (hasSearch && !hasPriority && !hasAssignee) {
+    return {
+      title: 'Search is hiding every task',
+      detail: 'Tasks may still exist, but none match the words you typed.',
+      nextStep: 'Next: show all tasks before assuming the board is empty.',
+    }
+  }
+
+  if (!hasSearch && hasPriority && !hasAssignee) {
+    return {
+      title: 'This priority filter hides every task',
+      detail: 'Tasks may still exist at another priority level.',
+      nextStep: 'Next: show all tasks to review the full board.',
+    }
+  }
+
+  if (!hasSearch && !hasPriority && hasAssignee) {
+    return {
+      title: 'This agent filter hides every task',
+      detail: 'Tasks may still exist with a different agent status.',
+      nextStep: 'Next: show all tasks before deciding nothing is waiting.',
+    }
+  }
+
+  return {
+    title: 'Filters are hiding every task',
+    detail: 'The board still has tasks, but the current search and filters hide all of them.',
+    nextStep: 'Next: show all tasks, then narrow the board one filter at a time.',
+  }
 }
 
 interface BoardFilters {
