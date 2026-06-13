@@ -452,6 +452,13 @@ function agentControlErrorMessage(error: string): string {
   if (normalized.includes('rate limit') || /\b429\b/.test(error)) {
     return 'The agent controls are busy. Wait a moment, refresh this agent, then try again.'
   }
+  if (
+    normalized === 'network error' ||
+    normalized === 'failed to fetch' ||
+    normalized.includes('networkerror')
+  ) {
+    return 'Forge could not connect while changing this agent. Check your connection, refresh this agent, then try again.'
+  }
   if (/\b5\d\d\b/.test(error)) {
     return 'Forge could not update this agent right now. Refresh this agent and try again. If it keeps failing, ask an owner or admin to check this agent setup.'
   }

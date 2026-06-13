@@ -98,6 +98,17 @@ describe('AgentControlPanel', () => {
     expect(screen.getByRole('alert')).not.toHaveTextContent(/agent service/i)
   })
 
+  test('turns connection failures into a clear refresh step', () => {
+    useAgentsStore.setState({ error: 'Failed to fetch' } as never)
+
+    render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Forge could not connect while changing this agent. Check your connection, refresh this agent, then try again.'
+    )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/Failed to fetch/i)
+  })
+
   test('keeps generic recovery steps aligned with Ready status wording', () => {
     useAgentsStore.setState({ error: 'Unexpected control result' } as never)
 
