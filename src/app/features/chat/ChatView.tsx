@@ -46,7 +46,7 @@ const WORKSPACE_AGENT_EMPTY_COPY = {
   title: 'No updates from this agent yet',
   detail: 'Updates appear after this workspace agent receives work or reports progress.',
   steps: [
-    'Open Tasks and assign work to this agent or its lane.',
+    'Open Tasks and assign work to this agent or to a task queue it can receive.',
     'Check Attention once work starts to see what needs help.',
     'Refresh if the agent just came online.',
   ],

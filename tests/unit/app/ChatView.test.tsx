@@ -162,11 +162,14 @@ describe('ChatView', () => {
     expect(screen.getByTestId('conversation-empty-state')).toBeInTheDocument()
     expect(screen.getByText('No updates from this agent yet')).toBeInTheDocument()
     expect(
-      screen.getByText('Open Tasks and assign work to this agent or its lane.')
+      screen.getByText(
+        'Open Tasks and assign work to this agent or to a task queue it can receive.'
+      )
     ).toBeInTheDocument()
     expect(
       screen.getByText('Check Attention once work starts to see what needs help.')
     ).toBeVisible()
+    expect(screen.getByTestId('conversation-empty-state')).not.toHaveTextContent('lane')
     expect(screen.queryByText(previousFindHelpCopy)).toBeNull()
   })
 
