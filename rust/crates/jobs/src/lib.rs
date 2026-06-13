@@ -72,8 +72,10 @@ pub use orchestration_result_consumer::{
 pub use participant_liveness::{
     DEFAULT_STALE_AFTER as PARTICIPANT_DEFAULT_STALE_AFTER,
     DEFAULT_STALE_SWEEP_INTERVAL as PARTICIPANT_DEFAULT_STALE_SWEEP_INTERVAL, ExpiredLeaseOutcome,
-    ParticipantLivenessWorker, expire_working_leases, handle_heartbeat as handle_participant_heartbeat,
-    mark_stale_offline as mark_stale_participants_offline, parse_heartbeat_agent_id,
+    ParticipantLivenessWorker, apply_heartbeat as apply_participant_heartbeat, expire_working_leases,
+    handle_heartbeat as handle_participant_heartbeat, mark_stale_offline as mark_stale_participants_offline,
+    parse_heartbeat_agent_id, reconcile_orphaned_busy as reconcile_orphaned_busy_participants,
+    reconcile_orphaned_busy_rows as reconcile_orphaned_busy_participant_rows,
 };
 pub use queue::{JobEntry, complete, dequeue, enqueue, fail, release_stale_locks};
 pub use worker::Worker;
@@ -88,4 +90,5 @@ pub fn register_metrics() {
     orchestration_metrics::register_metrics();
     orchestration_outbox_publisher::register_metrics();
     orchestration_result_consumer::register_metrics();
+    participant_liveness::register_metrics();
 }
