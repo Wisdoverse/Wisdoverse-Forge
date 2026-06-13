@@ -38,6 +38,11 @@ interface PluginSummary {
   overridden: number
 }
 
+interface EmptyStateCopy {
+  title: string
+  detail: string
+}
+
 const FILTER_LABELS: Record<PluginFilter, string> = {
   all: 'All',
   enabled: 'Can use',
@@ -77,6 +82,39 @@ function countPluginsByFilter(summary: PluginSummary, filter: PluginFilter): num
       return summary.overridden
     default:
       return summary.total
+  }
+}
+
+function agentPluginEmptyState(): EmptyStateCopy {
+  return {
+    title: 'Ask an owner or admin to add tools',
+    detail:
+      'Tools give agents extra abilities. After tools are added, return here to choose which ones this agent can use.',
+  }
+}
+
+function agentPluginFilterEmptyState(filter: PluginFilter, query: string): EmptyStateCopy {
+  const hasSearch = query.trim().length > 0
+  const hasFilter = filter !== 'all'
+
+  if (hasSearch && hasFilter) {
+    return {
+      title: 'Clear search or show all tools',
+      detail: 'This agent has tools, but the current search and filter hide them.',
+    }
+  }
+
+  if (hasSearch) {
+    return {
+      title: 'Clear search to see tools',
+      detail:
+        'This agent has tools, but the search hides them. Try a broader word or clear search.',
+    }
+  }
+
+  return {
+    title: 'Choose All to see tools',
+    detail: 'This agent has tools, but this filter has no results yet.',
   }
 }
 
@@ -125,6 +163,8 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
     () => filterPlugins(plugins, filter, query),
     [plugins, filter, query]
   )
+  const emptyPlugins = agentPluginEmptyState()
+  const filteredEmpty = agentPluginFilterEmptyState(filter, query)
 
   useEffect(() => {
     let cancelled = false
@@ -217,10 +257,20 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
 
   if (plugins.length === 0) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-          No tools are available for this agent yet. Ask an owner or admin to add tools before
-          choosing them for this agent.
+      <div
+        data-testid="agent-plugin-empty"
+        className="flex flex-col items-center justify-center rounded-card border border-dashed border-black/[0.1] bg-black/[0.02] px-4 py-8 text-center dark:border-white/[0.12] dark:bg-white/[0.03]"
+      >
+        <Wrench
+          size={18}
+          strokeWidth={2}
+          className="text-secondary-light dark:text-secondary-dark"
+        />
+        <p className="mt-2 text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+          {emptyPlugins.title}
+        </p>
+        <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {emptyPlugins.detail}
         </p>
       </div>
     )
@@ -340,10 +390,10 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
             className="text-secondary-light dark:text-secondary-dark"
           />
           <p className="mt-2 text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-            No tools match this view
+            {filteredEmpty.title}
           </p>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Clear the search or choose All to see every tool this agent can be given.
+            {filteredEmpty.detail}
           </p>
           <button
             type="button"
@@ -354,7 +404,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
             className="mt-3 inline-flex h-8 items-center gap-2 rounded-lg border border-black/[0.08] bg-white px-3 text-ui-caption font-medium text-foreground-light transition-colors hover:border-apple-blue/35 hover:text-apple-blue dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-foreground-dark"
           >
             <RotateCcw size={13} strokeWidth={2} aria-hidden="true" />
-            Clear filters
+            Show all tools
           </button>
         </div>
       ) : (

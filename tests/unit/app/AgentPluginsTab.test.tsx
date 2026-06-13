@@ -103,12 +103,68 @@ describe('AgentPluginsTab', () => {
     expect(screen.queryByText('Browser Tools')).toBeNull()
 
     fireEvent.change(screen.getByTestId('agent-plugin-search'), { target: { value: 'browser' } })
-    expect(screen.getByTestId('agent-plugin-filter-empty')).toBeDefined()
+    const combinedEmpty = screen.getByTestId('agent-plugin-filter-empty')
+    expect(within(combinedEmpty).getByText('Clear search or show all tools')).toBeDefined()
+    expect(combinedEmpty.textContent).toContain(
+      'This agent has tools, but the current search and filter hide them.'
+    )
+    expect(combinedEmpty.textContent).not.toContain('No tools match this view')
 
-    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show all tools/i }))
     expect(screen.getByText('Shell Tools')).toBeDefined()
     expect(screen.getByText('Browser Tools')).toBeDefined()
     expect(screen.getByText('Deploy Tools')).toBeDefined()
+  })
+
+  test('explains search-only empty tool lists', async () => {
+    fetchMock.mockResolvedValueOnce(pluginResponse())
+
+    render(<AgentPluginsTab agentId="agent-1" />)
+
+    await screen.findByText('Shell Tools')
+
+    fireEvent.change(screen.getByTestId('agent-plugin-search'), { target: { value: 'missing' } })
+    const searchEmpty = screen.getByTestId('agent-plugin-filter-empty')
+    expect(within(searchEmpty).getByText('Clear search to see tools')).toBeDefined()
+    expect(searchEmpty.textContent).toContain(
+      'This agent has tools, but the search hides them. Try a broader word or clear search.'
+    )
+    expect(searchEmpty.textContent).not.toContain('No tools match this view')
+
+    fireEvent.click(screen.getByRole('button', { name: /show all tools/i }))
+    expect(screen.getByText('Shell Tools')).toBeDefined()
+  })
+
+  test('explains filter-only empty tool lists', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        plugins: [
+          {
+            pluginId: 'shell',
+            name: 'Shell Tools',
+            version: '1.0.0',
+            description: 'Run command workflows',
+            pluginEnabled: true,
+            enabled: null,
+          },
+        ],
+      }),
+    })
+
+    render(<AgentPluginsTab agentId="agent-1" />)
+
+    await screen.findByText('Shell Tools')
+    const filters = screen.getByTestId('agent-plugin-filter')
+    fireEvent.click(within(filters).getByRole('button', { name: /turned off\s*0/i }))
+
+    const filterEmpty = screen.getByTestId('agent-plugin-filter-empty')
+    expect(within(filterEmpty).getByText('Choose All to see tools')).toBeDefined()
+    expect(filterEmpty.textContent).toContain(
+      'This agent has tools, but this filter has no results yet.'
+    )
+    expect(filterEmpty.textContent).not.toContain('No tools match this view')
   })
 
   test('toggles a plugin with an agent-level override', async () => {
@@ -189,11 +245,12 @@ describe('AgentPluginsTab', () => {
 
     render(<AgentPluginsTab agentId="agent-1" />)
 
-    expect(
-      await screen.findByText(
-        'No tools are available for this agent yet. Ask an owner or admin to add tools before choosing them for this agent.'
-      )
-    ).toBeDefined()
+    const emptyState = await screen.findByTestId('agent-plugin-empty')
+    expect(within(emptyState).getByText('Ask an owner or admin to add tools')).toBeDefined()
+    expect(emptyState.textContent).toContain(
+      'Tools give agents extra abilities. After tools are added, return here to choose which ones this agent can use.'
+    )
+    expect(emptyState.textContent).not.toContain('No tools are available for this agent yet')
     expect(screen.queryByText(new RegExp(['assign', 'ing them here'].join(''), 'i'))).toBeNull()
   })
 })
