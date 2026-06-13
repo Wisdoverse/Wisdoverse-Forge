@@ -103,7 +103,7 @@ interface TaskFormModalProps {
   selectedProjectId?: string | null
   selectedTaskGroupId?: string | null
   selectedTaskGroupName?: string | null
-  /** May resolve `false` to signal the project switched but its work lanes
+  /** May resolve `false` to signal the project switched but its task queues
    * failed to load (the modal shows a retry message in that case). */
   onProjectChange?: (projectId: string) => void | boolean | Promise<void | boolean>
   onOpenTaskRouting?: () => void
@@ -214,7 +214,9 @@ export function TaskFormModal({
     try {
       const ok = await onProjectChange(projectId)
       if (ok === false) {
-        setSubmitError('Could not load work lanes for this project. Select it again to retry.')
+        setSubmitError(
+          'Task queues could not load for this project. Select the project again to retry.'
+        )
       }
     } catch (err) {
       setSubmitError(boardActionErrorMessage('selectProject', err))

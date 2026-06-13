@@ -28,9 +28,9 @@ interface NavigationState {
   deleteTeam: (teamId: string) => Promise<void>
   updateProject: (projectId: string, input: UpdateProjectInput) => Promise<void>
   deleteProject: (projectId: string) => Promise<void>
-  /** Resolves `false` when the project was selected but its work lanes
-   * failed to load — callers that need lanes (task creation) show a retry
-   * message instead of wrongly telling the user to create a new lane. */
+  /** Resolves `false` when the project was selected but its task queues
+   * failed to load — callers that need task queues show a retry
+   * message instead of wrongly telling the user to create a new one. */
   selectProject: (projectId: string) => Promise<boolean>
   createAgentGroup: (
     projectId: string,

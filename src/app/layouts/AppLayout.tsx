@@ -157,7 +157,7 @@ export function AppLayout({
     async (projectId: string) => {
       if (!(await selectProject(projectId))) {
         // One retry: the common cause is a transient fetch failure, and the
-        // task form would otherwise claim the project has no work lanes.
+        // task form would otherwise claim the project has no task queues.
         await selectProject(projectId)
       }
       handleNavigate('/tasks')
@@ -295,7 +295,7 @@ export function AppLayout({
           }
           if (!groupId && !lanesLoaded) {
             throw new Error(
-              'Could not load work lanes for this project. Try creating the task again.'
+              'Task queues could not load for this project. Select the project again, then create the task.'
             )
           }
           if (!groupId) {

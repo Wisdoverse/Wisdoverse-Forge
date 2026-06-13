@@ -279,7 +279,7 @@ describe('TaskFormModal', () => {
     scrollSpy.mockRestore()
   })
 
-  test('a work-lane load failure reported by onProjectChange shows a retry message', async () => {
+  test('a task queue load failure reported by onProjectChange shows a retry message', async () => {
     const onProjectChange = vi.fn().mockResolvedValue(false)
     renderModal(vi.fn(), {
       projects: [project, otherProject],
@@ -290,7 +290,7 @@ describe('TaskFormModal', () => {
 
     await waitFor(() => expect(onProjectChange).toHaveBeenCalledWith(otherProject.id))
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(/could not load work lanes/i)
+      expect(screen.getByRole('alert')).toHaveTextContent(/task queues could not load/i)
     )
   })
 })
