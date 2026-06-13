@@ -3,13 +3,14 @@ import { cn } from '@app/shared/lib/utils'
 
 interface QuickCreateProps {
   columnId: string
-  onSubmit: (title: string, columnId: string) => void
+  onSubmit: (title: string, columnId: string) => void | boolean | Promise<void | boolean>
 }
 
 export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const submittedRef = useRef(false)
   const trimmedTitle = title.trim()
@@ -24,7 +25,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
     }
   }, [isOpen])
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (submittedRef.current) return
     if (!trimmedTitle) {
       setError('Write the result you want before creating the draft task.')
@@ -32,10 +33,25 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
       return
     }
     submittedRef.current = true
-    onSubmit(trimmedTitle, columnId)
-    setTitle('')
-    setError(null)
-    setIsOpen(false)
+    setSubmitting(true)
+    try {
+      const result = await onSubmit(trimmedTitle, columnId)
+      if (result === false) {
+        submittedRef.current = false
+        setError('The draft task was not created. Check the board message, then try again.')
+        inputRef.current?.focus()
+        return
+      }
+      setTitle('')
+      setError(null)
+      setIsOpen(false)
+    } catch {
+      submittedRef.current = false
+      setError('The draft task was not created. Check the board message, then try again.')
+      inputRef.current?.focus()
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   function handleCancel() {
@@ -74,7 +90,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             e.preventDefault()
-            handleSubmit()
+            void handleSubmit()
           }
           if (e.key === 'Escape') handleCancel()
         }}
@@ -96,16 +112,16 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
       <div className="flex items-center gap-2">
         <button
           type="button"
-          onClick={handleSubmit}
-          disabled={!trimmedTitle}
+          onClick={() => void handleSubmit()}
+          disabled={!trimmedTitle || submitting}
           className={cn(
             'inline-flex h-8 flex-1 items-center justify-center rounded-full px-3 text-ui-button font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
-            trimmedTitle
+            trimmedTitle && !submitting
               ? 'bg-apple-blue text-white hover:bg-apple-blue-focus'
               : 'cursor-not-allowed bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
           )}
         >
-          Add Draft Task
+          {submitting ? 'Adding...' : 'Add Draft Task'}
         </button>
         <button
           type="button"

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { QuickCreate } from '@app/features/board/QuickCreate'
 
@@ -54,7 +54,7 @@ describe('QuickCreate', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
-  test('submits with the add button and closes', () => {
+  test('submits with the add button and closes', async () => {
     const onSubmit = vi.fn()
     render(<QuickCreate columnId="backlog" onSubmit={onSubmit} />)
 
@@ -64,11 +64,11 @@ describe('QuickCreate', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /^add draft task$/i }))
 
-    expect(onSubmit).toHaveBeenCalledWith('Ship onboarding copy', 'backlog')
-    expect(screen.queryByRole('textbox', { name: /task result/i })).toBeNull()
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Ship onboarding copy', 'backlog'))
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: /task result/i })).toBeNull())
   })
 
-  test('keeps enter submit and escape cancel behavior', () => {
+  test('keeps enter submit and escape cancel behavior', async () => {
     const onSubmit = vi.fn()
     render(<QuickCreate columnId="backlog" onSubmit={onSubmit} />)
 
@@ -77,7 +77,8 @@ describe('QuickCreate', () => {
       target: { value: 'Keyboard task' },
     })
     fireEvent.keyDown(screen.getByRole('textbox', { name: /task result/i }), { key: 'Enter' })
-    expect(onSubmit).toHaveBeenCalledWith('Keyboard task', 'backlog')
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Keyboard task', 'backlog'))
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: /task result/i })).toBeNull())
 
     fireEvent.click(screen.getByRole('button', { name: /\+ add draft task/i }))
     fireEvent.change(screen.getByRole('textbox', { name: /task result/i }), {
@@ -87,5 +88,45 @@ describe('QuickCreate', () => {
 
     expect(onSubmit).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('textbox', { name: /task result/i })).toBeNull()
+  })
+
+  test('keeps the draft open when quick create fails', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(false)
+    render(<QuickCreate columnId="backlog" onSubmit={onSubmit} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /\+ add draft task/i }))
+    fireEvent.change(screen.getByRole('textbox', { name: /task result/i }), {
+      target: { value: 'Keep this task' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^add draft task$/i }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Keep this task', 'backlog'))
+    const input = screen.getByRole('textbox', { name: /task result/i })
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('The draft task was not created')
+    )
+    expect(input).toHaveValue('Keep this task')
+    expect(input).toHaveFocus()
+    expect(screen.getByRole('button', { name: /^add draft task$/i })).toBeEnabled()
+  })
+
+  test('shows a safe retry prompt when quick create throws', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(new Error('socket hang up'))
+    render(<QuickCreate columnId="backlog" onSubmit={onSubmit} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /\+ add draft task/i }))
+    fireEvent.change(screen.getByRole('textbox', { name: /task result/i }), {
+      target: { value: 'Retry this task' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^add draft task$/i }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Retry this task', 'backlog'))
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'The draft task was not created. Check the board message, then try again.'
+      )
+    )
+    expect(screen.getByRole('alert')).not.toHaveTextContent('socket hang up')
+    expect(screen.getByRole('textbox', { name: /task result/i })).toHaveValue('Retry this task')
   })
 })

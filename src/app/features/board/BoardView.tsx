@@ -204,8 +204,8 @@ export function BoardView() {
     }
   }
 
-  async function handleQuickCreate(title: string) {
-    if (!selectedGroupId) return
+  async function handleQuickCreate(title: string): Promise<boolean> {
+    if (!selectedGroupId) return false
     setActionError(null)
     try {
       const response = await orchestrationApi.createTask({
@@ -214,12 +214,15 @@ export function BoardView() {
       })
       if (response.ok && response.task) {
         upsertTask(response.task)
+        return true
       } else {
         setActionError(boardActionErrorMessage('createTask', response))
+        return false
       }
     } catch (err) {
       setActionError(boardActionErrorMessage('createTask', err))
       console.error('Failed to create task:', err)
+      return false
     }
   }
 

@@ -80,7 +80,7 @@ interface KanbanColumnProps {
   tasks: TaskSummary[]
   onTaskClick?: (taskId: string) => void
   onTaskPublish?: (task: TaskSummary) => void
-  onQuickCreate?: (title: string, columnId: string) => void
+  onQuickCreate?: (title: string, columnId: string) => void | boolean | Promise<void | boolean>
   displayMode?: BoardDisplayMode
 }
 
