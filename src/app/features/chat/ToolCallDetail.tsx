@@ -204,7 +204,7 @@ function toolOutcome(call: ToolCall): {
 
   return {
     label: 'Waiting for result',
-    helper: 'The agent started this step, but no result has been recorded yet.',
+    helper: 'The agent started this step. Wait for it to report what happened.',
     tone: 'pending',
     Icon: Clock3,
   }
@@ -378,7 +378,8 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
             </div>
           ) : (
             <div className="rounded-md border border-black/[0.06] px-3 py-2 text-[11px] text-secondary-light dark:border-white/[0.08] dark:text-secondary-dark">
-              No result has been recorded for this step yet.
+              This step has not reported a result yet. Next: wait for another update before deciding
+              whether to continue, retry, or ask the agent what is still running.
             </div>
           )}
         </div>

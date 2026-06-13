@@ -104,11 +104,13 @@ describe('ToolCallDetail', () => {
     )
 
     expect(screen.getByText('Waiting for result')).toBeInTheDocument()
-    expect(screen.getByText(/no result has been recorded yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/wait for it to report what happened/i)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /show step details for search/i }))
 
-    expect(screen.getByText('No result has been recorded for this step yet.')).toBeInTheDocument()
+    expect(screen.getByText(/this step has not reported a result yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/wait for another update/i)).toBeInTheDocument()
+    expect(screen.queryByText(/No result has been recorded/i)).toBeNull()
   })
 
   test('turns unknown tool slugs into readable step names', () => {
