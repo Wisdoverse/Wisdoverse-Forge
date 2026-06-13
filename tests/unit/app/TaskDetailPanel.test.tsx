@@ -89,6 +89,15 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByText('Update the schema for v2')).toBeDefined()
   })
 
+  test('labels the saved item tab without backend wording', () => {
+    useContextFeaturesStore.setState({ governance: true, preview: true, injection: true })
+
+    render(<TaskDetailPanel task={mockTask} onClose={() => {}} />)
+
+    expect(screen.getByRole('button', { name: /saved items/i })).toBeDefined()
+    expect(screen.queryByRole('button', { name: /^context$/i })).toBeNull()
+  })
+
   test('summarizes agent check-ins in task updates', async () => {
     orchestrationApiMock.getTaskRuns.mockResolvedValue([
       {
@@ -372,8 +381,11 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByText(/1 result file attached for review/i)).toBeDefined()
     expect(screen.getByText(/accept the result, save repeatable steps/i)).toBeDefined()
     const previousResultReuseCopy = new RegExp(['draft', 'saved guidance'].join('.*'), 'i')
+    const previousAddContextCopy = new RegExp(['add', 'context'].join('\\s+'), 'i')
     expect(screen.queryByText(previousResultReuseCopy)).toBeNull()
     expect(screen.getByText(/if it does not answer the brief/i)).toBeDefined()
+    expect(screen.getByText(/review saved notes and instructions/i)).toBeDefined()
+    expect(screen.queryByText(previousAddContextCopy)).toBeNull()
   })
 
   test('uses beginner-friendly names for text result files', async () => {

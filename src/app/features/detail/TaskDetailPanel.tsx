@@ -23,7 +23,7 @@ type TabId = 'description' | 'result' | 'context' | 'history'
 
 const BASE_TABS: { id: TabId; label: string }[] = [
   { id: 'description', label: 'Work' },
-  { id: 'context', label: 'Context' },
+  { id: 'context', label: 'Saved items' },
   { id: 'history', label: 'Updates' },
 ]
 
@@ -249,8 +249,8 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 </div>
                 <p className="mb-2 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
                   Use this result as evidence for the task outcome. If it does not answer the brief,
-                  go back to Work and decide whether to retry, add context, or create a follow-up
-                  task.
+                  go back to Work and decide whether to retry, review saved notes and instructions,
+                  or create a follow-up task.
                 </p>
                 <pre className="text-xs text-foreground-light dark:text-foreground-dark whitespace-pre-wrap break-words font-mono leading-relaxed max-h-[300px] overflow-y-auto">
                   {artifact.data}
