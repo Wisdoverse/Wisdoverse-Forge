@@ -56,10 +56,20 @@ describe('DescriptionTab', () => {
     expect(screen.getByText('Waiting to start')).toBeDefined()
     expect(screen.getByText('Waiting for the agent to start')).toBeDefined()
     expect(screen.getByTestId('task-next-action').textContent).toContain(
-      'Keep the brief current while the chosen agent gets ready to start.'
+      'If this stays here, open Updates to check the last activity, then choose another agent if needed.'
     )
     expect(screen.queryByText('Queued')).toBeNull()
     expect(screen.queryByText(/execution|runtime/i)).toBeNull()
+  })
+
+  test('explains how to start a waiting task that has no agent', () => {
+    render(<DescriptionTab task={{ ...mockTask, state: 'queued' }} />)
+
+    expect(screen.getByText('Waiting for an available agent')).toBeDefined()
+    expect(screen.getByTestId('task-next-action').textContent).toContain(
+      'If this stays here, choose or start an agent so the task has someone to begin the work.'
+    )
+    expect(screen.getByTestId('task-next-action').textContent).not.toMatch(/queue|pick it up/i)
   })
 
   test('keeps result and context actions available for completed tasks', () => {

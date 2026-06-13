@@ -60,9 +60,22 @@ describe('TaskMetadata', () => {
 
     expect(screen.getByText('Waiting to start')).toBeDefined()
     expect(screen.getByTestId('task-metadata-guidance').textContent).toContain(
-      'waiting for the chosen agent to start.'
+      'waiting for the chosen agent to start. If it stays here, open Updates or choose another agent.'
     )
     expect(screen.queryByText('Queued')).toBeNull()
+    expect(screen.getByTestId('task-metadata-guidance').textContent).not.toMatch(
+      /queue|pick it up/i
+    )
+  })
+
+  test('tells users how to recover waiting tasks that have no agent', () => {
+    render(<TaskMetadata task={{ ...mockTask, state: 'queued' }} />)
+
+    expect(screen.getByText('Waiting to start')).toBeDefined()
+    expect(screen.getByText('Needs agent')).toBeDefined()
+    expect(screen.getByTestId('task-metadata-guidance').textContent).toContain(
+      'waiting for an available agent to start. If it stays here, choose or start an agent.'
+    )
     expect(screen.getByTestId('task-metadata-guidance').textContent).not.toMatch(
       /queue|pick it up/i
     )

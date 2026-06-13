@@ -112,8 +112,8 @@ function taskMetadataGuidance(task: TaskSummary, hasAssignee: boolean): string {
         : 'This task is still a draft. Choose an agent before it can start.'
     case 'queued':
       return hasAssignee
-        ? 'The task is waiting for the chosen agent to start.'
-        : 'The task is waiting for the next available agent to start.'
+        ? 'The task is waiting for the chosen agent to start. If it stays here, open Updates or choose another agent.'
+        : 'The task is waiting for an available agent to start. If it stays here, choose or start an agent.'
     case 'working':
       return 'An agent is working now. Watch progress here and check Updates for recent activity.'
     case 'blocked':

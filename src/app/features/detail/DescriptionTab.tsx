@@ -332,11 +332,19 @@ function nextActionForTask(
             tone: 'warn',
           }
     case 'queued':
-      return {
-        title: 'Waiting for the agent to start',
-        detail: 'Keep the brief current while the chosen agent gets ready to start.',
-        tone: 'default',
-      }
+      return task.assignedTo || task.assignedAgentName
+        ? {
+            title: 'Waiting for the agent to start',
+            detail:
+              'If this stays here, open Updates to check the last activity, then choose another agent if needed.',
+            tone: 'default',
+          }
+        : {
+            title: 'Waiting for an available agent',
+            detail:
+              'If this stays here, choose or start an agent so the task has someone to begin the work.',
+            tone: 'warn',
+          }
     case 'working':
       return {
         title: 'Monitor progress',
