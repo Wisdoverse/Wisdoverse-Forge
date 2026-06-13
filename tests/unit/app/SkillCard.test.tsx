@@ -55,6 +55,19 @@ describe('SkillCard', () => {
     ).toBeDefined()
   })
 
+  test('uses readable source fallback when saved-in metadata is missing', () => {
+    render(
+      <SkillCard
+        skill={{ ...baseSkill, plugin: '   ', pluginAuthor: '   ' }}
+        onClick={() => {}}
+      />
+    )
+
+    expect(screen.getByText('Saved in saved instructions library')).toBeInTheDocument()
+    expect(screen.queryByText(/Saved in\s*$/)).toBeNull()
+    expect(screen.queryByText(/by\s*$/)).toBeNull()
+  })
+
   test('opens the selected skill', () => {
     const onClick = vi.fn()
     render(<SkillCard skill={baseSkill} onClick={onClick} />)

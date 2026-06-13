@@ -11,9 +11,9 @@ export function SkillCard({ skill, onClick }: SkillCardProps) {
   const statusLabel = skill.installed ? 'Ready to reuse' : 'Install to use'
   const summary =
     skill.description || 'No summary yet. Open details before using this saved instruction.'
-  const savedInLabel = skill.pluginAuthor
-    ? `Saved in ${savedInstructionSource(skill.plugin)} by ${skill.pluginAuthor}`
-    : `Saved in ${savedInstructionSource(skill.plugin)}`
+  const source = savedInstructionSource(skill.plugin)
+  const author = skill.pluginAuthor.trim()
+  const savedInLabel = author ? `Saved in ${source} by ${author}` : `Saved in ${source}`
   return (
     <button
       type="button"
@@ -56,5 +56,10 @@ export function SkillCard({ skill, onClick }: SkillCardProps) {
 }
 
 function savedInstructionSource(source: string): string {
-  return source.replace(/\bskills\b/gi, 'saved instructions')
+  const label = source
+    .replace(/\bskills\b/gi, 'saved instructions')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return label || 'saved instructions library'
 }
