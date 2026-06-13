@@ -1279,7 +1279,11 @@ export function ProvidersSection() {
       </div>
 
       {/* Error */}
-      {providersError && <div className={uiStyles.error}>{providersError}</div>}
+      {providersError && (
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
+          {providersError}
+        </div>
+      )}
 
       <ProviderReadinessPanel providers={providers} />
       <ProviderNextStepPanel step={nextStep} onAction={handleNextStepAction} />
