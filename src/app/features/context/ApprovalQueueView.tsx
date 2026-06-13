@@ -56,7 +56,7 @@ const STATE_FILTERS: Array<{ value: StateFilter; label: string }> = [
 
 const KIND_FILTERS: Array<{ value: KindFilter; label: string }> = [
   { value: 'all', label: 'All items' },
-  { value: 'memory', label: 'Saved memories' },
+  { value: 'memory', label: 'Saved notes' },
   { value: 'skill', label: 'Saved instructions' },
 ]
 
@@ -897,7 +897,7 @@ function candidateTitle(candidate: ContextCandidateSummary): string {
 }
 
 function contextItemKindLabel(value: ContextCandidateKind): string {
-  return value === 'skill' ? 'Saved instruction' : 'Saved memory'
+  return value === 'skill' ? 'Saved instruction' : 'Saved note'
 }
 
 function reuseRangeLabel(value: ContextCandidateSummary['proposed_scope_kind']): string {
