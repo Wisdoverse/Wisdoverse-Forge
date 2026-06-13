@@ -244,7 +244,13 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     expect(await screen.findByText('Agent Work Setup has not loaded yet.')).toBeDefined()
+    expect(
+      screen.getByText(
+        'Agent Work Setup could not load. Refresh this settings page. If it still fails, ask an owner or admin to check agent setup.'
+      )
+    ).toBeDefined()
     expect(screen.getByText('Not set yet')).toBeDefined()
+    expect(screen.queryByText('Could not load work setup')).toBeNull()
     expect(screen.queryByText('Unknown')).toBeNull()
   })
 
