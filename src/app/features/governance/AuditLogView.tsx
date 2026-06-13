@@ -448,13 +448,21 @@ export function AuditLogView() {
                   <tr>
                     <td colSpan={7} className="px-4 py-12 text-center">
                       <p className="font-semibold text-foreground-light dark:text-foreground-dark">
-                        No audit history in this view
+                        Your filters may be hiding audit history
                       </p>
                       <p className="mt-1 text-secondary-light dark:text-secondary-dark">
-                        Try All saved item changes or widen the time range. If this is a new
-                        workspace, approve saved instructions or mark a saved note helpful, then
-                        refresh this view.
+                        Show all history first, then narrow by item, area, person, or time. If this
+                        is a new workspace, approve saved instructions or mark a saved note helpful,
+                        then refresh this view.
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => applyQuickView(QUICK_AUDIT_VIEWS[0])}
+                        className="mt-4 inline-flex h-9 items-center gap-2 rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+                      >
+                        <Search size={15} aria-hidden="true" />
+                        Show all audit history
+                      </button>
                     </td>
                   </tr>
                 ) : (

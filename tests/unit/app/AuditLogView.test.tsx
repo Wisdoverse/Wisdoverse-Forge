@@ -139,7 +139,9 @@ describe('AuditLogView', () => {
     expect(screen.getAllByText('Show support event').length).toBeGreaterThan(0)
     expect(screen.getByText('Saved note · Saved note record')).toBeDefined()
     expect(
-      screen.queryByText(new RegExp(['Saved note', ['Memory', 'item'].join('\\s+')].join('.*'), 'i'))
+      screen.queryByText(
+        new RegExp(['Saved note', ['Memory', 'item'].join('\\s+')].join('.*'), 'i')
+      )
     ).toBeNull()
     expect(screen.getByText('Saved instruction · Instruction record')).toBeDefined()
     expect(screen.queryByText('Saved instruction · Skill')).toBeNull()
@@ -251,12 +253,25 @@ describe('AuditLogView', () => {
 
     render(<AuditLogView />)
 
-    expect(await screen.findByText('No audit history in this view')).toBeDefined()
-    expect(screen.getByText(/Try All saved item changes or widen the time range/i)).toBeDefined()
+    expect(await screen.findByText('Your filters may be hiding audit history')).toBeDefined()
+    expect(screen.getByText(/Show all history first/i)).toBeDefined()
     expect(
       screen.getByText(/approve saved instructions or mark a saved note helpful/i)
     ).toBeDefined()
     expect(screen.queryByText(/approve a skill/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show all audit history' }))
+
+    await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(2))
+    expect(fetchGovernanceAudit).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        eventPrefix: 'governance.context.',
+        itemKind: undefined,
+        scopeKind: undefined,
+        offset: 0,
+        redactSecrets: true,
+      })
+    )
   })
 
   test('shows beginner network guidance when audit records cannot load', async () => {
