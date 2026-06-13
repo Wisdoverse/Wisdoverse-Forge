@@ -232,8 +232,15 @@ describe('AgentGroupsPanel', () => {
       target: { value: 'missing' },
     })
 
-    expect(screen.getByTestId('task-routing-filter-empty')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /^clear$/i }))
+    const emptyState = screen.getByTestId('task-routing-filter-empty')
+    expect(within(emptyState).getByText('Search is hiding tasks in this queue')).toBeInTheDocument()
+    expect(within(emptyState).getByText(/this task queue still has tasks/i)).toBeInTheDocument()
+    expect(within(emptyState).getByText(/before assuming the queue is empty/i)).toBeInTheDocument()
+    expect(emptyState.textContent).not.toContain('No tasks in this task queue match this search.')
+    expect(within(emptyState).queryByRole('button', { name: /^clear$/i })).toBeNull()
+
+    fireEvent.click(within(emptyState).getByRole('button', { name: /show all queue tasks/i }))
+    expect(screen.getByTestId('task-routing-search')).toHaveValue('')
     expect(screen.getByText('Build settings page')).toBeInTheDocument()
   })
 

@@ -378,16 +378,22 @@ export function AgentGroupsPanel() {
                 ) : (
                   <div
                     data-testid="task-routing-filter-empty"
-                    className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark"
+                    className="flex flex-col gap-2 rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark"
                   >
-                    <span>No tasks in this task queue match this search.</span>
+                    <div className="space-y-1">
+                      <p className="font-medium text-foreground-light dark:text-foreground-dark">
+                        Search is hiding tasks in this queue
+                      </p>
+                      <p>This task queue still has tasks, but none match the words you typed.</p>
+                      <p>Next: show all queue tasks before assuming the queue is empty.</p>
+                    </div>
                     {hasRoutingSearch && (
                       <button
                         type="button"
                         onClick={() => setRoutingSearch('')}
-                        className="shrink-0 rounded-full bg-white px-2.5 py-1 text-ui-button font-medium text-apple-blue shadow-sm transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:bg-black/20"
+                        className="self-start rounded-full bg-white px-2.5 py-1 text-ui-button font-medium text-apple-blue shadow-sm transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:bg-black/20"
                       >
-                        Clear
+                        Show all queue tasks
                       </button>
                     )}
                   </div>
