@@ -158,6 +158,34 @@ describe('TaskCard', () => {
     expect(screen.getByTestId('task-next-step').textContent).not.toContain('context')
   })
 
+  test('shows what to do when an assigned task is still waiting to start', () => {
+    render(<TaskCard task={{ ...mockTask, state: 'queued', progress: 0 }} />)
+
+    expect(screen.getByTestId('task-next-step').textContent).toBe(
+      'Waiting for the chosen agent to start. If it stays here, open details or choose another agent.'
+    )
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('assigned agent')
+  })
+
+  test('shows how to recover a waiting task that has no agent yet', () => {
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'queued',
+          assignedTo: undefined,
+          assignedAgentName: undefined,
+          progress: 0,
+        }}
+      />
+    )
+
+    expect(screen.getByTestId('task-next-step').textContent).toBe(
+      'Waiting for an available agent to start. If it stays here, choose or start an agent.'
+    )
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('pick this up')
+  })
+
   test('shows a recovery next step for failed tasks', () => {
     render(
       <TaskCard

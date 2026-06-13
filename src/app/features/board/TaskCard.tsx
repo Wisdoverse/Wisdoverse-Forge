@@ -296,8 +296,8 @@ function taskNextStep(task: TaskSummary, options: TaskNextStepOptions): string |
         : 'Open details to finish preparing this task.'
     case 'queued':
       return options.hasAssignee
-        ? 'Waiting for the assigned agent to start.'
-        : 'Waiting for an available agent to pick this up.'
+        ? 'Waiting for the chosen agent to start. If it stays here, open details or choose another agent.'
+        : 'Waiting for an available agent to start. If it stays here, choose or start an agent.'
     case 'working':
       return 'Open details for live output and recent updates.'
     case 'blocked':
