@@ -109,6 +109,7 @@ describe('AgentTerminalTab', () => {
     const notice = String(terminalMocks.write.mock.calls.at(-1)?.[0] ?? '')
     expect(notice).toContain('Live work notice: Connection dropped.')
     expect(notice).toContain('Refresh this page first')
+    expect(notice).toContain('Overview')
     expect(notice).toContain('Controls')
     expect(notice).toContain('Restart agent')
     expect(notice).not.toContain('Command window')
@@ -123,7 +124,7 @@ describe('AgentTerminalTab', () => {
     expect(screen.getByText('Live work is still starting')).toBeInTheDocument()
     expect(
       screen.getByText(
-        'Wait until this agent shows Ready. If it stays Offline, open Controls and start or restart this agent before using Live work.'
+        'Wait until this agent shows Ready. If it stays Offline, open Overview, use Controls, and start or restart this agent before using Live work.'
       )
     ).toBeInTheDocument()
     expect(screen.getByText('Status not reported')).toBeInTheDocument()
