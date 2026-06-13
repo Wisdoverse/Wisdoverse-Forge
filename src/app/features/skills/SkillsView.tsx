@@ -52,6 +52,11 @@ export function SkillsView() {
     [catalogSkills.length, stats]
   )
   const hasCatalogSkills = catalogSkills.length > 0
+  const emptyState = savedInstructionsEmptyState({
+    hasCatalogSkills,
+    searchQuery,
+    filter: skillFilter,
+  })
   const toolbarStatus = skillToolbarStatus({
     visibleCount: visibleSkills.length,
     totalCount: catalogSkills.length,
@@ -177,18 +182,10 @@ export function SkillsView() {
             </div>
             <div className="space-y-1">
               <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-                {hasCatalogSkills
-                  ? 'No saved instructions match this view'
-                  : searchQuery
-                    ? 'No saved instructions match your search'
-                    : 'Create your first saved instruction'}
+                {emptyState.title}
               </p>
               <p className="max-w-sm text-ui-body text-secondary-light dark:text-secondary-dark">
-                {hasCatalogSkills
-                  ? 'Adjust search or filters to review reusable instructions.'
-                  : searchQuery
-                    ? 'Clear the search or add a new saved instruction for this workspace.'
-                    : 'Saved instructions are reusable steps that agents can apply during task work.'}
+                {emptyState.detail}
               </p>
             </div>
             <button
@@ -238,6 +235,43 @@ function savedInstructionsLoadRecoveryMessage(error: string): string {
     return 'Check your connection, then choose Retry.'
   }
   return 'Choose Retry to refresh Saved instructions.'
+}
+
+function savedInstructionsEmptyState({
+  hasCatalogSkills,
+  searchQuery,
+  filter,
+}: {
+  hasCatalogSkills: boolean
+  searchQuery: string
+  filter: SkillFilter
+}): { title: string; detail: string } {
+  if (hasCatalogSkills && searchQuery.trim()) {
+    return {
+      title: 'Clear search to see saved instructions',
+      detail: 'The library has saved instructions, but this search hides them.',
+    }
+  }
+
+  if (hasCatalogSkills && filter !== 'all') {
+    return {
+      title: 'Change filter to see saved instructions',
+      detail: 'The library has saved instructions, but this filter hides them.',
+    }
+  }
+
+  if (searchQuery.trim()) {
+    return {
+      title: 'Clear search or create a saved instruction',
+      detail:
+        'There are no saved instructions yet. Clear search, then choose New Instruction to save reusable steps.',
+    }
+  }
+
+  return {
+    title: 'Create your first saved instruction',
+    detail: 'Saved instructions are reusable steps that agents can apply during task work.',
+  }
 }
 
 function filterSkills(skills: Skill[], filter: SkillFilter): Skill[] {

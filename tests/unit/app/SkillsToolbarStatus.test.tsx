@@ -57,8 +57,10 @@ describe('Skills toolbar status', () => {
     })
 
     expect(screen.getByText('Clear search to see saved instructions.')).toBeInTheDocument()
-    expect(screen.getByText(/adjust search or filters/i)).toBeInTheDocument()
+    expect(screen.getByText('Clear search to see saved instructions')).toBeInTheDocument()
+    expect(screen.getByText(/this search hides them/i)).toBeInTheDocument()
     expect(screen.queryByText('No saved instructions match search')).toBeNull()
+    expect(screen.queryByText('No saved instructions match this view')).toBeNull()
   })
 
   test('explains when a filter hides every saved instruction', async () => {
@@ -85,7 +87,9 @@ describe('Skills toolbar status', () => {
     fireEvent.click(screen.getByRole('button', { name: /for one work tool\s*0/i }))
 
     expect(screen.getByText('Change filter to see saved instructions.')).toBeInTheDocument()
-    expect(screen.getByText(/adjust search or filters/i)).toBeInTheDocument()
+    expect(screen.getByText('Change filter to see saved instructions')).toBeInTheDocument()
+    expect(screen.getByText(/this filter hides them/i)).toBeInTheDocument()
     expect(screen.queryByText('No saved instructions match filter')).toBeNull()
+    expect(screen.queryByText('No saved instructions match this view')).toBeNull()
   })
 })

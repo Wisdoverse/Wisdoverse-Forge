@@ -101,6 +101,21 @@ describe('SkillsView', () => {
     })
   })
 
+  test('guides empty saved-instruction search toward clearing or creating', async () => {
+    render(<SkillsView />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/create your first saved instruction/i)).toBeDefined()
+    })
+    fireEvent.change(screen.getByLabelText(/search saved instructions/i), {
+      target: { value: 'release handoff' },
+    })
+
+    expect(screen.getByText('Clear search or create a saved instruction')).toBeDefined()
+    expect(screen.getByText(/clear search, then choose new instruction/i)).toBeDefined()
+    expect(screen.queryByText('No saved instructions match your search')).toBeNull()
+  })
+
   test('renders skills from the Rust API response shape', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
