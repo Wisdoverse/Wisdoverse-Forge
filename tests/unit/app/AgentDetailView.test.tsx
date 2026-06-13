@@ -199,7 +199,8 @@ describe('AgentDetailView', () => {
     expect(screen.getByTestId('agent-assignment-fit')).toBeDefined()
     expect(screen.getByText('Can be assigned now')).toBeDefined()
     expect(screen.getByText('Implement onboarding flow')).toBeDefined()
-    expect(screen.getByText(/attach saved instructions/i)).toBeDefined()
+    expect(screen.getByText('No saved instructions used in recent work yet')).toBeDefined()
+    expect(screen.queryByText(/task\s+context/i)).toBeNull()
   })
 
   test('guides an idle agent toward a first safe task', () => {
