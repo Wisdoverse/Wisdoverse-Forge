@@ -23,6 +23,16 @@ import {
   type GitProvider,
 } from '@app/shared/api/agent-api-types'
 
+const LEGACY_API_NETWORK_ERROR = 'Forge could not connect. Check your connection, then try again.'
+const LEGACY_API_REQUEST_ERROR =
+  'Forge could not finish this request. Wait a moment, then try again.'
+const RAW_LEGACY_ERROR_PATTERN = /^(?:Network error|Server error\s*\(\d{3}\)|HTTP\s+\d{3})$/i
+
+function legacyApiError(data: ApiErrorFields): string {
+  const message = extractApiError(data, LEGACY_API_REQUEST_ERROR).trim()
+  return RAW_LEGACY_ERROR_PATTERN.test(message) ? LEGACY_API_REQUEST_ERROR : message
+}
+
 // Re-export shared infrastructure types for consumers that imported them from
 // this module before they were extracted to `agent-api-types`.
 export {
@@ -280,7 +290,7 @@ export function createAgentAPI(
         return await response.json()
       } catch (e) {
         console.error('Error creating agent:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -311,7 +321,7 @@ export function createAgentAPI(
         return await response.json()
       } catch (e) {
         console.error('Error enrolling local agent:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -324,7 +334,7 @@ export function createAgentAPI(
         return await response.json()
       } catch (e) {
         console.error('Error fetching server info:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -341,7 +351,7 @@ export function createAgentAPI(
         return await response.json()
       } catch (e) {
         console.error('Error renaming agent:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -361,7 +371,7 @@ export function createAgentAPI(
         return await response.json()
       } catch (e) {
         console.error('Error saving zone position:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -377,7 +387,7 @@ export function createAgentAPI(
         return await response.json()
       } catch (e) {
         console.error('Error deleting agent:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -393,7 +403,7 @@ export function createAgentAPI(
         return await response.json()
       } catch (e) {
         console.error('Error starting agent:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -409,7 +419,7 @@ export function createAgentAPI(
         return await response.json()
       } catch (e) {
         console.error('Error restarting agent:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -437,7 +447,7 @@ export function createAgentAPI(
         return await response.json()
       } catch (e) {
         console.error('Error sending prompt:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -463,7 +473,7 @@ export function createAgentAPI(
         return await r.json()
       } catch (e) {
         console.error('updateAgent failed:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -490,7 +500,7 @@ export function createAgentAPI(
         return await r.json()
       } catch (e) {
         console.error('fetchMessages failed:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -505,7 +515,7 @@ export function createAgentAPI(
         return await r.json()
       } catch (e) {
         console.error('deleteMessages failed:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -538,7 +548,7 @@ export function createAgentAPI(
         return await r.json()
       } catch (e) {
         console.error('interruptPrompt failed:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -681,7 +691,7 @@ export function createAgentAPI(
         if (!response.ok) {
           const body = await response.json().catch(() => ({}))
           console.error(`Error creating user LLM config: HTTP ${response.status}`, body)
-          return { ok: false, error: body?.error ?? `Server error (${response.status})` }
+          return { ok: false, error: legacyApiError(body as ApiErrorFields) }
         }
         return await response.json()
       } catch (e) {
@@ -699,12 +709,12 @@ export function createAgentAPI(
         if (!response.ok) {
           const body = await response.json().catch(() => ({}))
           console.error(`Error deleting user LLM config: HTTP ${response.status}`, body)
-          return { ok: false, error: body?.error ?? `Server error (${response.status})` }
+          return { ok: false, error: legacyApiError(body as ApiErrorFields) }
         }
         return await response.json()
       } catch (e) {
         console.error('Error deleting user LLM config:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -717,12 +727,12 @@ export function createAgentAPI(
         if (!response.ok) {
           const body = await response.json().catch(() => ({}))
           console.error(`Error testing user LLM config: HTTP ${response.status}`, body)
-          return { ok: false, error: body?.error ?? `Server error (${response.status})` }
+          return { ok: false, error: legacyApiError(body as ApiErrorFields) }
         }
         return await response.json()
       } catch (e) {
         console.error('Error testing user LLM config:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -760,14 +770,14 @@ export function createAgentAPI(
           console.error(`Error creating SSH key: HTTP ${response.status}`, body)
           return {
             ok: false,
-            error: extractApiError(body as ApiErrorFields, `Server error (${response.status})`),
+            error: legacyApiError(body as ApiErrorFields),
           }
         }
         const data = await response.json()
         return { ok: Boolean(data?.ok), key: mapUserSshKey(payloadObject(data, 'key')) }
       } catch (e) {
         console.error('Error creating SSH key:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -782,14 +792,14 @@ export function createAgentAPI(
           console.error(`Error deleting SSH key: HTTP ${response.status}`, body)
           return {
             ok: false,
-            error: extractApiError(body as ApiErrorFields, `Server error (${response.status})`),
+            error: legacyApiError(body as ApiErrorFields),
           }
         }
         const data = await response.json()
         return { ok: Boolean(data?.ok) }
       } catch (e) {
         console.error('Error deleting SSH key:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -838,13 +848,13 @@ export function createAgentAPI(
           const body = await response.json().catch(() => ({}))
           return {
             ok: false,
-            error: extractApiError(body as ApiErrorFields, `Server error (${response.status})`),
+            error: legacyApiError(body as ApiErrorFields),
           }
         }
         return await response.json()
       } catch (e) {
         console.error('Error saving git credential:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -858,13 +868,13 @@ export function createAgentAPI(
           const body = await response.json().catch(() => ({}))
           return {
             ok: false,
-            error: extractApiError(body as ApiErrorFields, `Server error (${response.status})`),
+            error: legacyApiError(body as ApiErrorFields),
           }
         }
         return await response.json()
       } catch (e) {
         console.error('Error deleting git credential:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -914,12 +924,12 @@ export function createAgentAPI(
         )
         if (!response.ok) {
           const body = await response.json().catch(() => ({}))
-          return { ok: false, error: body?.error ?? `Server error (${response.status})` }
+          return { ok: false, error: legacyApiError(body as ApiErrorFields) }
         }
         return await response.json()
       } catch (e) {
         console.error('Error starting CLI auth proxy login:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -953,7 +963,7 @@ export function createAgentAPI(
 
         // The callback returns HTML — check status code for success
         if (!response.ok) {
-          return { ok: false, error: `Server error (${response.status})` }
+          return { ok: false, error: LEGACY_API_REQUEST_ERROR }
         }
 
         // Parse the HTML response to extract the postMessage payload
@@ -964,10 +974,10 @@ export function createAgentAPI(
 
         // Try to extract error from the HTML payload
         const errorMatch = html.match(/"error":"([^"]*)"/)
-        return { ok: false, error: errorMatch?.[1] ?? 'Connection failed' }
+        return { ok: false, error: errorMatch?.[1] ?? LEGACY_API_REQUEST_ERROR }
       } catch (e) {
         console.error('Error completing CLI auth proxy login:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -979,12 +989,12 @@ export function createAgentAPI(
         })
         if (!response.ok) {
           const body = await response.json().catch(() => ({}))
-          return { ok: false, error: body?.error ?? `Server error (${response.status})` }
+          return { ok: false, error: legacyApiError(body as ApiErrorFields) }
         }
         return await response.json()
       } catch (e) {
         console.error('Error disconnecting CLI auth proxy:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -1126,7 +1136,7 @@ export function createAgentAPI(
         return await response.json()
       } catch (e) {
         console.error('Error adding collaborator:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -1144,7 +1154,7 @@ export function createAgentAPI(
         return await response.json()
       } catch (e) {
         console.error('Error updating collaborator:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -1157,7 +1167,7 @@ export function createAgentAPI(
         return await response.json()
       } catch (e) {
         console.error('Error removing collaborator:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -1175,7 +1185,7 @@ export function createAgentAPI(
         return data
       } catch (e) {
         console.error('Error transferring ownership:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -1198,7 +1208,7 @@ export function createAgentAPI(
         return await response.json()
       } catch (e) {
         console.error('Error inviting to team:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -1216,7 +1226,7 @@ export function createAgentAPI(
         return await response.json()
       } catch (e) {
         console.error('Error inviting to project:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -1230,7 +1240,7 @@ export function createAgentAPI(
         return await response.json()
       } catch (e) {
         console.error('Error accepting invite:', e)
-        return { ok: false, error: 'Network error' }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 

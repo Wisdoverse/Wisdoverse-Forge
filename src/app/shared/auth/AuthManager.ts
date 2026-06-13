@@ -36,6 +36,8 @@ const STORAGE_KEYS = {
   legacyRefresh: 'af:auth:refresh',
 } as const
 
+const AUTH_NETWORK_ERROR = 'Forge could not connect. Check your connection, then try again.'
+
 export class AuthManager {
   private accessToken: string | null = null
   private user: AuthUser | null = null
@@ -198,7 +200,7 @@ export class AuthManager {
       this.notifyCallbacks()
       return { ok: true, user: this.user }
     } catch {
-      return { ok: false, error: 'Network error' }
+      return { ok: false, error: AUTH_NETWORK_ERROR }
     }
   }
 
@@ -243,7 +245,7 @@ export class AuthManager {
         }
       }
     } catch {
-      return { ok: false, error: 'Network error' }
+      return { ok: false, error: AUTH_NETWORK_ERROR }
     }
   }
 

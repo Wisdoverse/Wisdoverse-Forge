@@ -18,8 +18,11 @@ const NEXT_ACTION_PATTERN =
 const RAW_USER_VISIBLE_PATTERNS = [
   /\bAn error occurred\b/,
   /\bError occurred\b/,
+  /\bConnection failed\b/,
   /\bFailed to fetch\b/,
   /\bInternal Server Error\b/,
+  /\bNetwork error\b/,
+  /\bServer error\s*\(\d{3}\)\b/,
   /\bStack trace\b/i,
   /\bUnhandled exception\b/i,
   /\bSQL error\b/i,
@@ -68,6 +71,7 @@ function walk(dir, files) {
 }
 
 function isUiCopyFile(relFile) {
+  if (relFile === 'src/app/shared/api/legacy/AgentAPI.ts') return true
   if (NON_UI_FILE_PATTERNS.some((pattern) => pattern.test(relFile))) return false
   if (NON_UI_PATH_PARTS.some((part) => relFile.includes(part))) return false
   return true
@@ -102,7 +106,9 @@ function isLikelyGuardOrParserLine(line) {
     line.includes('includes(') ||
     line.includes('.test(') ||
     line.includes('new Error(') ||
+    line.includes('RAW_') ||
     line.includes('throw ') ||
+    line.trim().startsWith('/') ||
     line.trim().startsWith('//') ||
     line.trim().startsWith('*')
   )

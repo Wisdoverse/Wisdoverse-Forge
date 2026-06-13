@@ -23,6 +23,7 @@ function authFailureDetail(result: AuthFailure): {
 function authLoginErrorMessage(result: AuthFailure): string {
   const { code, lowerDetail } = authFailureDetail(result)
   const networkFailed =
+    lowerDetail.includes('could not connect') ||
     lowerDetail.includes('network') ||
     lowerDetail.includes('failed to fetch') ||
     lowerDetail.includes('load failed')
@@ -66,6 +67,7 @@ function authLoginErrorMessage(result: AuthFailure): string {
 function authRegisterErrorMessage(result: AuthFailure): string {
   const { code, lowerDetail } = authFailureDetail(result)
   const networkFailed =
+    lowerDetail.includes('could not connect') ||
     lowerDetail.includes('network') ||
     lowerDetail.includes('failed to fetch') ||
     lowerDetail.includes('load failed')

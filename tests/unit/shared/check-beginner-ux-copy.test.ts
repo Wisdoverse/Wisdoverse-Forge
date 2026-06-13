@@ -105,6 +105,37 @@ export const en = {
     ])
   })
 
+  it('flags raw legacy API fallback errors that can reach users', () => {
+    const cwd = fixture({
+      'src/app/shared/api/legacy/AgentAPI.ts': `
+export async function saveThing() {
+  return { ok: false, error: 'Network error' }
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'raw-error-copy',
+        location: 'src/app/shared/api/legacy/AgentAPI.ts:3',
+      }),
+    ])
+  })
+
+  it('ignores raw legacy API parser regexes', () => {
+    const cwd = fixture({
+      'src/app/shared/api/legacy/AgentAPI.ts': `
+const RAW_LEGACY_ERROR_PATTERN =
+  /^(?:Network error|Server error\\s*\\(\\d{3}\\)|HTTP\\s+\\d{3})$/i
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('does not treat status badges as empty states', () => {
     const cwd = fixture({
       'src/app/features/admin/StatusBadge.tsx': `
