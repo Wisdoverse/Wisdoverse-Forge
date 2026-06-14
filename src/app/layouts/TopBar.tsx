@@ -20,7 +20,7 @@ const VIEW_OPTIONS: { id: ViewMode; label: string }[] = [
   { id: 'board', label: 'Board' },
   { id: 'list', label: 'List' },
   { id: 'timeline', label: 'Timeline' },
-  { id: '3d', label: '3D' },
+  { id: '3d', label: 'Map' },
 ]
 
 export function TopBar({

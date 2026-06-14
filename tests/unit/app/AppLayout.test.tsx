@@ -130,7 +130,8 @@ describe('AppLayout', () => {
     expect(screen.getByText('Board')).toBeDefined()
     expect(screen.getByText('List')).toBeDefined()
     expect(screen.getByText('Timeline')).toBeDefined()
-    expect(screen.getByText('3D')).toBeDefined()
+    expect(screen.getByText('Map')).toBeDefined()
+    expect(screen.queryByRole('button', { name: '3D' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Status' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Agent' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Priority' })).toBeNull()
@@ -146,7 +147,9 @@ describe('AppLayout', () => {
     fireEvent.click(searchButton)
 
     expect(screen.getByPlaceholderText(/search pages or actions/i)).toBeDefined()
-    expect(screen.queryByPlaceholderText(new RegExp(['search', 'commands'].join('\\s+'), 'i'))).toBeNull()
+    expect(
+      screen.queryByPlaceholderText(new RegExp(['search', 'commands'].join('\\s+'), 'i'))
+    ).toBeNull()
   })
 
   test('uses beginner-facing start page metadata', () => {
@@ -333,7 +336,8 @@ describe('AppLayout', () => {
     })
     fireEvent.change(screen.getByLabelText(/details the agent should know/i), {
       target: {
-        value: 'Where to work:\n- src/app/features/board\n\nDone when:\n- no task result returns guidance',
+        value:
+          'Where to work:\n- src/app/features/board\n\nDone when:\n- no task result returns guidance',
       },
     })
     fireEvent.click(screen.getByRole('button', { name: /create task/i }))

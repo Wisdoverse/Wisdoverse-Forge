@@ -3549,6 +3549,38 @@ function GettingStartedGuideRow() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags bare 3D task view labels in the top bar', () => {
+    const cwd = fixture({
+      'src/app/layouts/TopBar.tsx': `
+const VIEW_OPTIONS = [
+  { id: '3d', label: '3D' },
+]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'task-view-label-copy',
+        location: 'src/app/layouts/TopBar.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts map as the beginner-facing task view label', () => {
+    const cwd = fixture({
+      'src/app/layouts/TopBar.tsx': `
+const VIEW_OPTIONS = [
+  { id: '3d', label: 'Map' },
+]
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags saved instruction maintainer fallback copy that does not tell users to refresh', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `

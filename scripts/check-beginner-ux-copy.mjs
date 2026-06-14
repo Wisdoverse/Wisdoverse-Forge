@@ -257,6 +257,8 @@ const START_GUIDE_RESET_JARGON_PATTERNS = [
   /\bReset it here\b/i,
 ]
 
+const TASK_VIEW_LABEL_JARGON_PATTERNS = [/\bid:\s*['"`]3d['"`]\s*,\s*label:\s*['"`]3D['"`]/]
+
 const SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS = [
   /\bMaintainer not listed yet\b/i,
   /暂未列出维护者/,
@@ -992,6 +994,12 @@ function hasStartGuideResetJargonCopy(relFile, line) {
   return START_GUIDE_RESET_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskViewLabelJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/layouts/TopBar.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_VIEW_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSkillMaintainerFallbackDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
@@ -1684,6 +1692,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Start guide restore copy must say it shows the setup checklist again, not that it resets the guide.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskViewLabelJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-view-label-copy',
+        location,
+        message: 'Task view labels must use beginner-facing names such as Map instead of bare 3D.',
         sample: line.trim(),
       })
     }
