@@ -334,12 +334,37 @@ pub mod test_only {
         name: &str,
         repository_url: Option<&str>,
     ) -> AppResult<Uuid> {
+        create_project_with_slug_for_test(pool, user_id, team_id, name, None, repository_url).await
+    }
+
+    /// Like [`create_project_canonical_for_test`] but lets a test pass an
+    /// explicit caller `slug`, so it can prove the legacy create path DISCARDS a
+    /// hostile caller slug (e.g. `../../etc`): the on-disk `workspace_dir_name` is
+    /// derived from the NAME alone, never from the caller's slug. Returns the new
+    /// project id; the test reads back `workspace_dir_name` to assert the slug had
+    /// no influence.
+    pub async fn create_project_with_slug_for_test(
+        pool: &PgPool,
+        user_id: Uuid,
+        team_id: Uuid,
+        name: &str,
+        slug: Option<&str>,
+        repository_url: Option<&str>,
+    ) -> AppResult<Uuid> {
         let repo = LegacyNavigationRepository::new(pool.clone());
         let org_id = repo.resolve_team_org_for_test(user_id, team_id).await?;
         let scope = tenant_scope_for_ids(org_id, user_id);
         let service = crate::services::legacy_navigation::LegacyNavigationService::from_pool(pool.clone());
         let project = service
-            .create_project(&scope, team_id, name.to_string(), None, None, None, repository_url.map(|u| u.to_string()))
+            .create_project(
+                &scope,
+                team_id,
+                name.to_string(),
+                slug.map(|s| s.to_string()),
+                None,
+                None,
+                repository_url.map(|u| u.to_string()),
+            )
             .await?;
         Ok(project.id)
     }

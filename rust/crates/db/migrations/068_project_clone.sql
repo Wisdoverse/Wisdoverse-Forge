@@ -87,17 +87,31 @@ END $$;
 ALTER TABLE projects ALTER COLUMN workspace_dir_name SET NOT NULL;
 
 -- Make the NOT NULL invariant unbreakable for FUTURE inserts. The create-path
--- service always sets a derived, collision-resolved `workspace_dir_name`
--- explicitly, but any INSERT that omits the column (a future code path, or a
--- bare test seed) now gets a unique, filesystem-safe value rather than a NULL
--- that would violate the NOT NULL above. A `gen_random_uuid()::text` value is
--- `[0-9a-f-]`, which satisfies `WorkspaceDirName::parse`, and is unique by
+-- service (`ProjectRepository::create_with_clone`) always sets a derived,
+-- collision-resolved `workspace_dir_name` explicitly, but any INSERT that omits
+-- the column (a future code path, or a bare test seed) now gets a unique,
+-- filesystem-safe value rather than a NULL that would violate the NOT NULL above.
+--
+-- The default is a GREPPABLE SENTINEL — `unallocated-<uuid>` — NOT a bare
+-- `gen_random_uuid()`. A bare uuid is indistinguishable from a real allocated
+-- name, so a create path that silently FORGOT to set the dir name would be
+-- invisible. The `unallocated-` prefix makes that bug alarmable/greppable: any
+-- live `workspace_dir_name LIKE 'unallocated-%'` is a defect (a write that did
+-- not go through the product path), not an expected value. `unallocated-` + a
+-- 36-char uuid is 48 chars (<= the 64-char `WorkspaceDirName` cap), all
+-- `[a-z0-9-]`, no leading/trailing dash, so it still satisfies
+-- `WorkspaceDirName::parse` / `is_safe_dir_name`, and the uuid keeps it unique by
 -- construction so it can never collide on the `(workspace_id, …)` unique index.
+--
+-- This sentinel guards `workspace_dir_name` specifically. The `slug` column gets
+-- NO parallel default (out of scope here); the create path supplies both columns
+-- on every product write, and `slug`'s NOT NULL predates this migration.
+--
 -- Applied as a separate `SET DEFAULT` *after* the backfill so it only governs
 -- new rows and keeps the idempotent backfill above untouched. This is a
 -- fallback, not the product path: real projects carry the name-derived
 -- directory the service allocates.
-ALTER TABLE projects ALTER COLUMN workspace_dir_name SET DEFAULT gen_random_uuid()::text;
+ALTER TABLE projects ALTER COLUMN workspace_dir_name SET DEFAULT ('unallocated-' || gen_random_uuid()::text);
 
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS clone_status TEXT NOT NULL DEFAULT 'none';
 

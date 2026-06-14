@@ -63,13 +63,29 @@ impl OrchestrationOutboxPublisher {
                     // idles when both are empty.
                     let assignment = self.publish_next().await;
                     let clone = self.publish_next_clone().await;
-                    match (assignment, clone) {
+                    match (&assignment, &clone) {
                         (Ok(false), Ok(false)) => tokio::time::sleep(IDLE_POLL_INTERVAL).await,
                         (Ok(_), Ok(_)) => {}
-                        (assignment, clone) => {
-                            for err in [assignment.err(), clone.err()].into_iter().flatten() {
+                        _ => {
+                            // Tag each failure with WHICH stream it came from and
+                            // count it on its OWN axis, so a stuck clone backlog is
+                            // observable independently of assignment publishing.
+                            if let Err(err) = &assignment {
                                 metrics::counter!("agentforge_orchestration_outbox_publish_errors_total").increment(1);
-                                tracing::warn!(error = %err, "orchestration outbox publish failed");
+                                tracing::warn!(
+                                    error = %err,
+                                    stream = "orchestration_assignment",
+                                    "orchestration outbox publish failed"
+                                );
+                            }
+                            if let Err(err) = &clone {
+                                metrics::counter!("agentforge_project_clone_outbox_relay_errors_total").increment(1);
+                                tracing::warn!(
+                                    error = %err,
+                                    stream = "project_clone",
+                                    aggregate_type = CLONE_OUTBOX_AGGREGATE_TYPE,
+                                    "project_clone outbox relay failed"
+                                );
                             }
                             tokio::time::sleep(ERROR_BACKOFF).await;
                         }
@@ -186,9 +202,19 @@ impl OrchestrationOutboxPublisher {
 /// dequeues from `job_queue` directly. The enqueue + mark-published happen in ONE
 /// transaction holding the `FOR UPDATE SKIP LOCKED` lock on the outbox row, so
 /// the relay is atomic: a crash after enqueue but before commit rolls the row
-/// back to unpublished and is retried, and the job's `ON CONFLICT (unique_key)
-/// DO NOTHING` makes that retry a no-op (the `unique_key =
-/// project_clone:<project_id>:<attempt>` dedups it).
+/// back to unpublished and is retried.
+///
+/// IDEMPOTENCY SCOPE (do not overstate): the job's `ON CONFLICT (unique_key) DO
+/// NOTHING` only protects against a duplicate enqueue WHILE the `job_queue` row
+/// still exists. The `unique_key = project_clone:<project_id>:<attempt>` is
+/// TRANSIENT — once the M5 worker `complete()`s the job (which DELETEs the row),
+/// the unique_key is gone, so a subsequent relay of the SAME attempt (e.g. if
+/// `published_at` were ever re-cleared) would enqueue a fresh duplicate. The
+/// DURABLE, exactly-once-per-attempt guarantee is the WORKER's responsibility in
+/// M5: it claims the attempt against the `uq_project_clone_attempt(project_id,
+/// attempt)` unique index, which survives `complete()` and so dedups a
+/// re-relayed job at claim time. This relay only guarantees "no duplicate while
+/// the queued job is in flight," not "exactly once forever."
 ///
 /// Exposed (not private to the publisher) so the relay can be exercised directly
 /// without constructing a NATS client.
@@ -204,8 +230,37 @@ pub async fn relay_next_clone_outbox(pool: &PgPool) -> Result<Option<uuid::Uuid>
         return Ok(None);
     };
 
-    let payload: CloneOutboxPayload =
-        serde_json::from_value(row.payload.clone()).context("decode project_clone outbox payload")?;
+    // A DECODE failure is TERMINAL, not transient: a structurally-undecodable
+    // payload can never relay, and leaving the row unpublished would make the
+    // next `FOR UPDATE SKIP LOCKED LIMIT 1` re-select this SAME row forever — a
+    // head-of-line stall that blocks every newer clone request behind one poison
+    // row. So on a decode error we DEAD-LETTER the row (mark it published so the
+    // sweep skips it) in this same locked tx, count it on its own axis, log
+    // LOUDLY at error level, and return Ok(Some) so the loop keeps draining newer
+    // rows. (A transient DB error during the mark below still propagates and
+    // leaves the row for retry — only the decode case is treated as poison.)
+    let payload: CloneOutboxPayload = match serde_json::from_value(row.payload.clone()) {
+        Ok(payload) => payload,
+        Err(decode_err) => {
+            sqlx::query(MARK_OUTBOX_PUBLISHED_SQL)
+                .bind(row.id)
+                .execute(&mut *tx)
+                .await
+                .context("dead-letter undecodable project_clone outbox row")?;
+            tx.commit().await.context("commit dead-lettered clone outbox tx")?;
+
+            tracing::error!(
+                outbox_id = %row.id,
+                aggregate_id = %row.aggregate_id,
+                error = %decode_err,
+                "POISON project_clone outbox row: payload could not be decoded — dead-lettered \
+                 (marked published) so it cannot stall the relay head. The clone for this row was \
+                 NOT enqueued; investigate the producer that wrote an undecodable payload."
+            );
+            metrics::counter!("agentforge_project_clone_outbox_poison_total").increment(1);
+            return Ok(Some(row.id));
+        }
+    };
     let unique_key = payload.job_unique_key();
 
     // Enqueue inside the same tx (not the pool-based `queue::enqueue`) so the
@@ -292,10 +347,25 @@ pub fn register_metrics() {
         "project_clone transactional-outbox rows relayed into job_queue after the enqueue + \
          mark-published commit (M2). A duplicate publish is a no-op and is NOT counted here."
     );
+    metrics::describe_counter!(
+        "agentforge_project_clone_outbox_relay_errors_total",
+        "project_clone outbox relay attempts that failed (a transient DB/enqueue error that leaves \
+         the row unpublished for retry). Tracked on its OWN axis — separate from assignment-publish \
+         errors — so a stuck clone backlog is observable independently."
+    );
+    metrics::describe_counter!(
+        "agentforge_project_clone_outbox_poison_total",
+        "project_clone outbox rows that were dead-lettered (marked published WITHOUT enqueueing a \
+         job) because their payload could not be decoded. A non-zero value means a producer wrote \
+         an undecodable payload and that clone was dropped — investigate. Distinct from a transient \
+         relay error: a poison row can never succeed, so it is skipped to keep the relay head moving."
+    );
 
     metrics::counter!("agentforge_orchestration_outbox_published_total").increment(0);
     metrics::counter!("agentforge_orchestration_outbox_publish_errors_total").increment(0);
     metrics::histogram!("agentforge_orchestration_assignment_publish_seconds").record(0.0);
     metrics::counter!("agentforge_orchestration_assignment_kind_fallback_total").increment(0);
     metrics::counter!("agentforge_project_clone_outbox_relayed_total").increment(0);
+    metrics::counter!("agentforge_project_clone_outbox_relay_errors_total").increment(0);
+    metrics::counter!("agentforge_project_clone_outbox_poison_total").increment(0);
 }

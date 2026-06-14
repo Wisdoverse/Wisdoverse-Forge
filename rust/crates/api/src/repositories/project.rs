@@ -184,9 +184,25 @@ impl ProjectRepository {
         }
 
         // (2) + (3): allocate a unique dir name and insert the project, retrying
-        // on the per-workspace unique index. A SAVEPOINT isolates each insert so
-        // a unique-violation does not poison the outer transaction; on collision
-        // we roll back to the savepoint and retry with the next suffix.
+        // ONLY on a name-allocation unique index. A SAVEPOINT isolates each insert
+        // so a unique-violation does not poison the outer transaction; on a
+        // name collision we roll back to the savepoint and retry with the next
+        // suffix. Any OTHER 23505 (or one with no constraint name) propagates.
+        //
+        // The INSERT binds the SAME allocated value to both `slug` and
+        // `workspace_dir_name`, but the two columns have DIFFERENT unique indexes:
+        //   * `uq_projects_workspace_dir(workspace_id, workspace_dir_name)` is
+        //     partial over LIVE rows (`WHERE deleted_at IS NULL`);
+        //   * `projects_team_slug_idx(team_id, slug)` spans ALL rows, including
+        //     soft-deleted ones.
+        // Because slug-uniqueness includes soft-deleted rows, a dead sibling's
+        // slug can push a LIVE create to a suffixed name even though the directory
+        // name itself was free. That is acceptable: the suffixed name stays valid,
+        // unique, and predictable. What is NOT acceptable is folding an UNRELATED
+        // 23505 (a PK collision, a future constraint) into the suffix loop — the
+        // suffix cannot fix it, so the loop would spin 16× and then mis-report
+        // "dir exhausted." So the retry guard matches the violated constraint NAME
+        // and lets everything else surface as the real error it is.
         let base_dir = WorkspaceDirName::derive(&input.name);
         let clone_status =
             if input.clone.is_some() { CloneStatus::Queued.as_str() } else { CloneStatus::None.as_str() };
@@ -226,11 +242,21 @@ impl ProjectRepository {
                     project = Some(row);
                     break;
                 }
-                Err(err) if is_unique_violation(&err) => {
+                Err(err) if is_dir_alloc_collision(&err) => {
                     sqlx::query("ROLLBACK TO SAVEPOINT project_dir_alloc").execute(&mut **tx).await?;
                     continue;
                 }
-                Err(err) => return Err(err.into()),
+                Err(err) => {
+                    // Not a name-allocation collision (an unrelated 23505, a
+                    // check/FK violation, a connection error — none of which a
+                    // suffix retry can fix). Propagate the REAL error directly; the
+                    // caller (`create_with_clone`) never commits on an `Err`, so
+                    // dropping the transaction rolls the whole tuple back. We do
+                    // NOT `ROLLBACK TO SAVEPOINT` first: it is unnecessary when we
+                    // are aborting, and if the rollback itself failed it would mask
+                    // the true cause.
+                    return Err(err.into());
+                }
             }
         }
         let project = project.ok_or_else(ResourceRepositoryPolicy::workspace_dir_allocation_exhausted)?;
@@ -389,11 +415,75 @@ impl ProjectRepository {
     }
 }
 
-/// True when a `sqlx` error is a Postgres `unique_violation` (SQLSTATE 23505).
+/// Postgres SQLSTATE for `unique_violation`.
+const SQLSTATE_UNIQUE_VIOLATION: &str = "23505";
+
+/// The unique indexes the project-create INSERT can violate on a NAME collision
+/// that a numeric suffix can resolve. The INSERT binds one allocated value to
+/// both `workspace_dir_name` and `slug`, so a collision can surface on EITHER:
+///   * `uq_projects_workspace_dir` — `(workspace_id, workspace_dir_name)`, live
+///     rows only;
+///   * `projects_team_slug_idx` — `(team_id, slug)`, ALL rows (incl. soft-deleted).
 ///
-/// Used by the dir-name allocation loop to distinguish a recoverable
-/// `(workspace_id, workspace_dir_name)` collision (retry with the next suffix)
-/// from a genuine error (propagate).
-fn is_unique_violation(err: &sqlx::Error) -> bool {
-    err.as_database_error().and_then(|db| db.code()).as_deref() == Some("23505")
+/// Only these two warrant a suffix retry; any other 23505 is a real error.
+const DIR_ALLOC_CONSTRAINTS: [&str; 2] = ["uq_projects_workspace_dir", "projects_team_slug_idx"];
+
+/// True ONLY for a `unique_violation` (SQLSTATE 23505) on one of the project
+/// name-allocation unique indexes ([`DIR_ALLOC_CONSTRAINTS`]) — i.e. a collision
+/// the dir-name suffix loop can resolve by trying the next suffix.
+///
+/// Everything else returns false so it propagates as the real error it is:
+///   * a 23505 with NO constraint name (cannot prove it is a name collision);
+///   * a 23505 on any OTHER constraint (a PK collision, a future unique index) —
+///     a suffix can never fix it, so retrying would spin to the bound and then
+///     mis-report "dir exhausted";
+///   * any non-unique error (FK, check, connection, …).
+fn is_dir_alloc_collision(err: &sqlx::Error) -> bool {
+    let Some(db_err) = err.as_database_error() else {
+        return false;
+    };
+    is_dir_alloc_collision_code(db_err.code().as_deref(), db_err.constraint())
+}
+
+/// The pure classification rule behind [`is_dir_alloc_collision`], split out from
+/// the `sqlx::Error` adapter so the retry/propagate decision is unit-testable
+/// without synthesizing a database error. Returns true ONLY for a 23505 whose
+/// violated constraint NAME is one the suffix loop can resolve.
+fn is_dir_alloc_collision_code(sqlstate: Option<&str>, constraint: Option<&str>) -> bool {
+    sqlstate == Some(SQLSTATE_UNIQUE_VIOLATION)
+        && matches!(constraint, Some(name) if DIR_ALLOC_CONSTRAINTS.contains(&name))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dir_alloc_collision_retries_only_the_name_constraints() {
+        // A 23505 on either name-allocation index is a recoverable collision the
+        // suffix loop must retry.
+        assert!(is_dir_alloc_collision_code(Some("23505"), Some("uq_projects_workspace_dir")));
+        assert!(is_dir_alloc_collision_code(Some("23505"), Some("projects_team_slug_idx")));
+    }
+
+    #[test]
+    fn unrelated_unique_violations_propagate() {
+        // A 23505 on ANY OTHER constraint (a PK collision, a future unique index)
+        // must NOT be folded into the suffix loop — a suffix can't fix it.
+        assert!(!is_dir_alloc_collision_code(Some("23505"), Some("projects_pkey")));
+        assert!(!is_dir_alloc_collision_code(Some("23505"), Some("some_future_unique_idx")));
+        // A 23505 with NO constraint name is not assumed to be a name collision.
+        assert!(!is_dir_alloc_collision_code(Some("23505"), None));
+    }
+
+    #[test]
+    fn non_unique_errors_propagate() {
+        // Foreign-key (23503), check (23514), not-null (23502), and a missing
+        // SQLSTATE are all "not a name collision" -> propagate.
+        assert!(!is_dir_alloc_collision_code(Some("23503"), Some("uq_projects_workspace_dir")));
+        assert!(!is_dir_alloc_collision_code(Some("23514"), Some("projects_team_slug_idx")));
+        assert!(!is_dir_alloc_collision_code(Some("23502"), None));
+        assert!(!is_dir_alloc_collision_code(None, Some("uq_projects_workspace_dir")));
+        assert!(!is_dir_alloc_collision_code(None, None));
+    }
 }
