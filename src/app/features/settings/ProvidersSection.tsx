@@ -729,8 +729,8 @@ function providerReadinessSummary(ready: number, needsTest: number, disabled: nu
       : `${providerCount(ready)} ${ready === 1 ? 'is' : 'are'} ready to use`
   const needsTestText =
     needsTest === 0
-      ? 'none need Check'
-      : `${providerCount(needsTest)} still ${needsTest === 1 ? 'needs' : 'need'} Check`
+      ? 'no connection checks are needed'
+      : `${providerCount(needsTest)} ${needsTest === 1 ? 'needs' : 'need'} a connection check`
   const disabledText =
     disabled === 0
       ? 'none are disabled'

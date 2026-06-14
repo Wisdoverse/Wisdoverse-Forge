@@ -188,6 +188,38 @@ export const zh = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags AI service setup summaries that reuse the Check button label as grammar', () => {
+    const cwd = fixture({
+      'src/app/features/settings/ProvidersSection.tsx': `
+export function providerReadinessSummary() {
+  return '1 AI service still needs Check. none need Check.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'provider-check-copy',
+        location: 'src/app/features/settings/ProvidersSection.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts AI service setup summaries that describe the connection check', () => {
+    const cwd = fixture({
+      'src/app/features/settings/ProvidersSection.tsx': `
+export function providerReadinessSummary() {
+  return '1 AI service needs a connection check. no connection checks are needed.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags validation copy that does not explain the next change', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `

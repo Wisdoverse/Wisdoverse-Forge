@@ -130,6 +130,12 @@ const WORK_SETUP_LOAD_PATTERNS = [/\bAgent Work Setup could not load\b/i, /无�
 const WORK_SETUP_LOAD_RECOVERY_PATTERN =
   /\bRefresh\b|ask an owner|owner or admin|刷新|找\s*owner|找\s*admin|管理员|检查/i
 
+const PROVIDER_CHECK_JARGON_PATTERNS = [
+  /\bnone need Check\b/,
+  /\bstill needs Check\b/,
+  /\bstill need Check\b/,
+]
+
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
@@ -354,6 +360,11 @@ function hasWorkSetupLoadDeadEndCopy(lines, index, line) {
   return !WORK_SETUP_LOAD_RECOVERY_PATTERN.test(context)
 }
 
+function hasProviderCheckJargonCopy(line) {
+  if (isLikelyGuardOrParserLine(line)) return false
+  return PROVIDER_CHECK_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -466,6 +477,16 @@ function scanFile(file, relFile) {
         type: 'work-setup-load-next-action',
         location,
         message: 'Work setup load failure copy must tell first-time operators how to recover.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasProviderCheckJargonCopy(line)) {
+      findings.push({
+        type: 'provider-check-copy',
+        location,
+        message:
+          'AI service setup copy must describe the connection check instead of using button-label grammar.',
         sample: line.trim(),
       })
     }
