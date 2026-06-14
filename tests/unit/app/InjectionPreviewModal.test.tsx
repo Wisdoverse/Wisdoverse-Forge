@@ -54,14 +54,46 @@ describe('InjectionPreviewModal', () => {
     )
 
     expect(screen.getByTestId('context-fit-summary').textContent).toContain(
-      "Fits in this agent's note space (4,000 units available)"
+      'Plenty of room for saved notes'
     )
     expect(screen.getByText('Note limits')).toBeDefined()
     expect(screen.getByText('No note limits right now')).toBeDefined()
-    expect(screen.getByText('Uses about 120 units of note space')).toBeDefined()
+    expect(screen.getByText('Small saved item')).toBeDefined()
     expect(screen.getByLabelText('Remove Deploy checklist from this task')).toBeDefined()
     expect(screen.queryByText(new RegExp(['context', 'units'].join('\\s+'), 'i'))).toBeNull()
+    expect(screen.queryByText(/units available/i)).toBeNull()
+    expect(screen.queryByText(/units of note space/i)).toBeNull()
     expect(screen.queryByText(new RegExp(['Limits', 'applied'].join('\\s+'), 'i'))).toBeNull()
+  })
+
+  test('summarizes saved item size without showing note-space units', () => {
+    render(
+      <InjectionPreviewModal
+        isOpen
+        preview={{
+          ...preview,
+          items: [
+            { ...preview.items[0], id: 'small-item', title: 'Small note', estimatedTokens: 120 },
+            {
+              ...preview.items[0],
+              id: 'medium-item',
+              title: 'Medium note',
+              estimatedTokens: 500,
+            },
+            { ...preview.items[0], id: 'large-item', title: 'Large note', estimatedTokens: 1300 },
+          ],
+        }}
+        onClose={() => {}}
+        onConfirm={() => {}}
+      />
+    )
+
+    expect(screen.getByText('Small saved item')).toBeDefined()
+    expect(screen.getByText('Medium saved item')).toBeDefined()
+    expect(screen.getByText('Large saved item')).toBeDefined()
+    expect(screen.queryByText(/120 units/i)).toBeNull()
+    expect(screen.queryByText(/500 units/i)).toBeNull()
+    expect(screen.queryByText(/1,300 units/i)).toBeNull()
   })
 
   test('uses plain note-limit wording when saved notes are shortened', () => {

@@ -740,6 +740,52 @@ export function DecisionCopy({ approving }) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved-note capacity copy that exposes unit counts', () => {
+    const cwd = fixture({
+      'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
+export function InjectionPreviewModal() {
+  return (
+    <section>
+      <p>Fits in this agent's note space (4,000 units available)</p>
+      <p>Uses about 120 units of note space</p>
+    </section>
+  )
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'note-space-copy',
+        location: 'src/app/entities/context/ui/InjectionPreviewModal.tsx:5',
+      }),
+      expect.objectContaining({
+        type: 'note-space-copy',
+        location: 'src/app/entities/context/ui/InjectionPreviewModal.tsx:6',
+      }),
+    ])
+  })
+
+  it('accepts saved-note capacity copy that uses plain size language', () => {
+    const cwd = fixture({
+      'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
+export function InjectionPreviewModal() {
+  return (
+    <section>
+      <p>Plenty of room for saved notes</p>
+      <p>Small saved item</p>
+    </section>
+  )
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('ignores raw legacy API parser regexes', () => {
     const cwd = fixture({
       'src/app/shared/api/legacy/AgentAPI.ts': `

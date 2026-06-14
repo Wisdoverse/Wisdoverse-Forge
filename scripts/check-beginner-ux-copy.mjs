@@ -119,6 +119,12 @@ const REVIEW_DECISION_JARGON_PATTERNS = [
   /\bswitch back to Pending\b/,
 ]
 
+const NOTE_SPACE_JARGON_PATTERNS = [
+  /\bunits of note space\b/i,
+  /\bunits available\b/i,
+  /\bcontext units\b/i,
+]
+
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
@@ -325,6 +331,11 @@ function hasReviewDecisionJargonCopy(line) {
   return REVIEW_DECISION_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasNoteSpaceJargonCopy(line) {
+  if (isLikelyGuardOrParserLine(line)) return false
+  return NOTE_SPACE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -419,6 +430,15 @@ function scanFile(file, relFile) {
         type: 'review-decision-copy',
         location,
         message: 'Saved-item review copy must say what will be saved instead of approval jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasNoteSpaceJargonCopy(line)) {
+      findings.push({
+        type: 'note-space-copy',
+        location,
+        message: 'Saved-note capacity copy must use plain size language instead of unit counts.',
         sample: line.trim(),
       })
     }

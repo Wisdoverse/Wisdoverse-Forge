@@ -377,7 +377,7 @@ function PreviewItemRow({
             {item.why}
           </p>
           <div className="mt-2 flex flex-wrap gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            <span>Uses about {item.estimatedTokens} units of note space</span>
+            <span>{noteSizeLabel(item.estimatedTokens)}</span>
             {item.lastUsedAt && <span>Used {formatRelativeTime(item.lastUsedAt)}</span>}
             {item.lastVerifiedAt && <span>Verified {formatRelativeTime(item.lastVerifiedAt)}</span>}
           </div>
@@ -416,9 +416,16 @@ function Badge({ children }: { children: string }) {
 
 function budgetLabel(capability?: Record<string, unknown>): string {
   const tokens = capability?.max_context_tokens
-  return typeof tokens === 'number'
-    ? `Fits in this agent's note space (${tokens.toLocaleString()} units available)`
-    : "Checking this agent's note space"
+  if (typeof tokens !== 'number') return "Checking this agent's note space"
+  if (tokens >= 3000) return 'Plenty of room for saved notes'
+  if (tokens >= 1000) return 'Enough room for a few saved notes'
+  return 'Limited room for saved notes'
+}
+
+function noteSizeLabel(estimatedTokens: number): string {
+  if (estimatedTokens >= 1000) return 'Large saved item'
+  if (estimatedTokens >= 300) return 'Medium saved item'
+  return 'Small saved item'
 }
 
 function stringValue(value: unknown): string | null {
