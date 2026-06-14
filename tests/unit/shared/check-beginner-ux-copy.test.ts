@@ -872,6 +872,69 @@ function cliToolLabel() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags agent AI service fallback copy that does not tell users what to refresh', () => {
+    const cwd = fixture({
+      'src/app/entities/agent/model/display-labels.ts': `
+function agentAiServiceLabel() {
+  return 'AI service not reported'
+}
+`,
+      'src/app/entities/agent/model/agents.store.ts': `
+function managedToAgentInfo() {
+  return { provider: 'AI service not reported' }
+}
+`,
+      'src/app/shared/model/agents.store.ts': `
+function cliToolToProvider() {
+  return 'AI service not reported'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-ai-service-copy',
+          location: 'src/app/entities/agent/model/display-labels.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-ai-service-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-ai-service-copy',
+          location: 'src/app/shared/model/agents.store.ts:3',
+        }),
+      ])
+    )
+    expect(result.findings).toHaveLength(3)
+  })
+
+  it('accepts agent AI service fallback copy that tells users to refresh service data', () => {
+    const cwd = fixture({
+      'src/app/entities/agent/model/display-labels.ts': `
+function agentAiServiceLabel() {
+  return 'Refresh AI service'
+}
+`,
+      'src/app/entities/agent/model/agents.store.ts': `
+function managedToAgentInfo() {
+  return { provider: 'Refresh AI service' }
+}
+`,
+      'src/app/shared/model/agents.store.ts': `
+function cliToolToProvider() {
+  return 'Refresh AI service'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags access level fallback copy that does not tell users what to refresh', () => {
     const cwd = fixture({
       'src/app/entities/user/model/roleLabels.ts': `

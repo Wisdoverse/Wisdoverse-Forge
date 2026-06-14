@@ -220,6 +220,8 @@ const AGENT_CONFIG_DETAIL_DEAD_END_PATTERNS = [
   /\bWork tool not reported\b/i,
 ]
 
+const AGENT_AI_SERVICE_DEAD_END_PATTERNS = [/\bAI service not reported\b/i]
+
 const ACCESS_LEVEL_DEAD_END_PATTERNS = [/\bAccess level not reported\b/i]
 
 const BEGINNER_JARGON_PATTERNS = [
@@ -297,6 +299,7 @@ function walk(dir, files) {
 
 function isUiCopyFile(relFile) {
   if (relFile === 'src/app/shared/api/legacy/AgentAPI.ts') return true
+  if (relFile === 'src/app/entities/agent/model/display-labels.ts') return true
   if (relFile === 'src/app/entities/agent/model/runtime-kind.ts') return true
   if (relFile === 'src/app/entities/user/model/roleLabels.ts') return true
   if (USER_VISIBLE_ERROR_FILE_PATTERNS.some((pattern) => pattern.test(relFile))) return true
@@ -568,6 +571,18 @@ function hasAgentConfigDetailDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_CONFIG_DETAIL_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentAiServiceDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/entities/agent/model/display-labels.ts') &&
+    !relFile.endsWith('src/app/entities/agent/model/agents.store.ts') &&
+    !relFile.endsWith('src/app/shared/model/agents.store.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_AI_SERVICE_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAccessLevelDeadEndCopy(relFile, line) {
@@ -949,6 +964,15 @@ function scanFile(file, relFile) {
         type: 'agent-config-detail-copy',
         location,
         message: 'Agent configuration missing-detail copy must tell beginners what to refresh.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentAiServiceDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-ai-service-copy',
+        location,
+        message: 'Agent AI service fallback copy must tell beginners to refresh service data.',
         sample: line.trim(),
       })
     }

@@ -15,7 +15,12 @@ const base = {
 
 describe('agents.store managedToAgentInfo backward-compat', () => {
   it('uses server-provided runtimeKind="cli" when present', () => {
-    const info = managedToAgentInfo({ ...base, cliTool: 'codex', runtimeKind: 'cli', runtimeId: 'host-x' } as any)
+    const info = managedToAgentInfo({
+      ...base,
+      cliTool: 'codex',
+      runtimeKind: 'cli',
+      runtimeId: 'host-x',
+    } as any)
     expect(info.runtimeKind).toBe('cli')
   })
 
@@ -81,7 +86,7 @@ describe('agents.store managedToAgentInfo backward-compat', () => {
       cliTool: null,
     } as any)
 
-    expect(info.provider).toBe('AI service not reported')
+    expect(info.provider).toBe('Refresh AI service')
     expect(info.model).toBe('Model not reported')
     expect(info.provider).not.toBe('Unknown')
     expect(info.model).not.toBe('unknown')

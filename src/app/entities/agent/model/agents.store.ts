@@ -403,7 +403,7 @@ export function managedToAgentInfo(agent: ManagedAgent): AgentInfo {
     provider:
       aiServiceLabel(nonBlankLabel(agent.provider)) ??
       cliToolToProvider(agent.cliTool) ??
-      'AI service not reported',
+      'Refresh AI service',
     model: nonBlankLabel(agent.model) ?? cliToolLabel(agent.cliTool) ?? 'Model not reported',
     status: mapManagedAgentStatus(agent.status),
     tasksCompleted: 0,
