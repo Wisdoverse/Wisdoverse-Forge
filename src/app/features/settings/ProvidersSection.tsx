@@ -453,7 +453,7 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
       success: 'At least 1 AI service is saved and ready for a connection check.',
       ready: false,
       action: 'add-provider',
-      actionLabel: 'Add AI Service',
+      actionLabel: 'Add AI service',
     }
   }
 
@@ -477,7 +477,7 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
       success: 'At least 1 enabled AI service is tested and marked Ready.',
       ready: false,
       action: 'add-provider',
-      actionLabel: 'Add AI Service',
+      actionLabel: 'Add AI service',
     }
   }
 
@@ -783,7 +783,7 @@ function ProviderNextStepPanel({
               />
             )}
             <p className="text-ui-caption font-semibold uppercase text-secondary-light dark:text-secondary-dark">
-              {step.ready ? 'Ready' : 'Do This Next'}
+              {step.ready ? 'Ready' : 'Do this next'}
             </p>
           </div>
           <h3 className="mt-1 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
@@ -793,7 +793,7 @@ function ProviderNextStepPanel({
             {step.detail}
           </p>
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Success: {step.success}
+            What success looks like: {step.success}
           </p>
         </div>
         {action && step.actionLabel && (
@@ -1275,7 +1275,7 @@ export function ProvidersSection() {
             className={uiStyles.primaryButton}
           >
             <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-            <span>Add AI Service</span>
+            <span>Add AI service</span>
           </button>
         )}
       </div>
@@ -1345,7 +1345,7 @@ export function ProvidersSection() {
               Add your first AI service
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Use Do This Next above to add one AI account, then click Check so agents can answer
+              Use the step above to add one AI account, then click Check so agents can answer
               without setup surprises.
             </p>
           </div>
