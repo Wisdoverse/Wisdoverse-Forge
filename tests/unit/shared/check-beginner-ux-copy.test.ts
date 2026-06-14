@@ -3717,6 +3717,11 @@ function connectionMessage() {
   return 'The project was not created. Forge could not connect while creating this project. Check your connection, then try again.'
 }
 `,
+      'src/app/shared/model/settings.store.ts': `
+function settingsConnectionMessage() {
+  return 'Settings could not load AI service settings. Forge could not connect while loading Settings. Check your connection, then try again.'
+}
+`,
       'src/app/shared/i18n/locales/zh.ts': `
 export const zh = {
   errors: {
@@ -3781,6 +3786,10 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'network-copy',
+          location: 'src/app/shared/model/settings.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'network-copy',
           location: 'src/app/shared/i18n/locales/zh.ts:4',
         }),
       ])
@@ -3833,6 +3842,11 @@ function renameErrorMessage() {
       'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `
 function connectionMessage() {
   return 'Check your connection, then create this project again. Forge could not connect while creating it.'
+}
+`,
+      'src/app/shared/model/settings.store.ts': `
+function settingsConnectionMessage() {
+  return 'Check your connection, then refresh Settings to load AI service settings. Forge could not connect while loading Settings.'
 }
 `,
       'src/app/shared/i18n/locales/zh.ts': `

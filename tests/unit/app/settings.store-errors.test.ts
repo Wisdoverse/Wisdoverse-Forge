@@ -160,7 +160,7 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Settings could not load repository SSH access. Forge could not connect while loading Settings. Check your connection, then try again.'
+      'Check your connection, then refresh Settings to load repository SSH access. Forge could not connect while loading Settings.'
     )
     expect(message).not.toContain('SSH keys')
     expect(message).not.toContain('Network error')
@@ -174,10 +174,20 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Settings could not load AI service settings. Forge could not connect while loading Settings. Check your connection, then try again.'
+      'Check your connection, then refresh Settings to load AI service settings. Forge could not connect while loading Settings.'
     )
     expect(message).not.toContain('connection refused')
     expect(message).not.toContain('gateway')
+  })
+
+  test('starts update connection failures with the recovery step', () => {
+    const message = settingsActionErrorMessage('providers', 'save', 'Network error')
+
+    expectBeginnerError(
+      message,
+      'Check your connection, then try to save the AI service again. Forge could not connect while updating Settings.'
+    )
+    expect(message).not.toContain('Network error')
   })
 
   test('turns structured rate limits into a wait and retry step', () => {
@@ -264,7 +274,7 @@ describe('useSettingsStore errors', () => {
 
     expectBeginnerError(
       useSettingsStore.getState().sshKeysError,
-      'Settings could not load repository SSH access. Forge could not connect while loading Settings. Check your connection, then try again.'
+      'Check your connection, then refresh Settings to load repository SSH access. Forge could not connect while loading Settings.'
     )
     expect(useSettingsStore.getState().sshKeysError).not.toContain('Network error')
   })

@@ -166,8 +166,10 @@ function isRawSettingsFailure(detail: string | null): boolean {
 }
 
 function settingsConnectionMessage(actionPhrase: string, action: SettingsErrorAction): string {
-  const operation = action === 'load' ? 'loading Settings' : 'updating Settings'
-  return `Settings could not ${actionPhrase}. Forge could not connect while ${operation}. Check your connection, then try again.`
+  if (action === 'load') {
+    return `Check your connection, then refresh Settings to ${actionPhrase}. Forge could not connect while loading Settings.`
+  }
+  return `Check your connection, then try to ${actionPhrase} again. Forge could not connect while updating Settings.`
 }
 
 function settingsUnavailableMessage(actionPhrase: string, action: SettingsErrorAction): string {
