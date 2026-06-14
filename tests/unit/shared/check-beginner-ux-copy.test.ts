@@ -860,6 +860,38 @@ function cliToolLabel() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags access level fallback copy that does not tell users what to refresh', () => {
+    const cwd = fixture({
+      'src/app/entities/user/model/roleLabels.ts': `
+function userRoleLabel() {
+  return 'Access level not reported'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'access-level-copy',
+        location: 'src/app/entities/user/model/roleLabels.ts:3',
+      }),
+    ])
+  })
+
+  it('accepts access level fallback copy that tells users to refresh role data', () => {
+    const cwd = fixture({
+      'src/app/entities/user/model/roleLabels.ts': `
+function userRoleLabel() {
+  return 'Refresh access level'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('accepts task assignment status copy that tells users to choose an agent', () => {
     const cwd = fixture({
       'src/app/features/detail/HistoryTab.tsx': `
@@ -2070,14 +2102,14 @@ export function runStatusLabel() {
     expect(result.ok).toBe(false)
     expect(result.findings).toEqual(
       expect.arrayContaining([
-      expect.objectContaining({
-        type: 'task-detail-run-status-copy',
-        location: 'src/app/features/detail/HistoryTab.tsx:3',
-      }),
-      expect.objectContaining({
-        type: 'task-detail-run-status-copy',
-        location: 'src/app/features/detail/ContextTab.tsx:3',
-      }),
+        expect.objectContaining({
+          type: 'task-detail-run-status-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-run-status-copy',
+          location: 'src/app/features/detail/ContextTab.tsx:3',
+        }),
       ])
     )
   })

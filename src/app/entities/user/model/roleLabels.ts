@@ -12,7 +12,7 @@ export function userRoleLabel(role?: string | null): string {
   const normalized = role?.trim().toLowerCase()
 
   if (!normalized) {
-    return 'Access level not reported'
+    return 'Refresh access level'
   }
 
   return USER_ROLE_LABELS[normalized] ?? 'Access level needs review'
