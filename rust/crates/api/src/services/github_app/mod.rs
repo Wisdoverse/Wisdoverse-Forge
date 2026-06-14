@@ -424,6 +424,43 @@ fn unavailable_status(status: reqwest::StatusCode, endpoint_label: &str) -> AppE
     ErrorKind::Unavailable(format!("github {}: {}", status.as_u16(), endpoint_label)).into()
 }
 
+/// Build a `GithubAppClient` from the four `github_app_*` config fields.
+/// Returns `None` if any required field is absent.
+///
+/// Expects `github_app_private_key` to be base64-encoded PEM (env-safe single-
+/// line form). Raw PEM (starting with `-----BEGIN`) is also accepted as a
+/// fallback for operators who set the key directly.
+pub(crate) fn build_github_app_client(config: &agentforge_core::AppConfig) -> Option<GithubAppClient> {
+    use secrecy::ExposeSecret;
+    let app_id = config.github_app_id.clone()?;
+    let installation_id = config.github_app_installation_id.clone()?;
+    let repo = config.github_app_repo.clone()?;
+    let raw = config.github_app_private_key.as_ref()?.expose_secret().to_string();
+    let private_key_pem = decode_private_key_pem(&raw)?;
+    Some(GithubAppClient::new(GithubAppConfig {
+        app_id,
+        installation_id,
+        private_key_pem,
+        repo,
+    }))
+}
+
+/// Decode the private key from config. Accepts two forms:
+/// 1. Base64-encoded PEM (standard env-var form) → base64-decode → UTF-8.
+/// 2. Raw PEM (starts with `-----BEGIN`) → used as-is.
+///
+/// Returns `None` if the value is neither valid base64-of-UTF8 nor raw PEM.
+fn decode_private_key_pem(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.starts_with("-----BEGIN") {
+        return Some(trimmed.to_string());
+    }
+    // Attempt base64 standard decode → UTF-8 PEM.
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(trimmed).ok()?;
+    String::from_utf8(bytes).ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -475,5 +512,60 @@ mod tests {
         }
         let token = client.installation_token().await.expect("cached token");
         assert_eq!(token, "ghs_cached");
+    }
+
+    // --- build_github_app_client / decode_private_key_pem unit tests ---
+
+    fn base64_pem() -> String {
+        use base64::Engine;
+        base64::engine::general_purpose::STANDARD.encode(TEST_RSA_PEM.as_bytes())
+    }
+
+    fn full_config_with_key(key_value: &str) -> agentforge_core::AppConfig {
+        use secrecy::SecretString;
+        let mut config = crate::test_support::test_app_config("postgres://localhost/agentforge_test");
+        config.github_app_id = Some("12345".into());
+        config.github_app_installation_id = Some("67890".into());
+        config.github_app_private_key = Some(SecretString::from(key_value.to_string()));
+        config.github_app_repo = Some("acme/widgets".into());
+        config
+    }
+
+    #[test]
+    fn decode_pem_passthrough_for_raw_pem() {
+        let result = decode_private_key_pem(TEST_RSA_PEM);
+        assert!(result.is_some(), "raw PEM should pass through");
+        assert!(result.unwrap().starts_with("-----BEGIN"));
+    }
+
+    #[test]
+    fn decode_pem_decodes_base64_encoded_pem() {
+        let b64 = base64_pem();
+        let result = decode_private_key_pem(&b64);
+        assert!(result.is_some(), "base64 PEM should decode");
+        assert!(result.unwrap().starts_with("-----BEGIN"));
+    }
+
+    #[test]
+    fn build_github_app_client_returns_some_when_all_fields_set_raw_pem() {
+        let config = full_config_with_key(TEST_RSA_PEM);
+        let client = build_github_app_client(&config);
+        assert!(client.is_some(), "all fields set with raw PEM → Some");
+    }
+
+    #[test]
+    fn build_github_app_client_returns_some_when_all_fields_set_base64_pem() {
+        let b64 = base64_pem();
+        let config = full_config_with_key(&b64);
+        let client = build_github_app_client(&config);
+        assert!(client.is_some(), "all fields set with base64 PEM → Some");
+    }
+
+    #[test]
+    fn build_github_app_client_returns_none_when_fields_absent() {
+        // All github_app_* fields are None in the default test config.
+        let config = crate::test_support::test_app_config("postgres://localhost/agentforge_test");
+        let client = build_github_app_client(&config);
+        assert!(client.is_none(), "missing fields → None");
     }
 }

@@ -336,4 +336,11 @@ impl AppState {
     pub(crate) fn workspace_service(&self) -> WorkspaceService {
         WorkspaceService::from_pool(self.pool.clone())
     }
+
+    /// Build a `GithubAppClient` from the four `github_app_*` config fields,
+    /// or `None` if the GitHub App integration is not configured.
+    #[allow(dead_code)]
+    pub(crate) fn github_app_client(&self) -> Option<crate::services::github_app::GithubAppClient> {
+        crate::services::github_app::build_github_app_client(&self.config)
+    }
 }

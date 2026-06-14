@@ -41,7 +41,7 @@ impl AgentCommandBus for NoopCommandBus {
 }
 
 /// Build a minimal `AppConfig` wired for tests (no NATS, no Redis).
-fn test_app_config(database_url: &str) -> AppConfig {
+pub(crate) fn test_app_config(database_url: &str) -> AppConfig {
     AppConfig {
         port: 4003,
         host: "0.0.0.0".to_string(),
