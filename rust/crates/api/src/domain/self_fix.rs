@@ -100,6 +100,68 @@ impl SelfFixPolicy {
     pub(crate) fn head_moved() -> AppError {
         ErrorKind::Conflict("the PR head moved since review; re-review required".into()).into()
     }
+
+    /// The GitHub App integration is not configured, so no PR can be opened.
+    #[allow(dead_code)]
+    pub(crate) fn github_not_configured() -> AppError {
+        ErrorKind::ValidationWithCode {
+            code: "errors.self_fix.github_not_configured",
+            message: "The self-fix GitHub App is not configured on this deployment; \
+                      no pull request can be opened. Set the github_app_* settings and retry."
+                .into(),
+        }
+        .into()
+    }
+
+    /// The task is not a self-fix task, so the PR Bridge must not run on it.
+    #[allow(dead_code)]
+    pub(crate) fn not_a_self_fix_task() -> AppError {
+        ErrorKind::ValidationWithCode {
+            code: "errors.self_fix.not_a_self_fix_task",
+            message: "This task is not a self-fix task; the PR Bridge cannot open a pull request for it.".into(),
+        }
+        .into()
+    }
+
+    /// The agent's change failed the trust-boundary import (symlink, gitlink,
+    /// `.git`, oversize, path escape, or a churn/deletion cap). NO PR is opened.
+    /// `reason` is a safe, attacker-independent summary (no tokens, no secrets).
+    #[allow(dead_code)]
+    pub(crate) fn rebuild_rejected(reason: String) -> AppError {
+        ErrorKind::ValidationWithCode {
+            code: "errors.self_fix.rebuild_rejected",
+            message: format!("The agent's change was rejected before any pull request was opened: {reason}"),
+        }
+        .into()
+    }
+
+    /// The agent produced no change versus the base tree; nothing to PR.
+    #[allow(dead_code)]
+    pub(crate) fn empty_change() -> AppError {
+        ErrorKind::ValidationWithCode {
+            code: "errors.self_fix.empty_change",
+            message: "The agent's change is identical to the base branch; there is nothing to open a pull request for."
+                .into(),
+        }
+        .into()
+    }
+
+    /// A server-owned git/clone/push step failed. `stage` is a static label
+    /// (e.g. "clone", "push", "rebuild"); never includes a token-bearing URL.
+    #[allow(dead_code)]
+    pub(crate) fn git_step_failed(stage: &'static str) -> AppError {
+        ErrorKind::Unavailable(format!("self-fix: server-owned git step failed: {stage}")).into()
+    }
+
+    /// The task's workspace path could not be resolved to a server-visible host
+    /// path inside the managed workspace root (escape attempt or missing config).
+    #[allow(dead_code)]
+    pub(crate) fn workspace_unresolved() -> AppError {
+        ErrorKind::Validation(
+            "self-fix: could not resolve the task's workspace to a host path inside the managed root".into(),
+        )
+        .into()
+    }
 }
 
 #[cfg(test)]

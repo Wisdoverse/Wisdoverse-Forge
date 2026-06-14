@@ -46,6 +46,17 @@ pub mod self_fix_rebuild {
     pub use crate::services::self_fix::rebuild::{rebuild_branch, RebuildError, RebuildOutcome};
 }
 
+/// Test-only re-export of the self-fix PR Bridge core so integration tests can
+/// drive the clone → rebuild → push → draft-PR flow against a local `file://`
+/// origin and a fake `GitProvider` (no real GitHub). Gated behind `test-support`.
+#[cfg(any(test, feature = "test-support"))]
+pub mod self_fix_bridge {
+    pub use crate::services::self_fix::bridge::{
+        branch_name, clone_dir_for, run_pr_bridge, BridgeResult, GitProvider, OpenedDraftPr, SelfFixPrOutcome,
+    };
+    pub use crate::services::self_fix::import::ImportLimits;
+}
+
 /// 32+ byte secret used only in tests. Fixed so the JWT that the shim creates
 /// can be verified by the same `JwtManager` instance on the route side.
 const TEST_JWT_SECRET: &str = "metrics-endpoint-integration-test-secret-32bytes!";

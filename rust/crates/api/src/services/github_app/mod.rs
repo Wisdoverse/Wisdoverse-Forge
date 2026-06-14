@@ -180,6 +180,15 @@ impl GithubAppClient {
             .header("X-GitHub-Api-Version", GITHUB_API_VERSION))
     }
 
+    /// HTTPS remote with a short-lived installation token embedded (GitHub App
+    /// pattern). Used ONLY for the server-owned clone's `origin`; NEVER written
+    /// to `/workspace` and NEVER logged (the returned string carries a secret).
+    #[allow(dead_code)]
+    pub(crate) async fn authed_remote_url(&self) -> AppResult<String> {
+        let token = self.installation_token().await?;
+        Ok(format!("https://x-access-token:{token}@github.com/{}.git", self.cfg.repo))
+    }
+
     /// `origin/main` SHA — the base pin for self-fix branches.
     #[allow(dead_code)]
     pub async fn default_branch_sha(&self) -> AppResult<String> {
