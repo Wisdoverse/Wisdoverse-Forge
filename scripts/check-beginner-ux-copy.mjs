@@ -157,6 +157,8 @@ const BILLING_RECEIPT_LINK_DEAD_END_PATTERNS = [/\bNo link\b/i]
 
 const ANALYTICS_CHART_DEAD_END_PATTERNS = [/\bNo activity data\b/i, /\bNo tool usage data\b/i]
 
+const ANALYTICS_USEFUL_EMPTY_DEAD_END_PATTERNS = [/\bNo useful saved items yet\b/i]
+
 const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [/\bNo work tool sign-ins are connected yet\b/i]
 
 const RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS = [/\bNot set yet\b/i]
@@ -443,6 +445,12 @@ function hasAnalyticsChartDeadEndCopy(relFile, line) {
   return ANALYTICS_CHART_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAnalyticsUsefulEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/analytics/ContextUsageDashboard.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ANALYTICS_USEFUL_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasRuntimeSignInDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -664,6 +672,15 @@ function scanFile(file, relFile) {
         type: 'analytics-chart-empty-copy',
         location,
         message: 'Analytics chart empty states must tell beginners what creates the first data.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAnalyticsUsefulEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'analytics-useful-empty-copy',
+        location,
+        message: 'Saved item reuse empty states must tell beginners to mark useful items first.',
         sample: line.trim(),
       })
     }

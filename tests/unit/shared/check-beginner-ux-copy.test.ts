@@ -542,6 +542,42 @@ export function AnalyticsDashboard() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved item useful empty copy that does not explain how to rank items', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/ContextUsageDashboard.tsx': `
+const EMPTY_TOP_USEFUL = {
+  title: 'No useful saved items yet',
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'analytics-useful-empty-copy',
+          location: 'src/app/features/analytics/ContextUsageDashboard.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved item useful empty copy that tells users to mark items useful', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/ContextUsageDashboard.tsx': `
+const EMPTY_TOP_USEFUL = {
+  title: 'Mark useful saved items to rank them here',
+  detail:
+    'After a task uses a saved note or instruction, choose Useful in the task result to place it in this list.',
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags work setup summaries that do not tell users to sign in first', () => {
     const cwd = fixture({
       'src/app/features/settings/RuntimeSection.tsx': `

@@ -28,9 +28,9 @@ const TASK_KIND_LABELS: Record<string, string> = {
 }
 
 const EMPTY_TOP_USEFUL = {
-  title: 'No useful saved items yet',
+  title: 'Mark useful saved items to rank them here',
   detail:
-    'Helpful saved notes and saved instructions appear here after people mark them useful in task results.',
+    'After a task uses a saved note or instruction, choose Useful in the task result to place it in this list.',
 }
 
 const EMPTY_NEEDS_REVIEW = {

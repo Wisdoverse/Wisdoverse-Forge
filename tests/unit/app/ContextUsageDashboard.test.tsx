@@ -44,15 +44,15 @@ describe('ContextUsageDashboard', () => {
     expect(
       screen.getByText(/saved notes and saved instructions appear here when they are old enough/i)
     ).toBeDefined()
-    expect(
-      screen.getByText(/helpful saved notes and saved instructions appear here/i)
-    ).toBeDefined()
+    expect(screen.getByText('Mark useful saved items to rank them here')).toBeDefined()
+    expect(screen.getByText(/choose Useful in the task result/i)).toBeDefined()
     expect(screen.getByText(/old enough to check again/i)).toBeDefined()
     expect(screen.getByText('Nothing to check right now')).toBeDefined()
     expect(screen.getByText(/people report they may be outdated/i)).toBeDefined()
     expect(screen.getByText('Check first')).toBeDefined()
     expect(screen.getByText('Items people marked for another look.')).toBeDefined()
     expect(screen.queryByText(previousSavedNotesCopy)).toBeNull()
+    expect(screen.queryByText('No useful saved items yet')).toBeNull()
     expect(screen.queryByText(/stale threshold/i)).toBeNull()
     expect(screen.queryByText(/^Stale$/)).toBeNull()
     expect(screen.queryByText(/Snapshot/i)).toBeNull()
