@@ -148,6 +148,7 @@ export function TaskFormModal({
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [selectingProject, setSelectingProject] = useState(false)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
+  const [confirmIncompleteBrief, setConfirmIncompleteBrief] = useState(false)
 
   const dialogRef = useRef<HTMLDivElement>(null)
   const errorBannerRef = useRef<HTMLDivElement>(null)
@@ -174,6 +175,8 @@ export function TaskFormModal({
     () => taskBriefCues(titleValue, descriptionValue),
     [descriptionValue, titleValue]
   )
+  const missingBriefCues = useMemo(() => briefCues.filter((cue) => !cue.ready), [briefCues])
+  const briefReady = missingBriefCues.length === 0
 
   // The error banner renders partway down a scrollable dialog (below the
   // header and project panels) while the submit button sits at the bottom, so
@@ -189,8 +192,13 @@ export function TaskFormModal({
     if (isOpen) {
       setSubmitError(null)
       setSelectedTemplateId(null)
+      setConfirmIncompleteBrief(false)
     }
   }, [isOpen])
+
+  useEffect(() => {
+    setConfirmIncompleteBrief(false)
+  }, [titleValue, descriptionValue])
 
   useEffect(() => {
     if (isOpen) setValue('projectId', selectedProjectId ?? '')
@@ -221,6 +229,10 @@ export function TaskFormModal({
       setSubmitError('Create a task queue before creating a task.')
       return
     }
+    if (!briefReady && !confirmIncompleteBrief) {
+      setConfirmIncompleteBrief(true)
+      return
+    }
     try {
       await onSubmit({ ...data, title: data.title.trim() })
     } catch (err) {
@@ -233,6 +245,7 @@ export function TaskFormModal({
 
   async function handleProjectChange(projectId: string) {
     setSubmitError(null)
+    setConfirmIncompleteBrief(false)
     if (!projectId || !onProjectChange) return
     setSelectingProject(true)
     try {
@@ -440,6 +453,20 @@ export function TaskFormModal({
             className="mb-4 rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
           >
             {submitError}
+          </div>
+        )}
+
+        {confirmIncompleteBrief && missingBriefCues.length > 0 && (
+          <div
+            role="status"
+            data-testid="task-brief-confirmation"
+            className="mb-4 rounded-lg border border-apple-orange/20 bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange"
+          >
+            <p className="font-semibold">This task may be hard for an agent to finish.</p>
+            <p className="mt-0.5">
+              Add {formatBriefCueList(missingBriefCues.map((cue) => cue.label).slice(0, 2))}, or
+              choose Create Anyway if this is enough for now.
+            </p>
           </div>
         )}
 
@@ -661,7 +688,9 @@ export function TaskFormModal({
                 ? 'Preparing Project...'
                 : isSubmitting
                   ? 'Creating…'
-                  : 'Create Task'}
+                  : confirmIncompleteBrief && !briefReady
+                    ? 'Create Anyway'
+                    : 'Create Task'}
             </button>
           </div>
         </form>
@@ -730,6 +759,12 @@ function taskBriefCues(title: string, description: string): TaskBriefCue[] {
       missingDetail: 'Add the test, screenshot, output, or result that proves it is done.',
     },
   ]
+}
+
+function formatBriefCueList(labels: string[]): string {
+  if (labels.length === 0) return 'the missing details'
+  if (labels.length === 1) return labels[0].toLowerCase()
+  return `${labels.slice(0, -1).join(', ').toLowerCase()} and ${labels[labels.length - 1].toLowerCase()}`
 }
 
 function groupProjectsByTeam(projects: TaskProjectOption[]): TaskProjectGroup[] {

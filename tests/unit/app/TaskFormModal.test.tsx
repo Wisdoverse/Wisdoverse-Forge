@@ -255,6 +255,11 @@ describe('TaskFormModal', () => {
     fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
       target: { value: 'Ship the fix' },
     })
+    fireEvent.change(screen.getByLabelText(/details the agent should know/i), {
+      target: {
+        value: 'Where to work:\n- src/app/features/board\n\nDone when:\n- Task form test passes',
+      },
+    })
     fireEvent.click(screen.getByRole('button', { name: /^create task$/i }))
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
@@ -266,11 +271,61 @@ describe('TaskFormModal', () => {
     expect(screen.queryByRole('alert')).toBeNull()
   })
 
+  test('asks for one confirmation before creating a task with missing brief details', async () => {
+    const { onSubmit, onClose } = renderModal()
+
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
+      target: { value: 'Ship the fix' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^create task$/i }))
+
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+    const confirmation = await screen.findByTestId('task-brief-confirmation')
+    expect(confirmation).toHaveTextContent('This task may be hard for an agent to finish.')
+    expect(confirmation).toHaveTextContent('Add where to work and done when')
+    expect(screen.getByRole('button', { name: /^create anyway$/i })).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: /^create anyway$/i }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({
+      title: 'Ship the fix',
+      projectId: project.id,
+    })
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+  })
+
+  test('clears the incomplete brief confirmation when the user adds missing details', async () => {
+    const { onSubmit } = renderModal()
+
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
+      target: { value: 'Ship the fix' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^create task$/i }))
+    expect(await screen.findByTestId('task-brief-confirmation')).toBeDefined()
+
+    fireEvent.change(screen.getByLabelText(/details the agent should know/i), {
+      target: {
+        value: 'Where to work:\n- src/app/features/board\n\nDone when:\n- Task form test passes',
+      },
+    })
+
+    expect(screen.queryByTestId('task-brief-confirmation')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /^create task$/i }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
+  })
+
   test('the submitted title is trimmed', async () => {
     const { onSubmit } = renderModal()
 
     fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
       target: { value: '  Ship the fix  ' },
+    })
+    fireEvent.change(screen.getByLabelText(/details the agent should know/i), {
+      target: {
+        value: 'Where to work:\n- src/app/features/board\n\nDone when:\n- Task form test passes',
+      },
     })
     fireEvent.click(screen.getByRole('button', { name: /^create task$/i }))
 
@@ -283,6 +338,11 @@ describe('TaskFormModal', () => {
 
     fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
       target: { value: 'Ship the fix' },
+    })
+    fireEvent.change(screen.getByLabelText(/details the agent should know/i), {
+      target: {
+        value: 'Where to work:\n- src/app/features/board\n\nDone when:\n- Task form test passes',
+      },
     })
     fireEvent.click(screen.getByRole('button', { name: /^create task$/i }))
 
