@@ -34,7 +34,7 @@ const RUNTIME_KIND_FILTER_OPTIONS: FilterOption[] = [
 // ============================================================================
 
 function formatLastActivity(epochMs: number): string {
-  if (!epochMs) return 'No activity yet'
+  if (!epochMs) return 'Activity appears after work starts'
   try {
     return new Date(epochMs).toLocaleString(undefined, {
       month: 'short',

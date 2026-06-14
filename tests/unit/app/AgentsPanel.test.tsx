@@ -147,7 +147,8 @@ describe('AgentsPanel', () => {
 
     expect(await screen.findByText('Owner not reported yet')).toBeDefined()
     expect(screen.getAllByText('Project not reported yet')).toHaveLength(2)
-    expect(screen.getByText('No activity yet')).toBeDefined()
+    expect(screen.getByText('Activity appears after work starts')).toBeDefined()
+    expect(screen.queryByText('No activity yet')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
   })
 

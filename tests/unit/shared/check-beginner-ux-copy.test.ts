@@ -320,6 +320,38 @@ function OrganizationsEmptyState() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags admin agent activity copy that does not explain when activity appears', () => {
+    const cwd = fixture({
+      'src/app/features/admin/AgentsPanel.tsx': `
+function formatLastActivity(epochMs) {
+  if (!epochMs) return 'No activity yet'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'admin-agent-activity-copy',
+        location: 'src/app/features/admin/AgentsPanel.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts admin agent activity copy that says work must start first', () => {
+    const cwd = fixture({
+      'src/app/features/admin/AgentsPanel.tsx': `
+function formatLastActivity(epochMs) {
+  if (!epochMs) return 'Activity appears after work starts'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags generic compact work-location labels in the runtime label helper', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/runtime-kind.ts': `
