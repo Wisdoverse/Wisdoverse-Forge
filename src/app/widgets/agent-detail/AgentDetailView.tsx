@@ -251,9 +251,9 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
 
           {/* Stats grid */}
           <div className="grid grid-cols-2 gap-3">
-            <StatCard label="Tasks Done" value={String(agent.tasksCompleted)} />
-            <StatCard label="In Progress" value={String(agent.tasksInProgress)} />
-            <StatCard label="Success Rate" value={`${ratePercent}%`} />
+            <StatCard label="Tasks done" value={String(agent.tasksCompleted)} />
+            <StatCard label="In progress" value={String(agent.tasksInProgress)} />
+            <StatCard label="Success rate" value={`${ratePercent}%`} />
             <StatCard label="Work setup" value={agentSetupSummary(agent)} />
           </div>
 
@@ -355,7 +355,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
         success: 'The agent returns to Ready and can receive tasks.',
         ready: false,
         targetTab: 'terminal',
-        actionLabel: 'Open Live work',
+        actionLabel: 'Open live work',
       }
     }
 
@@ -370,12 +370,12 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
 
   if (activeTask) {
     return {
-      title: 'Review Current Work',
+      title: 'Review current work',
       detail: `${agent.name} is already handling "${activeTask.params.task}". Open Tasks to follow progress or handle anything that needs your help.`,
       success: 'You can see the active task state and decide whether someone needs to step in.',
       ready: false,
       targetTab: 'tasks',
-      actionLabel: 'Open Tasks',
+      actionLabel: 'Open tasks',
     }
   }
 
@@ -388,7 +388,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
       success: 'A task appears as Waiting to start or Working for this agent.',
       ready: true,
       targetTab: 'tasks',
-      actionLabel: 'Open Tasks',
+      actionLabel: 'Open tasks',
     }
   }
 
@@ -400,7 +400,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
     success: 'You can decide whether to reuse the agent, review evidence, or assign another task.',
     ready: true,
     targetTab: 'tasks',
-    actionLabel: 'Open Tasks',
+    actionLabel: 'Open tasks',
   }
 }
 
@@ -443,7 +443,7 @@ function AgentNextStepCard({
               />
             )}
             <p className="text-ui-caption font-semibold uppercase text-secondary-light dark:text-secondary-dark">
-              {step.ready ? 'Ready' : 'Do This Next'}
+              {step.ready ? 'Ready' : 'Do this next'}
             </p>
           </div>
           <h2 className="mt-1 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
@@ -453,7 +453,7 @@ function AgentNextStepCard({
             {step.detail}
           </p>
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Success: {step.success}
+            What success looks like: {step.success}
           </p>
         </div>
         {targetTab && actionLabel && (

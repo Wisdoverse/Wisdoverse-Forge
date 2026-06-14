@@ -185,8 +185,14 @@ describe('AgentDetailView', () => {
     render(<AgentDetailView agent={containerAgent} onBack={() => {}} />)
     expect(screen.getByText('12')).toBeDefined()
     expect(screen.getByText('98%')).toBeDefined()
+    expect(screen.getByText('Tasks done')).toBeDefined()
+    expect(screen.getByText('In progress')).toBeDefined()
+    expect(screen.getByText('Success rate')).toBeDefined()
     expect(screen.getByText('Work setup')).toBeDefined()
     expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Tasks Done')).toBeNull()
+    expect(screen.queryByText('In Progress')).toBeNull()
+    expect(screen.queryByText('Success Rate')).toBeNull()
   })
 
   test('foregrounds assignment fit on the agent overview', () => {
@@ -229,17 +235,21 @@ describe('AgentDetailView', () => {
 
     render(<AgentDetailView agent={{ ...containerAgent, status: 'working' }} onBack={() => {}} />)
 
-    expect(await screen.findByText('Review Current Work')).toBeDefined()
+    expect(await screen.findByText('Review current work')).toBeDefined()
     expect(screen.getAllByText(/Fix onboarding copy/).length).toBeGreaterThan(0)
     expect(
       screen.getByText(
         'Build Agent is already handling "Fix onboarding copy". Open Tasks to follow progress or handle anything that needs your help.'
       )
     ).toBeDefined()
-    expect(screen.getByText(/Success: You can see the active task state/)).toBeDefined()
+    expect(
+      screen.getByText(/What success looks like: You can see the active task state/)
+    ).toBeDefined()
     expect(screen.queryByText(new RegExp(['unblock', 'it'].join('\\s+'), 'i'))).toBeNull()
     expect(screen.queryByText(/owner input/i)).toBeNull()
-    expect(screen.getByText('Do This Next')).toBeDefined()
+    expect(screen.getByText('Do this next')).toBeDefined()
+    expect(screen.queryByText('Review Current Work')).toBeNull()
+    expect(screen.queryByText('Do This Next')).toBeNull()
   })
 
   test('guides agents without loaded task history into the Tasks tab', async () => {
