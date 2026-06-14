@@ -148,21 +148,34 @@ impl<'a> OrganizationSlug<'a> {
 }
 
 /// Project repository URL policy.
+///
+/// v1 clone only supports HTTPS token auth (GitHub/GitLab), so the URL must be
+/// `https://` with a non-empty host. Rejecting `http`/`git`/`ssh`/`file`/
+/// scheme-less here is parse-time defense-in-depth; the clone container's
+/// restricted egress network (design spec §10) is the real SSRF control.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ProjectRepositoryUrl;
 
 impl ProjectRepositoryUrl {
+    const HTTPS_PREFIX: &'static str = "https://";
+
     pub(crate) fn parse(value: &str) -> AppResult<Self> {
         if value.is_empty() {
             return Err(ErrorKind::Validation("repository URL must not be empty".into()).into());
         }
-        if !value.starts_with("https://") && !value.starts_with("http://") && !value.starts_with("git@") {
-            return Err(
-                ErrorKind::Validation("repository URL must start with https://, http://, or git@".into()).into()
-            );
-        }
         if value.len() > 2048 {
             return Err(ErrorKind::Validation("repository URL must be 2048 characters or less".into()).into());
+        }
+        let rest = value
+            .strip_prefix(Self::HTTPS_PREFIX)
+            .ok_or_else(|| AppError::from(ErrorKind::Validation("repository URL must start with https://".into())))?;
+        // The host is the authority up to the first '/', '?', or '#'. It must be
+        // present and non-empty (`https://` and `https:///path` are rejected).
+        let host = rest.split(['/', '?', '#']).next().unwrap_or("");
+        // Strip any `userinfo@` prefix so `https://user@host` still has a host.
+        let host = host.rsplit('@').next().unwrap_or(host);
+        if host.is_empty() {
+            return Err(ErrorKind::Validation("repository URL must include a host".into()).into());
         }
         Ok(Self)
     }
@@ -586,13 +599,24 @@ mod tests {
     }
 
     #[test]
-    fn project_repository_url_accepts_http_https_and_git_ssh() {
+    fn project_repository_url_requires_https_with_host() {
+        // Accepted: https with a real host (with or without a path / userinfo).
         assert!(ProjectRepositoryUrl::parse("https://github.com/org/repo").is_ok());
-        assert!(ProjectRepositoryUrl::parse("http://gitlab.com/org/repo").is_ok());
-        assert!(ProjectRepositoryUrl::parse("git@github.com:org/repo.git").is_ok());
+        assert!(ProjectRepositoryUrl::parse("https://gitlab.com/org/repo.git").is_ok());
+        assert!(ProjectRepositoryUrl::parse("https://host/repo").is_ok());
+        assert!(ProjectRepositoryUrl::parse("https://user@host/repo").is_ok());
+
+        // Rejected: empty, non-https schemes, scheme-less, and hostless https.
         assert!(ProjectRepositoryUrl::parse("").is_err());
+        assert!(ProjectRepositoryUrl::parse("http://h/r").is_err());
+        assert!(ProjectRepositoryUrl::parse("git@github.com:org/repo.git").is_err());
+        assert!(ProjectRepositoryUrl::parse("ssh://git@host/repo").is_err());
+        assert!(ProjectRepositoryUrl::parse("file:///x").is_err());
         assert!(ProjectRepositoryUrl::parse("ftp://example.com/repo").is_err());
         assert!(ProjectRepositoryUrl::parse("not-a-url").is_err());
+        assert!(ProjectRepositoryUrl::parse("https://").is_err());
+        assert!(ProjectRepositoryUrl::parse("https:///repo").is_err());
+        // Length cap still applies (8-char prefix + 2048 host > 2048).
         assert!(ProjectRepositoryUrl::parse(&format!("https://{}", "a".repeat(2048))).is_err());
     }
 

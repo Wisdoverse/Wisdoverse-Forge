@@ -125,16 +125,19 @@ mod tests {
 
     #[test]
     fn valid_urls() {
+        // v1 clone is HTTPS-only (token auth); non-https schemes are rejected.
         assert!(ProjectRepositoryUrl::parse("https://github.com/org/repo").is_ok());
-        assert!(ProjectRepositoryUrl::parse("http://gitlab.com/org/repo").is_ok());
-        assert!(ProjectRepositoryUrl::parse("git@github.com:org/repo.git").is_ok());
+        assert!(ProjectRepositoryUrl::parse("https://gitlab.com/org/repo.git").is_ok());
     }
 
     #[test]
     fn invalid_urls() {
         assert!(ProjectRepositoryUrl::parse("").is_err());
+        assert!(ProjectRepositoryUrl::parse("http://gitlab.com/org/repo").is_err());
+        assert!(ProjectRepositoryUrl::parse("git@github.com:org/repo.git").is_err());
         assert!(ProjectRepositoryUrl::parse("ftp://example.com/repo").is_err());
         assert!(ProjectRepositoryUrl::parse("not-a-url").is_err());
+        assert!(ProjectRepositoryUrl::parse("https://").is_err());
         assert!(ProjectRepositoryUrl::parse(&format!("https://{}", "a".repeat(2048))).is_err());
     }
 

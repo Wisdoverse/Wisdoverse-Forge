@@ -30,6 +30,7 @@ pub(crate) mod memory;
 pub(crate) mod navigation;
 pub(crate) mod observability;
 pub(crate) mod orchestration;
+pub(crate) mod project_clone;
 pub(crate) mod prompt;
 pub(crate) mod prompt_library;
 pub(crate) mod resource;
