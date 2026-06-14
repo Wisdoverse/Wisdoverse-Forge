@@ -322,6 +322,8 @@ const DUPLICATE_RECOVERY_COPY_PATTERNS = [
   /\bForge could not finish this task action right now\. Refresh the task, then try again\./i,
   /\bForge could not load saved items right now\. Refresh the list, then try again\./i,
   /\bForge could not save this review decision right now\. Refresh the list, then try again\./i,
+  /\bNavigation could not [^.]+\. Forge could not connect while loading the sidebar\./i,
+  /\bForge could not load workspace navigation right now\. Refresh the sidebar, then try again\./i,
 ]
 
 const TASK_FORM_AGENT_STATUS_DEAD_END_PATTERNS = [/\bstatus not reported\b/i]
@@ -963,7 +965,8 @@ function hasDuplicateRecoveryDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/board/boardErrorMessages.ts') &&
     !relFile.endsWith('src/app/features/detail/taskDetailErrorMessages.ts') &&
-    !relFile.endsWith('src/app/features/context/approvalQueueErrorMessages.ts')
+    !relFile.endsWith('src/app/features/context/approvalQueueErrorMessages.ts') &&
+    !relFile.endsWith('src/app/entities/navigation/model/navigation.store.ts')
   ) {
     return false
   }

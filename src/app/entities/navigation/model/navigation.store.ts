@@ -165,7 +165,7 @@ export function navigationActionErrorMessage(
     if (!isRawNavigationFailure(detail)) {
       return navigationValidationMessage(area, action, detail)
     }
-    return `Navigation could not ${actionPhrase}. Forge could not connect while loading the sidebar. Check your connection, then refresh the page.`
+    return `Check your connection, then refresh the sidebar to ${actionPhrase}.`
   }
 
   if (status === 401) {
@@ -187,10 +187,10 @@ export function navigationActionErrorMessage(
     return `The sidebar is busy. Wait a moment, then try to ${actionPhrase} again.`
   }
   if (status >= 500) {
-    return 'Forge could not load workspace navigation right now. Refresh the sidebar, then try again. If it still fails, ask an owner or admin to check workspace navigation.'
+    return 'Refresh the sidebar to load workspace navigation. If it still fails, ask an owner or admin to check workspace navigation.'
   }
 
-  return `Navigation could not ${actionPhrase}. Refresh the sidebar, then try again.`
+  return `Refresh the sidebar to ${actionPhrase}.`
 }
 
 function navigationValidationMessage(

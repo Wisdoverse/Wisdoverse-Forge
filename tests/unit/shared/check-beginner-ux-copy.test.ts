@@ -3442,6 +3442,14 @@ function serviceRecoveryMessage(action) {
   return 'The saved item review list could not load. Refresh the list so you see the latest items. Forge could not load saved items right now. Refresh the list, then try again. If it still fails, ask an owner or admin to check saved item setup.'
 }
 `,
+      'src/app/entities/navigation/model/navigation.store.ts': `
+function navigationActionErrorMessage(actionPhrase) {
+  return 'Navigation could not load task queues. Forge could not connect while loading the sidebar. Check your connection, then refresh the page.'
+}
+function serviceRecoveryMessage() {
+  return 'Forge could not load workspace navigation right now. Refresh the sidebar, then try again. If it still fails, ask an owner or admin to check workspace navigation.'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -3460,6 +3468,14 @@ function serviceRecoveryMessage(action) {
         expect.objectContaining({
           type: 'duplicate-recovery-copy',
           location: 'src/app/features/context/approvalQueueErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'duplicate-recovery-copy',
+          location: 'src/app/entities/navigation/model/navigation.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'duplicate-recovery-copy',
+          location: 'src/app/entities/navigation/model/navigation.store.ts:6',
         }),
       ])
     )
@@ -3480,6 +3496,14 @@ function serviceRecoveryMessage(action) {
       'src/app/features/context/approvalQueueErrorMessages.ts': `
 function serviceRecoveryMessage(action) {
   return 'The saved item review list could not load. Refresh the list so you see the latest items. If it still fails, ask an owner or admin to check saved item setup.'
+}
+`,
+      'src/app/entities/navigation/model/navigation.store.ts': `
+function navigationActionErrorMessage(actionPhrase) {
+  return 'Check your connection, then refresh the sidebar to load task queues.'
+}
+function serviceRecoveryMessage() {
+  return 'Refresh the sidebar to load workspace navigation. If it still fails, ask an owner or admin to check workspace navigation.'
 }
 `,
     })

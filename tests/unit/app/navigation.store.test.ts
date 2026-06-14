@@ -95,7 +95,7 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       message,
-      'Navigation could not load task queues. Forge could not connect while loading the sidebar. Check your connection, then refresh the page.'
+      'Check your connection, then refresh the sidebar to load task queues.'
     )
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('service')
@@ -322,7 +322,7 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'Forge could not load workspace navigation right now. Refresh the sidebar, then try again. If it still fails, ask an owner or admin to check workspace navigation.'
+      'Refresh the sidebar to load workspace navigation. If it still fails, ask an owner or admin to check workspace navigation.'
     )
     expect(useNavigationStore.getState().error).not.toContain('temporarily unavailable')
     expect(useNavigationStore.getState().error).not.toContain('organization')
@@ -347,7 +347,7 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'Navigation could not load task queues. Forge could not connect while loading the sidebar. Check your connection, then refresh the page.'
+      'Check your connection, then refresh the sidebar to load task queues.'
     )
     expect(useNavigationStore.getState().error).not.toContain('Failed to fetch')
   })
