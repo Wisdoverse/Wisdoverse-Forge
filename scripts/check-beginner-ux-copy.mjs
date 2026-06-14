@@ -266,6 +266,11 @@ const COMMAND_PALETTE_CREATE_TASK_JARGON_PATTERNS = [
   /\bStart a new piece of work\./,
 ]
 
+const PROJECT_MENU_CREATE_TASK_JARGON_PATTERNS = [
+  /\bCreate task here\b/,
+  /\bStart work in this project\b/,
+]
+
 const SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS = [
   /\bMaintainer not listed yet\b/i,
   /暂未列出维护者/,
@@ -1019,6 +1024,12 @@ function hasCommandPaletteCreateTaskJargonCopy(relFile, line) {
   return COMMAND_PALETTE_CREATE_TASK_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasProjectMenuCreateTaskJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return PROJECT_MENU_CREATE_TASK_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSkillMaintainerFallbackDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
@@ -1740,6 +1751,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Command palette task creation must use the same clear New task label and a concrete agent-task description.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasProjectMenuCreateTaskJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'project-menu-create-task-copy',
+        location,
+        message:
+          'Project menu task creation must say New task for this project and explain that it opens the task form with this project selected.',
         sample: line.trim(),
       })
     }

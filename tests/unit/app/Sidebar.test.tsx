@@ -252,7 +252,10 @@ describe('Sidebar', () => {
     expect(menu).toHaveAttribute('aria-label', 'Project X project menu')
     expect(menuScope.getByText('Team Alpha team · link name proj-x')).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /open project board/i })).toBeInTheDocument()
-    expect(menuScope.getByRole('menuitem', { name: /create task here/i })).toBeInTheDocument()
+    expect(
+      menuScope.getByRole('menuitem', { name: /new task for this project/i })
+    ).toBeInTheDocument()
+    expect(menuScope.queryByRole('menuitem', { name: /create task here/i })).not.toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /share project/i })).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /rename project/i })).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /all project settings/i })).toBeInTheDocument()
@@ -336,7 +339,7 @@ describe('Sidebar', () => {
       />
     )
     fireEvent.contextMenu(screen.getByTestId('project-p1'))
-    fireEvent.click(screen.getByRole('menuitem', { name: /create task here/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /new task for this project/i }))
 
     await waitFor(() => expect(onCreateTaskForProject).toHaveBeenCalledWith('p1'))
   })

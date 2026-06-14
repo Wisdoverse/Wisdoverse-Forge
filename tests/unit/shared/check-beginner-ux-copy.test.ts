@@ -3647,6 +3647,44 @@ const ACTION_COMMANDS = [
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags unclear project menu task action copy', () => {
+    const cwd = fixture({
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function ProjectTree() {
+  return <ProjectMenuItem label="Create task here" detail="Start work in this project" />
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'project-menu-create-task-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'project-menu-create-task-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts project menu task action copy that explains the result', () => {
+    const cwd = fixture({
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function ProjectTree() {
+  return <ProjectMenuItem label="New task for this project" detail="Open the task form with this project selected" />
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags saved instruction maintainer fallback copy that does not tell users to refresh', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `

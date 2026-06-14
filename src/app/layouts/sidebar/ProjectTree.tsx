@@ -675,8 +675,8 @@ export function ProjectTree({
             />
             <ProjectMenuItem
               Icon={ListPlus}
-              label="Create task here"
-              detail="Start work in this project"
+              label="New task for this project"
+              detail="Open the task form with this project selected"
               onClick={() => void handleCreateTask(projectMenu.project)}
             />
             {canManageProject(projectMenu.project) && (
