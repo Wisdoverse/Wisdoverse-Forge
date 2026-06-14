@@ -209,6 +209,8 @@ const LIVE_WORK_STATUS_DEAD_END_PATTERNS = [/\bStatus not reported\b/i]
 
 const TASK_DETAIL_RUN_STATUS_DEAD_END_PATTERNS = [/\bStatus not reported\b/i]
 
+const TASK_FORM_AGENT_STATUS_DEAD_END_PATTERNS = [/\bstatus not reported\b/i]
+
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
@@ -536,6 +538,12 @@ function hasTaskAgentAssignmentDeadEndCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return TASK_AGENT_ASSIGNMENT_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTaskFormAgentStatusDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/TaskFormModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_FORM_AGENT_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTimelineEmptyDeadEndCopy(relFile, line) {
@@ -884,6 +892,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task agent copy must tell beginners to choose an agent or refresh task data before deciding.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskFormAgentStatusDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'task-form-agent-status-copy',
+        location,
+        message: 'Task creation agent status copy must tell beginners to refresh agent status.',
         sample: line.trim(),
       })
     }

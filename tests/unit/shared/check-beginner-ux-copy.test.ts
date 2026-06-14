@@ -752,6 +752,38 @@ function taskAgentLabel(task) {
     )
   })
 
+  it('flags task form agent status copy that does not tell users to refresh agent status', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+function agentStatusLabel() {
+  return 'status not reported'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'task-form-agent-status-copy',
+        location: 'src/app/features/board/TaskFormModal.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts task form agent status copy that tells users to refresh agent status', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+function agentStatusLabel() {
+  return 'refresh agent status'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('accepts task assignment status copy that tells users to choose an agent', () => {
     const cwd = fixture({
       'src/app/features/detail/HistoryTab.tsx': `

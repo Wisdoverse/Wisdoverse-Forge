@@ -637,7 +637,7 @@ function agentStatusLabel(status: string): string {
     case 'offline':
       return 'not connected'
     default:
-      return normalized ? 'not ready' : 'status not reported'
+      return normalized ? 'not ready' : 'refresh agent status'
   }
 }
 
