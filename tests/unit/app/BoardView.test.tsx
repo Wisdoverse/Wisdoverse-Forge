@@ -99,9 +99,13 @@ describe('BoardView', () => {
 
     render(<BoardView />)
 
-    expect(
-      await screen.findByText(/forge could not connect while loading the board/i)
-    ).toBeDefined()
+    const readiness = await screen.findByTestId('assignment-readiness')
+    expect(readiness.textContent).toContain(
+      'Refresh the board to load agent status before sending work.'
+    )
+    expect(readiness.textContent).toContain(
+      'If it still does not load, check your connection and refresh the page.'
+    )
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
   })
 

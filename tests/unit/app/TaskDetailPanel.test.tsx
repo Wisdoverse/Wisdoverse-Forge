@@ -218,7 +218,7 @@ describe('TaskDetailPanel', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('The task was not canceled.')
-    expect(alert).toHaveTextContent('Refresh the task, then try again.')
+    expect(alert).toHaveTextContent('Refresh the task, then choose Cancel again.')
     expect(alert).not.toHaveTextContent('HTTP 500')
   })
 
@@ -337,8 +337,10 @@ describe('TaskDetailPanel', () => {
 
     await userEvent.setup().click(screen.getByRole('button', { name: /updates/i }))
 
-    expect(await screen.findByText(/agent work history could not load/i)).toBeDefined()
-    expect(screen.getByText(/forge could not connect while loading this task/i)).toBeDefined()
+    expect(
+      await screen.findByText(/refresh updates before deciding whether to retry this task/i)
+    ).toBeDefined()
+    expect(screen.getByText(/check your connection and refresh the page/i)).toBeDefined()
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
   })
 

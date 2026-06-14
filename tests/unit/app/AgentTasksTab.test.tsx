@@ -133,7 +133,7 @@ describe('AgentTasksTab', () => {
     const alert = await screen.findByRole('alert')
     expect(within(alert).getByText("This agent's work list needs attention.")).toBeDefined()
     expect(alert.textContent).toContain(
-      'Ask an owner or admin to give you access to this agent or its task queue.'
+      "Ask an owner or admin to give you access to this agent's work list."
     )
     expect(alert.textContent).not.toContain('HTTP 403')
     expect(alert.textContent).not.toContain('Details:')

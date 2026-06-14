@@ -137,7 +137,7 @@ describe('ApprovalQueueView', () => {
     render(<ApprovalQueueView />)
     await screen.findByText('Prod deploy memory')
 
-    await userEvent.setup().click(screen.getByRole('button', { name: 'All' }))
+    await userEvent.setup().click(screen.getByRole('button', { name: 'All saved items' }))
     await userEvent.setup().selectOptions(screen.getByLabelText('Item type'), 'skill')
     await userEvent.setup().selectOptions(screen.getByLabelText('Sharing range'), 'team')
 
@@ -153,7 +153,7 @@ describe('ApprovalQueueView', () => {
     await screen.findByText('Prod deploy memory')
 
     await userEvent.setup().click(screen.getByTestId('context-approve-candidate-1'))
-    const dialog = screen.getByRole('dialog', { name: /approve prod deploy memory/i })
+    const dialog = screen.getByRole('dialog', { name: /save prod deploy memory/i })
 
     expect(within(dialog).getByText(/choose who can reuse it/i)).toBeInTheDocument()
     await userEvent
@@ -196,7 +196,7 @@ describe('ApprovalQueueView', () => {
     await screen.findByText('Prod deploy memory')
 
     await userEvent.setup().click(screen.getByTestId('context-reject-candidate-1'))
-    const dialog = screen.getByRole('dialog', { name: /reject prod deploy memory/i })
+    const dialog = screen.getByRole('dialog', { name: /do not save prod deploy memory/i })
     expect(within(dialog).getByPlaceholderText(/why should this not be saved/i)).toBeInTheDocument()
     await userEvent.setup().type(within(dialog).getByTestId('context-reject-reason'), 'Too broad')
     await userEvent.setup().click(screen.getByTestId('context-reject-submit'))

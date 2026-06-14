@@ -63,7 +63,7 @@ describe('ContextUsageDashboard', () => {
 
     expect(
       screen.getByText(
-        'Helpful saved notes and saved instructions appear here after people mark them useful in task results.'
+        'After a task uses a saved note or instruction, choose Useful in the task result to place it in this list.'
       )
     ).toBeDefined()
     expect(
