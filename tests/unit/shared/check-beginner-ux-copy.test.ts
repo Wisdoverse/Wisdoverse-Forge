@@ -642,6 +642,38 @@ const EMPTY_TOP_USEFUL = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags analytics updated-time copy that does not tell users to refresh', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/ContextUsageDashboard.tsx': `
+export function updatedAtLabel() {
+  return 'time not available'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'analytics-updated-time-copy',
+        location: 'src/app/features/analytics/ContextUsageDashboard.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts analytics updated-time copy that tells users to refresh', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/ContextUsageDashboard.tsx': `
+export function updatedAtLabel() {
+  return 'Refresh analytics to update time'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags optional saved item empty copy that does not explain how more items appear', () => {
     const cwd = fixture({
       'src/app/entities/context/ui/InjectionPreviewModal.tsx': `

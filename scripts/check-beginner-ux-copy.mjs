@@ -169,6 +169,8 @@ const ANALYTICS_CHART_DEAD_END_PATTERNS = [/\bNo activity data\b/i, /\bNo tool u
 
 const ANALYTICS_USEFUL_EMPTY_DEAD_END_PATTERNS = [/\bNo useful saved items yet\b/i]
 
+const ANALYTICS_UPDATED_TIME_DEAD_END_PATTERNS = [/\btime not available\b/i]
+
 const SAVED_ITEM_OPTIONAL_EMPTY_DEAD_END_PATTERNS = [/\bNo other saved items were found\b/i]
 
 const TASK_AGENT_ASSIGNMENT_DEAD_END_PATTERNS = [
@@ -513,6 +515,12 @@ function hasAnalyticsUsefulEmptyDeadEndCopy(relFile, line) {
   return ANALYTICS_USEFUL_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAnalyticsUpdatedTimeDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/analytics/ContextUsageDashboard.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ANALYTICS_UPDATED_TIME_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSavedItemOptionalEmptyDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/entities/context/ui/InjectionPreviewModal.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -848,6 +856,15 @@ function scanFile(file, relFile) {
         type: 'analytics-useful-empty-copy',
         location,
         message: 'Saved item reuse empty states must tell beginners to mark useful items first.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAnalyticsUpdatedTimeDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'analytics-updated-time-copy',
+        location,
+        message: 'Analytics updated-time fallback must tell beginners to refresh analytics.',
         sample: line.trim(),
       })
     }

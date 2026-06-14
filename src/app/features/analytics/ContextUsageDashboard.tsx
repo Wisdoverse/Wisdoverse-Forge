@@ -43,13 +43,13 @@ const EMPTY_STALE = {
   detail: 'Saved notes and saved instructions appear here when they are old enough to check again.',
 }
 
-function relativeAge(timestamp: string): string {
+function updatedAtLabel(timestamp: string): string {
   const value = Date.parse(timestamp)
-  if (Number.isNaN(value)) return 'time not available'
+  if (Number.isNaN(value)) return 'Refresh analytics to update time'
   const seconds = Math.max(0, Math.floor((Date.now() - value) / 1000))
-  if (seconds < 3600) return `${Math.max(1, Math.floor(seconds / 60))}m ago`
-  if (seconds < 86_400) return `${Math.floor(seconds / 3600)}h ago`
-  return `${Math.floor(seconds / 86_400)}d ago`
+  if (seconds < 3600) return `Updated ${Math.max(1, Math.floor(seconds / 60))}m ago`
+  if (seconds < 86_400) return `Updated ${Math.floor(seconds / 3600)}h ago`
+  return `Updated ${Math.floor(seconds / 86_400)}d ago`
 }
 
 function runtimeLabel(runtime: string): string {
@@ -84,7 +84,7 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
             Saved item reuse
           </h2>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Updated {data ? relativeAge(data.lastRefreshedAt) : 'when data is available'}
+            {data ? updatedAtLabel(data.lastRefreshedAt) : 'Updated when data is available'}
           </p>
           <p className="mt-1 max-w-2xl text-ui-body text-secondary-light dark:text-secondary-dark">
             Use this panel to keep saved notes and instructions that help work finish, and check
