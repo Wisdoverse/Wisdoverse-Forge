@@ -154,6 +154,21 @@ describe('AppLayout', () => {
     ).toBeNull()
   })
 
+  test('command palette New task action opens the task form', async () => {
+    seedProjectNavigation('p1')
+    useBoardStore.getState().setSelectedGroupId('group-1')
+
+    render(<MemoryRouter />)
+
+    fireEvent.click(screen.getByTestId('top-bar-command-search'))
+    fireEvent.click(screen.getByText('Create a task for an agent to finish.'))
+
+    await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
+    expect(screen.getByRole('dialog')).toBeDefined()
+    expect(screen.getByLabelText(/what should the agent finish/i)).toBeDefined()
+    expect(screen.queryByPlaceholderText(/search pages or actions/i)).toBeNull()
+  })
+
   test('uses beginner-facing start page metadata', () => {
     routerState.path = '/start'
 

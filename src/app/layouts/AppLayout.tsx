@@ -173,6 +173,9 @@ export function AppLayout({
     } else if (commandId.startsWith('view:')) {
       const view = commandId.replace('view:', '') as typeof viewMode
       setViewMode(view)
+    } else if (commandId === 'action:create-task') {
+      handleNavigate('/tasks')
+      setTaskFormOpen(true)
     } else if (commandId === 'action:toggle-theme') {
       toggleTheme()
     }
