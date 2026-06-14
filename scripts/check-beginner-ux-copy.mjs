@@ -119,6 +119,8 @@ const REVIEW_DECISION_JARGON_PATTERNS = [
   /\bswitch back to Pending\b/,
 ]
 
+const REVIEW_HISTORY_DEAD_END_PATTERNS = [/\bNo saved item history yet\b/i]
+
 const NOTE_SPACE_JARGON_PATTERNS = [
   /\bunits of note space\b/i,
   /\bunits available\b/i,
@@ -370,6 +372,12 @@ function hasReviewDecisionJargonCopy(line) {
   return REVIEW_DECISION_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasReviewHistoryDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/context/ApprovalQueueView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return REVIEW_HISTORY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasNoteSpaceJargonCopy(line) {
   if (isLikelyGuardOrParserLine(line)) return false
   return NOTE_SPACE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
@@ -557,6 +565,16 @@ function scanFile(file, relFile) {
         type: 'review-decision-copy',
         location,
         message: 'Saved-item review copy must say what will be saved instead of approval jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasReviewHistoryDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'review-history-empty-copy',
+        location,
+        message:
+          'Saved-item review history empty states must tell beginners to review the first suggestion.',
         sample: line.trim(),
       })
     }

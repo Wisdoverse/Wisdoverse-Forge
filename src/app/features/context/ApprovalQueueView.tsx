@@ -119,8 +119,9 @@ function approvalQueueEmptyState({
 
   if (stateFilter === 'all') {
     return {
-      title: 'No saved item history yet',
-      detail: 'Saved and not-saved notes or instructions appear here after the first review.',
+      title: 'Review the first saved item to start history',
+      detail:
+        'Saved and not-saved notes or instructions appear here after someone reviews the first suggestion.',
       nextStep:
         'Next: switch back to Waiting for review when you only want items waiting for a decision.',
       actionLabel: 'Show pending reviews',

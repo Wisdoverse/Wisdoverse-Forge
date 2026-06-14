@@ -1235,6 +1235,40 @@ export function DecisionCopy({ approving }) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved-item history empty copy that does not explain how history starts', () => {
+    const cwd = fixture({
+      'src/app/features/context/ApprovalQueueView.tsx': `
+const EMPTY_HISTORY = {
+  title: 'No saved item history yet',
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'review-history-empty-copy',
+        location: 'src/app/features/context/ApprovalQueueView.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts saved-item history empty copy that points to the first review', () => {
+    const cwd = fixture({
+      'src/app/features/context/ApprovalQueueView.tsx': `
+const EMPTY_HISTORY = {
+  title: 'Review the first saved item to start history',
+  detail:
+    'Saved and not-saved notes or instructions appear here after someone reviews the first suggestion.',
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags saved-note capacity copy that exposes unit counts', () => {
     const cwd = fixture({
       'src/app/entities/context/ui/InjectionPreviewModal.tsx': `

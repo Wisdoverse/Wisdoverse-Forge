@@ -179,6 +179,26 @@ describe('ApprovalQueueView', () => {
     expect(screen.getByLabelText('Item type')).toHaveValue('all')
   })
 
+  test('explains how saved item history starts before the first review', async () => {
+    listContextCandidates.mockResolvedValue([])
+
+    const user = userEvent.setup()
+    render(<ApprovalQueueView />)
+
+    await waitFor(() => expect(listContextCandidates).toHaveBeenCalled())
+    await user.click(screen.getByRole('button', { name: 'All saved items' }))
+
+    const emptyState = await screen.findByTestId('context-approval-empty')
+    expect(
+      within(emptyState).getByText('Review the first saved item to start history')
+    ).toBeDefined()
+    expect(
+      within(emptyState).getByText(/appear here after someone reviews the first suggestion/i)
+    ).toBeDefined()
+    expect(within(emptyState).getByText(/switch back to Waiting for review/i)).toBeDefined()
+    expect(within(emptyState).queryByText('No saved item history yet')).toBeNull()
+  })
+
   test('shows beginner network guidance when the review list cannot load', async () => {
     listContextCandidates.mockRejectedValueOnce(new TypeError('Failed to fetch'))
 
