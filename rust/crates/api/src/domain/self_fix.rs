@@ -123,6 +123,28 @@ impl SelfFixPolicy {
         .into()
     }
 
+    /// The task has no PR linkage (number + head SHA) yet, so there is nothing
+    /// for the Merge Executor to merge. Open the PR first.
+    #[allow(dead_code)]
+    pub(crate) fn no_pr_to_merge() -> AppError {
+        ErrorKind::ValidationWithCode {
+            code: "errors.self_fix.no_pr_to_merge",
+            message: "This self-fix task has no open pull request to merge yet; open the PR first.".into(),
+        }
+        .into()
+    }
+
+    /// The task is not in a review state from which the server will merge. Only
+    /// an approved (or, transitionally, in-review) self-fix PR may be merged.
+    #[allow(dead_code)]
+    pub(crate) fn not_approved_for_merge() -> AppError {
+        ErrorKind::ValidationWithCode {
+            code: "errors.self_fix.not_approved_for_merge",
+            message: "This self-fix pull request has not been approved for merge.".into(),
+        }
+        .into()
+    }
+
     /// The agent's change failed the trust-boundary import (symlink, gitlink,
     /// `.git`, oversize, path escape, or a churn/deletion cap). NO PR is opened.
     /// `reason` is a safe, attacker-independent summary (no tokens, no secrets).

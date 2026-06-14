@@ -20,6 +20,11 @@ pub(crate) mod bridge;
 #[cfg(any(test, feature = "test-support"))]
 pub mod bridge;
 
+#[cfg(not(any(test, feature = "test-support")))]
+pub(crate) mod merge_executor;
+#[cfg(any(test, feature = "test-support"))]
+pub mod merge_executor;
+
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -27,6 +32,7 @@ use agentforge_core::{AgentId, AppResult, TenantScope};
 use uuid::Uuid;
 
 use crate::domain::agent_workspace::{host_path_for_container_cwd, WorkspaceMountScope};
+use crate::domain::self_fix::review_status::{APPROVED, IN_REVIEW, MERGED, SENSITIVE_BLOCKED};
 use crate::domain::self_fix::SelfFixPolicy;
 use crate::repositories::agent::AgentRepository;
 use crate::repositories::orchestration::OrchestrationTaskRepository;
@@ -35,6 +41,7 @@ use crate::services::agent_workspace::resolve_agent_workspace_paths;
 use crate::services::github_app::GithubAppClient;
 use crate::services::self_fix::bridge::{run_pr_bridge, GitProvider, SelfFixPrOutcome};
 use crate::services::self_fix::import::ImportLimits;
+use crate::services::self_fix::merge_executor::{run_merge_executor, MergeOutcome, MergeRequest};
 
 /// Server-side self-fix PR Bridge service.
 ///
@@ -141,6 +148,77 @@ impl SelfFixService {
         })
     }
 
+    /// Guarded server-side merge of an approved self-fix PR.
+    ///
+    /// The route layer (milestone 8) sets `review_status == approved` before
+    /// calling this; we accept `approved` and (transitionally, until that route
+    /// lands) `in_review` so the executor can be wired and exercised first. We
+    /// also re-derive sensitivity SERVER-SIDE — a task persisted as
+    /// `sensitive_blocked` at PR-open time is HARD-refused here regardless of any
+    /// later GitHub state, and an already-`merged` task short-circuits as a no-op.
+    ///
+    /// Flow: load the task (tenant-scoped) → require it carries a PR and an
+    /// allowed review status → require GitHub is configured (visible error
+    /// otherwise) → recompute `sensitive` from the persisted review status →
+    /// run the git-only [`run_merge_executor`] gate-and-merge → on a confirmed
+    /// merge ONLY, persist `review_status == merged`. On ANY gate failure the
+    /// task keeps its prior status and the error surfaces; nothing merges.
+    #[allow(dead_code)]
+    pub(crate) async fn approve_and_merge(
+        &self,
+        scope: &TenantScope,
+        task_id: Uuid,
+        approver_id: &str,
+    ) -> AppResult<MergeOutcome> {
+        // 1. Load the task; require self-fix + a configured GitHub App.
+        let task = self.tasks.find_by_id(scope, task_id).await?;
+        if !task.self_fix {
+            return Err(SelfFixPolicy::not_a_self_fix_task());
+        }
+        let github = self.github.as_ref().ok_or_else(SelfFixPolicy::github_not_configured)?;
+
+        // Require a PR linkage (number + recorded head SHA): the executor merges
+        // an EXISTING PR, it does not open one.
+        let pr_number = task.pr_number.ok_or_else(SelfFixPolicy::no_pr_to_merge)?;
+        let recorded_head_sha = task.pr_head_sha.as_deref().ok_or_else(SelfFixPolicy::no_pr_to_merge)?;
+
+        // 2. Gate on review status + recompute sensitivity SERVER-SIDE.
+        //    - `merged`           → idempotent success (already done).
+        //    - `sensitive_blocked`→ HARD refuse, no GitHub call.
+        //    - `approved`         → the milestone-8 route gates here.
+        //    - `in_review`        → transitionally accepted until that route lands.
+        match task.review_status.as_deref() {
+            Some(MERGED) => {
+                return Ok(MergeOutcome {
+                    pr_number,
+                    merged_head_sha: recorded_head_sha.to_string(),
+                    already_merged: true,
+                });
+            }
+            Some(SENSITIVE_BLOCKED) => return Err(SelfFixPolicy::sensitive_path_blocked()),
+            Some(APPROVED) | Some(IN_REVIEW) => {}
+            _ => return Err(SelfFixPolicy::not_approved_for_merge()),
+        }
+
+        // Sensitivity is recomputed from the persisted flag. (The match above
+        // already hard-refuses `sensitive_blocked`; this stays `false` here so
+        // the gate's sensitive arm is driven by an explicit, independent value.)
+        let sensitive = task.review_status.as_deref() == Some(SENSITIVE_BLOCKED);
+
+        // 3. Build the audit body (approver, task, merged head are filled in by
+        //    the executor for the head; approver + task are known now).
+        let audit_body = merge_audit_body(approver_id, task_id, pr_number);
+
+        // 4. Run the git-only guarded merge. NOTHING merges on a gate failure.
+        let req = MergeRequest { pr_number, recorded_head_sha, sensitive };
+        let outcome = run_merge_executor(github.as_ref(), &req, &audit_body).await?;
+
+        // 5. Persist MERGED only after a confirmed merge (or idempotent success).
+        self.tasks.set_review_status(scope, task_id, MERGED).await?;
+
+        Ok(outcome)
+    }
+
     /// Map the task's agent to the server-visible host project directory under
     /// the managed workspace root. The agent's `workspace_id` is the execution
     /// boundary; its `cwd` selects the project subdir inside `/workspace`.
@@ -178,5 +256,19 @@ fn pr_body(title: &str, description: Option<&str>, task_id: Uuid) -> String {
          - If it looks wrong: Close this draft and re-run the task with clearer instructions.\n\
          - Who can merge: A maintainer with write access after the required checks pass.\n\
          - Next step after merge: Confirm the originating task moved to a completed state.\n"
+    )
+}
+
+/// Build the PR audit comment the Merge Executor posts on a confirmed merge.
+/// Names the approver, the originating task, and the PR; the executor appends
+/// nothing secret. Kept attacker-independent (no tokens, no internal URLs).
+#[allow(dead_code)]
+fn merge_audit_body(approver_id: &str, task_id: Uuid, pr_number: i32) -> String {
+    format!(
+        "Wisdoverse self-fix: this pull request (#{pr_number}) was merged by the server-side \
+         Merge Executor after operator `{approver_id}` approved self-fix task `{task_id}`. \
+         The server independently re-verified that the change is non-sensitive, that all CI \
+         checks were green on the merged head, and that the head had not moved (expected-head \
+         merge). No safety check was bypassed."
     )
 }

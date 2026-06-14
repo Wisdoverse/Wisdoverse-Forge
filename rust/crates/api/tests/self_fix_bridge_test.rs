@@ -167,6 +167,27 @@ impl GitProvider for FakeGitProvider {
         self.pr_calls.lock().unwrap().push((head_branch.to_string(), base.to_string(), title.to_string()));
         Ok(OpenedDraftPr { number: 4242, html_url: format!("file://pr/{head_branch}"), head_sha })
     }
+
+    // --- Merge Executor methods: the PR Bridge flow never calls these, so they
+    //     are unreachable in these bridge-only tests. ---
+    async fn all_checks_green(&self, _head_sha: &str) -> AppResult<bool> {
+        unreachable!("bridge tests never call all_checks_green")
+    }
+    async fn pr_head_sha(&self, _pr_number: i32) -> AppResult<String> {
+        unreachable!("bridge tests never call pr_head_sha")
+    }
+    async fn pr_is_merged(&self, _pr_number: i32) -> AppResult<bool> {
+        unreachable!("bridge tests never call pr_is_merged")
+    }
+    async fn mark_ready_for_review(&self, _pr_number: i32) -> AppResult<()> {
+        unreachable!("bridge tests never call mark_ready_for_review")
+    }
+    async fn merge_with_expected_head(&self, _pr_number: i32, _expected_head: &str) -> AppResult<()> {
+        unreachable!("bridge tests never call merge_with_expected_head")
+    }
+    async fn comment(&self, _pr_number: i32, _body: &str) -> AppResult<()> {
+        unreachable!("bridge tests never call comment")
+    }
 }
 
 #[tokio::test]

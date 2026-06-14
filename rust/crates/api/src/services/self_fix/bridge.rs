@@ -57,9 +57,11 @@ pub struct OpenedDraftPr {
     pub head_sha: String,
 }
 
-/// The GitHub-dependent operations the Bridge needs. Abstracted as a trait so
-/// integration tests can inject a fake backed by a local `file://` origin while
-/// production uses the real [`crate::services::github_app::GithubAppClient`].
+/// The GitHub-dependent operations the Bridge AND the Merge Executor need.
+/// Abstracted as a trait so integration tests can inject a fake backed by a
+/// local `file://` origin (PR Bridge) or an in-memory state machine (Merge
+/// Executor) while production uses the real
+/// [`crate::services::github_app::GithubAppClient`].
 #[allow(dead_code)]
 #[async_trait::async_trait]
 pub trait GitProvider: Send + Sync {
@@ -76,6 +78,23 @@ pub trait GitProvider: Send + Sync {
         title: &str,
         body: &str,
     ) -> AppResult<OpenedDraftPr>;
+
+    // --- Merge Executor (milestone 7) operations ---
+
+    /// True IFF every check run on `head_sha` completed with `success`
+    /// (and at least one ran). This is the merge safety gate.
+    async fn all_checks_green(&self, head_sha: &str) -> AppResult<bool>;
+    /// Current head SHA of the PR (re-read just before the atomic merge).
+    async fn pr_head_sha(&self, pr_number: i32) -> AppResult<String>;
+    /// `true` if the PR is already merged (idempotency check).
+    async fn pr_is_merged(&self, pr_number: i32) -> AppResult<bool>;
+    /// Flip a draft PR to ready-for-review.
+    async fn mark_ready_for_review(&self, pr_number: i32) -> AppResult<()>;
+    /// Squash-merge the PR ONLY if its head still equals `expected_head`.
+    /// GitHub's 409 (head moved) is the atomic guard.
+    async fn merge_with_expected_head(&self, pr_number: i32, expected_head: &str) -> AppResult<()>;
+    /// Post an audit comment on the PR.
+    async fn comment(&self, pr_number: i32, body: &str) -> AppResult<()>;
 }
 
 #[async_trait::async_trait]
@@ -98,6 +117,30 @@ impl GitProvider for crate::services::github_app::GithubAppClient {
         let pr =
             crate::services::github_app::GithubAppClient::create_draft_pr(self, head_branch, base, title, body).await?;
         Ok(OpenedDraftPr { number: pr.number, html_url: pr.html_url, head_sha: pr.head.sha })
+    }
+
+    async fn all_checks_green(&self, head_sha: &str) -> AppResult<bool> {
+        crate::services::github_app::GithubAppClient::all_checks_green(self, head_sha).await
+    }
+
+    async fn pr_head_sha(&self, pr_number: i32) -> AppResult<String> {
+        crate::services::github_app::GithubAppClient::pr_head_sha(self, pr_number).await
+    }
+
+    async fn pr_is_merged(&self, pr_number: i32) -> AppResult<bool> {
+        crate::services::github_app::GithubAppClient::pr_is_merged(self, pr_number).await
+    }
+
+    async fn mark_ready_for_review(&self, pr_number: i32) -> AppResult<()> {
+        crate::services::github_app::GithubAppClient::mark_ready_for_review(self, pr_number).await
+    }
+
+    async fn merge_with_expected_head(&self, pr_number: i32, expected_head: &str) -> AppResult<()> {
+        crate::services::github_app::GithubAppClient::merge_with_expected_head(self, pr_number, expected_head).await
+    }
+
+    async fn comment(&self, pr_number: i32, body: &str) -> AppResult<()> {
+        crate::services::github_app::GithubAppClient::comment(self, pr_number, body).await
     }
 }
 

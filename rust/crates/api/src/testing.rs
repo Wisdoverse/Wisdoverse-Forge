@@ -57,6 +57,15 @@ pub mod self_fix_bridge {
     pub use crate::services::self_fix::import::ImportLimits;
 }
 
+/// Test-only re-export of the self-fix guarded Merge Executor (milestone 7) so
+/// integration tests can drive the gate-and-merge against an in-memory fake
+/// `GitProvider` (no real GitHub, no DB). Gated behind `test-support`.
+#[cfg(any(test, feature = "test-support"))]
+pub mod self_fix_merge {
+    pub use crate::services::self_fix::bridge::{GitProvider, OpenedDraftPr};
+    pub use crate::services::self_fix::merge_executor::{run_merge_executor, MergeOutcome, MergeRequest};
+}
+
 /// 32+ byte secret used only in tests. Fixed so the JWT that the shim creates
 /// can be verified by the same `JwtManager` instance on the route side.
 const TEST_JWT_SECRET: &str = "metrics-endpoint-integration-test-secret-32bytes!";

@@ -75,6 +75,12 @@ pub struct PullRequest {
     pub head: PrHead,
     #[serde(default)]
     pub draft: bool,
+    /// `true` once the PR has been merged. GitHub omits this field on the
+    /// list endpoint, so it defaults to `false`; it is present on the
+    /// single-PR `GET /repos/{repo}/pulls/{number}` response we use for the
+    /// idempotency check.
+    #[serde(default)]
+    pub merged: bool,
 }
 
 #[derive(Deserialize)]
@@ -364,6 +370,14 @@ impl GithubAppClient {
     #[allow(dead_code)]
     pub async fn pr_head_sha(&self, pr_number: i32) -> AppResult<String> {
         Ok(self.fetch_pull_request(pr_number).await?.head.sha)
+    }
+
+    /// `true` if the PR is already merged. Used by the Merge Executor for
+    /// idempotency: a retry after a successful merge must succeed instead of
+    /// erroring on a no-longer-mergeable PR.
+    #[allow(dead_code)]
+    pub async fn pr_is_merged(&self, pr_number: i32) -> AppResult<bool> {
+        Ok(self.fetch_pull_request(pr_number).await?.merged)
     }
 
     /// Fetch a PR object (used for `head.sha` and `node_id`).
