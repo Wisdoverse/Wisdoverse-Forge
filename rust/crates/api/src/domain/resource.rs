@@ -147,14 +147,27 @@ impl<'a> OrganizationSlug<'a> {
     }
 }
 
-/// Project repository URL policy.
+/// Project repository URL policy (parse-don't-validate).
 ///
 /// v1 clone only supports HTTPS token auth (GitHub/GitLab), so the URL must be
-/// `https://` with a non-empty host. Rejecting `http`/`git`/`ssh`/`file`/
-/// scheme-less here is parse-time defense-in-depth; the clone container's
-/// restricted egress network (design spec §10) is the real SSRF control.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct ProjectRepositoryUrl;
+/// `https://` with a non-empty host. The parsed, validated host is RETAINED on
+/// the value object so M6 can do credential-host-matching without re-parsing.
+///
+/// `parse` is best-effort defense-in-depth, NOT the primary SSRF control: the
+/// clone container's restricted egress network (design spec §10, M4) is the real
+/// control. What `parse` adds here:
+///   - https-only + length cap (rejects `http`/`git`/`ssh`/`file`/scheme-less).
+///   - No control chars / whitespace ANYWHERE in the URL — defeats CRLF / NUL /
+///     space injection into a future `git clone <url>` argv (H2).
+///   - A literal-IP / name deny-list for the host: loopback, link-local, cloud
+///     metadata (`169.254.*`), RFC1918 private ranges, and `.local` (H1, best
+///     effort — M4 egress filtering is the authoritative block).
+///   - Non-empty, whitespace-free host label after stripping userinfo and
+///     `:port` (rejects `https://:8080/r` and `https://@host`) (H3).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ProjectRepositoryUrl {
+    host: String,
+}
 
 impl ProjectRepositoryUrl {
     const HTTPS_PREFIX: &'static str = "https://";
@@ -166,19 +179,103 @@ impl ProjectRepositoryUrl {
         if value.len() > 2048 {
             return Err(ErrorKind::Validation("repository URL must be 2048 characters or less".into()).into());
         }
+        // Reject control chars and whitespace anywhere: a `\r`, `\n`, `\0`, or
+        // space smuggled into the URL could split a future `git clone <url>`
+        // command or inject a second argument (H2 — injection defense-in-depth).
+        if value.chars().any(|c| c.is_control() || c.is_whitespace()) {
+            return Err(ErrorKind::Validation(
+                "repository URL must not contain whitespace or control characters".into(),
+            )
+            .into());
+        }
         let rest = value
             .strip_prefix(Self::HTTPS_PREFIX)
             .ok_or_else(|| AppError::from(ErrorKind::Validation("repository URL must start with https://".into())))?;
-        // The host is the authority up to the first '/', '?', or '#'. It must be
-        // present and non-empty (`https://` and `https:///path` are rejected).
-        let host = rest.split(['/', '?', '#']).next().unwrap_or("");
-        // Strip any `userinfo@` prefix so `https://user@host` still has a host.
-        let host = host.rsplit('@').next().unwrap_or(host);
+        // The authority is everything up to the first '/', '?', or '#'.
+        let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+        // Strip any `userinfo@` prefix so `https://user@host` still has a host,
+        // and reject a leading `@` with an empty host (`https://@host` parses the
+        // authority as `@host` -> userinfo empty, host `host`; `https://@`/
+        // `https://user@` -> empty host, caught below) (H3).
+        let host_port = authority.rsplit('@').next().unwrap_or(authority);
+        // Split off an optional `:port` to isolate the bare host label. An IPv6
+        // literal `[::1]:443` keeps its brackets in `host`; that is fine for the
+        // deny-list match below, which checks for `[::1]`/`::1` explicitly.
+        let host = if host_port.starts_with('[') {
+            // IPv6 literal: host ends at the closing ']'.
+            match host_port.find(']') {
+                Some(end) => &host_port[..=end],
+                None => host_port, // malformed; let the empty/deny checks catch it
+            }
+        } else {
+            host_port.split(':').next().unwrap_or(host_port)
+        };
         if host.is_empty() {
             return Err(ErrorKind::Validation("repository URL must include a host".into()).into());
         }
-        Ok(Self)
+        // Host label must not contain whitespace (already excluded globally, but
+        // assert at the host level as a forward guard).
+        if host.chars().any(|c| c.is_whitespace()) {
+            return Err(ErrorKind::Validation("repository URL host must not contain whitespace".into()).into());
+        }
+        if is_blocked_clone_host(host) {
+            return Err(ErrorKind::Validation(
+                "repository host is not allowed (private, loopback, or metadata address)".into(),
+            )
+            .into());
+        }
+        Ok(Self { host: host.to_string() })
     }
+
+    /// The validated host authority label (no userinfo, no port), as written in
+    /// the URL. M6 uses this for credential-host-matching (which must compare
+    /// case-insensitively). Wired in M6; retained now so the host is not
+    /// discarded and re-parsed later.
+    #[allow(dead_code)] // consumed by M6 credential-host-matching
+    pub(crate) fn host(&self) -> &str {
+        &self.host
+    }
+}
+
+/// Best-effort literal-IP / name deny-list for clone targets (SSRF
+/// defense-in-depth; M4 egress filtering is the authoritative control).
+///
+/// Blocks loopback, link-local + cloud metadata, RFC1918 private ranges, and the
+/// `.local` mDNS suffix. Comparison is case-insensitive. This does NOT resolve
+/// DNS (a hostname that resolves to a private IP is NOT caught here — that is M4's
+/// job at the network layer); it only stops the obvious literal-address shapes.
+fn is_blocked_clone_host(host: &str) -> bool {
+    let h = host.to_ascii_lowercase();
+    let h = h.as_str();
+
+    // Loopback (v4 + v6 literal forms, with or without brackets) and localhost.
+    if h == "localhost" || h == "::1" || h == "[::1]" || h.starts_with("127.") {
+        return true;
+    }
+    // Link-local + cloud metadata endpoint (AWS/GCP/Azure 169.254.169.254).
+    if h.starts_with("169.254.") || h.starts_with("fe80:") || h.starts_with("[fe80:") {
+        return true;
+    }
+    // RFC1918 private IPv4 ranges.
+    if h.starts_with("10.") || h.starts_with("192.168.") || is_172_private(h) {
+        return true;
+    }
+    // mDNS / local-network suffix.
+    if h.ends_with(".local") {
+        return true;
+    }
+    false
+}
+
+/// True for the RFC1918 `172.16.0.0/12` range (`172.16.` through `172.31.`).
+fn is_172_private(host: &str) -> bool {
+    let Some(rest) = host.strip_prefix("172.") else {
+        return false;
+    };
+    let Some(second) = rest.split('.').next() else {
+        return false;
+    };
+    matches!(second.parse::<u8>(), Ok(n) if (16..=31).contains(&n))
 }
 
 /// Group membership role.
@@ -605,6 +702,8 @@ mod tests {
         assert!(ProjectRepositoryUrl::parse("https://gitlab.com/org/repo.git").is_ok());
         assert!(ProjectRepositoryUrl::parse("https://host/repo").is_ok());
         assert!(ProjectRepositoryUrl::parse("https://user@host/repo").is_ok());
+        // Accepted: an explicit port on a public host.
+        assert!(ProjectRepositoryUrl::parse("https://example.com:8443/org/repo").is_ok());
 
         // Rejected: empty, non-https schemes, scheme-less, and hostless https.
         assert!(ProjectRepositoryUrl::parse("").is_err());
@@ -618,6 +717,58 @@ mod tests {
         assert!(ProjectRepositoryUrl::parse("https:///repo").is_err());
         // Length cap still applies (8-char prefix + 2048 host > 2048).
         assert!(ProjectRepositoryUrl::parse(&format!("https://{}", "a".repeat(2048))).is_err());
+    }
+
+    #[test]
+    fn project_repository_url_carries_parsed_host() {
+        // S5 / parse-don't-validate: the validated host is retained.
+        assert_eq!(ProjectRepositoryUrl::parse("https://github.com/o/r").unwrap().host(), "github.com");
+        assert_eq!(ProjectRepositoryUrl::parse("https://user@gitlab.com/o/r").unwrap().host(), "gitlab.com");
+        assert_eq!(ProjectRepositoryUrl::parse("https://example.com:8443/o/r").unwrap().host(), "example.com");
+    }
+
+    #[test]
+    fn project_repository_url_rejects_injection_chars() {
+        // H2: whitespace / control chars anywhere would let a smuggled `\n`/space
+        // split a future `git clone <url>` invocation.
+        assert!(ProjectRepositoryUrl::parse("https://github.com/o/r\n--upload-pack=evil").is_err());
+        assert!(ProjectRepositoryUrl::parse("https://github.com/o/r evil").is_err());
+        assert!(ProjectRepositoryUrl::parse("https://github.com/o/r\t").is_err());
+        assert!(ProjectRepositoryUrl::parse("https://github.com/o/r\0").is_err());
+        assert!(ProjectRepositoryUrl::parse("https://git hub.com/o/r").is_err());
+    }
+
+    #[test]
+    fn project_repository_url_rejects_empty_or_port_only_authority() {
+        // H3: a port-only or userinfo-only authority has no real host.
+        assert!(ProjectRepositoryUrl::parse("https://:8080/r").is_err());
+        assert!(ProjectRepositoryUrl::parse("https://@host/r").is_ok()); // empty userinfo, host present
+        assert!(ProjectRepositoryUrl::parse("https://user@/r").is_err()); // userinfo but empty host
+        assert!(ProjectRepositoryUrl::parse("https://@/r").is_err()); // both empty
+    }
+
+    #[test]
+    fn project_repository_url_blocks_ssrf_literal_hosts() {
+        // H1: loopback, link-local + metadata, RFC1918, and `.local` literals.
+        // Best-effort defense-in-depth (M4 egress is the real control).
+        let blocked = [
+            "https://localhost/r",
+            "https://127.0.0.1/r",
+            "https://127.1.2.3/r",
+            "https://[::1]/r",
+            "https://169.254.169.254/latest/meta-data/", // cloud metadata
+            "https://10.0.0.5/r",
+            "https://192.168.1.1/r",
+            "https://172.16.0.1/r",
+            "https://172.31.255.255/r",
+            "https://internal.local/r",
+        ];
+        for url in blocked {
+            assert!(ProjectRepositoryUrl::parse(url).is_err(), "{url} should be blocked");
+        }
+        // Public-looking 172.x addresses OUTSIDE 172.16-31 are not blocked here.
+        assert!(ProjectRepositoryUrl::parse("https://172.15.0.1/r").is_ok());
+        assert!(ProjectRepositoryUrl::parse("https://172.32.0.1/r").is_ok());
     }
 
     #[test]

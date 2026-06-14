@@ -20,8 +20,9 @@
 
 #![allow(dead_code)]
 
-use std::{fmt, path::Path, path::PathBuf, str::FromStr};
+use std::{fmt, path::Path, path::PathBuf, str::FromStr, sync::LazyLock};
 
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
@@ -150,8 +151,15 @@ impl CloneStatus {
 
     /// Denormalize the latest attempt's status onto the project summary column.
     ///
+    /// "Latest" here means the attempt with the highest `attempt` number
+    /// (`MAX(attempt)` for the project), NOT the most-recently-`updated_at` row.
+    /// M5 must pass the genuinely-highest-numbered attempt: the
+    /// `Cancelled -> None` collapse below assumes the cancelled row really is the
+    /// last attempt, so that a project whose newest attempt was cancelled shows
+    /// no active clone (a stale older `Ready`/`Failed` must not win).
+    ///
     /// `None` (no attempt yet) and `Some(Cancelled)` both collapse to `None`:
-    /// a project with no attempt, or whose only/latest attempt was cancelled,
+    /// a project with no attempt, or whose latest attempt was cancelled,
     /// shows no active clone. All other attempt statuses map 1:1.
     pub fn from_attempt(latest: Option<CloneAttemptStatus>) -> CloneStatus {
         match latest {
@@ -205,6 +213,13 @@ pub struct UnknownCloneStatus {
     pub raw: String,
 }
 
+/// An error-class string that does not match any known DB/API slug.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("unknown clone error class: {raw}")]
+pub struct UnknownCloneErrorClass {
+    pub raw: String,
+}
+
 /// A derived workspace directory name that would escape the projects root.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("workspace dir name {name:?} escapes the projects root")]
@@ -231,9 +246,32 @@ const RESERVED_DIR_NAMES: &[&str] = &[".", "..", ".git"];
 /// Always lowercase, always `[a-z0-9-]`, never empty, never a reserved name,
 /// length-capped. Derivation is total: any input produces a usable name (or the
 /// [`WORKSPACE_DIR_NAME_FALLBACK`] default).
+///
+/// The field is private and there is no public struct literal: the ONLY way to
+/// obtain a `WorkspaceDirName` outside this module is [`WorkspaceDirName::derive`]
+/// (total, for fresh names) or [`WorkspaceDirName::parse`] (validating, for names
+/// read back from the DB in M2). Both go through [`is_safe_dir_name`], so the
+/// invariant "always a single safe path component" cannot be bypassed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkspaceDirName {
     value: String,
+}
+
+/// The single safety predicate every `WorkspaceDirName` value must satisfy.
+///
+/// A safe name is non-empty, length-capped, all `[a-z0-9-]`, has no leading or
+/// trailing `-`, and is not a reserved traversal/metadata token. This is the
+/// shared invariant for both [`WorkspaceDirName::derive`] (which produces names
+/// that satisfy it by construction) and [`WorkspaceDirName::parse`] (which
+/// rejects names that do not). Keeping the check in one place stops the two
+/// constructors from drifting.
+fn is_safe_dir_name(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= WORKSPACE_DIR_NAME_MAX
+        && value.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        && !value.starts_with('-')
+        && !value.ends_with('-')
+        && !RESERVED_DIR_NAMES.contains(&value)
 }
 
 impl WorkspaceDirName {
@@ -245,6 +283,13 @@ impl WorkspaceDirName {
     /// at [`WORKSPACE_DIR_NAME_MAX`]; if the result is empty or a reserved name
     /// (`.`, `..`, `.git`), fall back to [`WORKSPACE_DIR_NAME_FALLBACK`]
     /// (`"project"`).
+    ///
+    /// The result always satisfies [`is_safe_dir_name`]. The reserved-name
+    /// fallback is in practice unreachable given the `[a-z0-9-]` filter (a
+    /// filtered run can never equal `.`, `..`, or `.git`, since `.` is dropped);
+    /// it is kept as a forward guard so a future filter change cannot silently
+    /// produce a reserved name. The byte-level `truncate(WORKSPACE_DIR_NAME_MAX)`
+    /// is safe to do on a byte boundary only because `out` is ASCII-only here.
     pub fn derive(name: &str) -> WorkspaceDirName {
         let mut out = String::with_capacity(name.len().min(WORKSPACE_DIR_NAME_MAX));
         let mut prev_dash = true; // suppress a leading dash
@@ -274,6 +319,24 @@ impl WorkspaceDirName {
         WorkspaceDirName { value: out }
     }
 
+    /// Validate a directory name read back from the DB (M2 reads
+    /// `projects.workspace_dir_name`, backfilled by migration 068 from OLD slugs
+    /// that a weaker policy produced and that never checked for `.git`).
+    ///
+    /// Unlike [`derive`](Self::derive), this does NOT sanitize: it re-runs the
+    /// full safety predicate ([`is_safe_dir_name`]) and rejects anything that is
+    /// empty, over-length, contains a character outside `[a-z0-9-]` (so `/`,
+    /// `\`, `.`, `..` are all rejected), has a leading/trailing `-`, or is a
+    /// reserved name. This is the only validating constructor; M2 must use it
+    /// rather than trusting the stored value.
+    pub fn parse(value: &str) -> Result<WorkspaceDirName, PathEscape> {
+        if is_safe_dir_name(value) {
+            Ok(WorkspaceDirName { value: value.to_string() })
+        } else {
+            Err(PathEscape { name: value.to_string() })
+        }
+    }
+
     /// The validated directory name.
     pub fn as_str(&self) -> &str {
         &self.value
@@ -293,7 +356,16 @@ impl WorkspaceDirName {
     ///
     /// `root` itself is taken as-is (the caller owns its canonicalization); we
     /// only guarantee the single appended component cannot escape it.
+    ///
+    /// PRECONDITION: the caller MUST pass an absolute, canonicalized `root`. The
+    /// structural containment proof below is moot if `root` is relative or
+    /// contains unresolved symlinks (a `..` inside a symlinked `root` could still
+    /// escape on the real filesystem). M2 canonicalizes the projects root once at
+    /// startup and passes that. The `debug_assert!` documents and enforces this
+    /// in test/dev builds.
     pub fn resolve_under(&self, root: &Path) -> Result<PathBuf, PathEscape> {
+        debug_assert!(root.is_absolute(), "resolve_under requires an absolute, canonicalized root");
+
         // Defense in depth: the name is already filtered, but assert it.
         if self.value.is_empty()
             || self.value.contains('/')
@@ -418,18 +490,100 @@ impl fmt::Display for CloneErrorClass {
     }
 }
 
+impl FromStr for CloneErrorClass {
+    type Err = UnknownCloneErrorClass;
+
+    /// Parse the stored `error_class` slug back into the enum (M5 reads it back).
+    /// Symmetric with [`CloneErrorClass::as_str`].
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "auth" => Ok(Self::Auth),
+            "not_found" => Ok(Self::NotFound),
+            "network" => Ok(Self::Network),
+            "timeout" => Ok(Self::Timeout),
+            "too_large" => Ok(Self::TooLarge),
+            "internal" => Ok(Self::Internal),
+            other => Err(UnknownCloneErrorClass { raw: other.to_string() }),
+        }
+    }
+}
+
+/// The marker substituted for any redacted secret run.
+const REDACTED: &str = "[REDACTED]";
+
+/// A clone error message that has passed through [`redact`].
+///
+/// This newtype is a type-level proof that a string was scrubbed of credentials:
+/// the only public constructor is [`redact`], so a downstream milestone (M5/M6)
+/// cannot accidentally persist raw `git` stderr into `error_message` — the
+/// persistence boundary takes a `RedactedError`, and the only way to make one is
+/// to pass raw stderr through the redactor. Treat the wrapped string as the
+/// safe-to-display, safe-to-store value; the raw stderr stays server-side in
+/// logs and is never wrapped here.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RedactedError(String);
+
+impl RedactedError {
+    /// The redacted, safe-to-store message.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// Consume into the owned redacted string (for persistence at the boundary).
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl fmt::Display for RedactedError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 /// Redact secrets from a raw clone error blob before it is persisted/displayed.
 ///
-/// Strips userinfo credentials from embedded URLs (`https://user:token@host`
-/// -> `https://host`), strips standalone token-looking substrings (provider
-/// token prefixes, long hex/base64 runs), collapses whitespace, and truncates
-/// to [`ERROR_MESSAGE_MAX`]. Raw stderr (with secrets) stays server-side in
-/// logs and is never the value passed forward.
-pub fn redact(raw: &str) -> String {
-    let mut s = redact_url_userinfo(raw);
+/// Defense in depth, applied in order:
+///   1. Scrub the VALUE of sensitive URL query params
+///      (`?access_token=…`, `&token=…`, `private_token`, `api_key`, `password`,
+///      `auth`, …) regardless of the surrounding delimiters.
+///   2. Strip `userinfo@` from embedded `scheme://userinfo@host` authorities.
+///   3. Scrub standalone secret-looking runs anywhere in the blob — provider
+///      token prefixes (`ghp_…`, `glpat-…`, `github_pat_…`) and long opaque
+///      `[A-Za-z0-9]{32,}` / hex runs — even when glued to quotes, parens,
+///      commas, angle brackets, or slashes (NOT whitespace-tokenized).
+///   4. Collapse whitespace and truncate to [`ERROR_MESSAGE_MAX`].
+///
+/// This is best-effort and biased toward over-redaction of long opaque runs
+/// (real prose words are short; a 32+ char alphanumeric run is almost never
+/// prose). It is NOT the primary control: the real guarantee is that a clone
+/// credential never reaches `git` stderr in the first place (M3 writes the token
+/// to an askpass/credential helper, M4 keeps it out of argv and the error path).
+/// Redaction is the last line of defense for stderr that slips a token through.
+pub fn redact(raw: &str) -> RedactedError {
+    let mut s = redact_query_param_values(raw);
+    s = redact_url_userinfo(&s);
     s = redact_token_like(&s);
     s = collapse_whitespace(&s);
-    truncate_chars(&s, ERROR_MESSAGE_MAX)
+    RedactedError(truncate_chars(&s, ERROR_MESSAGE_MAX))
+}
+
+/// Scrub the value of a sensitive URL query parameter regardless of the
+/// delimiter that introduced it (`?` or `&`).
+///
+/// Matches `[?&]<param>=<value>` where `<value>` is a run of non-`&`,
+/// non-whitespace, non-quote characters, and rewrites it to `<param>=[REDACTED]`.
+/// This catches `…?access_token=ghp_…/'` shapes that the userinfo strip and the
+/// whitespace-free token scan could otherwise miss when the token is glued to
+/// path/quote characters.
+fn redact_query_param_values(raw: &str) -> String {
+    static QUERY_PARAM: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
+            r#"(?i)([?&](?:access_token|token|private_token|api[_-]?key|x-access-token|password|auth)=)[^&\s"']+"#,
+        )
+        .expect("clone-redaction query-param regex must compile")
+    });
+    QUERY_PARAM.replace_all(raw, |caps: &regex::Captures<'_>| format!("{}{REDACTED}", &caps[1])).into_owned()
 }
 
 /// Replace `scheme://userinfo@host` with `scheme://host` for any embedded URL.
@@ -462,8 +616,11 @@ fn redact_url_userinfo(raw: &str) -> String {
             out.push_str(host);
             i = j;
         } else {
-            // Copy this char verbatim (advance by one full UTF-8 char).
-            let ch = raw[i..].chars().next().unwrap_or('\u{FFFD}');
+            // Copy this char verbatim (advance by one full UTF-8 char). A `str`
+            // slice always starts on a char boundary, so `chars().next()` is
+            // `Some`; `.expect` turns a future loop-advance regression into a
+            // test-visible panic instead of a silent replacement char.
+            let ch = raw[i..].chars().next().expect("Rust str is always valid UTF-8");
             out.push(ch);
             i += ch.len_utf8();
         }
@@ -472,44 +629,31 @@ fn redact_url_userinfo(raw: &str) -> String {
     out
 }
 
-/// Redact standalone token-looking substrings. Conservative: only whole
-/// whitespace-delimited tokens that look like secrets are replaced, so prose
-/// is preserved. Recognizes provider prefixes (`ghp_`, `gho_`, `ghu_`, `ghs_`,
-/// `ghr_`, `github_pat_`, `glpat-`) and long hex/base64 runs.
+/// Redact secret-looking runs anywhere in the blob, NOT whitespace-tokenized, so
+/// a token glued to quotes / parens / commas / angle brackets / slashes is still
+/// caught. Two passes, longest-match-first:
+///
+///   1. Known provider prefixes followed by the token body
+///      (`ghp_|gho_|ghu_|ghs_|ghr_|github_pat_|glpat-` + `[A-Za-z0-9_-]+`).
+///   2. High-entropy opaque runs: any `[A-Za-z0-9]{32,}` (covers hex too).
+///
+/// A run is bordered by any non-token-body character, so `'ghp_…'`, `(ghp_…)`,
+/// `</ghp_…>`, and `tokens=ghp_…,other` all redact the secret and keep the rest.
 fn redact_token_like(raw: &str) -> String {
-    raw.split_inclusive(char::is_whitespace)
-        .map(|chunk| {
-            // Separate the token from any trailing whitespace we kept.
-            let trimmed_len = chunk.trim_end().len();
-            let (tok, ws) = chunk.split_at(trimmed_len);
-            // Also peel trailing punctuation so "ghp_secret." still redacts.
-            let core_len = tok.trim_end_matches(['.', ',', ';', ':', ')', ']', '"', '\'']).len();
-            let (core, punct) = tok.split_at(core_len);
-            if looks_like_token(core) { format!("[REDACTED]{punct}{ws}") } else { chunk.to_string() }
-        })
-        .collect()
-}
-
-/// Heuristic: does this bare token look like a secret?
-fn looks_like_token(tok: &str) -> bool {
-    const PREFIXES: &[&str] = &["ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_", "glpat-"];
-    if PREFIXES.iter().any(|p| tok.starts_with(p)) {
-        return true;
-    }
-    // Long hex run (>= 32) — e.g. an OAuth token or SHA-like secret blob.
-    if tok.len() >= 32 && tok.chars().all(|c| c.is_ascii_hexdigit()) {
-        return true;
-    }
-    // Long base64url-ish run (>= 40) with mixed case + digits — entropy proxy.
-    if tok.len() >= 40
-        && tok.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '+' | '/' | '='))
-        && tok.chars().any(|c| c.is_ascii_uppercase())
-        && tok.chars().any(|c| c.is_ascii_lowercase())
-        && tok.chars().any(|c| c.is_ascii_digit())
-    {
-        return true;
-    }
-    false
+    static PREFIXED_TOKEN: LazyLock<Regex> = LazyLock::new(|| {
+        // Prefixed tokens: lower the body floor (>= 8) since the prefix already
+        // signals a secret. `(?-i)` keeps the prefixes case-exact.
+        Regex::new(r#"(?-i)\b(?:ghp_|gho_|ghu_|ghs_|ghr_|github_pat_|glpat-)[A-Za-z0-9_-]{8,}"#)
+            .expect("clone-redaction prefixed-token regex must compile")
+    });
+    static OPAQUE_RUN: LazyLock<Regex> = LazyLock::new(|| {
+        // Any opaque alnum run >= 32 (covers all-lowercase, digit-free, and
+        // 40-hex-with-letters cases that a charset-class gate would miss).
+        // `(?-i)` is irrelevant for the class but keeps intent explicit.
+        Regex::new(r#"[A-Za-z0-9]{32,}"#).expect("clone-redaction opaque-run regex must compile")
+    });
+    let s = PREFIXED_TOKEN.replace_all(raw, REDACTED).into_owned();
+    OPAQUE_RUN.replace_all(&s, REDACTED).into_owned()
 }
 
 /// Collapse any run of whitespace into a single space, trimming the ends.
@@ -576,30 +720,24 @@ mod tests {
 
     #[test]
     fn illegal_transitions_are_rejected() {
+        // Generated ALL × ALL sweep: every (from, to) pair that is NOT one of the
+        // five legal edges (incl. terminal self-loops like `Ready -> Ready` and
+        // backward edges like `Cloning -> Queued`) MUST be rejected. This cannot
+        // drift out of date the way a hand-listed array can.
         use CloneAttemptStatus::*;
-        let illegal = [
-            // Terminal states have no outgoing edge.
-            (Ready, Cloning),
-            (Ready, Failed),
-            (Ready, Queued),
-            (Ready, Cancelled),
-            (Failed, Cloning),
-            (Failed, Queued), // retry is a NEW attempt, not a transition
-            (Failed, Ready),
-            (Cancelled, Queued),
-            (Cancelled, Cloning),
-            (Cancelled, Ready),
-            // Skipping a step.
-            (Queued, Ready),
-            (Queued, Failed),
-            // No self-loops.
-            (Queued, Queued),
-            (Cloning, Cloning),
-        ];
-        for (from, to) in illegal {
-            let err = from.try_transition(to).unwrap_err();
-            assert_eq!(err.from, from);
-            assert_eq!(err.to, to);
+        const LEGAL: [(CloneAttemptStatus, CloneAttemptStatus); 5] =
+            [(Queued, Cloning), (Queued, Cancelled), (Cloning, Ready), (Cloning, Failed), (Cloning, Cancelled)];
+
+        for from in CloneAttemptStatus::ALL {
+            for to in CloneAttemptStatus::ALL {
+                if LEGAL.contains(&(from, to)) {
+                    continue;
+                }
+                let err =
+                    from.try_transition(to).expect_err(&format!("{from} -> {to} must be illegal (not a legal edge)"));
+                assert_eq!(err.from, from);
+                assert_eq!(err.to, to);
+            }
         }
     }
 
@@ -652,6 +790,14 @@ mod tests {
     /// `information_schema` lookup, then the real `ADD CONSTRAINT ... CHECK`), so
     /// we anchor on the FIRST occurrence that is followed by an `IN (` group and
     /// parse the values strictly out of that parenthesized list.
+    ///
+    /// ASSUMPTION (so a future migration reformat does not silently break this):
+    /// the real constraint is written as `ADD CONSTRAINT <name> CHECK (... IN (
+    /// 'a', 'b', ... ))` on a SINGLE statement (terminated by `;`), with the
+    /// allowed values as single-quoted literals inside the FIRST `IN (...)` group
+    /// that follows the constraint name before that `;`. If migration 068 is ever
+    /// rewritten to use an enum type, a lookup table, or a multi-statement form,
+    /// update this parser (and these tests will fail loudly first).
     fn check_values(sql: &str, constraint_name: &str) -> Vec<String> {
         let mut search_from = 0;
         loop {
@@ -798,12 +944,58 @@ mod tests {
         }
     }
 
+    #[test]
+    fn workspace_dir_name_parse_validates_stored_values() {
+        // T1: the validating constructor accepts already-safe names...
+        assert_eq!(WorkspaceDirName::parse("my-project").unwrap().as_str(), "my-project");
+        assert_eq!(WorkspaceDirName::parse("a").unwrap().as_str(), "a");
+        assert_eq!(WorkspaceDirName::parse("abc123").unwrap().as_str(), "abc123");
+        // ...and rejects every unsafe shape (it does NOT sanitize like derive).
+        for bad in [
+            "",                                      // empty
+            "..",                                    // traversal
+            ".",                                     // dot
+            ".git",                                  // reserved metadata
+            "a/b",                                   // slash
+            "a\\b",                                  // backslash
+            "a..b",                                  // embedded `..` -> contains `.`
+            "-lead",                                 // leading dash
+            "trail-",                                // trailing dash
+            "Upper",                                 // uppercase
+            "has space",                             // whitespace
+            "under_score",                           // disallowed char
+            &"a".repeat(WORKSPACE_DIR_NAME_MAX + 1), // over-length
+        ] {
+            assert!(WorkspaceDirName::parse(bad).is_err(), "parse({bad:?}) should be rejected");
+        }
+    }
+
+    #[test]
+    fn derive_output_always_passes_parse() {
+        // Anything derive() produces must satisfy parse() — the two constructors
+        // share is_safe_dir_name and cannot drift.
+        for input in ["My Project", "..", "🚀", "", ".git", &"x".repeat(300), "  spaces  ", "---hi---"] {
+            let derived = WorkspaceDirName::derive(input);
+            assert_eq!(
+                WorkspaceDirName::parse(derived.as_str()).expect("derive output must re-parse").as_str(),
+                derived.as_str(),
+                "derive({input:?}) -> {} failed re-parse",
+                derived.as_str()
+            );
+        }
+    }
+
     // -- Error class + redaction --------------------------------------------
+
+    /// Helper: redact and return the wrapped string for substring assertions.
+    fn redacted(raw: &str) -> String {
+        redact(raw).into_string()
+    }
 
     #[test]
     fn redact_strips_url_credentials() {
         let blob = "fatal: unable to access 'https://alice:ghp_supersecrettoken1234@github.com/x.git'";
-        let out = redact(blob);
+        let out = redacted(blob);
         assert!(!out.contains("ghp_supersecrettoken1234"), "token leaked: {out}");
         assert!(!out.contains("alice:"), "username leaked: {out}");
         assert!(out.contains("github.com"), "host should survive: {out}");
@@ -812,32 +1004,123 @@ mod tests {
     #[test]
     fn redact_strips_standalone_tokens() {
         let blob = "token ghp_abcdefghijklmnopqrstuvwxyz012345 was rejected";
-        let out = redact(blob);
+        let out = redacted(blob);
         assert!(!out.contains("ghp_abcdefghijklmnopqrstuvwxyz012345"), "{out}");
         assert!(out.contains("[REDACTED]"), "{out}");
         assert!(out.contains("was rejected"), "prose should survive: {out}");
 
         let glab = "remote: HTTP Basic: Access denied glpat-AbCdEf0123456789xyz now";
-        let out = redact(glab);
+        let out = redacted(glab);
         assert!(!out.contains("glpat-AbCdEf0123456789xyz"), "{out}");
     }
 
     #[test]
     fn redact_collapses_whitespace_and_truncates() {
         let blob = format!("error:{}done", " ".repeat(50));
-        let out = redact(&blob);
+        let out = redacted(&blob);
         assert_eq!(out, "error: done");
 
         let huge = "x ".repeat(10_000); // ~20 KB
-        let out = redact(&huge);
+        let out = redacted(&huge);
         assert!(out.chars().count() <= ERROR_MESSAGE_MAX, "len {}", out.chars().count());
     }
 
     #[test]
     fn redact_preserves_short_non_secret_words() {
         let blob = "error cloning repo: branch main not found";
-        let out = redact(blob);
+        let out = redacted(blob);
         assert_eq!(out, "error cloning repo: branch main not found");
+    }
+
+    // -- Adversarial redaction shapes (S1/S2/S3) ----------------------------
+    //
+    // A single GitHub PAT body, reused across delimiter shapes. 36 alnum chars
+    // after the `ghp_` prefix — a real-world GitHub token length.
+    const SECRET_BODY: &str = "ghp_abcdefghijklmnopqrstuvwxyz0123456789";
+
+    #[test]
+    fn redact_scrubs_token_in_query_string() {
+        // S1: the value of a sensitive query param, glued to a trailing slash and
+        // quote, must be scrubbed even though it is not whitespace-delimited.
+        let blob =
+            format!("fatal: unable to access 'https://github.com/o/r?access_token={SECRET_BODY}/': The requested URL");
+        let out = redacted(&blob);
+        assert!(!out.contains(SECRET_BODY), "query-string token leaked: {out}");
+        assert!(out.contains("github.com"), "host should survive: {out}");
+    }
+
+    #[test]
+    fn redact_scrubs_other_sensitive_query_params() {
+        for param in ["token", "private_token", "api_key", "api-key", "x-access-token", "password", "auth"] {
+            let blob = format!("https://h/r?{param}={SECRET_BODY}");
+            let out = redacted(&blob);
+            assert!(!out.contains(SECRET_BODY), "param {param} leaked: {out}");
+        }
+    }
+
+    #[test]
+    fn redact_scrubs_tokens_glued_to_non_whitespace_delimiters() {
+        // S2: leading/trailing quotes, parens, commas, angle/slash all defeated
+        // the old whitespace-tokenized scan. Every shape must now redact.
+        let shapes = [
+            format!("'{SECRET_BODY}'"),            // quote-glued
+            format!("\"{SECRET_BODY}\""),          // double-quote
+            format!("({SECRET_BODY})"),            // paren
+            format!("tokens={SECRET_BODY},other"), // comma list
+            format!("</{SECRET_BODY}>"),           // angle + slash
+            format!("[{SECRET_BODY}]"),            // bracket
+            format!("=({SECRET_BODY})"),           // equals + paren
+        ];
+        for shape in shapes {
+            let out = redacted(&shape);
+            assert!(!out.contains(SECRET_BODY), "secret leaked from shape {shape:?}: {out}");
+        }
+    }
+
+    #[test]
+    fn redact_scrubs_low_charset_opaque_tokens() {
+        // S3: tokens the old base64 gate (upper AND lower AND digit) let slip.
+        // 40-char hex with letters:
+        let hex40 = "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4";
+        // 40-char all-lowercase (no digits):
+        let lower40 = "abcdefghijklmnopqrstuvwxyzabcdefghijklmn";
+        // 40-char digit-free mixed case:
+        let nodigit40 = "AbCdEfGhIjKlMnOpQrStUvWxYzAbCdEfGhIjKlMn";
+        for secret in [hex40, lower40, nodigit40] {
+            let blob = format!("remote: rejected credential {secret} please retry");
+            let out = redacted(&blob);
+            assert!(!out.contains(secret), "opaque token leaked: {out}");
+            assert!(out.contains("[REDACTED]"), "no marker: {out}");
+            assert!(out.contains("please retry"), "prose should survive: {out}");
+        }
+    }
+
+    #[test]
+    fn redact_scrubs_userinfo_token_form() {
+        let blob = format!("https://user:{SECRET_BODY}@host/path failed");
+        let out = redacted(&blob);
+        assert!(!out.contains(SECRET_BODY), "userinfo token leaked: {out}");
+        assert!(out.contains("host"), "host should survive: {out}");
+    }
+
+    #[test]
+    fn redact_handles_large_blob_without_leaking() {
+        // ~20 KB blob with a secret buried in the middle; bounded output, no leak.
+        let mut blob = "x".repeat(10_000);
+        blob.push_str(&format!(" {SECRET_BODY} "));
+        blob.push_str(&"y".repeat(10_000));
+        let out = redacted(&blob);
+        assert!(!out.contains(SECRET_BODY), "buried token leaked");
+        assert!(out.chars().count() <= ERROR_MESSAGE_MAX);
+    }
+
+    #[test]
+    fn redacted_error_is_a_proof_type() {
+        // T3: the only way to get a RedactedError is through redact(); as_str /
+        // Display expose the scrubbed value.
+        let re = redact("token ghp_abcdefghijklmnopqrstuvwxyz012345 bad");
+        assert!(!re.as_str().contains("ghp_abcdefghijklmnopqrstuvwxyz012345"));
+        assert_eq!(re.as_str(), re.to_string());
     }
 
     #[test]
@@ -857,6 +1140,22 @@ mod tests {
     }
 
     #[test]
+    fn classify_precedence_is_deterministic() {
+        // When a blob matches multiple signatures, the documented order wins:
+        // timeout before network, auth before not-found.
+        assert_eq!(
+            CloneErrorClass::classify("fatal: could not resolve host: github.com (operation timed out)"),
+            CloneErrorClass::Timeout,
+            "timeout must outrank network"
+        );
+        assert_eq!(
+            CloneErrorClass::classify("remote: Permission denied. Repository not found."),
+            CloneErrorClass::Auth,
+            "auth must outrank not-found"
+        );
+    }
+
+    #[test]
     fn clone_error_class_as_str_is_stable() {
         assert_eq!(CloneErrorClass::Auth.as_str(), "auth");
         assert_eq!(CloneErrorClass::NotFound.as_str(), "not_found");
@@ -864,5 +1163,24 @@ mod tests {
         assert_eq!(CloneErrorClass::Timeout.as_str(), "timeout");
         assert_eq!(CloneErrorClass::TooLarge.as_str(), "too_large");
         assert_eq!(CloneErrorClass::Internal.as_str(), "internal");
+    }
+
+    #[test]
+    fn clone_error_class_roundtrips_str() {
+        for class in [
+            CloneErrorClass::Auth,
+            CloneErrorClass::NotFound,
+            CloneErrorClass::Network,
+            CloneErrorClass::Timeout,
+            CloneErrorClass::TooLarge,
+            CloneErrorClass::Internal,
+        ] {
+            let parsed: CloneErrorClass = class.as_str().parse().expect("round-trip parse");
+            assert_eq!(parsed, class);
+        }
+        assert!("bogus".parse::<CloneErrorClass>().is_err());
+        assert!("".parse::<CloneErrorClass>().is_err());
+        // Case-sensitive: DB slugs are lowercase only.
+        assert!("Auth".parse::<CloneErrorClass>().is_err());
     }
 }
