@@ -64,6 +64,25 @@ const DEAD_END_CONFIRMATION_PATTERNS = [
   /确定要放弃更改吗？/,
 ]
 
+const DEAD_END_LIMIT_CONFLICT_PATTERNS = [
+  /\bPassword must be at least \{\{min\}\} characters\b/,
+  /\bPasswords do not match\b/,
+  /\bThis email is already in use\b/,
+  /\bThis username is already taken\b/,
+  /\bRegistration restricted to authorized email domains\b/,
+  /\bMaximum number of agents reached\b/,
+  /\bFile upload failed\b/,
+  /\bFile is too large\. Maximum size is \{\{size\}\}\.?/,
+  /密码至少需要 \{\{min\}\} 个字符/,
+  /两次输入的密码不一致/,
+  /该邮箱已被使用/,
+  /该用户名已被使用/,
+  /仅允许使用授权邮箱域名注册/,
+  /已达到最大 Agent 数量/,
+  /文件上传失败/,
+  /文件过大，最大允许 \{\{size\}\}/,
+]
+
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
@@ -250,6 +269,11 @@ function hasDeadEndConfirmationCopy(line) {
   return DEAD_END_CONFIRMATION_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasDeadEndLimitConflictCopy(line) {
+  if (isLikelyGuardOrParserLine(line)) return false
+  return DEAD_END_LIMIT_CONFLICT_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -308,6 +332,15 @@ function scanFile(file, relFile) {
         type: 'confirmation-impact',
         location,
         message: 'User-visible confirmation copy must explain the impact before users confirm.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasDeadEndLimitConflictCopy(line)) {
+      findings.push({
+        type: 'limit-conflict-next-action',
+        location,
+        message: 'User-visible limit or conflict copy must explain what to change next.',
         sample: line.trim(),
       })
     }

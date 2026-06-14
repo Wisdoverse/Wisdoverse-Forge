@@ -305,6 +305,135 @@ export const en = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags limit and conflict copy that does not explain what to change next', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  auth: {
+    passwordTooShort: 'Password must be at least {{min}} characters',
+    emailInUse: 'This email is already in use',
+    usernameInUse: 'This username is already taken',
+    emailDomainRestricted: 'Registration restricted to authorized email domains',
+  },
+  agents: {
+    maxAgentsReached: 'Maximum number of agents reached',
+  },
+  files: {
+    uploadFailed: 'File upload failed',
+    tooLarge: 'File is too large. Maximum size is {{size}}.',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'limit-conflict-next-action',
+        location: 'src/app/shared/i18n/locales/en.ts:4',
+      }),
+      expect.objectContaining({
+        type: 'limit-conflict-next-action',
+        location: 'src/app/shared/i18n/locales/en.ts:5',
+      }),
+      expect.objectContaining({
+        type: 'limit-conflict-next-action',
+        location: 'src/app/shared/i18n/locales/en.ts:6',
+      }),
+      expect.objectContaining({
+        type: 'limit-conflict-next-action',
+        location: 'src/app/shared/i18n/locales/en.ts:7',
+      }),
+      expect.objectContaining({
+        type: 'limit-conflict-next-action',
+        location: 'src/app/shared/i18n/locales/en.ts:10',
+      }),
+      expect.objectContaining({
+        type: 'limit-conflict-next-action',
+        location: 'src/app/shared/i18n/locales/en.ts:13',
+      }),
+      expect.objectContaining({
+        type: 'limit-conflict-next-action',
+        location: 'src/app/shared/i18n/locales/en.ts:14',
+      }),
+    ])
+  })
+
+  it('flags Chinese limit and conflict copy that does not explain what to change next', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  auth: {
+    passwordTooShort: '密码至少需要 {{min}} 个字符',
+    emailInUse: '该邮箱已被使用',
+    usernameInUse: '该用户名已被使用',
+    emailDomainRestricted: '仅允许使用授权邮箱域名注册',
+  },
+  agents: {
+    maxAgentsReached: '已达到最大 Agent 数量',
+  },
+  files: {
+    uploadFailed: '文件上传失败',
+    tooLarge: '文件过大，最大允许 {{size}}',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'limit-conflict-next-action',
+        location: 'src/app/shared/i18n/locales/zh.ts:4',
+      }),
+      expect.objectContaining({
+        type: 'limit-conflict-next-action',
+        location: 'src/app/shared/i18n/locales/zh.ts:5',
+      }),
+      expect.objectContaining({
+        type: 'limit-conflict-next-action',
+        location: 'src/app/shared/i18n/locales/zh.ts:6',
+      }),
+      expect.objectContaining({
+        type: 'limit-conflict-next-action',
+        location: 'src/app/shared/i18n/locales/zh.ts:7',
+      }),
+      expect.objectContaining({
+        type: 'limit-conflict-next-action',
+        location: 'src/app/shared/i18n/locales/zh.ts:10',
+      }),
+      expect.objectContaining({
+        type: 'limit-conflict-next-action',
+        location: 'src/app/shared/i18n/locales/zh.ts:13',
+      }),
+      expect.objectContaining({
+        type: 'limit-conflict-next-action',
+        location: 'src/app/shared/i18n/locales/zh.ts:14',
+      }),
+    ])
+  })
+
+  it('accepts limit and conflict copy when it tells beginners what to change', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  auth: {
+    usernameInUse: 'Choose a different username; this one is already taken.',
+  },
+  files: {
+    tooLarge: 'Choose a file under {{size}}, then upload it again.',
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('ignores raw legacy API parser regexes', () => {
     const cwd = fixture({
       'src/app/shared/api/legacy/AgentAPI.ts': `
