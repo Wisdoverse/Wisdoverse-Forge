@@ -85,7 +85,9 @@ export function Workshop3DEmptyState() {
       className="space-y-3 px-2 py-1 text-xs leading-5 text-white/70"
     >
       <div>
-        <p className="text-sm font-medium leading-5 text-white">No agents on the visual map yet</p>
+        <p className="text-sm font-medium leading-5 text-white">
+          Open Agents to build the visual map
+        </p>
         <p className="mt-1">
           If this is your first agent, create it from Agents. If you already have one, start or wake
           it there, then refresh this view.

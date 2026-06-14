@@ -710,6 +710,72 @@ export function TimelineView() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags visual map empty titles that do not tell users to open Agents', () => {
+    const cwd = fixture({
+      'src/app/widgets/views/Workshop3DView.tsx': `
+export function Workshop3DEmptyState() {
+  return <p>No agents on the visual map yet</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'workshop-3d-empty-copy',
+          location: 'src/app/widgets/views/Workshop3DView.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts visual map empty titles that tell users to open Agents', () => {
+    const cwd = fixture({
+      'src/app/widgets/views/Workshop3DView.tsx': `
+export function Workshop3DEmptyState() {
+  return <p>Open Agents to build the visual map</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags agent detail activity copy that does not tell users to open Tasks', () => {
+    const cwd = fixture({
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function agentNextStep() {
+  return { detail: 'No task activity has been loaded yet. Open Tasks to see this agent history.' }
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-detail-activity-copy',
+        location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts agent detail activity copy that tells users to open Tasks first', () => {
+    const cwd = fixture({
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function agentNextStep() {
+  return { detail: "Open Tasks to load this agent's work history and decide what to send next." }
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags work setup summaries that do not tell users to sign in first', () => {
     const cwd = fixture({
       'src/app/features/settings/RuntimeSection.tsx': `

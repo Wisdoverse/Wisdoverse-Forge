@@ -393,10 +393,10 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
   }
 
   return {
-    title: 'Review Recent Activity',
+    title: 'Open Tasks to review recent activity',
     detail: latestTask
       ? `The latest task was "${latestTask.params.task}" updated ${formatRelativeTime(latestTask.updatedAt)}.`
-      : 'No task activity has been loaded yet. Open Tasks to see this agent history.',
+      : "Open Tasks to load this agent's work history and decide what to send next.",
     success: 'You can decide whether to reuse the agent, review evidence, or assign another task.',
     ready: true,
     targetTab: 'tasks',

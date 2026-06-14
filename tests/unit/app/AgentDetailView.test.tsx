@@ -242,6 +242,16 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Do This Next')).toBeDefined()
   })
 
+  test('guides agents without loaded task history into the Tasks tab', async () => {
+    render(<AgentDetailView agent={{ ...containerAgent, status: 'working' }} onBack={() => {}} />)
+
+    expect(await screen.findByText('Open Tasks to review recent activity')).toBeDefined()
+    expect(
+      screen.getByText("Open Tasks to load this agent's work history and decide what to send next.")
+    ).toBeDefined()
+    expect(screen.queryByText('No task activity has been loaded yet.')).toBeNull()
+  })
+
   test('guides pending managed workspace agents to the live work tab', () => {
     render(
       <AgentDetailView

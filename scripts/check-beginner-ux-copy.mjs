@@ -169,6 +169,10 @@ const TASK_AGENT_ASSIGNMENT_DEAD_END_PATTERNS = [/\bNo agent assigned yet\b/i]
 
 const TIMELINE_EMPTY_DEAD_END_PATTERNS = [/\bNo timeline events yet\b/i]
 
+const WORKSHOP_3D_EMPTY_DEAD_END_PATTERNS = [/\bNo agents on the visual map yet\b/i]
+
+const AGENT_DETAIL_ACTIVITY_DEAD_END_PATTERNS = [/\bNo task activity has been loaded yet\b/i]
+
 const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [/\bNo work tool sign-ins are connected yet\b/i]
 
 const RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS = [/\bNot set yet\b/i]
@@ -491,6 +495,18 @@ function hasTimelineEmptyDeadEndCopy(relFile, line) {
   return TIMELINE_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasWorkshop3DEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/widgets/views/Workshop3DView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return WORKSHOP_3D_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentDetailActivityDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_DETAIL_ACTIVITY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasRuntimeSignInDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -768,6 +784,24 @@ function scanFile(file, relFile) {
         location,
         message:
           'Timeline empty states must use an action title that tells beginners how to begin.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasWorkshop3DEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'workshop-3d-empty-copy',
+        location,
+        message: 'Visual map empty states must tell beginners to open Agents first.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentDetailActivityDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-detail-activity-copy',
+        location,
+        message: 'Agent detail activity copy must tell beginners to open Tasks first.',
         sample: line.trim(),
       })
     }
