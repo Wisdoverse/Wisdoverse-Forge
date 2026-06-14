@@ -230,7 +230,10 @@ const SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS = [
   /暂未列出维护者/,
 ]
 
-const SAVED_INSTRUCTIONS_LOAD_DEAD_END_PATTERNS = [/\bSaved instructions could not load\.\s*['"`]/i]
+const SAVED_INSTRUCTIONS_LOAD_DEAD_END_PATTERNS = [
+  /\bSaved instructions could not load\./i,
+  /\bForge could not load Saved instructions right now\./i,
+]
 
 const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [/\bNo work tool sign-ins are connected yet\b/i]
 
@@ -810,7 +813,12 @@ function hasSkillMaintainerFallbackDeadEndCopy(relFile, line) {
 }
 
 function hasSavedInstructionsLoadDeadEndCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/features/skills/SkillsView.tsx')) return false
+  if (
+    !relFile.endsWith('src/app/features/skills/SkillsView.tsx') &&
+    !relFile.endsWith('src/app/shared/model/skills.store.ts')
+  ) {
+    return false
+  }
   return SAVED_INSTRUCTIONS_LOAD_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 

@@ -304,7 +304,7 @@ describe('SkillsView', () => {
     render(<SkillsView />)
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Forge could not load Saved instructions right now')
+    expect(alert).toHaveTextContent('Refresh Saved instructions to load the list.')
     expect(alert).toHaveTextContent('Choose Retry to refresh Saved instructions.')
     expect(alert).not.toHaveTextContent('HTTP 500')
     expect(alert).not.toHaveTextContent('database unavailable')

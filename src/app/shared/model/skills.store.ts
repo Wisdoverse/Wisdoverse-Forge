@@ -167,7 +167,9 @@ export function skillHttpErrorMessage(
       : 'You do not have permission to view workspace instructions. Ask an owner or admin to update your workspace access.'
   }
   if (status === 404) {
-    return 'Saved instructions could not be opened from this page. Refresh Saved instructions, then try again.'
+    return action === 'create'
+      ? 'Open Saved instructions again, then create the instruction.'
+      : 'Refresh Saved instructions to load the list.'
   }
   if (status === 409) {
     return 'An instruction with this name or trigger may already exist. Review the existing instructions, then try again.'
@@ -181,18 +183,18 @@ export function skillHttpErrorMessage(
   if (status >= 500) {
     return action === 'create'
       ? 'Forge could not create the instruction right now. Refresh Saved instructions, then try again. If it still fails, ask an owner or admin to check instruction setup.'
-      : 'Forge could not load Saved instructions right now. Refresh Saved instructions, then try again. If it still fails, ask an owner or admin to check instruction setup.'
+      : 'Refresh Saved instructions to load the list. If it still fails, ask an owner or admin to check instruction setup.'
   }
 
   return action === 'create'
     ? 'The instruction could not be created. Review the fields and try again.'
-    : 'Saved instructions could not load. Refresh Saved instructions and try again.'
+    : 'Refresh Saved instructions to load the list.'
 }
 
 function skillNetworkErrorMessage(action: SkillAction): string {
   return action === 'create'
     ? 'Forge could not connect while creating this instruction. Check your connection, then try again.'
-    : 'Forge could not connect while loading Saved instructions. Check your connection, then refresh the page.'
+    : 'Check your connection, then refresh Saved instructions to load the list.'
 }
 
 function skillResponseErrorMessage(
@@ -203,10 +205,10 @@ function skillResponseErrorMessage(
   if (detail)
     return action === 'create'
       ? skillValidationMessage(detail)
-      : 'Saved instructions could not load. Refresh Saved instructions and try again.'
+      : 'Refresh Saved instructions to load the list.'
   return action === 'create'
     ? 'The instruction could not be created. Review the fields and try again.'
-    : 'Saved instructions could not load. Refresh the page and try again.'
+    : 'Refresh Saved instructions to load the list.'
 }
 
 function skillValidationMessage(detail: string | null): string {

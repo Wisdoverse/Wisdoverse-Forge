@@ -3097,17 +3097,29 @@ function savedInstructionsLoadErrorMessage(error) {
   return RAW_LOAD_ERROR_PATTERN.test(error) ? 'Saved instructions could not load.' : error
 }
 `,
+      'src/app/shared/model/skills.store.ts': `
+function skillResponseErrorMessage(action) {
+  return action === 'create'
+    ? 'The instruction could not be created. Review the fields and try again.'
+    : 'Forge could not load Saved instructions right now. Refresh Saved instructions, then try again.'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
+    expect(result.findings).toHaveLength(2)
+    expect(result.findings).toEqual(expect.arrayContaining([
       expect.objectContaining({
         type: 'saved-instructions-load-copy',
         location: 'src/app/features/skills/SkillsView.tsx:3',
       }),
-    ])
+      expect.objectContaining({
+        type: 'saved-instructions-load-copy',
+        location: 'src/app/shared/model/skills.store.ts:5',
+      }),
+    ]))
   })
 
   it('accepts saved instruction load copy that points to retry', () => {
@@ -3115,6 +3127,13 @@ function savedInstructionsLoadErrorMessage(error) {
       'src/app/features/skills/SkillsView.tsx': `
 function savedInstructionsLoadErrorMessage(error) {
   return RAW_LOAD_ERROR_PATTERN.test(error) ? 'Saved instructions need a refresh.' : error
+}
+`,
+      'src/app/shared/model/skills.store.ts': `
+function skillResponseErrorMessage(action) {
+  return action === 'create'
+    ? 'The instruction could not be created. Review the fields and try again.'
+    : 'Refresh Saved instructions to load the list.'
 }
 `,
     })

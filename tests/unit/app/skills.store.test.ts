@@ -58,7 +58,7 @@ describe('useSkillsStore errors', () => {
     await useSkillsStore.getState().loadSkills()
 
     expect(useSkillsStore.getState().error).toBe(
-      'Forge could not load Saved instructions right now. Refresh Saved instructions, then try again. If it still fails, ask an owner or admin to check instruction setup.'
+      'Refresh Saved instructions to load the list. If it still fails, ask an owner or admin to check instruction setup.'
     )
     expect(useSkillsStore.getState().error).not.toContain('service is temporarily unavailable')
   })
@@ -69,9 +69,18 @@ describe('useSkillsStore errors', () => {
     await useSkillsStore.getState().loadSkills()
 
     expect(useSkillsStore.getState().error).toBe(
-      'Forge could not connect while loading Saved instructions. Check your connection, then refresh the page.'
+      'Check your connection, then refresh Saved instructions to load the list.'
     )
     expect(useSkillsStore.getState().error).not.toContain('Failed to fetch')
+  })
+
+  test('stores retry guidance when the saved-instructions response is not ok', async () => {
+    fetchMock.mockResolvedValue(response(200, { ok: false, error: 'database parser detail' }))
+
+    await useSkillsStore.getState().loadSkills()
+
+    expect(useSkillsStore.getState().error).toBe('Refresh Saved instructions to load the list.')
+    expect(useSkillsStore.getState().error).not.toContain('database parser detail')
   })
 
   test('throws beginner guidance when skill creation fails validation', async () => {
