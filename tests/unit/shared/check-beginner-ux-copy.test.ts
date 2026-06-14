@@ -220,6 +220,38 @@ export function providerReadinessSummary() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags AI service zero-ready summaries that do not give a setup action', () => {
+    const cwd = fixture({
+      'src/app/features/settings/ProvidersSection.tsx': `
+export function providerReadinessSummary() {
+  return 'No AI services are ready to use yet'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'provider-zero-ready-copy',
+        location: 'src/app/features/settings/ProvidersSection.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts AI service zero-ready summaries that tell users what to do next', () => {
+    const cwd = fixture({
+      'src/app/features/settings/ProvidersSection.tsx': `
+export function providerReadinessSummary() {
+  return 'Enable or add an AI service before agents can use one'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags generic compact work-location labels in the runtime label helper', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/runtime-kind.ts': `

@@ -303,9 +303,12 @@ describe('ProvidersSection', () => {
 
     const readiness = await screen.findByTestId('provider-readiness')
     expect(within(readiness).getByText('AI service setup needs attention')).toBeDefined()
-    expect(within(readiness).getByText(/No AI services are ready to use yet/i)).toBeDefined()
+    expect(
+      within(readiness).getByText(/Enable or add an AI service before agents can use one/i)
+    ).toBeDefined()
     expect(within(readiness).getByText(/no connection checks are needed/i)).toBeDefined()
     expect(within(readiness).getByText(/1 AI service is disabled/i)).toBeDefined()
+    expect(within(readiness).queryByText(/No AI services are ready to use yet/i)).toBeNull()
     expect(within(readiness).queryByText(/none need Check/i)).toBeNull()
     expect(within(readiness).getByText('Default: choose a ready AI service')).toBeDefined()
     expect(within(readiness).getByText('Choose a default')).toBeDefined()

@@ -725,7 +725,9 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
 function providerReadinessSummary(ready: number, needsTest: number, disabled: number): string {
   const readyText =
     ready === 0
-      ? 'No AI services are ready to use yet'
+      ? needsTest > 0
+        ? 'Run a connection check before agents use these AI services'
+        : 'Enable or add an AI service before agents can use one'
       : `${providerCount(ready)} ${ready === 1 ? 'is' : 'are'} ready to use`
   const needsTestText =
     needsTest === 0
