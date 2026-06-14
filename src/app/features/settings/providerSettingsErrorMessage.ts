@@ -80,7 +80,7 @@ function actionFromText(text: string): ProviderSettingsAction {
 function baseMessage(action: ProviderSettingsAction): string {
   if (action === 'save') return 'AI service could not be saved.'
   if (action === 'remove') return 'AI service could not be removed.'
-  return 'AI service settings could not be loaded.'
+  return 'Refresh Settings to load AI service settings.'
 }
 
 function validationGuidance(lower: string): string {
@@ -128,6 +128,9 @@ export function providerSettingsErrorMessage(error: unknown): string {
     return `${base} Forge is receiving too many AI service requests right now. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
+    if (action === 'load') {
+      return `${base} If it still fails, ask an owner or admin to check AI service settings.`
+    }
     return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check AI service settings.`
   }
   if (isNetworkError(error)) {

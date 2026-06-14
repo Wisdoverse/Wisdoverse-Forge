@@ -80,7 +80,7 @@ function actionFromText(text: string): PlatformKeyAction {
 function baseMessage(action: PlatformKeyAction): string {
   if (action === 'create') return 'Outside tool access key could not be created.'
   if (action === 'remove') return 'Outside tool access key could not be removed.'
-  return 'Outside tool access keys could not be loaded.'
+  return 'Refresh Settings to load outside tool access keys.'
 }
 
 export function platformKeyErrorMessage(error: unknown): string {
@@ -111,6 +111,9 @@ export function platformKeyErrorMessage(error: unknown): string {
     return `${base} Forge is receiving too many outside tool access requests right now. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
+    if (action === 'load') {
+      return `${base} If it still fails, ask an owner or admin to check outside tool access settings.`
+    }
     return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check outside tool access settings.`
   }
   if (isNetworkError(error)) {

@@ -78,7 +78,7 @@ function actionFromText(text: string): GitCredentialAction {
 function baseMessage(action: GitCredentialAction): string {
   if (action === 'save') return 'Repository access could not be saved.'
   if (action === 'remove') return 'Repository access could not be removed.'
-  return 'Repository access could not be loaded.'
+  return 'Refresh Settings to load repository access.'
 }
 
 function validationGuidance(lower: string): string {
@@ -129,6 +129,9 @@ export function gitCredentialsErrorMessage(error: unknown): string {
     return `${base} Forge is receiving too many repository access requests right now. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
+    if (action === 'load') {
+      return `${base} If it still fails, ask an owner or admin to check repository access settings.`
+    }
     return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check repository access settings.`
   }
   if (isNetworkError(error)) {

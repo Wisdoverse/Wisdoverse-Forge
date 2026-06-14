@@ -436,6 +436,82 @@ export function cliImageStatusErrorMessage(error) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags Settings load error titles that do not tell users to refresh Settings', () => {
+    const cwd = fixture({
+      'src/app/features/settings/providerSettingsErrorMessage.ts': `
+function baseMessage(action) {
+  return 'AI service settings could not be loaded.'
+}
+`,
+      'src/app/features/settings/gitCredentialsErrorMessage.ts': `
+function baseMessage(action) {
+  return 'Repository access could not be loaded.'
+}
+`,
+      'src/app/features/settings/sshKeysErrorMessage.ts': `
+function baseMessage(action) {
+  return 'Repository SSH access could not be loaded.'
+}
+`,
+      'src/app/features/settings/platformKeyErrorMessage.ts': `
+function baseMessage(action) {
+  return 'Outside tool access keys could not be loaded.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'settings-load-error-copy',
+          location: 'src/app/features/settings/providerSettingsErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'settings-load-error-copy',
+          location: 'src/app/features/settings/gitCredentialsErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'settings-load-error-copy',
+          location: 'src/app/features/settings/sshKeysErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'settings-load-error-copy',
+          location: 'src/app/features/settings/platformKeyErrorMessage.ts:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts Settings load error titles that tell users to refresh Settings', () => {
+    const cwd = fixture({
+      'src/app/features/settings/providerSettingsErrorMessage.ts': `
+function baseMessage(action) {
+  return 'Refresh Settings to load AI service settings.'
+}
+`,
+      'src/app/features/settings/gitCredentialsErrorMessage.ts': `
+function baseMessage(action) {
+  return 'Refresh Settings to load repository access.'
+}
+`,
+      'src/app/features/settings/sshKeysErrorMessage.ts': `
+function baseMessage(action) {
+  return 'Refresh Settings to load repository SSH access.'
+}
+`,
+      'src/app/features/settings/platformKeyErrorMessage.ts': `
+function baseMessage(action) {
+  return 'Refresh Settings to load outside tool access keys.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags admin agent missing-field copy that does not tell users to refresh', () => {
     const cwd = fixture({
       'src/app/features/admin/AgentsPanel.tsx': `

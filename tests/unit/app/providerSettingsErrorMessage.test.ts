@@ -66,7 +66,7 @@ describe('providerSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'AI service settings could not be loaded. Forge could not connect while opening AI service settings. Check your connection, then try again.'
+      'Refresh Settings to load AI service settings. Forge could not connect while opening AI service settings. Check your connection, then try again.'
     )
     expect(message).not.toContain('the service')
     expect(message).not.toContain('Failed to fetch')
@@ -77,7 +77,7 @@ describe('providerSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'AI service settings could not be loaded. Refresh Settings, then try again. If it still fails, ask an owner or admin to check AI service settings.'
+      'Refresh Settings to load AI service settings. If it still fails, ask an owner or admin to check AI service settings.'
     )
     expect(message).not.toContain('settings page')
     expect(message).not.toContain('temporarily unavailable')
@@ -86,7 +86,7 @@ describe('providerSettingsErrorMessage', () => {
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       providerSettingsErrorMessage({ statusCode: '429' }),
-      'AI service settings could not be loaded. Forge is receiving too many AI service requests right now. Wait a minute, then try again.'
+      'Refresh Settings to load AI service settings. Forge is receiving too many AI service requests right now. Wait a minute, then try again.'
     )
   })
 
@@ -95,7 +95,7 @@ describe('providerSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'AI service settings could not be loaded. Try again. If it still fails, ask an owner or admin to check AI service settings.'
+      'Refresh Settings to load AI service settings. Try again. If it still fails, ask an owner or admin to check AI service settings.'
     )
     expect(message).not.toContain('parser')
   })

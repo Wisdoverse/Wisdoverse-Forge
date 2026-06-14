@@ -19,7 +19,7 @@ describe('sshKeysErrorMessage', () => {
   test('explains permission errors without exposing raw backend details', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage('HTTP 403'),
-      'Repository SSH access could not be loaded. Ask an owner or admin for access to manage repository SSH access.'
+      'Refresh Settings to load repository SSH access. Ask an owner or admin for access to manage repository SSH access.'
     )
   })
 
@@ -51,7 +51,7 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Repository SSH access could not be loaded. Forge could not connect while opening repository SSH access. Check your connection, then try again.'
+      'Refresh Settings to load repository SSH access. Forge could not connect while opening repository SSH access. Check your connection, then try again.'
     )
     expect(message).not.toContain('service')
     expect(message).not.toContain('Failed to fetch')
@@ -62,7 +62,7 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Repository SSH access could not be loaded. Refresh Settings, then try again. If it still fails, ask an owner or admin to check repository SSH access settings.'
+      'Refresh Settings to load repository SSH access. If it still fails, ask an owner or admin to check repository SSH access settings.'
     )
     expect(message).not.toContain('temporarily unavailable')
   })
@@ -70,7 +70,7 @@ describe('sshKeysErrorMessage', () => {
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage({ code: '429' }),
-      'Repository SSH access could not be loaded. Forge is receiving too many repository SSH access requests right now. Wait a minute, then try again.'
+      'Refresh Settings to load repository SSH access. Forge is receiving too many repository SSH access requests right now. Wait a minute, then try again.'
     )
   })
 
@@ -79,7 +79,7 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Repository SSH access could not be loaded. Try again. If it still fails, ask an owner or admin to check repository SSH access settings.'
+      'Refresh Settings to load repository SSH access. Try again. If it still fails, ask an owner or admin to check repository SSH access settings.'
     )
     expect(message).not.toContain('parser')
   })

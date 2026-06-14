@@ -39,7 +39,7 @@ describe('platformKeyErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Outside tool access keys could not be loaded. Forge could not connect while opening outside tool access settings. Check your connection, then try again.'
+      'Refresh Settings to load outside tool access keys. Forge could not connect while opening outside tool access settings. Check your connection, then try again.'
     )
     expect(message).not.toContain('the service')
     expect(message).not.toContain('Failed to fetch')
@@ -50,7 +50,7 @@ describe('platformKeyErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Outside tool access keys could not be loaded. Refresh Settings, then try again. If it still fails, ask an owner or admin to check outside tool access settings.'
+      'Refresh Settings to load outside tool access keys. If it still fails, ask an owner or admin to check outside tool access settings.'
     )
     expect(message).not.toContain('access key service')
     expect(message).not.toContain('temporarily unavailable')
@@ -59,7 +59,7 @@ describe('platformKeyErrorMessage', () => {
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       platformKeyErrorMessage({ statusCode: '429' }),
-      'Outside tool access keys could not be loaded. Forge is receiving too many outside tool access requests right now. Wait a minute, then try again.'
+      'Refresh Settings to load outside tool access keys. Forge is receiving too many outside tool access requests right now. Wait a minute, then try again.'
     )
   })
 
@@ -68,7 +68,7 @@ describe('platformKeyErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Outside tool access keys could not be loaded. Try again. If it still fails, ask an owner or admin to check outside tool access settings.'
+      'Refresh Settings to load outside tool access keys. Try again. If it still fails, ask an owner or admin to check outside tool access settings.'
     )
     expect(message).not.toContain('parser')
   })

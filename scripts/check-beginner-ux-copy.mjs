@@ -236,6 +236,13 @@ const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [/\bNo work tool sign-ins are connecte
 
 const RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS = [/\bNot set yet\b/i]
 
+const SETTINGS_LOAD_ERROR_DEAD_END_PATTERNS = [
+  /\bAI service settings could not be loaded\./i,
+  /\bOutside tool access keys could not be loaded\./i,
+  /\bRepository access could not be loaded\./i,
+  /\bRepository SSH access could not be loaded\./i,
+]
+
 const AGENT_SETUP_FALLBACK_DEAD_END_PATTERNS = [
   /\bAI service needs review\b/i,
   /\bWork tool needs review\b/i,
@@ -795,6 +802,18 @@ function hasRuntimeDefaultLocationDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasSettingsLoadErrorDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/settings/gitCredentialsErrorMessage.ts') &&
+    !relFile.endsWith('src/app/features/settings/platformKeyErrorMessage.ts') &&
+    !relFile.endsWith('src/app/features/settings/providerSettingsErrorMessage.ts') &&
+    !relFile.endsWith('src/app/features/settings/sshKeysErrorMessage.ts')
+  ) {
+    return false
+  }
+  return SETTINGS_LOAD_ERROR_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentSetupFallbackDeadEndCopy(relFile, line) {
@@ -1360,6 +1379,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Default agent location copy must tell beginners to load setup before choosing a location.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSettingsLoadErrorDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'settings-load-error-copy',
+        location,
+        message: 'Settings load error titles must tell beginners to refresh Settings.',
         sample: line.trim(),
       })
     }

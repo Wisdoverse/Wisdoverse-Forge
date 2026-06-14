@@ -33,7 +33,7 @@ describe('gitCredentialsErrorMessage', () => {
   test('turns permission failures into an owner or admin next step', () => {
     expectBeginnerMessage(
       gitCredentialsErrorMessage('HTTP 403'),
-      'Repository access could not be loaded. Ask an owner or admin to let you manage repository access.'
+      'Refresh Settings to load repository access. Ask an owner or admin to let you manage repository access.'
     )
   })
 
@@ -47,12 +47,21 @@ describe('gitCredentialsErrorMessage', () => {
     expect(message).not.toContain('temporarily unavailable')
   })
 
+  test('turns load server failures into Settings recovery guidance', () => {
+    const message = gitCredentialsErrorMessage('HTTP 500')
+
+    expectBeginnerMessage(
+      message,
+      'Refresh Settings to load repository access. If it still fails, ask an owner or admin to check repository access settings.'
+    )
+  })
+
   test('turns network failures into a connection step', () => {
     const message = gitCredentialsErrorMessage(new TypeError('Failed to fetch'))
 
     expectBeginnerMessage(
       message,
-      'Repository access could not be loaded. Forge could not connect while opening repository access. Check your connection, then try again.'
+      'Refresh Settings to load repository access. Forge could not connect while opening repository access. Check your connection, then try again.'
     )
     expect(message).not.toContain('service')
     expect(message).not.toContain('Failed to fetch')
@@ -61,7 +70,7 @@ describe('gitCredentialsErrorMessage', () => {
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       gitCredentialsErrorMessage({ statusCode: '429' }),
-      'Repository access could not be loaded. Forge is receiving too many repository access requests right now. Wait a minute, then try again.'
+      'Refresh Settings to load repository access. Forge is receiving too many repository access requests right now. Wait a minute, then try again.'
     )
   })
 
@@ -70,7 +79,7 @@ describe('gitCredentialsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Repository access could not be loaded. Try again. If it still fails, ask an owner or admin to check repository access settings.'
+      'Refresh Settings to load repository access. Try again. If it still fails, ask an owner or admin to check repository access settings.'
     )
     expect(message).not.toContain('vault')
   })
