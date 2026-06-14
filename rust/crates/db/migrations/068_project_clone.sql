@@ -20,9 +20,67 @@
 
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS workspace_dir_name TEXT;
 
--- Backfill from the canonical slug (NOT NULL since migration 026) so the
--- SET NOT NULL below cannot fail on existing rows.
+-- Backfill from the canonical slug (NOT NULL since migration 026). Backfill
+-- ALL rows — including soft-deleted ones — so the SET NOT NULL below holds
+-- for every row, not just live ones.
 UPDATE projects SET workspace_dir_name = slug WHERE workspace_dir_name IS NULL;
+
+-- Collision-aware dedup for the partial unique index below.
+--
+-- The pre-existing slug uniqueness is only `(team_id, slug)` (migration 023),
+-- and teams are org-scoped (no workspace_id), so two LIVE projects in the same
+-- workspace but different teams can legitimately share a slug today. Backfilling
+-- workspace_dir_name = slug therefore produces duplicate
+-- `(workspace_id, workspace_dir_name)` pairs among live rows, which would make
+-- the `WHERE deleted_at IS NULL` unique index build FAIL and abort the
+-- migration on first run against real data.
+--
+-- Mirror migration 026's collision-aware approach: among live
+-- (`deleted_at IS NULL`) rows that share `(workspace_id, workspace_dir_name)`,
+-- keep the deterministically-oldest row (ORDER BY created_at, id) as-is and
+-- suffix the rest with their full UUID. A full UUID suffix is collision-free by
+-- construction:
+--   * It cannot collide with another suffixed row — UUIDs are unique, so
+--     `slug || '-' || id` differs for every id.
+--   * It is astronomically unlikely to collide with an un-suffixed bare slug;
+--     the WHILE loop below proves it to zero rather than assuming it.
+--
+-- Idempotent: on a re-run the rows are already distinct, so the window finds no
+-- duplicates and the UPDATE touches zero rows.
+DO $$
+DECLARE
+    collisions bigint;
+    guard      int := 0;
+BEGIN
+    LOOP
+        -- Suffix every live row that is not the kept representative of its
+        -- (workspace_id, workspace_dir_name) group. Re-derive groups each pass
+        -- so a suffix that (impossibly) reintroduced a clash is healed too.
+        WITH ranked AS (
+            SELECT id,
+                   row_number() OVER (
+                       PARTITION BY workspace_id, workspace_dir_name
+                       ORDER BY created_at ASC, id ASC
+                   ) AS rn
+              FROM projects
+             WHERE deleted_at IS NULL
+        )
+        UPDATE projects p
+           SET workspace_dir_name = p.workspace_dir_name || '-' || p.id::text
+          FROM ranked
+         WHERE p.id = ranked.id
+           AND ranked.rn > 1;
+
+        GET DIAGNOSTICS collisions = ROW_COUNT;
+        EXIT WHEN collisions = 0;
+
+        guard := guard + 1;
+        IF guard > 5 THEN
+            RAISE EXCEPTION
+                'migration 068: workspace_dir_name dedup did not converge after % passes', guard;
+        END IF;
+    END LOOP;
+END $$;
 
 ALTER TABLE projects ALTER COLUMN workspace_dir_name SET NOT NULL;
 
@@ -45,7 +103,8 @@ BEGIN
 END $$;
 
 -- One live (non-deleted) directory name per workspace. Partial so soft-deleted
--- projects do not block reuse of a freed directory name.
+-- projects do not block reuse of a freed directory name. The dedup above
+-- guarantees this build succeeds on any pre-existing data.
 CREATE UNIQUE INDEX IF NOT EXISTS uq_projects_workspace_dir
     ON projects(workspace_id, workspace_dir_name)
     WHERE deleted_at IS NULL;
@@ -63,7 +122,9 @@ CREATE TABLE IF NOT EXISTS project_clone_attempts (
     repository_url TEXT NOT NULL,
     provider TEXT,
     credential_id UUID,
-    status TEXT NOT NULL CHECK (status IN ('queued', 'cloning', 'ready', 'failed', 'cancelled')),
+    status TEXT NOT NULL
+        CONSTRAINT project_clone_attempts_status_check
+        CHECK (status IN ('queued', 'cloning', 'ready', 'failed', 'cancelled')),
     resolved_branch TEXT,
     head_sha TEXT,
     container_id TEXT,
