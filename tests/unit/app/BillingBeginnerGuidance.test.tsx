@@ -126,6 +126,15 @@ describe('Billing beginner guidance', () => {
         createdAt: '2026-05-12T00:00:00.000Z',
         hostedInvoiceUrl: 'https://billing.example.test/inv-open',
       },
+      {
+        id: 'inv_draft_1234567890',
+        status: 'draft',
+        amountDue: 0,
+        amountPaid: 0,
+        total: 2900,
+        currency: 'usd',
+        createdAt: '2026-05-14T00:00:00.000Z',
+      },
     ]
 
     render(<InvoiceList invoices={invoices} />)
@@ -144,6 +153,8 @@ describe('Billing beginner guidance', () => {
       'href',
       'https://billing.example.test/inv-open'
     )
+    expect(screen.getByText('Receipt appears after payment finishes')).toBeInTheDocument()
+    expect(screen.queryByText('No link')).not.toBeInTheDocument()
   })
 
   test('keeps invoice empty and error states actionable', () => {

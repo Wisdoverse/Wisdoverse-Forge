@@ -326,6 +326,38 @@ function BillingCheckpoint() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags invoice receipt copy that does not explain when the link appears', () => {
+    const cwd = fixture({
+      'src/app/features/billing/InvoiceList.tsx': `
+export function InvoiceList() {
+  return <span>No link</span>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'billing-receipt-link-copy',
+        location: 'src/app/features/billing/InvoiceList.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts invoice receipt copy that tells people when the link appears', () => {
+    const cwd = fixture({
+      'src/app/features/billing/InvoiceList.tsx': `
+export function InvoiceList() {
+  return <span>Receipt appears after payment finishes</span>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags validation copy that does not explain the next change', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `

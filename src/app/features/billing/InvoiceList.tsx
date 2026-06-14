@@ -199,7 +199,7 @@ export function InvoiceList({ invoices, loading, error }: InvoiceListProps) {
                         </a>
                       ) : (
                         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                          No link
+                          Receipt appears after payment finishes
                         </span>
                       )}
                     </td>
