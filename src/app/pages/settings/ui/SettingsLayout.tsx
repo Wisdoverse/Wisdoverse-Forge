@@ -43,7 +43,7 @@ interface SectionItem {
 const SECTIONS: SectionItem[] = [
   {
     id: 'providers',
-    label: 'AI Services',
+    label: 'AI services',
     description: 'Connect the AI accounts agents use to think and write.',
     group: 'AI Setup',
     Icon: Bot,

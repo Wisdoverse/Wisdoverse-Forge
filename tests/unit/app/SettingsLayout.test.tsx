@@ -29,7 +29,7 @@ describe('SettingsLayout', () => {
     expect(within(desktopNav).getByText('Product Info')).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('button', {
-        name: /AI Services: Connect the AI accounts agents use to think and write/i,
+        name: /AI services: Connect the AI accounts agents use to think and write/i,
       })
     ).toBeInTheDocument()
     expect(
@@ -55,7 +55,7 @@ describe('SettingsLayout', () => {
 
     expect(screen.getByRole('group', { name: 'AI Setup' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Work Setup' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'AI Services' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'AI services' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Outside Tool Access' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Code Access' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'SSH Code Access' })).toBeInTheDocument()

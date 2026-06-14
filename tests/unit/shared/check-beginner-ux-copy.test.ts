@@ -1623,6 +1623,9 @@ const LOWER_SORT_OPTIONS = [{ value: 'success', label: 'Success rate' }]
 const nextStep = { title: 'Review current work' }
 const boardTitle = 'Create a Task Queue First'
 const projectTitle = 'Pick a Project to Start'
+const providerHeading = 'AI Services'
+const providerPlaceholder = 'My AI Service...'
+const providerSave = 'Save AI Service'
 `,
     })
 
@@ -1654,6 +1657,18 @@ const projectTitle = 'Pick a Project to Start'
         expect.objectContaining({
           type: 'title-style-guidance-copy',
           location: 'src/app/features/agents/AgentListView.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'title-style-guidance-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'title-style-guidance-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:8',
+        }),
+        expect.objectContaining({
+          type: 'title-style-guidance-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:9',
         }),
       ])
     )

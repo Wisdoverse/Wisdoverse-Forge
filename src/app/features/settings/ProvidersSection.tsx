@@ -1074,7 +1074,7 @@ function AddProviderFormPanel({
             name="displayName"
             value={form.displayName}
             onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-            placeholder="My AI Service…"
+            placeholder="My AI service…"
             autoComplete="off"
             className={uiStyles.input}
           />
@@ -1174,7 +1174,7 @@ function AddProviderFormPanel({
             Cancel
           </button>
           <button type="submit" disabled={saving} className={uiStyles.primaryButton}>
-            {saving ? 'Saving…' : 'Save AI Service'}
+            {saving ? 'Saving…' : 'Save AI service'}
           </button>
         </div>
       </div>
@@ -1263,7 +1263,7 @@ export function ProvidersSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>AI Services</h2>
+          <h2 className={uiStyles.sectionTitle}>AI services</h2>
           <p className={uiStyles.sectionDescription}>
             Connect the AI accounts that simple chat agents use to answer questions.
           </p>

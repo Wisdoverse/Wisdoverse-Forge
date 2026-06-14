@@ -209,11 +209,14 @@ const TITLE_STYLE_GUIDANCE_PATTERNS = [
   /\bReview Current Work\b/,
   /\bReview current work\b/,
   /\bAdd AI Service\b/,
+  /\bAI Services\b/,
   /\bActive Work\b/,
   /\bSuccess Rate\b/,
   /\bSuccess rate\b/,
   /\bCreate a Task Queue First\b/,
+  /\bMy AI Service\b/,
   /\bPick a Project to Start\b/,
+  /\bSave AI Service\b/,
 ]
 
 const CLI_IMAGE_STATUS_DEAD_END_PATTERNS = [

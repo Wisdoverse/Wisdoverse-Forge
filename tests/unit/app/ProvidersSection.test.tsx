@@ -96,6 +96,8 @@ describe('ProvidersSection', () => {
     expect(within(readiness).getByText('Default: OpenAI Production')).toBeDefined()
     expect(within(readiness).getByText('Default AI service')).toBeDefined()
     expect(within(readiness).queryByText('Default Route')).toBeNull()
+    expect(screen.getByRole('heading', { name: 'AI services' })).toBeDefined()
+    expect(screen.queryByText('AI Services')).toBeNull()
     expect(screen.getByRole('button', { name: /^add AI service$/i })).toBeDefined()
     expect(screen.queryByText('Add AI Service')).toBeNull()
     const nextStep = screen.getByTestId('provider-next-step')
@@ -227,6 +229,10 @@ describe('ProvidersSection', () => {
     expect(screen.getAllByText(/Ready means agents can use/i).length).toBeGreaterThan(0)
     expect(screen.getByLabelText(/^AI service$/i)).toBeDefined()
     expect(screen.getByLabelText(/^Name in Forge$/i)).toBeDefined()
+    expect(screen.getByLabelText(/^Name in Forge$/i)).toHaveAttribute(
+      'placeholder',
+      'My AI service…'
+    )
     expect(screen.getByText(/suggested model is safe to start with/i)).toBeDefined()
     expect(screen.queryByText(/paste private key/i)).toBeNull()
     expect(screen.queryByLabelText(/^private key/i)).toBeNull()
@@ -240,6 +246,7 @@ describe('ProvidersSection', () => {
     expect(screen.getByText(/Open your AI service account, copy its access key/i)).toBeDefined()
     const saveButton = screen.getByRole('button', { name: /save AI service/i })
     expect(saveButton).toBeEnabled()
+    expect(screen.queryByText('Save AI Service')).toBeNull()
 
     fireEvent.click(saveButton)
 
