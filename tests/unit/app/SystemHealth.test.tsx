@@ -53,6 +53,7 @@ describe('SystemHealth', () => {
     expect(screen.getByText('Ready')).toBeDefined()
     expect(screen.getAllByText('Needs attention').length).toBeGreaterThan(0)
     expect(screen.getByText('Unavailable')).toBeDefined()
+    expect(screen.getByText('Choose Check now to confirm')).toBeDefined()
     expect(screen.getAllByText('Not checked').length).toBeGreaterThan(0)
     expect(screen.getByText(/Forge has been running for 2h/i)).toBeDefined()
     expect(screen.queryByText(/Background Jobs/i)).toBeNull()

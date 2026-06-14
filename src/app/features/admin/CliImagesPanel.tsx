@@ -29,7 +29,7 @@ function stateLabel(state: CliImageToolState): string {
     case 'failed':
       return 'Check failed'
     case 'pending':
-      return 'Not checked yet'
+      return 'Run first check'
   }
 }
 
@@ -302,7 +302,7 @@ function ToolRow({
   // the first tick hasn't run yet", so an operator can't read gray "pending" as
   // "verified fine".
   const pendingOff = tool.state === 'pending' && !enabled
-  const badgeLabel = pendingOff ? 'Not checked — updates off' : undefined
+  const badgeLabel = pendingOff ? 'Check manually or turn updates on' : undefined
 
   return (
     <div className={cn('grid gap-3 px-4 py-3 sm:grid-cols-[1fr_auto]', uiStyles.row)}>
@@ -327,8 +327,8 @@ function ToolRow({
           {tool.state === 'pending' ? (
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               {enabled
-                ? 'No result yet — the first check has not finished.'
-                : 'This tool has never been checked because automatic updates are off.'}
+                ? 'The first check is still running. Wait, then choose Check now if this stays unchanged.'
+                : 'Automatic updates are off. Choose Check now for a manual check, or ask an owner or admin to turn updates on.'}
             </p>
           ) : localBuild ? (
             <div className="mt-1 grid gap-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -347,9 +347,13 @@ function ToolRow({
               {/* The locally-pulled image the NEXT agent will start from — not
                   necessarily what already-running agents booted from. */}
               <span>
-                Tool for new agents: {packageMarker(tool.localDigest, 'Not downloaded yet')}
+                Tool for new agents:{' '}
+                {packageMarker(tool.localDigest, 'Check now to download first package')}
               </span>
-              <span>Latest tool found: {packageMarker(tool.remoteDigest, 'Not checked yet')}</span>
+              <span>
+                Latest tool found:{' '}
+                {packageMarker(tool.remoteDigest, 'Check now to find latest package')}
+              </span>
               <span>last checked {relativeTime(tool.lastCheckedUnix)}</span>
             </div>
           )}

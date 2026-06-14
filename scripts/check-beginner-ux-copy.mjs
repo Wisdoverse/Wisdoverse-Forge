@@ -173,6 +173,15 @@ const WORKSHOP_3D_EMPTY_DEAD_END_PATTERNS = [/\bNo agents on the visual map yet\
 
 const AGENT_DETAIL_ACTIVITY_DEAD_END_PATTERNS = [/\bNo task activity has been loaded yet\b/i]
 
+const CLI_IMAGE_STATUS_DEAD_END_PATTERNS = [
+  /\bNo result yet\b/i,
+  /\bNot downloaded yet\b/i,
+  /\bNot checked yet\b/i,
+  /\bNot checked — updates off\b/i,
+]
+
+const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [/\bNot checked yet\b/i]
+
 const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [/\bNo work tool sign-ins are connected yet\b/i]
 
 const RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS = [/\bNot set yet\b/i]
@@ -507,6 +516,18 @@ function hasAgentDetailActivityDeadEndCopy(relFile, line) {
   return AGENT_DETAIL_ACTIVITY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasCliImageStatusDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/admin/CliImagesPanel.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CLI_IMAGE_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasSystemHealthStatusDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/admin/SystemHealth.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasRuntimeSignInDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -802,6 +823,24 @@ function scanFile(file, relFile) {
         type: 'agent-detail-activity-copy',
         location,
         message: 'Agent detail activity copy must tell beginners to open Tasks first.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCliImageStatusDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'cli-image-status-copy',
+        location,
+        message: 'Agent tool update status copy must tell beginners to choose Check now.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSystemHealthStatusDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'system-health-status-copy',
+        location,
+        message: 'App health status copy must tell beginners to choose Check now.',
         sample: line.trim(),
       })
     }

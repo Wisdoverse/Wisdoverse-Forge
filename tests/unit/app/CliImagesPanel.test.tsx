@@ -114,8 +114,8 @@ describe('CliImagesPanel', () => {
     expect(screen.queryByText('—')).toBeNull()
     // failed tool shows a safe next step instead of raw updater text
     expect(screen.getByText('Check failed')).toBeDefined()
-    expect(screen.getByText(/Tool for new agents: Not downloaded yet/i)).toBeDefined()
-    expect(screen.getByText(/Latest tool found: Not checked yet/i)).toBeDefined()
+    expect(screen.getByText(/Tool for new agents: Check now to download first package/i)).toBeDefined()
+    expect(screen.getByText(/Latest tool found: Check now to find latest package/i)).toBeDefined()
     expect(screen.getByText(/What to do:/i)).toBeDefined()
     expect(screen.getByText(/could not reach the tool package source/i)).toBeDefined()
     expect(screen.queryByText(/registry timeout/i)).toBeNull()
@@ -304,9 +304,11 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
 
-    expect(screen.getByText('Not checked — updates off')).toBeDefined()
+    expect(screen.getByText('Check manually or turn updates on')).toBeDefined()
     expect(
-      screen.getByText('This tool has never been checked because automatic updates are off.')
+      screen.getByText(
+        'Automatic updates are off. Choose Check now for a manual check, or ask an owner or admin to turn updates on.'
+      )
     ).toBeDefined()
   })
 

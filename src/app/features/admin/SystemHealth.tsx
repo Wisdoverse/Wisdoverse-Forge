@@ -110,7 +110,7 @@ function serviceStatusText(status: ServiceStatus): string {
   if (status === 'up') return 'Working normally'
   if (status === 'degraded') return 'Needs attention'
   if (status === 'down') return 'Not working'
-  return 'Not checked yet'
+  return 'Choose Check now to confirm'
 }
 
 function serviceTone(status: ServiceStatus): string {

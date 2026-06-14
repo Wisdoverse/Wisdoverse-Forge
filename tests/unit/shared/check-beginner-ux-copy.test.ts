@@ -776,6 +776,38 @@ function agentNextStep() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags agent tool update status copy that does not tell users to check now', () => {
+    const cwd = fixture({
+      'src/app/features/admin/CliImagesPanel.tsx': `
+function ToolRow() {
+  return <p>Latest tool found: Not checked yet</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'cli-image-status-copy',
+        location: 'src/app/features/admin/CliImagesPanel.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts agent tool update status copy that tells users to check now', () => {
+    const cwd = fixture({
+      'src/app/features/admin/CliImagesPanel.tsx': `
+function ToolRow() {
+  return <p>Latest tool found: Check now to find latest package</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags work setup summaries that do not tell users to sign in first', () => {
     const cwd = fixture({
       'src/app/features/settings/RuntimeSection.tsx': `
@@ -1773,14 +1805,37 @@ export function TaskStatus() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('ignores placeholder-like internal status values', () => {
+  it('flags app health status copy that does not tell users to check now', () => {
     const cwd = fixture({
       'src/app/features/admin/SystemHealth.tsx': `
 type ServiceStatus = 'ready' | 'unknown'
 
-export function SystemHealth(props: { status?: ServiceStatus }) {
-  const status = props.status ?? 'unknown'
-  return <p>{status === 'unknown' ? 'Not checked yet' : 'Ready'}</p>
+function serviceStatusText(status: ServiceStatus): string {
+  if (status === 'ready') return 'Ready'
+  return 'Not checked yet'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'system-health-status-copy',
+        location: 'src/app/features/admin/SystemHealth.tsx:6',
+      }),
+    ])
+  })
+
+  it('accepts app health status copy that tells users to check now', () => {
+    const cwd = fixture({
+      'src/app/features/admin/SystemHealth.tsx': `
+type ServiceStatus = 'ready' | 'unknown'
+
+function serviceStatusText(status: ServiceStatus): string {
+  if (status === 'ready') return 'Ready'
+  return 'Choose Check now to confirm'
 }
 `,
     })
