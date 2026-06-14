@@ -3613,6 +3613,40 @@ export function TopBar() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags unclear command palette task action copy', () => {
+    const cwd = fixture({
+      'src/app/features/cmdk/CommandPalette.tsx': `
+const ACTION_COMMANDS = [
+  { id: 'action:create-task', label: 'Create task', description: 'Start a new piece of work.' },
+]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'command-palette-create-task-copy',
+          location: 'src/app/features/cmdk/CommandPalette.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts command palette task action copy that matches the top bar', () => {
+    const cwd = fixture({
+      'src/app/features/cmdk/CommandPalette.tsx': `
+const ACTION_COMMANDS = [
+  { id: 'action:create-task', label: 'New task', description: 'Create a task for an agent to finish.' },
+]
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags saved instruction maintainer fallback copy that does not tell users to refresh', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `

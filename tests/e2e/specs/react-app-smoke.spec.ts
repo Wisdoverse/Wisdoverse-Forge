@@ -505,7 +505,7 @@ test.describe('React App Smoke Tests', () => {
     test('Ctrl+K opens command palette', async ({ page }) => {
       await page.keyboard.press('Control+k')
 
-      const input = page.getByPlaceholder(/Search commands/)
+      const input = page.getByPlaceholder(/Search pages or actions/)
       await expect(input).toBeVisible({ timeout: 5000 })
       await screenshot(page, '19-cmdk-open')
     })
@@ -520,7 +520,7 @@ test.describe('React App Smoke Tests', () => {
 
     test('clicking outside closes command palette', async ({ page }) => {
       await page.keyboard.press('Control+k')
-      const input = page.getByPlaceholder(/Search commands/)
+      const input = page.getByPlaceholder(/Search pages or actions/)
       await expect(input).toBeVisible({ timeout: 5000 })
 
       // Click the backdrop (fixed inset-0 overlay)
@@ -531,7 +531,7 @@ test.describe('React App Smoke Tests', () => {
     test('top bar search button opens command palette', async ({ page }) => {
       await page.getByTestId('top-bar-command-search').click()
 
-      await expect(page.getByPlaceholder(/Search commands/)).toBeVisible({
+      await expect(page.getByPlaceholder(/Search pages or actions/)).toBeVisible({
         timeout: 5000,
       })
       await screenshot(page, '20-cmdk-via-button')
@@ -1049,7 +1049,7 @@ test.describe('React App Smoke Tests', () => {
       await setupAndNavigate(page, baseURL!)
 
       await page.keyboard.press('Control+k')
-      const input = page.getByPlaceholder(/Search commands/)
+      const input = page.getByPlaceholder(/Search pages or actions/)
       await expect(input).toBeVisible({ timeout: 5000 })
 
       // Click the Agents navigation command
@@ -1065,7 +1065,7 @@ test.describe('React App Smoke Tests', () => {
       await setupAndNavigate(page, baseURL!)
 
       await page.keyboard.press('Control+k')
-      await expect(page.getByPlaceholder(/Search commands/)).toBeVisible({
+      await expect(page.getByPlaceholder(/Search pages or actions/)).toBeVisible({
         timeout: 5000,
       })
 
@@ -1080,7 +1080,7 @@ test.describe('React App Smoke Tests', () => {
       await setupAndNavigate(page, baseURL!)
 
       await page.keyboard.press('Control+k')
-      await expect(page.getByPlaceholder(/Search commands/)).toBeVisible({
+      await expect(page.getByPlaceholder(/Search pages or actions/)).toBeVisible({
         timeout: 5000,
       })
 
@@ -1269,13 +1269,13 @@ test.describe('React App Smoke Tests', () => {
 
       // Open
       await page.keyboard.press('Control+k')
-      await expect(page.getByPlaceholder(/Search commands/)).toBeVisible({
+      await expect(page.getByPlaceholder(/Search pages or actions/)).toBeVisible({
         timeout: 5000,
       })
 
       // Close with same shortcut
       await page.keyboard.press('Control+k')
-      await expect(page.getByPlaceholder(/Search commands/)).toBeHidden({
+      await expect(page.getByPlaceholder(/Search pages or actions/)).toBeHidden({
         timeout: 3000,
       })
     })
@@ -1284,7 +1284,7 @@ test.describe('React App Smoke Tests', () => {
       await setupAndNavigate(page, baseURL!)
 
       await page.keyboard.press('Control+k')
-      const input = page.getByPlaceholder(/Search commands/)
+      const input = page.getByPlaceholder(/Search pages or actions/)
       await expect(input).toBeVisible({ timeout: 5000 })
 
       // cmdk captures Escape on the input element — click backdrop instead

@@ -60,8 +60,10 @@ describe('CommandPalette', () => {
   test('shows action commands', () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
     expect(screen.getByText('Start an action')).toBeDefined()
-    expect(screen.getByText('Create task')).toBeDefined()
-    expect(screen.getByText('Start a new piece of work.')).toBeDefined()
+    expect(screen.getByText('New task')).toBeDefined()
+    expect(screen.getByText('Create a task for an agent to finish.')).toBeDefined()
+    expect(screen.queryByText('Create task')).toBeNull()
+    expect(screen.queryByText('Start a new piece of work.')).toBeNull()
   })
 
   test('uses beginner-safe view names instead of old scene jargon', () => {

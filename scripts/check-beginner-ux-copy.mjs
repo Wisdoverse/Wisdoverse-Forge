@@ -261,6 +261,11 @@ const TASK_VIEW_LABEL_JARGON_PATTERNS = [/\bid:\s*['"`]3d['"`]\s*,\s*label:\s*['
 
 const TOP_BAR_CREATE_TASK_JARGON_PATTERNS = [/\+\s*Task\b/]
 
+const COMMAND_PALETTE_CREATE_TASK_JARGON_PATTERNS = [
+  /\blabel:\s*['"`]Create task['"`]/,
+  /\bStart a new piece of work\./,
+]
+
 const SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS = [
   /\bMaintainer not listed yet\b/i,
   /暂未列出维护者/,
@@ -1008,6 +1013,12 @@ function hasTopBarCreateTaskJargonCopy(relFile, line) {
   return TOP_BAR_CREATE_TASK_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasCommandPaletteCreateTaskJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/cmdk/CommandPalette.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return COMMAND_PALETTE_CREATE_TASK_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSkillMaintainerFallbackDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
@@ -1719,6 +1730,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Top bar task creation must use a Plus icon with a clear New task label instead of a manual + Task label.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCommandPaletteCreateTaskJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'command-palette-create-task-copy',
+        location,
+        message:
+          'Command palette task creation must use the same clear New task label and a concrete agent-task description.',
         sample: line.trim(),
       })
     }

@@ -31,7 +31,11 @@ const NAV_COMMANDS = [
 ]
 
 const ACTION_COMMANDS = [
-  { id: 'action:create-task', label: 'Create task', description: 'Start a new piece of work.' },
+  {
+    id: 'action:create-task',
+    label: 'New task',
+    description: 'Create a task for an agent to finish.',
+  },
   { id: 'action:toggle-theme', label: 'Change theme', description: 'Switch the app appearance.' },
 ]
 
