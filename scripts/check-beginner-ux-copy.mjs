@@ -365,6 +365,7 @@ const NETWORK_FAILURE_FIRST_PATTERNS = [
   /\b(?:Team|Project) name could not be saved\. Forge could not connect while saving it\. Check your connection, then save again\./i,
   /\bThe (?:team|project) was not created\. Forge could not connect while creating this (?:team|project)\. Check your connection, then try again\./i,
   /\bSettings could not [^.]+\. Forge could not connect while (?:loading|updating) Settings\. Check your connection, then try again\./i,
+  /\b(?:Refresh Settings to load AI service settings|AI service could not be (?:saved|removed))\. Forge could not connect while opening AI service settings\. Check your connection, then try again\./i,
   /Forge 登录时暂时连不上。请检查网络后重试。/,
   /Forge 暂时连不上。请检查网络后重试。/,
 ]
@@ -796,6 +797,7 @@ function hasNetworkFailureFirstCopy(relFile, line) {
     !relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx') &&
     !relFile.endsWith('src/app/pages/settings/model/workspaceSettingsErrorMessage.ts') &&
     !relFile.endsWith('src/app/shared/model/settings.store.ts') &&
+    !relFile.endsWith('src/app/features/settings/providerSettingsErrorMessage.ts') &&
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
     !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
   ) {

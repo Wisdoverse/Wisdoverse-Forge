@@ -3722,6 +3722,11 @@ function settingsConnectionMessage() {
   return 'Settings could not load AI service settings. Forge could not connect while loading Settings. Check your connection, then try again.'
 }
 `,
+      'src/app/features/settings/providerSettingsErrorMessage.ts': `
+function providerSettingsErrorMessage() {
+  return 'AI service could not be saved. Forge could not connect while opening AI service settings. Check your connection, then try again.'
+}
+`,
       'src/app/shared/i18n/locales/zh.ts': `
 export const zh = {
   errors: {
@@ -3790,6 +3795,10 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'network-copy',
+          location: 'src/app/features/settings/providerSettingsErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'network-copy',
           location: 'src/app/shared/i18n/locales/zh.ts:4',
         }),
       ])
@@ -3847,6 +3856,11 @@ function connectionMessage() {
       'src/app/shared/model/settings.store.ts': `
 function settingsConnectionMessage() {
   return 'Check your connection, then refresh Settings to load AI service settings. Forge could not connect while loading Settings.'
+}
+`,
+      'src/app/features/settings/providerSettingsErrorMessage.ts': `
+function providerSettingsErrorMessage() {
+  return 'Check your connection, then save this AI service again. Forge could not connect while opening AI service settings.'
 }
 `,
       'src/app/shared/i18n/locales/zh.ts': `

@@ -134,7 +134,10 @@ export function providerSettingsErrorMessage(error: unknown): string {
     return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check AI service settings.`
   }
   if (isNetworkError(error)) {
-    return `${base} Forge could not connect while opening AI service settings. Check your connection, then try again.`
+    if (action === 'load') {
+      return 'Check your connection, then refresh Settings to load AI service settings. Forge could not connect while opening AI service settings.'
+    }
+    return `Check your connection, then ${action === 'remove' ? 'remove this AI service' : 'save this AI service'} again. Forge could not connect while opening AI service settings.`
   }
 
   return `${base} Try again. If it still fails, ask an owner or admin to check AI service settings.`
