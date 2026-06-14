@@ -3506,6 +3506,49 @@ function ProfileRow() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags Start guide reset copy that sounds like data reset', () => {
+    const cwd = fixture({
+      'src/app/features/settings/AccountSection.tsx': `
+function GettingStartedGuideRow() {
+  return <button>Reset Start guide</button>
+}
+`,
+      'src/app/pages/settings/ui/SettingsLayout.tsx': `
+export const item = {
+  description: 'Update profile, password, and the Start guide reset.',
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'start-guide-reset-copy',
+          location: 'src/app/features/settings/AccountSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'start-guide-reset-copy',
+          location: 'src/app/pages/settings/ui/SettingsLayout.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts setup checklist restore copy that explains the visible result', () => {
+    const cwd = fixture({
+      'src/app/features/settings/AccountSection.tsx': `
+function GettingStartedGuideRow() {
+  return <button>Show setup checklist</button>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags saved instruction maintainer fallback copy that does not tell users to refresh', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `

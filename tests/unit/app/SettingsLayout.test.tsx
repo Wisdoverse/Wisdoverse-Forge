@@ -52,6 +52,12 @@ describe('SettingsLayout', () => {
         name: /Where agents run: Choose where agents run and which work tool they use/i,
       })
     ).toBeInTheDocument()
+    expect(
+      within(desktopNav).getByRole('button', {
+        name: /Account: Update profile, password, and show the setup checklist again/i,
+      })
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Start guide reset/i)).toBeNull()
 
     expect(screen.getByRole('group', { name: 'AI setup' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Work setup' })).toBeInTheDocument()

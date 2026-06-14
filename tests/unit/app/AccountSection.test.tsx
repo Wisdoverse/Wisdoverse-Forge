@@ -259,18 +259,23 @@ describe('AccountSection', () => {
     renderAccountSection()
 
     expect(loadPreferencesMock).toHaveBeenCalled()
-    expect(screen.getByText(/Skip hides Start from the sidebar. Reset it here/i)).toBeDefined()
-    expect(screen.getByText(/Start is hidden right now/)).toBeDefined()
+    expect(screen.getByText('Setup checklist')).toBeDefined()
+    expect(screen.getByText(/Skipping Start only hides the sidebar shortcut/i)).toBeDefined()
+    expect(screen.getByText(/The setup checklist is hidden right now/i)).toBeDefined()
+    expect(screen.queryByText(/Reset Start guide/i)).toBeNull()
+    expect(screen.queryByText(/Reset it here/i)).toBeNull()
 
-    const restoreButton = screen.getByRole('button', { name: /reset start guide/i })
+    const restoreButton = screen.getByRole('button', { name: /show setup checklist/i })
     expect(restoreButton).not.toBeDisabled()
     fireEvent.click(restoreButton)
 
     await waitFor(() => expect(setGettingStartedDismissedMock).toHaveBeenCalledWith(false))
     expect(
-      screen.getByText('Start is back in the sidebar. Open it to continue the checklist.')
+      screen.getByText(
+        'The setup checklist is back in the sidebar. Open it when setup needs review.'
+      )
     ).toBeDefined()
-    expect(screen.getByRole('link', { name: /open start guide/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /open setup checklist/i })).toHaveAttribute(
       'href',
       '/start'
     )
@@ -281,8 +286,8 @@ describe('AccountSection', () => {
 
     renderAccountSection()
 
-    expect(screen.getByText(/Start is already visible in the sidebar/)).toBeDefined()
-    expect(screen.getByRole('button', { name: /reset start guide/i })).toBeDisabled()
+    expect(screen.getByText(/The setup checklist is already visible in the sidebar/)).toBeDefined()
+    expect(screen.getByRole('button', { name: /show setup checklist/i })).toBeDisabled()
   })
 
   test('reports a failed restore instead of pretending it worked', async () => {
@@ -294,16 +299,18 @@ describe('AccountSection', () => {
 
     renderAccountSection()
 
-    fireEvent.click(screen.getByRole('button', { name: /reset start guide/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show setup checklist/i }))
 
     expect(
       await screen.findByText(
-        'The guide could not be restored. Check your connection and try again.'
+        'The setup checklist could not be shown. Check your connection, then try again.'
       )
     ).toBeDefined()
     expect(
-      screen.queryByText('Start is back in the sidebar. Open it to continue the checklist.')
+      screen.queryByText(
+        'The setup checklist is back in the sidebar. Open it when setup needs review.'
+      )
     ).toBeNull()
-    expect(screen.queryByRole('link', { name: /open start guide/i })).toBeNull()
+    expect(screen.queryByRole('link', { name: /open setup checklist/i })).toBeNull()
   })
 })

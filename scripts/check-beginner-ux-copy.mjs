@@ -251,6 +251,12 @@ const ACCOUNT_PROFILE_DEAD_END_PATTERNS = [
   /\bEmail not reported yet\b/i,
 ]
 
+const START_GUIDE_RESET_JARGON_PATTERNS = [
+  /\bStart guide\b/i,
+  /\bReset Start guide\b/i,
+  /\bReset it here\b/i,
+]
+
 const SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS = [
   /\bMaintainer not listed yet\b/i,
   /暂未列出维护者/,
@@ -975,6 +981,17 @@ function hasAccountProfileDeadEndCopy(relFile, line) {
   return ACCOUNT_PROFILE_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasStartGuideResetJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/settings/AccountSection.tsx') &&
+    !relFile.endsWith('src/app/pages/settings/ui/SettingsLayout.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return START_GUIDE_RESET_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSkillMaintainerFallbackDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
@@ -1657,6 +1674,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Account profile fallbacks must tell beginners to refresh and reload account data.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasStartGuideResetJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'start-guide-reset-copy',
+        location,
+        message:
+          'Start guide restore copy must say it shows the setup checklist again, not that it resets the guide.',
         sample: line.trim(),
       })
     }

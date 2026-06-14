@@ -358,10 +358,10 @@ function GettingStartedGuideRow() {
 
   const dismissed = preferences?.gettingStartedDismissed === true
   const statusLine = !preferencesLoaded
-    ? 'Checking whether Start is hidden...'
+    ? 'Checking whether the setup checklist is hidden...'
     : dismissed
-      ? 'Start is hidden right now.'
-      : 'Start is already visible in the sidebar.'
+      ? 'The setup checklist is hidden right now.'
+      : 'The setup checklist is already visible in the sidebar.'
 
   async function handleRestore() {
     setError(null)
@@ -372,7 +372,7 @@ function GettingStartedGuideRow() {
     if (ok) {
       setRestored(true)
     } else {
-      setError('The guide could not be restored. Check your connection and try again.')
+      setError('The setup checklist could not be shown. Check your connection, then try again.')
     }
   }
 
@@ -381,11 +381,11 @@ function GettingStartedGuideRow() {
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-ui-body text-foreground-light dark:text-foreground-dark">
-            Start guide
+            Setup checklist
           </p>
           <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Skip hides Start from the sidebar. Reset it here when you want the checklist back.{' '}
-            {statusLine}
+            Skipping Start only hides the sidebar shortcut. Show it again here when you want the
+            checklist back. {statusLine}
           </p>
         </div>
         <button
@@ -394,7 +394,7 @@ function GettingStartedGuideRow() {
           disabled={restoring || !preferencesLoaded || !dismissed}
           className={cn(uiStyles.secondaryButton, 'shrink-0')}
         >
-          {restoring ? 'Resetting...' : 'Reset Start guide'}
+          {restoring ? 'Showing...' : 'Show setup checklist'}
         </button>
       </div>
       {error && (
@@ -404,7 +404,7 @@ function GettingStartedGuideRow() {
       )}
       {restored && (
         <div className="flex flex-col gap-2 rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue sm:flex-row sm:items-center sm:justify-between">
-          <span>Start is back in the sidebar. Open it to continue the checklist.</span>
+          <span>The setup checklist is back in the sidebar. Open it when setup needs review.</span>
           <a
             href="/start"
             className={cn(
@@ -412,7 +412,7 @@ function GettingStartedGuideRow() {
               'inline-flex h-9 shrink-0 items-center justify-center text-apple-blue'
             )}
           >
-            Open Start guide
+            Open setup checklist
           </a>
         </div>
       )}

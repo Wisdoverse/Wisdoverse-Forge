@@ -86,7 +86,7 @@ const SECTIONS: SectionItem[] = [
   {
     id: 'account',
     label: 'Account',
-    description: 'Update profile, password, and the Start guide reset.',
+    description: 'Update profile, password, and show the setup checklist again.',
     group: 'People',
     Icon: User,
   },
