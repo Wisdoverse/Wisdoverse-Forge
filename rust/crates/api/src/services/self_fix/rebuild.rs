@@ -93,9 +93,16 @@ pub async fn rebuild_branch(
     run_git(clone_dir, &["-c", "core.hooksPath=/dev/null", "checkout", "-B", branch_name, base_sha]).await?;
 
     // 2. Snapshot the set of files tracked at base so we can detect deletions.
-    let ls_files = run_git(clone_dir, &["-c", "core.hooksPath=/dev/null", "ls-files"]).await?;
-    let base_files: HashSet<String> =
-        String::from_utf8_lossy(&ls_files.stdout).lines().filter(|l| !l.is_empty()).map(|l| l.to_string()).collect();
+    // `-c core.quotePath=false -z`: disable C-style quoting for non-ASCII paths and
+    // emit NUL-delimited output so the verbatim bytes match the filesystem walk keys.
+    let ls_files =
+        run_git(clone_dir, &["-c", "core.hooksPath=/dev/null", "-c", "core.quotePath=false", "ls-files", "-z"]).await?;
+    let base_files: HashSet<String> = ls_files
+        .stdout
+        .split(|&b| b == b'\0')
+        .filter(|s| !s.is_empty())
+        .filter_map(|s| String::from_utf8(s.to_vec()).ok())
+        .collect();
 
     // 3. Walk the untrusted workspace, validate every entry, copy vetted files.
     let mut present: HashSet<String> = HashSet::new();

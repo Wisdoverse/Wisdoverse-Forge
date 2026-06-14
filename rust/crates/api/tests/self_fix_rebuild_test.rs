@@ -279,3 +279,99 @@ async fn test_c_empty_change_returns_empty_change() {
         other => panic!("expected EmptyChange, got {other:?}"),
     }
 }
+
+#[tokio::test]
+async fn test_d_non_ascii_filename_deletion_is_captured() {
+    if !git_available() {
+        eprintln!("SKIP test_d_non_ascii_filename_deletion_is_captured: git not available");
+        return;
+    }
+    let root = TempRoot::new();
+
+    // Build an origin that also tracks a non-ASCII file `café.txt` (UTF-8).
+    let origin = root.join("origin");
+    std::fs::create_dir_all(&origin).expect("mkdir origin");
+    git(&origin, &["init", "-q"]);
+    write_file(&origin.join("a.txt"), "base");
+    write_file(&origin.join("keep.txt"), "keep");
+    write_file(&origin.join(".gitignore"), "ignored/\n");
+    write_file(&origin.join("café.txt"), "café content");
+    git(&origin, &["add", "-A"]);
+    git(
+        &origin,
+        &[
+            "-c",
+            "user.name=Origin",
+            "-c",
+            "user.email=origin@example.com",
+            "commit",
+            "-q",
+            "-m",
+            "base",
+        ],
+    );
+    let base_sha = git(&origin, &["rev-parse", "HEAD"]);
+
+    let clone = root.join("clone");
+    git(&root.path, &["clone", "-q", origin.to_str().unwrap(), clone.to_str().unwrap()]);
+
+    // Agent workspace: modify a.txt, omit `café.txt` (agent "deleted" it), keep keep.txt.
+    // Without the fix, the quoted key `"caf\303\251.txt"` never matches the walk's
+    // `café.txt` key → the deletion is silently dropped from the commit.
+    let ws = root.join("workspace");
+    std::fs::create_dir_all(&ws).expect("mkdir workspace");
+    write_file(&ws.join("a.txt"), "changed by agent");
+    write_file(&ws.join("keep.txt"), "keep");
+    write_file(&ws.join(".gitignore"), "ignored/\n");
+    // `café.txt` intentionally absent — the agent deleted it.
+
+    let outcome: RebuildOutcome = rebuild_branch(
+        &clone,
+        &base_sha,
+        &ws,
+        "agent/d",
+        "delete café.txt",
+        "Self-Fix Bot",
+        "bot@example.com",
+        &ImportLimits::default(),
+    )
+    .await
+    .expect("clean rebuild should succeed");
+
+    // Verify `café.txt` appears as DELETED in the produced commit.
+    // `-c core.quotePath=false` must come before the subcommand in git's arg order.
+    let raw = git(&clone, &["-c", "core.quotePath=false", "diff-tree", "-r", "--raw", &base_sha, "HEAD"]);
+    let mut saw_cafe_deleted = false;
+    let mut saw_a_modified = false;
+    for line in raw.lines() {
+        // ":<srcmode> <dstmode> <srcsha> <dstsha> <status>\t<path>"
+        let tab_pos = line.find('\t').unwrap_or(line.len());
+        let path = &line[tab_pos.saturating_add(1)..];
+        let fields: Vec<&str> = line[..tab_pos].split_whitespace().collect();
+        if fields.len() < 5 {
+            continue;
+        }
+        let status = fields[4];
+        if path == "café.txt" {
+            assert!(
+                status.starts_with('D'),
+                "café.txt should be deleted but got status {status} in: {line}"
+            );
+            saw_cafe_deleted = true;
+        }
+        if path == "a.txt" {
+            assert!(status.starts_with('M'), "a.txt should be modified: {line}");
+            saw_a_modified = true;
+        }
+    }
+    assert!(
+        saw_cafe_deleted,
+        "café.txt deletion missing from commit diff-tree output:\n{raw}"
+    );
+    assert!(saw_a_modified, "a.txt modification missing from commit diff-tree output:\n{raw}");
+
+    // The outcome head must advance past base (a real commit was produced).
+    let head = git(&clone, &["rev-parse", "HEAD"]);
+    assert_eq!(outcome.head_sha, head, "outcome head must match git HEAD");
+    assert_ne!(outcome.head_sha, base_sha, "head must advance past base");
+}
