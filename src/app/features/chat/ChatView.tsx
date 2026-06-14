@@ -28,7 +28,7 @@ const CONVERSATION_FILTERS: { value: ConversationFilter; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'operator', label: 'You' },
   { value: 'agent', label: 'Agent' },
-  { value: 'tool', label: 'Steps' },
+  { value: 'tool', label: 'Work steps' },
   { value: 'attention', label: 'Attention' },
 ]
 
@@ -205,7 +205,7 @@ export function ChatView({ agentId }: ChatViewProps) {
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
             />
           </svg>
-          Loading conversation...
+          Loading updates...
         </div>
       </div>
     )
@@ -261,10 +261,10 @@ export function ChatView({ agentId }: ChatViewProps) {
           </span>
           <div className="min-w-0">
             <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-              Conversation handoff
+              Conversation summary
             </p>
             <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              Agent updates and help needed
+              Updates and next steps
             </h3>
           </div>
         </div>
@@ -321,7 +321,7 @@ export function ChatView({ agentId }: ChatViewProps) {
             type="search"
             value={conversationSearch}
             onChange={(event) => setConversationSearch(event.target.value)}
-            placeholder="Search updates, help needed, steps..."
+            placeholder="Search updates, help requests, work steps..."
             className={cn(
               'h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-ui-body outline-none',
               'text-foreground-light placeholder:text-secondary-light dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:placeholder:text-secondary-dark',
@@ -453,7 +453,7 @@ function ConversationFilterEmptyState({
         onClick={onClear}
         className="rounded-full bg-apple-blue/10 px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
       >
-        Clear filters
+        Show all updates
       </button>
     </div>
   )

@@ -81,7 +81,8 @@ afterEach(() => {
 
 describe('ChatView', () => {
   const previousFindHelpCopy = new RegExp(['find', 'blockers'].join('\\s+'), 'i')
-  const previousHandoffTitle = ['Agent updates', 'blockers'].join(' and ')
+  const previousHandoffLabel = 'Conversation handoff'
+  const previousHandoffTitle = 'Agent updates and help needed'
 
   test('shows chat-only AI service banner when agent has no cliTool', async () => {
     const loadMessages = vi.fn().mockResolvedValue(undefined)
@@ -245,9 +246,13 @@ describe('ChatView', () => {
     render(<ChatView agentId={providerAgent.id} />)
 
     expect(screen.getByTestId('conversation-handoff-summary')).toBeInTheDocument()
-    expect(screen.getByText('Agent updates and help needed')).toBeInTheDocument()
+    expect(screen.getByText('Conversation summary')).toBeInTheDocument()
+    expect(screen.getByText('Updates and next steps')).toBeInTheDocument()
+    expect(screen.queryByText(previousHandoffLabel)).toBeNull()
     expect(screen.queryByText(previousHandoffTitle)).toBeNull()
-    expect(screen.getByPlaceholderText('Search updates, help needed, steps...')).toBeInTheDocument()
+    expect(
+      screen.getByPlaceholderText('Search updates, help requests, work steps...')
+    ).toBeInTheDocument()
     expect(
       within(screen.getByTestId('conversation-metric-operator')).getByText('Your messages')
     ).toBeInTheDocument()
@@ -270,6 +275,7 @@ describe('ChatView', () => {
 
     const filters = screen.getByTestId('conversation-filter-group')
     expect(within(filters).getByRole('button', { name: /you\s*1/i })).toBeInTheDocument()
+    expect(within(filters).getByRole('button', { name: /work steps\s*0/i })).toBeInTheDocument()
     fireEvent.click(within(filters).getByRole('button', { name: /attention\s*1/i }))
     expect(screen.getByText('Billing flow is blocked by a missing secret')).toBeInTheDocument()
     expect(screen.queryByText('Settings page shipped')).toBeNull()
@@ -284,7 +290,7 @@ describe('ChatView', () => {
     expect(within(emptyState).getByText(/review every update/i)).toBeInTheDocument()
     expect(emptyState).not.toHaveTextContent('No conversation updates match the current filters.')
     expect(emptyState).not.toHaveTextContent('Try All, Attention, or a shorter search term.')
-    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show all updates/i }))
     expect(screen.getByTestId('conversation-search')).toHaveValue('')
     expect(screen.getByText('Settings page shipped')).toBeInTheDocument()
   })
@@ -345,6 +351,7 @@ describe('ChatView', () => {
     ).toBeInTheDocument()
 
     const filters = screen.getByTestId('conversation-filter-group')
+    expect(within(filters).getByRole('button', { name: /work steps\s*2/i })).toBeInTheDocument()
     fireEvent.click(within(filters).getByRole('button', { name: /attention\s*1/i }))
     expect(screen.getByText(/Deploy failed because credentials are missing/i)).toBeInTheDocument()
     expect(screen.queryByText(/Typecheck passed/i)).toBeNull()
