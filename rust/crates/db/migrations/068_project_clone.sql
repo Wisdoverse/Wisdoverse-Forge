@@ -115,9 +115,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_projects_workspace_dir
 
 CREATE TABLE IF NOT EXISTS project_clone_attempts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    organization_id UUID NOT NULL,
-    workspace_id UUID NOT NULL,
-    project_id UUID NOT NULL REFERENCES projects(id),
+    organization_id UUID NOT NULL REFERENCES organizations(id),
+    workspace_id    UUID NOT NULL REFERENCES workspaces(id),
+    -- RESTRICT by design: cancel an attempt before hard-deleting a project
+    -- (projects are soft-deleted, so this also matches the soft-delete model).
+    project_id      UUID NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
     attempt INT NOT NULL,
     repository_url TEXT NOT NULL,
     provider TEXT,

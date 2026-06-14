@@ -24,6 +24,9 @@ use uuid::Uuid;
 /// Postgres SQLSTATE for `unique_violation`.
 const SQLSTATE_UNIQUE_VIOLATION: &str = "23505";
 
+/// Postgres SQLSTATE for `foreign_key_violation`.
+const SQLSTATE_FOREIGN_KEY_VIOLATION: &str = "23503";
+
 /// `true` when `public.<table>.<column>` exists.
 async fn column_exists(pool: &PgPool, table: &str, column: &str) -> bool {
     sqlx::query_scalar(
@@ -320,6 +323,43 @@ async fn clone_attempt_status_check_enforced(pool: PgPool) {
     insert_clone_attempt(&pool, &fx, project_id, 2, "cloning")
         .await
         .expect("status='cloning' must be accepted");
+}
+
+/// The tenant FK on `project_clone_attempts.organization_id` must reject a row
+/// whose `organization_id` references no real organization. Every other column
+/// is valid (real workspace, real project, valid status), so the *only* thing
+/// that can reject the row is the organization FK — a false positive (NOT-NULL,
+/// CHECK, or a different FK firing first) is ruled out. The `workspace_id` FK
+/// uses the identical mechanism, so proving the org FK proves the pattern.
+#[sqlx::test(migrations = "./migrations")]
+async fn clone_attempt_organization_fk_enforced(pool: PgPool) {
+    let fx = seed_fixture(&pool, "org-fk").await;
+    let project_id = insert_project(&pool, &fx, "p", "p", "p-dir", "queued")
+        .await
+        .expect("seed project");
+
+    // A fresh UUID that references no organization row.
+    let bogus_org = Uuid::new_v4();
+
+    // Valid workspace, valid project, valid status — only organization_id is bad.
+    let bad = sqlx::query(
+        "INSERT INTO project_clone_attempts
+            (organization_id, workspace_id, project_id, attempt, repository_url, status)
+         VALUES ($1, $2, $3, 1, 'https://example.com/r.git', 'queued')
+         RETURNING id",
+    )
+    .bind(bogus_org)
+    .bind(fx.workspace_id)
+    .bind(project_id)
+    .fetch_one(&pool)
+    .await;
+
+    let err = bad.expect_err("a non-existent organization_id must be rejected by the tenant FK");
+    assert_eq!(
+        sqlstate_of(&err).as_str(),
+        SQLSTATE_FOREIGN_KEY_VIOLATION,
+        "rejection must be a foreign_key_violation (23503), got: {err}"
+    );
 }
 
 /// `uq_projects_workspace_dir` is a *partial* unique index over live rows:
