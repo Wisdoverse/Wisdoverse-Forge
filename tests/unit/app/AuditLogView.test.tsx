@@ -165,7 +165,7 @@ describe('AuditLogView', () => {
     expect(screen.queryByText(/Work area I[D]/)).toBeNull()
     expect(screen.queryByText(/Person I[D]/)).toBeNull()
     expect(screen.getByTestId('governance-audit-redacted').textContent).toContain('Protected')
-    expect(screen.getByText('Not checked')).toBeDefined()
+    expect(screen.getByText('Check proof setup')).toBeDefined()
     expect(screen.getByText('Verified')).toBeDefined()
 
     fireEvent.change(screen.getByTestId('governance-audit-filter-event-type'), {

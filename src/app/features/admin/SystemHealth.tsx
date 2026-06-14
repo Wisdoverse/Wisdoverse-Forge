@@ -91,7 +91,7 @@ function StatusBadge({ status }: { status: ServiceStatus }) {
         ? 'Needs attention'
         : status === 'down'
           ? 'Unavailable'
-          : 'Not checked'
+          : 'Check now'
 
   return (
     <span

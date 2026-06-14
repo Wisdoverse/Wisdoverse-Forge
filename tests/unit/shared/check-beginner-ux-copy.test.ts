@@ -2777,7 +2777,7 @@ type ServiceStatus = 'ready' | 'unknown'
 
 function serviceStatusText(status: ServiceStatus): string {
   if (status === 'ready') return 'Ready'
-  return 'Not checked yet'
+  return 'Not checked'
 }
 `,
     })
@@ -2801,6 +2801,38 @@ type ServiceStatus = 'ready' | 'unknown'
 function serviceStatusText(status: ServiceStatus): string {
   if (status === 'ready') return 'Ready'
   return 'Choose Check now to confirm'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags saved instruction load copy that hides the retry action', () => {
+    const cwd = fixture({
+      'src/app/features/skills/SkillsView.tsx': `
+function savedInstructionsLoadErrorMessage(error) {
+  return RAW_LOAD_ERROR_PATTERN.test(error) ? 'Saved instructions could not load.' : error
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'saved-instructions-load-copy',
+        location: 'src/app/features/skills/SkillsView.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts saved instruction load copy that points to retry', () => {
+    const cwd = fixture({
+      'src/app/features/skills/SkillsView.tsx': `
+function savedInstructionsLoadErrorMessage(error) {
+  return RAW_LOAD_ERROR_PATTERN.test(error) ? 'Saved instructions need a refresh.' : error
 }
 `,
     })
@@ -3040,6 +3072,10 @@ function shortEventType(eventType) {
 function resourceTypeLabel(value) {
   return readableCodeLabel(value, { fallback: 'Resource not listed' })
 }
+
+function tamperStatusLabel() {
+  return { label: 'Not checked' }
+}
 `,
     })
 
@@ -3059,6 +3095,10 @@ function resourceTypeLabel(value) {
         expect.objectContaining({
           type: 'governance-audit-fallback-copy',
           location: 'src/app/features/governance/AuditLogView.tsx:11',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-fallback-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:15',
         }),
       ])
     )

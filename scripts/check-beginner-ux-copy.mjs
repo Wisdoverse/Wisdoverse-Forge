@@ -206,7 +206,7 @@ const CLI_IMAGE_STATUS_DEAD_END_PATTERNS = [
   /\bVersion not reported yet\b/i,
 ]
 
-const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [/\bNot checked yet\b/i]
+const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [/\bNot checked(?: yet)?\b/i]
 
 const ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS = [/\bNot used yet\b/i]
 
@@ -224,6 +224,8 @@ const SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS = [
   /\bMaintainer not listed yet\b/i,
   /暂未列出维护者/,
 ]
+
+const SAVED_INSTRUCTIONS_LOAD_DEAD_END_PATTERNS = [/\bSaved instructions could not load\.\s*['"`]/i]
 
 const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [/\bNo work tool sign-ins are connected yet\b/i]
 
@@ -280,6 +282,7 @@ const CHAT_TOOL_STEP_DEAD_END_PATTERNS = [
 
 const GOVERNANCE_AUDIT_FALLBACK_DEAD_END_PATTERNS = [
   /\bChange not listed\b/i,
+  /\bNot checked\b/i,
   /\bResource not listed\b/i,
   /\|\|\s*['"`]not listed['"`]/i,
 ]
@@ -765,6 +768,11 @@ function hasSkillMaintainerFallbackDeadEndCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasSavedInstructionsLoadDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/skills/SkillsView.tsx')) return false
+  return SAVED_INSTRUCTIONS_LOAD_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasRuntimeSignInDeadEndCopy(relFile, line) {
@@ -1304,6 +1312,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Saved instruction maintainer fallback copy must tell beginners to refresh saved instructions.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSavedInstructionsLoadDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'saved-instructions-load-copy',
+        location,
+        message: 'Saved instructions load fallback copy must point beginners to the retry action.',
         sample: line.trim(),
       })
     }

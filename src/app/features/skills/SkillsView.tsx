@@ -222,7 +222,7 @@ export function SkillsView() {
 }
 
 function savedInstructionsLoadErrorMessage(error: string): string {
-  return RAW_LOAD_ERROR_PATTERN.test(error) ? 'Saved instructions could not load.' : error
+  return RAW_LOAD_ERROR_PATTERN.test(error) ? 'Saved instructions need a refresh.' : error
 }
 
 function savedInstructionsLoadRecoveryMessage(error: string): string {

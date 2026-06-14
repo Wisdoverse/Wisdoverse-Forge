@@ -637,7 +637,7 @@ function TamperBadge({ status }: { status: GovernanceAuditTamperStatus }) {
       Icon: ShieldQuestion,
       className:
         'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
-      label: 'Not checked',
+      label: 'Check proof setup',
     },
   }[status]
   return (

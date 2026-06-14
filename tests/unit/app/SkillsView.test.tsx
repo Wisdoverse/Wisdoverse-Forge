@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
-import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
+import { act, render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 // Mock fetch to prevent real network calls; store's loadSkills will
@@ -309,6 +309,29 @@ describe('SkillsView', () => {
     expect(alert).not.toHaveTextContent('HTTP 500')
     expect(alert).not.toHaveTextContent('database unavailable')
     expect(screen.getByRole('button', { name: /^retry$/i })).toBeDefined()
+  })
+
+  test('turns raw saved-instruction load errors into retry guidance', async () => {
+    render(<SkillsView />)
+    await waitFor(() => {
+      expect(screen.getByText(/create your first saved instruction/i)).toBeDefined()
+    })
+
+    act(() => {
+      useSkillsStore.setState({
+        skills: [],
+        installedSkills: [],
+        loading: false,
+        error: 'HTTP 500: database unavailable',
+        searchQuery: '',
+      })
+    })
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Saved instructions need a refresh.')
+    expect(alert).toHaveTextContent('Choose Retry to refresh Saved instructions.')
+    expect(alert).not.toHaveTextContent('HTTP 500')
+    expect(alert).not.toHaveTextContent('database unavailable')
   })
 
   test('shows beginner guidance when skill creation is denied', async () => {

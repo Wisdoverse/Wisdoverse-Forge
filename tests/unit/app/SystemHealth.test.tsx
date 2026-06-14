@@ -24,7 +24,7 @@ describe('SystemHealth', () => {
           database: { status: 'up', latencyMs: 12 },
           redis: { status: 'degraded' },
           nats: { status: 'down' },
-          // docker intentionally absent so it renders as "Not checked".
+          // docker intentionally absent so it renders as the check action.
         },
       },
       healthLoading: false,
@@ -54,7 +54,7 @@ describe('SystemHealth', () => {
     expect(screen.getAllByText('Needs attention').length).toBeGreaterThan(0)
     expect(screen.getByText('Unavailable')).toBeDefined()
     expect(screen.getByText('Choose Check now to confirm')).toBeDefined()
-    expect(screen.getAllByText('Not checked').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Check now').length).toBeGreaterThan(1)
     expect(screen.getByText(/Forge has been running for 2h/i)).toBeDefined()
     expect(screen.queryByText(/Background Jobs/i)).toBeNull()
     expect(screen.queryByText(/PostgreSQL/i)).toBeNull()
@@ -86,6 +86,7 @@ describe('SystemHealth', () => {
     expect(screen.getByText('All areas are ready')).toBeDefined()
     expect(screen.getAllByText('Ready').length).toBe(4)
     expect(screen.queryByText('Not checked')).toBeNull()
+    expect(screen.queryByText('Choose Check now to confirm')).toBeNull()
   })
 
   test('pauses automatic checks while the admin page is hidden', async () => {
