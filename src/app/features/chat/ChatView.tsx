@@ -767,7 +767,7 @@ function messageRoleLabel(role: string): string {
     case 'assistant':
       return 'Agent'
     default:
-      return role.trim() ? 'Message needs review' : 'Message sender not reported'
+      return role.trim() ? 'Check message sender' : 'Refresh chat to load sender'
   }
 }
 

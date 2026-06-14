@@ -257,6 +257,16 @@ const CONTEXT_FALLBACK_DEAD_END_PATTERNS = [
   /\bTask type needs review\b/i,
 ]
 
+const CHAT_MESSAGE_FALLBACK_DEAD_END_PATTERNS = [
+  /\bMessage needs review\b/i,
+  /\bMessage sender not reported\b/i,
+]
+
+const CHAT_TOOL_STEP_DEAD_END_PATTERNS = [
+  /\bThis step needs review\b/i,
+  /\blabel:\s*['"`]Needs review['"`]/i,
+]
+
 const TASK_FORM_AGENT_STATUS_DEAD_END_PATTERNS = [/\bstatus not reported\b/i]
 
 const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [/\bSupport reference not reported\b/i]
@@ -801,6 +811,18 @@ function hasContextFallbackDeadEndCopy(relFile, line) {
   return CONTEXT_FALLBACK_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasChatMessageFallbackDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/chat/ChatView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CHAT_MESSAGE_FALLBACK_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasChatToolStepDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/chat/ToolCallDetail.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CHAT_TOOL_STEP_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -1291,6 +1313,26 @@ function scanFile(file, relFile) {
         location,
         message:
           'Saved item, sharing, safety, and task-type fallbacks must tell beginners what to check or refresh.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasChatMessageFallbackDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'chat-message-fallback-copy',
+        location,
+        message:
+          'Chat message sender fallbacks must tell beginners to refresh or check the sender.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasChatToolStepDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'chat-tool-step-copy',
+        location,
+        message:
+          'Chat tool step fallbacks must tell beginners to check the step before relying on it.',
         sample: line.trim(),
       })
     }

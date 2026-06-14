@@ -73,7 +73,8 @@ describe('ToolCallDetail', () => {
       />
     )
 
-    expect(screen.getByText('Needs review')).toBeInTheDocument()
+    expect(screen.getByText('Check step')).toBeInTheDocument()
+    expect(screen.queryByText('Needs review')).toBeNull()
     expect(screen.getByText(/This step reported a problem/i)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /show step details for deployment/i }))
@@ -90,6 +91,23 @@ describe('ToolCallDetail', () => {
     expect(screen.queryByText(/Missing token/i)).toBeNull()
     expect(screen.queryByText(/token:/i)).toBeNull()
     expect(screen.queryByText(/secret-token-value/i)).toBeNull()
+  })
+
+  test('turns failed boolean results into an action before users trust the answer', () => {
+    render(
+      <ToolCallDetail
+        call={{
+          ...baseCall,
+          output: { ok: false },
+          success: false,
+        }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command runner/i }))
+
+    expect(screen.getByText('Check this step before relying on the answer.')).toBeInTheDocument()
+    expect(screen.queryByText('This step needs review.')).toBeNull()
   })
 
   test('explains when a tool step has not returned a result yet', () => {

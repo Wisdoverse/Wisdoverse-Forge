@@ -2616,6 +2616,84 @@ function taskKindLabel(kind) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags chat sender fallback copy that leaves beginners guessing', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ChatView.tsx': `
+function messageRoleLabel(role) {
+  return role.trim() ? 'Message needs review' : 'Message sender not reported'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'chat-message-fallback-copy',
+        location: 'src/app/features/chat/ChatView.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts chat sender fallback copy that tells users what to do', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ChatView.tsx': `
+function messageRoleLabel(role) {
+  return role.trim() ? 'Check message sender' : 'Refresh chat to load sender'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags chat tool step fallback copy that does not tell users how to use the result', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ToolCallDetail.tsx': `
+function toolDataSummary(data) {
+  return data.ok ? 'This step finished successfully.' : 'This step needs review.'
+}
+
+function toolOutcome() {
+  return { label: 'Needs review' }
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'chat-tool-step-copy',
+          location: 'src/app/features/chat/ToolCallDetail.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'chat-tool-step-copy',
+          location: 'src/app/features/chat/ToolCallDetail.tsx:7',
+        }),
+      ])
+    )
+  })
+
+  it('accepts chat tool step fallback copy that tells users to check before relying on it', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ToolCallDetail.tsx': `
+function toolDataSummary(data) {
+  return data.ok ? 'This step finished successfully.' : 'Check this step before relying on the answer.'
+}
+
+function toolOutcome() {
+  return { label: 'Check step' }
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags app health status copy that does not tell users to check now', () => {
     const cwd = fixture({
       'src/app/features/admin/SystemHealth.tsx': `

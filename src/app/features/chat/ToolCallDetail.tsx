@@ -158,7 +158,9 @@ function toolDataSummary(data: Record<string, unknown>, kind: 'request' | 'resul
   }
 
   if (typeof data.ok === 'boolean') {
-    return data.ok ? 'This step finished successfully.' : 'This step needs review.'
+    return data.ok
+      ? 'This step finished successfully.'
+      : 'Check this step before relying on the answer.'
   }
 
   const itemCount = Object.keys(data).length
@@ -195,7 +197,7 @@ function toolOutcome(call: ToolCall): {
 
   if (call.success === false) {
     return {
-      label: 'Needs review',
+      label: 'Check step',
       helper: 'This step reported a problem. Check it before trusting the answer.',
       tone: 'danger',
       Icon: AlertTriangle,
