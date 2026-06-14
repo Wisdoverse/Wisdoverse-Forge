@@ -181,7 +181,7 @@ describe('ChatView', () => {
     useAgentsStore.setState({ agents: [cliAgent] })
     seedChatState({
       error:
-        'Retry conversation to load conversation history. Forge could not connect while loading this conversation. Check your connection, then try again.',
+        'Retry conversation to load conversation history. Check your connection, then choose Retry conversation again. Forge could not connect while loading this conversation.',
       fetchEvents,
     })
 
@@ -189,7 +189,7 @@ describe('ChatView', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Conversation needs attention')
-    expect(alert).toHaveTextContent('Check your connection, then try again.')
+    expect(alert).toHaveTextContent('Check your connection, then choose Retry conversation again.')
     expect(alert).not.toHaveTextContent('HTTP')
     expect(alert).not.toHaveTextContent('Failed to fetch')
 

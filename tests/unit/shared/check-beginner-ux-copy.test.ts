@@ -3695,6 +3695,13 @@ function chatStreamRequestErrorMessage() {
   return 'Forge could not connect while sending this message. Check your connection, then resend it.'
 }
 `,
+      'src/app/shared/model/chat.errors.ts': `
+function networkRecoveryMessage(action) {
+  return action === 'load'
+    ? 'Forge could not connect while loading this conversation. Check your connection, then try again.'
+    : 'Forge could not connect while clearing this chat. Check your connection, then try again.'
+}
+`,
       'src/app/shared/i18n/locales/zh.ts': `
 export const zh = {
   errors: {
@@ -3739,6 +3746,14 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'network-copy',
+          location: 'src/app/shared/model/chat.errors.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'network-copy',
+          location: 'src/app/shared/model/chat.errors.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'network-copy',
           location: 'src/app/shared/i18n/locales/zh.ts:4',
         }),
       ])
@@ -3769,6 +3784,13 @@ function agentControlErrorMessage() {
       'src/app/features/chat/useChatStream.ts': `
 function chatStreamRequestErrorMessage() {
   return 'Check your connection, then resend the message. Forge could not connect while sending this message.'
+}
+`,
+      'src/app/shared/model/chat.errors.ts': `
+function networkRecoveryMessage(action) {
+  return action === 'load'
+    ? 'Check your connection, then choose Retry conversation again. Forge could not connect while loading this conversation.'
+    : 'Check your connection, then clear chat again. Forge could not connect while clearing this chat.'
 }
 `,
       'src/app/shared/i18n/locales/zh.ts': `

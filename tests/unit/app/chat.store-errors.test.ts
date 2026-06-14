@@ -130,7 +130,7 @@ describe('useChatStore beginner errors', () => {
     await useChatStore.getState().loadMessages('agent-1')
 
     expect(useChatStore.getState().error).toBe(
-      'Retry conversation to load conversation history. Forge could not connect while loading this conversation. Check your connection, then try again.'
+      'Retry conversation to load conversation history. Check your connection, then choose Retry conversation again. Forge could not connect while loading this conversation.'
     )
     expect(useChatStore.getState().error).not.toContain('Failed to fetch')
   })

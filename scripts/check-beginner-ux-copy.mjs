@@ -359,6 +359,8 @@ const NETWORK_FAILURE_FIRST_PATTERNS = [
   /\bForge could not connect(?: while signing in)?\. Check your connection, then try again\./i,
   /\bForge could not connect while changing this agent\. Check your connection, refresh this agent, then try again\./i,
   /\bForge could not connect while sending this message\. Check your connection, then resend it\./i,
+  /\bForge could not connect while loading this conversation\. Check your connection, then try again\./i,
+  /\bForge could not connect while clearing this chat\. Check your connection, then try again\./i,
   /Forge 登录时暂时连不上。请检查网络后重试。/,
   /Forge 暂时连不上。请检查网络后重试。/,
 ]
@@ -785,6 +787,7 @@ function hasNetworkFailureFirstCopy(relFile, line) {
     !relFile.endsWith('src/app/shared/api/legacy/AgentAPI.ts') &&
     !relFile.endsWith('src/app/features/agents/AgentControlPanel.tsx') &&
     !relFile.endsWith('src/app/features/chat/useChatStream.ts') &&
+    !relFile.endsWith('src/app/shared/model/chat.errors.ts') &&
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
     !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
   ) {

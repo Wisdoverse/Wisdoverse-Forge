@@ -55,8 +55,8 @@ function serviceRecoveryMessage(action: ChatErrorAction): string {
 
 function networkRecoveryMessage(action: ChatErrorAction): string {
   return action === 'load'
-    ? 'Forge could not connect while loading this conversation. Check your connection, then try again.'
-    : 'Forge could not connect while clearing this chat. Check your connection, then try again.'
+    ? 'Check your connection, then choose Retry conversation again. Forge could not connect while loading this conversation.'
+    : 'Check your connection, then clear chat again. Forge could not connect while clearing this chat.'
 }
 
 export function chatErrorMessage(action: ChatErrorAction, err: unknown): string {
