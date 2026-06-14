@@ -25,6 +25,16 @@ use agentforge_auth::JwtManager;
 
 use crate::routes::metrics as metrics_route;
 
+/// Test-only re-export of the GitHub App client so integration tests can drive
+/// it against an httpmock server. Gated behind `test-support`; never reachable
+/// from production callers (the underlying module is `pub(crate)` without it).
+#[cfg(any(test, feature = "test-support"))]
+pub mod github_app {
+    pub use crate::services::github_app::{
+        GithubAppClient, GithubAppConfig, PrHead, PullRequest, build_app_jwt,
+    };
+}
+
 /// 32+ byte secret used only in tests. Fixed so the JWT that the shim creates
 /// can be verified by the same `JwtManager` instance on the route side.
 const TEST_JWT_SECRET: &str = "metrics-endpoint-integration-test-secret-32bytes!";
