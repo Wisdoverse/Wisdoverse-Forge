@@ -139,7 +139,9 @@ describe('Billing beginner guidance', () => {
 
     render(<InvoiceList invoices={invoices} />)
 
-    expect(screen.getByText(/Invoices appear after you start or change a plan/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Invoices appear after you start or change a plan/i)
+    ).toBeInTheDocument()
     expect(screen.queryByText(/billing portal/i)).not.toBeInTheDocument()
     expect(screen.getByText('Paid')).toBeInTheDocument()
     expect(screen.getByText('No action needed.')).toBeInTheDocument()
@@ -167,13 +169,13 @@ describe('Billing beginner guidance', () => {
     rerender(
       <InvoiceList
         invoices={[]}
-        error="Invoices could not be loaded. Ask an owner or admin for access."
+        error="Refresh Billing to load invoices. Ask an owner or admin for access."
       />
     )
 
     const alert = screen.getByRole('alert')
     expect(
-      within(alert).getByText('Invoices could not be loaded. Ask an owner or admin for access.')
+      within(alert).getByText('Refresh Billing to load invoices. Ask an owner or admin for access.')
     ).toBeInTheDocument()
     expect(within(alert).getByText(/ask an owner or admin to check billing access/i)).toBeDefined()
   })

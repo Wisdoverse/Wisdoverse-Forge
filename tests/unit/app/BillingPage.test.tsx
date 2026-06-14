@@ -138,9 +138,9 @@ describe('BillingPage', () => {
   test('shows plan and usage load errors instead of silently falling back', async () => {
     setBillingState({
       subscriptionError:
-        'Plan and payment could not be loaded. Ask an owner or admin to give you billing access.',
+        'Refresh Billing to load plan and payment. Ask an owner or admin to give you billing access.',
       usageError:
-        'Usage could not be loaded. Forge could not connect while loading billing. Check your connection, then refresh this page.',
+        'Refresh Billing to load usage. Forge could not connect while loading billing. Check your connection, then refresh Billing again.',
     })
 
     render(<BillingPage />)
@@ -149,12 +149,12 @@ describe('BillingPage', () => {
     expect(screen.getAllByRole('alert')).toHaveLength(2)
     expect(
       screen.getByText(
-        'Plan and payment could not be loaded. Ask an owner or admin to give you billing access.'
+        'Refresh Billing to load plan and payment. Ask an owner or admin to give you billing access.'
       )
     ).toBeDefined()
     expect(
       screen.getByText(
-        'Usage could not be loaded. Forge could not connect while loading billing. Check your connection, then refresh this page.'
+        'Refresh Billing to load usage. Forge could not connect while loading billing. Check your connection, then refresh Billing again.'
       )
     ).toBeDefined()
   })

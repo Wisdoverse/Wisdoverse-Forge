@@ -109,7 +109,7 @@ function isNetworkError(err: unknown): boolean {
 }
 
 export function billingErrorMessage(err: unknown, area: BillingErrorArea): string {
-  const base = `${BILLING_AREA_LABEL[area]} could not be loaded.`
+  const base = `Refresh Billing to load ${BILLING_AREA_LABEL[area].toLowerCase()}.`
   const text = structuredErrorText(err).toLowerCase()
   const code = statusCode(err)
 
@@ -120,16 +120,16 @@ export function billingErrorMessage(err: unknown, area: BillingErrorArea): strin
     return `${base} Ask an owner or admin to give you billing access.`
   }
   if (code === 429 || text.includes('busy') || text.includes('too many')) {
-    return `${base} Billing is busy. Wait a minute, then refresh this page.`
+    return `${base} Billing is busy. Wait a minute, then refresh Billing again.`
   }
   if (code != null && code >= 500) {
-    return `${base} Forge could not load billing right now. Ask an owner or admin to check billing, then refresh this page.`
+    return `${base} If it still fails, ask an owner or admin to check billing.`
   }
   if (isNetworkError(err)) {
-    return `${base} Forge could not connect while loading billing. Check your connection, then refresh this page.`
+    return `${base} Forge could not connect while loading billing. Check your connection, then refresh Billing again.`
   }
 
-  return `${base} Refresh this page. If it still fails, ask an owner or admin to check billing.`
+  return `${base} If it still fails, ask an owner or admin to check billing.`
 }
 
 // ============================================================================

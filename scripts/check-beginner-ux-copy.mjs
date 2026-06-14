@@ -248,6 +248,7 @@ const LOAD_ERROR_TITLE_DEAD_END_PATTERNS = [
   /\bAgent tools could not be loaded\./i,
   /\bWorkspace (?:team|project)s could not be loaded\./i,
   /\bAgent sizes could not be loaded\./i,
+  /\b(?:Plan and payment|Usage|Invoices) could not be loaded\./i,
 ]
 
 const AGENT_SETUP_FALLBACK_DEAD_END_PATTERNS = [
@@ -826,6 +827,7 @@ function hasSettingsLoadErrorDeadEndCopy(relFile, line) {
 function hasLoadErrorTitleDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/model/chat.errors.ts') &&
+    !relFile.endsWith('src/app/shared/model/billing.store.ts') &&
     !relFile.endsWith('src/app/features/agents/model/pluginErrorMessage.ts') &&
     !relFile.endsWith('src/app/pages/settings/model/workspaceSettingsErrorMessage.ts') &&
     !relFile.endsWith('src/app/features/settings/ResourcesSection.tsx')
