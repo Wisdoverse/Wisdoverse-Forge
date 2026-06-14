@@ -88,6 +88,8 @@ pub trait GitProvider: Send + Sync {
     async fn pr_head_sha(&self, pr_number: i32) -> AppResult<String>;
     /// `true` if the PR is already merged (idempotency check).
     async fn pr_is_merged(&self, pr_number: i32) -> AppResult<bool>;
+    /// `true` if the PR is currently a draft.
+    async fn pr_is_draft(&self, pr_number: i32) -> AppResult<bool>;
     /// Flip a draft PR to ready-for-review.
     async fn mark_ready_for_review(&self, pr_number: i32) -> AppResult<()>;
     /// Squash-merge the PR ONLY if its head still equals `expected_head`.
@@ -129,6 +131,10 @@ impl GitProvider for crate::services::github_app::GithubAppClient {
 
     async fn pr_is_merged(&self, pr_number: i32) -> AppResult<bool> {
         crate::services::github_app::GithubAppClient::pr_is_merged(self, pr_number).await
+    }
+
+    async fn pr_is_draft(&self, pr_number: i32) -> AppResult<bool> {
+        crate::services::github_app::GithubAppClient::pr_is_draft(self, pr_number).await
     }
 
     async fn mark_ready_for_review(&self, pr_number: i32) -> AppResult<()> {

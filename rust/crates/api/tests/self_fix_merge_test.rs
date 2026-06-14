@@ -19,7 +19,8 @@ use agentforge_core::{AppResult, ErrorKind};
 
 /// In-memory GitHub stand-in. Models the minimum the Merge Executor reads/writes:
 /// the PR head SHA, whether CI is green on that head, whether the PR is already
-/// merged, and a log of every mutating call (ready-flip, merge, comment).
+/// merged, whether it is a draft, and a log of every mutating call (ready-flip,
+/// merge, comment).
 struct FakeGitProvider {
     /// Head SHA returned by `pr_head_sha`. A test can swap this between the
     /// first and second read to simulate a push during the ready transition.
@@ -28,6 +29,8 @@ struct FakeGitProvider {
     green_for_head: Mutex<std::collections::HashMap<String, bool>>,
     /// `pr_is_merged` answer.
     already_merged: Mutex<bool>,
+    /// `pr_is_draft` answer. Starts as `true` (the normal state before merge).
+    is_draft: Mutex<bool>,
     /// Recorded mutating calls.
     ready_calls: Mutex<u32>,
     merge_calls: Mutex<Vec<(i32, String)>>, // (pr_number, expected_head)
@@ -40,6 +43,7 @@ impl FakeGitProvider {
             head: Mutex::new(head.to_string()),
             green_for_head: Mutex::new(std::collections::HashMap::new()),
             already_merged: Mutex::new(false),
+            is_draft: Mutex::new(true),
             ready_calls: Mutex::new(0),
             merge_calls: Mutex::new(Vec::new()),
             comment_calls: Mutex::new(Vec::new()),
@@ -73,8 +77,13 @@ impl GitProvider for FakeGitProvider {
     async fn pr_is_merged(&self, _pr_number: i32) -> AppResult<bool> {
         Ok(*self.already_merged.lock().unwrap())
     }
+    async fn pr_is_draft(&self, _pr_number: i32) -> AppResult<bool> {
+        Ok(*self.is_draft.lock().unwrap())
+    }
     async fn mark_ready_for_review(&self, _pr_number: i32) -> AppResult<()> {
         *self.ready_calls.lock().unwrap() += 1;
+        // Flip to non-draft once ready is called, matching real GitHub behaviour.
+        *self.is_draft.lock().unwrap() = false;
         Ok(())
     }
     async fn merge_with_expected_head(&self, pr_number: i32, expected_head: &str) -> AppResult<()> {
@@ -238,6 +247,10 @@ impl GitProvider for HeadAdvancingFake {
     async fn pr_is_merged(&self, _pr_number: i32) -> AppResult<bool> {
         Ok(false)
     }
+    async fn pr_is_draft(&self, _pr_number: i32) -> AppResult<bool> {
+        // Before the ready-flip the PR is a draft; after it is not.
+        Ok(*self.ready.lock().unwrap() == 0)
+    }
     async fn mark_ready_for_review(&self, _pr_number: i32) -> AppResult<()> {
         *self.ready.lock().unwrap() += 1;
         Ok(())
@@ -249,4 +262,107 @@ impl GitProvider for HeadAdvancingFake {
     async fn comment(&self, _pr_number: i32, _body: &str) -> AppResult<()> {
         Ok(())
     }
+}
+
+// ---------------------------------------------------------------------------
+// P2 security fix: sensitive BEFORE already-merged shortcut
+// ---------------------------------------------------------------------------
+
+/// A sensitive PR that GitHub reports as already-merged must STILL be refused.
+/// The sensitive hard-refuse must be the first gate — before the idempotency
+/// shortcut — so external GitHub state cannot cause the executor to report
+/// success on a sensitive change.
+#[tokio::test]
+async fn sensitive_pr_already_merged_still_refuses() {
+    let fake = FakeGitProvider::new("headsha");
+    // Make GitHub say the PR is already merged AND CI is green — this would
+    // trigger the idempotent success path if the order were wrong.
+    *fake.already_merged.lock().unwrap() = true;
+    fake.set_green("headsha", true);
+    let req = MergeRequest { pr_number: PR, recorded_head_sha: "headsha", sensitive: true };
+
+    let err = run_merge_executor(&fake, &req, "audit").await.expect_err("sensitive must refuse even when already-merged");
+    assert!(
+        matches!(err.kind, ErrorKind::ForbiddenWithCode { code, .. } if code == "errors.self_fix.sensitive_path_blocked"),
+        "must return the sensitive_path_blocked error, not a success/already_merged outcome"
+    );
+    // The PR must NOT have been reported as merged (no MergeOutcome returned).
+    // We already asserted expect_err above; verify no side-effecting calls were made.
+    assert_eq!(*fake.ready_calls.lock().unwrap(), 0, "must NOT flip to ready");
+    assert!(fake.merge_calls.lock().unwrap().is_empty(), "must NOT merge");
+    assert!(fake.comment_calls.lock().unwrap().is_empty(), "must NOT comment");
+}
+
+// ---------------------------------------------------------------------------
+// P2 idempotency fix: skip mark-ready when PR is already not a draft
+// ---------------------------------------------------------------------------
+
+/// A fake whose `mark_ready_for_review` panics if called — used to prove the
+/// executor skips the call when the PR is already not a draft.
+struct AlreadyReadyFake {
+    head: String,
+    merge_calls: Mutex<Vec<(i32, String)>>,
+}
+
+impl AlreadyReadyFake {
+    fn new(head: &str) -> Self {
+        Self { head: head.to_string(), merge_calls: Mutex::new(Vec::new()) }
+    }
+}
+
+#[async_trait::async_trait]
+impl GitProvider for AlreadyReadyFake {
+    async fn default_branch_sha(&self) -> AppResult<String> {
+        unreachable!()
+    }
+    async fn authed_remote_url(&self) -> AppResult<String> {
+        unreachable!()
+    }
+    async fn create_draft_pr(&self, _h: &str, _b: &str, _t: &str, _body: &str) -> AppResult<OpenedDraftPr> {
+        unreachable!()
+    }
+    async fn all_checks_green(&self, _head_sha: &str) -> AppResult<bool> {
+        Ok(true)
+    }
+    async fn pr_head_sha(&self, _pr_number: i32) -> AppResult<String> {
+        Ok(self.head.clone())
+    }
+    async fn pr_is_merged(&self, _pr_number: i32) -> AppResult<bool> {
+        Ok(false)
+    }
+    /// The PR is already NOT a draft (a previous attempt succeeded on the flip).
+    async fn pr_is_draft(&self, _pr_number: i32) -> AppResult<bool> {
+        Ok(false)
+    }
+    /// Would return an error (mimicking GitHub's rejection) if called — but the
+    /// executor must skip this call when `pr_is_draft` returns false.
+    async fn mark_ready_for_review(&self, _pr_number: i32) -> AppResult<()> {
+        panic!("mark_ready_for_review must NOT be called when the PR is already not a draft")
+    }
+    async fn merge_with_expected_head(&self, pr_number: i32, expected_head: &str) -> AppResult<()> {
+        self.merge_calls.lock().unwrap().push((pr_number, expected_head.to_string()));
+        Ok(())
+    }
+    async fn comment(&self, _pr_number: i32, _body: &str) -> AppResult<()> {
+        Ok(())
+    }
+}
+
+/// When the PR is already not a draft, the executor must skip `mark_ready_for_review`
+/// and proceed to merge. This proves retries are idempotent even when a prior attempt
+/// succeeded on the draft→ready flip but then failed on the post-ready re-read.
+#[tokio::test]
+async fn retry_after_ready_does_not_fail_on_remark() {
+    let fake = AlreadyReadyFake::new("headsha");
+    let req = MergeRequest { pr_number: PR, recorded_head_sha: "headsha", sensitive: false };
+
+    // Must succeed: the executor skips mark_ready (panics if called) and merges.
+    let outcome = run_merge_executor(&fake, &req, "audit").await.expect("retry on already-ready PR must succeed");
+
+    assert!(!outcome.already_merged, "this is a fresh merge, not the idempotent already-merged path");
+    assert_eq!(outcome.pr_number, PR);
+    assert_eq!(outcome.merged_head_sha, "headsha");
+    let merges = fake.merge_calls.lock().unwrap();
+    assert_eq!(merges.len(), 1, "merged exactly once");
+    assert_eq!(merges[0], (PR, "headsha".to_string()));
 }

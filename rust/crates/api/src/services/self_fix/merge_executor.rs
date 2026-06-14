@@ -77,23 +77,37 @@ pub struct MergeRequest<'a> {
 /// safety re-verification and the atomic merge.
 ///
 /// Flow:
-/// 0. Idempotency: if the PR is already merged, report success without merging.
-/// 1. Read the live head + CI state; gate (sensitive > checks > head). On any
+/// 0. Sensitive HARD-refuse: if `req.sensitive`, return the policy error immediately.
+///    This is evaluated BEFORE the already-merged idempotency shortcut so that
+///    external GitHub state (a manual merge of a sensitive PR) can never cause
+///    the executor to report success on a sensitive change.
+/// 1. Idempotency: if the PR is already merged, report success without merging.
+/// 2. Read the live head + CI state; gate (sensitive > checks > head). On any
 ///    failure NOTHING merges and the error propagates.
-/// 2. `mark_ready_for_review` (draft -> ready).
-/// 3. RE-READ the head and RE-CHECK CI (the ready transition could trigger a
+/// 3. `mark_ready_for_review` (draft -> ready) — skipped when the PR is already
+///    not a draft so retries are idempotent even if a previous attempt succeeded
+///    on the flip but then failed on the post-ready re-read.
+/// 4. RE-READ the head and RE-CHECK CI (the ready transition could trigger a
 ///    push); re-gate against the FRESH head.
-/// 4. `merge_with_expected_head(fresh_head)` — GitHub's 409 is the atomic guard
+/// 5. `merge_with_expected_head(fresh_head)` — GitHub's 409 is the atomic guard
 ///    against a head that moved between re-check and merge.
-/// 5. Post the audit comment.
+/// 6. Post the audit comment.
 #[allow(dead_code)]
 pub async fn run_merge_executor<G: GitProvider + ?Sized>(
     provider: &G,
     req: &MergeRequest<'_>,
     audit_body: &str,
 ) -> AppResult<MergeOutcome> {
-    // 0. Idempotency: a retry after a successful merge must succeed, not error
-    //    on a no-longer-mergeable PR.
+    // 0. Sensitive HARD-refuse — evaluated FIRST, before any GitHub I/O.
+    //    The already-merged shortcut (step 1) must not run for sensitive changes:
+    //    a manually-merged sensitive PR must not be reported as a success.
+    if req.sensitive {
+        return Err(SelfFixPolicy::sensitive_path_blocked());
+    }
+
+    // 1. Idempotency: a retry after a successful merge must succeed, not error
+    //    on a no-longer-mergeable PR. (Safe to shortcut here: sensitivity was
+    //    already refused above, so `req.sensitive` is false at this point.)
     if provider.pr_is_merged(req.pr_number).await? {
         return Ok(MergeOutcome {
             pr_number: req.pr_number,
@@ -102,7 +116,7 @@ pub async fn run_merge_executor<G: GitProvider + ?Sized>(
         });
     }
 
-    // 1. First gate, against the live head as it stands BEFORE we touch the PR.
+    // 2. First gate, against the live head as it stands BEFORE we touch the PR.
     //    Sensitivity is recomputed server-side and refused first; nothing about
     //    GitHub's state can override it.
     let live_head = provider.pr_head_sha(req.pr_number).await?;
@@ -110,21 +124,27 @@ pub async fn run_merge_executor<G: GitProvider + ?Sized>(
     let head_unchanged = live_head == req.recorded_head_sha;
     MergeGate::evaluate(req.sensitive, checks_green, head_unchanged)?;
 
-    // 2. Draft -> ready. (A draft PR is not mergeable.)
-    provider.mark_ready_for_review(req.pr_number).await?;
+    // 3. Draft -> ready. (A draft PR is not mergeable.)
+    //    Skip when the PR is already not a draft: a previous attempt may have
+    //    succeeded on the flip but then failed on the post-ready re-read, leaving
+    //    the PR non-draft. Calling `mark_ready_for_review` on a non-draft PR
+    //    returns a GraphQL error, permanently blocking retries.
+    if provider.pr_is_draft(req.pr_number).await? {
+        provider.mark_ready_for_review(req.pr_number).await?;
+    }
 
-    // 3. The ready transition can trigger automation that pushes a new commit.
+    // 4. The ready transition can trigger automation that pushes a new commit.
     //    RE-READ the head and RE-CHECK CI, then re-gate against the FRESH head.
     let fresh_head = provider.pr_head_sha(req.pr_number).await?;
     let fresh_checks_green = provider.all_checks_green(&fresh_head).await?;
     let fresh_head_unchanged = fresh_head == req.recorded_head_sha;
     MergeGate::evaluate(req.sensitive, fresh_checks_green, fresh_head_unchanged)?;
 
-    // 4. Atomic merge gated on the fresh head. If anything pushed between the
+    // 5. Atomic merge gated on the fresh head. If anything pushed between the
     //    re-check and here, GitHub returns 409 -> head_moved and we DO NOT merge.
     provider.merge_with_expected_head(req.pr_number, &fresh_head).await?;
 
-    // 5. Audit trail. A comment failure must not un-merge the PR, but it is part
+    // 6. Audit trail. A comment failure must not un-merge the PR, but it is part
     //    of the contract, so surface it; the merge already happened atomically.
     provider.comment(req.pr_number, audit_body).await?;
 

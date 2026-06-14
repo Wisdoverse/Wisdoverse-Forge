@@ -380,6 +380,14 @@ impl GithubAppClient {
         Ok(self.fetch_pull_request(pr_number).await?.merged)
     }
 
+    /// `true` if the PR is currently a draft. Used by the Merge Executor to skip
+    /// the `mark_ready_for_review` call when a previous attempt already flipped
+    /// the PR to ready (making the call idempotent at the executor level).
+    #[allow(dead_code)]
+    pub async fn pr_is_draft(&self, pr_number: i32) -> AppResult<bool> {
+        Ok(self.fetch_pull_request(pr_number).await?.draft)
+    }
+
     /// Fetch a PR object (used for `head.sha` and `node_id`).
     async fn fetch_pull_request(&self, pr_number: i32) -> AppResult<PullRequest> {
         let endpoint = "GET /repos/{repo}/pulls/{number}";
@@ -427,14 +435,23 @@ impl GithubAppClient {
             return Err(unavailable_status(resp.status(), endpoint));
         }
 
-        // A GraphQL 200 can still carry an `errors` array; treat that as failure.
+        // A GraphQL 200 can still carry an `errors` array. Treat it as failure
+        // EXCEPT when the PR is already ready-for-review: GitHub's GraphQL returns
+        // a "Pull request is not in the draft state" error in that case, which is
+        // idempotent — the desired final state (ready) already holds.
         let body: serde_json::Value = resp.json().await.map_err(|_| unavailable(endpoint))?;
-        if body
-            .get("errors")
-            .and_then(|e| e.as_array())
-            .is_some_and(|a| !a.is_empty())
+        if let Some(errors) = body.get("errors").and_then(|e| e.as_array())
+            && !errors.is_empty()
         {
-            return Err(unavailable(endpoint));
+            let all_already_ready = errors.iter().all(|e| {
+                e.get("message")
+                    .and_then(|m| m.as_str())
+                    .is_some_and(|msg| msg.contains("not in the draft state"))
+            });
+            if !all_already_ready {
+                return Err(unavailable(endpoint));
+            }
+            // Every error is "already ready" — desired state holds; treat as Ok.
         }
         Ok(())
     }

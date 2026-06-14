@@ -179,6 +179,9 @@ impl GitProvider for FakeGitProvider {
     async fn pr_is_merged(&self, _pr_number: i32) -> AppResult<bool> {
         unreachable!("bridge tests never call pr_is_merged")
     }
+    async fn pr_is_draft(&self, _pr_number: i32) -> AppResult<bool> {
+        unreachable!("bridge tests never call pr_is_draft")
+    }
     async fn mark_ready_for_review(&self, _pr_number: i32) -> AppResult<()> {
         unreachable!("bridge tests never call mark_ready_for_review")
     }
