@@ -107,13 +107,12 @@ struct Fixture {
 /// INSERT would fail on the team_id NOT-NULL violation *before* Postgres ever
 /// evaluates the value under test — a false positive.
 async fn seed_fixture(pool: &PgPool, tag: &str) -> Fixture {
-    let org_id: Uuid =
-        sqlx::query("INSERT INTO organizations (name, slug) VALUES ($1, $1) RETURNING id")
-            .bind(format!("clone-{tag}"))
-            .fetch_one(pool)
-            .await
-            .expect("insert org")
-            .get("id");
+    let org_id: Uuid = sqlx::query("INSERT INTO organizations (name, slug) VALUES ($1, $1) RETURNING id")
+        .bind(format!("clone-{tag}"))
+        .fetch_one(pool)
+        .await
+        .expect("insert org")
+        .get("id");
 
     let workspace_id: Uuid =
         sqlx::query("INSERT INTO workspaces (organization_id, name) VALUES ($1, 'ws') RETURNING id")
@@ -123,15 +122,14 @@ async fn seed_fixture(pool: &PgPool, tag: &str) -> Fixture {
             .expect("insert workspace")
             .get("id");
 
-    let team_id: Uuid = sqlx::query(
-        "INSERT INTO teams (organization_id, name, slug) VALUES ($1, 'team', $2) RETURNING id",
-    )
-    .bind(org_id)
-    .bind(format!("team-{tag}"))
-    .fetch_one(pool)
-    .await
-    .expect("insert team")
-    .get("id");
+    let team_id: Uuid =
+        sqlx::query("INSERT INTO teams (organization_id, name, slug) VALUES ($1, 'team', $2) RETURNING id")
+            .bind(org_id)
+            .bind(format!("team-{tag}"))
+            .fetch_one(pool)
+            .await
+            .expect("insert team")
+            .get("id");
 
     Fixture { org_id, workspace_id, team_id }
 }
@@ -191,10 +189,7 @@ async fn insert_clone_attempt(
 /// no database error, so the caller's intent — "this must be a constraint
 /// rejection" — is enforced).
 fn constraint_of(err: &sqlx::Error) -> Option<String> {
-    err.as_database_error()
-        .expect("expected a database error")
-        .constraint()
-        .map(str::to_string)
+    err.as_database_error().expect("expected a database error").constraint().map(str::to_string)
 }
 
 /// SQLSTATE code of a returned database error.
@@ -209,14 +204,8 @@ fn sqlstate_of(err: &sqlx::Error) -> String {
 #[sqlx::test(migrations = "./migrations")]
 async fn migration_068_lands_project_clone_schema(pool: PgPool) {
     // -- Presence: projects new columns. ------------------------------------
-    assert!(
-        column_exists(&pool, "projects", "workspace_dir_name").await,
-        "projects.workspace_dir_name missing"
-    );
-    assert!(
-        column_exists(&pool, "projects", "clone_status").await,
-        "projects.clone_status missing"
-    );
+    assert!(column_exists(&pool, "projects", "workspace_dir_name").await, "projects.workspace_dir_name missing");
+    assert!(column_exists(&pool, "projects", "clone_status").await, "projects.clone_status missing");
 
     // Both new project columns are NOT NULL (workspace_dir_name via backfill +
     // SET NOT NULL, clone_status via DEFAULT 'none').
@@ -232,10 +221,7 @@ async fn migration_068_lands_project_clone_schema(pool: PgPool) {
     );
 
     // -- Presence: project_clone_attempts table + columns. ------------------
-    assert!(
-        table_exists(&pool, "project_clone_attempts").await,
-        "project_clone_attempts table missing"
-    );
+    assert!(table_exists(&pool, "project_clone_attempts").await, "project_clone_attempts table missing");
     for column in [
         "id",
         "organization_id",
@@ -271,10 +257,7 @@ async fn migration_068_lands_project_clone_schema(pool: PgPool) {
     for index in ["uq_projects_workspace_dir", "uq_project_clone_attempt", "idx_project_clone_status"] {
         assert!(index_exists(&pool, index).await, "{index} index missing");
     }
-    assert!(
-        index_exists(&pool, "idx_job_queue_unique_key").await,
-        "idx_job_queue_unique_key index missing"
-    );
+    assert!(index_exists(&pool, "idx_job_queue_unique_key").await, "idx_job_queue_unique_key index missing");
 }
 
 /// `projects_clone_status_check` must reject out-of-domain values and accept
@@ -296,9 +279,7 @@ async fn projects_clone_status_check_enforced(pool: PgPool) {
 
     // Positive: a documented value inserts cleanly (proves the CHECK is not
     // over-broad / does not reject the happy path).
-    insert_project(&pool, &fx, "p2", "p2", "p2-ok", "queued")
-        .await
-        .expect("clone_status='queued' must be accepted");
+    insert_project(&pool, &fx, "p2", "p2", "p2-ok", "queued").await.expect("clone_status='queued' must be accepted");
 }
 
 /// `project_clone_attempts_status_check` must reject out-of-domain statuses and
@@ -306,9 +287,7 @@ async fn projects_clone_status_check_enforced(pool: PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn clone_attempt_status_check_enforced(pool: PgPool) {
     let fx = seed_fixture(&pool, "att-status").await;
-    let project_id = insert_project(&pool, &fx, "p", "p", "p-dir", "queued")
-        .await
-        .expect("seed project");
+    let project_id = insert_project(&pool, &fx, "p", "p", "p-dir", "queued").await.expect("seed project");
 
     // Negative: out-of-domain status rejected by the named CHECK.
     let bad = insert_clone_attempt(&pool, &fx, project_id, 1, "bogus").await;
@@ -320,9 +299,7 @@ async fn clone_attempt_status_check_enforced(pool: PgPool) {
     );
 
     // Positive: a documented status inserts cleanly.
-    insert_clone_attempt(&pool, &fx, project_id, 2, "cloning")
-        .await
-        .expect("status='cloning' must be accepted");
+    insert_clone_attempt(&pool, &fx, project_id, 2, "cloning").await.expect("status='cloning' must be accepted");
 }
 
 /// The tenant FK on `project_clone_attempts.organization_id` must reject a row
@@ -334,9 +311,7 @@ async fn clone_attempt_status_check_enforced(pool: PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn clone_attempt_organization_fk_enforced(pool: PgPool) {
     let fx = seed_fixture(&pool, "org-fk").await;
-    let project_id = insert_project(&pool, &fx, "p", "p", "p-dir", "queued")
-        .await
-        .expect("seed project");
+    let project_id = insert_project(&pool, &fx, "p", "p", "p-dir", "queued").await.expect("seed project");
 
     // A fresh UUID that references no organization row.
     let bogus_org = Uuid::new_v4();
@@ -371,9 +346,7 @@ async fn clone_attempt_organization_fk_enforced(pool: PgPool) {
 async fn uq_projects_workspace_dir_partial_behavior(pool: PgPool) {
     let fx = seed_fixture(&pool, "wsdir").await;
 
-    let first = insert_project(&pool, &fx, "p1", "p1", "shared-dir", "none")
-        .await
-        .expect("first live project inserts");
+    let first = insert_project(&pool, &fx, "p1", "p1", "shared-dir", "none").await.expect("first live project inserts");
 
     // Same (workspace_id, workspace_dir_name) among live rows -> collision.
     let dup = insert_project(&pool, &fx, "p2", "p2", "shared-dir", "none").await;
@@ -402,13 +375,9 @@ async fn uq_projects_workspace_dir_partial_behavior(pool: PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn uq_project_clone_attempt_behavior(pool: PgPool) {
     let fx = seed_fixture(&pool, "uqattempt").await;
-    let project_id = insert_project(&pool, &fx, "p", "p", "p-dir", "queued")
-        .await
-        .expect("seed project");
+    let project_id = insert_project(&pool, &fx, "p", "p", "p-dir", "queued").await.expect("seed project");
 
-    insert_clone_attempt(&pool, &fx, project_id, 1, "queued")
-        .await
-        .expect("first attempt inserts");
+    insert_clone_attempt(&pool, &fx, project_id, 1, "queued").await.expect("first attempt inserts");
 
     let dup = insert_clone_attempt(&pool, &fx, project_id, 1, "queued").await;
     let err = dup.expect_err("duplicate (project_id, attempt) must collide");
@@ -433,10 +402,8 @@ async fn idx_job_queue_unique_key_partial_behavior(pool: PgPool) {
         .await
         .expect("first keyed job inserts");
 
-    let dup = sqlx::query("INSERT INTO job_queue (queue, unique_key) VALUES ('clone', $1)")
-        .bind(&key)
-        .execute(&pool)
-        .await;
+    let dup =
+        sqlx::query("INSERT INTO job_queue (queue, unique_key) VALUES ('clone', $1)").bind(&key).execute(&pool).await;
     let err = dup.expect_err("duplicate non-null unique_key must collide");
     assert_eq!(
         constraint_of(&err).as_deref(),
@@ -471,12 +438,11 @@ async fn idx_job_queue_unique_key_partial_behavior(pool: PgPool) {
 /// index rebuilds; the buggy naive backfill would raise a unique_violation here.
 #[sqlx::test(migrations = "./migrations")]
 async fn workspace_dir_backfill_dedups_cross_team_slug_collision(pool: PgPool) {
-    let org_id: Uuid =
-        sqlx::query("INSERT INTO organizations (name, slug) VALUES ('dedup', 'dedup') RETURNING id")
-            .fetch_one(&pool)
-            .await
-            .expect("insert org")
-            .get("id");
+    let org_id: Uuid = sqlx::query("INSERT INTO organizations (name, slug) VALUES ('dedup', 'dedup') RETURNING id")
+        .fetch_one(&pool)
+        .await
+        .expect("insert org")
+        .get("id");
     let workspace_id: Uuid =
         sqlx::query("INSERT INTO workspaces (organization_id, name) VALUES ($1, 'ws') RETURNING id")
             .bind(org_id)
@@ -505,12 +471,8 @@ async fn workspace_dir_backfill_dedups_cross_team_slug_collision(pool: PgPool) {
     // dir names so the post-068 unique index lets them in; we collapse them next.
     let fx_a = Fixture { org_id, workspace_id, team_id: team_a };
     let fx_b = Fixture { org_id, workspace_id, team_id: team_b };
-    let p_a = insert_project(&pool, &fx_a, "Shared", "shared", "tmp-a", "none")
-        .await
-        .expect("project A");
-    let p_b = insert_project(&pool, &fx_b, "Shared", "shared", "tmp-b", "none")
-        .await
-        .expect("project B");
+    let p_a = insert_project(&pool, &fx_a, "Shared", "shared", "tmp-a", "none").await.expect("project A");
+    let p_b = insert_project(&pool, &fx_b, "Shared", "shared", "tmp-b", "none").await.expect("project B");
 
     // Recreate the pre-068 hazard: drop the unique index and force BOTH dir
     // names back to the bare slug — exactly the duplicate state the naive
@@ -572,9 +534,7 @@ async fn migration_068_is_idempotent_on_rerun(pool: PgPool) {
     // the replay (a no-op dedup is a stronger idempotency proof than an empty
     // table).
     let fx = seed_fixture(&pool, "rerun").await;
-    insert_project(&pool, &fx, "p", "p", "rerun-dir", "ready")
-        .await
-        .expect("seed a live project before replay");
+    insert_project(&pool, &fx, "p", "p", "rerun-dir", "ready").await.expect("seed a live project before replay");
 
     // Replay the entire migration body — DO-blocks, ALTERs, CREATE … IF NOT
     // EXISTS, the lot — as one statement batch. `raw_sql` does not split on

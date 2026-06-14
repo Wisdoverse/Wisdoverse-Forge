@@ -4,10 +4,9 @@ use agentforge_core::{AppResult, ProjectId, TeamId, TenantScope, WorkspaceId};
 use agentforge_db::entities::Project;
 use sqlx::PgPool;
 
-use crate::domain::resource::{ProjectRepositoryUrl, ResourceListPage, ResourceName, ResourceSlugPolicy};
+use crate::domain::resource::{ProjectRepositoryUrl, ResourceListPage, ResourceName};
 pub(crate) use crate::domain::resource::{resource_data_response, resource_delete_response};
-use crate::repositories::identity::group::GroupRepository;
-use crate::repositories::project::ProjectRepository;
+use crate::repositories::project::{CloneRequest, ProjectCreateTx, ProjectRepository};
 use crate::repositories::resource::permission::ResourcePermissionRepository;
 use crate::services::resource_permission::ResourcePermissionService;
 
@@ -29,24 +28,15 @@ pub struct UpdateProjectInput {
 pub struct ProjectService {
     repo: ProjectRepository,
     permissions: ResourcePermissionService,
-    group_repo: GroupRepository,
 }
 
 impl ProjectService {
-    pub fn new(
-        repo: ProjectRepository,
-        permission_repo: ResourcePermissionRepository,
-        group_repo: GroupRepository,
-    ) -> Self {
-        Self { repo, permissions: ResourcePermissionService::new(permission_repo), group_repo }
+    pub fn new(repo: ProjectRepository, permission_repo: ResourcePermissionRepository) -> Self {
+        Self { repo, permissions: ResourcePermissionService::new(permission_repo) }
     }
 
     pub fn from_pool(pool: PgPool) -> Self {
-        Self::new(
-            ProjectRepository::new(pool.clone()),
-            ResourcePermissionRepository::new(pool.clone()),
-            GroupRepository::new(pool),
-        )
+        Self::new(ProjectRepository::new(pool.clone()), ResourcePermissionRepository::new(pool))
     }
 
     /// List projects with pagination and optional workspace filter. Limit is capped at 100.
@@ -66,8 +56,14 @@ impl ProjectService {
         self.repo.find_by_id(scope, id).await
     }
 
-    /// Create a new project with validated fields. `team_id` defaults to
-    /// the org's oldest team when absent — see `ProjectRepository::create`.
+    /// Create a new project with validated fields, transactionally.
+    ///
+    /// Permission + workspace-ownership are validated, then the project row,
+    /// its default group, and (when a repository URL is present) the first clone
+    /// attempt + transactional-outbox row are written in ONE transaction
+    /// (`ProjectRepository::create_with_clone`), so there is never a project
+    /// without its clone job, nor a clone job without a committed project.
+    /// `team_id` defaults to the org's oldest team when absent.
     pub async fn create(&self, scope: &TenantScope, input: CreateProjectInput) -> AppResult<Project> {
         if let Some(team_id) = input.team_id {
             self.permissions.require_project_creator(scope, team_id).await?;
@@ -76,16 +72,32 @@ impl ProjectService {
         }
 
         let name = ResourceName::parse(&input.name)?;
-        if let Some(url) = input.repository_url.as_deref() {
-            ProjectRepositoryUrl::parse(url)?;
-        }
-        let slug = ResourceSlugPolicy::derive(name.value());
-        let project = self
-            .repo
-            .create(scope, input.workspace_id, input.team_id, name.value(), &slug, input.repository_url.as_deref())
-            .await?;
-        self.group_repo.find_or_create_default_for_project(scope, ProjectId::from(project.id.as_uuid())).await?;
-        Ok(project)
+        let clone = match input.repository_url.as_deref() {
+            Some(url) => Some(CloneRequest::parse(url)?),
+            None => None,
+        };
+        // Resolve the parent team before the transaction so the repository takes
+        // a concrete team id (the workspace-ownership + dir-allocation tx owns
+        // only persistence). `require_project_creator`/`require_org_manager`
+        // above already authorized the create.
+        let team_id = match input.team_id {
+            Some(team_id) => team_id.as_uuid(),
+            None => self.repo.default_team_for_org(scope).await?,
+        };
+
+        self.repo
+            .create_with_clone(
+                scope,
+                ProjectCreateTx {
+                    workspace_id: input.workspace_id,
+                    team_id,
+                    name: name.value().to_string(),
+                    color: None,
+                    description: None,
+                    clone,
+                },
+            )
+            .await
     }
 
     /// Update a project.

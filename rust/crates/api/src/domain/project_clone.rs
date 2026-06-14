@@ -342,6 +342,36 @@ impl WorkspaceDirName {
         &self.value
     }
 
+    /// Produce a collision-resolving variant of this name with a numeric suffix
+    /// (`my-project` -> `my-project-2`), keeping it within the length cap.
+    ///
+    /// Used by the create transaction (M2) when the derived name already exists
+    /// for the workspace: it retries `with_suffix(2)`, `with_suffix(3)`, … until
+    /// the `(workspace_id, workspace_dir_name)` unique index accepts the row.
+    /// The base is truncated as needed so `base-<n>` never exceeds
+    /// [`WORKSPACE_DIR_NAME_MAX`], and any trailing dash the truncation leaves is
+    /// trimmed before the suffix is appended, so the result still satisfies
+    /// [`is_safe_dir_name`] (asserted in `debug_assert!`). `suffix` is a `u32`,
+    /// so the rendered suffix is at most 10 digits plus the dash; the base keeps
+    /// at least one character because the cap is far larger than that.
+    pub fn with_suffix(&self, suffix: u32) -> WorkspaceDirName {
+        let tail = format!("-{suffix}");
+        let max_base = WORKSPACE_DIR_NAME_MAX.saturating_sub(tail.len());
+        let mut base = self.value.clone();
+        if base.len() > max_base {
+            base.truncate(max_base);
+        }
+        while base.ends_with('-') {
+            base.pop();
+        }
+        if base.is_empty() {
+            base.push_str(WORKSPACE_DIR_NAME_FALLBACK);
+        }
+        let value = format!("{base}{tail}");
+        debug_assert!(is_safe_dir_name(&value), "with_suffix produced an unsafe name: {value:?}");
+        WorkspaceDirName { value }
+    }
+
     /// Resolve this name to an absolute path under `root`, proving the result
     /// stays within `root` WITHOUT requiring the target to exist.
     ///
@@ -670,6 +700,73 @@ fn truncate_chars(s: &str, max: usize) -> String {
 }
 
 // ---------------------------------------------------------------------------
+// Clone provider (resolved from the repository host)
+// ---------------------------------------------------------------------------
+
+/// The git host provider a clone targets, resolved from the repository URL host.
+///
+/// v1 materializes credentials only for GitHub and GitLab (HTTPS token auth).
+/// Anything else is recorded as [`CloneProvider::Other`] so the attempt row keeps
+/// a faithful snapshot; M6 host-matched credential selection decides whether a
+/// usable credential exists. The value is stored in
+/// `project_clone_attempts.provider` (a free-form `TEXT`); `None` is stored when
+/// the host matches no known provider.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CloneProvider {
+    Github,
+    Gitlab,
+}
+
+impl CloneProvider {
+    /// Stable DB/API slug stored in `project_clone_attempts.provider`.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Github => "github",
+            Self::Gitlab => "gitlab",
+        }
+    }
+
+    /// Resolve the provider from a repository URL host (case-insensitive).
+    ///
+    /// Matches the registrable host and its subdomains (`github.com`,
+    /// `www.github.com`, an enterprise `git.github.com`-style subdomain), so a
+    /// `gitlab.example.com` self-host is NOT misclassified as `gitlab.com`. Only
+    /// the canonical SaaS hosts and their subdomains resolve; everything else is
+    /// `None` (recorded as a NULL provider — the attempt still proceeds, and M6
+    /// decides credential availability by host match).
+    pub fn from_host(host: &str) -> Option<CloneProvider> {
+        let h = host.trim().trim_end_matches('.').to_ascii_lowercase();
+        if h == "github.com" || h.ends_with(".github.com") {
+            Some(Self::Github)
+        } else if h == "gitlab.com" || h.ends_with(".gitlab.com") {
+            Some(Self::Gitlab)
+        } else {
+            None
+        }
+    }
+}
+
+impl fmt::Display for CloneProvider {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Transactional outbox payload (project_clone)
+// ---------------------------------------------------------------------------
+
+// The `project_clone` outbox payload + its `aggregate_type` / `event_type` /
+// queue-name / unique-key contract live in `agentforge_core::clone_protocol` so
+// the API create path and the jobs outbox publisher (which cannot depend on the
+// API crate) cannot drift. Re-exported here as the api-domain surface (the
+// create transaction uses the two discriminators + the payload; the queue name
+// and max-attempts are consumed only by the jobs-crate publisher, straight from
+// core, so they are intentionally NOT re-exported here).
+pub use agentforge_core::clone_protocol::{CLONE_OUTBOX_AGGREGATE_TYPE, CLONE_OUTBOX_EVENT_TYPE, CloneOutboxPayload};
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -945,6 +1042,25 @@ mod tests {
     }
 
     #[test]
+    fn workspace_dir_name_with_suffix_resolves_collisions() {
+        let base = WorkspaceDirName::derive("My Project");
+        assert_eq!(base.with_suffix(2).as_str(), "my-project-2");
+        assert_eq!(base.with_suffix(10).as_str(), "my-project-10");
+        // Every suffixed variant must still be a valid, re-parsable safe name.
+        for n in [2u32, 7, 99, 1000, u32::MAX] {
+            let suffixed = base.with_suffix(n);
+            assert!(WorkspaceDirName::parse(suffixed.as_str()).is_ok(), "suffixed {} must re-parse", suffixed.as_str());
+            assert!(suffixed.as_str().len() <= WORKSPACE_DIR_NAME_MAX);
+        }
+        // A maxed-out base is truncated so `base-<n>` still fits the cap.
+        let long = WorkspaceDirName::derive(&"a".repeat(WORKSPACE_DIR_NAME_MAX));
+        let suffixed = long.with_suffix(12345);
+        assert!(suffixed.as_str().len() <= WORKSPACE_DIR_NAME_MAX);
+        assert!(suffixed.as_str().ends_with("-12345"));
+        assert!(WorkspaceDirName::parse(suffixed.as_str()).is_ok());
+    }
+
+    #[test]
     fn workspace_dir_name_parse_validates_stored_values() {
         // T1: the validating constructor accepts already-safe names...
         assert_eq!(WorkspaceDirName::parse("my-project").unwrap().as_str(), "my-project");
@@ -1163,6 +1279,40 @@ mod tests {
         assert_eq!(CloneErrorClass::Timeout.as_str(), "timeout");
         assert_eq!(CloneErrorClass::TooLarge.as_str(), "too_large");
         assert_eq!(CloneErrorClass::Internal.as_str(), "internal");
+    }
+
+    // -- Provider + outbox payload (M2) -------------------------------------
+
+    #[test]
+    fn clone_provider_resolves_known_hosts() {
+        assert_eq!(CloneProvider::from_host("github.com"), Some(CloneProvider::Github));
+        assert_eq!(CloneProvider::from_host("GitHub.com"), Some(CloneProvider::Github));
+        assert_eq!(CloneProvider::from_host("www.github.com"), Some(CloneProvider::Github));
+        assert_eq!(CloneProvider::from_host("gitlab.com"), Some(CloneProvider::Gitlab));
+        assert_eq!(CloneProvider::from_host("salsa.gitlab.com"), Some(CloneProvider::Gitlab));
+        // A self-hosted GitLab is NOT the SaaS host — must not be misclassified.
+        assert_eq!(CloneProvider::from_host("gitlab.example.com"), None);
+        assert_eq!(CloneProvider::from_host("git.internal.example"), None);
+        // A look-alike suffix that is not a real subdomain boundary is rejected.
+        assert_eq!(CloneProvider::from_host("evilgithub.com"), None);
+        assert_eq!(CloneProvider::from_host("notgitlab.com"), None);
+    }
+
+    #[test]
+    fn clone_provider_as_str_is_stable() {
+        assert_eq!(CloneProvider::Github.as_str(), "github");
+        assert_eq!(CloneProvider::Gitlab.as_str(), "gitlab");
+        assert_eq!(CloneProvider::Github.to_string(), "github");
+    }
+
+    #[test]
+    fn clone_outbox_discriminators_are_stable() {
+        // The payload itself is exercised in `core::clone_protocol`; assert here
+        // only that the api-domain re-export still resolves to the same contract.
+        assert_eq!(CLONE_OUTBOX_AGGREGATE_TYPE, "project_clone");
+        assert_eq!(CLONE_OUTBOX_EVENT_TYPE, "clone_requested");
+        let payload = CloneOutboxPayload { project_id: uuid::Uuid::nil(), attempt: 1 };
+        assert_eq!(payload.job_unique_key(), format!("project_clone:{}:1", uuid::Uuid::nil()));
     }
 
     #[test]

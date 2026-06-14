@@ -1,6 +1,9 @@
 use std::time::{Duration, Instant};
 
 use agentforge_core::RuntimeKind;
+use agentforge_core::clone_protocol::{
+    CLONE_JOB_MAX_ATTEMPTS, CLONE_JOB_QUEUE, CLONE_OUTBOX_AGGREGATE_TYPE, CloneOutboxPayload,
+};
 use agentforge_core::orchestration_protocol::{TaskAssignment, assign_subject, assign_subject_kind};
 use agentforge_db::entities::OrchestrationOutbox;
 use anyhow::{Context, Result};
@@ -15,6 +18,17 @@ const NEXT_ASSIGNMENT_OUTBOX_SQL: &str = r#"SELECT *
       FROM orchestration_outbox
      WHERE published_at IS NULL
        AND event_type = 'assignment'
+     ORDER BY created_at ASC
+     FOR UPDATE SKIP LOCKED
+     LIMIT 1"#;
+
+/// Next unpublished `project_clone` outbox row (M2 transactional outbox). Distinct
+/// from the assignment path by `aggregate_type`; relayed into `job_queue` rather
+/// than published to JetStream.
+const NEXT_CLONE_OUTBOX_SQL: &str = r#"SELECT *
+      FROM orchestration_outbox
+     WHERE published_at IS NULL
+       AND aggregate_type = $1
      ORDER BY created_at ASC
      FOR UPDATE SKIP LOCKED
      LIMIT 1"#;
@@ -43,12 +57,20 @@ impl OrchestrationOutboxPublisher {
                     }
                 }
                 _ = async {
-                    match self.publish_next().await {
-                        Ok(true) => {}
-                        Ok(false) => tokio::time::sleep(IDLE_POLL_INTERVAL).await,
-                        Err(err) => {
-                            metrics::counter!("agentforge_orchestration_outbox_publish_errors_total").increment(1);
-                            tracing::warn!(error = %err, "orchestration outbox publish failed");
+                    // Drain assignment rows (JetStream) and clone rows (job_queue)
+                    // each tick. A tick is "busy" if EITHER did work, so a backlog
+                    // on one stream does not starve the other and the loop only
+                    // idles when both are empty.
+                    let assignment = self.publish_next().await;
+                    let clone = self.publish_next_clone().await;
+                    match (assignment, clone) {
+                        (Ok(false), Ok(false)) => tokio::time::sleep(IDLE_POLL_INTERVAL).await,
+                        (Ok(_), Ok(_)) => {}
+                        (assignment, clone) => {
+                            for err in [assignment.err(), clone.err()].into_iter().flatten() {
+                                metrics::counter!("agentforge_orchestration_outbox_publish_errors_total").increment(1);
+                                tracing::warn!(error = %err, "orchestration outbox publish failed");
+                            }
                             tokio::time::sleep(ERROR_BACKOFF).await;
                         }
                     }
@@ -149,6 +171,76 @@ impl OrchestrationOutboxPublisher {
         metrics::counter!("agentforge_orchestration_outbox_published_total").increment(1);
         Ok(true)
     }
+
+    /// Relay one unpublished `project_clone` outbox row into `job_queue` (M2).
+    /// Thin wrapper over [`relay_next_clone_outbox`] for the publisher loop.
+    async fn publish_next_clone(&self) -> Result<bool> {
+        relay_next_clone_outbox(&self.pool).await.map(|relayed| relayed.is_some())
+    }
+}
+
+/// Relay the next unpublished `project_clone` outbox row into `job_queue` (M2),
+/// returning the relayed outbox row id (or `None` when the queue is empty).
+///
+/// Unlike the assignment path this never touches NATS: the clone worker (M5)
+/// dequeues from `job_queue` directly. The enqueue + mark-published happen in ONE
+/// transaction holding the `FOR UPDATE SKIP LOCKED` lock on the outbox row, so
+/// the relay is atomic: a crash after enqueue but before commit rolls the row
+/// back to unpublished and is retried, and the job's `ON CONFLICT (unique_key)
+/// DO NOTHING` makes that retry a no-op (the `unique_key =
+/// project_clone:<project_id>:<attempt>` dedups it).
+///
+/// Exposed (not private to the publisher) so the relay can be exercised directly
+/// without constructing a NATS client.
+pub async fn relay_next_clone_outbox(pool: &PgPool) -> Result<Option<uuid::Uuid>> {
+    let mut tx = pool.begin().await.context("begin clone outbox tx")?;
+    let Some(row) = sqlx::query_as::<_, OrchestrationOutbox>(NEXT_CLONE_OUTBOX_SQL)
+        .bind(CLONE_OUTBOX_AGGREGATE_TYPE)
+        .fetch_optional(&mut *tx)
+        .await
+        .context("select next project_clone outbox row")?
+    else {
+        tx.commit().await.context("commit empty clone outbox tx")?;
+        return Ok(None);
+    };
+
+    let payload: CloneOutboxPayload =
+        serde_json::from_value(row.payload.clone()).context("decode project_clone outbox payload")?;
+    let unique_key = payload.job_unique_key();
+
+    // Enqueue inside the same tx (not the pool-based `queue::enqueue`) so the
+    // insert and the mark-published commit atomically. The job carries the
+    // identifier-only payload; the worker re-reads the authoritative attempt row.
+    // `ON CONFLICT (unique_key) DO NOTHING` relies on the partial unique index
+    // `idx_job_queue_unique_key` (migration 068).
+    sqlx::query(
+        r#"INSERT INTO job_queue (queue, payload, priority, run_at, unique_key, max_attempts)
+           VALUES ($1, $2, 0, NOW(), $3, $4)
+           ON CONFLICT (unique_key) WHERE unique_key IS NOT NULL DO NOTHING"#,
+    )
+    .bind(CLONE_JOB_QUEUE)
+    .bind(&row.payload)
+    .bind(&unique_key)
+    .bind(CLONE_JOB_MAX_ATTEMPTS)
+    .execute(&mut *tx)
+    .await
+    .with_context(|| format!("enqueue project_clone job for outbox row {}", row.id))?;
+
+    sqlx::query(MARK_OUTBOX_PUBLISHED_SQL)
+        .bind(row.id)
+        .execute(&mut *tx)
+        .await
+        .context("mark project_clone outbox row published")?;
+    tx.commit().await.context("commit published clone outbox tx")?;
+
+    tracing::info!(
+        outbox_id = %row.id,
+        aggregate_id = %row.aggregate_id,
+        unique_key = %unique_key,
+        "Relayed project_clone outbox row into job_queue"
+    );
+    metrics::counter!("agentforge_project_clone_outbox_relayed_total").increment(1);
+    Ok(Some(row.id))
 }
 
 pub async fn insert_assignment_outbox_in_tx(
@@ -195,9 +287,15 @@ pub fn register_metrics() {
          defaulted to Container. The orchestration.assigned legacy-drop deploy is gated on this \
          holding at zero (a non-zero value risks silently stranding a cli/api assignment post-drop)."
     );
+    metrics::describe_counter!(
+        "agentforge_project_clone_outbox_relayed_total",
+        "project_clone transactional-outbox rows relayed into job_queue after the enqueue + \
+         mark-published commit (M2). A duplicate publish is a no-op and is NOT counted here."
+    );
 
     metrics::counter!("agentforge_orchestration_outbox_published_total").increment(0);
     metrics::counter!("agentforge_orchestration_outbox_publish_errors_total").increment(0);
     metrics::histogram!("agentforge_orchestration_assignment_publish_seconds").record(0.0);
     metrics::counter!("agentforge_orchestration_assignment_kind_fallback_total").increment(0);
+    metrics::counter!("agentforge_project_clone_outbox_relayed_total").increment(0);
 }

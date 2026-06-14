@@ -4,6 +4,7 @@
 //! It has no internal crate dependencies, making it the leaf of the dependency graph.
 
 pub mod broadcast_protocol;
+pub mod clone_protocol;
 pub mod config;
 pub mod context_envelope;
 pub mod credential_protocol;

@@ -22,7 +22,9 @@ ALTER TABLE projects ADD COLUMN IF NOT EXISTS workspace_dir_name TEXT;
 
 -- Backfill from the canonical slug (NOT NULL since migration 026). Backfill
 -- ALL rows — including soft-deleted ones — so the SET NOT NULL below holds
--- for every row, not just live ones.
+-- for every row, not just live ones. `WHERE workspace_dir_name IS NULL` keeps
+-- this idempotent: a replay against already-backfilled rows is a no-op and
+-- never overwrites a name the create-path service has since allocated.
 UPDATE projects SET workspace_dir_name = slug WHERE workspace_dir_name IS NULL;
 
 -- Collision-aware dedup for the partial unique index below.
@@ -83,6 +85,19 @@ BEGIN
 END $$;
 
 ALTER TABLE projects ALTER COLUMN workspace_dir_name SET NOT NULL;
+
+-- Make the NOT NULL invariant unbreakable for FUTURE inserts. The create-path
+-- service always sets a derived, collision-resolved `workspace_dir_name`
+-- explicitly, but any INSERT that omits the column (a future code path, or a
+-- bare test seed) now gets a unique, filesystem-safe value rather than a NULL
+-- that would violate the NOT NULL above. A `gen_random_uuid()::text` value is
+-- `[0-9a-f-]`, which satisfies `WorkspaceDirName::parse`, and is unique by
+-- construction so it can never collide on the `(workspace_id, …)` unique index.
+-- Applied as a separate `SET DEFAULT` *after* the backfill so it only governs
+-- new rows and keeps the idempotent backfill above untouched. This is a
+-- fallback, not the product path: real projects carry the name-derived
+-- directory the service allocates.
+ALTER TABLE projects ALTER COLUMN workspace_dir_name SET DEFAULT gen_random_uuid()::text;
 
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS clone_status TEXT NOT NULL DEFAULT 'none';
 

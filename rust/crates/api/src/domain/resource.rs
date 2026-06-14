@@ -377,6 +377,17 @@ impl ResourceRepositoryPolicy {
         ErrorKind::NotFound(format!("workspace {id}")).into()
     }
 
+    /// The create transaction could not allocate a unique `workspace_dir_name`
+    /// for the project after the bounded suffix retries (the workspace has an
+    /// extraordinary number of same-named projects). A `Conflict` so the client
+    /// is told to pick a different name rather than a 500.
+    pub(crate) fn workspace_dir_allocation_exhausted() -> AppError {
+        ErrorKind::Conflict(
+            "could not allocate a unique workspace directory for the project; choose a different name".into(),
+        )
+        .into()
+    }
+
     pub(crate) fn resource_profile_not_found(id: Uuid) -> AppError {
         ErrorKind::NotFound(format!("resource_profile {id}")).into()
     }
@@ -469,10 +480,16 @@ pub(crate) struct NavigationTeamUpdateDraft {
     pub(crate) description: Option<String>,
 }
 
+/// Validated legacy-navigation project-create input.
+///
+/// Note: a caller-supplied `slug` is intentionally NOT carried here. The on-disk
+/// identity (`workspace_dir_name`, mirrored to the `slug` column) is derived by
+/// the filesystem-safe policy inside the create transaction, so a raw caller
+/// slug can never become a directory name. Only the validated name + optional
+/// presentation fields survive.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct NavigationProjectCreateDraft {
     pub(crate) name: String,
-    pub(crate) slug: String,
     pub(crate) color: Option<String>,
     pub(crate) description: Option<String>,
 }
@@ -520,8 +537,11 @@ impl NavigationResourcePolicy {
         color: Option<String>,
         description: Option<String>,
     ) -> AppResult<NavigationProjectCreateDraft> {
+        // `slug` is still ACCEPTED for backward request compatibility but is
+        // discarded: `create_resource_draft` validates the name, and the on-disk
+        // identity is derived in the create transaction, not from a caller slug.
         let draft = create_resource_draft(name, slug, "project name is required")?;
-        Ok(NavigationProjectCreateDraft { name: draft.name, slug: draft.slug, color, description })
+        Ok(NavigationProjectCreateDraft { name: draft.name, color, description })
     }
 
     pub(crate) fn project_update_draft(
@@ -958,7 +978,8 @@ mod tests {
         .unwrap();
 
         assert_eq!(draft.name, "Forge");
-        assert_eq!(draft.slug, " custom-slug ");
+        // A caller-supplied slug is accepted by the request but intentionally
+        // discarded — the dir name is derived in the create transaction.
         assert_eq!(draft.color.as_deref(), Some(" #007AFF "));
         assert_eq!(draft.description.as_deref(), Some(" Control plane "));
     }

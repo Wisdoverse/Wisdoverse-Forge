@@ -5,8 +5,7 @@ use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
 use crate::domain::resource::{
-    NavigationProjectCreateDraft, NavigationProjectUpdateDraft, NavigationTeamCreateDraft, NavigationTeamUpdateDraft,
-    ResourceRepositoryPolicy,
+    NavigationProjectUpdateDraft, NavigationTeamCreateDraft, NavigationTeamUpdateDraft, ResourceRepositoryPolicy,
 };
 
 #[derive(Debug, Clone, FromRow)]
@@ -394,47 +393,6 @@ impl LegacyNavigationRepository {
                RETURNING id"#,
         )
         .bind(org_id)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(Into::into)
-    }
-
-    pub(crate) async fn insert_project(
-        &self,
-        org_id: Uuid,
-        workspace_id: Uuid,
-        team_id: TeamId,
-        draft: NavigationProjectCreateDraft,
-    ) -> AppResult<LegacyProjectRow> {
-        sqlx::query_as::<_, LegacyProjectRow>(
-            r#"INSERT INTO public.projects (
-                   organization_id,
-                   workspace_id,
-                   team_id,
-                   name,
-                   slug,
-                   color,
-                   description
-               )
-               VALUES ($1, $2, $3, $4, $5, COALESCE($6::text, '#007AFF'), COALESCE($7::text, ''))
-               RETURNING
-                 id,
-                 workspace_id,
-                 team_id,
-                 name,
-                 slug,
-                 COALESCE(color, '#007AFF') AS color,
-                 COALESCE(description, '')  AS description,
-                 TRUE AS can_manage,
-                 TRUE AS can_delete"#,
-        )
-        .bind(org_id)
-        .bind(workspace_id)
-        .bind(team_id.as_uuid())
-        .bind(draft.name)
-        .bind(draft.slug)
-        .bind(draft.color)
-        .bind(draft.description)
         .fetch_one(&self.pool)
         .await
         .map_err(Into::into)
