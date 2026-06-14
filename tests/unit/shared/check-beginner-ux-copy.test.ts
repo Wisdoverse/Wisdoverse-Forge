@@ -3707,6 +3707,11 @@ function feedbackErrorMessage() {
   return 'Feedback could not be saved. Forge could not connect while saving it. Check your connection, then try again.'
 }
 `,
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function renameErrorMessage() {
+  return 'Team name could not be saved. Forge could not connect while saving it. Check your connection, then save again.'
+}
+`,
       'src/app/shared/i18n/locales/zh.ts': `
 export const zh = {
   errors: {
@@ -3763,6 +3768,10 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'network-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'network-copy',
           location: 'src/app/shared/i18n/locales/zh.ts:4',
         }),
       ])
@@ -3805,6 +3814,11 @@ function networkRecoveryMessage(action) {
       'src/app/entities/context/model/feedbackErrorMessage.ts': `
 function feedbackErrorMessage() {
   return 'Check your connection, then save this feedback again. Forge could not connect while saving it.'
+}
+`,
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function renameErrorMessage() {
+  return 'Check your connection, then save this team name again. Forge could not connect while saving it.'
 }
 `,
       'src/app/shared/i18n/locales/zh.ts': `

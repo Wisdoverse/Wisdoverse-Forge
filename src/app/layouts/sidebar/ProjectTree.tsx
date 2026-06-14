@@ -158,7 +158,7 @@ function renameErrorMessage(target: RenameTarget, error: unknown): string {
     error instanceof TypeError ||
     (error instanceof Error && /^Failed to fetch$/i.test(error.message.trim()))
   ) {
-    return `${title} name could not be saved. Forge could not connect while saving it. Check your connection, then save again.`
+    return `Check your connection, then save this ${label} name again. Forge could not connect while saving it.`
   }
 
   const { status, detail } = parseApiStatus(error)

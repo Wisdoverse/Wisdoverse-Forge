@@ -447,7 +447,7 @@ describe('Sidebar', () => {
 
     expect(
       await screen.findByText(
-        'Team name could not be saved. Forge could not connect while saving it. Check your connection, then save again.'
+        'Check your connection, then save this team name again. Forge could not connect while saving it.'
       )
     ).toBeInTheDocument()
     expect(screen.queryByText(/Failed to fetch/i)).not.toBeInTheDocument()
