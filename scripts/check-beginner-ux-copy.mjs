@@ -42,6 +42,8 @@ const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
   /\bmanaged workspace agents?\b/i,
+  /\bclaude,\s*codex,\s*gemini,?\s*or\s*opencode\b/,
+  /claude、codex、gemini\s*或\s*opencode/,
   /\bHost CLI\b/i,
   /\bPlatform CLI\b/i,
   /\bForge CLI\b/i,

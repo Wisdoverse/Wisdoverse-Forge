@@ -331,6 +331,50 @@ export function CreateAgentModal() {
     ])
   })
 
+  it('flags raw CLI tool id lists in user-visible copy', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  agent: {
+    detail: 'Choose claude, codex, gemini, or opencode before creating an agent.',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'beginner-jargon-copy',
+        location: 'src/app/shared/i18n/locales/en.ts:4',
+      }),
+    ])
+  })
+
+  it('flags raw CLI tool id lists in Chinese user-visible copy', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  agent: {
+    detail: '请先选择 claude、codex、gemini 或 opencode。',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'beginner-jargon-copy',
+        location: 'src/app/shared/i18n/locales/zh.ts:4',
+      }),
+    ])
+  })
+
   it('flags placeholder copy that leaves beginners guessing', () => {
     const cwd = fixture({
       'src/app/features/tasks/TaskStatus.tsx': `

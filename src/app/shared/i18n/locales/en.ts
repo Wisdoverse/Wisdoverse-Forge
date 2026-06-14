@@ -565,7 +565,7 @@ export const en = {
         missing_cli_tool_for_container: {
           title: 'Choose a work tool',
           detail:
-            'Agents in managed workspaces need a work tool: claude, codex, gemini, or opencode.',
+            'Agents in managed workspaces need a work tool: Claude Code, Codex, Gemini, or OpenCode.',
         },
         api_cannot_have_cli_tool: {
           title: 'Chat-only agent cannot have a work tool',
@@ -574,7 +574,7 @@ export const en = {
         missing_cli_tool_for_host_cli: {
           title: 'Choose a work tool',
           detail:
-            'Agents joined from this computer need a work tool: claude, codex, gemini, or opencode.',
+            'Agents joined from this computer need a work tool: Claude Code, Codex, Gemini, or OpenCode.',
         },
       },
       enroll: {

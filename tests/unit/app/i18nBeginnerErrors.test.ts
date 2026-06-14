@@ -174,6 +174,25 @@ describe('beginner error translations', () => {
     expect(chinese.title).not.toContain('无权操作')
   })
 
+  test('agent work tool errors use display names instead of raw ids', () => {
+    const englishManaged = en.errors.agent.create.missing_cli_tool_for_container.detail
+    const englishComputer = en.errors.agent.create.missing_cli_tool_for_host_cli.detail
+    const chineseManaged = zh.errors.agent.create.missing_cli_tool_for_container.detail
+    const chineseComputer = zh.errors.agent.create.missing_cli_tool_for_host_cli.detail
+
+    for (const detail of [englishManaged, englishComputer]) {
+      expect(detail).toContain('Claude Code, Codex, Gemini, or OpenCode')
+      expect(detail).not.toContain('claude, codex')
+      expect(detail).not.toContain('opencode')
+    }
+
+    for (const detail of [chineseManaged, chineseComputer]) {
+      expect(detail).toContain('Claude Code、Codex、Gemini 或 OpenCode')
+      expect(detail).not.toContain('claude、codex')
+      expect(detail).not.toContain('opencode')
+    }
+  })
+
   test('Chinese agent-facing copy uses the current Agent vocabulary', () => {
     const previousContextNavLabel = ['Con', 'text'].join('')
     const previousChineseContextNavLabel = ['上', '下', '文'].join('')

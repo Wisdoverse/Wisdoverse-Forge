@@ -546,7 +546,7 @@ export const zh: TranslationKeys = {
       create: {
         missing_cli_tool_for_container: {
           title: '请选择一个工作工具',
-          detail: '托管工作区 Agent 需要一个工作工具：claude、codex、gemini 或 opencode。',
+          detail: '托管工作区中的 Agent 需要一个工作工具：Claude Code、Codex、Gemini 或 OpenCode。',
         },
         api_cannot_have_cli_tool: {
           title: '只处理文字的模型 Agent 不能有工作工具',
@@ -554,7 +554,8 @@ export const zh: TranslationKeys = {
         },
         missing_cli_tool_for_host_cli: {
           title: '请选择一个工作工具',
-          detail: '从这台电脑加入的 Agent 需要一个工作工具：claude、codex、gemini 或 opencode。',
+          detail:
+            '从这台电脑加入的 Agent 需要一个工作工具：Claude Code、Codex、Gemini 或 OpenCode。',
         },
       },
       enroll: {
