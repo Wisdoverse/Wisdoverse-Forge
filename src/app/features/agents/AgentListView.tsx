@@ -453,7 +453,9 @@ function HostCliEnrollmentPanel({
                 1. Open Terminal on macOS/Linux or PowerShell on Windows in the folder this agent
                 should work in.
               </p>
-              <p>2. Copy this setup command and paste it there.</p>
+              <p>
+                2. Copy this setup command and paste it into that Terminal or PowerShell window.
+              </p>
               <p>3. Leave the work tool as Codex unless your team tells you otherwise.</p>
             </div>
             <p

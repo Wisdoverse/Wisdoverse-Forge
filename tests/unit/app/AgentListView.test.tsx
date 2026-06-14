@@ -121,7 +121,10 @@ describe('AgentListView', () => {
     expect(enrollment.textContent).toContain('--tool codex')
     expect(enrollment.textContent).toContain('--project p1')
     expect(enrollment.textContent).toContain('Open Terminal on macOS/Linux or PowerShell')
-    expect(enrollment.textContent).toContain('Copy this setup command and paste it there')
+    expect(enrollment.textContent).toContain(
+      'Copy this setup command and paste it into that Terminal or PowerShell window'
+    )
+    expect(enrollment.textContent).not.toContain('paste it there')
     expect(enrollment.textContent).toContain('Leave the work tool as Codex unless')
     expect(within(enrollment).getByTestId('host-cli-success-hint')).toHaveTextContent(
       /new agent named This Computer Codex appears in this list/i
