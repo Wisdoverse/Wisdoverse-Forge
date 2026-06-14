@@ -272,13 +272,12 @@ describe('CreateAgentModal', () => {
     fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
     expect(screen.getByText(/codex on this computer/i)).toBeInTheDocument()
     expect(
-      screen.getByText(
-        /files and commands on your computer while Forge assigns tasks and shows status here/i
-      )
+      screen.getByText(/files and commands on your computer\. Forge still manages the agent here/i)
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/Forge can still assign tasks, show status, and save task history here/i)
+      screen.getByText(/After setup, Forge still manages this agent here/i)
     ).toBeInTheDocument()
+    expect(screen.getAllByText(/tasks, status, and task history/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/Forge gives it tasks/i)).toBeNull()
     expect(screen.getByText('Run setup command on this computer')).toBeInTheDocument()
     expect(screen.getByText('Uses this computer')).toBeInTheDocument()
