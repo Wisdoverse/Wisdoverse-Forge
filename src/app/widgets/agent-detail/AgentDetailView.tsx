@@ -253,7 +253,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
           <div className="grid grid-cols-2 gap-3">
             <StatCard label="Tasks done" value={String(agent.tasksCompleted)} />
             <StatCard label="In progress" value={String(agent.tasksInProgress)} />
-            <StatCard label="Success rate" value={`${ratePercent}%`} />
+            <StatCard label="Finished cleanly" value={`${ratePercent}%`} />
             <StatCard label="Work setup" value={agentSetupSummary(agent)} />
           </div>
 
@@ -370,8 +370,8 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
 
   if (activeTask) {
     return {
-      title: 'Review current work',
-      detail: `${agent.name} is already handling "${activeTask.params.task}". Open Tasks to follow progress or handle anything that needs your help.`,
+      title: 'Check what this agent is doing',
+      detail: `${agent.name} is already handling "${activeTask.params.task}". Go to Tasks to follow progress or handle anything that needs your help.`,
       success: 'You can see the active task state and decide whether someone needs to step in.',
       ready: false,
       targetTab: 'tasks',
@@ -393,10 +393,10 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
   }
 
   return {
-    title: 'Open Tasks to review recent activity',
+    title: 'Go to Tasks to review recent activity',
     detail: latestTask
       ? `The latest task was "${latestTask.params.task}" updated ${formatRelativeTime(latestTask.updatedAt)}.`
-      : "Open Tasks to load this agent's work history and decide what to send next.",
+      : "Go to Tasks to load this agent's work history and decide what to send next.",
     success: 'You can decide whether to reuse the agent, review evidence, or assign another task.',
     ready: true,
     targetTab: 'tasks',

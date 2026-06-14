@@ -42,13 +42,13 @@ describe('AgentTasksTab', () => {
     render(<AgentTasksTab agentId="agent-1" />)
 
     const emptyState = await screen.findByTestId('agent-tasks-empty')
-    expect(within(emptyState).getByText('Open Tasks to send this agent work')).toBeDefined()
+    expect(within(emptyState).getByText('Create a task for this agent')).toBeDefined()
     expect(
       within(emptyState).getByText(
         'Send a small task to this agent, or choose a task queue it can receive, then work will appear here.'
       )
     ).toBeDefined()
-    expect(within(emptyState).getByText('Open Tasks')).toBeDefined()
+    expect(within(emptyState).getByText('Create a task')).toBeDefined()
     expect(within(emptyState).getByText('Check the task queue')).toBeDefined()
     expect(within(emptyState).getByText('Use Needs help after tasks arrive')).toBeDefined()
     expect(
@@ -250,7 +250,7 @@ describe('AgentTasksTab', () => {
 
     render(<AgentTasksTab agentId="agent-1" />)
 
-    expect(await screen.findByText('Open Tasks to send this agent work')).toBeDefined()
+    expect(await screen.findByText('Create a task for this agent')).toBeDefined()
     expect(screen.queryByText('No tasks have reached this agent yet')).toBeNull()
   })
 })

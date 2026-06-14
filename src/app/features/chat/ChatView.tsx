@@ -43,10 +43,10 @@ const PROVIDER_EMPTY_COPY = {
 }
 
 const WORKSPACE_AGENT_EMPTY_COPY = {
-  title: 'Send work from Tasks to start updates',
+  title: 'Send this agent a task to start updates',
   detail: 'This history fills in after the agent receives work or reports progress.',
   steps: [
-    'Open Tasks and assign work to this agent or to a task queue it can receive.',
+    'Create a task and assign it to this agent or to a task queue it can receive.',
     'Check Attention once work starts to see what needs help.',
     'Refresh if the agent just came online.',
   ],

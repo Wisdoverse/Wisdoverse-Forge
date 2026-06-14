@@ -52,8 +52,8 @@ const RUNTIME_FILTERS: { value: AgentRuntimeFilter; label: string }[] = [
 const SORT_OPTIONS: { value: AgentSortKey; label: string }[] = [
   { value: 'name', label: 'Name' },
   { value: 'status', label: 'Status' },
-  { value: 'active', label: 'Active Work' },
-  { value: 'success', label: 'Success Rate' },
+  { value: 'active', label: 'Tasks in progress' },
+  { value: 'success', label: 'Best finish rate' },
 ]
 
 const HOST_CLI_PLATFORMS: {

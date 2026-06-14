@@ -161,11 +161,11 @@ describe('ChatView', () => {
     render(<ChatView agentId={cliAgent.id} />)
 
     expect(screen.getByTestId('conversation-empty-state')).toBeInTheDocument()
-    expect(screen.getByText('Send work from Tasks to start updates')).toBeInTheDocument()
+    expect(screen.getByText('Send this agent a task to start updates')).toBeInTheDocument()
     expect(screen.getByText('Send work to create the first update.')).toBeInTheDocument()
     expect(
       screen.getByText(
-        'Open Tasks and assign work to this agent or to a task queue it can receive.'
+        'Create a task and assign it to this agent or to a task queue it can receive.'
       )
     ).toBeInTheDocument()
     expect(

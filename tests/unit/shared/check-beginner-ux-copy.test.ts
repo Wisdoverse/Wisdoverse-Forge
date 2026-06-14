@@ -1588,20 +1588,76 @@ function agentNextStep() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'agent-detail-activity-copy',
-        location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-detail-activity-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
+        }),
+      ])
+    )
   })
 
   it('accepts agent detail activity copy that tells users to open Tasks first', () => {
     const cwd = fixture({
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function agentNextStep() {
-  return { detail: "Open Tasks to load this agent's work history and decide what to send next." }
+  return { detail: "Go to Tasks to load this agent's work history and decide what to send next." }
 }
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags title-style beginner guidance that sounds like a menu label', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentTasksTab.tsx': `
+export function AgentTasksEmptyState() {
+  return <h3>Open Tasks to send this agent work</h3>
+}
+`,
+      'src/app/features/agents/AgentListView.tsx': `
+const SORT_OPTIONS = [{ value: 'success', label: 'Success Rate' }]
+const LOWER_SORT_OPTIONS = [{ value: 'success', label: 'Success rate' }]
+const nextStep = { title: 'Review current work' }
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'title-style-guidance-copy',
+          location: 'src/app/features/agents/AgentTasksTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'title-style-guidance-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:2',
+        }),
+        expect.objectContaining({
+          type: 'title-style-guidance-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'title-style-guidance-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:4',
+        }),
+      ])
+    )
+  })
+
+  it('accepts action-first beginner guidance', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentTasksTab.tsx': `
+export function AgentTasksEmptyState() {
+  return <h3>Go to Tasks to send this agent work</h3>
+}
+`,
+      'src/app/features/agents/AgentListView.tsx': `
+const SORT_OPTIONS = [{ value: 'success', label: 'Best finish rate' }]
 `,
     })
 

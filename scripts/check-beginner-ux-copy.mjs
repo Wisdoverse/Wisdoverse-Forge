@@ -203,6 +203,17 @@ const WORKSHOP_3D_EMPTY_DEAD_END_PATTERNS = [/\bNo agents on the visual map yet\
 
 const AGENT_DETAIL_ACTIVITY_DEAD_END_PATTERNS = [/\bNo task activity has been loaded yet\b/i]
 
+const TITLE_STYLE_GUIDANCE_PATTERNS = [
+  /\bOpen Tasks\b/,
+  /\bDo This Next\b/,
+  /\bReview Current Work\b/,
+  /\bReview current work\b/,
+  /\bAdd AI Service\b/,
+  /\bActive Work\b/,
+  /\bSuccess Rate\b/,
+  /\bSuccess rate\b/,
+]
+
 const CLI_IMAGE_STATUS_DEAD_END_PATTERNS = [
   /\bNo result yet\b/i,
   /\bNot downloaded yet\b/i,
@@ -874,6 +885,11 @@ function hasAgentDetailActivityDeadEndCopy(relFile, line) {
   return AGENT_DETAIL_ACTIVITY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTitleStyleGuidanceCopy(line) {
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TITLE_STYLE_GUIDANCE_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasCliImageStatusDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/admin/CliImagesPanel.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -1512,6 +1528,16 @@ function scanFile(file, relFile) {
         type: 'agent-detail-activity-copy',
         location,
         message: 'Agent detail activity copy must tell beginners to open Tasks first.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTitleStyleGuidanceCopy(line)) {
+      findings.push({
+        type: 'title-style-guidance-copy',
+        location,
+        message:
+          'Beginner guidance must use action-first sentences instead of title-style menu labels.',
         sample: line.trim(),
       })
     }

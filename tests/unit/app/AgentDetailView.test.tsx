@@ -187,7 +187,7 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('98%')).toBeDefined()
     expect(screen.getByText('Tasks done')).toBeDefined()
     expect(screen.getByText('In progress')).toBeDefined()
-    expect(screen.getByText('Success rate')).toBeDefined()
+    expect(screen.getByText('Finished cleanly')).toBeDefined()
     expect(screen.getByText('Work setup')).toBeDefined()
     expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
     expect(screen.queryByText('Tasks Done')).toBeNull()
@@ -235,11 +235,11 @@ describe('AgentDetailView', () => {
 
     render(<AgentDetailView agent={{ ...containerAgent, status: 'working' }} onBack={() => {}} />)
 
-    expect(await screen.findByText('Review current work')).toBeDefined()
+    expect(await screen.findByText('Check what this agent is doing')).toBeDefined()
     expect(screen.getAllByText(/Fix onboarding copy/).length).toBeGreaterThan(0)
     expect(
       screen.getByText(
-        'Build Agent is already handling "Fix onboarding copy". Open Tasks to follow progress or handle anything that needs your help.'
+        'Build Agent is already handling "Fix onboarding copy". Go to Tasks to follow progress or handle anything that needs your help.'
       )
     ).toBeDefined()
     expect(
@@ -255,9 +255,9 @@ describe('AgentDetailView', () => {
   test('guides agents without loaded task history into the Tasks tab', async () => {
     render(<AgentDetailView agent={{ ...containerAgent, status: 'working' }} onBack={() => {}} />)
 
-    expect(await screen.findByText('Open Tasks to review recent activity')).toBeDefined()
+    expect(await screen.findByText('Go to Tasks to review recent activity')).toBeDefined()
     expect(
-      screen.getByText("Open Tasks to load this agent's work history and decide what to send next.")
+      screen.getByText("Go to Tasks to load this agent's work history and decide what to send next.")
     ).toBeDefined()
     expect(screen.queryByText('No task activity has been loaded yet.')).toBeNull()
   })
