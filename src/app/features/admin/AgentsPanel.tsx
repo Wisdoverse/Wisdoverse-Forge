@@ -257,7 +257,12 @@ export function AgentsPanel() {
       </div>
 
       {agentsError && (
-        <div data-testid="admin-agents-error" role="alert" className={uiStyles.error}>
+        <div
+          data-testid="admin-agents-error"
+          role="alert"
+          aria-live="polite"
+          className={uiStyles.error}
+        >
           <p>{adminPanelLoadErrorMessage(agentsError, 'agents')}</p>
           <p className="mt-1 text-ui-caption">{ADMIN_PANEL_RECOVERY}</p>
         </div>

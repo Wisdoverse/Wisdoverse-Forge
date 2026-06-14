@@ -326,7 +326,7 @@ export function SystemHealth() {
 
       {/* Error */}
       {healthError && !health && (
-        <div role="alert" className={uiStyles.error}>
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
           {systemHealthErrorMessage(healthError)}
         </div>
       )}

@@ -166,6 +166,7 @@ describe('AgentsPanel', () => {
     render(<AgentsPanel />)
 
     const error = await screen.findByTestId('admin-agents-error')
+    expect(error).toHaveAttribute('aria-live', 'polite')
     expect(within(error).getByText('The admin agents could not load.')).toBeDefined()
     expect(within(error).queryByText('HTTP 503')).toBeNull()
     expect(

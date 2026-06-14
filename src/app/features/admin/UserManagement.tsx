@@ -366,7 +366,7 @@ export function UserManagement() {
 
       {/* Error */}
       {usersError && (
-        <div role="alert" className={uiStyles.error}>
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
           <p>{adminPanelLoadErrorMessage(usersError, 'user list')}</p>
           <p className="mt-1 text-ui-caption">{ADMIN_PANEL_RECOVERY}</p>
         </div>

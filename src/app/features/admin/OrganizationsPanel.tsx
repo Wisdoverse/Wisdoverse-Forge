@@ -147,7 +147,12 @@ export function OrganizationsPanel() {
 
       {/* Error */}
       {orgsError && (
-        <div data-testid="admin-org-error" role="alert" className={uiStyles.error}>
+        <div
+          data-testid="admin-org-error"
+          role="alert"
+          aria-live="polite"
+          className={uiStyles.error}
+        >
           <p>{adminPanelLoadErrorMessage(orgsError, 'team space list')}</p>
           <p className="mt-1 text-ui-caption">{ADMIN_PANEL_RECOVERY}</p>
         </div>

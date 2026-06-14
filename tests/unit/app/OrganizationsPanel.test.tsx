@@ -112,6 +112,7 @@ describe('OrganizationsPanel', () => {
     render(<OrganizationsPanel />)
 
     const error = await screen.findByTestId('admin-org-error')
+    expect(error).toHaveAttribute('aria-live', 'polite')
     expect(within(error).getByText('The admin team space list could not load.')).toBeDefined()
     expect(
       within(error).getByText(
