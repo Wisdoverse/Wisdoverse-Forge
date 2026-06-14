@@ -728,7 +728,7 @@ function taskBriefCues(title: string, description: string): TaskBriefCue[] {
   const normalizedTitle = title.trim()
   const normalizedDescription = description.trim().toLowerCase()
   const namesWorkArea =
-    /\b(where to work|files?|folder|screen|page|area|avoid|src\/|docs\/|tests?\/|rust\/)\b/.test(
+    /\b(where to work|where to look|what to inspect|files?|folder|screen|page|area|avoid|src\/|docs\/|tests?\/|rust\/)\b/.test(
       normalizedDescription
     )
   const namesFinishCheck =

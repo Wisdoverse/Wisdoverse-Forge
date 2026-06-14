@@ -281,6 +281,8 @@ describe('AppLayout', () => {
   test('adds a task returned from the New Task modal to the board store', async () => {
     seedProjectNavigation('p1')
     useBoardStore.getState().setSelectedGroupId('group-1')
+    const taskDetails =
+      'Where to work:\n- src/app/features/board\n\nDone when:\n- AppLayout test passes'
 
     render(<MemoryRouter />)
     fireEvent.click(screen.getByRole('button', { name: /\+ task/i }))
@@ -290,7 +292,7 @@ describe('AppLayout', () => {
       target: { value: 'Modal task' },
     })
     fireEvent.change(screen.getByLabelText(/details the agent should know/i), {
-      target: { value: 'Details' },
+      target: { value: taskDetails },
     })
     const modal = screen.getByRole('dialog')
     const [, prioritySelect, assigneeSelect] = within(modal).getAllByRole('combobox')
@@ -301,7 +303,7 @@ describe('AppLayout', () => {
     await waitFor(() =>
       expect(mockCreateTask).toHaveBeenCalledWith({
         groupId: 'group-1',
-        params: { task: 'Modal task', message: 'Details' },
+        params: { task: 'Modal task', message: taskDetails },
         priority: 'high',
         assignedTo: 'agent-1',
       })
@@ -325,6 +327,11 @@ describe('AppLayout', () => {
     await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
     fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
       target: { value: 'Modal task without result' },
+    })
+    fireEvent.change(screen.getByLabelText(/details the agent should know/i), {
+      target: {
+        value: 'Where to work:\n- src/app/features/board\n\nDone when:\n- no task result returns guidance',
+      },
     })
     fireEvent.click(screen.getByRole('button', { name: /create task/i }))
 
@@ -391,6 +398,8 @@ describe('AppLayout', () => {
     await waitFor(() => expect(createButton).toBeEnabled())
     expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain('Ready to Send')
     fireEvent.click(createButton)
+    await screen.findByTestId('task-brief-confirmation')
+    fireEvent.click(screen.getByRole('button', { name: /create anyway/i }))
 
     await waitFor(() =>
       expect(mockCreateTask).toHaveBeenCalledWith({
