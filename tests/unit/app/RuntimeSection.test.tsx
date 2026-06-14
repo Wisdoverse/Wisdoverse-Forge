@@ -311,10 +311,10 @@ describe('RuntimeSection', () => {
 
     render(<RuntimeSection />)
 
-    expect(await screen.findByText(/work tool sign-in could not be checked/i)).toBeDefined()
-    expect(
-      screen.getByText(/Forge could not connect while checking Agent Work Setup/i)
-    ).toBeDefined()
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(/work tool sign-in could not be checked/i)
+    expect(alert).toHaveTextContent(/Forge could not connect while checking Agent Work Setup/i)
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
     expect(screen.queryByText(/app could not reach/i)).toBeNull()
     expect(screen.queryByText(/service is healthy/i)).toBeNull()
@@ -325,7 +325,9 @@ describe('RuntimeSection', () => {
 
     render(<RuntimeSection />)
 
-    expect((await screen.findAllByText(/sign in again/i)).length).toBeGreaterThan(0)
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(/sign in again/i)
     expect(screen.queryByText(/code: 401/i)).toBeNull()
     expect(screen.queryByText(/Code:/i)).toBeNull()
     expect(screen.queryByText(/401 Unauthorized/)).toBeNull()

@@ -197,8 +197,16 @@ export function RuntimeSection() {
           {runtimeSettingsErrorMessage(runtimeError)}
         </div>
       )}
-      {cliStatusError && <div className={uiStyles.error}>{cliStatusError}</div>}
-      {participantsError && <div className={uiStyles.error}>{participantsError}</div>}
+      {cliStatusError && (
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
+          {cliStatusError}
+        </div>
+      )}
+      {participantsError && (
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
+          {participantsError}
+        </div>
+      )}
 
       <section
         data-testid="runtime-readiness"
