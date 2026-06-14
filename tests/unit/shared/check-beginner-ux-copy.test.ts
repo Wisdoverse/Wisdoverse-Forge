@@ -384,11 +384,15 @@ function agentOwnerLabel(agent) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags generic compact work-location labels in the runtime label helper', () => {
+  it('flags work-location labels that leave beginners without a refresh step', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/runtime-kind.ts': `
+export function runtimeKindLabel(kind) {
+  if (!kind) return 'Work location not reported'
+}
+
 export function runtimeKindShortLabel(kind) {
-  if (!kind) return 'Not reported'
+  if (!kind) return 'Location missing'
   return 'Needs review'
 }
 `,
@@ -404,16 +408,24 @@ export function runtimeKindShortLabel(kind) {
       }),
       expect.objectContaining({
         type: 'runtime-short-label-copy',
-        location: 'src/app/entities/agent/model/runtime-kind.ts:4',
+        location: 'src/app/entities/agent/model/runtime-kind.ts:7',
+      }),
+      expect.objectContaining({
+        type: 'runtime-short-label-copy',
+        location: 'src/app/entities/agent/model/runtime-kind.ts:8',
       }),
     ])
   })
 
-  it('accepts compact work-location labels that name the missing location', () => {
+  it('accepts work-location fallback labels that tell users to refresh', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/runtime-kind.ts': `
+export function runtimeKindLabel(kind) {
+  if (!kind) return 'Refresh work location'
+}
+
 export function runtimeKindShortLabel(kind) {
-  if (!kind) return 'Location missing'
+  if (!kind) return 'Refresh location'
   return 'Review location'
 }
 `,

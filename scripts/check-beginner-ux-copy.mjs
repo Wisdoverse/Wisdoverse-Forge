@@ -153,6 +153,8 @@ const ADMIN_AGENT_FIELD_DEAD_END_PATTERNS = [
 ]
 
 const RUNTIME_SHORT_LABEL_JARGON_PATTERNS = [
+  /\bWork location not reported\b/i,
+  /\bLocation missing\b/i,
   /\breturn\s+['"`]Not reported['"`]/,
   /\breturn\s+['"`]Needs review['"`]/,
 ]
