@@ -45,7 +45,7 @@ describe('AgentGroupSelector', () => {
     }) as HTMLSelectElement
 
     expect(select.disabled).toBe(true)
-    expect(select.title).toBe('Open Agents, then Task Queues, create one, and come back here.')
+    expect(select.title).toBe('Use Agents > Task Queues to create one, then come back here.')
     const previousActionPhrase = ['assigning', 'tasks'].join(' ')
     expect(select.title).not.toContain(previousActionPhrase)
     expect(screen.getByRole('option', { name: /create a task queue first/i })).toBeDefined()

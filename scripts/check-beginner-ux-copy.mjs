@@ -212,6 +212,8 @@ const TITLE_STYLE_GUIDANCE_PATTERNS = [
   /\bActive Work\b/,
   /\bSuccess Rate\b/,
   /\bSuccess rate\b/,
+  /\bCreate a Task Queue First\b/,
+  /\bPick a Project to Start\b/,
 ]
 
 const CLI_IMAGE_STATUS_DEAD_END_PATTERNS = [

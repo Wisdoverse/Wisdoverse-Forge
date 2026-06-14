@@ -432,7 +432,7 @@ describe('AppLayout', () => {
     })
     await waitFor(() =>
       expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain(
-        'Create a Task Queue First'
+        'Create a task queue before sending work'
       )
     )
     expect(screen.getByText(/a task queue gives new work a place to wait/i)).toBeDefined()

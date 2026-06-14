@@ -29,7 +29,7 @@ describe('AssignmentReadinessPanel', () => {
     expect(screen.getByRole('heading', { name: 'Agent status' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Refresh agent status' })).toBeDefined()
     expect(within(emptyState).getByText('Connect an agent before sending work')).toBeDefined()
-    expect(within(emptyState).getByText(/Open Agents, then Task Queues/)).toBeDefined()
+    expect(within(emptyState).getByText(/Use Agents > Task Queues/)).toBeDefined()
     expect(within(emptyState).getByText(/add an available agent to it/i)).toBeDefined()
     expect(within(emptyState).getByText(/tasks that are not sent yet will wait here/)).toBeDefined()
     expect(screen.getByTestId('assignment-metric-backlog').textContent).toContain('Not sent yet')

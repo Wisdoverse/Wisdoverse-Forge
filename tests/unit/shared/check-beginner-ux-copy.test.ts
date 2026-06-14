@@ -1621,6 +1621,8 @@ export function AgentTasksEmptyState() {
 const SORT_OPTIONS = [{ value: 'success', label: 'Success Rate' }]
 const LOWER_SORT_OPTIONS = [{ value: 'success', label: 'Success rate' }]
 const nextStep = { title: 'Review current work' }
+const boardTitle = 'Create a Task Queue First'
+const projectTitle = 'Pick a Project to Start'
 `,
     })
 
@@ -1644,6 +1646,14 @@ const nextStep = { title: 'Review current work' }
         expect.objectContaining({
           type: 'title-style-guidance-copy',
           location: 'src/app/features/agents/AgentListView.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'title-style-guidance-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'title-style-guidance-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:6',
         }),
       ])
     )

@@ -131,7 +131,7 @@ export function AssignmentReadinessPanel({
             Connect an agent before sending work
           </p>
           <p className="mt-0.5 text-ui-caption leading-snug text-secondary-light dark:text-secondary-dark">
-            Open Agents, then Task Queues, choose this task queue, and add an available agent to it.
+            Use Agents &gt; Task Queues, choose this task queue, and add an available agent to it.
             Until then, tasks that are not sent yet will wait here.
           </p>
         </div>

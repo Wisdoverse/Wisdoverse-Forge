@@ -181,7 +181,7 @@ describe('TaskFormModal', () => {
     })
 
     expect(screen.getByTestId('task-work-lane-readiness')).toHaveTextContent(
-      /Create a Task Queue First/i
+      /Create a task queue before sending work/i
     )
     expect(screen.getByText(/A task queue gives new work a place to wait/i)).toBeDefined()
     expect(screen.getByTestId('task-work-lane-readiness').textContent).not.toContain(

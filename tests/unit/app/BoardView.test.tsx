@@ -52,8 +52,8 @@ describe('BoardView', () => {
     render(<BoardView onOpenProjectsSetup={onOpenProjectsSetup} />)
 
     expect(screen.getByTestId('board-no-group')).toBeDefined()
-    expect(screen.getByText(/pick a project to start/i)).toBeDefined()
-    fireEvent.click(screen.getByRole('button', { name: /open projects/i }))
+    expect(screen.getByText(/choose a project before creating tasks/i)).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /choose a project/i }))
     expect(onOpenProjectsSetup).toHaveBeenCalledTimes(1)
   })
 
@@ -63,10 +63,10 @@ describe('BoardView', () => {
 
     render(<BoardView onOpenTaskQueues={onOpenTaskQueues} />)
 
-    expect(screen.getByText(/create a task queue first/i)).toBeDefined()
+    expect(screen.getByText(/create a task queue before sending work/i)).toBeDefined()
     expect(screen.getByText(/a task queue gives new tasks a place to wait/i)).toBeDefined()
-    expect(screen.getByText(/open agents, then task queues/i)).toBeDefined()
-    fireEvent.click(screen.getByRole('button', { name: /open task queues/i }))
+    expect(screen.getByText(/use agents > task queues/i)).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /set up task queues/i }))
     expect(onOpenTaskQueues).toHaveBeenCalledTimes(1)
   })
 

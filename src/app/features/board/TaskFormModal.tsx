@@ -160,7 +160,7 @@ export function TaskFormModal({
     ? 'Preparing This Project'
     : workLaneReady
       ? 'Ready to Send'
-      : 'Create a Task Queue First'
+      : 'Create a task queue before sending work'
   const readinessDetail = selectingProject
     ? 'Forge is loading the task queue for this project. Wait a moment before creating the task.'
     : workLaneReady
@@ -440,7 +440,7 @@ export function TaskFormModal({
                 onClick={onOpenTaskRouting}
                 className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-apple-orange/30 bg-white px-3 text-ui-button font-medium text-apple-orange transition-colors hover:bg-apple-orange/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-orange/35 dark:bg-white/[0.06]"
               >
-                Open Task Queues
+                Open task queues
               </button>
             )}
           </div>
