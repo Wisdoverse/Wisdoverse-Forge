@@ -6,7 +6,7 @@ use std::path::{Component, Path};
 
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum ImportReject {
+pub enum ImportReject {
     Symlink(String),
     Gitlink(String),
     EscapesRoot(String),
@@ -18,7 +18,7 @@ pub(crate) enum ImportReject {
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub(crate) struct ImportLimits {
+pub struct ImportLimits {
     pub max_file_bytes: u64,
     pub max_changed_files: usize,
     pub max_deletions: usize,

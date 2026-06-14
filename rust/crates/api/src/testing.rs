@@ -35,6 +35,17 @@ pub mod github_app {
     };
 }
 
+/// Test-only re-export of the self-fix local rebuild core so integration tests
+/// can exercise it against real `git` in temp dirs. Gated behind `test-support`;
+/// the underlying `import`/`rebuild` modules are `pub(crate)` in production
+/// (widened to `pub` only under `test-support`), so these are never reachable
+/// from production callers.
+#[cfg(any(test, feature = "test-support"))]
+pub mod self_fix_rebuild {
+    pub use crate::services::self_fix::import::{ImportLimits, ImportReject};
+    pub use crate::services::self_fix::rebuild::{rebuild_branch, RebuildError, RebuildOutcome};
+}
+
 /// 32+ byte secret used only in tests. Fixed so the JWT that the shim creates
 /// can be verified by the same `JwtManager` instance on the route side.
 const TEST_JWT_SECRET: &str = "metrics-endpoint-integration-test-secret-32bytes!";
