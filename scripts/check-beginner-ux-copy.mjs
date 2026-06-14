@@ -330,6 +330,14 @@ const TASK_FORM_AGENT_STATUS_DEAD_END_PATTERNS = [/\bstatus not reported\b/i]
 
 const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [/\bSupport reference not reported\b/i]
 
+const TASK_DETAIL_LOAD_FAILURE_FIRST_PATTERNS = [
+  /\bAvailable agents could not load\./i,
+  /\bSaved notes and run details could not load\./i,
+  /\bAgent work history could not load\./i,
+  /\bThe saved item review could not load\./i,
+  /\bForge could not connect while (?:loading|updating) this task\./i,
+]
+
 const AGENT_CONFIG_DETAIL_DEAD_END_PATTERNS = [
   /\bAI model not reported\b/i,
   /\bModel not reported\b/i,
@@ -710,6 +718,12 @@ function hasTaskSupportReferenceDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTaskDetailLoadFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/detail/taskDetailErrorMessages.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_DETAIL_LOAD_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentConfigDetailDeadEndCopy(relFile, line) {
@@ -1294,6 +1308,15 @@ function scanFile(file, relFile) {
         type: 'task-support-reference-copy',
         location,
         message: 'Task support reference fallback must tell beginners to refresh task details.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskDetailLoadFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'task-detail-load-copy',
+        location,
+        message: 'Task detail load errors must start with the next action for beginners.',
         sample: line.trim(),
       })
     }

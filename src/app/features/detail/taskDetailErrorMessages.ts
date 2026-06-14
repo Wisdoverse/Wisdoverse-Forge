@@ -15,13 +15,10 @@ const ACTION_FALLBACKS: Record<TaskDetailErrorAction, string> = {
   blockTask:
     'The task was not marked as needing help. Refresh the task, then choose Needs help again.',
   cancelTask: 'The task was not canceled. Refresh the task, then choose Cancel again.',
-  loadAgents: 'Available agents could not load. Refresh this task before assigning it.',
-  loadContext:
-    'Saved notes and run details could not load. Refresh the detail panel, then try again.',
-  loadRuns:
-    'Agent work history could not load. Refresh Updates before deciding whether to retry this task.',
-  previewContext:
-    'The saved item review could not load. Choose an available agent, then try again.',
+  loadAgents: 'Refresh this task before assigning an agent.',
+  loadContext: 'Refresh the detail panel to load saved notes and run details.',
+  loadRuns: 'Refresh Updates before deciding whether to retry this task.',
+  previewContext: 'Choose an available agent, then open saved item review again.',
   publishTask: 'The task was not sent with selected notes. Review the saved notes, then try again.',
   retryTask: 'The task was not retried. Refresh the task, then try Retry task again.',
 }
@@ -75,9 +72,9 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
 
 function networkRecoveryMessage(action: TaskDetailErrorAction): string {
   if (action === 'loadAgents' || action === 'loadContext' || action === 'loadRuns') {
-    return 'Forge could not connect while loading this task. Check your connection, then refresh the page.'
+    return 'If it still does not load, check your connection and refresh the page.'
   }
-  return 'Forge could not connect while updating this task. Check your connection, then try again.'
+  return 'If it still does not update, check your connection and try again.'
 }
 
 function serviceRecoveryMessage(action: TaskDetailErrorAction): string {

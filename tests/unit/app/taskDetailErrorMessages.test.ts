@@ -25,8 +25,8 @@ describe('taskDetailErrorMessage', () => {
   test('explains network failures without exposing only a transport error', () => {
     const message = taskDetailErrorMessage('loadRuns', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('Agent work history could not load')
-    expect(message).toContain('Forge could not connect while loading this task')
+    expect(message).toContain('Refresh Updates before deciding whether to retry this task.')
+    expect(message).toContain('If it still does not load, check your connection')
     expect(message).not.toContain('API')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('app could not reach')
@@ -41,7 +41,7 @@ describe('taskDetailErrorMessage', () => {
   test('uses saved item wording when the review preview cannot load', () => {
     const message = taskDetailErrorMessage('previewContext', new Error('HTTP 500'))
 
-    expect(message).toContain('The saved item review could not load.')
+    expect(message).toContain('Choose an available agent, then open saved item review again.')
     expect(message).not.toMatch(new RegExp(['context', 'review'].join('\\s+'), 'i'))
   })
 
@@ -50,7 +50,7 @@ describe('taskDetailErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Saved notes and run details could not load. Refresh the detail panel, then try again. If it still fails, ask an owner or admin to check task setup.'
+      'Refresh the detail panel to load saved notes and run details. If it still fails, ask an owner or admin to check task setup.'
     )
     expect(message).not.toMatch(new RegExp(['task', 'context'].join('\\s+'), 'i'))
     expect(message).not.toContain('backend')

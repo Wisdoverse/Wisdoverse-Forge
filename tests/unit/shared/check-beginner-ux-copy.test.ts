@@ -3481,6 +3481,68 @@ function serviceRecoveryMessage() {
     )
   })
 
+  it('flags task detail load copy that starts with the failure instead of the next step', () => {
+    const cwd = fixture({
+      'src/app/features/detail/taskDetailErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  loadAgents: 'Available agents could not load. Refresh this task before assigning it.',
+  loadContext: 'Saved notes and run details could not load. Refresh the detail panel, then try again.',
+  loadRuns: 'Agent work history could not load. Refresh Updates before deciding whether to retry this task.',
+  previewContext: 'The saved item review could not load. Choose an available agent, then try again.',
+}
+function networkRecoveryMessage() {
+  return 'Forge could not connect while loading this task. Check your connection, then refresh the page.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-detail-load-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-load-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-load-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-load-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-load-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:9',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task detail load copy that starts with the next step', () => {
+    const cwd = fixture({
+      'src/app/features/detail/taskDetailErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  loadAgents: 'Refresh this task before assigning an agent.',
+  loadContext: 'Refresh the detail panel to load saved notes and run details.',
+  loadRuns: 'Refresh Updates before deciding whether to retry this task.',
+  previewContext: 'Choose an available agent, then open saved item review again.',
+}
+function networkRecoveryMessage() {
+  return 'If it still does not load, check your connection and refresh the page.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('accepts recovery copy that gives one clear refresh step', () => {
     const cwd = fixture({
       'src/app/features/board/boardErrorMessages.ts': `
@@ -3490,7 +3552,7 @@ function serviceRecoveryMessage(action) {
 `,
       'src/app/features/detail/taskDetailErrorMessages.ts': `
 function serviceRecoveryMessage(action) {
-  return 'Saved notes and run details could not load. Refresh the detail panel, then try again. If it still fails, ask an owner or admin to check task setup.'
+  return 'Refresh the detail panel to load saved notes and run details. If it still fails, ask an owner or admin to check task setup.'
 }
 `,
       'src/app/features/context/approvalQueueErrorMessages.ts': `
