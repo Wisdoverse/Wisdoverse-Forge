@@ -2962,6 +2962,64 @@ function ProfileRow() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags governance audit fallbacks that leave beginners without a field to check', () => {
+    const cwd = fixture({
+      'src/app/features/governance/AuditLogView.tsx': `
+function auditEventLabel(eventType) {
+  return readableCodeLabel(eventType, { fallback: 'Change not listed' })
+}
+
+function shortEventType(eventType) {
+  return eventType.trim() || 'not listed'
+}
+
+function resourceTypeLabel(value) {
+  return readableCodeLabel(value, { fallback: 'Resource not listed' })
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'governance-audit-fallback-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-fallback-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-fallback-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:11',
+        }),
+      ])
+    )
+  })
+
+  it('accepts governance audit fallbacks that tell beginners which field to check', () => {
+    const cwd = fixture({
+      'src/app/features/governance/AuditLogView.tsx': `
+function auditEventLabel(eventType) {
+  return readableCodeLabel(eventType, { fallback: 'Check audit change' })
+}
+
+function shortEventType(eventType) {
+  return eventType.trim() || 'Check support event'
+}
+
+function resourceTypeLabel(value) {
+  return readableCodeLabel(value, { fallback: 'Check record type' })
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags recoverable failure copy without a next action', () => {
     const cwd = fixture({
       'src/app/features/tasks/TaskFailure.tsx': `

@@ -186,7 +186,7 @@ describe('AuditLogView', () => {
     )
   })
 
-  test('labels missing audit event and resource names without Unknown', async () => {
+  test('labels missing audit event and resource names with beginner checks', async () => {
     fetchGovernanceAudit.mockResolvedValueOnce({
       ...auditResponse,
       entries: [
@@ -205,10 +205,13 @@ describe('AuditLogView', () => {
 
     render(<AuditLogView />)
 
-    expect(await screen.findByText('Change not listed')).toBeDefined()
-    expect(screen.getByText('Item hidden for safety · Resource not listed')).toBeDefined()
+    expect(await screen.findByText('Check audit change')).toBeDefined()
+    expect(screen.getByText('Item hidden for safety · Check record type')).toBeDefined()
     expect(screen.getByText('Show support event')).toBeDefined()
-    expect(screen.getByText('not listed')).toBeDefined()
+    expect(screen.getByText('Check support event')).toBeDefined()
+    expect(screen.queryByText('Change not listed')).toBeNull()
+    expect(screen.queryByText('Resource not listed')).toBeNull()
+    expect(screen.queryByText('not listed')).toBeNull()
     expect(screen.queryByText('Unknown')).toBeNull()
   })
 

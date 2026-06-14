@@ -273,6 +273,12 @@ const CHAT_TOOL_STEP_DEAD_END_PATTERNS = [
   /\blabel:\s*['"`]Needs review['"`]/i,
 ]
 
+const GOVERNANCE_AUDIT_FALLBACK_DEAD_END_PATTERNS = [
+  /\bChange not listed\b/i,
+  /\bResource not listed\b/i,
+  /\|\|\s*['"`]not listed['"`]/i,
+]
+
 const TASK_FORM_AGENT_STATUS_DEAD_END_PATTERNS = [/\bstatus not reported\b/i]
 
 const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [/\bSupport reference not reported\b/i]
@@ -845,6 +851,12 @@ function hasChatToolStepDeadEndCopy(relFile, line) {
   return CHAT_TOOL_STEP_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasGovernanceAuditFallbackDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/governance/AuditLogView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return GOVERNANCE_AUDIT_FALLBACK_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -1364,6 +1376,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Chat tool step fallbacks must tell beginners to check the step before relying on it.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasGovernanceAuditFallbackDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'governance-audit-fallback-copy',
+        location,
+        message: 'Governance audit fallbacks must tell beginners which audit field to check.',
         sample: line.trim(),
       })
     }

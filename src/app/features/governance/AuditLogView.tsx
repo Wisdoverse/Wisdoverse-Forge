@@ -774,7 +774,7 @@ function auditEventLabel(eventType: string): string {
   return (
     labels[eventType] ??
     readableCodeLabel(eventType.split('.').slice(-2).join(' '), {
-      fallback: 'Change not listed',
+      fallback: 'Check audit change',
     })
   )
 }
@@ -787,7 +787,7 @@ function auditViewMetricLabel(eventPrefix: string | undefined): string {
 }
 
 function shortEventType(eventType: string): string {
-  return eventType.replace(/^governance\.context\./, '').trim() || 'not listed'
+  return eventType.replace(/^governance\.context\./, '').trim() || 'Check support event'
 }
 
 function auditItemKindLabel(kind: GovernanceAuditItemKind | null | undefined): string {
@@ -802,7 +802,7 @@ function resourceTypeLabel(value: string): string {
     return 'Saved note record'
   }
   if (normalized === 'skill' || normalized === 'skills') return 'Instruction record'
-  return readableCodeLabel(value, { fallback: 'Resource not listed' })
+  return readableCodeLabel(value, { fallback: 'Check record type' })
 }
 
 function auditAreaLabel(kind: GovernanceAuditScopeKind | null | undefined): string {
