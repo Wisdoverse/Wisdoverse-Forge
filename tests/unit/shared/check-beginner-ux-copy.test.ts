@@ -3581,6 +3581,38 @@ const VIEW_OPTIONS = [
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags manual plus task labels in the top bar', () => {
+    const cwd = fixture({
+      'src/app/layouts/TopBar.tsx': `
+export function TopBar() {
+  return <button>+ Task</button>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'top-bar-create-task-copy',
+        location: 'src/app/layouts/TopBar.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts a clear new task label in the top bar', () => {
+    const cwd = fixture({
+      'src/app/layouts/TopBar.tsx': `
+export function TopBar() {
+  return <button><span>New task</span></button>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags saved instruction maintainer fallback copy that does not tell users to refresh', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `

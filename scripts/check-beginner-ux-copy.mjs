@@ -259,6 +259,8 @@ const START_GUIDE_RESET_JARGON_PATTERNS = [
 
 const TASK_VIEW_LABEL_JARGON_PATTERNS = [/\bid:\s*['"`]3d['"`]\s*,\s*label:\s*['"`]3D['"`]/]
 
+const TOP_BAR_CREATE_TASK_JARGON_PATTERNS = [/\+\s*Task\b/]
+
 const SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS = [
   /\bMaintainer not listed yet\b/i,
   /暂未列出维护者/,
@@ -1000,6 +1002,12 @@ function hasTaskViewLabelJargonCopy(relFile, line) {
   return TASK_VIEW_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTopBarCreateTaskJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/layouts/TopBar.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TOP_BAR_CREATE_TASK_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSkillMaintainerFallbackDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
@@ -1701,6 +1709,16 @@ function scanFile(file, relFile) {
         type: 'task-view-label-copy',
         location,
         message: 'Task view labels must use beginner-facing names such as Map instead of bare 3D.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTopBarCreateTaskJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'top-bar-create-task-copy',
+        location,
+        message:
+          'Top bar task creation must use a Plus icon with a clear New task label instead of a manual + Task label.',
         sample: line.trim(),
       })
     }

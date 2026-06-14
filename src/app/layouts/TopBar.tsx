@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Menu, Moon, Search, Sun } from 'lucide-react'
+import { Menu, Moon, Plus, Search, Sun } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { useTheme } from '@app/shared/model/theme.context'
 import type { ViewMode } from '@app/shared/model/board.types'
@@ -120,9 +120,10 @@ export function TopBar({
           <button
             type="button"
             onClick={onCreateTask}
-            className="rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
+            className="inline-flex items-center gap-1.5 rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
           >
-            + Task
+            <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
+            <span>New task</span>
           </button>
         )}
       </div>

@@ -131,7 +131,9 @@ describe('AppLayout', () => {
     expect(screen.getByText('List')).toBeDefined()
     expect(screen.getByText('Timeline')).toBeDefined()
     expect(screen.getByText('Map')).toBeDefined()
+    expect(screen.getByRole('button', { name: /new task/i })).toBeDefined()
     expect(screen.queryByRole('button', { name: '3D' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /\+ task/i })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Status' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Agent' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Priority' })).toBeNull()
@@ -291,7 +293,7 @@ describe('AppLayout', () => {
       'Where to work:\n- src/app/features/board\n\nDone when:\n- AppLayout test passes'
 
     render(<MemoryRouter />)
-    fireEvent.click(screen.getByRole('button', { name: /\+ task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
     await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
     fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
@@ -328,7 +330,7 @@ describe('AppLayout', () => {
     mockCreateTask.mockResolvedValueOnce({ ok: true, task: null })
 
     render(<MemoryRouter />)
-    fireEvent.click(screen.getByRole('button', { name: /\+ task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
     await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
     fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
@@ -354,7 +356,7 @@ describe('AppLayout', () => {
     useBoardStore.getState().setSelectedGroupId('group-1')
 
     render(<MemoryRouter />)
-    fireEvent.click(screen.getByRole('button', { name: /\+ task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
     await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
     const briefGroup = screen.getByRole('group', { name: /task templates/i })
@@ -390,7 +392,7 @@ describe('AppLayout', () => {
     seedProjectNavigation(null)
 
     render(<MemoryRouter />)
-    fireEvent.click(screen.getByRole('button', { name: /\+ task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
     const projectSelect = screen.getByLabelText(/project/i)
     const createButton = screen.getByRole('button', { name: /create task/i })
@@ -423,7 +425,7 @@ describe('AppLayout', () => {
     mockGetGroups.mockResolvedValue([])
 
     render(<MemoryRouter />)
-    fireEvent.click(screen.getByRole('button', { name: /\+ task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
     const projectSelect = screen.getByLabelText(/project/i)
     const createButton = screen.getByRole('button', { name: /create task/i })
     expect(createButton).toBeDisabled()
@@ -451,7 +453,7 @@ describe('AppLayout', () => {
 
   test('disables New Task submission when there are no projects', () => {
     render(<MemoryRouter />)
-    fireEvent.click(screen.getByRole('button', { name: /\+ task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
     expect(screen.getByText(/no projects available/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /create task/i })).toBeDisabled()
