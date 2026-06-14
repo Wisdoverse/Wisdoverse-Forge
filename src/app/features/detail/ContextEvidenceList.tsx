@@ -139,7 +139,7 @@ function formatTechnicalDetails(payload: Record<string, unknown>): string {
   try {
     return JSON.stringify(safeEvidenceValue(payload), null, 2)
   } catch {
-    return 'Support details were recorded but could not be shown safely.'
+    return 'Support details were recorded but could not be shown safely. Review the summary above, then ask support to check the run details if needed.'
   }
 }
 

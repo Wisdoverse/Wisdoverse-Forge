@@ -594,6 +594,7 @@ function RollResultBlock({
     return (
       <div role="alert" aria-live="polite" className={cn(uiStyles.error, 'mt-4')}>
         The restart could not be started.
+        <span className="mt-1 block text-ui-caption">Check the note below, then try again.</span>
         <span className="mt-1 block text-ui-caption">{cliImageIssueNote(error, 'restart')}</span>
       </div>
     )

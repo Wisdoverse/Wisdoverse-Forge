@@ -453,6 +453,7 @@ describe('CliImagesPanel', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(/The restart could not be started/i)
+    expect(alert).toHaveTextContent(/Check the note below, then try again/i)
     expect(alert).toHaveTextContent(/Another restart is already running/i)
     expect(screen.getByText(/The restart could not be started/i)).toBeDefined()
     expect(screen.getByText(/Another restart is already running/i)).toBeDefined()

@@ -121,6 +121,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
           <AlertTriangle size={16} strokeWidth={2} aria-hidden="true" className="mt-0.5 shrink-0" />
           <div className="flex flex-col gap-1">
             <span className="font-medium">Action did not finish</span>
+            <span>Review the recovery step below, then try again.</span>
             <span>{agentControlErrorMessage(controlError)}</span>
           </div>
         </div>

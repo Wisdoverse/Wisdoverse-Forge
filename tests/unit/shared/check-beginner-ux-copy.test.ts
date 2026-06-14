@@ -289,6 +289,43 @@ export function CreateAgentModal() {
     ])
   })
 
+  it('flags recoverable failure copy without a next action', () => {
+    const cwd = fixture({
+      'src/app/features/tasks/TaskFailure.tsx': `
+export function TaskFailure() {
+  return <p>The task could not be started.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'error-next-action',
+        location: 'src/app/features/tasks/TaskFailure.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts recoverable failure copy with a nearby next action', () => {
+    const cwd = fixture({
+      'src/app/features/tasks/TaskFailure.tsx': `
+export function TaskFailure() {
+  return (
+    <section>
+      <p>The task could not be started.</p>
+      <p>Open task setup, check the selected agent, then try again.</p>
+    </section>
+  )
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('ignores parser regexes and cleanup regexes inside error message helpers', () => {
     const cwd = fixture({
       'src/app/features/chat/chatErrorMessage.ts': `

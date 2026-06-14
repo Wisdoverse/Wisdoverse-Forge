@@ -14,7 +14,7 @@ const EMPTY_STATE_PATTERNS = [
 ]
 
 const NEXT_ACTION_PATTERN =
-  /\b(Add|Ask|Check|Choose|Clear|Connect|Create|Invite|Keep|Open|Refresh|Review|Run|Save|Select|Send|Start|Try|Use|Wait)\b/i
+  /\b(Add|Ask|Check|Choose|Clear|Close|Connect|Create|Enter|Fix|Invite|Keep|Open|Reconnect|Refresh|Review|Retry|Run|Save|Select|Send|Sign in|Start|Try|Use|Wait)\b/i
 
 const RAW_USER_VISIBLE_PATTERNS = [
   /\bAn error occurred\b/,
@@ -29,6 +29,12 @@ const RAW_USER_VISIBLE_PATTERNS = [
   /\bSQL error\b/i,
   /\bUnknown error\b/,
   /\bdatabase unavailable\b/i,
+]
+
+const RECOVERABLE_ERROR_PATTERNS = [
+  /\b(?:could not|did not|was not|were not)\b/i,
+  /\bfailed to\b/i,
+  /\b(?:are|is|was|were) not (?:created|deleted|loaded|saved|started|updated)\b/i,
 ]
 
 const BEGINNER_JARGON_PATTERNS = [
@@ -68,6 +74,12 @@ const USER_VISIBLE_ERROR_FILE_PATTERNS = [
   /\/model\/admin\.store\.ts$/,
   /\/model\/skills\.store\.ts$/,
   /\/model\/analytics\.store\.ts$/,
+]
+
+const USER_VISIBLE_ERROR_FRAGMENT_FILE_PATTERNS = [
+  /ErrorCopy\.ts$/,
+  /ErrorMessages?\.ts$/,
+  /errors\.ts$/,
 ]
 
 function toPosix(value) {
@@ -137,6 +149,7 @@ function isLikelyGuardOrParserLine(line) {
     line.includes('new Error(') ||
     line.includes('new TypeError(') ||
     line.includes('RAW_') ||
+    line.includes('console.') ||
     line.includes('===') ||
     line.includes('!==') ||
     line.includes('throw ') ||
@@ -156,6 +169,11 @@ function hasBeginnerJargon(line) {
   return BEGINNER_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasRecoverableErrorCopy(line) {
+  if (isLikelyGuardOrParserLine(line)) return false
+  return RECOVERABLE_ERROR_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -171,7 +189,8 @@ function scanFile(file, relFile) {
       })
     }
 
-    if (hasRawUserVisibleCopy(line)) {
+    const rawUserVisibleCopy = hasRawUserVisibleCopy(line)
+    if (rawUserVisibleCopy) {
       findings.push({
         type: 'raw-error-copy',
         location,
@@ -185,6 +204,20 @@ function scanFile(file, relFile) {
         type: 'beginner-jargon-copy',
         location,
         message: 'User-visible copy must use beginner-facing agent location wording.',
+        sample: line.trim(),
+      })
+    }
+
+    if (
+      !rawUserVisibleCopy &&
+      !USER_VISIBLE_ERROR_FRAGMENT_FILE_PATTERNS.some((pattern) => pattern.test(relFile)) &&
+      hasRecoverableErrorCopy(line) &&
+      !hasNextAction(lines, index)
+    ) {
+      findings.push({
+        type: 'error-next-action',
+        location,
+        message: 'User-visible failure copy must include a nearby next action for beginners.',
         sample: line.trim(),
       })
     }
