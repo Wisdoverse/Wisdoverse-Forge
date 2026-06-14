@@ -224,6 +224,7 @@ async fn attach_terminal(
     detach_terminal_by_id(terminals, agent_id);
 
     let Some(docker) = state.docker.clone() else {
+        tracing::warn!(agent_id = %agent_id, "terminal attach rejected: docker unavailable");
         let _ = outbound_tx.send(terminal_error_frame(agent_id, docker_unavailable_message()));
         return;
     };
@@ -232,6 +233,7 @@ async fn attach_terminal(
     let container_id = match target {
         GatewayTerminalAttachTarget::Ready { container_id } => container_id,
         GatewayTerminalAttachTarget::Rejected { message } => {
+            tracing::warn!(agent_id = %agent_id, reason = %message, "terminal attach rejected");
             let _ = outbound_tx.send(terminal_error_frame(agent_id, message));
             return;
         }
@@ -359,6 +361,7 @@ async fn run_terminal_attach(
     let attached = match attached {
         Ok(attached) => attached,
         Err(err) => {
+            tracing::warn!(agent_id = %agent_id, container_id = %container_id, error = %err, "terminal attach failed");
             let _ = outbound_tx.send(terminal_error_frame(agent_id, format!("terminal attach failed: {err}")));
             return;
         }
@@ -374,6 +377,7 @@ async fn run_terminal_attach(
                     break;
                 };
                 if let Err(err) = input.write_all(&chunk).await {
+                    tracing::warn!(agent_id = %agent_id, error = %err, "terminal input failed");
                     let _ = outbound_tx.send(terminal_error_frame(agent_id, format!("terminal input failed: {err}")));
                     break;
                 }
@@ -386,6 +390,7 @@ async fn run_terminal_attach(
                         }
                     }
                     Some(Err(err)) => {
+                        tracing::warn!(agent_id = %agent_id, error = %err, "terminal output failed");
                         let _ = outbound_tx.send(terminal_error_frame(agent_id, format!("terminal output failed: {err}")));
                         break;
                     }
