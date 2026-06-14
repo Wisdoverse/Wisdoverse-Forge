@@ -105,7 +105,7 @@ describe('AgentControlPanel', () => {
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Forge could not connect while changing this agent. Check your connection, refresh this agent, then try again.'
+      'Check your connection, refresh this agent, then try again. Forge could not connect while changing this agent.'
     )
     expect(screen.getByRole('alert')).not.toHaveTextContent(/Failed to fetch/i)
   })

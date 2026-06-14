@@ -357,6 +357,7 @@ const NETWORK_FAILURE_FIRST_PATTERNS = [
   /\bReset email could not be requested\. Forge could not connect while sending the reset email\./i,
   /\bPassword could not be updated\. Forge could not connect while saving your new password\./i,
   /\bForge could not connect(?: while signing in)?\. Check your connection, then try again\./i,
+  /\bForge could not connect while changing this agent\. Check your connection, refresh this agent, then try again\./i,
   /Forge 登录时暂时连不上。请检查网络后重试。/,
   /Forge 暂时连不上。请检查网络后重试。/,
 ]
@@ -781,6 +782,7 @@ function hasNetworkFailureFirstCopy(relFile, line) {
     !relFile.endsWith('src/app/features/auth/AuthPage.ts') &&
     !relFile.endsWith('src/app/shared/auth/AuthManager.ts') &&
     !relFile.endsWith('src/app/shared/api/legacy/AgentAPI.ts') &&
+    !relFile.endsWith('src/app/features/agents/AgentControlPanel.tsx') &&
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
     !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
   ) {

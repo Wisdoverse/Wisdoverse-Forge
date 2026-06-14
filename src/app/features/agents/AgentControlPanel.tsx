@@ -495,7 +495,7 @@ function agentControlErrorMessage(error: string): string {
     normalized === 'failed to fetch' ||
     normalized.includes('networkerror')
   ) {
-    return 'Forge could not connect while changing this agent. Check your connection, refresh this agent, then try again.'
+    return 'Check your connection, refresh this agent, then try again. Forge could not connect while changing this agent.'
   }
   if (/\b5\d\d\b/.test(error)) {
     return 'Forge could not update this agent right now. Refresh this agent and try again. If it keeps failing, ask an owner or admin to check this agent setup.'

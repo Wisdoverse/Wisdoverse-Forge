@@ -3685,6 +3685,11 @@ const AUTH_NETWORK_ERROR = 'Forge could not connect. Check your connection, then
       'src/app/shared/api/legacy/AgentAPI.ts': `
 const LEGACY_API_NETWORK_ERROR = 'Forge could not connect. Check your connection, then try again.'
 `,
+      'src/app/features/agents/AgentControlPanel.tsx': `
+function agentControlErrorMessage() {
+  return 'Forge could not connect while changing this agent. Check your connection, refresh this agent, then try again.'
+}
+`,
       'src/app/shared/i18n/locales/zh.ts': `
 export const zh = {
   errors: {
@@ -3721,6 +3726,10 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'network-copy',
+          location: 'src/app/features/agents/AgentControlPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'network-copy',
           location: 'src/app/shared/i18n/locales/zh.ts:4',
         }),
       ])
@@ -3742,6 +3751,11 @@ const AUTH_NETWORK_ERROR = 'Check your connection, then try again. Forge could n
 `,
       'src/app/shared/api/legacy/AgentAPI.ts': `
 const LEGACY_API_NETWORK_ERROR = 'Check your connection, then try again. Forge could not connect.'
+`,
+      'src/app/features/agents/AgentControlPanel.tsx': `
+function agentControlErrorMessage() {
+  return 'Check your connection, refresh this agent, then try again. Forge could not connect while changing this agent.'
+}
 `,
       'src/app/shared/i18n/locales/zh.ts': `
 export const zh = {
